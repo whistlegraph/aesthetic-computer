@@ -150,10 +150,13 @@ export async function handler(event, context) {
 
     if (hookEvent.type === "charge.succeeded") {
       const chargeObject = hookEvent.data.object;
-      const emailAddress =
-        chargeObject.receipt_email || chargeObject.billing_details.email;
-
       console.log("💳 Charge succeeded:", chargeObject); // TODO: Remove this logging after a sotce-net email is caught. 24.10.07.16.43
+
+      let emailAddress = chargeObject.receipt_email;
+      if (!emailAddress) {
+        const customer = await stripe.customers.retrieve(chargeObject.customer);
+        emailAddress = customer.email;
+      }
 
       // 🪷 Sotce-Net subscription email receipts.
       const paymentIntent = await stripe.paymentIntents.retrieve(
