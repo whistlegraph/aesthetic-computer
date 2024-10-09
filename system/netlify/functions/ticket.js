@@ -184,7 +184,7 @@ export async function handler(event, context) {
               to: emailAddress,
               from: "sotce.net",
               subject: newSubscriber
-                ? "thank you for subscribing 🧾"
+                ? "you're subscribed! 🧾"
                 : "subscription renewed 🧾",
               html: `${newSubscriber ? "now you can set a handle and read pages" : "see you in the pages"}
               <br>
