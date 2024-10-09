@@ -150,7 +150,7 @@ export async function handler(event, context) {
 
     if (hookEvent.type === "charge.succeeded") {
       const chargeObject = hookEvent.data.object;
-      console.log("💳 Charge succeeded:", chargeObject); // TODO: Remove this logging after a sotce-net email is caught. 24.10.07.16.43
+      // console.log("💳 Charge succeeded:", chargeObject);
 
       let emailAddress = chargeObject.receipt_email;
       if (!emailAddress) {
@@ -164,29 +164,36 @@ export async function handler(event, context) {
       );
 
       const invoice = await stripe.invoices.retrieve(paymentIntent.invoice);
+
       const productId = invoice.lines.data[0].price.product;
 
       if (productId === sotceNetProductId) {
         console.log("🟢 Product is `sotce-net`.");
         if (invoice.subscription) {
-          let newSubscriber;
-          const billingReason = invoice.billing_reason;
-          if (billingReason === "subscription_create") {
-            console.log("🟢 New `sotce-net` subscription.");
-            newSubscriber = true;
-          } else if (billingReason === "subscription_cycle") {
-            console.log("🟢 Recurring `sotce-net` subscription.");
-            newSubscriber = false;
-          }
+          const subscription = await stripe.subscriptions.retrieve(
+            invoice.subscription,
+          );
+          if (
+            subscription.status !== "canceled" &&
+            subscription.status !== "incomplete_expired"
+          ) {
+            let newSubscriber;
+            const billingReason = invoice.billing_reason;
+            if (billingReason === "subscription_create") {
+              console.log("🟢 New `sotce-net` subscription.");
+              newSubscriber = true;
+            } else if (billingReason === "subscription_cycle") {
+              console.log("🟢 Recurring `sotce-net` subscription.");
+              newSubscriber = false;
+            }
 
-          if (newSubscriber !== undefined) {
-            const emailOptions = {
-              to: emailAddress,
-              from: "sotce.net",
-              subject: newSubscriber
-                ? "you're subscribed! 🧾"
-                : "subscription renewed 🧾",
-              html: `${newSubscriber ? "now you can set a handle and read pages" : "see you in the pages"}
+            if (newSubscriber !== undefined) {
+              const emailOptions = {
+                to: emailAddress,
+                subject: newSubscriber
+                  ? "you're subscribed! 🧾"
+                  : "subscription renewed 🧾",
+                html: `${newSubscriber ? "now you can set a handle and read pages" : "see you in the pages"}
               <br>
               <br>
               🧾 <a href="${chargeObject.receipt_url}">receipt</a>
@@ -194,15 +201,16 @@ export async function handler(event, context) {
               <br>
               <a href="https://sotce.net">sotce.net</a>
               `,
-            };
+              };
 
-            emailOptions.auth = {
-              user: SOTCE_NET_SMTP_USER,
-              pass: SOTCE_NET_SMTP_PASS,
-            };
+              emailOptions.auth = {
+                user: SOTCE_NET_SMTP_USER,
+                pass: SOTCE_NET_SMTP_PASS,
+              };
 
-            const emailSent = await email(emailOptions);
-            console.log("📧 Email sent:", emailSent);
+              const emailSent = await email(emailOptions);
+              console.log("📧 Email sent:", emailSent);
+            }
           }
         }
       } else if (chargeObject.description === "Botce") {
