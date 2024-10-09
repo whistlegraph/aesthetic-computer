@@ -2,15 +2,13 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [] Set the "sotce" handle to "amelia".
-  - [] Restrict 'sotce' handle (reserved). 
-
   - [🟠] Test signup flow in production.
-    - [-] Make sure subscription receipt emails get sent.
+    - [🔵] Make sure subscription receipt emails get sent.
   - [] Fix line start warning changing when a UI button is pressed?
 
   *** 📜 Scroll Checking ***
   - [] Make the cookie menu fully scrollable.
+  - [] Remove tap highlight from pink cookie.
   - [] Scrolling in the editor or cookie-menu should not affect page scroll.
 
   *** 🖐️ "Touches" *** 
@@ -57,6 +55,9 @@
   - [📄] `eared` corner menu that shows byline 
 
   + Done
+  - [x] Set the "sotce" handle to "amelia".
+        (Tell Amelia to set it.)
+  - [x] Restrict 'sotce' handle (reserved). 
   - [x] upscrolling
   - [x] *** 🛫 Put Editor Online ***
   *** ⭐ Page Composition ***
