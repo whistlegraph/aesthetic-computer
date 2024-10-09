@@ -2,18 +2,15 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [-] Fix line start warning changing when a UI button is pressed?
-  - [x] Make sure subscription receipt emails get sent.
-  - [x] Add coloring for "Awaiting verification..." and "Email verified!". 
-  - [x] Add a "thank you for subscribing" alert popup.
 
   - [🟠] Test full signup flow in production.
 
   *** 📜 Scroll Checking ***
   - [] Make the cookie menu fully scrollable.
-  - [] Remove tap highlight from pink cookie.
   - [] Scrolling in the editor or cookie-menu should not affect page scroll.
 
+  *** Deletion ***
+    - [] Make it so pages can be deleted by an admin if they are the author.
 
   *** 🖐️ "Touches" *** 
   - [] Add some kind of handle based reaction for pages? (touch?)
@@ -24,15 +21,16 @@
   *** 📊 Statistics ***
   - [] Show number of subscribed users so far - maybe in the closed donut or 
        privacy policy? and only for certain whitelisted users?
-  - [] Add some form of google analytics.
+  - [] Add Google Analytics
 
   *** 🖨️ Typography & Design ***
   - [] More unique look for pages and choose new font.
   - [] Test mobile designs locally.
 
   *** Mobile ***
-  - [] Cosmetics
+  - [] Remove tap highlight from pink cookie.
   - [] Fix focus textfield bugs on touch / iOS.
+  - [] Cosmetics
 
   - [] --- 🏁 Launch 🏁 ---
 
@@ -59,6 +57,11 @@
   - [📄] `eared` corner menu that shows byline 
 
   + Done
+  - [x] Fix line start warning changing when a UI button is pressed?
+  - [x] If text is empty it should always be 18.
+  - [x] Make sure subscription receipt emails get sent.
+  - [x] Add coloring for "Awaiting verification..." and "Email verified!". 
+  - [x] Add a "thank you for subscribing" alert popup.
   - [x] Set the "sotce" handle to "amelia".
         (Tell Amelia to set it.)
   - [x] Restrict 'sotce' handle (reserved). 
@@ -1110,7 +1113,8 @@ export const handler = async (event, context) => {
 
               function genSubscribeButton(type) {
                 if (!type) {
-                  h2.innerHTML = "<span id='email-verified'>Email verified!</span>";
+                  h2.innerHTML =
+                    "<span id='email-verified'>Email verified!</span>";
                   h2.classList.remove("loading-dots");
                 }
 
@@ -1708,6 +1712,9 @@ export const handler = async (event, context) => {
                     const contentHeight = edMeasurement.clientHeight;
                     let lineCount = round(contentHeight / lineHeight);
 
+                    if (lineCount === 1 && words.value.length === 0)
+                      lineCount = 0;
+
                     // Ensure the user doesn't exceed max lines by trimming the value
                     if (lineCount > maxLines) {
                       let trimmedValue = words.value;
@@ -1734,10 +1741,10 @@ export const handler = async (event, context) => {
                         if (trimmedValue.endsWith("\\n")) {
                           lineCount += 1; // Exception for new line characters.
                         }
-
-                        // console.log("Line count:", lineCount);
                       }
                     }
+
+                    // console.log("Line count:", lineCount);
 
                     const remainingLines = maxLines - min(lineCount, maxLines);
 
