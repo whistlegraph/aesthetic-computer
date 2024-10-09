@@ -2,16 +2,18 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [🟠] Test signup flow in production.
-    - [🔵] Make sure subscription receipt emails get sent.
-  - [] Fix line start warning changing when a UI button is pressed?
-  - [] Add coloring for "Awaiting verification..." and "Email verified!". 
+  - [-] Fix line start warning changing when a UI button is pressed?
+  - [x] Make sure subscription receipt emails get sent.
+  - [x] Add coloring for "Awaiting verification..." and "Email verified!". 
   - [x] Add a "thank you for subscribing" alert popup.
+
+  - [🟠] Test full signup flow in production.
 
   *** 📜 Scroll Checking ***
   - [] Make the cookie menu fully scrollable.
   - [] Remove tap highlight from pink cookie.
   - [] Scrolling in the editor or cookie-menu should not affect page scroll.
+
 
   *** 🖐️ "Touches" *** 
   - [] Add some kind of handle based reaction for pages? (touch?)
@@ -681,10 +683,11 @@ export const handler = async (event, context) => {
 
             #garden #editor #words-wrapper.invisible:hover {
               opacity: 1;
+              background: rgb(255, 245, 170, 0.5);
             }
 
             #garden #editor #words-wrapper.invisible:hover textarea {
-              background: rgb(255, 245, 170, 0.5);
+              opacity: 0;
             }
 
             #garden #editor #words-wrapper.invisible:hover::before {
@@ -770,11 +773,12 @@ export const handler = async (event, context) => {
               /* user-select: all; */
             }
             #email.admin::after {
-              content: "🪷";
-              font-size: 85%;
+              content: "⬤";
+              font-size: 25%;
               position: absolute;
-              top: -0.3em;
-              right: -1.25em;
+              color: var(--spinner-background);
+              top: -0.25em;
+              right: -1.5em;
               opacity: 0.75;
             }
             #email:hover {
