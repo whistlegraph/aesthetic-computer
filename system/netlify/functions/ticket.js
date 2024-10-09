@@ -175,7 +175,7 @@ export async function handler(event, context) {
             newSubscriber = false;
           }
 
-          if (newSubcriber !== undefined) {
+          if (newSubscriber !== undefined) {
             const emailOptions = {
               to: hookEvent.data.object.receipt_email,
               subject: newSubscriber
