@@ -182,15 +182,17 @@ export async function handler(event, context) {
           if (newSubscriber !== undefined) {
             const emailOptions = {
               to: emailAddress,
+              from: "sotce.net",
               subject: newSubscriber
                 ? "thank you for subscribing 🧾"
                 : "subscription renewed 🧾",
-              html: `<p>${newSubscriber ? "now you can set a handle and read pages" : "see you in the pages"}
+              html: `${newSubscriber ? "now you can set a handle and read pages" : "see you in the pages"}
+              <br>
+              <br>
+              🧾 <a href="${chargeObject.receipt_url}">receipt</a>
               <br>
               <br>
               <a href="https://sotce.net">sotce.net</a>
-              <br>
-              (<a href="${chargeObject.receipt_url}">view full receipt</a>)</p>
               `,
             };
 
@@ -226,7 +228,7 @@ export async function handler(event, context) {
         const emailOptions = {
           to: hookEvent.data.object.receipt_email,
           subject: "🪷 visit me again?",
-          html: `<p>click the ticket to visit with me, <code>botce</code>.
+          html: `click the ticket to visit with me, <code>botce</code>.
           <br>
           <br>
           🎟️ <a href="${link}">ticket</a>
@@ -238,7 +240,7 @@ export async function handler(event, context) {
           each visit lasts 24 hours.
           <br>
           <br>
-          <b><a href="https://sotce.com">sotce</a></b></p>
+          <b><a href="https://sotce.com">sotce</a></b>
         `,
         };
 
