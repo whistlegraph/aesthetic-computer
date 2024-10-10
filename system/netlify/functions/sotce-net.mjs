@@ -5,7 +5,9 @@
 
   *** 📜 Scroll Checking ***
   - [-] Scrolling in the editor or cookie-menu should not affect page scroll.
-  - [x] Make the cookie menu fully scrollable.
+    - [] Make a handful of pages.
+    - [] Check scrolling with editor.
+    - [] Check with cookie menu.
 
   *** Deletion ***
     - [] Make it so pages can be deleted by an admin if they are the author.
@@ -56,6 +58,9 @@
   - [📄] `eared` corner menu that shows byline 
 
   + Done
+  - [x] New line creation logic in editor.
+  - [x] Make the cookie menu fully scrollable.
+  - [x] Don't run rendering algorithm on every input. 
   - [x] Crumpling an Empty page shouldn't add a record to the database.
   - [x] Fix line start warning changing when a UI button is pressed?
   - [x] If text is empty it should always be 18.
@@ -1505,19 +1510,13 @@ export const handler = async (event, context) => {
 
                 const cs = getComputedStyle(source);
 
-                // TODO: 🟡 Speed this up!
-                // Add chunking to the below for loop so I don't have to
-                // go through each character at once.
-                const chunkSize = 10; // Adjust the chunk size as needed
-                let chunk = "";
                 const lineHeight = parseFloat(cs.lineHeight);
-
                 for (let c = 0; c < cachedText.length; c += 1) {
                   if (line === 18) lastLineText += cachedText[c];
                   source.innerText += cachedText[c];
                   if (source.clientHeight !== lastHeight) {
                     lastHeight = source.clientHeight;
-                    line += 1;
+                    line = round(lastHeight / lineHeight);
                     if (line === 18) lastLineText += cachedText[c];
                   }
                 }
@@ -1648,7 +1647,6 @@ export const handler = async (event, context) => {
                   if (binding) form.style.width = binding.style.width;
 
                   const words = cel("textarea");
-
                   const wordsWrapper = cel("div");
 
                   words.value = page.words; // Add words from existing draft.
@@ -1658,15 +1656,16 @@ export const handler = async (event, context) => {
                   const linesLeft = cel("div");
                   linesLeft.id = "editor-lines-left";
 
-                  const updateLineCount = () => {
+                  let lastValidValue = words.value;
+                  const updateLineCount = ({ lastLineRender } = {}) => {
                     const maxLines = 18;
 
-                    // Get the computed styles of the textarea
                     const wordsStyle = window.getComputedStyle(words);
                     const pageStyle = window.getComputedStyle(editorPage);
                     const lineHeight = parseFloat(wordsStyle.lineHeight);
 
-                    // Create a temporary element to measure the actual line count
+                    const cursorPosition = words.selectionStart;
+
                     let edMeasurement = editorPage.querySelector(
                       "#editor-measurement",
                     );
@@ -1677,8 +1676,6 @@ export const handler = async (event, context) => {
 
                     edMeasurement.style.position = "absolute";
                     edMeasurement.style.zIndex = 50;
-                    // edMeasurement.style.backgroundColor =
-                    //  "rgba(0, 255, 0, 0.25)";
                     edMeasurement.style.pointerEvents = "none";
                     edMeasurement.style.left = pageStyle.paddingLeft;
                     edMeasurement.style.top = pageStyle.paddingTop;
@@ -1691,12 +1688,8 @@ export const handler = async (event, context) => {
                     edMeasurement.style.margin = wordsStyle.margin;
                     edMeasurement.style.boxSizing = wordsStyle.boxSizing;
                     edMeasurement.style.textAlign = "justify";
-
-                    // edMeasurement.style.wordBreak = "break-word";
                     edMeasurement.style.hyphens = "auto";
                     edMeasurement.style.overflowWrap = "break-word";
-
-                    // edMeasurement.style.textAlignLast = "justify";
 
                     if (
                       words.value === "" &&
@@ -1710,50 +1703,30 @@ export const handler = async (event, context) => {
                         edMeasurement.textContent += " ";
                     }
 
-                    // const editorPage = document.getElementById("editor-page");
                     editorPage.appendChild(edMeasurement);
 
-                    // Calculate the actual line count
                     const contentHeight = edMeasurement.clientHeight;
                     let lineCount = round(contentHeight / lineHeight);
 
                     if (lineCount === 1 && words.value.length === 0)
                       lineCount = 0;
 
-                    // Ensure the user doesn't exceed max lines by trimming the value
+                    // Check if the line count exceeds max lines
                     if (lineCount > maxLines) {
-                      let trimmedValue = words.value;
-
-                      // Keep trimming characters from the end until the content fits within maxLines
-                      while (lineCount > maxLines) {
-                        trimmedValue = trimmedValue.slice(0, -1);
-
-                        edMeasurement.textContent = trimmedValue;
-                        words.value = trimmedValue;
-
-                        lineCount = round(
-                          edMeasurement.clientHeight / lineHeight,
-                        );
-
-                        if (trimmedValue.endsWith("\\n")) {
-                          lineCount += 1; // Exception for new line characters.
-                        }
-                      }
+                      words.value = lastValidValue;
+                      words.setSelectionRange(
+                        max(0, cursorPosition - 1),
+                        max(0, cursorPosition - 1),
+                      );
+                    } else {
+                      lastValidValue = words.value;
                     }
-
-                    // console.log("Line count:", lineCount);
 
                     const remainingLines = maxLines - min(lineCount, maxLines);
 
-                    if (remainingLines === 0) {
+                    if (remainingLines === 0 && lastLineRender) {
                       const { lastLineText, lastLineProgress } =
                         computeLastLineText(edMeasurement);
-                      console.log(
-                        "🏋️‍♂️ Last line:",
-                        lastLineText,
-                        "Progress:",
-                        lastLineProgress,
-                      );
                       if (needsJustification(words.value, lastLineProgress)) {
                         editorPage.classList.add("editor-justify-last-line");
                       } else {
@@ -1796,7 +1769,9 @@ export const handler = async (event, context) => {
                   });
 
                   words.addEventListener("blur", () => {
-                    const edMeasurement = updateLineCount();
+                    const edMeasurement = updateLineCount({
+                      lastLineRender: true,
+                    });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
                   });
@@ -1994,7 +1969,7 @@ export const handler = async (event, context) => {
                 if (pages.length === 0) {
                   const nopages = cel("div");
                   nopages.id = "nopages";
-                  // nopages.innerText = "Nothing written"; // Deprecated: 24.10.10.00.21
+                  nopages.innerText = "Nothing is written";
                   g.appendChild(nopages);
                 }
 
@@ -2178,20 +2153,6 @@ export const handler = async (event, context) => {
                       if (page.lastLineProgress === undefined) {
                         const { lastLineText, lastLineProgress } =
                           computeLastLineText(words);
-                        // console.log(
-                        //   "🚗 Max line count... checking justification.",
-                        //   lineCount,
-                        //   "Last line:",
-                        //   lastLineText,
-                        //   "Last line progress:",
-                        //   lastLineProgress,
-                        // );
-                        // console.log("Progress:", lastLineProgress);
-                        // console.log(
-                        //   "🟡 Progress:",
-                        //   lastLineProgress,
-                        //   lastLineText,
-                        // );
                         page.lastLineProgress = lastLineProgress;
                       }
 
@@ -2982,7 +2943,7 @@ export const handler = async (event, context) => {
           page.handle = handle;
         }
 
-        out.pages = retrievedPages;
+        out.pages = isAdmin ? retrievedPages : [];
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
