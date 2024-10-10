@@ -3,11 +3,9 @@
 
 /* #region 🟢 TODO 
 
-  - [🟠] Test full signup flow in production.
-
   *** 📜 Scroll Checking ***
-  - [] Make the cookie menu fully scrollable.
-  - [] Scrolling in the editor or cookie-menu should not affect page scroll.
+  - [-] Scrolling in the editor or cookie-menu should not affect page scroll.
+  - [x] Make the cookie menu fully scrollable.
 
   *** Deletion ***
     - [] Make it so pages can be deleted by an admin if they are the author.
@@ -33,6 +31,7 @@
   - [] Cosmetics
 
   - [] --- 🏁 Launch 🏁 ---
+    - [] Test full signup and subscribe flow in production on mobile.
 
   --- ☁️ Post-Launch ☁️ ---
 
@@ -57,6 +56,7 @@
   - [📄] `eared` corner menu that shows byline 
 
   + Done
+  - [x] Crumpling an Empty page shouldn't add a record to the database.
   - [x] Fix line start warning changing when a UI button is pressed?
   - [x] If text is empty it should always be 18.
   - [x] Make sure subscription receipt emails get sent.
@@ -227,6 +227,7 @@ export const handler = async (event, context) => {
               display: flex;
               width: 100%;
               /* height: 100%; */
+              flex-direction: column;
               min-height: 100%;
               background: var(--background-color);
               position: relative;
@@ -291,13 +292,17 @@ export const handler = async (event, context) => {
               margin: auto;
             }
             #gate-curtain {
-              position: fixed;
+              /* position: fixed; */
               top: 0;
               left: 0;
               width: 100%;
               height: 100%;
               display: flex;
               overflow: hidden;
+              margin: auto;
+            }
+            #gate-curtain.hidden {
+              position: fixed;
             }
             #gate {
               margin: auto;
@@ -686,7 +691,7 @@ export const handler = async (event, context) => {
 
             #garden #editor #words-wrapper.invisible:hover {
               opacity: 1;
-              background: rgb(255, 245, 170, 0.5);
+              /* background: rgb(255, 245, 170, 0.5); */
             }
 
             #garden #editor #words-wrapper.invisible:hover textarea {
@@ -698,15 +703,16 @@ export const handler = async (event, context) => {
             }
 
             #garden #editor #words-wrapper.invisible:hover::after {
-              display: none;
-              /* content: '';
+              display: block;
+              content: "";
               position: absolute;
               top: 0;
-              left: 0;
-              width: 100%;
+              left: 2em;
+              width: calc(100% - 4em);
               height: 100%;
               background: rgb(255, 245, 170, 0.5);
-              pointer-events: none; */
+              pointer-events: none;
+              z-index: 0;
             }
 
             #garden #editor #words-wrapper {
@@ -1561,7 +1567,6 @@ export const handler = async (event, context) => {
                       console.log(node);
                       if (node === nodeToWatch) {
                         callback();
-                        console.log("node added");
                         observer.disconnect();
                       }
                     });
@@ -1584,7 +1589,7 @@ export const handler = async (event, context) => {
               if (subscription?.admin) {
                 const writeButton = cel("button");
                 writeButton.id = "write-a-page";
-                writeButton.innerText = "write a page"; // or "page" or "prayer";
+                writeButton.innerText = "write a page"; // "remember"; // "write a page"; // or "page" or "prayer";
 
                 // const purposes = ["page", "poem", "prayer"];
                 // let currentPurpose = 0;
@@ -1721,18 +1726,10 @@ export const handler = async (event, context) => {
 
                       // Keep trimming characters from the end until the content fits within maxLines
                       while (lineCount > maxLines) {
-                        // trimmedValue = trimmedValue.slice(0, -1);
-
                         trimmedValue = trimmedValue.slice(0, -1);
 
                         edMeasurement.textContent = trimmedValue;
                         words.value = trimmedValue;
-
-                        // console.log("🟠 trimming");
-                        //words.value = trimmedValue;
-                        // console.log("new line ending...")
-                        //}
-                        //  edMeasurement.textContent += " ";
 
                         lineCount = round(
                           edMeasurement.clientHeight / lineHeight,
@@ -1883,12 +1880,17 @@ export const handler = async (event, context) => {
 
                   crumple.onclick = async (e) => {
                     e.preventDefault();
-                    if (!confirm("💣 Abandon this page?")) return;
+                    if (
+                      words.value.length > 0 &&
+                      !confirm("💣 Abandon this page?")
+                    ) {
+                      return;
+                    }
                     veil();
                     const res = await userRequest(
                       "POST",
                       "sotce-net/write-a-page",
-                      { draft: "crumple" },
+                      { draft: "crumple", words: words.value },
                     );
                     if (res.status === 200) {
                       // console.log("🪧 Draft crumpled:", res);
@@ -1992,7 +1994,7 @@ export const handler = async (event, context) => {
                 if (pages.length === 0) {
                   const nopages = cel("div");
                   nopages.id = "nopages";
-                  nopages.innerText = "Nothing written";
+                  // nopages.innerText = "Nothing written"; // Deprecated: 24.10.10.00.21
                   g.appendChild(nopages);
                 }
 
@@ -2661,7 +2663,7 @@ export const handler = async (event, context) => {
                 });
                 if (response.ok) {
                   const result = await response.json();
-                  console.log("Subscription cancelled:", result);
+                  console.log("💳❌ Subscription cancelled:", result);
                   const entered = await subscribed();
                   if (entered?.subscribed) {
                     await garden(entered, user, true); // Open garden and show the gate.
@@ -2838,12 +2840,10 @@ export const handler = async (event, context) => {
   } else if (path === "/subscribe" && method === "post") {
     try {
       const stripe = Stripe(key);
-      // console.log("💳", stripe);
-
       const redirectPath =
         event.headers.origin === "https://sotce.net" ? "" : "sotce-net";
 
-      console.log(
+      shell.log(
         "🗺️ Origin:",
         event.headers.origin,
         "redirectPath:",
@@ -2886,7 +2886,7 @@ export const handler = async (event, context) => {
 
       return respond(200, { id: session.id });
     } catch (error) {
-      console.log("⚠️", error);
+      shell.log("⚠️", error);
       return respond(500, { message: `Error: ${error.message}` });
     }
   } else if (path === "/subscribed" && method === "post") {
@@ -2958,7 +2958,7 @@ export const handler = async (event, context) => {
         // 👸 Administrator status.
         const isAdmin = await hasAdmin(user, "sotce");
         if (isAdmin) out.admin = isAdmin;
-        console.log("🔴 Admin:", isAdmin);
+        shell.log("🔴 Admin:", isAdmin);
 
         // 📓 Recent Pages
         const database = await connect();
@@ -3008,7 +3008,7 @@ export const handler = async (event, context) => {
     // TODO: 🟠 Add support for creating a draft.
     const body = JSON.parse(event.body);
 
-    console.log("🪧 Page to post:", body);
+    shell.log("🪧 Page to post:", body);
 
     if (body.draft === "retrieve-or-create") {
       const database = await connect();
@@ -3073,17 +3073,22 @@ export const handler = async (event, context) => {
         { sort: { when: -1 } },
       );
 
-      // If the page exists, update its state to 'crumpled'.
+      // If the page exists, update its state to 'crumpled' or delete it if body.words is empty/undefined.
       if (page) {
-        await pages.updateOne(
-          { _id: page._id },
-          { $set: { state: "crumpled" } },
-        );
+        if (!body.words || body.words.length === 0) {
+          shell.log("❌ Permanently deleting page:", page._id);
+          await pages.deleteOne({ _id: page._id });
+        } else {
+          await pages.updateOne(
+            { _id: page._id },
+            { $set: { state: "crumpled", words: body.words } },
+          );
+        }
       }
 
       // Actually just set the state to 'crumpled' here.
       await database.disconnect();
-      return respond(200, { message: "Draft crumpled successfully" });
+      return respond(200, { message: "Draft crumpled successfully." });
     } else if (body.draft) {
       return respond(500, { message: "Invalid drafting option." });
     }
