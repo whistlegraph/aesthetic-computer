@@ -2,7 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [🟠] Re-render page touches to include unhandled users.
+
+  ** First Page **8
+  - [🟠] Have @amelia write her first page and then turn on the feed.
 
   *** 📊 Statistics ***
   - [] Show number of subscribed users so far - maybe in the closed donut or 
@@ -47,6 +49,7 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [c] Re-render page touches to include unhandled users.
   - [x] `eared` corner menu that shows byline 
   *** 🖐️ "Touches" *** 
   - [x] Add some kind of handle based reaction for pages? (touch?)
@@ -183,6 +186,33 @@ export const handler = async (event, context) => {
   const assetPath = dev
     ? "/assets/sotce-net/"
     : "https://assets.aesthetic.computer/sotce-net/";
+
+  // Check to see if a user sub is subscribed.
+  async function subscribed(user) {
+    try {
+      const stripe = Stripe(key);
+      // Fetch customer by user ID (sub) from subscription metadata field.
+      const customers = await stripe.customers.search({
+        query: "metadata['sub']:'" + user.sub + "'",
+      });
+
+      if (!customers.data.length) return { subscribed: false };
+      const customer = customers.data[0];
+
+      // Fetch subscriptions for the customer
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: "active", // Only find the first active subscription.
+        limit: 5,
+      });
+
+      return subscriptions.data.find((sub) =>
+        sub.items.data.some((item) => item.price.product === productId),
+      );
+    } catch (err) {
+      console.error("Error fetching subscription status:", err);
+    }
+  }
 
   // 🏠 Home
   if (path === "/" && method === "get") {
@@ -846,18 +876,29 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
             }
 
-            #crumple-this-page {
+            .crumple-this-page {
               position: absolute;
-              bottom: 5%;
+              bottom: 4.45%;
               left: 3em;
               color: black;
             }
 
-            #crumple-this-page:hover {
+            .byline {
+              /* Same as .page-title - 24.10.11.04.14 */
+              position: absolute;
+              top: 6%;
+              left: 3em;
+              width: 100%;
+              text-align: left;
+              /* line-height: 1.6em; */
+              /* color: black; */
+            }
+
+            .crumple-this-page:hover {
               color: var(--destructive-red);
             }
 
-            #crumple-this-page:active {
+            .crumple-this-page:active {
               color: red;
             }
 
@@ -866,7 +907,8 @@ export const handler = async (event, context) => {
               color: black;
               /* user-select: all; */
             }
-            #email.admin::after {
+            #email.admin::after,
+            .crumple-this-page::after {
               content: "⬤";
               font-size: 25%;
               position: absolute;
@@ -874,6 +916,10 @@ export const handler = async (event, context) => {
               top: -0.25em;
               right: -1.5em;
               opacity: 0.75;
+            }
+            .crumple-this-page::after {
+              top: -0.9em;
+              right: -1.75em;
             }
             #email:hover {
               color: maroon;
@@ -2135,14 +2181,20 @@ export const handler = async (event, context) => {
                     const backpage = cel("div");
                     backpage.classList.add("backpage");
 
-                    backpage.innerText =
-                      "Written by " +
-                      author +
-                      "\\n" +
-                      "From " +
-                      formattedDate +
-                      " at " +
-                      formattedTime;
+                    const byline = cel("div");
+                    byline.innerText = "Written by " + author;
+                    byline.classList.add("byline");
+
+                    backpage.appendChild(byline);
+
+                    //backpage.innerText =
+                    //  "Written by " +
+                    //  author +
+                    //  "\\n" +
+                    //  "From " +
+                    //  formattedDate +
+                    //  " at " +
+                    //  formattedTime;
 
                     // Touches
                     veil();
@@ -2191,7 +2243,7 @@ export const handler = async (event, context) => {
                       crumplePage.innerText = "crumple this page";
                       crumplePage.href = "";
 
-                      crumplePage.id = "crumple-this-page";
+                      crumplePage.classList.add("crumple-this-page");
 
                       crumplePage.onclick = async (e) => {
                         e.preventDefault();
@@ -2226,9 +2278,6 @@ export const handler = async (event, context) => {
                     pageWrapper.appendChild(backpage);
                   };
 
-                  // const byLine = cel("div");
-                  // byLine.classList.add("byline");
-
                   const wordsEl = cel("p");
                   wordsEl.classList.add("words");
                   wordsEl.innerText = page.words;
@@ -2239,7 +2288,6 @@ export const handler = async (event, context) => {
                   pageWrapper.appendChild(pageEl);
                   pageWrapper.appendChild(ear);
 
-                  // pageEl.appendChild(byLine);
                   binding.appendChild(pageWrapper);
                 });
 
@@ -3058,34 +3106,14 @@ export const handler = async (event, context) => {
     if (!user) return respond(401, { message: "Unauthorized." });
     // shell.log("Subscribing user:", user);
 
-    const email = user.email;
-    const sub = user.sub;
-    let subscription;
+    const subscription = await subscribed(user);
 
-    // Then, make sure they are subscribed.
-    try {
-      const stripe = Stripe(key);
-      // Fetch customer by user ID (sub) from subscription metadata field.
-      const customers = await stripe.customers.search({
-        query: "metadata['sub']:'" + sub + "'",
-      });
-
-      if (!customers.data.length) return respond(200, { subscribed: false });
-      const customer = customers.data[0];
-
-      // Fetch subscriptions for the customer
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customer.id,
-        status: "active", // Only find the first active subscription.
-        limit: 1,
-      });
-
-      subscription = subscriptions.data.find((sub) =>
-        sub.items.data.some((item) => item.price.product === productId),
-      );
-    } catch (err) {
-      console.error("Error fetching subscription status:", err);
+    if (!subscription) {
       return respond(500, { error: "Failed to fetch subscription status" });
+    }
+
+    if (subscription.subscribed === false) {
+      return respond(200, subscription);
     }
 
     if (subscription && subscription.status === "active") {
@@ -3233,14 +3261,16 @@ export const handler = async (event, context) => {
 
       // If the page exists, update its state to 'crumpled' or delete it if body.words is empty/undefined.
       if (page) {
-        if (!body.words || body.words.length === 0) {
+        if (
+          page.state === "draft" &&
+          (!body.words || body.words.length === 0)
+        ) {
           shell.log("❌ Permanently deleting page:", page._id);
           await pages.deleteOne({ _id: page._id });
         } else {
-          await pages.updateOne(
-            { _id: page._id },
-            { $set: { state: "crumpled", words: body.words } },
-          );
+          const updates = { state: "crumpled" };
+          if (body.words) updates.words = body.words;
+          await pages.updateOne({ _id: page._id }, { $set: updates });
         }
 
         await database.disconnect();
@@ -3294,6 +3324,13 @@ export const handler = async (event, context) => {
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized." });
 
+    // Make sure the user is subscribed before they can touch a page.
+    const subscription = await subscribed(user);
+
+    if (!subscription || subscription.status !== "active") {
+      return respond(500, { message: "User not subscribed." });
+    }
+
     const body = JSON.parse(event.body);
     shell.log("💁 Page to touch:", body);
 
@@ -3305,7 +3342,8 @@ export const handler = async (event, context) => {
 
     console.log("📃 Page:", page, id);
 
-    if (page) {
+    if (page && page.user !== user.sub) {
+      // Don't let users touch pages they created.
       const touches = database.db.collection("sotce-touches");
       await touches.createIndex({ user: 1, page: 1 }, { unique: true });
 
@@ -3331,13 +3369,16 @@ export const handler = async (event, context) => {
       // Fetch all touches for the page, even if an error occurred
       const pageTouches = await touches.find({ page: id }).toArray();
 
-      // Add a 'handle' field to each page record.
-      // const subsToHandles = {}; // Cache handles on this go around.
-
+      // Add a 'handle' field to each touch record.
       const handles = [];
       for (const [index, touch] of pageTouches.entries()) {
+        if (touch.user === user.sub) continue;
         handle = await handleFor(touch.user, "sotce");
-        handles.push("@" + handle);
+        if (handle) {
+          handles.push("@" + handle);
+        } // else {
+        // TODO: Eventually track other touches?
+        // }
       }
 
       await database.disconnect();
