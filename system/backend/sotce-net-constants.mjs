@@ -15,6 +15,7 @@ const priceId = dev
   ? "price_1PcGkMA9SniwoPrCdlOCsFJi"
   : "price_1PcH1BA9SniwoPrCCzLZdvES";
 const productId = dev ? "prod_QTDAZAdV2KftJI" : "prod_QTDSAhsHGMRp3z";
+const prodProductId = "prod_QTDSAhsHGMRp3z"; 
 
 export {
   SOTCE_STRIPE_API_PRIV_KEY,
@@ -27,4 +28,5 @@ export {
   SOTCE_NET_SMTP_USER,
   priceId,
   productId,
+  prodProductId, // Always make the production product id available for stats.
 };
