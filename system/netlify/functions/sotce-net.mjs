@@ -3,12 +3,6 @@
 
 /* #region 🟢 TODO 
 
-  ** First Page **8
-  - [🟠] Have @amelia write her first page and then turn on the feed.
-
-  *** 📊 Statistics ***
-  - [🟠] Add Google Analytics
-
   *** 🖨️ Typography & Design ***
   - [] More unique look for pages and choose new font.
   - [] Test mobile designs locally.
@@ -17,6 +11,9 @@
   - [] Remove tap highlight from pink cookie.
   - [] Fix focus textfield bugs on touch / iOS.
   - [] Cosmetics
+
+  ** First Page **8
+  - [🟠] Have @amelia write her first page and then turn on the feed.
 
   - [] --- 🏁 Launch 🏁 ---
     - [] Test full signup and subscribe flow in production on mobile.
@@ -47,6 +44,8 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  *** 📊 Statistics ***
+  - [x] Add Google Analytics
   - [x] Show number of subscribed users so far - maybe in the closed donut or 
        privacy policy? and only for certain whitelisted users?
   - [c] Re-render page touches to include unhandled users.
@@ -1154,6 +1153,19 @@ export const handler = async (event, context) => {
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
           <script src="https://js.stripe.com/v3/"></script>
+          <script
+            async
+            src="https://www.googletagmanager.com/gtag/js?id=G-8CWWH29LJD"
+          ></script>
+          <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+              dataLayer.push(arguments);
+            }
+            gtag("js", new Date());
+
+            gtag("config", "G-8CWWH29LJD");
+          </script>
         </head>
         <body>
           <div id="wrapper">
@@ -3585,6 +3597,15 @@ export const handler = async (event, context) => {
               line-height: 1.25em;
             }
           </style>
+          <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+              dataLayer.push(arguments);
+            }
+            gtag("js", new Date());
+
+            gtag("config", "G-8CWWH29LJD");
+          </script>
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0"
