@@ -7,9 +7,7 @@
   - [🟠] Have @amelia write her first page and then turn on the feed.
 
   *** 📊 Statistics ***
-  - [] Show number of subscribed users so far - maybe in the closed donut or 
-       privacy policy? and only for certain whitelisted users?
-  - [] Add Google Analytics
+  - [🟠] Add Google Analytics
 
   *** 🖨️ Typography & Design ***
   - [] More unique look for pages and choose new font.
@@ -49,6 +47,8 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Show number of subscribed users so far - maybe in the closed donut or 
+       privacy policy? and only for certain whitelisted users?
   - [c] Re-render page touches to include unhandled users.
   - [x] `eared` corner menu that shows byline 
   *** 🖐️ "Touches" *** 
@@ -148,6 +148,7 @@ import {
   SOTCE_STRIPE_ENDPOINT_SECRET,
   priceId,
   productId,
+  prodProductId,
 } from "../../backend/sotce-net-constants.mjs";
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
@@ -211,6 +212,44 @@ export const handler = async (event, context) => {
       );
     } catch (err) {
       console.error("Error fetching subscription status:", err);
+      return null;
+    }
+  }
+
+  // Get the count of all active subscriptions for the given productId
+  async function getActiveSubscriptionCount(productId) {
+    try {
+      const stripe = Stripe(key);
+
+      // Fetch all subscriptions with the active status
+      let hasMore = true;
+      let totalSubscriptions = 0;
+      let startingAfter = undefined;
+
+      while (hasMore) {
+        const subscriptions = await stripe.subscriptions.list({
+          status: "active",
+          limit: 100, // Maximum allowed per request
+          starting_after: startingAfter,
+        });
+
+        // Filter subscriptions by the productId
+        const matchingSubscriptions = subscriptions.data.filter((sub) =>
+          sub.items.data.some((item) => item.price.product === productId),
+        );
+
+        totalSubscriptions += matchingSubscriptions.length;
+
+        // Check if more pages of subscriptions exist
+        hasMore = subscriptions.has_more;
+        if (hasMore) {
+          startingAfter = subscriptions.data[subscriptions.data.length - 1].id;
+        }
+      }
+
+      return totalSubscriptions;
+    } catch (err) {
+      console.error("Error fetching subscription count:", err);
     }
   }
 
@@ -934,10 +973,27 @@ export const handler = async (event, context) => {
               font-size: 80%;
               bottom: -15%;
               user-select: none;
+              left: 50%;
+              transform: translateX(-51.5%);
+              white-space: nowrap;
             }
+
+            #subscriber-count {
+              color: black;
+              position: absolute;
+              font-size: 80%;
+              bottom: -15%;
+              user-select: none;
+              left: 50%;
+              transform: translateX(-51.5%);
+              /* background: yellow; */
+              white-space: nowrap;
+              text-align: center;
+            }
+
             #delete-account {
-              left: calc(-132% / 8);
-              width: 132%;
+              /* left: calc(-132% / 8); */
+              /* width: 132%; */
             }
             #delete-account:hover {
               color: var(--destructive-red);
@@ -955,6 +1011,7 @@ export const handler = async (event, context) => {
               color: blue;
             }
             #logout-wrapper,
+            #imnew-wrapper,
             #secondary-wrapper {
               position: relative;
             }
@@ -1273,31 +1330,31 @@ export const handler = async (event, context) => {
 
                 let out = sb;
 
-                if (type) {
-                  // And privacy-policy link.
-                  const priv = cel("a");
-                  priv.id = "privacy-policy";
-                  priv.innerText = "privacy policy";
-                  priv.href = "${dev ? "/sotce-net/" : "/"}privacy-policy";
+                // if (type) {
+                // And privacy-policy link.
+                const priv = cel("a");
+                priv.id = "privacy-policy";
+                priv.innerText = "privacy policy";
+                priv.href = "${dev ? "/sotce-net/" : "/"}privacy-policy";
 
-                  if (!type) {
-                    // subscribe
-                    priv.style.left = "3%";
-                    priv.style.width = "93%";
-                  } else if (type === "resubscribe") {
-                    priv.style.left = "11%";
-                    priv.style.width = "80%";
-                  } else if (type === "unsubscribe") {
-                    priv.style.left = "11.5%";
-                    priv.style.width = "77%";
-                  }
+                // if (!type) {
+                //   // subscribe
+                //   priv.style.left = "4%";
+                //   priv.style.width = "93%";
+                // } else if (type === "resubscribe") {
+                //   priv.style.left = "11%";
+                //   priv.style.width = "80%";
+                // } else if (type === "unsubscribe") {
+                //   priv.style.left = "11.5%";
+                //   priv.style.width = "77%";
+                // }
 
-                  const secondrap = cel("div");
-                  secondrap.id = "secondary-wrapper";
-                  secondrap.appendChild(sb);
-                  secondrap.appendChild(priv);
-                  out = secondrap;
-                }
+                const secondrap = cel("div");
+                secondrap.id = "secondary-wrapper";
+                secondrap.appendChild(sb);
+                secondrap.appendChild(priv);
+                out = secondrap;
+                //}
 
                 return out;
               }
@@ -1324,7 +1381,32 @@ export const handler = async (event, context) => {
                   const imnew = cel("button");
                   imnew.onclick = signup;
                   imnew.innerText = "i'm new";
-                  buttons.push(imnew);
+
+                  const imnewwrap = cel("div");
+
+                  imnewwrap.id = "imnew-wrapper";
+                  imnewwrap.appendChild(imnew);
+
+                  try {
+                    const res = await fetch("/sotce-net/subscribers");
+                    const data = await res.json();
+                    let text;
+                    if (data.subscribers > 0) {
+                      if (data.subscribers === 1) {
+                        text = "1 subscriber";
+                      } else {
+                        text = data.subscribers + " subscribers";
+                      }
+                      const subscriberCount = cel("div");
+                      subscriberCount.id = "subscriber-count";
+                      subscriberCount.innerText = text;
+                      imnewwrap.appendChild(subscriberCount);
+                    }
+                  } catch (error) {
+                    console.error("Error fetching subscribers:", error);
+                  }
+
+                  buttons.push(imnewwrap);
                 }
               } else if (status !== "coming-soon") {
                 const lo = cel("button");
@@ -3035,6 +3117,14 @@ export const handler = async (event, context) => {
       </html>
     `;
     return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
+  } else if (path === "/subscribers" && method === "get") {
+    const subscribers = await getActiveSubscriptionCount(productId);
+
+    if (subscribers !== undefined && subscribers !== null) {
+      return respond(200, { subscribers });
+    } else {
+      return respond(500, { message: "Could not get subscriber count." });
+    }
   } else if (path === "/subscribe" && method === "post") {
     try {
       const stripe = Stripe(key);
@@ -3104,15 +3194,14 @@ export const handler = async (event, context) => {
 
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized." });
-    // shell.log("Subscribing user:", user);
 
     const subscription = await subscribed(user);
 
-    if (!subscription) {
+    if (subscription === null) {
       return respond(500, { error: "Failed to fetch subscription status" });
     }
 
-    if (subscription.subscribed === false) {
+    if (subscription?.subscribed === false) {
       return respond(200, subscription);
     }
 
@@ -3468,6 +3557,8 @@ export const handler = async (event, context) => {
     shell.log("❌ Deleted user registration:", deleted);
     return respond(200, { result: "Deleted!" }); // Successful account deletion.
   } else if (path === "/privacy-policy" && method === "get") {
+    const subscribers = await getActiveSubscriptionCount(productId);
+
     const body = html`
       <html>
         <head>
@@ -3518,6 +3609,7 @@ export const handler = async (event, context) => {
             Sotce Net is brought to you by the partnership of <code><a href="https://sotce.com">Sotce</a></code> and
             <code><a href="https://aesthetic.computer/privacy-policy">Aesthetic Computer</code>.</a>
           </p>
+          ${subscribers > 0 ? "<p>Sotce Net has <code>" + subscribers + "</code> active subscriber" + (subscribers > 1 ? "s" : "") + ".</p>" : ""}
           <p>
             For more information write to <code>mail@sotce.net</code> to
             communicate with the author.
