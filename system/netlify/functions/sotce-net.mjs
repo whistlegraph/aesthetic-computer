@@ -4,12 +4,12 @@
 /* #region 🟢 TODO 
 
   *** Mobile ***
-  - [x] Fix drop shadows on buttons. 
-  - [x] Remove tap highlight from pink cookie.
 
   - Editor
-  - [-] Fix focus textfield bugs on touch / iOS.
+  - [🟠] Fix focus textfield bugs on touch / iOS.
+  - [] Get local style edits running.
   - [] Get flourishes to show up on iOS.
+  - [] Autoscroll text entry on iOS.
 
   *** 🖨️ Typography & Design ***
   - [] Choose new font.
@@ -50,6 +50,8 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Fix drop shadows on buttons. 
+  - [x] Remove tap highlight from pink cookie.
   *** 📊 Statistics ***
   - [x] Add Google Analytics
   - [x] Show number of subscribed users so far - maybe in the closed donut or 
@@ -296,6 +298,7 @@ export const handler = async (event, context) => {
               background: var(--background-color);
               user-select: none;
               -webkit-user-select: none;
+              touch-action: manipulation;
             }
             /* body.noscroll { */
             /* overflow: hidden; */
@@ -478,6 +481,7 @@ export const handler = async (event, context) => {
               -webkit-text-size-adjust: 100%;
               margin-bottom: 1em;
               -webkit-tap-highlight-color: transparent;
+              touch-action: manipulation;
             }
             a, textarea {
               -webkit-tap-highlight-color: transparent;
@@ -1047,6 +1051,7 @@ export const handler = async (event, context) => {
               /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
               mask-size: cover;
               -webkit-tap-highlight-color: transparent;
+              touch-action: manipulation;
             }
             #cookie-menu-wrapper {
               position: absolute;
