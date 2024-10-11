@@ -209,6 +209,8 @@ export const handler = async (event, context) => {
         limit: 5,
       });
 
+      console.log("Subs...", subscriptions);
+
       return subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
@@ -3110,6 +3112,8 @@ export const handler = async (event, context) => {
     // shell.log("Subscribing user:", user);
 
     const subscription = await subscribed(user);
+
+    console.log("Subscription:", subscription);
 
     if (!subscription) {
       return respond(500, { error: "Failed to fetch subscription status" });
