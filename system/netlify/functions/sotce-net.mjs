@@ -3,14 +3,17 @@
 
 /* #region 🟢 TODO 
 
-  *** 🖨️ Typography & Design ***
-  - [] More unique look for pages and choose new font.
-  - [] Test mobile designs locally.
-
   *** Mobile ***
-  - [] Remove tap highlight from pink cookie.
-  - [] Fix focus textfield bugs on touch / iOS.
-  - [] Cosmetics
+  - [x] Fix drop shadows on buttons. 
+  - [x] Remove tap highlight from pink cookie.
+
+  - Editor
+  - [-] Fix focus textfield bugs on touch / iOS.
+  - [] Get flourishes to show up on iOS.
+
+  *** 🖨️ Typography & Design ***
+  - [] Choose new font.
+  - [] Finalize page look.
 
   ** First Page **8
   - [🟠] Have @amelia write her first page and then turn on the feed.
@@ -19,6 +22,9 @@
     - [] Test full signup and subscribe flow in production on mobile.
 
   --- ☁️ Post-Launch ☁️ ---
+
+  *** User Info Rate Limiting ***
+  - [] Try to reduce the authorize() call rate limiting on ac.
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -286,9 +292,10 @@ export const handler = async (event, context) => {
               margin: 0;
               width: 100%;
               /* min-height: 100%; */
-              -webkit-text-size-adjust: none;
+              -webkit-text-size-adjust: 100%;
               background: var(--background-color);
               user-select: none;
+              -webkit-user-select: none;
             }
             /* body.noscroll { */
             /* overflow: hidden; */
@@ -413,6 +420,7 @@ export const handler = async (event, context) => {
               margin: auto;
               display: block;
               user-select: none;
+              -webkit-user-select: none;
               filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
             }
             #gate #cookie.interactive {
@@ -433,6 +441,7 @@ export const handler = async (event, context) => {
               padding-bottom: 1em;
               text-align: center;
               user-select: none;
+              -webkit-user-select: none;
             }
             #gate h2 {
               font-weight: normal;
@@ -441,6 +450,7 @@ export const handler = async (event, context) => {
               text-align: center;
               padding-bottom: 1em;
               user-select: none;
+              -webkit-user-select: none;
             }
             #gate #nav-high {
               margin-top: -0.5em;
@@ -460,11 +470,17 @@ export const handler = async (event, context) => {
               padding: 0.35em;
               font-size: 100%;
               border: 0.205em solid var(--pink-border);
-              filter: drop-shadow(-0.055em 0.055em 0.055em rgb(80, 80, 80));
+              filter: drop-shadow(-0.065em 0.065em 0.065em rgb(80, 80, 80));
               border-radius: 0.5em;
               cursor: pointer;
               user-select: none;
+              -webkit-user-select: none;
+              -webkit-text-size-adjust: 100%;
               margin-bottom: 1em;
+              -webkit-tap-highlight-color: transparent;
+            }
+            a, textarea {
+              -webkit-tap-highlight-color: transparent;
             }
             #write-a-page {
               margin-left: 1em;
@@ -651,6 +667,7 @@ export const handler = async (event, context) => {
               /* overflow: hidden; */
               box-sizing: border-box;
               user-select: text;
+              -webkit-user-select: text;
               /* display: flex; */
               width: calc(100px * 8);
               font-size: calc(3.25px * 8);
@@ -837,6 +854,7 @@ export const handler = async (event, context) => {
               clip-path: polygon(0 0, calc(100%) 0, 0 calc(100%));
               z-index: 1;
               user-select: none;
+              -webkit-user-select: none;
               pointer-events: none;
             }
 
@@ -856,6 +874,7 @@ export const handler = async (event, context) => {
               );
               z-index: 2;
               user-select: none;
+              -webkit-user-select: none;
               pointer-events: none;
             }
 
@@ -943,7 +962,6 @@ export const handler = async (event, context) => {
             #email {
               position: relative;
               color: black;
-              /* user-select: all; */
             }
             #email.admin::after,
             .crumple-this-page::after {
@@ -983,8 +1001,9 @@ export const handler = async (event, context) => {
               font-size: 80%;
               bottom: -15%;
               user-select: none;
+              -webkit-user-select: none;
               left: 50%;
-              transform: translateX(-51.5%);
+              transform: translateX(-52%);
               /* background: yellow; */
               white-space: nowrap;
               text-align: center;
@@ -1019,6 +1038,7 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               user-select: none;
+              -webkit-user-select: none;
               cursor: pointer;
               transition: 0.2s ease-out transform;
               /* background-color: var(--pink-border); */
@@ -1026,6 +1046,7 @@ export const handler = async (event, context) => {
               mask-image: url("${assetPath}cookie-open.png");
               /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
               mask-size: cover;
+              -webkit-tap-highlight-color: transparent;
             }
             #cookie-menu-wrapper {
               position: absolute;
@@ -1089,6 +1110,7 @@ export const handler = async (event, context) => {
               left: 16px;
               color: black;
               user-select: none;
+              -webkit-user-select: none;
               cursor: pointer;
             }
             #prompt:hover {
