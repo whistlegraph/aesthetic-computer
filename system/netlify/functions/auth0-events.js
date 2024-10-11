@@ -60,6 +60,8 @@ export async function handler(event, context) {
         // they were grandfathered in, in which case it could be synthesized
         // here if it never existed if it's ever necessary for future logic.
         // 24.09.06.03.04
+        // 💡 This could be done by going through every verified user and
+        //    setting verifications on that user to a count of 1 with a mongo task. 24.10.11.01.21
         if (count === 1) {
           const handle = await handleFor(aestheticSub);
           if (handle) {
