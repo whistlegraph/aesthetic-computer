@@ -2,12 +2,6 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  *** 🖐️ "Touches" *** 
-  - [x] Add some kind of handle based reaction for pages? (touch?)
-       @blahblah and x others touched this page.
-       'ear'
-   - [] add 'bio' text 
-
   *** 📊 Statistics ***
   - [] Show number of subscribed users so far - maybe in the closed donut or 
        privacy policy? and only for certain whitelisted users?
@@ -33,8 +27,13 @@
     - [] add the checkbox under the main page for whether to receive them
          or not
 
+  *** User ***
+  - [] add 'bio' text for users. 
+
+  *** 📟 Page Feed ***
+  - [] Add multi-user page feed. 
+
   *** 🛂 Page Controls ***
-  - [] redaction
   - [] Print 🖨️ CSS
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
@@ -44,10 +43,13 @@
   - [] Search / hashtags
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
-  *** 📟 Page Feed ***
-  - [📄] `eared` corner menu that shows byline 
 
   + Done
+  - [x] `eared` corner menu that shows byline 
+  *** 🖐️ "Touches" *** 
+  - [x] Add some kind of handle based reaction for pages? (touch?)
+       @blahblah and x others touched this page.
+       'ear'
   - [x] Add back page interactive layer switch.
   - [x] Tie it to the API
   *** Crumple ***
@@ -3108,7 +3110,7 @@ export const handler = async (event, context) => {
 
         // 📓 Recent Pages
         const database = await connect();
-        const pages = database.db.collection("pages");
+        const pages = database.db.collection("sotce-pages");
         const retrievedPages = await pages
           .aggregate([
             { $match: { state: "published" } }, // Ensure pages are published
@@ -3158,7 +3160,7 @@ export const handler = async (event, context) => {
 
     if (body.draft === "retrieve-or-create") {
       const database = await connect();
-      const pages = database.db.collection("pages");
+      const pages = database.db.collection("sotce-pages");
       await pages.createIndex({ user: 1, state: 1 }); // Ensure 'user' and 'state' index.
 
       // Try to get the last page from this user.sub where 'state' is 'draft'.
@@ -3181,7 +3183,7 @@ export const handler = async (event, context) => {
       return respond(200, { page });
     } else if (body.draft === "keep") {
       const database = await connect();
-      const pages = database.db.collection("pages");
+      const pages = database.db.collection("sotce-pages");
       // Try to get the last page from this user.sub where 'state' is 'draft'.
       let page = await pages.findOne(
         { user: user.sub, state: "draft" },
@@ -3211,7 +3213,7 @@ export const handler = async (event, context) => {
     } else if (body.draft === "crumple") {
       //  🪓️ Delete (crumple) the current draft.
       const database = await connect();
-      const pages = database.db.collection("pages");
+      const pages = database.db.collection("sotce-pages");
 
       // See if there is a page id attached, otherwise look for the most
       // recent draft...
@@ -3256,7 +3258,7 @@ export const handler = async (event, context) => {
     const words = body.words;
     if (words) {
       const database = await connect();
-      const pages = database.db.collection("pages");
+      const pages = database.db.collection("sotce-pages");
 
       // Find the existing draft for the user.
       let page = await pages.findOne(
@@ -3296,13 +3298,13 @@ export const handler = async (event, context) => {
     const id = new ObjectId(body._id);
 
     const database = await connect();
-    const pages = database.db.collection("pages");
+    const pages = database.db.collection("sotce-pages");
     const page = await pages.findOne({ _id: id });
 
     console.log("📃 Page:", page, id);
 
     if (page) {
-      const touches = database.db.collection("touches");
+      const touches = database.db.collection("sotce-touches");
       await touches.createIndex({ user: 1, page: 1 }, { unique: true });
 
       try {
