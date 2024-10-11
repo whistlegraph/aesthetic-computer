@@ -2,6 +2,8 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [🟠] Re-render page touches to include unhandled users.
+
   *** 📊 Statistics ***
   - [] Show number of subscribed users so far - maybe in the closed donut or 
        privacy policy? and only for certain whitelisted users?
