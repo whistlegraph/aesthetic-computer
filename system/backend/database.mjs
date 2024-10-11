@@ -2,7 +2,7 @@
 // Manages database connections to MongoDB.
 // And has application-specific queries.
 
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
 const mongoDBName = process.env.MONGODB_NAME;
 
@@ -74,7 +74,7 @@ async function allMoods(database, handle = null) {
   return records;
 }
 
-export { connect, moodFor, allMoods };
+export { connect, ObjectId, moodFor, allMoods };
 
 // Demo code from MongoDB's connection page: (23.08.15.19.59)
 

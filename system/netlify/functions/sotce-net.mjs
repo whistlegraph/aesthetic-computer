@@ -2,19 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-
-  *** 📜 Scroll Checking ***
-  - [-] Scrolling in the editor or cookie-menu should not affect page scroll.
-    - [] Make a handful of pages.
-    - [] Check scrolling with editor.
-    - [] Check with cookie menu.
-
-  *** Deletion ***
-    - [] Make it so pages can be deleted by an admin if they are the author.
-
   *** 🖐️ "Touches" *** 
-  - [] Add some kind of handle based reaction for pages? (touch?)
-       @blahblah and x others touched this pages.
+  - [x] Add some kind of handle based reaction for pages? (touch?)
+       @blahblah and x others touched this page.
        'ear'
    - [] add 'bio' text 
 
@@ -58,6 +48,15 @@
   - [📄] `eared` corner menu that shows byline 
 
   + Done
+  - [x] Add back page interactive layer switch.
+  - [x] Tie it to the API
+  *** Crumple ***
+    - [x] Make it so pages can be crumpled by an admin if they are the author.
+  *** 📜 Scroll Checking ***
+  - [x] Scrolling in the editor or cookie-menu should not affect page scroll.
+    - [x] Make a handful of pages.
+    - [x] Check scrolling with editor.
+    - [x] Check with cookie menu.
   - [x] New line creation logic in editor.
   - [x] Make the cookie menu fully scrollable.
   - [x] Don't run rendering algorithm on every input. 
@@ -146,7 +145,7 @@ import {
 
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { respond } from "../../backend/http.mjs";
-import { connect } from "../../backend/database.mjs";
+import { connect, ObjectId } from "../../backend/database.mjs";
 import { shell } from "../../backend/shell.mjs";
 
 import {
@@ -203,6 +202,9 @@ export const handler = async (event, context) => {
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
               --spinner-background: rgb(255, 147, 191);
+              --backpage-color: rgb(250, 250, 250);
+              --backpage-color-translucent: rgba(250, 250, 250, 0.8);
+              --destructive-red: rgb(200, 0, 0);
             }
             html {
               /* min-height: 100%; */
@@ -238,9 +240,18 @@ export const handler = async (event, context) => {
               position: relative;
               overflow-x: hidden;
             }
-            #wrapper.reloading {
-              filter: blur(2px) saturate(1.25);
-              transition: 0.25s filter;
+            body.reloading::after {
+              content: "";
+              position: fixed;
+              top: 0;
+              left: 0;
+              background: rgba(0, 0, 0, 0.5);
+              width: 100%;
+              height: 100%;
+              z-index: 4;
+              /* filter: blur(2px) saturate(1.25); */
+              /* transition: 0.25s filter; */
+              /* overflow: hidden; */
             }
             #wrapper.flash::after {
               content: "";
@@ -602,7 +613,6 @@ export const handler = async (event, context) => {
             #garden article.page .words {
               /* transform-origin: top left; */
               /* position: absolute; */
-              text-align: left;
               margin: 0;
               text-align: justify;
               /* text-align-last: justify; */
@@ -729,21 +739,22 @@ export const handler = async (event, context) => {
             }
 
             /* 🐕 Doggy Ear Rendering */
-            #garden article.page div.ear {
+            #garden .page-wrapper div.ear {
               width: 15%; /* rounded by js */
               background: transparent;
               position: absolute;
               box-sizing: border-box;
               cursor: pointer;
+              z-index: 1;
             }
 
-            #garden article.page div.ear:hover {
+            #garden .page-wrapper div.ear:hover {
               background: var(--background-color);
               border-left: 0.1em solid black;
               border-top: 0.1em solid black;
             }
 
-            #garden article.page div.ear:hover::before {
+            #garden .page-wrapper div.ear:hover::before {
               content: "";
               position: absolute;
               bottom: 0;
@@ -757,7 +768,7 @@ export const handler = async (event, context) => {
               pointer-events: none;
             }
 
-            #garden article.page div.ear:hover::after {
+            #garden .page-wrapper div.ear:hover::after {
               /* #garden article.page div.ear:active::after { */
               content: "";
               position: absolute;
@@ -765,7 +776,7 @@ export const handler = async (event, context) => {
               right: 0;
               width: 100%;
               height: 100%;
-              background: rgb(250, 250, 250);
+              background: var(--backpage-color);
               clip-path: polygon(
                 0 0,
                 calc(100% - 0.1em) 0,
@@ -776,11 +787,76 @@ export const handler = async (event, context) => {
               pointer-events: none;
             }
 
-            #garden article.page div.ear:active::after {
-              background: rgb(240, 240, 240);
-              /* background: var(--button-background-highlight); */
-              /* filter: drop-shadow(0px 0px 4px yellow); */
+            #garden .page-wrapper div.ear:active::after {
+              background: rgb(240, 240, 240) !important;
             }
+
+            /* #garden article.page div.ear.reverse:active::after { */
+            /* background: rgb(240, 240, 240) !important; */
+            /* } */
+
+            #garden .page-wrapper div.ear.reverse:hover::after {
+              background: white;
+            }
+
+            #garden .page-wrapper {
+              overflow: hidden;
+              box-sizing: border-box;
+            }
+
+            #garden .page-wrapper.reverse {
+              /* border: 0.1em solid black; */
+            }
+
+            #garden article.page.reverse {
+              filter: blur(2px);
+              overflow: hidden;
+              border: none;
+            }
+
+            #garden article.page.reverse .page-title,
+            #garden article.page.reverse .words,
+            #garden article.page.reverse .page-number {
+              transform: scaleX(-1);
+            }
+
+            /* 📃 Backpage */
+            #garden .page-wrapper .backpage {
+              font-family: serif;
+              width: 100%;
+              height: 100%;
+              background: var(--backpage-color-translucent);
+              position: absolute;
+              /* z-index: 0; */
+              padding-left: 3em;
+              padding-right: 3em;
+              padding-top: calc(1em + 15%);
+              /* background: yellow; */
+              line-height: 1.6em;
+              hyphens: auto;
+              text-align: justify;
+              overflow-wrap: break-word;
+              top: 0;
+              left: 0;
+              border: 0.1em solid black;
+              box-sizing: border-box;
+            }
+
+            #crumple-this-page {
+              position: absolute;
+              bottom: 5%;
+              left: 3em;
+              color: black;
+            }
+
+            #crumple-this-page:hover {
+              color: var(--destructive-red);
+            }
+
+            #crumple-this-page:active {
+              color: red;
+            }
+
             #email {
               position: relative;
               color: black;
@@ -814,7 +890,7 @@ export const handler = async (event, context) => {
               width: 132%;
             }
             #delete-account:hover {
-              color: rgb(200, 0, 0);
+              color: var(--destructive-red);
             }
             #delete-account:active {
               color: red;
@@ -1084,15 +1160,16 @@ export const handler = async (event, context) => {
 
             // Reload fading.
             window.addEventListener("beforeunload", (e) => {
-              wrapper.classList.add("reloading");
+              document.body.classList.add("reloading");
             });
 
             document.addEventListener("visibilitychange", function () {
-              if (!document.hidden) wrapper.classList.remove("reloading");
+              if (!document.hidden) document.body.classList.remove("reloading");
             });
 
             const gateElements = {};
             let gating = false;
+            let computePageLayout;
 
             // #region 🥀 gate&garden
             async function gate(status, user, subscription) {
@@ -1430,6 +1507,7 @@ export const handler = async (event, context) => {
                   document.querySelector("#garden")?.classList.remove("hidden");
                   document.body.classList.remove("pages-hidden");
                   document.body.scrollTop = scrollMemory;
+                  computePageLayout?.();
                 },
                 // { once: true },
               );
@@ -1606,6 +1684,7 @@ export const handler = async (event, context) => {
 
                   // Create or retrieve the user's current draft.
 
+                  scrollMemory = document.body.scrollTop;
                   // TODO: 🟠 Memoize draft in ram.
 
                   veil();
@@ -1830,6 +1909,8 @@ export const handler = async (event, context) => {
                     document.body.classList.remove("pages-hidden");
                     editor.remove();
                     writeButton.classList.remove("deactivated");
+                    document.body.scrollTop = scrollMemory;
+                    computePageLayout?.();
                     window.removeEventListener("resize", updateLineCount);
                   }
 
@@ -1894,7 +1975,7 @@ export const handler = async (event, context) => {
                     if (res.status === 200) {
                       console.log("🪧 Written:", res);
                       // close();
-                      // unveil({ instant: true });
+                      unveil({ instant: true });
                       window.location.reload();
                     } else {
                       console.error("🪧 Unwritten:", res);
@@ -1956,11 +2037,21 @@ export const handler = async (event, context) => {
                 topBar.appendChild(writeButton);
               }
 
-              let computePageLayout;
-
               if (subscription.pages) {
-                const pages = subscription.pages;
+                let pages = subscription.pages;
                 // console.log("🗞️ Pages retrieved:", pages);
+
+                // const MOCKUP_PAGES = false;
+                // if (MOCKUP_PAGES) {
+                //   pages = [
+                //     {
+                //       when: new Date().toString(),
+                //       words: "Mockup.",
+                //       handle: "amelia",
+                //       _id: "mockup-id",
+                //     },
+                //   ];
+                // }
 
                 const binding = cel("div");
                 binding.id = "binding";
@@ -1996,7 +2087,16 @@ export const handler = async (event, context) => {
                   const ear = cel("div");
                   ear.classList.add("ear");
 
-                  ear.onclick = () => {
+                  // 📐 Ear / Touch
+                  ear.onclick = async () => {
+                    if (ear.classList.contains("reverse")) {
+                      pageWrapper.querySelector(".backpage")?.remove();
+                      ear.classList.remove("reverse");
+                      pageEl.classList.remove("reverse");
+                      pageWrapper.classList.remove("reverse");
+                      return;
+                    }
+
                     const author = page.handle ? "@" + page.handle : "Unknown";
 
                     // Parse the timestamp from page.when
@@ -2026,15 +2126,100 @@ export const handler = async (event, context) => {
                       timeOptions,
                     );
 
-                    window.alert(
-                      "📄 Written by " +
-                        author +
-                        "\\n" +
-                        "📅 Created on " +
-                        formattedDate +
-                        " at " +
-                        formattedTime,
+                    // Generate a back section with stats, controls, and exports.
+
+                    const backpage = cel("div");
+                    backpage.classList.add("backpage");
+
+                    backpage.innerText =
+                      "Written by " +
+                      author +
+                      "\\n" +
+                      "From " +
+                      formattedDate +
+                      " at " +
+                      formattedTime;
+
+                    // Touches
+                    veil();
+                    let touches = [];
+                    const res = await userRequest(
+                      "POST",
+                      "sotce-net/touch-a-page",
+                      { _id: page._id },
                     );
+                    if (res.status === 200) {
+                      // console.log("💁 Page touched:", res);
+                      // console.log("🖐️ Touches for page:", res.body.touches);
+                      touches = res.touches;
+                    } else {
+                      console.error("💁 Page touch:", res);
+                    }
+                    unveil({ instant: true });
+
+                    let touchedBy;
+                    if (touches.length === 0) {
+                      touchedBy = "";
+                    } else if (touches.length === 1) {
+                      touchedBy = touches[0] + " touched this page.";
+                    } else if (touches.length === 2) {
+                      touchedBy =
+                        touches[0] +
+                        " and " +
+                        touches[1] +
+                        " touched this page.";
+                    } else if (touches.length > 2) {
+                      const lastTouch = touches.pop();
+                      touchedBy =
+                        touches.join(", ") +
+                        ", and " +
+                        lastTouch +
+                        " touched this page.";
+                    }
+
+                    const touchesEl = cel("p");
+                    touchesEl.innerHTML = touchedBy;
+
+                    // Allow crumple page action for admin users.
+                    if (subscription.admin) {
+                      const crumplePage = cel("a");
+
+                      crumplePage.innerText = "crumple this page";
+                      crumplePage.href = "";
+
+                      crumplePage.id = "crumple-this-page";
+
+                      crumplePage.onclick = async (e) => {
+                        e.preventDefault();
+                        if (!confirm("💣 Unpublish this page?")) return;
+                        veil();
+                        const res = await userRequest(
+                          "POST",
+                          "sotce-net/write-a-page",
+                          { draft: "crumple", _id: page._id },
+                        );
+                        if (res.status === 200) {
+                          console.log("🪧 Page crumpled:", res);
+                          unveil({ instant: true });
+                          window.location.reload();
+                        } else {
+                          console.error("🪧 Page crumple:", res);
+                          alert("☠️ There was a problem crumpling this page.");
+                          unveil({ instant: true });
+                        }
+                      };
+
+                      backpage.appendChild(crumplePage);
+                    }
+
+                    ear.classList.add("reverse");
+                    pageEl.classList.add("reverse");
+                    pageWrapper.classList.add("reverse");
+
+                    backpage.appendChild(touchesEl);
+
+                    pageWrapper.querySelector(".backpage")?.remove();
+                    pageWrapper.appendChild(backpage);
                   };
 
                   // const byLine = cel("div");
@@ -2047,8 +2232,8 @@ export const handler = async (event, context) => {
                   pageEl.appendChild(pageTitle);
                   pageEl.appendChild(wordsEl);
                   pageEl.appendChild(pageNumber);
-                  pageEl.appendChild(ear);
                   pageWrapper.appendChild(pageEl);
+                  pageWrapper.appendChild(ear);
 
                   // pageEl.appendChild(byLine);
                   binding.appendChild(pageWrapper);
@@ -2168,7 +2353,7 @@ export const handler = async (event, context) => {
                   });
 
                   const ears = document.querySelectorAll(
-                    "#garden article.page div.ear",
+                    "#garden .page-wrapper div.ear",
                   );
 
                   ears.forEach((ear) => {
@@ -3028,11 +3213,19 @@ export const handler = async (event, context) => {
       const database = await connect();
       const pages = database.db.collection("pages");
 
-      // Try to get the last page from this user.sub where 'state' is 'draft'.
-      const page = await pages.findOne(
-        { user: user.sub, state: "draft" },
-        { sort: { when: -1 } },
-      );
+      // See if there is a page id attached, otherwise look for the most
+      // recent draft...
+      let page;
+
+      if (body._id) {
+        page = await pages.findOne({ _id: new ObjectId(body._id) });
+      } else {
+        // Try to get the last page from this user.sub where 'state' is 'draft'.
+        page = await pages.findOne(
+          { user: user.sub, state: "draft" },
+          { sort: { when: -1 } },
+        );
+      }
 
       // If the page exists, update its state to 'crumpled' or delete it if body.words is empty/undefined.
       if (page) {
@@ -3045,11 +3238,15 @@ export const handler = async (event, context) => {
             { $set: { state: "crumpled", words: body.words } },
           );
         }
+
+        await database.disconnect();
+        return respond(200, { message: "Draft crumpled successfully." });
+      } else {
+        await database.disconnect();
+        return respond(500, { message: "No page found to crumple." });
       }
 
       // Actually just set the state to 'crumpled' here.
-      await database.disconnect();
-      return respond(200, { message: "Draft crumpled successfully." });
     } else if (body.draft) {
       return respond(500, { message: "Invalid drafting option." });
     }
@@ -3088,6 +3285,62 @@ export const handler = async (event, context) => {
       return respond(200, { page });
     } else {
       return respond(500, { message: "No words written." });
+    }
+  } else if (path === "/touch-a-page" && method === "post") {
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized." });
+
+    const body = JSON.parse(event.body);
+    shell.log("💁 Page to touch:", body);
+
+    const id = new ObjectId(body._id);
+
+    const database = await connect();
+    const pages = database.db.collection("pages");
+    const page = await pages.findOne({ _id: id });
+
+    console.log("📃 Page:", page, id);
+
+    if (page) {
+      const touches = database.db.collection("touches");
+      await touches.createIndex({ user: 1, page: 1 }, { unique: true });
+
+      try {
+        // Insert touch, assuming 'user.sub' contains the user's sub identifier
+        await touches.insertOne({
+          user: user.sub, // User's sub identifier
+          page: id, // Page ID from the request body
+          when: new Date(), // Current date and time
+        });
+      } catch (error) {
+        if (error.code === 11000) {
+          // Duplicate key error, meaning the user has already touched this page
+          console.log("User has already touched this page.");
+        } else {
+          console.error(
+            "An error occurred while touching the page:",
+            error.message,
+          );
+        }
+      }
+
+      // Fetch all touches for the page, even if an error occurred
+      const pageTouches = await touches.find({ page: id }).toArray();
+
+      // Add a 'handle' field to each page record.
+      // const subsToHandles = {}; // Cache handles on this go around.
+
+      const handles = [];
+      for (const [index, touch] of pageTouches.entries()) {
+        handle = await handleFor(touch.user, "sotce");
+        handles.push("@" + handle);
+      }
+
+      await database.disconnect();
+      return respond(200, { touches: handles });
+    } else {
+      await database.disconnect();
+      return respond(404, { message: "No page found to touch." });
     }
   } else if (path === "/delete-account" && method === "post") {
     // See also the 'delete-erase-and-forget-me.js' function for aesthetic users.
