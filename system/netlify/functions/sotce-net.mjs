@@ -211,9 +211,10 @@ export const handler = async (event, context) => {
 
       console.log("Subs...", subscriptions);
 
-      return subscriptions.data.find((sub) =>
+      const found = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
+      if (found) { return found; } else { return { subscribed: false } };
     } catch (err) {
       console.error("Error fetching subscription status:", err);
     }
