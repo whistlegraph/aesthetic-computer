@@ -189,7 +189,7 @@ export const handler = async (event, context) => {
 
   // Check to see if a user sub is subscribed.
   async function subscribed(user) {
-    shell.log("Cheking for subscription for:", user.sub);
+    // shell.log("Cheking for subscription for:", user.sub);
     try {
       const stripe = Stripe(key);
       // Fetch customer by user ID (sub) from subscription metadata field.
@@ -200,7 +200,7 @@ export const handler = async (event, context) => {
       if (!customers.data.length) return { subscribed: false };
       const customer = customers.data[0];
 
-      console.log("Customer...", customer);
+      // console.log("Customer...", customer);
 
       // Fetch subscriptions for the customer
       const subscriptions = await stripe.subscriptions.list({
@@ -209,7 +209,7 @@ export const handler = async (event, context) => {
         limit: 5,
       });
 
-      console.log("Subs...", subscriptions);
+      // console.log("Subs...", subscriptions);
 
       const found = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
@@ -3114,7 +3114,7 @@ export const handler = async (event, context) => {
 
     const subscription = await subscribed(user);
 
-    console.log("Subscription:", subscription);
+    // console.log("Subscription:", subscription);
 
     if (!subscription) {
       return respond(500, { error: "Failed to fetch subscription status" });
