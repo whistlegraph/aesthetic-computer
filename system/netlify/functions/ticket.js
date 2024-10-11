@@ -184,7 +184,7 @@ export async function handler(event, context) {
               newSubscriber = true;
             } else if (billingReason === "subscription_cycle") {
               console.log("🟢 Recurring `sotce-net` subscription.");
-              newSubscriber = false;
+              // newSubscriber = false; // Don't send monthly receipt emails.
             }
 
             if (newSubscriber !== undefined) {
