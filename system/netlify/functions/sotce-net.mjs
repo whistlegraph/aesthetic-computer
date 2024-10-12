@@ -6,6 +6,7 @@
   *** Mobile ***
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
+  - [] Tapping and dragging a button shouldn't scroll the page. 
   - [] Get local style edits running, maybe through ngrok?
   - [] Autoscroll text entry on iOS.
 
