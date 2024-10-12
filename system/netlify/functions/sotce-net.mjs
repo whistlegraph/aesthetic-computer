@@ -5,6 +5,8 @@
 
   *** Mobile ***
 
+  - [] Pink cookie shouldn't show up after.
+
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
   - [] Get local style edits running.
@@ -2598,42 +2600,44 @@ export const handler = async (event, context) => {
               if (showGate) curtainCookie.classList.add("interactive");
 
               cookieImg.onload = function () {
-                document.getElementById("garden")?.remove(); // Remove old gardens.
-                const observer = new MutationObserver(
-                  (mutationsList, observer) => {
-                    for (let mutation of mutationsList) {
-                      if (
-                        mutation.type === "childList" &&
-                        mutation.addedNodes.length > 0
-                      ) {
-                        const checkWidthSettled = (previousWidth) => {
-                          const currentWidth = parseInt(
-                            window.getComputedStyle(wrapper).width,
-                          );
-                          if (
-                            currentWidth !== previousWidth ||
-                            g.scrollHeight > 0
-                          ) {
-                            computePageLayout?.();
-                          } else {
-                            requestAnimationFrame(() =>
-                              checkWidthSettled(currentWidth),
+                setTimeout(function () {
+                  document.getElementById("garden")?.remove(); // Remove old gardens.
+                  const observer = new MutationObserver(
+                    (mutationsList, observer) => {
+                      for (let mutation of mutationsList) {
+                        if (
+                          mutation.type === "childList" &&
+                          mutation.addedNodes.length > 0
+                        ) {
+                          const checkWidthSettled = (previousWidth) => {
+                            const currentWidth = parseInt(
+                              window.getComputedStyle(wrapper).width,
                             );
-                          }
-                        };
-                        requestAnimationFrame(() =>
-                          checkWidthSettled(
-                            parseInt(window.getComputedStyle(wrapper).width),
-                          ),
-                        );
-                        observer.disconnect();
-                        break;
+                            if (
+                              currentWidth !== previousWidth ||
+                              g.scrollHeight > 0
+                            ) {
+                              computePageLayout?.();
+                            } else {
+                              requestAnimationFrame(() =>
+                                checkWidthSettled(currentWidth),
+                              );
+                            }
+                          };
+                          requestAnimationFrame(() =>
+                            checkWidthSettled(
+                              parseInt(window.getComputedStyle(wrapper).width),
+                            ),
+                          );
+                          observer.disconnect();
+                          break;
+                        }
                       }
-                    }
-                  },
-                );
-                observer.observe(wrapper, { childList: true });
-                wrapper.appendChild(g);
+                    },
+                  );
+                  observer.observe(wrapper, { childList: true });
+                  wrapper.appendChild(g);
+                }, 100);
               };
 
               return g;
