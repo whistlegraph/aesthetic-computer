@@ -3,9 +3,13 @@
 
 /* #region 🟢 TODO 
 
+
   *** Mobile ***
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
+
+  - [🔴] Prevent Scroll on Touch Down
+
   - [] Tapping and dragging a button shouldn't scroll the page. 
   - [] Tap and hold cookie shouldn't show context menu.
   - [] Backdrop under page editor should not cut off on Safari.
@@ -295,6 +299,10 @@ export const handler = async (event, context) => {
               --backpage-color: rgb(250, 250, 250);
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
+            }
+            html,
+            body {
+              /* scroll-behavior: auto; */
             }
             html {
               /* min-height: 100%; */
@@ -832,20 +840,30 @@ export const handler = async (event, context) => {
               /* z-index: 1; */
             }
 
-            #garden #editor #words-wrapper.invisible:hover {
-              opacity: 1;
-              /* background: rgb(255, 245, 170, 0.5); */
-            }
-
-            #garden #editor #words-wrapper.invisible:hover textarea {
+            #garden #editor #words-wrapper.invisible textarea {
               opacity: 0;
             }
 
-            #garden #editor #words-wrapper.invisible:hover::before {
+            #garden #editor #words-wrapper.invisible.hover {
+              background: rgb(255, 245, 170, 0.25);
+              cursor: text;
+            }
+
+            #garden #editor #words-wrapper.invisible.active {
+              background: rgb(255, 150, 150, 0.125);
+              cursor: text;
+            }
+
+            #garden #editor #words-wrapper.invisible:before,
+            #garden #editor #words-wrapper.invisible:after {
+              opacity: 0;
+            }
+
+            #garden #editor #words-wrapper.invisible.hover::before {
               display: none;
             }
 
-            #garden #editor #words-wrapper.invisible:hover::after {
+            #garden #editor #words-wrapper.invisible.hover::after {
               display: block;
               content: "";
               position: absolute;
@@ -856,14 +874,35 @@ export const handler = async (event, context) => {
               background: rgb(255, 245, 170, 0.5);
               pointer-events: none;
               z-index: 0;
+              opacity: 1;
+            }
+
+            #garden #editor #words-wrapper.invisible.active::after {
+              display: block;
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 2em;
+              width: calc(100% - 4em);
+              height: 100%;
+              background: rgb(255, 255, 150, 0.6);
+              pointer-events: none;
+              z-index: 0;
+              opacity: 1;
             }
 
             #garden #editor #words-wrapper {
               position: relative;
+              touch-action: manipulation;
+            }
+
+            #garden #editor textarea {
+              pointer-events: none;
             }
 
             #garden #editor textarea:focus {
               outline: none;
+              pointer-events: all;
             }
 
             /* 🐕 Doggy Ear Rendering */
@@ -1156,7 +1195,7 @@ export const handler = async (event, context) => {
             #prompt:hover {
               color: rgb(180, 72, 135);
             }
-            .invisible {
+            #editor-measurement.invisible {
               opacity: 0;
               /* visibility: hidden; */
             }
@@ -1908,11 +1947,13 @@ export const handler = async (event, context) => {
                     // window.location.reload();
                   } else {
                     console.error("🪧 Draft:", res);
+                    unveil({ instant: true });
                     alert("📄 Could not start a page.");
                     return;
                   }
 
                   if (!page) {
+                    unveil({ instant: true });
                     alert("📄 Could not start a page.");
                     return;
                   }
@@ -2048,12 +2089,73 @@ export const handler = async (event, context) => {
 
                   words.addEventListener("input", updateLineCount);
 
+                  wordsWrapper.addEventListener(
+                    "touchmove",
+                    (event) => {
+                      if (wordsWrapper.classList.contains("invisible")) {
+                        event.preventDefault();
+                      }
+                    },
+                    false,
+                  );
+
+                  let down = false;
+
+                  wordsWrapper.addEventListener("pointerenter", () => {
+                    wordsWrapper.classList.add("hover");
+                  });
+
+                  wordsWrapper.addEventListener("pointerleave", () => {
+                    wordsWrapper.classList.remove("hover");
+                  });
+
+                  wordsWrapper.addEventListener("pointermove", () => {
+                    if (down) return;
+                    wordsWrapper.classList.add("hover");
+                  });
+
+                  wordsWrapper.addEventListener("pointerdown", () => {
+                    if (!wordsWrapper.classList.contains("hover")) return;
+                    down = true;
+                    wordsWrapper.classList.add("active");
+                    wordsWrapper.classList.remove("hover");
+
+                    window.addEventListener(
+                      "pointermove",
+                      (e) => {
+                        wordsWrapper.classList.remove("active");
+                        wordsWrapper.classList.remove("hover");
+                        window.removeEventListener("pointerup", release);
+                      },
+                      { once: true },
+                    );
+
+                    function release(e) {
+                      down = false;
+                      if (e.target === wordsWrapper) {
+                        words.focus();
+                        const edMeasurement = updateLineCount();
+                        wordsWrapper.classList.remove("invisible");
+                        edMeasurement.classList.add("invisible");
+                      }
+                      wordsWrapper.classList.remove("active");
+                    }
+
+                    window.addEventListener("pointerup", release, {
+                      once: true,
+                    });
+
+                    window.addEventListener("pointerup", () => (down = false), {
+                      once: true,
+                    });
+                  });
+
                   wordsWrapper.classList.add("invisible");
 
-                  words.addEventListener("focus", () => {
-                    const edMeasurement = updateLineCount();
-                    wordsWrapper.classList.remove("invisible");
-                    edMeasurement.classList.add("invisible");
+                  words.addEventListener("focus", (e) => {
+                    // console.log(e);
+                    // TODO: Check to see if the element got tab focus.
+                    // e.preventDefault();
                   });
 
                   words.addEventListener("blur", () => {
@@ -2062,6 +2164,7 @@ export const handler = async (event, context) => {
                     });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
+                    document.body.focus();
                   });
 
                   window.addEventListener("resize", updateLineCount);
@@ -2214,9 +2317,9 @@ export const handler = async (event, context) => {
                   //   passive: false,
                   // });
 
-                  observeAdd(words, () => {
-                    words.focus(); // Auto-focus on the words element
-                  });
+                  // observeAdd(words, () => {
+                  // words.focus(); // Auto-focus on the words element
+                  // });
                 };
 
                 if (WRITING_A_PAGE) {
@@ -3793,7 +3896,11 @@ const reloadScript = html`
       clearInterval(reconnectInterval);
       let ws;
       try {
-        ws = new WebSocket("wss://localhost:8889");
+        let connectionUrl = "wss://localhost:8889";
+        if (window.location.host === "local.aesthetic.computer") {
+          connectionUrl = "wss://session.local.aesthetic.computer";
+        }
+        ws = new WebSocket(connectionUrl);
       } catch {
         console.warn("🧦 Connection failed.");
         return;
