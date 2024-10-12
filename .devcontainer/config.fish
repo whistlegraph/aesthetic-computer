@@ -127,12 +127,12 @@ alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
 alias ac-url 'clear; ac; npm run -s url'
-alias ac-shell 'ac; ac-url; fish'
+alias ac-shell 'ac; ac-url; ac-tunnel; fish'
 alias ac-redis 'clear; ac; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; ac; npm run -s servers; cd nanos; env nogreet=true fish'
 alias ac-chat 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
-alias ac-tunnel 'clear; ac; npm run tunnel; fish'
+alias ac-tunnel 'ac; npm run tunnel; fish'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 

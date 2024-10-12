@@ -1309,7 +1309,8 @@ async function halt($, text) {
   } else if (text === "local" || text.startsWith("local")) {
     const param = text.replace("local", "").trim().replaceAll(" ", "~");
     const slug = param.length > 0 ? `/${param}` : "";
-    jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
+    jump("https://local.aesthetic.computer" + slug); // Go to the ngrok dev server, passing any params as a piece.
+    // jump("https://localhost:8888" + slug); // Go to the local dev server, passing any params as a piece.
     makeFlash($);
     return true;
   } else if (text.split(" ")[0] === "of") {
