@@ -6,7 +6,11 @@
   *** Mobile ***
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
-  - [] Get local style edits running, maybe through ngrok?
+  - [] Tap and hold cookie shouldn't show context menu.
+  - [] Backdrop under page editor should not cut off on Safari.
+  - [] Tap and drag on a button shouldn't scroll the whole browser on iOS.
+       (Similar to Aesthetic Computer)
+  - [] Pink circle flicker still present.
   - [] Autoscroll text entry on iOS.
 
   *** 🖨️ Typography & Design ***
@@ -51,6 +55,8 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Get local style edits running, maybe through ngrok.
+    - [p] Should ngrok appear automatically?
   - [x] Get flourishes to show up on iOS.
   - [x] Pink cookie shouldn't show up after.
   - [x] Fix drop shadows on buttons. 
