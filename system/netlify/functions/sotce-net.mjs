@@ -1916,11 +1916,6 @@ export const handler = async (event, context) => {
                   const words = cel("textarea");
                   const wordsWrapper = cel("div");
 
-                  // Prevent "::active" state after defocus on iOS.
-                  words.addEventListener("focusout", () => {
-                    words.blur();
-                  });
-
                   words.value = page.words; // Add words from existing draft.
 
                   wordsWrapper.id = "words-wrapper";
@@ -2046,6 +2041,10 @@ export const handler = async (event, context) => {
                     });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
+                    wordsWrapper.style.pointerEvents = "none";
+                    setTimeout(() => {
+                      wordsWrapper.style.pointerEvents = "auto";
+                    }, 10); // A short delay to reset the hover state
                   });
 
                   window.addEventListener("resize", updateLineCount);
