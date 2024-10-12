@@ -37,6 +37,9 @@
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
 
+  *** Editing ***
+  - [] Autoscroll text entry on iOS.
+
   *** 🛂 Page Controls ***
   - [] Print 🖨️ CSS
   - [] Automatic Dark Theme
@@ -2053,10 +2056,6 @@ export const handler = async (event, context) => {
                     });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
-                    wordsWrapper.style.pointerEvents = "none";
-                    setTimeout(() => {
-                      wordsWrapper.style.pointerEvents = "auto";
-                    }, 10); // A short delay to reset the hover state
                   });
 
                   window.addEventListener("resize", updateLineCount);
