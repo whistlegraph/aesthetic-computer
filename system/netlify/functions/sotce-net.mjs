@@ -4,9 +4,6 @@
 /* #region 🟢 TODO 
 
   *** Mobile ***
-
-  - [] Pink cookie shouldn't show up after.
-
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
   - [] Get local style edits running.
@@ -52,6 +49,7 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Pink cookie shouldn't show up after.
   - [x] Fix drop shadows on buttons. 
   - [x] Remove tap highlight from pink cookie.
   *** 📊 Statistics ***
@@ -537,6 +535,9 @@ export const handler = async (event, context) => {
               /* background: rgb(240, 240, 240); */
               /* border-color: rgb(40, 40, 200); */
             }
+            button#publish {
+              font-weight: normal;
+            }
             nav button.positive {
               background: rgb(203, 238, 161);
               border-color: rgb(114, 203, 80);
@@ -557,10 +558,18 @@ export const handler = async (event, context) => {
             nav button.negative:active {
               background: rgb(255, 161, 186);
             }
+
             #garden {
               box-sizing: border-box;
               width: 100%;
+              transition: 0.15s opacity;
+              opacity: 1;
             }
+
+            #garden.faded {
+              opacity: 0;
+            }
+
             #nopages {
               position: fixed;
               top: 0;
@@ -1907,6 +1916,11 @@ export const handler = async (event, context) => {
                   const words = cel("textarea");
                   const wordsWrapper = cel("div");
 
+                  // Prevent "::active" state after defocus on iOS.
+                  words.addEventListener("focusout", () => {
+                    words.blur();
+                  });
+
                   words.value = page.words; // Add words from existing draft.
 
                   wordsWrapper.id = "words-wrapper";
@@ -2044,6 +2058,7 @@ export const handler = async (event, context) => {
                   submit.type = "submit";
                   submit.setAttribute("form", form.id);
                   submit.innerText = "publish";
+                  submit.id = "publish";
                   submit.classList.add("positive");
 
                   const keep = cel("button");
@@ -2600,44 +2615,47 @@ export const handler = async (event, context) => {
               if (showGate) curtainCookie.classList.add("interactive");
 
               cookieImg.onload = function () {
-                setTimeout(function () {
-                  document.getElementById("garden")?.remove(); // Remove old gardens.
-                  const observer = new MutationObserver(
-                    (mutationsList, observer) => {
-                      for (let mutation of mutationsList) {
-                        if (
-                          mutation.type === "childList" &&
-                          mutation.addedNodes.length > 0
-                        ) {
-                          const checkWidthSettled = (previousWidth) => {
-                            const currentWidth = parseInt(
-                              window.getComputedStyle(wrapper).width,
-                            );
-                            if (
-                              currentWidth !== previousWidth ||
-                              g.scrollHeight > 0
-                            ) {
-                              computePageLayout?.();
-                            } else {
-                              requestAnimationFrame(() =>
-                                checkWidthSettled(currentWidth),
-                              );
-                            }
-                          };
-                          requestAnimationFrame(() =>
-                            checkWidthSettled(
-                              parseInt(window.getComputedStyle(wrapper).width),
-                            ),
+                document.getElementById("garden")?.remove(); // Remove old gardens.
+                const observer = new MutationObserver(
+                  (mutationsList, observer) => {
+                    for (let mutation of mutationsList) {
+                      if (
+                        mutation.type === "childList" &&
+                        mutation.addedNodes.length > 0
+                      ) {
+                        const checkWidthSettled = (previousWidth) => {
+                          const currentWidth = parseInt(
+                            window.getComputedStyle(wrapper).width,
                           );
-                          observer.disconnect();
-                          break;
-                        }
+                          if (
+                            currentWidth !== previousWidth ||
+                            g.scrollHeight > 0
+                          ) {
+                            computePageLayout?.();
+                            setTimeout(() => {
+                              g.classList.remove("faded");
+                            }, 100);
+                          } else {
+                            requestAnimationFrame(() =>
+                              checkWidthSettled(currentWidth),
+                            );
+                          }
+                        };
+                        requestAnimationFrame(() =>
+                          checkWidthSettled(
+                            parseInt(window.getComputedStyle(wrapper).width),
+                          ),
+                        );
+                        observer.disconnect();
+                        break;
                       }
-                    },
-                  );
-                  observer.observe(wrapper, { childList: true });
-                  wrapper.appendChild(g);
-                }, 100);
+                    }
+                  },
+                );
+                observer.observe(wrapper, { childList: true });
+
+                g.classList.add("faded");
+                wrapper.appendChild(g);
               };
 
               return g;
