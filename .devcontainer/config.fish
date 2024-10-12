@@ -99,7 +99,7 @@ function aesthetic
         sleep 1
         clear
     end
-    rm /home/me/.waiter
+    sudo rm /home/me/.waiter
     # todo: 
     # kill redis if it exists
     # kill any node instances that are running 
@@ -132,6 +132,7 @@ alias ac-redis 'clear; ac; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; ac; npm run -s servers; cd nanos; env nogreet=true fish'
 alias ac-chat 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
+alias ac-tunnel 'clear; ac; npm run tunnel; fish'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
