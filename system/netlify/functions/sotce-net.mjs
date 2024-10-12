@@ -6,13 +6,14 @@
   *** Mobile ***
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
-  - [] Get flourishes to show up in iOS / Safari.
+  - [] Get local style edits running, maybe through ngrok?
+  - [] Autoscroll text entry on iOS.
 
   *** 🖨️ Typography & Design ***
   - [] Choose new font.
   - [] Finalize page look.
 
-  ** First Page **8
+  *** First Page ***
   - [🟠] Have @amelia write her first page and then turn on the feed.
 
   - [] --- 🏁 Launch 🏁 ---
@@ -50,6 +51,7 @@
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Get flourishes to show up on iOS.
   - [x] Pink cookie shouldn't show up after.
   - [x] Fix drop shadows on buttons. 
   - [x] Remove tap highlight from pink cookie.
@@ -660,6 +662,17 @@ export const handler = async (event, context) => {
             .page *::selection {
               background-color: var(--button-background-highlight);
               /* color: black; */
+            }
+
+            @font-face {
+              font-family: "Wingdings-2";
+              src: url("${assetPath}Wingdings 2.ttf") format("truetype");
+              font-weight: normal;
+              font-style: normal;
+            }
+
+            .fleuron {
+              font-family: "Wingdings-2";
             }
 
             #garden div.page-wrapper {
@@ -2074,8 +2087,10 @@ export const handler = async (event, context) => {
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
-                  pageNumber.innerText =
-                    "🙛 " + (subscription.pages.length + 1) + " 🙙";
+                  pageNumber.innerHTML =
+                    "<span class='fleuron'>h</span> " +
+                    (subscription.pages.length + 1) +
+                    " <span class='fleuron'>g</span>";
 
                   editorPage.appendChild(pageTitle);
                   editorPage.appendChild(pageNumber);
@@ -2272,7 +2287,10 @@ export const handler = async (event, context) => {
 
                   const pageNumber = cel("div");
                   pageNumber.classList.add("page-number");
-                  pageNumber.innerText = "🙛 " + (index + 1) + " 🙙";
+                  pageNumber.innerHTML =
+                    "<span class='fleuron'>h</span> " +
+                    (index + 1) +
+                    " <span class='fleuron'>g</span>";
 
                   const ear = cel("div");
                   ear.classList.add("ear");
