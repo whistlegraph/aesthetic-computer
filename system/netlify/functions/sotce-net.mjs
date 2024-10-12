@@ -6,9 +6,7 @@
   *** Mobile ***
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
-  - [] Get local style edits running.
-  - [] Get flourishes to show up on iOS.
-  - [] Autoscroll text entry on iOS.
+  - [] Get flourishes to show up in iOS / Safari.
 
   *** 🖨️ Typography & Design ***
   - [] Choose new font.
@@ -36,6 +34,9 @@
 
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
+
+  *** Editing ***
+  - [] Autoscroll text entry on iOS.
 
   *** 🛂 Page Controls ***
   - [] Print 🖨️ CSS
@@ -2041,10 +2042,6 @@ export const handler = async (event, context) => {
                     });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
-                    wordsWrapper.style.pointerEvents = "none";
-                    setTimeout(() => {
-                      wordsWrapper.style.pointerEvents = "auto";
-                    }, 10); // A short delay to reset the hover state
                   });
 
                   window.addEventListener("resize", updateLineCount);
