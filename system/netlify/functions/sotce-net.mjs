@@ -425,6 +425,8 @@ export const handler = async (event, context) => {
               user-select: none;
               -webkit-user-select: none;
               filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
+              user-drag: none;
+              -webkit-user-drag: none;
             }
             #gate #cookie.interactive {
               cursor: pointer;
