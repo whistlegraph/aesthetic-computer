@@ -483,7 +483,8 @@ export const handler = async (event, context) => {
               -webkit-tap-highlight-color: transparent;
               touch-action: manipulation;
             }
-            a, textarea {
+            a,
+            textarea {
               -webkit-tap-highlight-color: transparent;
             }
             #write-a-page {
@@ -522,11 +523,11 @@ export const handler = async (event, context) => {
             }
             nav button:active,
             #write-a-page:active {
-              filter: drop-shadow(
+              filter: none; /* drop-shadow(
                 -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
-              );
+              ); */
               background: rgb(255, 248, 165);
-              transform: translate(-1px, 1px);
+              transform: translate(-2px, 2px);
             }
             #write-a-page {
               /* background: rgb(240, 240, 240); */
@@ -1214,6 +1215,9 @@ export const handler = async (event, context) => {
             const { round, abs, floor, ceil, min, max } = Math;
 
             // 🌠 Initialization
+
+            // Enable ':active' class on iOS Safari.
+            document.addEventListener("touchstart", function () {}, false);
 
             function adjustFontSize() {
               const fontSizeInPx = 16;
