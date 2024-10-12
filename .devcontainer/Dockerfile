@@ -84,10 +84,11 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
 #       and subsequently building from source;
 # RUN dnf copr enable atim/websocat -y && sudo dnf install -y websocat
 
-# Download and install ngrok
-# RUN curl -Lo /tmp/ngrok.tgz https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz && \
-#     tar xvzf /tmp/ngrok.tgz -C /usr/local/bin && \
-#     rm /tmp/ngrok.tgz
+# Download and install ngrok from the specified URL
+RUN curl -s https://assets.aesthetic.computer/dev/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz && \
+    tar -xzf ngrok.tgz && \
+    mv ngrok /usr/local/bin/ && \
+    rm ngrok.tgz
 
 # Switch to current user.
 USER me

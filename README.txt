@@ -38,6 +38,9 @@ but technically agnostic. (Choose your aesthetic!)
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
 
+*** emacs tabs ***
+ - [] add 'tunnel' ngrok emacs tab and rename source to code
+
 *** vscode.dev ***
  - [-] fix vscode.dev extension error related to importing path and
       typeof window === "undefined
