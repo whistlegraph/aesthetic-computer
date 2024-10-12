@@ -6,6 +6,7 @@
   *** Mobile ***
   - Editor
   - [🟠] Fix focus textfield bugs on touch / iOS.
+  - [] Tapping and dragging a button shouldn't scroll the page. 
   - [] Tap and hold cookie shouldn't show context menu.
   - [] Backdrop under page editor should not cut off on Safari.
   - [] Tap and drag on a button shouldn't scroll the whole browser on iOS.
