@@ -68,5 +68,5 @@
     //    "linux/amd64"
   ],
   "postStartCommand": ["fish", "/entry.fish"],
-  "postAttachCommand": "touch /home/me/.waiter"
+  "postAttachCommand": "sudo touch /home/me/.waiter && sudo chmod 777 /home/me/.waiter && sudo chmod +w /home/me"
 }
