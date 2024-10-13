@@ -3677,8 +3677,8 @@ export const handler = async (event, context) => {
       // Add a 'handle' field to each touch record.
       const handles = [];
       for (const [index, touch] of pageTouches.entries()) {
-        if (touch.user === user.sub) continue;
-        handle = await handleFor(touch.user); // Cross-network handle request.
+        // if (touch.user === user.sub) continue;
+        handle = await handleFor(touch.user, "sotce"); // Cross-network handle request.
         if (handle) {
           handles.push("@" + handle);
         } // else {
