@@ -2972,6 +2972,7 @@ export const handler = async (event, context) => {
 
             if (!fullAlert) {
               if (!isAuthenticated) {
+                // TODO: Get subscriber count fetch here.
                 await spinnerPass(
                   async () =>
                     await gate(/* !dev ? "coming-soon" : */ "logged-out"),
