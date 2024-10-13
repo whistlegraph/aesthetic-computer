@@ -32,6 +32,9 @@
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
 
+  *** Firefox **8
+  - [] Test the full site interactions in Firefox.
+
   *** Editing ***
   - [] Autoscroll text entry on iOS.
 
