@@ -1,0 +1,24 @@
+<!-- Serves aesthetic.computer an environment with no internet. -->
+<!-- Run a static http server on the public folder... or just try opening it? -->
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Aesthetic Computer</title>
+  <!-- <link rel="icon" href="${icon}" type="image/png" /> -->
+  <!-- <link rel="manifest" href="/manifest.json"> -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- <meta name="description" content="${encode(desc)}" /> -->
+  <script src="aesthetic.computer/boot.mjs" type="module" defer></script>
+  <link rel="stylesheet" href="aesthetic.computer/style.css" />
+</head>
+
+<body class="native-cursor">
+  <div id="console" class="hidden">booting...</div>
+  <script>
+    if (window.self !== window.top) document.body.classList.add("embed");
+  </script>
+</body>
+
+</html>
