@@ -2,16 +2,14 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  *** 🖨️ Typography & Design ***
+  - [-] Choose consistent page type font and size and make sure it fits initial pages.
 
-  *** Mobile ***
+  *** Annoyances ***
   - [🟠] Prevent Scroll on Touch Down with Buttons
   - [] Tap and hold cookie shouldn't show context menu.
   - [] Autoscroll text entry on iOS.
   - [] Pink circle flicker still present.
-
-  *** 🖨️ Typography & Design ***
-  - [] Choose new font.
-  - [] Finalize page look.
 
   - [-] --- 🏁 Launch 🏁 ---
 
