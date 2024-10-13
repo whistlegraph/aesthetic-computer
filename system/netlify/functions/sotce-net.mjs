@@ -278,8 +278,9 @@ export const handler = async (event, context) => {
       <html lang="en">
         <head>
           <meta charset="utf-8" />
-          <meta name="description" content="for my best thoughts" />
           <title>sotce.net</title>
+          <meta name="description" content="for my best thoughts" />
+          <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
           <meta
             name="viewport"
