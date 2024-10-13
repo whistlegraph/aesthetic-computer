@@ -3095,9 +3095,7 @@ async function load(
         );
       })
       .catch((err) => {
-        console.error("Session connection:", {
-          Error: JSON.parse(err?.message) || err,
-        });
+        console.error("Session connection error:", err);
       });
   }
 

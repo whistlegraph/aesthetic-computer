@@ -128,6 +128,7 @@ alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
 alias ac-url 'clear; ac; npm run -s url'
 alias ac-shell 'ac; ac-url; ac-tunnel; fish'
+alias ac-offline 'ac; cd system/public; http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; ac; npm run -s servers; cd nanos; env nogreet=true fish'

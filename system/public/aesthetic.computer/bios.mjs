@@ -465,19 +465,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function setMetatags(meta) {
     if (meta?.title) {
       document.title = meta.title;
-      document.querySelector('meta[name="og:title"]').content = meta.title;
-      document.querySelector('meta[name="twitter:title"]').content = meta.title;
+      const ogTitle = document.querySelector('meta[name="og:title"]');
+      if (ogTitle) ogTitle.content = meta.title;
+      const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+      if (twitterTitle) twitterTitle.content = meta.title;
     }
     if (meta?.desc) {
-      document.querySelector('meta[name="og:description"]').content = meta.desc;
-      document.querySelector('meta[name="description"]').content = meta.desc;
+      const ogDesc = document.querySelector('meta[name="og:description"]');
+      if (ogDesc) ogDesc.content = meta.desc;
+      const desc = document.querySelector('meta[name="description"]');
+      if (desc) desc.content = meta.desc;
     }
     if (meta?.img?.og) {
-      document.querySelector('meta[name="og:image"]').content = meta.img.og;
+      const ogImg = document.querySelector('meta[name="og:image"]');
+      if (ogImg) ogImg.content = meta.img.og;
     }
     if (meta?.img?.twitter) {
-      document.querySelector('meta[name="twitter:image"]').content =
-        meta.img.twitter;
+      const twitterImg = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImg) twitterImg.content = meta.img.twitter;
     }
 
     const icon = document.querySelector('link[rel="icon"]');
