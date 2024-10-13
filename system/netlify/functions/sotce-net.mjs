@@ -3,30 +3,17 @@
 
 /* #region 🟢 TODO 
 
-
   *** Mobile ***
-  - Editor
-  - [🟠] Fix focus textfield bugs on touch / iOS.
-
-  - [🔴] Prevent Scroll on Touch Down
-
-  - [] Tapping and dragging a button shouldn't scroll the page. 
+  - [🟠] Prevent Scroll on Touch Down with Buttons
   - [] Tap and hold cookie shouldn't show context menu.
-  - [] Backdrop under page editor should not cut off on Safari.
-  - [] Tap and drag on a button shouldn't scroll the whole browser on iOS.
-       (Similar to Aesthetic Computer)
-  - [] Pink circle flicker still present.
   - [] Autoscroll text entry on iOS.
+  - [] Pink circle flicker still present.
 
   *** 🖨️ Typography & Design ***
   - [] Choose new font.
   - [] Finalize page look.
 
-  *** First Page ***
-  - [🟠] Have @amelia write her first page and then turn on the feed.
-
-  - [] --- 🏁 Launch 🏁 ---
-    - [] Test full signup and subscribe flow in production on mobile.
+  - [-] --- 🏁 Launch 🏁 ---
 
   --- ☁️ Post-Launch ☁️ ---
 
@@ -53,13 +40,25 @@
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
   *** Accessibility ***
+    - [] Accurate Tab Index in Modes/ different screens.
+      - [] Login
+      - [] Cookie Menu
+      - [] Editor
     - [] Cleaner Ctrl +/- zoom logic / layout fixes.
     - [] Relational scrolling. 
+  - [] Better routing / slash urls for the editor and cookie-menu.
+    - [] Shouldn't resolve if no access.
   - [] Search / hashtags
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Test full signup and subscribe flow in production on mobile.
+  *** First Page ***
+  - [x] Have @amelia write her first page and then turn on the feed.
+  - [x] Backdrop under page editor should not cut off on Safari.
+  - [x] Fix focus textfield bugs on touch / iOS.
+    - [x] Check scroll up based on drag amount radius.
   - [x] Get local style edits running, maybe through ngrok.
     - [p] Should ngrok appear automatically?
   - [x] Get flourishes to show up on iOS.
@@ -661,7 +660,7 @@ export const handler = async (event, context) => {
               color: red;
             }
 
-            #editor nav {
+            #nav-editor {
               position: fixed;
               bottom: 0;
               left: 0;
@@ -672,6 +671,7 @@ export const handler = async (event, context) => {
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
+              z-index: 5;
             }
 
             .page *::selection {
@@ -786,9 +786,20 @@ export const handler = async (event, context) => {
               left: 0;
               border: none;
               z-index: 4;
-              background: rgba(255, 255, 255, 0.5);
               padding: 0;
               display: flex;
+            }
+
+            #garden #editor::before {
+              content: "";
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              overflow: hidden;
+              background: rgba(255, 255, 255, 0.5);
+              z-index: 0;
             }
 
             #garden #editor #words-wrapper::before {
@@ -2101,6 +2112,13 @@ export const handler = async (event, context) => {
 
                   let down = false;
 
+                  function checkup() {
+                    if (!wordsWrapper.classList.contains("active"))
+                      words.blur();
+                  }
+
+                  window.addEventListener("pointerup", checkup);
+
                   wordsWrapper.addEventListener("pointerenter", () => {
                     wordsWrapper.classList.add("hover");
                   });
@@ -2120,23 +2138,20 @@ export const handler = async (event, context) => {
                     wordsWrapper.classList.add("active");
                     wordsWrapper.classList.remove("hover");
 
-                    window.addEventListener(
-                      "pointermove",
-                      (e) => {
-                        wordsWrapper.classList.remove("active");
-                        wordsWrapper.classList.remove("hover");
-                        window.removeEventListener("pointerup", release);
-                      },
-                      { once: true },
-                    );
+                    // window.addEventListener(
+                    //   "pointermove",
+                    //   (e) => {
+                    //     wordsWrapper.classList.remove("active");
+                    //     wordsWrapper.classList.remove("hover");
+                    //     window.removeEventListener("pointerup", release);
+                    //   },
+                    //   { once: true },
+                    // );
 
                     function release(e) {
                       down = false;
                       if (e.target === wordsWrapper) {
                         words.focus();
-                        const edMeasurement = updateLineCount();
-                        wordsWrapper.classList.remove("invisible");
-                        edMeasurement.classList.add("invisible");
                       }
                       wordsWrapper.classList.remove("active");
                     }
@@ -2153,9 +2168,10 @@ export const handler = async (event, context) => {
                   wordsWrapper.classList.add("invisible");
 
                   words.addEventListener("focus", (e) => {
-                    // console.log(e);
-                    // TODO: Check to see if the element got tab focus.
-                    // e.preventDefault();
+                    const edMeasurement = updateLineCount();
+                    wordsWrapper.classList.remove("invisible");
+                    edMeasurement.classList.add("invisible");
+                    window.scrollTo(0, 0);
                   });
 
                   words.addEventListener("blur", () => {
@@ -2164,7 +2180,7 @@ export const handler = async (event, context) => {
                     });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
-                    document.body.focus();
+                    // document.body.focus();
                   });
 
                   window.addEventListener("resize", updateLineCount);
@@ -2223,10 +2239,12 @@ export const handler = async (event, context) => {
                   function close() {
                     document.body.classList.remove("pages-hidden");
                     editor.remove();
+                    nav.remove();
                     writeButton.classList.remove("deactivated");
                     document.body.scrollTop = scrollMemory;
                     computePageLayout?.();
                     window.removeEventListener("resize", updateLineCount);
+                    window.removeEventListener("pointerup", checkup);
                   }
 
                   keep.onclick = async (e) => {
@@ -2299,7 +2317,7 @@ export const handler = async (event, context) => {
 
                   editor.appendChild(form);
                   editor.appendChild(linesLeft);
-                  editor.appendChild(nav);
+                  g.appendChild(nav);
 
                   unveil({ instant: true });
                   g.appendChild(editor);
@@ -3440,7 +3458,7 @@ export const handler = async (event, context) => {
           page.handle = handle;
         }
 
-        out.pages = isAdmin ? retrievedPages : [];
+        out.pages = retrievedPages; //isAdmin ? retrievedPages : [];
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
