@@ -1025,7 +1025,9 @@ export const handler = async (event, context) => {
               border: 0.1em solid black;
               box-sizing: border-box;
             }
-
+            #garden .page-wrapper .backpage p {
+              margin-top: -0.4em;
+            }
             .crumple-this-page {
               position: absolute;
               bottom: 4.45%;
