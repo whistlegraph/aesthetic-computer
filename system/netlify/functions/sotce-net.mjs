@@ -3678,7 +3678,7 @@ export const handler = async (event, context) => {
       const handles = [];
       for (const [index, touch] of pageTouches.entries()) {
         if (touch.user === user.sub) continue;
-        handle = await handleFor(touch.user, "sotce");
+        handle = await handleFor(touch.user); // Cross-network handle request.
         if (handle) {
           handles.push("@" + handle);
         } // else {
