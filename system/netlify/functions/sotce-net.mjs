@@ -4,25 +4,16 @@
 /* #region 🟢 TODO 
 
   *** Mobile ***
-  - Editor
-  - [🟠] Fix focus textfield bugs on touch / iOS.
-  - [] Tapping and dragging a button shouldn't scroll the page. 
+  - [🟠] Prevent Scroll on Touch Down with Buttons
   - [] Tap and hold cookie shouldn't show context menu.
-  - [] Backdrop under page editor should not cut off on Safari.
-  - [] Tap and drag on a button shouldn't scroll the whole browser on iOS.
-       (Similar to Aesthetic Computer)
-  - [] Pink circle flicker still present.
   - [] Autoscroll text entry on iOS.
+  - [] Pink circle flicker still present.
 
   *** 🖨️ Typography & Design ***
   - [] Choose new font.
   - [] Finalize page look.
 
-  *** First Page ***
-  - [🟠] Have @amelia write her first page and then turn on the feed.
-
-  - [] --- 🏁 Launch 🏁 ---
-    - [] Test full signup and subscribe flow in production on mobile.
+  - [-] --- 🏁 Launch 🏁 ---
 
   --- ☁️ Post-Launch ☁️ ---
 
@@ -41,6 +32,9 @@
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
 
+  *** Firefox **8
+  - [] Test the full site interactions in Firefox.
+
   *** Editing ***
   - [] Autoscroll text entry on iOS.
 
@@ -49,13 +43,25 @@
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
   *** Accessibility ***
+    - [] Accurate Tab Index in Modes/ different screens.
+      - [] Login
+      - [] Cookie Menu
+      - [] Editor
     - [] Cleaner Ctrl +/- zoom logic / layout fixes.
     - [] Relational scrolling. 
+  - [] Better routing / slash urls for the editor and cookie-menu.
+    - [] Shouldn't resolve if no access.
   - [] Search / hashtags
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
 
   + Done
+  - [x] Test full signup and subscribe flow in production on mobile.
+  *** First Page ***
+  - [x] Have @amelia write her first page and then turn on the feed.
+  - [x] Backdrop under page editor should not cut off on Safari.
+  - [x] Fix focus textfield bugs on touch / iOS.
+    - [x] Check scroll up based on drag amount radius.
   - [x] Get local style edits running, maybe through ngrok.
     - [p] Should ngrok appear automatically?
   - [x] Get flourishes to show up on iOS.
@@ -296,6 +302,10 @@ export const handler = async (event, context) => {
               --backpage-color: rgb(250, 250, 250);
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
+            }
+            html,
+            body {
+              /* scroll-behavior: auto; */
             }
             html {
               /* min-height: 100%; */
@@ -654,7 +664,7 @@ export const handler = async (event, context) => {
               color: red;
             }
 
-            #editor nav {
+            #nav-editor {
               position: fixed;
               bottom: 0;
               left: 0;
@@ -665,6 +675,7 @@ export const handler = async (event, context) => {
               padding-right: 1em;
               box-sizing: border-box;
               display: flex;
+              z-index: 5;
             }
 
             .page *::selection {
@@ -779,9 +790,20 @@ export const handler = async (event, context) => {
               left: 0;
               border: none;
               z-index: 4;
-              background: rgba(255, 255, 255, 0.5);
               padding: 0;
               display: flex;
+            }
+
+            #garden #editor::before {
+              content: "";
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              overflow: hidden;
+              background: rgba(255, 255, 255, 0.5);
+              z-index: 0;
             }
 
             #garden #editor #words-wrapper::before {
@@ -833,20 +855,30 @@ export const handler = async (event, context) => {
               /* z-index: 1; */
             }
 
-            #garden #editor #words-wrapper.invisible:hover {
-              opacity: 1;
-              /* background: rgb(255, 245, 170, 0.5); */
-            }
-
-            #garden #editor #words-wrapper.invisible:hover textarea {
+            #garden #editor #words-wrapper.invisible textarea {
               opacity: 0;
             }
 
-            #garden #editor #words-wrapper.invisible:hover::before {
+            #garden #editor #words-wrapper.invisible.hover {
+              background: rgb(255, 245, 170, 0.25);
+              cursor: text;
+            }
+
+            #garden #editor #words-wrapper.invisible.active {
+              background: rgb(255, 150, 150, 0.125);
+              cursor: text;
+            }
+
+            #garden #editor #words-wrapper.invisible:before,
+            #garden #editor #words-wrapper.invisible:after {
+              opacity: 0;
+            }
+
+            #garden #editor #words-wrapper.invisible.hover::before {
               display: none;
             }
 
-            #garden #editor #words-wrapper.invisible:hover::after {
+            #garden #editor #words-wrapper.invisible.hover::after {
               display: block;
               content: "";
               position: absolute;
@@ -857,14 +889,35 @@ export const handler = async (event, context) => {
               background: rgb(255, 245, 170, 0.5);
               pointer-events: none;
               z-index: 0;
+              opacity: 1;
+            }
+
+            #garden #editor #words-wrapper.invisible.active::after {
+              display: block;
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 2em;
+              width: calc(100% - 4em);
+              height: 100%;
+              background: rgb(255, 255, 150, 0.6);
+              pointer-events: none;
+              z-index: 0;
+              opacity: 1;
             }
 
             #garden #editor #words-wrapper {
               position: relative;
+              touch-action: manipulation;
+            }
+
+            #garden #editor textarea {
+              pointer-events: none;
             }
 
             #garden #editor textarea:focus {
               outline: none;
+              pointer-events: all;
             }
 
             /* 🐕 Doggy Ear Rendering */
@@ -1157,7 +1210,7 @@ export const handler = async (event, context) => {
             #prompt:hover {
               color: rgb(180, 72, 135);
             }
-            .invisible {
+            #editor-measurement.invisible {
               opacity: 0;
               /* visibility: hidden; */
             }
@@ -1909,11 +1962,13 @@ export const handler = async (event, context) => {
                     // window.location.reload();
                   } else {
                     console.error("🪧 Draft:", res);
+                    unveil({ instant: true });
                     alert("📄 Could not start a page.");
                     return;
                   }
 
                   if (!page) {
+                    unveil({ instant: true });
                     alert("📄 Could not start a page.");
                     return;
                   }
@@ -2049,12 +2104,78 @@ export const handler = async (event, context) => {
 
                   words.addEventListener("input", updateLineCount);
 
+                  wordsWrapper.addEventListener(
+                    "touchmove",
+                    (event) => {
+                      if (wordsWrapper.classList.contains("invisible")) {
+                        event.preventDefault();
+                      }
+                    },
+                    false,
+                  );
+
+                  let down = false;
+
+                  function checkup() {
+                    if (!wordsWrapper.classList.contains("active"))
+                      words.blur();
+                  }
+
+                  window.addEventListener("pointerup", checkup);
+
+                  wordsWrapper.addEventListener("pointerenter", () => {
+                    wordsWrapper.classList.add("hover");
+                  });
+
+                  wordsWrapper.addEventListener("pointerleave", () => {
+                    wordsWrapper.classList.remove("hover");
+                  });
+
+                  wordsWrapper.addEventListener("pointermove", () => {
+                    if (down) return;
+                    wordsWrapper.classList.add("hover");
+                  });
+
+                  wordsWrapper.addEventListener("pointerdown", () => {
+                    if (!wordsWrapper.classList.contains("hover")) return;
+                    down = true;
+                    wordsWrapper.classList.add("active");
+                    wordsWrapper.classList.remove("hover");
+
+                    // window.addEventListener(
+                    //   "pointermove",
+                    //   (e) => {
+                    //     wordsWrapper.classList.remove("active");
+                    //     wordsWrapper.classList.remove("hover");
+                    //     window.removeEventListener("pointerup", release);
+                    //   },
+                    //   { once: true },
+                    // );
+
+                    function release(e) {
+                      down = false;
+                      if (e.target === wordsWrapper) {
+                        words.focus();
+                      }
+                      wordsWrapper.classList.remove("active");
+                    }
+
+                    window.addEventListener("pointerup", release, {
+                      once: true,
+                    });
+
+                    window.addEventListener("pointerup", () => (down = false), {
+                      once: true,
+                    });
+                  });
+
                   wordsWrapper.classList.add("invisible");
 
-                  words.addEventListener("focus", () => {
+                  words.addEventListener("focus", (e) => {
                     const edMeasurement = updateLineCount();
                     wordsWrapper.classList.remove("invisible");
                     edMeasurement.classList.add("invisible");
+                    window.scrollTo(0, 0);
                   });
 
                   words.addEventListener("blur", () => {
@@ -2063,6 +2184,7 @@ export const handler = async (event, context) => {
                     });
                     wordsWrapper.classList.add("invisible");
                     edMeasurement.classList.remove("invisible");
+                    // document.body.focus();
                   });
 
                   window.addEventListener("resize", updateLineCount);
@@ -2121,10 +2243,12 @@ export const handler = async (event, context) => {
                   function close() {
                     document.body.classList.remove("pages-hidden");
                     editor.remove();
+                    nav.remove();
                     writeButton.classList.remove("deactivated");
                     document.body.scrollTop = scrollMemory;
                     computePageLayout?.();
                     window.removeEventListener("resize", updateLineCount);
+                    window.removeEventListener("pointerup", checkup);
                   }
 
                   keep.onclick = async (e) => {
@@ -2197,7 +2321,7 @@ export const handler = async (event, context) => {
 
                   editor.appendChild(form);
                   editor.appendChild(linesLeft);
-                  editor.appendChild(nav);
+                  g.appendChild(nav);
 
                   unveil({ instant: true });
                   g.appendChild(editor);
@@ -2215,9 +2339,9 @@ export const handler = async (event, context) => {
                   //   passive: false,
                   // });
 
-                  observeAdd(words, () => {
-                    words.focus(); // Auto-focus on the words element
-                  });
+                  // observeAdd(words, () => {
+                  // words.focus(); // Auto-focus on the words element
+                  // });
                 };
 
                 if (WRITING_A_PAGE) {
@@ -3338,7 +3462,7 @@ export const handler = async (event, context) => {
           page.handle = handle;
         }
 
-        out.pages = isAdmin ? retrievedPages : [];
+        out.pages = retrievedPages; //isAdmin ? retrievedPages : [];
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
@@ -3794,7 +3918,11 @@ const reloadScript = html`
       clearInterval(reconnectInterval);
       let ws;
       try {
-        ws = new WebSocket("wss://localhost:8889");
+        let connectionUrl = "wss://localhost:8889";
+        if (window.location.host === "local.aesthetic.computer") {
+          connectionUrl = "wss://session.local.aesthetic.computer";
+        }
+        ws = new WebSocket(connectionUrl);
       } catch {
         console.warn("🧦 Connection failed.");
         return;
