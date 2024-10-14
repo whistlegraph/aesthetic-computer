@@ -6,6 +6,7 @@ import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
 import { email } from "../../backend/email.mjs";
 import { connect } from "../../backend/database.mjs";
+import * as KeyValue from "../../backend/kv.mjs";
 import {
   productId as sotceNetProductId,
   SOTCE_NET_SMTP_PASS,
@@ -123,6 +124,7 @@ export async function handler(event, context) {
     // ↪️ Stripe Webhook Events
     //   ✅ charge.succeeded
     //   ✅ payment_intent.succeeded
+    //   🔴 TODO: subscription cancelled? - use it to clear redis subscriber cache 24.10.14.01.21
 
     let prodSecret, devSecret, key;
     // TODO: How to know here if sotce or not?
@@ -153,8 +155,9 @@ export async function handler(event, context) {
       // console.log("💳 Charge succeeded:", chargeObject);
 
       let emailAddress = chargeObject.receipt_email;
+      let customer;
       if (!emailAddress) {
-        const customer = await stripe.customers.retrieve(chargeObject.customer);
+        customer = await stripe.customers.retrieve(chargeObject.customer);
         emailAddress = customer.email;
       }
 
@@ -169,6 +172,7 @@ export async function handler(event, context) {
 
       if (productId === sotceNetProductId) {
         console.log("🟢 Product is `sotce-net`.");
+        console.log("🟢 Customer is:", customer);
         if (invoice.subscription) {
           const subscription = await stripe.subscriptions.retrieve(
             invoice.subscription,
@@ -182,6 +186,25 @@ export async function handler(event, context) {
             if (billingReason === "subscription_create") {
               console.log("🟢 New `sotce-net` subscription.");
               newSubscriber = true;
+
+              // Cache this subscriber in redis with an expiration
+              // and a user sub from the customer metadata. 24.10.14.00.42
+              await KeyValue.connect();
+              if (!customer) {
+                customer = await stripe.customers.retrieve(
+                  chargeObject.customer,
+                );
+              }
+              console.log(
+                "Adding customer metadata to redis:",
+                customer.metadata,
+              );
+              await KeyValue.set(
+                "sotce-subscribed",
+                customer.metadata.sub,
+                JSON.stringify(subscription),
+              );
+              await KeyValue.disconnect();
             } else if (billingReason === "subscription_cycle") {
               console.log("🟢 Recurring `sotce-net` subscription.");
               // newSubscriber = false; // Don't send monthly receipt emails.
