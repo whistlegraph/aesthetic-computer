@@ -124,7 +124,7 @@ export async function handler(event, context) {
     // ↪️ Stripe Webhook Events
     //   ✅ charge.succeeded
     //   ✅ payment_intent.succeeded
-    //   🔴 TODO: subscription cancelled? - use it to clear redis subscriber cache 24.10.14.01.21
+    //   ✅ customer.subscription.updated
 
     let prodSecret, devSecret, key;
     // TODO: How to know here if sotce or not?
@@ -196,13 +196,16 @@ export async function handler(event, context) {
                 );
               }
               console.log(
-                "Adding customer metadata to redis:",
+                "Adding subscription to redis for customer:",
                 customer.metadata,
               );
               await KeyValue.set(
                 "sotce-subscribed",
                 customer.metadata.sub,
-                JSON.stringify(subscription),
+                JSON.stringify({
+                  status: subscription.status,
+                  current_period_end: subscription.current_period_end,
+                }),
               );
               await KeyValue.disconnect();
             } else if (billingReason === "subscription_cycle") {
@@ -284,6 +287,44 @@ export async function handler(event, context) {
 
         const emailSent = await email(emailOptions);
         console.log("📧 Email sent:", emailSent);
+      }
+    } else if (hookEvent.type === "customer.subscription.updated") {
+      // Delete the KeyValue sotce-net cache if the subscription is no longer
+      // active after a record update.
+
+      const subscription = hookEvent.data.object;
+
+      // Retrieve the invoice to get the product information
+      const invoice = await stripe.invoices.retrieve(
+        subscription.latest_invoice,
+      );
+      const productId = invoice.lines.data[0].price.product;
+
+      if (productId === sotceNetProductId) {
+        console.log("🟢 Subscription update for `sotce-net`.");
+
+        // Check if the subscription is not active
+        if (subscription.status !== "active") {
+          const customer = await stripe.customers.retrieve(
+            subscription.customer,
+          );
+          const customerSub = customer.metadata.sub;
+
+          console.log(
+            "🔴 Subscription is not active, deleting record from Redis for customer:",
+            customer.metadata,
+          );
+
+          if (customerSub) {
+            await KeyValue.connect();
+            await KeyValue.del("sotce-subscribed", customerSub);
+            await KeyValue.disconnect();
+          }
+        } else {
+          console.log("🟢 Subscription is active, no action needed.");
+        }
+      } else {
+        console.log("🔴 Subscription update is not for `sotce-net`.");
       }
     }
 
