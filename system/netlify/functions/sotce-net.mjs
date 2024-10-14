@@ -3,6 +3,9 @@
 
 /* #region 🟢 TODO 
   - [🟠] Play more with typography and page layout.
+    - [-] Choose a better 18 line font.
+
+  - [] Get corner tap interface correct on touch screens.
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
