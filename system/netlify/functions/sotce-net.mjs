@@ -2,11 +2,8 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  *** 🖨️ Typography & Design ***
-  - [x] --- 🏁 Launch 🏁 ---
+  - [🟠] Play more with typography and page layout.
 
-  --- ☁️ Post-Launch ☁️ ---
-  
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
     - [] make an 'eblast' endpoint for this
@@ -46,6 +43,7 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] --- 🏁 Launch 🏁 ---
   - [x] Preload the Wingdings font so it appears with no flah in the editor.
   - [c] Total subscriptions should only be calculated once a day on demand?
   - [x] Better loading with spinner while logged out.
@@ -632,11 +630,22 @@ export const handler = async (event, context) => {
               width: 100%;
               background: linear-gradient(
                 to bottom,
-                rgba(255, 230, 225, 1) 25%,
+                var(--background-color) 25%,
                 transparent 100%
               );
               z-index: 3;
               height: 72px;
+            }
+
+            #garden #top-bar::before {
+              content: '';
+              position: fixed;
+              top: -300%;
+              left: 0;
+              width: 100%;
+              height: 300%;
+              background: var(--background-color);
+              z-index: 2;
             }
 
             #nav-editor {
@@ -864,8 +873,8 @@ export const handler = async (event, context) => {
               text-align: justify;
               /* text-align-last: justify; */
               line-height: var(--line-height);
-              /* margin-top: 15%; */
-              margin-top: 14.5%;
+              margin-top: 15%;
+              /* margin-top: 14.5%; */
               max-height: calc(var(--line-height) * 19);
               overflow: hidden;
               padding: 0 2em;
@@ -945,8 +954,8 @@ export const handler = async (event, context) => {
               resize: none;
               display: block;
               background: rgb(255, 250, 250);
-              /* margin-top: 15%; */
-              margin-top: 14.5%;
+              margin-top: 15%;
+              /* margin-top: 14.5%; */
               padding: 0 2em;
               text-indent: 0em;
               text-align: justify;
