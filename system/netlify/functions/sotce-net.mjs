@@ -356,6 +356,13 @@ export const handler = async (event, context) => {
             type="font/ttf"
             crossorigin="anonymous"
           />
+          <link
+            rel="preload"
+            href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap"
+            as="font"
+            type="font/woff2"
+            crossorigin="anonymous"
+          />
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -638,7 +645,7 @@ export const handler = async (event, context) => {
             }
 
             #garden #top-bar::before {
-              content: '';
+              content: "";
               position: fixed;
               top: -300%;
               left: 0;
