@@ -3,18 +3,39 @@
 
 /* #region 🟢 TODO 
   *** 🖨️ Typography & Design ***
-  - [-] Choose consistent page type font and size and make sure it fits initial pages.
+  - [🟠] Choose consistent page type font and size and make sure it fits initial
+        pages from @amelia.
+    - [] And contains all of the page 1 text.
+    - [] Use a font from Google Fonts to prototype.
+    - [] Preload the Wingdings font so it appears with no flah in the editor.
+
+  *** Speed Up ***
+  - [🟪] Store subscription information in redis, and delete it with an expiration
+       that matches the subscription renew date.
+       - [x] Cache in 'subscribed' function.
+       - [] And cache in ticket.js payment confirmation (speed up first time).
+          // await KeyValue.del("sotce-subscribed", user.sub);
+          // await KeyValue.set(
+          //   "sotce-subscribed",
+          //   user.sub,
+          //   JSON.stringify(subscription),
+          // );
+
+  - [🔵] When cancelling a subscription pick up the event in stripe and remove it
+       from the redis cache.
+
+    - [] A new API hook may need to be added to `ticket` for this to work.
+
+  - [~] Total subscriptions should only be calculated once a day on demand.
 
   *** Annoyances ***
-  - [🟠] Prevent Scroll on Touch Down with Buttons
-  - [] Tap and hold cookie shouldn't show context menu.
-  - [] Autoscroll text entry on iOS.
-  - [] Pink circle flicker still present.
+  - [?] Pink circle flicker still present.
+  - [?] Tap and hold cookie shouldn't show context menu.
 
   - [-] --- 🏁 Launch 🏁 ---
 
   --- ☁️ Post-Launch ☁️ ---
-
+  
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
 
@@ -41,19 +62,20 @@
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
   *** Accessibility ***
-    - [] Accurate Tab Index in Modes/ different screens.
-      - [] Login
-      - [] Cookie Menu
-      - [] Editor
-    - [] Cleaner Ctrl +/- zoom logic / layout fixes.
-    - [] Relational scrolling. 
+  - [] Autoscroll text entry on iOS.
+  - [] Accurate Tab Index in Modes/ different screens.
+    - [] Login
+    - [] Cookie Menu
+    - [] Editor
+  - [] Cleaner Ctrl +/- zoom logic / layout fixes.
+  - [] Relational scrolling. 
   - [] Better routing / slash urls for the editor and cookie-menu.
     - [] Shouldn't resolve if no access.
   - [] Search / hashtags
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
-
   + Done
+  - [x] Show spinner while logged out / no blanking.
   - [x] Test full signup and subscribe flow in production on mobile.
   *** First Page ***
   - [x] Have @amelia write her first page and then turn on the feed.
@@ -210,8 +232,34 @@ export const handler = async (event, context) => {
     : "https://assets.aesthetic.computer/sotce-net/";
 
   // Check to see if a user sub is subscribed.
+
   async function subscribed(user) {
+    // TODO: 🟠 Add redis caching in here.
     try {
+      // 🩷 First look to see if we have a subscribed entry in the redis cache.
+
+      await KeyValue.connect();
+      const cachedSubscription = await KeyValue.get(
+        "sotce-subscribed",
+        user.sub,
+      );
+
+      if (cachedSubscription) {
+        // ⚠️ Can respond with the subscription content here...
+        const parsed = JSON.parse(cachedSubscription);
+        // TODO: Check to see if the time on parses has passed, and if it has
+        //       then invalidate the cache and continue to checking it with Stripe.
+        console.log("Parsed cached subscription:", parsed);
+        let valid = parsed; // parsed.until;
+
+        if (valid) {
+          await KeyValue.disconnect();
+          return parsed;
+        }
+      }
+
+      // 🩷 Then query it from Stripe,
+
       const stripe = Stripe(key);
       // Fetch customer by user ID (sub) from subscription metadata field.
       const customers = await stripe.customers.search({
@@ -228,9 +276,20 @@ export const handler = async (event, context) => {
         limit: 5,
       });
 
-      return subscriptions.data.find((sub) =>
+      const subscription = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
+
+      // 🩷 And serialize it into redis.
+      await KeyValue.set(
+        "sotce-subscribed",
+        user.sub,
+        JSON.stringify(subscription),
+      );
+
+      await KeyValue.disconnect();
+
+      return subscription;
     } catch (err) {
       console.error("Error fetching subscription status:", err);
       return null;
@@ -238,6 +297,7 @@ export const handler = async (event, context) => {
   }
 
   // Get the count of all active subscriptions for the given productId
+  // TODO: Put this behind a redis cache... 24.10.14.01.23
   async function getActiveSubscriptionCount(productId) {
     try {
       const stripe = Stripe(key);
@@ -1136,7 +1196,7 @@ export const handler = async (event, context) => {
               transition: 0.2s ease-out transform;
               /* background-color: var(--pink-border); */
               background-color: var(--spinner-background);
-              mask-image: url("${assetPath}cookie-open.png");
+              /* mask-image: url("${assetPath}cookie-open.png"); */
               /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
               mask-size: cover;
               -webkit-tap-highlight-color: transparent;
@@ -1408,6 +1468,7 @@ export const handler = async (event, context) => {
             const gateElements = {};
             let gating = false;
             let computePageLayout;
+            let SUBSCRIBER_COUNT;
 
             // #region 🥀 gate&garden
             async function gate(status, user, subscription) {
@@ -1424,6 +1485,12 @@ export const handler = async (event, context) => {
               g.id = "gate";
               const img = document.createElement("img");
               img.id = "cookie";
+
+              // Prevent tap and hold on iOS.
+              img.addEventListener("contextmenu", function (e) {
+                e.preventDefault();
+              });
+
               const h1 = document.createElement("h1");
               const h2 = cel("h2");
               const navLow = document.createElement("nav");
@@ -1518,23 +1585,17 @@ export const handler = async (event, context) => {
                   imnewwrap.id = "imnew-wrapper";
                   imnewwrap.appendChild(imnew);
 
-                  try {
-                    const res = await fetch("/sotce-net/subscribers");
-                    const data = await res.json();
+                  if (SUBSCRIBER_COUNT > 0) {
                     let text;
-                    if (data.subscribers > 0) {
-                      if (data.subscribers === 1) {
-                        text = "1 subscriber";
-                      } else {
-                        text = data.subscribers + " subscribers";
-                      }
-                      const subscriberCount = cel("div");
-                      subscriberCount.id = "subscriber-count";
-                      subscriberCount.innerText = text;
-                      imnewwrap.appendChild(subscriberCount);
+                    if (SUBSCRIBER_COUNT === 1) {
+                      text = "1 subscriber";
+                    } else {
+                      text = SUBSCRIBER_COUNT + " subscribers";
                     }
-                  } catch (error) {
-                    console.error("Error fetching subscribers:", error);
+                    const subscriberCount = cel("div");
+                    subscriberCount.id = "subscriber-count";
+                    subscriberCount.innerText = text;
+                    imnewwrap.appendChild(subscriberCount);
                   }
 
                   buttons.push(imnewwrap);
@@ -2760,6 +2821,8 @@ export const handler = async (event, context) => {
 
               if (showGate) curtainCookie.classList.add("interactive");
 
+              cookieMenu.style.maskImage = "url(" + cookieImg.src + ")";
+
               cookieImg.onload = function () {
                 document.getElementById("garden")?.remove(); // Remove old gardens.
                 const observer = new MutationObserver(
@@ -2778,9 +2841,9 @@ export const handler = async (event, context) => {
                             g.scrollHeight > 0
                           ) {
                             computePageLayout?.();
-                            setTimeout(() => {
-                              g.classList.remove("faded");
-                            }, 100);
+                            // setTimeout(() => {
+                            //   g.classList.remove("faded");
+                            // }, 100);
                           } else {
                             requestAnimationFrame(() =>
                               checkWidthSettled(currentWidth),
@@ -2800,7 +2863,7 @@ export const handler = async (event, context) => {
                 );
                 observer.observe(wrapper, { childList: true });
 
-                g.classList.add("faded");
+                // g.classList.add("faded");
                 wrapper.appendChild(g);
               };
 
@@ -2973,7 +3036,16 @@ export const handler = async (event, context) => {
 
             if (!fullAlert) {
               if (!isAuthenticated) {
-                // TODO: Get subscriber count fetch here.
+                // Wait for a subscriber count. if we are logged out.
+                try {
+                  const res = await fetch("/sotce-net/subscribers");
+                  const data = await res.json();
+                  if (data.subscribers >= 0) {
+                    SUBSCRIBER_COUNT = data.subscribers;
+                  }
+                } catch (error) {
+                  console.error("Error fetching subscribers:", error);
+                }
                 await spinnerPass(
                   async () =>
                     await gate(/* !dev ? "coming-soon" : */ "logged-out"),
@@ -3891,6 +3963,11 @@ async function cancelSubscription(user, key) {
     const cancelled = await stripe.subscriptions.update(subscription.id, {
       cancel_at_period_end: true,
     });
+
+    // Clear the redis cache for this subcriber.
+    await KeyValue.connect();
+    await KeyValue.del("sotce-subscribed", user.sub);
+    await KeyValue.disconnect();
 
     result.status = 200;
     result.body = {
