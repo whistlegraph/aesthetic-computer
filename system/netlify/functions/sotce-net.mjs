@@ -2879,6 +2879,7 @@ export const handler = async (event, context) => {
               const cookieImg = cel("img");
               cookieImg.id = "cookie-menu-img";
               cookieImg.src = asset("cookie-open.png");
+              cookieImg.crossOrigin = "anonymous";
               cookieMenuWrapper.appendChild(cookieMenu);
               topBar.appendChild(cookieMenuWrapper);
               topBar.appendChild(cookieImg);
