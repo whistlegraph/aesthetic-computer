@@ -3,47 +3,18 @@
 
 /* #region 🟢 TODO 
   *** 🖨️ Typography & Design ***
-  - [🟠] Choose consistent page type font and size and make sure it fits initial
-        pages from @amelia.
-    - [] And contains all of the page 1 text.
-    - [] Use a font from Google Fonts to prototype.
-    - [] Preload the Wingdings font so it appears with no flah in the editor.
-
-  *** Speed Up ***
-  - [🟪] Store subscription information in redis, and delete it with an expiration
-       that matches the subscription renew date.
-       - [x] Cache in 'subscribed' function.
-       - [] And cache in ticket.js payment confirmation (speed up first time).
-          // await KeyValue.del("sotce-subscribed", user.sub);
-          // await KeyValue.set(
-          //   "sotce-subscribed",
-          //   user.sub,
-          //   JSON.stringify(subscription),
-          // );
-
-  - [🔵] When cancelling a subscription pick up the event in stripe and remove it
-       from the redis cache.
-
-    - [] A new API hook may need to be added to `ticket` for this to work.
-
-  - [~] Total subscriptions should only be calculated once a day on demand.
-
-  *** Annoyances ***
-  - [?] Pink circle flicker still present.
-  - [?] Tap and hold cookie shouldn't show context menu.
-
-  - [-] --- 🏁 Launch 🏁 ---
+  - [x] --- 🏁 Launch 🏁 ---
 
   --- ☁️ Post-Launch ☁️ ---
   
-  *** User Info Rate Limiting ***
-  - [] Try to reduce the authorize() call rate limiting on ac.
-
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
     - [] make an 'eblast' endpoint for this
     - [] add the checkbox under the main page for whether to receive them
          or not
+
+  *** User Info Rate Limiting ***
+  - [] Try to reduce the authorize() call rate limiting on ac.
 
   *** User ***
   - [] add 'bio' text for users. 
@@ -75,9 +46,32 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Preload the Wingdings font so it appears with no flah in the editor.
+  - [c] Total subscriptions should only be calculated once a day on demand?
+  - [x] Better loading with spinner while logged out.
+  - [x] Tap and hold cookie shouldn't show context menu.
+  *** Speed Up ***
+  - [x] Choose consistent page type font and size and make sure it fits initial
+        pages from @amelia.
+    - [x] And contains all of the page 1 text.
+    - [x] Use a font from Google Fonts to prototype.
+  - [x] When cancelling a subscription pick up the event in stripe and remove it
+       from the redis cache...
+       - [x] Add an event to ticket.
+  - [x] Store subscription information in redis, and delete it with an expiration
+       that matches the subscription renew date.
+       - [x] Cache in 'subscribed' function.
+       - [x] And cache in ticket.js payment confirmation (speed up first time).
+          // await KeyValue.del("sotce-subscribed", user.sub);
+          // await KeyValue.set(
+          //   "sotce-subscribed",
+          //   user.sub,
+          //   JSON.stringify(subscription),
+          // );
   - [x] Show spinner while logged out / no blanking.
   - [x] Test full signup and subscribe flow in production on mobile.
   *** First Page ***
+  - [x] Pink circle flicker still present.
   - [x] Have @amelia write her first page and then turn on the feed.
   - [x] Backdrop under page editor should not cut off on Safari.
   - [x] Fix focus textfield bugs on touch / iOS.
@@ -237,6 +231,7 @@ export const handler = async (event, context) => {
     // TODO: 🟠 Add redis caching in here.
     try {
       // 🩷 First look to see if we have a subscribed entry in the redis cache.
+      shell.log("Checking subscription...", performance.now());
 
       await KeyValue.connect();
       const cachedSubscription = await KeyValue.get(
@@ -245,16 +240,21 @@ export const handler = async (event, context) => {
       );
 
       if (cachedSubscription) {
-        // ⚠️ Can respond with the subscription content here...
         const parsed = JSON.parse(cachedSubscription);
-        // TODO: Check to see if the time on parses has passed, and if it has
-        //       then invalidate the cache and continue to checking it with Stripe.
-        console.log("Parsed cached subscription:", parsed);
-        let valid = parsed; // parsed.until;
+        // Check to see if the time on parses has passed, and if it has
+        // then invalidate the cache and continue to checking it with Stripe.
+        const currentTime = Math.floor(Date.now() / 1000);
+        const subscriptionEndTime = parsed.current_period_end; // Assume unix timestamp.
 
-        if (valid) {
+        if (subscriptionEndTime > currentTime) {
+          shell.log("📰 Subscription active!", performance.now());
           await KeyValue.disconnect();
           return parsed;
+        } else {
+          shell.log(
+            "⌛ Subscription expired, invalidating cache and checking...",
+          );
+          await KeyValue.del("sotce-subscribed", user.sub);
         }
       }
 
@@ -284,14 +284,17 @@ export const handler = async (event, context) => {
       await KeyValue.set(
         "sotce-subscribed",
         user.sub,
-        JSON.stringify(subscription),
+        JSON.stringify({
+          status: subscription.status,
+          current_period_end: subscription.current_period_end,
+        }),
       );
 
       await KeyValue.disconnect();
 
       return subscription;
     } catch (err) {
-      console.error("Error fetching subscription status:", err);
+      shell.error("Error fetching subscription status:", err);
       return null;
     }
   }
@@ -330,7 +333,7 @@ export const handler = async (event, context) => {
 
       return totalSubscriptions;
     } catch (err) {
-      console.error("Error fetching subscription count:", err);
+      shell.error("Error fetching subscription count:", err);
     }
   }
 
@@ -346,11 +349,22 @@ export const handler = async (event, context) => {
           <meta name="description" content="for my best thoughts" />
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
+          <link rel="preload" href="${assetPath}cookie.png" as="image" />
+          <link rel="preload" href="${assetPath}cookie-open.png" as="image" />
+          <link
+            rel="preload"
+            href="${assetPath}Wingdings 2.ttf"
+            as="font"
+            type="font/ttf"
+            crossorigin="anonymous"
+          />
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
           />
           <style>
+            @import url("https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap");
+            /* @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap'); */
             :root {
               --background-color: rgb(255, 230, 225);
               --pink-border: rgb(255, 190, 215);
@@ -360,7 +374,31 @@ export const handler = async (event, context) => {
               --backpage-color: rgb(250, 250, 250);
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
+              --line-height: 1.65em;
+              /* --font-page: serif; */
             }
+
+            #editor-page,
+            #garden article.page,
+            #garden #editor textarea,
+            #garden .page-wrapper .backpage {
+              /* font-family: "Times New Roman", monospace; */
+              font-family: "Lora", serif;
+              /* font-family: "IBM Plex Serif", serif; */
+              /* font-weight: 400; */
+              font-optical-sizing: auto;
+              font-style: normal;
+              /* letter-spacing: 0; */
+              /* word-spacing: 0; */
+            }
+
+            #editor-page,
+            #garden article.page {
+              /* font-size: calc(3.25px * 8); */
+              font-size: 24px; /* works well with "Lora" */
+              /* font-size: calc(2.8px * 8); */
+            }
+
             html,
             body {
               /* scroll-behavior: auto; */
@@ -390,6 +428,9 @@ export const handler = async (event, context) => {
               /* visibility: hidden; */
               /* height: 100vh; */
               /* overflow: hidden; */
+            }
+            .asset {
+              display: none;
             }
             #wrapper {
               display: flex;
@@ -446,7 +487,7 @@ export const handler = async (event, context) => {
             #spinner.showing,
             #veil div.spinner.showing {
               opacity: 1;
-              transition: 0.3s opacity ease-in;
+              transition: 0.1s opacity ease-in;
             }
             @keyframes spinner {
               0% {
@@ -489,6 +530,8 @@ export const handler = async (event, context) => {
               z-index: 1;
               box-sizing: border-box;
               padding: 0em 0.5em 2.25em 0.5em;
+              transition: 0.1s opacity;
+              opacity: 1;
             }
             #gate.coming-soon {
               padding: 0;
@@ -504,17 +547,23 @@ export const handler = async (event, context) => {
               user-select: none;
               -webkit-user-select: none;
               filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
-              user-drag: none;
-              -webkit-user-drag: none;
+              /* user-drag: none; */
+              /* -webkit-user-drag: none; */
+              pointer-events: none;
             }
-            #gate #cookie.interactive {
+            #gate #cookie-wrapper {
+              position: relative;
+              /* z-index: 1000; */
+              z-index: 1;
+            }
+            #gate #cookie-wrapper.interactive {
               cursor: pointer;
               transition: 0.2s ease-out transform;
             }
-            #gate #cookie.interactive:hover {
+            #gate #cookie-wrapper.interactive:hover {
               transform: scale(0.99);
             }
-            #gate #cookie.interactive:active {
+            #gate #cookie-wrapper.interactive:active {
               transform: scale(0.96);
               transition: 0.13s ease-out transform;
             }
@@ -641,11 +690,12 @@ export const handler = async (event, context) => {
             #garden {
               box-sizing: border-box;
               width: 100%;
-              transition: 0.15s opacity;
+              transition: 0.1s opacity;
               opacity: 1;
             }
 
-            #garden.faded {
+            #garden.faded,
+            #gate.faded {
               opacity: 0;
             }
 
@@ -690,7 +740,7 @@ export const handler = async (event, context) => {
               position: absolute;
               top: 0;
               left: 0;
-              font-family: serif;
+              /* font-family: var(--font-page); */
               background-color: white;
               border: 0.1em solid black;
               padding: 1em;
@@ -698,7 +748,7 @@ export const handler = async (event, context) => {
               position: relative;
               box-sizing: border-box;
               width: calc(100px * 8);
-              font-size: calc(3.25px * 8);
+              /* font-size: calc(3.25px * 8); */
               transform-origin: top left;
             }
 
@@ -762,7 +812,7 @@ export const handler = async (event, context) => {
             }
 
             #garden article.page {
-              font-family: serif;
+              /* font-family: var(--font-page); */
               background-color: white;
               padding: 1em;
               border: 0.1em solid black;
@@ -779,7 +829,6 @@ export const handler = async (event, context) => {
               -webkit-user-select: text;
               /* display: flex; */
               width: calc(100px * 8);
-              font-size: calc(3.25px * 8);
             }
 
             #garden article.page div.page-number,
@@ -814,9 +863,10 @@ export const handler = async (event, context) => {
               margin: 0;
               text-align: justify;
               /* text-align-last: justify; */
-              line-height: 1.6em;
-              margin-top: 15%;
-              max-height: calc(1.6em * 18);
+              line-height: var(--line-height);
+              /* margin-top: 15%; */
+              margin-top: 14.5%;
+              max-height: calc(var(--line-height) * 19);
               overflow: hidden;
               padding: 0 2em;
               /* display: inline-block; */
@@ -890,19 +940,20 @@ export const handler = async (event, context) => {
 
             #garden #editor textarea {
               border: none;
-              font-family: serif;
+              /* font-family: var(--font-page); */
               font-size: 100%;
               resize: none;
               display: block;
               background: rgb(255, 250, 250);
-              margin-top: 15%;
+              /* margin-top: 15%; */
+              margin-top: 14.5%;
               padding: 0 2em;
               text-indent: 0em;
               text-align: justify;
               /* text-align-last: justify; */
-              line-height: 1.6em;
+              line-height: var(--line-height);
               /* transform-origin: top left; */
-              height: calc(1.6em * 18);
+              height: calc(var(--line-height) * 19);
               width: 100%;
               overflow: hidden;
               position: relative;
@@ -1064,7 +1115,7 @@ export const handler = async (event, context) => {
 
             /* 📃 Backpage */
             #garden .page-wrapper .backpage {
-              font-family: serif;
+              /* font-family: var(--font-page); */
               width: 100%;
               height: 100%;
               background: var(--backpage-color-translucent);
@@ -1074,7 +1125,7 @@ export const handler = async (event, context) => {
               padding-right: 3em;
               padding-top: calc(1em + 15%);
               /* background: yellow; */
-              line-height: 1.6em;
+              line-height: var(--line-height);
               hyphens: auto;
               text-align: justify;
               overflow-wrap: break-word;
@@ -1202,6 +1253,13 @@ export const handler = async (event, context) => {
               -webkit-tap-highlight-color: transparent;
               touch-action: manipulation;
             }
+            #cookie-menu-wrapper:hover {
+              transform: scale(0.97);
+            }
+            #cookie-menu-wrapper:active {
+              transform: scale(0.94);
+              transition: 0.13s ease-out transform;
+            }
             #cookie-menu-wrapper {
               position: absolute;
               top: 0.225em;
@@ -1247,13 +1305,6 @@ export const handler = async (event, context) => {
                 margin-top: calc(68px + 16px);
               } */
             /* } */
-            #cookie-menu:hover {
-              transform: scale(0.97);
-            }
-            #cookie-menu:active {
-              transform: scale(0.93);
-              transition: 0.13s ease-out transform;
-            }
             #prompt {
               font-size: 22px;
               font-family: monospace;
@@ -1329,25 +1380,16 @@ export const handler = async (event, context) => {
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
           <script src="https://js.stripe.com/v3/"></script>
-          <script
-            async
-            src="https://www.googletagmanager.com/gtag/js?id=G-8CWWH29LJD"
-          ></script>
-          <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag() {
-              dataLayer.push(arguments);
-            }
-            gtag("js", new Date());
-
-            gtag("config", "G-8CWWH29LJD");
-          </script>
+          ${!dev ? analyticsScript : ""}
         </head>
         <body>
           <div id="wrapper">
             <div id="spinner"></div>
           </div>
           <div id="veil" class="unveiled"></div>
+          <img class="asset" src="${assetPath}cookie-open.png" />
+          <!-- suppress asset preload warning 24.10.14.22.21 -->
+          <img class="asset" src="${assetPath}cookie.png" />
           <script type="module">
             // 🗺️ Environment
             const dev = ${dev};
@@ -1483,13 +1525,18 @@ export const handler = async (event, context) => {
               curtain.id = "gate-curtain";
               curtain.classList.add("obscured");
               g.id = "gate";
+              g.classList.add("faded");
+
+              const cookieWrapper = cel("div");
+              cookieWrapper.id = "cookie-wrapper";
+
               const img = document.createElement("img");
               img.id = "cookie";
 
               // Prevent tap and hold on iOS.
-              img.addEventListener("contextmenu", function (e) {
-                e.preventDefault();
-              });
+              // img.addEventListener("contextmenu", function (e) {
+              //  e.preventDefault();
+              // });
 
               const h1 = document.createElement("h1");
               const h2 = cel("h2");
@@ -1724,7 +1771,6 @@ export const handler = async (event, context) => {
               } else if (status === "subscribed") {
                 message = genWelcomeMessage(subscription);
                 // 🗼 Check to see if a handle already exists...
-
                 let handle;
 
                 try {
@@ -1819,15 +1865,15 @@ export const handler = async (event, context) => {
 
               if (status === "subscribed") {
                 curtain.classList.add("hidden");
-                if (GATE_WAS_UP) img.classList.add("interactive");
+                if (GATE_WAS_UP) cookieWrapper.classList.add("interactive");
               }
 
-              img.addEventListener(
+              cookieWrapper.addEventListener(
                 "click",
                 () => {
-                  if (!img.classList.contains("interactive")) return;
+                  if (!cookieWrapper.classList.contains("interactive")) return;
                   curtain.classList.add("hidden");
-                  img.classList.remove("interactive");
+                  cookieWrapper.classList.remove("interactive");
                   document.querySelector("#garden")?.classList.remove("hidden");
                   document.body.classList.remove("pages-hidden");
                   document.body.scrollTop = scrollMemory;
@@ -1839,7 +1885,8 @@ export const handler = async (event, context) => {
               h1.innerHTML = message || "";
               if (buttons.length > 0)
                 buttons.forEach((b) => navLow.appendChild(b));
-              g.appendChild(img);
+              cookieWrapper.appendChild(img);
+              g.appendChild(cookieWrapper);
               if (buttonsTop.length > 0) {
                 const navHigh = cel("nav");
                 navHigh.id = "nav-high";
@@ -1856,6 +1903,12 @@ export const handler = async (event, context) => {
               const imageLoadPromise = new Promise((resolve) => {
                 img.onload = function () {
                   document.getElementById("gate-curtain")?.remove(); // Rid old curtain.
+                  const checkObscurity = setInterval(() => {
+                    if (!curtain.classList.contains("obscured")) {
+                      g.classList.remove("faded");
+                      clearInterval(checkObscurity);
+                    }
+                  }, 10);
                   wrapper.appendChild(curtain);
                   const email = document.getElementById("email");
                   if (email) {
@@ -1914,12 +1967,12 @@ export const handler = async (event, context) => {
 
                 const lineHeight = parseFloat(cs.lineHeight);
                 for (let c = 0; c < cachedText.length; c += 1) {
-                  if (line === 18) lastLineText += cachedText[c];
+                  if (line === 19) lastLineText += cachedText[c];
                   source.innerText += cachedText[c];
                   if (source.clientHeight !== lastHeight) {
                     lastHeight = source.clientHeight;
                     line = round(lastHeight / lineHeight);
-                    if (line === 18) lastLineText += cachedText[c];
+                    if (line === 19) lastLineText += cachedText[c];
                   }
                 }
 
@@ -2054,6 +2107,21 @@ export const handler = async (event, context) => {
                   const words = cel("textarea");
                   const wordsWrapper = cel("div");
 
+                  // Insert whitespace tab character instead of changing
+                  // element focus.
+                  words.addEventListener("keydown", function (e) {
+                    if (e.key === "Tab") {
+                      e.preventDefault(); // Prevent the default tab behavior
+                      let start = this.selectionStart;
+                      let end = this.selectionEnd;
+                      this.value =
+                        this.value.substring(0, start) +
+                        "	" +
+                        this.value.substring(end);
+                      this.selectionStart = this.selectionEnd = start + 1;
+                    }
+                  });
+
                   words.value = page.words; // Add words from existing draft.
 
                   wordsWrapper.id = "words-wrapper";
@@ -2063,7 +2131,7 @@ export const handler = async (event, context) => {
 
                   let lastValidValue = words.value;
                   const updateLineCount = ({ lastLineRender } = {}) => {
-                    const maxLines = 18;
+                    const maxLines = 19;
 
                     const wordsStyle = window.getComputedStyle(words);
                     const pageStyle = window.getComputedStyle(editorPage);
@@ -2642,6 +2710,8 @@ export const handler = async (event, context) => {
                   binding.appendChild(pageWrapper);
                 });
 
+                // console.log("📚 Rendered pages...");
+
                 g.appendChild(binding);
 
                 computePageLayout = function (e) {
@@ -2736,7 +2806,7 @@ export const handler = async (event, context) => {
                       words.clientHeight / parseFloat(wcs.lineHeight),
                     );
 
-                    if (lineCount === 18) {
+                    if (lineCount === 19) {
                       // Compute or read line progress from the cache.
                       if (page.lastLineProgress === undefined) {
                         const { lastLineText, lastLineProgress } =
@@ -2809,7 +2879,8 @@ export const handler = async (event, context) => {
                 document.body.classList.add("pages-hidden");
               }
 
-              const curtainCookie = gateCurtain.querySelector("#cookie");
+              const curtainCookie =
+                gateCurtain.querySelector("#cookie-wrapper");
 
               cookieMenu.onclick = function () {
                 scrollMemory = document.body.scrollTop;
@@ -2821,54 +2892,65 @@ export const handler = async (event, context) => {
 
               if (showGate) curtainCookie.classList.add("interactive");
 
-              cookieMenu.style.maskImage = "url(" + cookieImg.src + ")";
+              return new Promise((resolve) => {
+                cookieImg.onload = function () {
+                  // Render a mask image dataurl for the cookieImg.
+                  const canvas = document.createElement("canvas");
+                  canvas.width = cookieImg.width;
+                  canvas.height = cookieImg.height;
+                  const ctx = canvas.getContext("2d");
+                  ctx.drawImage(cookieImg, 0, 0);
+                  const dataUrl = canvas.toDataURL();
+                  cookieMenu.style.maskImage = "url(" + dataUrl + ")";
 
-              cookieImg.onload = function () {
-                document.getElementById("garden")?.remove(); // Remove old gardens.
-                const observer = new MutationObserver(
-                  (mutationsList, observer) => {
-                    for (let mutation of mutationsList) {
-                      if (
-                        mutation.type === "childList" &&
-                        mutation.addedNodes.length > 0
-                      ) {
-                        const checkWidthSettled = (previousWidth) => {
-                          const currentWidth = parseInt(
-                            window.getComputedStyle(wrapper).width,
-                          );
-                          if (
-                            currentWidth !== previousWidth ||
-                            g.scrollHeight > 0
-                          ) {
-                            computePageLayout?.();
-                            // setTimeout(() => {
-                            //   g.classList.remove("faded");
-                            // }, 100);
-                          } else {
-                            requestAnimationFrame(() =>
-                              checkWidthSettled(currentWidth),
+                  document.getElementById("garden")?.remove(); // Remove old gardens.
+                  const observer = new MutationObserver(
+                    (mutationsList, observer) => {
+                      for (let mutation of mutationsList) {
+                        if (
+                          mutation.type === "childList" &&
+                          mutation.addedNodes.length > 0
+                        ) {
+                          const checkWidthSettled = (previousWidth) => {
+                            const currentWidth = parseInt(
+                              window.getComputedStyle(wrapper).width,
                             );
-                          }
-                        };
-                        requestAnimationFrame(() =>
-                          checkWidthSettled(
-                            parseInt(window.getComputedStyle(wrapper).width),
-                          ),
-                        );
-                        observer.disconnect();
-                        break;
+
+                            if (
+                              currentWidth !== previousWidth ||
+                              g.scrollHeight > 0
+                            ) {
+                              computePageLayout?.();
+                              // setTimeout(() => {
+                              g.classList.remove("faded");
+                              // }, 250);
+                            } else {
+                              requestAnimationFrame(() =>
+                                checkWidthSettled(currentWidth),
+                              );
+                            }
+                          };
+                          requestAnimationFrame(() =>
+                            checkWidthSettled(
+                              parseInt(window.getComputedStyle(wrapper).width),
+                            ),
+                          );
+                          observer.disconnect();
+                          break;
+                        }
                       }
-                    }
-                  },
-                );
-                observer.observe(wrapper, { childList: true });
+                    },
+                  );
+                  observer.observe(wrapper, { childList: true });
 
-                // g.classList.add("faded");
-                wrapper.appendChild(g);
-              };
+                  g.classList.add("faded");
+                  wrapper.appendChild(g);
+                  resolve(g);
+                };
+              });
 
-              return g;
-            }
+              // return g;
+            } //);
             // #endregion
 
             // 🔐 Authorization
@@ -2993,36 +3075,39 @@ export const handler = async (event, context) => {
             const spinner = document.getElementById("spinner");
             const spinnerTO = setTimeout(() => {
               spinner.classList.add("showing");
-            }, 250);
+            }, 150);
 
             async function spinnerPass(callback, type) {
               clearTimeout(spinnerTO);
               let page;
               if (spinner.classList.contains("showing")) {
-                setTimeout(async () => {
-                  spinner.addEventListener(
-                    "transitionend",
-                    () => {
-                      spinner.remove();
-                      page?.classList.remove("obscured"); // Show 'gate' / 'garden'
-                      if (type === "garden")
-                        document.body.scrollTop =
-                          document.body.scrollHeight -
-                          document.body.clientHeight;
-                      if (GATE_WAS_UP) {
-                        document
-                          .getElementById("gate-curtain")
-                          ?.classList.remove("hidden");
-                        document.body.classList.add("pages-hidden");
-                      }
-                    },
-                    { once: true },
-                  );
-                  page = await callback();
-                  spinner.classList.remove("showing");
-                }, 250);
+                page = await callback();
+                spinner.classList.remove("showing");
+                //setTimeout(
+                //() => {
+                //})
+                spinner.addEventListener(
+                  "transitionend",
+                  () => {
+                    spinner.remove();
+                    page?.classList.remove("obscured"); // Show 'gate' / 'garden'
+                    if (type === "garden")
+                      document.body.scrollTop =
+                        document.body.scrollHeight - document.body.clientHeight;
+                    if (GATE_WAS_UP) {
+                      document
+                        .getElementById("gate-curtain")
+                        ?.classList.remove("hidden");
+                      document.body.classList.add("pages-hidden");
+                    }
+                  },
+                  //450,
+                  { once: true },
+                );
+                //  }, 700);
               } else {
                 page = await callback();
+                // console.log("passed callback NO SPINNER", page);
                 spinner.remove();
                 page?.classList.remove("obscured");
                 if (GATE_WAS_UP) {
@@ -3037,19 +3122,20 @@ export const handler = async (event, context) => {
             if (!fullAlert) {
               if (!isAuthenticated) {
                 // Wait for a subscriber count. if we are logged out.
+                // console.log("Fetching subscribers...");
                 try {
                   const res = await fetch("/sotce-net/subscribers");
                   const data = await res.json();
                   if (data.subscribers >= 0) {
                     SUBSCRIBER_COUNT = data.subscribers;
+                    // console.log("Subscriber count:", SUBSCRIBER_COUNT);
                   }
                 } catch (error) {
                   console.error("Error fetching subscribers:", error);
                 }
-                await spinnerPass(
-                  async () =>
-                    await gate(/* !dev ? "coming-soon" : */ "logged-out"),
-                );
+                await spinnerPass(async () => {
+                  return await gate(/* !dev ? "coming-soon" : */ "logged-out");
+                });
               } else {
                 user = pickedUpSession
                   ? window.sotceUSER
@@ -3497,6 +3583,8 @@ export const handler = async (event, context) => {
       const out = { subscribed: true };
 
       if (retrieve === "everything") {
+        shell.log("🫐 Retrieving pages...", performance.now());
+
         // 📆 Subscription status. (until, renews)
         out.until = subscription.cancel_at_period_end
           ? new Date(subscription.cancel_at * 1000).toLocaleDateString(
@@ -3539,6 +3627,7 @@ export const handler = async (event, context) => {
         await database.disconnect();
 
         // TODO: 👤 'Handled' pages filtered by user..
+        shell.log("🫐 Retrieved:", performance.now());
       }
       return respond(200, out);
     } else {
@@ -3964,7 +4053,7 @@ async function cancelSubscription(user, key) {
       cancel_at_period_end: true,
     });
 
-    // Clear the redis cache for this subcriber.
+    // Clear the redis cache for this subscriber.
     await KeyValue.connect();
     await KeyValue.del("sotce-subscribed", user.sub);
     await KeyValue.disconnect();
@@ -3987,6 +4076,22 @@ async function cancelSubscription(user, key) {
     return result;
   }
 }
+
+const analyticsScript = html`
+  <script
+    async
+    src="https://www.googletagmanager.com/gtag/js?id=G-8CWWH29LJD"
+  ></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+
+    gtag("config", "G-8CWWH29LJD");
+  </script>
+`;
 
 // Inserted in `dev` mode for live reloading.
 const reloadScript = html`
