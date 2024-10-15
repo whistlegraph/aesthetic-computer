@@ -59,8 +59,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+  - [🍉] Add reverb that's only activated for the notepat sounds.
+       (Sound tagging?)
+  - [] Add tappable touch bar for toggling the visualizer view. 
   - [🟠] Only show keyboard shortcuts once any keyboard key is pressed (on Android or iOS).
-
   *** Song ***
   - [] Song should loop visually, n times to the right as needed.
   - [] Holding space bar should always do the current / next note.
@@ -590,7 +592,7 @@ function paint({
 
   if (projector) {
     const sy = 33;
-    const sh = screen.height - sy - 20;
+    const sh = screen.height - sy;
 
     paintSound(
       api,
@@ -603,7 +605,8 @@ function paint({
       [255, 0, 0, 255],
       { noamp: true },
     );
-    ink("yellow").write(scope, 6, sy + sh + 5);
+    //ink("yellow").write(scope, 6, sy + sh + 5);
+    ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
   } else {
     const sy = 3;
@@ -629,7 +632,6 @@ function paint({
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
-
 
   if (tap) {
     ink("yellow");
@@ -702,7 +704,7 @@ function paint({
     }
   }
 
-  if (!tap && !projector) {
+  if (!tap /*&& !projector*/) {
     const activeNote = buttonNotes.indexOf(active[0]);
 
     if (activeNote >= 0 && activeNote !== lastActiveNote) {
@@ -728,8 +730,12 @@ function paint({
             if (!btn.down) color = "red";
           }
 
-          ink(color, 196).box(btn.box); // One solid colored box per note.
-
+          if (!projector) {
+            ink(color, 196).box(btn.box); // One solid colored box per note.
+          } else {
+            ink(color, 48).box(btn.box); // One solid colored box per note.
+            // ink("white", 32).box(btn.box, "inline"); // One solid colored box per note.
+          }
           // const accent = colorFromNote(note, num);
           // ink(accent).box(btn.box.x + btn.box.w - 8, btn.box.y + 4, 4);
           // ink("black", 64).box(
