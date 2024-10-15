@@ -361,7 +361,7 @@ export const handler = async (event, context) => {
           />
           <link
             rel="preload"
-            href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap"
+            href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap"
             as="font"
             type="font/woff2"
             crossorigin="anonymous"
@@ -371,8 +371,7 @@ export const handler = async (event, context) => {
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
           />
           <style>
-            @import url("https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap");
-            /* @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap'); */
+            @import url("https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
             :root {
               --background-color: rgb(255, 230, 225);
               --pink-border: rgb(255, 190, 215);
@@ -382,7 +381,7 @@ export const handler = async (event, context) => {
               --backpage-color: rgb(250, 250, 250);
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
-              --line-height: 1.65em;
+              --line-height: 1.68em;
               /* --font-page: serif; */
             }
 
@@ -390,20 +389,16 @@ export const handler = async (event, context) => {
             #garden article.page,
             #garden #editor textarea,
             #garden .page-wrapper .backpage {
-              /* font-family: "Times New Roman", monospace; */
-              font-family: "Lora", serif;
-              /* font-family: "IBM Plex Serif", serif; */
-              /* font-weight: 400; */
+              font-family: "EB Garamond", serif;
               font-optical-sizing: auto;
               font-style: normal;
-              /* letter-spacing: 0; */
-              /* word-spacing: 0; */
+              letter-spacing: 0;
             }
 
             #editor-page,
             #garden article.page {
-              /* font-size: calc(3.25px * 8); */
-              font-size: 24px; /* works well with "Lora" */
+              font-size: calc(3.25px * 8);
+              /* font-size: 24px; works well with "Lora" */
               /* font-size: calc(2.8px * 8); */
             }
 
@@ -885,7 +880,7 @@ export const handler = async (event, context) => {
               line-height: var(--line-height);
               margin-top: 15%;
               /* margin-top: 14.5%; */
-              max-height: calc(var(--line-height) * 19);
+              max-height: calc(var(--line-height) * 18);
               overflow: hidden;
               padding: 0 2em;
               /* display: inline-block; */
@@ -972,7 +967,7 @@ export const handler = async (event, context) => {
               /* text-align-last: justify; */
               line-height: var(--line-height);
               /* transform-origin: top left; */
-              height: calc(var(--line-height) * 19);
+              height: calc(var(--line-height) * 18);
               width: 100%;
               overflow: hidden;
               position: relative;
@@ -1986,12 +1981,12 @@ export const handler = async (event, context) => {
 
                 const lineHeight = parseFloat(cs.lineHeight);
                 for (let c = 0; c < cachedText.length; c += 1) {
-                  if (line === 19) lastLineText += cachedText[c];
+                  if (line === 18) lastLineText += cachedText[c];
                   source.innerText += cachedText[c];
                   if (source.clientHeight !== lastHeight) {
                     lastHeight = source.clientHeight;
                     line = round(lastHeight / lineHeight);
-                    if (line === 19) lastLineText += cachedText[c];
+                    if (line === 18) lastLineText += cachedText[c];
                   }
                 }
 
@@ -2150,7 +2145,7 @@ export const handler = async (event, context) => {
 
                   let lastValidValue = words.value;
                   const updateLineCount = ({ lastLineRender } = {}) => {
-                    const maxLines = 19;
+                    const maxLines = 18;
 
                     const wordsStyle = window.getComputedStyle(words);
                     const pageStyle = window.getComputedStyle(editorPage);
@@ -2825,7 +2820,7 @@ export const handler = async (event, context) => {
                       words.clientHeight / parseFloat(wcs.lineHeight),
                     );
 
-                    if (lineCount === 19) {
+                    if (lineCount === 18) {
                       // Compute or read line progress from the cache.
                       if (page.lastLineProgress === undefined) {
                         const { lastLineText, lastLineProgress } =
