@@ -2,11 +2,8 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [] Get corner tap interface correct on touch screens.
-  - [] Add a lavender or light blue backdrop to the feed screen and something
-       much darker for the editor.
-
-  - [] Print 🖨️ CSS
+  - [🟠] Get corner tap interface correct on touch screens.
+  - [] Add Print 🖨️ CSS
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -46,6 +43,9 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Add a lavender or light blue backdrop to the feed screen.
+  - [c] Fix editor layout.
+    - [*] Hyphenation was not supported in VS Code so I filed a bug.
   - [x] Play more with typography and page layout.
     - [x] Choose a better 18 line font.
   - [x] --- 🏁 Launch 🏁 ---
@@ -375,6 +375,7 @@ export const handler = async (event, context) => {
           <style>
             @import url("https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
             :root {
+              -webkit-locale: 'en';
               --background-color: rgb(255, 230, 225);
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
@@ -384,6 +385,7 @@ export const handler = async (event, context) => {
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
               --line-height: 1.68em;
+              --garden-background: #bbfbfe;
               /* --font-page: serif; */
             }
 
@@ -455,7 +457,7 @@ export const handler = async (event, context) => {
               background: rgba(0, 0, 0, 0.5);
               width: 100%;
               height: 100%;
-              z-index: 4;
+              z-index: 100;
               /* filter: blur(2px) saturate(1.25); */
               /* transition: 0.25s filter; */
               /* overflow: hidden; */
@@ -468,7 +470,7 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               pointer-events: none;
-              z-index: 2;
+              z-index: 100;
             }
             #wrapper.flash.red::after {
               /* sprinkle matching red */
@@ -637,7 +639,7 @@ export const handler = async (event, context) => {
               width: 100%;
               background: linear-gradient(
                 to bottom,
-                var(--background-color) 25%,
+                var(--garden-background) 25%,
                 transparent 100%
               );
               z-index: 3;
@@ -651,16 +653,20 @@ export const handler = async (event, context) => {
               left: 0;
               width: 100%;
               height: 300%;
-              background: var(--background-color);
+              background: var(--garden-background);
               z-index: 2;
             }
 
             #nav-editor {
+              /* background: linear-gradient(to top, rgb(207 255 195 / 50%) 25%, transparent 100%); */
+              background: linear-gradient(to top, rgb(207 255 195 / 50%) 25%, transparent 100%);
+              /*
               background: linear-gradient(
                 to top,
                 rgba(255, 230, 225, 0.5) 25%,
                 transparent 100%
               );
+              */
             }
 
             nav button:hover,
@@ -708,6 +714,7 @@ export const handler = async (event, context) => {
               width: 100%;
               transition: 0.1s opacity;
               opacity: 1;
+              background-color: var(--garden-background);
             }
 
             #garden.faded,
@@ -882,12 +889,13 @@ export const handler = async (event, context) => {
               line-height: var(--line-height);
               margin-top: 15%;
               /* margin-top: 14.5%; */
-              max-height: calc(var(--line-height) * 18);
+              max-height: calc(var(--line-height) * 17);
               overflow: hidden;
               padding: 0 2em;
               /* display: inline-block; */
               /* word-break: break-word; */
               hyphens: auto;
+              -webkit-hyphens: auto;
               overflow-wrap: break-word;
             }
 
@@ -969,13 +977,14 @@ export const handler = async (event, context) => {
               /* text-align-last: justify; */
               line-height: var(--line-height);
               /* transform-origin: top left; */
-              height: calc(var(--line-height) * 18);
+              height: calc(var(--line-height) * 17);
               width: 100%;
               overflow: hidden;
               position: relative;
 
               /* word-break: break-word; */
               hyphens: auto;
+              -webkit-hyphens: auto;
               overflow-wrap: break-word;
               /* z-index: 1; */
             }
@@ -1143,6 +1152,7 @@ export const handler = async (event, context) => {
               /* background: yellow; */
               line-height: var(--line-height);
               hyphens: auto;
+              -webkit-hyphens: auto;
               text-align: justify;
               overflow-wrap: break-word;
               top: 0;
@@ -1261,8 +1271,8 @@ export const handler = async (event, context) => {
               -webkit-user-select: none;
               cursor: pointer;
               transition: 0.2s ease-out transform;
-              /* background-color: var(--pink-border); */
-              background-color: var(--spinner-background);
+              background-color: var(--pink-border);
+              /* background-color: var(--spinner-background); */
               /* mask-image: url("${assetPath}cookie-open.png"); */
               /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
               mask-size: cover;
@@ -1282,9 +1292,9 @@ export const handler = async (event, context) => {
               right: 0.25em;
               width: 90px;
               height: 90px;
-              filter: drop-shadow(0px -6px 6px var(--background-color))
+              filter: drop-shadow(0px -6px 6px var(--garden-background))
                 /* drop-shadow(2px 6px 4px var(--background-color)) */
-                drop-shadow(4px -14px 0px var(--background-color));
+                drop-shadow(4px -14px 0px var(--garden-background));
             }
             #cookie-menu-img {
               /* Used in lieu of a mask for now. */
@@ -1983,12 +1993,12 @@ export const handler = async (event, context) => {
 
                 const lineHeight = parseFloat(cs.lineHeight);
                 for (let c = 0; c < cachedText.length; c += 1) {
-                  if (line === 18) lastLineText += cachedText[c];
+                  if (line === 17) lastLineText += cachedText[c];
                   source.innerText += cachedText[c];
                   if (source.clientHeight !== lastHeight) {
                     lastHeight = source.clientHeight;
                     line = round(lastHeight / lineHeight);
-                    if (line === 18) lastLineText += cachedText[c];
+                    if (line === 17) lastLineText += cachedText[c];
                   }
                 }
 
@@ -2147,7 +2157,7 @@ export const handler = async (event, context) => {
 
                   let lastValidValue = words.value;
                   const updateLineCount = ({ lastLineRender } = {}) => {
-                    const maxLines = 18;
+                    const maxLines = 17;
 
                     const wordsStyle = window.getComputedStyle(words);
                     const pageStyle = window.getComputedStyle(editorPage);
@@ -2178,6 +2188,7 @@ export const handler = async (event, context) => {
                     edMeasurement.style.boxSizing = wordsStyle.boxSizing;
                     edMeasurement.style.textAlign = "justify";
                     edMeasurement.style.hyphens = "auto";
+                    edMeasurement.style.webkitHyphens = "auto";
                     edMeasurement.style.overflowWrap = "break-word";
 
                     if (
@@ -2320,7 +2331,7 @@ export const handler = async (event, context) => {
                     const edMeasurement = updateLineCount();
                     wordsWrapper.classList.remove("invisible");
                     edMeasurement.classList.add("invisible");
-                    window.scrollTo(0, 0);
+                    // window.scrollTo(0, 0);
                   });
 
                   words.addEventListener("blur", () => {
@@ -2822,7 +2833,7 @@ export const handler = async (event, context) => {
                       words.clientHeight / parseFloat(wcs.lineHeight),
                     );
 
-                    if (lineCount === 18) {
+                    if (lineCount === 17) {
                       // Compute or read line progress from the cache.
                       if (page.lastLineProgress === undefined) {
                         const { lastLineText, lastLineProgress } =
