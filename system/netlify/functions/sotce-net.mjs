@@ -2,10 +2,8 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [🟠] Play more with typography and page layout.
-    - [-] Choose a better 18 line font.
-
   - [] Get corner tap interface correct on touch screens.
+  - [] Print 🖨️ CSS
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -29,7 +27,6 @@
   - [] Autoscroll text entry on iOS.
 
   *** 🛂 Page Controls ***
-  - [] Print 🖨️ CSS
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
   *** Accessibility ***
@@ -46,6 +43,8 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Play more with typography and page layout.
+    - [x] Choose a better 18 line font.
   - [x] --- 🏁 Launch 🏁 ---
   - [x] Preload the Wingdings font so it appears with no flah in the editor.
   - [c] Total subscriptions should only be calculated once a day on demand?
