@@ -2,10 +2,11 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [🟠] Prevent page zoom on iOS, but add a tap to light box text view.
+    - [] Which should allow zooming and maybe fyp style pagination.
+
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
-  - [] Prevent page zoom on iOS, but add a tap to light box text view.
-    - [] Which should allow zooming and maybe fyp style pagination.
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -250,7 +251,7 @@ export const handler = async (event, context) => {
           />
           <meta
             name="viewport"
-            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
           />
           <style>
             @import url("https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
@@ -289,6 +290,8 @@ export const handler = async (event, context) => {
             html,
             body {
               /* scroll-behavior: auto; */
+              /* touch-action: pan-x pan-y; */
+              touch-action: pan-y;
             }
             html {
               /* min-height: 100%; */
@@ -298,11 +301,10 @@ export const handler = async (event, context) => {
               margin: 0;
               width: 100%;
               /* min-height: 100%; */
-              -webkit-text-size-adjust: 100%;
+              -webkit-text-size-adjust: none;
               background: var(--background-color);
               user-select: none;
               -webkit-user-select: none;
-              touch-action: manipulation;
             }
             body.garden {
               background: var(--garden-background);
@@ -1285,6 +1287,10 @@ export const handler = async (event, context) => {
               opacity: 0;
               pointer-events: none;
             }
+            html {
+              -webkit-text-size-adjust: none;
+              touch-action: pan-y; /*prevent user scaling*/
+            }
           </style>
           ${dev ? reloadScript : ""}
           <script
@@ -1320,6 +1326,53 @@ export const handler = async (event, context) => {
 
             // Enable ':active' class on iOS Safari.
             document.addEventListener("touchstart", function () {}, false);
+
+            //document.addEventListener("gesturestart", function (e) {
+            //  e.preventDefault();
+            //  document.body.style.zoom = 0.99;
+            //});
+
+            //document.addEventListener("gesturechange", function (e) {
+            //  e.preventDefault();
+
+            //  document.body.style.zoom = 0.99;
+            //});
+
+            //document.addEventListener("gestureend", function (e) {
+            //  e.preventDefault();
+            //  document.body.style.zoom = 1;
+            //});
+
+            // Disable pinch to zoom on iOS Safari.
+            // document.addEventListener(
+            //   "touchmove",
+            //   function (event) {
+            //     if (event.scale !== 1) event.preventDefault();
+            //   },
+            //   { passive: false },
+            // );
+
+            // document.body.addEventListener(
+            //   "touchmove",
+            //   function (event) {
+            //     if (event.scale !== 1) {
+            //       event.preventDefault();
+            //     }
+            //   },
+            //   { passive: false },
+            // );
+
+            // document.addEventListener("gesturestart", function (event) {
+            //   event.preventDefault();
+            // });
+
+            // document.addEventListener("gesturechange", function (event) {
+            //   event.preventDefault();
+            // });
+
+            // document.addEventListener("gestureend", function (event) {
+            //   event.preventDefault();
+            // });
 
             function adjustFontSize() {
               const fontSizeInPx = 16;
@@ -2902,7 +2955,10 @@ export const handler = async (event, context) => {
                               currentWidth !== previousWidth ||
                               g.scrollHeight > 0
                             ) {
-                              console.log("🟢 Computing page layout...", performance.now());
+                              console.log(
+                                "🟢 Computing page layout...",
+                                performance.now(),
+                              );
                               computePageLayout?.();
                               console.log("🟩 Done", performance.now());
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
