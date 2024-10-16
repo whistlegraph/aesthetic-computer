@@ -2,7 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [🟠] Get corner tap interface correct on touch screens.
+  - [🔵] Prevent dragging normal buttons from scrolling the page on iOS. 
+  - [] Change full page background color once feed is open.
+       (Helps with scrolling.) 
   - [] Add Print 🖨️ CSS
 
   *** 📧 Email Notifications for Pages ***
@@ -43,133 +45,7 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
-  - [x] Add a lavender or light blue backdrop to the feed screen.
-  - [c] Fix editor layout.
-    - [*] Hyphenation was not supported in VS Code so I filed a bug.
-  - [x] Play more with typography and page layout.
-    - [x] Choose a better 18 line font.
-  - [x] --- 🏁 Launch 🏁 ---
-  - [x] Preload the Wingdings font so it appears with no flah in the editor.
-  - [c] Total subscriptions should only be calculated once a day on demand?
-  - [x] Better loading with spinner while logged out.
-  - [x] Tap and hold cookie shouldn't show context menu.
-  *** Speed Up ***
-  - [x] Choose consistent page type font and size and make sure it fits initial
-        pages from @amelia.
-    - [x] And contains all of the page 1 text.
-    - [x] Use a font from Google Fonts to prototype.
-  - [x] When cancelling a subscription pick up the event in stripe and remove it
-       from the redis cache...
-       - [x] Add an event to ticket.
-  - [x] Store subscription information in redis, and delete it with an expiration
-       that matches the subscription renew date.
-       - [x] Cache in 'subscribed' function.
-       - [x] And cache in ticket.js payment confirmation (speed up first time).
-          // await KeyValue.del("sotce-subscribed", user.sub);
-          // await KeyValue.set(
-          //   "sotce-subscribed",
-          //   user.sub,
-          //   JSON.stringify(subscription),
-          // );
-  - [x] Show spinner while logged out / no blanking.
-  - [x] Test full signup and subscribe flow in production on mobile.
-  *** First Page ***
-  - [x] Pink circle flicker still present.
-  - [x] Have @amelia write her first page and then turn on the feed.
-  - [x] Backdrop under page editor should not cut off on Safari.
-  - [x] Fix focus textfield bugs on touch / iOS.
-    - [x] Check scroll up based on drag amount radius.
-  - [x] Get local style edits running, maybe through ngrok.
-    - [p] Should ngrok appear automatically?
-  - [x] Get flourishes to show up on iOS.
-  - [x] Pink cookie shouldn't show up after.
-  - [x] Fix drop shadows on buttons. 
-  - [x] Remove tap highlight from pink cookie.
-  *** 📊 Statistics ***
-  - [x] Add Google Analytics
-  - [x] Show number of subscribed users so far - maybe in the closed donut or 
-       privacy policy? and only for certain whitelisted users?
-  - [c] Re-render page touches to include unhandled users.
-  - [x] `eared` corner menu that shows byline 
-  *** 🖐️ "Touches" *** 
-  - [x] Add some kind of handle based reaction for pages? (touch?)
-       @blahblah and x others touched this page.
-       'ear'
-  - [x] Add back page interactive layer switch.
-  - [x] Tie it to the API
-  *** Crumple ***
-    - [x] Make it so pages can be crumpled by an admin if they are the author.
-  *** 📜 Scroll Checking ***
-  - [x] Scrolling in the editor or cookie-menu should not affect page scroll.
-    - [x] Make a handful of pages.
-    - [x] Check scrolling with editor.
-    - [x] Check with cookie menu.
-  - [x] New line creation logic in editor.
-  - [x] Make the cookie menu fully scrollable.
-  - [x] Don't run rendering algorithm on every input. 
-  - [x] Crumpling an Empty page shouldn't add a record to the database.
-  - [x] Fix line start warning changing when a UI button is pressed?
-  - [x] If text is empty it should always be 18.
-  - [x] Make sure subscription receipt emails get sent.
-  - [x] Add coloring for "Awaiting verification..." and "Email verified!". 
-  - [x] Add a "thank you for subscribing" alert popup.
-  - [x] Set the "sotce" handle to "amelia".
-        (Tell Amelia to set it.)
-  - [x] Restrict 'sotce' handle (reserved). 
-  - [x] upscrolling
-  - [x] *** 🛫 Put Editor Online ***
-  *** ⭐ Page Composition ***
-  - [x] Add 'discard' ability to page editor.
-    - [x] Wire up the ui and api.
-    - [x] Make the discard button red and publish button green. (#discard)
-  - [x] Add loading spinner to `write-a-page` and `publish` and `draft` and `discard` buttons. 
-  - [x] Keep the most recent draft remotely / have a "published" flag on pages.
-  - [c] Show rules or timer under the form?
-  - [c] Enforce global uniqueness on page content
-  - [x] Update the 'write-a-page' button with a network call. 
-    - [x] Which should return the page model with the right server day.
-  - [x] Add a draft flag to the 'write-a-page' api call.
-  - [x] Remove draft flag on publish.
-  - [x] textarea should auto-focus when it is opened
-    - [c] even on refresh (not possible)
-  - [x] Fix justified text reflow.
-    - [x] Write last line behavior into the editor. (if possible) 
-    - [x] Write last line behavior in page renderer. 
-    - [x] Switch to transform based page renderer and editor. 
-  - [x] Prevent overwriting past the boundary.
-  - [x] Fix word-break.
-  - [x] Add color to the 'lines left' warning. green -> orange -> red
-  - [x] Build out the editor form to match page design.
-  - [x] 📟 Design the editor first.
-    - [x] Lines left needs to be important.
-  - [x] Add page count and title header to design.
-  - [x] Title header
-  - [x] page count
-  - [x] Test scaffolded end<->end page creation logic.
-  - [x] add endpoint for submitting a "page"
-  - [x] add the 'write a page' button
-        whitelisted for admin users
-  - [x] show the form, maybe in a modal?
-  *** Page Layout ***
-  - [x] Check that layouts don't break with page zoom feature, and that
-         text actually gets larger.
-  - [x] Fix tiny width sizing breakpoint (good enough for now!).
-  - [x] Position cookie inside of corner more nicely.
-  - [x] Always make sure at least one page fits on screen.
-         (vertical bound)
-  - [x] Clicking the donut should save scroll position in pages.
-  - [x] Standard resizing width logic.
-
-  - [x] Add 'isAdmin' support for sotce-net subs and add necessary subs.
-  - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
-  - [x] make a privacy policy for sotce.net (inlined in this file)
-    - [x] update ac privacy policy with shared accounting rules
-#endregion */
-
-/* #region 🤖 Dummy Copy
-S is for sotce.
-Shavasana brought this to mind. She does love how memories show themselves out in the supine state. She was too young then and wanted to be so old. She chose him because of his careful images and because of how he wrote to her. Sharp cold and eyes all over. Soon after rapid texting she went to see him. Shorter than he said he would be. Small even. Suspicious seeming. Still went with him to his apartment. Scandi style work from home kawaii decor in there. Saw all the figurines and light wood. Saw his work on display. Saw the photos of his open relationship girlfriend.
-Striking. Surveyed his cool objects and new money. Sat on the red couch across the room from him. Stared. Slavic like her. Same age as Sean is now. She was interested in eating his food and looking around. Secretly she wanted to become like him too. Sort of dripped out and independent off of art. She wanted to learn how people could be this way. She had never met a man who wasn’t her teacher or her uncle. She wondered if she was smart (special?) enough to talk to him or if he was pretending like she was for sexual aspirations. Sad instant noodles of a vegan variety offered. Slurped them like worms. Something else packaged too that she can’t remember now. Seaweed or cookies. Soon she was nodding off on the couch in the brilliant air conditioning. She felt him touch her hands, arms, shoulders. She would learn later that her body reserved its deepest rest for the company of men. She would learn that sleep came very reverently when she felt guarded by a neurotic seeming someone. She woke up with him fully lying on her, his back crushed into hers. She felt his bird bones digging. Spine to spine. Something was taboo about this, something was incorrect. Suddenly startled, had to get out of there. Stayed too long and had a feeling. Serial killer vibes. Still she felt like she was breaking a promise. She told him she’d come back. She would get comfortable lying like this. She was too young to even have a purse to grab. Slanted gold light on the floor. Stumbling downstairs still stuck in her dream. Sudden fear from him, then anger. Screaming and blurry lines. Some voice caught in his throat sort of. Stream of texts blowing her up like she was the last thing on earth. Subway ride off the island and a quick blocking of his number. She got home and she didn’t tell her roommates. She didn’t know what she could have been to him. Some years later she looked him up. Struggled at first to remember his name. Saw she who had been his girlfriend on Instagram and went from there. She thought he was smart and special in spite of his urgency. She knew that on paper he let her sleep on his couch. She wondered if all men do this for girls. She wondered if all the wayward girls go to phone men to fall asleep. She saw on her phone that he died that night, that night that they met and she left. She left and blocked him after the fast long texts. She saw online that he drove crazy on his motorcycle. Saw he crashed it and died on the night they met.
+  - [x] Get corner tap interface correct on touch screens.
 #endregion */
 
 // ♻️ Environment
@@ -375,7 +251,7 @@ export const handler = async (event, context) => {
           <style>
             @import url("https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
             :root {
-              -webkit-locale: 'en';
+              -webkit-locale: "en";
               --background-color: rgb(255, 230, 225);
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
@@ -659,7 +535,11 @@ export const handler = async (event, context) => {
 
             #nav-editor {
               /* background: linear-gradient(to top, rgb(207 255 195 / 50%) 25%, transparent 100%); */
-              background: linear-gradient(to top, rgb(207 255 195 / 50%) 25%, transparent 100%);
+              background: linear-gradient(
+                to top,
+                rgb(207 255 195 / 50%) 25%,
+                transparent 100%
+              );
               /*
               background: linear-gradient(
                 to top,
@@ -738,6 +618,7 @@ export const handler = async (event, context) => {
               padding-left: 16px;
               padding-right: 16px;
               padding-bottom: 16px;
+              margin-bottom: 8px;
               margin-left: auto;
               margin-right: auto;
               box-sizing: border-box;
@@ -1060,17 +941,21 @@ export const handler = async (event, context) => {
               background: transparent;
               position: absolute;
               box-sizing: border-box;
-              cursor: pointer;
               z-index: 1;
+              touch-action: manipulation;
+              -webkit-tap-highlight-color: transparent;
             }
 
-            #garden .page-wrapper div.ear:hover {
-              background: var(--background-color);
+            #garden .page-wrapper div.ear.hover,
+            #garden .page-wrapper div.ear.active {
+              cursor: pointer;
+              background: var(--garden-background);
               border-left: 0.1em solid black;
               border-top: 0.1em solid black;
             }
 
-            #garden .page-wrapper div.ear:hover::before {
+            #garden .page-wrapper div.ear.hover::before,
+            #garden .page-wrapper div.ear.active::before {
               content: "";
               position: absolute;
               bottom: 0;
@@ -1085,8 +970,8 @@ export const handler = async (event, context) => {
               pointer-events: none;
             }
 
-            #garden .page-wrapper div.ear:hover::after {
-              /* #garden article.page div.ear:active::after { */
+            #garden .page-wrapper div.ear.hover::after,
+            #garden .page-wrapper div.ear.active::after {
               content: "";
               position: absolute;
               bottom: 0;
@@ -1105,15 +990,12 @@ export const handler = async (event, context) => {
               pointer-events: none;
             }
 
-            #garden .page-wrapper div.ear:active::after {
+            #garden .page-wrapper div.ear.active::after {
               background: rgb(240, 240, 240) !important;
             }
 
-            /* #garden article.page div.ear.reverse:active::after { */
-            /* background: rgb(240, 240, 240) !important; */
-            /* } */
-
-            #garden .page-wrapper div.ear.reverse:hover::after {
+            #garden .page-wrapper div.ear.reverse.hover::after,
+            #garden .page-wrapper div.ear.reverse.active::after {
               background: white;
             }
 
@@ -1211,6 +1093,7 @@ export const handler = async (event, context) => {
               color: maroon;
             }
             #email:active {
+              -webkit-tap-highlight-color: transparent;
               color: darkgreen;
             }
             #delete-account,
@@ -2584,12 +2467,78 @@ export const handler = async (event, context) => {
                   ear.classList.add("ear");
 
                   // 📐 Ear / Touch
-                  ear.onclick = async () => {
+                  const leave = () => {
+                    ear.classList.remove("hover");
+                    ear.classList.remove("active");
+                    // alert("leave");
+                  };
+
+                  ear.addEventListener("pointerenter", () => {
+                    if (!ear.classList.contains("hover")) {
+                      ear.classList.add("hover");
+                      ear.addEventListener("pointerleave", leave, {
+                        once: true,
+                      });
+                    }
+                  });
+
+                  ear.addEventListener("pointerdown", (e) => {
+                    e.preventDefault();
+                    ear.classList.remove("hover");
+                    ear.classList.add("active");
+
+                    const noscroll = (e) => {
+                      const touch = e.touches[0];
+                      const elementUnderTouch = document.elementFromPoint(
+                        touch.clientX,
+                        touch.clientY,
+                      );
+                      if (elementUnderTouch !== ear) {
+                        leave();
+                      } else if (!ear.classList.contains("hover")) {
+                        ear.classList.add("hover");
+                        ear.addEventListener("pointerleave", leave, {
+                          once: true,
+                        });
+                      }
+                      e.preventDefault();
+                    };
+
+                    window.addEventListener("touchmove", noscroll, {
+                      passive: false,
+                    });
+
+                    window.addEventListener(
+                      "pointerup",
+                      (e) => {
+                        ear.removeEventListener("pointerleave", leave);
+                        window.removeEventListener("touchmove", noscroll);
+                      },
+                      { once: true },
+                    );
+                  });
+
+                  ear.addEventListener("pointermove", () => {
+                    if (
+                      !ear.classList.contains("active") &&
+                      !ear.classList.contains("hover")
+                    ) {
+                      ear.classList.add("hover");
+                      ear.addEventListener("pointerleave", leave, {
+                        once: true,
+                      });
+                    }
+                  });
+
+                  ear.onclick = async (e) => {
                     if (ear.classList.contains("reverse")) {
                       pageWrapper.querySelector(".backpage")?.remove();
                       ear.classList.remove("reverse");
                       pageEl.classList.remove("reverse");
                       pageWrapper.classList.remove("reverse");
+                      setTimeout(function () {
+                       ear.classList.remove("active");
+                      }, 150);
                       return;
                     }
 
@@ -2657,6 +2606,7 @@ export const handler = async (event, context) => {
                     } else {
                       console.error("💁 Page touch:", res);
                     }
+
                     unveil({ instant: true });
 
                     let touchedBy;
@@ -2717,6 +2667,9 @@ export const handler = async (event, context) => {
                     ear.classList.add("reverse");
                     pageEl.classList.add("reverse");
                     pageWrapper.classList.add("reverse");
+
+                    // ear.classList.remove("hover");
+                    ear.classList.remove("active");
 
                     backpage.appendChild(touchesEl);
 
