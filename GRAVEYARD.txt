@@ -1,6 +1,127 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
 *** sotce-net pre-launch ***
+  - [x] Add a lavender or light blue backdrop to the feed screen.
+  - [c] Fix editor layout.
+    - [*] Hyphenation was not supported in VS Code so I filed a bug.
+  - [x] Play more with typography and page layout.
+    - [x] Choose a better 18 line font.
+  - [x] --- 🏁 Launch 🏁 ---
+  - [x] Preload the Wingdings font so it appears with no flah in the editor.
+  - [c] Total subscriptions should only be calculated once a day on demand?
+  - [x] Better loading with spinner while logged out.
+  - [x] Tap and hold cookie shouldn't show context menu.
+  *** Speed Up ***
+  - [x] Choose consistent page type font and size and make sure it fits initial
+        pages from @amelia.
+    - [x] And contains all of the page 1 text.
+    - [x] Use a font from Google Fonts to prototype.
+  - [x] When cancelling a subscription pick up the event in stripe and remove it
+       from the redis cache...
+       - [x] Add an event to ticket.
+  - [x] Store subscription information in redis, and delete it with an expiration
+       that matches the subscription renew date.
+       - [x] Cache in 'subscribed' function.
+       - [x] And cache in ticket.js payment confirmation (speed up first time).
+          // await KeyValue.del("sotce-subscribed", user.sub);
+          // await KeyValue.set(
+          //   "sotce-subscribed",
+          //   user.sub,
+          //   JSON.stringify(subscription),
+          // );
+  - [x] Show spinner while logged out / no blanking.
+  - [x] Test full signup and subscribe flow in production on mobile.
+  *** First Page ***
+  - [x] Pink circle flicker still present.
+  - [x] Have @amelia write her first page and then turn on the feed.
+  - [x] Backdrop under page editor should not cut off on Safari.
+  - [x] Fix focus textfield bugs on touch / iOS.
+    - [x] Check scroll up based on drag amount radius.
+  - [x] Get local style edits running, maybe through ngrok.
+    - [p] Should ngrok appear automatically?
+  - [x] Get flourishes to show up on iOS.
+  - [x] Pink cookie shouldn't show up after.
+  - [x] Fix drop shadows on buttons. 
+  - [x] Remove tap highlight from pink cookie.
+  *** 📊 Statistics ***
+  - [x] Add Google Analytics
+  - [x] Show number of subscribed users so far - maybe in the closed donut or 
+       privacy policy? and only for certain whitelisted users?
+  - [c] Re-render page touches to include unhandled users.
+  - [x] `eared` corner menu that shows byline 
+  *** 🖐️ "Touches" *** 
+  - [x] Add some kind of handle based reaction for pages? (touch?)
+       @blahblah and x others touched this page.
+       'ear'
+  - [x] Add back page interactive layer switch.
+  - [x] Tie it to the API
+  *** Crumple ***
+    - [x] Make it so pages can be crumpled by an admin if they are the author.
+  *** 📜 Scroll Checking ***
+  - [x] Scrolling in the editor or cookie-menu should not affect page scroll.
+    - [x] Make a handful of pages.
+    - [x] Check scrolling with editor.
+    - [x] Check with cookie menu.
+  - [x] New line creation logic in editor.
+  - [x] Make the cookie menu fully scrollable.
+  - [x] Don't run rendering algorithm on every input. 
+  - [x] Crumpling an Empty page shouldn't add a record to the database.
+  - [x] Fix line start warning changing when a UI button is pressed?
+  - [x] If text is empty it should always be 18.
+  - [x] Make sure subscription receipt emails get sent.
+  - [x] Add coloring for "Awaiting verification..." and "Email verified!". 
+  - [x] Add a "thank you for subscribing" alert popup.
+  - [x] Set the "sotce" handle to "amelia".
+        (Tell Amelia to set it.)
+  - [x] Restrict 'sotce' handle (reserved). 
+  - [x] upscrolling
+  - [x] *** 🛫 Put Editor Online ***
+  *** ⭐ Page Composition ***
+  - [x] Add 'discard' ability to page editor.
+    - [x] Wire up the ui and api.
+    - [x] Make the discard button red and publish button green. (#discard)
+  - [x] Add loading spinner to `write-a-page` and `publish` and `draft` and `discard` buttons. 
+  - [x] Keep the most recent draft remotely / have a "published" flag on pages.
+  - [c] Show rules or timer under the form?
+  - [c] Enforce global uniqueness on page content
+  - [x] Update the 'write-a-page' button with a network call. 
+    - [x] Which should return the page model with the right server day.
+  - [x] Add a draft flag to the 'write-a-page' api call.
+  - [x] Remove draft flag on publish.
+  - [x] textarea should auto-focus when it is opened
+    - [c] even on refresh (not possible)
+  - [x] Fix justified text reflow.
+    - [x] Write last line behavior into the editor. (if possible) 
+    - [x] Write last line behavior in page renderer. 
+    - [x] Switch to transform based page renderer and editor. 
+  - [x] Prevent overwriting past the boundary.
+  - [x] Fix word-break.
+  - [x] Add color to the 'lines left' warning. green -> orange -> red
+  - [x] Build out the editor form to match page design.
+  - [x] 📟 Design the editor first.
+    - [x] Lines left needs to be important.
+  - [x] Add page count and title header to design.
+  - [x] Title header
+  - [x] page count
+  - [x] Test scaffolded end<->end page creation logic.
+  - [x] add endpoint for submitting a "page"
+  - [x] add the 'write a page' button
+        whitelisted for admin users
+  - [x] show the form, maybe in a modal?
+  *** Page Layout ***
+  - [x] Check that layouts don't break with page zoom feature, and that
+         text actually gets larger.
+  - [x] Fix tiny width sizing breakpoint (good enough for now!).
+  - [x] Position cookie inside of corner more nicely.
+  - [x] Always make sure at least one page fits on screen.
+         (vertical bound)
+  - [x] Clicking the donut should save scroll position in pages.
+  - [x] Standard resizing width logic.
+
+  - [x] Add 'isAdmin' support for sotce-net subs and add necessary subs.
+  - [x] go through all the prompt boxes, including the username entry / too long / inappropriate etc.
+  - [x] make a privacy policy for sotce.net (inlined in this file)
+    - [x] update ac privacy policy with shared accounting rules
   - [x] add handle creation / handle support for sotce-net users 
     🧪 Manual Tests
     (Sotce Side)
