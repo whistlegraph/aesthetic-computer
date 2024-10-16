@@ -2,10 +2,6 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [-] Change full page background color once feed is open.
-       (Helps with scrolling.) 
-    - [] Also fix editor background color to match things.
-
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
   - [] Prevent page zoom on iOS, but add a tap to light box text view.
@@ -49,6 +45,9 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Change full page background color once feed is open.
+       (Helps with scrolling.) 
+    - [x] Also fix editor background color to match things.
   - [x] Prevent dragging normal buttons from scrolling the page on iOS. 
   - [x] Get corner tap interface correct on touch screens.
 #endregion */
@@ -244,7 +243,7 @@ export const handler = async (event, context) => {
           />
           <link
             rel="preload"
-            href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap"
+            href="https://fonts.gstatic.com/s/ebgaramond/v30/SlGUmQSNjdsmc35JDF1K5GR1SDk.woff2"
             as="font"
             type="font/woff2"
             crossorigin="anonymous"
@@ -305,6 +304,9 @@ export const handler = async (event, context) => {
               -webkit-user-select: none;
               touch-action: manipulation;
             }
+            body.garden {
+              background: var(--garden-background);
+            }
             /* body.noscroll { */
             /* overflow: hidden; */
             /* } */
@@ -326,7 +328,6 @@ export const handler = async (event, context) => {
               /* height: 100%; */
               flex-direction: column;
               min-height: 100%;
-              background: var(--background-color);
               position: relative;
               overflow-x: hidden;
             }
@@ -545,13 +546,6 @@ export const handler = async (event, context) => {
                 rgb(207 255 195 / 50%) 25%,
                 transparent 100%
               );
-              /*
-                      background: linear-gradient(
-                        to top,
-                        rgba(255, 230, 225, 0.5) 25%,
-                        transparent 100%
-                      );
-                      */
             }
 
             nav button:hover,
@@ -597,7 +591,7 @@ export const handler = async (event, context) => {
             #garden {
               box-sizing: border-box;
               width: 100%;
-              transition: 0.1s opacity;
+              transition: 0.15s opacity;
               opacity: 1;
               background-color: var(--garden-background);
             }
@@ -1850,9 +1844,11 @@ export const handler = async (event, context) => {
             async function garden(subscription, user, showGate = false) {
               const gateCurtain = await gate("subscribed", user, subscription);
               gateCurtain.classList.remove("obscured");
+
               if (showGate) {
                 gateCurtain.classList.remove("hidden");
                 document.body.classList.remove("pages-hidden");
+                document.body.classList.remove("garden");
               }
 
               // Swap the favicon url.
@@ -1978,7 +1974,6 @@ export const handler = async (event, context) => {
                   let page;
 
                   // Create or retrieve the user's current draft.
-
                   scrollMemory = document.body.scrollTop;
                   // TODO: 🟠 Memoize draft in ram.
 
@@ -2374,6 +2369,8 @@ export const handler = async (event, context) => {
                   unveil({ instant: true });
                   g.appendChild(editor);
                   document.body.classList.add("pages-hidden");
+                  // document.body.classList.remove("garden");
+                  // document.body.classList.add("editor");
 
                   const baseWidth = 100 * 8;
                   const goalWidth = editorPage.parentElement.clientWidth;
@@ -2756,11 +2753,6 @@ export const handler = async (event, context) => {
                   binding.style.width = width + "px";
                   binding.style.fontSize = width * 0.03 + "px";
 
-                  // const goalWidth = width;
-                  // const scale = goalWidth / baseWidth;
-
-                  // binding.style.transform = "scale(" + scale  + ")";
-
                   // Set the size of the editor if it's open.
                   const editorForm = document.getElementById("editor-form");
                   const editorPage = document.getElementById("editor-page");
@@ -2776,11 +2768,6 @@ export const handler = async (event, context) => {
                   const allPages = document.querySelectorAll(
                     "#garden article.page",
                   );
-
-                  // const fontSizeDifference = (width * 0.03) / (3.25 * 8);
-
-                  // const goalWidth = width;
-                  // const scale = goalWidth / baseWidth;
 
                   let scale;
                   allPages.forEach((page) => {
@@ -2881,6 +2868,7 @@ export const handler = async (event, context) => {
                 gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
                 document.body.classList.add("pages-hidden");
+                document.body.classList.remove("garden");
                 curtainCookie.classList.add("interactive");
               };
 
@@ -2914,10 +2902,13 @@ export const handler = async (event, context) => {
                               currentWidth !== previousWidth ||
                               g.scrollHeight > 0
                             ) {
+                              console.log("🟢 Computing page layout...", performance.now());
                               computePageLayout?.();
-                              // setTimeout(() => {
+                              console.log("🟩 Done", performance.now());
+                              // TODO:    ^ This takes awhile and the spinner could hold until the initial
+                              //            computation is done. 24.10.16.07.06
                               g.classList.remove("faded");
-                              // }, 250);
+                              document.body.classList.add("garden");
                             } else {
                               requestAnimationFrame(() =>
                                 checkWidthSettled(currentWidth),
