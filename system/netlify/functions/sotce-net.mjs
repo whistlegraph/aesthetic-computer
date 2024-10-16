@@ -2964,7 +2964,13 @@ export const handler = async (event, context) => {
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
                               g.classList.remove("faded");
-                              document.body.classList.add("garden");
+                              g.addEventListener(
+                                "ontransitionend",
+                                () => {
+                                  document.body.classList.add("garden");
+                                },
+                                { once: true },
+                              );
                             } else {
                               requestAnimationFrame(() =>
                                 checkWidthSettled(currentWidth),
