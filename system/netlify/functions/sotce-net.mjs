@@ -5,7 +5,11 @@
   - [-] Change full page background color once feed is open.
        (Helps with scrolling.) 
     - [] Also fix editor background color to match things.
-  - [] Add Print 🖨️ CSS
+
+  - [] Add Print 🖨️ CSS behind touch menu.
+  - [] Add exporting of PNG images here too.
+  - [] Prevent page zoom on iOS, but add a tap to light box text view.
+    - [] Which should allow zooming and maybe fyp style pagination.
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
