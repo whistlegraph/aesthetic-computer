@@ -2,9 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [🔵] Prevent dragging normal buttons from scrolling the page on iOS. 
-  - [] Change full page background color once feed is open.
+  - [-] Change full page background color once feed is open.
        (Helps with scrolling.) 
+    - [] Also fix editor background color to match things.
   - [] Add Print 🖨️ CSS
 
   *** 📧 Email Notifications for Pages ***
@@ -45,6 +45,7 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Prevent dragging normal buttons from scrolling the page on iOS. 
   - [x] Get corner tap interface correct on touch screens.
 #endregion */
 
@@ -494,7 +495,7 @@ export const handler = async (event, context) => {
               -webkit-text-size-adjust: 100%;
               margin-bottom: 1em;
               -webkit-tap-highlight-color: transparent;
-              touch-action: manipulation;
+              touch-action: none;
             }
             a,
             textarea {
@@ -541,12 +542,12 @@ export const handler = async (event, context) => {
                 transparent 100%
               );
               /*
-              background: linear-gradient(
-                to top,
-                rgba(255, 230, 225, 0.5) 25%,
-                transparent 100%
-              );
-              */
+                      background: linear-gradient(
+                        to top,
+                        rgba(255, 230, 225, 0.5) 25%,
+                        transparent 100%
+                      );
+                      */
             }
 
             nav button:hover,
@@ -556,8 +557,8 @@ export const handler = async (event, context) => {
             nav button:active,
             #write-a-page:active {
               filter: none; /* drop-shadow(
-                -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
-              ); */
+                        -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
+                      ); */
               background: rgb(255, 248, 165);
               transform: translate(-2px, 2px);
             }
@@ -704,6 +705,10 @@ export const handler = async (event, context) => {
 
             .fleuron {
               font-family: "Wingdings-2";
+              font-size: 75%;
+              vertical-align: middle;
+              margin-bottom: 0.25em;
+              display: inline-block;
             }
 
             #garden div.page-wrapper {
@@ -923,7 +928,7 @@ export const handler = async (event, context) => {
 
             #garden #editor #words-wrapper {
               position: relative;
-              touch-action: manipulation;
+              touch-action: none;
             }
 
             #garden #editor textarea {
@@ -942,7 +947,7 @@ export const handler = async (event, context) => {
               position: absolute;
               box-sizing: border-box;
               z-index: 1;
-              touch-action: manipulation;
+              touch-action: none;
               -webkit-tap-highlight-color: transparent;
             }
 
@@ -1160,7 +1165,7 @@ export const handler = async (event, context) => {
               /* filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35)); */
               mask-size: cover;
               -webkit-tap-highlight-color: transparent;
-              touch-action: manipulation;
+              touch-action: none;
             }
             #cookie-menu-wrapper:hover {
               transform: scale(0.97);
@@ -1205,14 +1210,14 @@ export const handler = async (event, context) => {
               }
             }
             /* #cookie-menu {
-                position: absolute;
-              }
-              #write-a-page {
-                position: absolute;
-              } */
+                        position: absolute;
+                      }
+                      #write-a-page {
+                        position: absolute;
+                      } */
             /* #binding {
-                margin-top: calc(68px + 16px);
-              } */
+                        margin-top: calc(68px + 16px);
+                      } */
             /* } */
             #prompt {
               font-size: 22px;
@@ -2143,15 +2148,15 @@ export const handler = async (event, context) => {
 
                   words.addEventListener("input", updateLineCount);
 
-                  wordsWrapper.addEventListener(
-                    "touchmove",
-                    (event) => {
-                      if (wordsWrapper.classList.contains("invisible")) {
-                        event.preventDefault();
-                      }
-                    },
-                    false,
-                  );
+                  //wordsWrapper.addEventListener(
+                  //  "touchmove",
+                  //  (event) => {
+                  //    if (wordsWrapper.classList.contains("invisible")) {
+                  //      event.preventDefault();
+                  //    }
+                  //  },
+                  //  false,
+                  //);
 
                   let down = false;
 
@@ -2487,32 +2492,36 @@ export const handler = async (event, context) => {
                     ear.classList.remove("hover");
                     ear.classList.add("active");
 
-                    const noscroll = (e) => {
-                      const touch = e.touches[0];
-                      const elementUnderTouch = document.elementFromPoint(
-                        touch.clientX,
-                        touch.clientY,
-                      );
-                      if (elementUnderTouch !== ear) {
-                        leave();
-                      } else if (!ear.classList.contains("hover")) {
-                        ear.classList.add("hover");
-                        ear.addEventListener("pointerleave", leave, {
-                          once: true,
-                        });
-                      }
-                      e.preventDefault();
-                    };
+                    //const noscroll = (e) => {
+                    //  const touch = e.touches[0];
+                    //  const elementUnderTouch = document.elementFromPoint(
+                    //    touch.clientX,
+                    //    touch.clientY,
+                    //  );
+                    //  if (elementUnderTouch !== ear) {
+                    //    leave();
+                    //  } else if (!ear.classList.contains("hover")) {
+                    //    ear.classList.add("hover");
+                    //    ear.addEventListener("pointerleave", leave, {
+                    //      once: true,
+                    //    });
+                    //  }
+                    //  e.preventDefault();
+                    //};
 
-                    window.addEventListener("touchmove", noscroll, {
-                      passive: false,
-                    });
+                    //window.addEventListener("touchmove", noscroll, {
+                    //  passive: false,
+                    //});
 
                     window.addEventListener(
                       "pointerup",
                       (e) => {
                         ear.removeEventListener("pointerleave", leave);
-                        window.removeEventListener("touchmove", noscroll);
+                        const elementUnderPointer = document.elementFromPoint(
+                          e.clientX,
+                          e.clientY,
+                        );
+                        if (elementUnderPointer !== ear) leave();
                       },
                       { once: true },
                     );
@@ -2537,7 +2546,7 @@ export const handler = async (event, context) => {
                       pageEl.classList.remove("reverse");
                       pageWrapper.classList.remove("reverse");
                       setTimeout(function () {
-                       ear.classList.remove("active");
+                        ear.classList.remove("active");
                       }, 150);
                       return;
                     }
