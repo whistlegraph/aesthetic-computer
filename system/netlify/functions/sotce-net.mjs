@@ -274,16 +274,16 @@ export const handler = async (event, context) => {
               /* --font-page: serif; */
             }
 
-            ::-webkit-scrollbar {
-              width: 8px;
-              padding: 4px;
-              /* background: blue; */
-            }
+            @supports (-webkit-touch-callout: none) and
+              (not (overflow: -moz-hidden-unscrollable)) {
+              ::-webkit-scrollbar {
+                width: 8px;
+                padding: 4px;
+              }
 
-            ::-webkit-scrollbar-thumb {
-              /* border-radius: 50px; */
-              /* padding: 2px; */
-              background: rgba(255, 190, 215, 1);
+              ::-webkit-scrollbar-thumb {
+                background: rgba(255, 190, 215, 1);
+              }
             }
 
             #editor-page,
@@ -2682,7 +2682,7 @@ export const handler = async (event, context) => {
                     }
                   });
 
-                  let scrollbarWidth =
+                  const scrollbarWidth =
                     wrapper.offsetWidth - wrapper.clientWidth;
                   // if (Safari && Desktop) scrollbarWidth = 16;
                   keep.style.marginLeft = scrollbarWidth / 1.5 + "px";
@@ -3159,11 +3159,12 @@ export const handler = async (event, context) => {
                 };
 
                 // Adjust width of '#top-bar' for scrollbar appearance.
-                let scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                const scrollbarWidth =
+                  wrapper.offsetWidth - wrapper.clientWidth;
                 // if (Safari && Desktop) scrollbarWidth = 16;
                 topBar.style.width = "calc(100% - " + scrollbarWidth + "px)";
                 // binding.style.paddingLeft = "calc(16px + " + scrollbarWidth + "px)";
-                g.style.paddingLeft = scrollbarWidth + "px";
+                // g.style.paddingLeft = scrollbarWidth + "px";
 
                 binding.classList.remove("hidden");
 
