@@ -2,10 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [] Add exporting of PNG images per pages.
-
   - [] Add Print 🖨️ CSS behind touch menu.
 
+  - [] Add exporting of PNG images per pages.
   - [] Add meditation timer via AC sound engine.
 
   *** 📧 Email Notifications for Pages ***
@@ -1076,7 +1075,6 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               background: var(--backpage-color);
-
               clip-path: polygon(
                 0 0,
                 calc(100% - calc(max(1px, 0.1em))) 0,
@@ -4021,31 +4019,35 @@ export const handler = async (event, context) => {
 
     console.log("📃 Page:", page, id);
 
-    if (page && page.user !== user.sub) {
-      // Don't let users touch pages they created.
+    if (page) {
       const touches = database.db.collection("sotce-touches");
-      await touches.createIndex({ user: 1, page: 1 }, { unique: true });
 
-      try {
-        // Insert touch, assuming 'user.sub' contains the user's sub identifier
-        await touches.insertOne({
-          user: user.sub, // User's sub identifier
-          page: id, // Page ID from the request body
-          when: new Date(), // Current date and time
-        });
-      } catch (error) {
-        if (error.code === 11000) {
-          // Duplicate key error, meaning the user has already touched this page
-          console.log("User has already touched this page.");
-        } else {
-          console.error(
-            "An error occurred while touching the page:",
-            error.message,
-          );
+      // Try to touch the page.
+      if (page.user !== user.sub) {
+        // Don't let users touch pages they created.
+        await touches.createIndex({ user: 1, page: 1 }, { unique: true });
+
+        try {
+          // Insert touch, assuming 'user.sub' contains the user's sub identifier
+          await touches.insertOne({
+            user: user.sub, // User's sub identifier
+            page: id, // Page ID from the request body
+            when: new Date(), // Current date and time
+          });
+        } catch (error) {
+          if (error.code === 11000) {
+            // Duplicate key error, meaning the user has already touched this page
+            console.log("User has already touched this page.");
+          } else {
+            console.error(
+              "An error occurred while touching the page:",
+              error.message,
+            );
+          }
         }
       }
 
-      // Fetch all touches for the page, even if an error occurred
+      // Fetch all touches for the page, even if an error occurred ot a touch did not happen.
       const pageTouches = await touches.find({ page: id }).toArray();
 
       // Add a 'handle' field to each touch record.
