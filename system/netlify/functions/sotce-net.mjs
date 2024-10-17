@@ -272,6 +272,18 @@ export const handler = async (event, context) => {
               /* --font-page: serif; */
             }
 
+            ::-webkit-scrollbar {
+              width: 8px;
+              padding: 4px;
+              /* background: blue; */
+            }
+
+            ::-webkit-scrollbar-thumb {
+              /* border-radius: 50px; */
+              /* padding: 2px; */
+              background: rgba(255, 190, 215, 1);
+            }
+
             #editor-page,
             #garden article.page,
             #garden #editor textarea,
@@ -295,7 +307,7 @@ export const handler = async (event, context) => {
               /* touch-action: pan-x pan-y; */
               /* touch-action: pan-y; */
               /* pointer-events: none; */
-              touch-action: pan-x pan-y;
+              touch-action: none; /*pan-x pan-y;*/
               /* user-drag: none; */
             }
             html {
@@ -313,6 +325,40 @@ export const handler = async (event, context) => {
               /* height: 100%; */
               /* overflow: hidden; */
             }
+
+            /* prevent pull-to-refresh for Safari 16+ */
+            @media screen and (pointer: coarse) {
+              @supports (-webkit-backdrop-filter: blur(1px)) and
+                (overscroll-behavior-y: none) {
+                html {
+                  min-height: 100.3%;
+                  overscroll-behavior-y: none;
+                }
+              }
+            }
+
+            /* prevent pull-to-refresh for Safari 9~15 */
+            @media screen and (pointer: coarse) {
+              @supports (-webkit-backdrop-filter: blur(1px)) and
+                (not (overscroll-behavior-y: none)) {
+                html {
+                  height: 100%;
+                  overflow: hidden;
+                }
+                body {
+                  margin: 0px;
+                  max-height: 100%;
+                  overflow: auto;
+                  -webkit-overflow-scrolling: touch;
+                }
+              }
+            }
+
+            /* prevent pull-to-refresh for Chrome 63+ */
+            body {
+              overscroll-behavior-y: none;
+            }
+
             body.garden {
               background: var(--garden-background);
             }
@@ -338,6 +384,7 @@ export const handler = async (event, context) => {
               min-height: 100%;
               height: 100%;
               overflow-y: scroll;
+              -webkit-overflow-scrolling: touch;
               touch-action: pan-y;
             }
             body.reloading::after {
@@ -507,6 +554,7 @@ export const handler = async (event, context) => {
               margin-bottom: 1em;
               -webkit-tap-highlight-color: transparent;
               touch-action: none;
+              pointer-events: all;
             }
             a,
             textarea {
@@ -534,6 +582,7 @@ export const handler = async (event, context) => {
               );
               z-index: 3;
               height: 72px;
+              pointer-events: none;
             }
 
             #garden #top-bar::before {
@@ -1173,6 +1222,7 @@ export const handler = async (event, context) => {
               mask-size: cover;
               -webkit-tap-highlight-color: transparent;
               touch-action: none;
+              pointer-events: all;
             }
             #cookie-menu-wrapper:hover {
               transform: scale(0.97);
@@ -1325,12 +1375,36 @@ export const handler = async (event, context) => {
             let waitForSubscriptionSuccessThreeTimes = false;
             const { round, abs, floor, ceil, min, max } = Math;
 
+            // Platform constants.
+            // From aesthetic-computer's 'platform.mjs'.
+            const nav = navigator;
+            export const iOS = /(iPad|iPhone|iPod)/g.test(nav.userAgent);
+            export const Safari = /apple/i.test(nav.vendor);
+            export const Android = /(Android)/g.test(nav.userAgent);
+            export const MetaBrowser = /(OculusBrowser)/g.test(nav.userAgent);
+            export const Desktop = !iOS && !Android && !MetaBrowser;
+            export const Instagram = /(Instagram)/g.test(nav.userAgent);
+            export const TikTok = /BytedanceWebview/i.test(nav.userAgent);
+
             // 🌠 Initialization
 
             // Enable ':active' class on iOS Safari.
-            // document.addEventListener("touchstart", function () {}, false);
+            document.addEventListener("touchstart", function () {}, false);
 
             // e.stopImmediatePropagation();
+
+            // document.addEventListener(
+            //   "touchmove",
+            //   (e) => {
+            //     if (
+            //       window.scrollY === 0 &&
+            //       e.touches[0].clientY > e.touches[0].pageY
+            //     ) {
+            //       e.preventDefault();
+            //     }
+            //   },
+            //   { passive: false },
+            // );
 
             // window.addEventListener(
             //   "touchstart",
@@ -1369,25 +1443,25 @@ export const handler = async (event, context) => {
             //  console.log(event);
             //})
 
-            window.addEventListener("touchend", (event) => {
-              console.log("touch end, touches:", event.touches.length);
-            });
+            //window.addEventListener("touchend", (event) => {
+            //  console.log("touch end, touches:", event.touches.length);
+            //});
 
-            window.addEventListener(
-              "touchstart",
-              (event) => {
-                if (event.touches.length === 2) {
-                  console.log("Scroll tap!");
-                } else {
-                  console.log("touch started!");
-                }
-              },
-              { passive: true },
-            );
+            //window.addEventListener(
+            //  "touchstart",
+            //  (event) => {
+            //    if (event.touches.length === 2) {
+            //      console.log("Scroll tap!");
+            //    } else {
+            //      console.log("touch started!");
+            //    }
+            //  },
+            //  { passive: true },
+            //);
 
-            let scrolling, timeout;
+            //let scrolling, timeout;
 
-            window.addEventListener("scroll", (e) => {
+            //window.addEventListener("scroll", (e) => {
               //   console.log("scrolling...");
               //   window.clearTimeout(timeout);
               //   e.preventDefault();
@@ -1401,7 +1475,7 @@ export const handler = async (event, context) => {
               //     }, 100);
               //   }
               // document.body.style.zoom = "1"; // Works in some browsers
-            });
+            //});
 
             //document.body.addEventListener(
             //  "touchmove",
@@ -1461,10 +1535,10 @@ export const handler = async (event, context) => {
             //  { passive: false },
             //);
 
-            window.addEventListener("gesturestart", function (event) {
-              console.log(event);
-              event.preventDefault();
-            });
+            //window.addEventListener("gesturestart", function (event) {
+            //  console.log(event);
+            //  event.preventDefault();
+            //});
 
             // document.addEventListener("gesturechange", function (event) {
             //   event.preventDefault();
@@ -2075,6 +2149,27 @@ export const handler = async (event, context) => {
                   }
 
                   // ⚠️ Now handle the TODO: Backtrack through the full word if it was split
+                  // const matchIndex = cachedText.indexOf(lastLineText);
+
+                  // if (matchIndex > 0) {
+                  //   // Walk backwards from the match index to capture the rest of the word.
+                  //   for (let i = matchIndex - 1; i >= 0; i--) {
+                  //     const char = cachedText[i];
+
+                  //     // Stop if we hit a word boundary (space, newline, or other separator).
+                  //     if (
+                  //       /\\s/.test(char) ||
+                  //       char === "\\n" ||
+                  //       char === "\\r"
+                  //     ) {
+                  //       break;
+                  //     }
+
+                  //     lastLineText = char + lastLineText;
+                  //   }
+                  // }
+
+                  // Find the starting index of the last line's text in the full cached text.
                   const matchIndex = cachedText.indexOf(lastLineText);
 
                   if (matchIndex > 0) {
@@ -2082,11 +2177,12 @@ export const handler = async (event, context) => {
                     for (let i = matchIndex - 1; i >= 0; i--) {
                       const char = cachedText[i];
 
-                      // Stop if we hit a word boundary (space, newline, or other separator).
+                      // Stop if we hit a word boundary or any form of line separator.
                       if (
-                        /\\s/.test(char) ||
+                        /\\s/.test(char) || // Handles spaces, tabs, etc.
                         char === "\\n" ||
-                        char === "\\r"
+                        char === "\\r" ||
+                        char === "\\u00A0" // Non-breaking space.
                       ) {
                         break;
                       }
@@ -2571,8 +2667,9 @@ export const handler = async (event, context) => {
                     }
                   });
 
-                  const scrollbarWidth =
+                  let scrollbarWidth =
                     wrapper.offsetWidth - wrapper.clientWidth;
+                  // if (Safari && Desktop) scrollbarWidth = 16;
                   keep.style.marginLeft = scrollbarWidth / 1.5 + "px";
                   // linesLeft.style.marginLeft = -scrollbarWidth + "px";
 
@@ -3047,9 +3144,8 @@ export const handler = async (event, context) => {
                 };
 
                 // Adjust width of '#top-bar' for scrollbar appearance.
-                const scrollbarWidth =
-                  wrapper.offsetWidth - wrapper.clientWidth;
-
+                let scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                // if (Safari && Desktop) scrollbarWidth = 16;
                 topBar.style.width = "calc(100% - " + scrollbarWidth + "px)";
                 // binding.style.paddingLeft = "calc(16px + " + scrollbarWidth + "px)";
                 g.style.paddingLeft = scrollbarWidth + "px";
@@ -3134,6 +3230,9 @@ export const handler = async (event, context) => {
                               console.log("🟩 Done", performance.now());
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
+
+                              wrapper.scrollTop =
+                                wrapper.scrollHeight - wrapper.clientHeight;
                               g.classList.remove("faded");
                               g.addEventListener(
                                 "transitionend",
@@ -3305,7 +3404,6 @@ export const handler = async (event, context) => {
                 page = await callback();
 
                 // if (render.waitFor)
-
                 spinner.classList.remove("showing");
                 //setTimeout(
                 //() => {
@@ -3315,9 +3413,6 @@ export const handler = async (event, context) => {
                   () => {
                     spinner.remove();
                     page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
-                    if (type === "garden")
-                      document.body.scrollTop =
-                        document.body.scrollHeight - document.body.clientHeight;
                     if (GATE_WAS_UP) {
                       document
                         .getElementById("gate-curtain")
