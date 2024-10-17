@@ -2,6 +2,7 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [-] Add nicer rendering of page outlines.
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
 
