@@ -2,11 +2,6 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-
-  - [x] Speed up rendering of the feed.
-    - [c] Deprecate last line feature. 
-
-
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
 
@@ -48,6 +43,8 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Speed up rendering of the feed.
+    - [x] Deprecate last line feature. 
   - [x] Keep spinner up until feed is rendered...
   - [x] Prevent page zoom and scroll inconsistency on iOS.
   - [x] Change full page background color once feed is open.
@@ -2039,78 +2036,34 @@ export const handler = async (event, context) => {
                 console.log("Total lines:", totalLines);
 
                 let lastLineText = ""; // Store the 17th line's text
-                let accumulatedText = ""; // Accumulate the entire text until the 17th line
-
-                // Only proceed if the 17th line exists
-                if (totalLines >= 17) {
-                  let currentLine = 0; // Track current line number
-
-                  // Iterate through the text and build it line by line
-                  for (let i = 0; i < cachedText.length; i++) {
-                    accumulatedText += cachedText[i]; // Add character to the accumulated text
-                    source.innerText = accumulatedText; // Update the element with the new text
-
-                    // Calculate the current number of lines
-                    const newLineCount = Math.round(
-                      source.clientHeight / lineHeight,
-                    );
-
-                    if (newLineCount > currentLine) {
-                      currentLine = newLineCount; // Update the line count
-
-                      // If we moved past the 17th line, stop processing
-                      if (currentLine > 17) {
-                        break;
-                      }
-
-                      // If we are on the 17th line, reset and start collecting
-                      if (currentLine === 17) {
-                        lastLineText = ""; // Reset the last line text accumulator
-                      }
-                    }
-
-                    // Accumulate characters for the 17th line
-                    if (currentLine === 17) {
-                      lastLineText += cachedText[i]; // Collect character for the 17th line
-                    }
-                  }
-                }
-
-                console.log("Last line text:", lastLineText);
 
                 // TODO: Walk backwards by character and measure once we are no longer
                 // on the 17th line if 17 lines exist.
 
                 // And store the last line text in lastLineText
                 // Only proceed if the 17th line exists
-                /*
+
                 if (totalLines >= 17) {
                   let currentLine = totalLines;
                   let collecting = false;
+                  let first17CharIndex = -1; // Track where the 17th line starts
 
                   // Walk backwards character-by-character
                   for (let c = cachedText.length - 1; c >= 0; c--) {
-                    // Update the innerText to measure the line count as we reduce characters
+                    // Update the innerText to measure the line count
                     source.innerText = cachedText.slice(0, c);
                     const newLineCount = Math.round(
                       source.clientHeight / lineHeight,
                     );
 
-                    console.log(
-                      "Character:",
-                      cachedText[c],
-                      "Line count:",
-                      newLineCount,
-                    );
-
                     if (newLineCount < currentLine) {
-                      // We dropped to a lower line, update the current line count
                       currentLine = newLineCount;
                     }
 
                     // Start collecting if we are on the 17th line
                     if (currentLine === 17) {
                       collecting = true;
+                      if (first17CharIndex === -1) first17CharIndex = c; // Mark the first char index on line 17
                       lastLineText = cachedText[c] + lastLineText; // Prepend the character
                     }
 
@@ -2119,11 +2072,29 @@ export const handler = async (event, context) => {
                       break;
                     }
                   }
+
+                  // ⚠️ Now handle the TODO: Backtrack through the full word if it was split
+                  const matchIndex = cachedText.indexOf(lastLineText);
+
+                  if (matchIndex > 0) {
+                    // Walk backwards from the match index to capture the rest of the word.
+                    for (let i = matchIndex - 1; i >= 0; i--) {
+                      const char = cachedText[i];
+
+                      // Stop if we hit a word boundary (space, newline, or other separator).
+                      if (
+                        /\\s/.test(char) ||
+                        char === "\\n" ||
+                        char === "\\r"
+                      ) {
+                        break;
+                      }
+
+                      lastLineText = char + lastLineText;
+                    }
+                  }
                 }
-                  */
-
-                console.log("Last line text:", lastLineText);
-
+                // console.log("Last line text:", lastLineText);
                 source.innerText = cachedText;
                 const cachedWidth = cs.width;
                 // source.style.width = "100%";
@@ -2346,10 +2317,10 @@ export const handler = async (event, context) => {
                     const remainingLines = maxLines - min(lineCount, maxLines);
 
                     if (remainingLines === 0 && lastLineRender) {
-                      //const { lastLineText, lastLineProgress } =
-                      //  computeLastLineText(edMeasurement);
-                      const lastlineText = "",
-                        lastLineProgress = 0;
+                      const { lastLineText, lastLineProgress } =
+                        computeLastLineText(edMeasurement);
+                      //const lastlineText = "",
+                      //  lastLineProgress = 0;
                       if (needsJustification(words.value, lastLineProgress)) {
                         editorPage.classList.add("editor-justify-last-line");
                       } else {
@@ -3031,10 +3002,10 @@ export const handler = async (event, context) => {
                     if (lineCount === 17) {
                       // Compute or read line progress from the cache.
                       if (page.lastLineProgress === undefined) {
-                        //const { lastLineText, lastLineProgress } =
-                        // computeLastLineText(words);
-                        const lastlineText = "",
-                          lastLineProgress = 0;
+                        const { lastLineText, lastLineProgress } =
+                          computeLastLineText(words);
+                        //  const lastlineText = "",
+                        //   lastLineProgress = 0;
                         page.lastLineProgress = lastLineProgress;
                       }
 
@@ -3154,12 +3125,12 @@ export const handler = async (event, context) => {
                               currentWidth !== previousWidth ||
                               g.scrollHeight > 0
                             ) {
-                              // console.log(
-                              //   "🟢 Computing page layout...",
-                              //   performance.now(),
-                              // );
+                              console.log(
+                                "🟢 Computing page layout...",
+                                performance.now(),
+                              );
                               computePageLayout?.();
-                              // console.log("🟩 Done", performance.now());
+                              console.log("🟩 Done", performance.now());
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
                               g.classList.remove("faded");
