@@ -333,7 +333,7 @@ export const handler = async (event, context) => {
               @supports (-webkit-backdrop-filter: blur(1px)) and
                 (overscroll-behavior-y: none) {
                 html {
-                  min-height: 100.3%;
+                  min-height: 100.0%;
                   overscroll-behavior-y: none;
                 }
               }
