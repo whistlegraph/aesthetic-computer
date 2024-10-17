@@ -3,7 +3,8 @@
 
 /* #region 🟢 TODO 
 
-  - [] Speed up rendering of the feed.
+  - [x] Speed up rendering of the feed.
+    - [c] Deprecate last line feature. 
 
 
   - [] Add Print 🖨️ CSS behind touch menu.
@@ -2029,45 +2030,99 @@ export const handler = async (event, context) => {
                 // let lastHeight = source.clientHeight;
                 // let line = 0;
                 // let lastLineText = "";
-                source.innerText = "";
+                // source.innerText = "";
 
                 const cs = getComputedStyle(source);
-
                 const lineHeight = parseFloat(cs.lineHeight);
+                const totalLines = Math.round(source.clientHeight / lineHeight);
 
-                let batchedText = "";
-                let lastLineText = "";
-                let lastHeight = source.clientHeight;
-                let line = Math.round(lastHeight / lineHeight);
+                console.log("Total lines:", totalLines);
 
-                //for (let c = 0; c < cachedText.length; c++) {
-                //  batchedText += cachedText[c];
+                let lastLineText = ""; // Store the 17th line's text
+                let accumulatedText = ""; // Accumulate the entire text until the 17th line
 
-                //  // Update text and measure every 50 characters to minimize reflows
-                //  if (c % 50 === 0 || c === cachedText.length - 1) {
-                //    source.innerText = batchedText;
-                //    const newHeight = source.clientHeight;
+                // Only proceed if the 17th line exists
+                if (totalLines >= 17) {
+                  let currentLine = 0; // Track current line number
 
-                //    if (newHeight !== lastHeight) {
-                //      lastHeight = newHeight;
-                //      line = Math.round(lastHeight / lineHeight);
+                  // Iterate through the text and build it line by line
+                  for (let i = 0; i < cachedText.length; i++) {
+                    accumulatedText += cachedText[i]; // Add character to the accumulated text
+                    source.innerText = accumulatedText; // Update the element with the new text
 
-                //      if (line === 17) {
-                //        lastLineText += cachedText[c];
-                //      }
-                //    }
-                //  }
-                //}
+                    // Calculate the current number of lines
+                    const newLineCount = Math.round(
+                      source.clientHeight / lineHeight,
+                    );
 
-                for (let c = 0; c < cachedText.length; c += 1) {
-                  if (line === 17) lastLineText += cachedText[c];
-                  source.innerText += cachedText[c];
-                  if (source.clientHeight !== lastHeight) {
-                    lastHeight = source.clientHeight;
-                    line = round(lastHeight / lineHeight);
-                    if (line === 17) lastLineText += cachedText[c];
+                    if (newLineCount > currentLine) {
+                      currentLine = newLineCount; // Update the line count
+
+                      // If we moved past the 17th line, stop processing
+                      if (currentLine > 17) {
+                        break;
+                      }
+
+                      // If we are on the 17th line, reset and start collecting
+                      if (currentLine === 17) {
+                        lastLineText = ""; // Reset the last line text accumulator
+                      }
+                    }
+
+                    // Accumulate characters for the 17th line
+                    if (currentLine === 17) {
+                      lastLineText += cachedText[i]; // Collect character for the 17th line
+                    }
                   }
                 }
+
+                console.log("Last line text:", lastLineText);
+
+                // TODO: Walk backwards by character and measure once we are no longer
+                // on the 17th line if 17 lines exist.
+
+                // And store the last line text in lastLineText
+                // Only proceed if the 17th line exists
+                /*
+                if (totalLines >= 17) {
+                  let currentLine = totalLines;
+                  let collecting = false;
+
+                  // Walk backwards character-by-character
+                  for (let c = cachedText.length - 1; c >= 0; c--) {
+                    // Update the innerText to measure the line count as we reduce characters
+                    source.innerText = cachedText.slice(0, c);
+                    const newLineCount = Math.round(
+                      source.clientHeight / lineHeight,
+                    );
+
+                    console.log(
+                      "Character:",
+                      cachedText[c],
+                      "Line count:",
+                      newLineCount,
+                    );
+
+                    if (newLineCount < currentLine) {
+                      // We dropped to a lower line, update the current line count
+                      currentLine = newLineCount;
+                    }
+
+                    // Start collecting if we are on the 17th line
+                    if (currentLine === 17) {
+                      collecting = true;
+                      lastLineText = cachedText[c] + lastLineText; // Prepend the character
+                    }
+
+                    // Stop collecting once we drop below the 17th line
+                    if (collecting && currentLine < 17) {
+                      break;
+                    }
+                  }
+                }
+                  */
+
+                console.log("Last line text:", lastLineText);
 
                 source.innerText = cachedText;
                 const cachedWidth = cs.width;
@@ -2291,8 +2346,10 @@ export const handler = async (event, context) => {
                     const remainingLines = maxLines - min(lineCount, maxLines);
 
                     if (remainingLines === 0 && lastLineRender) {
-                      const { lastLineText, lastLineProgress } =
-                        computeLastLineText(edMeasurement);
+                      //const { lastLineText, lastLineProgress } =
+                      //  computeLastLineText(edMeasurement);
+                      const lastlineText = "",
+                        lastLineProgress = 0;
                       if (needsJustification(words.value, lastLineProgress)) {
                         editorPage.classList.add("editor-justify-last-line");
                       } else {
@@ -2542,8 +2599,9 @@ export const handler = async (event, context) => {
                     }
                   });
 
-                  const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
-                  keep.style.marginLeft = scrollbarWidth / 1.5 + 'px';
+                  const scrollbarWidth =
+                    wrapper.offsetWidth - wrapper.clientWidth;
+                  keep.style.marginLeft = scrollbarWidth / 1.5 + "px";
                   // linesLeft.style.marginLeft = -scrollbarWidth + "px";
 
                   editor.appendChild(form);
@@ -2973,8 +3031,10 @@ export const handler = async (event, context) => {
                     if (lineCount === 17) {
                       // Compute or read line progress from the cache.
                       if (page.lastLineProgress === undefined) {
-                        const { lastLineText, lastLineProgress } =
-                          computeLastLineText(words);
+                        //const { lastLineText, lastLineProgress } =
+                        // computeLastLineText(words);
+                        const lastlineText = "",
+                          lastLineProgress = 0;
                         page.lastLineProgress = lastLineProgress;
                       }
 
@@ -3015,7 +3075,8 @@ export const handler = async (event, context) => {
                 };
 
                 // Adjust width of '#top-bar' for scrollbar appearance.
-                const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                const scrollbarWidth =
+                  wrapper.offsetWidth - wrapper.clientWidth;
 
                 topBar.style.width = "calc(100% - " + scrollbarWidth + "px)";
                 // binding.style.paddingLeft = "calc(16px + " + scrollbarWidth + "px)";
@@ -3093,12 +3154,12 @@ export const handler = async (event, context) => {
                               currentWidth !== previousWidth ||
                               g.scrollHeight > 0
                             ) {
-                              console.log(
-                                "🟢 Computing page layout...",
-                                performance.now(),
-                              );
+                              // console.log(
+                              //   "🟢 Computing page layout...",
+                              //   performance.now(),
+                              // );
                               computePageLayout?.();
-                              console.log("🟩 Done", performance.now());
+                              // console.log("🟩 Done", performance.now());
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
                               g.classList.remove("faded");
