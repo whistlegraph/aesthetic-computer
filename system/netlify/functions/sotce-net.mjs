@@ -2,8 +2,6 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [] Get scrolling working in editor.
-  - [] Add nice veil fix for iOS Safari.
   - [-] Add more consistent rendering of page outlines.
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
@@ -46,6 +44,9 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Get scrolling working in editor in iOS.
+  - [x] Add a nice veil fix for iOS Safari, maybe by changing the page
+       background color via a class on the body.
   - [x] Speed up rendering of the feed.
     - [x] Deprecate last line feature. 
   - [x] Keep spinner up until feed is rendered...
@@ -255,7 +256,7 @@ export const handler = async (event, context) => {
           />
           <meta
             name="viewport"
-            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+            content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
           />
           <style>
             @import url("https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
@@ -272,19 +273,96 @@ export const handler = async (event, context) => {
               --line-height: 1.68em;
               --garden-background: #bbfbfe;
               /* --font-page: serif; */
+              --editor-placemat-background: rgba(255, 255, 255, 0.5);
+              --editor-placemat-background-opaque: rgb(255, 255, 255);
             }
 
             @supports (-webkit-touch-callout: none) and
               (not (overflow: -moz-hidden-unscrollable)) {
               ::-webkit-scrollbar {
                 width: 8px;
-                padding: 4px;
               }
 
               ::-webkit-scrollbar-thumb {
                 background: rgba(255, 190, 215, 1);
               }
             }
+
+            html,
+            body {
+              touch-action: none; /*pan-x pan-y;*/
+            }
+
+            html.veiled body {
+              background: rgba(0, 0, 0, 0.75) !important;
+              transition: 0.5s background;
+            }
+
+            html.editing {
+              /*background: mix() blue !important;*/ /*var(--garden-background);*/
+              background: color-mix(
+                in srgb,
+                var(--garden-background) 50%,
+                var(--editor-placemat-background) 50%
+              ) !important;
+            }
+
+            html.editing body {
+              /* background: var(--editor-placemat-background); */
+            }
+
+            html.garden {
+              background: var(--garden-background);
+            }
+
+            html {
+              background: var(--background-color);
+            }
+
+            body {
+              font-family: sans-serif;
+              margin: 0;
+              width: 100%;
+              /* min-height: 100%; */
+              /* background: yellow; */
+              background: rgba(0, 0, 0, 0);
+              -webkit-text-size-adjust: none;
+              user-select: none;
+              -webkit-user-select: none;
+              /* height: 100%; */
+              /* overflow: hidden; */
+              overscroll-behavior-y: none; /* prevent pull-to-refresh for Chrome 63+ */
+            }
+
+            /* prevent pull-to-refresh for Safari 16+ */
+
+            @media screen and (pointer: coarse) {
+              @supports (-webkit-backdrop-filter: blur(1px)) and
+                (overscroll-behavior-y: none) {
+                html/*:not(.editing)*/ {
+                  /* min-height: 100.0%; */
+                  overscroll-behavior-y: none;
+                }
+              }
+            }
+
+            /*
+            @media screen and (pointer: coarse) {
+              @supports (-webkit-backdrop-filter: blur(1px)) and
+                (not (overscroll-behavior-y: none)) {
+                html {
+                  height: 100%;
+                  overflow: hidden;
+                }
+                body {
+                  margin: 0px;
+                  max-height: 100%;
+                  overflow: auto;
+                  -webkit-overflow-scrolling: touch;
+                }
+              }
+            }
+            */
 
             #editor-page,
             #garden article.page,
@@ -299,71 +377,8 @@ export const handler = async (event, context) => {
             #editor-page,
             #garden article.page {
               font-size: calc(3.25px * 8);
-              /* font-size: 24px; works well with "Lora" */
-              /* font-size: calc(2.8px * 8); */
             }
 
-            html,
-            body {
-              /* scroll-behavior: auto; */
-              /* touch-action: pan-x pan-y; */
-              /* touch-action: pan-y; */
-              /* pointer-events: none; */
-              touch-action: none; /*pan-x pan-y;*/
-              /* user-drag: none; */
-            }
-            html {
-              /* min-height: 100%; */
-            }
-            body {
-              font-family: sans-serif;
-              margin: 0;
-              width: 100%;
-              /* min-height: 100%; */
-              -webkit-text-size-adjust: none;
-              background: var(--background-color);
-              user-select: none;
-              -webkit-user-select: none;
-              /* height: 100%; */
-              /* overflow: hidden; */
-            }
-
-            /* prevent pull-to-refresh for Safari 16+ */
-            @media screen and (pointer: coarse) {
-              @supports (-webkit-backdrop-filter: blur(1px)) and
-                (overscroll-behavior-y: none) {
-                html {
-                  min-height: 100.3%;
-                  overscroll-behavior-y: none;
-                }
-              }
-            }
-
-            /* prevent pull-to-refresh for Safari 9~15 */
-            @media screen and (pointer: coarse) {
-              @supports (-webkit-backdrop-filter: blur(1px)) and
-                (not (overscroll-behavior-y: none)) {
-                html {
-                  height: 100%;
-                  /* overflow: hidden; */
-                }
-                body {
-                  margin: 0px;
-                  max-height: 100%;
-                  overflow: auto;
-                  -webkit-overflow-scrolling: touch;
-                }
-              }
-            }
-
-            /* prevent pull-to-refresh for Chrome 63+ */
-            body {
-              overscroll-behavior-y: none;
-            }
-
-            body.garden {
-              background: var(--garden-background);
-            }
             /* body.noscroll { */
             /* overflow: hidden; */
             /* } */
@@ -835,7 +850,7 @@ export const handler = async (event, context) => {
               max-height: calc(var(--line-height) * 17);
               overflow: hidden;
               padding: 0 2em;
-              /* display: inline-block; */
+              /* display: inline-block; *9
               /* word-break: break-word; */
               hyphens: auto;
               -webkit-hyphens: auto;
@@ -860,7 +875,7 @@ export const handler = async (event, context) => {
               position: relative;
               width: 100%;
               /* height: 100%; */
-              min-height: 100%;
+              min-height: 100.3%;
               top: 0;
               left: 0;
               border: none;
@@ -869,21 +884,21 @@ export const handler = async (event, context) => {
               display: flex;
             }
 
-            #garden #editor::before {
+            #garden #editor-placemat /* #editor::before */ {
               content: "";
               position: fixed;
               top: 0;
               left: 0;
               width: 100vw;
-              height: 100vh;
-              overflow: hidden;
-              /*background: rgba(255, 0, 255, 0.5);*/
-              background: linear-gradient(
+              height: 150vh;
+              /* overflow: hidden; */
+              background: var(--editor-placemat-background);
+              /* background: linear-gradient(
                 to top,
-                rgba(255, 255, 255, 0.5) 98%,
+                rgba(255, 255, 255, 0.5) 99%,
                 transparent 100%
-              );
-              z-index: 0;
+              ); */
+              z-index: 3;
               pointer-events: none;
             }
 
@@ -999,8 +1014,7 @@ export const handler = async (event, context) => {
             }
 
             #garden #editor textarea:focus {
-              outline: none;
-              pointer-events: all;
+              pointer-events: auto;
             }
 
             /* 🐕 Doggy Ear Rendering */
@@ -1339,23 +1353,18 @@ export const handler = async (event, context) => {
               height: 200%;
               display: flex;
               /* background: black; */
-
-              background: linear-gradient(
-                to top,
-                rgb(0, 0, 0) 98%,
-                transparent 100%
-              );
-
-              opacity: 0.75;
-              transition: 0.5s opacity;
+              background: rgba(0, 0, 0, 0.75);
+              opacity: 1;
+              transition: 0.5s background;
             }
             #veil.unveiled {
-              opacity: 0;
+              background: rgba(0, 0, 0, 0);
               pointer-events: none;
             }
             #veil.unveiled-instant {
               transition: none;
-              opacity: 0;
+              /* opacity: 0; */
+              background: rgba(0, 0, 0, 0);
               pointer-events: none;
             }
           </style>
@@ -2027,7 +2036,7 @@ export const handler = async (event, context) => {
                   if (!cookieWrapper.classList.contains("interactive")) return;
                   curtain.classList.add("hidden");
                   cookieWrapper.classList.remove("interactive");
-                  document.body.classList.add("garden");
+                  document.documentElement.classList.add("garden");
                   document.querySelector("#garden")?.classList.remove("hidden");
                   document.body.classList.remove("pages-hidden");
                   wrapper.scrollTop = scrollMemory;
@@ -2090,7 +2099,7 @@ export const handler = async (event, context) => {
               if (showGate) {
                 gateCurtain.classList.remove("hidden");
                 document.body.classList.remove("pages-hidden");
-                document.body.classList.remove("garden");
+                document.documentElement.classList.remove("garden");
               }
 
               // Swap the favicon url.
@@ -2320,6 +2329,9 @@ export const handler = async (event, context) => {
                   const editor = cel("div");
                   editor.id = "editor";
                   // editor.setAttribute("open", "");
+
+                  const editorPlacemat = cel("div");
+                  editorPlacemat.id = "editor-placemat";
 
                   const form = cel("form");
                   form.id = "editor-form";
@@ -2605,7 +2617,9 @@ export const handler = async (event, context) => {
 
                   function close() {
                     document.body.classList.remove("pages-hidden");
+                    document.documentElement.classList.remove("editing");
                     editor.remove();
+                    editorPlacemat.remove();
                     nav.remove();
                     writeButton.classList.remove("deactivated");
                     wrapper.scrollTop = scrollMemory;
@@ -2692,11 +2706,12 @@ export const handler = async (event, context) => {
                   editor.appendChild(linesLeft);
                   g.appendChild(nav);
 
+                  document.documentElement.classList.add("editing");
+
                   unveil({ instant: true });
+                  g.appendChild(editorPlacemat);
                   g.appendChild(editor);
                   document.body.classList.add("pages-hidden");
-                  // document.body.classList.remove("garden");
-                  // document.body.classList.add("editor");
 
                   const baseWidth = 100 * 8;
                   const goalWidth = editorPage.parentElement.clientWidth;
@@ -3204,7 +3219,7 @@ export const handler = async (event, context) => {
                 gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
                 document.body.classList.add("pages-hidden");
-                document.body.classList.remove("garden");
+                document.documentElement.classList.remove("garden");
                 curtainCookie.classList.add("interactive");
               };
 
@@ -3430,7 +3445,7 @@ export const handler = async (event, context) => {
                     page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
 
                     if (type === "garden") {
-                      document.body.classList.add("garden");
+                      document.documentElement.classList.add("garden");
                     }
 
                     if (GATE_WAS_UP) {
@@ -3541,11 +3556,13 @@ export const handler = async (event, context) => {
               el.appendChild(spinner);
               el.classList.remove("unveiled");
               el.classList.remove("unveiled-instant");
+              document.documentElement.classList.add("veiled");
             }
 
             function unveil(options) {
               const el = document.getElementById("veil");
               if (options?.instant) {
+                document.documentElement.classList.remove("veiled");
                 el.classList.add("unveiled-instant");
                 el.querySelector(".spinner")?.remove();
               } else {
@@ -4313,7 +4330,6 @@ export const handler = async (event, context) => {
             content="width=device-width, initial-scale=1.0"
           />
         </head>
-
         <body>
           <h1>Sotce Net's Privacy Policy</h1>
           <p>
