@@ -2,9 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [] Add exporting of PNG images per pages.
 
   - [] Add Print 🖨️ CSS behind touch menu.
-  - [] Add exporting of PNG images here too.
 
   - [] Add meditation timer via AC sound engine.
 
@@ -305,9 +305,14 @@ export const handler = async (event, context) => {
               /*background: mix() blue !important;*/ /*var(--garden-background);*/
               background: color-mix(
                 in srgb,
-                var(--garden-background) 50%,
-                var(--editor-placemat-background) 50%
+                var(--garden-background) 70%,
+                var(--editor-placemat-background-opaque) 30%
               ) !important;
+            }
+
+            html.editing #garden #top-bar {
+              z-index: 4;
+              opacity: 0.5;
             }
 
             html.editing body {
@@ -878,7 +883,7 @@ export const handler = async (event, context) => {
               position: relative;
               width: 100%;
               /* height: 100%; */
-              min-height: 100.3%;
+              min-height: 100.1%;
               top: 0;
               left: 0;
               border: none;
@@ -893,9 +898,13 @@ export const handler = async (event, context) => {
               top: 0;
               left: 0;
               width: 100vw;
-              height: 150vh;
+              height: 100vh;
               /* overflow: hidden; */
-              background: var(--editor-placemat-background);
+              background: color-mix(
+                in srgb,
+                var(--garden-background) 50%,
+                var(--editor-placemat-background-opaque) 50%
+              ) !important;
               /* background: linear-gradient(
                 to top,
                 rgba(255, 255, 255, 0.5) 99%,
@@ -1014,10 +1023,13 @@ export const handler = async (event, context) => {
 
             #garden #editor textarea {
               pointer-events: none;
+              /* caret-color: black; */
+              caret-color: var(--spinner-background);
             }
 
             #garden #editor textarea:focus {
               pointer-events: auto;
+              outline: none;
             }
 
             /* 🐕 Doggy Ear Rendering */
