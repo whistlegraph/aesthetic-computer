@@ -2,7 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [-] Add nicer rendering of page outlines.
+  - [] Get scrolling working in editor.
+  - [] Add nice veil fix for iOS Safari.
+  - [-] Add more consistent rendering of page outlines.
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
 
@@ -343,7 +345,7 @@ export const handler = async (event, context) => {
                 (not (overscroll-behavior-y: none)) {
                 html {
                   height: 100%;
-                  overflow: hidden;
+                  /* overflow: hidden; */
                 }
                 body {
                   margin: 0px;
@@ -875,7 +877,12 @@ export const handler = async (event, context) => {
               width: 100vw;
               height: 100vh;
               overflow: hidden;
-              background: rgba(255, 255, 255, 0.5);
+              /*background: rgba(255, 0, 255, 0.5);*/
+              background: linear-gradient(
+                to top,
+                rgba(255, 255, 255, 0.5) 98%,
+                transparent 100%
+              );
               z-index: 0;
               pointer-events: none;
             }
@@ -1326,12 +1333,19 @@ export const handler = async (event, context) => {
             #veil {
               position: fixed;
               z-index: 1000;
-              top: 0;
+              top: -50%;
               left: 0;
               width: 100%;
-              height: 100%;
+              height: 200%;
               display: flex;
-              background: black;
+              /* background: black; */
+
+              background: linear-gradient(
+                to top,
+                rgb(0, 0, 0) 98%,
+                transparent 100%
+              );
+
               opacity: 0.75;
               transition: 0.5s opacity;
             }
@@ -1462,19 +1476,19 @@ export const handler = async (event, context) => {
             //let scrolling, timeout;
 
             //window.addEventListener("scroll", (e) => {
-              //   console.log("scrolling...");
-              //   window.clearTimeout(timeout);
-              //   e.preventDefault();
-              //   e.stopImmediatePropagation();
-              //   if (!scrolling) {
-              //     scrolling = true;
-              //     document.body.classList.add("scrolling");
-              //     timeout = setTimeout(() => {
-              //       scrolling = false;
-              //       document.body.classList.remove("scrolling");
-              //     }, 100);
-              //   }
-              // document.body.style.zoom = "1"; // Works in some browsers
+            //   console.log("scrolling...");
+            //   window.clearTimeout(timeout);
+            //   e.preventDefault();
+            //   e.stopImmediatePropagation();
+            //   if (!scrolling) {
+            //     scrolling = true;
+            //     document.body.classList.add("scrolling");
+            //     timeout = setTimeout(() => {
+            //       scrolling = false;
+            //       document.body.classList.remove("scrolling");
+            //     }, 100);
+            //   }
+            // document.body.style.zoom = "1"; // Works in some browsers
             //});
 
             //document.body.addEventListener(
@@ -1635,7 +1649,7 @@ export const handler = async (event, context) => {
 
             const wrapper = document.getElementById("wrapper");
 
-            let scrollMemory = document.body.scrollTop; // Used to retrieve scroll across gate and garden.
+            let scrollMemory = wrapper.scrollTop; // Used to retrieve scroll across gate and garden.
 
             // Reload fading.
             window.addEventListener("beforeunload", (e) => {
@@ -2013,9 +2027,10 @@ export const handler = async (event, context) => {
                   if (!cookieWrapper.classList.contains("interactive")) return;
                   curtain.classList.add("hidden");
                   cookieWrapper.classList.remove("interactive");
+                  document.body.classList.add("garden");
                   document.querySelector("#garden")?.classList.remove("hidden");
                   document.body.classList.remove("pages-hidden");
-                  document.body.scrollTop = scrollMemory;
+                  wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
                 },
                 // { once: true },
@@ -2276,7 +2291,7 @@ export const handler = async (event, context) => {
                   let page;
 
                   // Create or retrieve the user's current draft.
-                  scrollMemory = document.body.scrollTop;
+                  scrollMemory = wrapper.scrollTop;
                   // TODO: 🟠 Memoize draft in ram.
 
                   veil();
@@ -2593,7 +2608,7 @@ export const handler = async (event, context) => {
                     editor.remove();
                     nav.remove();
                     writeButton.classList.remove("deactivated");
-                    document.body.scrollTop = scrollMemory;
+                    wrapper.scrollTop = scrollMemory;
                     computePageLayout?.();
                     window.removeEventListener("resize", updateLineCount);
                     window.removeEventListener("pointerup", checkup);
@@ -3184,7 +3199,7 @@ export const handler = async (event, context) => {
                 gateCurtain.querySelector("#cookie-wrapper");
 
               cookieMenu.onclick = function () {
-                scrollMemory = document.body.scrollTop;
+                scrollMemory = wrapper.scrollTop;
                 gateCurtain.classList.remove("hidden");
                 g.classList.add("hidden");
                 document.body.classList.add("pages-hidden");
@@ -3237,7 +3252,6 @@ export const handler = async (event, context) => {
                               g.addEventListener(
                                 "transitionend",
                                 () => {
-                                  document.body.classList.add("garden");
                                   resolve(g);
                                 },
                                 { once: true },
@@ -3413,6 +3427,11 @@ export const handler = async (event, context) => {
                   () => {
                     spinner.remove();
                     page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
+
+                    if (type === "garden") {
+                      document.body.classList.add("garden");
+                    }
+
                     if (GATE_WAS_UP) {
                       document
                         .getElementById("gate-curtain")
