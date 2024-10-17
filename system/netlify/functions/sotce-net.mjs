@@ -2,9 +2,11 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [-] Add more consistent rendering of page outlines.
+
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
+
+  - [] Add meditation timer via AC sound engine.
 
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
@@ -44,6 +46,7 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Add more consistent rendering of page outlines.
   - [x] Get scrolling working in editor in iOS.
   - [x] Add a nice veil fix for iOS Safari, maybe by changing the page
        background color via a class on the body.
@@ -719,7 +722,7 @@ export const handler = async (event, context) => {
               left: 0;
               /* font-family: var(--font-page); */
               background-color: white;
-              border: 0.1em solid black;
+              border: calc(max(1px, 0.1em)) solid black;
               padding: 1em;
               aspect-ratio: 4 / 5;
               position: relative;
@@ -796,7 +799,7 @@ export const handler = async (event, context) => {
               /* font-family: var(--font-page); */
               background-color: white;
               padding: 1em;
-              border: 0.1em solid black;
+              border: calc(max(1px, 0.1em)) solid black;
               /* margin-left: 0; */
               /* margin-right: auto; */
               transform-origin: top left;
@@ -1032,8 +1035,8 @@ export const handler = async (event, context) => {
             #garden .page-wrapper div.ear.active {
               cursor: pointer;
               background: var(--garden-background);
-              border-left: 0.1em solid black;
-              border-top: 0.1em solid black;
+              border-left: calc(max(1px, 0.1em)) solid black;
+              border-top: calc(max(1px, 0.1em)) solid black;
             }
 
             #garden .page-wrapper div.ear.hover::before,
@@ -1061,10 +1064,11 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               background: var(--backpage-color);
+
               clip-path: polygon(
                 0 0,
-                calc(100% - 0.1em) 0,
-                0 calc(100% - 0.1em)
+                calc(100% - calc(max(1px, 0.1em))) 0,
+                0 calc(100% - calc(max(1px, 0.1em)))
               );
               z-index: 2;
               user-select: none;
@@ -1082,7 +1086,7 @@ export const handler = async (event, context) => {
             }
 
             #garden .page-wrapper {
-              overflow: hidden;
+              /* overflow: hidden; */
               box-sizing: border-box;
             }
 
@@ -1413,163 +1417,6 @@ export const handler = async (event, context) => {
 
             // Enable ':active' class on iOS Safari.
             document.addEventListener("touchstart", function () {}, false);
-
-            // e.stopImmediatePropagation();
-
-            // document.addEventListener(
-            //   "touchmove",
-            //   (e) => {
-            //     if (
-            //       window.scrollY === 0 &&
-            //       e.touches[0].clientY > e.touches[0].pageY
-            //     ) {
-            //       e.preventDefault();
-            //     }
-            //   },
-            //   { passive: false },
-            // );
-
-            // window.addEventListener(
-            //   "touchstart",
-            //   function (e) {
-            //     if (e.touches.length > 1) {
-            //       e.preventDefault();
-            //       e.stopImmediatePropagation();
-            //     }
-            //   },
-            //   { passive: false },
-            // );
-
-            // Disable pinch to zoom on iOS Safari.
-            //document.addEventListener(
-            //  "touchmove",
-            //  function (e) {
-            //   // if (e.touches.length > 1) {
-            //   //   e.preventDefault();
-            //   //   e.stopImmediatePropagation();
-            //   // }
-            //    console.log(e.scale);
-            //    if (e.scale !== 1) {
-            //      e.preventDefault();
-            //      e.stopImmediatePropagation();
-            //    }
-            //  },
-            //  { passive: false },
-            //);
-
-            //let lastY;
-            //let velocity = 0;
-            //let isTouching = false;
-            //const pixelRatio = window.devicePixelRatio || 1;
-
-            //window.addEventListener("pointerdown", (event) => {
-            //  console.log(event);
-            //})
-
-            //window.addEventListener("touchend", (event) => {
-            //  console.log("touch end, touches:", event.touches.length);
-            //});
-
-            //window.addEventListener(
-            //  "touchstart",
-            //  (event) => {
-            //    if (event.touches.length === 2) {
-            //      console.log("Scroll tap!");
-            //    } else {
-            //      console.log("touch started!");
-            //    }
-            //  },
-            //  { passive: true },
-            //);
-
-            //let scrolling, timeout;
-
-            //window.addEventListener("scroll", (e) => {
-            //   console.log("scrolling...");
-            //   window.clearTimeout(timeout);
-            //   e.preventDefault();
-            //   e.stopImmediatePropagation();
-            //   if (!scrolling) {
-            //     scrolling = true;
-            //     document.body.classList.add("scrolling");
-            //     timeout = setTimeout(() => {
-            //       scrolling = false;
-            //       document.body.classList.remove("scrolling");
-            //     }, 100);
-            //   }
-            // document.body.style.zoom = "1"; // Works in some browsers
-            //});
-
-            //document.body.addEventListener(
-            //  "touchmove",
-            //  (event) => {
-            //    if (event.touches.length > 1) {
-            //      console.log("too long");
-            //      event.preventDefault(); // Prevent default scrolling
-            //    }
-            //    //const currentY = event.touches[0].pageY;
-            //    //const deltaY = (lastY - currentY) * pixelRatio;
-
-            //    //// Apply velocity smoothing
-            //    //velocity = velocity * 0.8 + deltaY * 0.2;
-
-            //    //window.scrollBy(0, velocity);
-            //    //lastY = currentY;
-            //  },
-            //  { passive: false },
-            //);
-
-            //window.addEventListener("touchend", () => {
-            // isTouching = false;
-            // requestInertiaScroll(); // Continue scrolling with inertia
-            //});
-
-            //function requestInertiaScroll() {
-            //  if (!isTouching && Math.abs(velocity) > 0.1) {
-            //    window.scrollBy(0, velocity);
-            //    velocity *= 0.95; // Decelerate smoothly
-            //    requestAnimationFrame(requestInertiaScroll);
-            //  }
-            //}
-
-            //window.addEventListener("touchstart", (event) => {
-            //  lastY = event.touches[0].pageY;
-            //});
-
-            //window.addEventListener(
-            //  "touchmove",
-            //  (event) => {
-            //    event.preventDefault(); // Prevent default scrolling behavior
-            //    const currentY = event.touches[0].pageY;
-            //    const deltaY = lastY - currentY;
-            //    window.scrollBy(0, deltaY); // Scroll by the calculated delta
-            //    lastY = currentY; // Update lastY for continuous tracking
-            //  },
-            //  { passive: false },
-            //);
-
-            // Prevent double-tap to zoom.
-            //window.addEventListener(
-            //  "touchend" || "dblclick",
-            //  (e) => {
-            //    e.preventDefault();
-            //    e.stopImmediatePropagation();
-            //  },
-            //  { passive: false },
-            //);
-
-            //window.addEventListener("gesturestart", function (event) {
-            //  console.log(event);
-            //  event.preventDefault();
-            //});
-
-            // document.addEventListener("gesturechange", function (event) {
-            //   event.preventDefault();
-            // });
-
-            // document.addEventListener("gestureend", function (event) {
-            //   event.preventDefault();
-            // });
 
             function adjustFontSize() {
               const fontSizeInPx = 16;
@@ -3293,6 +3140,7 @@ export const handler = async (event, context) => {
 
                   g.classList.add("faded");
                   wrapper.appendChild(g);
+                  document.documentElement.classList.add("garden");
                   g.classList.remove("obscured");
                 };
               });
@@ -3433,6 +3281,9 @@ export const handler = async (event, context) => {
                 //page = render.page || render;
                 page = await callback();
 
+                //if (type === "garden") {
+                //}
+
                 // if (render.waitFor)
                 spinner.classList.remove("showing");
                 //setTimeout(
@@ -3443,10 +3294,6 @@ export const handler = async (event, context) => {
                   () => {
                     spinner.remove();
                     page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
-
-                    if (type === "garden") {
-                      document.documentElement.classList.add("garden");
-                    }
 
                     if (GATE_WAS_UP) {
                       document
