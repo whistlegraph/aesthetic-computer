@@ -2,8 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [🟠] Prevent page zoom on iOS, but add a tap to light box text view.
-    - [] Which should allow zooming and maybe fyp style pagination.
+
+  - [] Speed up rendering of the feed.
+
 
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images here too.
@@ -46,6 +47,8 @@
   *** 🔊 Sounds ***
   - [] Soft sine clicks and beeps.
   + Done
+  - [x] Keep spinner up until feed is rendered...
+  - [x] Prevent page zoom and scroll inconsistency on iOS.
   - [x] Change full page background color once feed is open.
        (Helps with scrolling.) 
     - [x] Also fix editor background color to match things.
@@ -291,7 +294,10 @@ export const handler = async (event, context) => {
             body {
               /* scroll-behavior: auto; */
               /* touch-action: pan-x pan-y; */
-              touch-action: pan-y;
+              /* touch-action: pan-y; */
+              /* pointer-events: none; */
+              touch-action: pan-x pan-y;
+              /* user-drag: none; */
             }
             html {
               /* min-height: 100%; */
@@ -305,6 +311,8 @@ export const handler = async (event, context) => {
               background: var(--background-color);
               user-select: none;
               -webkit-user-select: none;
+              /* height: 100%; */
+              /* overflow: hidden; */
             }
             body.garden {
               background: var(--garden-background);
@@ -327,11 +335,11 @@ export const handler = async (event, context) => {
             #wrapper {
               display: flex;
               width: 100%;
-              /* height: 100%; */
               flex-direction: column;
               min-height: 100%;
-              position: relative;
-              overflow-x: hidden;
+              height: 100%;
+              overflow-y: scroll;
+              touch-action: pan-y;
             }
             body.reloading::after {
               content: "";
@@ -407,7 +415,6 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               display: flex;
-              overflow: hidden;
               margin: auto;
             }
             #gate-curtain.hidden {
@@ -438,8 +445,6 @@ export const handler = async (event, context) => {
               user-select: none;
               -webkit-user-select: none;
               filter: drop-shadow(-2px 0px 1px rgba(0, 0, 0, 0.35));
-              /* user-drag: none; */
-              /* -webkit-user-drag: none; */
               pointer-events: none;
             }
             #gate #cookie-wrapper {
@@ -519,6 +524,8 @@ export const handler = async (event, context) => {
             }
             #garden #top-bar {
               position: fixed;
+              left: 0;
+              top: 0;
               /* width: is calculated dynamically based on binding width */
               width: 100%;
               background: linear-gradient(
@@ -822,6 +829,7 @@ export const handler = async (event, context) => {
               overflow: hidden;
               background: rgba(255, 255, 255, 0.5);
               z-index: 0;
+              pointer-events: none;
             }
 
             #garden #editor #words-wrapper::before {
@@ -1287,10 +1295,6 @@ export const handler = async (event, context) => {
               opacity: 0;
               pointer-events: none;
             }
-            html {
-              -webkit-text-size-adjust: none;
-              touch-action: pan-y; /*prevent user scaling*/
-            }
           </style>
           ${dev ? reloadScript : ""}
           <script
@@ -1325,46 +1329,143 @@ export const handler = async (event, context) => {
             // 🌠 Initialization
 
             // Enable ':active' class on iOS Safari.
-            document.addEventListener("touchstart", function () {}, false);
+            // document.addEventListener("touchstart", function () {}, false);
 
-            //document.addEventListener("gesturestart", function (e) {
-            //  e.preventDefault();
-            //  document.body.style.zoom = 0.99;
-            //});
+            // e.stopImmediatePropagation();
 
-            //document.addEventListener("gesturechange", function (e) {
-            //  e.preventDefault();
-
-            //  document.body.style.zoom = 0.99;
-            //});
-
-            //document.addEventListener("gestureend", function (e) {
-            //  e.preventDefault();
-            //  document.body.style.zoom = 1;
-            //});
-
-            // Disable pinch to zoom on iOS Safari.
-            // document.addEventListener(
-            //   "touchmove",
-            //   function (event) {
-            //     if (event.scale !== 1) event.preventDefault();
-            //   },
-            //   { passive: false },
-            // );
-
-            // document.body.addEventListener(
-            //   "touchmove",
-            //   function (event) {
-            //     if (event.scale !== 1) {
-            //       event.preventDefault();
+            // window.addEventListener(
+            //   "touchstart",
+            //   function (e) {
+            //     if (e.touches.length > 1) {
+            //       e.preventDefault();
+            //       e.stopImmediatePropagation();
             //     }
             //   },
             //   { passive: false },
             // );
 
-            // document.addEventListener("gesturestart", function (event) {
-            //   event.preventDefault();
-            // });
+            // Disable pinch to zoom on iOS Safari.
+            //document.addEventListener(
+            //  "touchmove",
+            //  function (e) {
+            //   // if (e.touches.length > 1) {
+            //   //   e.preventDefault();
+            //   //   e.stopImmediatePropagation();
+            //   // }
+            //    console.log(e.scale);
+            //    if (e.scale !== 1) {
+            //      e.preventDefault();
+            //      e.stopImmediatePropagation();
+            //    }
+            //  },
+            //  { passive: false },
+            //);
+
+            //let lastY;
+            //let velocity = 0;
+            //let isTouching = false;
+            //const pixelRatio = window.devicePixelRatio || 1;
+
+            //window.addEventListener("pointerdown", (event) => {
+            //  console.log(event);
+            //})
+
+            window.addEventListener("touchend", (event) => {
+              console.log("touch end, touches:", event.touches.length);
+            });
+
+            window.addEventListener(
+              "touchstart",
+              (event) => {
+                if (event.touches.length === 2) {
+                  console.log("Scroll tap!");
+                } else {
+                  console.log("touch started!");
+                }
+              },
+              { passive: true },
+            );
+
+            let scrolling, timeout;
+
+            window.addEventListener("scroll", (e) => {
+              //   console.log("scrolling...");
+              //   window.clearTimeout(timeout);
+              //   e.preventDefault();
+              //   e.stopImmediatePropagation();
+              //   if (!scrolling) {
+              //     scrolling = true;
+              //     document.body.classList.add("scrolling");
+              //     timeout = setTimeout(() => {
+              //       scrolling = false;
+              //       document.body.classList.remove("scrolling");
+              //     }, 100);
+              //   }
+              // document.body.style.zoom = "1"; // Works in some browsers
+            });
+
+            //document.body.addEventListener(
+            //  "touchmove",
+            //  (event) => {
+            //    if (event.touches.length > 1) {
+            //      console.log("too long");
+            //      event.preventDefault(); // Prevent default scrolling
+            //    }
+            //    //const currentY = event.touches[0].pageY;
+            //    //const deltaY = (lastY - currentY) * pixelRatio;
+
+            //    //// Apply velocity smoothing
+            //    //velocity = velocity * 0.8 + deltaY * 0.2;
+
+            //    //window.scrollBy(0, velocity);
+            //    //lastY = currentY;
+            //  },
+            //  { passive: false },
+            //);
+
+            //window.addEventListener("touchend", () => {
+            // isTouching = false;
+            // requestInertiaScroll(); // Continue scrolling with inertia
+            //});
+
+            //function requestInertiaScroll() {
+            //  if (!isTouching && Math.abs(velocity) > 0.1) {
+            //    window.scrollBy(0, velocity);
+            //    velocity *= 0.95; // Decelerate smoothly
+            //    requestAnimationFrame(requestInertiaScroll);
+            //  }
+            //}
+
+            //window.addEventListener("touchstart", (event) => {
+            //  lastY = event.touches[0].pageY;
+            //});
+
+            //window.addEventListener(
+            //  "touchmove",
+            //  (event) => {
+            //    event.preventDefault(); // Prevent default scrolling behavior
+            //    const currentY = event.touches[0].pageY;
+            //    const deltaY = lastY - currentY;
+            //    window.scrollBy(0, deltaY); // Scroll by the calculated delta
+            //    lastY = currentY; // Update lastY for continuous tracking
+            //  },
+            //  { passive: false },
+            //);
+
+            // Prevent double-tap to zoom.
+            //window.addEventListener(
+            //  "touchend" || "dblclick",
+            //  (e) => {
+            //    e.preventDefault();
+            //    e.stopImmediatePropagation();
+            //  },
+            //  { passive: false },
+            //);
+
+            window.addEventListener("gesturestart", function (event) {
+              console.log(event);
+              event.preventDefault();
+            });
 
             // document.addEventListener("gesturechange", function (event) {
             //   event.preventDefault();
@@ -1925,14 +2026,39 @@ export const handler = async (event, context) => {
 
               function computeLastLineText(source) {
                 const cachedText = source.innerText;
-                let lastHeight = source.clientHeight;
-                let line = 0;
-                let lastLineText = "";
+                // let lastHeight = source.clientHeight;
+                // let line = 0;
+                // let lastLineText = "";
                 source.innerText = "";
 
                 const cs = getComputedStyle(source);
 
                 const lineHeight = parseFloat(cs.lineHeight);
+
+                let batchedText = "";
+                let lastLineText = "";
+                let lastHeight = source.clientHeight;
+                let line = Math.round(lastHeight / lineHeight);
+
+                //for (let c = 0; c < cachedText.length; c++) {
+                //  batchedText += cachedText[c];
+
+                //  // Update text and measure every 50 characters to minimize reflows
+                //  if (c % 50 === 0 || c === cachedText.length - 1) {
+                //    source.innerText = batchedText;
+                //    const newHeight = source.clientHeight;
+
+                //    if (newHeight !== lastHeight) {
+                //      lastHeight = newHeight;
+                //      line = Math.round(lastHeight / lineHeight);
+
+                //      if (line === 17) {
+                //        lastLineText += cachedText[c];
+                //      }
+                //    }
+                //  }
+                //}
+
                 for (let c = 0; c < cachedText.length; c += 1) {
                   if (line === 17) lastLineText += cachedText[c];
                   source.innerText += cachedText[c];
@@ -2288,6 +2414,7 @@ export const handler = async (event, context) => {
 
                   const nav = cel("nav");
                   nav.id = "nav-editor";
+                  nav.style.width = topBar.style.width; // Match width of '#top-bar'
 
                   const submit = cel("button");
                   submit.type = "submit";
@@ -2414,6 +2541,10 @@ export const handler = async (event, context) => {
                       console.error("🪧 Unwritten:", res);
                     }
                   });
+
+                  const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+                  keep.style.marginLeft = scrollbarWidth / 1.5 + 'px';
+                  // linesLeft.style.marginLeft = -scrollbarWidth + "px";
 
                   editor.appendChild(form);
                   editor.appendChild(linesLeft);
@@ -2883,6 +3014,13 @@ export const handler = async (event, context) => {
                   // }
                 };
 
+                // Adjust width of '#top-bar' for scrollbar appearance.
+                const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+
+                topBar.style.width = "calc(100% - " + scrollbarWidth + "px)";
+                // binding.style.paddingLeft = "calc(16px + " + scrollbarWidth + "px)";
+                g.style.paddingLeft = scrollbarWidth + "px";
+
                 binding.classList.remove("hidden");
 
                 let previousBodyHeight = document.body.clientHeight;
@@ -2965,9 +3103,10 @@ export const handler = async (event, context) => {
                               //            computation is done. 24.10.16.07.06
                               g.classList.remove("faded");
                               g.addEventListener(
-                                "ontransitionend",
+                                "transitionend",
                                 () => {
                                   document.body.classList.add("garden");
+                                  resolve(g);
                                 },
                                 { once: true },
                               );
@@ -2992,7 +3131,7 @@ export const handler = async (event, context) => {
 
                   g.classList.add("faded");
                   wrapper.appendChild(g);
-                  resolve(g);
+                  g.classList.remove("obscured");
                 };
               });
 
@@ -3128,7 +3267,12 @@ export const handler = async (event, context) => {
               clearTimeout(spinnerTO);
               let page;
               if (spinner.classList.contains("showing")) {
+                //const render = await callback();
+                //page = render.page || render;
                 page = await callback();
+
+                // if (render.waitFor)
+
                 spinner.classList.remove("showing");
                 //setTimeout(
                 //() => {
@@ -3137,7 +3281,7 @@ export const handler = async (event, context) => {
                   "transitionend",
                   () => {
                     spinner.remove();
-                    page?.classList.remove("obscured"); // Show 'gate' / 'garden'
+                    page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
                     if (type === "garden")
                       document.body.scrollTop =
                         document.body.scrollHeight - document.body.clientHeight;
