@@ -122,7 +122,12 @@ export const handler = async (event, context) => {
     // TODO: 🟠 Add redis caching in here.
     try {
       // 🩷 First look to see if we have a subscribed entry in the redis cache.
-      shell.log("Checking subscription for:", user.sub, user.email, performance.now());
+      shell.log(
+        "Checking subscription for:",
+        user.sub,
+        user.email,
+        performance.now(),
+      );
 
       await KeyValue.connect();
       const cachedSubscription = await KeyValue.get(
@@ -673,7 +678,7 @@ export const handler = async (event, context) => {
             #garden {
               box-sizing: border-box;
               width: 100%;
-              transition: 0.15s opacity;
+              /*transition: 0.15s opacity;*/
               opacity: 1;
               background-color: var(--garden-background);
             }
@@ -3127,13 +3132,13 @@ export const handler = async (event, context) => {
                               wrapper.scrollTop =
                                 wrapper.scrollHeight - wrapper.clientHeight;
                               g.classList.remove("faded");
-                              g.addEventListener(
-                                "transitionend",
-                                () => {
-                                  resolve(g);
-                                },
-                                { once: true },
-                              );
+                              //g.addEventListener(
+                              //  "transitionend",
+                              //  () => {
+                              resolve(g);
+                              // },
+                              // { once: true },
+                              //);
                             } else {
                               requestAnimationFrame(() =>
                                 checkWidthSettled(currentWidth),
