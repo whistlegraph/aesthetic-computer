@@ -3,8 +3,11 @@
 
 /* #region 🟢 TODO 
   - [] Add Print 🖨️ CSS behind touch menu.
-
   - [] Add exporting of PNG images per pages.
+  
+  - [] Add "snippet" endpoint to get @amelia's latest page so it
+       can be rendered on the login screen.
+
   - [] Add meditation timer via AC sound engine.
 
   *** 📧 Email Notifications for Pages ***
@@ -22,7 +25,7 @@
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
 
-  *** Firefox **8
+  *** Firefox ***
   - [] Test the full site interactions in Firefox.
 
   *** Editing ***
@@ -246,6 +249,7 @@ export const handler = async (event, context) => {
           <meta name="description" content="for my best thoughts" />
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
+          <link rel="apple-touch-icon" href="${assetPath}cookie.png" />
           <link rel="preload" href="${assetPath}cookie.png" as="image" />
           <link rel="preload" href="${assetPath}cookie-open.png" as="image" />
           <link
@@ -255,19 +259,15 @@ export const handler = async (event, context) => {
             type="font/ttf"
             crossorigin="anonymous"
           />
-          <link
-            rel="preload"
-            href="https://fonts.gstatic.com/s/ebgaramond/v30/SlGUmQSNjdsmc35JDF1K5GR1SDk.woff2"
-            as="font"
-            type="font/woff2"
-            crossorigin="anonymous"
-          />
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
           />
+          <link
+            href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=block"
+            rel="stylesheet"
+          />
           <style>
-            @import url("https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
             :root {
               -webkit-locale: "en";
               --background-color: rgb(255, 230, 225);
@@ -290,7 +290,6 @@ export const handler = async (event, context) => {
               ::-webkit-scrollbar {
                 width: 8px;
               }
-
               ::-webkit-scrollbar-thumb {
                 background: rgba(255, 190, 215, 1);
               }
@@ -299,6 +298,19 @@ export const handler = async (event, context) => {
             html,
             body {
               touch-action: none; /*pan-x pan-y;*/
+            }
+
+            /* Preload EB Garamond. */
+            html::after {
+              content: " ";
+              font-family: "EB Garamond", serif;
+              font-weight: 400;
+              font-style: normal;
+              visibility: hidden;
+              position: absolute;
+              height: 0;
+              width: 0;
+              overflow: hidden;
             }
 
             html.veiled body {
@@ -1147,12 +1159,6 @@ export const handler = async (event, context) => {
             #garden .page-wrapper .backpage p {
               margin-top: -0.4em;
             }
-            .crumple-this-page {
-              position: absolute;
-              bottom: 4.45%;
-              left: 3em;
-              color: black;
-            }
 
             .byline {
               /* Same as .page-title - 24.10.11.04.14 */
@@ -1165,12 +1171,26 @@ export const handler = async (event, context) => {
               /* color: black; */
             }
 
+            .crumple-this-page {
+              position: absolute;
+              bottom: 4.45%;
+              left: 3em;
+              color: black;
+            }
+
             .crumple-this-page:hover {
               color: var(--destructive-red);
             }
 
             .crumple-this-page:active {
               color: red;
+            }
+
+            .share-this-page {
+            }
+
+            .share-this-page:hover {
+              /* todo: match the print css */
             }
 
             #email {
@@ -1994,8 +2014,6 @@ export const handler = async (event, context) => {
                 const cs = getComputedStyle(source);
                 const lineHeight = parseFloat(cs.lineHeight);
                 const totalLines = Math.round(source.clientHeight / lineHeight);
-
-                console.log("Total lines:", totalLines);
 
                 let lastLineText = ""; // Store the 17th line's text
 
@@ -2878,9 +2896,14 @@ export const handler = async (event, context) => {
                       backpage.appendChild(crumplePage);
                     }
 
-                    const share = cel("div");
+                    const share = cel("a");
                     share.innerText = "share this page";
                     share.classList.add("share-this-page");
+                    share.href = "";
+
+                    share.onclick = async (e) => {};
+
+                    backpage.appendChild(share);
 
                     ear.classList.add("reverse");
                     pageEl.classList.add("reverse");
