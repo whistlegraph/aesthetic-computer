@@ -4027,7 +4027,7 @@ export const handler = async (event, context) => {
     const pages = database.db.collection("sotce-pages");
     const page = await pages.findOne({ _id: id });
 
-    console.log("📃 Page:", page, id);
+    // console.log("📃 Page:", page, id);
 
     if (page) {
       const touches = database.db.collection("sotce-touches");
