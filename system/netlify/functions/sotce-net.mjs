@@ -249,7 +249,7 @@ export const handler = async (event, context) => {
       <html lang="en">
         <head>
           <meta charset="utf-8" />
-          <title>Sotce Net</title>
+          <title>sotce net</title>
           <meta name="description" content="for my best thoughts" />
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
@@ -2905,8 +2905,28 @@ export const handler = async (event, context) => {
                     share.classList.add("share-this-page");
                     share.href = "";
 
-                    share.onclick = async (e) => {};
+                    share.onclick = async (e) => {
+                      e.preventDefault();
+                      alert("😃 Coming soon.")
+                    };
 
+                    const print = cel("a");
+                    print.innerText = "print this page";
+                    print.classList.add("print-this-page");
+                    print.href = "";
+
+                    print.onclick = async (e) => {
+                      e.preventDefault();
+                      // TODO: Enable full-screen print view of the current page.
+                      // Grab all html content from pageEl and insert it into
+                      // a new div called "#page-print".
+                      const pagePrint = cel("div");
+                      pagePrint.id = "page-print";
+                      window.print();
+                      // TODO: Disable print view.
+                    };
+
+                    // backpage.appendChild(print);
                     // backpage.appendChild(share);
 
                     ear.classList.add("reverse");
