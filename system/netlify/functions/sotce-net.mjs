@@ -4,7 +4,7 @@
 /* #region 🟢 TODO 
   - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images per pages.
-  
+
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
 
@@ -2907,7 +2907,7 @@ export const handler = async (event, context) => {
 
                     share.onclick = async (e) => {};
 
-                    backpage.appendChild(share);
+                    // backpage.appendChild(share);
 
                     ear.classList.add("reverse");
                     pageEl.classList.add("reverse");
