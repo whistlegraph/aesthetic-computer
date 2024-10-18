@@ -4156,7 +4156,7 @@ export const handler = async (event, context) => {
 
     // 3. Delete the user's auth0 account.
     const deleted = await deleteUser(sub, "sotce");
-    shell.log("❌ Deleted user registration:", deleted);
+    shell.log("❌ Deleted user registration:", deleted, user.email);
     return respond(200, { result: "Deleted!" }); // Successful account deletion.
   } else if (path === "/privacy-policy" && method === "get") {
     const subscribers = await getActiveSubscriptionCount(productId);
