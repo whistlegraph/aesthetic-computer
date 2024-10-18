@@ -134,6 +134,7 @@ alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; ac; npm run -s servers; cd nanos; env nogreet=true fish'
 alias ac-chat 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-tunnel 'ac; npm run tunnel; fish'
+alias sotce-net 'ac; cd system; npx netlify logs:function sotce-net'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 

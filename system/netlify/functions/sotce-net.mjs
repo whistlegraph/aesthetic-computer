@@ -165,7 +165,10 @@ export const handler = async (event, context) => {
         query: "metadata['sub']:'" + user.sub + "'",
       });
 
-      if (!customers.data.length) return { subscribed: false };
+      if (!customers.data.length) {
+        await KeyValue.disconnect();
+        return { subscribed: false };
+      }
       const customer = customers.data[0];
 
       // Fetch subscriptions for the customer
@@ -190,6 +193,7 @@ export const handler = async (event, context) => {
           }),
         );
       }
+
       await KeyValue.disconnect();
 
       return subscription;
