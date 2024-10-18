@@ -122,7 +122,7 @@ export const handler = async (event, context) => {
     // TODO: 🟠 Add redis caching in here.
     try {
       // 🩷 First look to see if we have a subscribed entry in the redis cache.
-      shell.log("Checking subscription...", performance.now());
+      shell.log("Checking subscription for:", user.sub, user.email, performance.now());
 
       await KeyValue.connect();
       const cachedSubscription = await KeyValue.get(
