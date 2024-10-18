@@ -2,10 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [] Add exporting of PNG images per pages.
-
   - [] Add Print 🖨️ CSS behind touch menu.
 
+  - [] Add exporting of PNG images per pages.
   - [] Add meditation timer via AC sound engine.
 
   *** 📧 Email Notifications for Pages ***
@@ -123,7 +122,12 @@ export const handler = async (event, context) => {
     // TODO: 🟠 Add redis caching in here.
     try {
       // 🩷 First look to see if we have a subscribed entry in the redis cache.
-      shell.log("Checking subscription...", performance.now());
+      shell.log(
+        "Checking subscription for:",
+        user.sub,
+        user.email,
+        performance.now(),
+      );
 
       await KeyValue.connect();
       const cachedSubscription = await KeyValue.get(
@@ -172,16 +176,17 @@ export const handler = async (event, context) => {
         sub.items.data.some((item) => item.price.product === productId),
       );
 
-      // 🩷 And serialize it into redis.
-      await KeyValue.set(
-        "sotce-subscribed",
-        user.sub,
-        JSON.stringify({
-          status: subscription.status,
-          current_period_end: subscription.current_period_end,
-        }),
-      );
-
+      if (subscription) {
+        // 🩷 And serialize it into redis.
+        await KeyValue.set(
+          "sotce-subscribed",
+          user.sub,
+          JSON.stringify({
+            status: subscription.status,
+            current_period_end: subscription.current_period_end,
+          }),
+        );
+      }
       await KeyValue.disconnect();
 
       return subscription;
@@ -673,7 +678,7 @@ export const handler = async (event, context) => {
             #garden {
               box-sizing: border-box;
               width: 100%;
-              transition: 0.15s opacity;
+              /*transition: 0.15s opacity;*/
               opacity: 1;
               background-color: var(--garden-background);
             }
@@ -1076,7 +1081,6 @@ export const handler = async (event, context) => {
               width: 100%;
               height: 100%;
               background: var(--backpage-color);
-
               clip-path: polygon(
                 0 0,
                 calc(100% - calc(max(1px, 0.1em))) 0,
@@ -2874,6 +2878,10 @@ export const handler = async (event, context) => {
                       backpage.appendChild(crumplePage);
                     }
 
+                    const share = cel("div");
+                    share.innerText = "share this page";
+                    share.classList.add("share-this-page");
+
                     ear.classList.add("reverse");
                     pageEl.classList.add("reverse");
                     pageWrapper.classList.add("reverse");
@@ -3124,13 +3132,13 @@ export const handler = async (event, context) => {
                               wrapper.scrollTop =
                                 wrapper.scrollHeight - wrapper.clientHeight;
                               g.classList.remove("faded");
-                              g.addEventListener(
-                                "transitionend",
-                                () => {
-                                  resolve(g);
-                                },
-                                { once: true },
-                              );
+                              //g.addEventListener(
+                              //  "transitionend",
+                              //  () => {
+                              resolve(g);
+                              // },
+                              // { once: true },
+                              //);
                             } else {
                               requestAnimationFrame(() =>
                                 checkWidthSettled(currentWidth),
@@ -3792,7 +3800,7 @@ export const handler = async (event, context) => {
       return respond(200, subscription);
     }
 
-    if (subscription && subscription.status === "active") {
+    if (subscription && subscription?.status === "active") {
       // What did we need the subscription for?
 
       const out = { subscribed: true };
@@ -4019,33 +4027,37 @@ export const handler = async (event, context) => {
     const pages = database.db.collection("sotce-pages");
     const page = await pages.findOne({ _id: id });
 
-    console.log("📃 Page:", page, id);
+    // console.log("📃 Page:", page, id);
 
-    if (page && page.user !== user.sub) {
-      // Don't let users touch pages they created.
+    if (page) {
       const touches = database.db.collection("sotce-touches");
-      await touches.createIndex({ user: 1, page: 1 }, { unique: true });
 
-      try {
-        // Insert touch, assuming 'user.sub' contains the user's sub identifier
-        await touches.insertOne({
-          user: user.sub, // User's sub identifier
-          page: id, // Page ID from the request body
-          when: new Date(), // Current date and time
-        });
-      } catch (error) {
-        if (error.code === 11000) {
-          // Duplicate key error, meaning the user has already touched this page
-          console.log("User has already touched this page.");
-        } else {
-          console.error(
-            "An error occurred while touching the page:",
-            error.message,
-          );
+      // Try to touch the page.
+      if (page.user !== user.sub) {
+        // Don't let users touch pages they created.
+        await touches.createIndex({ user: 1, page: 1 }, { unique: true });
+
+        try {
+          // Insert touch, assuming 'user.sub' contains the user's sub identifier
+          await touches.insertOne({
+            user: user.sub, // User's sub identifier
+            page: id, // Page ID from the request body
+            when: new Date(), // Current date and time
+          });
+        } catch (error) {
+          if (error.code === 11000) {
+            // Duplicate key error, meaning the user has already touched this page
+            console.log("User has already touched this page.");
+          } else {
+            console.error(
+              "An error occurred while touching the page:",
+              error.message,
+            );
+          }
         }
       }
 
-      // Fetch all touches for the page, even if an error occurred
+      // Fetch all touches for the page, even if an error occurred ot a touch did not happen.
       const pageTouches = await touches.find({ page: id }).toArray();
 
       // Add a 'handle' field to each touch record.
@@ -4144,7 +4156,7 @@ export const handler = async (event, context) => {
 
     // 3. Delete the user's auth0 account.
     const deleted = await deleteUser(sub, "sotce");
-    shell.log("❌ Deleted user registration:", deleted);
+    shell.log("❌ Deleted user registration:", deleted, user.email);
     return respond(200, { result: "Deleted!" }); // Successful account deletion.
   } else if (path === "/privacy-policy" && method === "get") {
     const subscribers = await getActiveSubscriptionCount(productId);
