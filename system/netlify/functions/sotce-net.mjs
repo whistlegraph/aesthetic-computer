@@ -23,7 +23,7 @@
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
 
-  *** Firefox **8
+  *** Firefox ***
   - [] Test the full site interactions in Firefox.
 
   *** Editing ***
