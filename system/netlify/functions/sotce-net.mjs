@@ -171,16 +171,17 @@ export const handler = async (event, context) => {
         sub.items.data.some((item) => item.price.product === productId),
       );
 
-      // 🩷 And serialize it into redis.
-      await KeyValue.set(
-        "sotce-subscribed",
-        user.sub,
-        JSON.stringify({
-          status: subscription.status,
-          current_period_end: subscription.current_period_end,
-        }),
-      );
-
+      if (subscription) {
+        // 🩷 And serialize it into redis.
+        await KeyValue.set(
+          "sotce-subscribed",
+          user.sub,
+          JSON.stringify({
+            status: subscription.status,
+            current_period_end: subscription.current_period_end,
+          }),
+        );
+      }
       await KeyValue.disconnect();
 
       return subscription;
@@ -2872,6 +2873,10 @@ export const handler = async (event, context) => {
                       backpage.appendChild(crumplePage);
                     }
 
+                    const share = cel("div");
+                    share.innerText = "share this page";
+                    share.classList.add("share-this-page");
+
                     ear.classList.add("reverse");
                     pageEl.classList.add("reverse");
                     pageWrapper.classList.add("reverse");
@@ -3790,7 +3795,7 @@ export const handler = async (event, context) => {
       return respond(200, subscription);
     }
 
-    if (subscription && subscription.status === "active") {
+    if (subscription && subscription?.status === "active") {
       // What did we need the subscription for?
 
       const out = { subscribed: true };
