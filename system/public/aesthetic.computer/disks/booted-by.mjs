@@ -1,15 +1,15 @@
-// Booted-by, 2023.9.13.19.43.52.028
+// booted-by, 2023.9.13.19.43.52.028
 // Aesthetic Computer was booted by...
 
 /* #region 📚 README 
 #endregion */
 
 /* #region 🏁 TODO 
-  + Later?
-  - [] Make this a nice payment page
-  - [] date of boot after boot completed
-  - [] names link to people's profiles, invitation to make profile somewhere
+  - [] ...
   + Done
+  - [x] Comment out the modal. 
+  - [x] Remove prior empty claim slots. 
+  - [x] Add a new message honoroing patrons.
   - [x] Send to Sean.
   - [x] add screen flash
   - [x] names and "unclaimed" or "empty" or "open" for open slots
@@ -20,35 +20,35 @@
   - [x] ok button and demo video link within the text that takes you out of app to demo video 
 #endregion */
 
-const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that every user will become a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation.`
+import * as starfield from "./starfield.mjs";
+import * as sfx from "./common/sfx.mjs";
 
 const blockWidth = 6;
 const blockHeight = 11;
 const barColors = [
   "red",
   "orange",
-  "yellow",
+  // "yellow",
   "green",
   "blue",
   "indigo",
-  "violet",
-  "white",
-  "grey",
-  "brown",
+  // "violet",
+  //"white",
+  //"grey",
+  //"brown",
 ];
 let ok,
   demo,
   bars = [];
-let overlay = true;
+let overlay = false;
 let startupSfx;
 let claim = true,
   claimBlink;
 let flashing = false;
 
-const { min } = Math;
+const copy = `We're at the beginning of a computer age where the advent of AI and text-to-media interfaces means that every user will become a programmer.\n\nAesthetic Computer aims to lead this paradigm shift as an accessible and evolving social platform for art and media creation.`;
 
-import * as starfield from "./starfield.mjs";
-import * as sfx from "./common/sfx.mjs";
+const { min } = Math;
 
 // 🥾 Boot
 function boot({ ui, net, help }) {
@@ -114,20 +114,23 @@ function paint({
       );
 
       if (text === "@wiltchamberlain") {
-        console.log(bar);
+        ink()
+          .pan(choose(0, 1, -1), choose(0, 1, -1))
+          .box(bar.tb.btn.box, "out")
+          .unpan()
+          .ink()
+          .pan(choose(0, 1, -1), choose(0, 1, -1))
+          .box(bar.tb.btn.box, "out")
+          .unpan();
+      }
 
+      if (text === "Sean Moss-Pultz") {
         ink()
           .pan(choose(0, 1, -1), choose(0, 1, -1))
           .box(bar.tb.btn.box, "out")
           .unpan();
-        if (!claim && !overlay)
-          bar.tb.paint(api, [
-            "green",
-            choose("white", "yellow"),
-            choose("white", "yellow"),
-            "green",
-          ]);
       }
+
     });
   }
 
@@ -141,8 +144,8 @@ function paint({
 
   if (!overlay) {
     ink(help.choose([200], [160])).write(
-      "Mention @jeffrey in 'chat' to CLAIM",
-      { center: "x", y: screen.height - 32 },
+      "These original supporters helped boot Aesthetic Computer in its early days.",
+      { center: "x", y: screen.height - 96 },
       "black",
       screen.width - 32,
     );
@@ -215,7 +218,7 @@ function act({ event: e, jump, sound, gizmo, seconds, delay }) {
       push: () => {
         sfx.push(sound);
         jump(
-          "https://calendly.com/aesthetic-computer/demo"
+          "https://calendly.com/aesthetic-computer/demo",
           // "https://www.dropbox.com/scl/fi/3cmnkp3oqoth9by99fieh/aesthetic-computer-demo.mov?rlkey=amzo78pi2qrrctiy434tle3nq&dl=0",
           // "out:https://www.tiktok.com/@whistlegraph/video/7281664540314438955",
         );
@@ -227,7 +230,7 @@ function act({ event: e, jump, sound, gizmo, seconds, delay }) {
         down: () => sfx.down(sound),
         push: () => {
           sfx.push(sound);
-          overlay = true;
+          // overlay = true;
           starfield.wipe(overlay);
         },
       });
