@@ -2,40 +2,25 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [] Add Print 🖨️ CSS behind touch menu.
   - [] Add exporting of PNG images per pages.
-
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
-
-  - [] Add meditation timer via AC sound engine.
-
   *** 📧 Email Notifications for Pages ***
   - [] email new pages to each subscriber, and include the contents?
     - [] make an 'eblast' endpoint for this
     - [] add the checkbox under the main page for whether to receive them
          or not
-
-  *** User Info Rate Limiting ***
-  - [] Try to reduce the authorize() call rate limiting on ac.
-
-  *** User ***
-  - [] add 'bio' text for users. 
-
+  *** 'Think' *** 
+  - [] Add meditation timer via AC sound engine, and sounds to buttons.
+  *** 🔊 Sounds ***
+  - [] Soft sine clicks and beeps.
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
-
-  *** Firefox ***
-  - [] Test the full site interactions in Firefox.
-
-  *** Editing ***
-  - [] Autoscroll text entry on iOS.
 
   *** 🛂 Page Controls ***
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
   *** Accessibility ***
-  - [] Autoscroll text entry on iOS.
   - [] Accurate Tab Index in Modes/ different screens.
     - [] Login
     - [] Cookie Menu
@@ -44,10 +29,13 @@
   - [] Relational scrolling. 
   - [] Better routing / slash urls for the editor and cookie-menu.
     - [] Shouldn't resolve if no access.
-  - [] Search / hashtags
-  *** 🔊 Sounds ***
-  - [] Soft sine clicks and beeps.
+  + Later / Optimization
+  *** User Info Rate Limiting ***
+  - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  *** Firefox ***
+  - [x] Test the full site interactions in Firefox.
+  - [x] Add Print 🖨️ CSS behind touch menu.
   - [x] Add more consistent rendering of page outlines.
   - [x] Get scrolling working in editor in iOS.
   - [x] Add a nice veil fix for iOS Safari, maybe by changing the page
@@ -393,8 +381,20 @@ export const handler = async (event, context) => {
             }
             */
 
+            /* print.css */
+            @media print {
+              body {
+                width: 8.5in;
+                height: 11in;
+                /* aspect-ratio: 8.5 / 11; */
+                /* max-height: 11in; */
+                margin: 0;
+              }
+            }
+
             #editor-page,
             #garden article.page,
+            #print-page article.page,
             #garden #editor textarea,
             #garden .page-wrapper .backpage {
               font-family: "EB Garamond", serif;
@@ -404,6 +404,7 @@ export const handler = async (event, context) => {
             }
 
             #editor-page,
+            #print-page article.page,
             #garden article.page {
               font-size: calc(3.25px * 8);
             }
@@ -741,23 +742,19 @@ export const handler = async (event, context) => {
               position: relative;
               /* overflow: hidden; */
             }
+            /*
             #editor-page {
-              /* overflow: hidden; */
-              position: absolute;
-              top: 0;
-              left: 0;
-              /* font-family: var(--font-page); */
+              aspect-ratio: 4 / 5;
               background-color: white;
               border: calc(max(1px, 0.1em)) solid black;
-              padding: 1em;
-              aspect-ratio: 4 / 5;
-              position: relative;
               box-sizing: border-box;
-              width: calc(100px * 8);
-              /* font-size: calc(3.25px * 8); */
+              left: 0;
+              padding: 1em;
+              position: absolute;
+              top: 0;
               transform-origin: top left;
-            }
-
+              width: calc(100px * 8);
+            }*/
             #editor-lines-left {
               position: fixed;
               top: 1.5em;
@@ -821,27 +818,25 @@ export const handler = async (event, context) => {
               position: relative;
             }
 
-            #garden article.page {
-              /* font-family: var(--font-page); */
-              background-color: white;
-              padding: 1em;
-              border: calc(max(1px, 0.1em)) solid black;
-              /* margin-left: 0; */
-              /* margin-right: auto; */
-              transform-origin: top left;
+            #garden article.page,
+            #editor-page,
+            #print-page article.page {
               aspect-ratio: 4 / 5;
+              background-color: white;
+              border: calc(max(1px, 0.1em)) solid black;
+              box-sizing: border-box;
+              left: 0;
+              padding: 1em;
               position: absolute;
               top: 0;
-              left: 0;
-              /* overflow: hidden; */
-              box-sizing: border-box;
+              transform-origin: top left;
+              width: calc(100px * 8);
               user-select: text;
               -webkit-user-select: text;
-              /* display: flex; */
-              width: calc(100px * 8);
             }
 
             #garden article.page div.page-number,
+            #print-page div.page-number,
             #editor-page div.page-number {
               position: absolute;
               bottom: 5%;
@@ -852,6 +847,7 @@ export const handler = async (event, context) => {
             }
 
             #garden article.page div.page-title,
+            #print-page div.page-title,
             #editor-page div.page-title {
               position: absolute;
               top: 6.5%;
@@ -867,26 +863,22 @@ export const handler = async (event, context) => {
               /* background: yellow; */
             }
 
-            #garden article.page .words {
-              /* transform-origin: top left; */
-              /* position: absolute; */
+            #garden article.page .words,
+            #print-page article.page .words {
               margin: 0;
               text-align: justify;
-              /* text-align-last: justify; */
               line-height: var(--line-height);
               margin-top: 15%;
-              /* margin-top: 14.5%; */
               max-height: calc(var(--line-height) * 17);
               overflow: hidden;
               padding: 0 2em;
-              /* display: inline-block; *9
-              /* word-break: break-word; */
               hyphens: auto;
               -webkit-hyphens: auto;
               overflow-wrap: break-word;
             }
 
-            #garden article.page .words.justify-last-line::after {
+            #garden article.page .words.justify-last-line::after,
+            #print-page article.page .words.justify-last-line::after {
               content: "";
               display: inline-block;
               width: 100%;
@@ -1191,10 +1183,41 @@ export const handler = async (event, context) => {
             }
 
             .share-this-page {
+              position: absolute;
+              bottom: calc(4.45% + 7.6% + var(--line-height));
+              right: calc(3em);
+              color: black;
             }
 
-            .share-this-page:hover {
-              /* todo: match the print css */
+            .print-this-page {
+              position: absolute;
+              bottom: calc(4.45% + 7.6%);
+              right: 3em;
+              color: black;
+            }
+
+            #print-page {
+              position: fixed;
+              width: 100%;
+              min-height: 100%;
+              z-index: 10;
+              background: rgba(255, 255, 0, 0.5);
+              display: flex;
+            }
+
+            #print-page article {
+              margin: auto;
+            }
+
+            .share-this-page:hover,
+            .print-this-page:hover {
+              color: rgb(0, 0, 200);
+              z-index: 5;
+            }
+
+            .share-this-page:active,
+            .print-this-page:active {
+              color: blue;
             }
 
             #email {
@@ -2907,7 +2930,7 @@ export const handler = async (event, context) => {
 
                     share.onclick = async (e) => {
                       e.preventDefault();
-                      alert("😃 Coming soon.")
+                      alert("😃 Coming soon.");
                     };
 
                     const print = cel("a");
@@ -2917,16 +2940,54 @@ export const handler = async (event, context) => {
 
                     print.onclick = async (e) => {
                       e.preventDefault();
-                      // TODO: Enable full-screen print view of the current page.
-                      // Grab all html content from pageEl and insert it into
-                      // a new div called "#page-print".
-                      const pagePrint = cel("div");
-                      pagePrint.id = "page-print";
+                      // Grab presentational html content from page and insert it
+                      // into '#print-page'.
+                      const printPage = cel("div");
+                      printPage.id = "print-page";
+
+                      const pageWrapper = cel("div");
+                      pageWrapper.classList.add("page-wrapper");
+
+                      const article = cel("article");
+                      article.classList.add("page", "page-style-a");
+
+                      const title = cel("div");
+                      title.classList.add("page-title");
+                      title.innerHTML = pageTitle.innerHTML;
+
+                      const content = cel("p");
+                      content.classList.add(...wordsEl.classList);
+                      content.innerHTML = wordsEl.innerHTML;
+                      content.style = wordsEl.style;
+
+                      const num = cel("div");
+                      num.classList.add("page-number");
+                      num.innerHTML = pageNumber.innerHTML;
+
+                      article.appendChild(title);
+                      article.appendChild(content);
+                      article.appendChild(num);
+                      printPage.appendChild(article);
+                      wrapper.appendChild(printPage);
+                      const scale = 812 / article.clientWidth;
+                      //            ^ Just shy of the 8.5in. CSS pixel value.
+                      article.style.transform = "scale(" + scale + ")";
+
+                      // Attach the events
+                      //window.addEventListener('beforeprint', () => {
+                      //  // console.log("Before print.");
+                      //  // wrapper.removeChild(printPage);
+                      //}, { once: true });
+
+                      //window.addEventListener('afterprint', () => {
+                      //  console.log("After print.");
+                      //}, { once: true });
+
                       window.print();
-                      // TODO: Disable print view.
+                      wrapper.removeChild(printPage);
                     };
 
-                    // backpage.appendChild(print);
+                    backpage.appendChild(print);
                     // backpage.appendChild(share);
 
                     ear.classList.add("reverse");
@@ -3167,12 +3228,12 @@ export const handler = async (event, context) => {
                               currentWidth !== previousWidth ||
                               g.scrollHeight > 0
                             ) {
-                              console.log(
-                                "🟢 Computing page layout...",
-                                performance.now(),
-                              );
+                              //console.log(
+                              //  "🟢 Computing page layout...",
+                              //  performance.now(),
+                              //);
                               computePageLayout?.();
-                              console.log("🟩 Done", performance.now());
+                              // console.log("🟩 Done", performance.now());
                               // TODO:    ^ This takes awhile and the spinner could hold until the initial
                               //            computation is done. 24.10.16.07.06
 
