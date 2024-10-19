@@ -1272,7 +1272,15 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "pp") {
-    jump("https://aesthetic.computer/privacy-policy");
+    jump(
+      debug
+        ? "/privacy-policy.html"
+        : "https://aesthetic.computer/privacy-policy",
+    );
+    makeFlash($);
+    return true;
+  } else if (text.toLowerCase() === "direct") {
+    jump(debug ? "/aesthetic-direct.html" : "https://aesthetic.direct");
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
@@ -2036,7 +2044,8 @@ async function publishPiece(
 }
 
 function fetchUser() {
-  const { api, ui, user, handle, screen, store, jump, beep, broadcast } = fetchUserAPI;
+  const { api, ui, user, handle, screen, store, jump, beep, broadcast } =
+    fetchUserAPI;
   fetchingUser = true;
   fetch(`/user?from=${encodeURIComponent(user.email)}&withHandle=true`)
     .then((res) => res.json())

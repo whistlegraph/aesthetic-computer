@@ -4272,6 +4272,7 @@ export const handler = async (event, context) => {
       <html>
         <head>
           <title>Sotce Net's Privacy Policy</title>
+          <meta name="description" content="The privacy policy for Sotce Net." />
           <style>
             body {
               font-family: sans-serif;
