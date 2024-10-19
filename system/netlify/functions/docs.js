@@ -2066,7 +2066,7 @@ export async function handler(event, context) {
       },
       "booted-by": {
         sig: "booted-by",
-        desc: "AC fundraiser.",
+        desc: "Special thanks to early supporters.",
         done: false,
       },
       botce: {
