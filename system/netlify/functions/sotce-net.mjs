@@ -2,6 +2,7 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  - [-] Test and enable printing on iOS.
   - [] Add exporting of PNG images per pages.
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
@@ -2972,7 +2973,6 @@ export const handler = async (event, context) => {
                       const scale = 812 / article.clientWidth;
                       //            ^ Just shy of the 8.5in. CSS pixel value.
                       article.style.transform = "scale(" + scale + ")";
-
                       // Attach the events
                       //window.addEventListener('beforeprint', () => {
                       //  // console.log("Before print.");
@@ -2982,12 +2982,11 @@ export const handler = async (event, context) => {
                       //window.addEventListener('afterprint', () => {
                       //  console.log("After print.");
                       //}, { once: true });
-
                       window.print();
                       wrapper.removeChild(printPage);
                     };
 
-                    backpage.appendChild(print);
+                    if (!iOS) backpage.appendChild(print);
                     // backpage.appendChild(share);
 
                     ear.classList.add("reverse");
