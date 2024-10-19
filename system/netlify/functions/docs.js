@@ -1919,6 +1919,11 @@ export async function handler(event, context) {
         desc: "Read the privacy policy.",
         done: false,
       },
+      direct: {
+        sig: "direct",
+        desc: "Aesthetic Inc. corporate updates.",
+        done: false,
+      },
       support: {
         sig: "support",
         desc: "Go to AC support page.",
