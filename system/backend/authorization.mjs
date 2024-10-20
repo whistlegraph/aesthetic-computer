@@ -409,6 +409,7 @@ export async function querySignups(tenant = "aesthetic") {
 }
 
 // Retrieves daily stats for logins and signups from the Auth0 stats endpoint.
+//
 export async function activeUsers(tenant = "aesthetic") {
   try {
     const { got } = await import("got");

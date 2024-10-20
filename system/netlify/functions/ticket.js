@@ -239,8 +239,8 @@ export async function handler(event, context) {
             }
           }
         }
-      } else if (chargeObject.description === "Botce") {
-        // Only send the email if the payement was for "Botce".
+      } else if (chargeObject.description === "Botce" && emailAddress) {
+        // Only send the email if the payment was for "Botce".
         // Create an expiring link via a "tickets" collection in the db.
         const database = await connect(); // 📕 Database
         const collection = database.db.collection("tickets");
@@ -260,7 +260,7 @@ export async function handler(event, context) {
         }?ticket=${ticketKey}`;
 
         const emailOptions = {
-          to: hookEvent.data.object.receipt_email,
+          to: emailAddress,
           subject: "🪷 visit me again?",
           html: `click the ticket to visit with me, <code>botce</code>.
           <br>
