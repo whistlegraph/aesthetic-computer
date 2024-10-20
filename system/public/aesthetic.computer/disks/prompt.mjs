@@ -634,23 +634,30 @@ async function halt($, text) {
     return true;
   } else if (slug === "mood") {
     let res;
-    if (params.join(" ").trim().length > 0) {
+    const moodInput = params.join(" ").trim();
+    if (moodInput.length > 0) {
       res = await net.userRequest("POST", "/api/mood", {
-        mood: params.join(" "),
+        mood: moodInput,
       });
     }
 
-    flashColor = res?.mood ? [0, 255, 0] : [255, 0, 0];
-    if (res?.mood) {
-      console.log("‍🍼 mood:", res.mood);
-      notice(help.choose(":)", ":|", ":(", ":O", ":\\", ":/"));
+    if (moodInput.length === 0) {
+      flashColor = [0, 255, 255]; // Cyan color for flash
+      notice("EMPTY", ["cyan", "blue"]);
     } else {
-      const message = res?.message;
-      let note = "ERROR";
-      if (message === "unauthorized") note = "UNAUTHORIZED";
-      makeFlash($, true);
-      notice(note, ["yellow", "red"]);
-      console.error("🍼🚫 Could not set mood.");
+      flashColor = res?.mood ? [0, 255, 0] : [255, 0, 0];
+
+      if (res?.mood) {
+        console.log("‍🍼 mood:", res.mood);
+        notice(help.choose(":)", ":|", ":(", ":O", ":\\", ":/"));
+      } else {
+        const message = res?.message;
+        let note = "ERROR";
+        if (message === "unauthorized") note = "UNAUTHORIZED";
+        makeFlash($, true);
+        notice(note, ["yellow", "red"]);
+        console.error("🍼🚫 Could not set mood.");
+      }
     }
     makeFlash($);
     return true;
@@ -1273,9 +1280,7 @@ async function halt($, text) {
     return true;
   } else if (text.toLowerCase() === "pp") {
     jump(
-      debug
-        ? "/privacy-policy"
-        : "https://aesthetic.computer/privacy-policy",
+      debug ? "/privacy-policy" : "https://aesthetic.computer/privacy-policy",
     );
     makeFlash($);
     return true;

@@ -46,19 +46,65 @@ Corportate updates from Aesthetic Computer.
       font-weight: bold;
     }
 
-    #metrics {
-      background: white;
-      border-radius: 8px;
+    #report-card-wrapper {
+      background: rgb(245, 245, 235);
+      width: 300px;
+      aspect-ratio: 8/10;
       margin: 0.5em;
       border: 2px solid;
-      display: flex;
-      aspect-ratio: 1/1;
+      border-radius: 8px;
+      overflow: hidden;
     }
 
-    #metrics sub.fail {
+    #report-card {
+      background: rgb(255, 255, 230);
+      display: flex;
+      aspect-ratio: 8/10;
+      font-size: 16px;
+      width: 300px;
+      transition: opacity 0.25s;
+      opacity: 1;
+      flex-direction: column;
+      position: relative;
+    }
+
+    #report-card.fetching {
+      opacity: 0;
+    }
+
+    #report-card sub.fail {
       display: block;
       color: red;
       margin: auto;
+    }
+
+    #report-card-title {
+      /* background: tan; */
+      font-family: serif;
+      text-align: center;
+      top: 5%;
+      width: 100%;
+      position: absolute;
+      font-size: 1.5em;
+    }
+
+    #report-card-timestamp {
+      /* background: cyan; */
+      font-family: serif;
+      text-align: center;
+      top: calc(5% + 1.85em);
+      width: 100%;
+      position: absolute;
+    }
+
+    #report-card-marks {
+      background: yellow;
+      font-family: monospace;
+      font-size: 75%;
+      top: calc(5% + 5em);
+      padding: 0em 2em;
+      width: 100%;
+      position: absolute;
     }
 
     a#edited {
@@ -75,7 +121,13 @@ Corportate updates from Aesthetic Computer.
     <h1>Aesthetic Direct</h1>
     <p>
     </p>
-    <div id="metrics"></div>
+    <div id="report-card-wrapper">
+      <div id="report-card" class="fetching">
+        <div id="report-card-title">AC Report Card</div>
+        <div id="report-card-timestamp"></div>
+        <div id="report-card-marks"></div>
+      </div>
+    </div>
     <a href="/"><img width="128"
         src="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png"></a>
     <br>
@@ -87,27 +139,36 @@ Corportate updates from Aesthetic Computer.
 
   <script type="module">
     // Get live metrics.
-    const metrics = document.getElementById("metrics");
+    const reportCard = document.getElementById("report-card");
+    const reportCardMarks = document.getElementById("report-card-marks");
+    const reportCardTimestamp = document.getElementById("report-card-timestamp");
     const wrapper = document.getElementById("wrapper");
     const fail = '<sub class="fail">Could not retrieve metrics.</sub>';
-    function uncurtain() {
-      setTimeout(() => {
-        wrapper.classList.remove("fetching");
-      }, 250);
-    }
+    setTimeout(() => {
+      wrapper.classList.remove("fetching");
+    }, 0);
     try {
       const response = await fetch('/api/metrics');
       if (response.status === 200) {
         const data = await response.json();
-        metrics.innerHTML = JSON.stringify(data, null, 2);
-        uncurtain();
+
+        // TODO: 🔵 Generate elements for stats items here. 24.10.20.05.29
+        // reportCardMarks.innerHTML = //JSON.stringify(data, null, 2);
+
+        const activeUsers = document.createElement("div");
+        activeUsers.innerText = "Monthly active users: " + data.active;
+
+        reportCardMarks.appendChild(activeUsers);
+
+        const now = data.time;
+        reportCardTimestamp.innerText = now;
+
+        reportCard.classList.remove('fetching');
       } else {
-        metrics.innerHTML = fail;
-        uncurtain();
+        reportCard.innerHTML = fail;
       }
     } catch (error) {
-      metrics.innerHTML = fail;
-      uncurtain();
+      reportCard.innerHTML = fail;
     }
   </script>
 
