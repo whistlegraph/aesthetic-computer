@@ -2071,7 +2071,7 @@ export async function handler(event, context) {
       },
       "booted-by": {
         sig: "booted-by",
-        desc: "Special thanks to early supporters.",
+        desc: "Special thanks to early patrons.",
         done: false,
       },
       botce: {

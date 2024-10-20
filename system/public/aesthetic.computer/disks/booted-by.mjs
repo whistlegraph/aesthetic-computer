@@ -144,7 +144,7 @@ function paint({
 
   if (!overlay) {
     ink(help.choose([200], [160])).write(
-      "These original supporters helped boot Aesthetic Computer in its early days.",
+      "These original patrons helped boot Aesthetic Computer in its early days.",
       { center: "x", y: screen.height - 96 },
       "black",
       screen.width - 32,

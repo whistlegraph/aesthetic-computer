@@ -1274,13 +1274,13 @@ async function halt($, text) {
   } else if (text.toLowerCase() === "pp") {
     jump(
       debug
-        ? "/privacy-policy.html"
+        ? "/privacy-policy"
         : "https://aesthetic.computer/privacy-policy",
     );
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "direct") {
-    jump(debug ? "/aesthetic-direct.html" : "https://aesthetic.direct");
+    jump(debug ? "/aesthetic-direct" : "https://aesthetic.direct");
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
