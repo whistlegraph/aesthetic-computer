@@ -108,6 +108,8 @@ export async function handler(event, context) {
     // And that we are logged in...
     const user = await authorize(event.headers, tenant);
 
+    shell.log("🙆 Handle update for user:", user);
+
     if (user && user.email_verified) {
       // 🔑 We are logged in!
 
