@@ -1607,9 +1607,8 @@ export async function handler(event, context) {
       },
       channel: {
         sig: "channel",
-        desc: "",
+        desc: "View or set a piece code channel.",
         done: false,
-        hidden: true,
       },
       "code-channel": {
         sig: "code-channel",
