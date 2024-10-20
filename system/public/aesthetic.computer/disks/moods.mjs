@@ -41,7 +41,7 @@ function boot({ wipe, screen, colon, params }) {
   moodRingRow *= scale;
   wipe(0);
   let query = `/api/mood/all`;
-  if (params[0]) query += `?for=${params[0]}`;
+  if (params.length > 0) query += `?for=${params.join(',')}`;
   fetch(query)
     .then((res) => res.json())
     .then((body) => {

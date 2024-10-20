@@ -120,6 +120,7 @@ alias ac 'cd ~/aesthetic-computer'
 alias watch 'ac; npm run watch' # check for new deployments
 
 alias ac-site 'ac; npm run site'
+alias ac-watch 'ac; npm run watch'
 alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
 alias ac-edge 'clear; ac; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
