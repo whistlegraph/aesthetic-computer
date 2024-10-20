@@ -17,7 +17,6 @@ import { shell } from "../../backend/shell.mjs";
 export async function handler(event, context) {
   if (event.httpMethod === "GET") {
     try {
-
       // Get active users from `auth0`.
       const active = await activeUsers("aesthetic");
       const activeSotce = await activeUsers("sotce");
@@ -26,7 +25,9 @@ export async function handler(event, context) {
       const database = await connect();
       const handles = await database.db.collection("@handles").countDocuments();
       const pieces = await database.db.collection("pieces").countDocuments();
-      const paintings = await database.db.collection("paintings").countDocuments();
+      const paintings = await database.db
+        .collection("paintings")
+        .countDocuments();
       const moods = await database.db.collection("moods").countDocuments();
       const logs = await database.db.collection("logs").countDocuments();
       await database.disconnect();
@@ -47,6 +48,7 @@ export async function handler(event, context) {
         paintings,
         moods,
         logs,
+        time: new Date().toLocaleString(),
       });
     } catch (error) {
       shell.log(error);
