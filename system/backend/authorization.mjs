@@ -142,7 +142,7 @@ export async function getHandleOrEmail(sub) {
     const token = await getAccessToken(got); // Get access token for auth0.
     const userResponse = await got(
       `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
-      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" },
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
     );
 
     return userResponse.body.email;
@@ -228,7 +228,7 @@ export async function userIDFromHandle(
   handle,
   database,
   keepKV,
-  tenant = "aesthetic",
+  tenant = "aesthetic"
 ) {
   // Read from redis, otherwise check the database, and store in redis after.
   let userID;
@@ -278,7 +278,7 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
       handleOrEmail.slice(1),
       database,
       undefined,
-      tenant,
+      tenant
     );
   } else {
     return userIDFromEmail(handleOrEmail, tenant); // Assume email.
@@ -290,7 +290,7 @@ export async function setEmailAndReverify(
   id,
   email,
   name,
-  tenant = "aesthetic",
+  tenant = "aesthetic"
 ) {
   try {
     const { got } = await import("got");
@@ -304,7 +304,7 @@ export async function setEmailAndReverify(
       "on:",
       tenant,
       "via:",
-      id,
+      id
     );
 
     // 1. Update the user's email and ('name' which is equivalent to email
@@ -321,7 +321,7 @@ export async function setEmailAndReverify(
           },
           json: { name, email, email_verified: false },
           responseType: "json",
-        },
+        }
       );
     } catch (err) {
       shell.error("🔴 Error:", err);
@@ -342,7 +342,7 @@ export async function setEmailAndReverify(
         },
         json: { user_id: id },
         responseType: "json",
-      },
+      }
     );
 
     if (!verificationResponse.body) {
@@ -375,12 +375,55 @@ export async function deleteUser(userId, tenant = "aesthetic") {
     });
 
     shell.log(
-      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`,
+      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`
     );
     return { success: true, message: "User deleted successfully from Auth0." };
   } catch (error) {
     shell.error(`⚠️  Error deleting user from Auth0: ${error}`);
     return { success: false, message: error.message };
+  }
+}
+
+// Queries the total number of signed-up users by including totals in the response.
+export async function querySignups(tenant = "aesthetic") {
+  try {
+    const { got } = await import("got");
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+    const token = await getAccessToken(got, tenant);
+
+    const response = await got(`${baseURI}/api/v2/users`, {
+      searchParams: {
+        page: 0,
+        per_page: 1, // Fetch minimal data to reduce overhead.
+        include_totals: true, // Include the total user count.
+      },
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "json",
+    });
+
+    return response.body.total || 0; // Return the total user count.
+  } catch (error) {
+    shell.error(`Error querying signups from Auth0: ${error}`);
+    return undefined;
+  }
+}
+
+// Retrieves daily stats for logins and signups from the Auth0 stats endpoint.
+export async function activeUsers(tenant = "aesthetic") {
+  try {
+    const { got } = await import("got");
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+    const token = await getAccessToken(got, tenant);
+
+    const response = await got(`${baseURI}/api/v2/stats/active-users`, {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "json",
+    });
+
+    return response.body; // Returns an array of daily stats.
+  } catch (error) {
+    shell.error(`Error fetching daily stats from Auth0: ${error}`);
+    return undefined;
   }
 }
 

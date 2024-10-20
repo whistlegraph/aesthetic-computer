@@ -4,7 +4,7 @@ Corportate updates from Aesthetic Computer.
 
 #region 🏁 TODO
   - [-] Add endpoint to show live 'metrics' / stats on the platform.
-    - [] Account Signups: 
+    - [] Account Signups:  via auth0
     - [] Handles registered: 
     - [] Other database fields. 
   WIP
@@ -29,10 +29,38 @@ Corportate updates from Aesthetic Computer.
     body {
       font-family: sans-serif;
       background-color: rgb(235, 235, 235);
+      opacity: 1;
+      -webkit-text-size-adjust: none;
     }
+
+    #wrapper {
+      opacity: 1;
+      transition: opacity 0.5s;
+    }
+
+    #wrapper.fetching {
+      opacity: 0;
+    }
+
     code {
       font-weight: bold;
     }
+
+    #metrics {
+      background: white;
+      border-radius: 8px;
+      margin: 0.5em;
+      border: 2px solid;
+      display: flex;
+      aspect-ratio: 1/1;
+    }
+
+    #metrics sub.fail {
+      display: block;
+      color: red;
+      margin: auto;
+    }
+
     a#edited {
       color: blue;
     }
@@ -43,18 +71,45 @@ Corportate updates from Aesthetic Computer.
 </head>
 
 <body>
-  <h1>Aesthetic Direct</h1>
-  <p>
-    ...
-  </p>
-  <a href="/"><img width="128"
-      src="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png"></a>
-  <br>
-  <br>
-  <sub><a id="edited"
-      href="https://github.com/whistlegraph/aesthetic-computer/commits/main/system/public/aesthetic-direct.html">Edited
-      on October 19, 2024</a></sub>
-  <br>
+  <div id="wrapper" class="fetching">
+    <h1>Aesthetic Direct</h1>
+    <p>
+    </p>
+    <div id="metrics"></div>
+    <a href="/"><img width="128"
+        src="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png"></a>
+    <br>
+    <br>
+    <sub><a id="edited"
+        href="https://github.com/whistlegraph/aesthetic-computer/commits/main/system/public/aesthetic-direct.html">Edited
+        on October 19, 2024</a></sub>
+  </div>
+
+  <script type="module">
+    // Get live metrics.
+    const metrics = document.getElementById("metrics");
+    const wrapper = document.getElementById("wrapper");
+    const fail = '<sub class="fail">Could not retrieve metrics.</sub>';
+    function uncurtain() {
+      setTimeout(() => {
+        wrapper.classList.remove("fetching");
+      }, 250);
+    }
+    try {
+      const response = await fetch('/api/metrics');
+      if (response.status === 200) {
+        const data = await response.json();
+        metrics.innerHTML = JSON.stringify(data, null, 2);
+        uncurtain();
+      } else {
+        metrics.innerHTML = fail;
+        uncurtain();
+      }
+    } catch (error) {
+      metrics.innerHTML = fail;
+      uncurtain();
+    }
+  </script>
 
   <!-- Development reload logic. -->
   <script>

@@ -225,6 +225,10 @@ from = "/api/auth0-events"
 to = "/.netlify/functions/auth0-events"
 status = 200
 [[redirects]]
+from = "/api/metrics"
+to = "/.netlify/functions/metrics"
+status = 200
+[[redirects]]
 from = "/api/ticket/*"
 to = "/.netlify/functions/ticket"
 status = 200

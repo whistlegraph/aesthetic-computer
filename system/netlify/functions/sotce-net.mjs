@@ -4278,7 +4278,7 @@ export const handler = async (event, context) => {
             body {
               font-family: sans-serif;
               background-color: rgb(255, 251, 234);
-              /* background: rgb(255, 230, 225); */
+              -webkit-text-size-adjust: none;
             }
             img {
               filter: grayscale(0.75);
