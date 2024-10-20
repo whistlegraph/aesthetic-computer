@@ -37,13 +37,19 @@ async function moodFor(sub, database) {
 }
 
 // Get all moods with handles included.
-// 🗒️ There will be no `\\n` filtering here, so it should happen on client rendering.
-async function allMoods(database, handle = null) {
+// 🗒️ There will be no `\n` filtering here, so it should happen on client rendering.
+async function allMoods(database, handles = null) {
   const collection = database.db.collection("moods");
   const matchStage = { deleted: { $ne: true } };
 
-  if (handle) {
-    matchStage["handleInfo.handle"] = handle.replace(/^@/, "");
+  // Refactored to support comma-separated list of handles
+  if (handles) {
+    const handleList = handles
+      .split(",")
+      .map((h) => h.trim().replace(/^@/, ""))
+      .filter(Boolean);
+    
+    matchStage["handleInfo.handle"] = { $in: handleList };
   }
 
   const pipeline = [
@@ -73,6 +79,7 @@ async function allMoods(database, handle = null) {
   const records = await collection.aggregate(pipeline).toArray();
   return records;
 }
+
 
 export { connect, ObjectId, moodFor, allMoods };
 
