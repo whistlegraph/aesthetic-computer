@@ -133,9 +133,11 @@ Corportate updates from Aesthetic Computer.
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "reload" && msg.content.piece === "*refresh*") {
-          console.log("🧦 Reloading...");
-          const url = new URL(window.location.href);
-          window.location.href = url.toString();
+          setTimeout(() => {
+            console.log("🧦 Reloading...");
+            const url = new URL(window.location.href);
+            window.location.href = url.toString();
+          }, 150); // Wait a sec for backend functions to reload.
         }
       };
 
