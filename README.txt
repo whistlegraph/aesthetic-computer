@@ -38,6 +38,18 @@ but technically agnostic. (Choose your aesthetic!)
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
 
+*** profiles ***
+ - [] refer to profile roadmap below in this file for moving paintings
+ - [] entering 'profile @handle' will yield the profile
+
+*** hh ***
+ - [] entering 'handle-home urpiecehere' will change the user's prompt.ac/@handle home piece to anything they wish
+
+*** backend() ***
+ - [] any ac piece should be able to make backend requests that mirror client
+      requests from the `prompt`
+   - [] Eg. `backend(list @bash)` or `backend(moods @jeffrey)`.
+
 *** emacs tabs ***
  - [] add 'tunnel' ngrok emacs tab and rename source to code
 
