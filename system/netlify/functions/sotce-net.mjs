@@ -4273,6 +4273,7 @@ export const handler = async (event, context) => {
         <head>
           <title>Sotce Net's Privacy Policy</title>
           <meta name="description" content="The privacy policy for Sotce Net." />
+          <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
           <style>
             body {
               font-family: sans-serif;
@@ -4480,7 +4481,7 @@ const reloadScript = html`
       };
 
       ws.onclose = (e) => {
-        console.log("🧦 🔴 Closed:", e);
+        // console.log("🧦 🔴 Closed:", e);
         reconnectInterval = setInterval(connect, 1000);
       };
     }
