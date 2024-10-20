@@ -15,7 +15,6 @@ export async function handler(event, context) {
   const database = await connect(); // 📕 Database
   const collection = database.db.collection("@handles");
 
-  // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
     try {
       const tenant = event.queryStringParameters.tenant;
