@@ -70,9 +70,12 @@ export async function handler(event, context) {
       );
 
       let sisterEmailChanged;
+
       // Only try to update the sister email if the primary one was changed.
+      let sister;
+
       if (emailChanged?.success) {
-        const sister = await userIDFromEmail(user.email, sisterTenant);
+        sister = await userIDFromEmail(user.email, sisterTenant);
         if (sister?.userID) {
           sisterEmailChanged = await setEmailAndReverify(
             sister.userID,
