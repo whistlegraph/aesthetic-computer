@@ -745,6 +745,8 @@ if (dev) {
   chokidar
     .watch([
       "../system/netlify/functions",
+      "../system/public/privacy-policy.html",
+      "../system/public/aesthetic-direct.html",
       "../system/public/aesthetic.computer/lib",
       "../system/public/aesthetic.computer/systems", // This doesn't need a full reload / could just reload the disk module?
       "../system/public/aesthetic.computer/boot.mjs",

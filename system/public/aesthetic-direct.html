@@ -3,8 +3,21 @@ Aesthetic Direct, 24.10.19.22.43
 Corportate updates from Aesthetic Computer.
 
 #region 🏁 TODO
+  - [-] Add endpoint to show live 'metrics' / stats on the platform.
+    - [] Account Signups: 
+    - [] Handles registered: 
+    - [] Other database fields. 
+  WIP
+  - [] Write and date an initial message that...
+    - [] Announces the corporation and links the papers.
+    - [] Honors and thanks the booted-by patrons.
+    - [] Include a path to converting early patrons into SAFE holders.
+  - [] Announcing "Aesthetic Inc."
+    - [] The cultural, creative, and financial significance of Aesthetic Computer.
+  - [] Valuating Aesthetic Computer.
+  + Done
+  - [x] Add 'Track changes to this page.' link on the bottom.
 #endregion 
-
 -->
 
 <html>
@@ -20,7 +33,12 @@ Corportate updates from Aesthetic Computer.
     code {
       font-weight: bold;
     }
+    a#edited {
+      color: blue;
+    }
   </style>
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 
@@ -33,7 +51,46 @@ Corportate updates from Aesthetic Computer.
       src="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png"></a>
   <br>
   <br>
-  <sub>Edited on October 19, 2024</sub>
+  <sub><a id="edited"
+      href="https://github.com/whistlegraph/aesthetic-computer/commits/main/system/public/aesthetic-direct.html">Edited
+      on October 19, 2024</a></sub>
+  <br>
+
+  <!-- Development reload logic. -->
+  <script>
+    let reconnectInterval = false;
+    function connect() {
+      clearInterval(reconnectInterval);
+      let ws;
+      try {
+        let connectionUrl = "wss://localhost:8889";
+        if (window.location.host === "local.aesthetic.computer") {
+          connectionUrl = "wss://session.local.aesthetic.computer";
+        }
+        ws = new WebSocket(connectionUrl);
+      } catch {
+        console.warn("🧦 Connection failed.");
+        return;
+      }
+
+      // ws.onopen = (e) => console.log("🧦 Connected:", e);
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "reload" && msg.content.piece === "*refresh*") {
+          console.log("🧦 Reloading...");
+          const url = new URL(window.location.href);
+          window.location.href = url.toString();
+        }
+      };
+
+      ws.onclose = (e) => {
+        // console.log("🧦 🔴 Closed:", e);
+        reconnectInterval = setInterval(connect, 1000);
+      };
+    }
+    connect();
+  </script>
 </body>
 
 </html>

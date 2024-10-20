@@ -204,9 +204,14 @@ from = "/privacy-policy"
 to = "/privacy-policy.html"
 status = 200
 [[redirects]]
-from = "https://aesthetic.direct"
+from = "/aesthetic-direct"
 to = "/aesthetic-direct.html"
 status = 200
+[[redirects]]
+from = "https://aesthetic.direct"
+to = "https://aesthetic.computer/aesthetic-direct"
+status = 200
+force = true
 [[redirects]]
 from = "/icon/*"
 to = "/.netlify/builders/icon"
