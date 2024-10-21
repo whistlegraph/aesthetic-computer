@@ -15,6 +15,7 @@ Corportate updates from Aesthetic Computer.
   - [] Announcing "Aesthetic Inc."
     - [] The cultural, creative, and financial significance of Aesthetic Computer.
   - [] Valuating Aesthetic Computer.
+  - [] Add a 'Print this Page' url at the bottom.
   + Done
   - [x] Add 'Track changes to this page.' link on the bottom.
 #endregion 
@@ -26,6 +27,11 @@ Corportate updates from Aesthetic Computer.
   <title>Aesthetic Direct</title>
   <meta name="description" content="Corporate updates from Aesthetic Computer." />
   <style>
+    :root {
+      --report-card-ratio: 10/15.4;
+      --report-card-bg: rgb(255, 255, 230);
+    }
+
     body {
       font-family: sans-serif;
       background-color: rgb(235, 235, 235);
@@ -49,27 +55,126 @@ Corportate updates from Aesthetic Computer.
     #report-card-wrapper {
       background: rgb(245, 245, 235);
       width: 300px;
-      aspect-ratio: 8/10;
-      margin: 0.5em;
+      aspect-ratio: var(--report-card-ratio);
+      margin-top: 2em;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 2em;
+      overflow: hidden;
       border: 2px solid;
       border-radius: 8px;
-      overflow: hidden;
+      box-shadow: 2px 2px 4px rgba(0, 255, 0, 0.25);
+    }
+
+    #report-card-wrapper.fetching {
+      border: 2px solid rgb(64, 64, 96);
+      box-shadow: none;
+    }
+
+    #report-card-wrapper.fetching #report-card {
+      background: rgb(245, 245, 235);
+      color: rgb(64, 64, 96);
     }
 
     #report-card {
-      background: rgb(255, 255, 230);
+      background: var(--report-card-bg);
       display: flex;
-      aspect-ratio: 8/10;
+      aspect-ratio: var(--report-card-ratio);
       font-size: 16px;
       width: 300px;
-      transition: opacity 0.25s;
+      transition: background 0.25s;
       opacity: 1;
       flex-direction: column;
       position: relative;
+      box-sizing: border-box;
     }
 
-    #report-card.fetching {
+    .stat-item {
+      position: relative;
+    }
+
+    .stat-item span {
+      background: var(--report-card-bg);
+      z-index: 1;
+    }
+
+    .stat-item span:first-child {
+      padding-right: 4px;
+    }
+
+    .stat-item span:last-child {
+      padding-left: 4px;
+    }
+
+    .stat-item:not(.unruled)::after {
+      content: "";
+      width: 100%;
+      height: 0.05em;
+      top: 0.65em; /* calc(0.5em + 0.05em); */
+      opacity: 0.15;
+      position: absolute;
+      background: black;
+      z-index: 0;
+    }
+
+    .stat-item span {
+      background: rgb(255, 255, 230);
+    }
+
+    #report-card-wrapper.fetching #report-card-timestamp,
+    #report-card-wrapper.fetching #report-card-marks {
       opacity: 0;
+    }
+
+    #report-card-fetching {
+      display: none;
+    }
+
+    #report-card-wrapper.fetching #report-card-fetching {
+      display: block;
+      margin: auto;
+      font-family: monospace;
+      font-size: 75%;
+    }
+
+    #report-card-wrapper.fetching #report-card-fetching::after {
+      content: "...";
+      /* Reserve space for 3 dots */
+      visibility: hidden;
+      /* Make the content invisible */
+      display: inline-block;
+      margin-left: 0;
+      width: 1em;
+      /* Adjust width to fit the dots */
+      text-align: left;
+      animation: dots 0.75s steps(3, end) infinite;
+    }
+
+    @keyframes dots {
+      0% {
+        visibility: hidden;
+        content: "";
+      }
+
+      25% {
+        visibility: visible;
+        content: ".";
+      }
+
+      50% {
+        visibility: visible;
+        content: "..";
+      }
+
+      75% {
+        visibility: visible;
+        content: "...";
+      }
+
+      100% {
+        visibility: hidden;
+        content: "";
+      }
     }
 
     #report-card sub.fail {
@@ -82,7 +187,7 @@ Corportate updates from Aesthetic Computer.
       /* background: tan; */
       font-family: serif;
       text-align: center;
-      top: 5%;
+      top: 4.5%;
       width: 100%;
       position: absolute;
       font-size: 1.5em;
@@ -91,20 +196,22 @@ Corportate updates from Aesthetic Computer.
     #report-card-timestamp {
       /* background: cyan; */
       font-family: serif;
+      font-size: 90%;
       text-align: center;
-      top: calc(5% + 1.85em);
+      top: calc(5% + 2em);
       width: 100%;
       position: absolute;
     }
 
     #report-card-marks {
-      background: yellow;
+      /* background: yellow; */
       font-family: monospace;
       font-size: 75%;
-      top: calc(5% + 5em);
+      top: calc(5% + 5.3em);
       padding: 0em 2em;
       width: 100%;
       position: absolute;
+      box-sizing: border-box;
     }
 
     a#edited {
@@ -121,11 +228,12 @@ Corportate updates from Aesthetic Computer.
     <h1>Aesthetic Direct</h1>
     <p>
     </p>
-    <div id="report-card-wrapper">
-      <div id="report-card" class="fetching">
+    <div id="report-card-wrapper" class="fetching">
+      <div id="report-card">
         <div id="report-card-title">AC Report Card</div>
         <div id="report-card-timestamp"></div>
         <div id="report-card-marks"></div>
+        <div id="report-card-fetching">Generating</div>
       </div>
     </div>
     <a href="/"><img width="128"
@@ -139,6 +247,7 @@ Corportate updates from Aesthetic Computer.
 
   <script type="module">
     // Get live metrics.
+    const reportCardWrapper = document.getElementById("report-card-wrapper");
     const reportCard = document.getElementById("report-card");
     const reportCardMarks = document.getElementById("report-card-marks");
     const reportCardTimestamp = document.getElementById("report-card-timestamp");
@@ -152,18 +261,60 @@ Corportate updates from Aesthetic Computer.
       if (response.status === 200) {
         const data = await response.json();
 
-        // TODO: 🔵 Generate elements for stats items here. 24.10.20.05.29
-        // reportCardMarks.innerHTML = //JSON.stringify(data, null, 2);
+        const numberFormatter = new Intl.NumberFormat('en-US');
 
-        const activeUsers = document.createElement("div");
-        activeUsers.innerText = "Monthly active users: " + data.active;
+        const stats = [
+          { label: "*** aesthetic-computer ***", value: null },
+          { label: "&nbsp;", value: null },
+          { label: "Handles set", value: data.handles },
+          { label: "Moods collected", value: data.moods },
+          { label: "Paintings done", value: data.paintings },
+          { label: "Stickers printed", value: data.stickersPrinted },
+          { label: "Pieces published", value: data.pieces },
+          { label: "Tickets sold", value: data.tickets },
+          { label: "Chats sent", value: data.chatMessages },
+          { label: "Logs broadcast", value: data.logs },
+          { label: "Active accounts (30 days)", value: data.active },
+          { label: "Total signups (10/20/2024)", value: 16625 },
+          { label: "&nbsp;", value: null },
+          { label: "*** sotce-net ***", value: null },
+          { label: "&nbsp;", value: null },
+          { label: "Subscribers (monthly)", value: data.sotceSubscribers },
+          { label: "Handles set", value: data.sotceHandles },
+          { label: "Pages published", value: data.pagesPublished },
+          { label: "Pages crumpled", value: data.pagesCrumpled },
+          { label: "Touches", value: data.touches },
+          { label: "Active accounts (30 days)", value: data.sotceActive },
+          { label: "Total signups (10/20/2024)", value: 483 },
+        ];
 
-        reportCardMarks.appendChild(activeUsers);
+        stats.forEach(stat => {
+          const statItem = document.createElement("div");
+          statItem.style.display = "flex";
+          statItem.style.justifyContent = "space-between";
+          statItem.classList.add("stat-item");
+
+          const label = document.createElement("span");
+          label.innerHTML = stat.label;
+
+          statItem.appendChild(label);
+
+          if (stat.value) {
+            const value = document.createElement("span");
+            value.innerText = numberFormatter.format(stat.value);
+            statItem.appendChild(value);
+          } else {
+            label.style.margin = "auto";
+            statItem.classList.add('unruled');
+          }
+
+          reportCardMarks.appendChild(statItem);
+        });
 
         const now = data.time;
         reportCardTimestamp.innerText = now;
 
-        reportCard.classList.remove('fetching');
+        reportCardWrapper.classList.remove('fetching');
       } else {
         reportCard.innerHTML = fail;
       }

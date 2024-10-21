@@ -142,7 +142,7 @@ export async function getHandleOrEmail(sub) {
     const token = await getAccessToken(got); // Get access token for auth0.
     const userResponse = await got(
       `https://aesthetic.us.auth0.com/api/v2/users/${encodeURIComponent(sub)}`,
-      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" }
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "json" },
     );
 
     return userResponse.body.email;
@@ -228,7 +228,7 @@ export async function userIDFromHandle(
   handle,
   database,
   keepKV,
-  tenant = "aesthetic"
+  tenant = "aesthetic",
 ) {
   // Read from redis, otherwise check the database, and store in redis after.
   let userID;
@@ -278,7 +278,7 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
       handleOrEmail.slice(1),
       database,
       undefined,
-      tenant
+      tenant,
     );
   } else {
     return userIDFromEmail(handleOrEmail, tenant); // Assume email.
@@ -290,7 +290,7 @@ export async function setEmailAndReverify(
   id,
   email,
   name,
-  tenant = "aesthetic"
+  tenant = "aesthetic",
 ) {
   try {
     const { got } = await import("got");
@@ -304,7 +304,7 @@ export async function setEmailAndReverify(
       "on:",
       tenant,
       "via:",
-      id
+      id,
     );
 
     // 1. Update the user's email and ('name' which is equivalent to email
@@ -321,7 +321,7 @@ export async function setEmailAndReverify(
           },
           json: { name, email, email_verified: false },
           responseType: "json",
-        }
+        },
       );
     } catch (err) {
       shell.error("🔴 Error:", err);
@@ -342,7 +342,7 @@ export async function setEmailAndReverify(
         },
         json: { user_id: id },
         responseType: "json",
-      }
+      },
     );
 
     if (!verificationResponse.body) {
@@ -375,7 +375,7 @@ export async function deleteUser(userId, tenant = "aesthetic") {
     });
 
     shell.log(
-      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`
+      `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`,
     );
     return { success: true, message: "User deleted successfully from Auth0." };
   } catch (error) {
@@ -427,6 +427,51 @@ export async function activeUsers(tenant = "aesthetic") {
     return undefined;
   }
 }
+
+// Retrieves the total count of verified users in the specified tenant.
+// export async function verifiedUsers(tenant = "aesthetic") {
+//   try {
+//     const { got } = await import("got");
+//     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+//     const token = await getAccessToken(got, tenant);
+//
+//     let page = 0;
+//     let perPage = 100;
+//     let verifiedCount = 0;
+//
+//     while (true) {
+//       const response = await got(`${baseURI}/api/v2/users`, {
+//         searchParams: {
+//           q: "email_verified:true",
+//           search_engine: "v3",
+//           page,
+//           per_page: perPage,
+//         },
+//         headers: { Authorization: `Bearer ${token}` },
+//         responseType: "json",
+//       });
+//
+//       const users = response.body;
+//       verifiedCount += users.length;
+//
+//
+//       if (users.length < perPage) break; // No more pages to fetch.
+//       page++;
+//       console.log("Verified users so far:", verifiedCount, "Page:", page);
+//     }
+//
+//     shell.log(`✅ Verified users count for tenant ${tenant}: ${verifiedCount}`);
+//     return verifiedCount;
+//   } catch (error) {
+//     shell.error(
+//       `Error retrieving verified users count from ${tenant}: ${error}`,
+//     );
+//     return undefined;
+//   }
+// }
+
+// Helper function to introduce a delay (in milliseconds).
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // 📚 Library (Useful functions used throughout the file.)
 // Obtain an auth0 access token for our M2M API.
