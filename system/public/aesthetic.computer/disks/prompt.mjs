@@ -1279,13 +1279,17 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "pp") {
-    jump(
-      debug ? "/privacy-policy" : "https://aesthetic.computer/privacy-policy",
-    );
+    const prefix = !net.iframe ? "out:" : "";
+    jump(prefix + "/privacy-policy");
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "direct") {
-    jump(debug ? "/aesthetic-direct" : "https://aesthetic.direct");
+    const prefix = !net.iframe ? "out:" : "";
+    jump(
+      debug
+        ? prefix + "/aesthetic-direct"
+        : prefix + "https://aesthetic.direct",
+    );
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
