@@ -1922,6 +1922,7 @@ export async function handler(event, context) {
         sig: "direct",
         desc: "Aesthetic Inc. corporate updates.",
         done: false,
+        hidden: true
       },
       support: {
         sig: "support",
