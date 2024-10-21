@@ -876,6 +876,7 @@ export const handler = async (event, context) => {
               hyphens: auto;
               -webkit-hyphens: auto;
               overflow-wrap: break-word;
+              white-space: pre-wrap;
             }
 
             #garden article.page .words.justify-last-line::after,
