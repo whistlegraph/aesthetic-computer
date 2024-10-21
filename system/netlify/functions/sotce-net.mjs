@@ -239,7 +239,7 @@ export const handler = async (event, context) => {
         <head>
           <meta charset="utf-8" />
           <title>Sotce Net</title>
-          <meta name="description" content="for my best thoughts" />
+          <meta name="description" content="for my worst thoughts" />
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
           <link rel="apple-touch-icon" href="${assetPath}cookie.png" />
@@ -1689,7 +1689,7 @@ export const handler = async (event, context) => {
               }
 
               if (status === "logged-out") {
-                message = "for my best thoughts";
+                message = "for my worst thoughts";
 
                 const lb = cel("button");
                 lb.innerText = "log in";
