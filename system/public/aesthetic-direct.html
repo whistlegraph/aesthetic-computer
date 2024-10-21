@@ -13,6 +13,8 @@ Corportate updates from Aesthetic Computer.
   - [] Announcing "Aesthetic Inc."
     - [] The cultural, creative, and financial significance of Aesthetic Computer.
   - [] Valuating Aesthetic Computer.
+  - [] Change AC Report Card -> Media Report 
+  - [] 
   - [] Add a 'Print this Page' url at the bottom.
   + Done
   - [x] Add endpoint to show live 'metrics' / stats on the platform.
@@ -22,7 +24,6 @@ Corportate updates from Aesthetic Computer.
   - [x] Add 'Track changes to this page.' link on the bottom.
 #endregion 
 -->
-
 <html>
 
 <head>
@@ -32,6 +33,7 @@ Corportate updates from Aesthetic Computer.
     :root {
       --report-card-ratio: 10/15.4;
       --report-card-bg: rgb(255, 255, 230);
+      --bg: rgb(235, 235, 235);
     }
 
     body {
@@ -39,11 +41,50 @@ Corportate updates from Aesthetic Computer.
       background-color: rgb(235, 235, 235);
       opacity: 1;
       -webkit-text-size-adjust: none;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    h2 {
+      font-family: serif;
+      font-weight: normal;
+      margin: 0;
+      background: pink;
+    }
+
+    h3 {
+      margin: 0;
+      /* background: red; */
+    }
+
+    #corner-label {
+      font-family: monospace;
+      font-weight: normal;
+      font-size: 22px;
+      margin: 0;
+      position: fixed;
+      top: 12px;
+      left: 16px;
+    }
+
+    #corner-label:before {
+      content: "";
+      height: 2.5em;
+      width: 100vw;
+      position: absolute;
+      z-index: -1;
+      top: -12px;
+      left: -16px;
+      background: linear-gradient(to bottom,
+          var(--bg) 50%,
+          transparent 100%);
     }
 
     #wrapper {
       opacity: 1;
       transition: opacity 0.5s;
+      margin: 12px 16px 12px 16px;
+      position: relative;
     }
 
     #wrapper.fetching {
@@ -112,7 +153,8 @@ Corportate updates from Aesthetic Computer.
       content: "";
       width: 100%;
       height: 0.05em;
-      top: 0.65em; /* calc(0.5em + 0.05em); */
+      top: 0.65em;
+      /* calc(0.5em + 0.05em); */
       opacity: 0.15;
       position: absolute;
       background: black;
@@ -219,6 +261,28 @@ Corportate updates from Aesthetic Computer.
     a#edited {
       color: blue;
     }
+
+    hr {
+      width: 100vw;
+      margin: 0;
+      margin-left: -16px;
+      padding: 0;
+      height: 2.5px;
+      border-left: 0;
+      border-right: 0;
+      border-width: 1.75px;
+      background: rgb(225, 215, 235);
+    }
+
+    article {
+      margin-top: 4em;
+      margin-bottom: 2em;
+    }
+
+    #inc-proof {
+      max-width: 100%;
+      width: 180px;
+    }
   </style>
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
@@ -227,9 +291,21 @@ Corportate updates from Aesthetic Computer.
 
 <body>
   <div id="wrapper" class="fetching">
-    <h1>Aesthetic Direct</h1>
-    <p>
-    </p>
+    <h1 id="corner-label">Aesthetic Direct</h1>
+    <!-- Directs -->
+
+    <article>
+      <h2>Announcing Aesthetic Inc.</h2>
+      <h3>Monday, October 21, 2024</h3>
+      <h4>@jeffrey</h4>
+      <p>I am excited to announce that I have incorporated under Aesthetic Inc.
+        <br>
+        <img id="inc-proof" src="https://assets.aesthetic.computer/aesthetic-inc/aesthetic-inc-proof.png">
+      </p>
+    </article>
+
+    <!-- Reports -->
+    <hr>
     <div id="report-card-wrapper" class="fetching">
       <div id="report-card">
         <div id="report-card-title">AC Report Card</div>
@@ -238,6 +314,8 @@ Corportate updates from Aesthetic Computer.
         <div id="report-card-fetching">Generating</div>
       </div>
     </div>
+    <hr>
+    <br>
     <a href="/"><img width="128"
         src="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png"></a>
     <br>
