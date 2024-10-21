@@ -4,13 +4,12 @@ Corportate updates from Aesthetic Computer.
 
 #region 🏁 TODO
   WIP
-  - [] Announcing Aesthetic Inc.
-  - [] (aesthetic.direct no. 1)
-  - [] Write and date an initial message that...
-    - [] Announces the corporation and links the papers.
-    - [] Honors and thanks the booted-by patrons.
-    - [] Include a path to converting early patrons into SAFE holders.
-  - [] Announcing "Aesthetic Inc."
+  - [x] Announcing Aesthetic Inc.
+  - [x] Write and date an initial message that...
+    - [x] Announces the corporation and links the papers.
+    - [x] Honors and thanks the booted-by patrons.
+    - [-] Include a path to converting early patrons into SAFE holders.
+  - [x] Announcing "Aesthetic Inc."
     - [] The cultural, creative, and financial significance of Aesthetic Computer.
   - [] Valuating Aesthetic Computer.
   - [] Change AC Report Card -> Media Report 
@@ -48,13 +47,31 @@ Corportate updates from Aesthetic Computer.
     h2 {
       font-family: serif;
       font-weight: normal;
+      font-size: 1.75em;
       margin: 0;
-      background: pink;
+      /* background: pink; */
+      filter: drop-shadow(1px 2px 1px rgba(252, 156, 252, 0.5));
     }
 
     h3 {
       margin: 0;
-      /* background: red; */
+      font-weight: normal;
+      font-style: italic;
+      font-size: 80%;
+      padding-top: 0.25em;
+      padding-left: 0;
+      padding-right: 0em;
+      text-align: right;
+    }
+
+    h4 {
+      font-weight: normal;
+      font-family: monospace;
+      margin: 0;
+      position: absolute;
+      right: 2em;
+      bottom: 2em;
+      font-size: 12px;
     }
 
     #corner-label {
@@ -65,11 +82,22 @@ Corportate updates from Aesthetic Computer.
       position: fixed;
       top: 12px;
       left: 16px;
+      z-index: 3;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #corner-label:hover {
+      color: purple;
+    }
+
+    #corner-label:active {
+      color: gray;
     }
 
     #corner-label:before {
       content: "";
-      height: 2.5em;
+      height: 3em;
       width: 100vw;
       position: absolute;
       z-index: -1;
@@ -225,6 +253,7 @@ Corportate updates from Aesthetic Computer.
       display: block;
       color: red;
       margin: auto;
+      font-weight: bold;
     }
 
     #report-card-title {
@@ -262,6 +291,11 @@ Corportate updates from Aesthetic Computer.
       color: blue;
     }
 
+    code a {
+      text-decoration: none;
+      color: black;
+    }
+
     hr {
       width: 100vw;
       margin: 0;
@@ -275,13 +309,38 @@ Corportate updates from Aesthetic Computer.
     }
 
     article {
+      position: relative;
       margin-top: 4em;
       margin-bottom: 2em;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 400px;
+      background: rgb(250, 250, 250);
+      padding: 2em 2em 1em 2em;
+      box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.25);
+      border: 1px solid black;
+      aspect-ratio: 8/10;
+    }
+
+    article a {
+      color: black;
+    }
+
+    article p {
+      font-size: 90%;
+      padding-top: 1em;
     }
 
     #inc-proof {
       max-width: 100%;
       width: 180px;
+      border-radius: 4px;
+      border: 1px solid black;
+      /* filter: drop-shadow(1px 1px 1px gray); */
+      position: absolute;
+      bottom: 0.6em;
+      left: 0.5em;
+      transform: rotate(-1deg);
     }
   </style>
   <link rel="icon" type="image/png"
@@ -295,13 +354,25 @@ Corportate updates from Aesthetic Computer.
     <!-- Directs -->
 
     <article>
-      <h2>Announcing Aesthetic Inc.</h2>
+      <h2>Announcing &ldquo;Aesthetic Inc.&rdquo;</h2>
       <h3>Monday, October 21, 2024</h3>
       <h4>@jeffrey</h4>
-      <p>I am excited to announce that I have incorporated under Aesthetic Inc.
+      <p>
+        I am excited to announce the incorporation of Aesthetic Inc., a company I founded to support the development and
+        growth of the Aesthetic Computer project I began coding in April 2021.
         <br>
-        <img id="inc-proof" src="https://assets.aesthetic.computer/aesthetic-inc/aesthetic-inc-proof.png">
+        <br>
+        For the last year development of AC has been funded directly by its generous
+        <code><a href="https://prompt.ac/booted-by">booted-by</a></code> patrons, to each of whom I now offer a SAFE note
+        for future equity in the new corporation.
+        <br>
+        <br>
+        These patrons should email <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> today to claim and receive their <code><a href="https://prompt.ac/booted-by">booted-by</a></code> SAFE document from Aesthetic Inc.
+        <br>
+        <br>
+        <!-- New parties interested in financing Aesthetic Inc. are welcome to participate in -->
       </p>
+      <img id="inc-proof" src="https://assets.aesthetic.computer/aesthetic-inc/aesthetic-inc-proof.png">
     </article>
 
     <!-- Reports -->
@@ -326,6 +397,16 @@ Corportate updates from Aesthetic Computer.
   </div>
 
   <script type="module">
+    // Wire up back button.
+    const cornerLabel = document.getElementById("corner-label");
+    cornerLabel.onclick = () => {
+      if (window.location.host !== 'aesthetic.direct') {
+        window.location.href = "/"
+      } else {
+        window.location.href = "https://aesthetic.computer"
+      }
+    };
+
     // Get live metrics.
     const reportCardWrapper = document.getElementById("report-card-wrapper");
     const reportCard = document.getElementById("report-card");
