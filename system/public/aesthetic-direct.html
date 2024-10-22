@@ -30,7 +30,7 @@ Corportate updates from Aesthetic Computer.
   <meta name="description" content="Corporate updates from Aesthetic Computer." />
   <style>
     :root {
-      --report-card-ratio: 10/15.4;
+      --report-card-ratio: 10/16.6;
       --report-card-bg: rgb(255, 255, 230);
       --bg: rgb(235, 235, 235);
     }
@@ -291,6 +291,14 @@ Corportate updates from Aesthetic Computer.
       color: blue;
     }
 
+    a#edited:hover {
+      color: purple;
+    }
+
+    a#edited:active {
+      color: red;
+    }
+
     code a {
       text-decoration: none;
       color: black;
@@ -327,8 +335,9 @@ Corportate updates from Aesthetic Computer.
     }
 
     article p {
-      font-size: 90%;
+      font-size: 80%;
       padding-top: 1em;
+      padding-bottom: 8em;
     }
 
     #inc-proof {
@@ -341,6 +350,25 @@ Corportate updates from Aesthetic Computer.
       bottom: 0.6em;
       left: 0.5em;
       transform: rotate(-1deg);
+    }
+
+    #home img {
+      user-select: none;
+      margin-bottom: -1em;
+    }
+
+    #home:hover {
+      filter: saturate(0.5);
+    }
+
+    #home:active {
+      filter: saturate(1);
+    }
+
+    sub {
+      position: relative;
+      font-size: 80%;
+      z-index: 2;
     }
   </style>
   <link rel="icon" type="image/png"
@@ -355,22 +383,41 @@ Corportate updates from Aesthetic Computer.
 
     <article>
       <h2>Announcing &ldquo;Aesthetic Inc.&rdquo;</h2>
-      <h3>Monday, October 21, 2024</h3>
+      <h3><mark>TO BE DATED</mark></h3>
       <h4>@jeffrey</h4>
       <p>
-        I am excited to announce the incorporation of Aesthetic Inc., a company I founded to support the development and
-        growth of the Aesthetic Computer project I began coding in April 2021.
-        <br>
-        <br>
-        For the last year development of AC has been funded directly by its generous
-        <code><a href="https://prompt.ac/booted-by">booted-by</a></code> patrons, to each of whom I now offer a SAFE note
-        for future equity in the new corporation.
-        <br>
-        <br>
-        These patrons should email <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> today to claim and receive their <code><a href="https://prompt.ac/booted-by">booted-by</a></code> SAFE document from Aesthetic Inc.
-        <br>
-        <br>
-        <!-- New parties interested in financing Aesthetic Inc. are welcome to participate in -->
+        I am excited to announce the incorporation of Aesthetic Inc., a company
+        I founded to support the development and growth of the <a
+          href="https://github.com/whistlegraph/aesthetic-computer">Aesthetic Computer project</a>, which I began coding
+        in April 2021.
+        <br><br>
+        Today Aesthetic Computer grows and maintains a lexicon of <strong>250+</strong> runtime
+        APIs commands for JavaScript programmers and a built-in <code>prompt</code>
+        library of <strong>150+</strong> pieces and prompts for end users,
+        browsable in <code>list</code>.
+        <br><br>
+        My daily platform and piece development takes place from within the <a
+          href="https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code">Aesthetic
+          Computer VS Code Extension</a>...
+        <br><br>
+        <strong>Investment Opportunities</strong>
+        <br><br>
+        Over the past 14 months, starting in August 2023,
+        <code><a href="https://prompt.ac/booted-by">booted-by</a></code> patrons
+        generously contributed <b>$85,000</b> in early support. To show my appreciation,
+        I am offering them a special SAFE note with a Valuation Cap of <strong>$2M</strong>
+        and a Discount Rate of <strong>30%</strong>.
+        <br><br>
+        Patrons must email <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>
+        to claim their customized SAFE document by <strong>November 15, 2024</strong>.
+        <br><br>
+        I am also opening my first seed round, aiming to raise <strong>$500k</strong>
+        from new investors. This round includes a Valuation Cap of <strong>$5M</strong>
+        and a Discount Rate of <strong>20%</strong>.
+        <br><br>
+        Interested investors can reach out at
+        <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> to learn more.
+        All participation requests should be submitted by <strong>November 30, 2024</strong>.
       </p>
       <img id="inc-proof" src="https://assets.aesthetic.computer/aesthetic-inc/aesthetic-inc-proof.png">
     </article>
@@ -386,14 +433,15 @@ Corportate updates from Aesthetic Computer.
       </div>
     </div>
     <hr>
-    <br>
-    <a href="/"><img width="128"
-        src="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png"></a>
-    <br>
-    <br>
-    <sub><a id="edited"
-        href="https://github.com/whistlegraph/aesthetic-computer/commits/main/system/public/aesthetic-direct.html">Edited
-        on October 19, 2024</a></sub>
+    <center>
+      <a id="home" href="/"><img width="128" src="https://assets.aesthetic.computer/images/purple-pals.svg"></a>
+      <br>
+      <sub><a id="edited"
+          href="https://github.com/whistlegraph/aesthetic-computer/commits/main/system/public/aesthetic-direct.html">Edited
+          on October 19, 2024</a></sub>
+      <br>
+      <br>
+    </center>
   </div>
 
   <script type="module">
@@ -430,13 +478,14 @@ Corportate updates from Aesthetic Computer.
           { label: "Handles set", value: data.handles },
           { label: "Moods collected", value: data.moods },
           { label: "Paintings done", value: data.paintings },
-          { label: "Stickers printed", value: data.stickersPrinted },
+          { label: "Prints ordered", value: data.printsOrdered },
           { label: "Pieces published", value: data.pieces },
           { label: "Tickets sold", value: data.tickets },
           { label: "Chats sent", value: data.chatMessages },
           { label: "Logs broadcast", value: data.logs },
           { label: "Active accounts (30 days)", value: data.active },
           { label: "Total signups (10/20/2024)", value: 16625 },
+          { label: "Unique visits (30 days)", value: 'TBA' },
           { label: "&nbsp;", value: null },
           { label: "*** sotce-net ***", value: null },
           { label: "&nbsp;", value: null },
@@ -447,6 +496,7 @@ Corportate updates from Aesthetic Computer.
           { label: "Touches", value: data.touches },
           { label: "Active accounts (30 days)", value: data.sotceActive },
           { label: "Total signups (10/20/2024)", value: 483 },
+          { label: "Unique visits (30 days)", value: 'TBA' },
         ];
 
         stats.forEach(stat => {
