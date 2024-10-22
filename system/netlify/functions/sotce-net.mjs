@@ -34,22 +34,6 @@
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
-  *** Firefox ***
-  - [x] Test the full site interactions in Firefox.
-  - [x] Add Print 🖨️ CSS behind touch menu.
-  - [x] Add more consistent rendering of page outlines.
-  - [x] Get scrolling working in editor in iOS.
-  - [x] Add a nice veil fix for iOS Safari, maybe by changing the page
-       background color via a class on the body.
-  - [x] Speed up rendering of the feed.
-    - [x] Deprecate last line feature. 
-  - [x] Keep spinner up until feed is rendered...
-  - [x] Prevent page zoom and scroll inconsistency on iOS.
-  - [x] Change full page background color once feed is open.
-       (Helps with scrolling.) 
-    - [x] Also fix editor background color to match things.
-  - [x] Prevent dragging normal buttons from scrolling the page on iOS. 
-  - [x] Get corner tap interface correct on touch screens.
 #endregion */
 
 // ♻️ Environment
