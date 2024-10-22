@@ -2893,6 +2893,7 @@ export async function handler(event, context) {
         type="image/png"
       />
       <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>$name · Aesthetic Computer</title>
       <style>
         ::-webkit-scrollbar {
@@ -2907,6 +2908,7 @@ export async function handler(event, context) {
           margin: 0;
           font-size: 22px;
           font-family: monospace;
+          -webkit-text-size-adjust: none;
         }
         body.doc {
           overflow-x: hidden;
