@@ -67,7 +67,7 @@ export async function handler(event, context) {
         shell.error("🔴 Could not retrieve `sotce-net` subscriber count:", err);
       }
 
-      const stickersPrinted = await getTotalPrintfulStickerQuantity();
+      const printsOrdered = await getTotalPrintfulPrintQuantity();
 
       // TODO: Add data from either Cloudflare or Google Analytics. 24.10.21.00.30
       //       Cloudflare URL: https://dash.cloudflare.com/a23b54e8877a833a1cf8db7765bce3ca/aesthetic.computer/analytics/traffic
@@ -92,7 +92,7 @@ export async function handler(event, context) {
         moods,
         chatMessages,
         logs,
-        stickersPrinted,
+        printsOrdered,
         tickets,
         // `sotce-net`
         sotceActive,
@@ -114,7 +114,7 @@ export async function handler(event, context) {
 
 const printfulKey = process.env.PRINTFUL_API_TOKEN;
 
-async function getTotalPrintfulStickerQuantity() {
+async function getTotalPrintfulPrintQuantity() {
   const { got } = await import("got");
   const API = "https://api.printful.com";
   const headers = {
@@ -150,7 +150,7 @@ async function getTotalPrintfulStickerQuantity() {
       page++;
     }
 
-    // shell.log(`Total stickers ordered via Printful: ${totalQuantity}`);
+    // shell.log(`Total prints ordered via Printful: ${totalQuantity}`);
     return totalQuantity;
   } catch (error) {
     shell.error("Error querying Printful orders:", error.message);

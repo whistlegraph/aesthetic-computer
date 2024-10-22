@@ -16,9 +16,13 @@ async function boot({ ui, typeface, store, net, params }) {
 
   function populate(data) {
     list = data;
+
     keys(list).forEach((key) => {
       if (list[key].hidden) delete list[key]; // Remove hidden commands.
     });
+
+    // const listKeys = keys(list);
+    // console.log("Total:", listKeys.length);
 
     // Build buttons here.
     keys(list)
