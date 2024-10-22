@@ -1,6 +1,37 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Aesthetic Direct No. 1 ***
+  - [x] Add qualifying statement that shows
+    - [x] the cultural, creative, and financial significance of Aesthetic Computer.
+  - [x] Announcing Aesthetic Inc.
+  - [x] Write and date an initial message that...
+    - [x] Announces the corporation and links the papers.
+    - [x] Honors and thanks the booted-by patrons.
+    - [x] Include a path to converting early patrons into SAFE holders.
+  - [x] Announcing "Aesthetic Inc."
+  - [x] Add endpoint to show live 'metrics' / stats on the platform.
+    - [x] Account Signups: via auth0
+    - [x] Handles registered: 
+    - [x] Other database fields. 
+  - [x] Add 'Track changes to this page.' link on the bottom.
+
 *** sotce-net pre-launch ***
+  *** Firefox ***
+  - [x] Test the full site interactions in Firefox.
+  - [x] Add Print 🖨️ CSS behind touch menu.
+  - [x] Add more consistent rendering of page outlines.
+  - [x] Get scrolling working in editor in iOS.
+  - [x] Add a nice veil fix for iOS Safari, maybe by changing the page
+       background color via a class on the body.
+  - [x] Speed up rendering of the feed.
+    - [x] Deprecate last line feature. 
+  - [x] Keep spinner up until feed is rendered...
+  - [x] Prevent page zoom and scroll inconsistency on iOS.
+  - [x] Change full page background color once feed is open.
+       (Helps with scrolling.) 
+    - [x] Also fix editor background color to match things.
+  - [x] Prevent dragging normal buttons from scrolling the page on iOS. 
+  - [x] Get corner tap interface correct on touch screens.
   - [x] Add a lavender or light blue backdrop to the feed screen.
   - [c] Fix editor layout.
     - [*] Hyphenation was not supported in VS Code so I filed a bug.
