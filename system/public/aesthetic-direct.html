@@ -3,21 +3,18 @@ Aesthetic Direct, 24.10.19.22.43
 Corportate updates from Aesthetic Computer.
 
 #region 🏁 TODO
-  WIP
+  - [-] Write a looking ahead section.
+  + Done
+  - [x] Add qualifying statement that shows
+    - [x] the cultural, creative, and financial significance of Aesthetic Computer.
   - [x] Announcing Aesthetic Inc.
   - [x] Write and date an initial message that...
     - [x] Announces the corporation and links the papers.
     - [x] Honors and thanks the booted-by patrons.
-    - [-] Include a path to converting early patrons into SAFE holders.
+    - [x] Include a path to converting early patrons into SAFE holders.
   - [x] Announcing "Aesthetic Inc."
-    - [] The cultural, creative, and financial significance of Aesthetic Computer.
-  - [] Valuating Aesthetic Computer.
-  - [] Change AC Report Card -> Media Report 
-  - [] 
-  - [] Add a 'Print this Page' url at the bottom.
-  + Done
   - [x] Add endpoint to show live 'metrics' / stats on the platform.
-    - [x] Account Signups:  via auth0
+    - [x] Account Signups: via auth0
     - [x] Handles registered: 
     - [x] Other database fields. 
   - [x] Add 'Track changes to this page.' link on the bottom.
@@ -74,6 +71,16 @@ Corportate updates from Aesthetic Computer.
       font-size: 12px;
     }
 
+    h4 a {
+      color: black !important;
+      text-decoration: none;
+    }
+
+    strong.subheading {
+      font-size: 110%;
+      font-weight: bold;
+    }
+
     #corner-label {
       font-family: monospace;
       font-weight: normal;
@@ -126,7 +133,7 @@ Corportate updates from Aesthetic Computer.
     #report-card-wrapper {
       background: rgb(245, 245, 235);
       width: 300px;
-      aspect-ratio: var(--report-card-ratio);
+      /* aspect-ratio: var(--report-card-ratio); */
       margin-top: 2em;
       margin-left: auto;
       margin-right: auto;
@@ -150,7 +157,8 @@ Corportate updates from Aesthetic Computer.
     #report-card {
       background: var(--report-card-bg);
       display: flex;
-      aspect-ratio: var(--report-card-ratio);
+      /* aspect-ratio: var(--report-card-ratio); */
+      min-height: 250px;
       font-size: 16px;
       width: 300px;
       transition: background 0.25s;
@@ -196,6 +204,7 @@ Corportate updates from Aesthetic Computer.
     #report-card-wrapper.fetching #report-card-timestamp,
     #report-card-wrapper.fetching #report-card-marks {
       opacity: 0;
+      display: none;
     }
 
     #report-card-fetching {
@@ -253,7 +262,6 @@ Corportate updates from Aesthetic Computer.
       display: block;
       color: red;
       margin: auto;
-      font-weight: bold;
     }
 
     #report-card-title {
@@ -280,10 +288,11 @@ Corportate updates from Aesthetic Computer.
       /* background: yellow; */
       font-family: monospace;
       font-size: 75%;
-      top: calc(5% + 5.3em);
+      margin-top: calc(5% + 5.3em);
+      margin-bottom: 2.5em;
       padding: 0em 2em;
       width: 100%;
-      position: absolute;
+      position: relative;
       box-sizing: border-box;
     }
 
@@ -301,7 +310,6 @@ Corportate updates from Aesthetic Computer.
 
     code a {
       text-decoration: none;
-      color: black;
     }
 
     hr {
@@ -327,17 +335,31 @@ Corportate updates from Aesthetic Computer.
       padding: 2em 2em 1em 2em;
       box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.25);
       border: 1px solid black;
-      aspect-ratio: 8/10;
+      /* aspect-ratio: 8/10; */
     }
 
     article a {
-      color: black;
+      color: rgb(0, 0, 150);
     }
+
+    article a:hover {
+      color: rgb(50, 50, 250);
+    }
+
+    article a:active {
+      color: red;
+    }
+
+    article code a {
+      color: purple;
+    }
+
 
     article p {
       font-size: 80%;
       padding-top: 1em;
       padding-bottom: 8em;
+      line-height: 1.5em;
     }
 
     #inc-proof {
@@ -370,6 +392,17 @@ Corportate updates from Aesthetic Computer.
       font-size: 80%;
       z-index: 2;
     }
+
+    code {
+      color: purple;
+      font-size: 115%;
+      font-weight: normal;
+    }
+
+    code.select {
+      color: darkgreen;
+      background: rgba(0, 0, 0, 0.075);
+    }
   </style>
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
@@ -383,41 +416,71 @@ Corportate updates from Aesthetic Computer.
 
     <article>
       <h2>Announcing &ldquo;Aesthetic Inc.&rdquo;</h2>
-      <h3><mark>TO BE DATED</mark></h3>
-      <h4>@jeffrey</h4>
+      <h3><!--October 22, 2024--><mark>TO BE DATED</mark></h3>
+      <h4><a href="https://aesthetic.computer/@jeffrey">@jeffrey</a></h4>
       <p>
         I am excited to announce the incorporation of Aesthetic Inc., a company
-        I founded to support the development and growth of the <a
-          href="https://github.com/whistlegraph/aesthetic-computer">Aesthetic Computer project</a>, which I began coding
+        founded to support the development and growth of <a
+          href="https://github.com/whistlegraph/aesthetic-computer">Aesthetic Computer</a>, a project I began coding
         in April 2021.
         <br><br>
-        Today Aesthetic Computer grows and maintains a lexicon of <strong>250+</strong> runtime
-        APIs commands for JavaScript programmers and a built-in <code>prompt</code>
-        library of <strong>150+</strong> pieces and prompts for end users,
-        browsable in <code>list</code>.
+        The <a href="https://aesthetic.computer">aesthetic.computer</a> domain serves a unique, instantly accessible interface that integrates core computational literacies our future mandates with the curiosity, friendship and fun that social media and online games engage us in.
         <br><br>
-        My daily platform and piece development takes place from within the <a
-          href="https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code">Aesthetic
-          Computer VS Code Extension</a>...
+        <strong class="subheading">Technical Progress</strong>
         <br><br>
-        <strong>Investment Opportunities</strong>
+        Today Aesthetic Computer maintains a growing library of <strong>250+</strong> runtime
+        API commands in <code>docs</code> for JavaScript programmers and a built-in <code>list</code> of <strong>150+</strong> pieces
+        and commands for entering into <code>prompt</code>.
         <br><br>
-        Over the past 14 months, starting in August 2023,
-        <code><a href="https://prompt.ac/booted-by">booted-by</a></code> patrons
-        generously contributed <b>$85,000</b> in early support. To show my appreciation,
-        I am offering them a special SAFE note with a Valuation Cap of <strong>$2M</strong>
-        and a Discount Rate of <strong>30%</strong>.
+        Platform and piece development takes place from within the <a
+          href="https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code">AC VS
+          Code Extension</a>
+        which became classroom ready this year and saw its first college level
+        use with students at UCLA.
         <br><br>
-        Patrons must email <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>
-        to claim their customized SAFE document by <strong>November 15, 2024</strong>.
+        This winter I worked on a programming language designed especially for AC pieces called <a href="https://github.com/whistlegraph/aesthetic-computer/">Kid Lisp</a> which I will build a mobile friendly graphical editor for in 2025. Simple expressions like <code class="select">(wipe gray) (ink red) (write (* 2 3 4))</code> now evaluate to full pieces when entered into <code>prompt</code> and using a <code class="select">.lisp</code> extension is supported when publishing by drag and drop or in VS Code.
+        <br><br>
+        <code>Chat</code>, released in the spring, has been home to a growing
+        scene of regular users who exchange technical help, friendship and immediate bug reports. I personally keep up
+        with <code>chat</code> by using the <a href="https://apps.apple.com/us/app/aesthetic-computer/id6450940883">AC
+          iOS App</a> with its
+        native notifications.
+        <br>
+        <br>
+        In summer I designed the <code>notepat</code> keyboard instrument and made refinements to
+        <code>metronome</code>, <code>tone</code>, <code>bleep</code> and added automixing and additional wavetypes to the sound system.
+        <br>
+        <br>
+        And last week <code>sotce-net</code> came online in partnership with <a href="https://sotce.com">Sotce LLC</a>.
+        Sotce Net is a subscription based diary system that builds upon our work last year
+        successfully selling per-piece tickets to the <code>botce</code> character.
+        <br>
+        <br>
+        Daily progress and upcoming feature planning can be found in the repository's <a
+          href="https://github.com/whistlegraph/aesthetic-computer">README.txt</a> file.
+        <br>
+        <br>
+        <strong class="subheading">Investment Opportunities</strong>
+        <br><br>
+        Since August 2023,
+        <code>booted-by</code> patrons
+        generously contributed <b>$85,000</b> in early support. To honor this,
+        I am offering them a special <a href="https://">SAFE</a> note matching their contribution with a Valuation Cap of <strong>$2M</strong>.
+        <br><br>
+        Please email <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>
+        to claim your <code>booted-by</code> <a href="https://www.ycombinator.com/documents">SAFE</a> document by <strong>November
+          15, 2024</strong>.
         <br><br>
         I am also opening my first seed round, aiming to raise <strong>$500k</strong>
-        from new investors. This round includes a Valuation Cap of <strong>$5M</strong>
-        and a Discount Rate of <strong>20%</strong>.
+        from new investors. This round includes a Valuation Cap of <strong>$5M</strong>.
         <br><br>
         Interested investors can reach out at
-        <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> to learn more.
+        <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> or <a href="https://calendly.com/aesthetic-computer/demo">directly schedule time</a> to learn more.
         All participation requests should be submitted by <strong>November 30, 2024</strong>.
+        <br><br>
+        <strong class="subheading">Next Moves</strong>
+        <br><br>
+        TBA 
       </p>
       <img id="inc-proof" src="https://assets.aesthetic.computer/aesthetic-inc/aesthetic-inc-proof.png">
     </article>
@@ -445,7 +508,12 @@ Corportate updates from Aesthetic Computer.
   </div>
 
   <script type="module">
-    // Wire up back button.
+    // Wire up all <code> tags to link to pieces. 
+    document.querySelectorAll('article p code:not(.select)').forEach((code) => {
+      code.innerHTML = `<a href="https://aesthetic.computer/${code.innerText}">${code.innerText}</a>`;
+    });
+
+    // Wire up back button to go to `prompt`.
     const cornerLabel = document.getElementById("corner-label");
     cornerLabel.onclick = () => {
       if (window.location.host !== 'aesthetic.direct') {
@@ -485,7 +553,7 @@ Corportate updates from Aesthetic Computer.
           { label: "Logs broadcast", value: data.logs },
           { label: "Active accounts (30 days)", value: data.active },
           { label: "Total signups (10/20/2024)", value: 16625 },
-          { label: "Unique visits (30 days)", value: 'TBA' },
+          // { label: "Unique visits (30 days)", value: 'TBA' },
           { label: "&nbsp;", value: null },
           { label: "*** sotce-net ***", value: null },
           { label: "&nbsp;", value: null },
@@ -496,7 +564,7 @@ Corportate updates from Aesthetic Computer.
           { label: "Touches", value: data.touches },
           { label: "Active accounts (30 days)", value: data.sotceActive },
           { label: "Total signups (10/20/2024)", value: 483 },
-          { label: "Unique visits (30 days)", value: 'TBA' },
+          // { label: "Unique visits (30 days)", value: 'TBA' },
         ];
 
         stats.forEach(stat => {
