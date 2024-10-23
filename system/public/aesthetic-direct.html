@@ -391,16 +391,20 @@ Corportate updates from Aesthetic Computer.
       color: darkgreen;
       background: rgba(0, 0, 0, 0.075);
     }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 
 <body>
   <div id="wrapper" class="fetching">
-    <h1 id="corner-label">Aesthetic Direct</h1>
+    <h1 id="corner-label">direct</h1>
     <!-- Directs -->
 
     <article>
-      <h2>Announcing &ldquo;Aesthetic Inc.&rdquo;</h2>
+      <h2>Announcing &ldquo;Aesthetic&nbsp;Inc.&rdquo;</h2>
       <h3><!--October 22, 2024--><mark>TO BE DATED</mark></h3>
       <h4><a href="https://aesthetic.computer/@jeffrey">@jeffrey</a></h4>
       <p>
@@ -507,6 +511,12 @@ Corportate updates from Aesthetic Computer.
   </div>
 
   <script type="module">
+    // Hide corner-label if not coming from AC.
+    const fromAesthetic =
+      (document.referrer.indexOf("https://aesthetic.computer") > -1 ||
+        document.referrer.indexOf("localhost") > -1);
+    if (!fromAesthetic) document.querySelector("#corner-label")?.classList.add("hidden");
+
     // Wire up all <code> tags to link to pieces. 
     document.querySelectorAll('article p code:not(.select)').forEach((code) => {
       code.innerHTML = `<a href="https://aesthetic.computer/${code.innerText}">${code.innerText}</a>`;
