@@ -231,7 +231,8 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
-const attack = 0.025;
+const attack = 0.02; // 0.025;
+const maxVolume = 0.9;
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -1015,6 +1016,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                     attack,
                     tone,
                     duration: "🔁",
+                    volume: maxVolume,
                   }),
                 };
 
@@ -1127,6 +1129,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           attack,
           // count: orderedByCount(sounds).length,
           duration: "🔁",
+          volume: maxVolume,
         });
     }
 
@@ -1283,6 +1286,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               attack,
               tone,
               duration: "🔁",
+              volume: maxVolume 
             }),
           };
 
