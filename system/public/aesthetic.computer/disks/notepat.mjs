@@ -59,6 +59,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+   - [x] Shift octave on either half  up or down.
+    - [🔵] Test it and see if it's fun.
+    - [] Touch?
+    - [x] Keyboard shortcuts.
   - [🍉] Add reverb that's only activated for the notepat sounds.
        (Sound tagging?)
   - [] Add tappable touch bar for toggling the visualizer view. 
@@ -235,7 +239,7 @@ let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
 const attack = 0.01; // 0.025;
-const maxVolume = 0.9;
+const maxVolume = 0.95;// 0.9;
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -1286,10 +1290,6 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         // } else {
         keys += activeOctave + note;
         // }
-
-        console.log (buttonNote);
-
-
 
         // const buttonNote =
         //  (activeOctave === parseInt(octave) ? "" : "+") + note.toLowerCase();
