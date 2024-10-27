@@ -1,19 +1,24 @@
 // Chat, 24.03.30.14.53
-// This file is a unikernal compatible chat server designed to eventually replace `session-server/session.mjs` by adding both websocket and udp support.
+// This file is a unikernal compatible chat server designed to eventually replace
+// `session-server/session.mjs` by adding both websocket and udp support.
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
- + Done
- - [x] Get Firebase notifications fixed everywhere!
-       (Maybe in production?)
- - [x] Get text filtering working. 
- - [x] Connect to production server.
- - [x] Disallow any req that isn't the chat-system.aesthetic.computer host when not in dev mode.
- - [x] New connection process:
-    1. On a new connection, get a paged list of messages from MongoDB,
-      but also keep a cache here on the server so it just starts up
-      and always stores the last 50 messages or something.
-    2. Create an http request on this endpoint for fetching more messages.
+ - [] Set up logging so I know why this server is crashing.
+   - [] Maybe it's a setting in Google Cloud to log the serial console. 
+   - [] Also check the nanos logs.
+   - [] Or maybe I need to use an external service. 
+  - [] Set up another instance of this chat for sotce-net that...
+    - [] Will have a different subdomain setup so `conductor` will need updates. 
+    - [] How will it know what version it's running both in production and in development?
+    - [] Run the sotce-net instance in development in addition to the AC one in emacs.
+    - [] Will also have good production logging support. 
+    - [] Will use a different table in the database like `chat-sotce-net` instead
+         of chat-system.
+    - [] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
+         if running that instance in order to actually send messages but not to join or
+         observe chats.
+    - [] Add a new command to the `package.json`.
 #endregion */
 
 // Management:

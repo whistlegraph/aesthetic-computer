@@ -1,5 +1,17 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** Old `chat` server done list 24.10.27.07.52 ***
+ - [x] Get Firebase notifications fixed everywhere!
+       (Maybe in production?)
+ - [x] Get text filtering working. 
+ - [x] Connect to production server.
+ - [x] Disallow any req that isn't the chat-system.aesthetic.computer host when not in dev mode.
+ - [x] New connection process:
+    1. On a new connection, get a paged list of messages from MongoDB,
+      but also keep a cache here on the server so it just starts up
+      and always stores the last 50 messages or something.
+    2. Create an http request on this endpoint for fetching more messages.
+
 *** Aesthetic Direct No. 1 ***
   - [x] Add qualifying statement that shows
     - [x] the cultural, creative, and financial significance of Aesthetic Computer.
