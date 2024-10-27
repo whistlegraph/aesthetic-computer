@@ -35,8 +35,8 @@ but technically agnostic. (Choose your aesthetic!)
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** sotce.net ***
-  - [🟢] Finish sotce-net rc1
+*** `chat` instancing ***
+ - [🟠] Make a new instance for `sotce-net` chat and fix a bunch of stuff for all chat.
 
 *** profiles ***
  - [] refer to profile roadmap below in this file for moving paintings
