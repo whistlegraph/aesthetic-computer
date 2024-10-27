@@ -4928,7 +4928,7 @@ async function makeFrame({ data: { type, content } }) {
       send({ type: "beat:skip" });
     };
 
-    $sound.synth = function ({
+    $sound.synth = function synth({
       tone = 440, // hz, or musical note
       type = "square", // "sine", "triangle", "square", "sawtooth"
       // "noise-white" <-ignores tone
@@ -4936,10 +4936,11 @@ async function makeFrame({ data: { type, content } }) {
       beats = undefined, // 🧧 Should this be deprecated?
       attack = 0.01, // How quickly the sound starts.
       decay = 0.9, // A multiplier for when the sound fades.
-      volume = 1,
+      volume,
       pan = 0,
     } = {}) {
       const id = soundId;
+      if (volume === undefined) volume = 0;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
       if (beats === undefined && duration !== undefined)
         beats = (duration * sound.bpm) / 60;

@@ -19,7 +19,7 @@
 let flash = false;
 const flashColor = [255, 255, 255];
 
-const melody = [200, 300]; //, "c4", "c4", "d4", "e4", "c4", "d4", "e4", "f4", "g4"];
+const melody = [2000, 3000]; //, "c4", "c4", "d4", "e4", "c4", "d4", "e4", "f4", "g4"];
 let melodyIndex = 0;
 let square;
 let firstBeat = true;
@@ -27,6 +27,8 @@ let firstBeat = true;
 function boot({ sound }) {
   sound.skip(); // 💀 Send a signal to skip to the next beat.
 }
+
+let odd = false;
 
 // 💗 Beat
 function beat({ sound, params, store }) {
@@ -41,15 +43,31 @@ function beat({ sound, params, store }) {
   store["metronome:bpm"] = sound.bpm(newBpm || store["metronome:bpm"] || 180);
 
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
+  odd = !odd;
 
-  sound.synth();
+  const tick = sound.synth({
+    type: "sawtooth",
+    tone: melody[melodyIndex],
+    duration: 0.0025,
+    volume: 0.35 * 1.5,
+    pan: odd ? -0.75 : 0.75, // Should I pan left or right on every other beat?
+  });
+
+  const lotick = sound.synth({
+    type: "square",
+    tone: melody[melodyIndex] / 4,
+    duration: 0.005,
+    volume: 0.15 * 2,
+    decay: 0.999,
+    pan: odd ? -0.8 : 0.8, // Should I pan left or right on every other beat?
+  });
 
   square = sound.synth({
-   type: "square",
-   tone: melody[melodyIndex],
-   beats: 1,
-   volume: 0.5,
-   pan: 0, // Should I pan left or right on every other beat?
+    type: "square",
+    tone: melody[melodyIndex],
+    beats: 1,
+    volume: 0.0001,
+    pan: 0, // Should I pan left or right on every other beat?
   });
 
   flash = true;
@@ -65,14 +83,16 @@ function sim({ sound: { time } }) {
   if (square) {
     const p = square.progress(time);
     squareP = p;
-    flashColor.fill(Math.floor((1 - p) * 255) / 4, 0, 3);
+    flashColor[0] = 0;
+    flashColor[1] = 0;
+    flashColor[2] = Math.floor((1 - p) / 4 * 255);
     if (p === 1) flash = false; // TODO: This might be skipping 1 frame.
   }
 }
 
 function paint({ wipe, ink, line, screen, num: { lerp } }) {
-  wipe(0);
-  // wipe(flash ? flashColor : 0);
+  // wipe(0);
+  wipe(flash ? flashColor : 0);
 
   if (!square) return;
 
