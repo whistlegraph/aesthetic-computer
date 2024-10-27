@@ -4,6 +4,7 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
+ - [🟠] Update nanos versions / dependencies in this dir.
  - [] Set up logging so I know why this server is crashing.
    - [] Maybe it's a setting in Google Cloud to log the serial console. 
    - [] Also check the nanos logs.
@@ -19,6 +20,15 @@
          if running that instance in order to actually send messages but not to join or
          observe chats.
     - [] Add a new command to the `package.json`.
+    - [] Add a basic client to `sotce-net`.
+      - [] Write it as a totally separate UI layer that always connects.
+      - [] Have it on the loged out page grayed out, the logged in page opaque
+           and scrollable, and the subscriber page interactable.
+      - [] Messages should make a sound.
+        - [] Bring in AC sound engine here.
+    - [] Add web notficiations to `sotce-net` chat.
+  - [] Add images to AC chat.
+  - [] Add textual links to AC chat.
 #endregion */
 
 // Management:
