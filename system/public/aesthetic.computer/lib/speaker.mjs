@@ -210,7 +210,7 @@ class SoundProcessor extends AudioWorkletProcessor {
     let ampLeft = 0,
       ampRight = 0;
 
-    const waveformSize = round(sampleRate / 200)// * 0.06); // Sample size.
+    const waveformSize = round(sampleRate / 200); // * 0.06); // Sample size.
     // TODO:                                ^ Find good rate.
     const waveformRate = 1; // Sample interval.
 
@@ -247,17 +247,22 @@ class SoundProcessor extends AudioWorkletProcessor {
 
       // TODO: 🟢 These divisor value need to be consistent in duration with
       //          varying sample rates.
-      if (voices > 1) {
-        if (!within(0.001, this.#mixDivisor, voices)) {
-          if (this.#mixDivisor < voices) {
-            this.#mixDivisor += 0.001;
-          } else {
-            this.#mixDivisor -= 0.01; //0.001; // 0.0001;
-          }
+      // if (voices > 1) {
+      // if (!within(0.1, this.#mixDivisor, voices)) {
+        if (this.#mixDivisor < voices) {
+          this.#mixDivisor += 0.001;
+        } else {
+          this.#mixDivisor -= 0.001; //0.001; // 0.0001;
         }
-      } else {
-        this.#mixDivisor = voices;
-      }
+      // }
+
+      // if (this.voices > 1 && this.#mixDivisor )
+
+      // if (voices > 1)
+
+      // } else {
+      //  this.#mixDivisor = voices;
+      // }
 
       // if (this.#queue.length > 0) console.log(output[0][s], voices, this.#mixDivisor);
 
@@ -268,7 +273,12 @@ class SoundProcessor extends AudioWorkletProcessor {
       //output[1][s] = volume.apply(rR/*output[1][s]*/ / this.#mixDivisor);
 
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
-      output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
+
+      if (abs(output[0][s]) > 0.99) output[0][s] = output[0][s] * 0.9;
+
+        output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
+
+      if (abs(output[1][s]) > 0.99) output[1][s] = output[1][s] * 0.9;
 
       // Track the current amplitude of both channels, and get waveform data.
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
