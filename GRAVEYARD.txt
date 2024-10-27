@@ -1,5 +1,8 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** sotce.net ***
+  - [🟢] Finish sotce-net rc1
+
 *** Old `chat` server done list 24.10.27.07.52 ***
  - [x] Get Firebase notifications fixed everywhere!
        (Maybe in production?)
