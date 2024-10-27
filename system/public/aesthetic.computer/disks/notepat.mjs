@@ -1231,6 +1231,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         }
 
         let activeOctave = parseInt(octave); //parseInt(octave);
+        let buttonNote;
 
         if (("HIJKLMN" + "TYUOP").includes(note)) {
           switch (note) {
@@ -1274,18 +1275,24 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           }
           activeOctave += 1;
           activeOctave += upperOctaveShift;
+          buttonNote = "+" + note.toLowerCase();
         } else {
           activeOctave += lowerOctaveShift;
+          buttonNote = note.toLowerCase();
         }
 
-        if (activeOctave !== octave) {
-          keys += activeOctave + note;
-        } else {
-          keys += note;
-        }
+        // if (activeOctave !== parseInt(octave)) {
+        // keys += activeOctave + note;
+        // } else {
+        keys += activeOctave + note;
+        // }
 
-        const buttonNote =
-          (activeOctave === parseInt(octave) ? "" : "+") + note.toLowerCase();
+        console.log (buttonNote);
+
+
+
+        // const buttonNote =
+        //  (activeOctave === parseInt(octave) ? "" : "+") + note.toLowerCase();
 
         if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
