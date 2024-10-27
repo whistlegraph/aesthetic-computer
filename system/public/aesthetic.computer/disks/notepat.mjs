@@ -870,8 +870,8 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     upperOctaveShift -= 1;
   }
 
-  if (e.is("keyboard:down:control")) {
-    upperOctaveShift += 1;
+  if (e.is("keyboard:down:control") || e.is("keyboard:down:capslock")) {
+    lowerOctaveShift += 1;
   }
 
   if (e.is("keyboard:down:shift")) {
