@@ -59,6 +59,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+   - [x] Shift octave on either half  up or down.
+    - [🔵] Test it and see if it's fun.
+    - [] Touch?
+    - [x] Keyboard shortcuts.
   - [🍉] Add reverb that's only activated for the notepat sounds.
        (Sound tagging?)
   - [] Add tappable touch bar for toggling the visualizer view. 
@@ -231,8 +235,11 @@ const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F 
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
-const attack = 0.02; // 0.025;
-const maxVolume = 0.9;
+let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
+  lowerOctaveShift = 0;
+
+const attack = 0.01; // 0.025;
+const maxVolume = 0.95;// 0.9;
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -713,6 +720,7 @@ function paint({
       transposeOverlayFade = 0;
     }
 
+    // Paint all the keyboard buttons.
     buttonNotes.forEach((note, index) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
@@ -722,8 +730,11 @@ function paint({
             // If this button is pressed down.
             color = "maroon";
           } else {
-            color = note.indexOf("#") === -1 ? octaveTheme[octave] : "gray";
-            // color = note.indexOf("#") === -1 ? "black" : "gray";
+            const outOctave =
+              parseInt(octave) +
+              (note.startsWith("+") ? upperOctaveShift : lowerOctaveShift);
+            // console.log("Output octave:", outOctave);
+            color = note.indexOf("#") === -1 ? octaveTheme[outOctave] : "gray";
           }
 
           if (note.toUpperCase() === song?.[songIndex][0]) {
@@ -855,6 +866,22 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     buildOctButton(api);
   }
 
+  if (e.is("keyboard:down:.")) {
+    upperOctaveShift += 1;
+  }
+
+  if (e.is("keyboard:down:,")) {
+    upperOctaveShift -= 1;
+  }
+
+  if (e.is("keyboard:down:control") || e.is("keyboard:down:capslock")) {
+    lowerOctaveShift += 1;
+  }
+
+  if (e.is("keyboard:down:shift")) {
+    lowerOctaveShift -= 1;
+  }
+
   if (e.is("keyboard:down:-")) paintTransposeOverlay = !paintTransposeOverlay;
   if (e.is("keyboard:down:\\")) projector = !projector;
 
@@ -889,6 +916,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     // if (e.is("keyboard:up:alt")) flats = false;
   }
 
+  /*
   if (!tap) {
     if (e.is("keyboard:down:space")) {
       synth({
@@ -946,6 +974,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
       });
     }
   }
+  */
 
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
@@ -979,6 +1008,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
             down: (btn) => {
               if (downs[note]) return false; // Cancel the down if the key is held.
               anyDown = true;
+
               let noteUpper = note.toUpperCase();
               keys += noteUpper;
               const active = orderedByCount(sounds);
@@ -988,6 +1018,9 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               if (note[0] === "+") {
                 noteUpper = noteUpper.replace("+", "");
                 tempOctave = parseInt(octave) + 1;
+                tempOctave += upperOctaveShift;
+              } else {
+                tempOctave += lowerOctaveShift;
               }
 
               const tone = `${tempOctave}${noteUpper}`;
@@ -1009,7 +1042,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                   tone,
                 };
                 sounds[note] = {
-                  note: note,
+                  note,
                   count: active.length + 1,
                   sound: synth({
                     type: wave,
@@ -1201,7 +1234,8 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           }
         }
 
-        let activeOctave = octave;
+        let activeOctave = parseInt(octave); //parseInt(octave);
+        let buttonNote;
 
         if (("HIJKLMN" + "TYUOP").includes(note)) {
           switch (note) {
@@ -1243,21 +1277,27 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               note = "A#";
               break;
           }
-          activeOctave = parseInt(octave) + 1;
-        }
-
-        if (activeOctave !== octave) {
-          keys += activeOctave + note;
+          activeOctave += 1;
+          activeOctave += upperOctaveShift;
+          buttonNote = "+" + note.toLowerCase();
         } else {
-          keys += note;
+          activeOctave += lowerOctaveShift;
+          buttonNote = note.toLowerCase();
         }
 
-        const buttonNote =
-          (activeOctave === octave ? "" : "+") + note.toLowerCase();
+        // if (activeOctave !== parseInt(octave)) {
+        // keys += activeOctave + note;
+        // } else {
+        keys += activeOctave + note;
+        // }
+
+        // const buttonNote =
+        //  (activeOctave === parseInt(octave) ? "" : "+") + note.toLowerCase();
 
         if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
         const active = orderedByCount(sounds);
+
         const tone = `${activeOctave}${note}`;
 
         if (slide && active.length > 0) {
@@ -1286,7 +1326,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               attack,
               tone,
               duration: "🔁",
-              volume: maxVolume 
+              volume: maxVolume,
             }),
           };
 
