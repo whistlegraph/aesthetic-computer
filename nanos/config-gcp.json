@@ -4,13 +4,23 @@
     "package-lock.json",
     "chat.env",
     "gcp-service-key.json",
+    "gcp-firebase-service-key.json",
     "filter.mjs"
   ],
   "CloudConfig": {
     "Platform": "gcp",
     "ProjectID": "aesthetic-computer",
     "Zone": "us-west1-a",
-    "BucketName": "aesthetic-nanos"
+    "BucketName": "aesthetic-nanos",
+    "InstanceProfile": "default"
+  },
+  "Klibs": ["gcp", "tls"],
+  "ManifestPassthrough": {
+    "gcp": {
+      "logging": {
+        "log_id": "aesthetic-chat-log"
+      }
+    }
   },
   "RunConfig": {
     "Memory": "1G",
