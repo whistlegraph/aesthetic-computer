@@ -59,8 +59,12 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+   - [x] Add z, x, a# and b below the lower octave. 
+   - [x] Add ;, ', c# and d above the upper octave. 
+   - [] Learn Tattooine theme.
+
    - [x] Shift octave on either half  up or down.
-    - [🔵] Test it and see if it's fun.
+    - [x] Test it and see if it's fun.
     - [] Touch?
     - [x] Keyboard shortcuts.
   - [🍉] Add reverb that's only activated for the notepat sounds.
@@ -231,6 +235,7 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
+const edges = "zx;'"; // below and above the octave
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
@@ -358,10 +363,10 @@ function colorFromNote(note, num) {
   // const lightOctMod = (oct - 4) * 15;
   // const lightness = 50 + lightOctMod;
   // const color = num.hslToRgb(hue, saturation, lightness);
-  let color = notesToColorsFinal[oct + note]?.slice();
+  let color = notesToColorsFinal?.[oct + note]?.slice();// || "yellow";
 
   if (!color) {
-    color = notesToColorsFinal[4 + note].slice();
+    color = notesToColorsFinal[4 + note]?.slice() || [0, 255, 0];
     const octMod = oct - 4;
     color[0] = num.clamp(color[0] + 65 * octMod, 0, 255);
     color[1] = num.clamp(color[1] + 65 * octMod, 0, 255);
@@ -1013,6 +1018,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               anyDown = true;
 
               let noteUpper = note.toUpperCase();
+              console.log("Note upper:", noteUpper);
               keys += noteUpper;
               const active = orderedByCount(sounds);
 
@@ -1023,10 +1029,12 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                 tempOctave = parseInt(octave) + 1;
                 tempOctave += upperOctaveShift;
               } else {
-                tempOctave += lowerOctaveShift;
+                tempOctave = parseInt(octave) + lowerOctaveShift;
               }
 
               const tone = `${tempOctave}${noteUpper}`;
+
+              console.log("🔴 Chosen tone:", tone, noteUpper);
 
               if (slide && active.length > 0) {
                 sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
@@ -1190,7 +1198,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   }
 
   // Individual Keyboard Notes
-  (octaves + notes).split("").forEach((key) => {
+  (octaves + notes + edges).split("").forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat && !buttons[key]?.down) {
       downs[key] = true;
 
@@ -1211,11 +1219,35 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         // 🎹 Keyboard -> 🎵 Note recognition.
         let note = key.toUpperCase();
 
+        console.log("🫐 Extended Note ?:", note);
+
         // if (sharps && "CDFGA".includes(note)) {
         //   note += "#";
         // } else if (flats && "DEGAB".includes(note)) {
         //   note += "f";
         // }
+
+        if ("ZX".includes(note)) {
+          switch (note) {
+            case "Z":
+              note = "-A#";
+              break;
+            case "X":
+              note = "-B";
+              break;
+          }
+        }
+
+        if (";'".includes(note)) {
+          switch (note) {
+            case ";":
+              note = "++C";
+              break;
+            case "'":
+              note = "++C#";
+              break;
+          }
+        }
 
         if ("VSWRQ".includes(note)) {
           switch (note) {
@@ -1286,6 +1318,17 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         } else {
           activeOctave += lowerOctaveShift;
           buttonNote = note.toLowerCase();
+        }
+
+        // Adjust active octave based on extension note
+        // if needed.
+
+        if (note.startsWith("-")) {
+          note = note.replace("-", "");
+          activeOctave -= 1;
+        } else if (note.startsWith("++")) {
+          note = note.replace("++", "");
+          activeOctave += 2;
         }
 
         // if (activeOctave !== parseInt(octave)) {
@@ -1421,6 +1464,29 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         }
 
         if (activeOctave !== octave) buttonNote = "+" + buttonNote;
+
+        if ("zx".includes(buttonNote)) {
+          switch (buttonNote) {
+            case "z":
+              buttonNote = "-a#";
+              break;
+            case "x":
+              buttonNote = "-b";
+              break;
+          }
+        }
+
+        if (";'".includes(buttonNote)) {
+          switch (buttonNote) {
+            case ";":
+              buttonNote = "++c";
+              break;
+            case "'":
+              buttonNote = "++c#";
+              break;
+          }
+        }
+
         // console.log("Released:", buttonNote);
 
         const orderedTones = orderedByCount(tonestack);
@@ -1431,6 +1497,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           });
           sounds[orderedTones[orderedTones.length - 2]] = sounds[buttonNote];
         } else {
+          console.log("Killing sound:", buttonNote);
           sounds[buttonNote]?.sound?.kill?.(0.25); // Kill a sound if it exists.
         }
 
