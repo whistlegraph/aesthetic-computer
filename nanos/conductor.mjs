@@ -2,20 +2,17 @@
 // Orchestrates Cloudlfare DNS updates and deployment of unikernel servers
 // on GCP that they point to.
 
-/* #region 🏁 TODO
-  - [] A. Chat System
-    - [] Can be a single instance for now.
-    - [] Sub is prefixed with chat-system.
-      - [] The database connects using the sub to make a record.
-      - [] It's a simple websocket connection.
+// Nanos ops docs: https://docs.ops.city/ops
 
-  - [] Deploy chat.
-        
-  - 🌟 
-  - [] B. Future Multi-Instance Management / 
-          Check to see if an instance exists under the label.
-          If it does, then just return that instance.
-          Otherwise make a new instance or request one to be unpaused.
+/* #region 🏁 TODO
+  - [🟤] Add crash / instance logs to GCP.
+
+  - [] Add support for the `sotce-chat` secondary instance.
+
+  - [] Future Multi-Instance Management / 
+       Check to see if an instance exists under the label.
+       If it does, then just return that instance.
+       Otherwise make a new instance or request one to be unpaused.
     - [] Adapt conductor to be an http api.
     - [] Does the instance already exist at the requested url?
       - [] Yes!
@@ -24,8 +21,14 @@
         - [] Unpause an instance / boot an instance from the pool.
         - [] Assign DNS to it.
         - [] Return information that the client can connect / success.
-
   - [] How will HTTP traffic be blocked / the ip be masked?
+  + Done
+  - [x] Deploy `system-chat`.
+  - [x] A. Chat System
+    - [x] Can be a single instance for now.
+    - [x] Sub is prefixed with chat-system.
+      - [x] The database connects using the sub to make a record.
+      - [x] It's a simple websocket connection.
 #endregion */
 
 import { spawn } from "child_process";
@@ -59,64 +62,65 @@ async function deploy() {
 
   const parsed = JSON.parse(out);
   const ip = parsed[0]?.PublicIps?.[0];
-  if (ip) {
-    console.log("🧲 Instance IP:", ip);
-    const sub = `${process.argv[2] || "chat"}.aesthetic.computer`;
-    if (await createOrUpdateARecord(sub, ip)) {
-      // Retry `curl` for about 5 seconds
+  if (!ip) return;
 
-      async function attempt(command) {
-        const maxAttempts = 15;
-        let attempts = 0,
-          success = false;
+  // 🚦 Get the deployed instances public IP and map it to a subdomain based
+  //    on the CLI argument.
 
-        while (attempts < maxAttempts && !success) {
-          try {
-            await command();
-            success = true; // If curl succeeds, set success to true
-            console.log("\n");
-          } catch (error) {
-            attempts += 1;
-            console.error("🔴 Attempt", attempts, "failed:", error);
-            if (attempts < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
+  console.log("🧲 Instance IP:", ip);
+  const sub = `${process.argv[2] || "chat"}.aesthetic.computer`;
+
+  // Update the A record for the subdomain.
+  if (await createOrUpdateARecord(sub, ip)) {
+    // Retry `curl` for about 5 seconds
+
+    async function attempt(command) {
+      const maxAttempts = 15;
+      let attempts = 0,
+        success = false;
+
+      while (attempts < maxAttempts && !success) {
+        try {
+          await command();
+          success = true; // If curl succeeds, set success to true
+          console.log("\n");
+        } catch (error) {
+          attempts += 1;
+          console.error("🔴 Attempt", attempts, "failed:", error);
+          if (attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
-        }
-
-        if (!success) {
-          console.error("🔴 Failed after", maxAttempts, "attempts");
-          return;
         }
       }
 
-      console.log("💻 Testing HTTPS connection...");
-
-      await attempt(async () => {
-        const response = await fetch(`https://${sub}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        } else {
-          console.log(await response.text());
-        }
-      });
-
-      console.log("🧦 Testing WebSocket connection...");
-
-      await attempt(async () => {
-        const websocatCommand = `echo "hello" | websocat -1 wss://${sub}`;
-        await run("bash", ["-c", websocatCommand]);
-      });
-    } else {
-      console.error(
-        "🔴 Failed to update A record for instance:",
-        sub,
-        "->",
-        ip,
-      );
-      // This should also maybe destroy the instance in certain conditions.
-      return;
+      if (!success) {
+        console.error("🔴 Failed after", maxAttempts, "attempts");
+        return;
+      }
     }
+
+    console.log("🚸 Waiting for server to boot...");
+    console.log("💻 Testing HTTPS connection...");
+
+    await attempt(async () => {
+      const response = await fetch(`https://${sub}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      } else {
+        console.log(await response.text());
+      }
+    });
+
+    console.log("🧦 Testing WebSocket connection...");
+
+    await attempt(async () => {
+      const websocatCommand = `echo "hello" | websocat -1 wss://${sub}`;
+      await run("bash", ["-c", websocatCommand]);
+    });
+  } else {
+    console.error("🔴 Failed to update A record for instance:", sub, "->", ip);
+    // This should also maybe destroy the instance in certain conditions.
+    return;
   }
 }
 
@@ -135,7 +139,7 @@ try {
   console.error("🔴 Deploy failed:", err);
 }
 
-// #region 🌥️ Cloudflare
+// #region 🌥️ Cloudflare API
 
 async function fetchZones() {
   const response = await fetch(`${CLOUDFLARE_BASE_URL}/zones`, { headers });
@@ -281,6 +285,7 @@ async function gcpDeploy(instanceName, newImage) {
 
   console.log("🟡 Deploying instance...", instanceName);
   // Create this new instance.
+  // https://docs.ops.city/ops
   await run("ops", [
     "instance",
     "create",
@@ -296,6 +301,7 @@ async function gcpDeploy(instanceName, newImage) {
   console.log("🟡 Deploy success:", instanceName);
 
   // List instances.
+  // https://docs.ops.city/ops
   return await run("ops", [
     "instance",
     "list",
@@ -326,7 +332,7 @@ async function gcpPublishImage(imageName) {
   // }
 
   // Upload new image.
-  console.log("📥️ Publishing new image:", imageName);
+  console.log("📥️ Building & publishing new image:", imageName);
   await run("ops", [
     "image",
     "create",
@@ -374,7 +380,13 @@ async function gcpDestroyInstance(instanceName) {
 
 function run(command, args = []) {
   return new Promise((resolve, reject) => {
-    const childProcess = spawn(command, args, { shell: true });
+    const childProcess = spawn(command, args, {
+      shell: true,
+      env: { ...process.env }, // Inherit parent environment variables
+    });
+
+    // console.log("Inherited environment from:", process.env);
+
     let lastOut = "";
 
     childProcess.stdout.on("data", (data) => {

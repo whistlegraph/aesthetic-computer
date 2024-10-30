@@ -82,7 +82,7 @@ try {
   console.log(
     "🔥 Loading Firebase configuration from file: ./gcp-service-key.json",
   );
-  const data = await fs.readFile("./gcp-service-key.json", "utf8");
+  const data = await fs.readFile("./gcp-firebase-service-key.json", "utf8");
   serviceAccount = JSON.parse(data);
 } catch (error) {
   console.error("Error loading service account:", error);
