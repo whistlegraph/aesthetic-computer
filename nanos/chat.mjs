@@ -26,6 +26,7 @@
            and scrollable, and the subscriber page interactable.
       - [] Messages should make a sound.
         - [] Bring in AC sound engine here.
+      - [] Add support for web notifications in the chat.
     - [] Add web notficiations to `sotce-net` chat.
   - [] Add images to AC chat.
   - [] Add textual links to AC chat.
@@ -701,10 +702,20 @@ function notify(title, body) {
         //   },
         apns: {
           payload: {
-            aps: { "mutable-content": 1 },
+            aps: {
+              "mutable-content": 1,
+              "interruption-level": "time-sensitive", // Marks as time-sensitive
+              priority: 10, // Highest priority
+              "content-available": 1, // Tells iOS to wake the app
+            },
           },
           fcm_options: {
             image: "https://aesthetic.computer/api/logo.png",
+          },
+          headers: {
+            "apns-priority": "10", // Immediate delivery priority
+            "apns-push-type": "alert", // Explicit push type
+            "apns-expiration": "0", // Message won't be stored by APNs
           },
         },
         webpush: {
