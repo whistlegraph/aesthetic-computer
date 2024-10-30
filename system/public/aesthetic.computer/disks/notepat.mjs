@@ -59,10 +59,10 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
-   - [x] Add z, x, a# and b below the lower octave. 
-   - [x] Add ;, ', c# and d above the upper octave. 
+   - [🟠] Somehow represent both of these in the graphic layout.
+    - [x] Add z, x, a# and b below the lower octave. 
+    - [x] Add ;, ', c# and d above the upper octave. 
    - [] Learn Tattooine theme.
-
    - [x] Shift octave on either half  up or down.
     - [x] Test it and see if it's fun.
     - [] Touch?
