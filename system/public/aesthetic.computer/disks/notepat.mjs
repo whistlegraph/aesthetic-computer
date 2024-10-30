@@ -239,7 +239,7 @@ let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
 const attack = 0.01; // 0.025;
-const maxVolume = 0.95;// 0.9;
+const maxVolume = 0.95; // 0.9;
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -866,19 +866,22 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     buildOctButton(api);
   }
 
-  if (e.is("keyboard:down:.")) {
+  if (e.is("keyboard:down:.") && !e.repeat) {
     upperOctaveShift += 1;
   }
 
-  if (e.is("keyboard:down:,")) {
+  if (e.is("keyboard:down:,") && !e.repeat) {
     upperOctaveShift -= 1;
   }
 
-  if (e.is("keyboard:down:control") || e.is("keyboard:down:capslock")) {
+  if (
+    e.is("keyboard:down:control") ||
+    (e.is("keyboard:down:capslock") && !e.repeat)
+  ) {
     lowerOctaveShift += 1;
   }
 
-  if (e.is("keyboard:down:shift")) {
+  if (e.is("keyboard:down:shift") && !e.repeat) {
     lowerOctaveShift -= 1;
   }
 
