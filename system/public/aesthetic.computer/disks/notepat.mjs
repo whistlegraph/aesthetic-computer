@@ -1329,6 +1329,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         } else if (note.startsWith("++")) {
           note = note.replace("++", "");
           activeOctave += 2;
+          activeOctave += upperOctaveShift;
         }
 
         // if (activeOctave !== parseInt(octave)) {
