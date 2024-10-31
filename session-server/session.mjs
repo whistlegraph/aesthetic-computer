@@ -345,7 +345,17 @@ wss.on("connection", (ws, req) => {
               //   },
               apns: {
                 payload: {
-                  aps: { "mutable-content": 1 },
+                  aps: {
+                    "mutable-content": 1,
+                    "interruption-level": "time-sensitive", // Marks as time-sensitive
+                    priority: 10, // Highest priority
+                    "content-available": 1, // Tells iOS to wake the app
+                  },
+                },
+                headers: {
+                  "apns-priority": "10", // Immediate delivery priority
+                  "apns-push-type": "alert", // Explicit push type
+                  "apns-expiration": "0", // Message won't be stored by APNs
                 },
                 fcm_options: {
                   image: "https://aesthetic.computer/api/logo.png",

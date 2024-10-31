@@ -51,10 +51,12 @@ async function log(text, data, from = "log") {
   if (data.action) msg.action = data.action;
   if (data.value) msg.value = data.value;
 
+  // Save the `log` to the database.
   const logs = database.db.collection("logs");
   await logs.createIndex({ when: 1 }); // Index for `when`.
   await logs.insertOne({ ...msg }); // Add to database,
 
+  // Alert the AC `chat-system` instance directly through an HTTP call with `LOGGER_KEY`.
   // TODO: Make a post request to https://localhost:8083 if dev is true
   //       otherwise make a post request to https://chat-system.aesthetic.computer
   // This request should include the msg object.
