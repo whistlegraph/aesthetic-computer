@@ -3877,7 +3877,7 @@ export const handler = async (event, context) => {
     // retrieval later? 24.08.24.19.22
 
     const body = JSON.parse(event.body); // Make sure we can parse the body.
-    const retrieve = body.retrieve || "everything";
+    const retrieve = body.retrieve || "subscription";
 
     const user = await authorize(event.headers, "sotce");
     if (!user) return respond(401, { message: "Unauthorized." });
@@ -3897,6 +3897,7 @@ export const handler = async (event, context) => {
 
       const out = { subscribed: true };
 
+      // Include both pages and the subscription state if retrieving 'everything'.
       if (retrieve === "everything") {
         shell.log("🫐 Retrieving pages...", performance.now());
 
