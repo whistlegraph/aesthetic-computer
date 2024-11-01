@@ -4,22 +4,11 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
- - [🟠] Update nanos versions / dependencies in this dir.
- - [] Set up logging so I know why this server is crashing.
-   - [] Maybe it's a setting in Google Cloud to log the serial console. 
-   - [] Also check the nanos logs.
-   - [] Or maybe I need to use an external service. 
-  - [] Set up another instance of this chat for sotce-net that...
-    - [] Will have a different subdomain setup so `conductor` will need updates. 
-    - [] How will it know what version it's running both in production and in development?
-    - [] Run the sotce-net instance in development in addition to the AC one in emacs.
-    - [] Will also have good production logging support. 
-    - [] Will use a different table in the database like `chat-sotce-net` instead
-         of chat-system.
-    - [] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
-         if running that instance in order to actually send messages but not to join or
-         observe chats.
-    - [] Add a new command to the `package.json`.
+  - [] Set up another instance of this chat for `sotce-net` that...
+    - [-] Will have a different subdomain setup so `conductor` will need updates. 
+      - [🟠] Add the new production deploy command to package.json
+      - [] Walk through `conductor.mjs` to see.
+      - [-] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
     - [] Add a basic client to `sotce-net`.
       - [] Write it as a totally separate UI layer that always connects.
       - [] Have it on the loged out page grayed out, the logged in page opaque
@@ -30,6 +19,23 @@
     - [] Add web notficiations to `sotce-net` chat.
   - [] Add images to AC chat.
   - [] Add textual links to AC chat.
+  + Done
+  - [x] How will it know what version it's running both in production and in development?
+  - [x] Run the sotce-net instance in development in addition to the AC one in emacs.
+  - [x] Will use a different table in the database like `chat-sotce-net` instead
+        of chat-system.
+  - [x] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
+        if running that instance in order to actually send messages but not to join or
+        observe chats.
+  - [x] Add the proper commands for a new system to package.json.
+    - [x] Development command.
+      - [x] Run the development command in tandem with `chat-system` and
+            see if it boots up properly.
+ - [x] Update nanos versions / dependencies in this dir.
+ - [x] Set up logging so I know why this server is crashing.
+   - [x] Maybe it's a setting in Google Cloud to log the serial console. 
+   - [x] Also check the nanos logs.
+   - [x] Or maybe I need to use an external service. (Signed up for nanos Radar) 
 #endregion */
 
 // Management:
@@ -38,6 +44,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { promises as fs, readFileSync } from "fs";
 
+import fetch from "node-fetch";
 import http from "http";
 import https from "https";
 import { URL } from "url";
@@ -55,13 +62,39 @@ dotenv.config({ path: "chat.env" });
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
 
-console.log("\n🌟 Starting the Aesthetic Computer Chat Server 🌟\n");
+const instances = {
+  "chat-system": {
+    name: "chat-system",
+    allowedHost: "chat-system.aesthetic.computer",
+    userInfoEndpoint: "https://aesthetic.us.auth0.com/userinfo",
+    devPort: 8083,
+  },
+  "chat-sotce": {
+    name: "chat-sotce",
+    allowedHost: "chat.sotce.net",
+    userInfoEndpoint: "https://sotce.us.auth0.com/userinfo",
+    devPort: 8084,
+  },
+};
 
-const allowedHost = "chat-system.aesthetic.computer";
+const instance = instances[process.argv[2]];
+
+if (!instance) {
+  console.log("🔴 No instance data found from argument.");
+  process.exit(1);
+}
 
 const dev = process.env.NODE_ENV === "development";
 
-const subsToHandles = {};
+console.log(
+  `\n🌟 Starting the Aesthetic Computer Chat Server for: ${instance.name} 🌟\n`,
+);
+
+const allowedHost = instance.allowedHost;
+
+const subsToHandles = {}; // Cached list of handles.
+const subsToSubscribers = {}; // Cached list of active subscribers for this
+//                               instance if supported.
 const authorizedConnections = {};
 // const messages = []; // An active buffer of the last 100 messages.
 
@@ -80,9 +113,9 @@ const authorizedConnections = {};
 
 let serviceAccount;
 try {
-  console.log(
-    "🔥 Loading Firebase configuration from file: ./gcp-service-key.json",
-  );
+  // console.log(
+  //   "🔥 Loading Firebase configuration from file: ./gcp-service-key.json",
+  // );
   const data = await fs.readFile("./gcp-firebase-service-key.json", "utf8");
   serviceAccount = JSON.parse(data);
 } catch (error) {
@@ -90,16 +123,17 @@ try {
   // Handle the error as needed
 }
 
-console.log("🔥 Initializing Firebase App from:", serviceAccount);
+// console.log("🔥 Initializing Firebase App from:", serviceAccount);
 
 initializeApp(
   { credential: cert(serviceAccount) }, //,
   // "aesthetic" + ~~performance.now(),
 );
 
-console.log("🔥 Firebase App initialized...");
+// console.log("🔥 Firebase App initialized...");
 
 let server,
+  agent,
   connections = {}, // All active socket connections.
   connectionId = 0;
 
@@ -109,12 +143,6 @@ const MONGODB_NAME = process.env.MONGODB_NAME;
 // const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 let client, db;
-
-await makeMongoConnection();
-
-const messages = [];
-await getLast100MessagesfromMongo();
-// Retrieve the last 100 messages and then buffer in the new ones.
 
 // 🛑 The main HTTP route.
 const request = async (req, res) => {
@@ -197,7 +225,7 @@ const request = async (req, res) => {
       } catch (error) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(
-          JSON.stringify({ status: "error", message: "🪵 Malforned log JSON" }),
+          JSON.stringify({ status: "error", message: "🪵 Malformed log JSON" }),
         );
       }
     });
@@ -205,7 +233,11 @@ const request = async (req, res) => {
     // Handle GET request to /
     const domain = req.headers.host; // Get the domain from the request
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
+    if (instance.name === "chat-sotce") {
+      res.end(`🪷 Sotce Net\nHost: <mark>${domain}</mark>`);
+    } else {
+      res.end(`😱 Aesthetic Computer\nHost: <mark>${domain}</mark>`);
+    }
   } else {
     // Catch-all response for other requests
     res.writeHead(404, { "Content-Type": "application/json" });
@@ -214,18 +246,39 @@ const request = async (req, res) => {
 };
 
 if (dev) {
-  server = https.createServer(
-    {
-      key: readFileSync("ssl/localhost-key.pem"),
-      cert: readFileSync("ssl/localhost.pem"),
-    },
-    request,
-  );
+  const key = readFileSync("ssl/localhost-key.pem");
+  const cert = readFileSync("ssl/localhost.pem");
+  server = https.createServer({ key, cert }, request);
+  agent = new https.Agent({ key, cert, rejectUnauthorized: false });
 } else {
   server = http.createServer(request);
 }
 
-const port = dev ? 8083 : 80;
+if (dev) {
+  console.log("🟡 Waiting for local AC backend...");
+  async function waitForBackend() {
+    while (true) {
+      try {
+        const response = await fetch("https://localhost:8888", { agent });
+        if (response.status === 200) {
+          console.log("✅ Backend is ready!");
+          break;
+        }
+      } catch (error) {
+        console.log("🟠 Backend not yet available...", error);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // retry every 1 second
+    }
+  }
+  await waitForBackend();
+}
+
+await makeMongoConnection();
+const messages = [];
+await getLast100MessagesfromMongo();
+// Retrieve the last 100 messages and then buffer in the new ones.
+
+const port = dev ? instance.devPort : 80;
 
 server.listen(port, "0.0.0.0", () => {
   console.log(
@@ -368,7 +421,7 @@ async function startChatServer() {
         );
         // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
         // 🧶 Length limiting.
-        const len = 96;
+        const len = 128;
         if (msg.content.text.length > len) {
           ws.send(
             pack("too-long", {
@@ -399,26 +452,92 @@ async function startChatServer() {
             };
         }
 
-        if (!authorized) {
-          console.error("🔴 Unauthorized:", msg.content);
+        // Check to see that the user has a registered handle here
+        //       otherwise return unauthorized.
+
+        // TODO: Make sure this works across sotce-net.
+        console.log("🟢 🔐 Handle authorized:", authorized);
+        console.log("🚵 Finding handle for:", authorized.sub);
+
+        // Find handle based on email.
+        const bareHandle = await getHandleFromSub(authorized.sub);
+        let handle;
+        if (bareHandle) handle = "@" + bareHandle;
+        console.log("️🐻 Bare handle is:", bareHandle);
+
+        console.log("🚦 Checking subscription status for:", instance.name);
+        let subscribed;
+        if (instance.name === "chat-sotce") {
+          // Also ensure that they are subscribed if the instance.name is "chat-sotce".
+          // Run through the '/subscribed' endpoint from `sotce-net` and cached in `subsToSubscribers`.
+          if (!subsToSubscribers[authorized.sub]) {
+            const host = dev ? "https://localhost:8888" : "https://sotce.net";
+
+            const options = {
+              method: "POST",
+              body: { retrieve: "subscription" },
+              headers: {
+                Authorization: "Bearer " + msg.content.token,
+                "Content-Type": "application/json",
+              },
+            };
+
+            if (dev) options.agent = agent;
+
+            const response = await fetch(
+              `${host}/sotce-net/subscribed`,
+              options,
+            );
+            if (response.status === 200) {
+              const responseBody = await response.json();
+              if (responseBody.subscribed) {
+                console.log("️📰 Subscribed:", responseBody);
+                subscribed = true;
+              } else {
+                console.error("🗞️ Unsubscribed:", responseBody);
+                subscribed = false;
+              }
+            } else {
+              console.error("🗞️ Unsubscribed:", response);
+              subscribed = false;
+            }
+            subsToSubscribers[authorized.sub] = subscribed; // Cache the subscription call.
+          } else {
+            subscribed = subsToSubscribers[authorized.sub];
+          }
+        } else {
+          subscribed = true;
+        }
+
+        if (!authorized || !handle || !subscribed) {
+          console.error(
+            "🔴 Unauthorized:",
+            msg.content,
+            "Authorized:",
+            authorized,
+            "Handle:",
+            handle,
+            "Subscribed:",
+            subscribed,
+          );
+
           ws.send(
             pack(
               "unauthorized",
-              { message: "Your message was unauthorized, please login again." },
+              {
+                message:
+                  "Your message was unauthorized, please login again and/or subscribe.",
+              },
               id,
             ),
           );
           return;
         }
 
-        console.log("🟢 🔐 Handle authorized:", authorized);
-
         // 📚 2. Persistence
         // TODO:  Add this chat to MongoDB, using the domain. (Only allow requests from the domain.)
         try {
-          // TODO: Filter message for content.
-
-          // 🫅 LLM Language filtering.
+          // 🫅 LLM Language filtering. (Could fit this in one day if it's fast enough. 24.10.31.04.32)
           // Call out to `ask` to filter for content.
           /*
           let filteredText = "";
@@ -486,7 +605,7 @@ async function startChatServer() {
               when: new Date(),
             };
 
-            const collection = db.collection("chat-system");
+            const collection = db.collection(instance.name); // Use the chat instance name for storing messages.
             await collection.createIndex({ when: 1 }); // Index for `when`.
             await collection.insertOne(msg); // Store the chat message
 
@@ -501,7 +620,9 @@ async function startChatServer() {
             from: handle,
             text: filteredText,
             when: msg.when,
-            sub: fromSub,
+            sub: fromSub, // If the chat is of a specific tenant like
+            //               `chat-sotce` then the subs will be local
+            //               to that tenant and not prefixed. 24.10.31.21.35
           };
           messages.push(out);
           if (messages.length > 100) messages.shift();
@@ -551,7 +672,7 @@ async function startChatServer() {
       pack(
         "connected",
         {
-          message: `Joined \`chat-system\` • 🧑‍🤝‍🧑 ${wss.clients.size}`,
+          message: `Joined \`${instance.name}\` • 🧑‍🤝‍🧑 ${wss.clients.size}`,
           chatters: wss.clients.size,
           messages,
           id,
@@ -597,7 +718,7 @@ function pack(type, content, id) {
 // Authorize a user token against auth0.
 async function authorize(authorization) {
   try {
-    const response = await fetch("https://aesthetic.us.auth0.com/userinfo", {
+    const response = await fetch(instance.userInfoEndpoint, {
       headers: {
         Authorization: "Bearer " + authorization,
         "Content-Type": "application/json",
@@ -628,23 +749,33 @@ async function makeMongoConnection() {
 
 async function getLast100MessagesfromMongo() {
   console.log("🟡 Retrieving last 100 combined messages...");
-  const chatCollection = db.collection("chat-system");
-  // const logsCollection = db.collection("logs");
+  const chatCollection = db.collection(instance.name);
+  let combinedMessages;
 
-  const combinedMessages = (
-    await chatCollection
-      .aggregate([
-        {
-          $unionWith: {
-            coll: "logs",
-            pipeline: [{ $match: {} }],
+  if (instance.name === "chat-sotce") {
+    // 🪷 Don't include AC logs.
+    combinedMessages = await chatCollection
+      .find({})
+      .sort({ when: -1 })
+      .limit(100)
+      .toArray();
+  } else {
+    // 🟪 Assume an AC chat instance with logs rolled in.
+    combinedMessages = (
+      await chatCollection
+        .aggregate([
+          {
+            $unionWith: {
+              coll: "logs",
+              pipeline: [{ $match: {} }],
+            },
           },
-        },
-        { $sort: { when: -1 } },
-        { $limit: 100 },
-      ])
-      .toArray()
-  ).reverse();
+          { $sort: { when: -1 } },
+          { $limit: 100 },
+        ])
+        .toArray()
+    ).reverse();
+  }
 
   for (const message of combinedMessages) {
     let from;
@@ -655,6 +786,7 @@ async function getLast100MessagesfromMongo() {
       const handle = await getHandleFromSub(fromSub);
       from = "@" + handle;
     } else {
+      // 'logs' has a 'users' array but never a 'user' field.
       console.log("🪵 System log:", message);
       from = message.from || "deleted";
     }
@@ -672,9 +804,40 @@ async function getHandleFromSub(fromSub) {
 
   console.log("🟡 Looking up user record for...", fromSub);
   if (!subsToHandles[fromSub]) {
-    handle = (await db.collection("@handles").findOne({ _id: fromSub }))
-      ?.handle;
-    console.log("🟢 Got handle from MongoDB:", handle);
+    try {
+      let prefix = "";
+      if (instance.name === "chat-sotce") prefix = "sotce-";
+
+      let host;
+      if (dev) {
+        host = "https://localhost:8888";
+      } else {
+        if (instance.name === "chat-sotce") {
+          host = "https://sotce.net";
+        } else {
+          host = "https://aesthetic.computer";
+        }
+      }
+
+      // console.log("Host:", host);
+      const url = `${host}/handle?for=${prefix}${fromSub}`;
+      console.log("Fetching from url:", url);
+
+      const options = {};
+      if (dev) options.agent = agent;
+      const response = await fetch(url, options);
+      if (response.status === 200) {
+        const data = await response.json();
+        handle = data.handle;
+        console.log("🫅 Handle found:", handle);
+      } else {
+        console.warn("❌ 🫅 Handle not found:", await response.json());
+      }
+    } catch (error) {
+      console.error("❌ 🫅 Handle retrieval error:", error);
+    }
+
+    console.log("🟢 Got handle from network:", handle);
     subsToHandles[fromSub] = handle;
   } else {
     handle = subsToHandles[fromSub];
@@ -689,8 +852,7 @@ async function getHandleFromSub(fromSub) {
 function notify(title, body) {
   if (!dev) {
     // ☎️ Send a notification
-    console.log("🟡 Sending notification...");
-    // TODO: Test notification icons here.
+    console.log("🟡 Sending FCM notification...", performance.now());
     // const topicName = "industry-tech";
 
     getMessaging()
@@ -709,29 +871,43 @@ function notify(title, body) {
               "content-available": 1, // Tells iOS to wake the app
             },
           },
-          fcm_options: {
-            image: "https://aesthetic.computer/api/logo.png",
-          },
           headers: {
             "apns-priority": "10", // Immediate delivery priority
             "apns-push-type": "alert", // Explicit push type
             "apns-expiration": "0", // Message won't be stored by APNs
           },
+          // fcm_options: {
+          //  image: "https://aesthetic.computer/api/logo.png",
+          // },
         },
         webpush: {
           headers: {
+            Urgency: "high",
+            TTL: "0",
             image: "https://aesthetic.computer/api/logo.png",
           },
+          fcmOptions: {
+            analyticsLabel: "immediate-delivery",
+          },
         },
-        topic: "mood", // <- TODO: Eventually replace this.
+        topic: "mood", // <- TODO: Eventually replace this to wider range topic
+        //                         that also must be set inside the iOS client.
         // topic: "chat-system",
         data: { piece: "chat" }, // This should send a tappable link to the chat piece.
       })
       .then((response) => {
-        console.log("☎️  Successfully sent notification:", response);
+        console.log(
+          "☎️  Successfully sent notification:",
+          response,
+          performance.now(),
+        );
       })
       .catch((error) => {
-        console.log("📵  Error sending notification:", error);
+        console.log(
+          "📵  Error sending notification:",
+          error,
+          performance.now(),
+        );
       });
   }
 }

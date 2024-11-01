@@ -5,10 +5,7 @@
 // Nanos ops docs: https://docs.ops.city/ops
 
 /* #region 🏁 TODO
-  - [🟤] Add crash / instance logs to GCP.
-
-  - [] Add support for the `sotce-chat` secondary instance.
-
+  - [🟠] Add support for the `sotce-chat` secondary instance.
   - [] Future Multi-Instance Management / 
        Check to see if an instance exists under the label.
        If it does, then just return that instance.
@@ -23,6 +20,7 @@
         - [] Return information that the client can connect / success.
   - [] How will HTTP traffic be blocked / the ip be masked?
   + Done
+  - [x] Add crash / instance logs to GCP.
   - [x] Deploy `system-chat`.
   - [x] A. Chat System
     - [x] Can be a single instance for now.

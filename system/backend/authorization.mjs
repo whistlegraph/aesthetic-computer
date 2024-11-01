@@ -157,8 +157,8 @@ export async function getHandleOrEmail(sub) {
 export async function handleFor(id, tenant = "aesthetic") {
   // const time = performance.now();
 
-  // 📖 Get an aggregate list of all handles.
   if (id === "all") {
+    // 📖 Get an aggregate list of all handles.
     const database = await connect();
     const collection = database.db.collection("@handles");
     const randomHandles = await collection
