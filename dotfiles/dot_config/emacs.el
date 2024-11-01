@@ -587,9 +587,9 @@
   "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
   (interactive)
   (let ((directory-path "~/aesthetic-computer/micro")
-        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket" "servers" "chat" "kidlisp"))
+        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket" "servers" "chat-system" "chat-sotce" "kidlisp"))
         (emoji-for-command
-         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat" . "💬") ("kidlisp" . "🐍")))
+         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬") ("kidlisp" . "🐍")))
         prompt-tab-created stripe-tab-created)
     (tab-rename "📂 source")
     (find-file "~/aesthetic-computer/README.txt")

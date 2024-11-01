@@ -395,7 +395,7 @@ function paint(
     });
 
     // Character limit.
-    const len = 96;
+    const len = 128;
     ink(input.text.length > len ? "red" : "gray").write(
       `${input.text.length}/${len}`,
       { right: 6, top: 6 },
