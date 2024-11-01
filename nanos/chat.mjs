@@ -4,23 +4,24 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
-  - [] Set up another instance of this chat for `sotce-net` that...
-    - [-] Will have a different subdomain setup so `conductor` will need updates. 
-      - [x] Add the new production deploy command to package.json
-      - [x] Walk through `conductor.mjs` to see where chat-system needs changes.
-      - [x] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
-      - [🧡] Run a test deployment.
-    - [] Add a basic client to `sotce-net`.
-      - [] Write it as a totally separate UI layer that always connects.
-      - [] Have it on the loged out page grayed out, the logged in page opaque
-           and scrollable, and the subscriber page interactable.
-      - [] Messages should make a sound.
-        - [] Bring in AC sound engine here.
-      - [] Add support for web notifications in the chat.
-    - [] Add web notficiations to `sotce-net` chat.
+  - [🟠] Add a basic client to `sotce-net`.
+    - [🫐] Start with 'dev' / 'local' version.
+    - [] Write it as a totally separate UI layer that always connects.
+    - [] Have it on the loged out page grayed out, the logged in page opaque
+          and scrollable, and the subscriber page interactable.
+    - [] Messages should make a sound.
+      - [] Bring in AC sound engine here.
+    - [] Add support for web notifications in the chat.
+  - [] Add web notficiations to `sotce-net` chat.
   - [] Add images to AC chat.
   - [] Add textual links to AC chat.
   + Done
+  - [x] Set up another instance of this chat for `sotce-net` that...
+    - [x] Will have a different subdomain setup so `conductor` will need updates. 
+      - [x] Add the new production deploy command to package.json
+      - [x] Walk through `conductor.mjs` to see where chat-system needs changes.
+      - [x] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
+      - [x] Run a test deployment.
   - [x] How will it know what version it's running both in production and in development?
   - [x] Run the sotce-net instance in development in addition to the AC one in emacs.
   - [x] Will use a different table in the database like `chat-sotce-net` instead
@@ -78,10 +79,12 @@ const instances = {
   },
 };
 
-const instance = instances[process.argv[2]];
+console.log("🔵 Env:", process.env);
+
+const instance = instances[process.argv[2] || process.env.CHAT_INSTANCE];
 
 if (!instance) {
-  console.log("🔴 No instance data found from argument.");
+  console.log("🔴 No instance data found from argument:", process.argv[2]);
   process.exit(1);
 }
 
