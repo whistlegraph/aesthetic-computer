@@ -56,8 +56,8 @@ RUN dnf install -y \
 # RUN dnf install -y nginx
 
 # Install 'docker'
-RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-RUN dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+# RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+# RUN dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # Add 'me' user.
 RUN useradd -m me && \

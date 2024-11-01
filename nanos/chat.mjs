@@ -4,23 +4,11 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
-  - [] Set up another instance of this chat for sotce-net that...
-
-    - [] Will have a different subdomain setup so `conductor` will need updates. 
-      - [-] Add the proper commands for a new system to package.json.
-        - [🔵] Development command.
-          - [⭐] Run the development command in tandem with `chat-system` and
-               see if it boots up properly.
-        - [] Production deployment.
-          - [] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
-
-    - [] How will it know what version it's running both in production and in development?
-    - [] Run the sotce-net instance in development in addition to the AC one in emacs.
-    - [] Will use a different table in the database like `chat-sotce-net` instead
-         of chat-system.
-    - [] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
-         if running that instance in order to actually send messages but not to join or
-         observe chats.
+  - [] Set up another instance of this chat for `sotce-net` that...
+    - [-] Will have a different subdomain setup so `conductor` will need updates. 
+      - [🟠] Add the new production deploy command to package.json
+      - [] Walk through `conductor.mjs` to see.
+      - [-] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
     - [] Add a basic client to `sotce-net`.
       - [] Write it as a totally separate UI layer that always connects.
       - [] Have it on the loged out page grayed out, the logged in page opaque
@@ -32,6 +20,17 @@
   - [] Add images to AC chat.
   - [] Add textual links to AC chat.
   + Done
+  - [x] How will it know what version it's running both in production and in development?
+  - [x] Run the sotce-net instance in development in addition to the AC one in emacs.
+  - [x] Will use a different table in the database like `chat-sotce-net` instead
+        of chat-system.
+  - [x] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
+        if running that instance in order to actually send messages but not to join or
+        observe chats.
+  - [x] Add the proper commands for a new system to package.json.
+    - [x] Development command.
+      - [x] Run the development command in tandem with `chat-system` and
+            see if it boots up properly.
  - [x] Update nanos versions / dependencies in this dir.
  - [x] Set up logging so I know why this server is crashing.
    - [x] Maybe it's a setting in Google Cloud to log the serial console. 
@@ -68,13 +67,13 @@ const instances = {
     name: "chat-system",
     allowedHost: "chat-system.aesthetic.computer",
     userInfoEndpoint: "https://aesthetic.us.auth0.com/userinfo",
-    devPort: 8083
+    devPort: 8083,
   },
   "chat-sotce": {
     name: "chat-sotce",
     allowedHost: "chat.sotce.net",
     userInfoEndpoint: "https://sotce.us.auth0.com/userinfo",
-    devPort: 8084
+    devPort: 8084,
   },
 };
 
@@ -85,13 +84,13 @@ if (!instance) {
   process.exit(1);
 }
 
+const dev = process.env.NODE_ENV === "development";
+
 console.log(
   `\n🌟 Starting the Aesthetic Computer Chat Server for: ${instance.name} 🌟\n`,
 );
 
 const allowedHost = instance.allowedHost;
-
-const dev = process.env.NODE_ENV === "development";
 
 const subsToHandles = {}; // Cached list of handles.
 const subsToSubscribers = {}; // Cached list of active subscribers for this
@@ -253,6 +252,25 @@ if (dev) {
   agent = new https.Agent({ key, cert, rejectUnauthorized: false });
 } else {
   server = http.createServer(request);
+}
+
+if (dev) {
+  console.log("🟡 Waiting for local AC backend...");
+  async function waitForBackend() {
+    while (true) {
+      try {
+        const response = await fetch("https://localhost:8888", { agent });
+        if (response.status === 200) {
+          console.log("✅ Backend is ready!");
+          break;
+        }
+      } catch (error) {
+        console.log("🟠 Backend not yet available...", error);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // retry every 1 second
+    }
+  }
+  await waitForBackend();
 }
 
 await makeMongoConnection();
