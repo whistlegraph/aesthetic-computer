@@ -191,7 +191,7 @@ async function createOrUpdateARecord(
   sub = "chat-system.aesthetic.computer",
   ip = "3.3.3.3",
 ) {
-  const rootDomain = sub.split('.').slice(-2).join('.');
+  const rootDomain = sub.split(".").slice(-2).join(".");
   const zoneId = (await fetchZone(rootDomain))?.id;
 
   if (!zoneId) {
@@ -283,8 +283,8 @@ async function gcpDeploy(instanceName, newImage) {
   let imageName;
 
   if (newImage) {
-    imageName = "aesthetic-" + new Date().getTime();
-    await gcpPublishImage(imageName); // Upload new image.
+    imageName = "aesthetic-" + instanceName + "-" + new Date().getTime();
+    await gcpPublishImage(imageName, instanceName); // Upload new image.
     await storeImageNameInMongo(imageName); // Store the image name in MongoDB.
   } else {
     imageName = await getImageIdFromMongo(); // Try and retrieve from MongoDB...
@@ -325,7 +325,7 @@ async function gcpDeploy(instanceName, newImage) {
   ]);
 }
 
-async function gcpPublishImage(imageName) {
+async function gcpPublishImage(imageName, instanceName) {
   // console.log("🟡 Deleting existing image...");
   // Delete existing image.
   // try {
@@ -358,6 +358,8 @@ async function gcpPublishImage(imageName) {
     imageName,
     "-t",
     "gcp",
+    "-e",
+    "CHAT_INSTANCE=" + instanceName,
   ]);
 
   // List images.
