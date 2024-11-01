@@ -17,6 +17,7 @@ Right Hand
 
 *B Minor*
 B T I J U L M N M L U J I T B
+X V D E W G A B A G W E D V X
 
 *P1
 
@@ -26,9 +27,11 @@ w  x  v  d
 
 E  F# D  F# D  F#
 j  u  i  u  i  u
+e  w  d  w  d  w
 
 b  D  b  f# D  b
 b  i  b  w  i  b
+x  d  x  ?  d  x 
 
 *P2
 
