@@ -50,6 +50,19 @@ const headers = {
   "X-Auth-Key": CLOUDFLARE_API_TOKEN,
   "Content-Type": "application/json",
 };
+
+const instances = {
+  "chat-system": {
+    name: "chat-system",
+    subdomain: "chat-system.aesthetic.computer",
+  },
+  "chat-sotce": {
+    name: "chat-sotce",
+    subdomain: "chat.sotce.net",
+  },
+};
+
+const instance = instances[process.argv[2]];
 // #endregion
 
 async function deploy() {
@@ -66,7 +79,7 @@ async function deploy() {
   //    on the CLI argument.
 
   console.log("🧲 Instance IP:", ip);
-  const sub = `${process.argv[2] || "chat"}.aesthetic.computer`;
+  const sub = instance.subdomain; //`${process.argv[2] || "chat"}.aesthetic.computer`;
 
   // Update the A record for the subdomain.
   if (await createOrUpdateARecord(sub, ip)) {
@@ -175,13 +188,14 @@ async function createDNSRecord(zoneId, data) {
 }
 
 async function createOrUpdateARecord(
-  sub = "chat.aesthetic.computer",
+  sub = "chat-system.aesthetic.computer",
   ip = "3.3.3.3",
 ) {
-  const zoneId = (await fetchZone("aesthetic.computer"))?.id;
+  const rootDomain = sub.split('.').slice(-2).join('.');
+  const zoneId = (await fetchZone(rootDomain))?.id;
 
   if (!zoneId) {
-    console.error("🔴 Zone ID not found for aesthetic.computer. Halting.");
+    console.error(`🔴 Zone ID not found for ${rootDomain}. Halting.`);
     return;
   }
 
