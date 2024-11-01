@@ -56,7 +56,7 @@ G  A  G  F# G  A
 l  m  l  u  l  m
 
 B  A  G  A  B  C# B  F#
-n  m  l  m  n >t <n  u
+n  m  l  m  n  '  n  u
 
 D  C# b | C# D  E  F# G 
 i  t  b | t  i  j  u  l
@@ -65,10 +65,10 @@ A  G  F# G  A  B  A  G
 m  l  u  l  m  n  m  l
 
 A  B  C  G  E  G  C  C#
-m  n >h  l  j  l >h >t
+m  n  ;  l  j  l  ;  '
 
 Ab C#  ->  F# 
-o >t   ->  u 
+o  '   ->  u 
 
 * P4
 

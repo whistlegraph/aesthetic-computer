@@ -6,9 +6,10 @@
 /* #region 🏁 TODO 
   - [] Set up another instance of this chat for `sotce-net` that...
     - [-] Will have a different subdomain setup so `conductor` will need updates. 
-      - [🟠] Add the new production deploy command to package.json
-      - [] Walk through `conductor.mjs` to see.
-      - [-] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
+      - [x] Add the new production deploy command to package.json
+      - [x] Walk through `conductor.mjs` to see where chat-system needs changes.
+      - [x] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
+      - [🧡] Run a test deployment.
     - [] Add a basic client to `sotce-net`.
       - [] Write it as a totally separate UI layer that always connects.
       - [] Have it on the loged out page grayed out, the logged in page opaque
