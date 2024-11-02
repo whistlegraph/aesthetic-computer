@@ -29,7 +29,7 @@ export class Chat {
   // as of 24.11.02.00.31
   connect(instanceName) {
     instanceName = "chat-" + instanceName;
-    if (instanceName !== "chat-system" || instanceName !== "chat-sotce") {
+    if (instanceName !== "chat-system" && instanceName !== "chat-sotce") {
       console.warn(
         "🪫 Chat connection aborted. Invalid instance name:",
         instanceName,
