@@ -5,10 +5,14 @@ tunnels:
     proto: http
     addr: https://localhost:8888
     hostname: local.aesthetic.computer
-  websocket_chat:
+  websocket_chat_system:
     proto: http
     addr: https://localhost:8083
-    hostname: chat.local.aesthetic.computer
+    hostname: chat-system.local.aesthetic.computer
+  websocket_chat_sotce:
+    proto: http
+    addr: https://localhost:8084
+    hostname: chat-sotce.local.aesthetic.computer
   websocket_sessions:
     proto: http
     addr: https://localhost:8889
