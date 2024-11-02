@@ -28,6 +28,7 @@ export class Chat {
   // Instance options are `system` for AC users and `sotce` for Sotce Net
   // as of 24.11.02.00.31
   connect(instanceName) {
+    instanceName = "chat-" + instanceName;
     if (instanceName !== "chat-system" || instanceName !== "chat-sotce") {
       console.warn(
         "🪫 Chat connection aborted. Invalid instance name:",
