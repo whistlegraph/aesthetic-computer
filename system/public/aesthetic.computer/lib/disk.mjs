@@ -21,6 +21,7 @@ import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
+import { Chat } from "./chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import {
   notArray,
   defaultTemplateStringProcessor,
@@ -314,101 +315,9 @@ let socket, socketStartDelay; // Socket server for each piece.
 
 // ❤️‍🔥 TODO: Explose these somehow to the $commonApi.
 
-const chatSystem = {
-  server: new Socket(debug, send),
-  messages: [],
-  chatterCount: 0,
-  // receiver: // A custom receiver that can be defined in a piece.
-  //              like `chat` to get the events.
-  // disconnect: // A custom disconnection that triggers below.
-  connecting: true,
-  // connectedCallback: undefined // ^ Set above.
-};
+// TODO: Extract `chat` into an external class.
 
-function connectToChat() {
-  if (previewOrIconMode) {
-    console.log("💬 Chat disabled, just grabbing screenshots. 😃");
-    return;
-  }
-
-  let chatUrl;
-  if (debug) {
-    if (location.hostname === "local.aesthetic.computer") {
-      chatUrl = "chat." + location.hostname;
-    } else {
-      chatUrl = `${location.hostname}:8083`;
-    }
-  } else {
-    chatUrl = "chat-system.aesthetic.computer";
-  }
-
-  chatSystem.server.connect(
-    chatUrl, // host
-    (id, type, content) => {
-      // receive
-      if (type === "connected") {
-        chatSystem.connecting = false;
-        chatSystem.chatterCount = content?.chatters || chatSystem.chatterCount;
-        chatSystem.messages.length = 0;
-        chatSystem.messages.push(...content.messages);
-        if (logs.chat) {
-          console.log(
-            `💬 %c${content.message}`,
-            `color: cyan; background: rgba(10, 20, 40);`,
-          );
-        }
-      }
-
-      if (type === "unauthorized") {
-        if (logs.chat) console.log("🔴 Chat message unauthorized!", content);
-        $commonApi.notice("Unauthorized", ["red", "yellow"]);
-      }
-
-      if (type === "message") {
-        const msg = JSON.parse(content);
-        if (logs.chat) console.log("💬 Chat message received:", msg);
-
-        chatSystem.messages.push(msg);
-        content = msg; // Pass the transformed message.
-      }
-
-      // Auto parse handle updates.
-      if (type === "handle:update" || type === "handle:strip") {
-        const msg = JSON.parse(content);
-        content = msg;
-
-        if (type === "handle:strip" && msg.user === USER?.sub) {
-          console.log("🩹 Your handle has been stripped!");
-          $commonApi.net.refresh();
-        }
-      }
-
-      if (type === "left") {
-        // console.log("️✌️ Goodbye:", id);
-        chatSystem.chatterCount -= 1;
-      }
-
-      if (type === "joined") {
-        // console.log("️👋 Hello:", id, type, content);
-        chatSystem.chatterCount += 1;
-      }
-
-      chatSystem.receiver?.(id, type, content); // Run the piece receiver.
-
-      // if (logs.chat) console.log("🌠 Message received:", id, type, content);
-    },
-    undefined, // reload
-    "wss", // protocol
-    undefined, // connectionCallback
-    () => {
-      // disconnectCallback
-      if (chat.log) console.log("💬🚫 Chat disconnected.");
-      chatSystem.chatterCount = 0;
-      chatSystem.connecting = true;
-      chatSystem.disconnect?.();
-    },
-  );
-}
+const chatClient = new Chat(debug, send);
 
 let udp = {
     send: (type, content) => {
@@ -688,7 +597,7 @@ const $commonApi = {
   penLock: () => {
     send({ type: "pen:lock" });
   },
-  chat: chatSystem,
+  chat: chatClient.system,
   dark: undefined, // If we are in dark mode.
   glaze: function (content) {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
@@ -1571,7 +1480,7 @@ const $commonApi = {
       store.delete("handle");
       send({ type: "logout" });
       $commonApi.broadcast("logout:success");
-      chatSystem?.server?.send("logout");
+      chatClient.system?.server?.send("logout");
       // Send a "logout" message here to the chat server.
 
       // TODO: And probably the session server as well in
@@ -1646,7 +1555,7 @@ const $commonApi = {
       clearTimeout(hiccupTimeout);
       hiccupTimeout = setTimeout(() => {
         console.log("😶‍🌫️ Hiccup!");
-        chatSystem?.server.kill(outageSeconds); // Disconnect from chat.
+        chatClient.system?.server.kill(outageSeconds); // Disconnect from chat.
         socket?.kill(outageSeconds); // Diconnect from socket session.
         udp?.kill(outageSeconds); // Disconnect from UDP.
       }, hiccupIn * 1000);
@@ -1661,6 +1570,8 @@ const $commonApi = {
   //                 Increments by 1 each time a new piece loads.
   debug,
 };
+
+chatClient.$commonApi = $commonApi; // Add a reference to the `Chat` module.
 
 const nopaintAPI = $commonApi.system.nopaint;
 
@@ -3872,8 +3783,11 @@ async function makeFrame({ data: { type, content } }) {
       load(content.parsed); // Load after some of the default frames run.
     };
 
-    // Connect to chat.
-    connectToChat();
+    if (previewOrIconMode) {
+      console.log("💬 Chat disabled, just grabbing screenshots. 😃");
+    } else {
+      chatClient.connect("system"); // Connect to `system` chat.
+    }
 
     send({ type: "disk-defaults-loaded" });
     return;

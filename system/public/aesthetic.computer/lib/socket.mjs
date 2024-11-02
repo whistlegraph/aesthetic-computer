@@ -1,11 +1,11 @@
 // Socket
 // Manages clientside WebSocket connections.
+// This includes `session` and `chat` servvices.
 
 /* #region 🏁 todo
 #endregion */
 
-import { logs } from "./logs.mjs";
-
+const logs = { socket: false };
 const { min } = Math;
 
 export class Socket {
@@ -38,7 +38,7 @@ export class Socket {
       return;
     }
 
-    if (this.#debug && logs.session) console.log("🧦 Connecting...", host);
+    if (this.#debug && logs.socket) console.log("🧦 Connecting...", host);
 
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
@@ -52,7 +52,7 @@ export class Socket {
 
     // Send a message to the console after the first connection.
     ws.onopen = (e) => {
-      // if (this.#debug && logs.session) console.log("🧦 Connected."); // Redundant log given an initial message from the server.
+      // if (this.#debug && logs.socket) console.log("🧦 Connected."); // Redundant log given an initial message from the server.
       socket.#queue.forEach((q) => socket.send(...q)); // Send any held messages.
       socket.connected = true;
       socket.#queue.length = 0; // Clear out the full queue.
@@ -68,14 +68,14 @@ export class Socket {
 
     // Recursively re-connect after every second upon close or failed connection.
     ws.onclose = (e) => {
-      if (logs.session)
+      if (logs.socket)
         console.warn("🧦 Disconnected...", e.currentTarget?.url);
       clearTimeout(this.pingTimeout);
 
       socket.connected = false;
       // Only reconnect if we are not killing the socket and not in development mode.
       if (socket.#killSocket === false) {
-        if (logs.session) {
+        if (logs.socket) {
           console.log("🧦 Reconnecting in:", socket.#reconnectTime, "ms");
         }
         this.#reconnectTimeout = setTimeout(() => {
@@ -98,10 +98,10 @@ export class Socket {
   // Passes silently on no connection.
   send(type, content) {
     if (this.#ws?.readyState === WebSocket.OPEN) {
-      // if (logs.session) console.log("🧦 Sent:", type, content);
+      // if (logs.socket) console.log("🧦 Sent:", type, content);
       this.#ws.send(JSON.stringify({ type, content }));
     } else {
-      // if (logs.session) console.log("⌛ Queued:", type, content);
+      // if (logs.socket) console.log("⌛ Queued:", type, content);
       this.#queue.push([type, content]);
     }
   }
@@ -113,7 +113,7 @@ export class Socket {
       clearTimeout(this.#reconnectTimeout);
     } else {
       this.#reconnectTime = reconnectIn * 1000;
-      if (logs.session) {
+      if (logs.socket) {
         console.log("🧦 Reconnecting in:", this.#reconnectTime, "seconds.");
       }
     }
@@ -128,7 +128,7 @@ export class Socket {
       const c = JSON.parse(content);
       this.id = id; // Set the user identifier.
       // Send a self-connection message here. (You are connected as...)
-      if (logs.session) {
+      if (logs.socket) {
         console.log(
           `🧦 You joined: ${c.ip} id: ${c.id} 🤹 Connections open: ${c.playerCount}`,
         );
@@ -136,10 +136,12 @@ export class Socket {
       receive?.(id, type, c);
     } else if (type === "joined") {
       const c = JSON.parse(content);
-      if (logs.session) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
+      if (logs.socket) console.log(`🧦 ${c.text || c}`); // Someone else has connected as...
       receive?.(id, type, c);
     } else if (type === "vscode-extension:reload") {
-      sendToBIOS({
+      // TODO: This is only for `session` and not relevant to all WebSocket
+      //       connections like in `chat`.
+      sendToBIOS?.({
         type: "post-to-parent",
         content: { type: "vscode-extension:reload" },
       });
@@ -164,7 +166,7 @@ export class Socket {
         });
       }
     } else if (type === "left") {
-      if (logs.session)
+      if (logs.socket)
         console.log(`🧦 ${id} has left. Connections open: ${content.count}`);
       receive?.(id, type, content);
     } else {
