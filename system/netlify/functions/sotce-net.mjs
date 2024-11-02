@@ -1438,6 +1438,7 @@ export const handler = async (event, context) => {
           <!-- suppress asset preload warning 24.10.14.22.21 -->
           <img class="asset" src="${assetPath}cookie.png" />
           <script type="module">
+
             // 🗺️ Environment
             const dev = ${dev};
             const fromAesthetic =
@@ -1461,6 +1462,11 @@ export const handler = async (event, context) => {
             export const Desktop = !iOS && !Android && !MetaBrowser;
             export const Instagram = /(Instagram)/g.test(nav.userAgent);
             export const TikTok = /BytedanceWebview/i.test(nav.userAgent);
+
+            // Chat server.
+            import * as Chat from "/aesthetic.computer/lib/chat.mjs";
+
+            console.log("🗨️ Chat imported:", Chat);
 
             // 🌠 Initialization
 
