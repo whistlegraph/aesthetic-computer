@@ -132,12 +132,12 @@ alias ac-shell 'ac; ac-url; ac-tunnel; fish'
 alias ac-offline 'ac; cd system/public; npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
-alias ac-servers 'clear; ac; npm run -s servers; cd nanos; env nogreet=true fish'
+alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
 alias ac-tunnel 'ac; npm run tunnel; fish'
+alias ac-logger 'ac; cd system; npx netlify logs:function index'
 alias sotce-net 'ac; cd system; npx netlify logs:function sotce-net'
-
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
