@@ -4893,6 +4893,7 @@ async function makeFrame({ data: { type, content } }) {
       const end = soundTime + seconds;
 
       return {
+        startedAt: performance.now(),
         id,
         kill: function (fade) {
           sound.kills.push({ id, fade });

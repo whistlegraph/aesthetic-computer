@@ -273,16 +273,11 @@ class SoundProcessor extends AudioWorkletProcessor {
       // Apply reverb to the amplitude
       //const rL = this.#reverbLeft.processSample(output[0][s]);
       //const rR = this.#reverbRight.processSample(output[1][s]);
-      //output[0][s] = volume.apply(rL/*output[0][s]*/ / this.#mixDivisor);
-      //output[1][s] = volume.apply(rR/*output[1][s]*/ / this.#mixDivisor);
+      //output[0][s] = volume.apply(rL / this.#mixDivisor);
+      //output[1][s] = volume.apply(rR / this.#mixDivisor);
 
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
-
-      // if (abs(output[0][s]) > 0.99) output[0][s] = output[0][s] * 0.9;
-
       output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
-
-      // if (abs(output[1][s]) > 0.99) output[1][s] = output[1][s] * 0.9;
 
       // Track the current amplitude of both channels, and get waveform data.
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
