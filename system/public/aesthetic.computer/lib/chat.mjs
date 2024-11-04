@@ -118,7 +118,7 @@ export class Chat {
       undefined, // connectionCallback
       () => {
         // disconnectCallback
-        if (chat.log) console.log("💬🚫 Chat disconnected.");
+        if (logs.chat) console.log("💬🚫 Chat disconnected.");
         this.system.chatterCount = 0;
         this.system.connecting = true;
         this.system.disconnect?.();
