@@ -235,7 +235,7 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
-const edges = "zx;'"; // below and above the octave
+const edges = "zx;']"; // below and above the octave
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
@@ -248,7 +248,7 @@ const attack = 0.005; // 0.025;
 // const decay = 0.9999; // 0.9;
 const maxVolume = 0.95; // 0.9;
 // const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
-const killFade = 0.15;//0.05;
+const killFade = 0.15; //0.05;
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -367,7 +367,7 @@ function colorFromNote(note, num) {
   // const lightOctMod = (oct - 4) * 15;
   // const lightness = 50 + lightOctMod;
   // const color = num.hslToRgb(hue, saturation, lightness);
-  let color = notesToColorsFinal?.[oct + note]?.slice();// || "yellow";
+  let color = notesToColorsFinal?.[oct + note]?.slice(); // || "yellow";
 
   if (!color) {
     color = notesToColorsFinal[4 + note]?.slice() || [0, 255, 0];
@@ -704,12 +704,12 @@ function paint({
 
   if (!tap) {
     // Write all the active keys.
-    // ink("lime");
-    // write(
-    //   active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
-    //   6,
-    //   20,
-    // );
+    ink("lime");
+    write(
+      active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
+      6,
+      20,
+    );
   } else {
     ink("white");
     active.forEach((sound, index) => {
@@ -883,16 +883,16 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     upperOctaveShift -= 1;
   }
 
-  if (
-    e.is("keyboard:down:control") ||
-    (e.is("keyboard:down:capslock") && !e.repeat)
-  ) {
-    lowerOctaveShift += 1;
-  }
+  //  if (
+  //    e.is("keyboard:down:control") ||
+  //    (e.is("keyboard:down:capslock") && !e.repeat)
+  //  ) {
+  //    lowerOctaveShift += 1;
+  //  }
 
-  if (e.is("keyboard:down:shift") && !e.repeat) {
-    lowerOctaveShift -= 1;
-  }
+  // if (e.is("keyboard:down:shift") && !e.repeat) {
+  //   lowerOctaveShift -= 1;
+  // }
 
   if (e.is("keyboard:down:-")) paintTransposeOverlay = !paintTransposeOverlay;
   if (e.is("keyboard:down:\\")) projector = !projector;
@@ -1204,7 +1204,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   }
 
   // Individual Keyboard Notes
-  (octaves + notes + edges).split("").forEach((key) => {
+  [...(octaves + notes + edges).split(""), "control"].forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat && !buttons[key]?.down) {
       downs[key] = true;
 
@@ -1233,8 +1233,11 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         //   note += "f";
         // }
 
-        if ("ZX".includes(note)) {
+        if ("ZX".includes(note) || note === "CONTROL") {
           switch (note) {
+            case "CONTROL":
+              note = "-A";
+              break;
             case "Z":
               note = "-A#";
               break;
@@ -1244,13 +1247,18 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           }
         }
 
-        if (";'".includes(note)) {
+        // console.log(note);
+
+        if (";']".includes(note)) {
           switch (note) {
             case ";":
               note = "++C";
               break;
             case "'":
               note = "++C#";
+              break;
+            case "]":
+              note = "++D";
               break;
           }
         }
@@ -1473,24 +1481,30 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
         if (activeOctave !== octave) buttonNote = "+" + buttonNote;
 
-        if ("zx".includes(buttonNote)) {
+        if ("zx".includes(buttonNote) || buttonNote === "control") {
           switch (buttonNote) {
+            case "x":
+              buttonNote = "-b";
+              break;
             case "z":
               buttonNote = "-a#";
               break;
-            case "x":
-              buttonNote = "-b";
+            case "control":
+              buttonNote = "-a";
               break;
           }
         }
 
-        if (";'".includes(buttonNote)) {
+        if (";']".includes(buttonNote)) {
           switch (buttonNote) {
             case ";":
               buttonNote = "++c";
               break;
             case "'":
               buttonNote = "++c#";
+              break;
+            case "]":
+              buttonNote = "++d";
               break;
           }
         }
@@ -1508,12 +1522,17 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           console.log("Killing sound:", buttonNote);
 
           if (sounds[buttonNote].sound) {
-            const fade = max(0.175, min((performance.now() - sounds[buttonNote].sound.startedAt) / 1000, 0.45));
+            const fade = max(
+              0.175,
+              min(
+                (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
+                0.45,
+              ),
+            );
             console.log("🦋 Fade length:", fade);
             // killFade
             sounds[buttonNote]?.sound.kill(fade); // Kill a sound if it exists.
           }
-
         }
 
         if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
