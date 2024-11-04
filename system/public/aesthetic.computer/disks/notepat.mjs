@@ -243,10 +243,12 @@ const edges = "zx;'"; // below and above the octave
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
-const attack = 0.01; // 0.025;
+const attack = 0.005; // 0.025;
+// const attack = 0.005; // 0.025;
 // const decay = 0.9999; // 0.9;
 const maxVolume = 0.95; // 0.9;
-const killFade = 0.35; // TODO: Make this dynamic according to press time. 24.11.04.06.05
+// const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
+const killFade = 0.15;//0.05;
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -1504,7 +1506,14 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           sounds[orderedTones[orderedTones.length - 2]] = sounds[buttonNote];
         } else {
           console.log("Killing sound:", buttonNote);
-          sounds[buttonNote]?.sound?.kill?.(killFade); // Kill a sound if it exists.
+
+          if (sounds[buttonNote].sound) {
+            const fade = max(0.175, min((performance.now() - sounds[buttonNote].sound.startedAt) / 1000, 0.45));
+            console.log("🦋 Fade length:", fade);
+            // killFade
+            sounds[buttonNote]?.sound.kill(fade); // Kill a sound if it exists.
+          }
+
         }
 
         if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
