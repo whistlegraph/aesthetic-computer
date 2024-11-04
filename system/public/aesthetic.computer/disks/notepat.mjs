@@ -244,7 +244,9 @@ let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
 const attack = 0.01; // 0.025;
+// const decay = 0.9999; // 0.9;
 const maxVolume = 0.95; // 0.9;
+const killFade = 0.35; // TODO: Make this dynamic according to press time. 24.11.04.06.05
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -1058,6 +1060,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                   sound: synth({
                     type: wave,
                     attack,
+                    // decay,
                     tone,
                     duration: "🔁",
                     volume: maxVolume,
@@ -1095,7 +1098,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                 });
                 sounds[orderedTones[orderedTones.length - 2]] = sounds[note];
               } else {
-                sounds[note]?.sound.kill(0.25);
+                sounds[note]?.sound.kill(killFade);
               }
 
               // console.log("🪱 Trail:", note);
@@ -1171,6 +1174,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           type: wave,
           tone: octave + tone,
           attack,
+          // decay,
           // count: orderedByCount(sounds).length,
           duration: "🔁",
           volume: maxVolume,
@@ -1191,7 +1195,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         tapIndex = 0;
       }
 
-      sounds[tapped]?.kill(0.25);
+      sounds[tapped]?.kill(killFade);
       delete sounds[tapped];
       tapped = undefined;
     }
@@ -1371,6 +1375,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
             sound: synth({
               type: wave,
               attack,
+              // decay,
               tone,
               duration: "🔁",
               volume: maxVolume,
@@ -1499,7 +1504,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           sounds[orderedTones[orderedTones.length - 2]] = sounds[buttonNote];
         } else {
           console.log("Killing sound:", buttonNote);
-          sounds[buttonNote]?.sound?.kill?.(0.25); // Kill a sound if it exists.
+          sounds[buttonNote]?.sound?.kill?.(killFade); // Kill a sound if it exists.
         }
 
         if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
