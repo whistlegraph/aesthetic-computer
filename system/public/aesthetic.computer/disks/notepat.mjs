@@ -1225,7 +1225,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
         // 🎹 Keyboard -> 🎵 Note recognition.
         let note = key.toUpperCase();
 
-        console.log("🫐 Extended Note ?:", note);
+        // console.log("🫐 Extended Note ?:", note);
 
         // if (sharps && "CDFGA".includes(note)) {
         //   note += "#";
@@ -1519,7 +1519,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           });
           sounds[orderedTones[orderedTones.length - 2]] = sounds[buttonNote];
         } else {
-          console.log("Killing sound:", buttonNote);
+          // console.log("Killing sound:", buttonNote);
 
           if (sounds[buttonNote].sound) {
             const fade = max(
@@ -1529,7 +1529,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                 0.45,
               ),
             );
-            console.log("🦋 Fade length:", fade);
+            // console.log("🦋 Fade length:", fade);
             // killFade
             sounds[buttonNote]?.sound.kill(fade); // Kill a sound if it exists.
           }
