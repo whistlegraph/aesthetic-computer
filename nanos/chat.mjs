@@ -270,7 +270,7 @@ if (dev) {
           break;
         }
       } catch (error) {
-        console.log("🟠 Backend not yet available...", error);
+        console.log("🟠 Backend not yet available..." /*, error*/);
       }
       await new Promise((resolve) => setTimeout(resolve, 1000)); // retry every 1 second
     }

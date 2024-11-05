@@ -1438,7 +1438,6 @@ export const handler = async (event, context) => {
           <!-- suppress asset preload warning 24.10.14.22.21 -->
           <img class="asset" src="${assetPath}cookie.png" />
           <script type="module">
-
             // 🗺️ Environment
             const dev = ${dev};
             const fromAesthetic =
@@ -1464,9 +1463,12 @@ export const handler = async (event, context) => {
             export const TikTok = /BytedanceWebview/i.test(nav.userAgent);
 
             // Chat server.
-            import * as Chat from "/aesthetic.computer/lib/chat.mjs";
+            import { Chat } from "/aesthetic.computer/lib/chat.mjs";
 
-            console.log("🗨️ Chat imported:", Chat);
+            const chatClient = new Chat(dev);
+            chatClient.connect("sotce"); // Connect to 'sotce' chat.
+
+            // TODO: Connect to the local chat server...
 
             // 🌠 Initialization
 
@@ -1578,6 +1580,7 @@ export const handler = async (event, context) => {
 
             // #region 🥀 gate&garden
             async function gate(status, user, subscription) {
+              console.log("Opening gate:", status, user, subscription, gating);
               if (gating) return;
               gating = true;
               let message,
@@ -1612,7 +1615,7 @@ export const handler = async (event, context) => {
                 prompt.id = "prompt";
                 prompt.onclick = aesthetic;
                 prompt.innerHTML = "sotce-net";
-                g.appendChild(prompt);
+                curtain.appendChild(prompt);
               }
 
               function genSubscribeButton(type) {
@@ -1925,12 +1928,15 @@ export const handler = async (event, context) => {
                     "Your subscription ends on " + subscription.until + ".";
                   buttons.push(genSubscribeButton("resubscribe"));
                 }
-              }
 
-              if (status === "subscribed") {
                 curtain.classList.add("hidden");
                 if (GATE_WAS_UP) cookieWrapper.classList.add("interactive");
               }
+
+              // if (status === "subscribed") {
+              //   curtain.classList.add("hidden");
+              //   if (GATE_WAS_UP) cookieWrapper.classList.add("interactive");
+              // }
 
               cookieWrapper.addEventListener(
                 "click",
@@ -1971,10 +1977,12 @@ export const handler = async (event, context) => {
                   const checkObscurity = setInterval(() => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
+                      console.log("Checking for obscurity...");
                       clearInterval(checkObscurity);
                     }
                   }, 10);
                   wrapper.appendChild(curtain);
+                  console.log("Curtain appended!");
                   const email = document.getElementById("email");
                   if (email) {
                     email.onclick = (e) =>
@@ -3281,6 +3289,7 @@ export const handler = async (event, context) => {
                 console.log("🎇 New user is...", user);
               } catch (err) {
                 console.warn("Error retrieving uncached user:", err);
+                logout(); // Log the user out automatically.
               }
             }
 
@@ -3395,6 +3404,7 @@ export const handler = async (event, context) => {
               clearTimeout(spinnerTO);
               let page;
               if (spinner.classList.contains("showing")) {
+                console.log("Spinner is showing!");
                 //const render = await callback();
                 //page = render.page || render;
                 page = await callback();
@@ -3403,26 +3413,27 @@ export const handler = async (event, context) => {
                 //}
 
                 // if (render.waitFor)
-                spinner.classList.remove("showing");
                 //setTimeout(
                 //() => {
                 //})
-                spinner.addEventListener(
-                  "transitionend",
-                  () => {
-                    spinner.remove();
-                    page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
+                //spinner.addEventListener(
+                //  "transitionend",
+                spinner.classList.remove("showing");
 
-                    if (GATE_WAS_UP) {
-                      document
-                        .getElementById("gate-curtain")
-                        ?.classList.remove("hidden");
-                      document.body.classList.add("pages-hidden");
-                    }
-                  },
-                  //450,
-                  { once: true },
-                );
+                setTimeout(() => {
+                  spinner.remove();
+                  console.log("Unobscuring?", page);
+                  page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
+
+                  if (GATE_WAS_UP) {
+                    document
+                      .getElementById("gate-curtain")
+                      ?.classList.remove("hidden");
+                    document.body.classList.add("pages-hidden");
+                  }
+                }, 150);
+                //  { once: true },
+                //);
                 //  }, 700);
               } else {
                 page = await callback();
@@ -3440,6 +3451,7 @@ export const handler = async (event, context) => {
 
             if (!fullAlert) {
               if (!isAuthenticated) {
+                console.log("⚠️ Not authenticated...");
                 // Wait for a subscriber count. if we are logged out.
                 // console.log("Fetching subscribers...");
                 try {
@@ -3475,9 +3487,13 @@ export const handler = async (event, context) => {
                 if (!u?.sub || !user.email_verified)
                   await retrieveUncachedUser();
 
+                console.log("🟡 Are we here?", user);
+
                 if (!user.email_verified) {
                   await spinnerPass(async () => await gate("unverified", user));
                 } else {
+                  // The user's email is verified...
+
                   let entered = await subscribed();
                   let times = 0;
 

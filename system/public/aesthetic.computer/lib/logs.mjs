@@ -15,5 +15,5 @@ export const logs = {
   glaze: false,
   deps: false, // Dependency loading and injection.
   messaging: false, // Network related logs.
-  chat: false
+  chat: true
 };
