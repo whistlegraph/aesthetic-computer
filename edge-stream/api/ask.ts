@@ -52,14 +52,7 @@ export default async function handler(req) {
       // Defaults
       let temperature = 1;
       let top_p = 1; // Maximum: 1
-      let max_tokens = 64;
-
-      // Tweak for "code" based formal output.
-      if (hint.startsWith("code")) {
-        temperature = 0.4;
-        top_p = 1;
-        max_tokens = 256;
-      }
+      let max_tokens = 256;
 
       // Tweak for "character" dialogical output.
       if (hint.startsWith("character")) {
@@ -68,16 +61,13 @@ export default async function handler(req) {
         max_tokens = 256;
       }
 
+      // const model = hint.split(":")[1] || "gpt-3.5-turbo";
+      let model = hint.split(":")[1] || "gpt-4o-mini";
+
       // Tweak for language filtering...
       if (hint.startsWith("code")) {
-      }
-
-      // const model = hint.split(":")[1] || "gpt-3.5-turbo";
-      const model = hint.split(":")[1] || "gpt-4o-mini";
-
-      if (model === "gpt-4") {
-        top_p = 1;
-        max_tokens = 350;
+        model = "gpt-4o";
+        max_tokens = 512;
       }
 
       // Request streaming response
