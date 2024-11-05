@@ -27,8 +27,7 @@ but technically agnostic. (Choose your aesthetic!)
       - Pieces can load remotely off any `https://` url so applications can be
         distributed over a network.
       - 2D/3D Software renderer for spatial display of programs as planes
-      and
-        ease of accessing pixels while coding a piece and learning graphics.
+        and ease of accessing pixels while coding a piece and learning graphics.
       - 3D WebGL renderer for VR.
 
 😀 TODO 😆
@@ -37,6 +36,12 @@ but technically agnostic. (Choose your aesthetic!)
 
 *** `chat` instancing ***
  - [🟠] Make a new instance for `sotce-net` chat and fix a bunch of stuff for all chat.
+
+*** readme refresh ***
+ - [] Redesign the project README.
+   - [] Graveyard a lot of dead TODOS and instructions below.
+   - [] Make a new intro above.
+   - [] Move all TODOs other than like a 'current' task to a new TODO.txt.
 
 *** profiles ***
  - [] refer to profile roadmap below in this file for moving paintings
@@ -597,7 +602,7 @@ but technically agnostic. (Choose your aesthetic!)
   - [] dragging the corner label all the way to the right should always reveal a "share" prefix and then letting go will jump to `share x`.
 
 *** vscode extension ***
-- [] Fix weird auth things / loss of auth in the vscode extension?
+  - [] Fix weird auth things / loss of auth in the vscode extension?
 
 *** aspen demo ***
   - [] Screenshot needs to work / resize if necessary from a webgl / 3d view.

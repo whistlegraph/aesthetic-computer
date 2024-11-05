@@ -6,7 +6,8 @@
 /* #region 🏁 TODO 
   - [🟠] Add a basic client to `sotce-net`.
     - [🫐] Start with 'dev' / 'local' version.
-    - [] Write it as a totally separate UI layer that always connects.
+    - [🟠] Write it as a totally separate UI layer that always connects.
+      - [❄️] Import the chat module to `sotce-net`.
     - [] Have it on the loged out page grayed out, the logged in page opaque
           and scrollable, and the subscriber page interactable.
     - [] Messages should make a sound.
