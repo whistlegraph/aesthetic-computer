@@ -14,14 +14,11 @@
     "BucketName": "aesthetic-nanos",
     "InstanceProfile": "default"
   },
-  "Env": {
-    "RADAR_KEY": "88bce43b079f8185924aea2b5b501427f443fa3214dfec74d45607f"
-  },
   "Klibs": ["gcp", "tls"],
   "ManifestPassthrough": {
     "gcp": {
       "logging": {
-        "log_id": "aesthetic-chat-log"
+        "log_id": "aesthetic-chat-log-a"
       }
     }
   },

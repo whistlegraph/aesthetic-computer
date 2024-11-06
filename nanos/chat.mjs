@@ -4,6 +4,11 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
+
+  *** Logs ***
+  - [?] Does adding the radar key prevent gcp logs from running?
+    - [] Or maybe the log name / id needs to change each time?
+    - [🟤] Try adding the radar key back or... running a deployment again with the same log name...
   - [🟠] Add a basic client to `sotce-net`.
     - [🫐] Start with 'dev' / 'local' version.
     - [🟠] Write it as a totally separate UI layer that always connects.
