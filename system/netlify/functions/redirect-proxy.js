@@ -49,6 +49,7 @@ async function fun(event, context) {
             display: flex;
             width: 100vw;
             height: 100vh;
+            margin: 0;
           }
           h1 {
             font-family: sans-serif;
