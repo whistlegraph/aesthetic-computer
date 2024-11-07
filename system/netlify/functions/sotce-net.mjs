@@ -2,7 +2,8 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
-  - [-] Test and enable printing on iOS.
+  - [🧚] Integrate a pervasive user `chat` with preview on the `logged-out` page.
+  - [] Test and enable printing on iOS.
   - [] Add exporting of PNG images per pages.
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
@@ -17,7 +18,6 @@
   - [] Soft sine clicks and beeps.
   *** 📟 Page Feed ***
   - [] Add multi-user page feed. 
-
   *** 🛂 Page Controls ***
   - [] Automatic Dark Theme
   - [c] Patreon linkage.
@@ -1420,6 +1420,22 @@ export const handler = async (event, context) => {
               background: rgba(0, 0, 0, 0);
               pointer-events: none;
             }
+            #chat {
+              top: 0;
+              left: 0;
+              position: absolute;
+              z-index: 0; /* This may be wrong. 24.11.05.22.43 */
+              background: yellow;
+            }
+            #gate {
+              z-index: 2;
+            }
+            #garden {
+              z-index: 1;
+            }
+            #spinner {
+              z-index: 3;
+            }
           </style>
           ${dev ? reloadScript : ""}
           <script
@@ -1462,15 +1478,74 @@ export const handler = async (event, context) => {
             export const Instagram = /(Instagram)/g.test(nav.userAgent);
             export const TikTok = /BytedanceWebview/i.test(nav.userAgent);
 
-            // Chat server.
+            const wrapper = document.getElementById("wrapper");
+            let scrollMemory = wrapper.scrollTop; // Used to retrieve scroll across gate and garden.
+
+            // 🗨️ Chat
             import { Chat } from "/aesthetic.computer/lib/chat.mjs";
+            const chat = new Chat(dev);
+            chat.connect("sotce"); // Connect to 'sotce' chat.
 
-            const chatClient = new Chat(dev);
-            chatClient.connect("sotce"); // Connect to 'sotce' chat.
+            // 🪟 Interface
 
-            // TODO: Connect to the local chat server...
+            const chatInterface = cel("div");
+            // chatInterface.id = "chat";
+            // chatInterface.innerText = "Chat goes here...";
+            // chatInterface.classList.add('hidden');
+            // wrapper.appendChild(chatInterface);
 
-            // 🌠 Initialization
+            // 🤖 Respond to every chat message...
+            chat.system.receiver = (id, type, content) => {
+              console.log(
+                "🗨️ Received chat:",
+                "Connection ID:",
+                id,
+                "Type:",
+                type,
+                "Content:",
+                content,
+              );
+
+              if (type === "connected") {
+                // messagesNeedLayout = true;
+                return;
+              }
+
+              if (type === "too-long") {
+                // notice("TOO LONG", ["red", "yellow"]);
+                return;
+              }
+
+              if (type === "unauthorized") {
+                // notice("Unauthorized", ["red", "yellow"]);
+                return;
+              }
+
+              if (type === "message") {
+                const msg = content; // Pre-transformed and stored.
+                // messagesToAddToLayout.push(msg);
+                // sound.play(messageSfx);
+                return;
+              }
+
+              if (type === "handle:update" || type === "handle:strip") {
+                console.log("👱️‍ 'handle' edit received:", type, content);
+                // let layoutChanged;
+                chat.messages.forEach((message) => {
+                  if (message.sub === content.user) {
+                    message.from = content.handle;
+                    // layoutChanged = true;
+                  }
+                });
+                // if (layoutChanged) messagesNeedLayout = true;
+                console.log("👱 'handle' edit completed for:", content.handle);
+                return;
+              }
+
+              // console.log("🌠 Message received:", id, type, content);
+            };
+
+            // 🌠 Authorization & Interface
 
             // Enable ':active' class on iOS Safari.
             document.addEventListener("touchstart", function () {}, false);
@@ -1560,10 +1635,6 @@ export const handler = async (event, context) => {
             // Clean any url params if the first param is 'iss'.
             if (window.location.search.startsWith("?iss")) cleanUrlParams(url);
 
-            const wrapper = document.getElementById("wrapper");
-
-            let scrollMemory = wrapper.scrollTop; // Used to retrieve scroll across gate and garden.
-
             // Reload fading.
             window.addEventListener("beforeunload", (e) => {
               document.body.classList.add("reloading");
@@ -1580,7 +1651,6 @@ export const handler = async (event, context) => {
 
             // #region 🥀 gate&garden
             async function gate(status, user, subscription) {
-              console.log("Opening gate:", status, user, subscription, gating);
               if (gating) return;
               gating = true;
               let message,
@@ -1977,12 +2047,11 @@ export const handler = async (event, context) => {
                   const checkObscurity = setInterval(() => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
-                      console.log("Checking for obscurity...");
+                      chatInterface.classList.remove("hidden");
                       clearInterval(checkObscurity);
                     }
                   }, 10);
                   wrapper.appendChild(curtain);
-                  console.log("Curtain appended!");
                   const email = document.getElementById("email");
                   if (email) {
                     email.onclick = (e) =>
@@ -2742,27 +2811,6 @@ export const handler = async (event, context) => {
                     ear.classList.remove("hover");
                     ear.classList.add("active");
 
-                    //const noscroll = (e) => {
-                    //  const touch = e.touches[0];
-                    //  const elementUnderTouch = document.elementFromPoint(
-                    //    touch.clientX,
-                    //    touch.clientY,
-                    //  );
-                    //  if (elementUnderTouch !== ear) {
-                    //    leave();
-                    //  } else if (!ear.classList.contains("hover")) {
-                    //    ear.classList.add("hover");
-                    //    ear.addEventListener("pointerleave", leave, {
-                    //      once: true,
-                    //    });
-                    //  }
-                    //  e.preventDefault();
-                    //};
-
-                    //window.addEventListener("touchmove", noscroll, {
-                    //  passive: false,
-                    //});
-
                     window.addEventListener(
                       "pointerup",
                       (e) => {
@@ -3137,13 +3185,6 @@ export const handler = async (event, context) => {
                     ear.style.top = "calc(100% - " + roundedW + "px + 0.12em)";
                     ear.style.left = "calc(100% - " + roundedW + "px + 0.12em)";
                   });
-
-                  // Retain scroll level.
-                  // if (scrollRatio >= 1) {
-                  //   document.body.scrollTop =
-                  //     document.body.scrollHeight - document.body.clientHeight;
-                  //   console.log("🟠 Re-scroll to bottom!");
-                  // }
                 };
 
                 // Adjust width of '#top-bar' for scrollbar appearance.
@@ -3266,7 +3307,8 @@ export const handler = async (event, context) => {
 
                   g.classList.add("faded");
                   wrapper.appendChild(g);
-                  document.documentElement.classList.add("garden");
+                  if (!showGate)
+                    document.documentElement.classList.add("garden");
                   g.classList.remove("obscured");
                 };
               });
@@ -3284,12 +3326,34 @@ export const handler = async (event, context) => {
 
             async function retrieveUncachedUser() {
               try {
-                await auth0Client.getTokenSilently({ cacheMode: "off" });
-                user = await auth0Client.getUser();
-                console.log("🎇 New user is...", user);
+                if (!window.sotceUSER) {
+                  await auth0Client.getTokenSilently({ cacheMode: "off" });
+                  user = await auth0Client.getUser();
+                } else {
+                  try {
+                    const response = await fetch(
+                      "/user?from=" +
+                        encodeURIComponent(user.email) +
+                        "&tenant=sotce",
+                    );
+                    const u = await response.json();
+                    if (u.email_verified) {
+                      user.email_verified = u.email_verified;
+                    }
+                  } catch (err) {
+                    console.error("👨‍🦰 Error:", err);
+                  }
+                }
+                // console.log("🎇 New user is...", user);
               } catch (err) {
-                console.warn("Error retrieving uncached user:", err);
-                logout(); // Log the user out automatically.
+                console.warn(
+                  "Error retrieving uncached user:",
+                  err, //,
+                  //"Embedded:",
+                  //embedded,
+                );
+                // logout(); // Log the user out automatically, but only if
+                //              the token was stale?
               }
             }
 
@@ -3404,7 +3468,6 @@ export const handler = async (event, context) => {
               clearTimeout(spinnerTO);
               let page;
               if (spinner.classList.contains("showing")) {
-                console.log("Spinner is showing!");
                 //const render = await callback();
                 //page = render.page || render;
                 page = await callback();
@@ -3422,7 +3485,6 @@ export const handler = async (event, context) => {
 
                 setTimeout(() => {
                   spinner.remove();
-                  console.log("Unobscuring?", page);
                   page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
 
                   if (GATE_WAS_UP) {
@@ -3451,7 +3513,7 @@ export const handler = async (event, context) => {
 
             if (!fullAlert) {
               if (!isAuthenticated) {
-                console.log("⚠️ Not authenticated...");
+                // console.log("⚠️ Not authenticated...");
                 // Wait for a subscriber count. if we are logged out.
                 // console.log("Fetching subscribers...");
                 try {
@@ -3487,7 +3549,7 @@ export const handler = async (event, context) => {
                 if (!u?.sub || !user.email_verified)
                   await retrieveUncachedUser();
 
-                console.log("🟡 Are we here?", user);
+                //console.log("🟡 Are we here?", user);
 
                 if (!user.email_verified) {
                   await spinnerPass(async () => await gate("unverified", user));
