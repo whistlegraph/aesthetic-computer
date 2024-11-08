@@ -5,6 +5,7 @@ import * as Loop from "./lib/loop.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
+import { Gamepad } from "./lib/gamepad.mjs";
 import { startCapturingMotion, stopCapturingMotion } from "./lib/motion.mjs";
 import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
@@ -67,6 +68,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let pen,
     keyboard,
+    gamepad,
     keyboardFocusLock = false,
     keyboardSoftLock = false;
   let handData; // Hand-tracking.
@@ -1345,6 +1347,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
           keyboard: keyboard.events,
+          gamepad: gamepad.events,
           // clipboardText: pastedText,
         },
       },
@@ -1375,8 +1378,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     pen.events.length = 0;
     if (ThreeD?.penEvents) ThreeD.penEvents.length = 0;
 
-    // Clear keyboard events.
+    // Clear keyboard and gamepad events.
     keyboard.events.length = 0;
+    gamepad.events.length = 0;
   }
 
   let frameCached = false;
@@ -2278,6 +2282,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
       }
 
+      // 🎮 Gamepad
+      gamepad = new Gamepad();
+
       // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
       window.addEventListener("beforeunload", (e) => {
         send({ type: "before-unload" });
@@ -2477,11 +2484,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       glaze.on = false;
       canvas.style.removeProperty("opacity");
 
-      // Clear pen events.
-      pen.events.length = 0;
-
-      // Clear keyboard events.
-      keyboard.events.length = 0;
+      pen.events.length = 0; // Clear pen events.
+      keyboard.events.length = 0; // Clear keyboard events.
+      gamepad.events.length = 0; // Clear gamepad events.
 
       // Clear when events.
       whens = {};
