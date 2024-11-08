@@ -10,8 +10,7 @@ uniform vec2 res; // Set this to the actual resolution: (width, height)
 
 void main() {
   // Convert from screen coordinates to clip space
-  vec2 alteredPos = pos + 0.5;
-  vec2 zeroToOne = alteredPos / res; // Normalize position by resolution
+  vec2 zeroToOne = pos / res; // Normalize position by resolution
   vec2 zeroToTwo = zeroToOne * 2.0; // Scale up to range [0, 2]
   vec2 clipSpace = zeroToTwo - 1.0; // Translate to range [-1, 1]
 
