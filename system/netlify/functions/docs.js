@@ -166,9 +166,41 @@ export async function handler(event, context) {
       // 🖌️ Graphics
       graphics: {
         "abstract.bresenham": {
-          sig: "",
-          desc: "",
-          done: false,
+          sig: "bresenham(x0, y0, x1, y1)",
+          desc: "Returns an array of integer points that make up an aliased line from (x0,y0) to (x1,y1). This function is abstract and does not render anything.",
+          done: true,
+        },
+        line: {
+          sig: "line(x0, y0, x1, y1) or line({x0, y0, x1, y1}) or line(p1, p2)",
+          desc: "Draw a 1-pixel wide line. Can take 4 coordinates, an object with coordinates, or two points.",
+          done: true,
+        },
+        point: {
+          sig: "point(...args) or point({x, y})",
+          desc: "Plot a single pixel within the panned coordinate space. Takes x,y coordinates or a point object.",
+          done: true,
+        },
+        box: {
+          sig: "box(x, y, w, h, mode)",
+          desc: "Draw a box with optional modes: 'fill' (default), 'outline', 'inline'. Add '*center' to draw from center. Use ':N' for thickness.",
+          body: boxBody,
+          done: true,
+        },
+        wipe: {
+          sig: "wipe(color)",
+          desc: "Clear the screen with a solid color. Color can be a single number (0-255 for grayscale) or an array [r,g,b,a].",
+          done: true,
+        },
+        ink: {
+          sig: "ink(color)",
+          desc: "Set the current drawing color. Color can be a single number (0-255 for grayscale) or an array [r,g,b,a].",
+          done: true,
+        },
+
+        circle: {
+          sig: "circle(x, y, radius)",
+          desc: "Draw a filled circle centered at (x,y) with the specified radius using the current ink color.",
+          done: true,
         },
         layer: {
           sig: "",
@@ -210,16 +242,6 @@ export async function handler(event, context) {
           desc: "",
           done: false,
         },
-        wipe: {
-          sig: "wipe(color)",
-          desc: "Paint all pixels the same `color`.",
-          done: false,
-        },
-        ink: {
-          sig: "ink(color)",
-          desc: "Select a `color` for painting with.",
-          done: false,
-        },
         copy: {
           sig: "",
           desc: "",
@@ -245,19 +267,9 @@ export async function handler(event, context) {
           desc: "",
           done: false,
         },
-        point: {
-          sig: "",
-          desc: "",
-          done: false,
-        },
         flood: {
           sig: "",
           desc: "",
-          done: false,
-        },
-        line: {
-          sig: "line(x1, y1, x2, y2)",
-          desc: "Paint straight a 1px line from two points.",
           done: false,
         },
         lineAngle: {
@@ -280,20 +292,9 @@ export async function handler(event, context) {
           desc: "",
           done: false,
         },
-        circle: {
-          sig: "circle(x, y, radius)",
-          desc: "Paint a circle.",
-          done: false,
-        },
         poly: {
           sig: "",
           desc: "",
-          done: false,
-        },
-        box: {
-          sig: "box(x, y, w, h)",
-          desc: "Paint a box of a given size.",
-          body: boxBody,
           done: false,
         },
         shape: {
