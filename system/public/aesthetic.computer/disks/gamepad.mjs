@@ -2,6 +2,7 @@
 // Test your gamepad connectivity.
 
 /* 📝 Notes
+  - [x] Add user-controlled panning of the surface.
   - [x] Process all the pixels in the `picture`.
   - [x] Add prototype destructive pan and zoom.
 */
