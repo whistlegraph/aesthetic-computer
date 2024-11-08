@@ -53,7 +53,7 @@ alias js 'vim (find . -name "*.js" -o -name "*.mjs" | sk -m -n !node_modules)'
 alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 
 # shortcuts for projects
-alias ac 'cd ~/aesthetic-computer'
+alias ac 'cd ~/aesthetic-computer; and git pull'
 
 alias ac-ssl '~/aesthetic-computer/ssl-dev/fedora-install.fish'
 
