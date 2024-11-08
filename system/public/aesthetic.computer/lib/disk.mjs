@@ -5221,6 +5221,20 @@ async function makeFrame({ data: { type, content } }) {
         }
       });
 
+      // Ingest all gamepad input events by running act for each event.
+      content.gamepad?.forEach((data) => {
+        Object.assign(data, {
+          device: "gamepad",
+          is: (e) => data.name.indexOf(e) === 0,
+        });
+        $api.event = data;
+        try {
+          act($api); // Execute piece shortcut.
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
+      });
+
       // *** Act Alerts *** (Custom events defined in here.)
       // These do not run in the initial loader / preview piece.
       actAlerts.forEach((name) => {
