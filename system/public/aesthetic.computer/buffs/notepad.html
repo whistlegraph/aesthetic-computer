@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Notepad</title>
+  <style>
+    body { 
+      background: black;
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as renderer2d from '/aesthetic.computer/lib/2d.mjs';
+
+    const audioContext = new AudioContext();
+    
+    // Using same frequencies as music.mjs
+    let isHighTick = true;
+    const noteFrequencies = {
+      c: 261.63,
+      d: 293.66,
+      e: 329.63,
+      f: 349.23,
+      g: 369.99,
+      a: 440.1,
+      b: 493.88
+    };
+
+    function playBlock() {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(isHighTick ? 2000 : 1500, audioContext.currentTime);
+      isHighTick = !isHighTick;
+      
+      gain.gain.setValueAtTime(1, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.1);
+    }
+
+    const activeNotes = {};
+
+    // Initialize WebGL renderer
+    await renderer2d.initialize(document.body);
+    
+    // Set canvas size
+    const resize = () => {
+      renderer2d.frame(
+        window.innerWidth,
+        window.innerHeight,
+        document.body
+      );
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Track active keys for rendering
+    const activeKeys = new Set();
+
+    function playNote(note) {
+      if (activeNotes[note]) return; // Note already playing
+
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(noteFrequencies[note], audioContext.currentTime);
+      
+      gain.gain.setValueAtTime(0, audioContext.currentTime);
+      gain.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.1); // Attack
+
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start();
+      
+      activeKeys.add(note);
+      activeNotes[note] = { oscillator: osc, gain };
+    }
+
+    function stopNote(note) {
+      if (!activeNotes[note]) return;
+
+      const { gain } = activeNotes[note];
+      gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1); // Decay
+      
+      activeKeys.delete(note);
+
+      setTimeout(() => {
+        if (activeNotes[note]) {
+          activeNotes[note].oscillator.stop();
+          delete activeNotes[note];
+        }
+      }, 100);
+    }
+
+    // Render loop
+    function render() {
+      // Clear screen
+      renderer2d.pack({
+        code: [
+          ['wipe', 1, 0, 0, 1]
+        ]
+      });
+
+      // Draw keys
+      const keyWidth = 60;
+      const keyHeight = 60;
+      const spacing = 10;
+      const totalWidth = Object.keys(noteFrequencies).length * (keyWidth + spacing) - spacing;
+      const startX = (window.innerWidth - totalWidth) / 2;
+      const y = (window.innerHeight - keyHeight) / 2;
+
+      // Draw keys
+      Object.keys(noteFrequencies).forEach((note, i) => {
+        const x = startX + i * (keyWidth + spacing);
+        const isActive = activeKeys.has(note);
+        
+        // Draw key rectangle using lines
+        const commands = [
+          ['ink', 255, 0, 0, 255],
+          // Draw rectangle outline
+          ['line', x, y, x + keyWidth, y],
+          ['line', x + keyWidth, y, x + keyWidth, y + keyHeight],
+          ['line', x + keyWidth, y + keyHeight, x, y + keyHeight],
+          ['line', x, y + keyHeight, x, y]
+        ];
+        
+        renderer2d.pack({ code: commands });
+      });
+
+      Object.keys(noteFrequencies).forEach((note, i) => {
+        const x = startX + i * (keyWidth + spacing);
+        const isActive = activeKeys.has(note);
+        
+        // Draw key rectangle using lines
+        const colors = [
+          [255, 0, 0],    // C - Red
+          [255, 127, 0],  // D - Orange
+          [255, 255, 0],  // E - Yellow
+          [0, 255, 0],    // F - Green
+          [0, 0, 255],    // G - Blue
+          [75, 0, 130],   // A - Indigo
+          [148, 0, 211]   // B - Violet
+        ];
+        const color = colors[i];
+        const commands = [
+          ['ink', isActive ? color[0]/3 : color[0], isActive ? color[1]/3 : color[1], isActive ? color[2]/3 : color[2], 255],
+          // Draw rectangle outline
+          ['line', x, y, x + keyWidth, y],
+          ['line', x + keyWidth, y, x + keyWidth, y + keyHeight],
+          ['line', x + keyWidth, y + keyHeight, x, y + keyHeight],
+          ['line', x, y + keyHeight, x, y],
+          // Draw note letter
+          ['ink', isActive ? 68 : 255, isActive ? 68 : 255, isActive ? 68 : 255, 255],
+          ['text', x + keyWidth/2 - 5, y + keyHeight/2 - 10, note.toUpperCase()]
+        ];
+        
+        renderer2d.pack({ code: commands });
+      });
+
+      renderer2d.render();
+      requestAnimationFrame(render);
+    }
+    
+    render();
+
+    document.addEventListener('keydown', (e) => {
+      const note = e.key.toLowerCase();
+      if (e.code === 'Space') {
+        playBlock();
+      } else if (noteFrequencies[note]) {
+        playNote(note);
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      const note = e.key.toLowerCase();
+      if (noteFrequencies[note]) {
+        stopNote(note);
+      }
+    });
+  </script>
+</body>
+</html>

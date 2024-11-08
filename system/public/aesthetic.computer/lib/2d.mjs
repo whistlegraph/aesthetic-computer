@@ -4,10 +4,11 @@
 
 import { createShader, createProgram, preloadShaders } from "./gl.mjs";
 import * as vec2 from "../dep/gl-matrix/vec2.mjs";
+import { font1 } from "../disks/common/fonts.mjs";
 
 // let send; // Send messages pack to aeshetic.computer.
 let gl;
-let packed;
+let packed = [];
 let shaders;
 
 // Starts the renderer.
@@ -98,7 +99,6 @@ let ink2 = null; // Secondary color.
 // Packs a frame with data.
 // (Interpreting a list of paint commands from a piece, per render frame.)
 function pack(content) {
-  packed = [];
   content.code.forEach((statement) => {
     const name = statement[0];
     const params = statement.slice(1);
@@ -114,12 +114,6 @@ function pack(content) {
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
-      // Extend p1, and p2 by a small factor in the direction of the line
-      const direction = vec2.subtract(vec2.create(), p2, p1);
-      const normalizedDirection = vec2.normalize(vec2.create(), direction);
-      const extension = 0.5; // Extension factor. 
-      vec2.scaleAndAdd(p2, p2, normalizedDirection, extension);
-      vec2.scaleAndAdd(p1, p1, normalizedDirection, -extension);
       packed.push({
         line: new Float32Array([...p1, ...ink, ...p2, ...(ink2 || ink)]),
       });
@@ -129,6 +123,18 @@ function pack(content) {
       packed.push({
         point: new Float32Array([...p, ...ink]),
       });
+    } else if (name === "text") {
+      const [x, y, text] = params;
+      // Draw text using lines
+      const size = 20; // Text size
+      const width = size * 0.6; // Character width
+      text
+        .toString()
+        .split("")
+        .forEach((char, i) => {
+          const cx = x + i * width;
+        });
+        // TODO: Map the character data in the glyph json.
     }
   });
 }
@@ -143,6 +149,7 @@ function render() {
   gl.bindVertexArray(line.other.vao);
 
   packed.forEach((pack) => {
+    console.log(pack);
     if (pack.wipe) {
       gl.clearColor(...pack.wipe);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -156,7 +163,7 @@ function render() {
       gl.uniform2f(line.uniforms.res, gl.canvas.width, gl.canvas.height);
       const primitiveType = pack.line ? gl.LINES : gl.POINTS;
       const offset = 0;
-      const count = pack.line ? pack.line.length / 6 : pack.point.length / 6;
+      const count = primitive.length / 6;
       gl.drawArrays(primitiveType, offset, count);
     }
 
@@ -170,7 +177,7 @@ function render() {
     // ...
   });
 
-  packed = null;
+  packed.length = 0;
 }
 
 // Resizes the textures & re-initializes the necessary components for a
