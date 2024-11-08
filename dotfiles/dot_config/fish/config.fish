@@ -36,8 +36,6 @@ alias paper 'gnome-extensions prefs paperwm@paperwm.github.com'
 # open a file with emacs in the tui
 alias edit 'fzf | read -l file; and test -n "$file"; and emacs -nw $file'
 
-# get the ip address on macos
-alias ip 'ipconfig getifaddr en0'
 alias wgeth 'echo 0x238c9c645c6EE83d4323A2449C706940321a0cBf'
 
 # shortcuts for editing dot files
