@@ -29,10 +29,12 @@ export async function handler(event, context) {
       const handlesCollection = database.db.collection("@handles");
       //const allHandles = await handlesCollection.countDocuments();
 
+      const handles = await handlesCollection.countDocuments();
+
       // aesthetic-computer
-      const handles = await handlesCollection.countDocuments({
-        _id: { $not: { $regex: "^sotce-" } },
-      });
+      // const handles = await handlesCollection.countDocuments({
+      //   _id: { $not: { $regex: "^sotce-" } },
+      // });
 
       // sotce-net
       const sotceHandles = await handlesCollection.countDocuments({
