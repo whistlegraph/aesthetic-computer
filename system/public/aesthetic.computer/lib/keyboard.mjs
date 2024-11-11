@@ -71,6 +71,9 @@ export class Keyboard {
       });
 
       if (e.key === "ArrowUp" || e.key === "Tab") e.preventDefault();
+
+      // Prevent Alt-E chrome shortcut.
+      if (e.altKey && (e.key.toLowerCase() === "e" || e.key.toLowerCase() === "f" || e.key.toLowerCase() === "d")) e.preventDefault();
     });
 
     window.addEventListener("keyup", (e) => {
