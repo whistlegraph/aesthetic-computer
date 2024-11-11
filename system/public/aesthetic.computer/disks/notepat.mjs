@@ -250,6 +250,10 @@ const maxVolume = 0.95; // 0.9;
 // const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
 const killFade = 0.15; //0.05;
 
+
+let perc; // A one frame percussion flash color.
+
+
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
 // ^ ^ ^^ ^ ^ ^| ^ ^ ^^ ^ ^
@@ -396,7 +400,7 @@ const octaveTheme = [
 
 const { abs, round, floor, ceil, min, max } = Math;
 
-let scope = 6;
+let scope = 12;
 // let scopeTrim = 0;
 
 let projector = false;
@@ -547,6 +551,14 @@ function paint({
 
   if (!tap) {
     bg = active.length > 0 ? [50, 50, 255] : "blue";
+
+
+    if (perc) {
+      bg = perc;
+      perc = null;
+    }
+
+
   } else {
     bg = active.length > 0 ? [0, 0, 180] : "darkblue";
   }
@@ -906,6 +918,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   // scopeTrim += 1;
   // }
 
+  /*
   if (e.is("keyboard:down:arrowdown")) {
     scope -= 1;
     if (scope < 0) scope = 0;
@@ -917,6 +930,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
       scope = speaker.waveforms.left.length;
     }
   }
+  */
 
   if (tap) {
     // if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
@@ -927,6 +941,184 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     // if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
     // if (e.is("keyboard:up:alt")) flats = false;
   }
+
+  const pc = "maroon";
+
+  if (!tap) {
+    if (e.is("keyboard:down:space") && !e.repeat) {
+      perc = pc;//"cyan";
+      synth({
+        type: "sawtooth",
+        tone: 2000, //melody[melodyIndex],
+        duration: 0.0025,
+        volume: 0.9, //0.35 * 1.5,
+        // pan: odd ? -0.75 : 0.75, // Should I pan left or right on every other beat?
+      });
+
+      synth({
+        type: "square",
+        tone: 2000 / 4, //melody[melodyIndex] / 4,
+        duration: 0.005,
+        volume: 0.5, //0.15 * 2,
+        decay: 0.999,
+        // pan: odd ? -0.8 : 0.8, // Should I pan left or right on every other beat?
+      });
+    }
+  }
+
+  // if (e.is("keyboard:down:alt")) {
+    // console.log("ALT", e.code, e.repeat);
+  // }
+
+  if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltLeft") {
+    perc = pc;//"cyan";
+    synth({
+      type: "sawtooth",
+      tone: 3000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 3000 / 4, //melody[melodyIndex] / 4,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+
+  if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltRight") {
+    perc = pc;//"cyan";
+    synth({
+      type: "sawtooth",
+      tone: 4000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 4000 / 4,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+
+
+  if (e.is("keyboard:down:arrowleft") && !e.repeat) {
+    perc = "brown";
+    synth({
+      type: "sawtooth",
+      tone: 5000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 5000 / 4,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+
+
+  if (e.is("keyboard:down:arrowdown") && !e.repeat) {
+    perc = "pink";
+    synth({
+      type: "sawtooth",
+      tone: 6000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 6000 / 4,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+
+
+  if (e.is("keyboard:down:arrowright") && !e.repeat) {
+    perc = "orange";
+    synth({
+      type: "sawtooth",
+      tone: 7000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 7000 / 4,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+
+
+  if (e.is("keyboard:down:arrowup") && !e.repeat) {
+    perc = "cyan";
+    synth({
+      type: "sawtooth",
+      tone: 8000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 8000 / 4,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+
+
+
+  /*
+  if (e.is("touch") && e.button === 1) {
+    synth({
+      type: "sawtooth",
+      tone: 1000, //melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.9, //0.35 * 1.5,
+    });
+
+    synth({
+      type: "square",
+      tone: 1000 / 3,
+      duration: 0.005,
+      volume: 0.5, //0.15 * 2,
+      decay: 0.999,
+    });
+  }
+  */
+
+  //if (e.is("keyboard:down:arrowdown") && !e.repeat) {
+  //  synth({
+  //    type: "sawtooth",
+  //    tone: 1000, //melody[melodyIndex],
+  //    duration: 0.0025,
+  //    volume: 0.9, //0.35 * 1.5,
+  //  });
+
+  //  synth({
+  //    type: "square",
+  //    tone: 1000 / 4,
+  //    duration: 0.005,
+  //    volume: 0.5, //0.15 * 2,
+  //    decay: 0.999,
+  //  });
+  //}
 
   /*
   if (!tap) {
