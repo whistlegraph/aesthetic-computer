@@ -6,7 +6,7 @@ import { MetaBrowser } from "./platform.mjs";
 
 export class Keyboard {
   events = [];
-  #lastKeyDown;
+  #lastKeyCodeDown;
   input;
   focusHandler;
   #held = new Set();
@@ -19,8 +19,8 @@ export class Keyboard {
       this.#held.add(e.key);
       // Firefox "repeat" seems to be broken on linux, so here is
       // some redundancy. 22.07.29.17.43
-      const repeat = e.key === this.#lastKeyDown;
-      this.#lastKeyDown = e.key;
+      const repeat = e.code === this.#lastKeyCodeDown;
+      this.#lastKeyCodeDown = e.code;
 
       // Send a parent message to defocus the ac extension.
       if (e.key === "a" && e.ctrlKey && e.altKey) {
@@ -63,6 +63,7 @@ export class Keyboard {
       this.events.push({
         name: "keyboard:down:" + parseKey(key),
         key,
+        code: e.code,
         repeat: e.repeat || repeat,
         shift: e.shiftKey,
         alt: e.altKey,
@@ -78,7 +79,7 @@ export class Keyboard {
         name: "keyboard:up:" + parseKey(e.key),
         key: e.key,
       });
-      this.#lastKeyDown = null;
+      this.#lastKeyCodeDown = null;
     });
 
     document.addEventListener("visibilitychange", () => {
