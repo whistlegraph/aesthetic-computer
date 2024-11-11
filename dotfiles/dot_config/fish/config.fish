@@ -81,7 +81,7 @@ function acd
     # exit
 end
 
-alias start 'ac; ac-ssl; acd'
+alias start 'ac-ssl; acd'
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 alias platform 'cd ~/aesthetic-computer; npm run platform'
