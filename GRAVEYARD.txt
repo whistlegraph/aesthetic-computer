@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** 📧 Aesthetic Inc. Announcement Email ***
+  - [x] Draft and send `Aesthetic Inc.` announcement to supporters and friends.
+  - [x] Send quick message to all `booted-by` patrons asking to meet.
+
 *** sotce.net ***
   - [🟢] Finish sotce-net rc1
 

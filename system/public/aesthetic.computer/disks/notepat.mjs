@@ -250,9 +250,7 @@ const maxVolume = 0.95; // 0.9;
 // const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
 const killFade = 0.15; //0.05;
 
-
 let perc; // A one frame percussion flash color.
-
 
 //             |
 // CVDSEFWGRAQB|QARGWFESDVC
@@ -552,13 +550,10 @@ function paint({
   if (!tap) {
     bg = active.length > 0 ? [50, 50, 255] : "blue";
 
-
     if (perc) {
       bg = perc;
       perc = null;
     }
-
-
   } else {
     bg = active.length > 0 ? [0, 0, 180] : "darkblue";
   }
@@ -942,243 +937,61 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
     // if (e.is("keyboard:up:alt")) flats = false;
   }
 
+  // TODO: This (makePerc) can be factored out of the event loop. 24.11.12.02.10
   const pc = "maroon";
+  const lowvol = 0.95;
+  const hivol = 1;
+  const makePerc = (hz) => {
+
+    synth({ type: "triangle", tone: hz / 2, duration: 0.01, attack: 0, volume: hivol / 2 });
+
+    synth({ type: "sawtooth", tone: hz, duration: 0.0025, volume: hivol });
+
+    synth({
+      type: "square",
+      tone: hz / 4,
+      duration: 0.005,
+      volume: lowvol,
+      decay: 0.999,
+    });
+  };
 
   if (!tap) {
     if (e.is("keyboard:down:space") && !e.repeat) {
-      perc = pc;//"cyan";
-      synth({
-        type: "sawtooth",
-        tone: 2000, //melody[melodyIndex],
-        duration: 0.0025,
-        volume: 0.9, //0.35 * 1.5,
-        // pan: odd ? -0.75 : 0.75, // Should I pan left or right on every other beat?
-      });
-
-      synth({
-        type: "square",
-        tone: 2000 / 4, //melody[melodyIndex] / 4,
-        duration: 0.005,
-        volume: 0.5, //0.15 * 2,
-        decay: 0.999,
-        // pan: odd ? -0.8 : 0.8, // Should I pan left or right on every other beat?
-      });
+      perc = pc; //"cyan";
+      makePerc(2000);
     }
   }
 
-  // if (e.is("keyboard:down:alt")) {
-    // console.log("ALT", e.code, e.repeat);
-  // }
-
   if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltLeft") {
-    perc = pc;//"cyan";
-    synth({
-      type: "sawtooth",
-      tone: 3000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 3000 / 4, //melody[melodyIndex] / 4,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
+    perc = pc; //"cyan";
+    makePerc(3000);
   }
 
   if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltRight") {
-    perc = pc;//"cyan";
-    synth({
-      type: "sawtooth",
-      tone: 4000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 4000 / 4,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
+    perc = pc; //"cyan";
+    makePerc(4000);
   }
-
 
   if (e.is("keyboard:down:arrowleft") && !e.repeat) {
     perc = "brown";
-    synth({
-      type: "sawtooth",
-      tone: 5000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 5000 / 4,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
+    makePerc(5000);
   }
-
 
   if (e.is("keyboard:down:arrowdown") && !e.repeat) {
     perc = "pink";
-    synth({
-      type: "sawtooth",
-      tone: 6000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 6000 / 4,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
+    makePerc(6000);
   }
-
 
   if (e.is("keyboard:down:arrowright") && !e.repeat) {
     perc = "orange";
-    synth({
-      type: "sawtooth",
-      tone: 7000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 7000 / 4,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
+    makePerc(7000);
   }
-
 
   if (e.is("keyboard:down:arrowup") && !e.repeat) {
     perc = "cyan";
-    synth({
-      type: "sawtooth",
-      tone: 8000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 8000 / 4,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
+    makePerc(8000);
   }
-
-
-
-  /*
-  if (e.is("touch") && e.button === 1) {
-    synth({
-      type: "sawtooth",
-      tone: 1000, //melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.9, //0.35 * 1.5,
-    });
-
-    synth({
-      type: "square",
-      tone: 1000 / 3,
-      duration: 0.005,
-      volume: 0.5, //0.15 * 2,
-      decay: 0.999,
-    });
-  }
-  */
-
-  //if (e.is("keyboard:down:arrowdown") && !e.repeat) {
-  //  synth({
-  //    type: "sawtooth",
-  //    tone: 1000, //melody[melodyIndex],
-  //    duration: 0.0025,
-  //    volume: 0.9, //0.35 * 1.5,
-  //  });
-
-  //  synth({
-  //    type: "square",
-  //    tone: 1000 / 4,
-  //    duration: 0.005,
-  //    volume: 0.5, //0.15 * 2,
-  //    decay: 0.999,
-  //  });
-  //}
-
-  /*
-  if (!tap) {
-    if (e.is("keyboard:down:space")) {
-      synth({
-        type: "square",
-        tone: 80,
-        attack: 0.001,
-        duration: 0.15,
-      });
-
-      synth({
-        type: "square",
-        tone: 100,
-        attack: 0.001,
-        duration: 0.15,
-      });
-
-      synth({
-        type: "triangle",
-        tone: 150,
-        attack: 0.001,
-        duration: 0.1,
-      });
-
-      synth({
-        type: "sine",
-        tone: 300,
-        attack: 0.001,
-        duration: 0.5,
-      });
-    }
-    if (e.is("keyboard:down:control") || e.is("keyboard:down:capslock")) {
-      synth({
-        type: "noise-white",
-        duration: 0.1,
-      });
-    }
-    if (e.is("keyboard:down:shift")) {
-      synth({
-        type: "square",
-        tone: 300,
-        duration: 0.04,
-        decay: 0.98,
-      });
-      synth({
-        type: "triangle",
-        tone: 350,
-        duration: 0.14,
-        decay: 0.98,
-      });
-      synth({
-        type: "sine",
-        tone: 300,
-        duration: 0.14,
-        decay: 0.98,
-      });
-    }
-  }
-  */
 
   if (!tap) {
     if (e.is("lift") && pens().length <= 1) anyDown = false;
