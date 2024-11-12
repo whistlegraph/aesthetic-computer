@@ -214,6 +214,8 @@ export const handler = async (event, context) => {
     }
   }
 
+  const MAX_LINES = 19;
+
   // 🏠 Home
   if (path === "/" && method === "get") {
     const miniBreakpoint = 245;
@@ -240,8 +242,14 @@ export const handler = async (event, context) => {
             name="viewport"
             content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
           />
-          <link
+          <!--<link
             href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=block"
+            rel="stylesheet"
+          />-->
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
             rel="stylesheet"
           />
           <style>
@@ -260,6 +268,9 @@ export const handler = async (event, context) => {
               /* --font-page: serif; */
               --editor-placemat-background: rgba(255, 255, 255, 0.5);
               --editor-placemat-background-opaque: rgb(255, 255, 255);
+              /* --page-font: "EB Garamond"; */
+              --page-font: "Inter";
+              --max-lines: ${MAX_LINES};
             }
 
             @supports (-webkit-touch-callout: none) and
@@ -280,8 +291,8 @@ export const handler = async (event, context) => {
             /* Preload EB Garamond. */
             html::after {
               content: " ";
-              font-family: "EB Garamond", serif;
-              font-weight: 400;
+              font-family: var(--page-font);//"EB Garamond", serif;
+              /* font-weight: 400; */
               font-style: normal;
               visibility: hidden;
               position: absolute;
@@ -382,7 +393,7 @@ export const handler = async (event, context) => {
             #print-page article.page,
             #garden #editor textarea,
             #garden .page-wrapper .backpage {
-              font-family: "EB Garamond", serif;
+              font-family: var(--page-font), serif;
               font-optical-sizing: auto;
               font-style: normal;
               letter-spacing: 0;
@@ -391,7 +402,8 @@ export const handler = async (event, context) => {
             #editor-page,
             #print-page article.page,
             #garden article.page {
-              font-size: calc(3.25px * 8);
+              /* font-size: calc(3.25px * 8); */ /* Garamond */
+              font-size: calc(2.97px * 8);
             }
 
             /* body.noscroll { */
@@ -854,7 +866,7 @@ export const handler = async (event, context) => {
               text-align: justify;
               line-height: var(--line-height);
               margin-top: 15%;
-              max-height: calc(var(--line-height) * 17);
+              max-height: calc(var(--line-height) * var(--max-lines));
               overflow: hidden;
               padding: 0 2em;
               hyphens: auto;
@@ -952,7 +964,7 @@ export const handler = async (event, context) => {
               /* text-align-last: justify; */
               line-height: var(--line-height);
               /* transform-origin: top left; */
-              height: calc(var(--line-height) * 17);
+              height: calc(var(--line-height) * var(--max-lines));
               width: 100%;
               overflow: hidden;
               position: relative;
@@ -1648,6 +1660,7 @@ export const handler = async (event, context) => {
             let gating = false;
             let computePageLayout;
             let SUBSCRIBER_COUNT;
+            const maxLines = ${MAX_LINES};
 
             // #region 🥀 gate&garden
             async function gate(status, user, subscription) {
@@ -2111,18 +2124,12 @@ export const handler = async (event, context) => {
                 const lineHeight = parseFloat(cs.lineHeight);
                 const totalLines = Math.round(source.clientHeight / lineHeight);
 
-                let lastLineText = ""; // Store the 17th line's text
+                let lastLineText = ""; // Store the maxLine's text
 
-                // TODO: Walk backwards by character and measure once we are no longer
-                // on the 17th line if 17 lines exist.
-
-                // And store the last line text in lastLineText
-                // Only proceed if the 17th line exists
-
-                if (totalLines >= 17) {
+                if (totalLines >= maxLines) {
                   let currentLine = totalLines;
                   let collecting = false;
-                  let first17CharIndex = -1; // Track where the 17th line starts
+                  let maxLineCharIndex = -1; // Track where the 17th line starts
 
                   // Walk backwards character-by-character
                   for (let c = cachedText.length - 1; c >= 0; c--) {
@@ -2139,12 +2146,12 @@ export const handler = async (event, context) => {
                     // Start collecting if we are on the 17th line
                     if (currentLine === 17) {
                       collecting = true;
-                      if (first17CharIndex === -1) first17CharIndex = c; // Mark the first char index on line 17
+                      if (maxLineCharIndex === -1) maxLineCharIndex = c; // Mark the first char index on line 17
                       lastLineText = cachedText[c] + lastLineText; // Prepend the character
                     }
 
                     // Stop collecting once we drop below the 17th line
-                    if (collecting && currentLine < 17) {
+                    if (collecting && currentLine < maxLines) {
                       break;
                     }
                   }
@@ -2350,8 +2357,6 @@ export const handler = async (event, context) => {
 
                   let lastValidValue = words.value;
                   const updateLineCount = ({ lastLineRender } = {}) => {
-                    const maxLines = 17;
-
                     const wordsStyle = window.getComputedStyle(words);
                     const pageStyle = window.getComputedStyle(editorPage);
                     const lineHeight = parseFloat(wordsStyle.lineHeight);
