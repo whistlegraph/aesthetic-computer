@@ -246,7 +246,7 @@ let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
 const attack = 0.005; // 0.025;
 // const attack = 0.005; // 0.025;
 // const decay = 0.9999; // 0.9;
-const maxVolume = 0.95; // 0.9;
+let toneVolume = 0.95; // 0.9;
 // const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
 const killFade = 0.15; //0.05;
 
@@ -441,10 +441,15 @@ function parseSong(raw) {
 
 let oscilloscopeBottom = 48;
 
-function boot({ params, api, colon, ui, screen, fps, typeface }) {
+function boot({ params, api, colon, ui, screen, fps, typeface, hud }) {
   // fps(4);
 
   // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
+
+  if (params[0] === "piano") {
+    toneVolume = params[1] || 0.5;
+    hud.label('notepat'); // Clear the label.
+  } 
 
   if (params[0] === "twinkle") song = parseSong(rawSong);
 
@@ -942,8 +947,13 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   const lowvol = 0.95;
   const hivol = 1;
   const makePerc = (hz) => {
-
-    synth({ type: "triangle", tone: hz / 2, duration: 0.01, attack: 0, volume: hivol / 2 });
+    synth({
+      type: "triangle",
+      tone: hz / 2,
+      duration: 0.01,
+      attack: 0,
+      volume: hivol / 2,
+    });
 
     synth({ type: "sawtooth", tone: hz, duration: 0.0025, volume: hivol });
 
@@ -1070,7 +1080,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                     // decay,
                     tone,
                     duration: "🔁",
-                    volume: maxVolume,
+                    volume: toneVolume,
                   }),
                 };
 
@@ -1184,7 +1194,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           // decay,
           // count: orderedByCount(sounds).length,
           duration: "🔁",
-          volume: maxVolume,
+          volume: toneVolume,
         });
     }
 
@@ -1393,7 +1403,7 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
               // decay,
               tone,
               duration: "🔁",
-              volume: maxVolume,
+              volume: toneVolume,
             }),
           };
 
