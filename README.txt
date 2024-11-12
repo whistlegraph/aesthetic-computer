@@ -4,10 +4,6 @@ A *new* computing environment that runs "pieces" instead of "apps" or "programs"
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** 📧 Aesthetic Inc. Announcement Email ***
-  - [🔵] Draft and send `Aesthetic Inc.` announcement to supporters and friends.
-  - [] Send quick message to all `booted-by` patrons asking to meet.
-
 *** `chat` instancing ***
  - [🟠] Make a new instance for `sotce-net` chat and fix a bunch of stuff for all chat.
 
