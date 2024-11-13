@@ -215,7 +215,7 @@ TODO: 💮 Daisy
 // import { Android, iOS } from "../lib/platform.mjs";
 
 let STARTING_OCTAVE = "4";
-const wavetypes = ["sine", "square", "sawtooth", "triangle"];
+const wavetypes = ["sine", "square", "sawtooth", "triangle", "composite"];
 let waveIndex = 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
 let wave = STARTING_WAVE;
@@ -448,8 +448,8 @@ function boot({ params, api, colon, ui, screen, fps, typeface, hud }) {
 
   if (params[0] === "piano") {
     toneVolume = params[1] || 0.5;
-    hud.label('notepat'); // Clear the label.
-  } 
+    hud.label("notepat"); // Clear the label.
+  }
 
   if (params[0] === "twinkle") song = parseSong(rawSong);
 
@@ -880,7 +880,7 @@ function paint({
 
 let anyDown = true;
 
-function act({ event: e, sound: { synth, speaker }, pens, api }) {
+function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
   if (e.is("reframed")) {
     setupButtons(api);
     buildWaveButton(api);
@@ -932,15 +932,15 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
   }
   */
 
-  if (tap) {
-    // if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
-    // if (e.is("keyboard:up:shift")) hold = false;
-  } else {
-    // if (e.is("keyboard:down:shift") && !e.repeat) sharps = true;
-    // if (e.is("keyboard:up:shift")) sharps = false;
-    // if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
-    // if (e.is("keyboard:up:alt")) flats = false;
-  }
+  //if (tap) {
+  // if (e.is("keyboard:down:shift") && !e.repeat) hold = true;
+  // if (e.is("keyboard:up:shift")) hold = false;
+  //} else {
+  // if (e.is("keyboard:down:shift") && !e.repeat) sharps = true;
+  // if (e.is("keyboard:up:shift")) sharps = false;
+  // if (e.is("keyboard:down:alt") && !e.repeat) flats = true;
+  // if (e.is("keyboard:up:alt")) flats = false;
+  //}
 
   // TODO: This (makePerc) can be factored out of the event loop. 24.11.12.02.10
   const pc = "maroon";
@@ -965,6 +965,68 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
       decay: 0.999,
     });
   };
+
+  function makeNoteSound(tone) {
+    if (wave === "composite") {
+      console.log("🐦 Composite tone:", tone);
+
+      const toneA = synth({
+        type: "sine",
+        attack: 0.5,//attack * 8,
+        // decay,
+        tone: freq(tone) + num.randIntRange(-1, 1),
+        // duration: 0.18,
+        duration: "🔁",
+        volume: toneVolume,
+      });
+
+      //const toneB = synth({
+      //  type: "sine",
+      //  attack: attack * 8,
+      //  // decay,
+      //  tone: freq(tone) + num.randIntRange(-5, 5),
+      //  duration: "🔁",
+      //  volume: toneVolume / 2,
+      //});
+
+      //const toneC = synth({
+      //  type: "sine",
+      //  attack: attack * 8,
+      //  // decay,
+      //  tone: freq(tone) + num.randIntRange(-15, 15),
+      //  duration: "🔁",
+      //  volume: toneVolume / 4,
+      //});
+
+      //const toneD = synth({
+      //  type: "square",
+      //  attack,
+      //  // decay,
+      //  tone,
+      //  duration: "🔁",
+      //  volume: toneVolume / 32,
+      //});
+
+      return {
+        startedAt: toneA.startedAt,
+        kill: (fade) => {
+          toneA.kill(fade);
+          //toneB.kill(fade);
+          //toneC.kill(fade);
+          //toneD.kill(fade);
+        },
+      };
+    } else {
+      return synth({
+        type: wave,
+        attack,
+        // decay,
+        tone,
+        duration: "🔁",
+        volume: toneVolume,
+      });
+    }
+  }
 
   if (!tap) {
     if (e.is("keyboard:down:space") && !e.repeat) {
@@ -1071,17 +1133,11 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
                   count: Object.keys(tonestack).length,
                   tone,
                 };
+
                 sounds[note] = {
                   note,
                   count: active.length + 1,
-                  sound: synth({
-                    type: wave,
-                    attack,
-                    // decay,
-                    tone,
-                    duration: "🔁",
-                    volume: toneVolume,
-                  }),
+                  sound: makeNoteSound(note),
                 };
 
                 if (note.toUpperCase() === song?.[songIndex][0]) {
@@ -1186,16 +1242,15 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
 
       const tone = tapped;
       if (tappedOctave) tapped = tappedOctave + tapped;
-      if (!reset)
-        sounds[tapped] = synth({
-          type: wave,
-          tone: octave + tone,
-          attack,
-          // decay,
-          // count: orderedByCount(sounds).length,
-          duration: "🔁",
-          volume: toneVolume,
-        });
+      if (!reset) sounds[tapped] = makeNoteSound(octave + tone); // synth({
+      // type: wave,
+      // tone: octave + tone,
+      // attack,
+      // decay,
+      // count: orderedByCount(sounds).length,
+      // duration: "🔁",
+      // volume: toneVolume,
+      // });
     }
 
     // TODO: This needs to work for multi-touch.
@@ -1397,14 +1452,14 @@ function act({ event: e, sound: { synth, speaker }, pens, api }) {
           sounds[buttonNote] = {
             note: buttonNote,
             count: active.length + 1,
-            sound: synth({
-              type: wave,
-              attack,
-              // decay,
-              tone,
-              duration: "🔁",
-              volume: toneVolume,
-            }),
+            sound: makeNoteSound(tone), // synth({
+            // type: wave,
+            // attack,
+            // decay,
+            // tone,
+            // duration: "🔁",
+            // volume: toneVolume,
+            // }),
           };
 
           if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
