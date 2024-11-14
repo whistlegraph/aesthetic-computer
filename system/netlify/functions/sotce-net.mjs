@@ -2,9 +2,9 @@
 // A paid diary network by Sotce & Aesthetic Computer.
 
 /* #region 🟢 TODO 
+  + Now
   - [🧚] Integrate a pervasive user `chat` with preview on the `logged-out` page.
-  - [] Test and enable printing on iOS.
-  - [] Add exporting of PNG images per pages.
+  + Later
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
   *** 📧 Email Notifications for Pages ***
@@ -30,10 +30,11 @@
   - [] Relational scrolling. 
   - [] Better routing / slash urls for the editor and cookie-menu.
     - [] Shouldn't resolve if no access.
-  + Later / Optimization
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  - [c] Add exporting of PNG images per pages.
+  - [x] Test and enable printing on iOS.
 #endregion */
 
 // ♻️ Environment
@@ -249,7 +250,7 @@ export const handler = async (event, context) => {
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
           <link
-            href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Carlito:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
             rel="stylesheet"
           />
           <style>
@@ -264,12 +265,13 @@ export const handler = async (event, context) => {
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
               --line-height: 1.68em;
-              --garden-background: #bbfbfe;
+              /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
+              --garden-background: rgb(204, 231, 255); // #bbfbfe;
               /* --font-page: serif; */
               --editor-placemat-background: rgba(255, 255, 255, 0.5);
               --editor-placemat-background-opaque: rgb(255, 255, 255);
               /* --page-font: "EB Garamond"; */
-              --page-font: "Inter";
+              --page-font: "Carlito"; /* "Calibri"; */ /* "Inter"; */
               --max-lines: ${MAX_LINES};
             }
 
@@ -332,6 +334,14 @@ export const handler = async (event, context) => {
               background: var(--background-color);
             }
 
+            html.printing, html.printing #garden {
+              background: white !important;
+            }
+
+            html.printing #garden {
+              display: none;
+            }
+
             body {
               font-family: sans-serif;
               margin: 0;
@@ -385,6 +395,8 @@ export const handler = async (event, context) => {
                 /* aspect-ratio: 8.5 / 11; */
                 /* max-height: 11in; */
                 margin: 0;
+                max-height: 100vh;
+                overflow-y: hidden;
               }
             }
 
@@ -397,13 +409,33 @@ export const handler = async (event, context) => {
               font-optical-sizing: auto;
               font-style: normal;
               letter-spacing: 0;
+              overflow-x: hidden;
+            }
+
+            #garden article.page {
+              z-index: 0;
+            }
+
+            /* Show a little transparent yellow highlight under each page. */
+            html:not(.veiled) #garden div.page-wrapper::after {
+              content: '🩷';
+              font-size: 75%;
+              opacity: 0.25;
+              font-family: var(--page-font), serif;
+              position: absolute;
+              bottom: 2.5em;
+              right: 2.5em;
+              z-index: 0;
+              transform: scale(1.5);
             }
 
             #editor-page,
             #print-page article.page,
             #garden article.page {
               /* font-size: calc(3.25px * 8); */ /* Garamond */
-              font-size: calc(2.97px * 8);
+              /* font-size: calc(2.97px * 8); */ /* Inter */
+              /* font-size: calc(2.95px * 8); */ /* Calibri */
+              font-size: calc(2.96px * 8); /* Calibri */
             }
 
             /* body.noscroll { */
@@ -1194,12 +1226,19 @@ export const handler = async (event, context) => {
               color: black;
             }
 
-            #print-page {
+            #print-page-wrapper {
               position: fixed;
+              display: flex;
+              z-index: 10;
+              width: 100vw;
+              height: 100vh;
+            }
+
+            #print-page {
               width: 100%;
               min-height: 100%;
-              z-index: 10;
               background: rgba(255, 255, 0, 0.5);
+              margin: auto;
               display: flex;
             }
 
@@ -2995,6 +3034,9 @@ export const handler = async (event, context) => {
                       e.preventDefault();
                       // Grab presentational html content from page and insert it
                       // into '#print-page'.
+                      const printPageWrapper = cel("div");
+                      printPageWrapper.id = "print-page-wrapper";
+
                       const printPage = cel("div");
                       printPage.id = "print-page";
 
@@ -3021,8 +3063,13 @@ export const handler = async (event, context) => {
                       article.appendChild(content);
                       article.appendChild(num);
                       printPage.appendChild(article);
-                      wrapper.appendChild(printPage);
-                      const scale = 812 / article.clientWidth;
+                      printPageWrapper.appendChild(printPage);
+                      wrapper.appendChild(printPageWrapper);
+
+                      document.documentElement.classList.add("printing");
+
+                      // const scale = 812 / article.clientWidth;
+                      const scale = 800 / article.clientWidth;
                       //            ^ Just shy of the 8.5in. CSS pixel value.
                       article.style.transform = "scale(" + scale + ")";
                       // Attach the events
@@ -3031,14 +3078,23 @@ export const handler = async (event, context) => {
                       //  // wrapper.removeChild(printPage);
                       //}, { once: true });
 
-                      //window.addEventListener('afterprint', () => {
-                      //  console.log("After print.");
-                      //}, { once: true });
+                      function closePrint() {
+                        wrapper.removeChild(printPageWrapper);
+                        document.documentElement.classList.remove("printing");
+                      }
+
+                      // printPageWrapper.onclick = closePrint;
+
+                      window.addEventListener("afterprint", closePrint, {
+                        once: true,
+                      });
+
                       window.print();
-                      wrapper.removeChild(printPage);
+                      // setTimeout(() => {
+                      // }, 500);
                     };
 
-                    if (!iOS) backpage.appendChild(print);
+                    /* if (!iOS) */ backpage.appendChild(print);
                     // backpage.appendChild(share);
 
                     ear.classList.add("reverse");
