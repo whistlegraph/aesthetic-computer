@@ -1137,7 +1137,7 @@ function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
                 sounds[note] = {
                   note,
                   count: active.length + 1,
-                  sound: makeNoteSound(note),
+                  sound: makeNoteSound(tone),
                 };
 
                 if (note.toUpperCase() === song?.[songIndex][0]) {
