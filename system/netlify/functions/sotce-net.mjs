@@ -435,7 +435,7 @@ export const handler = async (event, context) => {
               /* font-size: calc(3.25px * 8); */ /* Garamond */
               /* font-size: calc(2.97px * 8); */ /* Inter */
               /* font-size: calc(2.95px * 8); */ /* Calibri */
-              font-size: calc(2.96px * 8); /* Calibri */
+              font-size: calc(2.96px * 8); /* ... */
             }
 
             /* body.noscroll { */
