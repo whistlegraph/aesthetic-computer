@@ -96,9 +96,16 @@ if (!instance) {
 
 const dev = process.env.NODE_ENV === "development";
 
+
 console.log(
   `\n🌟 Starting the Aesthetic Computer Chat Server for: ${instance.name} 🌟\n`,
 );
+
+if (dev) {
+  console.log("🟡 Development mode.")
+} else {
+  console.log("🟢 Production mode.")
+}
 
 const allowedHost = instance.allowedHost;
 

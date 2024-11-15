@@ -58,6 +58,8 @@ export class Chat {
       }
     }
 
+    console.log("Chat url:", chatUrl);
+
     this.system.server.connect(
       chatUrl, // host
       (id, type, content) => {
