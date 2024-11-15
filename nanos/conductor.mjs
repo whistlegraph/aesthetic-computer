@@ -72,12 +72,20 @@ async function deploy() {
   );
 
   const parsed = JSON.parse(out);
-  const ip = parsed[0]?.PublicIps?.[0];
+  let currentInstance;
+  // console.log(parsed.length, "Instance:", instance);
+  for (let i = 0; i < parsed.length; i += 1) {
+    // console.log("Parsed name:", parsed[i].Name);
+    if (parsed[i].Name === instance.name) {
+      currentInstance = parsed[i];
+      break;
+    }
+  }
+  const ip = currentInstance?.PublicIps?.[0];
   if (!ip) return;
 
   // 🚦 Get the deployed instances public IP and map it to a subdomain based
   //    on the CLI argument.
-
   console.log("🧲 Instance IP:", ip);
   const sub = instance.subdomain; //`${process.argv[2] || "chat"}.aesthetic.computer`;
 
