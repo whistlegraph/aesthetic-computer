@@ -317,7 +317,11 @@ let socket, socketStartDelay; // Socket server for each piece.
 
 // TODO: Extract `chat` into an external class.
 
-const chatClient = new Chat(debug, send);
+const chatDebug =
+  location.host === "local.aesthetic.computer" ||
+  location.host === "localhost:8888" ||
+  location.host === "aesthetic.local:8888";
+const chatClient = new Chat(chatDebug, send);
 
 let udp = {
     send: (type, content) => {
