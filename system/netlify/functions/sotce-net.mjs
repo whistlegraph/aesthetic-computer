@@ -1824,9 +1824,9 @@ export const handler = async (event, context) => {
                   if (SUBSCRIBER_COUNT > 0) {
                     let text;
                     if (SUBSCRIBER_COUNT === 1) {
-                      text = "1 subscriber";
+                      text = "1 reader";
                     } else {
-                      text = SUBSCRIBER_COUNT + " subscribers";
+                      text = SUBSCRIBER_COUNT + " readers";
                     }
                     const subscriberCount = cel("div");
                     subscriberCount.id = "subscriber-count";
