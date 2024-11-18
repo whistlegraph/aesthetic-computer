@@ -36,14 +36,15 @@ export async function handler(event, context) {
       const ticket = await collection.findOne({
         pid: event.queryStringParameters.pid,
       });
-      console.log(
-        "🎟️ Ticket from payment id:",
-        ticket,
-        event.queryStringParameters.pid,
-      );
       if (ticket) {
+        console.log(
+          "🎟️ Ticket from payment id:",
+          ticket,
+          event.queryStringParameters.pid,
+        );
         return respond(200, { ticketed: true, ticket, piece: botcePieceURI });
       } else {
+        console.log("🎟️ ❌️ No ticket found for:", event.queryStringParameters);
         return respond(200, { ticketed: false });
       }
     }
@@ -53,7 +54,7 @@ export async function handler(event, context) {
     let ticket = await collection.findOne({ key });
 
     if (!ticket) {
-      console.log("🚫🎟️ No ticket found...");
+      console.log("🎟️ ❌️️ No ticket found...");
       return respond(401, { message: "No ticket found. 😢" });
     }
 
@@ -151,8 +152,9 @@ export async function handler(event, context) {
     }
 
     if (hookEvent.type === "charge.succeeded") {
+      console.log("Hook eveent:", hookEvent);
       const chargeObject = hookEvent.data.object;
-      // console.log("💳 Charge succeeded:", chargeObject);
+      console.log("💳 Charge succeeded:", chargeObject);
 
       let emailAddress = chargeObject.receipt_email;
       let customer;
@@ -161,7 +163,6 @@ export async function handler(event, context) {
         emailAddress = customer.email;
       }
 
-      // 🪷 Sotce-Net subscription email receipts.
       const paymentIntent = await stripe.paymentIntents.retrieve(
         chargeObject.payment_intent,
       );
