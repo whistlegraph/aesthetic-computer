@@ -280,7 +280,8 @@ export const handler = async (event, context) => {
               --backpage-color: rgb(250, 250, 250);
               --backpage-color-translucent: rgba(250, 250, 250, 0.8);
               --destructive-red: rgb(200, 0, 0);
-              --line-height: 1.68em;
+              /* --line-height: 1.68em; */
+              --line-height: 1.76em;
               /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
               --garden-background: rgb(204, 231, 255); // #bbfbfe;
               /* --font-page: serif; */
