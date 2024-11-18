@@ -167,9 +167,13 @@ export async function handler(event, context) {
         chargeObject.payment_intent,
       );
 
-      const invoice = await stripe.invoices.retrieve(paymentIntent.invoice);
+      let invoice, productId;
+      let productId;
 
-      const productId = invoice.lines.data[0].price.product;
+      if (chargeObject.description !== "Botce") {
+        invoice = await stripe.invoices.retrieve(paymentIntent.invoice);
+        productId = invoice.lines.data[0].price.product;
+      }
 
       if (productId === sotceNetProductId) {
         console.log("🟢 Product is `sotce-net`.");
