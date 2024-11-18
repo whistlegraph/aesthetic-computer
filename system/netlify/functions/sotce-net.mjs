@@ -254,6 +254,22 @@ export const handler = async (event, context) => {
             rel="stylesheet"
           />
           <style>
+            @font-face {
+                font-family: "Helvetica";
+                src: url('${assetPath}/helvetica.woff') format('woff'),
+                    url('${assetPath}/fonts/arial/helvetica.ttf') format('truetype');
+                font-weight: normal;
+                font-style: normal;
+            }
+
+            @font-face {
+                font-family: "Helvetica";
+                src: url('${assetPath}/helvetica-bold.woff') format('woff'),
+                    url('${assetPath}/fonts/arial/helvetica-bold.ttf') format('truetype');
+                font-weight: bold;
+                font-style: normal;
+            }
+
             :root {
               -webkit-locale: "en";
               --background-color: rgb(255, 230, 225);
@@ -271,7 +287,7 @@ export const handler = async (event, context) => {
               --editor-placemat-background: rgba(255, 255, 255, 0.5);
               --editor-placemat-background-opaque: rgb(255, 255, 255);
               /* --page-font: "EB Garamond"; */
-              --page-font: "Carlito"; /* "Calibri"; */ /* "Inter"; */
+              --page-font: "Helvetica"; /* "Carlito"; */ /* "Calibri"; */ /* "Inter"; */
               --max-lines: ${MAX_LINES};
             }
 
@@ -436,8 +452,8 @@ export const handler = async (event, context) => {
             #garden article.page {
               /* font-size: calc(3.25px * 8); */ /* Garamond */
               /* font-size: calc(2.97px * 8); */ /* Inter */
-              /* font-size: calc(2.95px * 8); */ /* Calibri */
-              font-size: calc(2.96px * 8); /* ... */
+              /* font-size: calc(2.96px * 8); */ /* Calibri */
+              font-size: calc(2.78px * 8); /* Helvetica */
             }
 
             /* body.noscroll { */
