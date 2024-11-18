@@ -168,11 +168,14 @@ export async function handler(event, context) {
       );
 
       let invoice, productId;
-      let productId;
 
-      if (chargeObject.description !== "Botce") {
-        invoice = await stripe.invoices.retrieve(paymentIntent.invoice);
-        productId = invoice.lines.data[0].price.product;
+      try {
+        if (chargeObject.description !== "Botce") {
+          invoice = await stripe.invoices.retrieve(paymentIntent.invoice);
+          productId = invoice?.lines.data[0].price.product;
+        }
+      } catch (err) {
+        console.log("🔴 Could not locate invoice or productId:", err);
       }
 
       if (productId === sotceNetProductId) {
@@ -249,8 +252,8 @@ export async function handler(event, context) {
         // Create an expiring link via a "tickets" collection in the db.
         const database = await connect(); // 📕 Database
         const collection = database.db.collection("tickets");
-        const { nanoid } = await import("nanoid");
         const ticketKey = nanoid();
+        const { nanoid } = await import("nanoid");
         await collection.insertOne({
           key: ticketKey,
           for: fromSotce ? "botce" : "aesthetic",
