@@ -252,8 +252,8 @@ export async function handler(event, context) {
         // Create an expiring link via a "tickets" collection in the db.
         const database = await connect(); // 📕 Database
         const collection = database.db.collection("tickets");
-        const ticketKey = nanoid();
         const { nanoid } = await import("nanoid");
+        const ticketKey = nanoid();
         await collection.insertOne({
           key: ticketKey,
           for: fromSotce ? "botce" : "aesthetic",
