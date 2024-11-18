@@ -152,7 +152,6 @@ export async function handler(event, context) {
     }
 
     if (hookEvent.type === "charge.succeeded") {
-      console.log("Hook eveent:", hookEvent);
       const chargeObject = hookEvent.data.object;
       console.log("💳 Charge succeeded:", chargeObject);
 
@@ -269,6 +268,7 @@ export async function handler(event, context) {
 
         const emailOptions = {
           to: emailAddress,
+          from: "botce <hellobotce@gmail.com>",
           subject: "🪷 visit me again?",
           html: `click the ticket to visit with me, <code>botce</code>.
           <br>
