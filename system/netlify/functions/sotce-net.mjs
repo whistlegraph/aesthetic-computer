@@ -417,6 +417,7 @@ export const handler = async (event, context) => {
             }
 
             /* Show a little transparent yellow highlight under each page. */
+            /*
             html:not(.veiled) #garden div.page-wrapper::after {
               content: '🩷';
               font-size: 75%;
@@ -428,6 +429,7 @@ export const handler = async (event, context) => {
               z-index: 0;
               transform: scale(1.5);
             }
+            */
 
             #editor-page,
             #print-page article.page,
@@ -1824,9 +1826,9 @@ export const handler = async (event, context) => {
                   if (SUBSCRIBER_COUNT > 0) {
                     let text;
                     if (SUBSCRIBER_COUNT === 1) {
-                      text = "1 reader";
+                      text = "1 reading";
                     } else {
-                      text = SUBSCRIBER_COUNT + " readers";
+                      text = SUBSCRIBER_COUNT + " reading";
                     }
                     const subscriberCount = cel("div");
                     subscriberCount.id = "subscriber-count";
