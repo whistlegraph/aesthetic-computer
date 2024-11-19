@@ -215,8 +215,15 @@ TODO: 💮 Daisy
 // import { Android, iOS } from "../lib/platform.mjs";
 
 let STARTING_OCTAVE = "4";
-const wavetypes = ["sine", "square", "sawtooth", "triangle", "composite"];
-let waveIndex = 0;
+const wavetypes = [
+  "sine",
+  "square",
+  "sawtooth",
+  "triangle",
+  "composite",
+  "sample",
+];
+let waveIndex = wavetypes.length - 2; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
 let wave = STARTING_WAVE;
 // let hold = false;
@@ -968,52 +975,74 @@ function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
 
   function makeNoteSound(tone) {
     if (wave === "composite") {
-      console.log("🐦 Composite tone:", tone);
+      // console.log("🐦 Composite tone:", tone);
 
-      const toneA = synth({
+      let toneA, toneB, toneC, toneD, toneE;
+      const baseFreq = freq(tone);
+
+      toneA = synth({
         type: "sine",
-        attack: 0.5,//attack * 8,
-        // decay,
-        tone: freq(tone) + num.randIntRange(-1, 1),
+        // attack: 0.5,//attack * 8,
+        attack: 0.0025,
+        decay: 0.9,
+        tone: baseFreq + 280 + num.randIntRange(-10, 20),
         // duration: 0.18,
         duration: "🔁",
         volume: toneVolume,
       });
 
-      //const toneB = synth({
-      //  type: "sine",
-      //  attack: attack * 8,
-      //  // decay,
-      //  tone: freq(tone) + num.randIntRange(-5, 5),
-      //  duration: "🔁",
-      //  volume: toneVolume / 2,
-      //});
+      // TODO: Can't update straight after triggering.
+      setTimeout(() => {
+        toneA.update({ tone: baseFreq, duration: 0.02 });
+      }, 10);
 
-      //const toneC = synth({
-      //  type: "sine",
-      //  attack: attack * 8,
-      //  // decay,
-      //  tone: freq(tone) + num.randIntRange(-15, 15),
-      //  duration: "🔁",
-      //  volume: toneVolume / 4,
-      //});
+      toneB = synth({
+        type: "sine",
+        // attack: attack * 8,
+        attack: 0.0025,
+        // decay,
+        tone: baseFreq + 9 + num.randIntRange(-1, 1), //+ 8, //num.randIntRange(-5, 5),
+        duration: "🔁",
+        volume: toneVolume / 3, // / 16,
+      });
 
-      //const toneD = synth({
-      //  type: "square",
-      //  attack,
-      //  // decay,
-      //  tone,
-      //  duration: "🔁",
-      //  volume: toneVolume / 32,
-      //});
+      toneC = synth({
+        type: "sawtooth",
+        attack,
+        decay: 0.9,
+        tone: baseFreq + num.randIntRange(-6, 6),
+        duration: 0.15 + (num.rand() * 0.05),
+        volume: toneVolume / 48,// / 32,
+      });
+
+      // TODO: One-shot sounds and samples need to be 'killable'.
+
+      toneD = synth({
+        type: "triangle",
+        attack: 0.999,//attack * 8,
+        // decay,
+        tone: baseFreq + 8 + num.randIntRange(-5, 5),
+        duration: "🔁",
+        volume: toneVolume / 32,
+      });
+
+      toneE = synth({
+        type: "square",
+        attack: 0.05,//attack * 8,
+        // decay,
+        tone: baseFreq + num.randIntRange(-10, 10),
+        duration: "🔁",
+        volume: toneVolume / 64,
+      });
 
       return {
         startedAt: toneA.startedAt,
         kill: (fade) => {
-          toneA.kill(fade);
-          //toneB.kill(fade);
-          //toneC.kill(fade);
-          //toneD.kill(fade);
+          toneA?.kill(fade);
+          toneB?.kill(fade);
+          toneC?.kill(fade * 2); // TODO: Does not kill 1 shot sounds. 24.11.19.20.56
+          toneD?.kill(fade * 1.4);
+          toneE?.kill(fade / 2);
         },
       };
     } else {

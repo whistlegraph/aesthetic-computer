@@ -14,16 +14,19 @@
     "BucketName": "aesthetic-nanos",
     "InstanceProfile": "default"
   },
+  "Env": {
+    "RADAR_KEY": "88bce43b079f8185924aea2b5b501427f443fa3214dfec74d45607f"
+  },
   "Klibs": ["gcp", "tls"],
   "ManifestPassthrough": {
     "gcp": {
       "logging": {
-        "log_id": "aesthetic-chat-log-a"
+        "log_id": "aesthetic-chat-log"
       }
     }
   },
   "RunConfig": {
-    "Memory": "1G",
+    "Memory": "2G",
     "Ports": ["8083", "80", "443"],
     "UDPPorts": ["60", "70-80", "6006"],
     "Verbose": true
