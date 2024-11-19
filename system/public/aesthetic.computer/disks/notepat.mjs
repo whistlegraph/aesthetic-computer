@@ -59,6 +59,9 @@ TODO: 💮 Daisy
 */
 
 /* 📝 Notes 
+   - [] Add recordable samples / custom samples... per key?
+     - [] Stored under handle?
+
    - [🟠] Somehow represent both of these in the graphic layout.
     - [x] Add z, x, a# and b below the lower octave. 
     - [x] Add ;, ', c# and d above the upper octave. 
@@ -146,6 +149,7 @@ TODO: 💮 Daisy
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [c] Add nice `composite` mode and rudimentary `sample` mode.
   - [x] Make a more mobile friendly layout.
     - [x] Everything needs to fit for the jelly.
     - [x] Buttons should always fit on screen no matter what.
@@ -216,14 +220,14 @@ TODO: 💮 Daisy
 
 let STARTING_OCTAVE = "4";
 const wavetypes = [
-  "sine",
-  "square",
-  "sawtooth",
-  "triangle",
-  "composite",
-  "sample",
+  "sine", // 0
+  "triangle", // 1
+  "sawtooth", // 2
+  "square", // 3
+  "composite", // 4
+  "sample", // 5
 ];
-let waveIndex = wavetypes.length - 2; // 0;
+let waveIndex = 4; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
 let wave = STARTING_WAVE;
 // let hold = false;
@@ -448,8 +452,15 @@ function parseSong(raw) {
 
 let oscilloscopeBottom = 48;
 
-function boot({ params, api, colon, ui, screen, fps, typeface, hud }) {
+let startupSfx;
+
+function boot({ params, api, colon, ui, screen, fps, typeface, hud, net }) {
   // fps(4);
+
+  net
+    .preload("startup") // TODO: Switch this default sample. 24.11.19.22.20
+    .then((sfx) => (startupSfx = sfx))
+    .catch((err) => console.warn(err)); // Load startup
 
   // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
 
@@ -887,7 +898,13 @@ function paint({
 
 let anyDown = true;
 
-function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
+function act({
+  event: e,
+  sound: { synth, speaker, play, freq },
+  num,
+  pens,
+  api,
+}) {
   if (e.is("reframed")) {
     setupButtons(api);
     buildWaveButton(api);
@@ -974,7 +991,30 @@ function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
   };
 
   function makeNoteSound(tone) {
-    if (wave === "composite") {
+    if (wave === "sample") {
+      // synth({
+      //   type: "sine",
+      //   attack,
+      //   tone: freq(tone),
+      //   duration: 0.5,
+      //   volume: toneVolume / 2, // / 32,
+      // });
+
+      return play(startupSfx, {
+        volume: 1,
+        pitch: freq(tone),
+        // pan: -0.5 + num.randIntRange(0, 100) / 100,
+      });
+
+      // return synth({
+      //   type: wave,
+      //   attack,
+      //   // decay,
+      //   tone,
+      //   duration: "🔁",
+      //   volume: toneVolume,
+      // });
+    } else if (wave === "composite") {
       // console.log("🐦 Composite tone:", tone);
 
       let toneA, toneB, toneC, toneD, toneE;
@@ -1011,15 +1051,15 @@ function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
         attack,
         decay: 0.9,
         tone: baseFreq + num.randIntRange(-6, 6),
-        duration: 0.15 + (num.rand() * 0.05),
-        volume: toneVolume / 48,// / 32,
+        duration: 0.15 + num.rand() * 0.05,
+        volume: toneVolume / 48, // / 32,
       });
 
       // TODO: One-shot sounds and samples need to be 'killable'.
 
       toneD = synth({
         type: "triangle",
-        attack: 0.999,//attack * 8,
+        attack: 0.999, //attack * 8,
         // decay,
         tone: baseFreq + 8 + num.randIntRange(-5, 5),
         duration: "🔁",
@@ -1028,7 +1068,7 @@ function act({ event: e, sound: { synth, speaker, freq }, num, pens, api }) {
 
       toneE = synth({
         type: "square",
-        attack: 0.05,//attack * 8,
+        attack: 0.05, //attack * 8,
         // decay,
         tone: baseFreq + num.randIntRange(-10, 10),
         duration: "🔁",
