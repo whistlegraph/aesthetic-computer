@@ -82,6 +82,6 @@ export function filter(text) {
       }
     }
   }
-  console.log("Final out message:", out);
+  // console.log("🧹 Post-filtered message:", out);
   return out;
 }
