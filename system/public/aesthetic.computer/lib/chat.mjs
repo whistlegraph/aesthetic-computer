@@ -57,8 +57,7 @@ export class Chat {
         chatUrl = "chat.sotce.net";
       }
     }
-
-    console.log("Chat url:", chatUrl);
+    // console.log("🗨️ Chat url:", chatUrl);
 
     this.system.server.connect(
       chatUrl, // host

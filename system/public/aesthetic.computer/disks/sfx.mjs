@@ -8,7 +8,8 @@
   - [🟡] Add startup sound and keyboard sound to keyboard clicks and prompt!
   - [] Eventually add information to read back / get streamed back.
   - [] Check decode delay / trigger a whole keyboard of samples.
-  - [] Create a sampling recorder.
+  - [-] Create a sampling recorder.
+
   + Done
   - [x] Add these sounds to the remote assets folder.
   - [x] How to load indidivudal sound effects by short name?
