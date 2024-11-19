@@ -4820,12 +4820,13 @@ async function makeFrame({ data: { type, content } }) {
 
     // Trigger a named audio sample to playback in the `bios`.
     // options: { volume: 0-n, pan: 0-2?, loop: Bool, ...(there is more) }
-    $sound.play = function (sfx, options) {
+    $sound.play = function play(sfx, options) {
       const id = sfx + "_" + performance.now(); // A *unique id for this sample.
 
       send({ type: "sfx:play", content: { sfx, id, options } });
 
       return {
+        startedAt: performance.now(),
         kill: (fade) => {
           send({ type: "sfx:kill", content: { id, fade } });
         },

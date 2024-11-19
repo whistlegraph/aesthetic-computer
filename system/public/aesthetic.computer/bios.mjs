@@ -1036,9 +1036,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🔉 No buffer found for:", sound);
         return;
       }
-
       // If decoding has failed or no sound is present then silently fail.
-
       // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
 
       const gainNode = audioContext.createGain();
@@ -1050,27 +1048,87 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let source = audioContext.createBufferSource();
       const buffer = sfx[sound];
 
-      // Reverse the playback if specified.
-      if (options?.reverse) {
-        // Make new AudioBuffer of the same size and sample rate as original.
+      // const originalPitchHz = 440;
+      const originalPitchHz = computeOriginalPitch(buffer, buffer.sampleRate / 10);
+      console.log("🔈 Sample detected picth:", originalPitchHz);
+
+      if (options?.reverse || options?.pitch) {
         const tempBuffer = audioContext.createBuffer(
           buffer.numberOfChannels,
           buffer.length,
           buffer.sampleRate,
         );
 
-        // Copy and reverse the data for each channel.
         for (let i = 0; i < buffer.numberOfChannels; i++) {
           const originalData = buffer.getChannelData(i);
-          const tempData = tempBuffer.getChannelData(i);
+          let tempData = tempBuffer.getChannelData(i);
           tempData.set(originalData);
-          tempData.reverse();
+
+          if (options.reverse) {
+            tempData.reverse();
+          }
+
+          if (options.pitch) {
+            const targetPitchHz = options.pitch;
+
+            // Calculate the resampling factor
+            const pitchFactor = targetPitchHz / originalPitchHz;
+            const newLength = floor(tempData.length / pitchFactor);
+            const resampledData = new Float32Array(newLength);
+
+            for (let j = 0; j < newLength; j++) {
+              const sourceIndex = j * pitchFactor;
+              const leftIndex = floor(sourceIndex);
+              const rightIndex = min(leftIndex + 1, tempData.length - 1);
+              const t = sourceIndex - leftIndex;
+              resampledData[j] =
+                (1 - t) * tempData[leftIndex] + t * tempData[rightIndex];
+            }
+
+            tempData = resampledData;
+
+            const resampledBuffer = audioContext.createBuffer(
+              buffer.numberOfChannels,
+              resampledData.length,
+              buffer.sampleRate,
+            );
+            resampledBuffer.copyToChannel(resampledData, i);
+            tempBuffer.copyToChannel(resampledBuffer.getChannelData(0), i);
+          }
         }
 
-        source.buffer = tempBuffer; // Remap the source buffer to the copy.
+        source.buffer = tempBuffer;
       } else {
         source.buffer = buffer;
       }
+
+      // // Reverse the playback if specified.
+      // if (options?.reverse || options?.pitch) {
+      //   // Make new AudioBuffer of the same size and sample rate as original.
+      //   const tempBuffer = audioContext.createBuffer(
+      //     buffer.numberOfChannels,
+      //     buffer.length,
+      //     buffer.sampleRate,
+      //   );
+
+      //   // Copy and reverse the data for each channel.
+      //   for (let i = 0; i < buffer.numberOfChannels; i++) {
+      //     const originalData = buffer.getChannelData(i);
+      //     const tempData = tempBuffer.getChannelData(i);
+      //     tempData.set(originalData);
+
+      //     if (options.reverse) {
+      //       tempData.reverse();
+      //     }
+      //     if (options.pitch) {
+      //       // TODO: Pitch up or down this sample according to a hz value it should try to match stored in options.pitch.
+      //     }
+      //   }
+
+      //   source.buffer = tempBuffer; // Remap the source buffer to the copy.
+      // } else {
+      //   source.buffer = buffer;
+      // }
 
       let paused = false;
 
@@ -1103,14 +1161,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Return a playback handle here to be able to pause or kill the sample.
       sfxPlaying[id] = {
-        kill: (fade) => {
-          // TODO: Implement 'fade' fadeout option.
+        kill: (fade = 0) => {
           if (debug && logs.audio) console.log("🔈 Killing...", id);
-          source.disconnect();
-          gainNode.disconnect();
-          panNode.disconnect();
-          delete sfxPlaying[id];
+          // console.log(fade);
+          if (fade > 0) {
+            // Implement fade-out
+            const now = audioContext.currentTime;
+            gainNode.gain.setValueAtTime(gainNode.gain.value, now); // Start at the current gain value
+            gainNode.gain.linearRampToValueAtTime(0, now + fade); // Fade to 0 over 'fade' seconds
+
+            // Schedule disconnection after fade-out completes
+            setTimeout(() => {
+              source.disconnect();
+              gainNode.disconnect();
+              panNode.disconnect();
+              delete sfxPlaying[id];
+            }, fade * 1000); // Convert seconds to milliseconds
+          } else {
+            // Immediate stop
+            source.disconnect();
+            gainNode.disconnect();
+            panNode.disconnect();
+            delete sfxPlaying[id];
+          }
         },
+        // kill: (fade) => {
+        //   // TODO: Implement 'fade' fadeout in seconds option.
+        //   if (debug && logs.audio) console.log("🔈 Killing...", id);
+        //   source.disconnect();
+        //   gainNode.disconnect();
+        //   panNode.disconnect();
+        //   delete sfxPlaying[id];
+        // },
         pause: () => {
           if (debug && logs.audio) console.log("🔈 Pausing...", id);
           paused = true;
@@ -5292,6 +5374,28 @@ function iOSAppSend(message) {
   const packedMessage = JSON.stringify(message);
   console.log("📱 Sending to iOS App:", packedMessage);
   window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);
+}
+
+// Zero-crossing pitch computation.
+function computeOriginalPitch(buffer, sampleRate) {
+  const channelData = buffer.getChannelData(0); // Use the first channel
+  let zeroCrossings = 0;
+
+  // Count zero crossings
+  for (let i = 1; i < channelData.length; i++) {
+    if (
+      (channelData[i - 1] < 0 && channelData[i] > 0) ||
+      (channelData[i - 1] > 0 && channelData[i] < 0)
+    ) {
+      zeroCrossings++;
+    }
+  }
+
+  // Estimate the fundamental frequency
+  const durationInSeconds = channelData.length / sampleRate;
+  const frequency = zeroCrossings / (2 * durationInSeconds); // Divide by 2 because each cycle has two zero crossings
+
+  return frequency;
 }
 
 export { boot };
