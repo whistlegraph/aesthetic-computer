@@ -29,8 +29,17 @@ For example, to make a raster graphic or "painting" on AC you can enter a sequen
 4. Enter `smear` and drag to use a pixel scattering brush, then return to `prompt`.
 5. Enter `dl` to download or `done` to publish the painting on AC servers. 
 
-[0] Recent HN discussion here:  
+To play live music on AC you can...
 
+1. Enter `+` to open a new prompt.
+2. Enter `metronome` to keep rhythm.
+3. Enter `notepat` in the original prompt to play a melody.
+
+To code on AC and publish a piece:
+
+1. ...
+
+[0] Recent HN discussion here: https://news.ycombinator.com/item?id=41526754
 
 History
 
