@@ -1,4 +1,77 @@
-Show HN:
+Show HN: Aesthetic Computer - A mobile-first runtime and social network for creative computing. 
 
 https://aesthetic.computer
 
+How-To
+
+Aesthetic Computer is a mobile first web runtime and social network for creative computing.
+
+Use the AC `prompt` (also the homepage) by entering names of built-in toys and utilities like `notepat`[0] , or those published
+by user handles like `@bash/hub`.
+
+Some commands on AC are open to all users, whereas others require sign-up and
+handle registration, to participate.
+
+Users keep social through `chat` and compute together in-person by prefixing any. piece with `share`.
+
+Each command or "piece" on AC is written as one `.mjs` (standard JavaScript module) or `.lisp` (a custom dialect) file.
+
+AC follows Processing's "sketchbook" based development model of one source file per explorable idea, and the Unix philosophy's pattern of
+offering composability across small programs.
+
+For example, to make a raster graphic or "painting" on AC you can enter a sequence of commands at `prompt`:
+
+1. Enter `new 128` to start a new 128x128 pixel painting. 
+2. Enter `rect red` and drag to paint red rectangles.
+3. Press the command name in the top left corner to return to `prompt`.
+   Or use the [Esc], [Backspace], or [`] on the keyboard.
+
+[0] Recent HN discussion here:  
+
+
+History
+
+I started writing Aesthetic Computer in 2021 because I desired new tools to publish
+and connect the creative software toys I had been making in my art and education practice over
+the years. The last of these was https://nopaint.art, discussed here on HN
+in 2020: https://news.ycombinator.com/item?id=23546706. 
+
+When No Paint users began to reach out with a desire to submit custom pixel stamps I would receive their PNGs
+and add their images to No Paint's Construct 3 (https://construct3.net) project build under mock
+social @handles to index them as part of the the `stamp` brush.
+
+And when they expressed a desire to design and publish custom brushes, I provided
+them with a minimal Construct template project that they would work in and send
+back to me for integration.
+
+No Paint was released as an iOS app (https://apps.apple.com/us/app/no-paint/id1107427275) and had a wide variety of non-technical users who learned a lot about computing through this process of contributing to and grokking a toy they enjoyed.  
+
+But my process for accepting contributions was manual and slow. I had to add every
+asset manually to a statically built product which added hours or days to the
+iteration time for users who wanted to see their work integrated into the larger
+whole.
+
+One of the reasons I was driven to building No Paint in Construct 3 was its great
+cross-platform (mobile) browser support and the ability to work on my project entirely in-browser and
+then export to native webview based apps or a static build I could upload to the web server. 
+
+In JavaScript courses and workshops for art and design students I often used a combination basic HTML and CSS with the Canvas2D API, Processing via the p5.js web editor (https://editor.p5js.org), and Glitch (https://glitch.com) to achieve a fast iterative loop where student work was always live so they could test on any device in the classroom by just visiting a URL on that device.
+
+In COVID I explored outlying technologies and for one assignment used Roblox which offered beginner friendly 3D development and baked in multiplayer so we could all experience the work together remotely. Even though Roblox had these nice platform features baked in, the engine and editor was not elegant like a basic HTML file or Processing sketch and offered too many distractions to try again.
+
+During this time I noticed crossover with the No Paint userbase and my art and design students. Non-technical No Paint
+users from around the world were learning more about dynamic media, entering commands, and contributing to software they loved, and my students wanted to be able to publish their own software experiments from class to their families and friends without friction.
+
+I realized that if I built my own system with sane mobile-first defaults, a "creative coder" compatible JavaScript API I could teach in, networked multiplayer, and a social handle system for keeping track of and automatically integrating published media and software from users, then I could squash some of these errands of my trade in one integrated system. 
+
+One of my favorite ideas from Processing that attracted me was the concept of the "software sketch" and "sketchbook", which can be taken both metaphorically as a call for creative action or mindful suggestion, and literally as single document or file embodying and exploring a single idea or form.
+
+This separation of concerns originates from one of the forefathers of Processing. John Maeda, who baked his Java software sketchbook practice (https://youtu.be/WAuDCOl9qrk?si=SyTRvNch4Z72_CU0&t=427) from the 90s into the UX of an accessible tool for design students called Design By Numbers (https://www.media.mit.edu/projects/design-by-numbers-again/overview), which later evolved into the Processing desktop environment.
+
+Back in 2009 when I was learning to program as an art student I struggled through ActionScript 3 because I wanted my software to be available on the web. Web browser support for Java applets were being phased out at that point due to security concerns and libraries p5.js hadn't been written. The Canvas2D API was a baby and WebGL didn't exist yet.
+
+When I first discovered the Processing website with its learning resources and downloaded the IDE I got so addicted to the feedback loop and mental model it presented I went from one bloated ActionScript 3 project to a portfolio of prototypes and experiments I coded and kept all in one place. The API has short commands and a single namespace which was a breath of fresh air from the design of the complex and nested ActionScript 3 API which made iteration faster and interface code more clear and easier to reason about. In short, I was learning and exploring faster, and becoming more addicted. 
+
+Eventually in my programming journey I came across the Unix philosophy (https://en.wikipedia.org/wiki/Unix_philosophy) of composibility and recognized that Processing's mental model of sketchbook based development was compatible the "one idea per program" doctrine in Unix utility design. 
+
+Aesthetic Computer's built-in utilities follow this one idea model and can be composed together to operate on shared data.
