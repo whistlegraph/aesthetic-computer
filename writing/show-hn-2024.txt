@@ -6,7 +6,7 @@ How-To
 
 Aesthetic Computer is a mobile first web runtime and social network for creative computing.
 
-Use the AC `prompt` (also the homepage) by entering names of built-in toys and utilities like `notepat`[0] , or those published
+Use the AC prompt by entering names of built-in toys and utilities like `notepat`[0] , or those published
 by user handles like `@bash/hub`.
 
 Some commands on AC are open to all users, whereas others require sign-up and
@@ -16,8 +16,9 @@ Users keep social through `chat` and compute together in-person by prefixing any
 
 Each command or "piece" on AC is written as one `.mjs` (standard JavaScript module) or `.lisp` (a custom dialect) file.
 
-AC follows Processing's "sketchbook" based development model of one source file per explorable idea, and the Unix philosophy's pattern of
-offering composability across small programs.
+AC follows Processing's "sketchbook" based development model of one source file
+per explorable idea, and the Unix philosophy's pattern of offering composability
+across small programs.
 
 For example, to make a raster graphic or "painting" on AC you can enter a sequence of commands at `prompt`:
 
@@ -25,6 +26,8 @@ For example, to make a raster graphic or "painting" on AC you can enter a sequen
 2. Enter `rect red` and drag to paint red rectangles.
 3. Press the command name in the top left corner to return to `prompt`.
    Or use the [Esc], [Backspace], or [`] on the keyboard.
+4. Enter `smear` and drag to use a pixel scattering brush, then return to `prompt`.
+5. Enter `dl` to download or `done` to publish the painting on AC servers. 
 
 [0] Recent HN discussion here:  
 
