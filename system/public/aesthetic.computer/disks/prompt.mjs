@@ -738,7 +738,7 @@ async function halt($, text) {
     return true;
   } else if (text.startsWith("edit")) {
     jump(
-      "out:https://vscode.dev/github/digitpain/aesthetic.computer-code/blob/main/blank.mjs",
+      "out:https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code",
     );
     makeFlash($);
     return true;
