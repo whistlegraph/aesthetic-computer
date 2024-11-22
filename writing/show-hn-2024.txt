@@ -16,7 +16,7 @@ they are able to improvise, recombine, and expand their performable repertoire.
 
 *** How To ***
 
-Visit https://aesthetic.computer and press the top of the screen or type any key
+Visit https://aesthetic.computer and press the top left of the screen or type any key
 to activate the prompt.
 
 Use the AC prompt by entering names of built-in toy and utility pieces like
@@ -45,18 +45,17 @@ A. Make a Painting
 3. Press the command name in the top left corner to return to `prompt`.
    Or use the [Esc], [Backspace], or [`] on the keyboard.
 4. Enter `smear` and drag to use a pixel scattering brush, then return to `prompt`.
-5. Enter `dl` to download a timestamped PNG or `done` to publish the painting on AC servers. 
-   (Or `print` to mail order a sticker.)
+5. Enter `dl` to download a timestamped PNG or `done` to publish the painting on
+   AC servers. (Or `print` to mail order a sticker.)
 
 B. Play a Melody 
 
-1. Enter `+` to open a new prompt.
+1. Enter `+` to open a new prompt window.
 2. Enter `metronome 120` to keep rhythm at 120 BPM.
-3. Enter `notepat` in the original prompt to play in regular time.
+3. Enter `notepat` in the original prompt to play tones in regular time.
    (Or try `bleep:sine 4x4` for a randomized tone matrix.)
 4. Record a `notepat` performance as a looping, downloadable video by entering
-   `tape notepat`.
-   (Or enter `tape` on its own to start recording at prompt.)
+   `tape notepat`. (Or enter `tape` on its own to start recording at prompt.)
 5. Play `notepat` in person with others by generating a QR code via `share notepat`.
 
 C. Say "hi" in `chat`.
