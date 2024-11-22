@@ -1,19 +1,33 @@
 // $NAME, $TIMESTAMP
 // $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
 
-/* 📝 Notes 
-*/
+/* 📝 Notes
+ */
 
-function paint({ wipe, ink, line, screen }) {
-  wipe("gray");
-  ink("yellow");
+function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
+  // console.log(api); // Log the API or enter `docs` (WIP) in `prompt`.
+
+  wipe("gray"); // Clear the background.
+
+  ink("yellow"); // Paint a diagonal yellow line.
   line(0, 0, screen.width, screen.height);
+
+  let x = 16,
+    y = 32; // Paint RGB boxes.
+  ink("red").box(x, y, 32, 32);
+  ink(0x00ff00).box(x, y + 32, 32, 32);
+  ink(0, 0, 255, 128).box(x, y + 64, 32, 32);
+
+  if (pen) {
+    ink().circle(pen.x, pen.y, 6); // Paint a cursor with text underneath.
+    ink("white").write("Hello AC!", { x: pen.x, y: pen.y + 12, center: "x" });
+  }
 }
 
 // 📚 Library
 
 // function boot() {
- // Runs once at the start.
+// Runs once at the start.
 // }
 
 // function act({ event: e }) {
@@ -25,7 +39,7 @@ function paint({ wipe, ink, line, screen }) {
 // }
 
 // function beat() {
-//   // Runs once per metronomic BPM.
+//   // Runs once per system metronome (BPM) tick.
 // }
 
 // function leave() {
