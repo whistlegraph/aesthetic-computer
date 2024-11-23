@@ -39,7 +39,7 @@ Here are a some recipes to try:
 1. Enter `+` to open a second prompt window.
 2. Enter `metronome 120` in the second prompt window to keep rhythm at 120 BPM.
 3. Enter `notepat` in the first prompt window to play tones in regular time.<br>
-   (Or try `bleep:sine 4x4` for a randomized playable tone matrix.)<br>
+   (Or try `bleep:sine 4x4` for a randomized playable tone matrix.)<br><br>
 **Bonus**
 4. Record a `notepat` performance as a 7s looping, downloadable video by entering `tape notepat`.
 5. Play `notepat` in person with others by generating a QR code via `share notepat`.
