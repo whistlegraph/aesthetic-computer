@@ -1,9 +1,11 @@
 *** Write a Piece *** 
 
-Each "piece" on AC is coordinated by a single `.mjs` (standard JavaScript module)
-or `.lisp` (a custom dialect[0]) file.
+Each "piece" on AC is coordinated by a single `.mjs` (JavaScript module) or
+`.lisp` (a custom dialect[0]) file.
 
-This follows Processing's "sketchbook"[1] based development model of one source file per explorable idea, and the Unix philosophy's pattern of offering user-level composability across small single-purpose programs.
+This follows Processing's "sketchbook"[1] based development model of one source
+file per explorable idea, and the Unix philosophy's pattern of offering
+user-level composability across small single-purpose programs.
 
   - Drag & Drop -
 
