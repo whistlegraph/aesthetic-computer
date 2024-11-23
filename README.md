@@ -1,3 +1,5 @@
+<img width="200" src="https://assets.aesthetic.computer/aesthetic-inc/pals.png">
+
 Aesthetic Computer is a mobile-first runtime and social network for creative computing.
 
 AC's client interface is designed to function like a musical instrument, on which users discover their own memorizable paths in the network of commands and published pieces. As users grow their literacy through play and exploration, they are able to improvise, recombine, and expand their performable repertoire.
@@ -65,3 +67,7 @@ piece[3].
 [2] The AC Story: https://github.com/whistlegraph/aesthetic-computer/blob/main/STORY.txt
 
 [3] Write a Piece: https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.txt
+
+---
+
+<img width="100%" src="https://assets.aesthetic.computer/aesthetic-inc/screenshot.png">
