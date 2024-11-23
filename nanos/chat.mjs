@@ -96,15 +96,14 @@ if (!instance) {
 
 const dev = process.env.NODE_ENV === "development";
 
-
 console.log(
   `\n🌟 Starting the Aesthetic Computer Chat Server for: ${instance.name} 🌟\n`,
 );
 
 if (dev) {
-  console.log("🟡 Development mode.")
+  console.log("🟡 Development mode.");
 } else {
-  console.log("🟢 Production mode.")
+  console.log("🟢 Production mode.");
 }
 
 const allowedHost = instance.allowedHost;
@@ -473,57 +472,59 @@ async function startChatServer() {
         //       otherwise return unauthorized.
 
         // TODO: Make sure this works across sotce-net.
-        console.log("🟢 🔐 Handle authorized:", authorized);
-        console.log("🚵 Finding handle for:", authorized.sub);
+        if (authorized) {
+          console.log("🟢 🔐 Handle authorized:", authorized);
+          console.log("🚵 Finding handle for:", authorized.sub);
 
-        // Find handle based on email.
-        const bareHandle = await getHandleFromSub(authorized.sub);
-        let handle;
-        if (bareHandle) handle = "@" + bareHandle;
-        console.log("️🐻 Bare handle is:", bareHandle);
+          // Find handle based on email.
+          const bareHandle = await getHandleFromSub(authorized.sub);
+          let handle;
+          if (bareHandle) handle = "@" + bareHandle;
+          console.log("️🐻 Bare handle is:", bareHandle);
 
-        console.log("🚦 Checking subscription status for:", instance.name);
-        let subscribed;
-        if (instance.name === "chat-sotce") {
-          // Also ensure that they are subscribed if the instance.name is "chat-sotce".
-          // Run through the '/subscribed' endpoint from `sotce-net` and cached in `subsToSubscribers`.
-          if (!subsToSubscribers[authorized.sub]) {
-            const host = dev ? "https://localhost:8888" : "https://sotce.net";
+          console.log("🚦 Checking subscription status for:", instance.name);
+          let subscribed;
+          if (instance.name === "chat-sotce") {
+            // Also ensure that they are subscribed if the instance.name is "chat-sotce".
+            // Run through the '/subscribed' endpoint from `sotce-net` and cached in `subsToSubscribers`.
+            if (!subsToSubscribers[authorized.sub]) {
+              const host = dev ? "https://localhost:8888" : "https://sotce.net";
 
-            const options = {
-              method: "POST",
-              body: { retrieve: "subscription" },
-              headers: {
-                Authorization: "Bearer " + msg.content.token,
-                "Content-Type": "application/json",
-              },
-            };
+              const options = {
+                method: "POST",
+                body: { retrieve: "subscription" },
+                headers: {
+                  Authorization: "Bearer " + msg.content.token,
+                  "Content-Type": "application/json",
+                },
+              };
 
-            if (dev) options.agent = agent;
+              if (dev) options.agent = agent;
 
-            const response = await fetch(
-              `${host}/sotce-net/subscribed`,
-              options,
-            );
-            if (response.status === 200) {
-              const responseBody = await response.json();
-              if (responseBody.subscribed) {
-                console.log("️📰 Subscribed:", responseBody);
-                subscribed = true;
+              const response = await fetch(
+                `${host}/sotce-net/subscribed`,
+                options,
+              );
+              if (response.status === 200) {
+                const responseBody = await response.json();
+                if (responseBody.subscribed) {
+                  console.log("️📰 Subscribed:", responseBody);
+                  subscribed = true;
+                } else {
+                  console.error("🗞️ Unsubscribed:", responseBody);
+                  subscribed = false;
+                }
               } else {
-                console.error("🗞️ Unsubscribed:", responseBody);
+                console.error("🗞️ Unsubscribed:", response);
                 subscribed = false;
               }
+              subsToSubscribers[authorized.sub] = subscribed; // Cache the subscription call.
             } else {
-              console.error("🗞️ Unsubscribed:", response);
-              subscribed = false;
+              subscribed = subsToSubscribers[authorized.sub];
             }
-            subsToSubscribers[authorized.sub] = subscribed; // Cache the subscription call.
           } else {
-            subscribed = subsToSubscribers[authorized.sub];
+            subscribed = true;
           }
-        } else {
-          subscribed = true;
         }
 
         if (!authorized || !handle || !subscribed) {
