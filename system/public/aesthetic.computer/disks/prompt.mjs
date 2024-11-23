@@ -320,7 +320,7 @@ async function halt($, text) {
     slug === "tapem"
   ) {
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
-    const defaultDuration = 15;
+    const defaultDuration = 7;
     const tapePromise = new Promise((resolve, reject) => {
       tapePromiseResolve = resolve;
       tapePromiseReject = reject;
