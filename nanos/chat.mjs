@@ -472,18 +472,17 @@ async function startChatServer() {
         //       otherwise return unauthorized.
 
         // TODO: Make sure this works across sotce-net.
+        let handle, subscribed;
+
         if (authorized) {
           console.log("🟢 🔐 Handle authorized:", authorized);
           console.log("🚵 Finding handle for:", authorized.sub);
 
           // Find handle based on email.
           const bareHandle = await getHandleFromSub(authorized.sub);
-          let handle;
           if (bareHandle) handle = "@" + bareHandle;
           console.log("️🐻 Bare handle is:", bareHandle);
-
           console.log("🚦 Checking subscription status for:", instance.name);
-          let subscribed;
           if (instance.name === "chat-sotce") {
             // Also ensure that they are subscribed if the instance.name is "chat-sotce".
             // Run through the '/subscribed' endpoint from `sotce-net` and cached in `subsToSubscribers`.

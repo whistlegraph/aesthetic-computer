@@ -69,8 +69,7 @@ piece[3].
 [3] Write a Piece: https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.txt
 
 
-
---- (Extra copy discussion) ---
+--- (Extra copy for discussion) ---
 
 One of my favorite ideas from Processing was the concept of
 the "software sketch" and "sketchbook", which can be taken both metaphorically
