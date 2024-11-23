@@ -30,7 +30,7 @@ Here are a some recipes to try:
 2. Enter `rect red` and drag to paint red (or any CSS color) rectangles.<br>
    (Or try other primitive brushes like `line`, `shape`, and `fill`.)
 3. Press the command name in the top left corner to return to `prompt`.<br>
-   (Or use the [Esc], [Backspace], or [`] on the keyboard.)
+   (Or use the `[Esc]`, `[Backspace]`, or ``[`]`` on the keyboard.)
 5. Enter `smear` and drag to use a pixel scattering brush, then return to `prompt`.
 6. Enter `dl` to download a timestamped PNG, `done` to publish the painting on AC servers, or `print` to mail order a real sticker.
 
@@ -39,8 +39,8 @@ Here are a some recipes to try:
 1. Enter `+` to open a second prompt window.
 2. Enter `metronome 120` in the second prompt window to keep rhythm at 120 BPM.
 3. Enter `notepat` in the first prompt window to play tones in regular time.<br>
-   (Or try `bleep:sine 4x4` for a randomized playable tone matrix.)<br><br>
-*Bonus*
+   (Or try `bleep:sine 4x4` for a randomized playable tone matrix.)<br>
+**Bonus**
 4. Record a `notepat` performance as a 7s looping, downloadable video by entering `tape notepat`.
 5. Play `notepat` in person with others by generating a QR code via `share notepat`.
 
@@ -55,6 +55,8 @@ Here are a some recipes to try:
 To dive in more you can read the technical history [2] or try coding your own AC
 piece[3].
 
+<img width="100%" src="https://assets.aesthetic.computer/aesthetic-inc/screenshot.png">
+
 ---
 
 [0] No Paint HN discussion from 2020: https://news.ycombinator.com/item?id=23546706
@@ -64,7 +66,3 @@ piece[3].
 [2] The AC Story: https://github.com/whistlegraph/aesthetic-computer/blob/main/STORY.txt
 
 [3] Write a Piece: https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.txt
-
----
-
-<img width="100%" src="https://assets.aesthetic.computer/aesthetic-inc/screenshot.png">
