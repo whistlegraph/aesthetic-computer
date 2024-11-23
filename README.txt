@@ -1,4 +1,8 @@
-A *new* computing environment that runs "pieces" instead of "apps" or "programs".
+Aesthetic Computer is a mobile-first runtime and social network for creative computing.
+
+AC's client interface is designed to function like a musical instrument, on which users discover their own memorizable paths in the network of commands and published pieces. As users grow their literacy through play and exploration, they are able to improvise, recombine, and expand their performable repertoire.
+
+I started writing Aesthetic Computer in 2021 because I desired new tools to author, publish and connect the creative software toys I had been making in my art and education practice for 10+ years. The last of these before AC was https://nopaint.art, discussed on Hacker News in 2020.[0]
 
 *** Try Me ***
 
