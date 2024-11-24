@@ -144,7 +144,6 @@ class Button {
         }
       }
 
-
       if (
         (pens.length > 1 &&
           btn.box.containsNone(pens) &&
@@ -198,6 +197,10 @@ class Button {
         callbacks.over?.(btn);
       }
       btn.over = true;
+    }
+
+    if (e.is(`draw:${t}`) && btn.over && btn.box.contains(e)) {
+      callbacks.scrub?.(btn);
     }
 
     // 5. Rollout: Run a rollout event if dragged off.
