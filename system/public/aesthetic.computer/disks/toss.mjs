@@ -18,14 +18,12 @@ function boot({ api }) {
 
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
   wipe("purple"); // Clear the background.
-
   [lbtn, rbtn].forEach((btn) => {
     const col = btn === lbtn ? "orange" : "green";
     btn.paint((b) => {
       ink(b.down ? col : "black").box(b.box.x, b.box.y, b.box.w, b.box.h);
     });
   });
-
   const gap = 32;
 
   ink("red");
@@ -66,24 +64,24 @@ function act({ event: e, sound }) {
           rsound.kill();
         }
       },
+      scrub: (g) => {
+        console.log("over", e, g);
+        if (left) {
+          ltone += e.delta.y;
+          lsound.update({
+            tone: ltone,
+            duration: 0.05,
+          });
+        } else {
+          rtone += e.delta.y;
+          rsound.update({
+            tone: rtone,
+            duration: 0.05,
+          });
+        }
+      },
     });
   });
-
-  if (e.is("draw")) {
-    if (lbtn.down) {
-      ltone += e.delta.y;
-      lsound.update({
-        tone: ltone,
-        duration: 0.05,
-      });
-    } else if (rbtn.down) {
-      rtone += e.delta.y;
-      rsound.update({
-        tone: rtone,
-        duration: 0.05,
-      });
-    }
-  }
 }
 
 // 📚 Library
