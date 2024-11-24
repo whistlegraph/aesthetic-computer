@@ -5,9 +5,11 @@
  */
 
 let lbtn, rbtn;
+let type;
 
-function makeButtons({ screen, ui }) {
+function makeButtons({ screen, ui, colon }) {
   const hw = screen.width / 2;
+  type = colon[0] || "sine"; // help.choose("sine", "triangle", "square", "sawtooth");
   lbtn = new ui.Button(0, 0, hw, screen.height);
   rbtn = new ui.Button(hw, 0, hw, screen.height);
 }
@@ -38,7 +40,7 @@ let lsound, rsound;
 let ltone = startTone,
   rtone = startTone;
 
-function act({ event: e, sound }) {
+function act({ event: e, sound, pens }) {
   // Respond to user input here.
   [lbtn, rbtn].forEach((btn, index) => {
     const left = index === 0;
@@ -46,7 +48,7 @@ function act({ event: e, sound }) {
     btn.act(e, {
       down: () => {
         const osc = sound.synth({
-          type: "sine",
+          type,
           tone: left ? ltone : rtone, // TODO: ltone;
           duration: "🔁",
         });
@@ -80,7 +82,8 @@ function act({ event: e, sound }) {
           });
         }
       },
-    });
+    }, pens?.());
+          
   });
 }
 
