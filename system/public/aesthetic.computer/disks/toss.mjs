@@ -24,11 +24,20 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
       ink(b.down ? "yellow" : "black").box(b.box.x, b.box.y, b.box.w, b.box.h);
     });
   });
+
+  const gap = 32;
+
+  ink("red");
+  write(ltone, gap, gap);
+
+  ink("red");
+  write(rtone, screen.width / 2 + gap, gap);
 }
 
+const startTone = 440;
 let lsound, rsound;
-let ltone = 400,
-  rtone = 600;
+let ltone = startTone,
+  rtone = startTone;
 
 function act({ event: e, sound }) {
   // Respond to user input here.
@@ -50,10 +59,30 @@ function act({ event: e, sound }) {
         }
       },
       up: () => {
-        
-      }
+        if (left) {
+          lsound.kill();
+        } else {
+          rsound.kill();
+        }
+      },
     });
   });
+
+  if (e.is("draw")) {
+    if (lbtn.down) {
+      ltone += e.delta.y;
+      lsound.update({
+        tone: ltone,
+        duration: 0.05,
+      });
+    } else if (rbtn.down) {
+      rtone += e.delta.y;
+      rsound.update({
+        tone: rtone,
+        duration: 0.05,
+      });
+    }
+  }
 }
 
 // 📚 Library
