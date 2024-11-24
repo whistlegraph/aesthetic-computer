@@ -20,8 +20,9 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
   wipe("purple"); // Clear the background.
 
   [lbtn, rbtn].forEach((btn) => {
+    const col = btn === lbtn ? "orange" : "green";
     btn.paint((b) => {
-      ink(b.down ? "yellow" : "black").box(b.box.x, b.box.y, b.box.w, b.box.h);
+      ink(b.down ? col : "black").box(b.box.x, b.box.y, b.box.w, b.box.h);
     });
   });
 
@@ -34,7 +35,7 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
   write(rtone, screen.width / 2 + gap, gap);
 }
 
-const startTone = 440;
+const startTone = 1000;
 let lsound, rsound;
 let ltone = startTone,
   rtone = startTone;
