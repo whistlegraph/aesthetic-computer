@@ -12,7 +12,7 @@ Visit https://aesthetic.computer and press the top left of the screen or type an
 
 In the AC prompt, enter names of built-in toy and utility pieces like `notepat`[1], or `boyfriend` and those published by user handles like `@bash/hub`.
 
-Return to the prompt by pressing the name at the top left corner, your browser's back button or the [Esc], [`], or [Backspace] keyboard shortcuts.
+Return to the prompt by pressing the name at the top left corner, your browser's back button or the `[Esc]`, ``[`]``, or `[Backspace]` keyboard shortcuts.
 
 Enter `list` at the prompt for a scrollable index of pieces and commands.
 
@@ -30,7 +30,7 @@ Here are a some recipes to try:
 2. Enter `rect red` and drag to paint red (or any CSS color) rectangles.<br>
    (Or try other primitive brushes like `line`, `shape`, and `fill`.)
 3. Press the command name in the top left corner to return to `prompt`.<br>
-   (Or use the `[Esc]`, `[Backspace]`, or ``[`]`` on the keyboard.)
+   (Or use `[Esc]`, `[Backspace]`, or ``[`]`` on the keyboard.)
 5. Enter `smear` and drag to use a pixel scattering brush, then return to `prompt`.
 6. Enter `dl` to download a timestamped PNG, `done` to publish the painting on AC servers, or `print` to mail order a real sticker.
 
