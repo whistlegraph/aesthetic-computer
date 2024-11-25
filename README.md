@@ -63,6 +63,6 @@ piece[3].
 
 [1] Recent HN discussion on `notepat` here: https://news.ycombinator.com/item?id=41526754
 
-[2] The AC Story: https://github.com/whistlegraph/aesthetic-computer/blob/main/STORY.txt
+[2] The AC Story: https://github.com/whistlegraph/aesthetic-computer/blob/main/STORY.md
 
-[3] Write a Piece: https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.txt
+[3] Write a Piece: https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.md
