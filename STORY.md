@@ -1,4 +1,4 @@
-### Story
+### The AC Story
 
 In 2020 during COVID I released the free No Paint software as a website and iOS
 app[0].
