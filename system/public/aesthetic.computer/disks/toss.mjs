@@ -39,7 +39,25 @@ const shortcuts = [
   "=]\\",
 ];
 
+const theme = [
+  "red",
+  "orange",
+  "green",
+  "blue",
+  "brown",
+  "gray",
+  "aqua",
+  "purple",
+  "pink",
+  "rose",
+  "violet",
+  "lilac",
+];
+
 const { min } = Math;
+
+const toneLow = 200;
+const toneHigh = 4000;
 
 function makeBands({ api, colon }, count) {
   bandCount = count;
@@ -67,13 +85,15 @@ function boot({ api, params }) {
   makeBands(api, min(shortcuts.length, parseInt(params[0]) || 2));
 }
 
-function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
+function paint({ api, wipe, ink, line, screen, box, circle, pen, write, num }) {
   wipe("purple"); // Clear the background.
   bands.forEach((band, index) => {
     const btn = band.btn;
-    const col = index === 0 ? "orange" : "green";
     btn.paint((b) => {
-      ink(b.down ? col : "black").box(b.box.x, b.box.y, b.box.w, b.box.h);
+      const hue = num.map(band.tone, toneLow, toneHigh, 0, 359.9);
+      const colorA = num.hslToRgb(hue, 100, 30); // theme[index];
+      const colorB = num.hslToRgb(hue, 50, 5); // theme[index];
+      ink(b.down ? colorA : colorB).box(b.box.x, b.box.y, b.box.w, b.box.h);
       if (b.box.x !== 0) {
         ink("white", 128).line(b.box.x, b.box.y, b.box.x, b.box.y + b.box.h);
       }
@@ -133,8 +153,23 @@ function act({ event: e, api, sound, pens }) {
           band.sound?.kill(killFade);
           band.sound = null;
         },
+        over: (btn) => {
+          if (btn.up /* && anyDown*/) {
+            btn.up = false;
+            btn.actions.down(btn);
+          }
+        },
+        // TODO: The order of over and out will be important...
+        out: (btn) => {
+          btn.down = false;
+          btn.actions.up(btn);
+        },
         scrub: (g) => {
           band.tone -= e.delta.y;
+
+          if (band.tone < toneLow) band.tone = toneLow;
+          if (band.tone > toneHigh) band.tone = toneHigh;
+
           band.sound.update({
             tone: band.tone,
             duration: 0.05,
@@ -191,7 +226,8 @@ function act({ event: e, api, sound, pens }) {
 function sim() {
   bands.forEach((band) => {
     if (band.upping) {
-      band.tone += 1;
+      band.tone += Math.min(band.tone + 1, toneHigh);
+
       band.sound?.update({
         tone: band.tone,
         duration: 0.05,
@@ -199,7 +235,7 @@ function sim() {
     }
 
     if (band.downing) {
-      band.tone -= 1;
+      band.tone -= Math.max(band.tone - 1, toneLow);
       band.sound?.update({
         tone: band.tone,
         duration: 0.05,
