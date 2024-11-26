@@ -43,13 +43,15 @@ function paint({ wipe, ink, motion, screen, sound: { synth } }) {
 // 🎪 Act
 function act({ event, motion }) {}
 
-let t1, t2, t3;
+let t1, t2, t3, t4;
 const bass1 = 840;
 const bass2 = 850;
 const bass3 = 860;
+const bass4 = 220;
 let t1t = 0,
   t2t = 0,
   t3t = 0;
+  t4t = 0;
 const lo = 10;
 const hi = 900;
 
@@ -120,14 +122,21 @@ function sim({ num, motion, pen, sound: { synth } }) {
     }
 
     if (!t3) {
-      
       t3 = synth({
         type: "noise-white",
         tone: t3t, // 25 * abs(values.rotation.gamma),
         volume: 0,
         duration: "🔁",
       });
-      
+    }
+    
+     if (!t4) {
+      t4 = synth({
+        type: "sawtooth",
+        tone: t4t, // 25 * abs(values.rotation.gamma),
+        volume: 0,
+        duration: "🔁",
+      });
     }
 
     const div = 10;
@@ -138,7 +147,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
 
     {
       const val = parseFloat(values.rotation.alpha);
-      t1t += val;
+      t1t += val / div;
       t1t = num.lerp(t1t, 0, 0.0353);
       values.t1t = bass1 + abs(t1t);
       t1?.update({
@@ -168,6 +177,18 @@ function sim({ num, motion, pen, sound: { synth } }) {
       t3?.update({
         tone: values.t3t,
         volume: calvol(t3t / (bass3 * 2)),
+        duration: 0.005,
+      });
+    }
+    
+    {
+      const val = parseFloat(values.accel.y);
+      t4t += val;
+      t4t = num.lerp(t4t, 0, 0.0353);
+      values.t4t = bass3 + t4t;
+      t4?.update({
+        tone: values.t4t,
+        volume: calvol(t4t / (bass4 * 2)),
         duration: 0.005,
       });
     }
