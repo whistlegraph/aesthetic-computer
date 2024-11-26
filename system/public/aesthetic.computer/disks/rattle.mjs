@@ -111,21 +111,23 @@ function sim({ num, motion, pen, sound: { synth } }) {
     }
 
     if (!t2) {
-      t2 = synth({
-        type: "noise-white",
-        tone: t2t, // 100 * abs(values.rotation.beta),
-        volume: 0,
-        duration: "🔁",
-      });
+      //t2 = synth({
+        //type: "noise-white",
+        //tone: t2t, // 100 * abs(values.rotation.beta),
+        //volume: 0,
+        //duration: "🔁",
+      //});
     }
 
     if (!t3) {
+      /*
       t3 = synth({
         type: "noise-white",
         tone: t3t, // 25 * abs(values.rotation.gamma),
         volume: 0,
         duration: "🔁",
       });
+      */
     }
 
     const div = 10;
@@ -135,8 +137,8 @@ function sim({ num, motion, pen, sound: { synth } }) {
     }
 
     {
-      const val = parseFloat(values.rotation.alpha);
-      t1t += val / div;
+      const val = parseFloat(values.accel.y);
+      t1t += val;
       t1t = num.lerp(t1t, 0, 0.0353);
       values.t1t = bass1 + abs(t1t);
       t1?.update({
