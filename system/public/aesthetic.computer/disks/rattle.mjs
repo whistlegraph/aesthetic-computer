@@ -232,10 +232,10 @@ function sim({ num, motion, pen, sound: { synth } }) {
     }
 
     {
-      const val = parseFloat(values.accel.y);
+      const val = (abs(parseFloat(values.accel.x)) + abs(parseFloat(values.accel.y)) + abs(parseFloat(values.accel.z)))/3 ;
       t4t += val;
-      t4t = num.lerp(t4t, 0, 0.1);
-      values.t4t = bass3 + t4t;
+      t4t = num.lerp(t4t, 0, 0.01);
+      values.t4t = bass4 / 2 + t4t;
       const vol = calvol(t4t / (bass4 * 2));
       values.vol = vol;
       t4?.update({
