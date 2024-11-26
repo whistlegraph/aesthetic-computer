@@ -44,12 +44,12 @@ function paint({
 }) {
   wipe(0, 130, 80);
 
-  // ink(255).write(
-  //   JSON.stringify(values, null, 1),
-  //   { x: 12, y: 20 },
-  //   "blue",
-  //   screen.width,
-  // );
+  ink(255).write(
+     JSON.stringify(values, null, 1),
+     { x: 12, y: 20 },
+     "blue",
+     screen.width,
+   );
 
   if (!motion.on) {
     ink(255).write("Press to enable motion.", { center: "xy" });
@@ -234,11 +234,13 @@ function sim({ num, motion, pen, sound: { synth } }) {
     {
       const val = parseFloat(values.accel.y);
       t4t += val;
-      t4t = num.lerp(t4t, 0, 0.06);
+      t4t = num.lerp(t4t, 0, 0.1);
       values.t4t = bass3 + t4t;
+      const vol = calvol(t4t / (bass4 * 2);
+      values.vol = vol;
       t4?.update({
         tone: values.t4t,
-        volume: calvol(t4t / (bass4 * 2)),
+        volume: vol,
         duration: 0.005,
       });
     }
