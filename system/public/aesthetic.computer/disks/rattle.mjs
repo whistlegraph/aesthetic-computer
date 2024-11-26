@@ -182,7 +182,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
 
     if (!t4) {
       t4 = synth({
-        type: "sawtooth",
+        type: "sine",
         tone: t4t, // 25 * abs(values.rotation.gamma),
         volume: 0,
         duration: "🔁",
@@ -238,7 +238,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
       values.t4t = bass3 + t4t;
       t4?.update({
         tone: values.t4t,
-        volume: calvol(t4t / (bass4 * 2)),
+        volume: calvol(t4t / (bass4 * 2)) / 2,
         duration: 0.005,
       });
     }
