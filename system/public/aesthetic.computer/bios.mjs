@@ -1049,7 +1049,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const buffer = sfx[sound];
 
       // const originalPitchHz = 440;
-      const originalPitchHz = computeOriginalPitch(buffer, buffer.sampleRate / 10);
+      const originalPitchHz = computeOriginalPitch(
+        buffer,
+        buffer.sampleRate / 10,
+      );
       console.log("🔈 Sample detected picth:", originalPitchHz);
 
       if (options?.reverse || options?.pitch) {
@@ -2357,6 +2360,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         input.addEventListener("blur", (e) => {
           input.setAttribute("readonly", true);
+          const temp = input.value;
+          input.value = "";
+          input.value = temp;
           keyboardOpen = false;
           keyboard.events.push({ name: "keyboard:close" });
         });
