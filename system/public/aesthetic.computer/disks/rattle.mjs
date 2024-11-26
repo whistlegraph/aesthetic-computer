@@ -30,18 +30,63 @@ function boot({ wipe, motion }) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, motion, screen, sound: { synth } }) {
+function paint({
+  wipe,
+  ink,
+  motion,
+  screen,
+  sound: { synth },
+  goto,
+  face,
+  crawl,
+  down,
+  up,
+}) {
   wipe(0, 130, 80);
 
-  ink(255).write(
-    JSON.stringify(values, null, 1),
-    { x: 12, y: 20 },
-    "blue",
-    screen.width,
-  );
+  // ink(255).write(
+  //   JSON.stringify(values, null, 1),
+  //   { x: 12, y: 20 },
+  //   "blue",
+  //   screen.width,
+  // );
 
   if (!motion.on) {
     ink(255).write("Press to enable motion.", { center: "xy" });
+  }
+
+  // 🪧 Add notice for disabling Shake to Undo? 24.11.26.18.32
+  if (motion.on) {
+    // TODO: Use turtle graphics to draw lines for the rotation?
+
+    // ink("yellow").line
+    ink("white");
+    goto(screen.width / 2, screen.height / 2);
+    face(values.rotation.alpha - 90);
+    down();
+    crawl(32);
+    up();
+
+    ink("yellow");
+    goto(screen.width / 2, screen.height / 2);
+    face(values.rotation.beta - 90);
+    down();
+    crawl(32);
+    up();
+
+    ink("blue");
+    goto(screen.width / 2, screen.height / 2);
+    face(values.rotation.gamma - 90);
+    down();
+    crawl(32);
+    up();
+
+    ink("orange");
+    goto(screen.width / 2, screen.height / 2);
+    face(-90);
+    down();
+    crawl(values.accel.y * 32);
+    up();
   }
 }
 
@@ -134,8 +179,8 @@ function sim({ num, motion, pen, sound: { synth } }) {
         duration: "🔁",
       });
     }
-    
-     if (!t4) {
+
+    if (!t4) {
       t4 = synth({
         type: "sawtooth",
         tone: t4t, // 25 * abs(values.rotation.gamma),
@@ -185,7 +230,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
         duration: 0.005,
       });
     }
-    
+
     {
       const val = parseFloat(values.accel.y);
       t4t += val;
