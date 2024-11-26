@@ -2,19 +2,23 @@
 // Play two oscillators at once.
 
 /* 📝 Notes
-
-  - [] Add keyboard shortcuts for the strips.
-  - [] Add auto-resizing to buttons.
-
-
+  - [🟡] Make a `safe` tap area to prevent scrolling or just require at least 2-3px deadzone before
+       scrubbing is toggled, which can reset on lift.
   - [] Do full volume at center of strip and less on the edges.
-
+  - [] Consider a bounce or inertia mechanic that works like a bouncing scroll.
+  - [] Change sound type per strip.
+  - [] Add ability to record a sample into a strip.
+  - [] Map notes to strips or load certain presets.
+  - [] Maybe rattle could be done with touch in addition to shaking the phone?
+  + Done
+  - [x] Add keyboard shortcuts for the strips.
+  - [x] Add auto-resizing to buttons.
   - [x] Add attack and decay similar to `notepat`.
   - [x] Make it so there can be N strips and they can be layed out either
        "along" or "across" like `toss across` and have a number like `toss across 8` for 8 strips where dragging
        left and right changes the freq.
   - [x] Add vertical separator for the two strips.
- */
+*/
 
 let bands = [];
 let type;
