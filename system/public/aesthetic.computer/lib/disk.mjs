@@ -795,6 +795,7 @@ const $commonApi = {
   },
   // Track device motion.
   motion: {
+    on: false,
     start: () => {
       send({ type: "motion:start" });
     },
@@ -1880,7 +1881,23 @@ const $paintApi = {
         tf?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
       });
     } else {
-      tf?.print($activePaintApi, pos, 0, text, bg);
+      // Break on `\n` and handle separate lines
+      if (text.indexOf("\n") !== -1) {
+        const lines = text.split("\n"); // Split text on new line characters
+        const lineHeightGap = 2;
+        lines.forEach((line, index) => {
+          tf?.print(
+            $activePaintApi,
+            { x: pos.x, y: pos.y + index * tf.data.glyphHeight + lineHeightGap },
+            0,
+            line,
+            bg,
+          );
+          // Adjust `lineHeight` as needed based on your text spacing
+        });
+      } else {
+        tf?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
+      }
     }
 
     return $activePaintApi;
@@ -4098,7 +4115,13 @@ async function makeFrame({ data: { type, content } }) {
 
   // Get the updated device motion.
   if (type === "motion:update") {
+    $commonApi.motion.on = true;
     $commonApi.motion.current = content;
+    return;
+  }
+
+  if (type === "motion:enabled") {
+    $commonApi.motion.on = true;
     return;
   }
 
