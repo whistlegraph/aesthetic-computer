@@ -2061,6 +2061,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         input.style.opacity = 0;
         input.style.width = 0 + "px";
         input.style.height = 0 + "px";
+        input.setAttribute("readonly", true);
         // input.enterkeyhint = "go"; // Why doesn't this work?
 
         // 📓 Uncomment to debug text editing form synchronization.
@@ -2344,6 +2345,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         input.addEventListener("focus", (e) => {
           if (keyboardOpen) return;
+          input.removeAttribute("readonly");
           keyboardOpen = true;
           keyboard.events.push({
             name: "keyboard:open",
@@ -2353,6 +2355,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         input.addEventListener("blur", (e) => {
+          input.setAttribute("readonly", true);
           keyboardOpen = false;
           keyboard.events.push({ name: "keyboard:close" });
         });
