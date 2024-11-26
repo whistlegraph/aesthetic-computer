@@ -2337,6 +2337,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               input.blur();
             } else {
               keyboardOpenMethod = "pointer";
+              input.removeAttribute("readonly");
               window.focus();
               input.focus();
             }
