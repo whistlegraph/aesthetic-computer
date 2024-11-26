@@ -106,8 +106,6 @@ function paint({
     down();
     crawl(values.accel.z * 32);
     up();
-    
-    
   }
 }
 
@@ -255,12 +253,14 @@ function sim({ num, motion, pen, sound: { synth } }) {
     {
       const val = (abs(parseFloat(values.accel.x)) + abs(parseFloat(values.accel.y)) + abs(parseFloat(values.accel.z)))/3 ;
       t4t += val;
-      t4t = num.lerp(t4t, 0, 0.065);
+      t4t = num.lerp(t4t, 0, 0.045);
       values.t4t = -25 + t4t;
       const vol = calvol(t4t / 50);
       values.vol = t4t / 50;
+      const tone = 800 + values.t4t * 6;
+      values.tone = tone;
       t4?.update({
-        tone: 800 + values.t4t * 4,
+        tone,
         volume: values.vol,
         duration: 0.005,
       });
