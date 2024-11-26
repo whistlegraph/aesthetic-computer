@@ -23,10 +23,13 @@ catch1 = release;
 catch2 = release;
 catch3 = release;
 
+let type;
+
 // 🥾 Boot
-function boot({ wipe, motion }) {
+function boot({ wipe, motion, colon }) {
   wipe();
   motion.start();
+  type = colon[0] || "noise-white";
 }
 
 // 🎨 Paint
@@ -115,7 +118,7 @@ let t1, t2, t3, t4;
 const bass1 = 840;
 const bass2 = 850;
 const bass3 = 860;
-const bass4 = 220;
+const bass4 = 440;
 let t1t = 0,
   t2t = 0,
   t3t = 0,
@@ -200,7 +203,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
 
     if (!t4) {
       t4 = synth({
-        type: "noise-white",
+        type,
         tone: t4t, // 25 * abs(values.rotation.gamma),
         volume: 0,
         duration: "🔁",
