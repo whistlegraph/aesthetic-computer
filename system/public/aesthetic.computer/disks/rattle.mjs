@@ -60,7 +60,7 @@ function sim({ motion, pen, sound: { synth } }) {
       },
       rotation: {
         alpha: mo?.rotation?.alpha.toFixed(2) || (pen?.delta.x * 5),
-        beta: mo?.rotation?.beta.toFixed(2) || (pen?.delta.y * ,
+        beta: mo?.rotation?.beta.toFixed(2) || (pen?.delta.y * 5),
         gamma: mo?.rotation?.gamma.toFixed(2),
       },
     };
