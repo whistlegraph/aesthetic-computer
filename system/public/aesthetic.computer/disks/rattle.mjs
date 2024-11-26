@@ -261,7 +261,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
       values.vol = t4t / 100;
       t4?.update({
         tone: values.t4t,
-        volume: vol,
+        volume: values.vol,
         duration: 0.005,
       });
     }
