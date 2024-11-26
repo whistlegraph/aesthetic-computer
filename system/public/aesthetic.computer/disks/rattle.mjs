@@ -182,7 +182,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
 
     if (!t4) {
       t4 = synth({
-        type: "sine",
+        type: "noise-white",
         tone: t4t, // 25 * abs(values.rotation.gamma),
         volume: 0,
         duration: "🔁",
@@ -202,7 +202,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
       values.t1t = bass1 + abs(t1t);
       t1?.update({
         tone: values.t1t,
-        volume: calvol(t1t / (bass1 * 2)),
+        volume: 0,//calvol(t1t / (bass1 * 2)),
         duration: 0.005,
       });
     }
@@ -214,7 +214,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
       values.t2t = bass2 + abs(t2t);
       t2?.update({
         tone: values.t2t,
-        volume: calvol(t2t / (bass2 * 2)),
+        volume: 0,//calvol(t2t / (bass2 * 2)),
         duration: 0.005,
       });
     }
@@ -226,7 +226,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
       values.t3t = bass3 + abs(t3t);
       t3?.update({
         tone: values.t3t,
-        volume: calvol(t3t / (bass3 * 2)),
+        volume: 0,//calvol(t3t / (bass3 * 2)),
         duration: 0.005,
       });
     }
@@ -234,11 +234,11 @@ function sim({ num, motion, pen, sound: { synth } }) {
     {
       const val = parseFloat(values.accel.y);
       t4t += val;
-      t4t = num.lerp(t4t, 0, 0.0353);
+      t4t = num.lerp(t4t, 0, 0.06);
       values.t4t = bass3 + t4t;
       t4?.update({
         tone: values.t4t,
-        volume: calvol(t4t / (bass4 * 2)) / 2,
+        volume: calvol(t4t / (bass4 * 2)),
         duration: 0.005,
       });
     }
