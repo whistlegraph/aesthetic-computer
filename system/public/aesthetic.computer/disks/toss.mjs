@@ -54,10 +54,10 @@ const theme = [
   "lilac",
 ];
 
-const { min } = Math;
+const { min, max } = Math;
 
 const toneLow = 200;
-const toneHigh = 4000;
+const toneHigh = 1200;
 
 function makeBands({ api, colon }, count) {
   bandCount = count;
@@ -226,7 +226,7 @@ function act({ event: e, api, sound, pens }) {
 function sim() {
   bands.forEach((band) => {
     if (band.upping) {
-      band.tone += Math.min(band.tone + 1, toneHigh);
+      band.tone = min(band.tone + 1, toneHigh);
 
       band.sound?.update({
         tone: band.tone,
@@ -235,7 +235,7 @@ function sim() {
     }
 
     if (band.downing) {
-      band.tone -= Math.max(band.tone - 1, toneLow);
+      band.tone = max(band.tone - 1, toneLow);
       band.sound?.update({
         tone: band.tone,
         duration: 0.05,
