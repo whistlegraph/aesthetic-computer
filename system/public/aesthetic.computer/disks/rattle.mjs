@@ -130,9 +130,9 @@ function sim({ num, motion, pen, sound: { synth } }) {
   if (mo.accel?.x !== undefined) {
     values = {
       accel: {
-        x: mo?.accel?.x.toFixed(2),
-        y: mo?.accel?.y.toFixed(2),
-        z: mo?.accel?.z.toFixed(2),
+        x: mo?.accel?.x.toFixed(6),
+        y: mo?.accel?.y.toFixed(6),
+        z: mo?.accel?.z.toFixed(6),
       },
       accelWithGravity: {
         x: mo?.accelWithGravity?.x.toFixed(2),
@@ -251,13 +251,14 @@ function sim({ num, motion, pen, sound: { synth } }) {
     }
 
     {
-      const val = (abs(parseFloat(values.accel.x)) + abs(parseFloat(values.accel.y)) + abs(parseFloat(values.accel.z)))/3 ;
+      // const val = (abs(parseFloat(values.accel.x)) + abs(parseFloat(values.accel.y)) + abs(parseFloat(values.accel.z)))/3 ;
+      const val = abs(parseFloat(values.accel.y);
       t4t += val;
       t4t = num.lerp(t4t, 0, 0.045);
       values.t4t = -25 + t4t;
-      const vol = calvol(t4t / 50);
-      values.vol = t4t / 50;
-      const tone = 800 + values.t4t * 6;
+      const vol = calvol(t4t / 60);
+      values.vol = vol;
+      const tone = 800 + values.t4t * 10;
       values.tone = tone;
       t4?.update({
         tone,
