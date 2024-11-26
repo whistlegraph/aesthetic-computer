@@ -5,7 +5,12 @@
 #endregion */
 
 /* #region 🏁 TODO 
- - [🍊] Add accelerometer information.
+ - [] Figure out how to disable iOS Shake to Undo
+      after entering rattle from `prompt`.
+   - [] This may be the only way: https://stackoverflow.com/a/50965905.
+   - [] But refreshing / reloading the page also could work.
+ - [] Tapping top left corner word to go back
+      still requests permission for accelerometer.
 #endregion */
 
 const { abs, min, max } = Math;
