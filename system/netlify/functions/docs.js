@@ -2604,7 +2604,6 @@ export async function handler(event, context) {
         sig: "rattle",
         desc: "",
         done: false,
-        hidden: true,
       },
       rect: {
         sig: "rect",
@@ -2790,6 +2789,11 @@ export async function handler(event, context) {
       tone: {
         sig: "tone",
         desc: "Listen to a tone.",
+        done: false,
+      },
+      toss: {
+        sig: "toss",
+        desc: "Play microtonal oscillators.",
         done: false,
       },
       tracker: {
