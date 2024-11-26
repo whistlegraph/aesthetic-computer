@@ -56,7 +56,7 @@ const hi = 900;
 // 🧮 Sim
 function sim({ num, motion, pen, sound: { synth } }) {
   const mo = motion.current;
-  if (mo) {
+  if (mo.accel?.x !== undefined) {
     values = {
       accel: {
         x: mo?.accel?.x.toFixed(2),
