@@ -60,6 +60,7 @@ function paint({
     // TODO: Use turtle graphics to draw lines for the rotation?
 
     // ink("yellow").line
+    /*
     ink("white");
     goto(screen.width / 2, screen.height / 2);
     face(values.rotation.alpha - 90);
@@ -80,6 +81,7 @@ function paint({
     down();
     crawl(32);
     up();
+    */
 
     ink("orange");
     goto(screen.width / 2, screen.height / 2);
@@ -87,6 +89,22 @@ function paint({
     down();
     crawl(values.accel.y * 32);
     up();
+    
+    ink("brown");
+    goto(screen.width / 2, screen.height / 2);
+    face(0);
+    down();
+    crawl(values.accel.x * 32);
+    up();
+    
+    ink("white", 127);
+    goto(screen.width / 2, screen.height / 2);
+    face(45);
+    down();
+    crawl(values.accel.x * 32);
+    up();
+    
+    
   }
 }
 
@@ -234,9 +252,9 @@ function sim({ num, motion, pen, sound: { synth } }) {
     {
       const val = (abs(parseFloat(values.accel.x)) + abs(parseFloat(values.accel.y)) + abs(parseFloat(values.accel.z)))/3 ;
       t4t += val;
-      t4t = num.lerp(t4t, 0, 0.04);
+      t4t = num.lerp(t4t, 0, 0.036);
       values.t4t = bass4 / 2 + t4t;
-      const vol = calvol(t4t / (bass4 * 12));
+      const vol = calvol(t4t / (bass4 * 8));
       values.vol = vol;
       t4?.update({
         tone: values.t4t,
