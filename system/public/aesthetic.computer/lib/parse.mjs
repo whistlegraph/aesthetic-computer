@@ -165,7 +165,8 @@ function metadata(host, slug, pieceMetadata) {
 
   icon = pieceMetadata?.icon_url || `https://${host}/icon/128x128/${slug}.png`;
 
-  return { title, desc, ogImage, twitterImage, icon };
+  const manifest = `https://${host}/manifest.json`;
+  return { title, desc, ogImage, twitterImage, icon, manifest };
 }
 
 // Modify source code imports etc / pre-process.

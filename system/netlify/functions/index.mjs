@@ -218,7 +218,7 @@ async function fun(event, context) {
     return redirect;
   }
 
-  const { title, desc, ogImage, icon, twitterImage } = metadata(
+  const { title, desc, ogImage, icon, twitterImage, manifest } = metadata(
     event.headers["host"],
     slug,
     meta,
@@ -232,7 +232,7 @@ async function fun(event, context) {
         <title>${title}</title>
         <link rel="icon" href="${icon}" type="image/png" />
         <link rel="apple-touch-icon" href="${icon}" />
-        <link rel="manifest" href="/manifest.json">
+        <link rel="manifest" href="${manifest}" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
