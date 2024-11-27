@@ -257,7 +257,7 @@ function sim({ num, motion, pen, sound: { synth } }) {
       t4t = num.lerp(t4t, 0, 0.045);
       values.t4t = -25 + t4t;
       const vol = calvol(t4t / 60);
-      values.vol = vol;
+      values.vol = t4t / 100;
       const tone = 800 + values.t4t * 10;
       values.tone = tone;
       t4?.update({
