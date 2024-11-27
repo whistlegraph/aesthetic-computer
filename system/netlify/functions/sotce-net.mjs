@@ -1559,10 +1559,33 @@ export const handler = async (event, context) => {
             // 🪟 Interface
 
             const chatInterface = cel("div");
-            // chatInterface.id = "chat";
-            // chatInterface.innerText = "Chat goes here...";
-            // chatInterface.classList.add('hidden');
-            // wrapper.appendChild(chatInterface);
+            chatInterface.id = "chat";
+
+            chatInterface.innerText = "Chat goes here...";
+
+            // Scrolling panel for messages.
+            // const chat
+
+
+            // Input bar.
+            // Input element.
+            // Enter button.
+
+            chatInterface.classList.add("hidden");
+            wrapper.appendChild(chatInterface);
+
+            // 🥬 Send a message to chat.
+
+            /*
+            if (!currentHandle) {
+              notice("NO HANDLE", ["red", "yellow"]);
+            } else {
+              text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
+              // Send the chat message.
+              chat.server.send('chat:message', { text, token, sub: user.sub });
+              notice("SENT");
+            }
+            */
 
             // 🤖 Respond to every chat message...
             chat.system.receiver = (id, type, content) => {
@@ -1583,11 +1606,13 @@ export const handler = async (event, context) => {
 
               if (type === "too-long") {
                 // notice("TOO LONG", ["red", "yellow"]);
+                alert("⚠️ 🗨️ Your message was too long.");
                 return;
               }
 
               if (type === "unauthorized") {
                 // notice("Unauthorized", ["red", "yellow"]);
+                alert("⚠️ 🗨️ Subscribe and create a handle to chat.");
                 return;
               }
 
@@ -3826,6 +3851,7 @@ export const handler = async (event, context) => {
             function logout() {
               if (isAuthenticated) {
                 console.log("🔐 Logging out...", window.location.href);
+                chat?.system?.server?.send("logout"); // Log out of chat.
                 if (embedded) {
                   localStorage.removeItem("session-sotce");
                   window.parent.postMessage(
@@ -3837,6 +3863,7 @@ export const handler = async (event, context) => {
                     logoutParams: { returnTo: window.location.href },
                   });
                 }
+
               } else console.log("🔐 Already logged out!");
             }
 
