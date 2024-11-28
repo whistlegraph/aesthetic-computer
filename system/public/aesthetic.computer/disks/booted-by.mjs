@@ -34,7 +34,7 @@ const barColors = [
   "indigo",
   // "violet",
   //"white",
-  //"grey",
+  "grey",
   //"brown",
 ];
 let ok,
@@ -100,6 +100,8 @@ function paint({
         text = "@wiltchamberlain";
       } else if (bar.color === "orange") {
         text = "caesuras";
+      } else if (bar.color === "grey") {
+        text = "Artur Matveichenkov";
       } else {
         text = bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
       }
