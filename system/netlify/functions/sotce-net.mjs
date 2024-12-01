@@ -1495,7 +1495,62 @@ export const handler = async (event, context) => {
               left: 0;
               position: absolute;
               z-index: 0; /* This may be wrong. 24.11.05.22.43 */
-              background: yellow;
+              width: 100%;
+              height: 100%;
+              --chat-input-height: 30px;
+              --chat-enter-width: 5em;
+              overflow-y: scroll;
+              display: none;
+            }
+            #chat-messages {
+              background: rgba(255, 0, 0, 0.5);
+              min-height: calc(100% - var(--chat-input-height));
+            }
+            #chat-messages div.message {
+              border-bottom: 1px solid black;
+              box-sizing: border-box;
+            }
+            #chat-messages div.message div.message-author {
+              font-weight: bold;
+              display: inline-block;
+            }
+            #chat-messages div.message div.message-content {
+              display: inline-block;
+              padding-left: 0.25em;
+            }
+            #chat-input-bar {
+              /* width: 100%; */ /* Set in JavaScript */
+              height: var(--chat-input-height);
+              display: flex;
+              position: fixed;
+              bottom: 0;
+              overflow: scroll-y;
+            }
+            #chat-input {
+              width: calc(100% - var(--chat-enter-width));
+              height: 100%;
+              margin: 0;
+              border: 2px solid black;
+              box-sizing: border-box;
+              /* border: none; */
+            }
+            #chat-enter {
+              width: var(--chat-enter-width);
+              height: 100%;
+              font-size: 100%;
+              /* padding: 0.35em; */
+              border: 2px solid black;
+              border-left: none;
+              box-sizing: border-box;
+              margin: 0;
+            }
+            #chat-input-bar.inaccessible {
+              pointer-events: none;
+              background: white;
+            }
+
+            #chat-input-bar.inaccessible * {
+              opacity: 0.25;
             }
             #gate {
               z-index: 2;
@@ -1556,36 +1611,76 @@ export const handler = async (event, context) => {
             const chat = new Chat(dev);
             chat.connect("sotce"); // Connect to 'sotce' chat.
 
-            // 🪟 Interface
-
-            const chatInterface = cel("div");
+            const chatInterface = cel("div"); // 🪟 Interface
             chatInterface.id = "chat";
 
-            chatInterface.innerText = "Chat goes here...";
+            const chatMessages = cel("div"); // Scrolling panel for messages.
+            chatMessages.id = "chat-messages";
 
-            // Scrolling panel for messages.
-            // const chat
+            // Populate some test messages.
 
+            for(let i = 0; i <= 30; i ++) {
+              const msg = cel("div");
+              msg.classList.add('message');
+              const by = cel("div");
+              by.classList.add("message-author");
+              const txt = cel("div");
+              txt.classList.add("message-content");
+              msg.appendChild(by);
+              msg.appendChild(txt);
+              txt.innerText = "Hello";
+              by.innerText = "User";
+              chatMessages.appendChild(msg);
+            }
 
-            // Input bar.
-            // Input element.
-            // Enter button.
+            const chatInputBar = cel("div"); // Input bar.
+            chatInputBar.id = "chat-input-bar";
 
-            chatInterface.classList.add("hidden");
-            wrapper.appendChild(chatInterface);
+            const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
+
+            chatInputBar.style.width = "calc(100%  - " + scrollbarWidth + "px)";
+
+            chatInputBar.classList.add("inaccessible");
+
+            const chatInput = cel("input"); // Input element.
+            chatInput.id = "chat-input";
+            chatInput.type = "text";
+
+            const chatEnter = cel("button"); // Enter button.
+            chatEnter.innerText = "Enter";
+            chatEnter.id = "chat-enter";
+
+            chatInputBar.appendChild(chatInput);
+            chatInputBar.appendChild(chatEnter);
+
+            chatInterface.appendChild(chatMessages);
+            chatInterface.appendChild(chatInputBar);
 
             // 🥬 Send a message to chat.
+            function chatSend(text) {
+              if (!window.sotceHandle) {
+                alert("No handle set.");
+              } else {
+                // TODO: Check for user / user.sub and for a token.
+                // debugger;
 
-            /*
-            if (!currentHandle) {
-              notice("NO HANDLE", ["red", "yellow"]);
-            } else {
-              text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
-              // Send the chat message.
-              chat.server.send('chat:message', { text, token, sub: user.sub });
-              notice("SENT");
+                // text = text.replace(/s+$/, ""); // Trim trailing whitespace.
+
+                // Send the chat message.
+                chat.server.send("chat:message", {
+                  text,
+                  token,
+                  sub: user.sub,
+                });
+
+                // notice("SENT"); // TODO: 🔔 Play a sent sound. 24.11.30.23.57
+              }
             }
-            */
+
+            chatEnter.addEventListener("click", () => {
+              debugger;
+              chatSend(chatInput.value);
+            });
 
             // 🤖 Respond to every chat message...
             chat.system.receiver = (id, type, content) => {
@@ -1639,6 +1734,11 @@ export const handler = async (event, context) => {
 
               // console.log("🌠 Message received:", id, type, content);
             };
+
+            chatInterface.classList.add("hidden");
+            wrapper.appendChild(chatInterface);
+
+
 
             // 🌠 Authorization & Interface
 
@@ -2012,7 +2112,8 @@ export const handler = async (event, context) => {
                     const data = await response.json();
                     const newHandle = "@" + data.handle;
                     handle = newHandle;
-                    // console.log("🫅 Handle found:", newHandle);
+                    console.log("🫅 Handle found:", newHandle);
+                    window.sotceHandle = handle;
                   } else {
                     //console.warn(
                     //  "❌ 🫅 Handle not found:",
@@ -2055,6 +2156,8 @@ export const handler = async (event, context) => {
                       const result = await response.json();
                       // console.log("💁‍♀️ Handle set:", result);
                       hb.innerText = "@" + result.handle;
+                      handle = hb.innerText;
+                      window.sotceHandle = handle;
                       unveil();
                     } else {
                       const error = await response.json();
@@ -3863,7 +3966,6 @@ export const handler = async (event, context) => {
                     logoutParams: { returnTo: window.location.href },
                   });
                 }
-
               } else console.log("🔐 Already logged out!");
             }
 
