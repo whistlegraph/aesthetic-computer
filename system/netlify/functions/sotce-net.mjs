@@ -3,7 +3,9 @@
 
 /* #region 🟢 TODO 
   + Now
-  - [🧚] Integrate a pervasive user `chat` with preview on the `logged-out` page.
+  - [-] Hide chat until pink spinner dot disappears.
+  - [] Send a new message to chat ad auto-scroll.
+    - [] Limit message count to 100.
   + Later
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
@@ -1491,6 +1493,7 @@ export const handler = async (event, context) => {
               pointer-events: none;
             }
             #chat {
+              display: none;
               top: 0;
               left: 0;
               position: absolute;
@@ -1500,15 +1503,17 @@ export const handler = async (event, context) => {
               --chat-input-height: 30px;
               --chat-enter-width: 5em;
               overflow-y: scroll;
-              display: none;
+              transition: 1.5s opacity;
             }
             #chat-messages {
-              background: rgba(255, 0, 0, 0.5);
               min-height: calc(100% - var(--chat-input-height));
+              padding-bottom: var(--chat-input-height);
             }
             #chat-messages div.message {
-              border-bottom: 1px solid black;
+              border-bottom: 1.5px solid rgba(0, 0, 0, 0.15);
               box-sizing: border-box;
+              padding: 0.25em;
+              /* font-size: 85%; */
             }
             #chat-messages div.message div.message-author {
               font-weight: bold;
@@ -1544,13 +1549,29 @@ export const handler = async (event, context) => {
               box-sizing: border-box;
               margin: 0;
             }
-            #chat-input-bar.inaccessible {
-              pointer-events: none;
-              background: white;
+            #chat-messages-veil {
+              width: 100%;
+              display: block;
+              top: 0;
+              left: 0;
+              position: fixed;
+              background: linear-gradient(
+                to bottom,
+                var(--background-color) 25%,
+                transparent 100%
+              );
+              height: 40px;
+              z-index: 1;
             }
-
-            #chat-input-bar.inaccessible * {
-              opacity: 0.25;
+            #chat.hidden {
+              opacity: 0;
+            }
+            #chat.inaccessible #chat-input-bar {
+              display: none;
+            }
+            #chat.inaccessible #chat-messages {
+              padding-bottom: 0;
+              opacity: 0.35;
             }
             #gate {
               z-index: 2;
@@ -1613,15 +1634,21 @@ export const handler = async (event, context) => {
 
             const chatInterface = cel("div"); // 🪟 Interface
             chatInterface.id = "chat";
+            chatInterface.classList.add("hidden");
+            chatInterface.classList.add("inaccessible");
 
             const chatMessages = cel("div"); // Scrolling panel for messages.
             chatMessages.id = "chat-messages";
 
+            const chatMessagesVeil = cel("div");
+            chatMessagesVeil.id = "chat-messages-veil";
+            chatInterface.appendChild(chatMessagesVeil);
+
             // Populate some test messages.
 
-            for(let i = 0; i <= 30; i ++) {
+            for (let i = 0; i <= 30; i++) {
               const msg = cel("div");
-              msg.classList.add('message');
+              msg.classList.add("message");
               const by = cel("div");
               by.classList.add("message-author");
               const txt = cel("div");
@@ -1637,10 +1664,9 @@ export const handler = async (event, context) => {
             chatInputBar.id = "chat-input-bar";
 
             const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
-
-            chatInputBar.style.width = "calc(100%  - " + scrollbarWidth + "px)";
-
-            chatInputBar.classList.add("inaccessible");
+            const styleWidth = "calc(100%  - " + scrollbarWidth + "px)";
+            chatInputBar.style.width = styleWidth;
+            chatMessagesVeil.style.width = styleWidth;
 
             const chatInput = cel("input"); // Input element.
             chatInput.id = "chat-input";
@@ -1678,7 +1704,6 @@ export const handler = async (event, context) => {
             }
 
             chatEnter.addEventListener("click", () => {
-              debugger;
               chatSend(chatInput.value);
             });
 
@@ -1696,6 +1721,10 @@ export const handler = async (event, context) => {
 
               if (type === "connected") {
                 // messagesNeedLayout = true;
+                const gateCurtain = document.querySelector("#gate-curtain");
+                if (gateCurtain && !gateCutain.classList.contains("obscured")) {
+                  chatInterface.classList.remove("hidden");
+                }
                 return;
               }
 
@@ -1735,10 +1764,15 @@ export const handler = async (event, context) => {
               // console.log("🌠 Message received:", id, type, content);
             };
 
-            chatInterface.classList.add("hidden");
             wrapper.appendChild(chatInterface);
 
+            // Scroll to the bottom of pre-loaded messages.
+            chatInterface.scrollTop =
+              chatInterface.scrollHeight - chatInterface.clientHeight;
 
+            window.messages = chatMessages;
+            window.wrapper = wrapper;
+            window.chat = chatInterface;
 
             // 🌠 Authorization & Interface
 
@@ -2246,7 +2280,10 @@ export const handler = async (event, context) => {
                   const checkObscurity = setInterval(() => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
-                      chatInterface.classList.remove("hidden");
+                      // Check to see if the chat is connected.
+                      if (!chat.system.connecting) {
+                        chatInterface.classList.remove("hidden");
+                      }
                       clearInterval(checkObscurity);
                     }
                   }, 10);
@@ -3694,6 +3731,7 @@ export const handler = async (event, context) => {
                 setTimeout(() => {
                   spinner.remove();
                   page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
+                  chatInterface.classList.remove("hidden");
 
                   if (GATE_WAS_UP) {
                     document
