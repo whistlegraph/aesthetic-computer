@@ -3,8 +3,13 @@
 
 /* #region 🟢 TODO 
   + Now
-  - [-] Hide chat until pink spinner dot disappears.
-  - [] Send a new message to chat ad auto-scroll.
+
+  - [🟠] Test chat interface with subscribed user.
+
+  - [] Test guest chat interface with logged in (unsubscribed) user.
+
+  - [] Test reconnection logic.
+  - [] Send a new message to chat and auto-scroll.
     - [] Limit message count to 100.
   + Later
   - [] Add "snippet" endpoint to get @amelia's latest page so it
@@ -35,6 +40,7 @@
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  - [x] Hide chat until pink spinner dot disappears.
   - [c] Add exporting of PNG images per pages.
   - [x] Test and enable printing on iOS.
 #endregion */
@@ -1377,6 +1383,10 @@ export const handler = async (event, context) => {
               transform: scale(0.94);
               transition: 0.13s ease-out transform;
             }
+            #cookie-menu-wrapper.nogarden {
+              filter: drop-shadow(0px -6px 6px var(--background-color))
+                drop-shadow(4px -14px 0px var(--background-color));
+            }
             #cookie-menu-wrapper {
               position: absolute;
               top: 0.225em;
@@ -1384,14 +1394,13 @@ export const handler = async (event, context) => {
               width: 90px;
               height: 90px;
               filter: drop-shadow(0px -6px 6px var(--garden-background))
-                /* drop-shadow(2px 6px 4px var(--background-color)) */
                 drop-shadow(4px -14px 0px var(--garden-background));
             }
             #cookie-menu-img {
               /* Used in lieu of a mask for now. */
               visibility: hidden;
-              width: 0;
-              height: 0;
+              width: 60px;
+              height: 60px;
             }
             @media (max-width: ${miniBreakpoint}px) {
               #cookie-menu-wrapper {
@@ -1404,24 +1413,13 @@ export const handler = async (event, context) => {
                 height: 64px;
               }
               #binding {
-                padding-top: 72px; /* calc(68px + 16px + 16px); */
+                padding-top: 72px;
               }
               #gate {
-                /* width: 100%; */
                 max-width: none;
                 transform: scale(0.75);
               }
             }
-            /* #cookie-menu {
-                        position: absolute;
-                      }
-                      #write-a-page {
-                        position: absolute;
-                      } */
-            /* #binding {
-                        margin-top: calc(68px + 16px);
-                      } */
-            /* } */
             #prompt {
               font-size: 22px;
               font-family: monospace;
@@ -1471,7 +1469,7 @@ export const handler = async (event, context) => {
             }
             #veil {
               position: fixed;
-              z-index: 1000;
+              z-index: 300;
               top: -50%;
               left: 0;
               width: 100%;
@@ -1480,10 +1478,11 @@ export const handler = async (event, context) => {
               /* background: black; */
               background: rgba(0, 0, 0, 0.75);
               opacity: 1;
-              transition: 0.5s background;
+              /* transition: 0.5s background; */
             }
             #veil.unveiled {
               background: rgba(0, 0, 0, 0);
+              /* transition: 0.5s background; */
               pointer-events: none;
             }
             #veil.unveiled-instant {
@@ -1504,6 +1503,7 @@ export const handler = async (event, context) => {
               --chat-enter-width: 5em;
               overflow-y: scroll;
               transition: 1.5s opacity;
+              background: var(--background-color);
             }
             #chat-messages {
               min-height: calc(100% - var(--chat-input-height));
@@ -1721,10 +1721,22 @@ export const handler = async (event, context) => {
 
               if (type === "connected") {
                 // messagesNeedLayout = true;
+
+                //setTimeout(function () {
                 const gateCurtain = document.querySelector("#gate-curtain");
-                if (gateCurtain && !gateCutain.classList.contains("obscured")) {
+                // console.log("Curtain:", gateCurtain);
+
+                if (
+                  gateCurtain &&
+                  !gateCurtain.classList.contains("obscured")
+                ) {
+                  // console.log("Connected to chat.", user);
+                  // console.log(subscription);
                   chatInterface.classList.remove("hidden");
                 }
+                //  }
+                //}, 3000);
+
                 return;
               }
 
@@ -1896,6 +1908,8 @@ export const handler = async (event, context) => {
 
               const cookieWrapper = cel("div");
               cookieWrapper.id = "cookie-wrapper";
+
+              cookieWrapper.classList.add("interactive");
 
               const img = document.createElement("img");
               img.id = "cookie";
@@ -2247,8 +2261,66 @@ export const handler = async (event, context) => {
                   if (!cookieWrapper.classList.contains("interactive")) return;
                   curtain.classList.add("hidden");
                   cookieWrapper.classList.remove("interactive");
-                  document.documentElement.classList.add("garden");
-                  document.querySelector("#garden")?.classList.remove("hidden");
+
+                  const garden = document.querySelector("#garden");
+
+                  if (garden) {
+                    document.documentElement.classList.add("garden");
+                    garden.classList.remove("hidden");
+                  } else {
+                    // TODO: Make sure the icon cookie is visible.
+
+                    let cookieMenuWrapper = document.querySelector(
+                      "#cookie-menu-wrapper",
+                    );
+
+                    if (!cookieMenuWrapper) {
+                      // Duplicate in 'garden'.
+                      const cookieMenuWrapper = cel("div");
+                      const cookieMenu = cel("div");
+                      cookieMenuWrapper.id = "cookie-menu-wrapper";
+                      cookieMenuWrapper.classList.add("nogarden");
+                      cookieMenu.id = "cookie-menu";
+                      const cookieImg = cel("img");
+                      cookieImg.id = "cookie-menu-img";
+                      cookieImg.crossOrigin = "anonymous";
+
+                      cookieMenuWrapper.style.marginRight =
+                        scrollbarWidth + "px";
+
+                      cookieMenuWrapper.appendChild(cookieMenu);
+                      cookieMenuWrapper.appendChild(cookieImg);
+
+                      cookieImg.onload = function () {
+                        // Render a mask image dataurl for the cookieImg.
+                        const canvas = document.createElement("canvas");
+                        canvas.width = cookieImg.naturalWidth;
+                        canvas.height = cookieImg.naturalHeight;
+                        const ctx = canvas.getContext("2d");
+                        ctx.drawImage(cookieImg, 0, 0);
+                        const dataUrl = canvas.toDataURL();
+                        cookieMenu.style.maskImage = "url(" + dataUrl + ")";
+                        unveil({ instant: true });
+                        wrapper.appendChild(cookieMenuWrapper);
+                      };
+
+                      veil();
+
+                      cookieImg.src = asset("cookie-open.png");
+
+                      cookieMenu.onclick = function () {
+                        curtain.classList.remove("hidden");
+                        cookieWrapper.classList.add("interactive");
+                        cookieMenuWrapper.classList.add("hidden");
+                      };
+
+                      // topBar.appendChild(cookieMenuWrapper);
+                      // topBar.appendChild(cookieImg);
+                    } else {
+                      cookieMenuWrapper.classList.remove("hidden");
+                    }
+                  }
+
                   document.body.classList.remove("pages-hidden");
                   wrapper.scrollTop = scrollMemory;
                   computePageLayout?.();
@@ -2281,7 +2353,7 @@ export const handler = async (event, context) => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
                       // Check to see if the chat is connected.
-                      if (!chat.system.connecting) {
+                      if (!subscription && !chat.system.connecting) {
                         chatInterface.classList.remove("hidden");
                       }
                       clearInterval(checkObscurity);
@@ -3453,8 +3525,8 @@ export const handler = async (event, context) => {
                 });
               }
 
-              const cookieMenu = cel("div");
               const cookieMenuWrapper = cel("div");
+              const cookieMenu = cel("div");
               cookieMenuWrapper.id = "cookie-menu-wrapper";
               cookieMenu.id = "cookie-menu";
               const cookieImg = cel("img");
@@ -3462,8 +3534,8 @@ export const handler = async (event, context) => {
               cookieImg.src = asset("cookie-open.png");
               cookieImg.crossOrigin = "anonymous";
               cookieMenuWrapper.appendChild(cookieMenu);
+              cookieMenuWrapper.appendChild(cookieImg);
               topBar.appendChild(cookieMenuWrapper);
-              topBar.appendChild(cookieImg);
 
               if (GATE_WAS_UP) {
                 g.classList.add("hidden");
@@ -3731,7 +3803,10 @@ export const handler = async (event, context) => {
                 setTimeout(() => {
                   spinner.remove();
                   page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
-                  chatInterface.classList.remove("hidden");
+
+                  if (type === "gate") {
+                    // chatInterface.classList.remove("hidden");
+                  }
 
                   if (GATE_WAS_UP) {
                     document
