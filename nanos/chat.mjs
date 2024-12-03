@@ -491,7 +491,7 @@ async function startChatServer() {
 
               const options = {
                 method: "POST",
-                body: { retrieve: "subscription" },
+                body: JSON.stringify({ retrieve: "subscription" }),
                 headers: {
                   Authorization: "Bearer " + msg.content.token,
                   "Content-Type": "application/json",
