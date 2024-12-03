@@ -4,6 +4,8 @@
 /* #region 🟢 TODO 
   + Now
 
+  - [🩶] Handle chat disconnection / reconnection UI.
+
   - [🟠] Test chat interface with subscribed user.
 
   - [] Test guest chat interface with logged in (unsubscribed) user.
@@ -642,7 +644,8 @@ export const handler = async (event, context) => {
               justify-content: space-between;
             }
             nav button,
-            #write-a-page {
+            #write-a-page,
+            #chat-button {
               color: black;
               background: var(--button-background);
               padding: 0.35em;
@@ -662,6 +665,10 @@ export const handler = async (event, context) => {
             a,
             textarea {
               -webkit-tap-highlight-color: transparent;
+            }
+            #chat-button {
+              margin-left: 1em;
+              display: none;
             }
             #write-a-page {
               margin-left: 1em;
@@ -709,11 +716,13 @@ export const handler = async (event, context) => {
             }
 
             nav button:hover,
-            #write-a-page:hover {
+            #write-a-page:hover,
+            #chat-button:hover {
               background: var(--button-background-highlight);
             }
             nav button:active,
-            #write-a-page:active {
+            #write-a-page:active,
+            #chat-button:active {
               filter: none; /* drop-shadow(
                         -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
                       ); */
@@ -1496,14 +1505,16 @@ export const handler = async (event, context) => {
               top: 0;
               left: 0;
               position: absolute;
-              z-index: 0; /* This may be wrong. 24.11.05.22.43 */
+              z-index: 2; /* This may be wrong. 24.11.05.22.43 */
               width: 100%;
               height: 100%;
               --chat-input-height: 30px;
               --chat-enter-width: 5em;
               overflow-y: scroll;
-              transition: 1.5s opacity;
               background: var(--background-color);
+            }
+            #chat.inaccessible {
+              transition: 1.5s opacity;
             }
             #chat-messages {
               min-height: calc(100% - var(--chat-input-height));
@@ -1525,11 +1536,20 @@ export const handler = async (event, context) => {
             }
             #chat-input-bar {
               /* width: 100%; */ /* Set in JavaScript */
+              background: var(--background-color);
               height: var(--chat-input-height);
               display: flex;
               position: fixed;
               bottom: 0;
               overflow: scroll-y;
+              border-top: 2px solid rgba(0, 0, 0, 0.1);
+            }
+            #chat-handle {
+              height: 100%;
+              line-height: 200%;
+              font-weight: bold;
+              padding: 0 0.25em;
+              vertical-align: center;
             }
             #chat-input {
               width: calc(100% - var(--chat-enter-width));
@@ -1646,7 +1666,18 @@ export const handler = async (event, context) => {
 
             // Populate some test messages.
 
-            for (let i = 0; i <= 30; i++) {
+            const chatMessageData = [];
+
+            function chatScrollToBottom(options = { always: false }) {
+              const currentScroll = chatInterface.scrollTop;
+              const toBottom =
+                chatInterface.scrollHeight - chatInterface.clientHeight;
+              if (options.always === true || currentScroll !== toBottom) {
+                chatInterface.scrollTop = toBottom;
+              }
+            }
+
+            function chatAddMessage(text, handle) {
               const msg = cel("div");
               msg.classList.add("message");
               const by = cel("div");
@@ -1655,9 +1686,14 @@ export const handler = async (event, context) => {
               txt.classList.add("message-content");
               msg.appendChild(by);
               msg.appendChild(txt);
-              txt.innerText = "Hello";
-              by.innerText = "User";
+              txt.innerText = text;
+              by.innerText = handle;
               chatMessages.appendChild(msg);
+              // TODO: Also add timestampe here. 24.12.02.04.36
+            }
+
+            for (let i = 0; i <= 30; i++) {
+              chatAddMessage("Hello", "@user");
             }
 
             const chatInputBar = cel("div"); // Input bar.
@@ -1668,6 +1704,10 @@ export const handler = async (event, context) => {
             chatInputBar.style.width = styleWidth;
             chatMessagesVeil.style.width = styleWidth;
 
+            const chatHandle = cel("div");
+            chatHandle.id = "chat-handle";
+            chatHandle.innerText = "nohandle";
+
             const chatInput = cel("input"); // Input element.
             chatInput.id = "chat-input";
             chatInput.type = "text";
@@ -1676,6 +1716,7 @@ export const handler = async (event, context) => {
             chatEnter.innerText = "Enter";
             chatEnter.id = "chat-enter";
 
+            chatInputBar.appendChild(chatHandle);
             chatInputBar.appendChild(chatInput);
             chatInputBar.appendChild(chatEnter);
 
@@ -1683,17 +1724,21 @@ export const handler = async (event, context) => {
             chatInterface.appendChild(chatInputBar);
 
             // 🥬 Send a message to chat.
-            function chatSend(text) {
+            async function chatSend(text) {
               if (!window.sotceHandle) {
                 alert("No handle set.");
               } else {
                 // TODO: Check for user / user.sub and for a token.
-                // debugger;
+
+                const token =
+                  window.sotceTOKEN || (await auth0Client.getTokenSilently());
 
                 // text = text.replace(/s+$/, ""); // Trim trailing whitespace.
 
+                // console.log(user);
+
                 // Send the chat message.
-                chat.server.send("chat:message", {
+                chat.system.server.send("chat:message", {
                   text,
                   token,
                   sub: user.sub,
@@ -1703,8 +1748,8 @@ export const handler = async (event, context) => {
               }
             }
 
-            chatEnter.addEventListener("click", () => {
-              chatSend(chatInput.value);
+            chatEnter.addEventListener("click", async () => {
+              await chatSend(chatInput.value);
             });
 
             // 🤖 Respond to every chat message...
@@ -1754,6 +1799,12 @@ export const handler = async (event, context) => {
 
               if (type === "message") {
                 const msg = content; // Pre-transformed and stored.
+
+                // console.log("Got message:", msg);
+
+                chatAddMessage(msg.text, msg.from);
+                chatScrollToBottom({ always: false });
+
                 // messagesToAddToLayout.push(msg);
                 // sound.play(messageSfx);
                 return;
@@ -1779,8 +1830,7 @@ export const handler = async (event, context) => {
             wrapper.appendChild(chatInterface);
 
             // Scroll to the bottom of pre-loaded messages.
-            chatInterface.scrollTop =
-              chatInterface.scrollHeight - chatInterface.clientHeight;
+            chatScrollToBottom();
 
             window.messages = chatMessages;
             window.wrapper = wrapper;
@@ -2116,6 +2166,7 @@ export const handler = async (event, context) => {
                       if (u.email_verified) {
                         // Check to see if the user has a subscription here, before rendering a subscribe button.
                         user.email_verified = u.email_verified;
+                        user.sub = u.sub; // Add sub to user.
                         const entered = await subscribed();
                         if (entered) {
                           await garden(entered, user, true); // Re-open garden but show the gate first.
@@ -2556,6 +2607,24 @@ export const handler = async (event, context) => {
               function dateTitle(dateString) {
                 const opts = { weekday: "long", month: "long", day: "numeric" };
                 return new Date(dateString).toLocaleDateString("en-US", opts);
+              }
+
+              // 🗨️ Chat chat - Open up the system chat.
+              {
+                const chatButton = cel("button");
+                chatButton.id = "chat-button";
+                chatButton.innerText = "chat";
+
+                chatButton.onclick = function () {
+                  chatInterface.classList.remove("hidden");
+                  chatInterface.classList.remove("inaccessible");
+                  chatScrollToBottom();
+                  if (window.sotceHandle) {
+                    chatHandle.innerText = window.sotceHandle;
+                  }
+                };
+
+                topBar.appendChild(chatButton);
               }
 
               // 🪷 write-a-page - Create compose form.
@@ -3656,6 +3725,7 @@ export const handler = async (event, context) => {
                     const u = await response.json();
                     if (u.email_verified) {
                       user.email_verified = u.email_verified;
+                      user.sub = u.sub;
                     }
                   } catch (err) {
                     console.error("👨‍🦰 Error:", err);
