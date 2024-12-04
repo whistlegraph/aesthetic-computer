@@ -87,6 +87,14 @@ const instances = {
 
 console.log("🔵 Env:", process.env);
 
+process.on("uncaughtException", (error) => {
+  console.error("🔴 Uncaught exception:", error);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("🔴 Unhandled rejection at:", promise, "reason:", reason);
+});
+
 const instance = instances[process.argv[2] || process.env.CHAT_INSTANCE];
 
 if (!instance) {
@@ -748,7 +756,8 @@ async function authorize(authorization) {
       // console.log(response.text());
       throw new Error("🔴 Unauthorized;", response.text());
     }
-  } catch {
+  } catch (error) {
+    console.error("🔴 Authorization error:", error);
     return undefined;
   }
 }
