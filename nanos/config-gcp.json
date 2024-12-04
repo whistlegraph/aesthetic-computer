@@ -18,7 +18,7 @@
   "ManifestPassthrough": {
     "gcp": {
       "logging": {
-        "log_id": "aesthetic-chat-log"
+        "log_id": "aesthetic-chat-log-c"
       }
     }
   },
