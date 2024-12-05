@@ -170,7 +170,18 @@ let client, db;
 
 // 🛑 The main HTTP route.
 const request = async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  console.log("🕸️ Web request:", req.url);
+
+  let url;
+  try {
+    url = new URL(req.url, `http://${req.headers.host}`);
+  } catch (err) {
+    console.error("🔴 Request URL Error:", err);
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "error", message: "Not Found" }));
+    return;
+  }
+
   const pathname = url.pathname;
   const method = req.method.toUpperCase();
 
@@ -622,19 +633,21 @@ async function startChatServer() {
           const filteredText = filter(message.text);
 
           // Don't store any actual messages to the MongoDB in development.
+          const when = new Date();
+
           if (!dev) {
             console.log("🟡 Storing message...");
-            const msg = {
+            const dbmsg = {
               user: message.sub,
               text: message.text, // Store unfiltered text in the database.
-              when: new Date(),
+              when,
             };
 
             const collection = db.collection(instance.name); // Use the chat instance name for storing messages.
             await collection.createIndex({ when: 1 }); // Index for `when`.
-            await collection.insertOne(msg); // Store the chat message
+            await collection.insertOne(dbmsg); // Store the chat message
 
-            console.log("🟢 Message stored:", msg);
+            console.log("🟢 Message stored:", dbmsg);
           } else {
             console.log("🟡 Message not stored:", "Development");
           }
@@ -644,7 +657,7 @@ async function startChatServer() {
           const out = {
             from: handle,
             text: filteredText,
-            when: msg.when,
+            when,
             sub: fromSub, // If the chat is of a specific tenant like
             //               `chat-sotce` then the subs will be local
             //               to that tenant and not prefixed. 24.10.31.21.35

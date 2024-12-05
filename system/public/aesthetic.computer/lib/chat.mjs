@@ -5,19 +5,23 @@
 import { Socket } from "./socket.mjs";
 import { logs } from "./logs.mjs";
 
+/* #region 🏁 TODO
+  - [-] Fix chatter count number. 
+#endregion */
+
 export class Chat {
   system;
   $commonApi; // Set by `disk` after `$commonApi` is defined.
   #debug = false;
 
-  constructor(debug, send) {
+  constructor(debug, send, disconnect) {
     this.system = {
       server: new Socket(debug, send),
       chatterCount: 0,
       messages: [],
       // receiver: // A custom receiver that can be defined in a piece.
       //              like `chat` to get the events.
-      // disconnect: // A custom disconnection that triggers below.
+      disconnect, // A custom disconnection that triggers below.
       connecting: true,
     };
     this.#debug = debug;
@@ -85,8 +89,9 @@ export class Chat {
         if (type === "message") {
           const msg = JSON.parse(content);
           if (logs.chat) console.log("💬 Chat message received:", msg);
-
           this.system.messages.push(msg);
+          // Only keep the last 100 messages in this array.
+          if (this.system.messages.length > 100) this.system.messages.shift();
           content = msg; // Pass the transformed message.
         }
 
