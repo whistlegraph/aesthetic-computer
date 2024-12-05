@@ -3,16 +3,14 @@
 
 /* #region 🟢 TODO 
   + Now
+  - [🩷] Limit scrollback to 100 chats.
+  - [] Show character limit / enforce on the text input.
 
-  - [🩶] Handle chat disconnection / reconnection UI.
-
-  - [🟠] Test chat interface with subscribed user.
-
+  - [] Add a more accurate chatter count that comes from the server.
+  - [] Finish bottom bar design.
   - [] Test guest chat interface with logged in (unsubscribed) user.
+  - [] Add sound.
 
-  - [] Test reconnection logic.
-  - [] Send a new message to chat and auto-scroll.
-    - [] Limit message count to 100.
   + Later
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
@@ -42,6 +40,12 @@
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  - [x] Handle chat disconnection / reconnection UI.
+  - [x] Fix gate reload. / Add 'gate' route.
+  - [x] Send a new message to chat and auto-scroll.
+  - [x] Shouldn't be able to send blank messages.
+  - [x] `chat` needs a special URL route that automatically opens to it.
+  - [x] Test chat interface with subscribed user.
   - [x] Hide chat until pink spinner dot disappears.
   - [c] Add exporting of PNG images per pages.
   - [x] Test and enable printing on iOS.
@@ -227,8 +231,11 @@ export const handler = async (event, context) => {
 
   const MAX_LINES = 19;
 
-  // 🏠 Home
-  if (path === "/" && method === "get") {
+  // 🏠 Home, Chat
+  if (
+    (path === "/" || path === "/chat" || path === "/gate") &&
+    method === "get"
+  ) {
     const miniBreakpoint = 245;
 
     const body = html`
@@ -294,6 +301,8 @@ export const handler = async (event, context) => {
               --line-height: 1.76em;
               /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
               --garden-background: rgb(204, 231, 255); // #bbfbfe;
+              --chat-background: rgb(255, 230, 225); /* rgb(240, 235, 230); */
+              --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
               /* --font-page: serif; */
               --editor-placemat-background: rgba(255, 255, 255, 0.5);
               --editor-placemat-background-opaque: rgb(255, 255, 255);
@@ -645,6 +654,8 @@ export const handler = async (event, context) => {
             }
             nav button,
             #write-a-page,
+            #pages-button,
+            /*#chat-enter,*/
             #chat-button {
               color: black;
               background: var(--button-background);
@@ -667,8 +678,14 @@ export const handler = async (event, context) => {
               -webkit-tap-highlight-color: transparent;
             }
             #chat-button {
-              margin-left: 1em;
               display: none;
+              margin-left: 1em;
+            }
+            #pages-button {
+              position: fixed;
+              top: 1em;
+              margin-right: 1em;
+              z-index: 1;
             }
             #write-a-page {
               margin-left: 1em;
@@ -717,11 +734,15 @@ export const handler = async (event, context) => {
 
             nav button:hover,
             #write-a-page:hover,
+            /*#chat-enter:hover,*/
+            #pages-button:hover,
             #chat-button:hover {
               background: var(--button-background-highlight);
             }
             nav button:active,
             #write-a-page:active,
+            /*#chat-enter:active,*/
+            #pages-button:active,
             #chat-button:active {
               filter: none; /* drop-shadow(
                         -0.035em 0.035em 0.035em rgba(40, 40, 40, 0.8)
@@ -854,7 +875,8 @@ export const handler = async (event, context) => {
               z-index: 5;
             }
 
-            .page *::selection {
+            .page *::selection,
+            #chat *::selection {
               background-color: var(--button-background-highlight);
               /* color: black; */
             }
@@ -1472,7 +1494,7 @@ export const handler = async (event, context) => {
               66% {
                 content: "..\\00a0";
               } /* Two dots, one space */
-              100% {
+              90% {
                 content: "...";
               } /* Three dots */
             }
@@ -1508,35 +1530,74 @@ export const handler = async (event, context) => {
               z-index: 2; /* This may be wrong. 24.11.05.22.43 */
               width: 100%;
               height: 100%;
-              --chat-input-height: 30px;
+              --chat-input-height: 2em;
               --chat-enter-width: 5em;
+              --chat-input-border-color: rgb(130, 100, 100);
+              /* --chat-input-border-color: var(--chat-input-bar-background); */
               overflow-y: scroll;
-              background: var(--background-color);
+              background: var(--chat-background);
+              /* opacity: 0.7; */
             }
             #chat.inaccessible {
               transition: 1.5s opacity;
             }
+            #chat-disconnected {
+              width: 100%;
+              height: 100%;
+              background: rgba(0, 0, 0, 0.25);
+              position: fixed;
+              top: 0;
+              left: 0;
+              z-index: 1;
+              color: white;
+              text-align: center;
+              line-height: 100vh;
+            }
+            #chat.inaccessible #chat-disconnected {
+              display: none;
+            }
             #chat-messages {
               min-height: calc(100% - var(--chat-input-height));
               padding-bottom: var(--chat-input-height);
+              /* padding-top: 1.25em; */
+              display: flex;
+              flex-direction: column-reverse;
             }
             #chat-messages div.message {
               border-bottom: 1.5px solid rgba(0, 0, 0, 0.15);
               box-sizing: border-box;
               padding: 0.25em;
+              line-height: 1.25em;
               /* font-size: 85%; */
             }
             #chat-messages div.message div.message-author {
               font-weight: bold;
               display: inline-block;
+              color: black; /* rgb(100, 0, 0); */
             }
             #chat-messages div.message div.message-content {
               display: inline-block;
               padding-left: 0.25em;
+              color: rgb(50, 50, 50);
+              user-select: text;
+              word-wrap: break-word;
+              max-width: calc(100% - 0.5em);
+            }
+            #chat-messages div.message div.message-when {
+              opacity: 0.25;
+              visibility: hidden;
+              display: inline-block;
+              font-size: 75%;
+              padding-left: 0.5em;
+
+            }
+            #chat-messages div.message:hover div.message-when {
+              visibility: visible;
             }
             #chat-input-bar {
               /* width: 100%; */ /* Set in JavaScript */
-              background: var(--background-color);
+              /* background: var(--chat-background); */
+              background: var(--chat-input-bar-background);
               height: var(--chat-input-height);
               display: flex;
               position: fixed;
@@ -1544,9 +1605,13 @@ export const handler = async (event, context) => {
               overflow: scroll-y;
               border-top: 2px solid rgba(0, 0, 0, 0.1);
             }
+            #chat-input-bar.sending * {
+              pointer-events: none;
+              opacity: 0.5;
+            }
             #chat-handle {
               height: 100%;
-              line-height: 200%;
+              line-height: var(--chat-input-height);
               font-weight: bold;
               padding: 0 0.25em;
               vertical-align: center;
@@ -1554,20 +1619,39 @@ export const handler = async (event, context) => {
             #chat-input {
               width: calc(100% - var(--chat-enter-width));
               height: 100%;
-              margin: 0;
-              border: 2px solid black;
-              box-sizing: border-box;
+              margin: auto 0;
+              /* margin-right: 1em; */
+              /* margin-left: 0.5em; */
+              /* border-radius: 0.5em; */
               /* border: none; */
+              border: 2px solid var(--chat-input-border-color); /* rgb(130, 130, 130); */
+              border-right: none;
+              box-sizing: border-box;
+              font-size: 100%;
+              padding: 0.35em;
+              /* border: none; */
+            }
+            #chat-input:focus {
+              outline: none;
             }
             #chat-enter {
               width: var(--chat-enter-width);
               height: 100%;
               font-size: 100%;
-              /* padding: 0.35em; */
-              border: 2px solid black;
-              border-left: none;
+              padding: 0.35em;
+              border: 2px solid black; /*var(--chat-input-border-color);*/
+              /* border-left: none; */
               box-sizing: border-box;
-              margin: 0;
+              margin: auto 0;
+              /* margin-right: 0.35em; */
+              background-color: var(--button-background);
+              cursor: pointer;
+            }
+            #chat-enter:hover {
+              background-color: var(--button-background-highlight);
+            }
+            #chat-enter:active {
+              background-color: yellow;
             }
             #chat-messages-veil {
               width: 100%;
@@ -1577,10 +1661,11 @@ export const handler = async (event, context) => {
               position: fixed;
               background: linear-gradient(
                 to bottom,
-                var(--background-color) 25%,
+                var(--chat-background) 0%,
                 transparent 100%
               );
-              height: 40px;
+              opacity: 0.9;
+              height: 100px;
               z-index: 1;
             }
             #chat.hidden {
@@ -1627,7 +1712,26 @@ export const handler = async (event, context) => {
                 document.referrer.indexOf("localhost") > -1) &&
               document.referrer.indexOf("sotce-net") === -1;
             const embedded = window.self !== window.top;
+
             const url = new URL(window.location);
+            const path = dev
+              ? url.pathname.replace("/sotce-net", "")
+              : url.pathname;
+
+            if (path.length > 0) console.log("🏡 Path:", path);
+
+            // Update the URL path without affecting back button history.
+            function updatePath(name) {
+              name = name === "/" ? "" : name;
+              const url = new URL(window.location.href);
+              if (dev) {
+                url.pathname = "/sotce-net" + name;
+              } else {
+                url.pathname = name;
+              }
+              history.replaceState(null, "", url);
+            }
+
             const cel = (el) => document.createElement(el); // shorthand
             let fullAlert;
             let waitForSubscriptionSuccessThreeTimes = false;
@@ -1649,13 +1753,24 @@ export const handler = async (event, context) => {
 
             // 🗨️ Chat
             import { Chat } from "/aesthetic.computer/lib/chat.mjs";
-            const chat = new Chat(dev);
+            const chat = new Chat(dev, undefined, function disconnect() {
+              chatDisconnected.classList.remove("hidden");
+            });
+
             chat.connect("sotce"); // Connect to 'sotce' chat.
 
             const chatInterface = cel("div"); // 🪟 Interface
             chatInterface.id = "chat";
             chatInterface.classList.add("hidden");
             chatInterface.classList.add("inaccessible");
+
+            const chatDisconnected = cel("div");
+            const chatDisconnectedMessage = cel("div");
+            chatDisconnected.id = "chat-disconnected";
+            chatDisconnected.appendChild(chatDisconnectedMessage);
+            chatDisconnectedMessage.innerText = "Connecting";
+            chatDisconnectedMessage.classList.add("loading-dots");
+            chatDisconnected.classList.add("hidden");
 
             const chatMessages = cel("div"); // Scrolling panel for messages.
             chatMessages.id = "chat-messages";
@@ -1664,8 +1779,14 @@ export const handler = async (event, context) => {
             chatMessagesVeil.id = "chat-messages-veil";
             chatInterface.appendChild(chatMessagesVeil);
 
-            // Populate some test messages.
+            chatInterface.appendChild(chatDisconnected);
 
+            const chatPagesButton = cel("button");
+            chatPagesButton.id = "pages-button";
+            chatPagesButton.innerText = "pages";
+            chatInterface.appendChild(chatPagesButton);
+
+            // Populate some test messages.
             const chatMessageData = [];
 
             function chatScrollToBottom(options = { always: false }) {
@@ -1677,32 +1798,64 @@ export const handler = async (event, context) => {
               }
             }
 
-            function chatAddMessage(text, handle) {
+            function clearChatMessages() {
+              chatMessages.replaceChildren();
+            }
+
+            const chatWhenFormatter = new Intl.DateTimeFormat("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "numeric",
+              minute: "numeric",
+              second: "numeric",
+            });
+
+            function chatAddMessage(text, handle, when) {
               const msg = cel("div");
               msg.classList.add("message");
               const by = cel("div");
               by.classList.add("message-author");
               const txt = cel("div");
               txt.classList.add("message-content");
-              msg.appendChild(by);
-              msg.appendChild(txt);
+              const date = cel("div");
+              date.classList.add("message-when");
               txt.innerText = text;
               by.innerText = handle;
-              chatMessages.appendChild(msg);
-              // TODO: Also add timestampe here. 24.12.02.04.36
+              date.innerText = chatWhenFormatter.format(new Date(when));
+              msg.appendChild(by);
+              msg.appendChild(txt);
+              msg.appendChild(date);
+              chatMessages.prepend(msg);
+              // If there are more than 100 children, remove the last message.
+              while (chatMessages.children.length > 100) {
+                chatMessages.removeChild(chatMessages.lastChild);
+              }
             }
 
-            for (let i = 0; i <= 30; i++) {
-              chatAddMessage("Hello", "@user");
+            function chatAddEmpty() {
+              const msg = cel("div");
+              msg.classList.add("message");
+              msg.innerText = "No messages yet.";
+              msg.id = "chat-message-empty";
+              chatMessages.prepend(msg);
             }
+
+            // 👷 Dummy messages.
+            //for (let i = 0; i <= 30; i++) {
+            //  chatAddMessage("Hello", "@user");
+            //}
 
             const chatInputBar = cel("div"); // Input bar.
             chatInputBar.id = "chat-input-bar";
 
             const scrollbarWidth = wrapper.offsetWidth - wrapper.clientWidth;
             const styleWidth = "calc(100%  - " + scrollbarWidth + "px)";
+
             chatInputBar.style.width = styleWidth;
             chatMessagesVeil.style.width = styleWidth;
+            chatPagesButton.style.right = scrollbarWidth + "px";
 
             const chatHandle = cel("div");
             chatHandle.id = "chat-handle";
@@ -1711,6 +1864,7 @@ export const handler = async (event, context) => {
             const chatInput = cel("input"); // Input element.
             chatInput.id = "chat-input";
             chatInput.type = "text";
+            chatInput.autocomplete = "off";
 
             const chatEnter = cel("button"); // Enter button.
             chatEnter.innerText = "Enter";
@@ -1725,15 +1879,19 @@ export const handler = async (event, context) => {
 
             // 🥬 Send a message to chat.
             async function chatSend(text) {
+              text = text.replace(/s+$/, ""); // Trim trailing whitespace.
+
               if (!window.sotceHandle) {
-                alert("No handle set.");
+                alert("👤 No handle set.");
+              } else if (text === "") {
+                alert("🪧 Your message cannot empty.");
               } else {
                 // TODO: Check for user / user.sub and for a token.
 
+                chatInputBar.classList.add("sending");
+
                 const token =
                   window.sotceTOKEN || (await auth0Client.getTokenSilently());
-
-                // text = text.replace(/s+$/, ""); // Trim trailing whitespace.
 
                 // console.log(user);
 
@@ -1744,16 +1902,41 @@ export const handler = async (event, context) => {
                   sub: user.sub,
                 });
 
+                setTimeout(() => {
+                  chatInputBar.classList.remove("sending");
+                }, 250);
+
                 // notice("SENT"); // TODO: 🔔 Play a sent sound. 24.11.30.23.57
               }
             }
 
             chatEnter.addEventListener("click", async () => {
-              await chatSend(chatInput.value);
+              const text = chatInput.value;
+              chatInput.value = "";
+              await chatSend(text);
+            });
+
+            function chatEnterKeyListener(e) {
+              if (e.key === "Enter") chatEnter.click();
+            }
+
+            chatInput.addEventListener("focus", () => {
+              window.addEventListener("keydown", chatEnterKeyListener);
+            });
+
+            chatInput.addEventListener("blur", () => {
+              window.removeEventListener("keydown", chatEnterKeyListener);
+            });
+
+            chatPagesButton.addEventListener("click", () => {
+              chatInterface.classList.add("hidden");
+              chatInterface.classList.add("inaccessible");
+              updatePath("/");
             });
 
             // 🤖 Respond to every chat message...
             chat.system.receiver = (id, type, content) => {
+              /*
               console.log(
                 "🗨️ Received chat:",
                 "Connection ID:",
@@ -1763,25 +1946,27 @@ export const handler = async (event, context) => {
                 "Content:",
                 content,
               );
+              */
 
               if (type === "connected") {
-                // messagesNeedLayout = true;
+                chatDisconnected.classList.add("hidden");
 
-                //setTimeout(function () {
+                // Insert messages if necessary...
+                clearChatMessages();
+                chat.system.messages.forEach((message) => {
+                  chatAddMessage(message.text, message.from, message.when);
+                });
+
+                if (chat.system.messages.length === 0) chatAddEmpty();
+
                 const gateCurtain = document.querySelector("#gate-curtain");
-                // console.log("Curtain:", gateCurtain);
 
                 if (
                   gateCurtain &&
                   !gateCurtain.classList.contains("obscured")
                 ) {
-                  // console.log("Connected to chat.", user);
-                  // console.log(subscription);
                   chatInterface.classList.remove("hidden");
                 }
-                //  }
-                //}, 3000);
-
                 return;
               }
 
@@ -1802,7 +1987,10 @@ export const handler = async (event, context) => {
 
                 // console.log("Got message:", msg);
 
-                chatAddMessage(msg.text, msg.from);
+                if (chat.system.messages.length === 1) {
+                  document.getElementById("chat-message-empty")?.remove();
+                }
+                chatAddMessage(msg.text, msg.from, msg.when);
                 chatScrollToBottom({ always: false });
 
                 // messagesToAddToLayout.push(msg);
@@ -1812,14 +2000,21 @@ export const handler = async (event, context) => {
 
               if (type === "handle:update" || type === "handle:strip") {
                 console.log("👱️‍ 'handle' edit received:", type, content);
-                // let layoutChanged;
-                chat.messages.forEach((message) => {
+                let layoutChanged;
+                chat.system.messages.forEach((message) => {
                   if (message.sub === content.user) {
                     message.from = content.handle;
-                    // layoutChanged = true;
+                    layoutChanged = true;
                   }
                 });
-                // if (layoutChanged) messagesNeedLayout = true;
+
+                if (layoutChanged) {
+                  clearChatMessages();
+                  chat.system.messages.forEach((message) => {
+                    chatAddMessage(message.text, message.from, message.when);
+                  });
+                }
+
                 console.log("👱 'handle' edit completed for:", content.handle);
                 return;
               }
@@ -2298,7 +2493,7 @@ export const handler = async (event, context) => {
                 }
 
                 curtain.classList.add("hidden");
-                if (GATE_WAS_UP) cookieWrapper.classList.add("interactive");
+                // if (GATE_WAS_UP) cookieWrapper.classList.add("interactive");
               }
 
               // if (status === "subscribed") {
@@ -2318,6 +2513,7 @@ export const handler = async (event, context) => {
                   if (garden) {
                     document.documentElement.classList.add("garden");
                     garden.classList.remove("hidden");
+                    updatePath("/");
                   } else {
                     // TODO: Make sure the icon cookie is visible.
 
@@ -2435,7 +2631,7 @@ export const handler = async (event, context) => {
               gateCurtain.classList.remove("obscured");
 
               if (showGate) {
-                gateCurtain.classList.remove("hidden");
+                // gateCurtain.classList.remove("hidden");
                 document.body.classList.remove("pages-hidden");
                 document.documentElement.classList.remove("garden");
               }
@@ -2610,22 +2806,23 @@ export const handler = async (event, context) => {
               }
 
               // 🗨️ Chat chat - Open up the system chat.
-              {
-                const chatButton = cel("button");
-                chatButton.id = "chat-button";
-                chatButton.innerText = "chat";
+              // {
+              const chatButton = cel("button");
+              chatButton.id = "chat-button";
+              chatButton.innerText = "chat";
 
-                chatButton.onclick = function () {
-                  chatInterface.classList.remove("hidden");
-                  chatInterface.classList.remove("inaccessible");
-                  chatScrollToBottom();
-                  if (window.sotceHandle) {
-                    chatHandle.innerText = window.sotceHandle;
-                  }
-                };
+              chatButton.onclick = function () {
+                chatInterface.classList.remove("hidden");
+                chatInterface.classList.remove("inaccessible");
+                chatScrollToBottom();
+                updatePath("/chat");
+                if (window.sotceHandle) {
+                  chatHandle.innerText = window.sotceHandle;
+                }
+              };
 
-                topBar.appendChild(chatButton);
-              }
+              topBar.appendChild(chatButton);
+              // }
 
               // 🪷 write-a-page - Create compose form.
               if (subscription?.admin) {
@@ -2654,7 +2851,7 @@ export const handler = async (event, context) => {
                   veil();
                   const res = await userRequest(
                     "POST",
-                    "sotce-net/write-a-page",
+                    "/sotce-net/write-a-page",
                     { draft: "retrieve-or-create" },
                   );
                   if (res.status === 200) {
@@ -2980,7 +3177,7 @@ export const handler = async (event, context) => {
                       veil();
                       const res = await userRequest(
                         "POST",
-                        "sotce-net/write-a-page",
+                        "/sotce-net/write-a-page",
                         { draft: "keep", words: words.value },
                       );
                       if (res.status === 200) {
@@ -3005,7 +3202,7 @@ export const handler = async (event, context) => {
                     veil();
                     const res = await userRequest(
                       "POST",
-                      "sotce-net/write-a-page",
+                      "/sotce-net/write-a-page",
                       { draft: "crumple", words: words.value },
                     );
                     if (res.status === 200) {
@@ -3029,7 +3226,7 @@ export const handler = async (event, context) => {
                     veil();
                     const res = await userRequest(
                       "POST",
-                      "sotce-net/write-a-page",
+                      "/sotce-net/write-a-page",
                       { words: words.value },
                     );
                     if (res.status === 200) {
@@ -3272,7 +3469,7 @@ export const handler = async (event, context) => {
                     let touches = [];
                     const res = await userRequest(
                       "POST",
-                      "sotce-net/touch-a-page",
+                      "/sotce-net/touch-a-page",
                       { _id: page._id },
                     );
                     if (res.status === 200) {
@@ -3323,7 +3520,7 @@ export const handler = async (event, context) => {
                         veil();
                         const res = await userRequest(
                           "POST",
-                          "sotce-net/write-a-page",
+                          "/sotce-net/write-a-page",
                           { draft: "crumple", _id: page._id },
                         );
                         if (res.status === 200) {
@@ -3606,10 +3803,11 @@ export const handler = async (event, context) => {
               cookieMenuWrapper.appendChild(cookieImg);
               topBar.appendChild(cookieMenuWrapper);
 
-              if (GATE_WAS_UP) {
-                g.classList.add("hidden");
-                document.body.classList.add("pages-hidden");
-              }
+              // if (GATE_WAS_UP) {
+              //  console.log("gate was upppppp");
+              // g.classList.add("hidden");
+              // document.body.classList.add("pages-hidden");
+              // }
 
               const curtainCookie =
                 gateCurtain.querySelector("#cookie-wrapper");
@@ -3621,6 +3819,7 @@ export const handler = async (event, context) => {
                 document.body.classList.add("pages-hidden");
                 document.documentElement.classList.remove("garden");
                 curtainCookie.classList.add("interactive");
+                updatePath("/gate");
               };
 
               if (showGate) curtainCookie.classList.add("interactive");
@@ -3651,7 +3850,8 @@ export const handler = async (event, context) => {
 
                             if (
                               currentWidth !== previousWidth ||
-                              g.scrollHeight > 0
+                              g.scrollHeight > 0 ||
+                              showGate
                             ) {
                               //console.log(
                               //  "🟢 Computing page layout...",
@@ -3669,6 +3869,7 @@ export const handler = async (event, context) => {
                               //  "transitionend",
                               //  () => {
                               resolve(g);
+
                               // },
                               // { once: true },
                               //);
@@ -3693,9 +3894,12 @@ export const handler = async (event, context) => {
 
                   g.classList.add("faded");
                   wrapper.appendChild(g);
-                  if (!showGate)
+                  if (!showGate) {
                     document.documentElement.classList.add("garden");
+                  }
                   g.classList.remove("obscured");
+
+                  if (path === "/chat") chatButton.click();
                 };
               });
 
@@ -3851,54 +4055,22 @@ export const handler = async (event, context) => {
               spinner.classList.add("showing");
             }, 150);
 
-            async function spinnerPass(callback, type) {
+            async function spinnerPass(callback, type, spinnerRemoved) {
               clearTimeout(spinnerTO);
               let page;
               if (spinner.classList.contains("showing")) {
-                //const render = await callback();
-                //page = render.page || render;
                 page = await callback();
-
-                //if (type === "garden") {
-                //}
-
-                // if (render.waitFor)
-                //setTimeout(
-                //() => {
-                //})
-                //spinner.addEventListener(
-                //  "transitionend",
                 spinner.classList.remove("showing");
 
                 setTimeout(() => {
                   spinner.remove();
                   page?.classList.remove("obscured"); // Show 'gate' / 'garden' if it wasn't already.
-
-                  if (type === "gate") {
-                    // chatInterface.classList.remove("hidden");
-                  }
-
-                  if (GATE_WAS_UP) {
-                    document
-                      .getElementById("gate-curtain")
-                      ?.classList.remove("hidden");
-                    document.body.classList.add("pages-hidden");
-                  }
+                  spinnerRemoved?.();
                 }, 150);
-                //  { once: true },
-                //);
-                //  }, 700);
               } else {
                 page = await callback();
-                // console.log("passed callback NO SPINNER", page);
                 spinner.remove();
                 page?.classList.remove("obscured");
-                if (GATE_WAS_UP) {
-                  document
-                    .getElementById("gate-curtain")
-                    ?.classList.remove("hidden");
-                  document.body.classList.add("pages-hidden");
-                }
               }
             }
 
@@ -3960,9 +4132,20 @@ export const handler = async (event, context) => {
                   }
 
                   if (entered?.subscribed) {
+                    const showGate = path === "/gate";
+
+                    let removeGateCurtain;
+                    if (showGate)
+                      removeGateCurtain = () => {
+                        document
+                          .querySelector("#gate-curtain")
+                          ?.classList.remove("hidden");
+                      };
+
                     await spinnerPass(
-                      async () => await garden(entered, user),
+                      async () => await garden(entered, user, showGate),
                       "garden",
+                      removeGateCurtain,
                     );
                   } else if (entered !== "error") {
                     await spinnerPass(async () => await gate("verified", user));
@@ -4066,7 +4249,7 @@ export const handler = async (event, context) => {
               if (!user) return false;
               const response = await userRequest(
                 "POST",
-                "sotce-net/subscribed",
+                "/sotce-net/subscribed",
                 { retrieve: "everything" },
               );
 
