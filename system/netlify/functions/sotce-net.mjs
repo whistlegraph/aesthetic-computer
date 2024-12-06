@@ -1687,6 +1687,7 @@ export const handler = async (event, context) => {
               color: black;
               background-color: var(--button-background);
               cursor: pointer;
+              margin-right: 1em;
             }
             #chat-enter:hover {
               background-color: var(--button-background-highlight);
