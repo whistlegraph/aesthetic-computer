@@ -1594,7 +1594,7 @@ export const handler = async (event, context) => {
             }
             #chat-messages {
               min-height: calc(100% - var(--chat-input-height));
-              padding-bottom: var(--chat-input-height);
+              padding-bottom: calc(var(--chat-input-height) + 1em + 2px);
               /* padding-top: 1.25em; */
               display: flex;
               flex-direction: column-reverse;
@@ -1641,6 +1641,8 @@ export const handler = async (event, context) => {
               bottom: 0;
               overflow: scroll-y;
               border-top: 2px solid rgba(0, 0, 0, 0.1);
+              padding-bottom: 1em;
+              padding-top: 2px;
             }
             #chat-input-bar.sending * {
               pointer-events: none;
@@ -1672,6 +1674,7 @@ export const handler = async (event, context) => {
             #chat-input:focus {
               outline: none;
             }
+
             #chat-enter {
               display: inline-block;
               width: var(--chat-enter-width);
@@ -1686,7 +1689,9 @@ export const handler = async (event, context) => {
               /* margin-right: 0.35em; */
               background-color: var(--button-background);
               cursor: pointer;
+              margin-right: 1em;
             }
+
             #chat-enter:hover {
               background-color: var(--button-background-highlight);
             }
