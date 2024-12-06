@@ -701,7 +701,7 @@ async function startChatServer() {
         "🫂",
       );
 
-      everyone(pack("left", { count: wss.clients.size }, id));
+      everyone(pack("left", { chatters: wss.clients.size }, id));
     });
 
     // Send a connect message to the new client.
@@ -723,9 +723,10 @@ async function startChatServer() {
     others(
       pack(
         "joined",
-        JSON.stringify({
+        {
           text: `${id} has joined. Connections open: ${wss.clients.size}`,
-        }),
+          chatters: wss.clients.size,
+        },
         id,
       ),
     );

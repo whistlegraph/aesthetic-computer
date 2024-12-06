@@ -6,7 +6,8 @@ import { Socket } from "./socket.mjs";
 import { logs } from "./logs.mjs";
 
 /* #region 🏁 TODO
-  - [-] Fix chatter count number. 
+  + Done
+  - [x] Fix chatter count number. 
 #endregion */
 
 export class Chat {
@@ -107,13 +108,13 @@ export class Chat {
         }
 
         if (type === "left") {
-          // console.log("️✌️ Goodbye:", id);
-          this.system.chatterCount -= 1;
+          if (logs.chat) console.log("️✌️ Goodbye:", id, type, content);
+          this.system.chatterCount = content.chatters;
         }
 
         if (type === "joined") {
-          // console.log("️👋 Hello:", id, type, content);
-          this.system.chatterCount += 1;
+          if (logs.chat) console.log("️👋 Hello:", id, type, content);
+          this.system.chatterCount = content.chatters;
         }
 
         this.system.receiver?.(id, type, content); // Run the piece receiver.
