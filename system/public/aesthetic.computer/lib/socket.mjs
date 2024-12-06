@@ -166,7 +166,7 @@ export class Socket {
         });
       }
     } else if (type === "left") {
-      const c = JSON.parse(content);
+      const c = typeof content === "string" ? JSON.parse(content) : content;
       if (logs.socket)
         console.log(`🧦 ${id} has left. Connections open: ${content.count}`);
       receive?.(id, type, c);
