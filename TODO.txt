@@ -2,14 +2,8 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
-*** `chat` instancing ***
- - [🟠] Make a new instance for `sotce-net` chat and fix a bunch of stuff for all chat.
-
-*** readme refresh ***
- - [] Redesign the project README.
-   - [] Graveyard a lot of dead TODOS and instructions below.
-   - [] Make a new intro above.
-   - [] Move all TODOs other than like a 'current' task to a new TODO.txt.
+*** `notepat` nub ***
+- [] Add a thinkpad nub shaker to `notepat` or `rattle` actually.
 
 *** profiles ***
  - [] refer to profile roadmap below in this file for moving paintings
