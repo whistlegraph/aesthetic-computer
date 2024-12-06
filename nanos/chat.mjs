@@ -251,7 +251,8 @@ const request = async (req, res) => {
         }
 
         everyone(pack(`message`, parsed)); // Send to everyone.
-        notify("log 🪵", parsed.text); // Push notification.
+
+        if (instance.name === "chat-system") notify("log 🪵", parsed.text); // Push notification.
 
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(
@@ -666,7 +667,8 @@ async function startChatServer() {
           if (messages.length > 100) messages.shift();
 
           everyone(pack(`message`, out)); // Send to clients.
-          notify(handle + " 💬", filteredText); // Push notification.
+          if (instance.name === "chat-system")
+            notify(handle + " 💬", filteredText); // Push notification.
 
           // 3. Send a confirmation back to the user.
           // No need, as this comes through redis...

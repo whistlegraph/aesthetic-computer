@@ -3,8 +3,8 @@
 
 /* #region 🟢 TODO 
   + Now
-  - [*] Deploy production chat.
-  - [] Test on mobile.
+  - [*] Test on mobile.
+  - [] Add custom meta descriptions for specific paths like '/chat'.
   - [] Add sound.
   + Later
   + Later
@@ -36,6 +36,7 @@
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  - [x] Deploy production chat.
   - [x] Delete any chat messages owned by a user when their account gets deleted.
   - [x] Test guest chat interface with logged in (unsubscribed) user.
   - [x] Display chatter count in the chat interface.
@@ -1659,6 +1660,7 @@ export const handler = async (event, context) => {
               /* margin-right: 1em; */
               /* margin-left: 0.5em; */
               /* border-radius: 0.5em; */
+              border-radius: 0;
               /* border: none; */
               border: 2px solid var(--chat-input-border-color); /* rgb(130, 130, 130); */
               border-right: none;
@@ -1671,6 +1673,7 @@ export const handler = async (event, context) => {
               outline: none;
             }
             #chat-enter {
+              display: inline-block;
               width: var(--chat-enter-width);
               height: 100%;
               font-size: 100%;
@@ -1679,6 +1682,7 @@ export const handler = async (event, context) => {
               /* border-left: none; */
               box-sizing: border-box;
               margin: auto 0;
+              color: black;
               /* margin-right: 0.35em; */
               background-color: var(--button-background);
               cursor: pointer;
