@@ -166,9 +166,10 @@ export class Socket {
         });
       }
     } else if (type === "left") {
+      const c = JSON.parse(content);
       if (logs.socket)
         console.log(`🧦 ${id} has left. Connections open: ${content.count}`);
-      receive?.(id, type, content);
+      receive?.(id, type, c);
     } else {
       try {
         receive?.(id, type, content); // Finally send the message to the client.

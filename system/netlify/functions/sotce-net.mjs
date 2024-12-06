@@ -3,14 +3,10 @@
 
 /* #region 🟢 TODO 
   + Now
-  - [🩷] Limit scrollback to 100 chats.
-  - [] Show character limit / enforce on the text input.
-
-  - [] Add a more accurate chatter count that comes from the server.
-  - [] Finish bottom bar design.
-  - [] Test guest chat interface with logged in (unsubscribed) user.
+  - [*] Deploy production chat.
+  - [] Test on mobile.
   - [] Add sound.
-
+  + Later
   + Later
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
@@ -40,6 +36,15 @@
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  - [x] Delete any chat messages owned by a user when their account gets deleted.
+  - [x] Test guest chat interface with logged in (unsubscribed) user.
+  - [x] Display chatter count in the chat interface.
+  - [x] Add an 'editor' route and an unsaved changes confirmation?
+  - [x] Add proper url route support for `chat` on both the client title
+        and server, in splash screen and in main ui.
+  - [x] Finish bottom bar design.
+  - [x] Show character limit / enforce on the text input.
+  - [x] Limit scrollback to 100 chats.
   - [x] Handle chat disconnection / reconnection UI.
   - [x] Fix gate reload. / Add 'gate' route.
   - [x] Send a new message to chat and auto-scroll.
@@ -106,6 +111,9 @@ export const handler = async (event, context) => {
   const assetPath = dev
     ? "/assets/sotce-net/"
     : "https://assets.aesthetic.computer/sotce-net/";
+
+  const baseHost = event.headers["host"] || "localhost";
+  const HOST = dev ? `https://${baseHost}/sotce-net` : `https://${baseHost}`;
 
   // Check to see if a user sub is subscribed.
 
@@ -233,16 +241,24 @@ export const handler = async (event, context) => {
 
   // 🏠 Home, Chat
   if (
-    (path === "/" || path === "/chat" || path === "/gate") &&
+    (path === "/" ||
+      path === "/chat" ||
+      path === "/gate" ||
+      path === "/write") &&
     method === "get"
   ) {
     const miniBreakpoint = 245;
+
+    let title = "Sotce Net";
+    if (path !== "/") {
+      title = path.replace("/", "") + " · " + title;
+    }
 
     const body = html`
       <html lang="en">
         <head>
           <meta charset="utf-8" />
-          <title>Sotce Net</title>
+          <title>${title}</title>
           <meta name="description" content="for my worst thoughts" />
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
@@ -678,7 +694,7 @@ export const handler = async (event, context) => {
               -webkit-tap-highlight-color: transparent;
             }
             #chat-button {
-              display: none;
+              /* display: none; */
               margin-left: 1em;
             }
             #pages-button {
@@ -1426,6 +1442,7 @@ export const handler = async (event, context) => {
               height: 90px;
               filter: drop-shadow(0px -6px 6px var(--garden-background))
                 drop-shadow(4px -14px 0px var(--garden-background));
+              z-index: 2;
             }
             #cookie-menu-img {
               /* Used in lieu of a mask for now. */
@@ -1523,7 +1540,7 @@ export const handler = async (event, context) => {
               pointer-events: none;
             }
             #chat {
-              display: none;
+              /* display: none; */
               top: 0;
               left: 0;
               position: absolute;
@@ -1538,8 +1555,18 @@ export const handler = async (event, context) => {
               background: var(--chat-background);
               /* opacity: 0.7; */
             }
+            #chatter-count {
+              position: fixed;
+              color: black;
+              top: 0.35em;
+              left: 0.35em;
+              z-index: 3;
+            }
             #chat.inaccessible {
               transition: 1.5s opacity;
+            }
+            #chat.inaccessible .message {
+              pointer-events: none;
             }
             #chat-disconnected {
               width: 100%;
@@ -1553,8 +1580,16 @@ export const handler = async (event, context) => {
               text-align: center;
               line-height: 100vh;
             }
-            #chat.inaccessible #chat-disconnected {
+            #chat.inaccessible #chat-disconnected,
+            #chat.inaccessible #chatter-count,
+            #chat.inaccessible #chat-message-empty,
+            #chat.inaccessible #pages-button {
               display: none;
+            }
+            #chat.inaccessible #chat-messages {
+              flex-direction: column-reverse;
+              padding-bottom: 0;
+              min-height: 100%;
             }
             #chat-messages {
               min-height: calc(100% - var(--chat-input-height));
@@ -1574,10 +1609,11 @@ export const handler = async (event, context) => {
               font-weight: bold;
               display: inline-block;
               color: black; /* rgb(100, 0, 0); */
+              padding-right: 0.25em;
+              user-select: text;
             }
             #chat-messages div.message div.message-content {
               display: inline-block;
-              padding-left: 0.25em;
               color: rgb(50, 50, 50);
               user-select: text;
               word-wrap: break-word;
@@ -1665,7 +1701,7 @@ export const handler = async (event, context) => {
                 transparent 100%
               );
               opacity: 0.9;
-              height: 100px;
+              height: 150px;
               z-index: 1;
             }
             #chat.hidden {
@@ -1676,7 +1712,20 @@ export const handler = async (event, context) => {
             }
             #chat.inaccessible #chat-messages {
               padding-bottom: 0;
-              opacity: 0.35;
+              opacity: 0.25;
+            }
+            #chat.inaccessible.splash-chat-open #chat-messages {
+              padding-bottom: 0;
+              opacity: 1;
+            }
+            #chat.inaccessible.splash-chat-open #chatter-count {
+              display: inline-block;
+            }
+            #chat.inaccessible.splash-chat-open .message {
+              pointer-events: all;
+            }
+            #chat.inaccessible.splash-chat-open #chat-message-empty {
+              display: inline-block;
             }
             #gate {
               z-index: 2;
@@ -1730,6 +1779,12 @@ export const handler = async (event, context) => {
                 url.pathname = name;
               }
               history.replaceState(null, "", url);
+
+              if (name === "") {
+                document.title = "Sotce Net";
+              } else {
+                document.title = name.replace("/", "") + " · Sotce Net";
+              }
             }
 
             const cel = (el) => document.createElement(el); // shorthand
@@ -1786,6 +1841,11 @@ export const handler = async (event, context) => {
             chatPagesButton.innerText = "pages";
             chatInterface.appendChild(chatPagesButton);
 
+            const chatterCount = cel("div");
+            chatterCount.id = "chatter-count";
+            chatterCount.innerText = "Online: " + 0;
+            chatInterface.appendChild(chatterCount);
+
             // Populate some test messages.
             const chatMessageData = [];
 
@@ -1800,6 +1860,10 @@ export const handler = async (event, context) => {
 
             function clearChatMessages() {
               chatMessages.replaceChildren();
+            }
+
+            function chatterCountUpdate() {
+              chatterCount.innerText = "Online: " + chat.system.chatterCount;
             }
 
             const chatWhenFormatter = new Intl.DateTimeFormat("en-US", {
@@ -1865,6 +1929,7 @@ export const handler = async (event, context) => {
             chatInput.id = "chat-input";
             chatInput.type = "text";
             chatInput.autocomplete = "off";
+            chatInput.maxLength = 128;
 
             const chatEnter = cel("button"); // Enter button.
             chatEnter.innerText = "Enter";
@@ -1950,7 +2015,6 @@ export const handler = async (event, context) => {
 
               if (type === "connected") {
                 chatDisconnected.classList.add("hidden");
-
                 // Insert messages if necessary...
                 clearChatMessages();
                 chat.system.messages.forEach((message) => {
@@ -1960,13 +2024,16 @@ export const handler = async (event, context) => {
                 if (chat.system.messages.length === 0) chatAddEmpty();
 
                 const gateCurtain = document.querySelector("#gate-curtain");
+                const garden = document.querySelector("#garden");
 
                 if (
                   gateCurtain &&
-                  !gateCurtain.classList.contains("obscured")
+                  !gateCurtain.classList.contains("obscured") &&
+                  !garden
                 ) {
                   chatInterface.classList.remove("hidden");
                 }
+                chatterCountUpdate();
                 return;
               }
 
@@ -1984,16 +2051,11 @@ export const handler = async (event, context) => {
 
               if (type === "message") {
                 const msg = content; // Pre-transformed and stored.
-
-                // console.log("Got message:", msg);
-
                 if (chat.system.messages.length === 1) {
                   document.getElementById("chat-message-empty")?.remove();
                 }
                 chatAddMessage(msg.text, msg.from, msg.when);
                 chatScrollToBottom({ always: false });
-
-                // messagesToAddToLayout.push(msg);
                 // sound.play(messageSfx);
                 return;
               }
@@ -2016,6 +2078,12 @@ export const handler = async (event, context) => {
                 }
 
                 console.log("👱 'handle' edit completed for:", content.handle);
+                return;
+              }
+
+              if (type === "joined" || type === "left") {
+                console.log("New chatter count:", chat.system.chatterCount);
+                chatterCountUpdate();
                 return;
               }
 
@@ -2515,8 +2583,10 @@ export const handler = async (event, context) => {
                     garden.classList.remove("hidden");
                     updatePath("/");
                   } else {
-                    // TODO: Make sure the icon cookie is visible.
+                    chatInterface.classList.add("splash-chat-open");
+                    updatePath("/chat");
 
+                    // Make sure the icon cookie is visible.
                     let cookieMenuWrapper = document.querySelector(
                       "#cookie-menu-wrapper",
                     );
@@ -2559,6 +2629,8 @@ export const handler = async (event, context) => {
                         curtain.classList.remove("hidden");
                         cookieWrapper.classList.add("interactive");
                         cookieMenuWrapper.classList.add("hidden");
+                        chatInterface.classList.remove("splash-chat-open");
+                        updatePath("/");
                       };
 
                       // topBar.appendChild(cookieMenuWrapper);
@@ -3169,6 +3241,7 @@ export const handler = async (event, context) => {
                     computePageLayout?.();
                     window.removeEventListener("resize", updateLineCount);
                     window.removeEventListener("pointerup", checkup);
+                    updatePath("/");
                   }
 
                   keep.onclick = async (e) => {
@@ -3271,9 +3344,11 @@ export const handler = async (event, context) => {
                   // observeAdd(words, () => {
                   // words.focus(); // Auto-focus on the words element
                   // });
+
+                  updatePath("/write");
                 };
 
-                if (WRITING_A_PAGE) {
+                if (WRITING_A_PAGE || path === "/write") {
                   const observer = new MutationObserver(
                     (mutationsList, observer) => {
                       for (const mutation of mutationsList) {
@@ -3953,7 +4028,7 @@ export const handler = async (event, context) => {
               clientId,
               cacheLocation: "localstorage",
               useRefreshTokens: true,
-              authorizationParams: { redirect_uri: window.location.href },
+              authorizationParams: { redirect_uri: "${HOST}" },
             });
 
             if (
@@ -4041,7 +4116,7 @@ export const handler = async (event, context) => {
                   // Redirect the user to logout if the token has failed.
 
                   auth0Client.logout({
-                    logoutParams: { returnTo: window.location.href },
+                    logoutParams: { returnTo: "${HOST}" },
                   });
                   isAuthenticated = false;
                 }
@@ -4071,6 +4146,13 @@ export const handler = async (event, context) => {
                 page = await callback();
                 spinner.remove();
                 page?.classList.remove("obscured");
+              }
+
+              if (type === undefined) {
+                // Not garden.
+                if (path === "/chat") {
+                  document.getElementById("cookie-wrapper")?.click();
+                }
               }
             }
 
@@ -4329,7 +4411,7 @@ export const handler = async (event, context) => {
                   );
                 } else {
                   auth0Client.logout({
-                    logoutParams: { returnTo: window.location.href },
+                    logoutParams: { returnTo: "${HOST}" },
                   });
                 }
               } else console.log("🔐 Already logged out!");
@@ -4851,9 +4933,16 @@ export const handler = async (event, context) => {
       shell.error("🔴 Subscription cancellation error:", err);
     }
 
-    // TODO: 2. Delete any user data, like posts.
-
+    // 2. Delete any user data, like posts.
     const database = await connect();
+
+    // 🗨️ Clear any chat messages owned by the user.
+    // Rewrite the "text" field to be null / empty and rewrite the user field to be empty
+    // rather than simply deleting the records associated with the user sub.
+    await database.db
+      .collection("chat-sotce")
+      .updateMany({ user: sub }, { $set: { text: "", user: "" } });
+    console.log("🧠 Erased chats.");
 
     // Remove the user's handle cache from redis.
     const handle = await getHandleOrEmail(sotceSub);
