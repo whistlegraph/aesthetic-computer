@@ -1674,24 +1674,20 @@ export const handler = async (event, context) => {
             #chat-input:focus {
               outline: none;
             }
-
             #chat-enter {
-              display: inline-block;
+              display: flex;
+              align-items: center;
+              justify-content: center;
               width: var(--chat-enter-width);
               height: 100%;
               font-size: 100%;
               padding: 0.35em;
-              border: 2px solid black; /*var(--chat-input-border-color);*/
-              /* border-left: none; */
+              border: 2px solid black; /* var(--chat-input-border-color); */
               box-sizing: border-box;
-              margin: auto 0;
               color: black;
-              /* margin-right: 0.35em; */
               background-color: var(--button-background);
               cursor: pointer;
-              margin-right: 1em;
             }
-
             #chat-enter:hover {
               background-color: var(--button-background-highlight);
             }
