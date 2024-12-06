@@ -3,10 +3,12 @@
 
 /* #region 🟢 TODO 
   + Now
-  - [*] Test on mobile.
   - [] Add custom meta descriptions for specific paths like '/chat'.
-  - [] Add sound.
-  + Later
+  - [] Add sound (to chat) and other buttons.
+  - [] Pictures in pages.
+    - [] Custom pictures or preset clip art from @amelia?
+    - [] Pictures in line with text or like an overlay scrapbook style?
+  - [] Add notifications to chat.
   + Later
   - [] Add "snippet" endpoint to get @amelia's latest page so it
        can be rendered on the login screen.
@@ -36,6 +38,7 @@
   *** User Info Rate Limiting ***
   - [] Try to reduce the authorize() call rate limiting on ac.
   + Done
+  - [x] Test on mobile.
   - [x] Deploy production chat.
   - [x] Delete any chat messages owned by a user when their account gets deleted.
   - [x] Test guest chat interface with logged in (unsubscribed) user.
