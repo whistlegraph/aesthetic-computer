@@ -51,13 +51,23 @@ function connect(port = 8889, url = undefined, send) {
     send({ type: "udp:connected" });
     connected = true;
 
-    channel.on("fairy:point", (content) => {
+    function respond(name, content) {
       content = JSON.parse(content);
       if (logs.udp) console.log(`🩰 UDP Received:`, content);
       send({
         type: "udp:receive",
-        content: { type: "fairy:point", content },
+        content: { type: name, content },
       });
+    }
+
+    // 💎 TODO: Make these channel names programmable somehow? 24.12.08.04.12
+
+    channel.on("tv", (content) => {
+      respond("tv", content);
+    });
+
+    channel.on("fairy:point", (content) => {
+      respond("fairy:point", content);
     });
   });
 
