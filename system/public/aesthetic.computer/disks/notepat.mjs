@@ -1,67 +1,10 @@
 // Notepat, 2024.6.26.23.17.58.736
 // Tap the pads to play musical notes, or use the keyboard keys.
 
-// ⚖️ Scales
-// CvDsEFrGtAwB
-// BwAtGrFEsDvC
-
-/* 🎶 Sequences
-
-TODO: 💮 Daisy
-
-🚫 🪀 Toys R Us Kid
-  bababg (i don't wanna grow up)
-  bb (i'm a)
-  abaf# (toys r us kid)
-
-  f# f# g# f# (there's a million)
-  g# f# g# f# e (toys at toys r us)
-
-
-✅ 🐦 Lullaby
-  eeg eeg
-  eg5c4b aa g
-  def ddef
-  dfbag b5c
-  4cc5c 4afg
-  ecf gag
-  cc5c 4afg
-  ecfedc
-
-✅ 🌟 Twinkle Twinkle Little Star
-  cc gg aa g
-  ff ee dd c
-  gg ff ee d
-  gg ff ee d
-  cc gg aa g
-  ff ee dd c
-
-✅ 🐭 Three Blind Mice
-  eddc eddc
-  gffe gffe
-  g5cc4bab5c4gg
-  g5cc4bab5c4gg
-  edc edc
-
-✅ Row Row Row Ur Boat
-  cccde edefg
-  5ccc 4ggg eee ccc gfedc
-
-✅ 🧸 Gummy Bear
-  aaa5c4aa aaa5cee
-  eee dd dd dd dd
-  edc4a g5c4a
-  aa ee aa ee aa e
-  5ee ee e dc
-  5ee ee e dc
-  ge dedc
-  dc4a g5ca
-*/
-
 /* 📝 Notes 
+   - [🔵] Send udp messages from keys to `tv`.
    - [] Add recordable samples / custom samples... per key?
      - [] Stored under handle?
-
    - [🟠] Somehow represent both of these in the graphic layout.
     - [x] Add z, x, a# and b below the lower octave. 
     - [x] Add ;, ', c# and d above the upper octave. 
@@ -213,6 +156,63 @@ TODO: 💮 Daisy
   - [x] Add visualization to the keys being pressed.
   - [x] Disable key repeat / don't retrigger sounds on repeat.
   - [x] Make it so keys can be held, and add a decay after releasing?
+*/
+
+// ⚖️ Keyboard Scales
+// CvDsEFrGtAwB (First Octave)
+// BwAtGrFEsDvC (Second Octave)
+
+/* 🎶 Sequences
+
+TODO: 💮 Daisy
+
+🚫 🪀 Toys R Us Kid
+  bababg (i don't wanna grow up)
+  bb (i'm a)
+  abaf# (toys r us kid)
+
+  f# f# g# f# (there's a million)
+  g# f# g# f# e (toys at toys r us)
+
+
+✅ 🐦 Lullaby
+  eeg eeg
+  eg5c4b aa g
+  def ddef
+  dfbag b5c
+  4cc5c 4afg
+  ecf gag
+  cc5c 4afg
+  ecfedc
+
+✅ 🌟 Twinkle Twinkle Little Star
+  cc gg aa g
+  ff ee dd c
+  gg ff ee d
+  gg ff ee d
+  cc gg aa g
+  ff ee dd c
+
+✅ 🐭 Three Blind Mice
+  eddc eddc
+  gffe gffe
+  g5cc4bab5c4gg
+  g5cc4bab5c4gg
+  edc edc
+
+✅ Row Row Row Ur Boat
+  cccde edefg
+  5ccc 4ggg eee ccc gfedc
+
+✅ 🧸 Gummy Bear
+  aaa5c4aa aaa5cee
+  eee dd dd dd dd
+  edc4a g5c4a
+  aa ee aa ee aa e
+  5ee ee e dc
+  5ee ee e dc
+  ge dedc
+  dc4a g5ca
 */
 
 // import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
@@ -454,8 +454,11 @@ let oscilloscopeBottom = 48;
 
 let startupSfx;
 
+let udpServer;
+
 function boot({ params, api, colon, ui, screen, fps, typeface, hud, net }) {
   // fps(4);
+  udpServer = net.udp(); // For sending messages to `tv`.
 
   net
     .preload("startup") // TODO: Switch this default sample. 24.11.19.22.20
@@ -1214,6 +1217,8 @@ function act({
                 }
 
                 delete trail[note];
+
+                udpServer?.send("tv", { note }); // Send udp message for note.
               }
             },
             over: (btn) => {
@@ -1536,6 +1541,8 @@ function act({
           }
 
           delete trail[buttonNote];
+
+          udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
       }
     }

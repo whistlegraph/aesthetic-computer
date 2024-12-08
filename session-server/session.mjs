@@ -714,16 +714,30 @@ io.onConnection((channel) => {
     channel.close();
   });
 
+  // 💎 TODO: Make these channel names programmable somehow? 24.12.08.04.12
+
+  channel.on("tv", (data) => {
+    if (channel.webrtcConnection.state === "open") {
+      try {
+        channel.room.emit("tv", data);
+      } catch (err) {
+        console.warn("Broadcast error:", err);
+      }
+    } else {
+      console.log(channel.webrtcConnection.state);
+    }
+  });
+
   // Just for testing via the aesthetic `udp` piece for now.
   channel.on("fairy:point", (data) => {
     // See docs here: https://github.com/geckosio/geckos.io#reliable-messages
     // TODO: - [] Learn about the differences between channels and rooms.
 
-    // emit the to all channels in the same room except the sender
     // log(`🩰 fairy:point - ${data}`);
     if (channel.webrtcConnection.state === "open") {
       try {
         channel.broadcast.emit("fairy:point", data);
+        // ^ emit the to all channels in the same room except the sender
       } catch (err) {
         console.warn("Broadcast error:", err);
       }
