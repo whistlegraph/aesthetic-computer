@@ -110,7 +110,11 @@ function paint({
 }
 
 // 🎪 Act
-function act({ event, motion }) {}
+function act({ event, motion }) {
+
+  // Request pointer lock here.
+
+}
 
 let t1, t2, t3, t4;
 const bass1 = 840;

@@ -328,14 +328,15 @@ let udp = {
       send({ type: "udp:send", content: { type, content } });
     },
     receive: ({ type, content }) => {
-      // console.log("🩰 Received `piece` message from UDP:", content);
+      // console.log("🩰 Received `piece` message from UDP:", type, content);
 
       // 🧚 Ambient cursor (fairies) support.
       if (type === "fairy:point" /*&& socket?.id !== id*/ && visible) {
         fairies.push({ x: content.x, y: content.y });
         return;
       }
-      udpReceive?.(content);
+
+      udpReceive?.(type, content);
     },
     kill: (outageSeconds) => {
       udp.connected = false;
