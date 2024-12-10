@@ -4639,7 +4639,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
-        if (data.key === "x" && data.ctrl) {
+        if (data.key === "x" && data.ctrl && currentText !== "notepat") {
           send({ type: "fullscreen-enable" });
         }
       }

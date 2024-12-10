@@ -24,7 +24,7 @@ export class Keyboard {
 
       // Send a parent message to defocus the ac extension.
       if (e.key === "a" && e.ctrlKey && e.altKey) {
-        console.log("Sending defocus...");
+        // console.log("Sending defocus...");
         window.parent?.postMessage({ type: "vscode-extension:defocus" }, "*");
       }
 
@@ -72,8 +72,9 @@ export class Keyboard {
 
       if (e.key === "ArrowUp" || e.key === "Tab") e.preventDefault();
 
-      // Prevent Alt-E chrome shortcut.
+      // Prevent Alt and Ctrl chrome shortcut.
       if (e.altKey && (e.key.toLowerCase() === "e" || e.key.toLowerCase() === "f" || e.key.toLowerCase() === "d")) e.preventDefault();
+      if (e.ctrlKey && (e.key.toLowerCase() === "d" || e.key.toLowerCase() === "n" || e.key.toLowerCase() === "p" || e.key.toLowerCase() === "s")) e.preventDefault();
     });
 
     window.addEventListener("keyup", (e) => {
