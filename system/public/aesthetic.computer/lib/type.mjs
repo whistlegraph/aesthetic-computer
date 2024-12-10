@@ -149,6 +149,8 @@ class Typeface {
     // Background
     if (bg !== null) $.ink(bg).box(x, y, fullWidth, blockHeight);
 
+    // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);
+
     $.ink(rn).printLine(
       text,
       font,

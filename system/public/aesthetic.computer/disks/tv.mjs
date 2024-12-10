@@ -2,17 +2,15 @@
 // Remotely create pictures with `notepat`.
 
 /* 📝 Notes
-  - [🟠] Send messages from `notepat` to control
-         the state of a wandering turtle
-         through UDP, and also relay the note-pressed.
-
    - [] How to control rounds / reset after a certain amount
         of time has passed?
+  *
+  - [x] Send messages from `notepat` to control
+        the state of a wandering turtle
+        through UDP, and also relay the note-pressed.
  */
 
-let server;
-
-let lastNote;
+let server, lastNote;
 
 function boot({ net: { udp } }) {
   server = udp((type, content) => {
@@ -20,7 +18,7 @@ function boot({ net: { udp } }) {
   });
 }
 
-function paint({ api, wipe, ink }) {
+function paint({ api, wipe, ink, crawl, left, right, up, down, goto, face }) {
   wipe("black");
   ink("yellow").write(lastNote || "none", { center: "xy", size: 6 });
 }
