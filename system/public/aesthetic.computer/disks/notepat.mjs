@@ -2,6 +2,10 @@
 // Tap the pads to play musical notes, or use the keyboard keys.
 
 /* 📝 Notes 
+   - [🟢] Make a new "painting" to use as a visualizer.
+    - [] Draw symmetrical turtle graphics based on waveform values that
+         paint continuously and produce consistent and differential form.
+
    - [🔵] Send udp messages from keys to `tv`.
    - [] Add recordable samples / custom samples... per key?
      - [] Stored under handle?
@@ -420,6 +424,8 @@ let lastActiveNote;
 let transposeOverlay = false;
 let transposeOverlayFade = 0;
 let paintTransposeOverlay = false;
+let paintPictureOverlay = false;
+// let paintPictureOverlay = true;
 
 // let qrcells;
 
@@ -451,14 +457,29 @@ function parseSong(raw) {
 // song = parseSong(rawSong);
 
 let oscilloscopeBottom = 48;
-
 let startupSfx;
-
 let udpServer;
 
-function boot({ params, api, colon, ui, screen, fps, typeface, hud, net }) {
+let picture;
+
+function boot({
+  params,
+  api,
+  colon,
+  ui,
+  screen,
+  fps,
+  typeface,
+  hud,
+  net,
+  painting,
+}) {
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
+
+  picture = painting(128, 128, ({ wipe }) => {
+    wipe("gray");
+  });
 
   net
     .preload("startup") // TODO: Switch this default sample. 24.11.19.22.20
@@ -567,6 +588,7 @@ function paint({
   typeface,
   num,
   layer,
+  paste,
   api,
 }) {
   const active = orderedByCount(sounds);
@@ -897,6 +919,14 @@ function paint({
       }
     });
   }
+
+  if (paintPictureOverlay) {
+    paste(
+      picture,
+      screen.width / 2 - picture.width / 2,
+      screen.height / 3 - picture.height / 2,
+    ); // 🖼️ Picture
+  }
 }
 
 let anyDown = true;
@@ -934,6 +964,10 @@ function act({
   // }
 
   if (e.is("keyboard:down:-")) paintTransposeOverlay = !paintTransposeOverlay;
+  if (e.is("keyboard:down:=")) {
+    paintPictureOverlay = !paintPictureOverlay;
+    setupButtons(api);
+  }
   if (e.is("keyboard:down:\\")) projector = !projector;
 
   // if (e.is("keyboard:down:arrowleft")) {
@@ -1218,6 +1252,7 @@ function act({
 
                 delete trail[note];
 
+                pictureAdd(api, note);
                 udpServer?.send("tv", { note }); // Send udp message for note.
               }
             },
@@ -1542,6 +1577,7 @@ function act({
 
           delete trail[buttonNote];
 
+          pictureAdd(api, note);
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
       }
@@ -1698,6 +1734,19 @@ function act({
 
 // 📚 Library
 
+function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
+  page(picture);
+  // wipe("black");
+  ink("yellow");
+  // write(note, { center: "xy"}); // TOOD: Write's random values should be confined to the
+               //       page and not the screen.
+  // write("POW", { center: "xy" }); // TOOD: Write's random values should be confined to the
+  write(note, num.randInt(128), num.randInt(128));
+  ink(undefined);
+  line();
+  page(screen);
+}
+
 function orderedByCount(obj) {
   return Object.keys(obj)
     .filter((key) => obj[key]?.hasOwnProperty("count"))
@@ -1720,6 +1769,11 @@ function setupButtons({ ui, screen, geo }) {
   const totalRows = ceil(totalButtons / buttonsPerRow);
 
   let buttonWidth = min(48, ceil((screen.width - margin * 2) / 4));
+
+  if (paintPictureOverlay) {
+    buttonWidth = 24;
+  }
+
   let buttonHeight = buttonWidth;
 
   if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {

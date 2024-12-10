@@ -1889,7 +1889,10 @@ const $paintApi = {
         lines.forEach((line, index) => {
           tf?.print(
             $activePaintApi,
-            { x: pos.x, y: pos.y + index * tf.data.glyphHeight + lineHeightGap },
+            {
+              x: pos.x,
+              y: pos.y + index * tf.data.glyphHeight + lineHeightGap,
+            },
             0,
             line,
             bg,
@@ -1897,6 +1900,7 @@ const $paintApi = {
           // Adjust `lineHeight` as needed based on your text spacing
         });
       } else {
+        //if (text === "POW") console.log($activePaintApi.screen); 24.12.10.07.26 - Get write working with deferred rendering and page.
         tf?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
       }
     }
@@ -1917,7 +1921,7 @@ const $paintApi = {
   LINE,
   CUBEL,
   ORIGIN,
-  // Turtle graphics: 🐢
+  // Turtle graphics: 🐢 crawl, left, right, up, down, goto, face
   // Move the turtle forward based on angle.
   crawl: (steps = 1) => {
     const x2 = turtlePosition.x + steps * cos(num.radians(turtleAngle));
@@ -2149,7 +2153,22 @@ const $paintApiUnwrapped = {
   // i: ink,
   // Defaults
   blend: graph.blendMode,
-  page: graph.setBuffer,
+  page: function () {
+    // if (arguments[0]?.api) {
+    // const oldScreen = $activePaintApi.screen;
+    // Mock out the screen here using the arguments.
+    $activePaintApi.screen = {
+      width: arguments[0].width,
+      height: arguments[0].height,
+    };
+    //console.log(
+    //  "Updated active paint api:",
+    //  $activePaintApi.screen.width,
+    //  $activePaintApi.screen.height,
+    //);
+    // }
+    graph.setBuffer(...arguments);
+  },
   edit: graph.changePixels, // Edit pixels by pasing a callback.
   // Color
   ink: function () {
@@ -5363,7 +5382,7 @@ async function makeFrame({ data: { type, content } }) {
       graph.setBuffer(screen);
 
       // API Stops being modified here...
-      $activePaintApi = $api;
+      if (!$activePaintApi) $activePaintApi = $api;
 
       // TODO: Set bpm from boot.
       /*
@@ -5577,7 +5596,9 @@ async function makeFrame({ data: { type, content } }) {
 
         // Upper layer.
         const { page, layer, ink, needsPaint, pieceCount } = $api;
+
         page($api.screen); // Make sure we're on the right bufer.
+
         layer(1000); // Always make sure this stuff draws on top.
 
         // const piece = $api.slug?.split("~")[0];
