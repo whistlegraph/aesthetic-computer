@@ -2,6 +2,11 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `write` refactor ***
+  - [🟠] `write` doesn't work inside of page() swaps because it's unwrapped.
+       would it be possible to make it so wipe works in a wrapped mode or write
+       a wrapped version?
+
 *** `tv` is a `notepat` remote ***
 - [] Have `notepat` send udp messages over to `tv`. 
 - [] Make the `tv` piece which simply responds to udp
