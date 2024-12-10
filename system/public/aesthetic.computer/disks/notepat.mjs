@@ -1062,16 +1062,17 @@ function act({
         // attack: 0.5,//attack * 8,
         attack: 0.0025,
         decay: 0.9,
-        tone: baseFreq + 280 + num.randIntRange(-10, 20),
+        tone: baseFreq,
+        // tone: baseFreq + 280 + num.randIntRange(-10, 20),
         // duration: 0.18,
         duration: "🔁",
         volume: toneVolume,
       });
 
       // TODO: Can't update straight after triggering.
-      setTimeout(() => {
-        toneA.update({ tone: baseFreq, duration: 0.02 });
-      }, 10);
+      // setTimeout(() => {
+      //   toneA.update({ tone: baseFreq, duration: 0.02 });
+      // }, 10);
 
       toneB = synth({
         type: "sine",
@@ -1113,7 +1114,7 @@ function act({
       });
 
       return {
-        startedAt: toneA.startedAt,
+        startedAt: toneA?.startedAt || toneB.startedAt,
         kill: (fade) => {
           toneA?.kill(fade);
           toneB?.kill(fade);
