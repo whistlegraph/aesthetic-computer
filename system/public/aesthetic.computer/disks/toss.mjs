@@ -22,7 +22,7 @@
 
 let bands = [];
 let type;
-const startTone = 440;
+const startTone = 220;
 const attack = 0.005;
 const killFade = 0.3;
 
@@ -60,8 +60,8 @@ const theme = [
 
 const { min, max } = Math;
 
-const toneLow = 200;
-const toneHigh = 1200;
+const toneLow = 50;
+const toneHigh = 1600;
 
 function makeBands({ api, colon }, count) {
   bandCount = count;
