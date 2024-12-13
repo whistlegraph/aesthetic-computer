@@ -334,9 +334,12 @@ status = 200
 force = true
 [[redirects]]
 from = "/api/ask"
-to = "http://localhost:3000/api/ask"
+to = "/.netlify/functions/ask"
 status = 200
-force = false
+# from = "/api/ask"
+# to = "http://localhost:3000/api/ask"
+# status = 200
+# force = false
 [[redirects]]
 from = "/api/say"
 to = "http://localhost:3000/api/say"

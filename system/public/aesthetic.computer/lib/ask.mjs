@@ -70,9 +70,9 @@ export class Conversation {
     this.controller = new AbortController();
     const signal = this.controller.signal;
 
-    const host = DEBUG
-      ? `` // Just use current host, via `netlify.toml`.
-      : "https://ai.aesthetic.computer";
+    const host = ``; // DEBUG
+      // ? `` // Just use current host, via `netlify.toml`.
+      // : "https://ai.aesthetic.computer";
 
     const responsePromise = fetch(`${host}/api/ask`, {
       method: "POST",
