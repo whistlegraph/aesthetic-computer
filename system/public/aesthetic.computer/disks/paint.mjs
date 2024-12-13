@@ -1,9 +1,9 @@
 // Paint, 23.05.15.00.01
 // Ask a LLM to produce code that automatically paints the request!
 
-/* #region 📓 TODO 
+/* #region 📓 TODO
   + Now
-  - [] Clean up code. 
+  - [] Clean up code.
   - [] Fail if prompt is empty / provide a sane default.
   + Later
   - [] Add sound based on color?
@@ -19,7 +19,7 @@
   - [x] Use GPT-3.5.
   - [x] Always print the full source code.
   - [x] Segmented / incremental input.
-  - [x] Confine to canvas. 
+  - [x] Confine to canvas.
   - [x] Pipe in `/llm` post request and pass in information.
   - [x] Eval the request.
 #endregion */
@@ -36,9 +36,9 @@ let conversation,
 // 🥾 Boot (Runs once before first paint and sim)
 async function boot({ params, system: { painting }, needsPaint, store, slug }) {
   const program = {
-    before: `You must tell a virtual grid where to paint boxes (rectangles) and 1px thick lines, you can do this by sending responses of individual lines consisting of: "ink(r, g, b, a).box(x, y, w, h) or ink(r, g, b, a).line(x1, y1, x2, y2)" where r, g, b, and a range from 50 to 255 and x, y is within the integer resolution of ${painting.width}, ${painting.height} and w, h ranges inside that resolution. never use 255 or 0 for a! Now try to plot an image of... `,
+    before: `You must tell a virtual grid where to paint boxes (rectangles), circles and 1px thick lines, you can do this by sending responses of individual lines consisting of: ink(r, g, b, a).box(x, y, w, h) or ink(r, g, b, a).line(x1, y1, x2, y2) or ink(r, g, b, a).circle(x, y, radius)  where r, g, b, and a range from 50 to 255 and x, y is within the integer resolution of ${painting.width}, ${painting.height} and w, h ranges inside that resolution. never use 255 or 0 for a! Now try to plot an image of... `,
     // user input
-    after: `... and plot this in a way that a human would recognize as the subject visually - Usually place any object in the center. Make your response no longer than 50 lines where each line ends in a semicolon, but it can be shorter. choose colors related to the subject and draw clearly. All coordinates should fit completely within the frame resolution. Every line of your response must begin with "ink" and nothing else.`,
+    after: `... and plot this in a way that a human would recognize as the subject visually - Usually place any object in the center. Make your response no longer than 50 lines where each line ends in a semicolon, but it can be shorter. choose colors related to the subject and draw clearly. All coordinates should fit completely within the frame resolution. Every line of your response must begin with "ink" and nothing else. Do not use markdown formatting.`,
   };
 
   conversation = new Conversation(store, slug);

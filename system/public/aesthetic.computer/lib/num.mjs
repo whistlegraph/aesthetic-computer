@@ -834,7 +834,6 @@ export function rgbToHexStr(r, g, b, prefix = "") {
 export function hexToRgb(h) {
   const int = typeof h === "string" ? parseInt(cleanHexString(h), 16) : h;
   const out = [(int >> 16) & 255, (int >> 8) & 255, int & 255];
-  console.log(out);
   return out;
 }
 
