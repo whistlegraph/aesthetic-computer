@@ -1,3 +1,6 @@
+# entire ac-pill directory
+ac-pill/
+
 # assets (ignore all subdirectories but readme)
 system/public/assets/*/
 !system/public/assets/*/readme.txt
