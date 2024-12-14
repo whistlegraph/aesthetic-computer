@@ -3,7 +3,6 @@
 const { stream } = require("@netlify/functions");
 const tts = require("@google-cloud/text-to-speech");
 
-const gcpKey = process.env.GCP_TTS_KEY;
 const gcpEmail = process.env.GCP_EMAIL;
 
 exports.handler = async (event) => {
@@ -18,6 +17,20 @@ exports.handler = async (event) => {
     };
   } else if (method === "POST") {
     const body = JSON.parse(event.body);
+
+    let gcpKey;
+    try {
+      const response = await fetch(process.env.GCP_TTS_KEY_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const json = await response.json();
+      gcpKey = json.GCP_TTS_KEY;
+    } catch (error) {
+      console.error("Error fetching  account:", error);
+      // Handle the error as needed
+    }
+
     const client = new tts.TextToSpeechClient({
       credentials: {
         private_key: gcpKey.replace(/\\n/g, "\n"),
@@ -80,7 +93,7 @@ exports.handler = async (event) => {
           "Content-Disposition": 'inline; filename="response.mp3"',
           "Content-Type": "audio/mpeg",
         },
-        body: audioContent.toString('base64'),
+        body: audioContent.toString("base64"),
         isBase64Encoded: true,
       };
     } catch (error) {
