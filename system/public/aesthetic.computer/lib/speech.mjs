@@ -90,9 +90,9 @@ function speak(words, voice, mode = "local", opts = {}) {
     function fetchSpeech() {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 8000);
-      const host = window.acDEBUG
-        ? `` // Just use current host, via `netlify.toml`.
-        : "https://ai.aesthetic.computer";
+      const host = ``; //window.acDEBUG
+        // ? `` // Just use current host, via `netlify.toml`.
+        // : "https://ai.aesthetic.computer";
 
       fetch(`${host}/api/say`, {
         method: "POST",
