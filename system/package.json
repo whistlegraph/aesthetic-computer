@@ -44,7 +44,7 @@
     "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@geckos.io/client": "^3.0.0",
-    "@google-cloud/text-to-speech": "^5.3.0",
+    "@google-cloud/text-to-speech": "^5.6.0",
     "@grpc/grpc-js": "^1.10.8",
     "@mediapipe/hands": "^0.4.1675469240",
     "@mediapipe/tasks-vision": "^0.10.14",

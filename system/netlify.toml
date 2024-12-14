@@ -17,6 +17,8 @@ included_files = [
 external_node_modules = ["he"]
 [functions.delete-erase-and-forget-me]
 external_node_modules = ["@aws-sdk-client-s3"]
+[functions.say]
+external_node_modules = ["@google-cloud/text-to-speech"]
 [functions.mood]
 external_node_modules = ["got", "firebase-admin", "obscenity"]
 [functions.handle]
@@ -342,9 +344,13 @@ status = 200
 # force = false
 [[redirects]]
 from = "/api/say"
-to = "http://localhost:3000/api/say"
+to = "/.netlify/functions/say"
 status = 200
-force = false
+# [[redirects]]
+# from = "/api/say"
+# to = "http://localhost:3000/api/say"
+# status = 200
+# force = false
 [[redirects]]
 from = "https://sotce.local:8888"
 to = "/.netlify/functions/sotce-net"
