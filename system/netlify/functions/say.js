@@ -18,6 +18,7 @@ exports.handler = async (event) => {
   } else if (method === "POST") {
     const body = JSON.parse(event.body);
 
+    // TODO: Grabbing the key from this url is a little slow: 24.12.14.00.31
     let gcpKey;
     try {
       const response = await fetch(process.env.GCP_TTS_KEY_URL);
