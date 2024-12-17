@@ -1,5 +1,16 @@
 # jeffrey's fish config
 
+# Enable Wayland support for Java apps
+set -x _JAVA_AWT_WM_NONREPARENTING 1
+set -x GDK_SCALE 1
+set -x GDK_DPI_SCALE 1
+
+# HiDPI settings for JetBrains apps like Android Studio
+set -x JETBRAINS_JDK_FLAGS "-Dsun.java2d.uiScale=2 -Dsun.java2d.uiScale.enabled=true"
+
+# Optional: Force scaling for Qt apps if needed
+set -x QT_SCALE_FACTOR 1.5
+
 # add homebrew to path (only if we are on linux)
 switch (uname)
     case Linux
