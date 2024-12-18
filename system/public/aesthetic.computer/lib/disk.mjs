@@ -5382,7 +5382,7 @@ async function makeFrame({ data: { type, content } }) {
       graph.setBuffer(screen);
 
       // API Stops being modified here...
-      if (!$activePaintApi) $activePaintApi = $api;
+      /*if (!$activePaintApi)*/ $activePaintApi = $api;
 
       // TODO: Set bpm from boot.
       /*

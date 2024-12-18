@@ -31,14 +31,19 @@ function boot({ sound }) {
 let odd = false;
 
 // 💗 Beat
-function beat({ sound, params, store }) {
+function beat({ api, sound, params, store }) {
   // Set the system metronome using `store`.
 
   let newBpm;
-  if (params[0] === "fast") newBpm = 300;
-  else if (params[0] === "medium") newBpm = 120;
-  else if (params[0] === "slow") newBpm = 80;
-  else newBpm = parseInt(params[0]);
+
+  console.log(api);
+
+  if (params) {
+    if (params[0] === "fast") newBpm = 300;
+    else if (params[0] === "medium") newBpm = 120;
+    else if (params[0] === "slow") newBpm = 80;
+    else newBpm = parseInt(params[0]);
+  }
 
   store["metronome:bpm"] = sound.bpm(newBpm || store["metronome:bpm"] || 180);
 
@@ -85,7 +90,7 @@ function sim({ sound: { time } }) {
     squareP = p;
     flashColor[0] = 0;
     flashColor[1] = 0;
-    flashColor[2] = Math.floor((1 - p) / 4 * 255);
+    flashColor[2] = Math.floor(((1 - p) / 4) * 255);
     if (p === 1) flash = false; // TODO: This might be skipping 1 frame.
   }
 }
