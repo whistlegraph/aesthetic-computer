@@ -3,17 +3,18 @@ package computer.aesthetic
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.net.http.SslError
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import android.widget.FrameLayout
 import android.webkit.SslErrorHandler
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.net.http.SslError
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -23,11 +24,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import computer.aesthetic.ui.theme.AestheticComputerTheme
-
-//import android.os.Bundle
-import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
-
+import android.view.WindowManager
 
 class MainActivity : ComponentActivity() {
     private lateinit var localHttpServer: LocalHttpServer
@@ -36,24 +33,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.decorView.setBackgroundColor(android.graphics.Color.BLACK)
 
-        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val adminComponent = ComponentName(this, MyDeviceAdminReceiver::class.java)
-
-        // Disable the lock screen
-        dpm.setKeyguardDisabled(adminComponent, true)
-
-        // window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
-// Remember that you should never show the action bar if the
-// status bar is hidden, so hide that too if necessary.
-        actionBar?.hide()
-
-        // Block back gestures and edge swipe
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                // Do nothing - blocks back gesture
-            }
-        })
+        // overridePendingTransition(0, 0) // Disable enter and exit animations
 
         // Start the local HTTP server
         localHttpServer = LocalHttpServer(this)
@@ -65,19 +47,42 @@ class MainActivity : ComponentActivity() {
 
         // Check if app is device owner
         if (devicePolicyManager.isDeviceOwnerApp(packageName)) {
+            // Hide status and action bar.
+            // window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+            // actionBar?.hide()
+            // Request full screen before the content view is set
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN;
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+            )
+
+
+            // Block back gestures and edge swipe
+            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Do nothing - blocks back gesture
+                }
+            })
+
+            hideSystemUI() // Hide system bars and disable swipe gestures
+            addGestureBlockingOverlay() // Add a gesture-blocking overlay
+
+            // Disable the lock screen.
+            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val adminComponent = ComponentName(this, MyDeviceAdminReceiver::class.java)
+            dpm.setKeyguardDisabled(adminComponent, true)
+
             devicePolicyManager.setLockTaskPackages(componentName, arrayOf(packageName))
-
-            // Enter Lock Task Mode
-            startLockTask()
+            startLockTask() // Enter Lock Task Mode
             Log.i("Aesthetic", "Task locked.")
-
-            // Hide system bars and disable swipe gestures
-            hideSystemUI()
-
-            // Add a gesture-blocking overlay
-            addGestureBlockingOverlay()
         } else {
-            throw IllegalStateException("App is not the device owner!")
+            try {
+                throw IllegalStateException("Something went wrong!")
+            } catch (e: IllegalStateException) {
+                // Handle the exception gracefully
+                Log.e("MyApp", "Exception caught: ${e.message}")
+            }
         }
 
         // Load the WebView into the screen
@@ -90,12 +95,9 @@ class MainActivity : ComponentActivity() {
 
     private fun hideSystemUI() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.apply {
-            // Hide system bars (status bar and navigation bar)
-            hide(WindowInsetsCompat.Type.systemBars())
-
+            hide(WindowInsetsCompat.Type.systemBars()) // Hide system bars (status bar and navigation bar)
             // Prevent system bars from reappearing on swipe
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
@@ -134,20 +136,37 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+//@Composable
+//fun WebViewPage(url: String) {
+//    AndroidView(
+//        factory = { context ->
+//            WebView(context).apply {
+//                setBackgroundColor(0xFF000000.toInt()) // Set WebView background to black
+//                settings.javaScriptEnabled = true
+//                webViewClient = CustomWebViewClient()
+//                loadUrl(url)
+//            }
+//        },
+//        modifier = Modifier.fillMaxSize()
+//    )
+//}
+
 @Composable
 fun WebViewPage(url: String) {
-    // Integrate Android's WebView into Compose
     AndroidView(
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = true
-                webViewClient = CustomWebViewClient() // Keeps navigation within the WebView
+                setBackgroundColor(android.graphics.Color.TRANSPARENT) // Transparent background
+                setLayerType(View.LAYER_TYPE_SOFTWARE, null) // Ensures transparency works correctly
+                webViewClient = CustomWebViewClient()
                 loadUrl(url)
             }
         },
         modifier = Modifier.fillMaxSize()
     )
 }
+
 
 class CustomWebViewClient : WebViewClient() {
     override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {

@@ -32,8 +32,8 @@ const barColors = [
   "green",
   "blue",
   "indigo",
-  // "violet",
-  //"white",
+  "violet",
+  "white",
   "grey",
   //"brown",
 ];
@@ -96,6 +96,10 @@ function paint({
         text = "Sean Moss-Pultz";
       } else if (bar.color === "indigo") {
         text = "Charles Huang";
+      } else if (bar.color === "violet") {
+        text = "Julia Yerger";
+      } else if (bar.color === "white") {
+        text = "Anthony Zollo";
       } else if (bar.color === "green") {
         text = "@wiltchamberlain";
       } else if (bar.color === "orange") {
