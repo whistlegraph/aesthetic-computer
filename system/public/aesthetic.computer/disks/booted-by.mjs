@@ -32,9 +32,9 @@ const barColors = [
   "green",
   "blue",
   "indigo",
+  "grey",
   "violet",
   "white",
-  "grey",
   //"brown",
 ];
 let ok,
