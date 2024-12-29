@@ -921,11 +921,18 @@ function paint({
   }
 
   if (paintPictureOverlay) {
+    wipe(0);
     paste(
       picture,
-      screen.width / 2 - picture.width / 2,
-      screen.height / 3 - picture.height / 2,
+      0,
+      0,
+      {width: screen.width, height: screen.height}
     ); // 🖼️ Picture
+    // paste(
+    //   picture,
+    //   screen.width / 2 - picture.width / 2,
+    //   screen.height / 3 - picture.height / 2,
+    // ); // 🖼️ Picture
   }
 }
 
@@ -1578,7 +1585,7 @@ function act({
 
           delete trail[buttonNote];
 
-          pictureAdd(api, note);
+          pictureAdd(api, note.toLowerCase());
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
       }
@@ -1742,9 +1749,26 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
   // write(note, { center: "xy"}); // TOOD: Write's random values should be confined to the
                //       page and not the screen.
   // write("POW", { center: "xy" }); // TOOD: Write's random values should be confined to the
-  write(note, num.randInt(128), num.randInt(128));
-  ink(undefined);
-  line();
+
+  const notesToCols = {
+    "c": [255, 0, 0], // red
+    "c#": [64, 64, 64], //
+    "d": [0, 255, 0], // green
+    "d#": [64, 64, 64], // 
+    "e": [0, 0, 255], // blue
+    "f": [0, 255, 255], // cyan
+    "f#": [64, 64, 64], //
+    "g": [255, 0, 255], // magenta
+    "g#": [64, 64, 64], //
+    "a": [255, 255, 0], // yellow
+    "a#": [64, 64, 64], //
+    "b": [255, 255, 255] // white
+  } 
+
+  // write(note, num.randInt(128), num.randInt(128));
+  ink(...notesToCols[note], 32).box(0, 0, 128);
+  // ink(undefined);
+  // line();
   page(screen);
 }
 
