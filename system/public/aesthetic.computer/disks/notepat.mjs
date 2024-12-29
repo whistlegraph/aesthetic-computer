@@ -1585,7 +1585,7 @@ function act({
 
           delete trail[buttonNote];
 
-          pictureAdd(api, note.toLowerCase());
+          // pictureAdd(api, tone);
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
       }
