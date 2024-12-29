@@ -1260,7 +1260,7 @@ function act({
 
                 delete trail[note];
 
-                pictureAdd(api, note);
+                // pictureAdd(api, note);
                 udpServer?.send("tv", { note }); // Send udp message for note.
               }
             },
