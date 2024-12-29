@@ -589,10 +589,10 @@ function paint({
   num,
   layer,
   paste,
+  page,
   api,
 }) {
   const active = orderedByCount(sounds);
-
   let bg;
 
   if (!tap) {
@@ -606,7 +606,24 @@ function paint({
     bg = active.length > 0 ? [0, 0, 180] : "darkblue";
   }
 
-  wipe(bg);
+  if (paintPictureOverlay) {
+    if (active.length === 0) {
+      page(picture);
+      ink(0, 1).box(0, 0, 128);
+      page(screen);
+    }
+
+    // wipe(0);
+    paste(picture, 0, 0, { width: screen.width, height: screen.height }); // 🖼️ Picture
+    // paste(
+    //   picture,
+    //   screen.width / 2 - picture.width / 2,
+    //   screen.height / 3 - picture.height / 2,
+    // ); // 🖼️ Picture
+  } else {
+    wipe(bg);
+  }
+
   // wipe(!projector ? bg : 64);
 
   // QR Code
@@ -680,7 +697,7 @@ function paint({
     //ink("yellow").write(scope, 6, sy + sh + 5);
     ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
-  } else {
+  } else if (!paintPictureOverlay) {
     const sy = 3;
     const sh = 15; // screen.height - sy;
 
@@ -708,7 +725,7 @@ function paint({
   if (tap) {
     ink("yellow");
     write("tap", { right: 6, top: 6 });
-  } else {
+  } else if (!paintPictureOverlay) {
     waveBtn?.paint((btn) => {
       ink(btn.down ? [40, 40, 100] : "darkblue").box(
         btn.box.x,
@@ -754,29 +771,31 @@ function paint({
     ink("red").write(nextToken, screen.width / 2, screen.height / 2);
   }
 
-  if (tap)
+  if (tap && !paintPictureOverlay)
     ink("orange").line(screen.width / 2, 0, screen.width / 2, screen.height);
 
-  if (!tap) {
-    // Write all the active keys.
-    ink("lime");
-    write(
-      active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
-      6,
-      20,
-    );
-  } else {
-    ink("white");
-    active.forEach((sound, index) => {
-      write(sound, screen.width / 2, screen.height / 2 + 12 + 12 * index);
-    });
-    if (tapped) {
+  if (!paintPictureOverlay) {
+    if (!tap) {
+      // Write all the active keys.
       ink("lime");
-      write(tapped, screen.width / 2, screen.height / 2);
+      write(
+        active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
+        6,
+        20,
+      );
+    } else {
+      ink("white");
+      active.forEach((sound, index) => {
+        write(sound, screen.width / 2, screen.height / 2 + 12 + 12 * index);
+      });
+      if (tapped) {
+        ink("lime");
+        write(tapped, screen.width / 2, screen.height / 2);
+      }
     }
   }
 
-  if (!tap /*&& !projector*/) {
+  if (!tap /*&& !projector*/ && !paintPictureOverlay) {
     const activeNote = buttonNotes.indexOf(active[0]);
 
     if (activeNote >= 0 && activeNote !== lastActiveNote) {
@@ -919,21 +938,6 @@ function paint({
       }
     });
   }
-
-  if (paintPictureOverlay) {
-    wipe(0);
-    paste(
-      picture,
-      0,
-      0,
-      {width: screen.width, height: screen.height}
-    ); // 🖼️ Picture
-    // paste(
-    //   picture,
-    //   screen.width / 2 - picture.width / 2,
-    //   screen.height / 3 - picture.height / 2,
-    // ); // 🖼️ Picture
-  }
 }
 
 let anyDown = true;
@@ -943,6 +947,7 @@ function act({
   sound: { synth, speaker, play, freq },
   num,
   pens,
+  hud,
   api,
 }) {
   if (e.is("reframed")) {
@@ -973,6 +978,7 @@ function act({
   if (e.is("keyboard:down:-")) paintTransposeOverlay = !paintTransposeOverlay;
   if (e.is("keyboard:down:=")) {
     paintPictureOverlay = !paintPictureOverlay;
+    hud.label(paintPictureOverlay ? undefined : "notepat");
     setupButtons(api);
   }
   if (e.is("keyboard:down:\\")) projector = !projector;
@@ -1260,7 +1266,7 @@ function act({
 
                 delete trail[note];
 
-                // pictureAdd(api, note);
+                pictureAdd(api, tone);
                 udpServer?.send("tv", { note }); // Send udp message for note.
               }
             },
@@ -1585,7 +1591,7 @@ function act({
 
           delete trail[buttonNote];
 
-          // pictureAdd(api, tone);
+          pictureAdd(api, tone);
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
       }
@@ -1743,30 +1749,47 @@ function act({
 // 📚 Library
 
 function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
+  note = note.toLowerCase();
+
+  const letter = note.slice(1);
+  console.log(note);
+
   page(picture);
   // wipe("black");
   ink("yellow");
   // write(note, { center: "xy"}); // TOOD: Write's random values should be confined to the
-               //       page and not the screen.
+  //       page and not the screen.
   // write("POW", { center: "xy" }); // TOOD: Write's random values should be confined to the
 
   const notesToCols = {
-    "c": [255, 0, 0], // red
-    "c#": [64, 64, 64], //
-    "d": [0, 255, 0], // green
-    "d#": [64, 64, 64], // 
-    "e": [0, 0, 255], // blue
-    "f": [0, 255, 255], // cyan
-    "f#": [64, 64, 64], //
-    "g": [255, 0, 255], // magenta
-    "g#": [64, 64, 64], //
-    "a": [255, 255, 0], // yellow
-    "a#": [64, 64, 64], //
-    "b": [255, 255, 255] // white
-  } 
+    c: [255, 0, 0], // Red
+    "c#": [128, 128, 128], // Gray
+    d: [0, 255, 0], // Green
+    "d#": [0, 0, 0], // Black
+    e: [0, 0, 255], // Blue
+    f: [0, 255, 255], // Cyan
+    "f#": [128, 0, 128], // Purple
+    g: [255, 0, 255], // Magenta
+    "g#": [255, 165, 0], // Orange
+    a: [255, 255, 0], // Yellow
+    "a#": [139, 69, 19], // Brown
+    b: [255, 255, 255], // White
+  };
 
   // write(note, num.randInt(128), num.randInt(128));
-  ink(...notesToCols[note], 32).box(0, 0, 128);
+
+  // TODO: Rather than draw a whole box from 0, 0, to 128, 128, i wanna
+  //       draw horizontal scanlines in aloop and randomly skip some.
+  ink(...notesToCols[letter], 32).box(0, 0, 128);
+
+  // for (let y = 0; y < 128; y += 1) {
+  //   // Adjust step size (e.g., 2) for scanline spacing
+  //   if (Math.random() > 0.3) {
+  //     // 30% chance to skip a line
+  //     ink(...notesToCols[letter], 32).box(0, y, 128, 1); // Draw a single horizontal line
+  //   }
+  // }
+
   // ink(undefined);
   // line();
   page(screen);
