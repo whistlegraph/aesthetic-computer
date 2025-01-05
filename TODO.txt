@@ -2,6 +2,13 @@
 
 🌟 Projects in Progress (PIP) 🌟
 
+*** `pill` / android devices and shop ***
+  - [] flash the uniherz jelly to boot directly into ac with
+    - [] custom boot screen
+    - [] 
+  - [] set up a page to sell the phone through an ac `shop` command
+  - [] `pill` should go directly to the product page
+
 *** `write` refactor ***
   - [🟠] `write` doesn't work inside of page() swaps because it's unwrapped.
        would it be possible to make it so wipe works in a wrapped mode or write
