@@ -2,6 +2,7 @@
 // Play various noise drones.
 
 /* 📝 Notes
+  - [] Add the ability to low pass or high pass filter the noise synth.
  */
 
 let t1;
