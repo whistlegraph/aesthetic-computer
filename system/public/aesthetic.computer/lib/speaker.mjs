@@ -160,7 +160,7 @@ class SoundProcessor extends AudioWorkletProcessor {
           duration,
           attack,
           decay,
-          volume: msg.data.volume || 1,
+          volume: msg.data.volume ?? 1,
           pan: msg.data.pan || 0,
         });
 
