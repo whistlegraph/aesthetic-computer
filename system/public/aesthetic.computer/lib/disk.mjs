@@ -4902,7 +4902,7 @@ async function makeFrame({ data: { type, content } }) {
       pan = 0,
     } = {}) {
       const id = soundId;
-      if (volume === undefined) volume = 0;
+      if (volume === undefined) volume = 1;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
       if (beats === undefined && duration !== undefined)
         beats = (duration * sound.bpm) / 60;
