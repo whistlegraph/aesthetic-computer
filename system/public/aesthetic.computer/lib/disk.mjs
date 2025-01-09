@@ -2566,7 +2566,7 @@ class Microphone {
     const prom = new Promise((resolve, reject) => {
       this.recordingPromise = { resolve, reject };
     });
-    send({ type: "microphone:cut" });
+    send({ type: "microphone-cut" });
     return prom;
   }
 }
