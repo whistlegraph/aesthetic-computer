@@ -2558,7 +2558,7 @@ class Microphone {
 
   // Start recording.
   rec() {
-    send({ type: "microphone:record" });
+    send({ type: "microphone-record" });
   }
 
   // Stop recording.
@@ -3979,7 +3979,7 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "microphone:disconnect") {
+  if (type === "microphone-disconnect") {
     microphone.connected = false;
     return;
   }
