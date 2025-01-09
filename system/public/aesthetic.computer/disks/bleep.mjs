@@ -62,7 +62,6 @@ class Bleep {
   beep({ sound: { synth } }) {
     if (!this.needsBleep) return;
     this.needsBleep = false;
-    console.log("bleeeeping...", wave, this.tone);
     this.sound = synth({
       type: wave,
       tone: this.tone,
