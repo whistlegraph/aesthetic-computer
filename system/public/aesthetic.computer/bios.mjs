@@ -810,9 +810,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         if (msg.type === "recording:complete") {
-
-          console.log("Recording complete:", msg.content);
-
+          // console.log("Recording complete:", msg.content);
           // Turn this into a sample with a playback ID here and send
           // the sample ID back.
           const id = "microphone-recording";

@@ -247,12 +247,7 @@ async function act({
 
   if (e.is("lift") && capturing) {
     btn.down = false;
-
     const { id, data } = await microphone.cut(); // End recording and get the sample.
-
-    console.log("microphone was cut...");
-
-
     sampleData = data;
     sample = play(id, { reverse: true, loop: true });
     capturing = false;
