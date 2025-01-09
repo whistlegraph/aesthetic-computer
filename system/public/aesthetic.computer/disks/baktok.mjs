@@ -213,7 +213,6 @@ async function act({
 
   // Start a microphone recording.
   if (e.is("touch") && !capturing && connected && !playing) {
-    console.log("STARTING TO RECORD");
     sample?.kill(); // Stop any existing sample.
     microphone.rec(); // Start recording.
     btn.down = true;
@@ -247,7 +246,6 @@ async function act({
   }
 
   if (e.is("lift") && capturing) {
-    console.log("LIFTED ON CAPTURE");
     btn.down = false;
 
     const { id, data } = await microphone.cut(); // End recording and get the sample.
