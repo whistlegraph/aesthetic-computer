@@ -231,7 +231,7 @@ const wavetypes = [
   "composite", // 4
   "sample", // 5
 ];
-let waveIndex = 4; // 0;
+let waveIndex = 0; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
 let wave = STARTING_WAVE;
 // let hold = false;
@@ -1398,7 +1398,8 @@ function act({
 
   // Individual Keyboard Notes
   [...(octaves + notes + edges).split(""), "control"].forEach((key) => {
-    if (e.is(`keyboard:down:${key}`) && !e.repeat && !buttons[key]?.down) {
+    if (e.is(`keyboard:down:${key}`) && !e.repeat && !downs[key]) {
+      // console.log("Buttons:", buttons);
       downs[key] = true;
 
       if (!tap) {
@@ -1752,7 +1753,7 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
   note = note.toLowerCase();
 
   const letter = note.slice(1);
-  console.log(note);
+  // console.log(note);
 
   page(picture);
   // wipe("black");
