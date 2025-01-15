@@ -151,7 +151,14 @@ const nopaint = {
       // Idea: Check to see if anything actually got painted by doing a diff on
       //       the pixels?
 
-      store["painting"] = system.painting; // Remember the painting data.
+      store["painting"] = {
+        width: system.painting.width,
+        height: system.painting.height,
+        pixels: system.painting.pixels,
+      }; //system.painting; // Remember the painting data.
+
+      // console.log("System painting:", system.painting);
+
       store.persist("painting", "local:db");
 
       // And its transform.
@@ -1921,48 +1928,6 @@ const $paintApi = {
   LINE,
   CUBEL,
   ORIGIN,
-  // Turtle graphics: 🐢 crawl, left, right, up, down, goto, face
-  // Move the turtle forward based on angle.
-  crawl: (steps = 1) => {
-    const x2 = turtlePosition.x + steps * cos(num.radians(turtleAngle));
-    const y2 = turtlePosition.y + steps * sin(num.radians(turtleAngle));
-    if (turtleDown)
-      $activePaintApi.line(turtlePosition.x, turtlePosition.y, x2, y2);
-    turtlePosition.x = x2;
-    turtlePosition.y = y2;
-    return { x: turtlePosition.x, y: turtlePosition.y };
-  },
-  // Turn turtle left n degrees.
-  left: (d = 1) => {
-    turtleAngle = normalizeAngle(turtleAngle - d);
-    return turtleAngle;
-  },
-  // Turn turtle right n degrees.
-  right: (d = 1) => {
-    turtleAngle = normalizeAngle(turtleAngle + d);
-    return turtleAngle;
-  },
-  // Turtle pen up.
-  up: () => {
-    turtleDown = false;
-  },
-  // Turtle pen down.
-  down: () => {
-    turtleDown = true;
-  },
-  // Teleport the turtle position.
-  goto: (x = screen.width / 2, y = screen.height / 2) => {
-    if (turtleDown) {
-      $activePaintApi.line(turtlePosition.x, turtlePosition.y, x, y);
-    }
-    turtlePosition.x = x;
-    turtlePosition.y = y;
-    return { x: turtlePosition.x, y: turtlePosition.y };
-  },
-  face: (angle = 0) => {
-    turtleAngle = normalizeAngle(angle);
-    return turtleAngle;
-  },
 };
 
 // TODO: Eventually move this to `num`. 24.07.23.18.52
@@ -2148,13 +2113,66 @@ function prefetchPicture(code) {
 }
 
 const $paintApiUnwrapped = {
+  // Turtle graphics: 🐢 crawl, left, right, up, down, goto, face
+  // Move the turtle forward based on angle.
+  crawl: (steps = 1) => {
+    const x2 = turtlePosition.x + steps * cos(num.radians(turtleAngle));
+    const y2 = turtlePosition.y + steps * sin(num.radians(turtleAngle));
+    if (turtleDown) {
+      graph.line(turtlePosition.x, turtlePosition.y, x2, y2);
+      // console.log($activePaintApi.line);
+      // console.log("turtle down lining!", turtlePosition, x2, y2);
+    }
+    turtlePosition.x = x2;
+    turtlePosition.y = y2;
+    // console.log("🐢 Crawl:", steps);
+    return { x: turtlePosition.x, y: turtlePosition.y };
+  },
+  // Turn turtle left n degrees.
+  left: (d = 1) => {
+    turtleAngle = normalizeAngle(turtleAngle - d);
+    return turtleAngle;
+  },
+  // Turn turtle right n degrees.
+  right: (d = 1) => {
+    turtleAngle = normalizeAngle(turtleAngle + d);
+    return turtleAngle;
+  },
+  // Turtle pen up.
+  up: () => {
+    turtleDown = false;
+    // console.log("🐢 Up");
+  },
+  // Turtle pen down.
+  down: () => {
+    turtleDown = true;
+    // console.log("🐢 Down");
+  },
+  // Teleport the turtle position.
+  goto: (x = screen.width / 2, y = screen.height / 2) => {
+    if (turtleDown) {
+      graph.line(turtlePosition.x, turtlePosition.y, x, y);
+    }
+    turtlePosition.x = x;
+    turtlePosition.y = y;
+    return { x: turtlePosition.x, y: turtlePosition.y };
+  },
+  face: (angle = 0) => {
+    turtleAngle = normalizeAngle(angle);
+    return turtleAngle;
+  },
   // Shortcuts
   // l: graph.line,
   // i: ink,
   // Defaults
   blend: graph.blendMode,
   page: function () {
-    // if (arguments[0]?.api) {
+    if (arguments[0]?.api) {
+      // console.log("New paint api?", arguments[0].api);
+      // $activePaintApi = arguments[0].api;
+    }
+    // console.log(arguments);
+
     // const oldScreen = $activePaintApi.screen;
     // Mock out the screen here using the arguments.
     $activePaintApi.screen = {
@@ -5797,7 +5815,9 @@ async function makeFrame({ data: { type, content } }) {
         sendData.label = {
           x: currentHUDOffset.x,
           y: currentHUDOffset.y,
-          img: label,
+          img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+            label,
+          ),
         };
 
       let transferredPixels;
@@ -5841,8 +5861,13 @@ async function makeFrame({ data: { type, content } }) {
       if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
 
       let transferredObjects = [sendData.pixels];
-      if (sendData.label)
+
+      if (sendData.label) {
         transferredObjects.push(sendData.label?.img.pixels.buffer);
+      }
+
+      // console.log("TO:", transferredObjects);
+      // console.log("Sent data:", sendData);
 
       sendData.sound = sound;
 
@@ -5862,6 +5887,8 @@ async function makeFrame({ data: { type, content } }) {
       maybeLeave();
       // TODO: How necessary is this - does any info ever need to actually
       //       get sent? 23.01.06.16.02
+
+      // console.log(pixels);
       send(
         {
           type: "update",
