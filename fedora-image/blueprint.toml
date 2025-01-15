@@ -1,0 +1,33 @@
+name = "aesthetic-fedora"
+description = "Curated Fedora image with Aesthetic Computer support."
+version = "1.0.0"
+
+[customization]
+hostname = "aesthetic"
+default_target = "graphical.target"
+
+[[packages]]
+name = "git"
+
+[[packages]]
+name = "htop"
+
+[[packages]]
+name = "gnome-shell"
+
+[[packages]]
+name = "gdm"
+
+[[packages]]
+name = "xorg-x11-server-Xorg"
+
+[[packages]]
+name = "gnome-terminal"
+
+[[customizations.user]]
+name = "me"
+password = "aesthetic"
+password-hash = "plaintext"
+home = "/home/me"
+shell = "/bin/bash"
+groups = ["wheel"]
