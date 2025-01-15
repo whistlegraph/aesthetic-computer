@@ -413,7 +413,7 @@ const octaveTheme = [
 
 const { abs, round, floor, ceil, min, max } = Math;
 
-let scope = 12;
+let scope = 64;
 // let scopeTrim = 0;
 
 let projector = false;
@@ -477,7 +477,7 @@ function boot({
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
 
-  picture = painting(128, 128, ({ wipe }) => {
+  picture = painting(screen.width, screen.height, ({ wipe }) => {
     wipe("gray");
   });
 
@@ -609,9 +609,14 @@ function paint({
   if (paintPictureOverlay) {
     if (active.length === 0) {
       page(picture);
-      ink(0, 1).box(0, 0, 128);
+      ink(0, 1).box(0, 0, picture.width, picture.height);
       page(screen);
     }
+
+    pictureLines(api, {
+      amplitude: sound.speaker.amplitudes.left,
+      waveforms: resampleArray(sound.speaker.waveforms.left, scope),
+    });
 
     // wipe(0);
     paste(picture, 0, 0, { width: screen.width, height: screen.height }); // 🖼️ Picture
@@ -948,12 +953,18 @@ function act({
   num,
   pens,
   hud,
+  screen,
+  painting,
   api,
 }) {
   if (e.is("reframed")) {
     setupButtons(api);
     buildWaveButton(api);
     buildOctButton(api);
+    // Resize picture...
+    picture = painting(screen.width, screen.height, ({ wipe }) => {
+      wipe("gray");
+    });
   }
 
   if (e.is("keyboard:down:.") && !e.repeat) {
@@ -1781,7 +1792,7 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
 
   // TODO: Rather than draw a whole box from 0, 0, to 128, 128, i wanna
   //       draw horizontal scanlines in aloop and randomly skip some.
-  ink(...notesToCols[letter], 32).box(0, 0, 128);
+  ink(...notesToCols[letter], 32).box(0, 0, picture.width, picture.height);
 
   // for (let y = 0; y < 128; y += 1) {
   //   // Adjust step size (e.g., 2) for scanline spacing
@@ -1793,6 +1804,33 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
 
   // ink(undefined);
   // line();
+  page(screen);
+}
+
+function pictureLines(
+  { page, ink, wipe, screen, crawl, left, right, up, down, goto, face },
+  { amplitude, waveforms },
+) {
+  // console.log("Amps:", amplitudes, "Waveforms:", waveforms);
+  page(picture);
+  // ink("red", 8).box(0, 0, 16);
+
+  // down();
+  goto(picture.width / 2, picture.height / 2);
+  face(-90);
+  // ink("white", 128);
+
+  // wipe("blue");
+
+  waveforms.forEach((waveform, index) => {
+    left(waveform * 360);
+    down();
+    const alpha = Math.min(255, Math.abs(amplitude) * 255);
+    ink("white", alpha);
+    crawl(Math.max(4, waveform * 12));
+    up();
+  });
+
   page(screen);
 }
 
