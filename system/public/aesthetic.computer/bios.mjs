@@ -1483,6 +1483,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    if (type === "pen:lock") {
+      console.log("🖋️ Request pen lock...");
+      wrapper.requestPointerLock();
+      return;
+    }
+
     if (type === "midi:connect") {
       MIDI.initialize(); // Start 🎹 Detection.
       return;
@@ -5116,6 +5122,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
     });
   });
+
+  // document.addEventListener("pointerlockerror", () => {
+    // console.error("Pointer lock failed!");
+  //});
 
   // Window Scroll 📜
   window.addEventListener("wheel", function (event) {
