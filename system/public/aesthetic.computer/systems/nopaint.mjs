@@ -254,7 +254,11 @@ function nopaint_adjust(
       }
     });
 
-    store["painting"] = sys.painting;
+    store["painting"] = {
+      width: sys.painting.width,
+      height: sys.painting.height,
+      pixels: sys.painting.pixels,
+    }; // sys.painting;
     sys.nopaint.addUndoPainting(sys.painting, slug);
   }
 
