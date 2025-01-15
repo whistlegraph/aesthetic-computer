@@ -973,7 +973,11 @@ async function halt($, text) {
     });
 
     // Persis the painting.
-    store["painting"] = system.painting;
+    store["painting"] = {
+      width: system.painting.width,
+      height: system.painting.height,
+      pixels: system.painting.pixels,
+    }; // system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
     system.nopaint.addUndoPainting(system.painting, slug);
     flashColor = [0, 0, 255];
@@ -1010,7 +1014,11 @@ async function halt($, text) {
     system.nopaint.storeTransform(store, system);
 
     // Persist the painting and lock the resolution.
-    store["painting"] = system.painting;
+    store["painting"] = {
+      width: system.painting.width,
+      height: system.painting.height,
+      pixels: system.painting.pixels,
+    }; // system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
     system.nopaint.addUndoPainting(system.painting, slug);
     store["painting:resolution-lock"] = true; // Set resolution lock.

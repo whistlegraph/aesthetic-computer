@@ -59,6 +59,8 @@ function makeBuffer(width, height, fillProcess, painting, api) {
     height: imageData.height,
   };
 
+  buffer.api = api;
+
   if (typeof fillProcess === "function") {
     // Remember the current buffer and color.
     const savedBuffer = getBuffer();
