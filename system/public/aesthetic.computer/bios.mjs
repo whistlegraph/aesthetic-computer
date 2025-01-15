@@ -1049,12 +1049,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let source = audioContext.createBufferSource();
       const buffer = sfx[sound];
 
-      // const originalPitchHz = 440;
-      const originalPitchHz = computeOriginalPitch(
-        buffer,
-        buffer.sampleRate / 10,
-      );
-      console.log("🔈 Sample detected picth:", originalPitchHz);
+      // console.log("🔈 Sample detected picth:", originalPitchHz);
 
       if (options?.reverse || options?.pitch) {
         const tempBuffer = audioContext.createBuffer(
@@ -1074,6 +1069,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (options.pitch) {
             const targetPitchHz = options.pitch;
+
+            // const originalPitchHz = 440;
+            const originalPitchHz = computeOriginalPitch(
+              buffer,
+              buffer.sampleRate / 10,
+            );
 
             // Calculate the resampling factor
             const pitchFactor = targetPitchHz / originalPitchHz;
