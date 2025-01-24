@@ -85,7 +85,7 @@ Cross-Origin-Resource-Policy = "cross-origin"
 for = "/*.mjs|/*.js"
 [headers.values]
 Access-Control-Allow-Origin = "*"
-Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://aesthetic.computer blob: 'unsafe-eval';"
+Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://aesthetic.computer https://assets.aesthetic.computer blob: 'unsafe-eval';"
 # Cross-Origin-Resource-Policy = "cross-origin"
 Vary = "*"
 [[edge_functions]]
