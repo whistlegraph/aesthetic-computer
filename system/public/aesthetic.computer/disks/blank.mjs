@@ -4,6 +4,7 @@
 /* 📝 Notes
  */
 
+
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
   // console.log(api); // Log the API or enter `docs` (WIP) in `prompt`.
 
