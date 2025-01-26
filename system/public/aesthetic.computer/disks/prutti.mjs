@@ -882,7 +882,35 @@ const lessons = [
     `,
     pictures: ["lnl50-1", "lnl50-2"],
     sounds: ["sweden_&_the_elizabeth_line"],
+  },
+  {
+    title: "Lesson Not Learned 51",
+    text: `
+    In order to keep the flame burning, oh Yes we are a new mail-art Orchester!
+
+    [prut_goodiepal_&_galls.m4a]
+    `,
+    pictures: ["lnl51"],
+    sounds: ["prut_goodiepal_&_galls"]
+  },
+  {
+    title: "Lesson Not Learned 52",
+    text: `
+    - >> setting dials to measure: > tenpo li wan §§§ what time is it? -klokken 01 ^^ it's cosmic time = The time is cosmic! >>feat. Enla Pene Jakosen <<
+
+    --- there is a r8dio-program and it was out at time signature 01:00 --- so I set the dials on these 2 watches to indicate the length of the program. ---I was thinking of giving you a sample, but then again you can go find it yourself---no need to bother you with the same data twice. ##. $XX BUT a precise watch dial picture - That you need... I measure all kind of, for you mostly useless data, but then again it is Horology... I could do this acid posts for for all the Radio programs that I make, but you get the picture.
+
+    Klokken 01 = jan Enla Pene Jakosen li jan pona sin. mi toki e ijo tenpo epika en mute sona pi ilo tenpo. jan mama Putipa li poka mi.
+    jan Putipa il jan lawa pi kalama musi kin en ilo tan ma Tansi kin. jan Putipa li lawa pi kalama pana pona kin.
+    
+    // // // -- // Pruttipal sometimes talks to conceptual artist Henrik Plenge Jakobsen about mind-bending clockworks, this includes Jakobsens work on the larger-than-life spielwerk/automatron/magnificent cosmic clock at Odeon in Odense, Denmark...  // // // -- // Wili Beans & Sebastian Lawrence Højland reports that all this is Komputer controled as jan Enla Pene Jakosen is not a gear individual... 
+
+    [we_are_all_luther_blissett.m4a]
+    `,
+    pictures: ["lnl52"],
+    sounds: ["we_are_all_luther_blissett"]
   }
+
 ];
 
 let lesson = 0,
