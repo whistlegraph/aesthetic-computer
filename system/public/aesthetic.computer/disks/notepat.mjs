@@ -2,11 +2,8 @@
 // Tap the pads to play musical notes, or use the keyboard keys.
 
 /* 📝 Notes 
-   - [🟢] Make a new "painting" to use as a visualizer.
-    - [] Draw symmetrical turtle graphics based on waveform values that
-         paint continuously and produce consistent and differential form.
-
-   - [🔵] Send udp messages from keys to `tv`.
+   - [] Make `slide` work with `composite`.
+        (This may require some refactoring)
    - [] Add recordable samples / custom samples... per key?
      - [] Stored under handle?
    - [🟠] Somehow represent both of these in the graphic layout.
@@ -96,6 +93,10 @@
   - [] Leave out all options from synth / make sensible defaults first.
   - [] Add 'scale' and 'rotation' to `write`.
   + Done
+  - [x] Make a new "painting" to use as a visualizer.
+   - [x] Draw symmetrical turtle graphics based on waveform values that
+        paint continuously and produce consistent and differential form.
+  - [x] Send udp messages from keys to `tv`.
   - [c] Add nice `composite` mode and rudimentary `sample` mode.
   - [x] Make a more mobile friendly layout.
     - [x] Everything needs to fit for the jelly.
@@ -258,11 +259,12 @@ const edges = "zx;']"; // below and above the octave
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
-const attack = 0.005; // 0.025;
+const attack = 0.0025; // 0.025;
 // const attack = 0.005; // 0.025;
 // const decay = 0.9999; // 0.9;
 let toneVolume = 0.95; // 0.9;
 // const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
+const fade = 0.005;
 const killFade = 0.15; //0.05;
 
 let perc; // A one frame percussion flash color.
@@ -517,7 +519,7 @@ function boot({
 
   const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
   wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
-  slide = colon[0] === "slide" || colon[1] === "slide";
+  // slide = true; // colon[0] === "slide" || colon[1] === "slide";
 
   buildWaveButton(api);
   buildOctButton(api);
@@ -627,6 +629,10 @@ function paint({
     // ); // 🖼️ Picture
   } else {
     wipe(bg);
+
+    if (slide) {
+      ink("white").write("slide", {right: 4, top: 24});
+    }
   }
 
   // wipe(!projector ? bg : 64);
@@ -973,6 +979,25 @@ function act({
 
   if (e.is("keyboard:down:,") && !e.repeat) {
     upperOctaveShift -= 1;
+  }
+
+  if (e.is("keyboard:down") && !e.repeat && e.key === "Shift") {
+    // console.log(e);
+    slide = !slide;
+
+    if (slide && Object.keys(tonestack).length > 1) {
+      const orderedTones = orderedByCount(tonestack);
+      orderedTones.forEach((tone, index) => {
+        if (index > 0) {
+          sounds[tone]?.sound.kill(fade); // Kill a sound if it exists.
+          trail[tone] = 1;
+          delete tonestack[tone]; // Remove this key from the notestack.
+          delete sounds[tone];
+          if (buttons[tone]) buttons[tone].down = false;
+        }
+        console.log(tone, index);
+      });
+    }
   }
 
   //  if (
@@ -1432,12 +1457,6 @@ function act({
 
         // console.log("🫐 Extended Note ?:", note);
 
-        // if (sharps && "CDFGA".includes(note)) {
-        //   note += "#";
-        // } else if (flats && "DEGAB".includes(note)) {
-        //   note += "f";
-        // }
-
         if ("ZX".includes(note) || note === "CONTROL") {
           switch (note) {
             case "CONTROL":
@@ -1572,7 +1591,7 @@ function act({
 
           sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
 
-          tonestack[key] = {
+          tonestack[buttonNote] = {
             count: Object.keys(tonestack).length,
             tone,
           };
@@ -1619,124 +1638,153 @@ function act({
       if (downs[key]) {
         delete downs[key];
 
-        let buttonNote = key;
+        // let buttonNote = key;
+        function noteFromKey(key) {
+          let buttonNote = key;
 
-        if ("vswrq".includes(key)) {
-          switch (key) {
-            case "v":
-              buttonNote = "c#";
-              break;
-            case "s":
-              buttonNote = "d#";
-              break;
-            case "w":
-              buttonNote = "f#";
-              break;
-            case "r":
-              buttonNote = "g#";
-              break;
-            case "q":
-              buttonNote = "a#";
-              break;
+          if ("vswrq".includes(key)) {
+            switch (key) {
+              case "v":
+                buttonNote = "c#";
+                break;
+              case "s":
+                buttonNote = "d#";
+                break;
+              case "w":
+                buttonNote = "f#";
+                break;
+              case "r":
+                buttonNote = "g#";
+                break;
+              case "q":
+                buttonNote = "a#";
+                break;
+            }
           }
+          // TODO: This matching code should be combined across event handlers. 24.08.15.06.40
+          let activeOctave = octave;
+
+          if (("hijklmn" + "tyuop").includes(buttonNote)) {
+            switch (buttonNote) {
+              case "h":
+                buttonNote = "c";
+                break;
+              case "i":
+                buttonNote = "d";
+                break;
+              case "j":
+                buttonNote = "e";
+                break;
+              case "k":
+                buttonNote = "f";
+                break;
+              case "l":
+                buttonNote = "g";
+                break;
+              case "m":
+                buttonNote = "a";
+                break;
+              case "n":
+                buttonNote = "b";
+                break;
+              // Semitones
+              case "t":
+                buttonNote = "c#";
+                break;
+              case "y":
+                buttonNote = "d#";
+                break;
+              case "u":
+                buttonNote = "f#";
+                break;
+              case "o":
+                buttonNote = "g#";
+                break;
+              case "p":
+                buttonNote = "a#";
+                break;
+            }
+            activeOctave = parseInt(octave) + 1;
+          }
+
+          if (activeOctave !== octave) buttonNote = "+" + buttonNote;
+
+          if ("zx".includes(buttonNote) || buttonNote === "control") {
+            switch (buttonNote) {
+              case "x":
+                buttonNote = "-b";
+                break;
+              case "z":
+                buttonNote = "-a#";
+                break;
+              case "control":
+                buttonNote = "-a";
+                break;
+            }
+          }
+
+          if (";']".includes(buttonNote)) {
+            switch (buttonNote) {
+              case ";":
+                buttonNote = "++c";
+                break;
+              case "'":
+                buttonNote = "++c#";
+                break;
+              case "]":
+                buttonNote = "++d";
+                break;
+            }
+          }
+
+          return buttonNote;
         }
 
-        // TODO: This matching code should be combined across event handlers. 24.08.15.06.40
-        let activeOctave = octave;
-
-        if (("hijklmn" + "tyuop").includes(buttonNote)) {
-          switch (buttonNote) {
-            case "h":
-              buttonNote = "c";
-              break;
-            case "i":
-              buttonNote = "d";
-              break;
-            case "j":
-              buttonNote = "e";
-              break;
-            case "k":
-              buttonNote = "f";
-              break;
-            case "l":
-              buttonNote = "g";
-              break;
-            case "m":
-              buttonNote = "a";
-              break;
-            case "n":
-              buttonNote = "b";
-              break;
-            // Semitones
-            case "t":
-              buttonNote = "c#";
-              break;
-            case "y":
-              buttonNote = "d#";
-              break;
-            case "u":
-              buttonNote = "f#";
-              break;
-            case "o":
-              buttonNote = "g#";
-              break;
-            case "p":
-              buttonNote = "a#";
-              break;
-          }
-          activeOctave = parseInt(octave) + 1;
-        }
-
-        if (activeOctave !== octave) buttonNote = "+" + buttonNote;
-
-        if ("zx".includes(buttonNote) || buttonNote === "control") {
-          switch (buttonNote) {
-            case "x":
-              buttonNote = "-b";
-              break;
-            case "z":
-              buttonNote = "-a#";
-              break;
-            case "control":
-              buttonNote = "-a";
-              break;
-          }
-        }
-
-        if (";']".includes(buttonNote)) {
-          switch (buttonNote) {
-            case ";":
-              buttonNote = "++c";
-              break;
-            case "'":
-              buttonNote = "++c#";
-              break;
-            case "]":
-              buttonNote = "++d";
-              break;
-          }
-        }
+        const buttonNote = noteFromKey(key);
 
         // console.log("Released:", buttonNote);
 
         const orderedTones = orderedByCount(tonestack);
-        if (slide && orderedTones.length > 1 && sounds[key]) {
+
+        // console.log(
+        //   "Ordered Tones:",
+        //   orderedTones,
+        //   "Sounds:",
+        //   sounds,
+        //   "Key:",
+        //   key,
+        // );
+
+        if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
           sounds[buttonNote]?.sound?.update({
             tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
             duration: 0.1,
           });
-          sounds[orderedTones[orderedTones.length - 2]] = sounds[buttonNote];
+
+          // console.log(
+          //   "New sound key is:",
+          //   tonestack[orderedTones[orderedTones.length - 2]],
+          //   noteFromKey(orderedTones[orderedTones.length - 2]),
+          //   orderedTones,
+          //   sounds
+          // );
+
+          const n = noteFromKey(orderedTones[orderedTones.length - 2]);
+          sounds[n] = sounds[buttonNote];
+          // console.log("Replaced:", buttonNote, "with:", n);
+
+          // delete sounds[buttonNote];
         } else {
           // console.log("Killing sound:", buttonNote);
 
-          if (sounds[buttonNote].sound) {
-            const fade = max(
-              0.175,
-              min(
-                (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
-                0.45,
-              ),
-            );
+          if (sounds[buttonNote]?.sound) {
+            // const fade = max(
+            //   0.175,
+            //   min(
+            //     (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
+            //     0.45,
+            //   ),
+            // );
             // console.log("🦋 Fade length:", fade);
             // killFade
             sounds[buttonNote]?.sound.kill(fade); // Kill a sound if it exists.
