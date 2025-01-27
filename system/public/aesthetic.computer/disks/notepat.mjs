@@ -1778,14 +1778,14 @@ function act({
           // console.log("Killing sound:", buttonNote);
 
           if (sounds[buttonNote]?.sound) {
-            // const fade = max(
-            //   0.175,
-            //   min(
-            //     (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
-            //     0.45,
-            //   ),
-            // );
-            // console.log("🦋 Fade length:", fade);
+            const fade = max(
+              0.075,//0.175,
+              min(
+                (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
+                0.15,//0.45,
+              ),
+            );
+            console.log("🦋 Fade length:", fade);
             // killFade
             sounds[buttonNote]?.sound.kill(fade); // Kill a sound if it exists.
           }
