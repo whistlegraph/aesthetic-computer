@@ -2353,7 +2353,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ) {
             if (keyboardOpen) {
               // console.log("Target:", e.target);
-              if (MetaBrowser) {
+              if (MetaBrowser && e.target !== window) {
+                // Skip dragging the finger outside of the Meta Browser.
               } else input.blur();
             } else {
               keyboardOpenMethod = "pointer";
@@ -2385,7 +2386,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("blur", (e) => {
-          //console.log("blurred window...");
+          // console.log("blurred window...");
           // keyboardOpen = false;
           // keyboard.events.push({ name: "keyboard:close" });
         });
