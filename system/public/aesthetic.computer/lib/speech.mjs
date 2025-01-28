@@ -11,7 +11,7 @@ let voices = [];
 import { utf8ToBase64 } from "./helpers.mjs";
 
 function populateVoiceList() {
-  voices = synth.getVoices().sort(function (a, b) {
+  voices = synth?.getVoices().sort(function (a, b) {
     const aname = a.name.toUpperCase();
     const bname = b.name.toUpperCase();
     if (aname < bname) {
@@ -27,8 +27,8 @@ function populateVoiceList() {
 
 populateVoiceList();
 
-if (speechSynthesis.onvoiceschanged !== undefined) {
-  speechSynthesis.onvoiceschanged = populateVoiceList;
+if (synth?.onvoiceschanged !== undefined) {
+  synth.onvoiceschanged = populateVoiceList;
 }
 
 // The mode can either be "local", which uses
@@ -36,6 +36,7 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
 // and returns a mp3 file.
 
 function speak(words, voice, mode = "local", opts = {}) {
+  if (!synth) console.warn("No speech is supported on this platform.");
   if (mode === "local") {
     if (synth.speaking) {
       console.error("🗣️ Already speaking...");
