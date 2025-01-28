@@ -237,6 +237,7 @@ const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
 let wave = STARTING_WAVE;
 // let hold = false;
 let slide = false;
+let quickFade = false;
 let octave = STARTING_OCTAVE;
 let keys = "";
 let tap = false;
@@ -265,6 +266,7 @@ const attack = 0.0025; // 0.025;
 let toneVolume = 0.95; // 0.9;
 // const killFade = 0.01; // TODO: Make this dynamic according to press time. 24.11.04.06.05
 const fade = 0.005;
+const fastFade = 0.005;
 const killFade = 0.15; //0.05;
 
 let perc; // A one frame percussion flash color.
@@ -631,7 +633,11 @@ function paint({
     wipe(bg);
 
     if (slide) {
-      ink("white").write("slide", {right: 4, top: 24});
+      ink(undefined).write("slide", {right: 4, top: 24});
+    }
+    
+    if (quickFade) {
+      ink(undefined).write("quick", {left: 4, top: 24});
     }
   }
 
@@ -981,15 +987,20 @@ function act({
     upperOctaveShift -= 1;
   }
 
-  if (e.is("keyboard:down") && !e.repeat && e.key === "Shift") {
-    // console.log(e);
+
+  if (e.is("keyboard:down") && !e.repeat && e.key === "Shift" && e.code === "ShiftLeft") {
+    quickFade = !quickFade;
+  }
+
+  if (e.is("keyboard:down") && !e.repeat && e.key === "Shift" && e.code === "ShiftRight") {
+    console.log("Code:", e.code);
     slide = !slide;
 
     if (slide && Object.keys(tonestack).length > 1) {
       const orderedTones = orderedByCount(tonestack);
       orderedTones.forEach((tone, index) => {
         if (index > 0) {
-          sounds[tone]?.sound.kill(fade); // Kill a sound if it exists.
+          sounds[tone]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
           trail[tone] = 1;
           delete tonestack[tone]; // Remove this key from the notestack.
           delete sounds[tone];
@@ -1175,7 +1186,7 @@ function act({
     } else {
       return synth({
         type: wave,
-        attack,
+        attack: quickFade ? 0.0001 : attack,
         // decay,
         tone,
         duration: "🔁",
@@ -1330,7 +1341,7 @@ function act({
                 });
                 sounds[orderedTones[orderedTones.length - 2]] = sounds[note];
               } else {
-                sounds[note]?.sound.kill(killFade);
+                sounds[note]?.sound.kill(quickFade ? fastFade : killFade);
               }
 
               // console.log("🪱 Trail:", note);
@@ -1426,7 +1437,7 @@ function act({
         tapIndex = 0;
       }
 
-      sounds[tapped]?.kill(killFade);
+      sounds[tapped]?.kill(quickFade ? fastFade : killFade);
       delete sounds[tapped];
       tapped = undefined;
     }
@@ -1785,9 +1796,9 @@ function act({
                 0.15,//0.45,
               ),
             );
-            console.log("🦋 Fade length:", fade);
+            // console.log("🦋 Fade length:", fade);
             // killFade
-            sounds[buttonNote]?.sound.kill(fade); // Kill a sound if it exists.
+            sounds[buttonNote]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
           }
         }
 
