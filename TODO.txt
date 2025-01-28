@@ -14,13 +14,6 @@
        would it be possible to make it so wipe works in a wrapped mode or write
        a wrapped version?
 
-*** `tv` is a `notepat` remote ***
-- [] Have `notepat` send udp messages over to `tv`. 
-- [] Make the `tv` piece which simply responds to udp
-     messages prefixed with `notepat`.
-- [] Use `tv channel-name-here` to scope the udp broadcast to a particular
-     channel.
-
 *** `notepat` nub ***
 - [] Add a thinkpad nub shaker to `rattle` via pointer locking.
 
