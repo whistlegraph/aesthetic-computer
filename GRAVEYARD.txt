@@ -1,5 +1,12 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `tv` is a `notepat` remote ***
+- [?] Use `tv channel-name-here` to scope the udp broadcast to a particular
+     channel.
+- [x] Have `notepat` send udp messages over to `tv`. 
+- [x] Make the `tv` piece which simply responds to udp
+     messages prefixed with `notepat`.
+
 *** readme refresh ***
  - [x] Redesign the project README.
    - [x] Graveyard a lot of dead TODOS and instructions below.

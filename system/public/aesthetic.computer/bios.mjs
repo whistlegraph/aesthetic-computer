@@ -1278,7 +1278,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const workersEnabled = !sandboxed;
   // const workersEnabled = false;
 
-  if (!MetaBrowser && workersEnabled) {
+  if (/*!MetaBrowser &&*/ workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
     });
@@ -2330,12 +2330,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           //  keyboard.needsImmediateOpen = false;
           //  return;
           //}
+          // console.log("🌬️ Blurrred", "Target:", e.target);
+
+          // return;
+
+          if (e.target === window) {
+            // console.log("WINDOW BLURRED");
+            e.preventDefault();
+            return; // This prevents.
+          }
 
           if (currentPieceHasKeyboard) e.preventDefault();
 
           // console.log(e.target);
-
-          if (e.target === window) return; // This prevents.
 
           //console.log(currentPieceHasKeyboard, !keyboardFocusLock, !keyboardSoftLock)
 
@@ -2345,7 +2352,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             !keyboardSoftLock
           ) {
             if (keyboardOpen) {
-              input.blur();
+              // console.log("Target:", e.target);
+              if (MetaBrowser) {
+              } else input.blur();
             } else {
               keyboardOpenMethod = "pointer";
               // input.removeAttribute("readonly");
@@ -5124,7 +5133,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   });
 
   // document.addEventListener("pointerlockerror", () => {
-    // console.error("Pointer lock failed!");
+  // console.error("Pointer lock failed!");
   //});
 
   // Window Scroll 📜
