@@ -637,7 +637,7 @@ function paint({
     }
     
     if (quickFade) {
-      ink(undefined).write("quick", {left: 4, top: 24});
+      ink(undefined).write("quick", {left: 6, top: 24});
     }
   }
 
@@ -959,6 +959,8 @@ function paint({
 
 let anyDown = true;
 
+const percDowns = {};
+
 function act({
   event: e,
   sound: { synth, speaker, play, freq },
@@ -993,7 +995,7 @@ function act({
   }
 
   if (e.is("keyboard:down") && !e.repeat && e.key === "Shift" && e.code === "ShiftRight") {
-    console.log("Code:", e.code);
+    // console.log("Code:", e.code);
     slide = !slide;
 
     if (slide && Object.keys(tonestack).length > 1) {
@@ -1186,7 +1188,7 @@ function act({
     } else {
       return synth({
         type: wave,
-        attack: quickFade ? 0.0001 : attack,
+        attack: quickFade ? 0.0015 : attack,
         // decay,
         tone,
         duration: "🔁",
@@ -1212,24 +1214,43 @@ function act({
     makePerc(4000);
   }
 
-  if (e.is("keyboard:down:arrowleft") && !e.repeat) {
+  if (e.is("keyboard:down:arrowleft") && !e.repeat && !percDowns.left) {
     perc = "brown";
+    percDowns.left = true;
     makePerc(5000);
   }
 
-  if (e.is("keyboard:down:arrowdown") && !e.repeat) {
+  if (e.is("keyboard:down:arrowdown") && !e.repeat && !percDowns.down) {
     perc = "pink";
+    percDowns.down = true;
     makePerc(6000);
   }
 
-  if (e.is("keyboard:down:arrowright") && !e.repeat) {
+  if (e.is("keyboard:down:arrowright") && !e.repeat && !percDowns.right) {
     perc = "orange";
+    percDowns.right = true;
     makePerc(7000);
   }
 
-  if (e.is("keyboard:down:arrowup") && !e.repeat) {
+  if (e.is("keyboard:down:arrowup") && !e.repeat && !percDowns.up) {
+    percDowns.up = true;
     perc = "cyan";
     makePerc(8000);
+  }
+  if (e.is("keyboard:up:arrowleft")) {
+    delete percDowns.left;
+  }
+
+  if (e.is("keyboard:up:arrowdown")) {
+    delete percDowns.down;
+  }
+
+  if (e.is("keyboard:up:arrowright")) {
+    delete percDowns.right;
+  }
+
+  if (e.is("keyboard:up:arrowup")) {
+    delete percDowns.up;
   }
 
   if (!tap) {
