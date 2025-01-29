@@ -755,6 +755,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         navigator.audioSession.type = "play-and-record"; //play-and-record";
 
       let micStream;
+      let reason;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -766,12 +767,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
       } catch (err) {
         if (debug) console.warn("🎙 Microphone disabled:", err);
+        reason = err.message;
       }
 
       // return;
 
       if (!micStream) {
-        send({ type: "microphone-connect:failure" });
+        send({ type: "microphone-connect:failure", content: { reason } });
         return;
       }
 
@@ -815,8 +817,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // the sample ID back.
           const id = "microphone-recording";
 
-          if (debug)
-            console.log("🔈 Buffer length:", msg.content.recording?.length);
+          //if (debug)
+          //  console.log("🔈 Buffer length:", msg.content.recording?.length);
 
           // Create an empty mono AudioBuffer (1 channel)
           const buffer = audioContext.createBuffer(
@@ -1189,6 +1191,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const sandboxed = window.origin === "null" || !window.origin;
+  const microphonePermission = await checkMicrophonePermission();
 
   const firstMessage = {
     type: "init-from-bios",
@@ -1203,6 +1206,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
+      microphonePermission
     },
   };
 
@@ -3860,7 +3864,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const dataFloat32 = audioBuffer.getChannelData(0);
             const data = Array.from(dataFloat32);
 
-
             send({
               type: "sfx:got-sample-data",
               content: { id: content.id, data },
@@ -5416,6 +5419,26 @@ function computeOriginalPitch(buffer, sampleRate) {
   const frequency = zeroCrossings / (2 * durationInSeconds); // Divide by 2 because each cycle has two zero crossings
 
   return frequency;
+}
+
+async function checkMicrophonePermission() {
+  try {
+    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+    console.log('Microphone permission status:', permissionStatus.state);
+
+    if (permissionStatus.state === 'granted') {
+      // console.log('Microphone access is granted.');
+    } else if (permissionStatus.state === 'denied') {
+      // console.log('Microphone access is denied.');
+    } else {
+      // console.log(`Microphone access is in prompt state (user hasn't decided yet).`);
+    }
+
+    return permissionStatus.state; // 'granted', 'denied', or 'prompt'
+  } catch (error) {
+    console.error('Permission query error:', error);
+    return null;
+  }
 }
 
 export { boot };
