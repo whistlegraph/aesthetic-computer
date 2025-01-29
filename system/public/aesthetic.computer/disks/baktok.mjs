@@ -283,6 +283,7 @@ function paintSound({ ink }, amplitude, waveform, x, y, width, height, color) {
   const yMid = y + height / 2,
     yMax = height / 2;
 
+
   // Amplitude bounding box.
   // if (amplitude && capturing) {
   //   ink(!capturing ? [255, 255, 0] : color || [255, 128]).box(
