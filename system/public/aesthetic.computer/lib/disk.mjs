@@ -1311,6 +1311,15 @@ const $commonApi = {
   text: {
     capitalize: text.capitalize,
     reverse: text.reverse,
+    // Get the pixel width of a string of characters.
+    width: (text) => {
+      return text.length * 6;
+    },
+    height: (text) => {
+      // Get the pixel height of a string of characters.
+      return 10;
+    },
+    // Return a text's bounding box.
     box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
       if (!text) {
         console.warn("⚠️ No text for `box`.");
@@ -2559,6 +2568,7 @@ class Microphone {
   connected = false; // Flips to true on a callback message from `bios`.
   recording = false;
   recordingPromise;
+  permission = "";
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
   connect(options) {
@@ -3810,6 +3820,8 @@ async function makeFrame({ data: { type, content } }) {
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
 
+    microphone.permission = content.microphonePermission;
+
     $commonApi.canShare = SHARE_SUPPORTED;
     $commonApi.vscode = VSCODE; // Add vscode flag to the common api.
     $commonApi.net.lan = LAN_HOST;
@@ -4342,7 +4354,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-connect:failure") {
     microphone.connected = false;
-    actAlerts.push("microphone-connect:failure");
+    actAlerts.push({ name: "microphone-connect:failure", ...content });
     return;
   }
 
@@ -5322,12 +5334,26 @@ async function makeFrame({ data: { type, content } }) {
 
       // *** Act Alerts *** (Custom events defined in here.)
       // These do not run in the initial loader / preview piece.
-      actAlerts.forEach((name) => {
+      actAlerts.forEach((action) => {
+        // Check if `name`'s not a string, and if not, attach arbitrary data.
+        let name,
+          extra = {};
+        if (typeof action !== "string") {
+          // Make extra be an object with every key on action other than 'name'.
+          ({ name, ...extra } = action);
+        } else {
+          name = action;
+        }
+
         const data = {
           name,
           is: (e) => e === name,
           of: (e) => name.startsWith(e),
+          ...extra,
         };
+
+        // TODO: All all fields from 'extra' into 'data'.
+
         $api.event = data;
         try {
           act($api);
