@@ -292,7 +292,8 @@ function updateHUDStatus() {
 let loading = false;
 let reframe;
 
-const sfxProgressReceivers = {};
+const sfxProgressReceivers = {},
+  sfxSampleReceivers = {};
 
 const signals = []; // Easy messages from embedded DOM content.
 const actAlerts = []; // Messages that get put into act and cleared after
@@ -2556,6 +2557,7 @@ class Microphone {
   waveform = [];
   pitch = 0;
   connected = false; // Flips to true on a callback message from `bios`.
+  recording = false;
   recordingPromise;
 
   // Note: can send `{monitor: true}` in `options` for audio feedback.
@@ -2576,6 +2578,7 @@ class Microphone {
 
   // Start recording.
   rec() {
+    this.recording = true;
     send({ type: "microphone-record" });
   }
 
@@ -2585,6 +2588,7 @@ class Microphone {
       this.recordingPromise = { resolve, reject };
     });
     send({ type: "microphone-cut" });
+    this.recording = false;
     return prom;
   }
 }
@@ -4290,6 +4294,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "sfx:got-sample-data") {
+    sfxSampleReceivers[content.id]?.(content.data);
+    return;
+  }
+
   if (type === "sfx:progress:report") {
     sfxProgressReceivers[content.id]?.(content); // Resolve the progress report.
     return;
@@ -4881,6 +4890,16 @@ async function makeFrame({ data: { type, content } }) {
 
     // Trigger a named audio sample to playback in the `bios`.
     // options: { volume: 0-n, pan: 0-2?, loop: Bool, ...(there is more) }
+
+    $sound.getSampleData = async function getSampleData(id) {
+      const prom = new Promise((resolve, reject) => {
+        sfxSampleReceivers[id] = resolve;
+        return { resolve, reject };
+      });
+      send({ type: "sfx:get-sample-data", content: { id } });
+      return prom;
+    };
+
     $sound.play = function play(sfx, options) {
       const id = sfx + "_" + performance.now(); // A *unique id for this sample.
 

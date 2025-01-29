@@ -816,7 +816,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const id = "microphone-recording";
 
           if (debug)
-            console.log("🔈 Buffer length:", msg.content.recording.length);
+            console.log("🔈 Buffer length:", msg.content.recording?.length);
 
           // Create an empty mono AudioBuffer (1 channel)
           const buffer = audioContext.createBuffer(
@@ -827,6 +827,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const channel = buffer.getChannelData(0); // Ref to the first channel.
           channel.set(msg.content.recording);
           // Copy your Float32Array data into the buffer's channel
+
+          // console.log("Recording:", msg.content.recording);
 
           sfx[id] = buffer; // Set the sfx id so the sfx system
           //                   can play back the sample.
@@ -1003,6 +1005,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Play a sound back through the sfx system.
+  // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
+  //          upon audio activation. This would probably be helpful
+  //          in terms of creating a sampler and asynchronously
+  //          decoding all the sounds after an initial tap.
+
   async function playSfx(id, sound, options, completed) {
     if (audioContext) {
       if (sfxCancel.includes(id)) {
@@ -1012,25 +1019,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      // 🌡️ TODO: `sfx` could be scraped for things that need to be decoded
-      //          upon audio activation. This would probably be helpful
-      //          in terms of creating a sampler and asynchronously
-      //          decoding all the sounds after an initial tap.
-
-      if (sfx[sound] instanceof ArrayBuffer) {
-        let audioBuffer;
-        try {
-          const buf = sfx[sound];
-          sfx[sound] = null;
-          if (buf) {
-            audioBuffer = await audioContext.decodeAudioData(buf);
-            if (debug && logs.audio) console.log("🔈 Decoded:", sound);
-            sfx[sound] = audioBuffer;
-          }
-        } catch (err) {
-          console.error("🔉", err, "➡️", sound);
-        }
-      }
+      await decodeSfx(sound);
 
       if (sfx[sound] instanceof ArrayBuffer) return;
       if (!sfx[sound]) {
@@ -1038,7 +1027,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return;
       }
       // If decoding has failed or no sound is present then silently fail.
-      // 🌡️ TODO; Performance: Cache these buffers per sound effect in each piece?
 
       const gainNode = audioContext.createGain();
       gainNode.gain.value = options?.volume !== undefined ? options.volume : 1;
@@ -1049,57 +1037,58 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let source = audioContext.createBufferSource();
       const buffer = sfx[sound];
 
-      // console.log("🔈 Sample detected picth:", originalPitchHz);
+      if (options?.from || options?.to || options?.reverse || options?.pitch) {
+        let fromVal = options?.from ?? 0;
+        let toVal = options?.to ?? 1;
+        let shouldReverse = !!options?.reverse;
 
-      if (options?.reverse || options?.pitch) {
+        if (fromVal > toVal) {
+          [fromVal, toVal] = [toVal, fromVal];
+          shouldReverse = true;
+        }
+
+        const startSample = Math.floor(fromVal * buffer.length);
+        const endSample = Math.floor(toVal * buffer.length);
+        const length = endSample - startSample;
         const tempBuffer = audioContext.createBuffer(
           buffer.numberOfChannels,
-          buffer.length,
+          length,
           buffer.sampleRate,
         );
 
         for (let i = 0; i < buffer.numberOfChannels; i++) {
-          const originalData = buffer.getChannelData(i);
-          let tempData = tempBuffer.getChannelData(i);
-          tempData.set(originalData);
+          const originalData = buffer
+            .getChannelData(i)
+            .subarray(startSample, endSample);
+          let tempData = new Float32Array(originalData);
 
-          if (options.reverse) {
+          if (shouldReverse) {
             tempData.reverse();
           }
 
-          if (options.pitch) {
+          if (options?.pitch) {
             const targetPitchHz = options.pitch;
-
-            // const originalPitchHz = 440;
             const originalPitchHz = computeOriginalPitch(
               buffer,
               buffer.sampleRate / 10,
             );
-
-            // Calculate the resampling factor
             const pitchFactor = targetPitchHz / originalPitchHz;
-            const newLength = floor(tempData.length / pitchFactor);
+            const newLength = Math.floor(tempData.length / pitchFactor);
             const resampledData = new Float32Array(newLength);
 
             for (let j = 0; j < newLength; j++) {
               const sourceIndex = j * pitchFactor;
-              const leftIndex = floor(sourceIndex);
-              const rightIndex = min(leftIndex + 1, tempData.length - 1);
+              const leftIndex = Math.floor(sourceIndex);
+              const rightIndex = Math.min(leftIndex + 1, tempData.length - 1);
               const t = sourceIndex - leftIndex;
               resampledData[j] =
                 (1 - t) * tempData[leftIndex] + t * tempData[rightIndex];
             }
 
             tempData = resampledData;
-
-            const resampledBuffer = audioContext.createBuffer(
-              buffer.numberOfChannels,
-              resampledData.length,
-              buffer.sampleRate,
-            );
-            resampledBuffer.copyToChannel(resampledData, i);
-            tempBuffer.copyToChannel(resampledBuffer.getChannelData(0), i);
           }
+
+          tempBuffer.copyToChannel(tempData, i);
         }
 
         source.buffer = tempBuffer;
@@ -1107,46 +1096,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         source.buffer = buffer;
       }
 
-      // // Reverse the playback if specified.
-      // if (options?.reverse || options?.pitch) {
-      //   // Make new AudioBuffer of the same size and sample rate as original.
-      //   const tempBuffer = audioContext.createBuffer(
-      //     buffer.numberOfChannels,
-      //     buffer.length,
-      //     buffer.sampleRate,
-      //   );
-
-      //   // Copy and reverse the data for each channel.
-      //   for (let i = 0; i < buffer.numberOfChannels; i++) {
-      //     const originalData = buffer.getChannelData(i);
-      //     const tempData = tempBuffer.getChannelData(i);
-      //     tempData.set(originalData);
-
-      //     if (options.reverse) {
-      //       tempData.reverse();
-      //     }
-      //     if (options.pitch) {
-      //       // TODO: Pitch up or down this sample according to a hz value it should try to match stored in options.pitch.
-      //     }
-      //   }
-
-      //   source.buffer = tempBuffer; // Remap the source buffer to the copy.
-      // } else {
-      //   source.buffer = buffer;
-      // }
-
       let paused = false;
 
       function connect() {
-        if (options?.loop) source.loop = true; // Loop playback.
-
+        if (options?.loop) source.loop = true;
         source.connect(panNode);
         panNode.connect(gainNode);
-        if (!options?.stream) {
-          gainNode.connect(speakerGain);
-        }
+        if (!options?.stream) gainNode.connect(speakerGain);
         gainNode.connect(options?.stream || sfxStreamGain);
-
         source.addEventListener("ended", () => {
           source.disconnect();
           gainNode.disconnect();
@@ -1157,47 +1114,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       connect();
-
       if (debug && logs.audio) console.log("🔈 Playing:", sound);
-
       let startTime = audioContext.currentTime;
       source.start();
       let pausedAt;
 
-      // Return a playback handle here to be able to pause or kill the sample.
       sfxPlaying[id] = {
         kill: (fade = 0) => {
           if (debug && logs.audio) console.log("🔈 Killing...", id);
-          // console.log(fade);
           if (fade > 0) {
-            // Implement fade-out
             const now = audioContext.currentTime;
-            gainNode.gain.setValueAtTime(gainNode.gain.value, now); // Start at the current gain value
-            gainNode.gain.linearRampToValueAtTime(0, now + fade); // Fade to 0 over 'fade' seconds
-
-            // Schedule disconnection after fade-out completes
+            gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + fade);
             setTimeout(() => {
               source.disconnect();
               gainNode.disconnect();
               panNode.disconnect();
               delete sfxPlaying[id];
-            }, fade * 1000); // Convert seconds to milliseconds
+            }, fade * 1000);
           } else {
-            // Immediate stop
             source.disconnect();
             gainNode.disconnect();
             panNode.disconnect();
             delete sfxPlaying[id];
           }
         },
-        // kill: (fade) => {
-        //   // TODO: Implement 'fade' fadeout in seconds option.
-        //   if (debug && logs.audio) console.log("🔈 Killing...", id);
-        //   source.disconnect();
-        //   gainNode.disconnect();
-        //   panNode.disconnect();
-        //   delete sfxPlaying[id];
-        // },
         pause: () => {
           if (debug && logs.audio) console.log("🔈 Pausing...", id);
           paused = true;
@@ -1207,22 +1148,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         resume: () => {
           if (debug && logs.audio) console.log("🔈 Resuming...", id);
           paused = false;
-          source.disconnect(); // Disconnect the old source first
+          source.disconnect();
           gainNode.disconnect();
           panNode.disconnect();
-          source = audioContext.createBufferSource(); // New source from buffer.
+          source = audioContext.createBufferSource();
           source.buffer = buffer;
           connect();
-          source.start(0, pausedAt); // Start from the paused time
+          source.start(0, pausedAt);
           startTime = audioContext.currentTime - pausedAt;
         },
         progress: () => {
           const elapsed = audioContext.currentTime - startTime;
-          const progress = max(
+          const progress = Math.max(
             0,
-            (elapsed % buffer.duration) / buffer.duration,
+            (elapsed % source.buffer.duration) / source.buffer.duration,
           );
-          // You can return either the elapsedTime or percentage, or both, based on your needs.
           return { elapsed, progress };
         },
       };
@@ -3909,6 +3849,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "sfx:get-sample-data") {
+      async function checkForSampleData() {
+        if (audioContext) {
+          const audioBuffer = await decodeSfx(content.id);
+
+          if (!audioBuffer) {
+            setTimeout(checkForSampleData, 100);
+          } else {
+            const dataFloat32 = audioBuffer.getChannelData(0);
+            const data = Array.from(dataFloat32);
+
+
+            send({
+              type: "sfx:got-sample-data",
+              content: { id: content.id, data },
+            });
+          }
+        } else {
+          setTimeout(checkForSampleData, 100);
+          // await checkForSampleData();
+        }
+      }
+
+      checkForSampleData();
+      return;
+    }
+
     // Stop a playing sound or sample if it exists,
     // with an optional 'after' parameter for a fade out.
     if (type === "sfx:kill") {
@@ -5317,6 +5284,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
   });
+
+  // Instantly decode the audio before playback if it hasn't been already.
+  async function decodeSfx(sound) {
+    if (sfx[sound] instanceof ArrayBuffer) {
+      let audioBuffer;
+      try {
+        const buf = sfx[sound];
+        sfx[sound] = null;
+        if (buf) {
+          audioBuffer = await audioContext.decodeAudioData(buf);
+          if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+          sfx[sound] = audioBuffer;
+          return sfx[sound];
+        }
+      } catch (err) {
+        console.error("🔉", err, "➡️", sound);
+      }
+    } else {
+      return sfx[sound];
+    }
+  }
 }
 
 // Utilities

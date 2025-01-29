@@ -1,6 +1,10 @@
 😀 TODO 😆
 
-🌟 Projects in Progress (PIP) 🌟
+Projects in Progress (PIP) 🌟
+
+*** `sprample` ***
+ - [-] Make initial prototype.
+ - [] Integrate into `notepat` at some point?
 
 *** `pill` / android devices and shop ***
   - [] flash the uniherz jelly to boot directly into ac with
@@ -15,43 +19,44 @@
        a wrapped version?
 
 *** `notepat` nub ***
-- [] Add a thinkpad nub shaker to `rattle` via pointer locking.
+  - [] Add a thinkpad nub shaker to `rattle` via pointer locking.
 
 *** profiles ***
- - [] refer to profile roadmap below in this file for moving paintings
- - [] entering 'profile @handle' will yield the profile
+  - [] refer to profile roadmap below in this file for moving paintings
+  - [] entering 'profile @handle' will yield the profile
 
 *** hh ***
- - [] entering 'handle-home urpiecehere' will change the user's prompt.ac/@handle home piece to anything they wish
+  - [] entering 'handle-home urpiecehere' will change the user's
+       prompt.ac/@handle home piece to anything they wish
 
 *** backend() ***
- - [] any ac piece should be able to make backend requests that mirror client
+  - [] any ac piece should be able to make backend requests that mirror client
       requests from the `prompt`
-   - [] Eg. `backend(list @bash)` or `backend(moods @jeffrey)`.
+    - [] Eg. `backend(list @bash)` or `backend(moods @jeffrey)`.
 
 *** emacs tabs ***
- - [] add 'tunnel' ngrok emacs tab and rename source to code
+   - [] add 'tunnel' ngrok emacs tab and rename source to code
 
 *** vscode.dev ***
- - [-] fix vscode.dev extension error related to importing path and
-      typeof window === "undefined
+  - [-] fix vscode.dev extension error related to importing path and
+        typeof window === "undefined
 
 *** spectrogram ***
- - [] add a long spectrographic buffer to `notepat`
-      so playable notes can be tracked / maybe it could
-      be circular / record like?
+  - [] add a long spectrographic buffer to `notepat`
+       so playable notes can be tracked / maybe it could
+       be circular / record like?
 
 *** new button api ***
   - [] Rethink how to do a simpler button API... perhaps with "register"
-        and an act function? This could be implemented in 'tone'.
+       and an act function? This could be implemented in 'tone'.
 
 *** 'art' bucket expiration ***
- - [] the files are no longer expiring after 24 hours / an expiration policy
-      needs to be added again
+  - [] the files are no longer expiring after 24 hours / an expiration policy
+       needs to be added again
 
 *** 'print' error ***
- - [] https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ is not resolving in mexico
- - [] bios.mjs:1212 Uncaught DataCloneError: Failed to execute 'postMessage' on 'Worker': ProgressEvent object could not be cloned.
+  - [] https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ is not resolving in mexico
+  - [] bios.mjs:1212 Uncaught DataCloneError: Failed to execute 'postMessage' on 'Worker': ProgressEvent object could not be cloned.
 
 *** tweaked bresenham ***
   - [] implement this tweaked version of bresenham for graph's circle routine:
@@ -65,7 +70,7 @@
        tap on ios. 
 
 *** bleep ***
-  - [🟠] fix bleep held key bug...
+  - [🟠] fix bleep held key bug.
 
 *** prompt ***
   - [] How should 'Paste' and 'Enter' appear / disappear in the main prompt
