@@ -2479,6 +2479,11 @@ export async function handler(event, context) {
         desc: "A melodic keyboard instrument.",
         done: false,
       },
+      stample: {
+        sig: "stample",
+        desc: "A sampling instrument.",
+        done: false,
+      },
       old: {
         sig: "old",
         desc: "",
