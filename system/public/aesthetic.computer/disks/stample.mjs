@@ -1,13 +1,15 @@
-// Sprample, 2025.1.28.04.11.21.170
+// Stample, 2025.1.28.04.11.21.170
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [🟠] Show a tiny waveform in the record button for live feedback,
-         and show the state of the recording process...
+  - [🚗] Show the state of the microphone connection, recording and disconnect
+         process.
   - [] Add pitch shifting to the board by swiping left or right,
        or could just divide each strip into 3 pitches: lo, mid, and hi.
-
+  - [] Add visual printing / stamping of pixel data and loading of that
+       data.
   + Done
+  - [x] Show a tiny waveform in the record button for live feedback.
   - [x] Record a sample and spread it automatically.
   - [x] Draw the waveform over the buttons.
   - [x] Spread out a predefined sample.
@@ -21,6 +23,8 @@ let sfx,
 
 const menuHeight = 32;
 const labelHeight = 24;
+
+const BUTTON_LABEL_CONNECTING = "Wait...";
 
 const keyToIndexMap = {
   1: 0,
@@ -44,6 +48,7 @@ const sounds = [],
 
 let mic,
   micRecordButton,
+  micRecordButtonLabel = "Connect",
   micConnected = false;
 
 let sampleId, sampleData;
@@ -55,20 +60,19 @@ async function boot({
   ui,
   params,
   screen,
+  delay
 }) {
   const name = params[0] || "startup";
   sampleId = await preload(name);
-
-  console.log("Sample loaded:", sampleId);
-
   genPats({ screen, ui });
-
-  micRecordButton = new ui.Button(0, screen.height - 32, 32, 32);
-
+  micRecordButton = new ui.Button(0, screen.height - 32, 64, 32);
   mic = microphone; // Microphone access.
-  if (mic.connected) {
-    connected = true;
-    hideButton = true;
+
+  if (mic.permission === "granted") {
+    micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
+    delay(() => {
+      microphone.connect();
+    }, 15)
   }
 
   getSampleData(sampleId).then((data) => {
@@ -81,16 +85,16 @@ function sim() {
   sounds.forEach((sound, index) => {
     sound?.progress().then((p) => (progressions[index] = p.progress)); // Get progress data.
   });
+  mic?.poll(); // Query for updated amplitude and waveform data.
 }
 
-function paint({ api, wipe, ink, screen, num }) {
+function paint({ api, wipe, ink, screen, num, text }) {
   wipe(0, 0, 255);
   btns.forEach((btn, index) => {
     btn.paint(() => {
       ink(btn.down ? "white" : "cyan").box(btn.box); // Paint box a teal color.
       ink("black").box(btn.box, "out"); // Outline in black.
       if (progressions[index]) {
-        // console.log("Progress:", progressions[index]);
         ink("red", 64).box(
           btn.box.x,
           btn.box.y + btn.box.h,
@@ -106,13 +110,30 @@ function paint({ api, wipe, ink, screen, num }) {
     });
 
     micRecordButton.paint((btn) => {
-      ink(btn.down ? "white" : "red").box(btn.box);
-      ink(btn.down ? "red" : "white").box(btn.box, "inline");
-      ink(btn.down ? "red" : "white").write(
-        "Rec",
-        btn.box.x + 8,
-        btn.box.y + 10,
+      const color = mic.connected ? "red" : "orange";
+      //if (mic.connected)
+
+      ink(btn.down ? "white" : color).box(btn.box);
+      ink(btn.down ? color : "white").box(btn.box, "inline");
+
+      ink(btn.down ? color : "white").write(
+        micRecordButtonLabel,
+        btn.box.x + btn.box.w / 2 - text.width(micRecordButtonLabel) / 2,
+        btn.box.y + btn.box.h / 2 - text.height(micRecordButtonLabel) / 2,
       );
+
+      // Graph microphone (1 channel)
+      if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
+        paintSound(
+          api,
+          mic.amplitude,
+          mic.waveform,
+          btn.box.x,
+          btn.box.y,
+          btn.box.w - 1,
+          btn.box.h,
+        );
+      }
     });
   });
 
@@ -142,7 +163,7 @@ function paint({ api, wipe, ink, screen, num }) {
   }
 }
 
-function act({ event: e, sound, pens, screen, ui }) {
+function act({ event: e, sound, pens, screen, ui, notice }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
 
   btns.forEach((btn, index) => {
@@ -178,51 +199,29 @@ function act({ event: e, sound, pens, screen, ui }) {
     down: () => {
       if (!sound.microphone.connected) {
         sound.microphone.connect();
+        micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
       } else {
-        console.log("Start a recording...");
         sound.microphone.rec(); // Start recording.
       }
-
-      // connecting = true;
     },
     up: async (btn) => {
-      // ...
-
-      // btn.down = false;
-
       if (sound.microphone.recording) {
-        console.log("Recording... cutting!");
-        const { id, data } = await sound.microphone.cut(); // End recording and get the sample.
+        const { id, data } = await sound.microphone.cut(); // Get the sample.
         sampleData = data;
         sampleId = id;
       }
-
-      // console.log(sound.microphone);
-
-      // sample = play(id, { reverse: true, loop: true });
-      // capturing = false;
-      // playing = true;
-
-      // TODO: Queue / trigger video to record...
-
-      // hideButton = false;
-      // btn.reposition({ center: "xy", screen }, "Repeat");
-      //}
     },
   });
 
+  if (e.is("microphone-connect:failure")) {
+    console.log("🎤 Failed mic connection:", e);
+    if (e.reason) notice(e.reason.toUpperCase(), ["yellow", "red"]);
+    micRecordButtonLabel = "Connect";
+  }
+
   if (e.is("microphone-connect:success")) {
-    // TODO: I need my own version of `setTimeout` called `delay` that instantiates an Hourglass Timer in `disk`. 23.09.07.16.26
-    console.log("🎤 CONNECTED!");
-    // connected = true;
-    // setTimeout(() => {
-    // delay(() => {
-    //   connecting = false;
-    //   connected = true;
-    //   btn.disabled = false;
-    //   hideButton = false;
-    //   btn.reposition({ center: "xy", screen }, "Capture");
-    // }, 60);
+    console.log("🎤 Connected.");
+    micRecordButtonLabel = "Record";
   }
 
   if (e.is("keyboard:down") || e.is("keyboard:up")) {
@@ -239,6 +238,17 @@ function act({ event: e, sound, pens, screen, ui }) {
         btn.actions.up(btn);
       }
     }
+  }
+
+  if (e.is("keyboard:down:arrowdown")) {
+    pats -= 1;
+    if (pats < 0) pats = 0;
+    genPats({ screen, ui });
+  }
+
+  if (e.is("keyboard:down:arrowup")) {
+    pats += 1;
+    genPats({ screen, ui });
   }
 
   if (e.is("reframed")) {
