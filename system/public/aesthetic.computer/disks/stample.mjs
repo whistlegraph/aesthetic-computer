@@ -62,11 +62,14 @@ async function boot({
   screen,
   delay
 }) {
-  const name = params[0] || "startup";
+  // const name = params[0] || "startup";
+  const name = "startup"; // TODO: Recall previous samples from `store`.
+  if (params[0]) pats = parseInt(params[0]);
   sampleId = await preload(name);
   genPats({ screen, ui });
   micRecordButton = new ui.Button(0, screen.height - 32, 64, 32);
   mic = microphone; // Microphone access.
+
 
   if (mic.permission === "granted") {
     micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
