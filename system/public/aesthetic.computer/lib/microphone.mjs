@@ -38,7 +38,7 @@ class Microphone extends AudioWorkletProcessor {
         const waveform = this.currentRecording.map(sample => sample / max);
       
         // Define a threshold for what counts as "dead" silence (adjust as needed)
-        const threshold = 0.05;
+        const threshold = 0.025;
       
         // Find the first non-silent sample
         let start = 0;
