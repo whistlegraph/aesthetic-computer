@@ -45,11 +45,16 @@ class Microphone extends AudioWorkletProcessor {
           content: this.currentAmplitude,
         });
       }
-
+      
       if (msg.type === "get-waveform") {
+        const waveform = this.currentWaveform;
+        const max = Math.max(...waveform.map(Math.abs)) || 1; // Prevent division by zero
+    
+        const normalizedWaveform = waveform.map(sample => sample / max);
+  
         this.port.postMessage({
           type: "waveform",
-          content: this.currentWaveform,
+          content: normalizedWaveform,
         });
       }
 
