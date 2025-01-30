@@ -32,9 +32,32 @@ class Microphone extends AudioWorkletProcessor {
 
       if (msg.type === "record:stop") {
         this.recording = false;
+        
+        // Find the maximum absolute value for normalization
+        const max = Math.max(...this.currentRecording.map(Math.abs)) || 1;
+        waveform = this.currentRecording.map(sample => sample / max);
+      
+        // Define a threshold for what counts as "dead" silence (adjust as needed)
+        const threshold = 0.01;
+      
+        // Find the first non-silent sample
+        let start = 0;
+        while (start < this.currentRecording.length && Math.abs(this.currentRecording[start]) < threshold) {
+          start++;
+        }
+      
+        // Find the last non-silent sample
+        let end = this.currentRecording.length - 1;
+        while (end > start && Math.abs(this.currentRecording[end]) < threshold) {
+          end--;
+        }
+      
+        // Trim the silent parts
+        const trimmedRecording = this.currentRecording.slice(start, end + 1);
+        
         this.port.postMessage({
           type: "recording:complete",
-          content: { recording: this.currentRecording },
+          content: { recording: trimmedRecording },
         });
         this.currentRecording = null;
       }
@@ -47,46 +70,15 @@ class Microphone extends AudioWorkletProcessor {
       }
       
       
-      //if (msg.type === "get-waveform") {
-     //   const waveform = this.currentWaveform;
-      //  const max = Math.max(...waveform.map(Math.abs)) || 1; // Prevent division by zero
-    
-    //    const normalizedWaveform = waveform.map(sample => sample / max);
-  
-      //  this.port.postMessage({
-       //   type: "waveform",
-      //    content: normalizedWaveform,
-      //  });
-     // }
-      
       if (msg.type === "get-waveform") {
-        let waveform = this.currentWaveform;
-        
-        // Find the maximum absolute value for normalization
-        const max = Math.max(...waveform.map(Math.abs)) || 1;
-        waveform = waveform.map(sample => sample / max);
-      
-        // Define a threshold for what counts as "dead" silence (adjust as needed)
-        const threshold = 0.01;
-      
-        // Find the first non-silent sample
-        let start = 0;
-        while (start < waveform.length && Math.abs(waveform[start]) < threshold) {
-          start++;
-        }
-      
-        // Find the last non-silent sample
-        let end = waveform.length - 1;
-        while (end > start && Math.abs(waveform[end]) < threshold) {
-          end--;
-        }
-      
-        // Trim the silent parts
-        const trimmedWaveform = waveform.slice(start, end + 1);
-      
+        const waveform = this.currentWaveform;
+        const max = Math.max(...waveform.map(Math.abs)) || 1; // Prevent division by zero
+    
+        const normalizedWaveform = waveform.map(sample => sample / max);
+  
         this.port.postMessage({
           type: "waveform",
-          content: trimmedWaveform,
+          content: normalizedWaveform,
         });
       }
 
