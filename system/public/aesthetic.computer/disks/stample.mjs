@@ -2,8 +2,10 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [] Add pitch shifting to the board by swiping left or right,
-       or could just divide each strip into 3 pitches: lo, mid, and hi.
+  - [] Add a subtle attack and decay to sample playback. 
+  - [] Add live pitch shifting to the board by swiping left or right,
+    - [❤️‍🔥] This will require a fading mechanism similar to the synth?
+  - [] Automatically dip the max volume if multiple samples are playing.
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
   + Done
@@ -55,7 +57,7 @@ let sampleId, sampleData;
 
 async function boot({
   net: { preload },
-  sound: { microphone, getSampleData },
+  sound: { microphone, getSampleData, enabled },
   play,
   ui,
   params,
@@ -70,7 +72,8 @@ async function boot({
   micRecordButton = new ui.Button(0, screen.height - 32, 64, 32);
   mic = microphone; // Microphone access.
 
-  if (mic.permission === "granted") { // TODO: Also check to see if we have a working audioContext yet here...
+  if (mic.permission === "granted" && enabled()) {
+    // TODO: Also check to see if we have a working audioContext yet here...
     micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
     delay(() => {
       microphone.connect();
@@ -91,7 +94,11 @@ function sim() {
 }
 
 function paint({ api, wipe, ink, screen, num, text }) {
-  wipe(0, 0, 255);
+  if (mic.recording) {
+    wipe ("red");
+  } else {
+    wipe(0, 0, 255);
+  }
   btns.forEach((btn, index) => {
     btn.paint(() => {
       ink(btn.down ? "white" : "cyan").box(btn.box); // Paint box a teal color.
@@ -165,6 +172,8 @@ function paint({ api, wipe, ink, screen, num, text }) {
   }
 }
 
+let reverse = false;
+
 function act({ event: e, sound, pens, screen, ui, notice }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
 
@@ -177,7 +186,7 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
         down: (btn) => {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
-          sounds[index] = sound.play(sampleId, { from, to });
+          sounds[index] = sound.play(sampleId, { from, to, reverse });
         },
         over: (btn) => {
           if (btn.up && anyDown) {
@@ -227,6 +236,9 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
     console.log("🎤 Connected.");
     micRecordButtonLabel = "Record";
   }
+
+  // if (e.is("keyboard:down:shift")) reverse = true;
+  // if (e.is("keyboard:up:shift")) reverse = false;
 
   if (e.is("keyboard:down") || e.is("keyboard:up")) {
     const index = keyToIndexMap[e.key];
