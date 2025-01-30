@@ -2,13 +2,13 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [🚗] Show the state of the microphone connection, recording and disconnect
-         process.
   - [] Add pitch shifting to the board by swiping left or right,
        or could just divide each strip into 3 pitches: lo, mid, and hi.
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
   + Done
+  - [x] Show the state of the microphone connection, recording and disconnect
+         process.
   - [x] Show a tiny waveform in the record button for live feedback.
   - [x] Record a sample and spread it automatically.
   - [x] Draw the waveform over the buttons.
@@ -60,7 +60,7 @@ async function boot({
   ui,
   params,
   screen,
-  delay
+  delay,
 }) {
   // const name = params[0] || "startup";
   const name = "startup"; // TODO: Recall previous samples from `store`.
@@ -70,12 +70,11 @@ async function boot({
   micRecordButton = new ui.Button(0, screen.height - 32, 64, 32);
   mic = microphone; // Microphone access.
 
-
-  if (mic.permission === "granted") {
+  if (mic.permission === "granted") { // TODO: Also check to see if we have a working audioContext yet here...
     micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
     delay(() => {
       microphone.connect();
-    }, 15)
+    }, 15);
   }
 
   getSampleData(sampleId).then((data) => {
@@ -204,7 +203,9 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
         sound.microphone.connect();
         micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
       } else {
-        sound.microphone.rec(); // Start recording.
+        setTimeout(() => {
+          sound.microphone.rec(); // Start recording.
+        }, 50);
       }
     },
     up: async (btn) => {
@@ -309,7 +310,7 @@ function paintSound(
   } else if (direction === "bottom-to-top") {
     const yStep = height / (waveform.length - 1);
     const xMid = x + width / 2,
-      xMax = width / 2;
+      xMax = width;
 
     ink("blue", 128).poly(
       waveform.map((v, i) => {
