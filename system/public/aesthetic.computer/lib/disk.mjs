@@ -4801,6 +4801,9 @@ async function makeFrame({ data: { type, content } }) {
         if (newBPM) sound.bpm = newBPM;
         return sound.bpm;
       },
+      enabled: () => {
+        return AUDIO_SAMPLE_RATE > 0;
+      },
       // Compute the frequency of a musical note.
       // 🗒️ Can take a number or formatted octave string such as 5C# or even C#5 for C sharp in fifth octave.
       freq: function (input) {
