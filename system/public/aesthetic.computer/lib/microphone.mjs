@@ -35,25 +35,25 @@ class Microphone extends AudioWorkletProcessor {
         
         // Find the maximum absolute value for normalization
         const max = Math.max(...this.currentRecording.map(Math.abs)) || 1;
-        waveform = this.currentRecording.map(sample => sample / max);
+        const waveform = this.currentRecording.map(sample => sample / max);
       
         // Define a threshold for what counts as "dead" silence (adjust as needed)
         const threshold = 0.01;
       
         // Find the first non-silent sample
         let start = 0;
-        while (start < this.currentRecording.length && Math.abs(this.currentRecording[start]) < threshold) {
+        while (start < waveform.length && Math.abs(waveform[start]) < threshold) {
           start++;
         }
       
         // Find the last non-silent sample
-        let end = this.currentRecording.length - 1;
-        while (end > start && Math.abs(this.currentRecording[end]) < threshold) {
+        let end = waveform.length - 1;
+        while (end > start && Math.abs(waveform[end]) < threshold) {
           end--;
         }
       
         // Trim the silent parts
-        const trimmedRecording = this.currentRecording.slice(start, end + 1);
+        const trimmedRecording = waveform.slice(start, end + 1);
         
         this.port.postMessage({
           type: "recording:complete",
