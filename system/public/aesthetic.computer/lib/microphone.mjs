@@ -34,11 +34,13 @@ class Microphone extends AudioWorkletProcessor {
         this.recording = false;
         
         // Find the maximum absolute value for normalization
-        const max = Math.max(...this.currentRecording.map(Math.abs)) || 1;
+        //const max = Math.max(...this.currentRecording.map(Math.abs)) || 1;
+        const max = this.currentRecording.reduce((max, val) => Math.max(max, Math.abs(val)), 0) || 1;
+
         const waveform = this.currentRecording.map(sample => sample / max);
       
         // Define a threshold for what counts as "dead" silence (adjust as needed)
-        const threshold = 0.025;
+        const threshold = 0.075;
       
         // Find the first non-silent sample
         let start = 0;
@@ -68,7 +70,6 @@ class Microphone extends AudioWorkletProcessor {
           content: this.currentAmplitude,
         });
       }
-      
       
       if (msg.type === "get-waveform") {
         const waveform = this.currentWaveform;

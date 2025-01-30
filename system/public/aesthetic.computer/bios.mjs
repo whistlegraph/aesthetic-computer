@@ -5424,8 +5424,7 @@ function computeOriginalPitch(buffer, sampleRate) {
 async function checkMicrophonePermission() {
   try {
     const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
-    console.log('Microphone permission status:', permissionStatus.state);
-
+    // console.log('Microphone permission status:', permissionStatus.state);
     if (permissionStatus.state === 'granted') {
       // console.log('Microphone access is granted.');
     } else if (permissionStatus.state === 'denied') {
@@ -5433,7 +5432,6 @@ async function checkMicrophonePermission() {
     } else {
       // console.log(`Microphone access is in prompt state (user hasn't decided yet).`);
     }
-
     return permissionStatus.state; // 'granted', 'denied', or 'prompt'
   } catch (error) {
     console.error('Permission query error:', error);
