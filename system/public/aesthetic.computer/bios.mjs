@@ -759,10 +759,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echocancellation: true, // put this behind a flag?
+            echocancellation: false, // put this behind a flag?
             latency: 0,
             noisesuppression: false,
-            autogaincontrol: true,
+            autogaincontrol: false,
           },
         });
       } catch (err) {
@@ -876,7 +876,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       micProcessorNode.connect(micStreamGain);
       micStreamGain.connect(audioStreamDest);
-      speakerGain.gain.value = 0.35;
+      // speakerGain.gain.value = 0.35;
       // micStreamGain.gain.value = 1.5;
 
       micGainNode.gain.value = 1;
@@ -893,7 +893,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         micProcessorNode.disconnect();
         micNode.disconnect();
         micStream.getTracks().forEach((t) => t.stop());
-        speakerGain.gain.value = 1;
+        // speakerGain.gain.value = 1;
         sfxStreamGain.gain.value = 1;
         if (debug) console.log("🎙💀 Microphone:", "Detached");
         send({ type: "microphone-disconnect" });
