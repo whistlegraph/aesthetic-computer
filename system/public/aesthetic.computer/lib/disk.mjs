@@ -5199,7 +5199,7 @@ async function makeFrame({ data: { type, content } }) {
           let originalColor;
           let masked = false;
 
-          if (e.is("touch:5") && piece !== "notepat" && piece !== "stample") {
+          if (e.is("touch:5") && piece !== "notepat" && piece !== "stample" && piece !== "toss") {
             sound.synth({
               tone: 1600,
               duration: 0.02,
