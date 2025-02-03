@@ -2,7 +2,8 @@
 // Play two oscillators at once.
 
 /* 📝 Notes
-  - [🟡] Make a `safe` tap area to prevent scrolling or just require at least 2-3px deadzone before
+  - [] Add a horizontal line for low -> hi pitch.
+  - [] Make a `safe` tap area to prevent scrolling or just require at least 2-3px deadzone before
        scrubbing is toggled, which can reset on lift.
   - [] Do full volume at center of strip and less on the edges.
   - [] Consider a bounce or inertia mechanic that works like a bouncing scroll.
@@ -96,11 +97,13 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write, num }) {
     btn.paint((b) => {
       const hue = num.map(band.tone, toneLow, toneHigh, 0, 359.9);
       const colorA = num.hslToRgb(hue, 100, 30); // theme[index];
-      const colorB = num.hslToRgb(hue, 50, 5); // theme[index];
+      const colorB = num.hslToRgb(hue, 50, 10); // theme[index];
       ink(b.down ? colorA : colorB).box(b.box.x, b.box.y, b.box.w, b.box.h);
       if (b.box.x !== 0) {
         ink("white", 128).line(b.box.x, b.box.y, b.box.x, b.box.y + b.box.h);
       }
+      const toneHeight = num.map(band.tone, toneLow, toneHigh, screen.height, 0);
+      ink("cyan", 64).line(b.box.x, toneHeight, b.box.x + b.box.w, toneHeight);
       ink("white");
       write(band.tone, {
         center: "x",
