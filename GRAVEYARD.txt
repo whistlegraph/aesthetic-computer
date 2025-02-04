@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** `stample` ***
+ - [x] Make initial prototype.
+ - [?] Integrate into `notepat` at some point?
+
 *** `tv` is a `notepat` remote ***
 - [?] Use `tv channel-name-here` to scope the udp broadcast to a particular
      channel.
