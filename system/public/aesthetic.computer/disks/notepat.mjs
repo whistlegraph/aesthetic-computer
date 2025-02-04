@@ -1287,7 +1287,7 @@ function act({
               anyDown = true;
 
               let noteUpper = note.toUpperCase();
-              console.log("Note upper:", noteUpper);
+              // console.log("Note upper:", noteUpper);
               keys += noteUpper;
               const active = orderedByCount(sounds);
 
@@ -1303,7 +1303,7 @@ function act({
 
               const tone = `${tempOctave}${noteUpper}`;
 
-              console.log("🔴 Chosen tone:", tone, noteUpper);
+              // console.log("🔴 Chosen tone:", tone, noteUpper);
 
               if (slide && active.length > 0) {
                 sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
