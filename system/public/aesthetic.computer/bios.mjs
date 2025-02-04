@@ -1028,8 +1028,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🔉 No buffer found for:", sound);
         return;
       }
-      // If decoding has failed or no sound is present then silently fail.
 
+      // If decoding has failed or no sound is present then silently fail.
       const gainNode = audioContext.createGain();
       gainNode.gain.value = options?.volume !== undefined ? options.volume : 1;
 
@@ -1123,6 +1123,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       sfxPlaying[id] = {
         currentPitch: 1, // Default playback rate (no shift)
+        lastUpdateTime: audioContext.currentTime, // Time of last pitch change
+        adjustedStartTime: 0, // Adjusted elapsed time tracker
 
         kill: (fade = 0) => {
           if (debug && logs.audio) console.log("🔈 Killing...", id);
@@ -1163,25 +1165,45 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           startTime = audioContext.currentTime - pausedAt;
         },
         progress: () => {
-          const elapsed = audioContext.currentTime - startTime;
+          const now = audioContext.currentTime;
+          const elapsedSinceUpdate =
+            (now - sfxPlaying[id].lastUpdateTime) * sfxPlaying[id].currentPitch;
+
+          // Adjust total elapsed time based on playback speed shifts
+          sfxPlaying[id].adjustedStartTime += elapsedSinceUpdate;
+          sfxPlaying[id].lastUpdateTime = now; // Reset update reference
+
           const progress = Math.max(
             0,
-            (elapsed % source.buffer.duration) / source.buffer.duration,
+            (sfxPlaying[id].adjustedStartTime % source.buffer.duration) /
+              source.buffer.duration,
           );
-          return { elapsed, progress };
+
+          return { elapsed: sfxPlaying[id].adjustedStartTime, progress };
         },
         update: (properties) => {
           if (properties?.shift !== undefined) {
+            const now = audioContext.currentTime;
+
+            // Apply differential adjustment
             const shiftFactor = properties.shift;
-            const newPitch = sfxPlaying[id].currentPitch + shiftFactor; // Differential adjustment
+            const newPitch = sfxPlaying[id].currentPitch + shiftFactor;
+
             console.log(
               "🔈 Updating pitch from:",
               sfxPlaying[id].currentPitch,
               "to:",
               newPitch,
             );
+
+            // Adjust elapsed tracking before modifying pitch
+            sfxPlaying[id].adjustedStartTime +=
+              (now - sfxPlaying[id].lastUpdateTime) *
+              sfxPlaying[id].currentPitch;
+            sfxPlaying[id].lastUpdateTime = now;
+
+            // Apply new pitch
             sfxPlaying[id].currentPitch = newPitch;
-            //if (debug && logs.audio)
             source.playbackRate.setValueAtTime(
               newPitch,
               audioContext.currentTime,
