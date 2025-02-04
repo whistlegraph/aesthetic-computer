@@ -2,9 +2,20 @@
 
 Projects in Progress (PIP) 🌟
 
-*** `sprample` ***
- - [-] Make initial prototype.
- - [] Integrate into `notepat` at some point?
+*** profiles ***
+  - [] refer to profile roadmap below in this file for moving paintings to profiles
+  - [] refer to ida's profile drawing
+  - [] entering 'profile @handle' will yield the profile
+  - [] add text links to chat
+
+*** 2d gpu ***
+  - [] make a new 2d webgl2 renderer
+
+*** ac store ***
+  - [] make a new ac store
+  - [] evaluate whether this should be
+       on shopify or coded in-house
+  - [] (can shopify use stripe as a payment processor?)
 
 *** `pill` / android devices and shop ***
   - [] flash the uniherz jelly to boot directly into ac with
@@ -20,10 +31,6 @@ Projects in Progress (PIP) 🌟
 
 *** `notepat` nub ***
   - [] Add a thinkpad nub shaker to `rattle` via pointer locking.
-
-*** profiles ***
-  - [] refer to profile roadmap below in this file for moving paintings
-  - [] entering 'profile @handle' will yield the profile
 
 *** hh ***
   - [] entering 'handle-home urpiecehere' will change the user's
