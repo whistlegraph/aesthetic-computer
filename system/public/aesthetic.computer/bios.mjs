@@ -1122,6 +1122,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let pausedAt;
 
       sfxPlaying[id] = {
+        currentPitch: 1, // Default playback rate (no shift)
+
         kill: (fade = 0) => {
           if (debug && logs.audio) console.log("🔈 Killing...", id);
           if (fade > 0) {
@@ -1155,6 +1157,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           panNode.disconnect();
           source = audioContext.createBufferSource();
           source.buffer = buffer;
+          source.playbackRate.value = sfxPlaying[id].currentPitch; // Restore last pitch
           connect();
           source.start(0, pausedAt);
           startTime = audioContext.currentTime - pausedAt;
@@ -1166,6 +1169,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             (elapsed % source.buffer.duration) / source.buffer.duration,
           );
           return { elapsed, progress };
+        },
+        update: (properties) => {
+          if (properties?.shift !== undefined) {
+            const shiftFactor = properties.shift;
+            const newPitch = sfxPlaying[id].currentPitch + shiftFactor; // Differential adjustment
+            console.log(
+              "🔈 Updating pitch from:",
+              sfxPlaying[id].currentPitch,
+              "to:",
+              newPitch,
+            );
+            sfxPlaying[id].currentPitch = newPitch;
+            //if (debug && logs.audio)
+            source.playbackRate.setValueAtTime(
+              newPitch,
+              audioContext.currentTime,
+            );
+          }
         },
       };
     }
@@ -1206,7 +1227,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
-      microphonePermission
+      microphonePermission,
     },
   };
 
@@ -3853,6 +3874,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "sfx:update") {
+      sfxPlaying[content.id]?.update(content.properties);
+      return;
+    }
+
     if (type === "sfx:get-sample-data") {
       async function checkForSampleData() {
         if (audioContext) {
@@ -5423,18 +5449,20 @@ function computeOriginalPitch(buffer, sampleRate) {
 
 async function checkMicrophonePermission() {
   try {
-    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+    const permissionStatus = await navigator.permissions.query({
+      name: "microphone",
+    });
     // console.log('Microphone permission status:', permissionStatus.state);
-    if (permissionStatus.state === 'granted') {
+    if (permissionStatus.state === "granted") {
       // console.log('Microphone access is granted.');
-    } else if (permissionStatus.state === 'denied') {
+    } else if (permissionStatus.state === "denied") {
       // console.log('Microphone access is denied.');
     } else {
       // console.log(`Microphone access is in prompt state (user hasn't decided yet).`);
     }
     return permissionStatus.state; // 'granted', 'denied', or 'prompt'
   } catch (error) {
-    console.error('Permission query error:', error);
+    console.error("Permission query error:", error);
     return null;
   }
 }

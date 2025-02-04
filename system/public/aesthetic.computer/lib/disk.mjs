@@ -4933,6 +4933,14 @@ async function makeFrame({ data: { type, content } }) {
           send({ type: "sfx:progress", content: { id } });
           return prom;
         },
+        update: function (properties) {
+          if (properties.shift) {
+            send({
+              type: "sfx:update",
+              content: { id, properties },
+            });
+          }
+        },
       };
     };
 
@@ -4959,34 +4967,11 @@ async function makeFrame({ data: { type, content } }) {
       if (beats === undefined && duration !== undefined)
         beats = (duration * sound.bpm) / 60;
 
-      // if (typeof tone === "string") tone = $sound.freq(tone); // Auto-match strings to notes.
-
-      // if (typeof tone === "string") {
-      //   console.log("🎵 Pre-tone:", tone);
-
-      //   // Check if the string can be converted to a number
-      //   let num = parseFloat(tone);
-
-      //   console.log("😀 Num:", num);
-
-      //   if (!isNaN(num)) {
-      //     tone = num;
-      //   } else {
-      //     // Auto-match strings to notes
-      //     tone = $sound.freq(tone);
-      //   }
-      // }
-
       tone = $sound.freq(tone);
-
       // console.log("⛈️ Tone:", tone);
-
       sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
-
       soundId += 1n;
-
       let seconds;
-
       if (beats === undefined && duration !== undefined) seconds = duration;
       else seconds = (60 / sound.bpm) * beats;
       // console.log("Beats:", beats, "Duration:", duration, "Seconds:", seconds, "BPM:", sound.bpm);
@@ -5199,7 +5184,12 @@ async function makeFrame({ data: { type, content } }) {
           let originalColor;
           let masked = false;
 
-          if (e.is("touch:5") && piece !== "notepat" && piece !== "stample" && piece !== "toss") {
+          if (
+            e.is("touch:5") &&
+            piece !== "notepat" &&
+            piece !== "stample" &&
+            piece !== "toss"
+          ) {
             sound.synth({
               tone: 1600,
               duration: 0.02,

@@ -2,9 +2,16 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [] Add a subtle attack and decay to sample playback. 
   - [] Add live pitch shifting to the board by swiping left or right,
     - [❤️‍🔥] This will require a fading mechanism similar to the synth?
+
+  - [] Add a subtle attack and decay to sample playback. 
+  - [] 
+    - [] Wait until mouse moves one delta y pixel to determine sample playback
+         direction.
+  - [] Add ability to shift / scroll.
+
+
   - [] Automatically dip the max volume if multiple samples are playing.
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
@@ -18,42 +25,32 @@
     - [x] Add start and end trimming to sound.play();
  */
 
-let sfx,
-  btns = [],
-  pats = 3,
-  anyDown = false;
+const { abs } = Math;
 
+// Layout
+const BUTTON_LABEL_CONNECTING = "Wait...";
 const menuHeight = 32;
 const labelHeight = 24;
 
-const BUTTON_LABEL_CONNECTING = "Wait...";
-
-const keyToIndexMap = {
-  1: 0,
-  2: 1,
-  3: 2,
-  4: 3,
-  5: 4,
-  6: 5,
-  7: 6,
-  8: 7,
-  9: 8,
-  0: 9,
-};
-
-const indexToKeyMap = Object.fromEntries(
-  Object.entries(keyToIndexMap).map(([key, index]) => [index, Number(key)]),
-);
-
-const sounds = [],
-  progressions = [];
-
-let mic,
+// System
+let sfx,
+  btns = [],
+  pats = 3,
+  anyDown = false,
+  sampleId,
+  sampleData,
+  mic,
   micRecordButton,
   micRecordButtonLabel = "Connect",
   micConnected = false;
 
-let sampleId, sampleData;
+const sounds = [],
+  progressions = [];
+
+const keyToSfx = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 0: 9 };
+const sfxToKey = Object.fromEntries(
+  Object.entries(keyToSfx).map(([key, index]) => [index, Number(key)]),
+);
 
 async function boot({
   net: { preload },
@@ -95,7 +92,7 @@ function sim() {
 
 function paint({ api, wipe, ink, screen, num, text }) {
   if (mic.recording) {
-    wipe ("red");
+    wipe("red");
   } else {
     wipe(0, 0, 255);
   }
@@ -112,7 +109,7 @@ function paint({ api, wipe, ink, screen, num, text }) {
         );
       }
       ink("black").write(
-        indexToKeyMap[btns.length - 1 - index],
+        sfxToKey[btns.length - 1 - index],
         btn.box.x + 4,
         btn.box.y + 4,
       );
@@ -193,6 +190,7 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
             btn.up = false;
             btn.actions.down(btn);
           }
+          console.log("over");
         },
         out: (btn) => {
           btn.down = false;
@@ -200,6 +198,17 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
         },
         up: (btn) => {
           // if (downs[note]) return false;
+        },
+        scrub: (btn) => {
+          // if (abs(e.delta.y) > 0) {
+          // console.log(`Scrub ${index}:`, e.delta);
+          // sounds[index] = sound.play(sampleId, { from, to, reverse });
+          // }
+          if (abs(e.delta.x) > 0) {
+            console.log(`Pitch shift ${index}:`, e.delta.x);
+            sounds[index]?.update({ shift: 0.01 * e.delta.x });
+            // sound.play(startupSfx, { pitch: freq(tone) });
+          }
         },
       },
       pens?.(),
@@ -241,7 +250,7 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
   // if (e.is("keyboard:up:shift")) reverse = false;
 
   if (e.is("keyboard:down") || e.is("keyboard:up")) {
-    const index = keyToIndexMap[e.key];
+    const index = keyToSfx[e.key];
     if (index !== undefined && btns[btns.length - 1 - index]) {
       // Ensure index is valid and button exists
       const btn = btns[btns.length - 1 - index];
