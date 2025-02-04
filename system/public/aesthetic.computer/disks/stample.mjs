@@ -204,9 +204,9 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
           // console.log(`Scrub ${index}:`, e.delta);
           // sounds[index] = sound.play(sampleId, { from, to, reverse });
           // }
-          if (abs(e.delta.x) > 0) {
-            console.log(`Pitch shift ${index}:`, e.delta.x);
-            sounds[index]?.update({ shift: 0.01 * e.delta.x });
+          if (abs(e.delta.y) > 0) {
+            // console.log(`Pitch shift ${index}:`, e.delta.x);
+            sounds[index]?.update({ shift: 0.01 * -e.delta.y });
             // sound.play(startupSfx, { pitch: freq(tone) });
           }
         },
