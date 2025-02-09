@@ -4674,7 +4674,7 @@ export const handler = async (event, context) => {
           .aggregate([
             { $match: { state: "published" } }, // Ensure pages are published
             { $sort: { when: 1 } }, // Sort by the 'when' field
-            { $limit: 100 }, // Limit to 100 results
+            { $limit: 1000 }, // Limit to 1000 results
           ])
           .toArray();
 
