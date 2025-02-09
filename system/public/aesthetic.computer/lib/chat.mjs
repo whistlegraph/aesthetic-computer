@@ -4,6 +4,7 @@
 
 import { Socket } from "./socket.mjs";
 import { logs } from "./logs.mjs";
+import { redact, unredact } from "./redact.mjs";
 
 /* #region 🏁 TODO
   + Done
@@ -67,6 +68,8 @@ export class Chat {
     this.system.server.connect(
       chatUrl, // host
       (id, type, content) => {
+        const extra = {};
+
         // receive
         if (type === "connected") {
           this.system.connecting = false;
@@ -101,10 +104,51 @@ export class Chat {
           const msg = JSON.parse(content);
           content = msg;
 
-          if (type === "handle:strip" && msg.user === USER?.sub) {
+          console.log("👱️‍ `handle` edit received:", type, content);
+
+          this.system.messages.forEach((message) => {
+            if (message.sub === content.user) {
+              message.from = content.handle;
+              extra.layoutChanged = true;
+            }
+          });
+
+          // console.log("👱 `handle` edit completed for:", content.handle);
+
+          if (
+            type === "handle:strip" &&
+            msg.user === this.$commonApi?.user?.sub
+          ) {
             console.log("🩹 Your handle has been stripped!");
-            this.$commonApi?.net.refresh();
+            this.$commonApi?.notice("HANDLE STRIPPED", ["red", "yellow"]);
+            setTimeout(() => {
+              this.$commonApi?.net.refresh();
+            }, 750);
           }
+        }
+
+        console.log("🤖", type);
+
+        if (type === "chat-system:mute" || type === "chat-system:unmute") {
+          const msg = JSON.parse(content);
+          content = msg;
+
+          console.log(
+            "⚠️ TODO: NEED TO MUTE/UN CLIENT MESSAGES FOR:",
+            content.user, this.system.messages
+          );
+
+          this.system.messages.forEach((message) => {
+            console.log(message.sub === content.user);
+            if (message.sub === content.user) {
+              if (type === "chat-system:mute") redact(message); // Modify the text content of each message.
+              if (type === "chat-system:unmute") unredact(message);
+
+
+
+              extra.layoutChanged = true; // Re-paint them if necessary.
+            }
+          });
         }
 
         if (type === "left") {
@@ -117,7 +161,7 @@ export class Chat {
           this.system.chatterCount = content.chatters;
         }
 
-        this.system.receiver?.(id, type, content); // Run the piece receiver.
+        this.system.receiver?.(id, type, content, extra); // Run the piece receiver.
         // if (logs.chat) console.log("🌠 Message received:", id, type, content);
       },
       undefined, // reload

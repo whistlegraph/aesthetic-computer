@@ -933,6 +933,31 @@ async function halt($, text) {
     }
 
     return true;
+  } else if (text.startsWith("admin:chat-system:mute")) {
+    const userToMute = text.split(" ")[1];
+    const res = await net.userRequest("POST", "/handle", {
+      handle: userToMute, // could be a handle, sub, or email
+      action: "chat-system:mute",
+    });
+    console.log("🦻 Mute result:", res);
+
+    // TODO: Add a fullscreen notice here to show mute confirmation or failure.
+    // notice(
+    //   res.message.toUpperCase(),
+    //   res.status === 200 ? undefined : ["yellow", "red"],
+    // );
+    // flashColor = res.status === 200 ? "lime" : "red";
+    // makeFlash($, true);
+
+    return true;
+  } else if (text.startsWith("admin:chat-system:unmute")) {
+    const userToMute = text.split(" ")[1];
+    const res = await net.userRequest("POST", "/handle", {
+      handle: userToMute, // could be a handle, sub, or email
+      action: "chat-system:unmute",
+    });
+    console.log("🦻 Unmute result:", res);
+    return true;
   } else if ((text === "ul" || text === "upload") && store["painting"]) {
     if (!navigator.onLine) {
       flashColor = [255, 0, 0];
