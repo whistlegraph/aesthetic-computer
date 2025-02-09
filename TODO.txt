@@ -1,22 +1,7 @@
 😀 TODO 😆
 
 Projects in Progress (PIP) 🌟
-
-*** put 'chat' back up with increased moderation support ***
-  - [-] Test muting and unmuting mixed in with the below.
-    - [] (Incognito)
-      - [] Make a new account: `me+stripmepls@jas.life`.
-      - [] Make a new handle 'stripmepls'.
-    - [] (From @jeffrey) 
-      - [] Use `admin:handle:strip @stripmepls` on the `prompt`.
-      - [] Check the other tab.
-      - [] Try to make a new handle again.
-    - [] Delete the account with `delete-erase-and-forget-me`.
-  + Done
-  - [x] Test stripping.
-
-🥬
-  - [] Show timestamps on chat messages.
+  - [🧡] Show timestamps on chat messages.
   - [] Pat a timestamp as admin to reveal a redaction control. 
     - [] Redaction should...
       - [] Redact the web and native mobile notification.
