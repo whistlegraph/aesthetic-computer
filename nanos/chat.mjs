@@ -59,6 +59,7 @@ import { URL } from "url";
 import { StringDecoder } from "string_decoder";
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
+import { redact, unredact } from "./redact.mjs";
 
 // import { createClient } from "redis"; // Redis
 import { MongoClient } from "mongodb"; // MongoDB
@@ -195,7 +196,7 @@ const request = async (req, res) => {
       body += decoder.write(chunk);
     });
 
-    req.on("end", () => {
+    req.on("end", async () => {
       body += decoder.end();
       const authHeader = req.headers["authorization"];
       const token = authHeader && authHeader.split(" ")[1];
@@ -223,7 +224,11 @@ const request = async (req, res) => {
 
         if (parsed.action) {
           console.log("🪵 Log action:", parsed.action, "value:", parsed.value);
-          const [object, behavior] = parsed.action.split(":");
+          let [object, behavior] = parsed.action.split(":");
+          if (!behavior) {
+            behavior = object;
+            object = null; // If no separator then assume behavior tag only.
+          }
 
           console.log(
             "⛈️ Action ~ 🤖 Object:",
@@ -232,17 +237,48 @@ const request = async (req, res) => {
             behavior,
           );
 
+          if (object === "chat-system" && (behavior === "mute" || behavior === "unmute")) {
+            const user = parsed.users[0];
+            if (behavior === "mute") {
+              // console.log("⚠️ TODO: NEED TO MUTE SERVER MESSAGES FOR:", user);
+              messages.forEach((message) => {
+                if (message.sub === user) redact(message);
+              });
+            } else if (behavior === "unmute") {
+              // console.log("⚠️ TODO: NEED TO UNMUTE SERVER MESSAGES FOR:", user);
+              messages.forEach((message) => {
+                if (message.sub === user) unredact(message);
+              });
+            }
+            // Or get last 100 messages and redo them...
+            everyone(pack(parsed.action, { user }));
+          }
+
           if (object === "handle") {
             // Update handles to subs cache.
             subsToHandles[parsed.users[0]] = parsed.value;
 
             if (behavior === "update" || behavior === "strip") {
-              const from =
-                behavior === "update" ? "@" + parsed.value : parsed.value;
+              // const from =
+              //  behavior === "update" ? "@" + parsed.value : parsed.value;
+              let from;
+
+              if (behavior === "update") {
+                from = "@" + parsed.value;
+              } else if (behavior === "strip") {
+                from = "nohandle";
+              }
+
+              // const muted = await isMuted(msg.user);
+
               // Update messages with new handles.
               messages.forEach((message) => {
-                if (message.sub === parsed.users[0]) message.from = from;
+                if (message.sub === parsed.users[0]) {
+                  // if (muted) redact(message);
+                  message.from = from;
+                }
               });
+
               everyone(
                 pack(parsed.action, { user: parsed.users[0], handle: from }),
               );
@@ -499,9 +535,9 @@ async function startChatServer() {
           console.log("🚵 Finding handle for:", authorized.sub);
 
           // Find handle based on email.
-          const bareHandle = await getHandleFromSub(authorized.sub);
-          if (bareHandle) handle = "@" + bareHandle;
-          console.log("️🐻 Bare handle is:", bareHandle);
+          handle = await getHandleFromSub(authorized.sub);
+          // if (bareHandle) handle = "@" + bareHandle;
+          // console.log("️🐻 Bare handle is:", bareHandle);
           console.log("🚦 Checking subscription status for:", instance.name);
           if (instance.name === "chat-sotce") {
             // Also ensure that they are subscribed if the instance.name is "chat-sotce".
@@ -630,8 +666,14 @@ async function startChatServer() {
 
           const message = msg.content;
           const fromSub = message.sub;
+          let filteredText;
 
-          const filteredText = filter(message.text);
+          if (instance.name === "chat-system" && (await isMuted(fromSub))) {
+            redact(message);
+            filteredText = message.text;
+          } else {
+            filteredText = filter(message.text);
+          }
 
           // Don't store any actual messages to the MongoDB in development.
           const when = new Date();
@@ -654,10 +696,12 @@ async function startChatServer() {
           }
 
           // Retrieve handle either from cache or MongoDB
-          const handle = "@" + (await getHandleFromSub(fromSub));
+          const handle = await getHandleFromSub(fromSub);
+
           const out = {
             from: handle,
             text: filteredText,
+            redactedText: message.redactedText,
             when,
             sub: fromSub, // If the chat is of a specific tenant like
             //               `chat-sotce` then the subs will be local
@@ -667,6 +711,7 @@ async function startChatServer() {
           if (messages.length > 100) messages.shift();
 
           everyone(pack(`message`, out)); // Send to clients.
+
           if (instance.name === "chat-system")
             notify(handle + " 💬", filteredText); // Push notification.
 
@@ -819,14 +864,22 @@ async function getLast100MessagesfromMongo() {
     ).reverse();
   }
 
+  // Basic mutes check (`chat-system` only).
+  if (instance.name === "chat-system") {
+    combinedMessages.forEach(async (msg) => {
+      if (await isMuted(msg.user)) redact(msg);
+    });
+  }
+
+  messages.length = 0; // Clear out all messages.
+
   for (const message of combinedMessages) {
     let from;
 
     if (message.user) {
       console.log("🗨️ User message:", message);
       const fromSub = message.user;
-      const handle = await getHandleFromSub(fromSub);
-      from = "@" + handle;
+      from = await getHandleFromSub(fromSub);
     } else {
       // 'logs' has a 'users' array but never a 'user' field.
       console.log("🪵 System log:", message);
@@ -836,6 +889,7 @@ async function getLast100MessagesfromMongo() {
     messages.push({
       from,
       text: filter(message.text) || "message forgotten",
+      redactedText: message.redactedText,
       when: message.when,
     });
   }
@@ -843,6 +897,7 @@ async function getLast100MessagesfromMongo() {
 
 async function getHandleFromSub(fromSub) {
   let handle;
+  // if (await isMuted(fromSub)) return "nohandle"; // Catch this on rendering.
 
   console.log("🟡 Looking up user record for...", fromSub);
   if (!subsToHandles[fromSub]) {
@@ -886,7 +941,7 @@ async function getHandleFromSub(fromSub) {
     console.log("🟢 Got handle from cache:", handle);
   }
 
-  return handle;
+  return "@" + handle;
 }
 
 // #endregion
@@ -951,6 +1006,19 @@ function notify(title, body) {
           performance.now(),
         );
       });
+  }
+}
+
+// Check the database to see if a given user sub has been muted for this instance.
+async function isMuted(sub) {
+  if (!sub) return false;
+  try {
+    const mutesCollection = db.collection(instance.name + "-mutes");
+    const mute = await mutesCollection.findOne({ user: sub });
+    // console.log("Sub:", sub, "Is muted?", !!mute);
+    return !!mute;
+  } catch (error) {
+    return false; // Collection doesn't exist or another error occurred
   }
 }
 
