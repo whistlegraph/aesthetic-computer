@@ -254,7 +254,7 @@ export async function userIDFromHandle(
     const user = await collection.findOne({ handle });
     userID = user?._id;
     if (!keepOpen) database.disconnect();
-    if (tenant === "aesthetic" && userID.startsWith("sotce-")) {
+    if (tenant === "aesthetic" && userID?.startsWith("sotce-")) {
       return await aestheticSubFromSotceSub(userID);
     }
   } else {
@@ -279,14 +279,17 @@ export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
   console.log("handleOrEmail:", handleOrEmail);
   if (!handleOrEmail) return;
   if (handleOrEmail.startsWith("@") || handleOrEmail.indexOf("|") === -1) {
-    return userIDFromHandle(
+    console.log("handle or email:", handleOrEmail);
+    const sub = await userIDFromHandle(
       handleOrEmail.startsWith("@") ? handleOrEmail.slice(1) : handleOrEmail,
       database,
       undefined,
       tenant,
     );
+    console.log("suuuub:", sub);
+    return sub;
   } else {
-    return userIDFromEmail(handleOrEmail, tenant); // Assume email.
+    return await userIDFromEmail(handleOrEmail, tenant); // Assume email.
   }
 }
 

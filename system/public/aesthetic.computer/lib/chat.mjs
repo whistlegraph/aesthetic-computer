@@ -68,6 +68,7 @@ export class Chat {
     this.system.server.connect(
       chatUrl, // host
       (id, type, content) => {
+        // console.log("🤖", type);
         const extra = {};
 
         // receive
@@ -127,25 +128,17 @@ export class Chat {
           }
         }
 
-        console.log("🤖", type);
-
         if (type === "chat-system:mute" || type === "chat-system:unmute") {
           const msg = JSON.parse(content);
           content = msg;
-
-          console.log(
-            "⚠️ TODO: NEED TO MUTE/UN CLIENT MESSAGES FOR:",
-            content.user, this.system.messages
-          );
-
+          // console.log(
+          //   "⚠️ TODO: NEED TO MUTE/UN CLIENT MESSAGES FOR:",
+          //   content.user, this.system.messages
+          // );
           this.system.messages.forEach((message) => {
-            console.log(message.sub === content.user);
             if (message.sub === content.user) {
               if (type === "chat-system:mute") redact(message); // Modify the text content of each message.
               if (type === "chat-system:unmute") unredact(message);
-
-
-
               extra.layoutChanged = true; // Re-paint them if necessary.
             }
           });
