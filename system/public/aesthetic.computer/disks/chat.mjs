@@ -88,7 +88,7 @@ async function boot({
   // });
 
   // 🤖 Runs on every message...
-  chat.receiver = (id, type, content) => {
+  chat.receiver = (id, type, content, extra) => {
     if (type === "connected") {
       messagesNeedLayout = true;
       return;
@@ -111,23 +111,8 @@ async function boot({
       return;
     }
 
-    if (type === "handle:update" || type === "handle:strip") {
-      console.log("👱️‍ `handle` edit received:", type, content);
 
-      let layoutChanged;
-      chat.messages.forEach((message) => {
-        if (message.sub === content.user) {
-          message.from = content.handle;
-          layoutChanged = true;
-        }
-      });
-
-      if (layoutChanged) messagesNeedLayout = true;
-
-      console.log("👱 `handle` edit completed for:", content.handle);
-      return;
-    }
-
+    if (extra?.layoutChanged) messagesNeedLayout = true;
     // console.log("🌠 Message received:", id, type, content);
   };
 

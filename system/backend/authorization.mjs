@@ -50,8 +50,12 @@ export async function hasAdmin(user, tenant = "aesthetic") {
   }
 }
 
-// Get the user ID via their email.
+// Get the user ID via their email, allowing a valid user ID as input also.
 export async function userIDFromEmail(email, tenant = "aesthetic", got, token) {
+  if (email.indexOf("|") !== -1 && email.indexOf("@") === -1) {
+    return email; // Simply return a user sub (the input) if no email is detected.
+  }
+
   try {
     if (!got) got = (await import("got")).got;
     if (!token) token = await getAccessToken(got, tenant);
@@ -272,10 +276,11 @@ export async function userIDFromHandle(
 // Assume prefixed handle.
 // ⚠️ TODO: Make sure we are knowing what id we want from what network... 24.08.31.01.21
 export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
+  console.log("handleOrEmail:", handleOrEmail);
   if (!handleOrEmail) return;
-  if (handleOrEmail.startsWith("@")) {
+  if (handleOrEmail.startsWith("@") || handleOrEmail.indexOf("|") === -1) {
     return userIDFromHandle(
-      handleOrEmail.slice(1),
+      handleOrEmail.startsWith("@") ? handleOrEmail.slice(1) : handleOrEmail,
       database,
       undefined,
       tenant,
