@@ -186,11 +186,11 @@ export async function handler(event, context) {
           return respond(500, { message: "unauthorized" });
         }
 
+        let errorMessage = "error";
+        let status, response;
+
         try {
           const muting = action === "chat-system:mute";
-
-          let status, response;
-          let errorMessage = "error";
 
           if (muting) {
             shell.log("🩹 Muting user:", handle);
@@ -204,41 +204,60 @@ export async function handler(event, context) {
 
           // TODO: 🧑‍🚒 Does this need to be sent an alternate tenancy?
           //       🟪 It will only work on AC for now. 25.02.07.19.05
-          const sub = await userIDFromHandleOrEmail(handle);
+          const sub = await userIDFromHandleOrEmail(handle, database);
 
           console.log("🤐 User sub to mute:", sub);
+
+          if (!sub) {
+            console.log("user not found................");
+            errorMessage = "user not found";
+            throw new Error("User not found.");
+          }
 
           // 2. Add or remove the user sub from mutes collection.
           const mutesCollection = database.db.collection("chat-system-mutes");
           await mutesCollection.createIndex({ user: 1 }, { unique: true });
           //    ^ Force a unique index on mutes.
 
+          let inert = true;
+
           if (muting) {
             // Add the sub to the mutesCollection if necessary.
             try {
               await mutesCollection.insertOne({ user: sub });
+              inert = false;
             } catch (error) {
               if (error.code !== 11000) {
                 // Ignore duplicate key error, since user is already muted.
-                console.log("😫 ALREADY MUTED!");
                 errorMessage = "already muted";
                 throw error;
               }
             }
           } else {
             // Remove the sub from the mutesCollection if necessary.
-            await mutesCollection.deleteOne({ user: sub });
-            // 🟢 TODO: Check to see if already unmuted...
+
+            // Check if the user is actually muted before deleting
+            const muteRecord = await mutesCollection.findOne({ user: sub });
+
+            if (muteRecord) {
+              await mutesCollection.deleteOne({ user: sub });
+              console.log(`User ${sub} unmuted.`);
+              inert = false;
+            } else {
+              console.log(`User ${sub} was not muted.`);
+            }
           }
 
           // 3. Log it and create a log event to update the message buffer
           //    for users.
 
-          await logger.log(`someone was ${action.split(":")[1]}d!`, {
-            user: sub,
-            action,
-            // value: sub,
-          });
+          if (!inert) {
+            await logger.log(`someone was ${action.split(":")[1]}d!`, {
+              user: sub,
+              action,
+              // value: sub,
+            });
+          }
 
           // 4. Return the proper status and response.
           status = 200;
