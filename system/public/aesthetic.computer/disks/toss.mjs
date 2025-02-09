@@ -25,7 +25,7 @@ let bands = [];
 let type;
 const startTone = 220;
 const attack = 0.005;
-const killFade = 0.3;
+const killFade = 0.05;
 
 // First character is for upping the pitch, second is for triggering, third
 // is for downing.
