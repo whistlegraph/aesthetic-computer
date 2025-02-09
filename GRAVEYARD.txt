@@ -1,5 +1,18 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+*** put 'chat' back up with increased moderation support ***
+  - [x] Test muting and unmuting mixed in with the below.
+    - [x] (Incognito)
+      - [x] Make a new account: `me+stripmepls@jas.life`.
+      - [x] Make a new handle 'stripmepls'.
+    - [x] (From @jeffrey) 
+      - [x] Use `admin:handle:strip @stripmepls` on the `prompt`.
+      - [x] Check the other tab.
+      - [x] Try to make a new handle again.
+    - [x] Delete the account with `delete-erase-and-forget-me`.
+  + Done
+  - [x] Test stripping.
+
 *** `stample` ***
  - [x] Make initial prototype.
  - [?] Integrate into `notepat` at some point?

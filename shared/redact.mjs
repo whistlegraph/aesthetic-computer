@@ -4,7 +4,7 @@
 
 // Modify a message object into a 'redacted' state.
 export function redact(msg) {
-  console.log("💌 Redacting:", msg);
+  // console.log("💌 Redacting:", msg);
   msg.redactedText = msg.text;
   msg.text = msg.text.replace(/\S/g, "_"); // Replace non-space chars with
   //                                          underscores.
@@ -13,7 +13,7 @@ export function redact(msg) {
 
 // Revert a message out of a 'redacted' state.
 export function unredact(msg) {
-  console.log("💌 Unredacting:", msg);
+  // console.log("💌 Unredacting:", msg);
   msg.text = msg.redactedText || msg.text;
   // msg.from = "redacted";
 }
