@@ -2,6 +2,39 @@
 
 Projects in Progress (PIP) 🌟
 
+*** put 'chat' back up with increased moderation support ***
+  - [-] Test muting and unmuting mixed in with the below.
+    - [] (Incognito)
+      - [] Make a new account: `me+stripmepls@jas.life`.
+      - [] Make a new handle 'stripmepls'.
+    - [] (From @jeffrey) 
+      - [] Use `admin:handle:strip @stripmepls` on the `prompt`.
+      - [] Check the other tab.
+      - [] Try to make a new handle again.
+    - [] Delete the account with `delete-erase-and-forget-me`.
+  + Done
+  - [x] Test stripping.
+
+🥬
+  - [] Show timestamps on chat messages.
+  - [] Pat a timestamp as admin to reveal a redaction control. 
+    - [] Redaction should...
+      - [] Redact the web and native mobile notification.
+      - [] Underscore the message for all users and show a 'redacted' sign.
+      - [] Should muting also do this?
+
+  - [x] Add 'admin:mute' / 'admin:unmute' action / endpoint which will be
+        separate from handle stripping.
+  - [x] Check stripping process.
+  - [x] Put mute list in the database per instance. 
+  - [?] Should stripping also invalidate emails or does it already?
+
+*** $1 handle toll / troll toll ***
+  - [] Sketch out the copy for a new signup flow below...
+  - [] Instantiate a $1 handle fee for new users.
+    - [] Make a new product in Stripe.
+    - [] Handles can be remade.
+
 *** profiles ***
   - [] refer to profile roadmap below in this file for moving paintings to profiles
   - [] refer to ida's profile drawing

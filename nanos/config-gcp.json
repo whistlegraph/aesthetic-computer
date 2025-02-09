@@ -5,7 +5,8 @@
     "chat.env",
     "gcp-service-key.json",
     "gcp-firebase-service-key.json",
-    "filter.mjs"
+    "filter.mjs",
+    "redact.mjs"
   ],
   "CloudConfig": {
     "Platform": "gcp",

@@ -21,7 +21,7 @@ async function link(db /*, kv*/) {
 }
 
 // 🚩
-// TODO: Add an "action" field to logs.
+// Using the "action" field on logs.
 // The action can be "handle:created" or "handle:changed"
 // * This will be stored in the database so it can later
 // be queried.
@@ -57,8 +57,9 @@ async function log(text, data, from = "log") {
   await logs.insertOne({ ...msg }); // Add to database,
 
   // Alert the AC `chat-system` instance directly through an HTTP call with `LOGGER_KEY`.
-  // TODO: Make a post request to https://localhost:8083 if dev is true
-  //       otherwise make a post request to https://chat-system.aesthetic.computer
+  // Make a post request to https://localhost:8083 if dev is true
+  // otherwise make a post request to https://chat-system.aesthetic.computer
+
   // This request should include the msg object.
   const url = dev
     ? "https://localhost:8083/log"

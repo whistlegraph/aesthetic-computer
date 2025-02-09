@@ -9,6 +9,7 @@
 import {
   authorize,
   userIDFromHandle,
+  userIDFromHandleOrEmail,
   findSisterSub,
   handleFor,
   hasAdmin,
@@ -89,7 +90,11 @@ export async function handler(event, context) {
     const tenant = body.tenant || "aesthetic"; // Could be 'sotce'.
     const action = body.action;
 
-    if (action !== "strip") {
+    if (
+      action !== "strip" &&
+      action !== "chat-system:mute" &&
+      action !== "chat-system:unmute"
+    ) {
       // Make sure handle entry is well formed.
       const validated = validateHandle(handle);
 
@@ -108,7 +113,7 @@ export async function handler(event, context) {
     // And that we are logged in...
     const user = await authorize(event.headers, tenant);
 
-    shell.log("🙆 Handle update for user:", user);
+    // shell.log("🙆 Handle update for user:", user);
 
     if (user && user.email_verified) {
       // 🔑 We are logged in!
@@ -122,7 +127,8 @@ export async function handler(event, context) {
       // Make a "handle" index on the @handles collection that forces
       // them all to be unique, (if it doesn't already exist).
       await handles.createIndex({ handle: 1 }, { unique: true });
-      await KeyValue.connect();
+
+      await KeyValue.connect(); // 📓 Note: Not actually needed for mute actions.
 
       /* if (tenant === "aesthetic") */ await logger.link(database);
 
@@ -172,6 +178,80 @@ export async function handler(event, context) {
           await database.disconnect();
           await KeyValue.disconnect();
         }
+        return respond(status, response);
+      }
+
+      if (action === "chat-system:mute" || action === "chat-system:unmute") {
+        if ((await hasAdmin(user)) === false) {
+          return respond(500, { message: "unauthorized" });
+        }
+
+        try {
+          const muting = action === "chat-system:mute";
+
+          let status, response;
+          let errorMessage = "error";
+
+          if (muting) {
+            shell.log("🩹 Muting user:", handle);
+          } else {
+            shell.log("🩹 Unmuting user:", handle);
+          }
+
+          // ⭐
+          // 1. Pull the user sub from 'handle' which could be
+          //    either a handle, sub, or email address.
+
+          // TODO: 🧑‍🚒 Does this need to be sent an alternate tenancy?
+          //       🟪 It will only work on AC for now. 25.02.07.19.05
+          const sub = await userIDFromHandleOrEmail(handle);
+
+          console.log("🤐 User sub to mute:", sub);
+
+          // 2. Add or remove the user sub from mutes collection.
+          const mutesCollection = database.db.collection("chat-system-mutes");
+          await mutesCollection.createIndex({ user: 1 }, { unique: true });
+          //    ^ Force a unique index on mutes.
+
+          if (muting) {
+            // Add the sub to the mutesCollection if necessary.
+            try {
+              await mutesCollection.insertOne({ user: sub });
+            } catch (error) {
+              if (error.code !== 11000) {
+                // Ignore duplicate key error, since user is already muted.
+                console.log("😫 ALREADY MUTED!");
+                errorMessage = "already muted";
+                throw error;
+              }
+            }
+          } else {
+            // Remove the sub from the mutesCollection if necessary.
+            await mutesCollection.deleteOne({ user: sub });
+            // 🟢 TODO: Check to see if already unmuted...
+          }
+
+          // 3. Log it and create a log event to update the message buffer
+          //    for users.
+
+          await logger.log(`someone was ${action.split(":")[1]}d!`, {
+            user: sub,
+            action,
+            // value: sub,
+          });
+
+          // 4. Return the proper status and response.
+          status = 200;
+          response = { message: muting ? "muted" : "unmuted" };
+        } catch (error) {
+          status = 500;
+          console.error("🔥 " + error);
+          response = { message: errorMessage };
+        } finally {
+          await database.disconnect();
+          await KeyValue.disconnect();
+        }
+
         return respond(status, response);
       }
 
