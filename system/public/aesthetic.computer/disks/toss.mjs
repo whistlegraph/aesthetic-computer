@@ -61,7 +61,7 @@ const theme = [
 
 const { min, max } = Math;
 
-const toneLow = 50;
+const toneLow = 5;
 const toneHigh = 1600 * 2;
 
 function makeBands({ api, colon }, count) {
