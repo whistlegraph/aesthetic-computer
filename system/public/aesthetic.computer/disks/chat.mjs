@@ -35,7 +35,8 @@ let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 const messagesToAddToLayout = [];
 
-const lineHeight = 12,
+const lineHeight = 11,
+  lineGap = 1,
   topMargin = 22,
   bottomMargin = 33,
   leftMargin = 6;
@@ -267,7 +268,7 @@ function paint(
       const fullMessage = message.fullMessage;
       const tb = message.tb;
 
-      y -= lineHeight * (tb.lines.length - 1);
+      y -= lineHeight * (tb.lines.length - 1) + lineGap;
 
       if (y > screen.height - bottomMargin) {
         y -= lineHeight;
@@ -275,6 +276,16 @@ function paint(
       }
 
       ink("white").write(fullMessage, { x, y }, undefined, screen.width - x);
+
+      // if (tb.lines.length > 1) {
+      //  console.log("TB line length:", tb.lines.length, "lineheight:", lineHeight);
+      // }
+
+      const lessLineHeight = lineHeight - 1;
+      ink(100 / 1.3, 100 / 1.3, 145 / 1.3).write(message.when, { x: x + text.width(tb.lines[tb.lines.length - 1]) + 6, y: y + ((tb.lines.length - 1) * lineHeight) });
+
+      // ink("red", 128).write("stripped!", { x: x + text.width(tb.lines[tb.lines.length - 1]) + 6 - 58, y: y + ((tb.lines.length - 1) * lessLineHeight) });
+
       ink(message.from === "log" ? "cyan" : "pink").write(message.from, {
         x,
         y,
@@ -393,10 +404,10 @@ function paint(
 }
 
 function act({ api, event: e, hud, piece, send, handle, store, jump }) {
-  if (e.is("viewport-height:changed")) {
-    console.log("✨ New keyboard cutoff would be:", e.y, "?");
+  // if (e.is("viewport-height:changed")) {
+    // console.log("✨ New keyboard cutoff would be:", e.y, "?");
     // notice(e.y);
-  }
+  // }
 
   if (e.is("reframed")) {
     const lastScrollHeight = totalScrollHeight;

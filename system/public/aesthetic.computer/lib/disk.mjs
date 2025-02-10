@@ -1313,6 +1313,7 @@ const $commonApi = {
     reverse: text.reverse,
     // Get the pixel width of a string of characters.
     width: (text) => {
+      if (Array.isArray(text)) text = text.join(" ");
       return text.length * 6;
     },
     height: (text) => {
