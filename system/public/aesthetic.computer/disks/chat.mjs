@@ -201,6 +201,7 @@ function paint(
     handle,
     help,
     typeface,
+    pen,
   },
   options,
 ) {
@@ -254,6 +255,8 @@ function paint(
       height: screen.height - bottomMargin + 3,
     });
 
+    let lastAgo;
+
     for (let i = chat.messages.length - 1; i >= 0; i--) {
       const message = chat.messages[i];
 
@@ -275,18 +278,80 @@ function paint(
         continue;
       }
 
-      ink("white").write(fullMessage, { x, y }, undefined, screen.width - x);
+      let msgColor = "white";
+
+      // 🔶 TODO: I need to be able to traverse the message box content here,
+      //          in order to ignore the right edge and only highlight
+      //          message text?
+
+      if (pen) {
+        // console.log(tb.box.width, tb.box.height);
+        if (
+          pen.x > x + text.width(message.from) &&
+          pen.x < x + tb.box.width &&
+          pen.y > y &&
+          pen.y < y + tb.box.height // + lineHeight
+        ) {
+          msgColor = [250, 240, 250];
+        }
+      }
+
+      ink(msgColor).write(fullMessage, { x, y }, undefined, screen.width - x);
 
       // if (tb.lines.length > 1) {
       //  console.log("TB line length:", tb.lines.length, "lineheight:", lineHeight);
       // }
 
       const lessLineHeight = lineHeight - 1;
-      ink(100 / 1.3, 100 / 1.3, 145 / 1.3).write(message.when, { x: x + text.width(tb.lines[tb.lines.length - 1]) + 6, y: y + ((tb.lines.length - 1) * lineHeight) });
+
+      const timestamp = {
+        x: x + text.width(tb.lines[tb.lines.length - 1]) + 6,
+        y: y + (tb.lines.length - 1) * lineHeight,
+      };
+
+      let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
+
+      const ago = timeAgo(message.when);
+
+      let over = false;
+
+      // Check if the pen is inside the timestamp.
+      if (pen) {
+        if (
+          pen.x > timestamp.x &&
+          pen.x < timestamp.x + text.width(ago) &&
+          pen.y > timestamp.y &&
+          pen.y < timestamp.y + lineHeight
+        ) {
+          const div = pen.drawing ? 2.0 : 1.6;
+          over = true;
+          timestampColor = [100 / div, 100 / div, 145 / div];
+        }
+      }
+
+      if (ago !== lastAgo || over) ink(...timestampColor).write(ago, timestamp);
+
+      // console.log(message.when);
+      lastAgo = ago;
 
       // ink("red", 128).write("stripped!", { x: x + text.width(tb.lines[tb.lines.length - 1]) + 6 - 58, y: y + ((tb.lines.length - 1) * lessLineHeight) });
 
-      ink(message.from === "log" ? "cyan" : "pink").write(message.from, {
+      // Check if the pen is inside the user of this message.
+
+      let nameColor = message.from === "log" ? "cyan" : "pink";
+
+      if (pen) {
+        if (
+          pen.x > x &&
+          pen.x < x + text.width(message.from) &&
+          pen.y > y &&
+          pen.y < y + lineHeight
+        ) {
+          nameColor = pen.drawing ? "lime" : "yellow";
+        }
+      }
+
+      ink(nameColor).write(message.from, {
         x,
         y,
       });
@@ -405,8 +470,8 @@ function paint(
 
 function act({ api, event: e, hud, piece, send, handle, store, jump }) {
   // if (e.is("viewport-height:changed")) {
-    // console.log("✨ New keyboard cutoff would be:", e.y, "?");
-    // notice(e.y);
+  // console.log("✨ New keyboard cutoff would be:", e.y, "?");
+  // notice(e.y);
   // }
 
   if (e.is("reframed")) {
@@ -549,11 +614,35 @@ function computeMessagesHeight({ text, screen, chat }) {
     );
     message.tb = tb;
     message.fullMessage = fullMessage;
-    height += tb.lines.length * lineHeight;
+    height += tb.lines.length * lineHeight + lineGap;
   }
   return height;
 }
 
 function computeScrollbarHeight(api) {
   return api.screen.height - bottomMargin - topMargin + 2;
+}
+
+function timeAgo(timestamp) {
+  const now = new Date();
+  const past = new Date(timestamp);
+  const seconds = floor((now - past) / 1000);
+
+  const units = [
+    { name: "year", seconds: 31536000 },
+    { name: "month", seconds: 2592000 },
+    { name: "week", seconds: 604800 },
+    { name: "day", seconds: 86400 },
+    { name: "hour", seconds: 3600 },
+    { name: "minute", seconds: 60 },
+    { name: "second", seconds: 1 },
+  ];
+
+  for (const unit of units) {
+    const count = floor(seconds / unit.seconds);
+    if (count >= 1) {
+      return `${count} ${unit.name}${count > 1 ? "s" : ""} ago`;
+    }
+  }
+  return "just now";
 }
