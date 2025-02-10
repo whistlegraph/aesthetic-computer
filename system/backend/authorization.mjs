@@ -276,17 +276,14 @@ export async function userIDFromHandle(
 // Assume prefixed handle.
 // ⚠️ TODO: Make sure we are knowing what id we want from what network... 24.08.31.01.21
 export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {
-  console.log("handleOrEmail:", handleOrEmail);
   if (!handleOrEmail) return;
   if (handleOrEmail.startsWith("@") || handleOrEmail.indexOf("|") === -1) {
-    console.log("handle or email:", handleOrEmail);
     const sub = await userIDFromHandle(
       handleOrEmail.startsWith("@") ? handleOrEmail.slice(1) : handleOrEmail,
       database,
       undefined,
       tenant,
     );
-    console.log("suuuub:", sub);
     return sub;
   } else {
     return await userIDFromEmail(handleOrEmail, tenant); // Assume email.

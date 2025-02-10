@@ -121,20 +121,6 @@ const subsToHandles = {}; // Cached list of handles.
 const subsToSubscribers = {}; // Cached list of active subscribers for this
 //                               instance if supported.
 const authorizedConnections = {};
-// const messages = []; // An active buffer of the last 100 messages.
-
-// let serviceAccount;
-// try {
-//   console.log("🔥 Fetching Firebase configuration from:", process.env.GCM_FIREBASE_CONFIG_URL);
-//   const response = await fetch(process.env.GCM_FIREBASE_CONFIG_URL);
-//   if (!response.ok) {
-//     throw new Error(`HTTP error! Status: ${response.status}`);
-//   }
-//   serviceAccount = await response.json();
-// } catch (error) {
-//   console.error("Error fetching service account:", error);
-//   // Handle the error as needed
-// }
 
 let serviceAccount;
 try {
@@ -164,8 +150,6 @@ let server,
 
 const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
 const MONGODB_NAME = process.env.MONGODB_NAME;
-// const GCM_FIREBASE_CONFIG_URL = process.env.GCM_FIREBASE_CONFIG_URL;
-// const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 
 let client, db;
 
@@ -186,7 +170,7 @@ const request = async (req, res) => {
   const pathname = url.pathname;
   const method = req.method.toUpperCase();
 
-  // 🪵 Logs
+  // 🪵 Logs and Root HTTP Request
   if (method === "POST" && pathname === "/log") {
     // Handle POST request to /log 🪵
     let body = "";
@@ -237,7 +221,10 @@ const request = async (req, res) => {
             behavior,
           );
 
-          if (object === "chat-system" && (behavior === "mute" || behavior === "unmute")) {
+          if (
+            object === "chat-system" &&
+            (behavior === "mute" || behavior === "unmute")
+          ) {
             const user = parsed.users[0];
             if (behavior === "mute") {
               // console.log("⚠️ TODO: NEED TO MUTE SERVER MESSAGES FOR:", user);
@@ -431,6 +418,7 @@ async function startChatServer() {
   // #endregion
 
   const wss = new WebSocketServer({ server });
+
   wss.on("connection", (ws, req) => {
     if (!dev && req.headers.host !== allowedHost) {
       ws.close(1008, "Policy violation"); // Close the WebSocket connection
@@ -491,6 +479,17 @@ async function startChatServer() {
           "of:",
           msg.content.text,
         );
+
+        // 🔇 Mute list check.
+        if (await isMuted(msg.content.sub)) {
+          ws.send(
+            pack("muted", {
+              message: `Your user has been muted and cannot send chat messages.`,
+            }),
+          );
+          return; // Ignore long messages.
+        }
+
         // TODO: ❤️‍🔥 Add rate-limiting / maybe quit here if needed.
         // 🧶 Length limiting.
         const len = 128;

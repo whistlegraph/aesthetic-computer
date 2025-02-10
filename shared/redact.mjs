@@ -2,6 +2,9 @@
 // Used for redacting user information like chat messages and masking it
 // before rendering and/or sending to clients.
 
+// 🛎️ See also `/system/public/aesthetic-computer/lib/redact.mjs` as this file
+//    is copied but versioned separate for deployment reasons.
+
 // Modify a message object into a 'redacted' state.
 export function redact(msg) {
   // console.log("💌 Redacting:", msg);

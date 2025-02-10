@@ -5,10 +5,10 @@
 #endregion */
 
 /* #region 🏁 TODO
-  - [-] Search this file for `ChatToDisk` references and do them.
   - [] Add custom sound to iOS notifications.
   + Future
   + Done
+  - [x] Search this file for `ChatToDisk` references and do them.
   - [x] Add custom message received sound.
   - [x] Include this file as an interface module inside of disk, so it can 
        conditionally be run inside of any piece so chat can be everywhere!
@@ -94,6 +94,11 @@ async function boot({
       return;
     }
 
+    if (type === "muted") {
+      notice("MUTED", ["red", "yellow"]);
+      return;
+    }
+
     if (type === "too-long") {
       notice("TOO LONG", ["red", "yellow"]);
       return;
@@ -110,7 +115,6 @@ async function boot({
       sound.play(messageSfx);
       return;
     }
-
 
     if (extra?.layoutChanged) messagesNeedLayout = true;
     // console.log("🌠 Message received:", id, type, content);
