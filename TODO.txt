@@ -1,14 +1,16 @@
 😀 TODO 😆
 
 Projects in Progress (PIP) 🌟
+
   - [🧡] Show timestamps on chat messages.
-  - [] Pat a timestamp as admin to reveal a redaction control. 
+    - [] Live last message stamp?
+  - [] Pat a timestamp as admin to reveal a redaction control (only if admin). 
     - [] Redaction should...
       - [] Redact the web and native mobile notification.
       - [] Underscore the message for all users and show a 'redacted' sign.
       - [] Should muting also do this?
-
-  - [x] Add 'admin:mute' / 'admin:unmute' action / endpoint which will be
+  + Done
+  - [x] Add 'admin:chat-system:mute' / 'admin:chat-system:unmute' action / endpoint which will be
         separate from handle stripping.
   - [x] Check stripping process.
   - [x] Put mute list in the database per instance. 
@@ -25,6 +27,8 @@ Projects in Progress (PIP) 🌟
   - [] refer to ida's profile drawing
   - [] entering 'profile @handle' will yield the profile
   - [] add text links to chat
+
+*** prompt parameter discoverability / as you type ***
 
 *** 2d gpu ***
   - [] make a new 2d webgl2 renderer
