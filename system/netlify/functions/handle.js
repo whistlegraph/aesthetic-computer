@@ -205,11 +205,9 @@ export async function handler(event, context) {
           // TODO: 🧑‍🚒 Does this need to be sent an alternate tenancy?
           //       🟪 It will only work on AC for now. 25.02.07.19.05
           const sub = await userIDFromHandleOrEmail(handle, database);
-
           console.log("🤐 User sub to mute:", sub);
 
           if (!sub) {
-            console.log("user not found................");
             errorMessage = "user not found";
             throw new Error("User not found.");
           }
@@ -250,13 +248,16 @@ export async function handler(event, context) {
 
           // 3. Log it and create a log event to update the message buffer
           //    for users.
-
           if (!inert) {
-            await logger.log(`someone was ${action.split(":")[1]}d!`, {
-              user: sub,
-              action,
-              // value: sub,
-            });
+            const trueHandle = await handleFor(sub);
+            await logger.log(
+              `${trueHandle ? ("@" + trueHandle) : "someone"} was ${action.split(":")[1]}d!`,
+              {
+                user: sub,
+                action,
+                // value: sub,
+              },
+            );
           }
 
           // 4. Return the proper status and response.

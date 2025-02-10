@@ -131,10 +131,10 @@ export class Chat {
         if (type === "chat-system:mute" || type === "chat-system:unmute") {
           const msg = JSON.parse(content);
           content = msg;
-          // console.log(
-          //   "⚠️ TODO: NEED TO MUTE/UN CLIENT MESSAGES FOR:",
-          //   content.user, this.system.messages
-          // );
+          if (this.$commonApi?.user?.sub === content.user) {
+            if (type === "chat-system:mute") this.$commonApi.notice("MUTED", ["red", "yellow"]);
+            if (type === "chat-system:unmute") this.$commonApi.notice("UNMUTED");
+          }
           this.system.messages.forEach((message) => {
             if (message.sub === content.user) {
               if (type === "chat-system:mute") redact(message); // Modify the text content of each message.
