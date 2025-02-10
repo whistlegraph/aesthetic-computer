@@ -4,11 +4,20 @@ Projects in Progress (PIP) 🌟
 
   - [🧡] Show timestamps on chat messages.
     - [] Live last message stamp?
+    
   - [] Pat a timestamp as admin to reveal a redaction control (only if admin). 
     - [] Redaction should...
       - [] Redact the web and native mobile notification.
       - [] Underscore the message for all users and show a 'redacted' sign.
       - [] Should muting also do this?
+
+  - [] Use 'admin:chat-system:redact' to set a db flag on a message.
+    - [] This should hit an http 'redact' endpoint which requires admin privileges.
+      - [] This endpoint should be separate from the chat instance and be a
+           serverless function.
+      - [] It should trigger an update on all clients that erases the message.
+           This could be done through redis...
+
   + Done
   - [x] Add 'admin:chat-system:mute' / 'admin:chat-system:unmute' action / endpoint which will be
         separate from handle stripping.
