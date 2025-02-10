@@ -18,9 +18,9 @@ async function connect() {
   await client.connect();
 }
 
-
 async function disconnect() {
-  await client?.quit();
+  if (!client?.isOpen) return; // Ensure the client is open before quitting
+  await client.quit();
 }
 
 async function set(collection, key, value) {
