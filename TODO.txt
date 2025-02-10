@@ -4,8 +4,8 @@ Projects in Progress (PIP) 🌟
 
   - [🧡] Show timestamps on chat messages.
     - [] Live last message stamp?
-    
-  - [] Pat a timestamp as admin to reveal a redaction control (only if admin). 
+
+  - [-] Pat a timestamp as admin to reveal a redaction control (only if admin). 
     - [] Redaction should...
       - [] Redact the web and native mobile notification.
       - [] Underscore the message for all users and show a 'redacted' sign.
