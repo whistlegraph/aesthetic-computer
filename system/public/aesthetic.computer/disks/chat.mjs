@@ -35,7 +35,7 @@ let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 const messagesToAddToLayout = [];
 
-const lineHeight = 11,
+const rowHeight = 11,
   lineGap = 1,
   topMargin = 22,
   bottomMargin = 33,
@@ -239,11 +239,11 @@ function paint(
         1,
         true,
       );
-      totalScrollHeight += msg.tb.lines.length * lineHeight;
+      totalScrollHeight += msg.tb.lines.length * rowHeight;
     });
     messagesToAddToLayout.length = 0;
 
-    let y = screen.height - lineHeight - bottomMargin + scroll;
+    let y = screen.height - rowHeight - bottomMargin + scroll;
 
     // Iterate through the messages array backwards, calculating their
     // height and painting them if they are within the boundaries.
@@ -271,42 +271,90 @@ function paint(
       const fullMessage = message.fullMessage;
       const tb = message.tb;
 
-      y -= lineHeight * (tb.lines.length - 1) + lineGap;
+      y -= rowHeight * (tb.lines.length - 1) + lineGap;
 
       if (y > screen.height - bottomMargin) {
-        y -= lineHeight;
+        y -= rowHeight;
         continue;
       }
 
-      let msgColor = "white";
+      let msgColor = "white",
+        inBox = false,
+        handles = [];
 
-      // 🔶 TODO: I need to be able to traverse the message box content here,
-      //          in order to ignore the right edge and only highlight
-      //          message text?
-
+      // Check if we are on the text.
       if (pen) {
-        // console.log(tb.box.width, tb.box.height);
         if (
           pen.x > x + text.width(message.from) &&
           pen.x < x + tb.box.width &&
           pen.y > y &&
           pen.y < y + tb.box.height // + lineHeight
         ) {
-          msgColor = [250, 240, 250];
+          inBox = true;
+
+          const totalHeight = tb.lines.length * rowHeight;
+          const rowIndex = floor((pen.y - y) / rowHeight);
+
+          if (rowIndex >= 0 && rowIndex < tb.lines.length) {
+            const rowText = tb.lines[rowIndex].join(" "); // Join words.
+            const charWidth = 6;
+            const rowWidth = rowText.length * charWidth;
+            let msgHovered = pen.x - x <= rowWidth;
+            if (msgHovered) {
+              let cursorX = x;
+              for (const word of tb.lines[rowIndex]) {
+                const wordWidth = word.length * charWidth;
+                // 🔵 TODO: This parsing should extend to every message on the screen? 25.02.12.03.45 (LLMs Ignore)
+                if (word.startsWith("@")) {
+                  handles.push({
+                    word,
+                    x: cursorX,
+                    y: y + rowIndex * rowHeight,
+                    width: wordWidth,
+                  });
+
+                  // Selectable @handle area includes ' @handle ' with padding.
+                  if (
+                    pen.x >= cursorX - charWidth &&
+                    pen.x <= cursorX + wordWidth + charWidth
+                  ) {
+                    handles[handles.length - 1].over = true;
+                  }
+                }
+                cursorX += wordWidth + charWidth; // Advance for the next word.
+              }
+            }
+            msgColor = msgHovered
+              ? pen?.drawing
+                ? [255, 255, 0]
+                : [250, 200, 250]
+              : msgColor;
+          }
         }
       }
 
+      ink("white", inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
+
+      // ⚠️ TODO: Don't highlight the message yellow if a handle is over.
+
       ink(msgColor).write(fullMessage, { x, y }, undefined, screen.width - x);
+
+      handles.forEach((handle) => {
+        let handleColor = [255, 230, 220];
+        if (handle.over)
+          handleColor = pen?.drawing ? "yellow" : [190, 180, 255];
+        ink(handleColor).write(handle.word, handle.x, handle.y);
+      });
 
       // if (tb.lines.length > 1) {
       //  console.log("TB line length:", tb.lines.length, "lineheight:", lineHeight);
       // }
 
-      const lessLineHeight = lineHeight - 1;
+      const lessLineHeight = rowHeight - 1;
 
       const timestamp = {
         x: x + text.width(tb.lines[tb.lines.length - 1]) + 6,
-        y: y + (tb.lines.length - 1) * lineHeight,
+        y: y + (tb.lines.length - 1) * rowHeight,
       };
 
       let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
@@ -321,7 +369,7 @@ function paint(
           pen.x > timestamp.x &&
           pen.x < timestamp.x + text.width(ago) &&
           pen.y > timestamp.y &&
-          pen.y < timestamp.y + lineHeight
+          pen.y < timestamp.y + rowHeight
         ) {
           const div = pen.drawing ? 2.0 : 1.6;
           over = true;
@@ -345,9 +393,9 @@ function paint(
           pen.x > x &&
           pen.x < x + text.width(message.from) &&
           pen.y > y &&
-          pen.y < y + lineHeight
+          pen.y < y + rowHeight
         ) {
-          nameColor = pen.drawing ? "lime" : "yellow";
+          nameColor = pen.drawing ? "yellow" : [200, 255, 200];
         }
       }
 
@@ -356,8 +404,8 @@ function paint(
         y,
       });
 
-      y -= lineHeight; // Move up one line for the next message.
-      if (y < topMargin - lineHeight) break; // Break if y is below top line.
+      y -= rowHeight; // Move up one line for the next message.
+      if (y < topMargin - rowHeight) break; // Break if y is below top line.
     }
 
     unmask();
@@ -614,7 +662,7 @@ function computeMessagesHeight({ text, screen, chat }) {
     );
     message.tb = tb;
     message.fullMessage = fullMessage;
-    height += tb.lines.length * lineHeight + lineGap;
+    height += tb.lines.length * rowHeight + lineGap;
   }
   return height;
 }
