@@ -2,10 +2,9 @@
 
 Projects in Progress (PIP) 🌟
 
-*** `flap` ***
-
-  - [🧡] Show timestamps on chat messages.
-    - [] Live last message stamp?
+ * message deletion *
+  - [] Finish timetsamp picking.
+    - [-] Tapping shows yellow.
 
   - [-] Pat a timestamp as admin to reveal a redaction control (only if admin). 
     - [] Redaction should...
@@ -19,6 +18,9 @@ Projects in Progress (PIP) 🌟
            serverless function.
       - [] It should trigger an update on all clients that erases the message.
            This could be done through redis...
+
+  - [x] Show timestamps on chat messages.
+    - [x] Live last message stamp.
 
   + Done
   - [x] Add 'admin:chat-system:mute' / 'admin:chat-system:unmute' action / endpoint which will be
