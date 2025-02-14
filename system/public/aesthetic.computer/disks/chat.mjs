@@ -282,6 +282,8 @@ function paint(
         inBox = false,
         handles = [];
 
+      let tapState = "none";
+
       // Check if we are on the text.
       if (pen) {
         if (
@@ -294,6 +296,8 @@ function paint(
 
           const totalHeight = tb.lines.length * rowHeight;
           const rowIndex = floor((pen.y - y) / rowHeight);
+
+          let handleOver;
 
           if (rowIndex >= 0 && rowIndex < tb.lines.length) {
             const rowText = tb.lines[rowIndex].join(" "); // Join words.
@@ -319,19 +323,59 @@ function paint(
                     pen.x <= cursorX + wordWidth + charWidth
                   ) {
                     handles[handles.length - 1].over = true;
+                    handleOver = true;
                   }
                 }
                 cursorX += wordWidth + charWidth; // Advance for the next word.
               }
             }
-            msgColor = msgHovered
-              ? pen?.drawing
-                ? [255, 255, 0]
-                : [250, 200, 250]
-              : msgColor;
+
+            msgColor = handleOver
+              ? "white"
+              : msgHovered
+                ? pen?.drawing
+                  ? [255, 255, 0]
+                  : [250, 200, 250]
+                : msgColor;
+
+            if (handleOver) {
+              tapState = "handle";
+            } else if (msgHovered) {
+              tapState = "message";
+            }
+
           }
         }
       }
+
+      const timestamp = {
+        x: x + text.width(tb.lines[tb.lines.length - 1]) + 6,
+        y: y + (tb.lines.length - 1) * rowHeight,
+      };
+      let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
+      const ago = timeAgo(message.when);
+      let over = false;
+
+      // Check if the pen is inside the timestamp.
+      if (pen) {
+        if (
+          pen.x > timestamp.x &&
+          pen.x < timestamp.x + text.width(ago) &&
+          pen.y > timestamp.y &&
+          pen.y < timestamp.y + rowHeight
+        ) {
+          over = true;
+          if (pen.drawing) {
+            timestampColor = "yellow";
+            tapState = "timestamp";
+          } else {
+            const div = 1.6;
+            timestampColor = [100 / div, 100 / div, 145 / div];
+          }
+        }
+      }
+
+      // console.log("🤞 Tap state:", tapState);
 
       ink("white", inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
 
@@ -346,38 +390,7 @@ function paint(
         ink(handleColor).write(handle.word, handle.x, handle.y);
       });
 
-      // if (tb.lines.length > 1) {
-      //  console.log("TB line length:", tb.lines.length, "lineheight:", lineHeight);
-      // }
-
-      const lessLineHeight = rowHeight - 1;
-
-      const timestamp = {
-        x: x + text.width(tb.lines[tb.lines.length - 1]) + 6,
-        y: y + (tb.lines.length - 1) * rowHeight,
-      };
-
-      let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
-
-      const ago = timeAgo(message.when);
-
-      let over = false;
-
-      // Check if the pen is inside the timestamp.
-      if (pen) {
-        if (
-          pen.x > timestamp.x &&
-          pen.x < timestamp.x + text.width(ago) &&
-          pen.y > timestamp.y &&
-          pen.y < timestamp.y + rowHeight
-        ) {
-          const div = pen.drawing ? 2.0 : 1.6;
-          over = true;
-          timestampColor = [100 / div, 100 / div, 145 / div];
-        }
-      }
-
-      if (ago !== lastAgo || over) ink(...timestampColor).write(ago, timestamp);
+      if (ago !== lastAgo || over) ink(timestampColor).write(ago, timestamp);
 
       // console.log(message.when);
       lastAgo = ago;
