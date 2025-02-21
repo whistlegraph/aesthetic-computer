@@ -35,6 +35,7 @@ const TwoD = undefined;
 
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
+const { isFinite } = Number;
 
 const diskSends = [];
 let diskSendsConsumed = false;
@@ -911,9 +912,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
         await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
 
-        const soundProcessor = new AudioWorkletNode(
+        const speakerProcessor = new AudioWorkletNode(
           audioContext,
-          "sound-processor",
+          "speaker-processor",
           {
             outputChannelCount: [2],
             processorOptions: { bpm: sound.bpm, debug: true },
@@ -921,44 +922,58 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         beatSkip = function () {
-          soundProcessor.port.postMessage({ type: "beat:skip" });
+          speakerProcessor.port.postMessage({ type: "beat:skip" });
         };
 
         updateMetronome = function (newBPM) {
-          soundProcessor.port.postMessage({ type: "new-bpm", data: newBPM });
+          speakerProcessor.port.postMessage({ type: "new-bpm", data: newBPM });
         };
 
         triggerSound = function (sound) {
-          soundProcessor.port.postMessage({ type: "sound", data: sound });
+          speakerProcessor.port.postMessage({ type: "sound", data: sound });
+
+          return {
+            progress: () => {
+              console.log("🟠 Get progress of sound...", sound);
+              // TODO: Need to post and wait for a progress message from speaker processor here...
+              speakerProcessor.port.postMessage({ type: "get-progress", content: sound.id });
+            },
+            kill: () => {
+              killSound(...arguments);
+            },
+          };
         };
 
         updateBubble = function (bubble) {
-          soundProcessor.port.postMessage({ type: "bubble", data: bubble });
+          speakerProcessor.port.postMessage({ type: "bubble", data: bubble });
         };
 
         killSound = function (id, fade) {
           // console.log("📢 Kill:", id, "Fade:", fade);
-          soundProcessor.port.postMessage({ type: "kill", data: { id, fade } });
+          speakerProcessor.port.postMessage({
+            type: "kill",
+            data: { id, fade },
+          });
         };
 
         updateSound = function (data) {
-          soundProcessor.port.postMessage({ type: "update", data });
+          speakerProcessor.port.postMessage({ type: "update", data });
         };
 
         killAllSound = function () {
-          soundProcessor.port.postMessage({ type: "kill:all" });
+          speakerProcessor.port.postMessage({ type: "kill:all" });
         };
 
         // Request data / send message to the mic processor thread.
         requestSpeakerWaveforms = function () {
-          soundProcessor.port.postMessage({ type: "get-waveforms" });
+          speakerProcessor.port.postMessage({ type: "get-waveforms" });
         };
 
         requestSpeakerAmplitudes = function () {
-          soundProcessor.port.postMessage({ type: "get-amplitudes" });
+          speakerProcessor.port.postMessage({ type: "get-amplitudes" });
         };
 
-        soundProcessor.port.onmessage = ({ data: msg }) => {
+        speakerProcessor.port.onmessage = ({ data: msg }) => {
           if (msg.type === "waveforms") {
             send({ type: "speaker-waveforms", content: msg.content });
             return;
@@ -973,18 +988,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             diskSupervisor.requestBeat?.(msg.content); // Update metronome.
             return;
           }
+
+          if (msg.type === "progress") {
+            // Send sound progress to the disk.
+            //
+            console.log("Received progress for:", msg);
+            return;
+          }
         };
 
-        soundProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
-        soundProcessor.connect(speakerGain);
+        speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
+        speakerProcessor.connect(speakerGain);
 
-        // Run any held audio on resume / sounds on initial button presses or taps.
-        // audioContext.onstatechange = function () {
-        //   if (audioContext.state === "running") activatedSoundCallback?.();
-        // };
         activatedSoundCallback?.();
-
-        // audioContext.resume();
 
         modal.classList.remove("on");
       })();
@@ -1012,7 +1028,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          in terms of creating a sampler and asynchronously
   //          decoding all the sounds after an initial tap.
 
-  async function playSfx(id, sound, options, completed) {
+  async function playSfx(id, soundData, options, completed) {
     if (audioContext) {
       if (sfxCancel.includes(id)) {
         console.log(sfxCancel, "Cancelling...", id);
@@ -1021,24 +1037,67 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      await decodeSfx(sound);
+      await decodeSfx(soundData);
 
-      if (sfx[sound] instanceof ArrayBuffer) return;
-      if (!sfx[sound]) {
-        console.log("🔉 No buffer found for:", sound);
+      if (sfx[soundData] instanceof ArrayBuffer) return;
+
+      if (!sfx[soundData]) {
+        console.log("🔉 No buffer found for:", soundData);
         return;
       }
 
+      const channels = [];
+      for (let i = 0; i < sfx[soundData].numberOfChannels; i += 1) {
+        channels.push(sfx[soundData].getChannelData(i)); // Get raw Float32Array.
+      }
+
+      // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
+      //          keep being sent on every playthrough. 25.02.15.08.22
+
+      const sample = {
+        channels,
+        sampleRate: sfx[soundData].sampleRate,
+        length: sfx[soundData].length,
+      };
+
+      // console.log("🔵 READY TO PLAY SAMPLE:", sample);
+      // console.log(((sample.length / sample.sampleRate) * sound.bpm) / 60);
+
+      // TODO: Deprecate the `reverse` option.
+
+      // TODO: Add the ID to the data here.
+
+      sfxPlaying[id] = triggerSound?.({
+        id,
+        type: "sample",
+        options: {
+          buffer: sample,
+          from: isFinite(options?.from) ? options.from : 0,
+          to: isFinite(options?.to) ? options.to : 1,
+          speed: isFinite(options?.speed) ? options.speed : 1,
+          loop: false,
+        },
+        // options: { buffer: sample },
+        // ⏰ TODO: If duration / 'beats' is not specified then use speed.
+        // beats: undefined, // ((sample.length / sample.sampleRate) * sound.bpm / 60),
+        // attack: 0, // 🩷 TODO: These should have saner defaults.
+        // decay: 0,
+      });
+
+      // const buffer = sfx[sound];
+
       // If decoding has failed or no sound is present then silently fail.
-      const gainNode = audioContext.createGain();
-      gainNode.gain.value = options?.volume !== undefined ? options.volume : 1;
+      // const gainNode = audioContext.createGain();
+      // gainNode.gain.value = options?.volume !== undefined ? options.volume : 1;
 
-      const panNode = audioContext.createStereoPanner();
-      panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
+      // const panNode = audioContext.createStereoPanner();
+      // panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
 
-      let source = audioContext.createBufferSource();
-      const buffer = sfx[sound];
+      // let source = audioContext.createBufferSource();
 
+      // source.buffer = buffer;
+
+      /*
       if (options?.from || options?.to || options?.reverse || options?.pitch) {
         let fromVal = options?.from ?? 0;
         let toVal = options?.to ?? 1;
@@ -1097,30 +1156,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else {
         source.buffer = buffer;
       }
+      */
 
-      let paused = false;
+      // let paused = false;
 
-      function connect() {
-        if (options?.loop) source.loop = true;
-        source.connect(panNode);
-        panNode.connect(gainNode);
-        if (!options?.stream) gainNode.connect(speakerGain);
-        gainNode.connect(options?.stream || sfxStreamGain);
-        source.addEventListener("ended", () => {
-          source.disconnect();
-          gainNode.disconnect();
-          panNode.disconnect();
-          completed?.();
-          if (paused === false) delete sfxPlaying[id];
-        });
-      }
+      // function connect() {
+      //   if (options?.loop) source.loop = true;
+      //   source.connect(panNode);
+      //   panNode.connect(gainNode);
+      //   if (!options?.stream) gainNode.connect(speakerGain);
+      //   gainNode.connect(options?.stream || sfxStreamGain);
+      //   source.addEventListener("ended", () => {
+      //     source.disconnect();
+      //     gainNode.disconnect();
+      //     panNode.disconnect();
+      //     completed?.();
+      //     if (paused === false) delete sfxPlaying[id];
+      //   });
+      // }
 
-      connect();
-      if (debug && logs.audio) console.log("🔈 Playing:", sound);
-      let startTime = audioContext.currentTime;
-      source.start();
-      let pausedAt;
+      // connect();
+      // if (debug && logs.audio) console.log("🔈 Playing:", sound);
+      // let startTime = audioContext.currentTime;
+      // source.start();
+      // let pausedAt;
 
+      /*
       sfxPlaying[id] = {
         currentPitch: 1, // Default playback rate (no shift)
         lastUpdateTime: audioContext.currentTime, // Time of last pitch change
@@ -1211,6 +1272,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         },
       };
+      */
     }
   }
 
@@ -3893,6 +3955,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Trigger a sound to playback.
     if (type === "sfx:play") {
       playSfx(content.id, content.sfx, content.options);
+
+      // speakerProcessor.port.postMessage({ type: "sound", data: content });
+
       return;
     }
 
@@ -3941,6 +4006,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Report progress of a playing sound back to the disk.
     if (type === "sfx:progress") {
+      console.log("🚗 Sample progress:", sfxPlaying[content.id]);
+
       send({
         type: "sfx:progress:report",
         content: { id: content.id, ...sfxPlaying[content.id]?.progress() },
