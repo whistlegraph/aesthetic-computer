@@ -2,6 +2,41 @@
 
 Projects in Progress (PIP) 🌟
 
+*** value box ui element ***
+  - [🩷] Make a generic value box UI element for dragging numeric values
+       after holding down to affect a javascript or kid lisp value.
+
+*** `sotce-net` ***
+ - [] "substantial page count" 
+ - [] take down `botce`
+ - [] make it free later on?
+ - [] 
+      "really enjoying it, was already a part of my practice"
+      "i don't struggle to maintain it"
+      "good and stable"
+
+      "substack is buying me out, with a huge media push, soon"
+      "trying to get off patreon" - maybe contract?
+
+      "wondering what jeffrey wants to do, what role does jeffrey want"
+
+       - "talked about it being a more collaborative project"
+       - "i feel nervous to communicate about it"
+
+      - "communication doesn't feel productive"
+      - "sucks we don't have a feedback loop"
+      - "it's not fair to me, it's overwhelming"
+      - "makes me nervous to feel like i can't speak to you and you are hosting
+         all my of my work."
+
+      - first end 
+        - sotce take over
+      - medium end
+        - jeffrey goes to 10%
+        - developer
+      - far end
+        - evolve things together
+
 *** `sprample` ***
  - [-] Make initial prototype.
  - [] Integrate into `notepat` at some point?
