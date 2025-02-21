@@ -33,6 +33,9 @@ const aestheticDataset = new DataSet()
     phrase.setMetadata({ originalWord: "fuck" }).addPattern(pattern`f u ck`),
   )
   .addPhrase((phrase) =>
+    phrase.setMetadata({ originalWord: "pegging" }).addPattern(pattern`pegging`),
+  )
+  .addPhrase((phrase) =>
     phrase
       .setMetadata({ originalWord: "nigger" })
       .addPattern(pattern`n!gger`)
