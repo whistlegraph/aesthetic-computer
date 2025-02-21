@@ -1049,8 +1049,8 @@ function act({
 
   if (e.is("keyboard:down:arrowup")) {
     scope += 1;
-    if (scope > speaker.waveforms.left.length) {
-      scope = speaker.waveforms.left.length;
+    if (scope > tones.waveforms.left.length) {
+      scope = tones.waveforms.left.length;
     }
   }
   */
