@@ -934,9 +934,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           return {
             progress: () => {
-              console.log("🟠 Get progress of sound...", sound);
-              // TODO: Need to post and wait for a progress message from speaker processor here...
-              speakerProcessor.port.postMessage({ type: "get-progress", content: sound.id });
+              // console.log("🟠 Get progress of sound...", sound);
+              speakerProcessor.port.postMessage({
+                type: "get-progress",
+                content: sound.id,
+              });
             },
             kill: () => {
               killSound(...arguments);
@@ -949,7 +951,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         killSound = function (id, fade) {
-          // console.log("📢 Kill:", id, "Fade:", fade);
+          console.log("📢 Kill:", id, "Fade:", fade);
+          delete sfxPlaying[id];
           speakerProcessor.port.postMessage({
             type: "kill",
             data: { id, fade },
@@ -991,8 +994,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (msg.type === "progress") {
             // Send sound progress to the disk.
-            //
-            console.log("Received progress for:", msg);
+            // console.log("Received progress for:", msg);
+            send({
+              type: "sfx:progress:report",
+              content: msg.content,
+            });
+            return;
+          }
+
+          if (msg.type === "killed") {
+            send({ type: "sfx:killed", content: msg.content });
             return;
           }
         };
@@ -4006,12 +4017,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Report progress of a playing sound back to the disk.
     if (type === "sfx:progress") {
-      console.log("🚗 Sample progress:", sfxPlaying[content.id]);
-
-      send({
-        type: "sfx:progress:report",
-        content: { id: content.id, ...sfxPlaying[content.id]?.progress() },
-      });
+      sfxPlaying[content.id]?.progress();
       return;
     }
 

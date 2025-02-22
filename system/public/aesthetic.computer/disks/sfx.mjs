@@ -104,7 +104,15 @@ function paint({ api, wipe, ink, screen, num }) {
 // 🎪 Act
 function act({ event: e, sound, num: { clamp } }) {
   btn.act(e, () => {
-    playingSample = sound.play(sfx, { speed, from, to });
+    playingSample = sound.play(
+      sfx,
+      { speed, from, to },
+      {
+        kill: () => {
+          playingSample = null;
+        },
+      },
+    );
   });
 
   speedBtn.act(e, {
@@ -131,8 +139,8 @@ function act({ event: e, sound, num: { clamp } }) {
 
 function sim() {
   playingSample?.progress().then((p) => {
-    console.log("⌛ Sample progress:", progress);
     progress = p.progress;
+    // console.log("📏 Progress:", progress)
   }); // Get progress data.
 }
 
