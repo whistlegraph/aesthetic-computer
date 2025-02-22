@@ -293,7 +293,8 @@ let loading = false;
 let reframe;
 
 const sfxProgressReceivers = {},
-  sfxSampleReceivers = {};
+  sfxSampleReceivers = {},
+  sfxKillReceivers = {};
 
 const signals = []; // Easy messages from embedded DOM content.
 const actAlerts = []; // Messages that get put into act and cleared after
@@ -4306,6 +4307,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "sfx:killed") {
+    sfxKillReceivers[content.id]?.();
+    return;
+  }
+
   if (type === "sfx:got-sample-data") {
     sfxSampleReceivers[content.id]?.(content.data);
     return;
@@ -4915,10 +4921,12 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
-    $sound.play = function play(sfx, options) {
+    $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + performance.now(); // A *unique id for this sample.
 
       send({ type: "sfx:play", content: { sfx, id, options } });
+
+      if (callbacks.kill) sfxKillReceivers[id] = callbacks.kill;
 
       return {
         startedAt: performance.now(),
