@@ -4,6 +4,7 @@ const { abs, floor, sin, PI, min, max, random } = Math;
 export default class Synth {
   // Generic for all instruments.
   playing = true;
+  id; // Unique for every playing instrument.
 
   fading = false; // If we are fading and then stopping playback.
   fadeProgress;
@@ -45,8 +46,10 @@ export default class Synth {
   #up = false; // Specific to `square`.
   #step = 0;
 
-  constructor({ type, options, duration, attack, decay, volume, pan }) {
+  constructor({ type, id, options, duration, attack, decay, volume, pan }) {
     this.#type = type;
+    if (!id) console.warn("⏰ No id for sound:", id, type);
+    this.id = id;
 
     if (
       type === "square" ||
@@ -61,18 +64,22 @@ export default class Synth {
       this.#sampleData = options.buffer;
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
-
-      console.log("Speed:", this.#sampleSpeed);
-
+      // console.log("Speed:", this.#sampleSpeed);
       // if (this.#sampleSpeed < 0)
-      //  this.#sampleIndex = this.#sampleData.length - 1; // Otherwise 0.
-
+      // this.#sampleIndex = this.#sampleData.length - 1; // Otherwise 0.
       // this.#sampleStartIndex = options.startSample;
       // this.#sampleEndIndex = options.endSample;
-
       // Check the bounds of the sample data.
-      this.#sampleStartIndex = clamp(options.startSample, 0, this.#sampleData.length - 1);
-      this.#sampleEndIndex = clamp(options.endSample, 0, this.#sampleData.length - 1);
+      this.#sampleStartIndex = clamp(
+        options.startSample,
+        0,
+        this.#sampleData.length - 1,
+      );
+      this.#sampleEndIndex = clamp(
+        options.endSample,
+        0,
+        this.#sampleData.length - 1,
+      );
 
       this.#sampleIndex =
         this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;
@@ -98,7 +105,7 @@ export default class Synth {
     this.volume = volume;
     this.#futureVolume = this.volume;
 
-    console.log("〰️", this);
+    // console.log("〰️", this);
   }
 
   next(channelIndex) {
@@ -176,12 +183,13 @@ export default class Synth {
           ((this.#sampleIndex + this.#sampleEndIndex) % this.#sampleEndIndex) -
           this.#sampleStartIndex;
       } else {
+        // console.log(this.#sampleIndex, this.#sampleEndIndex);
         if (
           this.#sampleIndex >= this.#sampleEndIndex ||
           this.#sampleIndex < 0
         ) {
           this.playing = false;
-          console.log("🛑 Sample finished.");
+          // console.log("🛑 Sample finished.");
           return 0;
         }
       }
@@ -283,6 +291,20 @@ export default class Synth {
       this.fading = true;
       this.fadeProgress = 0;
       this.fadeDuration = fade * sampleRate; // Convert seconds to samples.
+    }
+  }
+
+  // Return an integer from 0->1 representing the progress of this sound so far.
+  progress() {
+    if (this.#type === "sample") {
+      // return this.#progress;
+      // this.#sampleIndex // current index
+      // this.#sampleData.length // total length
+      // this.#sampleStartIndex // start
+      // this.#sampleEndIndex // end
+      return this.#sampleIndex / this.#sampleData.length;
+    } else {
+      return this.#progress / this.#duration;
     }
   }
 }
