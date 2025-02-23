@@ -805,6 +805,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         if (msg.type === "waveform") {
+          // console.log("Mic waveform:", msg.content);
           send({ type: "microphone-waveform", content: msg.content });
         }
 
@@ -943,6 +944,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             kill: () => {
               killSound(...arguments);
             },
+            update: (properties) => {
+              // console.log(
+              //   "Update needed for sound:",
+              //   sound,
+              //   "With:",
+              //   properties,
+              // );
+              updateSound?.({ id: sound.id, properties });
+            },
           };
         };
 
@@ -951,7 +961,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         };
 
         killSound = function (id, fade) {
-          console.log("📢 Kill:", id, "Fade:", fade);
+          // console.log("📢 Kill:", id, "Fade:", fade);
           delete sfxPlaying[id];
           speakerProcessor.port.postMessage({
             type: "kill",
@@ -2572,7 +2582,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🔉 SFX Cleaned up:", sfx);
 
       // Stop any playing samples.
-      keys(sfxPlaying).forEach((sfx) => sfxPlaying[sfx].kill());
+      keys(sfxPlaying).forEach((sfx) => sfxPlaying[sfx]?.kill());
 
       // Reset preloading.
       window.waitForPreload = false;
