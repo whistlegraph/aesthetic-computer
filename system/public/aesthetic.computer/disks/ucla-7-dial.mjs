@@ -78,6 +78,15 @@ class Dial {
   }
 }
 
+let wave = "sine";
+let octave = 6;
+
+
+function boot({params, colon}) {
+  wave = colon[0] || wave;
+  octave = parseInt(params[0]) || octave;
+}
+
 let firstDial = new Dial(2, 64, 64);
 let secondDial = new Dial(12, 64, 128);
 let thirdDial = new Dial(18, 64, 184);
@@ -86,15 +95,15 @@ let wipeBlue = false;
 
 firstDial.trigger = function ({ sound, help: { choose } }) {
   wipeBlue = !wipeBlue;
-  sound.synth({ type: "sine", tone: choose("3C", "3D"), duration: 1.5, volume: 0.8 });
+  sound.synth({ type: wave, tone: choose(`${octave}C`, `${octave}D`), duration: 1.5, volume: 0.8 });
 };
 
 secondDial.trigger = function ({ sound, help: { choose } }) {
-  sound.synth({ type: "sine", tone: "3E", duration: 0.2, volume: 0.6 });
+  sound.synth({ type: wave, tone: `${octave}E`, duration: 0.2, volume: 0.6 });
 };
 
 thirdDial.trigger = function ({ sound, help: { choose } }) {
-  sound.synth({ type: "sine", tone: choose("3G", "3A", "4C"), duration: 0.5, volume: 0.8 });
+  sound.synth({ type: wave, tone: choose(`${octave}G`, `${octave}A`, `${octave}C`), duration: 0.5, volume: 0.8 });
 };
 
 function paint({ api, wipe, ink, down, up, right, left, crawl, face, goto }) {
@@ -110,9 +119,6 @@ function paint({ api, wipe, ink, down, up, right, left, crawl, face, goto }) {
 
 // 📚 Library
 
-// function boot() {
-// Runs once at the start.
-// }
 
 // function act({ event: e }) {
 //  // Respond to user input here.

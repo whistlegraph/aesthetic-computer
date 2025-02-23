@@ -78,11 +78,7 @@ function paint({ api, wipe, ink, screen, num }) {
   ink("lime").line(toX, 0, toX, screen.height);
 
   if (progress) {
-    const progressX = num.clamp(
-      progress * screen.width - 1,
-      0,
-      screen.width - 1,
-    );
+    const progressX = num.clamp(fromX + progress * (toX - fromX), fromX, toX);
     ink("yellow").line(progressX, 0, progressX, screen.height);
   }
 
@@ -109,7 +105,8 @@ function act({ event: e, sound, num: { clamp } }) {
       { speed, from, to },
       {
         kill: () => {
-          playingSample = null;
+          // console.log("Killed...");
+          // playingSample = null;
         },
       },
     );
@@ -140,7 +137,7 @@ function act({ event: e, sound, num: { clamp } }) {
 function sim() {
   playingSample?.progress().then((p) => {
     progress = p.progress;
-    // console.log("📏 Progress:", progress)
+    // console.log("📏 Progress:", progress);
   }); // Get progress data.
 }
 

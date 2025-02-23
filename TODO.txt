@@ -2,6 +2,10 @@
 
 Projects in Progress (PIP) 🌟
 
+*** `sprample` ***
+ - [-] Make initial prototype.
+ - [] Integrate into `notepat` at some point?
+
 *** value box ui element ***
   - [🩷] Make a generic value box UI element for dragging numeric values
        after holding down to affect a javascript or kid lisp value.
@@ -36,10 +40,6 @@ Projects in Progress (PIP) 🌟
         - developer
       - far end
         - evolve things together
-
-*** `sprample` ***
- - [-] Make initial prototype.
- - [] Integrate into `notepat` at some point?
 
 *** `pill` / android devices and shop ***
   - [] flash the uniherz jelly to boot directly into ac with

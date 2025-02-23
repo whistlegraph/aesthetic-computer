@@ -4924,16 +4924,18 @@ async function makeFrame({ data: { type, content } }) {
     $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + performance.now(); // A *unique id for this sample.
 
+      // console.log(options);
+
       send({ type: "sfx:play", content: { sfx, id, options } });
 
-      if (callbacks.kill) sfxKillReceivers[id] = callbacks.kill;
-
-      return {
+      const playingSound = {
         startedAt: performance.now(),
+        killed: false,
         kill: (fade) => {
           send({ type: "sfx:kill", content: { id, fade } });
         },
         progress: async () => {
+          if (playingSound.killed) return { progress: 0 };
           const prom = new Promise((resolve, reject) => {
             sfxProgressReceivers[id] = resolve;
             return { resolve, reject };
@@ -4950,6 +4952,13 @@ async function makeFrame({ data: { type, content } }) {
           }
         },
       };
+
+      sfxKillReceivers[id] = () => {
+        callbacks?.kill?.();
+        playingSound.killed = true;
+      };
+
+      return playingSound;
     };
 
     soundTime = content.audioTime;

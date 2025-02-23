@@ -123,7 +123,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       // Update properties of an existing sound, if found.
       if (msg.type === "update") {
-        // console.log("got update!", this.#running, msg.data.id);
+        // console.log("📻 Got sound update!", msg.data);
         this.#running[msg.data.id]?.update(msg.data.properties);
         return;
       }
@@ -212,12 +212,13 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           //   data.options.speed,
           // );
         }
+        // console.log(msg.data);
 
         // Trigger the sound...
         const sound = new Synth({
           type: msg.data.type,
           id: msg.data.id,
-          options: msg.data.options,
+          options: msg.data.options || { tone: msg.data.tone },
           duration,
           attack,
           decay,
