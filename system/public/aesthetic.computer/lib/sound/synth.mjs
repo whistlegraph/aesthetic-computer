@@ -47,8 +47,10 @@ export default class Synth {
   #step = 0;
 
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
+    // console.log("New Synth:", arguments);
     this.#type = type;
-    if (!id) console.warn("⏰ No id for sound:", id, type);
+    if (id === undefined || id === null || id === NaN)
+      console.warn("⏰ No id for sound:", id, type);
     this.id = id;
 
     if (
@@ -93,9 +95,9 @@ export default class Synth {
     this.#futureFrequency = this.#frequency;
 
     this.#attack = attack;
-    this.#duration = duration;
 
-    // console.log("⏱️ Sample duration:", this.#duration);
+    this.#duration = this.#type === "sample" ? Infinity : duration;
+    // if (this.#type === "sample") console.log("⏱️ Sample duration:", this.#duration);
 
     this.#decay = decay;
     this.#decayStart = this.#duration - this.#decay;
@@ -177,6 +179,8 @@ export default class Synth {
 
       this.#sampleIndex += this.#sampleSpeed;
 
+      // console.log(this.#sampleIndex);
+
       // Handle looping and stopping
       if (this.#sampleLoop) {
         this.#sampleIndex =
@@ -221,11 +225,14 @@ export default class Synth {
     }
 
     // 🎠 Track the overall progress of the sound.
+
     // (Some sounds will have an Infinity duration and are killable)
+    // (Samples wouldn't use this system.)
+
     this.#progress += 1;
     if (this.#progress >= this.#duration) {
       this.playing = false;
-      // console.log("🛑 Synth finished.");
+      console.log("🛑 Synth finished.");
       return 0;
     }
 
@@ -247,7 +254,7 @@ export default class Synth {
     return out;
   }
 
-  update({ tone, volume, sampleSpeed, samplePosition, duration = 0.1 }) {
+  update({ tone, volume, shift, sampleSpeed, samplePosition, duration = 0.1 }) {
     if (typeof tone === "number" && tone > 0) {
       this.#futureFrequency = tone;
       this.#frequencyUpdatesTotal = duration * sampleRate;
@@ -263,6 +270,12 @@ export default class Synth {
         (this.#futureVolume - this.volume) / this.#volumeUpdatesTotal;
     }
 
+    // Shift sample speed incrementally.
+    if (typeof shift === "number") {
+      this.#sampleSpeed += shift;
+      // console.log("New sample speed:", this.#sampleSpeed, this.#sampleIndex, this.#sampleEndIndex);
+    }
+
     if (typeof sampleSpeed === "number") {
       this.#sampleSpeed = sampleSpeed;
     }
@@ -270,6 +283,8 @@ export default class Synth {
     if (typeof samplePosition === "number" && this.#sampleData) {
       this.#sampleIndex = floor(samplePosition * this.#sampleData.length);
     }
+
+    // console.log("🟠 Update properties:", arguments);
   }
 
   // Stereo
@@ -302,7 +317,14 @@ export default class Synth {
       // this.#sampleData.length // total length
       // this.#sampleStartIndex // start
       // this.#sampleEndIndex // end
-      return this.#sampleIndex / this.#sampleData.length;
+
+      // return this.#sampleIndex / this.#sampleData.length;
+      return (
+        (this.#sampleIndex - this.#sampleStartIndex) /
+        (this.#sampleEndIndex - this.#sampleStartIndex)
+      );
+
+
     } else {
       return this.#progress / this.#duration;
     }
