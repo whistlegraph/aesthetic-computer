@@ -2074,11 +2074,11 @@ export async function handler(event, context) {
         desc: "Special thanks to early patrons.",
         done: false,
       },
-      botce: {
-        sig: "botce",
-        desc: "Get spiritual advice.",
-        done: false,
-      },
+      // botce: {
+      //   sig: "botce",
+      //   desc: "Get spiritual advice.",
+      //   done: false,
+      // },
       boxes: {
         sig: "boxes",
         desc: "",

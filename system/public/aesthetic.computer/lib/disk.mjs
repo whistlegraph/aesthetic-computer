@@ -293,7 +293,8 @@ let loading = false;
 let reframe;
 
 const sfxProgressReceivers = {},
-  sfxSampleReceivers = {};
+  sfxSampleReceivers = {},
+  sfxKillReceivers = {};
 
 const signals = []; // Easy messages from embedded DOM content.
 const actAlerts = []; // Messages that get put into act and cleared after
@@ -2609,8 +2610,8 @@ class Speaker {
   amplitudes = { left: 0, right: 0 };
 
   poll() {
-    send({ type: "get-speaker-waveforms" });
-    send({ type: "get-speaker-amplitudes" });
+    send({ type: "get-tone-waveforms" });
+    send({ type: "get-tone-amplitudes" });
   }
 }
 
@@ -4307,6 +4308,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "sfx:killed") {
+    sfxKillReceivers[content.id]?.();
+    return;
+  }
+
   if (type === "sfx:got-sample-data") {
     sfxSampleReceivers[content.id]?.(content.data);
     return;
@@ -4327,12 +4333,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "speaker-waveforms") {
+  if (type === "tone-waveforms") {
     speaker.waveforms = content;
     return;
   }
 
-  if (type === "speaker-amplitudes") {
+  if (type === "tone-amplitudes") {
     speaker.amplitudes = content;
     return;
   }
@@ -4916,17 +4922,21 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
-    $sound.play = function play(sfx, options) {
+    $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + performance.now(); // A *unique id for this sample.
+
+      // console.log(options);
 
       send({ type: "sfx:play", content: { sfx, id, options } });
 
-      return {
+      const playingSound = {
         startedAt: performance.now(),
+        killed: false,
         kill: (fade) => {
           send({ type: "sfx:kill", content: { id, fade } });
         },
         progress: async () => {
+          if (playingSound.killed) return { progress: 0 };
           const prom = new Promise((resolve, reject) => {
             sfxProgressReceivers[id] = resolve;
             return { resolve, reject };
@@ -4943,6 +4953,13 @@ async function makeFrame({ data: { type, content } }) {
           }
         },
       };
+
+      sfxKillReceivers[id] = () => {
+        callbacks?.kill?.();
+        playingSound.killed = true;
+      };
+
+      return playingSound;
     };
 
     soundTime = content.audioTime;
