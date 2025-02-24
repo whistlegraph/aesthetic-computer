@@ -4,7 +4,7 @@
 import * as volume from "./sound/volume.mjs";
 import Synth from "./sound/synth.mjs";
 import Bubble from "./sound/bubble.mjs";
-import { lerp, within } from "./num.mjs";
+import { lerp, within, clamp } from "./num.mjs";
 
 const { abs, round, floor } = Math;
 
@@ -26,7 +26,7 @@ const delayTime = 0.1; // 200ms delay
 const feedback = 0.4; // 50% feedback
 const mix = 0.25; // 30% wet/dry mix
 
-class SoundProcessor extends AudioWorkletProcessor {
+class SpeakerProcessor extends AudioWorkletProcessor {
   // TODO: Fix current Firefox bug with private fields: https://bugzilla.mozilla.org/show_bug.cgi?id=1435826
   #ticks;
   #lastTime;
@@ -106,9 +106,24 @@ class SoundProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      if (msg.type === "get-progress") {
+        // ⏰ TODO: Compute actual sound progress from 0->1 here by looking
+        // up the id with `msg.content`.
+        // console.log(
+        //   "Progress needed for:",
+        //   msg.content,
+        //   this.#running[msg.content],
+        // );
+        this.#report("progress", {
+          id: msg.content,
+          progress: this.#running[msg.content]?.progress(),
+        });
+        return;
+      }
+
       // Update properties of an existing sound, if found.
       if (msg.type === "update") {
-        // console.log("got update!", this.#running, msg.data.id);
+        // console.log("📻 Got sound update!", msg.data);
         this.#running[msg.data.id]?.update(msg.data.properties);
         return;
       }
@@ -146,17 +161,64 @@ class SoundProcessor extends AudioWorkletProcessor {
           attack = msg.data.attack * sampleRate;
           decay = msg.data.decay * sampleRate;
         } else {
-          // TODO: This should be settable not via beats as well...
-          duration = round(sampleRate * (this.#bpmInSec * msg.data.beats));
+          const data = msg.data;
 
-          attack = round(duration * msg.data.attack); // Measured in frames.
-          decay = round(duration * msg.data.decay);
+          if (data.beats) {
+            duration = round(sampleRate * (this.#bpmInSec * data.beats));
+          } else if (data.options.buffer && !duration) {
+            // Read the 'from' and 'to' values from msg.data.options here which
+            // range from 0->1 to determine the start and stop inside of the sample
+            // buffer.
+
+            // Ensure 'from' and 'to' are within the valid range [0,1]
+            let from = clamp(data.options.from || 0, 0, 1);
+            let to = clamp(data.options.to || 1, 0, 1);
+
+            // Swap if from > to so that we always travel in the correct direction
+            if (from > to) {
+              [from, to] = [to, from];
+              data.options.speed = -(data.options.speed || 1); // Reverse speed direction
+            }
+
+            // Compute the sample range
+            const startSample = round(from * data.options.buffer.length);
+            const endSample = round(to * data.options.buffer.length);
+
+            // Add the sample range into options.
+            data.options.startSample = startSample;
+            data.options.endSample = endSample;
+
+            // Compute duration based on the selected range
+            duration = round(
+              ((endSample - startSample) /
+                abs(data.options.speed || 1) /
+                data.options.buffer.sampleRate) *
+                sampleRate,
+            );
+          }
+
+          attack = round(duration * msg.data.attack || 0); // Measured in frames.
+          decay = round(duration * msg.data.decay || 0);
+
+          // console.log(
+          //   "📻",
+          //   "Start sample:",
+          //   data.options.startSample,
+          //   "End sample:",
+          //   data.options.endSample,
+          //   "Duration:",
+          //   duration,
+          //   "Speed",
+          //   data.options.speed,
+          // );
         }
+        // console.log(msg.data);
 
         // Trigger the sound...
         const sound = new Synth({
           type: msg.data.type,
-          tone: msg.data.tone,
+          id: msg.data.id,
+          options: msg.data.options || { tone: msg.data.tone },
           duration,
           attack,
           decay,
@@ -164,13 +226,34 @@ class SoundProcessor extends AudioWorkletProcessor {
           pan: msg.data.pan || 0,
         });
 
-        if (duration === Infinity && msg.data.id > -1n) {
-          this.#running[msg.data.id] = sound; // Index by the unique id.
-        }
+        // console.log("🔊🚩 Sound ID:", msg.data.id);
+
+        // if (duration === Infinity && msg.data.id > -1n) {
+        this.#running[msg.data.id] = sound; // Index by the unique id.
+        // }
 
         this.#queue.push(sound);
         return;
       }
+
+      //if (msg.type === "sample") {
+      //  console.log("Play sample:", msg.data.buffer);
+
+      // const sound = new Synth({
+      //   type: "sample",
+      //   options: {
+      //     buffer: msg.data.buffer,
+      //   },
+      //   duration,
+      //   attack,
+      //   decay,
+      //   volume: msg.data.volume ?? 1,
+      //   pan: msg.data.pan || 0,
+      // });
+
+      // this.#queue.push(sound);
+      //  return;
+      // }
 
       // Bubble works similarly to Square.
       if (msg.type === "bubble") {
@@ -218,6 +301,9 @@ class SoundProcessor extends AudioWorkletProcessor {
     for (let s = 0; s < output[0].length; s += 1) {
       // Remove any finished instruments from the queue.
       this.#queue = this.#queue.filter((instrument) => {
+        if (!instrument.playing) {
+          this.#report("killed", { id: instrument.id });
+        } // Send a kill message back.
         return instrument.playing;
       });
 
@@ -226,7 +312,7 @@ class SoundProcessor extends AudioWorkletProcessor {
       // Loop through every instrument in the queue and add it to the output.
       for (const instrument of this.#queue) {
         // For now, all sounds are maxed out and mixing happens by dividing by the total length.
-        const amplitude = instrument.next(); // this.#queue.length;
+        const amplitude = instrument.next(s); // this.#queue.length;
         // 😱 TODO: How can I mix reverb into the instrument here?
 
         output[0][s] += instrument.pan(0, amplitude);
@@ -256,26 +342,6 @@ class SoundProcessor extends AudioWorkletProcessor {
           }
         }
       }
-
-      // if (voices > 1 && this.#mixDivisor < voices) {
-      // }
-
-      // if (this.voices > 1 && this.#mixDivisor )
-
-      // if (voices > 1)
-
-      // } else {
-      //  this.#mixDivisor = voices;
-      // }
-
-      // if (this.#queue.length > 0) console.log(output[0][s], voices, this.#mixDivisor);
-
-      // Apply reverb to the amplitude
-
-      // const rL = this.#reverbLeft.processSample(output[0][s]);
-      // const rR = this.#reverbRight.processSample(output[1][s]);
-      // output[0][s] = volume.apply(rL / this.#mixDivisor);
-      // output[1][s] = volume.apply(rR / this.#mixDivisor);
 
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
@@ -311,33 +377,7 @@ class SoundProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("sound-processor", SoundProcessor);
-
-// Global Mixing and Compression
-// const threshold = 1; // This ends up being the max output amplitude.
-
-// function compressor(sample, maxAmplitude = threshold, ratio = 4) {
-//   if (abs(sample) > maxAmplitude) {
-//     const overThreshold = abs(sample) - maxAmplitude;
-//     return sample > 0
-//       ? maxAmplitude + overThreshold / ratio
-//       : -maxAmplitude - overThreshold / ratio;
-//   }
-//   return sample;
-// }
-
-// function limiter(sample, maxAmplitude = threshold) {
-//   if (abs(sample) > maxAmplitude) {
-//     return sample > 0 ? maxAmplitude : -maxAmplitude;
-//   }
-//   return sample;
-// }
-
-// function mix(sample, maxAmplitude = threshold) {
-//   // return sample;
-//   //return compressor(sample, maxAmplitude);
-//   return limiter(compressor(sample, maxAmplitude), maxAmplitude);
-// }
+registerProcessor("speaker-processor", SpeakerProcessor);
 
 class Reverb {
   constructor(sampleRate, delayTime, feedback, mix) {

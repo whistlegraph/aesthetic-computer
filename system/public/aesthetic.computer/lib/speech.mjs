@@ -74,7 +74,7 @@ function speak(words, voice, mode = "local", opts = {}) {
       speakAPI.playSfx(
         id,
         label,
-        { reverse: opts.reverse, pan: opts.pan, volume: opts.volume },
+        { speed: opts.reverse ? -1 : 1, pan: opts.pan, volume: opts.volume },
         () => {
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
         },
@@ -92,8 +92,8 @@ function speak(words, voice, mode = "local", opts = {}) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 8000);
       const host = ``; //window.acDEBUG
-        // ? `` // Just use current host, via `netlify.toml`.
-        // : "https://ai.aesthetic.computer";
+      // ? `` // Just use current host, via `netlify.toml`.
+      // : "https://ai.aesthetic.computer";
 
       fetch(`${host}/api/say`, {
         method: "POST",
