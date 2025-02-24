@@ -249,7 +249,7 @@ async function act({
     btn.down = false;
     const { id, data } = await microphone.cut(); // End recording and get the sample.
     sampleData = data;
-    sample = play(id, { reverse: true, loop: true });
+    sample = play(id, { speed: -1, loop: true });
     capturing = false;
     playing = true;
 
