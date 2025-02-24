@@ -190,7 +190,7 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
             btn.up = false;
             btn.actions.down(btn);
           }
-          console.log("over");
+          // console.log("over");
         },
         out: (btn) => {
           btn.down = false;
