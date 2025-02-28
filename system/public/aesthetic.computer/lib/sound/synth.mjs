@@ -63,7 +63,9 @@ export default class Synth {
     } else if (type === "sample") {
       this.#frequency = null; // 1; // TODO: This could be a low or high pass
       //                                    option here?
+
       this.#sampleData = options.buffer;
+
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
       // console.log("Speed:", this.#sampleSpeed);
@@ -193,7 +195,7 @@ export default class Synth {
           this.#sampleIndex < 0
         ) {
           this.playing = false;
-          // console.log("🛑 Sample finished.");
+          // console.log("🛑 Sample finished.", this.#sampleIndex, this.#sampleEndIndex);
           return 0;
         }
       }
@@ -232,7 +234,7 @@ export default class Synth {
     this.#progress += 1;
     if (this.#progress >= this.#duration) {
       this.playing = false;
-      console.log("🛑 Synth finished.");
+      // console.log("🛑 Synth finished.");
       return 0;
     }
 
@@ -323,8 +325,6 @@ export default class Synth {
         (this.#sampleIndex - this.#sampleStartIndex) /
         (this.#sampleEndIndex - this.#sampleStartIndex)
       );
-
-
     } else {
       return this.#progress / this.#duration;
     }

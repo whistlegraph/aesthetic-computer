@@ -24,59 +24,76 @@ function boot({ api, wipe }) {
 }
 
 let x = 0;
-const lo = 1000,
+const lo = 200,
   hi = 9000;
 
-// ❤️‍🔥 TODO: Ink color is not restored on multiple paints! 
+// ❤️‍🔥 TODO: Ink color is not restored on multiple paints!
 
 let color = "yellow";
 
+let s;
+
 function paint({ api, wipe, ink, help, line, screen, num, sound }) {
   if (mic) {
-    if (mic.amplitude > 0.08 && mic.pitch > lo && mic.pitch < hi) {
-      console.log(mic.pitch, mic.amplitude);
-      const xinc = 10;//num.map(mic.pitch, lo, hi, 1, 5);
+    wipe("blue");
+    ink("white").write("Pitch:" + mic.pitch?.toFixed(2), 32, 32);
+    ink("white").write("Amplitude:" + mic.amplitude?.toFixed(2), 32, 48);
 
-      sound.synth({
-        type: "sine",
-        tone: mic.pitch * 2,
-        duration: 0.04,
-        attack: 0.01,
-        decay: 0.96,
-        volume: 1,
-      });
+    // if (mic.amplitude > 0.08 && mic.pitch > lo && mic.pitch < hi) {
+    // console.log(mic.pitch, mic.amplitude);
+    const xinc = 10; //num.map(mic.pitch, lo, hi, 1, 5);
 
-      if (x > screen.width) {
-        // ink();
-        color = undefined; //help.choose("red", "yellow", "blue");
-        x = 0; //%= screen.width;
+    if (mic.pitch && mic.amplitude) {
+      if (!s) {
+        s = sound.synth({
+          type: "sine",
+          tone: mic.pitch,
+          duration: Infinity,
+          attack: 0.01,
+          decay: 0.96,
+          volume: mic.amplitude * 2,
+        });
+      } else {
+        const tone = mic.pitch;
+        const volume = mic.amplitude * 2;
+        if (tone < Infinity) {
+          s.update({ tone, volume, duration: 0.05 });
+        }
       }
-
-      let cx = x;
-      while (cx < x + xinc) {
-        ink(color).line(cx, 0, cx, screen.height);
-        cx += 1;
-      }
-
-      x += xinc;
-
-      // wipe(127)
-      //   .ink(255)
-      //   .write(mic.pitch.toFixed(2), { center: "xy" })
-      //   .ink("yellow")
-      //   .write(mic.amplitude, { x: 6, y: 20 })
-      //   .ink("red")
-      //   .write(closestNoteFromFreq(mic.pitch), { x: 6, y: 40 });
     }
+
+    if (x > screen.width) {
+      // ink();
+      color = undefined; //help.choose("red", "yellow", "blue");
+      x = 0; //%= screen.width;
+    }
+
+    let cx = x;
+    while (cx < x + xinc) {
+      ink(color).line(cx, 0, cx, screen.height);
+      cx += 1;
+    }
+
+    x += xinc;
+
+    // wipe(127)
+    //   .ink(255)
+    //   .write(mic.pitch.toFixed(2), { center: "xy" })
+    //   .ink("yellow")
+    //   .write(mic.amplitude, { x: 6, y: 20 })
+    //   .ink("red")
+    //   .write(closestNoteFromFreq(mic.pitch), { x: 6, y: 40 });
+    // }
   } else {
     // wipe(196);
   }
 }
 
 // 🎪 Act
-function act({ event: e, sound }) {
+function act({ event: e, sound, params }) {
   if (e.is("touch") && !connected && !connecting) {
-    if (!mic) mic = sound.microphone.connect();
+    if (!mic)
+      mic = sound.microphone.connect({ monitor: params[0] === "monitor" });
     connecting = true;
   }
 
