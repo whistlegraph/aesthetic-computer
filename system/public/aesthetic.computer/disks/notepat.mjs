@@ -700,6 +700,8 @@ function paint({
     const sy = 33;
     const sh = screen.height - sy;
 
+    // console.log(sound.speaker.amplitudes, sound.speaker.waveforms);
+
     paintSound(
       api,
       sound.speaker.amplitudes.left,
