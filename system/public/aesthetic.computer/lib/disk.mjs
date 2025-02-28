@@ -2610,8 +2610,8 @@ class Speaker {
   amplitudes = { left: 0, right: 0 };
 
   poll() {
-    send({ type: "get-tone-waveforms" });
-    send({ type: "get-tone-amplitudes" });
+    send({ type: "get-waveforms" });
+    send({ type: "get-amplitudes" });
   }
 }
 
@@ -4333,12 +4333,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "tone-waveforms") {
+  if (type === "waveforms") {
     speaker.waveforms = content;
     return;
   }
 
-  if (type === "tone-amplitudes") {
+  if (type === "amplitudes") {
     speaker.amplitudes = content;
     return;
   }
