@@ -991,12 +991,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         speakerProcessor.port.onmessage = ({ data: msg }) => {
           if (msg.type === "waveforms") {
-            send({ type: "speaker-waveforms", content: msg.content });
+            send({ type: "waveforms", content: msg.content });
             return;
           }
 
           if (msg.type === "amplitudes") {
-            send({ type: "speaker-amplitudes", content: msg.content });
+            send({ type: "amplitudes", content: msg.content });
             return;
           }
 
@@ -2970,12 +2970,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "get-speaker-waveforms") {
+    if (type === "get-waveforms") {
       requestSpeakerWaveforms?.();
       return;
     }
 
-    if (type === "get-speaker-amplitudes") {
+    if (type === "get-amplitudes") {
       requestSpeakerAmplitudes?.();
       return;
     }
