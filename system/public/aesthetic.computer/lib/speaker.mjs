@@ -26,6 +26,8 @@ const delayTime = 0.1; // 200ms delay
 const feedback = 0.4; // 50% feedback
 const mix = 0.25; // 30% wet/dry mix
 
+const sampleStore = {}; // A global store for sample buffers previously added.
+
 class SpeakerProcessor extends AudioWorkletProcessor {
   // TODO: Fix current Firefox bug with private fields: https://bugzilla.mozilla.org/show_bug.cgi?id=1435826
   #ticks;
@@ -169,6 +171,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             // Read the 'from' and 'to' values from msg.data.options here which
             // range from 0->1 to determine the start and stop inside of the sample
             // buffer.
+
+            if (typeof data.options.buffer === "string") {
+              data.options.buffer = sampleStore[data.options.buffer];
+            } else {
+              sampleStore[data.options.label] = data.options.buffer;
+            }
 
             // Ensure 'from' and 'to' are within the valid range [0,1]
             let from = clamp(data.options.from || 0, 0, 1);

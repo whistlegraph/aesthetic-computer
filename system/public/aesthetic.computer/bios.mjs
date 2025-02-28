@@ -602,6 +602,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const sfx = {}; // Buffers of sound effects that have been loaded.
   const sfxPlaying = {}; // Sound sources that are currently playing.
+  const sfxLoaded = {}; // Sound sources that have been buffered and loaded.
+
+  // const sfX // ...
+
   const sfxCancel = [];
   speakAPI.sfx = sfx;
   // TODO: Some of these need to be kept (like system ones) and others need to
@@ -750,8 +754,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Microphone Input Processor
     // (Gets attached via a message from the running disk.)
     attachMicrophone = async (data) => {
-      // if (navigator.audioSession)
-      //   navigator.audioSession.type = "play-and-record";
+
       if (navigator.audioSession)
         navigator.audioSession.type = "play-and-record"; //play-and-record";
 
@@ -760,7 +763,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echocancellation: false, // put this behind a flag?
+            echocancellation: true, // put this behind a flag?
             latency: 0,
             noisesuppression: false,
             autogaincontrol: false,
@@ -1072,27 +1075,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         channels.push(sfx[soundData].getChannelData(i)); // Get raw Float32Array.
       }
 
-      // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
-      //          keep being sent on every playthrough. 25.02.15.08.22
-
       const sample = {
         channels,
         sampleRate: sfx[soundData].sampleRate,
         length: sfx[soundData].length,
       };
 
-      // console.log("🔵 READY TO PLAY SAMPLE:", sample);
-      // console.log(((sample.length / sample.sampleRate) * sound.bpm) / 60);
+      // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
+      //          keep being sent on every playthrough. 25.02.15.08.22
 
-      // TODO: Deprecate the `reverse` option.
-
-      // TODO: Add the ID to the data here.
+      // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
       sfxPlaying[id] = triggerSound?.({
         id,
         type: "sample",
         options: {
-          buffer: sample,
+          buffer: sfxLoaded[soundData] ? soundData : sample, // Alternatively send a memoized code using a lookup table.
+          label: soundData,
           from: isFinite(options?.from) ? options.from : 0,
           to: isFinite(options?.to) ? options.to : 1,
           speed: isFinite(options?.speed) ? options.speed : 1,
@@ -1105,195 +1104,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
-      // const buffer = sfx[sound];
+      if (triggerSound) sfxLoaded[soundData] = true;
 
-      // If decoding has failed or no sound is present then silently fail.
-      // const gainNode = audioContext.createGain();
-      // gainNode.gain.value = options?.volume !== undefined ? options.volume : 1;
-
-      // const panNode = audioContext.createStereoPanner();
-      // panNode.pan.value = options?.pan || 0; // -1 for left, 0 for center, 1 for right
-
-      // let source = audioContext.createBufferSource();
-
-      // source.buffer = buffer;
-
-      /*
-      if (options?.from || options?.to || options?.reverse || options?.pitch) {
-        let fromVal = options?.from ?? 0;
-        let toVal = options?.to ?? 1;
-        let shouldReverse = !!options?.reverse;
-
-        if (fromVal > toVal) {
-          [fromVal, toVal] = [toVal, fromVal];
-          shouldReverse = true;
-        }
-
-        const startSample = Math.floor(fromVal * buffer.length);
-        const endSample = Math.floor(toVal * buffer.length);
-        const length = endSample - startSample;
-        const tempBuffer = audioContext.createBuffer(
-          buffer.numberOfChannels,
-          length,
-          buffer.sampleRate,
-        );
-
-        for (let i = 0; i < buffer.numberOfChannels; i++) {
-          const originalData = buffer
-            .getChannelData(i)
-            .subarray(startSample, endSample);
-          let tempData = new Float32Array(originalData);
-
-          if (shouldReverse) {
-            tempData.reverse();
-          }
-
-          if (options?.pitch) {
-            const targetPitchHz = options.pitch;
-            const originalPitchHz = computeOriginalPitch(
-              buffer,
-              buffer.sampleRate / 10,
-            );
-            const pitchFactor = targetPitchHz / originalPitchHz;
-            const newLength = Math.floor(tempData.length / pitchFactor);
-            const resampledData = new Float32Array(newLength);
-
-            for (let j = 0; j < newLength; j++) {
-              const sourceIndex = j * pitchFactor;
-              const leftIndex = Math.floor(sourceIndex);
-              const rightIndex = Math.min(leftIndex + 1, tempData.length - 1);
-              const t = sourceIndex - leftIndex;
-              resampledData[j] =
-                (1 - t) * tempData[leftIndex] + t * tempData[rightIndex];
-            }
-
-            tempData = resampledData;
-          }
-
-          tempBuffer.copyToChannel(tempData, i);
-        }
-
-        source.buffer = tempBuffer;
-      } else {
-        source.buffer = buffer;
-      }
-      */
-
-      // let paused = false;
-
-      // function connect() {
-      //   if (options?.loop) source.loop = true;
-      //   source.connect(panNode);
-      //   panNode.connect(gainNode);
-      //   if (!options?.stream) gainNode.connect(speakerGain);
-      //   gainNode.connect(options?.stream || sfxStreamGain);
-      //   source.addEventListener("ended", () => {
-      //     source.disconnect();
-      //     gainNode.disconnect();
-      //     panNode.disconnect();
-      //     completed?.();
-      //     if (paused === false) delete sfxPlaying[id];
-      //   });
-      // }
-
-      // connect();
-      // if (debug && logs.audio) console.log("🔈 Playing:", sound);
-      // let startTime = audioContext.currentTime;
-      // source.start();
-      // let pausedAt;
-
-      /*
-      sfxPlaying[id] = {
-        currentPitch: 1, // Default playback rate (no shift)
-        lastUpdateTime: audioContext.currentTime, // Time of last pitch change
-        adjustedStartTime: 0, // Adjusted elapsed time tracker
-
-        kill: (fade = 0) => {
-          if (debug && logs.audio) console.log("🔈 Killing...", id);
-          if (fade > 0) {
-            const now = audioContext.currentTime;
-            gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-            gainNode.gain.linearRampToValueAtTime(0, now + fade);
-            setTimeout(() => {
-              source.disconnect();
-              gainNode.disconnect();
-              panNode.disconnect();
-              delete sfxPlaying[id];
-            }, fade * 1000);
-          } else {
-            source.disconnect();
-            gainNode.disconnect();
-            panNode.disconnect();
-            delete sfxPlaying[id];
-          }
-        },
-        pause: () => {
-          if (debug && logs.audio) console.log("🔈 Pausing...", id);
-          paused = true;
-          source.stop();
-          pausedAt = audioContext.currentTime - startTime;
-        },
-        resume: () => {
-          if (debug && logs.audio) console.log("🔈 Resuming...", id);
-          paused = false;
-          source.disconnect();
-          gainNode.disconnect();
-          panNode.disconnect();
-          source = audioContext.createBufferSource();
-          source.buffer = buffer;
-          source.playbackRate.value = sfxPlaying[id].currentPitch; // Restore last pitch
-          connect();
-          source.start(0, pausedAt);
-          startTime = audioContext.currentTime - pausedAt;
-        },
-        progress: () => {
-          const now = audioContext.currentTime;
-          const elapsedSinceUpdate =
-            (now - sfxPlaying[id].lastUpdateTime) * sfxPlaying[id].currentPitch;
-
-          // Adjust total elapsed time based on playback speed shifts
-          sfxPlaying[id].adjustedStartTime += elapsedSinceUpdate;
-          sfxPlaying[id].lastUpdateTime = now; // Reset update reference
-
-          const progress = Math.max(
-            0,
-            (sfxPlaying[id].adjustedStartTime % source.buffer.duration) /
-              source.buffer.duration,
-          );
-
-          return { elapsed: sfxPlaying[id].adjustedStartTime, progress };
-        },
-        update: (properties) => {
-          if (properties?.shift !== undefined) {
-            const now = audioContext.currentTime;
-
-            // Apply differential adjustment
-            const shiftFactor = properties.shift;
-            const newPitch = sfxPlaying[id].currentPitch + shiftFactor;
-
-            console.log(
-              "🔈 Updating pitch from:",
-              sfxPlaying[id].currentPitch,
-              "to:",
-              newPitch,
-            );
-
-            // Adjust elapsed tracking before modifying pitch
-            sfxPlaying[id].adjustedStartTime +=
-              (now - sfxPlaying[id].lastUpdateTime) *
-              sfxPlaying[id].currentPitch;
-            sfxPlaying[id].lastUpdateTime = now;
-
-            // Apply new pitch
-            sfxPlaying[id].currentPitch = newPitch;
-            source.playbackRate.setValueAtTime(
-              newPitch,
-              audioContext.currentTime,
-            );
-          }
-        },
-      };
-      */
     }
   }
 
