@@ -1478,6 +1478,7 @@ const $commonApi = {
     any: help.any,
     anyIndex: help.anyIndex,
     anyKey: help.anyKey,
+    resampleArray: help.resampleArray,
     each: help.each,
     shuffleInPlace: help.shuffleInPlace,
     serializePainting: (painting) => {
@@ -2607,7 +2608,7 @@ class Microphone {
 
 class Speaker {
   waveforms = { left: [], right: [] };
-  amplitudes = { left: 0, right: 0 };
+  amplitudes = { left: [], right: [] };
 
   poll() {
     send({ type: "get-waveforms" });

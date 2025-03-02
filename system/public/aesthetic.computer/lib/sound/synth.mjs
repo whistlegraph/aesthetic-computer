@@ -10,7 +10,7 @@ export default class Synth {
   fadeProgress;
   fadeDuration;
 
-  #type; // square, sine, triangle, sawtooth, sample, noise-white
+  type; // square, sine, triangle, sawtooth, sample, noise-white
 
   #phase = 0;
   #frequency;
@@ -48,7 +48,7 @@ export default class Synth {
 
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
     // console.log("New Synth:", arguments);
-    this.#type = type;
+    this.type = type;
     if (id === undefined || id === null || id === NaN)
       console.warn("⏰ No id for sound:", id, type);
     this.id = id;
@@ -98,7 +98,7 @@ export default class Synth {
 
     this.#attack = attack;
 
-    this.#duration = this.#type === "sample" ? Infinity : duration;
+    this.#duration = this.type === "sample" ? Infinity : duration;
     // if (this.#type === "sample") console.log("⏱️ Sample duration:", this.#duration);
 
     this.#decay = decay;
@@ -130,7 +130,7 @@ export default class Synth {
 
     // 🎸🎙️ Waveform Sources 🎹
     let value;
-    if (this.#type === "square") {
+    if (this.type === "square") {
       // 🟥 Square Wave
       this.#step += 1;
       if (this.#step >= this.#wavelength) {
@@ -138,7 +138,7 @@ export default class Synth {
         this.#step -= this.#wavelength;
       }
       value = this.#up ? 1 : -1;
-    } else if (this.#type === "sine") {
+    } else if (this.type === "sine") {
       // 🟣 Sine Wave
       // Generate using a 'Phase Increment' method.
       const increment = (2 * PI * this.#frequency) / sampleRate;
@@ -147,22 +147,22 @@ export default class Synth {
         this.#phase -= 2 * PI;
       }
       value = sin(this.#phase);
-    } else if (this.#type === "triangle") {
+    } else if (this.type === "triangle") {
       // 📐 Triangle Wave
       const stepSize = 4 / this.#wavelength;
       value = 1 - abs((this.#step % this.#wavelength) * stepSize - 2);
       this.#step += 1;
       if (this.#step >= this.#wavelength) this.#step = 0;
-    } else if (this.#type === "sawtooth") {
+    } else if (this.type === "sawtooth") {
       // 🪚 Sawtooth Wave
       value = 2 * (this.#step / this.#wavelength) - 1;
       this.#step += 1;
       if (this.#step >= this.#wavelength) this.#step = 0;
-    } else if (this.#type === "noise-white") {
+    } else if (this.type === "noise-white") {
       // 🌊  White Noise
       value = random() * 2 - 1;
       // 🚩 TODO: Also add pink and brownian noise.
-    } else if (this.#type === "sample") {
+    } else if (this.type === "sample") {
       const bufferData = this.#sampleData.channels[0];
 
       // const index = floor(this.#sampleIndex);
@@ -180,14 +180,15 @@ export default class Synth {
       value = bufferData[floor(this.#sampleIndex)];
 
       this.#sampleIndex += this.#sampleSpeed;
-
-      // console.log(this.#sampleIndex);
-
       // Handle looping and stopping
       if (this.#sampleLoop) {
-        this.#sampleIndex =
-          ((this.#sampleIndex + this.#sampleEndIndex) % this.#sampleEndIndex) -
-          this.#sampleStartIndex;
+        if (this.#sampleIndex > this.#sampleEndIndex) {
+          this.#sampleIndex =
+            this.#sampleStartIndex + (this.#sampleIndex % this.#sampleEndIndex); // Loop forwards. ➡️
+        } else if (this.#sampleIndex < this.#sampleStartIndex) {
+          this.#sampleIndex =
+            this.#sampleEndIndex - (this.#sampleStartIndex - this.#sampleIndex); // Loop backwards. ⬅️
+        }
       } else {
         // console.log(this.#sampleIndex, this.#sampleEndIndex);
         if (
@@ -313,7 +314,7 @@ export default class Synth {
 
   // Return an integer from 0->1 representing the progress of this sound so far.
   progress() {
-    if (this.#type === "sample") {
+    if (this.type === "sample") {
       // return this.#progress;
       // this.#sampleIndex // current index
       // this.#sampleData.length // total length
