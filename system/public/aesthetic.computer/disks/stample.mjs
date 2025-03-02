@@ -6,12 +6,9 @@
     - [❤️‍🔥] This will require a fading mechanism similar to the synth?
 
   - [] Add a subtle attack and decay to sample playback. 
-  - [] 
     - [] Wait until mouse moves one delta y pixel to determine sample playback
          direction.
   - [] Add ability to shift / scroll.
-
-
   - [] Automatically dip the max volume if multiple samples are playing.
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
@@ -31,18 +28,22 @@ const { abs } = Math;
 const BUTTON_LABEL_CONNECTING = "Wait...";
 const menuHeight = 32;
 const labelHeight = 24;
+const maxPats = 10;
+
+let loop = true; // Global setting.
 
 // System
 let sfx,
   btns = [],
-  pats = 3,
+  pats = 1,
   anyDown = false,
   sampleId,
   sampleData,
   mic,
   micRecordButton,
   micRecordButtonLabel = "Connect",
-  micConnected = false;
+  micConnected = false,
+  patsButton;
 
 const sounds = [],
   progressions = [];
@@ -51,6 +52,8 @@ const keyToSfx = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 0: 9 };
 const sfxToKey = Object.fromEntries(
   Object.entries(keyToSfx).map(([key, index]) => [index, Number(key)]),
 );
+
+const { floor } = Math;
 
 async function boot({
   net: { preload },
@@ -69,6 +72,8 @@ async function boot({
   micRecordButton = new ui.Button(0, screen.height - 32, 64, 32);
   mic = microphone; // Microphone access.
 
+  patsButton = new ui.Button(screen.width - 24, 0, 24, labelHeight - 1);
+
   if (mic.permission === "granted" && enabled()) {
     // TODO: Also check to see if we have a working audioContext yet here...
     micRecordButtonLabel = BUTTON_LABEL_CONNECTING;
@@ -83,14 +88,17 @@ async function boot({
   });
 }
 
-function sim() {
+function sim({ sound }) {
   sounds.forEach((sound, index) => {
-    sound?.progress().then((p) => (progressions[index] = p.progress)); // Get progress data.
+    // Get progress data.
+    sound?.progress().then((p) => (progressions[index] = p.progress));
   });
+
   mic?.poll(); // Query for updated amplitude and waveform data.
+  sound.speaker?.poll();
 }
 
-function paint({ api, wipe, ink, screen, num, text }) {
+function paint({ api, wipe, ink, sound, screen, num, text, help }) {
   if (mic.recording) {
     wipe("red");
   } else {
@@ -100,6 +108,7 @@ function paint({ api, wipe, ink, screen, num, text }) {
     btn.paint(() => {
       ink(btn.down ? "white" : "cyan").box(btn.box); // Paint box a teal color.
       ink("black").box(btn.box, "out"); // Outline in black.
+
       if (progressions[index]) {
         ink("red", 64).box(
           btn.box.x,
@@ -107,7 +116,11 @@ function paint({ api, wipe, ink, screen, num, text }) {
           btn.box.w,
           -btn.box.h * progressions[index],
         );
+
+        const y = btn.box.y + btn.box.h * (1 - progressions[index]);
+        ink("white").line(0, y, btn.box.x + btn.box.w, y);
       }
+
       ink("black").write(
         sfxToKey[btns.length - 1 - index],
         btn.box.x + 4,
@@ -143,7 +156,24 @@ function paint({ api, wipe, ink, screen, num, text }) {
     });
   });
 
-  ink("white").write(pats, { right: 6, top: 6 });
+  patsButton.paint((btn) => {
+    ink("yellow", btn.down ? 128 : 64).box(btn.box);
+  });
+
+  ink("white").write(pats, { right: pats > 9 ? 6 : 8, top: 6 });
+
+  // console.log(sound.speaker.amplitudes.left);
+
+  paintSound(
+    api,
+    sound.speaker.amplitudes.left,
+    help.resampleArray(sound.speaker.waveforms.left, 128),
+    54,
+    0,
+    64,
+    24 - 1,
+    [255, 0, 0, 255],
+  );
 
   // Paint waveForm...
 
@@ -171,7 +201,7 @@ function paint({ api, wipe, ink, screen, num, text }) {
 
 let reverse = false;
 
-function act({ event: e, sound, pens, screen, ui, notice }) {
+function act({ event: e, sound, pens, screen, ui, notice, beep }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
 
   btns.forEach((btn, index) => {
@@ -183,7 +213,7 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
         down: (btn) => {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
-          sounds[index] = sound.play(sampleId, { from, to, reverse });
+          sounds[index] = sound.play(sampleId, { from, to, reverse, loop });
         },
         over: (btn) => {
           if (btn.up && anyDown) {
@@ -231,8 +261,16 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
         const { id, data } = await sound.microphone.cut(); // Get the sample.
         sampleData = data;
         sampleId = id;
+        console.log("🎤 Microphone sample id:", sampleId);
       }
     },
+  });
+
+  patsButton?.act(e, () => {
+    pats += 1;
+    beep();
+    if (pats > maxPats) pats = 1;
+    genPats({ screen, ui });
   });
 
   if (e.is("microphone-connect:failure")) {
@@ -267,12 +305,13 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
 
   if (e.is("keyboard:down:arrowdown")) {
     pats -= 1;
-    if (pats < 0) pats = 0;
+    if (pats < 1) pats = 1;
     genPats({ screen, ui });
   }
 
   if (e.is("keyboard:down:arrowup")) {
     pats += 1;
+    if (pats > maxPats) pats = 1;
     genPats({ screen, ui });
   }
 
@@ -280,6 +319,7 @@ function act({ event: e, sound, pens, screen, ui, notice }) {
     genPats({ screen, ui });
     // micRecordButton.reposition()
     micRecordButton.box.y = screen.height - 32; // = new ui.Button(0, screen.height - 32, 32, 32);
+    patsButton.box.x = screen.width - patsButton.box.w; // = new ui.Button(0, screen.height - 32, 32, 32);
   }
 }
 
@@ -312,10 +352,8 @@ function paintSound(
   color,
   options,
 ) {
-  // console.log(amplitude, waveform.length);
-
+  if (waveform?.length < 1) return;
   const direction = options?.direction || "left-to-right";
-
   if (direction === "left-to-right") {
     const xStep = width / (waveform.length - 1);
 
@@ -324,7 +362,7 @@ function paintSound(
 
     ink("yellow", 128).poly(
       waveform.map((v, i) => {
-        const p = [x + i * xStep, yMid + v * yMax];
+        const p = [x + i * xStep, yMid + (v || 0) * yMax];
         return p;
       }),
     );
@@ -335,7 +373,7 @@ function paintSound(
 
     ink("blue", 128).poly(
       waveform.map((v, i) => {
-        const p = [xMid + v * xMax, y + height - i * yStep];
+        const p = [xMid + (v || 0) * xMax, y + height - i * yStep];
         return p;
       }),
     );
