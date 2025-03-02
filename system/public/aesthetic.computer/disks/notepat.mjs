@@ -590,6 +590,7 @@ function paint({
   box,
   sound,
   typeface,
+  help,
   num,
   layer,
   paste,
@@ -619,7 +620,7 @@ function paint({
 
     pictureLines(api, {
       amplitude: sound.speaker.amplitudes.left,
-      waveforms: resampleArray(sound.speaker.waveforms.left, scope),
+      waveforms: help.resampleArray(sound.speaker.waveforms.left, scope),
     });
 
     // wipe(0);
@@ -705,7 +706,7 @@ function paint({
     paintSound(
       api,
       sound.speaker.amplitudes.left,
-      resampleArray(sound.speaker.waveforms.left, scope),
+      help.resampleArray(sound.speaker.waveforms.left, scope),
       0,
       sy,
       screen.width, // width
@@ -727,7 +728,7 @@ function paint({
     paintSound(
       api,
       sound.speaker.amplitudes.left,
-      resampleArray(sound.speaker.waveforms.left, scope),
+      help.resampleArray(sound.speaker.waveforms.left, scope),
       54, //0,
       sy, //sy,
       availableWidth,
@@ -2078,17 +2079,6 @@ function paintSound(
 
   // const my = screen.height - mic.amplitude * screen.height;
   // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
-}
-
-// Resize an array by taking samples at equal intervals, with no interpolation.
-function resampleArray(inputArray, newLength) {
-  const inputLength = inputArray.length;
-  const outputArray = [];
-  for (let i = 0; i < newLength; i++) {
-    const index = floor((i / newLength) * inputLength);
-    outputArray.push(inputArray[index]);
-  }
-  return outputArray;
 }
 
 // Average an array of [[r, g, b], [r, g, b]] values.
