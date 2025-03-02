@@ -81,3 +81,14 @@ export function findKeyAndValue(obj, k, v) {
 export function nonvalue(i) {
   return i === undefined || i === null || isNaN(i);
 }
+
+// Resize an array by taking samples at equal intervals, with no interpolation.
+export function resampleArray(inputArray, newLength) {
+  const inputLength = inputArray.length;
+  const outputArray = [];
+  for (let i = 0; i < newLength; i++) {
+    const index = floor((i / newLength) * inputLength);
+    outputArray.push(inputArray[index]);
+  }
+  return outputArray;
+}

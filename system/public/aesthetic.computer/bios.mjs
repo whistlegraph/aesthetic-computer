@@ -820,7 +820,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // console.log("Recording complete:", msg.content);
           // Turn this into a sample with a playback ID here and send
           // the sample ID back.
-          const id = "microphone-recording";
+          const id = "microphone-recording" + "_" + performance.now();
 
           //if (debug)
           //  console.log("🔈 Buffer length:", msg.content.recording?.length);
@@ -1095,7 +1095,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           from: isFinite(options?.from) ? options.from : 0,
           to: isFinite(options?.to) ? options.to : 1,
           speed: isFinite(options?.speed) ? options.speed : 1,
-          loop: false,
+          loop: options?.loop || false,
         },
         // options: { buffer: sample },
         // ⏰ TODO: If duration / 'beats' is not specified then use speed.

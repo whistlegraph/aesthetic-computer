@@ -332,7 +332,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             (1 - instrument.fadeProgress / instrument.fadeDuration);
         } else {
           // console.log(instrument, "Volume:", instrument.volume)
-          voices += instrument.volume; //instrument.volume;
+          if (instrument.type !== "sample") {
+            voices += instrument.volume; // instrument.volume;
+          }
         }
       }
 
