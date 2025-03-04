@@ -2,17 +2,19 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [] Add live pitch shifting to the board by swiping left or right,
-    - [❤️‍🔥] This will require a fading mechanism similar to the synth?
-
+  - [] Paint a line from each pen start point to the current point.
+  - [] Add loop toggle / switch?
   - [] Add a subtle attack and decay to sample playback. 
-    - [] Wait until mouse moves one delta y pixel to determine sample playback
-         direction.
-  - [] Add ability to shift / scroll.
+  - [] Wait until mouse moves one delta y pixel to determine sample playback
+        direction.
+  - [] Add ability to shift / scroll start and end points.
   - [] Automatically dip the max volume if multiple samples are playing.
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
   + Done
+  - [x] Add `paintSound` to the disk library / make a really good abstraction for
+        that.
+  - [x] Add live pitch shifting / speed.
   - [x] Show the state of the microphone connection, recording and disconnect
          process.
   - [x] Show a tiny waveform in the record button for live feedback.
@@ -31,6 +33,7 @@ const labelHeight = 24;
 const maxPats = 10;
 
 let loop = true; // Global setting.
+let reverse = false;
 
 // System
 let sfx,
@@ -69,7 +72,7 @@ async function boot({
   if (params[0]) pats = parseInt(params[0]);
   sampleId = await preload(name);
   genPats({ screen, ui });
-  micRecordButton = new ui.Button(0, screen.height - 32, 64, 32);
+  micRecordButton = new ui.Button(0, screen.height - 31, 64, 31);
   mic = microphone; // Microphone access.
 
   patsButton = new ui.Button(screen.width - 24, 0, 24, labelHeight - 1);
@@ -98,7 +101,7 @@ function sim({ sound }) {
   sound.speaker?.poll();
 }
 
-function paint({ api, wipe, ink, sound, screen, num, text, help }) {
+function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
   if (mic.recording) {
     wipe("red");
   } else {
@@ -143,7 +146,7 @@ function paint({ api, wipe, ink, sound, screen, num, text, help }) {
 
       // Graph microphone (1 channel)
       if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
-        paintSound(
+        sound.paint.waveform(
           api,
           mic.amplitude,
           mic.waveform,
@@ -164,28 +167,21 @@ function paint({ api, wipe, ink, sound, screen, num, text, help }) {
 
   // console.log(sound.speaker.amplitudes.left);
 
-  paintSound(
+  const availableWidth = patsButton.box.x - 54;
+
+  sound.paint.bars(
     api,
     sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 128),
+    help.resampleArray(sound.speaker.waveforms.left, 16),
     54,
     0,
-    64,
-    24 - 1,
+    availableWidth,
+    24 - 2,
     [255, 0, 0, 255],
   );
 
-  // Paint waveForm...
-
-  // Microphone Waveform & Amplitude Line
-  // if (/*!playing && !connecting*/) {
-  //   // Graph microphone (1 channel)
-  //   if (mic?.waveform.length > 0 && mic?.amplitude !== undefined) {
-  //     paintSound(api, mic.amplitude, mic.waveform, 0, 0, width, height);
-  //   }
-
   if (sampleData) {
-    paintSound(
+    sound.paint.waveform(
       api,
       num.arrMax(sampleData),
       num.arrCompress(sampleData, 256), // 🔴 TODO: This could be made much faster.
@@ -197,9 +193,20 @@ function paint({ api, wipe, ink, sound, screen, num, text, help }) {
       { direction: "bottom-to-top" },
     );
   }
-}
 
-let reverse = false;
+  if (pens()) {
+    pens().forEach((p) => {
+      if (p.dragBox) {
+        ink().line(
+          p.dragBox.left,
+          p.dragBox.top,
+          p.dragBox.x + p.dragBox.w,
+          p.dragBox.y + p.dragBox.h,
+        );
+      }
+    });
+  }
+}
 
 function act({ event: e, sound, pens, screen, ui, notice, beep }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
@@ -214,20 +221,22 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
           sounds[index] = sound.play(sampleId, { from, to, reverse, loop });
+          // TODO: Figure out a cool attack and decay on these.
         },
         over: (btn) => {
-          if (btn.up && anyDown) {
-            btn.up = false;
-            btn.actions.down(btn);
-          }
+          // if (btn.up && anyDown) {
+          //  btn.up = false;
+          //  btn.actions.down(btn);
+          // }
           // console.log("over");
         },
         out: (btn) => {
-          btn.down = false;
-          btn.actions.up(btn);
+          // btn.down = false;
+          // btn.actions.up(btn);
         },
         up: (btn) => {
           // if (downs[note]) return false;
+          sounds[index]?.kill(0.1);
         },
         scrub: (btn) => {
           // if (abs(e.delta.y) > 0) {
@@ -236,7 +245,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // }
           if (abs(e.delta.y) > 0) {
             // console.log(`Pitch shift ${index}:`, e.delta.x);
-            sounds[index]?.update({ shift: 0.01 * -e.delta.y });
+            sounds[index]?.update({ shift: 0.03 * -e.delta.y });
             // sound.play(startupSfx, { pitch: freq(tone) });
           }
         },
@@ -305,13 +314,15 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
 
   if (e.is("keyboard:down:arrowdown")) {
     pats -= 1;
-    if (pats < 1) pats = 1;
+    if (pats < 1) pats = maxPats;
+    beep();
     genPats({ screen, ui });
   }
 
   if (e.is("keyboard:down:arrowup")) {
     pats += 1;
     if (pats > maxPats) pats = 1;
+    beep();
     genPats({ screen, ui });
   }
 
@@ -337,47 +348,5 @@ function genPats({ screen, ui }) {
       width = screen.width,
       height = strip;
     btns.push(new ui.Button(x, y, width, height));
-  }
-}
-
-// Paints a waveform with a bounding box based on amplitude.
-function paintSound(
-  { ink },
-  amplitude,
-  waveform,
-  x,
-  y,
-  width,
-  height,
-  color,
-  options,
-) {
-  if (waveform?.length < 1) return;
-  const direction = options?.direction || "left-to-right";
-  if (direction === "left-to-right") {
-    const xStep = width / (waveform.length - 1);
-
-    const yMid = y + height / 2,
-      yMax = height / 2;
-
-    ink("yellow", 128).poly(
-      waveform.map((v, i) => {
-        const p = [x + i * xStep, yMid + (v || 0) * yMax];
-        return p;
-      }),
-    );
-  } else if (direction === "bottom-to-top") {
-    const yStep = height / (waveform.length - 1);
-    const xMid = x + width / 2,
-      xMax = width;
-
-    ink("blue", 128).poly(
-      waveform.map((v, i) => {
-        const p = [xMid + (v || 0) * xMax, y + height - i * yStep];
-        return p;
-      }),
-    );
-  } else {
-    console.warn("🌊 Unsupported direction.");
   }
 }

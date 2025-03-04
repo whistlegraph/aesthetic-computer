@@ -199,7 +199,8 @@ class Button {
       btn.over = true;
     }
 
-    if (e.is(`draw:${t}`) && btn.over && btn.box.contains(e)) {
+    if (e.is(`draw:${t}`) && /*btn.over*/ btn.down && btn.box.contains(e.drag)) {
+      // console.log(e);
       callbacks.scrub?.(btn);
     }
 
