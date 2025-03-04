@@ -634,11 +634,11 @@ function paint({
     wipe(bg);
 
     if (slide) {
-      ink(undefined).write("slide", {right: 4, top: 24});
+      ink(undefined).write("slide", { right: 4, top: 24 });
     }
-    
+
     if (quickFade) {
-      ink(undefined).write("quick", {left: 6, top: 24});
+      ink(undefined).write("quick", { left: 6, top: 24 });
     }
   }
 
@@ -703,7 +703,7 @@ function paint({
 
     // console.log(sound.speaker.amplitudes, sound.speaker.waveforms);
 
-    paintSound(
+    sound.paint.bars(
       api,
       sound.speaker.amplitudes.left,
       help.resampleArray(sound.speaker.waveforms.left, scope),
@@ -712,7 +712,7 @@ function paint({
       screen.width, // width
       sh, // height
       [255, 0, 0, 255],
-      { noamp: true },
+      { noamp: true, primaryColor, secondaryColor },
     );
     //ink("yellow").write(scope, 6, sy + sh + 5);
     ink("yellow").write(scope, 50 + 4, 6);
@@ -725,7 +725,7 @@ function paint({
     // const leftOfWav = wavBtn.box.x
     const availableWidth = waveBtn.box.x - 54;
 
-    paintSound(
+    sound.paint.bars(
       api,
       sound.speaker.amplitudes.left,
       help.resampleArray(sound.speaker.waveforms.left, scope),
@@ -735,12 +735,15 @@ function paint({
       //screen.width, // width
       sh, // height
       [255, 0, 0, 255],
+      { primaryColor, secondaryColor },
     );
 
     // ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
   }
+
+  updateTheme({ num });
 
   if (tap) {
     ink("yellow");
@@ -992,12 +995,21 @@ function act({
     upperOctaveShift -= 1;
   }
 
-
-  if (e.is("keyboard:down") && !e.repeat && e.key === "Shift" && e.code === "ShiftLeft") {
+  if (
+    e.is("keyboard:down") &&
+    !e.repeat &&
+    e.key === "Shift" &&
+    e.code === "ShiftLeft"
+  ) {
     quickFade = !quickFade;
   }
 
-  if (e.is("keyboard:down") && !e.repeat && e.key === "Shift" && e.code === "ShiftRight") {
+  if (
+    e.is("keyboard:down") &&
+    !e.repeat &&
+    e.key === "Shift" &&
+    e.code === "ShiftRight"
+  ) {
     // console.log("Code:", e.code);
     slide = !slide;
 
@@ -1814,10 +1826,10 @@ function act({
 
           if (sounds[buttonNote]?.sound) {
             const fade = max(
-              0.075,//0.175,
+              0.075, //0.175,
               min(
                 (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
-                0.15,//0.45,
+                0.15, //0.45,
               ),
             );
             // console.log("🦋 Fade length:", fade);
@@ -1999,46 +2011,10 @@ let lastAverage = [0, 0, 0];
 let lastActive = null;
 let activeStr;
 
-function paintSound(
-  { ink, box, screen, num },
-  amplitude,
-  waveform,
-  x,
-  y,
-  width,
-  height,
-  color,
-  options = { noamp: false },
-) {
-  const yMid = round(y + (height - 2) / 2),
-    yMax = round((height - 2) / 2);
-  let lw = options.noamp ? 0 : 4; // levelWidth;
-  const xStep = (width - lw) / waveform.length;
-
-  // Vertical bounds.
-  ink("yellow")
-    .line(x + lw, y, x + width - 1, y)
-    .line(x + lw, y + height, x + width - 1, y + height);
-
-  // Level meter.
-  if (!options.noamp) {
-    ink("black").box(x, y, lw, height + 1);
-    ink("green").box(x, y + height, lw, -amplitude * height);
-  }
-
-  // Filled waveform
-  const waves = waveform.map((v, i) => {
-    if (v < -1) v = -1;
-    if (v > 1) v = 1;
-    return [x + lw + i * xStep, yMid + v * yMax];
-  });
-
-  ink(secondaryColor || "black").box(x + lw, y + 1, width - lw, height - 1);
-
+function updateTheme({ num }) {
+  let colors = ["red"];
   const active = orderedByCount(sounds);
   activeStr = active.join("");
-
-  let colors = ["red"];
 
   if (activeStr.length > 0 && activeStr !== lastActive) {
     lastActive = activeStr;
@@ -2047,38 +2023,7 @@ function paintSound(
     lastAverage = currentAverage;
     currentAverage = average;
   }
-
   // lerp the primary color to the current average.
-
-  ink(primaryColor);
-
-  let remainder = 0;
-  let totalWidthCovered = 0;
-
-  waves.forEach((point, index) => {
-    let bx = x + lw + totalWidthCovered;
-    if (bx >= x + width) return;
-    // Compute the pixel-aligned width for the current bar.
-    let barWidth = Math.floor(xStep + remainder);
-    remainder = (xStep + remainder) % 1; // Collect the fractional remainder.
-    // Ensure we don't exceed the full width for the last bar.
-    if (index === waves.length - 1 || bx + barWidth >= x + width)
-      barWidth = x + width - bx;
-    box(bx, y + point[1] + 1 - y, barWidth, y + (height - 1) - point[1]);
-    totalWidthCovered += barWidth;
-  });
-
-  // Waveform
-  // ink("lime", 255).poly(
-  //   waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]),
-  // );
-
-  // TODO: Fill a point above this line and below.
-  // ink("blue").flood(x + 7, y + 1);
-  // ink("teal").flood(x + 7, y + height - 2);
-
-  // const my = screen.height - mic.amplitude * screen.height;
-  // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
 }
 
 // Average an array of [[r, g, b], [r, g, b]] values.
