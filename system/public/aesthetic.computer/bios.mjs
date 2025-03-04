@@ -944,8 +944,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 content: sound.id,
               });
             },
-            kill: () => {
-              killSound(...arguments);
+            kill: (fade) => {
+              killSound(sound.id, fade);
             },
             update: (properties) => {
               // console.log(
