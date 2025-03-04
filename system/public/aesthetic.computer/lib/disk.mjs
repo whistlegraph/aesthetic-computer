@@ -4851,7 +4851,6 @@ async function makeFrame({ data: { type, content } }) {
         const finalFreq = frequency * Math.pow(2, octave);
         return finalFreq;
       },
-
       // Calculate a musical note from a frequency.
       note: function (frequency) {
         let closestNote = "",
@@ -4869,10 +4868,10 @@ async function makeFrame({ data: { type, content } }) {
 
         return closestNote.toUpperCase();
       },
-
       // MIDI
       midi: {
         connect: () => send({ type: "midi:connect" }),
+        // Convert MIDI note number to note string
         note: function (midiNumber) {
           const noteNames = [
             "C",
@@ -4893,7 +4892,127 @@ async function makeFrame({ data: { type, content } }) {
           return noteNames[noteIndex] + octave;
         },
       },
-      // Convert MIDI note number to note string
+      // Rendering
+      paint: {
+        bars: function paintSound(
+          { ink, box, screen, num },
+          amplitude,
+          waveform,
+          x,
+          y,
+          width,
+          height,
+          color,
+          options = { noamp: false },
+        ) {
+          const yMid = round(y + (height - 2) / 2),
+            yMax = round((height - 2) / 2);
+          let lw = options.noamp ? 0 : 4; // levelWidth;
+          const xStep = (width - lw) / waveform.length;
+
+          // Vertical bounds.
+          ink("yellow")
+            .line(x + lw, y, x + width - 1, y)
+            .line(x + lw, y + height, x + width - 1, y + height);
+
+          // Level meter.
+          if (!options.noamp) {
+            ink("black").box(x, y, lw, height + 1);
+            ink("green").box(x, y + height, lw, -amplitude * height);
+          }
+
+          // Filled waveform
+          const waves = waveform.map((v, i) => {
+            if (v < -1) v = -1;
+            if (v > 1) v = 1;
+            return [x + lw + i * xStep, yMid + v * yMax];
+          });
+
+          ink(options.secondaryColor || "black").box(
+            x + lw,
+            y + 1,
+            width - lw,
+            height - 1,
+          );
+
+          ink(options.primaryColor || "white");
+
+          let remainder = 0;
+          let totalWidthCovered = 0;
+
+          waves.forEach((point, index) => {
+            let bx = x + lw + totalWidthCovered;
+            if (bx >= x + width) return;
+            // Compute the pixel-aligned width for the current bar.
+            let barWidth = Math.floor(xStep + remainder);
+            remainder = (xStep + remainder) % 1; // Collect the fractional remainder.
+            // Ensure we don't exceed the full width for the last bar.
+            if (index === waves.length - 1 || bx + barWidth >= x + width)
+              barWidth = x + width - bx;
+            box(
+              bx,
+              y + point[1] + 1 - y,
+              barWidth,
+              y + (height - 1) - point[1],
+            );
+            totalWidthCovered += barWidth;
+          });
+
+          // Waveform
+          // ink("lime", 255).poly(
+          //   waveform.map((v, i) => [x + lw + i * xStep, yMid + v * yMax]),
+          // );
+
+          // TODO: Fill a point above this line and below.
+          // ink("blue").flood(x + 7, y + 1);
+          // ink("teal").flood(x + 7, y + height - 2);
+
+          // const my = screen.height - mic.amplitude * screen.height;
+          // ink("yellow", 128).line(0, my, screen.width, my); // Horiz. line for amplitude.
+        },
+
+        // Paints a waveform with a bounding box based on amplitude.
+        waveform: function paintWaveform(
+          { ink },
+          amplitude,
+          waveform,
+          x,
+          y,
+          width,
+          height,
+          color,
+          options,
+        ) {
+          if (waveform?.length < 1) return;
+          const direction = options?.direction || "left-to-right";
+          if (direction === "left-to-right") {
+            const xStep = width / (waveform.length - 1);
+
+            const yMid = y + height / 2,
+              yMax = height / 2;
+
+            ink("yellow", 128).poly(
+              waveform.map((v, i) => {
+                const p = [x + i * xStep, yMid + (v || 0) * yMax];
+                return p;
+              }),
+            );
+          } else if (direction === "bottom-to-top") {
+            const yStep = height / (waveform.length - 1);
+            const xMid = x + width / 2,
+              xMax = width;
+
+            ink("blue", 128).poly(
+              waveform.map((v, i) => {
+                const p = [xMid + (v || 0) * xMax, y + height - i * yStep];
+                return p;
+              }),
+            );
+          } else {
+            console.warn("🌊 Unsupported direction.");
+          }
+        },
+      },
     };
 
     $sound.microphone = microphone;
