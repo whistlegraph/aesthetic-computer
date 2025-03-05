@@ -756,14 +756,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     attachMicrophone = async (data) => {
 
       if (navigator.audioSession)
-        navigator.audioSession.type = "play-and-record"; //play-and-record";
+        navigator.audioSession.type = "play-and-record"; // play-and-record";
 
       let micStream;
       let reason;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            echocancellation: true, // put this behind a flag?
+            echocancellation: false, // put this behind a flag?
             latency: 0,
             noisesuppression: false,
             autogaincontrol: false,
