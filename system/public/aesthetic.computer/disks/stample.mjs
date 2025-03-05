@@ -2,6 +2,7 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
+  - [🩷] Add positional swiping.
   - [] Paint a line from each pen start point to the current point.
   - [] Add loop toggle / switch?
   - [] Add a subtle attack and decay to sample playback. 
@@ -240,12 +241,22 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
         up: (btn) => {
           // if (downs[note]) return false;
           //if (btn.box.contains(e.dragBox)) {
-          if (
-            btn.downPointer === 0 ||
-            (e.pointer === btn.downPointer && btn.box.contains(e))
-          ) {
+          //if (
+          //  btn.downPointer === 0 ||
+          //  (e.pointer === btn.downPointer && btn.box.contains(e))
+          //) {
+
+          if (e.pointer === btn.downPointer) {
             sounds[index]?.kill(0.1);
+            return true;
+          } else {
+            return false;
           }
+
+            // return true;
+          //} else {
+            // return e.pointer !== btn.downPointer;
+          //}
           //}
           // console.log("Killing sound index:", index, sounds[index]);
         },
