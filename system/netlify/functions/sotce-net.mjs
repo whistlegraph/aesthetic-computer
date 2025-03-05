@@ -263,7 +263,7 @@ export const handler = async (event, context) => {
         <head>
           <meta charset="utf-8" />
           <title>${title}</title>
-          <meta name="description" content="for my worst thoughts" />
+          <meta name="description" content="confessions" />
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
           <link rel="apple-touch-icon" href="${assetPath}cookie.png" />
@@ -309,7 +309,7 @@ export const handler = async (event, context) => {
 
             :root {
               -webkit-locale: "en";
-              --background-color: rgb(255, 230, 225);
+              --background-color: rgb(202, 218, 228);
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
@@ -2318,7 +2318,7 @@ export const handler = async (event, context) => {
               }
 
               if (status === "logged-out") {
-                message = "for my worst thoughts";
+                message = "confessions";
 
                 const lb = cel("button");
                 lb.innerText = "log in";
