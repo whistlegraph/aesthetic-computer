@@ -295,6 +295,7 @@ let reframe;
 const sfxProgressReceivers = {},
   sfxSampleReceivers = {},
   sfxKillReceivers = {};
+let $sampleCount = 0n;
 
 const signals = []; // Easy messages from embedded DOM content.
 const actAlerts = []; // Messages that get put into act and cleared after
@@ -5043,7 +5044,8 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     $sound.play = function play(sfx, options, callbacks) {
-      const id = sfx + "_" + performance.now(); // A *unique id for this sample.
+      const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
+      $sampleCount += 1n;
 
       // console.log(options);
 
