@@ -80,6 +80,7 @@ class Button {
   dom = false;
   over = false; // Keep track of rollover state.
   multitouch = true; // Toggle to false to make a single touch button2.
+  downPointer; // Keep track of what original pointer downed the button.
   actions; // A held list of callbacks for virtually triggering events.
 
   get up() {
@@ -131,6 +132,9 @@ class Button {
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
       const downed = callbacks.down?.(btn);
       btn.down = downed || downed === undefined ? true : false;
+      if (btn.down && btn.downPointer === undefined)
+        btn.downPointer = e.pointer || 0;
+      // console.log("DOWN POINTER:", btn.downPointer);
       btn.over = btn.down;
     }
 
@@ -141,6 +145,8 @@ class Button {
         if (up === false) {
           btn.down = true;
           btn.over = true;
+        } else {
+          btn.downPointer = undefined;
         }
       }
 
@@ -199,9 +205,13 @@ class Button {
       btn.over = true;
     }
 
-    if (e.is(`draw:${t}`) && /*btn.over*/ btn.down && btn.box.contains(e.drag)) {
+    if (
+      e.is(`draw:${t}`) &&
+      /*btn.over*/ btn.down &&
+      btn.box.contains(e.drag)
+    ) {
       // console.log(e);
-      callbacks.scrub?.(btn);
+      if (e.pointer === btn.downPointer) callbacks.scrub?.(btn);
     }
 
     // 5. Rollout: Run a rollout event if dragged off.

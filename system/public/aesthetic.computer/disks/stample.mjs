@@ -198,10 +198,10 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     pens().forEach((p) => {
       if (p.dragBox) {
         ink().line(
-          p.dragBox.left,
-          p.dragBox.top,
-          p.dragBox.x + p.dragBox.w,
-          p.dragBox.y + p.dragBox.h,
+          p.dragBox.x,
+          p.dragBox.y,
+          p.dragBox.x + (p.dragBox.w || 0),
+          p.dragBox.y + (p.dragBox.h || 0),
         );
       }
     });
@@ -220,8 +220,11 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
         down: (btn) => {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
+          if (btn.down) return false;
           sounds[index] = sound.play(sampleId, { from, to, reverse, loop });
           // TODO: Figure out a cool attack and decay on these.
+          // console.log("Playing sound index:", index);
+          if (sound.microphone.connected) sound.microphone.disconnect();
         },
         over: (btn) => {
           // if (btn.up && anyDown) {
@@ -236,18 +239,30 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
         },
         up: (btn) => {
           // if (downs[note]) return false;
-          sounds[index]?.kill(0.1);
+          //if (btn.box.contains(e.dragBox)) {
+          if (
+            btn.downPointer === 0 ||
+            (e.pointer === btn.downPointer && btn.box.contains(e))
+          ) {
+            sounds[index]?.kill(0.1);
+          }
+          //}
+          // console.log("Killing sound index:", index, sounds[index]);
         },
         scrub: (btn) => {
           // if (abs(e.delta.y) > 0) {
           // console.log(`Scrub ${index}:`, e.delta);
           // sounds[index] = sound.play(sampleId, { from, to, reverse });
           // }
-          if (abs(e.delta.y) > 0) {
-            // console.log(`Pitch shift ${index}:`, e.delta.x);
-            sounds[index]?.update({ shift: 0.03 * -e.delta.y });
-            // sound.play(startupSfx, { pitch: freq(tone) });
-          }
+
+          // if (e.pointer === btn.downPointer) {
+            if (abs(e.delta.y) > 0) {
+              // console.log(`Pitch shift ${index}:`, e.delta.x);
+              sounds[index]?.update({ shift: 0.03 * -e.delta.y });
+              // sound.play(startupSfx, { pitch: freq(tone) });
+            }
+          // }
+
         },
       },
       pens?.(),
@@ -303,11 +318,13 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
       const btn = btns[btns.length - 1 - index];
       if (e.is("keyboard:down") && !btn.down) {
         // console.log(`${e.key} key pressed!`);
-        btn.down = true;
         btn.actions.down(btn);
+        btn.downPointer = 0;
+        btn.down = true;
       } else if (e.is("keyboard:up")) {
         btn.down = false;
         btn.actions.up(btn);
+        btn.downPointer = undefined;
       }
     }
   }
