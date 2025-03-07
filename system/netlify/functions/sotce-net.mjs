@@ -321,7 +321,8 @@ export const handler = async (event, context) => {
               --line-height: 1.76em;
               /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
               --garden-background: rgb(204, 231, 255); // #bbfbfe;
-              --chat-background: rgb(255, 230, 225); /* rgb(240, 235, 230); */
+              /*--chat-background: rgb(255, 230, 225);*/ /* rgb(240, 235, 230); */
+              --chat-background: rgb(202, 218, 228); /* rgb(240, 235, 230); */
               --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
               /* --font-page: serif; */
               --editor-placemat-background: rgba(255, 255, 255, 0.5);
