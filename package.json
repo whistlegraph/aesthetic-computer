@@ -70,15 +70,15 @@
   "homepage": "https://github.com/digitpain/aesthetic.computer#readme",
   "devDependencies": {
     "blessed": "^0.1.81",
-    "concurrently": "^8.2.1",
-    "got": "^13.0.0",
+    "concurrently": "^9.1.2",
+    "got": "^14.4.6",
     "http-server": "^14.1.1",
-    "jasmine": "^5.1.0",
+    "jasmine": "^5.6.0",
     "kill-port": "^2.0.1",
-    "nodemon": "^3.1.0",
-    "npm-check-updates": "^16.13.2",
-    "prettier": "^3.0.3",
+    "nodemon": "^3.1.9",
+    "npm-check-updates": "^17.1.15",
+    "prettier": "^3.5.3",
     "qrcode-terminal": "^0.12.0",
-    "vercel": "^33.6.1"
+    "vercel": "^41.3.2"
   }
 }
