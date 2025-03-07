@@ -68,7 +68,9 @@ export default class Synth {
 
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
+
       // console.log("Speed:", this.#sampleSpeed);
+
       // if (this.#sampleSpeed < 0)
       // this.#sampleIndex = this.#sampleData.length - 1; // Otherwise 0.
       // this.#sampleStartIndex = options.startSample;

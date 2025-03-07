@@ -34,7 +34,6 @@ const labelHeight = 24;
 const maxPats = 10;
 
 let loop = true; // Global setting.
-let reverse = false;
 
 // System
 let sfx,
@@ -112,17 +111,85 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
     btn.paint(() => {
       ink(btn.down ? "white" : "cyan").box(btn.box); // Paint box a teal color.
       ink("black").box(btn.box, "out"); // Outline in black.
+      // const prog = (1 - sounds[index].from)
+      // console.log("need from:", sounds[index].options.from);
+      // const prog = sounds[index]?.options.from || 0; // / progressions[index];
 
-      if (progressions[index]) {
-        ink("red", 64).box(
-          btn.box.x,
-          btn.box.y + btn.box.h,
-          btn.box.w,
-          -btn.box.h * progressions[index],
-        );
+      let prog = 0;
+      if (sounds[index]?.options.speed < 0) {
+        prog = sounds[index].options.from;
+      } else if (sounds[index]?.options.speed > 0) {
+        prog = sounds[index].options.from;
+      }
 
-        const y = btn.box.y + btn.box.h * (1 - progressions[index]);
-        ink("white").line(0, y, btn.box.x + btn.box.w, y);
+      let options = sounds[index]?.options;
+
+      if (options) {
+        // console.log(
+        //   "From:",
+        //   options.from,
+        //   "To:",
+        //   options.to,
+        //   "Speed:",
+        //   sounds[index]?.options.speed,
+        // );
+
+        const space = prog * btn.box.h;
+        const negative = btn.box.h - space;
+
+        let startY, height;
+
+        if (options.speed > 0) {
+          startY = btn.box.y;
+          height = (1 - options.from) * btn.box.h;
+        } else {
+          startY = btn.box.y + (1 - options.to) * btn.box.h;
+          height = options.to * btn.box.h;
+        }
+
+        // console.log(
+        //   "StartY",
+        //   startY,
+        //   "Height",
+        //   height,
+        //   "From:",
+        //   options.from,
+        //   "To:",
+        //   options.to,
+        // );
+
+        if (progressions[index]) {
+          ink("red", 64).box(
+            btn.box.x,
+            startY, // btn.box.y + btn.box.h,
+            btn.box.w,
+            height,
+            // -btn.box.h * prog - progressions[index] * negative, // progressions[index],
+          );
+
+          let y;
+          let basey;
+          if (options.speed > 0) {
+            basey = btn.box.y + (1 - options.from) * btn.box.h;
+            y =
+              btn.box.y +
+              (1 - options.from) * (1 - progressions[index]) * btn.box.h;
+            //y =
+            //  btn.box.y +
+            //  (1 - options.from / (1 - progressions[index])) * btn.box.h;
+          } else {
+            basey = btn.box.y + (1 - options.to) * btn.box.h;
+            y = btn.box.y + (1 - options.to * progressions[index]) * btn.box.h;
+          }
+
+          ink("orange").line(0, y, btn.box.x + btn.box.w, y);
+          ink("red").line(0, basey, btn.box.x + btn.box.w, basey);
+
+          // const y =
+          // btn.box.y + btn.box.h * (1 - prog) - progressions[index] * negative;
+          // const y = btn.box.y + btn.box.h * (1 - progressions[index]);
+          // ink("red").line(0, y, btn.box.x + btn.box.w, y);
+        }
       }
 
       ink("black").write(
@@ -209,12 +276,14 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
   }
 }
 
+const btnSounds = {};
+
 function act({ event: e, sound, pens, screen, ui, notice, beep }) {
   const sliceLength = 1 / btns.length; // Divide the total duration (1.0) by the number of buttons.
 
   btns.forEach((btn, index) => {
-    const from = (btns.length - 1 - index) * sliceLength;
-    const to = from + sliceLength;
+    let from = (btns.length - 1 - index) * sliceLength;
+    let to = from + sliceLength;
     btn.act(
       e,
       {
@@ -222,7 +291,11 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
           if (btn.down) return false;
-          sounds[index] = sound.play(sampleId, { from, to, reverse, loop });
+
+          // const fromPos = 1 - (e.y - btn.box.y) / btn.box.h;
+          // from = fromPos;
+          // sounds[index] = sound.play(sampleId, { from, to, loop });
+
           // TODO: Figure out a cool attack and decay on these.
           // console.log("Playing sound index:", index);
           if (sound.microphone.connected) sound.microphone.disconnect();
@@ -248,32 +321,50 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
 
           if (e.pointer === btn.downPointer) {
             sounds[index]?.kill(0.1);
+            delete btnSounds[index];
             return true;
           } else {
             return false;
           }
 
-            // return true;
+          // return true;
           //} else {
-            // return e.pointer !== btn.downPointer;
+          // return e.pointer !== btn.downPointer;
           //}
           //}
           // console.log("Killing sound index:", index, sounds[index]);
         },
         scrub: (btn) => {
-          // if (abs(e.delta.y) > 0) {
-          // console.log(`Scrub ${index}:`, e.delta);
-          // sounds[index] = sound.play(sampleId, { from, to, reverse });
-          // }
+          if (abs(e.delta.y) > 0 && !btnSounds[index]) {
+            // console.log(`Scrub ${index}:`, e.delta);
+            // sounds[index] = sound.play(sampleId, { from, to });
+            const fromPos = 1 - (e.y - btn.box.y) / btn.box.h;
+            from = fromPos;
+
+            let speed = 1;
+
+            if (e.delta.y > 0) {
+              // to = 0;
+              let tmpFrom = from;
+              from = 0;
+              to = tmpFrom;
+              speed = -1;
+            }
+
+            // TODO: How do all these parameters relate?
+            // console.log("📗 From:", from, "To:", to);
+
+            btnSounds[index] = true;
+            sounds[index] = sound.play(sampleId, { from, to, speed, loop });
+          }
 
           // if (e.pointer === btn.downPointer) {
-            if (abs(e.delta.y) > 0) {
-              // console.log(`Pitch shift ${index}:`, e.delta.x);
-              sounds[index]?.update({ shift: 0.03 * -e.delta.y });
-              // sound.play(startupSfx, { pitch: freq(tone) });
-            }
+          if (abs(e.delta.y) > 0) {
+            // console.log(`Pitch shift ${index}:`, e.delta.x);
+            sounds[index]?.update({ shift: 0.03 * -e.delta.y });
+            // sound.play(startupSfx, { pitch: freq(tone) });
+          }
           // }
-
         },
       },
       pens?.(),
@@ -318,9 +409,6 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
     console.log("🎤 Connected.");
     micRecordButtonLabel = "Record";
   }
-
-  // if (e.is("keyboard:down:shift")) reverse = true;
-  // if (e.is("keyboard:up:shift")) reverse = false;
 
   if (e.is("keyboard:down") || e.is("keyboard:up")) {
     const index = keyToSfx[e.key];

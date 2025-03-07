@@ -5052,6 +5052,7 @@ async function makeFrame({ data: { type, content } }) {
       send({ type: "sfx:play", content: { sfx, id, options } });
 
       const playingSound = {
+        options, // Allow the options passed to BIOS to be inspected.
         startedAt: performance.now(),
         killed: false,
         kill: (fade) => {
