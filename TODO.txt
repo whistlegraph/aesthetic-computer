@@ -17,6 +17,7 @@ Projects in Progress (PIP) 🌟
 * Banners *
  - [🟠] Fix banners by somehow rendering them on the backend or running
         puppeteer differently?
+ - [] https://localhost:8888/icon/128x128/prompt.png
 
  * Message Deletion *
   - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin). 
