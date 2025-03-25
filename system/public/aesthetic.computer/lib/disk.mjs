@@ -5046,8 +5046,6 @@ async function makeFrame({ data: { type, content } }) {
       const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
       $sampleCount += 1n;
 
-      // console.log(options);
-
       send({ type: "sfx:play", content: { sfx, id, options } });
 
       const playingSound = {
