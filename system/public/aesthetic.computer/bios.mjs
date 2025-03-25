@@ -171,7 +171,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const screen = apiObject("pixels", "width", "height");
   let subdivisions = 1; // Gets set in frame.
 
-  const REFRAME_DELAY = 250;
+  const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
   let density = 2; // added to window.devicePixelRatio
@@ -237,7 +237,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!wrapper.contains(freezeFrameCan)) wrapper.append(freezeFrameCan);
       else freezeFrameCan.style.removeProperty("opacity");
+
       canvas.style.opacity = 0;
+      // console.log("Setting canvas opacity to 0...");
+
       freezeFrameFrozen = true;
     }
 
@@ -290,11 +293,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Send a message about this new width and height to any hosting frames.
     // parent.postMessage({ width: projectedWidth, height: projectedHeight }, "*");
 
+    // TODO: Changing this width and height here will clear the canvas... which is no good...
+
+    // ffCtx.drawImage(canvas, 0, 0);
+
+    // TODO: How can I copy the pixels from canvas before changing it's width
+    //       and height, and then copy them back after changing it here?
+    // ctx.drawImage(canvas, 0, 0);
+
+    // Create a temporary canvas
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+
+    // Copy existing canvas contents
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // Resize the original canvas
     canvas.width = width;
     canvas.height = height;
 
+    // Restore the pixels onto the resized canvas
+    ctx.drawImage(tempCanvas, 0, 0);
+
+    tempCanvas.width = glazeComposite.width;
+    tempCanvas.height = glazeComposite.height;
+
+    tempCtx.drawImage(glazeComposite, 0, 0);
+
     glazeComposite.width = canvas.width;
     glazeComposite.height = canvas.height;
+    glazeCompositeCtx.drawImage(tempCanvas, 0, 0);
 
     uiCanvas.width = projectedWidth * window.devicePixelRatio;
     uiCanvas.height = projectedHeight * window.devicePixelRatio;
@@ -394,7 +424,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Check to see if we are in "native-cursor" mode and hide
         // #aesthetic.computer for the resize if we aren't.
         if (document.body.classList.contains("native-cursor") === false) {
-          wrapper.classList.add("hidden");
+          // wrapper.classList.add("hidden");
         }
 
         window.clearTimeout(timeout); // Small timer to save on performance.
@@ -425,7 +455,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     canvasRect = canvas.getBoundingClientRect();
 
-    Glaze.clear();
+    // Glaze.clear();
 
     // A native resolution canvas for drawing cursors, system UI, and effects.
     if (glaze.on) {
@@ -754,7 +784,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Microphone Input Processor
     // (Gets attached via a message from the running disk.)
     attachMicrophone = async (data) => {
-
       if (navigator.audioSession)
         navigator.audioSession.type = "play-and-record"; // play-and-record";
 
@@ -1105,7 +1134,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
 
       if (triggerSound) sfxLoaded[soundData] = true;
-
     }
   }
 
@@ -4137,8 +4165,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       canvas.style.removeProperty("opacity");
     }
 
-    if (needsReappearance && wrapper.classList.contains("hidden")) {
-      wrapper.classList.remove("hidden");
+    if (needsReappearance/* && wrapper.classList.contains("hidden")*/) {
+      // wrapper.classList.remove("hidden");
       needsReappearance = false;
     }
 
