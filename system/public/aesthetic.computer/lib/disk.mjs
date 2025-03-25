@@ -207,7 +207,7 @@ function addUndoPainting(painting, step = "unspecified") {
       pixels.every((value, index) => value === lastPainting.pixels[index]);
 
     if (eq) {
-      console.log("💩 The undo stack was not changed:", undoPaintings.length);
+      // console.log("💩 The undo stack was not changed:", undoPaintings.length);
       return;
     }
   }
@@ -276,6 +276,7 @@ let currentPath,
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
+  currentHUDScrub = 0,
   currentHUDOffset;
 //currentPromptButton;
 
@@ -366,12 +367,8 @@ const fairies = []; // Render cursor points of other active users,
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
-let darkModeWipeNum = 32;
-let darkModeWipeBG = 32;
-// let DMStatusColor;
-
 // *** Dark Mode ***
-//tarighian
+// (By @tarighian)
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled) {
   if (enabled === "default") {
@@ -384,18 +381,6 @@ function darkMode(enabled) {
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
-    if (enabled === true) {
-      // DMStatusColor = "lime";
-      darkModeWipeBG = 32;
-      darkModeWipeNum = 64;
-      // console.log("🌜 Dark Mode");
-    }
-    if (enabled === false) {
-      // DMStatusColor = "teal";
-      darkModeWipeBG = 150;
-      darkModeWipeNum = 200;
-      // console.log("🌞 Light Mode");
-    }
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
   }
@@ -614,6 +599,16 @@ const $commonApi = {
   },
   chat: chatClient.system,
   dark: undefined, // If we are in dark mode.
+  theme: {
+    light: {
+      wipeBG: 150,
+      wipeNum: 200,
+    },
+    dark: {
+      wipeBG: 32,
+      wipeNum: 64,
+    },
+  },
   glaze: function (content) {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
@@ -1178,7 +1173,11 @@ const $commonApi = {
       // TODO: - [] Add Zoom
       //       - [] And Rotation!
 
-      present: ({ system, screen, wipe, paste, ink, slug }, tx, ty) => {
+      present: (
+        { system, screen, wipe, paste, ink, slug, dark, theme },
+        tx,
+        ty,
+      ) => {
         system.nopaint.needsPresent = false;
 
         const x = tx || system.nopaint.translation.x;
@@ -1198,7 +1197,7 @@ const $commonApi = {
         } else {
           // If we are panned or the painting is a custom resolution.
 
-          wipe(darkModeWipeBG)
+          wipe(theme[dark ? "dark" : "light"].wipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
             .ink(128)
@@ -1223,14 +1222,13 @@ const $commonApi = {
       },
       // Kill an existing painting.
       noBang: async (
-        { system, store, needsPaint, painting },
+        { system, store, needsPaint, painting, theme, dark },
         res = { w: screen.width, h: screen.height },
       ) => {
         // console.log("deleting...");
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
-        // console.log("deleted");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
@@ -1239,7 +1237,7 @@ const $commonApi = {
         // Make a blank painting.
         // I don't like that these getters will not re-associate.
         system.painting = painting(res.w, res.h, ($) => {
-          $.wipe(darkModeWipeNum);
+          $.wipe(theme[dark ? "dark" : "light"].wipeNum);
         });
         store["painting"] = $commonApi.system.painting;
 
@@ -3679,7 +3677,7 @@ async function load(
     glazeEnabled = null;
     // soundClear = null;
     hourGlasses.length = 0;
-    labelBack = false;
+    // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
     // console.log("📑 Search:", parsed.search);
@@ -3722,6 +3720,7 @@ async function load(
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
+    currentHUDScrub = 0;
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -4498,7 +4497,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1c. Loading from History
   if (type === "history-load") {
-    if (debug) console.log("⏳ History:", content);
+    if (debug && logs.history) console.log("⏳ History:", content);
     $commonApi.load(content, true);
     return;
   }
@@ -5350,6 +5349,7 @@ async function makeFrame({ data: { type, content } }) {
           currentHUDButton?.act(e, {
             down: () => {
               originalColor = currentHUDTextColor;
+              currentHUDScrub = 0;
               currentHUDTextColor = [0, 255, 0];
               send({ type: "keyboard:enabled" }); // Enable keyboard flag.
               send({ type: "keyboard:unlock" });
@@ -5366,7 +5366,14 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.25,
               });
             },
-            push: () => {
+            push: (btn) => {
+              const glyphWidth = 6;
+              const shareWidth = glyphWidth * "share ".length;
+              if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
+                btn.actions.cancel?.();
+                return;
+              }
+
               $api.sound.synth({
                 tone: 1200,
                 beats: 0.1,
@@ -5377,6 +5384,7 @@ async function makeFrame({ data: { type, content } }) {
               if (!labelBack) {
                 jump("prompt");
               } else {
+                labelBack = false; // Reset `labelBack` after jumping.
                 if ($commonApi.history.length > 0) {
                   send({ type: "back-to-piece" });
                 } else {
@@ -5385,19 +5393,88 @@ async function makeFrame({ data: { type, content } }) {
               }
               $api.needsPaint();
               masked = true;
+              currentHUDScrub = 0;
+            },
+            scrub: (btn) => {
+              if (piece === "share") return; // No need to share scrub while in share.
+
+              if (btn.over || currentHUDScrub > 0) {
+                currentHUDScrub += e.delta.x;
+              }
+
+              const glyphWidth = 6;
+              const shareWidth = glyphWidth * "share ".length;
+
+              if (currentHUDScrub >= 0) {
+                btn.box.w = glyphWidth * currentHUDTxt.length + currentHUDScrub;
+                // console.log(btn.b);
+              }
+
+              if (currentHUDScrub < 0) currentHUDScrub = 0;
+
+              if (currentHUDScrub >= shareWidth) {
+                currentHUDScrub = shareWidth;
+                currentHUDTextColor = [255, 255, 0];
+              } else if (currentHUDScrub > 0) {
+                currentHUDTextColor = [255, 0, 0];
+              } else if (currentHUDScrub === 0) {
+                if (btn.over) {
+                  currentHUDTextColor = [0, 255, 0];
+                } else {
+                  currentHUDTextColor = [255, 0, 0];
+                }
+              }
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
+
+              const glyphWidth = 6; // As above.
+              const shareWidth = glyphWidth * "share ".length;
+
+              if (currentHUDScrub === shareWidth) {
+                $api.sound.synth({
+                  tone: 1800,
+                  beats: 0.15,
+                  attack: 0.01,
+                  decay: 0.5,
+                  volume: 0.15,
+                });
+                $api.sound.synth({
+                  tone: 1800 / 2,
+                  beats: 0.15 * 2,
+                  attack: 0.01,
+                  decay: 0.5,
+                  volume: 0.1,
+                });
+                $api.jump("share " + currentHUDTxt);
+                return;
+              }
+
+              currentHUDScrub = 0;
               // TODO: This might break on pieces where the keyboard is already
               //       open.
               send({ type: "keyboard:disabled" }); // Disable keyboard flag.
               send({ type: "keyboard:lock" });
               $api.needsPaint();
+              $api.sound.synth({
+                tone: 200,
+                beats: 0.1,
+                attack: 0.01,
+                decay: 0.5,
+                volume: 0.15,
+              });
             },
             rollover: (btn) => {
-              if (btn) send({ type: "keyboard:unlock" });
+              if (btn) {
+                send({ type: "keyboard:unlock" });
+                if (btn.down) {
+                  currentHUDTextColor = [0, 255, 0];
+                }
+              }
             },
             rollout: () => {
+              // console.log("rolled out...");
+              currentHUDTextColor = [200, 80, 80];
               send({ type: "keyboard:lock" });
             },
           });
@@ -5564,6 +5641,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: Disable the depth buffer for now... it doesn't need to be
       //       regenerated on every frame.
+      // TODO: This only needs to run if 'form' is running in a piece. 25.03.20.19.27
       graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
       graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
 
@@ -5918,7 +5996,9 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        let w = currentHUDTxt.length * 6;
+        const glyphWidth = 6;
+        let w = currentHUDTxt.length * glyphWidth + currentHUDScrub;
+
         const h = 11;
         if (piece === "video") w = screen.width;
 
@@ -5936,8 +6016,20 @@ async function makeFrame({ data: { type, content } }) {
             if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
               text = currentHUDTxt?.replaceAll("~", " ");
             }
-            $.ink(0).write(text, { x: 1, y: 1 });
-            $.ink(c).write(text, { x: 0, y: 0 });
+            $.ink(0).write(text, { x: 1 + currentHUDScrub, y: 1 });
+            $.ink(c).write(text, { x: 0 + currentHUDScrub, y: 0 });
+
+            if (currentHUDScrub > 0) {
+              const shareWidth = glyphWidth * "share ".length;
+              $.ink(0).write("share", {
+                x: 1 + currentHUDScrub - shareWidth,
+                y: 1,
+              });
+              $.ink(c).write("share", {
+                x: 0 + currentHUDScrub - shareWidth,
+                y: 0,
+              });
+            }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
             $.ink(c).line(0, 0, 0, h - 2);
@@ -5976,12 +6068,10 @@ async function makeFrame({ data: { type, content } }) {
           );
         });
 
-        if (tapeProgressBar)
-          sendData.tapeProgressBar = {
-            x: 0,
-            y: 0, // screen.height - 1,
-            img: tapeProgressBar,
-          };
+        if (tapeProgressBar) {
+          const { api, ...img } = tapeProgressBar;
+          sendData.tapeProgressBar = { x: 0, y: 0, img };
+        }
       }
 
       maybeLeave();
