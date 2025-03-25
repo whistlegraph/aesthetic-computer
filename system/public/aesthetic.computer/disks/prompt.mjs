@@ -1206,30 +1206,31 @@ async function halt($, text) {
     let size;
     if (!isNaN(w) && !isNaN(h)) size = { w, h };
     await system.nopaint.noBang(
-      {
-        system,
-        store,
-        screen,
-        needsPaint,
-        painting,
-      },
+      // {
+      // system,
+      // store,
+      // screen,
+      // needsPaint,
+      // painting,
+      api,
+      // },
       size, // Set a custom resolution to start.
     );
     let fullText = slug;
     if (params.length > 0) fullText += "~" + params.join("~");
-    nopaint_adjust(screen, system, painting, store, size, fullText);
+    nopaint_adjust(api, size, fullText);
     system.nopaint.startRecord(fullText); // Start recording paintings.
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
   } else if (text === "painting:reset" || text === "no!") {
-    const deleted = await system.nopaint.noBang({
-      system,
-      store,
-      screen,
-      needsPaint,
-      painting,
-    });
+    const deleted = await system.nopaint.noBang(api); //{
+    //   system,
+    //   store,
+    //   screen,
+    //   needsPaint,
+    //   painting,
+    // });
 
     system.nopaint.startRecord("new"); // Start recording paintings.
 
@@ -1626,6 +1627,7 @@ function act({
   num,
   jump,
   system,
+  painting,
   user,
   store,
   sound: { play, synth },
@@ -1799,7 +1801,11 @@ function act({
   });
 
   // 🖥️ Screen
-  if (e.is("reframed")) positionWelcomeButtons(screen, net.iframe);
+  if (e.is("reframed")) {
+    positionWelcomeButtons(screen, net.iframe);
+    nopaint_adjust(api);
+    system.nopaint.present(api);
+  }
 
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
   if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
