@@ -200,6 +200,12 @@ async function fun(event, context) {
       const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
       try {
+        console.log(
+          "Writing to:",
+          tempPath,
+          "Source length:",
+          sourceCode?.length,
+        );
         await fs.writeFile(tempPath, sourceCode);
         if (language === "javascript")
           module = await import(`file://${tempPath}`);

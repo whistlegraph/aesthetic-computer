@@ -17,4 +17,5 @@ export const logs = {
   messaging: false, // Network related logs.
   chat: false,
   history: false,
+  recorder: false,
 };

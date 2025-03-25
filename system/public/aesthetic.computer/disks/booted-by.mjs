@@ -109,7 +109,7 @@ function paint({
       } else if (bar.color === "brown") {
         text = "Eric Doyle";
       } else if (bar.color === "purple") {
-        text = "Falsework Studios";
+        text = "Matt Doyle & Yuehao Jiang";
       } else {
         text = bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
       }
@@ -154,8 +154,8 @@ function paint({
 
   if (!overlay) {
     ink(help.choose([200], [160])).write(
-      "These original patrons helped boot Aesthetic Computer in its early days.",
-      { center: "x", y: screen.height - 72 },
+      "These original patrons helped boot Aesthetic Computer.",
+      { center: "x", y: screen.height - 54 },
       "black",
       screen.width - 32,
     );

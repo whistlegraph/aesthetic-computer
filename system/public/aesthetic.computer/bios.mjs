@@ -650,6 +650,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     updateSound,
     killSound,
     killAllSound,
+    clearSoundSampleCache,
     requestSpeakerWaveforms,
     requestSpeakerAmplitudes,
     attachMicrophone,
@@ -1009,6 +1010,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speakerProcessor.port.postMessage({ type: "kill:all" });
         };
 
+        clearSoundSampleCache = function () {
+          speakerProcessor.port.postMessage({ type: "cache:clear" });
+          for (const k in sfxLoaded) delete sfxLoaded[k];
+        };
+
         // Request data / send message to the mic processor thread.
         requestSpeakerWaveforms = function () {
           speakerProcessor.port.postMessage({ type: "get-waveforms" });
@@ -1120,7 +1126,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "sample",
         options: {
           buffer: sfxLoaded[soundData] ? soundData : sample, // Alternatively send a memoized code using a lookup table.
-          label: soundData,
+          label: soundData, // TODO: 🚩 This needs to be invalidated by `tape`.
+          // TODO: 🚩 Cached speaker sounds need to be dumped on a piece swap.
           from: isFinite(options?.from) ? options.from : 0,
           to: isFinite(options?.to) ? options.to : 1,
           speed: isFinite(options?.speed) ? options.speed : 1,
@@ -2412,6 +2419,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keys(mediaPathsLoading).forEach((key) => mediaPathsLoading[key].abort());
 
       killAllSound?.(); // Kill any pervasive sounds in `speaker`.
+      clearSoundSampleCache?.();
 
       // ⚠️ Remove any sounds that aren't in the whitelist.
       const sfxKeys = keys(sfx);
@@ -3036,7 +3044,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             time: audioContext?.currentTime,
           },
         });
-        if (debug) console.log("🔴 Recorder: Resumed", content);
+        if (debug && logs.recorder)
+          console.log("🔴 Recorder: Resumed", content);
         return;
       }
 
@@ -3098,7 +3107,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             time: audioContext?.currentTime,
           },
         });
-        if (debug) console.log("🔴 Recorder: Rolling", content);
+        if (debug && logs.recorder)
+          console.log("🔴 Recorder: Rolling", content);
 
         // window.addEventListener("resize", () => (mediaRecorderResized = true), {
         // once: true,
@@ -3233,7 +3243,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //};
       //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
       //} else {
-      console.log("Start audio recording...");
+      // console.log("Start audio recording...");
       mediaRecorder.start(100);
       //}
       return;
@@ -3241,7 +3251,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
-      if (debug) console.log("✂️ Recorder: Cut");
+      if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
       mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
@@ -3254,8 +3264,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const blob = new Blob(mediaRecorderChunks, {
           type: mediaRecorder.mimeType,
         });
-
         sfx["tape:audio"] = await blobToArrayBuffer(blob);
+        // console.log("Update tape audio with new blob!");
 
         underlayFrame = document.createElement("div");
         underlayFrame.id = "underlay";
@@ -3291,6 +3301,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
+            console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
             sfxPlaying[tapeSoundId]?.pause();
             send({ type: "recorder:present-paused" });
           };
@@ -3366,7 +3377,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
-        console.error("No media recorder to present from!");
+        if (debug && logs.recorder)
+          console.error("📼 No media recorder to present from!");
         send({ type: "recorder:presented:failure" });
       }
       return;
@@ -3816,9 +3828,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Trigger a sound to playback.
     if (type === "sfx:play") {
       playSfx(content.id, content.sfx, content.options);
-
-      // speakerProcessor.port.postMessage({ type: "sound", data: content });
-
       return;
     }
 
@@ -4165,7 +4174,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       canvas.style.removeProperty("opacity");
     }
 
-    if (needsReappearance/* && wrapper.classList.contains("hidden")*/) {
+    if (needsReappearance /* && wrapper.classList.contains("hidden")*/) {
       // wrapper.classList.remove("hidden");
       needsReappearance = false;
     }
