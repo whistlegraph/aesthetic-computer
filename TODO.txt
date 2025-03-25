@@ -2,6 +2,10 @@
 
 Projects in Progress (PIP) 🌟
 
+* Taping Regressions *
+ - [] Tape sound only syncs on first time.
+ - [] Pause icons are no longer present?
+
  * Message Deletion *
   - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin). 
     - [] Redaction should...
