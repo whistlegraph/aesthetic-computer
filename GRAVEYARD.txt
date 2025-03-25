@@ -1,5 +1,10 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+- [x] Fix `tape`.
+
+* swipe to share *
+ - [x] Implement swipe scrub to share.
+
 *** put 'chat' back up with increased moderation support ***
   - [x] Test muting and unmuting mixed in with the below.
     - [x] (Incognito)

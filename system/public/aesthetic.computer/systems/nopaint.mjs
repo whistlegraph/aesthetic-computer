@@ -10,7 +10,7 @@ const cursor = { x: 0, y: 0 };
 function nopaint_boot({ api, screen, system, painting, store }) {
   cursor.x = screen.width / 2;
   cursor.y = screen.height / 2;
-  nopaint_adjust(screen, system, painting, store);
+  nopaint_adjust(api);
 
   system.nopaint.buffer = painting(
     system.painting.width,
@@ -179,7 +179,7 @@ function nopaint_act({
 
   // Auto-resizing...
   if (e.is("reframed")) {
-    nopaint_adjust(screen, system, painting, store);
+    nopaint_adjust(api);
     system.nopaint.present(api);
   }
 
@@ -198,20 +198,36 @@ function nopaint_act({
 // or provide a custom resolution.
 // (Also used in `prompt`.)
 function nopaint_adjust(
-  screen,
-  sys,
-  painting,
-  store,
+  { screen, system: sys, painting, store, dark, theme },
   size = null,
   slug = "resize",
 ) {
+  // console.log("Adjusting?", size, store["painting:resolution-lock"]);
+
   if (!size && store["painting:resolution-lock"] === true) return;
 
   if (
     !size &&
     (sys.nopaint.translation.x !== 0 || sys.nopaint.translation.y !== 0)
-  )
+  ) {
     return; // Stop auto-resizing if we are panned.
+  }
+
+  let resizing = false;
+
+  if (!size) {
+    // Assume we are auto-resizing now.
+    if (sys.nopaint.undo.paintings.length === 0) {
+      size = { w: screen.width, h: screen.height };
+    } else {
+      size = {
+        w: Math.max(screen.width, sys.painting?.width || 0),
+        h: Math.max(screen.height, sys.painting?.height || 0),
+      };
+    }
+
+    resizing = true;
+  }
 
   // TODO: Add auto-resizing back to paintings.
 
@@ -250,6 +266,9 @@ function nopaint_adjust(
         p.paste(sys.painting, 0, 0, { width, height });
       } else {
         // TODO: Put in some custom noise function here...
+        // Detect if we are in light or dark mode...
+        // $common
+        p.wipe(theme[dark ? "dark" : "light"].wipeNum);
         p.paste(sys.painting);
       }
     });
@@ -259,11 +278,12 @@ function nopaint_adjust(
       height: sys.painting.height,
       pixels: sys.painting.pixels,
     }; // sys.painting;
-    sys.nopaint.addUndoPainting(sys.painting, slug);
+
+    if (!resizing) sys.nopaint.addUndoPainting(sys.painting, slug);
   }
 
   // Set a flag to prevent auto-resize.
-  if (size) {
+  if (size && !resizing) {
     store["painting:resolution-lock"] = true;
     store.persist("painting:resolution-lock", "local:db");
     store.persist("painting", "local:db"); // Also persist the painting.

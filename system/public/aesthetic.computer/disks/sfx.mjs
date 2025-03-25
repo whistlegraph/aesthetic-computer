@@ -5,9 +5,8 @@
 #endregion */
 
 /* #region 🏁 TODO 
+  - [] Fix reverse progress bar.
   - [] Add 'value' drag box.
-
-
   + Done
   - [x] Create a sampling recorder See: `stample`).
   - [x] Check decode delay / trigger a whole keyboard of samples.
@@ -83,7 +82,6 @@ function paint({ api, wipe, ink, screen, num }) {
   }
 
   // Buttons
-
   btn.reposition({ center: "xy", screen });
   btn.paint({ ink });
 
@@ -171,7 +169,6 @@ function paintSound(
   options,
 ) {
   // console.log(amplitude, waveform.length);
-
   const direction = options?.direction || "left-to-right";
 
   if (direction === "left-to-right") {

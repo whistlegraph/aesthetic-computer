@@ -51,6 +51,8 @@ export function twoD(ref) {
 
 // 1. Configuration & State
 function makeBuffer(width, height, fillProcess, painting, api) {
+  if (!width || !height) return;
+
   const imageData = new ImageData(width, height);
 
   const buffer = {
@@ -257,7 +259,7 @@ function findColor() {
 // TODO: What's a good way for ink to accept different ranges of alpha?
 //       24.08.20.20.12
 // Current solution:
-// Any number from 0-><1 will use 0-> alpha. 
+// Any number from 0-><1 will use 0-> alpha.
 //  - 1 and above will use 0->255.
 //  - 0 always bottoms out
 // Edge case near the 1 is manageable.

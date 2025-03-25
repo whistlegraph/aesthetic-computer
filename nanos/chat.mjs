@@ -6,13 +6,13 @@
 /* #region 🏁 TODO 
 
   *** Logs ***
-  - [?] Does adding the radar key prevent gcp logs from running?
-    - [] Or maybe the log name / id needs to change each time?
-    - [🟤] Try adding the radar key back or... running a deployment again with the same log name...
-  - [🟠] Add a basic client to `sotce-net`.
-    - [🫐] Start with 'dev' / 'local' version.
-    - [🟠] Write it as a totally separate UI layer that always connects.
-      - [❄️] Import the chat module to `sotce-net`.
+  - [x] Does adding the radar key prevent gcp logs from running?
+    - [x] Or maybe the log name / id needs to change each time?
+    - [x] Try adding the radar key back or... running a deployment again with the same log name...
+  - [x] Add a basic client to `sotce-net`.
+    - [x] Start with 'dev' / 'local' version.
+    - [x] Write it as a totally separate UI layer that always connects.
+      - [x️] Import the chat module to `sotce-net`.
     - [] Have it on the loged out page grayed out, the logged in page opaque
           and scrollable, and the subscriber page interactable.
     - [] Messages should make a sound.

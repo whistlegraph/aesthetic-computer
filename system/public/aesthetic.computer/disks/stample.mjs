@@ -140,7 +140,105 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
         let startY, height;
 
         if (options.speed > 0) {
-          startY = btn.box.y;
+          // startY = btn.box.y;
+          startY = btn.box.y + (1 - options.to) * btn.box.h;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
           height = (1 - options.from) * btn.box.h;
         } else {
           startY = btn.box.y + (1 - options.to) * btn.box.h;
@@ -159,6 +257,9 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
         // );
 
         if (progressions[index]) {
+          ink("magenta").line(0, startY + 2, screen.width, startY + 2);
+          // console.log(startY);
+
           ink("red", 64).box(
             btn.box.x,
             startY, // btn.box.y + btn.box.h,
@@ -287,10 +388,16 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
     btn.act(
       e,
       {
-        down: (btn) => {
+        down: (btn, opts) => {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
           if (btn.down) return false;
+
+          // if (opts?.keyboard) {
+          // const fromPos = from; // 1 - (/*e.y -*/ 0 -  btn.box.y) / btn.box.h;
+          // from = fromPos;
+          sounds[index] = sound.play(sampleId, { from, to, loop: false });
+          // }
 
           // const fromPos = 1 - (e.y - btn.box.y) / btn.box.h;
           // from = fromPos;
@@ -300,6 +407,11 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // console.log("Playing sound index:", index);
           if (sound.microphone.connected) sound.microphone.disconnect();
         },
+
+
+
+
+
         over: (btn) => {
           // if (btn.up && anyDown) {
           //  btn.up = false;
@@ -311,7 +423,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // btn.down = false;
           // btn.actions.up(btn);
         },
-        up: (btn) => {
+        up: (btn, opts) => {
           // if (downs[note]) return false;
           //if (btn.box.contains(e.dragBox)) {
           //if (
@@ -319,7 +431,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           //  (e.pointer === btn.downPointer && btn.box.contains(e))
           //) {
 
-          if (e.pointer === btn.downPointer) {
+          if (e.pointer === btn.downPointer || opts?.keyboard) {
             sounds[index]?.kill(0.1);
             delete btnSounds[index];
             return true;
@@ -417,12 +529,12 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
       const btn = btns[btns.length - 1 - index];
       if (e.is("keyboard:down") && !btn.down) {
         // console.log(`${e.key} key pressed!`);
-        btn.actions.down(btn);
+        btn.actions.down(btn, { keyboard: true });
         btn.downPointer = 0;
         btn.down = true;
       } else if (e.is("keyboard:up")) {
         btn.down = false;
-        btn.actions.up(btn);
+        btn.actions.up(btn, { keyboard: true });
         btn.downPointer = undefined;
       }
     }
