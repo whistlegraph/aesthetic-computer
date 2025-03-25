@@ -169,22 +169,64 @@ loadAuth0Script()
       }
 
       if (param === "null") {
+        // Returns "null" as a string if logged out.
         localStorage.removeItem("session-aesthetic");
-      } else if (param === "retrieve") {
+      } else if (param === "retrieve" || param === null) {
+        // null as a type if a check is needed
         param = localStorage.getItem("session-aesthetic");
       }
 
       const sessionParams = param;
       let encodedSession = sessionParams;
-      // console.log("🟪 Aesthetic Computer Session:", sessionParams);
       if (encodedSession === "null") encodedSession = undefined;
       let pickedUpSession;
+
+      let isAuthenticated;
+      if (!encodedSession)
+        isAuthenticated = await auth0Client.isAuthenticated();
+
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
         const session = JSON.parse(sessionJsonString);
         // Use the session information to authenticate, if it exists.
         // console.log("🥀 Session data:", session);
         if (session.accessToken && session.account) {
+          // 🟩 Confirm the session access token and data is live here...
+          try {
+            const response = await fetch("/api/authorized", {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+              },
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              if (result.authorized) {
+                // console.log("✅ Session is active and token is valid.");
+                pickedUpSession = true;
+              } else {
+                // console.log("⚠️ Token is invalid or expired.");
+                pickedUpSession = false;
+              }
+            } else {
+              // console.log(
+              //   "⚠️ Token validation request failed with status:",
+              //   response.status,
+              // );
+              pickedUpSession = false;
+            }
+          } catch (err) {
+            // console.error("❌ Error validating token:", err);
+            pickedUpSession = false;
+          }
+
+          if (!pickedUpSession) {
+            if (window.parent)
+              window.parent.postMessage({ type: "logout" }, "*");
+            return;
+          }
+
           window.acTOKEN = session.accessToken; // Only set using this flow.
           window.acUSER = {
             email: session.account.label,
@@ -196,7 +238,6 @@ loadAuth0Script()
             type: "session:started",
             content: { user: window.acUSER },
           });
-          pickedUpSession = true;
         }
 
         if (sessionParams) {
@@ -206,8 +247,6 @@ loadAuth0Script()
           history.pushState({}, "", url.pathname + "?" + params.toString());
         }
       }
-
-      let isAuthenticated = await auth0Client.isAuthenticated();
 
       // const iframe = window.self !== window.top;
 
@@ -362,7 +401,6 @@ function receive(event) {
     window.location.reload();
     return;
   } else if (event.data?.startsWith?.("docs:")) {
-    console.log("Docs link got!");
     window.acSEND({
       type: "docs:link",
       content: event.data.split(":").pop(),

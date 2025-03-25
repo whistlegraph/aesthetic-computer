@@ -2,32 +2,37 @@
 
 Projects in Progress (PIP) 🌟
 
- * message deletion *
-  - [] Finish timetsamp picking.
-    - [-] Tapping shows yellow.
-
-  - [-] Pat a timestamp as admin to reveal a redaction control (only if admin). 
+ * Message Deletion *
+  - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin). 
     - [] Redaction should...
-      - [] Redact the web and native mobile notification.
       - [] Underscore the message for all users and show a 'redacted' sign.
       - [] Should muting also do this?
-
+      - [] Redact the web and native mobile notification.
+        - [] Replace current notification system with something new.
   - [] Use 'admin:chat-system:redact' to set a db flag on a message.
     - [] This should hit an http 'redact' endpoint which requires admin privileges.
       - [] This endpoint should be separate from the chat instance and be a
            serverless function.
+      - [] But why not just have it on the chat instance?
       - [] It should trigger an update on all clients that erases the message.
            This could be done through redis...
-
   - [x] Show timestamps on chat messages.
     - [x] Live last message stamp.
 
   + Done
+  - [x] Finish timestamp picking.
+    - [x] Tapping shows yellow.
   - [x] Add 'admin:chat-system:mute' / 'admin:chat-system:unmute' action / endpoint which will be
         separate from handle stripping.
   - [x] Check stripping process.
   - [x] Put mute list in the database per instance. 
   - [?] Should stripping also invalidate emails or does it already?
+
+* ios app *
+  - [] Update notifications.
+  - [] Tapping 'Download' doesn't actually trigger a download.
+  - [] Auto-reload the piece after the browser tab has been suspended.
+       (How to trigger this or detect this?)
 
 *** $1 handle toll / troll toll ***
   - [] Sketch out the copy for a new signup flow below...

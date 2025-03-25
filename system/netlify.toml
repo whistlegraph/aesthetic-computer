@@ -305,6 +305,10 @@ from = "/handle"
 to = "/.netlify/functions/handle"
 status = 200
 [[redirects]]
+from = "api/authorized"
+to = "/.netlify/functions/authorized"
+status = 200
+[[redirects]]
 from = "api/handles"
 to = "/.netlify/functions/handles"
 status = 200
