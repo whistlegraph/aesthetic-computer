@@ -2,9 +2,21 @@
 
 Projects in Progress (PIP) 🌟
 
+* Debug Log *
+- [] Make a standard overlay to show any errorneous console output
+     directly on the front end.
+
 * Taping Regressions *
- - [] Tape sound only syncs on first time.
- - [] Pause icons are no longer present?
+ - [] Fix
+ - [] Pause icon is no longer present?
+ - [] Pressing escape twice stays on video for some reason?
+ - [] 'share' swipe should be disabled on video piece with '|'.
+ + Done
+ - [x] Tape sound only syncs on first time.
+
+* Banners *
+ - [🟠] Fix banners by somehow rendering them on the backend or running
+        puppeteer differently?
 
  * Message Deletion *
   - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin). 

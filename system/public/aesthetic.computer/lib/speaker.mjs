@@ -149,6 +149,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // Clear the full sample cache.
+      if (msg.type === "cache:clear") {
+        for (const k in sampleStore) delete sampleStore[k];
+        return;
+      }
+
       // 📢 Sound
       // Fires just once and gets recreated on every call.
 
@@ -177,6 +183,8 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             } else {
               sampleStore[data.options.label] = data.options.buffer;
             }
+
+            // console.log("Buffer:", data.options.buffer, data.options.label);
 
             // Ensure 'from' and 'to' are within the valid range [0,1]
             let from = clamp(data.options.from || 0, 0, 1);
