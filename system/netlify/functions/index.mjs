@@ -28,8 +28,6 @@ async function fun(event, context) {
     return { statusCode: 500 };
   }
 
-  // console.log("HOOOOOST", event.headers["host"]);
-
   if (event.headers["host"] === "sotce.local:8888") {
     return respond(
       302,
@@ -209,6 +207,7 @@ async function fun(event, context) {
         await fs.writeFile(tempPath, sourceCode);
         if (language === "javascript")
           module = await import(`file://${tempPath}`);
+        // TODO: This fails in development sometimes, still not sure why...
       } catch (err) {
         console.log("⚠️ Import error:", err, tempPath);
       } finally {

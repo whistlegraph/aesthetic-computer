@@ -38,9 +38,6 @@
     "stripe": "cd system; npm run stripe-dev",
     "stripe-print-micro": "cd system; npm run stripe-dev-print-micro; env nogreet=true fish",
     "stripe-ticket-micro": "cd system; npm run stripe-dev-ticket-micro; env nogreet=true fish",
-    "edge": "vercel dev",
-    "edge-micro": "vercel --token $VERCEL_TOKEN dev",
-    "edge.old": "concurrently --raw \"vercel dev\" \"http-server edge-stream -p 9000 --cors -c-1 -i --P http://localhost:3000 -S --cert ssl-dev/localhost.pem --key ssl-dev/localhost-key.pem\"",
     "site:debug": "cd system; npm run codespaces-dev-debug",
     "site:live": "cd system; npm run codespaces-dev-public",
     "new": "node utilities/generate-new-piece.mjs",
@@ -76,9 +73,8 @@
     "jasmine": "^5.6.0",
     "kill-port": "^2.0.1",
     "nodemon": "^3.1.9",
-    "npm-check-updates": "^17.1.15",
+    "npm-check-updates": "^17.1.16",
     "prettier": "^3.5.3",
-    "qrcode-terminal": "^0.12.0",
-    "vercel": "^41.3.2"
+    "qrcode-terminal": "^0.12.0"
   }
 }
