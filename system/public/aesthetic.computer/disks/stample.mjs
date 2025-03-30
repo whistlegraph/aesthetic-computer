@@ -2,7 +2,6 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [🩷] Add positional swiping.
   - [] Paint a line from each pen start point to the current point.
   - [] Add loop toggle / switch?
   - [] Add a subtle attack and decay to sample playback. 
@@ -13,6 +12,7 @@
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
   + Done
+  - [x] Add positional swiping.
   - [x] Add `paintSound` to the disk library / make a really good abstraction for
         that.
   - [x] Add live pitch shifting / speed.
