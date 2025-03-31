@@ -568,7 +568,11 @@ async function uploadPainting(picture, progress, handle, filename) {
     try {
       const data = await $commonApi.upload(
         filename,
-        picture,
+        {
+          pixels: picture.pixels,
+          width: picture.width,
+          height: picture.height,
+        },
         (p) => {
           console.log("Painting upload progress:", p);
           progress?.(p);
@@ -870,6 +874,9 @@ const $commonApi = {
     });
     serverUploadProgressReporter = progress;
     serverUploadProgressReporter?.(0);
+
+    console.log("Painting data:", data);
+
     send({ type: "upload", content: { filename, data, bucket } });
     return prom;
   },
