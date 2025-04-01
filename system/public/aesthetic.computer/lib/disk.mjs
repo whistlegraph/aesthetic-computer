@@ -816,8 +816,8 @@ const $commonApi = {
     current: {}, // Will get replaced by an update event.
   },
   // Speak an `utterance` aloud.
-  speak: (utterance, voice, mode, opts) => {
-    send({ type: "speak", content: { utterance, voice, mode, opts } });
+  speak: function speak(utterance, voice = "female:18", mode = "cloud", opts) {
+    return send({ type: "speak", content: { utterance, voice, mode, opts } });
   },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
