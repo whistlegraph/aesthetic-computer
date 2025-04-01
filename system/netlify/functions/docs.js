@@ -3131,7 +3131,6 @@ export async function handler(event, context) {
       />
       <script nonce="$nonce">
         const titleLink = document.querySelector("#title a");
-        console.log(titleLink, titleLink.innerText, titleLink.innerHTML, titleLink.href);
         if (window.self !== window.top && titleLink.innerText === "docs") {
           title.classList.add("nolink");
         }
