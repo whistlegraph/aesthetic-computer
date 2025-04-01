@@ -33,11 +33,7 @@ let odd = false;
 // 💗 Beat
 function beat({ api, sound, params, store }) {
   // Set the system metronome using `store`.
-
   let newBpm;
-
-  console.log(api);
-
   if (params) {
     if (params[0] === "fast") newBpm = 300;
     else if (params[0] === "medium") newBpm = 120;
