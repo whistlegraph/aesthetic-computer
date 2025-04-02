@@ -4785,7 +4785,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // 🔈 Sound
-    // TODO: Most of $sound doesn't need to be generated per
+    // TODO: Most of the $sound api doesn't need to be generated per
     //       frame. 24.01.14.15.19
 
     // For reference in `freq` below.
@@ -5049,6 +5049,8 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
+    soundTime = content.audioTime;
+
     $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
       $sampleCount += 1n;
@@ -5057,7 +5059,7 @@ async function makeFrame({ data: { type, content } }) {
 
       const playingSound = {
         options, // Allow the options passed to BIOS to be inspected.
-        startedAt: performance.now(),
+        startedAt: soundTime, // performance.now(),
         killed: false,
         kill: (fade) => {
           send({ type: "sfx:kill", content: { id, fade } });
@@ -5088,8 +5090,6 @@ async function makeFrame({ data: { type, content } }) {
 
       return playingSound;
     };
-
-    soundTime = content.audioTime;
 
     $sound.skip = function () {
       send({ type: "beat:skip" });
@@ -5123,7 +5123,7 @@ async function makeFrame({ data: { type, content } }) {
       const end = soundTime + seconds;
 
       return {
-        startedAt: performance.now(),
+        startedAt: soundTime, // performance.now(),
         id,
         kill: function (fade) {
           sound.kills.push({ id, fade });
