@@ -104,7 +104,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       if (msg.type === "new-bpm") {
         this.#bpm = msg.data;
         this.#bpmInSec = 60 / this.#bpm;
-        console.log("🎼 New BPM:", this.#bpm);
+        // console.log("🎼 New BPM:", this.#bpm);
         return;
       }
 
