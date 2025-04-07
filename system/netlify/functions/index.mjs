@@ -199,7 +199,7 @@ async function fun(event, context) {
 
       try {
         console.log(
-          "Writing to:",
+          "📖 Writing to:",
           tempPath,
           "Source length:",
           sourceCode?.length,
@@ -214,12 +214,13 @@ async function fun(event, context) {
         await fs.unlink(tempPath);
       }
 
-      console.log("Module:", module.meta, tempPath);
+      console.log("Module:", module?.meta, tempPath);
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     }
-  } catch {
+  } catch (err) {
     // If either module doesn't load, then we can fallback to the main route.
+    console.log("🔴 Error loading module:", err, sourceCode);
     return redirect;
   }
 
