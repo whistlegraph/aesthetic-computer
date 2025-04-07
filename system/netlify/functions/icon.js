@@ -49,7 +49,7 @@ async function handler(event, context) {
   try {
     browser = !dev ? await puppeteer.connect(ops) : await puppeteer.launch(ops);
   } catch (err) {
-    shell.log("Error launching puppeteer:", error);
+    shell.log("Error launching puppeteer:", err);
   }
 
   shell.log("🌟 Making new page...");
