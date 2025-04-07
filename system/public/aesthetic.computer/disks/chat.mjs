@@ -117,7 +117,7 @@ async function boot({
       const msg = content; // Pre-transformed and stored.
       sound.play(messageSfx);
       // delete store["chat:scroll"]; // Reset scroll on new message?
-      return;
+      // return;
     }
 
     if (extra?.layoutChanged) messagesNeedLayout = true;
