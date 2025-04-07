@@ -1828,7 +1828,7 @@ function act({
             const fade = max(
               0.075, //0.175,
               min(
-                (performance.now() - sounds[buttonNote].sound.startedAt) / 1000,
+                (performance.now() / 1000 - sounds[buttonNote].sound.startedAt),
                 0.15, //0.45,
               ),
             );
