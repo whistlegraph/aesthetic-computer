@@ -98,6 +98,7 @@ export class Chat {
           // Only keep the last 100 messages in this array.
           if (this.system.messages.length > 100) this.system.messages.shift();
           content = msg; // Pass the transformed message.
+          extra.layoutChanged = true;
         }
 
         // Auto parse handle updates.

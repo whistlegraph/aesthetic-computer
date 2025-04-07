@@ -7,12 +7,27 @@
        the measure loops on itself in a failure state.
     - [] Make a data model for a song. 
 
+   * Levels of increasing difficulty...
+    - [] One button, time based rhythm.
+
+
   - [] Trigger a sound on each section beat. 
     - [] (Would these be well timed?)
   + Done
   - [x] There needs to be a concept of a musical track or measure, with a progress
         bar.
 */
+
+// 🥳 Phrases
+const phrases = {
+  starter: {
+    measures: [{ for: "cpu" }, { for: "human" }],
+  },
+};
+
+let phrase = phrases.starter;
+
+// 🎼 Musical Structure
 
 // Beat
 let beatStart;
@@ -24,7 +39,6 @@ let beatInMeasure = -1;
 
 // Phrase
 let measureInPhrase = 0;
-let measuresInPhrase = 4;
 
 let flash = false;
 const { max, min } = Math;
@@ -36,13 +50,14 @@ function boot({ speak, sound }) {
 
 function beat({ sound }) {
   flash = true; // Set the screen to flash every beat.
-  beatInMeasure += 1;
+  beatStart = sound.time; // Reset the beat progress tracker.
+
+  beatInMeasure += 1; // Compute the current musical position.
   if (beatInMeasure > beatsPerMeasure - 1) {
     measureInPhrase += 1;
-    if (measureInPhrase > measuresInPhrase - 1) measureInPhrase = 0;
+    if (measureInPhrase > phrase.measures.length - 1) measureInPhrase = 0;
     beatInMeasure = 0;
   }
-  beatStart = sound.time; // Reset the beat progress tracker.
 }
 
 function paint({ wipe, ink, screen, sound }) {
@@ -54,7 +69,7 @@ function paint({ wipe, ink, screen, sound }) {
     .write("bpm: " + sound.bpm(), 6, ly)
     .write(`beat: ${beatInMeasure + 1}/${beatsPerMeasure}`, 6, ly + 12)
     .write(
-      `measure: ${measureInPhrase + 1}/${measuresInPhrase}`,
+      `measure: ${measureInPhrase + 1}/${phrase.measures.length}`,
       6,
       ly + 12 + 12,
     );
@@ -104,21 +119,22 @@ function paint({ wipe, ink, screen, sound }) {
   ink("red").box(
     0,
     by,
-    ((measureInPhrase + 1) / measuresInPhrase) * screen.width,
+    ((measureInPhrase + 1) / phrase.measures.length) * screen.width,
     barHeight,
   );
   ink("white").box(
     0,
     by,
-    (measureInPhrase / measuresInPhrase + measureProgress / measuresInPhrase) *
+    (measureInPhrase / phrase.measures.length +
+      measureProgress / phrase.measures.length) *
       screen.width,
     barHeight,
   );
   ink("yellow").box(
     0,
     by,
-    (measureInPhrase / measuresInPhrase +
-      beatInMeasure / beatsPerMeasure / measuresInPhrase) *
+    (measureInPhrase / phrase.measures.length +
+      beatInMeasure / beatsPerMeasure / phrase.measures.length) *
       screen.width,
     barHeight,
   );

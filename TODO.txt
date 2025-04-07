@@ -2,22 +2,38 @@
 
 Projects in Progress (PIP) 🌟
 
-* Debug Log *
-- [] Make a standard overlay to show any erroneous console output
-     directly on the front end.
+ * `tremory` *
+ - [] Finish basic prototype.
+ - [] Add some fun beat patterns.
 
-* Taping Regressions *
- - [] Fix
- - [] Pause icon is no longer present?
- - [] Pressing escape twice stays on video for some reason?
- - [] 'share' swipe should be disabled on video piece with '|'.
- + Done
- - [x] Tape sound only syncs on first time.
+ * `clock` *
+ - [] Migrate `ucla-clock` to clock.
+ - [] Start up a special `chat-clock` instance that will have commands that
+      enable it to change the clock.
+
+* Are.na Account Hook (Seems Fun) *
+ - [] API Reference: https://github.com/ivangreene/arena-js 
+
+* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
+ - [] 
 
 * Banners *
  - [🟠] Fix banners by somehow rendering them on the backend or running
         puppeteer differently?
  - [] https://localhost:8888/icon/128x128/prompt.png
+
+* Debug Log *
+- [] Make a standard overlay to show any erroneous console output
+     directly on the front end.
+
+* `tape` reel / taping regressions *
+ - [] Make a `tape` fyp style reel.
+ - [] Pause icon is no longer present?
+ - [] Pressing escape twice stays on video for some reason?
+ - [?] 'share' swipe should be disabled on video piece with '|'.
+ + Done
+ - [x] Fix
+ - [x] Tape sound only syncs on first time.
 
  * Message Deletion *
   - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin). 
@@ -35,7 +51,6 @@ Projects in Progress (PIP) 🌟
            This could be done through redis...
   - [x] Show timestamps on chat messages.
     - [x] Live last message stamp.
-
   + Done
   - [x] Finish timestamp picking.
     - [x] Tapping shows yellow.
