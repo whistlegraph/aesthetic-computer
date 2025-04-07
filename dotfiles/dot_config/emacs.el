@@ -592,7 +592,7 @@
          '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬") ("kidlisp" . "🐍")))
         prompt-tab-created stripe-tab-created)
     (tab-rename "📂 source")
-    (find-file "~/aesthetic-computer/README.txt")
+    (find-file "~/aesthetic-computer/TODO.txt")
     (dolist (cmd commands)
       (cond
        ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
