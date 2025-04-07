@@ -568,7 +568,11 @@ async function uploadPainting(picture, progress, handle, filename) {
     try {
       const data = await $commonApi.upload(
         filename,
-        picture,
+        {
+          pixels: picture.pixels,
+          width: picture.width,
+          height: picture.height,
+        },
         (p) => {
           console.log("Painting upload progress:", p);
           progress?.(p);
@@ -812,8 +816,8 @@ const $commonApi = {
     current: {}, // Will get replaced by an update event.
   },
   // Speak an `utterance` aloud.
-  speak: (utterance, voice, mode, opts) => {
-    send({ type: "speak", content: { utterance, voice, mode, opts } });
+  speak: function speak(utterance, voice = "female:18", mode = "cloud", opts) {
+    return send({ type: "speak", content: { utterance, voice, mode, opts } });
   },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
@@ -870,6 +874,9 @@ const $commonApi = {
     });
     serverUploadProgressReporter = progress;
     serverUploadProgressReporter?.(0);
+
+    console.log("Painting data:", data);
+
     send({ type: "upload", content: { filename, data, bucket } });
     return prom;
   },
@@ -4778,7 +4785,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // 🔈 Sound
-    // TODO: Most of $sound doesn't need to be generated per
+    // TODO: Most of the $sound api doesn't need to be generated per
     //       frame. 24.01.14.15.19
 
     // For reference in `freq` below.
@@ -5042,6 +5049,8 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
+    soundTime = content.audioTime;
+
     $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
       $sampleCount += 1n;
@@ -5050,7 +5059,7 @@ async function makeFrame({ data: { type, content } }) {
 
       const playingSound = {
         options, // Allow the options passed to BIOS to be inspected.
-        startedAt: performance.now(),
+        startedAt: soundTime, // performance.now(),
         killed: false,
         kill: (fade) => {
           send({ type: "sfx:kill", content: { id, fade } });
@@ -5081,8 +5090,6 @@ async function makeFrame({ data: { type, content } }) {
 
       return playingSound;
     };
-
-    soundTime = content.audioTime;
 
     $sound.skip = function () {
       send({ type: "beat:skip" });
@@ -5116,7 +5123,7 @@ async function makeFrame({ data: { type, content } }) {
       const end = soundTime + seconds;
 
       return {
-        startedAt: performance.now(),
+        startedAt: soundTime, // performance.now(),
         id,
         kill: function (fade) {
           sound.kills.push({ id, fade });

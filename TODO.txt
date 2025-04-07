@@ -3,7 +3,7 @@
 Projects in Progress (PIP) 🌟
 
 * Debug Log *
-- [] Make a standard overlay to show any errorneous console output
+- [] Make a standard overlay to show any erroneous console output
      directly on the front end.
 
 * Taping Regressions *

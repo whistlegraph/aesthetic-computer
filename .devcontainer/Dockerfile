@@ -117,7 +117,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
-    fnm install lts-iron && fnm use lts-iron && fnm install 20.5.0 && \
+    fnm install lts-jod && fnm use lts-jod && fnm install 20.5.0 && \
     npm install -g prettier typescript typescript-language-server npm-check-updates codebuff
 
 # @emacs-eask/cli
