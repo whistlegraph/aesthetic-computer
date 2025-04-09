@@ -303,6 +303,13 @@ async function halt($, text) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
   } else if (
+    slug === "tape" ||
+    slug === "tape:add" ||
+    slug === "tape:tt" ||
+    slug === "tape:nomic" ||
+    slug === "tape:mic" ||
+    slug === "tapem"
+  ) {
     // 📼 Start taping.
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
@@ -312,13 +319,6 @@ async function halt($, text) {
     // Each of these clips can be stored in indexedDB more easily and played
     // back or be rearranged.
     // 23.09.16.18.01
-    slug === "tape" ||
-    slug === "tape:add" ||
-    slug === "tape:tt" ||
-    slug === "tape:nomic" ||
-    slug === "tape:mic" ||
-    slug === "tapem"
-  ) {
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 7;
     const tapePromise = new Promise((resolve, reject) => {

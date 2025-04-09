@@ -375,47 +375,32 @@ from = "/*"
 to = "/.netlify/functions/index"
 status = 200
 force = false
-
-# ⛵ JAS Signature Redirects
-
 [[redirects]]
+# ⛵ JAS Signature Redirects
 from = "/25.4.8.21.19"
 to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
-status = 200
-force = true
-
+status = 301
 [[redirects]]
 from = "/25.4.8.21.17"
 to = "https://shop.aesthetic.computer/products/books_art-as-a-social-system-by-niklas-luhmann_25-4-8-21-17"
-status = 200
-force = true
-
+status = 301
 [[redirects]]
 from = "/25.4.8.21.11"
 to = "https://shop.aesthetic.computer/products/books_play-by-catherine-garvey_25-4-8-21-11"
-status = 200
-force = true
-
+status = 301
 [[redirects]]
 from = "/25.4.8.21.08"
 to = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08"
-status = 200
-force = true
-
+status = 301
 [[redirects]]
 from = "/25.4.8.21.07"
 to = "https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07"
-status = 200
-force = true
-
+status = 301
 [[redirects]]
 from = "/25.4.8.21.0"
 to = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0"
-status = 200
-force = true
-
+status = 301
 [[redirects]]
 from = "/25.4.8.20.47"
 to = "https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47"
-status = 200
-force = true
+status = 301

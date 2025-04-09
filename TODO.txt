@@ -2,19 +2,6 @@
 
 Projects in Progress (PIP) 🌟
 
-* Store Routing Product URLs *
- - [] Route "https://aesthetic.computer/25.4.8.21.19" ->
-  "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
-  and the same for the below urls...
- - https://shop.aesthetic.computer/products/books_art-as-a-social-system-by-niklas-luhmann_25-4-8-21-17
- - https://shop.aesthetic.computer/products/books_play-by-catherine-garvey_25-4-8-21-11
- - https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08
- - https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07
- - https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0
- - https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47
- 
- Make sure this works when going to the naked URL in the browser, and also when entering it into the `prompt` piece via `prompt.mjs`.
-
  * `tremory` *
  - [] Finish basic prototype.
  - [] Add some fun beat patterns.
