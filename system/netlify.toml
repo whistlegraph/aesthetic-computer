@@ -370,8 +370,12 @@ force = true
 # to = "/.netlify/functions/index"
 # status = 200
 # force = true
+# 🛍️ Shop and ⛵ JAS Signature Redirects
 [[redirects]]
-# ⛵ JAS Signature Redirects
+from = "/shop"
+to = "https://shop.aesthetic.computer"
+status = 301
+[[redirects]]
 from = "/25.4.8.21.19"
 to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
 status = 301
