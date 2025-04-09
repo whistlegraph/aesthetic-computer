@@ -21,7 +21,10 @@
 // 🥳 Phrases
 const phrases = {
   starter: {
-    measures: [{ for: "cpu" }, { for: "human" }],
+    measures: [
+      { for: "cpu", beats: 4 },
+      { for: "human", beats: 16 },
+    ],
   },
 };
 
@@ -34,7 +37,6 @@ let beatStart;
 let beatProgress = 0;
 
 // Measure
-const beatsPerMeasure = 4;
 let beatInMeasure = -1;
 
 // Phrase
@@ -53,16 +55,40 @@ function beat({ sound }) {
   beatStart = sound.time; // Reset the beat progress tracker.
 
   beatInMeasure += 1; // Compute the current musical position.
-  if (beatInMeasure > beatsPerMeasure - 1) {
+  if (beatInMeasure > phrase.measures[measureInPhrase].beats - 1) {
     measureInPhrase += 1;
     if (measureInPhrase > phrase.measures.length - 1) measureInPhrase = 0;
     beatInMeasure = 0;
   }
+
+  // 💡
+  // TODO: Add a `when` function here that can wait a specified amount
+  //       of time before triggering this sound.
+
+  sound.at(sound.time + sound.bpm)
+
+  sound.synth({
+    tone: "5g",
+    beats: 0.5
+  });
+
+}
+
+// TODO: `beat` is a function that runs every bpm beat, but i want to run these 
+function half() {
+}
+
+function fourth() {
+}
+
+function sixteenth() {
 }
 
 function paint({ wipe, ink, screen, sound }) {
   wipe(flash ? 128 : 0);
   if (flash) flash = false;
+
+  const beatsPerMeasure = phrase.measures[measureInPhrase].beats;
 
   const ly = 20;
   ink("white")
@@ -90,6 +116,14 @@ function paint({ wipe, ink, screen, sound }) {
   ink("red").box(0, by, screen.width, barHeight);
   ink("white").box(0, by, max(1, beatProgress * screen.width), barHeight);
   ink("yellow").line(screen.width - 1, by, screen.width - 1, by + barHeight);
+
+  // Add vertical lines for quarter notes in the bpm bar
+  const quarterNoteWidth = screen.width / 4;
+  for (let q = 1; q < 4; q++) {
+    const x = q * quarterNoteWidth;
+    ink("yellow", 128).line(x, by, x, by + barHeight - 1);
+  }
+
 
   // 📏 Measure Bar
   nextBar();
@@ -144,6 +178,23 @@ function paint({ wipe, ink, screen, sound }) {
     screen.width - 1,
     by + barHeight - 1,
   );
+
+  // Add vertical measure lines to the composition bar, representing each measure
+  for (let m = 0; m < phrase.measures.length; m++) {
+    const startX = (m / phrase.measures.length) * screen.width;
+    const endX = ((m + 1) / phrase.measures.length) * screen.width - 1;
+    const color = phrase.measures[m].for === "cpu" ? "blue" : "green";
+    const beats = phrase.measures[m].beats; // Use the beats property of the current measure
+
+    ink(color).line(startX, by, startX, by + barHeight - 1); // Measure line
+    ink(color, 32).box(startX, by, endX - startX, barHeight); // Fill color
+
+    // Add vertical lines for each beat within the measure.
+    for (let b = 1; b < beats; b++) {
+      const beatX = startX + (b / beats) * (endX - startX);
+      ink("white", 128).line(beatX, by, beatX, by + barHeight - 1);
+    }
+  }
 }
 
 function sim({ api, sound }) {

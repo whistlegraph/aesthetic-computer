@@ -4,7 +4,7 @@
 /* 📝 Notes
  */
 
-let sfx, sfxData, progress, playingSfx;
+let sfx, sfxData, progress, playingSfx, xml;
 
 export async function boot({ net: { preload }, sound, params }) {
   if (params[0] === "zzzZWAP") {
@@ -13,6 +13,10 @@ export async function boot({ net: { preload }, sound, params }) {
     );
   } else if (params[0] === "WHoOSH") {
     sfx = await preload("https://assets.aesthetic.computer/wipppps/WHoOSH.ogg");
+  } else if (params[0] === "BLURP") {
+    sfx = await preload("https://assets.aesthetic.computer/wipppps/BLURP.ogg");
+    xml = await preload("https://assets.aesthetic.computer/wipppps/BLURP");
+    console.log("🔴 XML:", xml);
   } else {
     sfx = await preload("startup");
   }
@@ -60,7 +64,7 @@ export function paint({
     0,
     startY,
     screen.width / 4,
-    (screen.height - startY),
+    screen.height - startY,
     undefined, // [255, 0, 0, 255],
     { noamp: true, primaryColor: "red", secondaryColor: "blue" },
   );
@@ -69,7 +73,7 @@ export function paint({
     api,
     sound.speaker.amplitudes.left,
     help.resampleArray(sound.speaker.waveforms.left, 2),
-    screen.width / 4 * 1,
+    (screen.width / 4) * 1,
     startY,
     (screen.width / 4) * 1,
     screen.height - startY,
@@ -82,9 +86,9 @@ export function paint({
     api,
     sound.speaker.amplitudes.left,
     help.resampleArray(sound.speaker.waveforms.left, 3),
-    screen.width / 4 * 2,
+    (screen.width / 4) * 2,
     startY,
-    (screen.width / 4),
+    screen.width / 4,
     screen.height - startY,
     undefined, // [255, 0, 0, 255],
     { noamp: true, primaryColor: "red", secondaryColor: "blue" },
@@ -94,16 +98,14 @@ export function paint({
     api,
     sound.speaker.amplitudes.left,
     help.resampleArray(sound.speaker.waveforms.left, 4),
-    screen.width / 4 * 3,
+    (screen.width / 4) * 3,
     startY,
-    (screen.width / 4) ,
+    screen.width / 4,
     screen.height - startY,
     undefined, // [255, 0, 0, 255],
     { noamp: true, primaryColor: "blue", secondaryColor: "red" },
     // { noamp: true, primaryColor: "red", secondaryColor: "blue" },
   );
-
-
 
   if (sfxData) {
     // comp ||= num.arrCompress(sfxData, 256);
