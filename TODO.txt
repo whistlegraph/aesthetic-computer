@@ -2,16 +2,19 @@
 
 Projects in Progress (PIP) 🌟
 
+ * `clock` *
+ - [] Migrate `ucla-clock` to `clock`.
+  - [] Clock will have a special chat instance with special notification icon.
+ - [] Pay Google cloud bill.
+ - [] Start up a special `chat-clock` instance that will have commands that
+      enable it to change the clock.
+
  * `tremory` *
  - [] Finish basic prototype.
  - [] Add some fun beat patterns.
 
- * `clock` *
- - [] Migrate `ucla-clock` to clock.
- - [] Start up a special `chat-clock` instance that will have commands that
-      enable it to change the clock.
-
 * Are.na Account Hook (Seems Fun) *
+ - [🟣] Make an Aesthetic Computer are.na account or repurpose my account for that?
  - [] API Reference: https://github.com/ivangreene/arena-js 
 
 * YouTube Channel * (Requires some new funding / a dedicated VPS to setup)

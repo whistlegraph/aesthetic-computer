@@ -303,6 +303,8 @@ async function halt($, text) {
   if (slug.startsWith("/")) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
+  } else if (slug === "shop") {
+    jump("/shop");
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
   } else if (
