@@ -231,24 +231,33 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         // console.log(msg.data);
 
         // Trigger the sound...
-        const sound = new Synth({
-          type: msg.data.type,
-          id: msg.data.id,
-          options: msg.data.options || { tone: msg.data.tone },
-          duration,
-          attack,
-          decay,
-          volume: msg.data.volume ?? 1,
-          pan: msg.data.pan || 0,
-        });
 
-        // console.log("🔊🚩 Sound ID:", msg.data.id);
+        // TODO: Use the `when` value to trigger the sound here.
 
-        // if (duration === Infinity && msg.data.id > -1n) {
-        this.#running[msg.data.id] = sound; // Index by the unique id.
+        //if (msg.data.when === "now") {
+          const sound = new Synth({
+            type: msg.data.type,
+            id: msg.data.id,
+            options: msg.data.options || { tone: msg.data.tone },
+            duration,
+            attack,
+            decay,
+            volume: msg.data.volume ?? 1,
+            pan: msg.data.pan || 0,
+          });
+
+          // console.log("🔊🚩 Sound ID:", msg.data.id);
+
+          // if (duration === Infinity && msg.data.id > -1n) {
+          this.#running[msg.data.id] = sound; // Index by the unique id.
+          // }
+
+          this.#queue.push(sound);
+        //} else {
+          // Wait and then trigger...
+          // console.log("😊 Waiting on sound:", msg.data.when);
         // }
 
-        this.#queue.push(sound);
         return;
       }
 
