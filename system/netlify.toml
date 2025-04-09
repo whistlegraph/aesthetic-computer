@@ -371,11 +371,6 @@ force = true
 # status = 200
 # force = true
 [[redirects]]
-from = "/*"
-to = "/.netlify/functions/index"
-status = 200
-force = false
-[[redirects]]
 # ⛵ JAS Signature Redirects
 from = "/25.4.8.21.19"
 to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
@@ -404,3 +399,8 @@ status = 301
 from = "/25.4.8.20.47"
 to = "https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47"
 status = 301
+[[redirects]]
+from = "/*"
+to = "/.netlify/functions/index"
+status = 200
+force = false
