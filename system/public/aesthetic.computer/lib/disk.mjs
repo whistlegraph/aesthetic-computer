@@ -19,6 +19,7 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
+import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import { Chat } from "./chat.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -627,6 +628,8 @@ const $commonApi = {
     }
     const jumpOut =
       to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
+
+    if (shop.indexOf(to) > -1) to = "/" + to; // Jump out for shop products.
 
     if (
       ((to.startsWith("http") || to.startsWith("/")) && !to.endsWith(".mjs")) ||
