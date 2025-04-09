@@ -3251,7 +3251,34 @@ async function load(
       }
     }
 
-    if (extension === "json") {
+    if (extension === "xml" || extension === undefined) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        options.signal?.addEventListener("abort", () => {
+          xhr.abort();
+          rejection(reject);
+        });
+
+        xhr.open("GET", path, true);
+        xhr.onprogress = function (event) {
+          const progress = min(event.loaded / event.total, 1);
+          if (debug && logs.download) {
+            console.log(`💈 XML Download: ${progress * 100}%`);
+          }
+          progressReport?.(progress);
+        };
+        xhr.onload = function () {
+          if (xhr.status === 200 || xhr.status === 304) {
+            resolve(xhr.responseXML || xhr.responseText);
+          } else {
+            reject(xhr.status);
+          }
+        };
+        xhr.onerror = reject;
+        xhr.send();
+      });
+    } else if (extension === "json") {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
@@ -5095,6 +5122,12 @@ async function makeFrame({ data: { type, content } }) {
       send({ type: "beat:skip" });
     };
 
+    $sound.at = function (timeToRun, callback) {
+      // TODO: Finish this implementation. 
+      // timeToRun;
+      // content.audioTime;
+    };
+
     $sound.synth = function synth({
       tone = 440, // hz, or musical note
       type = "square", // "sine", "triangle", "square", "sawtooth"
@@ -5120,6 +5153,7 @@ async function makeFrame({ data: { type, content } }) {
       if (beats === undefined && duration !== undefined) seconds = duration;
       else seconds = (60 / sound.bpm) * beats;
       // console.log("Beats:", beats, "Duration:", duration, "Seconds:", seconds, "BPM:", sound.bpm);
+
       const end = soundTime + seconds;
 
       return {
