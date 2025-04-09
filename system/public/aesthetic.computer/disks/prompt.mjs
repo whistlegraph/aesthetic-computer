@@ -69,6 +69,7 @@ import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
+import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
@@ -302,6 +303,8 @@ async function halt($, text) {
   if (slug.startsWith("/")) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
+  } else if (shop.indexOf(slug) > -1) {
+    jump("/" + slug); // Matches a product so jump to a new page / redirect.
   } else if (
     slug === "tape" ||
     slug === "tape:add" ||
