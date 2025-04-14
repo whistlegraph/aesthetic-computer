@@ -2,6 +2,12 @@
 
 Projects in Progress (PIP) 🌟
 
+https://aesthetic.computer/share~25.4.13.18.54
+https://aesthetic.computer/share~25.4.13.19.24
+https://aesthetic.computer/share~25.4.13.19.06
+https://aesthetic.computer/share~25.4.13.17.47
+https://aesthetic.computer/share~25.4.13.18.18
+
  * `clock` *
  - [] Migrate `ucla-clock` to `clock`.
   - [] Clock will have a special chat instance with special notification icon.
