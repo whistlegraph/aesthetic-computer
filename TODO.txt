@@ -3,10 +3,20 @@
 Projects in Progress (PIP) 🌟
 
 https://aesthetic.computer/share~25.4.13.18.54
+https://shop.aesthetic.computer/products/pictures_25-4-13-18-54
+
 https://aesthetic.computer/share~25.4.13.19.24
+https://shop.aesthetic.computer/products/pictures_25-4-13-19-24
+
 https://aesthetic.computer/share~25.4.13.19.06
+https://shop.aesthetic.computer/products/pictures_25-4-13-19-06
+
 https://aesthetic.computer/share~25.4.13.17.47
+https://shop.aesthetic.computer/products/pictures_25-4-13-17-47
+
 https://aesthetic.computer/share~25.4.13.18.18
+https://shop.aesthetic.computer/products/25-4-13-18-18
+
 
  * `clock` *
  - [] Migrate `ucla-clock` to `clock`.
