@@ -10,7 +10,7 @@ const filePath = join(dirPath, '.ssl');
 // Get the path to fish dynamically
 const fishPath = 'fish';
 
-const command = `${fishPath} ${join(homedir(), 'aesthetic-computer/ssl-dev/fedora-install.fish')} --install-only`;
+const command = `${fishPath} ${join(homedir(), 'aesthetic-computer/ssl-dev/ssl-install.fish')} --install-only`;
 
 watch(dirPath, (eventType, filename) => {
   if (eventType === 'rename' && filename === '.ssl') {

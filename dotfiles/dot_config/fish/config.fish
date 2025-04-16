@@ -1,4 +1,4 @@
-# jeffrey's fish config
+# @jeffrey's laptop fish config (Fedora Linux Host)
 
 # Enable Wayland support for Java apps
 set -x _JAVA_AWT_WM_NONREPARENTING 1
@@ -66,7 +66,7 @@ alias ff "vim (sk -c 'git ls-tree -r --name-only HEAD || ag -l -g \"\"')"
 # shortcuts for projects
 alias ac 'cd ~/aesthetic-computer; git pull'
 
-alias ac-ssl '~/aesthetic-computer/ssl-dev/fedora-install.fish'
+alias ac-ssl '~/aesthetic-computer/ssl-dev/ssl-install.fish'
 
 alias acc 'ac; ac-ssl; code .'
 

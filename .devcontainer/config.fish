@@ -1,3 +1,5 @@
+# Aesthetic Computer Development Environment Fish Config (Docker)
+
 if test -d /home/me/envs
     source /home/me/envs/load_envs.fish
     load_envs # Load devcontainer envs conditionally.
@@ -123,7 +125,6 @@ alias ac-site 'ac; npm run site'
 alias ac-watch 'ac; npm run watch'
 alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
-alias ac-edge 'clear; ac; npm run edge-micro' # TODO: will not return to fish 24.04.05.19.53 :(
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
@@ -196,3 +197,8 @@ alias nvm forget
 
 # use tab to autocomplete the first suggestion
 bind \t complete-select-first
+
+function clipboard
+    set content $argv
+    printf "%s\n" $content | nc host.docker.internal 12345
+end
