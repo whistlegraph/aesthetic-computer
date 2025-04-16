@@ -15,7 +15,6 @@
     "redis": "docker exec -it aesthetic-container //usr/bin/fish -c 'redis-server'",
     "site": "docker exec -it aesthetic-container //usr/bin/fish -c 'ac-site'",
     "session": "docker exec -it aesthetic-container //usr/bin/fish -c 'ac-session'",
-    "edge": "docker exec -it aesthetic-container //usr/bin/fish -c 'ac-edge'",
     "stripe-print": "docker exec -it aesthetic-container //usr/bin/fish -c 'ac-stripe-print'",
     "stripe-ticket": "docker exec -it aesthetic-container //usr/bin/fish -c 'ac-stripe-ticket'",
     "watch": "cd machine; node watch.mjs"

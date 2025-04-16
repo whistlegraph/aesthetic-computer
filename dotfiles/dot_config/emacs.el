@@ -436,6 +436,13 @@
 ;; Use xclip for system clipboard.
 (use-package xclip :config (xclip-mode 1))
 
+(defun my/xclip-set-selection (type data)
+  "Send clipboard to host from Emacs using a fish shell function."
+  (let ((clipboard-command (format "fish -c 'clipboard %s'" (shell-quote-argument data))))
+    (start-process-shell-command "clipboard" nil clipboard-command)))
+
+(advice-add 'xclip-set-selection :override #'my/xclip-set-selection)
+
 ;; Evil mode configuration
 (use-package evil
      :config
@@ -586,10 +593,10 @@
 (defun aesthetic-backend (target-tab)
   "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
   (interactive)
-  (let ((directory-path "~/aesthetic-computer/micro")
-        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket" "servers" "chat-system" "chat-sotce" "kidlisp"))
+  (let ((directory-path "~/aesthetic-computer")
+        (commands '("shell" "site" "session" "redis" "stripe-print" "stripe-ticket" "servers" "chat-system" "chat-sotce" "kidlisp"))
         (emoji-for-command
-         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬") ("kidlisp" . "🐍")))
+         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬") ("kidlisp" . "🐍")))
         prompt-tab-created stripe-tab-created)
     (tab-rename "📂 source")
     (find-file "~/aesthetic-computer/TODO.txt")
