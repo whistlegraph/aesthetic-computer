@@ -4,22 +4,34 @@ ENV NODE_OPTIONS=--max_old_space_size=8192
 
 # Update all packages.
 RUN dnf update -y
-
-RUN dnf install -y which tree procps-ng coreutils unzip jq bat
+RUN dnf install -y awk which tree procps-ng coreutils unzip jq bat
 RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user
+RUN dnf install -y make cmake gcc-c++ python3-devel
 RUN dnf install -y qemu-kvm qemu-img
 RUN dnf install -y openssl openssl-devel awscli redis
 RUN dnf install -y dnf-plugins-core
 RUN dnf install -y lolcat toilet
-# RUN dnf install -y entr
 RUN dnf install -y iproute
 RUN dnf install -y xclip
-# RUN dnf install -y golang
+RUN dnf install -y nmap-ncat
+
+RUN ulimit -n 65536
 
 # Add the Caddy repository and install Caddy
 RUN dnf install -y 'dnf-command(copr)'
 RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
+
+# Add dotnet
+RUN . /etc/os-release && \
+    rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
+    echo "[microsoft-dotnet]" > /etc/yum.repos.d/microsoft-dotnet.repo && \
+    echo "name=Microsoft .NET Core SDK" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
+    echo "baseurl=https://packages.microsoft.com/yumrepos/microsoft-fedora-${VERSION_ID%%.*}-arm64" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
+    echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
+    dnf install -y dotnet-sdk-9.0
 
 # Install necessary dependencies for Puppeteer
 RUN dnf install -y \
