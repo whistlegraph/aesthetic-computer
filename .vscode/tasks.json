@@ -4,7 +4,7 @@
     {
       "label": "💻 Aesthetic",
       "type": "shell",
-      "command": "type -q aesthetic; and aesthetic; or docker system prune -f; and clear; and echo -e \"\n\\033[1m 🟪 Please run the Aesthetic Platform from its development container.\\033[0m\"; and echo \"\"",
+      "command": "type -q aesthetic; and aesthetic; or command -v docker > /dev/null; and docker system prune -f; and clear; and echo -e \"\n\\033[1m 🟪 Please run the Aesthetic Platform from its development container.\\033[0m\"; and echo \"\"",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
