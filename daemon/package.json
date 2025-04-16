@@ -5,7 +5,7 @@
   "main": "daemon.js",
   "type": "module",
   "scripts": {
-    "install": "fish install-daemon.fish",
+    "install-daemon": "fish install-daemon.fish",
     "monitor": "journalctl --user -u aesthetic-daemon.service -f"
   },
   "author": "Jeffrey Alan Scudder"
