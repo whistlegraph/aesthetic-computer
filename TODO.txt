@@ -17,6 +17,8 @@ https://shop.aesthetic.computer/products/pictures_25-4-13-17-47
 https://aesthetic.computer/share~25.4.13.18.18
 https://shop.aesthetic.computer/products/25-4-13-18-18
 
+* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
+ - [] https://studio.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg/livestreaming
 
  * `clock` *
  - [] Migrate `ucla-clock` to `clock`.
@@ -32,9 +34,6 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
 * Are.na Account Hook (Seems Fun) *
  - [🟣] Make an Aesthetic Computer are.na account or repurpose my account for that?
  - [] API Reference: https://github.com/ivangreene/arena-js 
-
-* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
- - [] 
 
 * Banners *
  - [🟠] Fix banners by somehow rendering them on the backend or running
