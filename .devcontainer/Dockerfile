@@ -21,17 +21,7 @@ RUN ulimit -n 65536
 RUN dnf install -y 'dnf-command(copr)'
 RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
-
-# Add dotnet
-RUN . /etc/os-release && \
-    rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
-    echo "[microsoft-dotnet]" > /etc/yum.repos.d/microsoft-dotnet.repo && \
-    echo "name=Microsoft .NET Core SDK" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
-    echo "baseurl=https://packages.microsoft.com/yumrepos/microsoft-fedora-${VERSION_ID%%.*}-arm64" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
-    echo "enabled=1" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
-    echo "gpgcheck=1" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
-    echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" >> /etc/yum.repos.d/microsoft-dotnet.repo && \
-    dnf install -y dotnet-sdk-9.0
+RUN dnf install -y dotnet-sdk-9.0
 
 # Install necessary dependencies for Puppeteer
 RUN dnf install -y \
@@ -102,8 +92,15 @@ RUN curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
     mv ngrok /usr/local/bin/ && \
     rm ngrok.tgz
 
-# Switch to current user.
+# Install Python Jupyter dependencies as root
+RUN dnf install -y python3-ipykernel
+
+# Switch to user 'me'
 USER me
+
+# Install jupyter and register the kernel
+RUN pip3 install --user jupyter && \
+    python3 -m ipykernel install --user
 
 # Install gyp
 RUN sudo dnf install -y python3-devel && \
