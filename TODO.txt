@@ -1,22 +1,6 @@
 😀 TODO 😆
 
-Projects in Progress (PIP) 🌟
-
-https://aesthetic.computer/share~25.4.13.18.54
-https://shop.aesthetic.computer/products/pictures_25-4-13-18-54
-
-https://aesthetic.computer/share~25.4.13.19.24
-https://shop.aesthetic.computer/products/pictures_25-4-13-19-24
-
-https://aesthetic.computer/share~25.4.13.19.06
-https://shop.aesthetic.computer/products/pictures_25-4-13-19-06
-
-https://aesthetic.computer/share~25.4.13.17.47
-https://shop.aesthetic.computer/products/pictures_25-4-13-17-47
-
-https://aesthetic.computer/share~25.4.13.18.18
-https://shop.aesthetic.computer/products/25-4-13-18-18
-
+ 🌟 Projects in Progress (PIP) 🌟
 
  * `clock` *
  - [] Migrate `ucla-clock` to `clock`.
@@ -31,10 +15,10 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
 
 * Are.na Account Hook (Seems Fun) *
  - [🟣] Make an Aesthetic Computer are.na account or repurpose my account for that?
- - [] API Reference: https://github.com/ivangreene/arena-js 
+ - [] API Reference: https://github.com/ivangreene/arena-js
 
 * YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
- - [] 
+ - []
 
 * Banners *
  - [🟠] Fix banners by somehow rendering them on the backend or running
@@ -55,7 +39,7 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
  - [x] Tape sound only syncs on first time.
 
  * Message Deletion *
-  - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin). 
+  - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin).
     - [] Redaction should...
       - [] Underscore the message for all users and show a 'redacted' sign.
       - [] Should muting also do this?
@@ -76,7 +60,7 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
   - [x] Add 'admin:chat-system:mute' / 'admin:chat-system:unmute' action / endpoint which will be
         separate from handle stripping.
   - [x] Check stripping process.
-  - [x] Put mute list in the database per instance. 
+  - [x] Put mute list in the database per instance.
   - [?] Should stripping also invalidate emails or does it already?
 
 * ios app *
@@ -113,10 +97,10 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
        after holding down to affect a javascript or kid lisp value.
 
 *** `sotce-net` ***
- - [] "substantial page count" 
+ - [] "substantial page count"
  - [] take down `botce`
  - [] make it free later on?
- - [] 
+ - []
       "really enjoying it, was already a part of my practice"
       "i don't struggle to maintain it"
       "good and stable"
@@ -135,7 +119,7 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
       - "makes me nervous to feel like i can't speak to you and you are hosting
          all my of my work."
 
-      - first end 
+      - first end
         - sotce take over
       - medium end
         - jeffrey goes to 10%
@@ -146,7 +130,7 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
 *** `pill` / android devices and shop ***
   - [] flash the uniherz jelly to boot directly into ac with
     - [] custom boot screen
-    - [] 
+    - []
   - [] set up a page to sell the phone through an ac `shop` command
   - [] `pill` should go directly to the product page
 
@@ -200,7 +184,7 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
 
 *** triple undo tap ***
   - [] Try to hide the undo overlay bar that appears when you three finger
-       tap on ios. 
+       tap on ios.
 
 *** bleep ***
   - [🟠] fix bleep held key bug.
@@ -224,7 +208,7 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
   - [x] (Concept / Discussion) Review notebooks.
 
 -- Required pieces...
-  At least one... 
+  At least one...
    1- [] ucla-1
    2- [] ucla-1-a
    3- [] ucla-1-box
@@ -234,8 +218,8 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
   Each one
     - [] ucla-3-keyboard
     - [] ucla-4
-    - [] ucla-5-rect 
-    - [] ucla-5-worm 
+    - [] ucla-5-rect
+    - [] ucla-5-worm
     - [] ucla-6-clock
     - [] ucla-6-turtle
     - [] ucla-7-dial
@@ -261,10 +245,10 @@ https://shop.aesthetic.computer/products/25-4-13-18-18
   - [] autoprompt for local ssl install off the qr code?
   - [x] finish the local `ngrok` tunnel for all services and add socket support
     - [x] needs to be working in localhost / in the vscode extension
-    - [] make sure the udp server works on local.aesthetic.computer 
+    - [] make sure the udp server works on local.aesthetic.computer
   - [] fix vscode extension auth bug
   - [] the 'act' function is sometimes not being exported automatically by the parser.
-  
+
 - [] The 'Open Window' action in the VSCode extension no longer seems to work.
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
   - [] It seems to still work fine on my local machine but didn't work for some students... maybe an old VS Code Extension version?
