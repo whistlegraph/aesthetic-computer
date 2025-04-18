@@ -2,6 +2,9 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
+ - [] https://studio.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg/livestreaming
+
  * `clock` *
  - [] Migrate `ucla-clock` to `clock`.
   - [] Clock will have a special chat instance with special notification icon.
