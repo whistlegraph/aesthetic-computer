@@ -95,6 +95,8 @@ RUN curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
 # Install Python Jupyter dependencies as root
 RUN dnf install -y python3 python3-pip python3-notebook python3-nbconvert
 
+# TODO: Install rosrell and common lisp notebook extension.
+
 # Switch to user 'me'
 USER me
 
