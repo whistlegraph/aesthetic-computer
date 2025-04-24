@@ -2665,6 +2665,11 @@ export async function handler(event, context) {
         desc: "Draw a freehand polygon.",
         done: false,
       },
+      shop: {
+        sig: "shop",
+        desc: "Order artwork and services from @jeffrey.",
+        done: true,
+      },
       share: {
         sig: "share",
         desc: "Generate a QR code to share.",
