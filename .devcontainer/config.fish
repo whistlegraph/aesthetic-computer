@@ -58,6 +58,9 @@ set -gx TERM xterm-256color
 set -gx EDITOR emacs
 set -gx PATH $PATH /home/me/.local/bin
 
+# add dotnet tools to path
+set -Ux PATH $PATH $HOME/.dotnet/tools
+
 # add stuff to path
 # set -gx PATH $PATH $HOME/isomorphic_copy/bin
 # use temporary clipboard file

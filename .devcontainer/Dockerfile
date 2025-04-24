@@ -93,14 +93,15 @@ RUN curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
     rm ngrok.tgz
 
 # Install Python Jupyter dependencies as root
-RUN dnf install -y python3-ipykernel
+RUN dnf install -y python3 python3-pip python3-notebook python3-nbconvert
+
+# TODO: Install rosrell and common lisp notebook extension.
 
 # Switch to user 'me'
 USER me
 
-# Install jupyter and register the kernel
-RUN pip3 install --user jupyter && \
-    python3 -m ipykernel install --user
+RUN sudo mkdir -p $HOME/.jupyter && \
+    sudo chmod -R u+rw $HOME/.jupyter
 
 # Install gyp
 RUN sudo dnf install -y python3-devel && \
@@ -127,7 +128,8 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/
 ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
     fnm install lts-jod && fnm use lts-jod && fnm install 20.5.0 && \
-    npm install -g prettier typescript typescript-language-server npm-check-updates codebuff
+    npm install -g prettier typescript typescript-language-server npm-check-updates
+ # codebuff
 
 # @emacs-eask/cli
 
