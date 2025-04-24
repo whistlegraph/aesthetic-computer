@@ -39,8 +39,9 @@
         "GitHub.copilot",
         "GitHub.copilot-chat",
         "tamasfe.even-better-toml",
-        "ms-dotnettools.dotnet-interactive-vscode",
-        "matthewpi.caddyfile-support"
+        "matthewpi.caddyfile-support",
+        "ms-python.python",
+        "ms-toolsai.jupyter"
       ]
     }
   },
