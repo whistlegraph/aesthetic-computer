@@ -591,39 +591,70 @@
 
 ;; Updated function with emojis for tab names
 (defun aesthetic-backend (target-tab)
-  "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
+  "Run npm commands in eat, each in a new tab named after the command.
+Creates split tabs for 'status' (url + tunnel) and 'stripe' (stripe-print + stripe-ticket)."
   (interactive)
   (let ((directory-path "~/aesthetic-computer")
-        (commands '("shell" "site" "session" "redis" "stripe-print" "stripe-ticket" "servers" "chat-system" "chat-sotce" "kidlisp"))
+        (commands '("site" "session" "redis" "stripe-print" "stripe-ticket" "servers" "chat-system" "chat-sotce" "kidlisp"))
         (emoji-for-command
-         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬") ("kidlisp" . "🐍")))
-        prompt-tab-created stripe-tab-created)
-    (tab-rename "📂 source")
-    (find-file "~/aesthetic-computer/TODO.txt")
-    (dolist (cmd commands)
-      (cond
-       ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
-        (unless stripe-tab-created
-          (tab-new)
-          (tab-rename "💳 stripe")
-          (setq stripe-tab-created t))
-        (when (string= cmd "stripe-ticket")
-          (split-window-right)
-          (other-window 1))
-        (let ((default-directory directory-path))
-          (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
-          ))
-       (t
-        (tab-new)
-        (tab-rename (format "%s %s" (cdr (assoc cmd emoji-for-command)) cmd))
-        (let ((default-directory directory-path))
-          (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
-          ))))
+         '(("source" . "📂") ("status" . "📡") ("url" . "🌐") ("tunnel" . "🚇")
+           ("site" . "📰") ("session" . "🔒") ("redis" . "🔄")
+           ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫")
+           ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬")
+           ("kidlisp" . "🐍")))
+        stripe-tab-created)
 
-  (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
-    (if tab-emoji
-        (let ((tab-name (format "%s %s" tab-emoji target-tab)))
-          (tab-bar-switch-to-tab tab-name))
-      (message "No such tab: %s" target-tab)))))
+    ;; Helper to run two commands in a horizontally split tab
+    (cl-labels
+        ((aesthetic-run-split-tab (tab-name left-cmd right-cmd)
+           (tab-new)
+           (tab-rename tab-name)
+           (let ((default-directory directory-path))
+             ;; Left window
+             (eat (format "fish -c 'ac-%s'" left-cmd))
+             (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc left-cmd emoji-for-command)) left-cmd) t) (end-of-buffer t))
+             ;; Right window
+             (split-window-right)
+             (other-window 1)
+             (eat (format "fish -c 'ac-%s'" right-cmd))
+             (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc right-cmd emoji-for-command)) right-cmd) t) (end-of-buffer t))
+             (other-window 1))))
+
+      ;; 📂 source tab
+      (tab-rename "📂 source")
+      (find-file "~/aesthetic-computer/TODO.txt")
+
+      ;; 📡 status split tab
+      (aesthetic-run-split-tab "📡 status" "url" "tunnel")
+
+      ;; Remaining tabs
+      (dolist (cmd commands)
+        (cond
+         ;; 💳 stripe tab split
+         ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
+          (unless stripe-tab-created
+            (tab-new)
+            (tab-rename "💳 stripe")
+            (setq stripe-tab-created t))
+          (when (string= cmd "stripe-ticket")
+            (split-window-right)
+            (other-window 1))
+          (let ((default-directory directory-path))
+            (eat (format "fish -c 'ac-%s'" cmd))
+            (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t)))
+          (when (string= cmd "stripe-ticket")
+            (other-window 1))) ;; return to original pane if needed
+         ;; everything else in own tab
+         (t
+          (tab-new)
+          (tab-rename (format "%s %s" (cdr (assoc cmd emoji-for-command)) cmd))
+          (let ((default-directory directory-path))
+            (eat (format "fish -c 'ac-%s'" cmd))
+            (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))))))
+
+      ;; Focus target tab if provided
+      (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
+        (if tab-emoji
+            (let ((tab-name (format "%s %s" tab-emoji target-tab)))
+              (tab-bar-switch-to-tab tab-name))
+          (message "No such tab: %s" target-tab))))))
