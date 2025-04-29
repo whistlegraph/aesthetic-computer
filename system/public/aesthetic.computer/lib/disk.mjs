@@ -1919,8 +1919,8 @@ const $paintApi = {
           tf?.print(
             $activePaintApi,
             {
-              x: pos.x,
-              y: pos.y + index * tf.data.glyphHeight + lineHeightGap,
+              x: pos?.x,
+              y: pos ? pos.y + index * tf.data.glyphHeight + lineHeightGap : undefined,
             },
             0,
             line,

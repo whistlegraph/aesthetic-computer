@@ -372,11 +372,20 @@ force = true
 # force = true
 # 🛍️ Shop and ⛵ JAS Signature Redirects
 [[redirects]]
-from = "/shop"
-to = "https://shop.aesthetic.computer"
+from = "/shop/@jeffrey/help"
+to = "https://shop.aesthetic.computer/products/45-minutes-of-computer-help-from-jeffrey"
 status = 301
 [[redirects]]
+from = "/shop/*"
+to = "https://shop.aesthetic.computer/:splat"
+status = 301
+# 📚 Books
+[[redirects]]
 from = "/25.4.8.21.19"
+to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.19"
 to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
 status = 301
 [[redirects]]
@@ -384,7 +393,15 @@ from = "/25.4.8.21.17"
 to = "https://shop.aesthetic.computer/products/books_art-as-a-social-system-by-niklas-luhmann_25-4-8-21-17"
 status = 301
 [[redirects]]
+from = "/shop~25.4.8.21.17"
+to = "https://shop.aesthetic.computer/products/books_art-as-a-social-system-by-niklas-luhmann_25-4-8-21-17"
+status = 301
+[[redirects]]
 from = "/25.4.8.21.11"
+to = "https://shop.aesthetic.computer/products/books_play-by-catherine-garvey_25-4-8-21-11"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.11"
 to = "https://shop.aesthetic.computer/products/books_play-by-catherine-garvey_25-4-8-21-11"
 status = 301
 [[redirects]]
@@ -392,7 +409,15 @@ from = "/25.4.8.21.08"
 to = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08"
 status = 301
 [[redirects]]
+from = "/shop~25.4.8.21.08"
+to = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08"
+status = 301
+[[redirects]]
 from = "/25.4.8.21.07"
+to = "https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.07"
 to = "https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07"
 status = 301
 [[redirects]]
@@ -400,12 +425,65 @@ from = "/25.4.8.21.0"
 to = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0"
 status = 301
 [[redirects]]
+from = "/shop~25.4.8.21.0"
+to = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0"
+status = 301
+[[redirects]]
 from = "/25.4.8.20.47"
+to = "https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.20.47"
 to = "https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47"
 status = 301
 [[redirects]]
 from = "/25.4.8.21.13"
 to = "https://shop.aesthetic.computer/products/books_musical-gestures-sound-movement-and-meaning_25-4-8-21-13"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.13"
+to = "https://shop.aesthetic.computer/products/books_musical-gestures-sound-movement-and-meaning_25-4-8-21-13"
+status = 301
+# 🖍️ Pictures
+[[redirects]]
+from = "/25.4.13.17.47"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-17-47"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.17.47"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-17-47"
+status = 301
+[[redirects]]
+from = "/25.4.13.19.06"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-06"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.19.06"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-06"
+status = 301
+[[redirects]]
+from = "/25.4.13.18.18"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-18"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.18.18"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-18"
+status = 301
+[[redirects]]
+from = "/25.4.13.19.24"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-24"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.19.24"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-24"
+status = 301
+[[redirects]]
+from = "/25.4.13.18.54"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-54"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.18.54"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-54"
 status = 301
 [[redirects]]
 from = "/*"
