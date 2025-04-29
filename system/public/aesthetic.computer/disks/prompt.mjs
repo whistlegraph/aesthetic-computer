@@ -220,9 +220,18 @@ async function boot({
     });
   }
 
+  // TODO: Fix this.
   if (params[0]) {
+    console.log("Existing `prompt` param:", params);
     const text = params.join(" ");
     // const text = params[0].replaceAll("~", " ");
+
+    activated(api, true);
+    system.prompt.input.canType = true;
+    send({ type: "keyboard:unlock" });
+    send({ type: "keyboard:open" }); // Necessary for desktop.
+
+    // TODO: This is still a little janky.
     system.prompt.input.text = text;
     system.prompt.input.runnable = true;
     system.prompt.input.addUserText(text);
@@ -304,7 +313,24 @@ async function halt($, text) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
   } else if (slug === "shop") {
-    jump("/shop");
+    console.log(slug);
+    // TODO: Do the mapping here...
+
+    // @jeffrey/help
+    // cart
+    // every timecode
+
+    if (params.length > 0) {
+      if (shop.indexOf(params[0]) > -1) {
+        jump("/" + params[0]);
+      } else {
+        jump("/shop/" + params.join("/"));
+      }
+    } else {
+      jump("/shop");
+    }
+  } else if (slug.startsWith("shop")) {
+    jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
   } else if (
