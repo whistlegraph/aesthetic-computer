@@ -18,7 +18,7 @@
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
   ],
-  "forwardPorts": [8888, 8111, 8889, 8083, 4040],
+  "forwardPorts": [8888, 8111, 8889, 8083, 4040, 12345],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -41,7 +41,9 @@
         "tamasfe.even-better-toml",
         "matthewpi.caddyfile-support",
         "ms-python.python",
-        "ms-toolsai.jupyter"
+        "ms-toolsai.jupyter",
+        "ms-vscode.PowerShell",
+        "ms-vscode.powershell"
       ]
     }
   },
