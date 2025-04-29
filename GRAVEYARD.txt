@@ -1,4 +1,16 @@
 🪦 Completed Tasks (dumped from `README.txt`)
+
+ * `shop` launch * 
+ + Done
+ - [x] Modify homepage a bit and product slide shows and then launch via Instagram?
+ - [x] Homepage.
+ - [x] Mobile product view.
+ - [x] Edit Shopify code: https://admin.shopify.com/store/3pc8se-sj/themes/141869547701
+ - [x] Make sure 'corner labels' expand from shopify to AC.
+  - [x] Fix prompt~hi not opening keyboard / being weird on reload.
+  - [x] Get the backspace key shortcut to work?
+ - [x] Add titles for each drawing and final descriptions.
+ - [x] Add little corner guy to Shopify bottom right corner from `docs`.
  
 * `shop` items to add *
   https://aesthetic.computer/share~25.4.13.18.54
