@@ -39,6 +39,7 @@ async function constructUrl() {
           clearInterval(bootUpTimer);
           setTimeout(() => {
             process.stdout.write("\x1Bc"); // Clear terminal.
+            console.log(''); // Blank line.
             qrcode.generate(url, { small: true });
             console.log(`Local 💻️ https://localhost:8888`);
             console.log(`  LAN 🤗 ${url} (QR code above)`);
