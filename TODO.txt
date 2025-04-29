@@ -2,25 +2,15 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
- * `shop` launch * 
- - [-] Modify homepage a bit and product slide shows and then launch via Instagram?
- + Done
- - [x] Edit Shopify code: https://admin.shopify.com/store/3pc8se-sj/themes/141869547701
- - [x] Make sure 'corner labels' expand from shopify to AC.
-  - [x] Fix prompt~hi not opening keyboard / being weird on reload.
-  - [x] Get the backspace key shortcut to work?
- - [x] Add titles for each drawing and final descriptions.
- - [x] Add little corner guy to Shopify bottom right corner from `docs`.
-
-* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
- - [] https://studio.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg/livestreaming
-
  * `clock` *
  - [] Migrate `ucla-clock` to `clock`.
   - [] Clock will have a special chat instance with special notification icon.
  - [] Pay Google cloud bill.
  - [] Start up a special `chat-clock` instance that will have commands that
       enable it to change the clock.
+
+* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
+ - [] https://studio.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg/livestreaming
 
  * `tremory` *
  - [] Finish basic prototype.
