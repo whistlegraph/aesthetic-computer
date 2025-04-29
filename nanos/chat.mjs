@@ -340,9 +340,9 @@ await getLast100MessagesfromMongo();
 const port = dev ? instance.devPort : 80;
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(
-    `--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`,
-  );
+  // console.log(
+  //   `--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`,
+  // );
   startChatServer();
 });
 
@@ -778,11 +778,11 @@ async function startChatServer() {
     );
   });
 
-  console.log(
-    `--> Socket server running at ${
-      dev ? "wss" : "ws"
-    }://0.0.0.0:${port} 🧦 \n`,
-  );
+  // console.log(
+  //   `--> Socket server running at ${
+  //     dev ? "wss" : "ws"
+  //   }://0.0.0.0:${port} 🧦 \n`,
+  // );
 
   // Sends a message to all connected clients.
   everyone = (string) => {
@@ -876,14 +876,19 @@ async function getLast100MessagesfromMongo() {
     let from;
 
     if (message.user) {
-      console.log("🗨️ User message:", message);
+      // console.log("🗨️ User message:", message);
+
+      // console.log(message);
+
       const fromSub = message.user;
       from = await getHandleFromSub(fromSub);
     } else {
       // 'logs' has a 'users' array but never a 'user' field.
-      console.log("🪵 System log:", message);
+      // console.log("🪵 System log:", message);
       from = message.from || "deleted";
     }
+
+    console.log(`🔵 ${from}: "${message.text}" at ${message.when}`);
 
     messages.push({
       from,
@@ -898,7 +903,7 @@ async function getHandleFromSub(fromSub) {
   let handle;
   // if (await isMuted(fromSub)) return "nohandle"; // Catch this on rendering.
 
-  console.log("🟡 Looking up user record for...", fromSub);
+  // console.log("🟡 Looking up user record for...", fromSub);
   if (!subsToHandles[fromSub]) {
     try {
       let prefix = "";
@@ -917,7 +922,7 @@ async function getHandleFromSub(fromSub) {
 
       // console.log("Host:", host);
       const url = `${host}/handle?for=${prefix}${fromSub}`;
-      console.log("Fetching from url:", url);
+      // console.log("Fetching from url:", url);
 
       const options = {};
       if (dev) options.agent = agent;
@@ -925,19 +930,19 @@ async function getHandleFromSub(fromSub) {
       if (response.status === 200) {
         const data = await response.json();
         handle = data.handle;
-        console.log("🫅 Handle found:", handle);
+        // console.log("🫅 Handle found:", handle);
       } else {
-        console.warn("❌ 🫅 Handle not found:", await response.json());
+        // console.warn("❌ 🫅 Handle not found:", await response.json());
       }
     } catch (error) {
-      console.error("❌ 🫅 Handle retrieval error:", error);
+      // console.error("❌ 🫅 Handle retrieval error:", error);
     }
 
-    console.log("🟢 Got handle from network:", handle);
+    // console.log("🟢 Got handle from network:", handle);
     subsToHandles[fromSub] = handle;
   } else {
     handle = subsToHandles[fromSub];
-    console.log("🟢 Got handle from cache:", handle);
+    // console.log("🟢 Got handle from cache:", handle);
   }
 
   return "@" + handle;
