@@ -436,12 +436,13 @@
 ;; Use xclip for system clipboard.
 (use-package xclip :config (xclip-mode 1))
 
-(defun my/xclip-set-selection (type data)
-  "Send clipboard to host from Emacs using a fish shell function."
+(defun my/xclip-set-selection (orig-fun type data)
+  "Send clipboard to host from Emacs using a fish shell function, then run original xclip."
   (let ((clipboard-command (format "fish -c 'clipboard %s'" (shell-quote-argument data))))
-    (start-process-shell-command "clipboard" nil clipboard-command)))
+    (start-process-shell-command "clipboard" nil clipboard-command))
+  (funcall orig-fun type data))
 
-(advice-add 'xclip-set-selection :override #'my/xclip-set-selection)
+(advice-add 'xclip-set-selection :around #'my/xclip-set-selection)
 
 ;; Evil mode configuration
 (use-package evil
@@ -652,9 +653,5 @@ Creates split tabs for 'status' (url + tunnel) and 'stripe' (stripe-print + stri
             (eat (format "fish -c 'ac-%s'" cmd))
             (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))))))
 
-      ;; Focus target tab if provided
-      (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
-        (if tab-emoji
-            (let ((tab-name (format "%s %s" tab-emoji target-tab)))
-              (tab-bar-switch-to-tab tab-name))
-          (message "No such tab: %s" target-tab))))))
+      ;; Focus 📡 status tab at the end
+      (tab-bar-switch-to-tab "📡 status"))))

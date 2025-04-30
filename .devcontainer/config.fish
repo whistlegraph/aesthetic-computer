@@ -140,12 +140,40 @@ alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
-alias ac-tunnel 'ac; npm run tunnel; fish'
+alias ac-tunnel 'ac; tunnel; fish'
 alias ac-logger 'ac; cd system; npx netlify logs:function index'
 alias sotce-net 'ac; cd system; npx netlify logs:function sotce-net'
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
+
+# set up an ngrok tunnel
+function tunnel
+    set tmp (mktemp)
+    ngrok start --config ngrok.yml --all 2> $tmp
+    set ngrok_exit $status
+    set err (cat $tmp)
+    rm -f $tmp
+
+    if test $ngrok_exit -ne 0
+        if string match -q '*ERR_NGROK_334*' $err
+            clear
+            echo "🟢 tunnel already online — watching..."
+
+            while true
+                sleep 5
+                if not curl --silent --max-time 2 --output /dev/null https://local.aesthetic.computer
+                    echo "🔁 tunnel down, restarting..."
+                    tunnel
+                    return
+                end
+            end
+        else
+            echo "❌ ngrok error:"
+            echo $err
+        end
+    end
+end
 
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 function umm
