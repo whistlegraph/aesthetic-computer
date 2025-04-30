@@ -15,6 +15,7 @@
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/fish_history,target=/home/me/.local/share/fish/fish_history,type=bind,consistency=cached",
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
   ],
@@ -43,7 +44,8 @@
         "ms-python.python",
         "ms-toolsai.jupyter",
         "ms-vscode.PowerShell",
-        "ms-vscode.powershell"
+        "ms-vscode.powershell",
+        "ms-dotnettools.dotnet-interactive-vscode"
       ]
     }
   },
@@ -66,7 +68,7 @@
     "0.0.0.0:8888:8888",
     "-p",
     "0.0.0.0:8889:8889",
-     "--ulimit",
+    "--ulimit",
     "nofile=131072:131072"
     // "--network",
     // "host"
