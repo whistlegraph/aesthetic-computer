@@ -29,7 +29,7 @@ RUN ulimit -n 65536
 RUN dnf install -y 'dnf-command(copr)'
 RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
-RUN dnf install -y dotnet-sdk-9.0
+# RUN dnf install -y dotnet-sdk-9.0
 
 # Install necessary dependencies for Puppeteer
 RUN dnf install -y \
@@ -108,11 +108,11 @@ RUN dnf install -y python3 python3-pip python3-notebook python3-nbconvert
 # Switch to the 'me' user.
 USER me
 
-RUN dotnet tool install --global Microsoft.dotnet-interactive && \
-    mkdir -p /home/me/.config/fish && \
-    echo 'set -gx PATH $HOME/.dotnet/tools $PATH' >> /home/me/.config/fish/config.fish && \
-    mkdir -p /home/me/.local/share/jupyter/kernels && \
-    PATH="/home/me/.dotnet/tools:$PATH" dotnet interactive jupyter install --path /home/me/.local/share/jupyter/kernels
+# RUN dotnet tool install --global Microsoft.dotnet-interactive && \
+#     mkdir -p /home/me/.config/fish && \
+#     echo 'set -gx PATH $HOME/.dotnet/tools $PATH' >> /home/me/.config/fish/config.fish && \
+#     mkdir -p /home/me/.local/share/jupyter/kernels && \
+#     PATH="/home/me/.dotnet/tools:$PATH" dotnet interactive jupyter install --path /home/me/.local/share/jupyter/kernels
 
 RUN sudo mkdir -p $HOME/.jupyter && \
     sudo chmod -R u+rw $HOME/.jupyter
@@ -128,7 +128,7 @@ RUN mkdir -p .config/fish && \
    mkdir -p .config/fish/conf.d
 
 # 🐈 websocat
-# Install Rust toolchain &
+# Install Rust toolchain & 
 # Clone websocat repository to build from source.
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
     && source $HOME/.cargo/env \
@@ -203,8 +203,16 @@ COPY config.fish .config/fish/config.fish
 # Copy entry file.
 COPY entry.fish /entry.fish
 
-# Set the default command.
-CMD ["/usr/bin/fish"]
+# Add the notebook directory to the Python path and preload the aesthetic module
+RUN mkdir -p /home/me/.ipython/profile_default/startup && \
+    echo "import sys; sys.path.append('/workspaces/aesthetic-computer/notebook'); import aesthetic" > /home/me/.ipython/profile_default/startup/00-aesthetic.py && \
+    sudo chown -R me:me /home/me/.ipython
+
+# Install watchdog for monitoring file changes
+# RUN pip install watchdog
+
+# Update CMD to only run the Jupyter Notebook server (is this necessary?)
+# CMD ["jupyter-notebook", "--allow-root"]
 
 # Set the entry point script.
 # ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
