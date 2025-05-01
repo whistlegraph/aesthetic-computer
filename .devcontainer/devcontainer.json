@@ -44,8 +44,7 @@
         "ms-python.python",
         "ms-toolsai.jupyter",
         "ms-vscode.PowerShell",
-        "ms-vscode.powershell",
-        "ms-dotnettools.dotnet-interactive-vscode"
+        "ms-vscode.powershell"
       ]
     }
   },

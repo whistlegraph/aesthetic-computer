@@ -67,3 +67,5 @@ gcp-firebase-service-key.json
 
 # aider chat history and other potential state
 .aider*
+
+__pycache__/
