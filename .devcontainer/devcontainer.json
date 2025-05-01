@@ -44,7 +44,12 @@
         "ms-python.python",
         "ms-toolsai.jupyter",
         "ms-vscode.PowerShell",
-        "ms-vscode.powershell"
+        "ms-vscode.powershell",
+        "ms-python.debugpy",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.vscode-jupyter-cell-tags",
+        "ms-toolsai.jupyter-keymap",
+        "ms-toolsai.jupyter-renderers"
       ]
     }
   },
