@@ -53,7 +53,7 @@ const matcher = new RegExpMatcher({
   ...englishRecommendedTransformers,
 });
 
-const whitelist = ["rapper"];
+const whitelist = ["rapper", "arse"];
 
 // Filter text for profanities by replacing them with underscores and log matches.
 export function filter(text) {
