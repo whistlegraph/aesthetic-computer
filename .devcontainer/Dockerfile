@@ -14,11 +14,13 @@ RUN dnf install -y lolcat toilet
 RUN dnf install -y iproute
 RUN dnf install -y xclip
 RUN dnf install -y nmap-ncat
-# RUN dnf install -y inotify-tools 
+# RUN dnf install -y inotify-tools
 
 # Install PowerShell
 # Use Fedora 40 repo instead of Fedora 42
 # RUN dnf install -y https://packages.microsoft.com/config/fedora/40/packages-microsoft-prod.rpm \
+
+
 #  && dnf install -y powershell
 
 RUN ulimit -n 65536
@@ -103,8 +105,14 @@ RUN dnf install -y python3 python3-pip python3-notebook python3-nbconvert
 
 # TODO: Install rosrell and common lisp notebook extension.
 
-# Switch to user 'me'
+# Switch to the 'me' user.
 USER me
+
+RUN dotnet tool install --global Microsoft.dotnet-interactive && \
+    mkdir -p /home/me/.config/fish && \
+    echo 'set -gx PATH $HOME/.dotnet/tools $PATH' >> /home/me/.config/fish/config.fish && \
+    mkdir -p /home/me/.local/share/jupyter/kernels && \
+    PATH="/home/me/.dotnet/tools:$PATH" dotnet interactive jupyter install --path /home/me/.local/share/jupyter/kernels
 
 RUN sudo mkdir -p $HOME/.jupyter && \
     sudo chmod -R u+rw $HOME/.jupyter
@@ -132,17 +140,35 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
 # Install fnm and base javascript tooling.
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:$PATH"
-# RUN eval "$(fnm env --use-on-cd)" && \
-#     fnm install lts-jod && fnm use lts-jod && fnm install 20.5.0 && \
-#     npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript && \
-#     ijsinstall --install=global
- # codebuff
 RUN eval "$(fnm env --use-on-cd)" && \
     fnm install 20.5.0 && fnm install 20.11.0 && fnm default 20.11.0 && \
     fnm install lts-jod && \
     npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript && \
     ijsinstall --install=global --spec-path=full && \
     jupyter kernelspec install --user --replace "$(ijsnotebook --spec-path=full)" || true
+
+RUN sudo dnf install -y sbcl zeromq-devel redhat-rpm-config
+
+# Install Quicklisp
+RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
+    sbcl --non-interactive \
+         --load quicklisp.lisp \
+         --eval '(quicklisp-quickstart:install)' \
+         --eval '(ql-util:without-prompting (ql:add-to-init-file))' \
+         --eval '(quit)'
+
+# TODO: Eventually use SBCL for something / add it to jupyter kernel?
+
+# # Clone the common-lisp-jupyter repository
+# RUN git clone https://github.com/yitzchak/common-lisp-jupyter.git /home/me/common-lisp-jupyter
+# 
+# # Load and install common-lisp-jupyter
+# RUN sbcl --non-interactive \
+#     --eval '(load "/home/me/quicklisp/setup.lisp")' \
+#     --eval '(pushnew #p"/home/me/common-lisp-jupyter/" ql:*local-project-directories*)' \
+#     --eval '(ql:quickload :common-lisp-jupyter)' \
+#     --eval '(cl-jupyter:install)' \
+#     --eval '(quit)'
 
 # @emacs-eask/cli
 
