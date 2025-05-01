@@ -75,6 +75,7 @@
     //    "--platform",
     //    "linux/amd64"
   ],
+  "initializeCommand": "mkdir -p .devcontainer && touch .devcontainer/fish_history",
   "postStartCommand": ["fish", "/entry.fish"],
   "postAttachCommand": "sudo touch /home/me/.waiter && sudo chmod 777 /home/me/.waiter && sudo chmod +w /home/me"
 }
