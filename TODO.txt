@@ -9,6 +9,10 @@
  - [] Start up a special `chat-clock` instance that will have commands that
       enable it to change the clock.
 
+ * `tell` *
+ - [] Add `tell` command to test per device notifications and fast web notifications.
+ - [] Implement the web notifications before moving to iOS and then replacing / updating the iOS app.
+
 * YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
  - [] https://studio.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg/livestreaming
 
