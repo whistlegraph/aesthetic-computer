@@ -15,8 +15,6 @@
     "add:ssl": "cd ssl-dev; fish ssl-install.fish; cd -",
     "install:everything-else": "node install.mjs",
     "code": "npm run reset; npm run boot; npm run emacs;",
-    "from-scratch": "npm run reset; npm run build-boot-and-edit",
-    "build-boot-and-edit": "npm run boot; emacsclient -e '(kill-emacs)'; emacs --daemon --load dotfiles/dot_config/emacs.el && emacsclient -c --eval '(aesthetic-backend)'",
     "reset": "cd micro; npm run reset",
     "boot": "cd micro; npm run boot",
     "emacs": "cd micro; npm run emacs",

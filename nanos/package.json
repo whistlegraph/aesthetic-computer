@@ -6,10 +6,13 @@
   "scripts": {
     "chat-system:deploy": "npm run gcp:deploy:instance:delete chat-system; export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json; node conductor.mjs chat-system",
     "chat-system:dev": "npm install; NODE_ENV=development node chat.mjs chat-system; env nogreet=true fish",
-    "chat-system:dev-nanos": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp-dev.json -n -e NODE_ENV=development -a chat.mjs; env nogreet=true fish",
+    "chat-system:dev-nanos": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp-dev.json -n -e NODE_ENV=development CHAT_INSTANCE=chat-system -a chat.mjs; env nogreet=true fish",
 
     "chat-sotce:deploy": "npm run gcp:deploy:instance:delete chat-sotce; export GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-key.json; node conductor.mjs chat-sotce",
     "chat-sotce:dev": "npm install; NODE_ENV=development node chat.mjs chat-sotce; env nogreet=true fish",
+
+    "chat-clock:dev": "npm install; NODE_ENV=development node chat.mjs chat-clock; env nogreet=true fish",
+    "chat-clock:dev-nanos": "npm install; ops pkg load eyberg/node:20.5.0 -c config-gcp-dev.json -n -e NODE_ENV=development CHAT_INSTANCE=chat-clock -a chat.mjs; env nogreet=true fish",
 
     "cf:update": "node conductor.mjs",
     "do:deploy": "npm run do:deploy:image; npm run do:deploy:instance chat; npm run do:deploy:image:list; npm run do:deploy:instance:list",
