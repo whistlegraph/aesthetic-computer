@@ -95,7 +95,7 @@ fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
 # For fast config reloading.
-alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"shell\"))'; emacsclient -e \"(kill-emacs)\""
+alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"status\"))'; emacsclient -e \"(kill-emacs)\""
 
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 function aesthetic
@@ -140,6 +140,7 @@ alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
 alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
+alias ac-chat-clock 'clear; ac; npm run -s chat; cd nanos; npm run chat-clock:dev; fish'
 alias ac-tunnel 'ac; npm run tunnel; fish'
 alias ac-logger 'ac; cd system; npx netlify logs:function index'
 alias sotce-net 'ac; cd system; npx netlify logs:function sotce-net'
@@ -204,12 +205,12 @@ bind \t complete-select-first
 
 function clipboard
     set content $argv
-    set winhost (ip route | awk '/^default/ {print $3}')
-    set -l hosts host.docker.internal $winhost 172.17.0.1
+    # set winhost (ip route | awk '/^default/ {print $3}')
+    set -l hosts host.docker.internal $HOST_IP 172.17.0.1
     for host in $hosts
-        # echo "🧪 trying $host..."
+        echo "🧪 trying $host..."
         if echo "" | nc -z -w 0.15 $host 12345 2>/dev/null
-            # echo "✅ sending to $host"
+            echo "✅ sending to $host"
             printf "%s\n" $content | nc $host 12345
             return
         end

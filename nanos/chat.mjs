@@ -4,47 +4,11 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
-
-  *** Logs ***
-  - [x] Does adding the radar key prevent gcp logs from running?
-    - [x] Or maybe the log name / id needs to change each time?
-    - [x] Try adding the radar key back or... running a deployment again with the same log name...
-  - [x] Add a basic client to `sotce-net`.
-    - [x] Start with 'dev' / 'local' version.
-    - [x] Write it as a totally separate UI layer that always connects.
-      - [x️] Import the chat module to `sotce-net`.
-    - [] Have it on the loged out page grayed out, the logged in page opaque
-          and scrollable, and the subscriber page interactable.
-    - [] Messages should make a sound.
-      - [] Bring in AC sound engine here.
-    - [] Add support for web notifications in the chat.
-  - [] Add web notficiations to `sotce-net` chat.
-  - [] Add images to AC chat.
-  - [] Add textual links to AC chat.
-  + Done
-  - [x] Set up another instance of this chat for `sotce-net` that...
-    - [x] Will have a different subdomain setup so `conductor` will need updates. 
-      - [x] Add the new production deploy command to package.json
-      - [x] Walk through `conductor.mjs` to see where chat-system needs changes.
-      - [x] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
-      - [x] Run a test deployment.
-  - [x] How will it know what version it's running both in production and in development?
-  - [x] Run the sotce-net instance in development in addition to the AC one in emacs.
-  - [x] Will use a different table in the database like `chat-sotce-net` instead
-        of chat-system.
-  - [x] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
-        if running that instance in order to actually send messages but not to join or
-        observe chats.
-  - [x] Add the proper commands for a new system to package.json.
-    - [x] Development command.
-      - [x] Run the development command in tandem with `chat-system` and
-            see if it boots up properly.
- - [x] Update nanos versions / dependencies in this dir.
- - [x] Set up logging so I know why this server is crashing.
-   - [x] Maybe it's a setting in Google Cloud to log the serial console. 
-   - [x] Also check the nanos logs.
-   - [x] Or maybe I need to use an external service. (Signed up for nanos Radar) 
-#endregion */
+  - [-] Add full support for and launch a `chat-clock` backend instance. 
+    - [] Proofread the code.
+    - [] Update any dependencies
+    - [] Make a dev deployment script and emacs tab.
+*/
 
 // Management:
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
@@ -83,6 +47,12 @@ const instances = {
     allowedHost: "chat.sotce.net",
     userInfoEndpoint: "https://sotce.us.auth0.com/userinfo",
     devPort: 8084,
+  },
+  "chat-clock": {
+    name: "chat-clock",
+    allowedHost: "chat-clock.aesthetic.computer",
+    userInfoEndpoint: "https://aesthetic.us.auth0.com/userinfo",
+    devPort: 8085,
   },
 };
 

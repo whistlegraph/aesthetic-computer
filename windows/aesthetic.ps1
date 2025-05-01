@@ -10,8 +10,6 @@ To run this script by just typing `aesthetic` in PowerShell:
        powershell.exe -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer\windows\aesthetic.ps1"
    }
 
-
-
 3. Save the file, then restart your PowerShell session.
 
 Now, you can just type `start` to launch the Aesthetic Computer Platform.
@@ -27,10 +25,12 @@ $hostIp = (Get-NetIPAddress -AddressFamily IPv4 `
 
 if ($hostIp) {
     $env:HOST_IP = $hostIp
+    "HOST_IP=$hostIp" | Out-File -FilePath "$PSScriptRoot\..\.devcontainer\envs\host.env" -Encoding ASCII -NoNewline
     Write-Host "Local HOST_IP is $hostIp" -ForegroundColor Green
 } else {
     Write-Host "Could not detect HOST_IP" -ForegroundColor Yellow
 }
+
 
 # Kill all running VS Code instances
 Write-Host "Closing all running VS Code instances..." -ForegroundColor Magenta
