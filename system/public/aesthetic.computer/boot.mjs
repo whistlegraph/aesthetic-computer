@@ -16,7 +16,7 @@ function cleanUrlParams(url, params) {
   history.pushState(
     {},
     "",
-    url.pathname + (queryString ? "?" + queryString : ""),
+    url.pathname + (queryString ? "?" + queryString : "")
   );
 }
 
@@ -100,8 +100,13 @@ const parsed = parse(slug(location.href) || window.acSTARTING_PIECE);
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Wait for fonts to load before booting.
 
-const nogap = location.search.startsWith("?nogap");
-boot(parsed, bpm, { gap: nogap ? 0 : undefined }, debug);
+// Parse the query string to detect both ?nogap and ?nolabel parameters
+const params = new URLSearchParams(location.search);
+const nogap = params.has("nogap") || location.search.includes("nogap");
+const nolabel = params.has("nolabel") || location.search.includes("nolabel");
+
+// Pass the parameters directly without stripping them
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
 
 let sandboxed = window.origin === "null";
 
