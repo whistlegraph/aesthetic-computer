@@ -226,6 +226,10 @@ end
 # Increase Node.js heap size
 set -x NODE_OPTIONS "--max-old-space-size=4096"
 
+# Set Google Application Credentials
+set -x GOOGLE_APPLICATION_CREDENTIALS /home/me/aesthetic-computer/nanos/gcp-service.key.json
+set -x PATH /google-cloud-sdk/bin $PATH
+
 alias nvm forget
 
 # use tab to autocomplete the first suggestion

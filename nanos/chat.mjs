@@ -4,7 +4,7 @@
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
-  - [-] Add full support for and launch a `chat-clock` backend instance. 
+  - [🔵] Add full support for and launch a `chat-clock` backend instance. 
     - [] Proofread the code.
     - [] Update any dependencies
     - [] Make a dev deployment script and emacs tab.
@@ -808,7 +808,7 @@ async function getLast100MessagesfromMongo() {
   const chatCollection = db.collection(instance.name);
   let combinedMessages;
 
-  if (instance.name === "chat-sotce") {
+  if (instance.name !== "chat-system") {
     // 🪷 Don't include AC logs.
     combinedMessages = await chatCollection
       .find({})
@@ -847,7 +847,6 @@ async function getLast100MessagesfromMongo() {
 
     if (message.user) {
       // console.log("🗨️ User message:", message);
-
       // console.log(message);
 
       const fromSub = message.user;
