@@ -2,6 +2,7 @@
   "Dirs": ["node_modules", "ssl"],
   "Files": [
     "package-lock.json",
+    "chat.mjs",
     "chat.env",
     "gcp-service-key.json",
     "gcp-firebase-service-key.json",
