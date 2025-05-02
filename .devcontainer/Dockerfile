@@ -105,6 +105,14 @@ RUN dnf install -y python3 python3-pip python3-notebook python3-nbconvert
 
 # TODO: Install rosrell and common lisp notebook extension.
 
+# Install gcloud CLI using the tarball (compatible with Fedora and Python 3.12)
+RUN curl -sSL https://sdk.cloud.google.com > install_gcloud.sh && \
+    bash install_gcloud.sh --disable-prompts --install-dir=/opt && \
+    ln -s /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud && \
+    ln -s /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil && \
+    ln -s /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq && \
+    rm install_gcloud.sh
+
 # Switch to the 'me' user.
 USER me
 
