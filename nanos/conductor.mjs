@@ -77,7 +77,7 @@ async function deploy() {
 
   const parsed = JSON.parse(out);
   let currentInstance;
-  // console.log(parsed.length, "Instance:", instance);
+  console.log(parsed.length, "Instance:", instance);
   for (let i = 0; i < parsed.length; i += 1) {
     console.log("Parsed name:", parsed[i].Name, parsed[i]);
     if (parsed[i].Name === instance.name) {
