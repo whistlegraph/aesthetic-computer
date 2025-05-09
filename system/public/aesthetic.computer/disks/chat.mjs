@@ -49,21 +49,26 @@ let scroll = 0,
   totalScrollHeight,
   chatHeight;
 
-async function boot({
-  api,
-  ui,
-  send,
-  handle,
-  gizmo,
-  notice,
-  authorize,
-  user,
-  screen,
-  chat,
-  sound,
-  net,
-  store,
-}) {
+async function boot(
+  {
+    api,
+    ui,
+    send,
+    handle,
+    gizmo,
+    notice,
+    authorize,
+    user,
+    screen,
+    chat,
+    sound,
+    net,
+    store,
+  },
+  otherChat,
+) {
+  const client = otherChat || chat;
+
   // console.log("💬 Chat booting...");
   scroll = store["chat:scroll"] || 0; // Memoize scroll.
 
@@ -92,7 +97,7 @@ async function boot({
   // });
 
   // 🤖 Runs on every message...
-  chat.receiver = (id, type, content, extra) => {
+  client.receiver = (id, type, content, extra) => {
     if (type === "connected") {
       messagesNeedLayout = true;
       return;
@@ -121,7 +126,7 @@ async function boot({
     }
 
     if (extra?.layoutChanged) messagesNeedLayout = true;
-    // console.log("🌠 Message received:", id, type, content);
+    console.log("🌠 Message received:", id, type, content);
   };
 
   // chat.disconnect = () => {}; // This is also part of the API.
@@ -138,7 +143,7 @@ async function boot({
       } else {
         text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
         // Send the chat message.
-        chat.server.send(`chat:message`, { text, token, sub: user.sub });
+        client.server.send(`chat:message`, { text, token, sub: user.sub });
         notice("SENT");
       }
 
@@ -209,6 +214,7 @@ function paint(
   },
   options,
 ) {
+  const client = options?.otherChat || chat;
   if (!options?.embedded) wipe(100, 100, 145);
 
   // Interface
@@ -235,8 +241,8 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
-  if (chat.connecting) {
-    ink("pink").write("Connecting" + ellipsisTicker.text(help.repeat), {
+  if (client.connecting) {
+    ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
       center: "xy",
     });
     return;
@@ -244,12 +250,11 @@ function paint(
 
   // Messages
   // Start from the bottom of the screen
-  // if (!chat.connecting) {
+  // if (!client.connecting) {
   if (messagesNeedLayout) {
-    totalScrollHeight = computeMessagesHeight(api);
-    computeMessagesLayout(api);
-    chatHeight = computeScrollbarHeight(api);
-
+    totalScrollHeight = computeMessagesHeight(api, client);
+    computeMessagesLayout(api, client);
+    chatHeight = computeScrollbarHeight(api, client);
     messagesNeedLayout = false;
   }
 
@@ -266,8 +271,10 @@ function paint(
   // Iterate through the messages array backwards, calculating their
   // height and painting them if they are within the boundaries.
 
-  for (let i = chat.messages.length - 1; i >= 0; i--) {
-    const message = chat.messages[i];
+  // console.log(client.messages.length);
+
+  for (let i = client.messages.length - 1; i >= 0; i--) {
+    const message = client.messages[i];
 
     if (!message.tb || !message.layout) {
       continue; // If `tb` is not defined then kill this. 👾
@@ -467,7 +474,7 @@ function paint(
   );
 
   if (!input.canType) {
-    ink(160).write("Online: " + chat.chatterCount, {
+    ink(160).write("Online: " + client.chatterCount, {
       right: leftMargin,
       top: 6,
     });
@@ -503,7 +510,8 @@ function act({
   beep,
   text,
   jump,
-}) {
+}, otherChat) {
+  const client = otherChat || chat;
   // if (e.is("viewport-height:changed")) {
   // console.log("✨ New keyboard cutoff would be:", e.y, "?");
   // notice(e.y);
@@ -513,8 +521,8 @@ function act({
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
 
-    totalScrollHeight = computeMessagesHeight(api);
-    computeMessagesLayout(api);
+    totalScrollHeight = computeMessagesHeight(api, client);
+    computeMessagesLayout(api, client);
     chatHeight = computeScrollbarHeight(api);
 
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
@@ -537,8 +545,8 @@ function act({
     // 👈 Tapping
     if (e.is("touch")) {
       // Detect if we are inside a message or not.
-      for (let i = chat.messages.length - 1; i >= 0; i--) {
-        const message = chat.messages[i];
+      for (let i = client.messages.length - 1; i >= 0; i--) {
+        const message = client.messages[i];
         if (!message.tb || !message.layout) {
           continue; // If `tb` is not defined then kill this. 👾
           // console.log("No message layout found for:", message);
@@ -634,8 +642,8 @@ function act({
     }
 
     if (e.is("lift")) {
-      for (let i = chat.messages.length - 1; i >= 0; i--) {
-        const message = chat.messages[i];
+      for (let i = client.messages.length - 1; i >= 0; i--) {
+        const message = client.messages[i];
         if (!message.tb || !message.layout) {
           continue; // If `tb` is not defined then kill this. 👾
         }
@@ -815,7 +823,7 @@ function boundScroll() {
   }
 }
 
-function computeMessagesHeight({ text, screen, chat }) {
+function computeMessagesHeight({ text, screen }, chat) {
   let height = 0;
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
@@ -837,7 +845,7 @@ function computeMessagesHeight({ text, screen, chat }) {
 
 // Build a display graph for the messages.
 // (From the bottom to the top.)
-function computeMessagesLayout({ chat, screen, text }) {
+function computeMessagesLayout({ screen, text }, chat) {
   let y = screen.height - rowHeight - bottomMargin + scroll;
 
   // Delete all layouts.
