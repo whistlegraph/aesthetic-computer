@@ -39,6 +39,7 @@ export const font1 = {
   x: "lowercase/x - 2022.1.11.16.45.58",
   y: "lowercase/y - 2022.1.11.16.47.21",
   z: "lowercase/z - 2022.1.11.16.48.15",
+  ø: "lowercase/oslash - 2025.5.9.10.30.15.123", // Updated Danish lowercase o-slash
   A: "uppercase/A - 2022.1.11.18.30.32",
   B: "uppercase/B - 2022.1.11.18.13.14",
   C: "uppercase/C - 2022.1.11.18.14.00",
@@ -65,6 +66,7 @@ export const font1 = {
   X: "uppercase/X - 2022.1.11.18.50.18",
   Y: "uppercase/Y - 2022.1.11.18.52.28",
   Z: "uppercase/Z - 2022.1.11.18.53.22",
+  Ø: "uppercase/Oslash - 2025.5.9.10.30.15.123", // Updated Danish uppercase O-slash
   "@": "symbols/at - 2022.1.11.17.09.12",
   "&": "symbols/ampersand - 2022.1.11.18.06.40",
   "#": "symbols/hash - 2022.1.11.17.04.12",
@@ -99,6 +101,7 @@ export const font1 = {
   "…": "symbols/ellipsis - 2024.4.27.09.25.16.717",
 };
 
+// TODO: These shoul dbe removed: 25.05.09.22.11
 export const icons = {
   a: "lowercase/A",
   e: "lowercase/E",

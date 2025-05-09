@@ -1,5 +1,7 @@
 [build]
 publish = "public"
+ignore = "bash ./ignore-index.sh"
+command = "rm -f public/index.html && npm run build" # Remove index.html before build
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 [functions]

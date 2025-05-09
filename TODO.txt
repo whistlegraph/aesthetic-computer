@@ -2,12 +2,13 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
- * `clock` *
- - [] Migrate `ucla-clock` to `clock`.
-  - [] Clock will have a special chat instance with special notification icon.
- - [] Pay Google cloud bill.
- - [] Start up a special `chat-clock` instance that will have commands that
-      enable it to change the clock.
+ * `laer-klokken` *
+ - [] Put the interface online for them.
+ - [A] Add support for the crossed out o danish character.
+ - [A] Fix timestamps in all chats.
+ - [] Add some clever differences / enable all timestamps in the `laer-klokken`
+      interface.
+ - [] Make sure it routes through `clock`.
 
  * `tell` *
  - [] Add `tell` command to test per device notifications and fast web notifications.

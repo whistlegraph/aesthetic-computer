@@ -2141,6 +2141,11 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      clock: {
+        sig: "clock",
+        desc: "Every computer needs a clock.",
+        done: false
+      },
       crop: {
         sig: "crop",
         desc: "Crop your painting.",
@@ -2367,6 +2372,11 @@ export async function handler(event, context) {
         desc: "",
         done: false,
         hidden: true,
+      },
+      'laer-klokken': {
+        sig: "laer-klokken",
+        desc: "Learn the 'clock'!",
+        done: false
       },
       "legacy-prompt": {
         sig: "legacy-prompt",
