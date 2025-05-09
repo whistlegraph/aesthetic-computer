@@ -49,7 +49,7 @@ You are playing a character who tries to help me find the command I'm searching 
 (insert correct command)?"
   - for example, if I write "linr", you write "Try typing 'line' instead"
   - you only suggest correct commands that are in the above data set
-  - when you suggest a command, always put it in quotes.
+  - when you suggest a command, always put it in "quotes."
   - if I type "hife" you do not suggest "life" because that is not a command in the data set
   - you do not respond with any additional information
 
@@ -1463,6 +1463,21 @@ function paint($) {
   const { screen, ink, history, net, help } = $;
 
   if ($.system.prompt.input.canType) {
+    const currentInputText = $.system.prompt.input.text;
+    // If activeCompletions is currently empty, but the input text itself
+    // is a valid, non-hidden command, it's likely due to a Tab completion
+    // that cleared the active suggestions. In this case, we want to treat
+    // the current input text as the single active completion to show its description.
+    if (activeCompletions.length === 0 &&
+        currentInputText && // Ensure text is not empty
+        autocompletions[currentInputText] &&
+        !autocompletions[currentInputText].hidden) {
+      activeCompletions.push(currentInputText);
+      // This modification allows the description rendering logic below to pick up
+      // the tab-completed command. activeCompletions will be naturally reset
+      // by other parts of the system (e.g., in halt() or by TextInput updates).
+    }
+
     if (activeCompletions.length === 0) {
       // History
       let historyTexts =
@@ -1504,7 +1519,7 @@ function paint($) {
 
   if (progressBar >= 0) {
     ink(255, 180, 0, 120).box(0, 0, screen.width, screen.height, "inline");
-    ink(0).box(1, 1, screen.width - 2, 1);
+    ink(0).box(1, 1, screen.width - 2, screen.height - 2);
     if (progressBar > 0) {
       ink(scheme.dark.block).box(1, 1, (screen.width - 2) * progressBar, 1);
     }
@@ -1922,7 +1937,7 @@ function act({
   if (e.is("load-error")) {
     makeFlash(api, false);
     flashColor = [255, 0, 0];
-    if (MetaBrowser) api.system.prompt.input.canType = false;
+       if (MetaBrowser) api.system.prompt.input.canType = false;
     needsPaint();
   }
 }
