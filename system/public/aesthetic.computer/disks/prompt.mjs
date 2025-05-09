@@ -1475,7 +1475,7 @@ function paint($) {
     }
 
     // Autocompetions
-    if (activeCompletions.length > 0)
+    if (activeCompletions.length > 0) {
       activeCompletions.forEach((completion, i) => {
         $.system.prompt.input.text;
         const diff =
@@ -1493,6 +1493,13 @@ function paint($) {
           y: 6 + i * 12,
         });
       });
+    }
+
+    if (activeCompletions.length === 1) {
+      // console.log("has completions!");
+      ink($.dark ? "white" : "red", $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255).write(autocompletions[activeCompletions[0]].desc, {center: "xy"}, null, screen.width - 8);
+    }
+
   }
 
   if (progressBar >= 0) {

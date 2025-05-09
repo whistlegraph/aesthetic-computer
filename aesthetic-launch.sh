@@ -3,7 +3,6 @@
 # Ensure ~/.local/bin is in PATH
 export PATH="$HOME/.local/bin:$PATH"
 
-echo "🔍 Launching Aesthetic Platform..."
 echo "→ \$0 is: $0"
 echo "→ SHELL is: $SHELL"
 echo "→ USER is: $USER"
@@ -11,11 +10,11 @@ echo "→ HOME is: $HOME"
 echo "→ PATH is: $PATH"
 echo "→ Current directory: $(pwd)"
 
-if command -v docker >/dev/null; then
-    echo "✅ Found 'docker' in PATH"
-else
-    echo "❌ 'docker' not found in PATH"
-fi
+# if command -v docker >/dev/null; then
+#     echo "✅ Found 'docker' in PATH"
+# else
+#     echo "❌ 'docker' not found in PATH"
+# fi
 
 # Detect Fish shell
 if [[ "$SHELL" == *fish* ]]; then

@@ -69,3 +69,6 @@ gcp-firebase-service-key.json
 .aider*
 
 __pycache__/
+
+# Ignore lockfile for ac-site
+/tmp/ac-site.lock

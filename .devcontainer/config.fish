@@ -6,12 +6,14 @@ if test -d /home/me/envs
 end
 
 # Enable `fnm` support.
+
 if test -f $HOME/.fnm/fnm
     set -gx PATH $HOME/.fnm $PATH
     fnm env --use-on-cd --log-level=quiet | source
 end
 
 # Symlink a VSCode workspace as needed.
+
 if test -d /workspaces/aesthetic-computer
     if test ! -L ~/aesthetic-computer
         echo "Symlinking /workspaces/aesthetic-computer to ~"
@@ -34,10 +36,10 @@ function fish_greeting
     end
 
     printf "🧩 Hi @$AESTHETIC!\n\n"
+
     # printf "Ask with 'umm' and forget with 'nvm'\n"
     # printf "or use 'code' and 'done' with 'copy'\n"
     # printf "to generate and get code.\n\n"
-
     # printf "🆕 Try 'aider' to make edits: https://github.com/paul-gauthier/aider?tab=readme-ov-file#usage\n\n"
     # printf "📋 Clipboard also requires `xhost +local:docker` to be set on the host."
 end
@@ -48,6 +50,7 @@ if not test "$nogreet" = true
 end
 
 # rebuild the container after exiting with a special code ;)
+
 # alias reload 'exit 70'
 
 # reload fish config
@@ -61,7 +64,6 @@ set -gx PATH $PATH /home/me/.local/bin
 
 # add dotnet tools to path
 set -Ux PATH $PATH $HOME/.dotnet/tools
-
 # add stuff to path
 # set -gx PATH $PATH $HOME/isomorphic_copy/bin
 # use temporary clipboard file
@@ -94,10 +96,12 @@ fish_add_path ~/.cargo/bin
 fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
+
 # For fast config reloading.
 alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"status\"))'; emacsclient -e \"(kill-emacs)\""
 
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
+
 function aesthetic
     clear
     while not test -f /home/me/.waiter
@@ -106,33 +110,39 @@ function aesthetic
         clear
     end
     sudo rm /home/me/.waiter
-    # todo:
-    # kill redis if it exists
-    # kill any node instances that are running
-
-    # Kill redis if it exists
-    #if pgrep redis-server >/dev/null
-    #    pkill redis-server
-    #end
-
-    # Kill any node instances that are running
-    #if pgrep node >/dev/null
-    #    pkill node
-    #end
     platform
+end
+
+# TODO: Automatically kill online mode and go to offline mode if necessary.
+
+function ac-site
+    echo "🐱 Starting online mode..."
+    ac
+    npm run site
+end
+
+function ac-offline
+    echo "🐭 Starting offline mode..."
+    ac
+    cd system/public
+    npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem
+end
+
+function ac-url
+    clear
+    ac
+    npm run -s url $argv
+    fish
 end
 
 alias ac 'cd ~/aesthetic-computer'
 alias watch 'ac; npm run watch' # check for new deployments
-
-alias ac-site 'ac; npm run site'
 alias ac-watch 'ac; npm run watch'
 alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
-alias ac-url 'clear; ac; npm run -s url; fish'
 # alias ac-shell 'ac; ac-url; ac-tunnel; fish'
 alias ac-offline 'ac; cd system/public; npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'
@@ -148,10 +158,13 @@ alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
 
+
+
 # set up an ngrok tunnel
-function tunnel
+
+function ac-tunnel
     set tmp (mktemp)
-    ngrok start --config ngrok.yml --all 2> $tmp
+    ngrok start --config ngrok.yml --all 2>$tmp
     set ngrok_exit $status
     set err (cat $tmp)
     rm -f $tmp
@@ -160,12 +173,11 @@ function tunnel
         if string match -q '*ERR_NGROK_334*' $err
             clear
             echo "🟢 tunnel already online — watching..."
-
             while true
                 sleep 5
                 if not curl --silent --max-time 2 --output /dev/null https://local.aesthetic.computer
                     echo "🔁 tunnel down, restarting..."
-                    tunnel
+                    ac-tunnel
                     return
                 end
             end
@@ -177,10 +189,10 @@ function tunnel
 end
 
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
+
 function umm
     # Use string escape to handle special characters
     set -l args (string join " " $argv)
-
     # Pass the joined, escaped string to sgpt
     sgpt --chat umm "$args"
 end
@@ -224,20 +236,23 @@ function forget
 end
 
 # Increase Node.js heap size
+
 set -x NODE_OPTIONS "--max-old-space-size=4096"
 
 # Set Google Application Credentials
+
 set -x GOOGLE_APPLICATION_CREDENTIALS /home/me/aesthetic-computer/nanos/gcp-service.key.json
+
 set -x PATH /google-cloud-sdk/bin $PATH
 
 alias nvm forget
 
 # use tab to autocomplete the first suggestion
+
 bind \t complete-select-first
 
 function clipboard
     set content $argv
-    # set winhost (ip route | awk '/^default/ {print $3}')
     set -l hosts host.docker.internal $HOST_IP 172.17.0.1
     for host in $hosts
         echo "🧪 trying $host..."
@@ -250,18 +265,30 @@ function clipboard
     echo "❌ clipboard: No reachable host for clipboard relay"
 end
 
-
 # Automatically reload the fish config when it changes. 25.04.28.00.12
+
 # if status --is-interactive
+
 #     function __fish_watch_config --description "Watch and reload config.fish on save"
+
 #         while inotifywait --quiet -e close_write ~/.config/fish/config.fish
+
 #             echo "🐟 Reloading config.fish..."
+
 #             source ~/.config/fish/config.fish
+
 #         end
+
 #     end
+
 #     set pidfile ~/.cache/fish-config-watcher.pid
+
 #     if not test -e $pidfile; or not kill (cat $pidfile) ^/dev/null
+
 #         __fish_watch_config & disown
+
 #         echo $last_pid > $pidfile
+
 #     end
+
 # end
