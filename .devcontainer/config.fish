@@ -125,6 +125,7 @@ function ac-offline
     echo "🐭 Starting offline mode..."
     ac
     cd system/public
+    cp system/offline-index.html system/public/index.html
     npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem
 end
 
