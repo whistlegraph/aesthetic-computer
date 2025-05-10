@@ -3,7 +3,7 @@
  🌟 Projects in Progress (PIP) 🌟
 
  * `laer-klokken` *
- - [] Put the interface online for them.
+ - [-] Put the interface online for them.
  - [A] Add support for the crossed out o danish character.
  - [A] Fix timestamps in all chats.
  - [] Add some clever differences / enable all timestamps in the `laer-klokken`
