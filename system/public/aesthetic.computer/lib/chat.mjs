@@ -65,14 +65,15 @@ export class Chat {
         chatUrl = "chat-system.aesthetic.computer";
       } else if (instanceName === "chat-sotce") {
         chatUrl = "chat.sotce.net";
+      } else if (instanceName === "chat-clock") {
+        chatUrl = "chat-clock.aesthetic.computer";
       }
     }
-    // console.log("🗨️ Chat url:", chatUrl);
+    console.log("🗨️ Chat url:", chatUrl);
 
     this.system.server.connect(
       chatUrl, // host
       (id, type, content) => {
-        // console.log("🤖", type);
         const extra = {};
 
         // receive

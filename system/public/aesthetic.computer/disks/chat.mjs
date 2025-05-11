@@ -211,6 +211,7 @@ function paint(
     typeface,
     pen,
     num,
+    piece
   },
   options,
 ) {
@@ -223,7 +224,7 @@ function paint(
     const y = 10;
     const gap = 8;
 
-    if (screen.width > 200) {
+    if (screen.width > 200 && piece === "chat") {
       ink(50, 50, 100)
         .write("back to prompt", { x: x + gap, y: 6 })
         .line(x, y, x - gap, y) // Base of arrow.
@@ -241,6 +242,7 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
+
   if (client.connecting) {
     ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
       center: "xy",
@@ -257,6 +259,7 @@ function paint(
     chatHeight = computeScrollbarHeight(api, client);
     messagesNeedLayout = false;
   }
+
 
   // Mask off the area of renderable messages.
   mask({
@@ -281,52 +284,8 @@ function paint(
       // console.log("No message layout found for:", message);
     }
 
-    // Should only need to render here...
-
     const x = leftMargin;
     const tb = message.tb; // Precomputed in `computeScrollbar` for each message.
-
-    // 🖋️ Check if we are on the text.
-    // if (pen && !input.canType) {
-    //   if (
-    //     pen.x > x + text.width(message.from) &&
-    //     pen.x < x + tb.box.width &&
-    //     pen.y > y &&
-    //     pen.y < y + tb.box.height // + lineHeight
-    //   ) {
-    //     inBox = true;
-
-    //     const totalHeight = tb.lines.length * rowHeight;
-    //     const rowIndex = floor((pen.y - y) / rowHeight);
-
-    //     let handleOver;
-
-    //     if (rowIndex >= 0 && rowIndex < tb.lines.length) {
-    //       const rowText = tb.lines[rowIndex].join(" "); // Join words.
-    //       const charWidth = 6;
-    //       const rowWidth = rowText.length * charWidth;
-    //       let msgHovered = pen.x - x <= rowWidth;
-
-    //       // If the message is hovered.
-    //       if (msgHovered) {
-    //       }
-
-    //       msgColor = handleOver
-    //         ? "white"
-    //         : msgHovered
-    //           ? pen?.drawing
-    //             ? [255, 255, 0]
-    //             : [250, 200, 250]
-    //           : msgColor;
-
-    //       if (handleOver) {
-    //         tapState = "handle";
-    //       } else if (msgHovered) {
-    //         tapState = "message";
-    //       }
-    //     }
-    //   }
-    // }
 
     const layout = message.layout;
     const y = layout.y;
@@ -417,20 +376,23 @@ function paint(
 
   // 📜 Scroll bar.
 
+
   ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
 
   const segHeight = max(
     1,
     floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
   );
-  ink("pink").box(
-    0,
-    ceil(
+
+  const boxY = ceil(
       chatHeight +
         topMargin -
         segHeight -
-        (scroll / totalScrollHeight) * chatHeight,
-    ),
+        (scroll / totalScrollHeight) * chatHeight) || 0;
+
+  ink("pink").box(
+    0,
+    boxY,
     3,
     segHeight,
   ); // Backdrop.

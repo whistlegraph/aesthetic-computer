@@ -10,7 +10,7 @@ import * as chat from "./chat.mjs"; // Import chat everywhere.
 let client;
 
 function boot({ api, wipe, debug, send }) {
-  wipe("aqua");
+  wipe("blue");
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat.
   chat.boot(api, client.system);
@@ -18,6 +18,7 @@ function boot({ api, wipe, debug, send }) {
 
 function paint($) {
   chat.paint($, { otherChat: client.system });
+  // $.ink("yellow").line();
 }
 
 function act($) {
@@ -29,7 +30,7 @@ function sim($) {
 }
 
 function leave() {
-  console.log(client.kill);
+  // console.log(client.kill);
   client.kill()
 }
 

@@ -684,6 +684,36 @@ async function startChatServer() {
           if (instance.name === "chat-system")
             notify(handle + " 💬", filteredText); // Push notification.
 
+          if (instance.name === "chat-clock") {
+            const getClockEmoji = (date) => {
+              let hour = date.getHours(); // 0-23
+              const minutes = date.getMinutes(); // 0-59
+
+              // Convert to 12-hour format for emoji indexing (1-12)
+              let hour12 = hour % 12;
+              if (hour12 === 0) {
+                hour12 = 12; // Midnight or noon is 12
+              }
+
+              let emojiCode;
+              if (minutes < 30) {
+                // Use o'clock emoji for minutes 0-29
+                // 🕐 (0x1F550) to 🕛 (0x1F55B)
+                emojiCode = 0x1f550 + hour12 - 1;
+              } else {
+                // Use half-past emoji for minutes 30-59
+                // 🕜 (0x1F55C) to 🕧 (0x1F567)
+                emojiCode = 0x1f55c + hour12 - 1;
+              }
+              return String.fromCodePoint(emojiCode);
+            };
+
+            // 'when' is the timestamp of the current message, defined a few lines above
+            const clockEmoji = getClockEmoji(when);
+            console.log("The clock emoji is...!", clockEmoji);
+            notify(handle + " " + clockEmoji, filteredText); // Push notification.
+          }
+
           // 3. Send a confirmation back to the user.
           // No need, as this comes through redis...
         } catch (err) {
