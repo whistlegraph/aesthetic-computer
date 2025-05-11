@@ -4,7 +4,7 @@
 /* 📝 Notes
  */
 
-function boot() {
+function boot({ ui }) {
   // Runs once at the start.
   // TODO: Connect to the new chat instance here.
 }
@@ -25,9 +25,10 @@ function paint({ wipe, ink, write }) {
 
   ink("white").write(
     hours + ":" + minutes + ":" + seconds + ":" + millis + " " + ampm,
-    6,
-    18,
+    { center: "xy", size: 2 },
   );
+
+
 }
 
 // 📚 Library
