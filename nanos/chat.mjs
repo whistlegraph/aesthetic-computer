@@ -710,7 +710,7 @@ async function startChatServer() {
 
             // 'when' is the timestamp of the current message, defined a few lines above
             const clockEmoji = getClockEmoji(when);
-            console.log("The clock emoji is...!", clockEmoji);
+            // console.log("The clock emoji is...!", clockEmoji);
             notify(handle + " " + clockEmoji, filteredText); // Push notification.
           }
 
