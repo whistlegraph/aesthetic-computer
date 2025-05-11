@@ -374,7 +374,7 @@ loadAuth0Script()
 function receive(event) {
   // console.log("🌟 Event:", event);
   if (event.data?.type === "aesthetic-parent:focused") {
-    window.acSEND({ type: "aesthetic-parent:focused" });
+    window.acSEND?.({ type: "aesthetic-parent:focused" });
     return;
   }
   if (event.data?.type === "figma-image-input") {
@@ -385,7 +385,7 @@ function receive(event) {
   if (event.data?.type === "clipboard:copy:confirmation") {
     // Receive a clipboard copy confirmation from a hosted frame.
     // (vscode extension)
-    window.acSEND({ type: "copy:copied" });
+    window.acSEND?.({ type: "copy:copied" });
     return;
   }
   if (event.data?.type === "setSession") {

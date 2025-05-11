@@ -1312,12 +1312,21 @@ const BOX_CENTER = "center";
 // (4) x, y, w, h (4)
 // (4) x, y, size, mode:string (4)
 // (5) x, y, w, h, mode (5)
+// TODO: ♾️ If width or height (size) is infinity then make sure the box covers
+//          the entire pixel buffer width. 25.05.11.16.30 
 function box() {
   let x,
     y,
     w,
     h,
     mode = "fill";
+
+  // Apply the TODO: If any argument is NaN then just make it 'undefined'
+  for (let i = 0; i < arguments.length; i++) {
+    if (Number.isNaN(arguments[i])) {
+      arguments[i] = undefined;
+    }
+  }
 
   if (arguments.length === 1 || arguments.length === 2) {
     // Array(4)
@@ -1385,6 +1394,8 @@ function box() {
   }
 
   if (w === 0 || h === 0 || isNaN(w) || isNaN(h)) return; // Silently quit if the box has no volume.
+  if (w === Infinity) w = width;
+  if (h === Infinity) h = height;
 
   // Random parameters if undefined, null, or NaN.
   if (nonvalue(x)) x = randInt(width);
@@ -1850,6 +1861,8 @@ function draw() {
       let nx2 = x2 * c - y2 * s;
       let ny2 = x2 * s + y2 * c;
 
+     
+
       if (nx1 !== nx2 || ny1 !== ny2) {
         if (thickness === 1) {
           gesture.push([nx1, ny1], [nx2, ny2]);
@@ -2198,7 +2211,7 @@ class Camera {
 
     const rotatedX = mat4.multiply(mat4.create(), rotX, mat4.create());
     const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
+    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
 
     const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
 
@@ -2262,7 +2275,7 @@ class Camera {
 
     const rotatedY = mat4.multiply(mat4.create(), rotY, panned);
     const rotatedX = mat4.multiply(mat4.create(), rotX, rotatedY);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedX);
+    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
 
     // Scale
     // TODO: Add support for camera scaling.
@@ -2508,7 +2521,7 @@ class Form {
       const texCoord = [
         attributes.positions[i][X] / 2 + 0.5,
         attributes.positions[i][Y] / 2 + 0.5,
-        //0, //positions[i][Z] / 2 + 0.5, // TODO: Is this necessary to calculate for UV?
+        //0, //positions[i][Z] / 2 + 0.5; // TODO: Is this necessary to calculate for UV?
         //0,
       ];
 
@@ -3413,19 +3426,3 @@ function clipPolygonComponent(
     prevInside = curInside;
   }
 }
-
-export { Camera, Form, Dolly };
-
-// e. Utilities
-
-// let graphicLogCount = 0;
-// const graphicLogMax = 5;
-
-/*
-function graphicLog(log) {
-  graphicLogCount = Math.min(graphicLogCount + 1, graphicLogMax);
-  if (graphicLogCount < graphicLogMax) {
-    console.log(log);
-  }
-}
-*/
