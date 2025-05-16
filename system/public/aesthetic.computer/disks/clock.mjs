@@ -80,10 +80,11 @@ function paint({ wipe, ink, write, clock }) {
 
 // 📚 Library
 
-function act({ event: e, clock }) {
+function act({ event: e, clock, sound: { synth } }) {
   //  // Respond to user input here.
   if (e.is("touch")) {
     // clock.resync();
+    synth();
   }
 }
 
@@ -94,7 +95,7 @@ let overallLastQuarterSecond; // Added for tracking every quarter second change
 let lastEighthSecond;
 let lastSixteenthSecond; // Re-added for tracking every sixteenth second change
 
-function sim({ sound, beep, clock, num, help }) {
+function sim({ sound, beep, clock, num, help, params, colon }) {
   // Runs once per logic frame. (120fps locked.)
   // Get the current time and beep at different intervals
   const time = clock.time();
@@ -118,22 +119,28 @@ function sim({ sound, beep, clock, num, help }) {
   if (lastSixteenthSecond === undefined)
     lastSixteenthSecond = currentSixteenthSecond; // Initialize sixteenth note tracker
 
+  function bleep() {
+    sound.synth({
+      type: "sine",
+      tone: params[0] || help.choose("4G", "4B", "5D") /*num.randInt(800)*/,
+      duration: params[1] || 0.1,
+      // attack: 0.01,
+      // decay: 0.01,
+      // volume: 0.5,
+    });
+  }
+
   // Beep when the second changes
   if (seconds !== lastSecond) {
-    beep();
+    // beep();
 
     clock.resync();
-    //sound.synth({
-    //  type: "sine",
-    //  tone: help.choose("2G", "2B", "3D") /*num.randInt(800)*/,
-    //  duration: 4.225,
-    //  attack: 0.01,
-    //  decay: 0.01,
-    //  volume: 0.025,
-    //});
+
+    if (!colon[0] || colon[0] === "sec") {
+      bleep();
+    }
 
     synced = true;
-
 
     lastSecond = undefined;
     lastHalfSecond = undefined;
@@ -146,9 +153,10 @@ function sim({ sound, beep, clock, num, help }) {
   }
 
   // Higher pitch beep at half-second
-  if (currentHalfSecond !== lastHalfSecond && seconds === lastSecond) {
+  if (currentHalfSecond !== lastHalfSecond/* && seconds === lastSecond*/) {
     // sound.synth({ type: "sine", tone: help.choose("8A", "8B"), duration: 0.01, volume: 0.25 });
     lastHalfSecond = currentHalfSecond;
+    if (colon[0] === "half") bleep();
   }
 
   // Even higher pitch beep at quarter-seconds (but not when half or full seconds)
@@ -164,6 +172,7 @@ function sim({ sound, beep, clock, num, help }) {
   // New higher pitched sine click for every quarter second change
   if (currentQuarterSecond !== overallLastQuarterSecond) {
     // sound.synth({ type: "sine", tone: help.choose("B", "6B"), duration: 0.040, volume: 0.03 /*num.rand() * 0.7*/ });
+    if (colon[0] === "quart") bleep();
   }
 
   // Eighth note ticks
@@ -171,13 +180,15 @@ function sim({ sound, beep, clock, num, help }) {
     //if (help.choose(true, false)) {
     //  sound.synth({ type: "sine", tone: help.choose("4C", "4E", "4G"), duration: 2.84, volume: 0.025, attack: 0.5, decay: 0.99 });
     //}
+    if (colon[0] === "eight") bleep();
   }
 
   // Sixteenth note ticks
   if (currentSixteenthSecond !== lastSixteenthSecond) {
     //if (help.choose(true, false)) {
-      // sound.synth({ type: "sine", tone: 9000, duration: 0.005, volume: 0.25 }); // Adjusted tone and volume for distinction
+    // sound.synth({ type: "sine", tone: 9000, duration: 0.005, volume: 0.25 }); // Adjusted tone and volume for distinction
     //}
+    if (colon[0] === "sixt") bleep();
   }
 
   // Update the overall quarter second tracker for the next frame
