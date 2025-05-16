@@ -120,16 +120,17 @@ function sim({ sound, beep, clock, num, help }) {
 
   // Beep when the second changes
   if (seconds !== lastSecond) {
-    // beep();
+    beep();
 
-    sound.synth({
-      type: "sine",
-      tone: help.choose("5G") /*num.randInt(800)*/,
-      duration: 0.025,
-      attack: 0,
-      decay: 0,
-      volume: 0.085,
-    });
+    clock.resync();
+    //sound.synth({
+    //  type: "sine",
+    //  tone: help.choose("2G", "2B", "3D") /*num.randInt(800)*/,
+    //  duration: 4.225,
+    //  attack: 0.01,
+    //  decay: 0.01,
+    //  volume: 0.025,
+    //});
 
     synced = true;
 
@@ -148,7 +149,6 @@ function sim({ sound, beep, clock, num, help }) {
   if (currentHalfSecond !== lastHalfSecond && seconds === lastSecond) {
     // sound.synth({ type: "sine", tone: help.choose("8A", "8B"), duration: 0.01, volume: 0.25 });
     lastHalfSecond = currentHalfSecond;
-    clock.resync();
   }
 
   // Even higher pitch beep at quarter-seconds (but not when half or full seconds)
@@ -163,13 +163,13 @@ function sim({ sound, beep, clock, num, help }) {
 
   // New higher pitched sine click for every quarter second change
   if (currentQuarterSecond !== overallLastQuarterSecond) {
-    // sound.synth({ type: "sine", tone: help.choose("B", "6B"), duration: 0.040, volume: 0.1 /*num.rand() * 0.7*/ });
+    // sound.synth({ type: "sine", tone: help.choose("B", "6B"), duration: 0.040, volume: 0.03 /*num.rand() * 0.7*/ });
   }
 
   // Eighth note ticks
   if (currentEighthSecond !== lastEighthSecond) {
     //if (help.choose(true, false)) {
-     // sound.synth({ type: "sine", tone: 3000, duration: 0.01, volume: 0.15 });
+    //  sound.synth({ type: "sine", tone: help.choose("4C", "4E", "4G"), duration: 2.84, volume: 0.025, attack: 0.5, decay: 0.99 });
     //}
   }
 
