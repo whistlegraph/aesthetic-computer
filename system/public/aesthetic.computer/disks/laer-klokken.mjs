@@ -30,8 +30,7 @@ function sim($) {
 }
 
 function leave() {
-  // console.log(client.kill);
-  client.kill()
+  client.kill();
 }
 
 
