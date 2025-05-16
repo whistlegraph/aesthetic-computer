@@ -62,6 +62,8 @@ external_node_modules = ["got", "crypto", "patreon"]
 external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
 external_node_modules = ["discord-interactions"]
+[functions.clock]
+# No special config needed for clock
 [dev]
 NODE_ENV = "development"
 publish = "public/"
@@ -223,6 +225,10 @@ status = 200
 [[redirects]]
 from = "/api/print/*"
 to = "/.netlify/functions/print"
+status = 200
+[[redirects]]
+from = "/api/clock"
+to = "/.netlify/functions/clock"
 status = 200
 [[redirects]]
 from = "/api/auth0-events"

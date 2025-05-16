@@ -2,6 +2,18 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * `typeline` aka `tobby` *
+                        | 
+  - [] Type the line: xgHij 
+                        |
+  - [] Ambiently show other players progress like an obby.
+  - [] Reset the map / sequence of characters every 3 for all players using
+       the major clock.
+
+ * `chart` *
+ - [] Make a basic runnable flow with arithmetic and clock offsets.
+ - [] State needs to save between commands?
+
  * `laer-klokken` *
  - [-] Put the interface online for them.
  - [A] Add support for the crossed out o danish character.
