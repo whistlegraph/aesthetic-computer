@@ -631,12 +631,14 @@ const $commonApi = {
             const targetOffset = serverTime - approxClientMidpoint;
 
             // Blend the clock offset gradually (e.g. 10% of the way each resync)
-            const blendFactor = 0.1;
+            const blendFactor = 0.25;
             clockOffset += (targetOffset - clockOffset) * blendFactor;
 
             // Recompute base time to keep virtual time in sync
             baseTime = Date.now() + clockOffset;
             baseReal = Date.now();
+
+            // console.log('synced')
 
             lastServerTime = serverTime;
             clockFetching = false;
