@@ -644,9 +644,33 @@ async function startChatServer() {
             filteredText = filter(message.text);
           }
 
-          // Don't store any actual messages to the MongoDB in development.
-          const when = new Date();
+          // Determine 'when' by fetching from server clock or falling back to local time
+          let when;
+          const clockHost = dev
+            ? "https://localhost:8888"
+            : "https://aesthetic.computer";
+          const clockUrl = `${clockHost}/api/clock`;
 
+          try {
+            const clockResponse = await fetch(clockUrl);
+            if (clockResponse.ok) {
+              const serverTimeISO = await clockResponse.text();
+              when = new Date(serverTimeISO);
+              console.log("⏲️ Using server time...");
+            } else {
+              console.error(
+                `🔴 Chat: Failed to fetch server time from ${clockUrl}: ${clockResponse.status} ${await clockResponse.text()}. Using local time.`,
+              );
+              when = new Date(); // Fallback
+            }
+          } catch (error) {
+            console.error(
+              `🔴 Chat: Error fetching server time from ${clockUrl}: ${error}. Using local time.`,
+            );
+            when = new Date(); // Fallback
+          }
+
+          // Don't store any actual messages to the MongoDB in development.
           if (!dev) {
             console.log("🟡 Storing message...");
             const dbmsg = {
@@ -838,14 +862,24 @@ async function getLast100MessagesfromMongo() {
   const chatCollection = db.collection(instance.name);
   let combinedMessages;
 
-  if (instance.name !== "chat-system") {
-    // 🪷 Don't include AC logs.
+  if (instance.name === "chat-sotce") {
+    // 🪷 Don't include AC logs or reverse.
     combinedMessages = await chatCollection
       .find({})
       .sort({ when: -1 })
       .limit(100)
       .toArray();
+  } else if (instance.name !== "chat-system") {
+    // 🕰️ Don't include logs.
+    combinedMessages = await chatCollection
+      .find({})
+      .sort({ when: -1 })
+      .limit(100)
+      .toArray()
+      .reverse();
   } else {
+    // chat-system
+    // todo; take into account chat-clock
     // 🟪 Assume an AC chat instance with logs rolled in.
     combinedMessages = (
       await chatCollection
