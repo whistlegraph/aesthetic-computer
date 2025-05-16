@@ -211,7 +211,7 @@ function paint(
     typeface,
     pen,
     num,
-    piece
+    piece,
   },
   options,
 ) {
@@ -242,7 +242,6 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
-
   if (client.connecting) {
     ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
       center: "xy",
@@ -259,7 +258,6 @@ function paint(
     chatHeight = computeScrollbarHeight(api, client);
     messagesNeedLayout = false;
   }
-
 
   // Mask off the area of renderable messages.
   mask({
@@ -376,7 +374,6 @@ function paint(
 
   // 📜 Scroll bar.
 
-
   ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
 
   const segHeight = max(
@@ -384,18 +381,15 @@ function paint(
     floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
   );
 
-  const boxY = ceil(
+  const boxY =
+    ceil(
       chatHeight +
         topMargin -
         segHeight -
-        (scroll / totalScrollHeight) * chatHeight) || 0;
+        (scroll / totalScrollHeight) * chatHeight,
+    ) || 0;
 
-  ink("pink").box(
-    0,
-    boxY,
-    3,
-    segHeight,
-  ); // Backdrop.
+  ink("pink").box(0, boxY, 3, segHeight); // Backdrop.
   // }
 
   const currentHandle = handle();
@@ -459,20 +453,23 @@ function paint(
   }
 }
 
-function act({
-  api,
-  chat,
-  pen,
-  event: e,
-  hud,
-  piece,
-  send,
-  handle,
-  store,
-  beep,
-  text,
-  jump,
-}, otherChat) {
+function act(
+  {
+    api,
+    chat,
+    pen,
+    event: e,
+    hud,
+    piece,
+    send,
+    handle,
+    store,
+    beep,
+    text,
+    jump,
+  },
+  otherChat,
+) {
   const client = otherChat || chat;
   // if (e.is("viewport-height:changed")) {
   // console.log("✨ New keyboard cutoff would be:", e.y, "?");
