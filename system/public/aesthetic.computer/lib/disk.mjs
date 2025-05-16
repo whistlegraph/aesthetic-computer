@@ -596,8 +596,67 @@ function isLeaving(set) {
 
 let docs; // Memorized by `requestDocs`.
 
-// For every function to access.
+let baseTime = Date.now(); // Virtual clock base
+let baseReal = Date.now(); // Real time at last baseTime
+let clockFetching = false;
+let lastServerTime = undefined;
+let clockOffset = 0; // Smoothed offset from server
+
 const $commonApi = {
+  clock: {
+    offset: function () {
+      if (clockFetching) return;
+
+      clockFetching = true;
+      const t0 = Date.now();
+
+      fetch("/api/clock")
+        .then((response) => {
+          if (!response.ok) {
+            return response.text().then((err) => {
+              clockFetching = false;
+              throw new Error(
+                `Failed to fetch offset: ${response.status} ${err}`,
+              );
+            });
+          }
+
+          return response.text().then((serverTimeISO) => {
+            const t1 = Date.now();
+            const serverTime = new Date(serverTimeISO).getTime();
+
+            // Assume serverTime is the midpoint of request
+            const rtt = t1 - t0;
+            const approxClientMidpoint = t0 + rtt / 2;
+            const targetOffset = serverTime - approxClientMidpoint;
+
+            // Blend the clock offset gradually (e.g. 10% of the way each resync)
+            const blendFactor = 0.1;
+            clockOffset += (targetOffset - clockOffset) * blendFactor;
+
+            // Recompute base time to keep virtual time in sync
+            baseTime = Date.now() + clockOffset;
+            baseReal = Date.now();
+
+            lastServerTime = serverTime;
+            clockFetching = false;
+          });
+        })
+        .catch((err) => {
+          console.error("Clock:", err);
+          clockFetching = false;
+        });
+    },
+
+    resync: function () {
+      $commonApi.clock.offset();
+    },
+
+    time: function () {
+      return new Date(baseTime + (Date.now() - baseReal));
+    },
+  },
+
   // Enable Pointer Lock
   penLock: () => {
     send({ type: "pen:lock" });
@@ -1920,7 +1979,9 @@ const $paintApi = {
             $activePaintApi,
             {
               x: pos?.x,
-              y: pos ? pos.y + index * tf.data.glyphHeight + lineHeightGap : undefined,
+              y: pos
+                ? pos.y + index * tf.data.glyphHeight + lineHeightGap
+                : undefined,
             },
             0,
             line,
@@ -5127,7 +5188,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     $sound.at = function (timeToRun, callback) {
-      // TODO: Finish this implementation. 
+      // TODO: Finish this implementation.
       // timeToRun;
       // content.audioTime;
     };
