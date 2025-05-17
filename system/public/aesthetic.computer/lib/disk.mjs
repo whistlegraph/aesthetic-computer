@@ -5081,7 +5081,7 @@ async function makeFrame({ data: { type, content } }) {
           y,
           width,
           height,
-          color,
+          color = "yellow",
           options,
         ) {
           if (waveform?.length < 1) return;
@@ -5092,7 +5092,7 @@ async function makeFrame({ data: { type, content } }) {
             const yMid = y + height / 2,
               yMax = height / 2;
 
-            ink("yellow", 128).poly(
+            ink(color, 128).poly(
               waveform.map((v, i) => {
                 const p = [x + i * xStep, yMid + (v || 0) * yMax];
                 return p;
