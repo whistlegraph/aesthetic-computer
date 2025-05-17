@@ -19,7 +19,7 @@ function boot({ ui, clock, params, colon }) {
   octave = parseInt(colon[0]) || octave;
 }
 
-function paint({ wipe, ink, write, clock, screen }) {
+function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
   const syncedDate = clock.time(); // Get time once at the beginning
   let bgColor;
   let currentSeconds; // To store seconds if syncedDate is valid
@@ -85,6 +85,22 @@ function paint({ wipe, ink, write, clock, screen }) {
   } else {
     ink("red").write("SYNCING...", { center: "xy", size: 2 });
   }
+
+
+
+  const availableWidth = screen.width; 
+
+  sound.paint.waveform(
+    api,
+    sound.speaker.amplitudes.left,
+    help.resampleArray(sound.speaker.waveforms.left, 16),
+    54,
+    0,
+    availableWidth,
+    24 - 2,
+    [255, 0, 0, 255],
+  );
+
 }
 
 // 📚 Library
@@ -105,6 +121,8 @@ let lastEighthSecond;
 let lastSixteenthSecond; // Re-added for tracking every sixteenth second change
 
 function sim({ sound, beep, clock, num, help, params, colon }) {
+  sound.speaker?.poll();
+
   // Runs once per logic frame. (120fps locked.)
   // Get the current time and beep at different intervals
   const time = clock.time();
