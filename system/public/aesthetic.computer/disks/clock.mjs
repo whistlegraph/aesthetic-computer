@@ -1,26 +1,25 @@
 // Clock, 2025.5.04.03.29.18.101
 // Just a standard clock.
 
-/* 📝 Notes
-  - [🟠] add a button to 'learn' the clock.
+/* 🐢 TODO
+  - [] Figure out what the timeslice should be.
+  - [-] Add a button to 'learn' the clock.
+  - [✅] Automatically make make the font scale 1 if the text is too wide for screen.width.  
+       (each character is 6 pixels wide, so if the text is longer than screen.width / 8, scale it down)
  */
 
 let synced = false;
+let sequence, sequenceIndex = 0;
+let octave = 4;
 
-function boot({ ui, clock }) {
-  // Runs once at the start.
+function boot({ ui, clock, params, colon }) {
   // Get the UTC offset from /api/clock and use that to set the clock.
   clock.resync();
+  if (params[0]) sequence = params[0].split("");
+  octave = parseInt(colon[0]) || octave;
 }
 
-// Helper function to pad numbers with leading zeros
-function pad(num, size = 2) {
-  num = num.toString();
-  while (num.length < size) num = "0" + num;
-  return num;
-}
-
-function paint({ wipe, ink, write, clock }) {
+function paint({ wipe, ink, write, clock, screen }) {
   const syncedDate = clock.time(); // Get time once at the beginning
   let bgColor;
   let currentSeconds; // To store seconds if syncedDate is valid
@@ -34,24 +33,25 @@ function paint({ wipe, ink, write, clock }) {
   } else {
     if (syncedDate) {
       const lastDigitOfSecond = currentSeconds % 10;
-      // Define 10 shades of purple, from darker to lighter/more bluish
-      const purpleShades = [
-        [130, 0, 60], // Second ends in 0
-        [130, 0, 80], // Second ends in 1
-        [130, 0, 100], // Second ends in 2
-        [130, 0, 120], // Second ends in 3
-        [130, 0, 140], // Second ends in 4
-        [130, 0, 160], // Second ends in 5
-        [130, 0, 180], // Second ends in 6
-        [130, 0, 200], // Second ends in 7
-        [130, 0, 220], // Second ends in 8
-        [130, 0, 240], // Second ends in 9
+      // Define colors based on ROYGBIV spectrum plus black, white, and gray
+      const colors = [
+        "red",       // Second ends in 0
+        "orange",    // Second ends in 1
+        "yellow",    // Second ends in 2
+        "green",     // Second ends in 3
+        "blue",      // Second ends in 4
+        "indigo",    // Second ends in 5
+        "violet",    // Second ends in 6
+        "black",     // Second ends in 7
+        "white",     // Second ends in 8
+        "gray"       // Second ends in 9
       ];
-      bgColor = purpleShades[lastDigitOfSecond];
+      bgColor = colors[lastDigitOfSecond];
     } else {
-      bgColor = "purple"; // Fallback if syncedDate is not available (original behavior)
+      bgColor = "purple"; // Fallback if syncedDate is not available
     }
   }
+
   wipe(bgColor);
 
   if (synced) {
@@ -69,10 +69,19 @@ function paint({ wipe, ink, write, clock }) {
     const millis = pad(syncedDate.getMilliseconds(), 3);
     const ampm = morning ? "AM" : "PM";
 
-    ink("white").write(
-      hours + ":" + minutes + ":" + displaySeconds + ":" + millis + " " + ampm,
-      { center: "xy", size: 2 },
-    );
+    const timeString =
+      hours + ":" + minutes + ":" + displaySeconds + ":" + millis + " " + ampm;
+
+    let fontSize = 1; // Default size
+
+    // if (timeString.length * 6 < screen.width) {
+    //   fontSize = 1;
+    // } else if (timeString.length * 6 < screen.width * 0.8) {
+    // }
+
+    ink("white").write(timeString, { center: "xy", size: fontSize }, "black");
+    ink("red").line(0, screen.height / 2, 8 + 5, screen.height / 2);
+    ink("red").line(screen.width - 9, screen.height / 2, screen.width, screen.height / 2);
   } else {
     ink("red").write("SYNCING...", { center: "xy", size: 2 });
   }
@@ -84,7 +93,7 @@ function act({ event: e, clock, sound: { synth } }) {
   //  // Respond to user input here.
   if (e.is("touch")) {
     // clock.resync();
-    synth();
+    // synth();
   }
 }
 
@@ -122,12 +131,13 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
   function bleep() {
     sound.synth({
       type: "sine",
-      tone: params[0] || help.choose("4G", "4B", "5D") /*num.randInt(800)*/,
+      tone: octave + (sequence?.[sequenceIndex] || help.choose("G", "B", "D")) /*num.randInt(800)*/,
       duration: params[1] || 0.1,
       // attack: 0.01,
       // decay: 0.01,
       // volume: 0.5,
     });
+    sequenceIndex = (sequenceIndex + 1) % sequence.length;
   }
 
   // Beep when the second changes
@@ -136,7 +146,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
     clock.resync();
 
-    if (!colon[0] || colon[0] === "sec") {
+    if (!colon[1] || colon[1] === "sec") {
       bleep();
     }
 
@@ -153,10 +163,10 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
   }
 
   // Higher pitch beep at half-second
-  if (currentHalfSecond !== lastHalfSecond/* && seconds === lastSecond*/) {
+  if (currentHalfSecond !== lastHalfSecond /* && seconds === lastSecond*/) {
     // sound.synth({ type: "sine", tone: help.choose("8A", "8B"), duration: 0.01, volume: 0.25 });
     lastHalfSecond = currentHalfSecond;
-    if (colon[0] === "half") bleep();
+    if (colon[1] === "half") bleep();
   }
 
   // Even higher pitch beep at quarter-seconds (but not when half or full seconds)
@@ -172,7 +182,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
   // New higher pitched sine click for every quarter second change
   if (currentQuarterSecond !== overallLastQuarterSecond) {
     // sound.synth({ type: "sine", tone: help.choose("B", "6B"), duration: 0.040, volume: 0.03 /*num.rand() * 0.7*/ });
-    if (colon[0] === "quart") bleep();
+    if (colon[1] === "quart") bleep();
   }
 
   // Eighth note ticks
@@ -180,7 +190,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
     //if (help.choose(true, false)) {
     //  sound.synth({ type: "sine", tone: help.choose("4C", "4E", "4G"), duration: 2.84, volume: 0.025, attack: 0.5, decay: 0.99 });
     //}
-    if (colon[0] === "eight") bleep();
+    if (colon[1] === "eight") bleep();
   }
 
   // Sixteenth note ticks
@@ -188,7 +198,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
     //if (help.choose(true, false)) {
     // sound.synth({ type: "sine", tone: 9000, duration: 0.005, volume: 0.25 }); // Adjusted tone and volume for distinction
     //}
-    if (colon[0] === "sixt") bleep();
+    if (colon[1] === "sixt") bleep();
   }
 
   // Update the overall quarter second tracker for the next frame
@@ -214,3 +224,9 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 // }
 
 // ⚠️ Also available: `brush` and `filter`.
+
+function pad(num, size = 2) {
+  num = num.toString();
+  while (num.length < size) num = "0" + num;
+  return num;
+}
