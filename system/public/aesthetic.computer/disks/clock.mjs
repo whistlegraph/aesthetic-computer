@@ -137,7 +137,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
       // decay: 0.01,
       // volume: 0.5,
     });
-    sequenceIndex = (sequenceIndex + 1) % sequence.length;
+    sequenceIndex = (sequenceIndex + 1) % sequence?.length || 0;
   }
 
   // Beep when the second changes
