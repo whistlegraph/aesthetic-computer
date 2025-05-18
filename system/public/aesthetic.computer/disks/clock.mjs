@@ -89,15 +89,16 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
 
 
   const availableWidth = screen.width; 
-
+  const availableHeight = screen.height;
+  
   sound.paint.waveform(
     api,
     sound.speaker.amplitudes.left,
     help.resampleArray(sound.speaker.waveforms.left, 16),
-    54,
     0,
+    24,
     availableWidth,
-    24 - 2,
+    availableHeight,
     [255, 0, 0, 255],
   );
 
