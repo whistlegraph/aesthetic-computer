@@ -6,6 +6,7 @@
 // https://aesthetic.computer/icon/widthxheight/command~any~params.png
 
 const puppeteer = require("puppeteer-core");
+const chromium = require('@sparticuz/chromium');
 const { shell } = require("../../backend/shell.mjs"); // Added import
 const { setTimeout } = require("node:timers/promises"); // Added import for promise-based setTimeout
 const crypto = require("crypto"); // Added for ETag generation
@@ -142,7 +143,7 @@ async function handler(event, context) {
       '--disable-dev-shm-usage',
       // '--use-gl=egl' // Consider this if GPU acceleration is needed and available
     ];
-    ops.executablePath = process.env.CHROME_PATH || "/usr/bin/chromium-browser"; // Use env var from netlify-plugin-chromium
+    ops.executablePath = await chromium.executablePath(); // Use env var from netlify-plugin-chromium
   }
   // if (!dev) { // This line is no longer needed as we are launching directly
   //   ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
@@ -200,7 +201,7 @@ async function handler(event, context) {
       return { statusCode: 500, body: "Failed to create browser page." };
     }
 
-    
+    /*
     if (dev && page) {
       await page.setRequestInterception(true);
       requestHandler = (interceptedRequest) => {
@@ -215,7 +216,7 @@ async function handler(event, context) {
       };
       page.on('request', requestHandler);
     }
-    
+    */
 
     let url;
 
