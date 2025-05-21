@@ -3782,10 +3782,10 @@ async function load(
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
 
-    console.log("🔴 PREVIEW OR ICON:", PREVIEW_OR_ICON, "Preview mode:", previewMode, "Icon mode:", iconMode);
-
+    // console.log("🔴 PREVIEW OR ICON:", PREVIEW_OR_ICON, "Preview mode:", previewMode, "Icon mode:", iconMode);
     // console.log("📑 Search:", parsed.search);
     // console.log("🖼️ ICON MODE:", iconMode);
+
     previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
