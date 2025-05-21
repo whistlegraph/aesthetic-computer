@@ -49,7 +49,7 @@ external_node_modules = [
 ]
 included_files = ["backend/**/*.mjs"]
 [functions.screenshot]
-external_node_modules = ["puppeteer-core"]
+external_node_modules = ["puppeteer-core", "@sparticuz/chromium"]
 [functions.session]
 external_node_modules = ["got", "redis"]
 [functions.reload]
