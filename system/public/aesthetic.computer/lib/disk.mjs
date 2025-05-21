@@ -3778,8 +3778,12 @@ async function load(
     // soundClear = null;
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
+
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
+
+    console.log("🔴 PREVIEW OR ICON:", PREVIEW_OR_ICON, "Preview mode:", previewMode, "Icon mode:", iconMode);
+
     // console.log("📑 Search:", parsed.search);
     // console.log("🖼️ ICON MODE:", iconMode);
     previewOrIconMode = previewMode || iconMode;
@@ -3961,7 +3965,7 @@ async function makeFrame({ data: { type, content } }) {
       load(content.parsed); // Load after some of the default frames run.
     };
 
-    if (previewOrIconMode) {
+    if (PREVIEW_OR_ICON) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
@@ -5004,7 +5008,7 @@ async function makeFrame({ data: { type, content } }) {
           width,
           height,
           color,
-          options = { noamp: false },
+          options = { noamp: false, nobounds: false },
         ) {
           const yMid = round(y + (height - 2) / 2),
             yMax = round((height - 2) / 2);
@@ -5012,9 +5016,11 @@ async function makeFrame({ data: { type, content } }) {
           const xStep = (width - lw) / waveform.length;
 
           // Vertical bounds.
-          ink("yellow")
-            .line(x + lw, y, x + width - 1, y)
-            .line(x + lw, y + height, x + width - 1, y + height);
+          if (!options.nobounds) {
+            ink("yellow")
+              .line(x + lw, y, x + width - 1, y)
+              .line(x + lw, y + height, x + width - 1, y + height);
+          }
 
           // Level meter.
           if (!options.noamp) {
