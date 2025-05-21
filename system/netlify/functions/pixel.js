@@ -163,10 +163,10 @@ async function fun(event, context) {
                 </filter>
               </defs>
               <rect x="${marginPx / 2 - pad / 2}" y="${
-                marginPx / 2 - pad / 2
-              }" width="${rectWidth + pad}" height="${
-                rectHeight + pad
-              }" rx="${radius}" ry="${radius}" fill="white" filter="url(#dropshadow)" />
+            marginPx / 2 - pad / 2
+          }" width="${rectWidth + pad}" height="${
+            rectHeight + pad
+          }" rx="${radius}" ry="${radius}" fill="white" filter="url(#dropshadow)" />
           </svg>`;
 
         const rectangleBuffer = await sharp(Buffer.from(svg)).toBuffer();
@@ -208,4 +208,4 @@ function getRandomColor() {
   };
 }
 
-export const handler = builder(fun);
+export const handler = fun;

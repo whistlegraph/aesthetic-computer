@@ -48,9 +48,7 @@ external_node_modules = [
   "@aws-sdk/s3-request-presigner",
 ]
 included_files = ["backend/**/*.mjs"]
-[functions.thumbnail]
-external_node_modules = ["puppeteer-core"]
-[functions.icon]
+[functions.screenshot]
 external_node_modules = ["puppeteer-core"]
 [functions.session]
 external_node_modules = ["got", "redis"]
@@ -198,8 +196,8 @@ to = "https://aesthetic.computer/:splat"
 status = 301
 force = true
 [[redirects]]
-from = "/thumbnail/*"
-to = "/.netlify/builders/thumbnail"
+from = "/preview/*"
+to = "/.netlify/functions/screenshot"
 status = 200
 [[redirects]]
 from = "/support"
@@ -220,7 +218,7 @@ status = 200
 force = true
 [[redirects]]
 from = "/icon/*"
-to = "/.netlify/builders/icon"
+to = "/.netlify/functions/screenshot"
 status = 200
 [[redirects]]
 from = "/api/print/*"
@@ -256,7 +254,7 @@ to = "/.netlify/functions/logo"
 status = 200
 [[redirects]]
 from = "/api/pixel/*"
-to = "/.netlify/builders/pixel"
+to = "/.netlify/functions/pixel"
 status = 200
 [[redirects]]
 from = "/session/*"
