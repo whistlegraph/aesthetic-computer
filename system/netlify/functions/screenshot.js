@@ -134,19 +134,20 @@ async function handler(event, context) {
     ops.args = launchArgs;
   } else {
     ops.headless = "new"; // Keep headless for non-dev environments
-    // For puppeteer.connect, args are less relevant here as browserless.io controls its launch.
-    // If you were using puppeteer.launch for non-dev, you'd add args like:
-    // ops.args = [
-    //   ...launchArgs,
-    //   '--no-sandbox',
-    //   '--disable-setuid-sandbox',
-    //   '--disable-dev-shm-usage',
-    //   '--use-gl=egl' // For headless Linux GPU
-    // ];
+    // For puppeteer.launch, add necessary args for headless Linux
+    ops.args = [
+      ...launchArgs,
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      // '--use-gl=egl' // Consider this if GPU acceleration is needed and available
+    ];
+    // ops.executablePath might be needed if not found automatically in PATH
+    // e.g., ops.executablePath = "/usr/bin/chromium-browser"; 
   }
-  if (!dev) {
-    ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
-  }
+  // if (!dev) { // This line is no longer needed as we are launching directly
+  //   ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
+  // }
 
   shell.log("🥰 Launching puppeteer...", ops);
 
@@ -156,9 +157,7 @@ async function handler(event, context) {
 
   try {
     try {
-      browser = !dev
-        ? await puppeteer.connect(ops)
-        : await puppeteer.launch(ops);
+      browser = await puppeteer.launch(ops); // Changed for both dev and non-dev
     } catch (err) {
       shell.log("🔴 Error launching puppeteer:", err);
       return { statusCode: 500, body: "Failed to launch browser." };
