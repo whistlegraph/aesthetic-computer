@@ -20,6 +20,7 @@ const dev = process.env.CONTEXT === "dev";
 async function fun(event, context) {
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
+  console.log("📁 index ➡️", event.path);
 
   if (
     event.path === "/favicon.ico" ||
@@ -39,7 +40,6 @@ async function fun(event, context) {
     );
   }
 
-  console.log("📁", event.path);
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
