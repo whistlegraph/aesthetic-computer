@@ -142,8 +142,7 @@ async function handler(event, context) {
       '--disable-dev-shm-usage',
       // '--use-gl=egl' // Consider this if GPU acceleration is needed and available
     ];
-    // ops.executablePath might be needed if not found automatically in PATH
-    ops.executablePath = "/usr/bin/chromium-browser"; // Ensure Chromium is at this path in your Netlify environment
+    ops.executablePath = process.env.CHROME_PATH || "/usr/bin/chromium-browser"; // Use env var from netlify-plugin-chromium
   }
   // if (!dev) { // This line is no longer needed as we are launching directly
   //   ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
