@@ -129,7 +129,7 @@ async function handler(event, context) {
 
   if (dev) {
     ops.headless = "new"; // Run with a visible browser in dev
-    // ops.ignoreHTTPSErrors = true;
+    ops.ignoreHTTPSErrors = true; // For localhost SSL cert issues
     ops.executablePath = "/usr/bin/chromium-browser"; // Added for local dev
     ops.args = launchArgs;
   } else {
@@ -143,7 +143,7 @@ async function handler(event, context) {
       // '--use-gl=egl' // Consider this if GPU acceleration is needed and available
     ];
     // ops.executablePath might be needed if not found automatically in PATH
-    // e.g., ops.executablePath = "/usr/bin/chromium-browser"; 
+    ops.executablePath = "/usr/bin/chromium-browser"; // Ensure Chromium is at this path in your Netlify environment
   }
   // if (!dev) { // This line is no longer needed as we are launching directly
   //   ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
@@ -174,8 +174,15 @@ async function handler(event, context) {
           logArgs.push(args[i].jsonValue());
         }
         Promise.all(logArgs).then((resolvedArgs) => {
-          console.log(`📄 Page: (${msg.type()}):`, ...resolvedArgs);
+          // Use shell.log for consistency, or keep console.log if preferred for page logs
+          shell.log(`📄 Page: (${msg.type()}):`, ...resolvedArgs);
         });
+      });
+      page.on('error', err => {
+        shell.log('🔴 Page crashed:', err);
+      });
+      page.on('pageerror', pageErr => {
+        shell.log('🔴 Uncaught exception in page:', pageErr);
       });
     } catch (err) {
       shell.log("🔴 Error creating new page:", err);
@@ -194,13 +201,13 @@ async function handler(event, context) {
       return { statusCode: 500, body: "Failed to create browser page." };
     }
 
-    /*
+    
     if (dev && page) {
       await page.setRequestInterception(true);
       requestHandler = (interceptedRequest) => {
         const reqUrl = interceptedRequest.url();
-        // In dev mode, abort requests made by the Puppeteer page back to the icon function
-        if (reqUrl.includes('/icon/') || reqUrl.includes('/.netlify/functions/icon')) {
+        // In dev mode, abort requests made by the Puppeteer page back to the screenshot function paths
+        if (reqUrl.includes('/.netlify/functions/screenshot') || reqUrl.includes('/icon/') || reqUrl.includes('/preview/')) {
           shell.log(`🚫 DEV: Aborting potentially recursive request from Puppeteer page: ${reqUrl}`);
           interceptedRequest.abort();
         } else {
@@ -209,7 +216,7 @@ async function handler(event, context) {
       };
       page.on('request', requestHandler);
     }
-    */
+    
 
     let url;
 
