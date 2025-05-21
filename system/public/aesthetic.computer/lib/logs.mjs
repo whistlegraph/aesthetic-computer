@@ -19,3 +19,21 @@ export const logs = {
   history: false,
   recorder: false,
 };
+
+// export const logs = {
+//   store: true, // Storage (local, etc.)
+//   frame: true, // Screen information / rendering framing.
+//   loading: true, // Preloading
+//   session: true, // Socket session.
+//   udp: true, // UDP message logs.
+//   download: true, // Download progress, etc. (JSON)
+//   audio: true,
+//   hid: true, // Keyboard, Pen, etc.
+//   painting: true, // System wallpaper / paint related logs.
+//   glaze: true,
+//   deps: true, // Dependency loading and injection.
+//   messaging: true, // Network related logs.
+//   chat: true,
+//   history: true,
+//   recorder: true,
+// };
