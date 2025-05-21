@@ -230,14 +230,19 @@ async function fun(event, context) {
     meta,
   );
 
+  // TODO: Not sure if 'location' is correct here, but I wan tto skip rendering the link rel icon and og:image if the icon or preview parameter is present
+  //      in the request url qury params...
+const qsp = event.queryStringParameters || {};
+const previewOrIcon = "icon" in qsp || "preview" in qsp;
+
   const body = html`
     <!doctype html>
     <html>
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
-        <link rel="icon" href="${icon}" type="image/png" />
-        <link rel="apple-touch-icon" href="${icon}" />
+        ${!previewOrIcon ? html`<link rel="icon" href="${icon}" type="image/png" />` : ''}
+        ${!previewOrIcon ? html`<link rel="apple-touch-icon" href="${icon}" />` : ''}
         <link rel="manifest" href="${manifest}" />
         <meta
           name="viewport"
@@ -246,7 +251,7 @@ async function fun(event, context) {
         <meta name="description" content="${encode(desc)}" />
         <meta name="og:title" content="${encode(title)}" />
         <meta name="og:description" content="${encode(desc)}" />
-        <meta name="og:image" content="${ogImage}" />
+        ${!previewOrIcon ? html`<meta name="og:image" content="${ogImage}" />` : ''}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${encode(title)}" />
         <meta name="twitter:site" content="aesthetic.computer" />

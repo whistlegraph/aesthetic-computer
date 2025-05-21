@@ -2733,7 +2733,7 @@ export async function handler(event, context) {
         sig: "sotce-net",
         desc: "diaries (work in progress)",
         done: false,
-        //TODO: adjust song , default octave thing
+        hidden: true,
       },
       // "sparkle-brush": {
       //   sig: "sparkle-brush",
