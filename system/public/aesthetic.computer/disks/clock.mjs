@@ -2,6 +2,19 @@
 // Just a standard clock.
 
 /* 🐢 TODO
+  - [] Figure out a better expressive syntax for the sequence.
+    - [] Move octave changes into the sequence.
+
+    `clock 4CDEF#7ABA6ABA5ABAGFEDDDD4DDDD`
+    `       CDEFF#7
+
+    `clock:
+
+
+    - [] Allow multiple tracks / sequences to be played at once.
+    - [] Incorporate sample playback and potential rewriting of the sequence
+          while it is being read.
+
   - [] Figure out what the timeslice should be.
   - [-] Add a button to 'learn' the clock.
   - [✅] Automatically make make the font scale 1 if the text is too wide for screen.width.  
@@ -9,7 +22,8 @@
  */
 
 let synced = false;
-let sequence, sequenceIndex = 0;
+let sequence,
+  sequenceIndex = 0;
 let octave = 4;
 
 function boot({ ui, clock, params, colon }) {
@@ -35,16 +49,16 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
       const lastDigitOfSecond = currentSeconds % 10;
       // Define colors based on ROYGBIV spectrum plus black, white, and gray
       const colors = [
-        "red",       // Second ends in 0
-        "orange",    // Second ends in 1
-        "yellow",    // Second ends in 2
-        "green",     // Second ends in 3
-        "blue",      // Second ends in 4
-        "indigo",    // Second ends in 5
-        "violet",    // Second ends in 6
-        "black",     // Second ends in 7
-        "white",     // Second ends in 8
-        "gray"       // Second ends in 9
+        "red", // Second ends in 0
+        "orange", // Second ends in 1
+        "yellow", // Second ends in 2
+        "green", // Second ends in 3
+        "blue", // Second ends in 4
+        "indigo", // Second ends in 5
+        "violet", // Second ends in 6
+        "black", // Second ends in 7
+        "white", // Second ends in 8
+        "gray", // Second ends in 9
       ];
       bgColor = colors[lastDigitOfSecond];
     } else {
@@ -55,8 +69,39 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
   wipe(bgColor);
 
   if (synced) {
-    synced = false; // Reset synced flag after using it for wipe color
+    synced = false; // Reset synced flag after using it for wipe color.
   }
+
+  const availableWidth = screen.width;
+  const availableHeight = screen.height;
+
+  sound.paint.bars(
+    api,
+    sound.speaker.amplitudes.left,
+    help.resampleArray(sound.speaker.waveforms.left, 32),
+    0,
+    0,
+    availableWidth,
+    availableHeight,
+    [255, 255, 0, 255],
+    {
+      noamp: true,
+      nobounds: true,
+      primaryColor: [255, 255, 0, 128],
+      secondaryColor: [0, 0, 0, 128],
+    },
+  );
+
+  sound.paint.waveform(
+    api,
+    sound.speaker.amplitudes.left,
+    help.resampleArray(sound.speaker.waveforms.left, 32),
+    0,
+    0,
+    availableWidth,
+    availableHeight,
+    [255, 255, 0, 255],
+  );
 
   // Making a digital clock display.
   if (syncedDate) {
@@ -79,29 +124,17 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
     // } else if (timeString.length * 6 < screen.width * 0.8) {
     // }
 
-    ink("white").write(timeString, { center: "xy", size: fontSize }, "black");
     ink("red").line(0, screen.height / 2, 8 + 5, screen.height / 2);
-    ink("red").line(screen.width - 9, screen.height / 2, screen.width, screen.height / 2);
+    ink("red").line(
+      screen.width - 9,
+      screen.height / 2,
+      screen.width,
+      screen.height / 2,
+    );
+    ink("white").write(timeString, { center: "xy", size: fontSize }, "black");
   } else {
     ink("red").write("SYNCING...", { center: "xy", size: 2 });
   }
-
-
-
-  const availableWidth = screen.width; 
-  const availableHeight = screen.height;
-  
-  sound.paint.waveform(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 16),
-    0,
-    24,
-    availableWidth,
-    availableHeight,
-    [255, 0, 0, 255],
-  );
-
 }
 
 // 📚 Library
@@ -150,7 +183,10 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
   function bleep() {
     sound.synth({
       type: "sine",
-      tone: octave + (sequence?.[sequenceIndex] || help.choose("G", "B", "D")) /*num.randInt(800)*/,
+      tone:
+        octave +
+        (sequence?.[sequenceIndex] ||
+          help.choose("G", "B", "D")) /*num.randInt(800)*/,
       duration: params[1] || 0.1,
       // attack: 0.01,
       // decay: 0.01,
