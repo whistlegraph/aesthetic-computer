@@ -100,7 +100,6 @@ function paint({ pen, ink, num, system: { nopaint } }) {
 
     // Draw the current gesture up to the current pen point.
     if (thickness === 1) {
-      // console.log(pen, points);
       ink(colorParams).pppline([...points.slice(), pen], { color });
     } else {
       ink(colorParams).pline([...points.slice(), pen], thickness, { color });
@@ -127,11 +126,13 @@ function paint({ pen, ink, num, system: { nopaint } }) {
 
     if (debug && race.pos)
       ink(255, 0, 0).box(race.pos[0] - 2, race.pos[1] - 2, 5); // Plot race dot.
+
   }
 }
 
 function bake({ paste, screen }) {
   lines?.();
+  points.length = 0;
   // paste(screen); // 📓 The old method was pasting a screen buffer.
   //                      This use case could return for some brushes...
 }
@@ -146,7 +147,9 @@ function act({ event: e, pen, num }) {
     addPoint(num, e.x, e.y);
   }
 
-  if (e.is("draw:1")) race.goal = [e.x, e.y];
+  if (e.is("draw:1")) {
+    race.goal = [e.x, e.y];
+  } 
 }
 
 function preview({ ink, wipe }) {
@@ -159,9 +162,9 @@ export { about, boot, paint, sim, act, bake, system, preview };
 
 // 📚 Library (Useful functions used throughout the piece)
 
-function addPoint(num, x, y) {
+function addPoint(num, x, y, pressure) {
   let color;
   if (colorParams.length === 0) color = num.randIntArr(255, 3);
   if (colorParams[0] === "rainbow") color = "rainbow";
-  points.push({ x, y, color }); // Push last point.
+  points.push({ x, y, color, pressure }); // Push last point.
 }

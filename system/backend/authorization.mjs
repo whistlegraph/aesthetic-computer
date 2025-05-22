@@ -179,7 +179,7 @@ export async function handleFor(id, tenant = "aesthetic") {
     const cachedHandle = await KeyValue.get("userIDs", id);
 
     if (cachedHandle) {
-      await KeyValue.disconnect();
+      // await KeyValue.disconnect(); // This seemed to be causing a race condition.
       return cachedHandle;
     }
 
