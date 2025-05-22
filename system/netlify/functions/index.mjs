@@ -197,19 +197,50 @@ async function fun(event, context) {
         fromHandle ? undefined : currentDirectory,
       );
 
+      // const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
+
+      // try {
+      //   await fs.writeFile(tempPath, sourceCode);
+      //   if (language === "javascript")
+      //     module = await import(`file://${tempPath}`);
+      // } catch (err) {
+      //   console.log("⚠️ Import error:", err, tempPath);
+      // } finally {
+      //   await fs.unlink(tempPath);
+      // }
+
       const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
       try {
-        await fs.writeFile(tempPath, sourceCode);
-        if (language === "javascript")
+        // console.log("💾 Writing temp module to", tempPath);
+        // console.log("📄 Source code:\n", sourceCode);
+
+        await fs.writeFile(tempPath, sourceCode, "utf8");
+
+        if (language === "javascript") {
+          console.log("📦 Attempting import from", `file://${tempPath}`);
           module = await import(`file://${tempPath}`);
+          // console.log("✅ Import succeeded");
+        }
       } catch (err) {
-        console.log("⚠️ Import error:", err, tempPath);
+        console.error("⚠️ Import error:", err);
+        const exists = await fs.exists(tempPath);
+        if (exists) {
+          const contents = await fs.readFile(tempPath, "utf8");
+          console.error("🪵 Temp file contents:\n", contents);
+        } else {
+          console.error("❌ Temp file does not exist:", tempPath);
+        }
       } finally {
-        await fs.unlink(tempPath);
+        try {
+          await fs.unlink(tempPath);
+          // console.log("🧹 Cleaned up temp file.");
+        } catch (e) {
+          // console.warn("⚠️ Failed to delete temp file:", e);
+        }
       }
 
-      console.log("Module:", module.meta, tempPath);
+      console.log("🧊 Module:", module.meta, tempPath);
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     }

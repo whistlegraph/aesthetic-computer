@@ -1169,7 +1169,7 @@ const $commonApi = {
             (y >= system.nopaint.startDrag.y ? 1 : -1),
         );
 
-        system.nopaint.brush = { x, y, dragBox };
+        system.nopaint.brush = { x, y, dragBox, pressure: pen.pressure };
       },
 
       // Helper to display the existing painting on the screen, with an
@@ -5747,16 +5747,17 @@ async function makeFrame({ data: { type, content } }) {
               if (currentHUDButton.down === false) {
                 brushFilterApi.pen = $api.system.nopaint.brush;
                 if (brush) {
-                  $api.page($api.system.nopaint.buffer);
+                  // $api.page($api.system.nopaint.buffer);
+                  $api.page($api.system.painting);
                   // 🔥
                   // TODO: Use the pen data here to get an interpolation,
                   // then pan to each interpolated point and repaint.
-                  console.log(
-                    "🖌️ Brush:",
-                    brushFilterApi.pen,
-                    "🖊️ Pen:",
-                    $api.pen,
-                  );
+                  // console.log(
+                  //   "🖌️ Brush:",
+                  //   brushFilterApi.pen,
+                  //   "🖊️ Pen:",
+                  //   $api.pen,
+                  // );
                   brush(brushFilterApi);
                 }
                 if (filter) {
