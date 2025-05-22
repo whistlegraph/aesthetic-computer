@@ -99,7 +99,7 @@ function nopaint_act({
   if (
     nopaint_is("painting") &&
     e.is("lift:1") &&
-    (e.device === "mouse" || pens().length === 0)
+    (e.device === "mouse" || pens().length === 0 || e.device === "pen")
   ) {
     state = "idle";
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
