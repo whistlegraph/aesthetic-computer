@@ -333,8 +333,8 @@ export class Pen {
     });
 
     function reportPressure(e) {
+
       // TODO: Re-enable pressure.
-      /*
       let pressure;
       // If the device is a trackpad (probably on a MacBook and in Safari)
       if (forceTouchEnabled) {
@@ -342,6 +342,7 @@ export class Pen {
       } else {
         // If pressure sensitivity doesn't exist then force it to be 1.
         pressure = e.pressure || 1;
+
         // Unless the device type is a pen, then make it 0. This assumes all pens
         // have pressure sensitivity.
         if (pen.device === "pen" && pressure === 1) {
@@ -351,9 +352,8 @@ export class Pen {
         if (pen.device === "mouse") pressure = 1;
       }
       return pressure;
-      */
 
-      return 1;
+      // return 1;
     }
 
     return pen;
