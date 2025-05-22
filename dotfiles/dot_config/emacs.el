@@ -436,6 +436,14 @@
 ;; Use xclip for system clipboard.
 (use-package xclip :config (xclip-mode 1))
 
+(defun my/xclip-set-selection (orig-fun type data)
+  "Send clipboard to host from Emacs using a fish shell function, then run original xclip."
+  (let ((clipboard-command (format "fish -c 'clipboard %s'" (shell-quote-argument data))))
+    (start-process-shell-command "clipboard" nil clipboard-command))
+  (funcall orig-fun type data))
+
+(advice-add 'xclip-set-selection :around #'my/xclip-set-selection)
+
 ;; Evil mode configuration
 (use-package evil
      :config
@@ -582,41 +590,86 @@
 ;; Bind the shutdown function to a key (e.g., C-c C-x for example purposes)
 ;; (global-set-key (kbd "C-c C-x") 'shutdown-emacs-server)
 
-;; Updated function with emojis for tab names
+;; Auto-scroll eat buffers in all windows
+(add-hook 'eat-mode-hook
+          (lambda ()
+            (setq-local comint-scroll-to-bottom-on-output       t
+                        comint-show-maximum-output            t
+                        comint-move-point-for-output          t
+                        window-point-insertion-type           t)
+            (add-hook 'comint-output-filter-functions
+                      #'comint-postoutput-scroll-to-bottom
+                      nil t)))
+
 (defun aesthetic-backend (target-tab)
-  "Run npm commands in eat, each in a new tab named after the command. Use 'prompt' for 'shell' and 'url' in split panes, and 'stripe' for 'stripe-print' and 'stripe-ticket'."
+  "Run npm commands in eat, each in a new tab named after the command.
+Creates split tabs for 'status' (url + tunnel), 'stripe' (stripe-print + stripe-ticket), and 'chat' (chat-system + chat-sotce + chat-clock)."
   (interactive)
-  (let ((directory-path "~/aesthetic-computer/micro")
-        (commands '("shell" "site" "session" "redis" "edge" "stripe-print" "stripe-ticket" "servers" "chat-system" "chat-sotce" "kidlisp"))
+  (let ((directory-path "~/aesthetic-computer")
+        (commands '("site" "session" "redis" "servers" "kidlisp"))
         (emoji-for-command
-         '(("source" . "📂") ("shell" . "🐚") ("site" . "📰") ("session" . "🔒") ("redis" . "🔄") ("edge" . "📶") ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫") ("servers" . "🤖") ("chat-system" . "💬") ("chat-sotce" . "💬") ("kidlisp" . "🐍")))
-        prompt-tab-created stripe-tab-created)
+         '(("source" . "📂") ("status" . "📡") ("url" . "🌐") ("tunnel" . "🚇")
+           ("site" . "📰") ("session" . "🔒") ("redis" . "🔄")
+           ("stripe-print" . "💳 🖨️") ("stripe-ticket" . "💳🎫")
+           ("servers" . "🤖") ("chat-system" . "🧭") ("chat-sotce" . "🪷") ("chat-clock" . "🕑")
+           ("kidlisp" . "🐍"))))
+
+    ;; Clean up unwanted buffers
+    (dolist (bufname '("*scratch*" "*Messages*" "*straight-process*" "*async-native-comp*"))
+      (when-let ((buf (get-buffer bufname)))
+        (dolist (win (get-buffer-window-list buf nil t))
+          (with-selected-window win
+            (switch-to-buffer (other-buffer buf t))))
+        (kill-buffer buf)))
+
+    ;; Rename current tab and show TODO
     (tab-rename "📂 source")
     (find-file "~/aesthetic-computer/TODO.txt")
-    (dolist (cmd commands)
-      (cond
-       ((or (string= cmd "stripe-print") (string= cmd "stripe-ticket"))
-        (unless stripe-tab-created
-          (tab-new)
-          (tab-rename "💳 stripe")
-          (setq stripe-tab-created t))
-        (when (string= cmd "stripe-ticket")
-          (split-window-right)
-          (other-window 1))
-        (let ((default-directory directory-path))
-          (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
-          ))
-       (t
-        (tab-new)
-        (tab-rename (format "%s %s" (cdr (assoc cmd emoji-for-command)) cmd))
-        (let ((default-directory directory-path))
-          (eat (format "fish -c 'ac-%s'" cmd))
-          (with-current-buffer "*eat*" (rename-buffer (format "%s-%s" (cdr (assoc cmd emoji-for-command)) cmd) t) (end-of-buffer t))
-          ))))
 
-  (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
-    (if tab-emoji
-        (let ((tab-name (format "%s %s" tab-emoji target-tab)))
-          (tab-bar-switch-to-tab tab-name))
-      (message "No such tab: %s" target-tab)))))
+    (cl-labels
+        ((run-split-tab (tab-name &rest cmds)
+           (tab-new)
+           (tab-rename tab-name)
+           (let ((default-directory directory-path))
+             (delete-other-windows)
+             (let ((first t))
+               (dolist (cmd cmds)
+                 (unless first (split-window-right) (other-window 1))
+                 (setq first nil)
+                 (eat (format "fish -c 'ac-%s'" cmd))
+                 (with-current-buffer "*eat*"
+                   (rename-buffer
+                    (format "%s-%s"
+                            (cdr (assoc cmd emoji-for-command))
+                            cmd) t))
+                 (goto-char (point-max)))
+               (balance-windows)
+               (other-window 1)))))
+
+      ;; primary splits
+      (run-split-tab "📡 status"     "url"      "tunnel")
+      (run-split-tab "💳 stripe"     "stripe-print" "stripe-ticket")
+      (run-split-tab "💬 chat"       "chat-system"  "chat-sotce" "chat-clock")
+
+      ;; individual tabs
+      (dolist (cmd commands)
+        (tab-new)
+        (tab-rename (format "%s %s"
+                            (cdr (assoc cmd emoji-for-command))
+                            cmd))
+        (let ((default-directory directory-path))
+          (eat (format "fish -c 'ac-%s'" cmd))
+          (with-current-buffer "*eat*"
+            (rename-buffer
+             (format "%s-%s"
+                     (cdr (assoc cmd emoji-for-command))
+                     cmd) t))
+          (goto-char (point-max))
+          (dolist (win (get-buffer-window-list (current-buffer) nil t))
+            (set-window-point win (point-max))))))
+
+    ;; switch to requested tab
+    (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
+      (if tab-emoji
+          (tab-bar-switch-to-tab (format "%s %s" tab-emoji target-tab))
+        (message "No such tab: %s" target-tab)))))

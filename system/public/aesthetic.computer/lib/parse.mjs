@@ -159,8 +159,8 @@ function metadata(host, slug, pieceMetadata) {
   if (pieceMetadata?.image_url) {
     ogImage = twitterImage = pieceMetadata.image_url;
   } else {
-    ogImage = `https://${host}/thumbnail/1200x630/${slug}.png`;
-    twitterImage = `https://${host}/thumbnail/1800x900/${slug}.png`;
+    ogImage = `https://${host}/preview/1200x630/${slug}.png`;
+    twitterImage = `https://${host}/preview/1800x900/${slug}.png`;
   }
 
   icon = pieceMetadata?.icon_url || `https://${host}/icon/128x128/${slug}.png`;

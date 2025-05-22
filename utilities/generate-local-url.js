@@ -39,10 +39,11 @@ async function constructUrl() {
           clearInterval(bootUpTimer);
           setTimeout(() => {
             process.stdout.write("\x1Bc"); // Clear terminal.
+            console.log(''); // Blank line.
             qrcode.generate(url, { small: true });
-            console.log(`Local 💻️ https://localhost:8888`);
-            console.log(`  LAN 🤗 ${url} (QR code above)`);
-            console.log(`World 🌎 https://prompt.ac\n`);
+            console.log(`💻 LAN   ${url}`);
+            console.log(`🍃 Local https://localhost:8888`);
+            console.log(`📡 World https://prompt.ac\n`);
           }, 100);
           break;
         }

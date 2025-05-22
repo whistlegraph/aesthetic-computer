@@ -171,7 +171,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const screen = apiObject("pixels", "width", "height");
   let subdivisions = 1; // Gets set in frame.
 
-  const REFRAME_DELAY = 250;
+  const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
   let density = 2; // added to window.devicePixelRatio
@@ -237,7 +237,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!wrapper.contains(freezeFrameCan)) wrapper.append(freezeFrameCan);
       else freezeFrameCan.style.removeProperty("opacity");
+
       canvas.style.opacity = 0;
+      // console.log("Setting canvas opacity to 0...");
+
       freezeFrameFrozen = true;
     }
 
@@ -290,11 +293,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Send a message about this new width and height to any hosting frames.
     // parent.postMessage({ width: projectedWidth, height: projectedHeight }, "*");
 
+    // TODO: Changing this width and height here will clear the canvas... which is no good...
+
+    // ffCtx.drawImage(canvas, 0, 0);
+
+    // TODO: How can I copy the pixels from canvas before changing it's width
+    //       and height, and then copy them back after changing it here?
+    // ctx.drawImage(canvas, 0, 0);
+
+    // Create a temporary canvas
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+
+    // Copy existing canvas contents
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // Resize the original canvas
     canvas.width = width;
     canvas.height = height;
 
+    // Restore the pixels onto the resized canvas
+    ctx.drawImage(tempCanvas, 0, 0);
+
+    tempCanvas.width = glazeComposite.width;
+    tempCanvas.height = glazeComposite.height;
+
+    tempCtx.drawImage(glazeComposite, 0, 0);
+
     glazeComposite.width = canvas.width;
     glazeComposite.height = canvas.height;
+    glazeCompositeCtx.drawImage(tempCanvas, 0, 0);
 
     uiCanvas.width = projectedWidth * window.devicePixelRatio;
     uiCanvas.height = projectedHeight * window.devicePixelRatio;
@@ -394,7 +424,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Check to see if we are in "native-cursor" mode and hide
         // #aesthetic.computer for the resize if we aren't.
         if (document.body.classList.contains("native-cursor") === false) {
-          wrapper.classList.add("hidden");
+          // wrapper.classList.add("hidden");
         }
 
         window.clearTimeout(timeout); // Small timer to save on performance.
@@ -425,7 +455,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     canvasRect = canvas.getBoundingClientRect();
 
-    Glaze.clear();
+    // Glaze.clear();
 
     // A native resolution canvas for drawing cursors, system UI, and effects.
     if (glaze.on) {
@@ -620,6 +650,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     updateSound,
     killSound,
     killAllSound,
+    clearSoundSampleCache,
     requestSpeakerWaveforms,
     requestSpeakerAmplitudes,
     attachMicrophone,
@@ -754,7 +785,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Microphone Input Processor
     // (Gets attached via a message from the running disk.)
     attachMicrophone = async (data) => {
-
       if (navigator.audioSession)
         navigator.audioSession.type = "play-and-record"; // play-and-record";
 
@@ -980,6 +1010,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speakerProcessor.port.postMessage({ type: "kill:all" });
         };
 
+        clearSoundSampleCache = function () {
+          speakerProcessor.port.postMessage({ type: "cache:clear" });
+          for (const k in sfxLoaded) delete sfxLoaded[k];
+        };
+
         // Request data / send message to the mic processor thread.
         requestSpeakerWaveforms = function () {
           speakerProcessor.port.postMessage({ type: "get-waveforms" });
@@ -1091,7 +1126,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "sample",
         options: {
           buffer: sfxLoaded[soundData] ? soundData : sample, // Alternatively send a memoized code using a lookup table.
-          label: soundData,
+          label: soundData, // TODO: 🚩 This needs to be invalidated by `tape`.
+          // TODO: 🚩 Cached speaker sounds need to be dumped on a piece swap.
           from: isFinite(options?.from) ? options.from : 0,
           to: isFinite(options?.to) ? options.to : 1,
           speed: isFinite(options?.speed) ? options.speed : 1,
@@ -1105,7 +1141,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
 
       if (triggerSound) sfxLoaded[soundData] = true;
-
     }
   }
 
@@ -2384,6 +2419,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keys(mediaPathsLoading).forEach((key) => mediaPathsLoading[key].abort());
 
       killAllSound?.(); // Kill any pervasive sounds in `speaker`.
+      clearSoundSampleCache?.();
 
       // ⚠️ Remove any sounds that aren't in the whitelist.
       const sfxKeys = keys(sfx);
@@ -3008,7 +3044,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             time: audioContext?.currentTime,
           },
         });
-        if (debug) console.log("🔴 Recorder: Resumed", content);
+        if (debug && logs.recorder)
+          console.log("🔴 Recorder: Resumed", content);
         return;
       }
 
@@ -3070,7 +3107,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             time: audioContext?.currentTime,
           },
         });
-        if (debug) console.log("🔴 Recorder: Rolling", content);
+        if (debug && logs.recorder)
+          console.log("🔴 Recorder: Rolling", content);
 
         // window.addEventListener("resize", () => (mediaRecorderResized = true), {
         // once: true,
@@ -3205,7 +3243,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //};
       //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
       //} else {
-      console.log("Start audio recording...");
+      // console.log("Start audio recording...");
       mediaRecorder.start(100);
       //}
       return;
@@ -3213,7 +3251,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
-      if (debug) console.log("✂️ Recorder: Cut");
+      if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
       mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
@@ -3226,8 +3264,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const blob = new Blob(mediaRecorderChunks, {
           type: mediaRecorder.mimeType,
         });
-
         sfx["tape:audio"] = await blobToArrayBuffer(blob);
+        // console.log("Update tape audio with new blob!");
 
         underlayFrame = document.createElement("div");
         underlayFrame.id = "underlay";
@@ -3263,6 +3301,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
+            console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
             sfxPlaying[tapeSoundId]?.pause();
             send({ type: "recorder:present-paused" });
           };
@@ -3338,7 +3377,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
-        console.error("No media recorder to present from!");
+        if (debug && logs.recorder)
+          console.error("📼 No media recorder to present from!");
         send({ type: "recorder:presented:failure" });
       }
       return;
@@ -3788,9 +3828,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Trigger a sound to playback.
     if (type === "sfx:play") {
       playSfx(content.id, content.sfx, content.options);
-
-      // speakerProcessor.port.postMessage({ type: "sound", data: content });
-
       return;
     }
 
@@ -4137,8 +4174,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       canvas.style.removeProperty("opacity");
     }
 
-    if (needsReappearance && wrapper.classList.contains("hidden")) {
-      wrapper.classList.remove("hidden");
+    if (needsReappearance /* && wrapper.classList.contains("hidden")*/) {
+      // wrapper.classList.remove("hidden");
       needsReappearance = false;
     }
 

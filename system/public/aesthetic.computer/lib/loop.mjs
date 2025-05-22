@@ -4,7 +4,7 @@
 // The updates will repeat multiple times per frame, but rendering will only
 // ever happen once per display refresh.
 
-const updateFps = 120; // This is constant and should be used for interpolation.
+const updateFps = /*120*/120; // This is constant and should be used for interpolation.
 let renderFps = 165; // This is a maximum and will vary across environments.
 const updateRate = 1000 / updateFps;
 let renderRate = 1000 / renderFps;
