@@ -8,9 +8,13 @@ create_symlinks() {
 # Get the directory in which this script lives.
 	script_dir=$(dirname "$(readlink -f "$0")")
 
-# link fish config
+# link fish config (different on macos and linux)
 rm -rf ~/.config/fish
-ln -s $script_dir/dot_config/fish ~/.config/fish
+if [[ "$(uname)" == "Darwin" ]]; then
+  ln -s "$script_dir/dot_config/fish_macos" ~/.config/fish
+else
+  ln -s "$script_dir/dot_config/fish" ~/.config/fish
+fi
 
 # link vim config
 rm -rf ~/.config/nvim

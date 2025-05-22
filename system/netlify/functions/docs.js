@@ -2141,6 +2141,11 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      clock: {
+        sig: "clock",
+        desc: "Every computer needs a clock.",
+        done: false
+      },
       crop: {
         sig: "crop",
         desc: "Crop your painting.",
@@ -2367,6 +2372,11 @@ export async function handler(event, context) {
         desc: "",
         done: false,
         hidden: true,
+      },
+      'laer-klokken': {
+        sig: "laer-klokken",
+        desc: "Learn the 'clock'!",
+        done: false
       },
       "legacy-prompt": {
         sig: "legacy-prompt",
@@ -2665,6 +2675,11 @@ export async function handler(event, context) {
         desc: "Draw a freehand polygon.",
         done: false,
       },
+      shop: {
+        sig: "shop",
+        desc: "Order artwork and services from @jeffrey.",
+        done: true,
+      },
       share: {
         sig: "share",
         desc: "Generate a QR code to share.",
@@ -2718,7 +2733,7 @@ export async function handler(event, context) {
         sig: "sotce-net",
         desc: "diaries (work in progress)",
         done: false,
-        //TODO: adjust song , default octave thing
+        hidden: true,
       },
       // "sparkle-brush": {
       //   sig: "sparkle-brush",
@@ -3131,7 +3146,6 @@ export async function handler(event, context) {
       />
       <script nonce="$nonce">
         const titleLink = document.querySelector("#title a");
-        console.log(titleLink, titleLink.innerText, titleLink.innerHTML, titleLink.href);
         if (window.self !== window.top && titleLink.innerText === "docs") {
           title.classList.add("nolink");
         }

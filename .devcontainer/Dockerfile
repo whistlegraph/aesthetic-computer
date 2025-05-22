@@ -4,22 +4,32 @@ ENV NODE_OPTIONS=--max_old_space_size=8192
 
 # Update all packages.
 RUN dnf update -y
-
-RUN dnf install -y which tree procps-ng coreutils unzip jq bat
+RUN dnf install -y awk which tree procps-ng coreutils unzip jq bat
 RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user
+RUN dnf install -y make cmake gcc-c++ python3-devel
 RUN dnf install -y qemu-kvm qemu-img
 RUN dnf install -y openssl openssl-devel awscli redis
 RUN dnf install -y dnf-plugins-core
 RUN dnf install -y lolcat toilet
-# RUN dnf install -y entr
 RUN dnf install -y iproute
 RUN dnf install -y xclip
-# RUN dnf install -y golang
+RUN dnf install -y nmap-ncat
+# RUN dnf install -y inotify-tools
+
+# Install PowerShell
+# Use Fedora 40 repo instead of Fedora 42
+# RUN dnf install -y https://packages.microsoft.com/config/fedora/40/packages-microsoft-prod.rpm \
+
+
+#  && dnf install -y powershell
+
+RUN ulimit -n 65536
 
 # Add the Caddy repository and install Caddy
 RUN dnf install -y 'dnf-command(copr)'
 RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
+# RUN dnf install -y dotnet-sdk-9.0
 
 # Install necessary dependencies for Puppeteer
 RUN dnf install -y \
@@ -43,6 +53,9 @@ RUN dnf install -y \
     psmisc \
     lsof \
     iproute
+
+# Install Chromium browser explicitly
+RUN dnf install -y chromium
 
 # Install keyring
 # RUN dnf install -y \
@@ -85,13 +98,35 @@ RUN curl -L https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcer
 # RUN dnf copr enable atim/websocat -y && sudo dnf install -y websocat
 
 # Download and install ngrok from the specified URL
-RUN curl -s https://assets.aesthetic.computer/dev/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz && \
+RUN curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz && \
     tar -xzf ngrok.tgz && \
     mv ngrok /usr/local/bin/ && \
     rm ngrok.tgz
 
-# Switch to current user.
+# Install Python Jupyter dependencies as root
+RUN dnf install -y python3 python3-pip python3-notebook python3-nbconvert
+
+# TODO: Install rosrell and common lisp notebook extension.
+
+# Install gcloud CLI using the tarball (compatible with Fedora and Python 3.12)
+RUN curl -sSL https://sdk.cloud.google.com > install_gcloud.sh && \
+    bash install_gcloud.sh --disable-prompts --install-dir=/opt && \
+    ln -s /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud && \
+    ln -s /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil && \
+    ln -s /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq && \
+    rm install_gcloud.sh
+
+# Switch to the 'me' user.
 USER me
+
+# RUN dotnet tool install --global Microsoft.dotnet-interactive && \
+#     mkdir -p /home/me/.config/fish && \
+#     echo 'set -gx PATH $HOME/.dotnet/tools $PATH' >> /home/me/.config/fish/config.fish && \
+#     mkdir -p /home/me/.local/share/jupyter/kernels && \
+#     PATH="/home/me/.dotnet/tools:$PATH" dotnet interactive jupyter install --path /home/me/.local/share/jupyter/kernels
+
+RUN sudo mkdir -p $HOME/.jupyter && \
+    sudo chmod -R u+rw $HOME/.jupyter
 
 # Install gyp
 RUN sudo dnf install -y python3-devel && \
@@ -104,21 +139,54 @@ RUN mkdir -p .config/fish && \
    mkdir -p .config/fish/conf.d
 
 # 🐈 websocat
-# Install Rust toolchain &
-# Clone websocat repository to build from source.
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
-    && source $HOME/.cargo/env \
-    && git clone https://github.com/vi/websocat.git \
-    && cd websocat \
-    && cargo build --release \
-    && sudo cp target/release/websocat /usr/local/bin/
+# Install Rust toolchain & 
+# Clone websocat repository and build a specific release version
+# RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+#     && . $HOME/.cargo/env \
+#     && git clone https://github.com/vi/websocat.git \
+#     && cd websocat \
+#     && cargo build --release \
+#     && sudo cp target/release/websocat /usr/local/bin/
+# RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_amd64-linux -o /usr/local/bin/websocat \
+#     && chmod +x /usr/local/bin/websocat
+RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_amd64-linux -o /tmp/websocat \
+    && chmod +x /tmp/websocat \
+    && sudo mv /tmp/websocat /usr/local/bin/websocat
 
-# Install fnm
+
+
+# Install fnm and base javascript tooling.
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
-    fnm install lts-iron && fnm use lts-iron && fnm install 20.5.0 && \
-    npm install -g prettier typescript typescript-language-server npm-check-updates codebuff
+    fnm install 20.5.0 && fnm install 20.11.0 && fnm default 20.11.0 && \
+    fnm install lts-jod && \
+    npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript && \
+    ijsinstall --install=global --spec-path=full && \
+    jupyter kernelspec install --user --replace "$(ijsnotebook --spec-path=full)" || true
+
+RUN sudo dnf install -y sbcl zeromq-devel redhat-rpm-config
+
+# Install Quicklisp
+RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
+    sbcl --non-interactive \
+         --load quicklisp.lisp \
+         --eval '(quicklisp-quickstart:install)' \
+         --eval '(ql-util:without-prompting (ql:add-to-init-file))' \
+         --eval '(quit)'
+
+# TODO: Eventually use SBCL for something / add it to jupyter kernel?
+
+# # Clone the common-lisp-jupyter repository
+# RUN git clone https://github.com/yitzchak/common-lisp-jupyter.git /home/me/common-lisp-jupyter
+# 
+# # Load and install common-lisp-jupyter
+# RUN sbcl --non-interactive \
+#     --eval '(load "/home/me/quicklisp/setup.lisp")' \
+#     --eval '(pushnew #p"/home/me/common-lisp-jupyter/" ql:*local-project-directories*)' \
+#     --eval '(ql:quickload :common-lisp-jupyter)' \
+#     --eval '(cl-jupyter:install)' \
+#     --eval '(quit)'
 
 # @emacs-eask/cli
 
@@ -153,8 +221,16 @@ COPY config.fish .config/fish/config.fish
 # Copy entry file.
 COPY entry.fish /entry.fish
 
-# Set the default command.
-CMD ["/usr/bin/fish"]
+# Add the notebook directory to the Python path and preload the aesthetic module
+RUN mkdir -p /home/me/.ipython/profile_default/startup && \
+    echo "import sys; sys.path.append('/workspaces/aesthetic-computer/notebook'); import aesthetic" > /home/me/.ipython/profile_default/startup/00-aesthetic.py && \
+    sudo chown -R me:me /home/me/.ipython
+
+# Install watchdog for monitoring file changes
+# RUN pip install watchdog
+
+# Update CMD to only run the Jupyter Notebook server (is this necessary?)
+# CMD ["jupyter-notebook", "--allow-root"]
 
 # Set the entry point script.
 # ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]

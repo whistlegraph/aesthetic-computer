@@ -5,6 +5,9 @@ ac-pill/
 system/public/assets/*/
 !system/public/assets/*/readme.txt
 
+# ignore offline index.html
+system/public/index.html
+
 # any instance of the aesthetic-computer-vault repository
 aesthetic-computer-vault/
 # any instance of the aesthetic-computer-code repository
@@ -67,3 +70,8 @@ gcp-firebase-service-key.json
 
 # aider chat history and other potential state
 .aider*
+
+__pycache__/
+
+# Ignore lockfile for ac-site
+/tmp/ac-site.lock

@@ -1,5 +1,7 @@
 [build]
 publish = "public"
+ignore = "bash ./ignore-index.sh"
+command = "rm -f public/index.html" # Remove index.html before build
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
 [functions]
@@ -46,10 +48,8 @@ external_node_modules = [
   "@aws-sdk/s3-request-presigner",
 ]
 included_files = ["backend/**/*.mjs"]
-[functions.thumbnail]
-external_node_modules = ["puppeteer-core"]
-[functions.icon]
-external_node_modules = ["puppeteer-core"]
+[functions.screenshot]
+external_node_modules = ["puppeteer-core", "@sparticuz/chromium"]
 [functions.session]
 external_node_modules = ["got", "redis"]
 [functions.reload]
@@ -60,6 +60,8 @@ external_node_modules = ["got", "crypto", "patreon"]
 external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
 external_node_modules = ["discord-interactions"]
+[functions.clock]
+# No special config needed for clock
 [dev]
 NODE_ENV = "development"
 publish = "public/"
@@ -194,8 +196,8 @@ to = "https://aesthetic.computer/:splat"
 status = 301
 force = true
 [[redirects]]
-from = "/thumbnail/*"
-to = "/.netlify/builders/thumbnail"
+from = "/preview/*"
+to = "/.netlify/functions/screenshot"
 status = 200
 [[redirects]]
 from = "/support"
@@ -216,11 +218,15 @@ status = 200
 force = true
 [[redirects]]
 from = "/icon/*"
-to = "/.netlify/builders/icon"
+to = "/.netlify/functions/screenshot"
 status = 200
 [[redirects]]
 from = "/api/print/*"
 to = "/.netlify/functions/print"
+status = 200
+[[redirects]]
+from = "/api/clock"
+to = "/.netlify/functions/clock"
 status = 200
 [[redirects]]
 from = "/api/auth0-events"
@@ -248,7 +254,7 @@ to = "/.netlify/functions/logo"
 status = 200
 [[redirects]]
 from = "/api/pixel/*"
-to = "/.netlify/builders/pixel"
+to = "/.netlify/functions/pixel"
 status = 200
 [[redirects]]
 from = "/session/*"
@@ -303,6 +309,10 @@ status = 200
 [[redirects]]
 from = "/handle"
 to = "/.netlify/functions/handle"
+status = 200
+[[redirects]]
+from = "api/authorized"
+to = "/.netlify/functions/authorized"
 status = 200
 [[redirects]]
 from = "api/handles"
@@ -366,6 +376,121 @@ force = true
 # to = "/.netlify/functions/index"
 # status = 200
 # force = true
+# 🛍️ Shop and ⛵ JAS Signature Redirects
+[[redirects]]
+from = "/shop/@jeffrey/help"
+to = "https://shop.aesthetic.computer/products/45-minutes-of-computer-help-from-jeffrey"
+status = 301
+[[redirects]]
+from = "/shop/*"
+to = "https://shop.aesthetic.computer/:splat"
+status = 301
+# 📚 Books
+[[redirects]]
+from = "/25.4.8.21.19"
+to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.19"
+to = "https://shop.aesthetic.computer/products/books_the-shape-of-things-by-vilem-flusser_25-4-8-21-19"
+status = 301
+[[redirects]]
+from = "/25.4.8.21.17"
+to = "https://shop.aesthetic.computer/products/books_art-as-a-social-system-by-niklas-luhmann_25-4-8-21-17"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.17"
+to = "https://shop.aesthetic.computer/products/books_art-as-a-social-system-by-niklas-luhmann_25-4-8-21-17"
+status = 301
+[[redirects]]
+from = "/25.4.8.21.11"
+to = "https://shop.aesthetic.computer/products/books_play-by-catherine-garvey_25-4-8-21-11"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.11"
+to = "https://shop.aesthetic.computer/products/books_play-by-catherine-garvey_25-4-8-21-11"
+status = 301
+[[redirects]]
+from = "/25.4.8.21.08"
+to = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.08"
+to = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08"
+status = 301
+[[redirects]]
+from = "/25.4.8.21.07"
+to = "https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.07"
+to = "https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07"
+status = 301
+[[redirects]]
+from = "/25.4.8.21.0"
+to = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.0"
+to = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0"
+status = 301
+[[redirects]]
+from = "/25.4.8.20.47"
+to = "https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.20.47"
+to = "https://shop.aesthetic.computer/products/books_does-writing-have-a-future-by-vilem-flusser_25-4-8-20-47"
+status = 301
+[[redirects]]
+from = "/25.4.8.21.13"
+to = "https://shop.aesthetic.computer/products/books_musical-gestures-sound-movement-and-meaning_25-4-8-21-13"
+status = 301
+[[redirects]]
+from = "/shop~25.4.8.21.13"
+to = "https://shop.aesthetic.computer/products/books_musical-gestures-sound-movement-and-meaning_25-4-8-21-13"
+status = 301
+# 🖍️ Pictures
+[[redirects]]
+from = "/25.4.13.17.47"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-17-47"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.17.47"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-17-47"
+status = 301
+[[redirects]]
+from = "/25.4.13.19.06"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-06"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.19.06"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-06"
+status = 301
+[[redirects]]
+from = "/25.4.13.18.18"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-18"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.18.18"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-18"
+status = 301
+[[redirects]]
+from = "/25.4.13.19.24"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-24"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.19.24"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-19-24"
+status = 301
+[[redirects]]
+from = "/25.4.13.18.54"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-54"
+status = 301
+[[redirects]]
+from = "/shop~25.4.13.18.54"
+to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-54"
+status = 301
 [[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"

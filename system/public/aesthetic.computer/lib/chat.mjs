@@ -11,6 +11,8 @@ import { redact, unredact } from "./redact.mjs";
   - [x] Fix chatter count number. 
 #endregion */
 
+const validInstances = ["chat-system", "chat-sotce", "chat-clock"];
+
 export class Chat {
   system;
   $commonApi; // Set by `disk` after `$commonApi` is defined.
@@ -35,7 +37,7 @@ export class Chat {
   // as of 24.11.02.00.31
   connect(instanceName) {
     instanceName = "chat-" + instanceName;
-    if (instanceName !== "chat-system" && instanceName !== "chat-sotce") {
+    if (validInstances.indexOf(instanceName) === -1) {
       console.warn(
         "🪫 Chat connection aborted. Invalid instance name:",
         instanceName,
@@ -53,6 +55,8 @@ export class Chat {
           port = 8083;
         } else if (instanceName === "chat-sotce") {
           port = 8084;
+        } else if (instanceName === "chat-clock") {
+          port = 8085;
         }
         chatUrl = `${location.hostname}:${port}`;
       }
@@ -61,14 +65,15 @@ export class Chat {
         chatUrl = "chat-system.aesthetic.computer";
       } else if (instanceName === "chat-sotce") {
         chatUrl = "chat.sotce.net";
+      } else if (instanceName === "chat-clock") {
+        chatUrl = "chat-clock.aesthetic.computer";
       }
     }
-    // console.log("🗨️ Chat url:", chatUrl);
+    console.log("🗨️ Chat url:", chatUrl);
 
     this.system.server.connect(
       chatUrl, // host
       (id, type, content) => {
-        // console.log("🤖", type);
         const extra = {};
 
         // receive
@@ -92,12 +97,15 @@ export class Chat {
         }
 
         if (type === "message") {
+          console.log("MESSSSSSSSSSSSSSSSSSAGE!");
           const msg = JSON.parse(content);
           if (logs.chat) console.log("💬 Chat message received:", msg);
           this.system.messages.push(msg);
+          console.log(this.system.messages);
           // Only keep the last 100 messages in this array.
           if (this.system.messages.length > 100) this.system.messages.shift();
           content = msg; // Pass the transformed message.
+          extra.layoutChanged = true;
         }
 
         // Auto parse handle updates.
@@ -132,8 +140,10 @@ export class Chat {
           const msg = JSON.parse(content);
           content = msg;
           if (this.$commonApi?.user?.sub === content.user) {
-            if (type === "chat-system:mute") this.$commonApi.notice("MUTED", ["red", "yellow"]);
-            if (type === "chat-system:unmute") this.$commonApi.notice("UNMUTED");
+            if (type === "chat-system:mute")
+              this.$commonApi.notice("MUTED", ["red", "yellow"]);
+            if (type === "chat-system:unmute")
+              this.$commonApi.notice("UNMUTED");
           }
           this.system.messages.forEach((message) => {
             if (message.sub === content.user) {

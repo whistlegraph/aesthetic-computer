@@ -1,5 +1,67 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+ * from 'chat.mjs' * 
+  + Done
+  - [x] Add textual links to AC chat.
+  - [x] Does adding the radar key prevent gcp logs from running?
+    - [x] Or maybe the log name / id needs to change each time?
+    - [x] Try adding the radar key back or... running a deployment again with the same log name...
+  - [x] Add a basic client to `sotce-net`.
+    - [x] Start with 'dev' / 'local' version.
+    - [x] Write it as a totally separate UI layer that always connects.
+      - [x️] Import the chat module to `sotce-net`.
+  - [x] Set up another instance of this chat for `sotce-net` that...
+    - [x] Will have a different subdomain setup so `conductor` will need updates. 
+      - [x] Add the new production deploy command to package.json
+      - [x] Walk through `conductor.mjs` to see where chat-system needs changes.
+      - [x] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
+      - [x] Run a test deployment.
+  - [x] How will it know what version it's running both in production and in development?
+  - [x] Run the sotce-net instance in development in addition to the AC one in emacs.
+  - [x] Will use a different table in the database like `chat-sotce-net` instead
+        of chat-system.
+  - [x] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
+        if running that instance in order to actually send messages but not to join or
+        observe chats.
+  - [x] Add the proper commands for a new system to package.json.
+    - [x] Development command.
+      - [x] Run the development command in tandem with `chat-system` and
+            see if it boots up properly.
+ - [x] Update nanos versions / dependencies in this dir.
+ - [x] Set up logging so I know why this server is crashing.
+   - [x] Maybe it's a setting in Google Cloud to log the serial console. 
+   - [x] Also check the nanos logs.
+   - [x] Or maybe I need to use an external service. (Signed up for nanos Radar) 
+
+ * `shop` launch * 
+ + Done
+ - [x] Modify homepage a bit and product slide shows and then launch via Instagram?
+ - [x] Homepage.
+ - [x] Mobile product view.
+ - [x] Edit Shopify code: https://admin.shopify.com/store/3pc8se-sj/themes/141869547701
+ - [x] Make sure 'corner labels' expand from shopify to AC.
+  - [x] Fix prompt~hi not opening keyboard / being weird on reload.
+  - [x] Get the backspace key shortcut to work?
+ - [x] Add titles for each drawing and final descriptions.
+ - [x] Add little corner guy to Shopify bottom right corner from `docs`.
+ 
+* `shop` items to add *
+  https://aesthetic.computer/share~25.4.13.18.54
+  https://shop.aesthetic.computer/products/pictures_25-4-13-18-54
+  https://aesthetic.computer/share~25.4.13.19.24
+  https://shop.aesthetic.computer/products/pictures_25-4-13-19-24
+  https://aesthetic.computer/share~25.4.13.19.06
+  https://shop.aesthetic.computer/products/pictures_25-4-13-19-06
+  https://aesthetic.computer/share~25.4.13.17.47
+  https://shop.aesthetic.computer/products/pictures_25-4-13-17-47
+  https://aesthetic.computer/share~25.4.13.18.18
+  https://shop.aesthetic.computer/products/25-4-13-18-18
+
+- [x] Fix `tape`.
+
+* swipe to share *
+ - [x] Implement swipe scrub to share.
+
 *** put 'chat' back up with increased moderation support ***
   - [x] Test muting and unmuting mixed in with the below.
     - [x] (Incognito)

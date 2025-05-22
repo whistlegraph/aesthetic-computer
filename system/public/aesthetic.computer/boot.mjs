@@ -16,7 +16,7 @@ function cleanUrlParams(url, params) {
   history.pushState(
     {},
     "",
-    url.pathname + (queryString ? "?" + queryString : ""),
+    url.pathname + (queryString ? "?" + queryString : "")
   );
 }
 
@@ -100,8 +100,13 @@ const parsed = parse(slug(location.href) || window.acSTARTING_PIECE);
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Wait for fonts to load before booting.
 
-const nogap = location.search.startsWith("?nogap");
-boot(parsed, bpm, { gap: nogap ? 0 : undefined }, debug);
+// Parse the query string to detect both ?nogap and ?nolabel parameters
+const params = new URLSearchParams(location.search);
+const nogap = params.has("nogap") || location.search.includes("nogap");
+const nolabel = params.has("nolabel") || location.search.includes("nolabel");
+
+// Pass the parameters directly without stripping them
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
 
 let sandboxed = window.origin === "null";
 
@@ -169,22 +174,64 @@ loadAuth0Script()
       }
 
       if (param === "null") {
+        // Returns "null" as a string if logged out.
         localStorage.removeItem("session-aesthetic");
-      } else if (param === "retrieve") {
+      } else if (param === "retrieve" || param === null) {
+        // null as a type if a check is needed
         param = localStorage.getItem("session-aesthetic");
       }
 
       const sessionParams = param;
       let encodedSession = sessionParams;
-      // console.log("🟪 Aesthetic Computer Session:", sessionParams);
       if (encodedSession === "null") encodedSession = undefined;
       let pickedUpSession;
+
+      let isAuthenticated;
+      if (!encodedSession)
+        isAuthenticated = await auth0Client.isAuthenticated();
+
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
         const session = JSON.parse(sessionJsonString);
         // Use the session information to authenticate, if it exists.
         // console.log("🥀 Session data:", session);
         if (session.accessToken && session.account) {
+          // 🟩 Confirm the session access token and data is live here...
+          try {
+            const response = await fetch("/api/authorized", {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+              },
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              if (result.authorized) {
+                // console.log("✅ Session is active and token is valid.");
+                pickedUpSession = true;
+              } else {
+                // console.log("⚠️ Token is invalid or expired.");
+                pickedUpSession = false;
+              }
+            } else {
+              // console.log(
+              //   "⚠️ Token validation request failed with status:",
+              //   response.status,
+              // );
+              pickedUpSession = false;
+            }
+          } catch (err) {
+            // console.error("❌ Error validating token:", err);
+            pickedUpSession = false;
+          }
+
+          if (!pickedUpSession) {
+            if (window.parent)
+              window.parent.postMessage({ type: "logout" }, "*");
+            return;
+          }
+
           window.acTOKEN = session.accessToken; // Only set using this flow.
           window.acUSER = {
             email: session.account.label,
@@ -196,7 +243,6 @@ loadAuth0Script()
             type: "session:started",
             content: { user: window.acUSER },
           });
-          pickedUpSession = true;
         }
 
         if (sessionParams) {
@@ -206,8 +252,6 @@ loadAuth0Script()
           history.pushState({}, "", url.pathname + "?" + params.toString());
         }
       }
-
-      let isAuthenticated = await auth0Client.isAuthenticated();
 
       // const iframe = window.self !== window.top;
 
@@ -330,7 +374,7 @@ loadAuth0Script()
 function receive(event) {
   // console.log("🌟 Event:", event);
   if (event.data?.type === "aesthetic-parent:focused") {
-    window.acSEND({ type: "aesthetic-parent:focused" });
+    window.acSEND?.({ type: "aesthetic-parent:focused" });
     return;
   }
   if (event.data?.type === "figma-image-input") {
@@ -341,7 +385,7 @@ function receive(event) {
   if (event.data?.type === "clipboard:copy:confirmation") {
     // Receive a clipboard copy confirmation from a hosted frame.
     // (vscode extension)
-    window.acSEND({ type: "copy:copied" });
+    window.acSEND?.({ type: "copy:copied" });
     return;
   }
   if (event.data?.type === "setSession") {
@@ -362,7 +406,6 @@ function receive(event) {
     window.location.reload();
     return;
   } else if (event.data?.startsWith?.("docs:")) {
-    console.log("Docs link got!");
     window.acSEND({
       type: "docs:link",
       content: event.data.split(":").pop(),

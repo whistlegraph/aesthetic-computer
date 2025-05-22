@@ -8,6 +8,7 @@
   - [] Add custom sound to iOS notifications.
   + Future
   + Done
+  - [x] Make a 'renderableMessages' object model with action support. 
   - [x] Search this file for `ChatToDisk` references and do them.
   - [x] Add custom message received sound.
   - [x] Include this file as an interface module inside of disk, so it can 
@@ -33,7 +34,7 @@ const { max, floor, ceil } = Math;
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
-const messagesToAddToLayout = [];
+let tapState = null;
 
 const rowHeight = 11,
   lineGap = 1,
@@ -48,21 +49,28 @@ let scroll = 0,
   totalScrollHeight,
   chatHeight;
 
-async function boot({
-  api,
-  ui,
-  send,
-  handle,
-  gizmo,
-  notice,
-  authorize,
-  user,
-  screen,
-  chat,
-  sound,
-  net,
-}) {
+async function boot(
+  {
+    api,
+    ui,
+    send,
+    handle,
+    gizmo,
+    notice,
+    authorize,
+    user,
+    screen,
+    chat,
+    sound,
+    net,
+    store,
+  },
+  otherChat,
+) {
+  const client = otherChat || chat;
+
   // console.log("💬 Chat booting...");
+  scroll = store["chat:scroll"] || 0; // Memoize scroll.
 
   // TODO: Now make it so that you see the last chat message
   //       as a button under the piece name.
@@ -89,7 +97,7 @@ async function boot({
   // });
 
   // 🤖 Runs on every message...
-  chat.receiver = (id, type, content, extra) => {
+  client.receiver = (id, type, content, extra) => {
     if (type === "connected") {
       messagesNeedLayout = true;
       return;
@@ -112,13 +120,13 @@ async function boot({
 
     if (type === "message") {
       const msg = content; // Pre-transformed and stored.
-      messagesToAddToLayout.push(msg);
       sound.play(messageSfx);
-      return;
+      // delete store["chat:scroll"]; // Reset scroll on new message?
+      // return;
     }
 
     if (extra?.layoutChanged) messagesNeedLayout = true;
-    // console.log("🌠 Message received:", id, type, content);
+    console.log("🌠 Message received:", id, type, content);
   };
 
   // chat.disconnect = () => {}; // This is also part of the API.
@@ -135,7 +143,7 @@ async function boot({
       } else {
         text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
         // Send the chat message.
-        chat.server.send(`chat:message`, { text, token, sub: user.sub });
+        client.server.send(`chat:message`, { text, token, sub: user.sub });
         notice("SENT");
       }
 
@@ -202,249 +210,29 @@ function paint(
     help,
     typeface,
     pen,
+    num,
+    piece,
   },
   options,
 ) {
+  const client = options?.otherChat || chat;
   if (!options?.embedded) wipe(100, 100, 145);
 
-  const x = 42;
-  const y = 10;
-  const gap = 8;
-  ink(50, 50, 100)
-    .write("back to prompt", { x: x + gap, y: 6 })
-    .line(x, y, x - gap, y) // Base of arrow.
-    .line(x - gap, y, x - gap + 3, y - 3) // Top of arrow.
-    .line(x - gap, y, x - gap + 3, y + 3); // Bottom of arrow.
+  // Interface
+  {
+    const x = 42;
+    const y = 10;
+    const gap = 8;
 
-  if (chat.connecting)
-    ink("pink").write("Connecting" + ellipsisTicker.text(help.repeat), {
-      center: "xy",
-    });
-
-  // Messages
-  // Start from the bottom of the screen
-  if (!chat.connecting) {
-    if (messagesNeedLayout) {
-      totalScrollHeight = computeMessagesHeight(api);
-      chatHeight = computeScrollbarHeight(api);
-      messagesNeedLayout = false;
+    if (screen.width > 200 && piece === "chat") {
+      ink(50, 50, 100)
+        .write("back to prompt", { x: x + gap, y: 6 })
+        .line(x, y, x - gap, y) // Base of arrow.
+        .line(x - gap, y, x - gap + 3, y - 3) // Top of arrow.
+        .line(x - gap, y, x - gap + 3, y + 3); // Bottom of arrow.
     }
-
-    messagesToAddToLayout.forEach((msg) => {
-      msg.fullMessage = msg.from + " " + msg.text;
-      msg.tb = text.box(
-        msg.fullMessage,
-        { x: leftMargin, y: 0 },
-        screen.width - leftMargin,
-        1,
-        true,
-      );
-      totalScrollHeight += msg.tb.lines.length * rowHeight;
-    });
-    messagesToAddToLayout.length = 0;
-
-    let y = screen.height - rowHeight - bottomMargin + scroll;
-
-    // Iterate through the messages array backwards, calculating their
-    // height and painting them if they are within the boundaries.
-
-    mask({
-      x: 0,
-      y: topMargin,
-      width: screen.width,
-      height: screen.height - bottomMargin + 3,
-    });
-
-    let lastAgo;
-
-    for (let i = chat.messages.length - 1; i >= 0; i--) {
-      const message = chat.messages[i];
-
-      if (!message.tb) {
-        console.log("No message tb found for:", message);
-        continue; // If `tb` is not defined then kill this. 👾
-      }
-
-      const x = leftMargin;
-
-      // ❇️ These are precomputed in computeScrollbar for each message.
-      const fullMessage = message.fullMessage;
-      const tb = message.tb;
-
-      y -= rowHeight * (tb.lines.length - 1) + lineGap;
-
-      if (y > screen.height - bottomMargin) {
-        y -= rowHeight;
-        continue;
-      }
-
-      let msgColor = "white",
-        inBox = false,
-        handles = [];
-
-      let tapState = "none";
-
-      // Check if we are on the text.
-      if (pen) {
-        if (
-          pen.x > x + text.width(message.from) &&
-          pen.x < x + tb.box.width &&
-          pen.y > y &&
-          pen.y < y + tb.box.height // + lineHeight
-        ) {
-          inBox = true;
-
-          const totalHeight = tb.lines.length * rowHeight;
-          const rowIndex = floor((pen.y - y) / rowHeight);
-
-          let handleOver;
-
-          if (rowIndex >= 0 && rowIndex < tb.lines.length) {
-            const rowText = tb.lines[rowIndex].join(" "); // Join words.
-            const charWidth = 6;
-            const rowWidth = rowText.length * charWidth;
-            let msgHovered = pen.x - x <= rowWidth;
-            if (msgHovered) {
-              let cursorX = x;
-              for (const word of tb.lines[rowIndex]) {
-                const wordWidth = word.length * charWidth;
-                // 🔵 TODO: This parsing should extend to every message on the screen? 25.02.12.03.45 (LLMs Ignore)
-                if (word.startsWith("@")) {
-                  handles.push({
-                    word,
-                    x: cursorX,
-                    y: y + rowIndex * rowHeight,
-                    width: wordWidth,
-                  });
-
-                  // Selectable @handle area includes ' @handle ' with padding.
-                  if (
-                    pen.x >= cursorX - charWidth &&
-                    pen.x <= cursorX + wordWidth + charWidth
-                  ) {
-                    handles[handles.length - 1].over = true;
-                    handleOver = true;
-                  }
-                }
-                cursorX += wordWidth + charWidth; // Advance for the next word.
-              }
-            }
-
-            msgColor = handleOver
-              ? "white"
-              : msgHovered
-                ? pen?.drawing
-                  ? [255, 255, 0]
-                  : [250, 200, 250]
-                : msgColor;
-
-            if (handleOver) {
-              tapState = "handle";
-            } else if (msgHovered) {
-              tapState = "message";
-            }
-
-          }
-        }
-      }
-
-      const timestamp = {
-        x: x + text.width(tb.lines[tb.lines.length - 1]) + 6,
-        y: y + (tb.lines.length - 1) * rowHeight,
-      };
-      let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
-      const ago = timeAgo(message.when);
-      let over = false;
-
-      // Check if the pen is inside the timestamp.
-      if (pen) {
-        if (
-          pen.x > timestamp.x &&
-          pen.x < timestamp.x + text.width(ago) &&
-          pen.y > timestamp.y &&
-          pen.y < timestamp.y + rowHeight
-        ) {
-          over = true;
-          if (pen.drawing) {
-            timestampColor = "yellow";
-            tapState = "timestamp";
-          } else {
-            const div = 1.6;
-            timestampColor = [100 / div, 100 / div, 145 / div];
-          }
-        }
-      }
-
-      // console.log("🤞 Tap state:", tapState);
-
-      ink("white", inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
-
-      // ⚠️ TODO: Don't highlight the message yellow if a handle is over.
-
-      ink(msgColor).write(fullMessage, { x, y }, undefined, screen.width - x);
-
-      handles.forEach((handle) => {
-        let handleColor = [255, 230, 220];
-        if (handle.over)
-          handleColor = pen?.drawing ? "yellow" : [190, 180, 255];
-        ink(handleColor).write(handle.word, handle.x, handle.y);
-      });
-
-      if (ago !== lastAgo || over) ink(timestampColor).write(ago, timestamp);
-
-      // console.log(message.when);
-      lastAgo = ago;
-
-      // ink("red", 128).write("stripped!", { x: x + text.width(tb.lines[tb.lines.length - 1]) + 6 - 58, y: y + ((tb.lines.length - 1) * lessLineHeight) });
-
-      // Check if the pen is inside the user of this message.
-
-      let nameColor = message.from === "log" ? "cyan" : "pink";
-
-      if (pen) {
-        if (
-          pen.x > x &&
-          pen.x < x + text.width(message.from) &&
-          pen.y > y &&
-          pen.y < y + rowHeight
-        ) {
-          nameColor = pen.drawing ? "yellow" : [200, 255, 200];
-        }
-      }
-
-      ink(nameColor).write(message.from, {
-        x,
-        y,
-      });
-
-      y -= rowHeight; // Move up one line for the next message.
-      if (y < topMargin - rowHeight) break; // Break if y is below top line.
-    }
-
-    unmask();
-
-    // 📜 Scroll bar.
-
-    ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
-
-    const segHeight = max(
-      1,
-      floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
-    );
-    ink("pink").box(
-      0,
-      ceil(
-        chatHeight +
-          topMargin -
-          segHeight -
-          (scroll / totalScrollHeight) * chatHeight,
-      ),
-      3,
-      segHeight,
-    ); // Backdrop.
   }
 
-  // Interface
   ink(90, 200, 150, 48)
     .line(0, topMargin, screen.width, topMargin)
     .line(
@@ -454,62 +242,198 @@ function paint(
       screen.height - bottomMargin + 2,
     );
 
-  if (!chat.connecting) {
-    const currentHandle = handle();
-    const msg = currentHandle || "nohandle";
+  if (client.connecting) {
+    ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
+      center: "xy",
+    });
+    return;
+  }
 
-    ink(0).write(msg, { bottom: 10 - 1, left: leftMargin - 1 });
+  // Messages
+  // Start from the bottom of the screen
+  // if (!client.connecting) {
+  if (messagesNeedLayout) {
+    totalScrollHeight = computeMessagesHeight(api, client);
+    computeMessagesLayout(api, client);
+    chatHeight = computeScrollbarHeight(api, client);
+    messagesNeedLayout = false;
+  }
 
-    const color = currentHandle ? "lime" : "red";
+  // Mask off the area of renderable messages.
+  mask({
+    x: 0,
+    y: topMargin,
+    width: screen.width,
+    height: screen.height - bottomMargin + 3,
+  });
 
-    ink(handleBtn.down ? "white" : color).write(msg, {
-      bottom: 10,
-      left: leftMargin,
+  let lastAgo; // Keep track of last rendered timestamp.
+
+  // Iterate through the messages array backwards, calculating their
+  // height and painting them if they are within the boundaries.
+
+  // console.log(client.messages.length);
+
+  for (let i = client.messages.length - 1; i >= 0; i--) {
+    const message = client.messages[i];
+
+    if (!message.tb || !message.layout) {
+      continue; // If `tb` is not defined then kill this. 👾
+      // console.log("No message layout found for:", message);
+    }
+
+    const x = leftMargin;
+    const tb = message.tb; // Precomputed in `computeScrollbar` for each message.
+
+    const layout = message.layout;
+    const y = layout.y;
+
+    // 🪧 Paint the message and its contents.
+    ink("white", layout.inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
+    ink(layout.msgColor).write(
+      layout.paintableMessage,
+      { x, y },
+      undefined,
+      screen.width - x,
+    );
+
+    layout.handles.forEach((handle) => {
+      ink(handle.over ? "yellow" : handle.color).write(
+        handle.word,
+        x + handle.x,
+        handle.y,
+      );
     });
 
-    const charW = typeface.glyphs[0].resolution[0];
-    const handleWidth = msg.length * charW;
-
-    ink(inputBtn.down ? "yellow" : 220).write(
-      "Enter message" + ellipsisTicker.text(help.repeat),
-      {
-        left: leftMargin + handleWidth + charW,
-        bottom: 10,
-      },
-    );
-
-    handleBtn.btn.box = new Box(
-      0,
-      screen.height - bottomMargin + 2,
-      handleWidth + charW - 1,
-      bottomMargin - 2,
-    );
-
-    // handleBtn.paint((btn) => {
-    //   if (btn.down) {
-    //     ink("yellow", btn.down && btn.over ? 128 : 64).box(btn.box);
-    //   }
-    // });
-
-    inputBtn.btn.box = new Box(
-      leftMargin + handleWidth,
-      screen.height - bottomMargin + 2,
-      screen.width - leftMargin - handleWidth,
-      bottomMargin - 2,
-    );
-
-    //inputBtn.paint((btn) => {
-    //if (btn.down) {
-    //  ink("lime", btn.down && btn.over ? 128 : 64).box(btn.box);
-    //}
-    //});
-
-    if (!input.canType) {
-      ink(160).write("Online: " + chat.chatterCount, {
-        right: leftMargin,
-        top: 6,
+    layout.prompts.forEach((prompt) => {
+      // if (handle.over) handle.color = pen?.drawing ? "yellow" : [190, 180, 255];
+      prompt.lines.forEach((line) => {
+        ink(prompt.over ? "yellow" : "lime").write(
+          line.text,
+          x + line.x,
+          line.y,
+        );
       });
+    });
+
+    layout.urls.forEach((url) => {
+      // if (handle.over) handle.color = pen?.drawing ? "yellow" : [190, 180, 255];
+      url.lines.forEach((line) => {
+        ink(url.over ? "yellow" : "orange").write(
+          line.text,
+          x + line.x,
+          line.y,
+        );
+      });
+    });
+
+    const ago = timeAgo(message.when);
+    let overTimestamp = false;
+
+    if (ago !== lastAgo || layout.timestamp.over || layout.inBox) {
+      ink(layout.timestamp.over ? "yellow" : layout.timestampColor).write(
+        ago,
+        x + layout.timestamp.x,
+        layout.timestamp.y,
+      );
     }
+
+    lastAgo = ago;
+
+    let nameColor = message.from === "log" ? "cyan" : "pink";
+
+    // 🖋️ Check if the pen is inside the user of this message.
+    /*
+    if (pen && !input.canType) {
+      if (
+        pen.x > x &&
+        pen.x < x + text.width(message.from) &&
+        pen.y > y &&
+        pen.y < y + rowHeight
+      ) {
+        nameColor = pen.drawing ? "yellow" : [200, 255, 200];
+      }
+    }
+    */
+
+    // Message byline.
+    /*
+    ink(nameColor).write(message.from, {
+      x,
+      y,
+    });
+    */
+
+    /*
+    y -= rowHeight; // Move up one line for the next message.
+    if (y < topMargin - rowHeight) break; // Break if y is below top line.
+    */
+  }
+
+  unmask();
+
+  // 📜 Scroll bar.
+
+  ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
+
+  const segHeight = max(
+    1,
+    floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
+  );
+
+  const boxY =
+    ceil(
+      chatHeight +
+        topMargin -
+        segHeight -
+        (scroll / totalScrollHeight) * chatHeight,
+    ) || 0;
+
+  ink("pink").box(0, boxY, 3, segHeight); // Backdrop.
+  // }
+
+  const currentHandle = handle();
+  const msg = currentHandle || "nohandle";
+
+  ink(0).write(msg, { bottom: 10 - 1, left: leftMargin - 1 });
+
+  const color = currentHandle ? "lime" : "red";
+
+  ink(handleBtn.down ? "white" : color).write(msg, {
+    bottom: 10,
+    left: leftMargin,
+  });
+
+  const charW = typeface.glyphs[0].resolution[0];
+  const handleWidth = msg.length * charW;
+
+  ink(inputBtn.down ? "yellow" : 220).write(
+    "Enter message" + ellipsisTicker.text(help.repeat),
+    {
+      left: leftMargin + handleWidth + charW,
+      bottom: 10,
+    },
+  );
+
+  handleBtn.btn.box = new Box(
+    0,
+    screen.height - bottomMargin + 2,
+    handleWidth + charW - 1,
+    bottomMargin - 2,
+  );
+
+  inputBtn.btn.box = new Box(
+    leftMargin + handleWidth,
+    screen.height - bottomMargin + 2,
+    screen.width - leftMargin - handleWidth,
+    bottomMargin - 2,
+  );
+
+  if (!input.canType) {
+    ink(160).write("Online: " + client.chatterCount, {
+      right: leftMargin,
+      top: 6,
+    });
   }
 
   if (input.canType && !leaving()) {
@@ -529,7 +453,24 @@ function paint(
   }
 }
 
-function act({ api, event: e, hud, piece, send, handle, store, jump }) {
+function act(
+  {
+    api,
+    chat,
+    pen,
+    event: e,
+    hud,
+    piece,
+    send,
+    handle,
+    store,
+    beep,
+    text,
+    jump,
+  },
+  otherChat,
+) {
+  const client = otherChat || chat;
   // if (e.is("viewport-height:changed")) {
   // console.log("✨ New keyboard cutoff would be:", e.y, "?");
   // notice(e.y);
@@ -538,9 +479,13 @@ function act({ api, event: e, hud, piece, send, handle, store, jump }) {
   if (e.is("reframed")) {
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
-    totalScrollHeight = computeMessagesHeight(api);
+
+    totalScrollHeight = computeMessagesHeight(api, client);
+    computeMessagesLayout(api, client);
     chatHeight = computeScrollbarHeight(api);
+
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
+    store["chat:scroll"] = scroll;
     boundScroll();
   }
 
@@ -548,25 +493,202 @@ function act({ api, event: e, hud, piece, send, handle, store, jump }) {
   //                   to enable scroll and such.. maybe.
 
   if (!input.canType) {
+    // 👇 Message Picking
+
+    if (e.is("lift")) {
+      tapState = null;
+    }
+
+    // TODO: Scrolling should cancel out the tapping.
+
+    // 👈 Tapping
+    if (e.is("touch")) {
+      // Detect if we are inside a message or not.
+      for (let i = client.messages.length - 1; i >= 0; i--) {
+        const message = client.messages[i];
+        if (!message.tb || !message.layout) {
+          continue; // If `tb` is not defined then kill this. 👾
+          // console.log("No message layout found for:", message);
+        }
+        if (
+          e.x > message.layout.x &&
+          e.x < message.layout.x + message.layout.width &&
+          e.y > message.layout.y &&
+          e.y < message.layout.y + message.layout.height
+        ) {
+          message.layout.inBox = true;
+
+          // 📆 `timestamp` hover and activate.
+          //    (Will always only be on one line)
+          // for (let h = 0; h < message.layout.timestamp.length; h += 1) {
+          //  const handle = message.layout.handles[h];
+          {
+            const timestamp = message.layout.timestamp;
+            const startX = message.layout.x + timestamp.x;
+            if (
+              e.x > startX &&
+              e.x < startX + timestamp.width &&
+              e.y > timestamp.y &&
+              e.y < timestamp.y + timestamp.height
+            ) {
+              timestamp.over = true;
+              break;
+            }
+          }
+          // }
+
+          // 👱 `handle` hover and activate.
+          //    (Will always only be on one line)
+          for (let h = 0; h < message.layout.handles.length; h += 1) {
+            const handle = message.layout.handles[h];
+            const startX = message.layout.x + handle.x;
+
+            if (
+              e.x > startX &&
+              e.x < startX + handle.width &&
+              e.y > handle.y &&
+              e.y < handle.y + handle.height
+            ) {
+              handle.over = true;
+              break;
+            }
+          }
+
+          // 🖥️ `prompt` hover and activate.
+          //     (With line break support)
+          for (let p = 0; p < message.layout.prompts.length; p += 1) {
+            const prompt = message.layout.prompts[p];
+            for (let l = 0; l < prompt.lines.length; l += 1) {
+              const line = prompt.lines[l];
+              const startX = message.layout.x + line.x;
+
+              if (
+                e.x > startX &&
+                e.x < startX + line.width &&
+                e.y > line.y &&
+                e.y < line.y + line.height
+              ) {
+                prompt.over = true;
+                break;
+              }
+            }
+          }
+
+          // 🕸️ `url` hover and activate.
+          //     (With line break support)
+          for (let u = 0; u < message.layout.urls.length; u += 1) {
+            const url = message.layout.urls[u];
+            for (let l = 0; l < url.lines.length; l += 1) {
+              const line = url.lines[l];
+              const startX = message.layout.x + line.x;
+
+              if (
+                e.x > startX &&
+                e.x < startX + line.width &&
+                e.y > line.y &&
+                e.y < line.y + line.height
+              ) {
+                url.over = true;
+                break;
+              }
+            }
+          }
+
+          // TODO: ⏰ Add timestamp hover and activate per message.
+          //            - With 'delete' action.
+        }
+      }
+    }
+
+    if (e.is("lift")) {
+      for (let i = client.messages.length - 1; i >= 0; i--) {
+        const message = client.messages[i];
+        if (!message.tb || !message.layout) {
+          continue; // If `tb` is not defined then kill this. 👾
+        }
+        // 🟠 TODO: Reset all the other potential tapped handles and prompts.
+        message.layout.inBox = false;
+
+        // Handles
+        for (let h = 0; h < message.layout.handles.length; h += 1) {
+          const handle = message.layout.handles[h];
+          if (handle.over) {
+            beep();
+            hud.labelBack();
+            jump(handle.word);
+            handle.over = false;
+            break;
+          }
+        }
+
+        // Prompts
+        for (let p = 0; p < message.layout.prompts.length; p += 1) {
+          const prompt = message.layout.prompts[p];
+          if (prompt.over) {
+            beep();
+            hud.labelBack();
+            const innerPrompt = prompt.text.slice(1, -1); // Unquote prompt text.
+            if (innerPrompt.startsWith(">")) {
+              jump("prompt " + innerPrompt.slice(1));
+            } else {
+              jump(innerPrompt);
+            }
+            prompt.over = false;
+            break;
+          }
+        }
+
+        // URLs
+        for (let u = 0; u < message.layout.urls.length; u += 1) {
+          const url = message.layout.urls[u];
+          if (url.over) {
+            beep();
+            jump("out:", url.text);
+            console.log("🟨 Visiting...", url);
+            url.over = false;
+            break;
+          }
+        }
+
+        // Timestamps (Moderation Menu)
+        const timestamp = message.layout.timestamp;
+        if (timestamp.over) {
+          timestamp.over = false;
+        }
+      }
+    }
+
     // 📜 Scrolling
     if (e.is("draw")) {
       scroll += e.delta.y;
+      store["chat:scroll"] = scroll;
       boundScroll();
+      // computeMessagesLayout(api);
+      messagesNeedLayout = true;
     }
 
     if (e.is("keyboard:down:arrowdown")) {
       scroll -= 10;
+      store["chat:scroll"] = scroll;
       boundScroll();
+      // computeMessagesLayout(api);
+      messagesNeedLayout = true;
     }
 
     if (e.is("keyboard:down:arrowup")) {
       scroll += 10;
+      store["chat:scroll"] = scroll;
       boundScroll();
+      // computeMessagesLayout(api);
+      messagesNeedLayout = true;
     }
 
     if (e.is("scroll")) {
       scroll -= e.y;
+      store["chat:scroll"] = scroll;
       boundScroll();
+      // computeMessagesLayout(api);
+      messagesNeedLayout = true;
     }
 
     // 🖥️ Keyboard / Text Input
@@ -660,7 +782,7 @@ function boundScroll() {
   }
 }
 
-function computeMessagesHeight({ text, screen, chat }) {
+function computeMessagesHeight({ text, screen }, chat) {
   let height = 0;
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
@@ -678,6 +800,284 @@ function computeMessagesHeight({ text, screen, chat }) {
     height += tb.lines.length * rowHeight + lineGap;
   }
   return height;
+}
+
+// Build a display graph for the messages.
+// (From the bottom to the top.)
+function computeMessagesLayout({ screen, text }, chat) {
+  let y = screen.height - rowHeight - bottomMargin + scroll;
+
+  // Delete all layouts.
+  for (let i = chat.messages.length - 1; i >= 0; i--) {
+    const msg = chat.messages[i];
+    msg.lastLayout = msg.layout;
+    delete msg.layout;
+  }
+
+  for (let i = chat.messages.length - 1; i >= 0; i--) {
+    const msg = chat.messages[i];
+
+    y -= rowHeight * (msg.tb.lines.length - 1) + lineGap;
+
+    if (y > screen.height - bottomMargin) {
+      y -= rowHeight;
+      continue;
+    }
+
+    // Outlne a 🪧 renderable message and its geometry.
+    let msgColor = "white",
+      inBox = msg.lastLayout?.inBox || false; // A flag that determines if we are in the message box or not.
+
+    const handles = []; // Parse '@handle' names.
+    const prompts = []; // Parse `prompts`.
+    const urls = []; // Parse any 'urls'.
+
+    const totalHeight = msg.tb.lines.length * rowHeight;
+
+    // Map links (handles, urls and prompts) inside of messages.
+    // - Handles always appear on one line.
+    // - Prompts and URLs now support multi-line rendering by storing lines (each with x, y, width, and text).
+    let wordIndex = 0;
+    let paintableMessage = "";
+    const charWidth = 6; // constant
+
+    // State for multi-line prompts.
+    let insidePrompt = false;
+    let currentPrompt = null; // { text: string, lines: [ { x, y, width, text } ] }
+    let promptSegmentStart = undefined;
+    let currentPromptLineText = "";
+
+    // State for multi-line URLs.
+    let insideURL = false;
+    let currentURL = null; // { text: string, lines: [ { x, y, width, text } ] }
+    let urlSegmentStart = undefined;
+    let currentURLLineText = "";
+
+    // Regex for starting a URL.
+    const urlStartRegex = /^(https?:\/\/|www\.)/;
+    // Regex for URL continuation: require either a leading URL-specific punctuation or the token to contain one.
+    const urlContRegex =
+      /^(?:(\/|\.|\?|#|&|=)[\w/:.?=&%-]+|(?=.*[\/\.\?#&=])[\w/:.?=&%-]+)$/;
+    const basicWordRegex = /^[\w-]+$/;
+
+    for (let rowIndex = 0; rowIndex < msg.tb.lines.length; rowIndex += 1) {
+      let rowY = y + rowIndex * rowHeight;
+      let cursorX = 0;
+
+      // Reset per-row variables for multi-line prompt and URL segments.
+      if (insidePrompt) {
+        promptSegmentStart = undefined; // will be set when first prompt word on this row is encountered.
+        currentPromptLineText = "";
+      }
+      if (insideURL) {
+        urlSegmentStart = undefined; // will be set when first URL word on this row is encountered.
+        currentURLLineText = "";
+      }
+
+      for (let word of msg.tb.lines[rowIndex]) {
+        const wordWidth = word.length * charWidth;
+
+        // Process handles: always single-line.
+        if (word.startsWith("@")) {
+          handles.push({
+            word,
+            color: [255, 230, 220],
+            x: cursorX,
+            y: rowY,
+            width: wordWidth,
+            height: rowHeight,
+          });
+
+          // if (msg.lastLayout?.handles[handles.length - 1]?.over) {
+          //   handles[handles.length - 1].over = true;
+          // }
+
+          // Replace handle with spaces for painting.
+          word = word.replace(/./g, " ");
+        }
+
+        // Process prompts (multi-line, enclosed in single quotes).
+        if (!insidePrompt && word.startsWith("'")) {
+          insidePrompt = true;
+          // Initialize currentPrompt with text without the starting quote.
+          currentPrompt = { text: word, lines: [] };
+          promptSegmentStart = cursorX;
+          currentPromptLineText = word; // word.slice(1);
+          // Check if the same word ends the prompt.
+          if (word.endsWith("'") && word.length > 1) {
+            // Complete prompt on one word: remove trailing quote.
+            currentPrompt.text = word; // word.slice(1, -1);
+            currentPromptLineText = word; // word.slice(1, -1);
+            currentPrompt.lines.push({
+              x: promptSegmentStart,
+              y: rowY,
+              width: wordWidth,
+              height: rowHeight,
+              text: currentPromptLineText,
+            });
+            prompts.push(currentPrompt);
+            insidePrompt = false;
+            currentPrompt = null;
+            promptSegmentStart = undefined;
+            currentPromptLineText = "";
+            word = word.replace(/./g, " ");
+          }
+          word = word.replace(/./g, " ");
+        } else if (insidePrompt) {
+          // Inside a multi-line prompt.
+          if (promptSegmentStart === undefined) {
+            promptSegmentStart = cursorX;
+            currentPromptLineText = "";
+          }
+          // Append a space if not the first word on this line.
+          if (currentPromptLineText.length > 0) {
+            currentPromptLineText += " ";
+          }
+          // Check if this word ends the prompt.
+          if (word.endsWith("'")) {
+            let trimmedWord = word; // word.slice(0, -1);
+            currentPromptLineText += trimmedWord;
+            currentPrompt.text += " " + trimmedWord;
+            currentPrompt.lines.push({
+              x: promptSegmentStart,
+              y: rowY,
+              width: cursorX + wordWidth - promptSegmentStart,
+              height: rowHeight,
+              text: currentPromptLineText,
+            });
+            prompts.push(currentPrompt);
+            insidePrompt = false;
+            currentPrompt = null;
+            promptSegmentStart = undefined;
+            currentPromptLineText = "";
+          } else {
+            currentPromptLineText += word;
+            currentPrompt.text += " " + word;
+          }
+
+          word = word.replace(/./g, " ");
+        }
+
+        // Process URLs (multi-line support similar to prompts).
+        if (!insideURL && urlStartRegex.test(word)) {
+          // Start a new URL.
+          insideURL = true;
+          currentURL = { text: word, lines: [] };
+          urlSegmentStart = cursorX;
+          currentURLLineText = word;
+          word = word.replace(/./g, " ");
+        } else if (insideURL) {
+          // Decide if this word should be part of the URL.
+          let allowContinuation = false;
+          if (urlContRegex.test(word)) {
+            allowContinuation = true;
+          } else if (
+            currentURL.text.slice(-1) === "/" &&
+            basicWordRegex.test(word)
+          ) {
+            // Allow continuation if previous URL ended with a slash and current word is a basic word.
+            allowContinuation = true;
+          }
+
+          if (allowContinuation) {
+            if (urlSegmentStart === undefined) {
+              urlSegmentStart = cursorX;
+              currentURLLineText = "";
+            }
+            if (currentURLLineText.length > 0) {
+              currentURLLineText += " ";
+            }
+            currentURLLineText += word;
+            currentURL.text += " " + word;
+          } else {
+            // Finalize the current URL segment.
+            if (urlSegmentStart !== undefined) {
+              currentURL.lines.push({
+                x: urlSegmentStart,
+                y: rowY,
+                width: cursorX - urlSegmentStart,
+                height: rowHeight,
+                text: currentURLLineText.trim(),
+              });
+              urlSegmentStart = undefined;
+              currentURLLineText = "";
+            }
+            urls.push(currentURL);
+            insideURL = false;
+            currentURL = null;
+          }
+        }
+
+        if (wordIndex > 0) paintableMessage += " ";
+        paintableMessage += word;
+        wordIndex += 1;
+        cursorX += wordWidth + charWidth; // Advance for the next word.
+      }
+
+      // End-of-line: if a prompt is still open, record the line for this row.
+      if (insidePrompt && promptSegmentStart !== undefined) {
+        currentPrompt.lines.push({
+          x: promptSegmentStart,
+          y: rowY,
+          width: cursorX - promptSegmentStart,
+          height: rowHeight,
+          text: currentPromptLineText,
+        });
+        promptSegmentStart = undefined;
+        currentPromptLineText = "";
+      }
+
+      // End-of-line: if a URL is still open, record the line for this row.
+      if (insideURL && urlSegmentStart !== undefined) {
+        currentURL.lines.push({
+          x: urlSegmentStart,
+          y: rowY,
+          width: cursorX - urlSegmentStart,
+          height: rowHeight,
+          text: currentURLLineText.trim(),
+        });
+        urlSegmentStart = undefined;
+        currentURLLineText = "";
+      }
+    }
+    // If a URL spans to the very end without a non-URL word, push it.
+    if (insideURL && currentURL) {
+      urls.push(currentURL);
+      insideURL = false;
+      currentURL = null;
+    }
+
+    const timestamp = {
+      x: text.width(msg.tb.lines[msg.tb.lines.length - 1]) + 6,
+      y: y + (msg.tb.lines.length - 1) * rowHeight,
+      height: rowHeight,
+      width: text.width(timeAgo(msg.when)),
+    };
+
+    let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
+
+    msg.layout = {
+      x: leftMargin,
+      y,
+      width: msg.tb.box.width,
+      height: msg.tb.box.height,
+      timestamp,
+      timestampColor,
+      msgColor,
+      inBox,
+      handles,
+      prompts,
+      urls,
+      paintableMessage,
+    };
+
+    delete msg.lastLayout;
+
+    y -= rowHeight; // Move up one line for the next message.
+    if (y < topMargin - rowHeight) {
+      break; // Break if y is below top line.
+    }
+  }
 }
 
 function computeScrollbarHeight(api) {
