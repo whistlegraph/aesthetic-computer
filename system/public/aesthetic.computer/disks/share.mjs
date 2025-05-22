@@ -19,12 +19,17 @@ let cells,
   alt2 = false;
 
 function boot({ api, hud, params, net, ui, blink }) {
-  console.log("Params:", params);
+  hud.labelBack();
+
   if (params[0]?.startsWith("https://") || params[0]?.startsWith("http://")) {
     url = params[0];
     hud.label(`share ${params[0]}`);
   } else {
-    url = net.lan ? net.lan : `https://${net.host}`;
+    if (net.host.startsWith("localhost")) {
+      url = "https://local.aesthetic.computer";
+    } else {
+      url = net.lan ? net.lan : `https://${net.host}`;
+    }
     slug = params.join("~");
     if (slug) url += `/${slug}`;
     if (slug.length === 0) {
@@ -49,7 +54,7 @@ function paint({ api, wipe, ink, screen, help: { choose } }) {
   wipe(alt ? [32, 0, 64] : [20, 8, 54]); // Clear the screen.
   starfield.paint(api, { alpha: 0.8, color: [255, 0, 200] }); // 🌟 Backdrop.
 
-  let margin = screen.width / screen.height > 0.8 ? 32 : 6; // 🔳 Paint QR Code
+  let margin = screen.width / screen.height > 0.8 ? 34 : 12; // 🔳 Paint QR Code
   const width = screen.width - margin * 2;
   const height = screen.height - margin * 2;
   let scale = max(floor(min(width, height) / cells.length), 1); // At least 1.
@@ -91,10 +96,10 @@ function paint({ api, wipe, ink, screen, help: { choose } }) {
   );
   ink("purple").box(ox - 4, oy - 4, size + 8, size + 8, "outline:4");
 
-  ink("magenta", 180).write(url.replace("https://", ""), {
+  ink("magenta", 180).write(url/* url.replace("https://", "") */, {
     x: 6,
     y: 18,
-  });
+  }, "black", screen.width - 12);
 
   if (!enter.btn.disabled) {
     enter.reposition({ right: 6, bottom: 6, screen });

@@ -1,33 +1,93 @@
 😀 TODO 😆
 
-Projects in Progress (PIP) 🌟
+ 🌟 Projects in Progress (PIP) 🌟
 
- * message deletion *
-  - [] Finish timetsamp picking.
-    - [-] Tapping shows yellow.
+ * `typeline` aka `tobby` *
+                        | 
+  - [] Type the line: xgHij 
+                        |
+  - [] Ambiently show other players progress like an obby.
+  - [] Reset the map / sequence of characters every 3 for all players using
+       the major clock.
 
-  - [-] Pat a timestamp as admin to reveal a redaction control (only if admin). 
+ * `chart` *
+ - [] Make a basic runnable flow with arithmetic and clock offsets.
+ - [] State needs to save between commands?
+
+ * `laer-klokken` *
+ - [-] Put the interface online for them.
+ - [A] Add support for the crossed out o danish character.
+ - [A] Fix timestamps in all chats.
+ - [] Add some clever differences / enable all timestamps in the `laer-klokken`
+      interface.
+ - [] Make sure it routes through `clock`.
+
+ * `tell` *
+ - [] Add `tell` command to test per device notifications and fast web notifications.
+ - [] Implement the web notifications before moving to iOS and then replacing / updating the iOS app.
+
+* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
+ - [] https://studio.youtube.com/channel/UCnCkxAsgrBqEXk8XiHl0JGg/livestreaming
+
+ * `tremory` *
+ - [] Finish basic prototype.
+ - [] Add some fun beat patterns.
+
+* Are.na Account Hook (Seems Fun) *
+ - [🟣] Make an Aesthetic Computer are.na account or repurpose my account for that?
+ - [] API Reference: https://github.com/ivangreene/arena-js
+
+* YouTube Channel * (Requires some new funding / a dedicated VPS to setup)
+ - []
+
+* Banners *
+ - [🟠] Fix banners by somehow rendering them on the backend or running
+        puppeteer differently?
+ - [] https://localhost:8888/icon/128x128/prompt.png
+
+* Debug Log *
+- [] Make a standard overlay to show any erroneous console output
+     directly on the front end.
+
+* `tape` reel / taping regressions *
+ - [] Make a `tape` fyp style reel.
+ - [] Pause icon is no longer present?
+ - [] Pressing escape twice stays on video for some reason?
+ - [?] 'share' swipe should be disabled on video piece with '|'.
+ + Done
+ - [x] Fix
+ - [x] Tape sound only syncs on first time.
+
+ * Message Deletion *
+  - [🌙] Pat a timestamp as admin to reveal a redaction control (only if admin).
     - [] Redaction should...
-      - [] Redact the web and native mobile notification.
       - [] Underscore the message for all users and show a 'redacted' sign.
       - [] Should muting also do this?
-
+      - [] Redact the web and native mobile notification.
+        - [] Replace current notification system with something new.
   - [] Use 'admin:chat-system:redact' to set a db flag on a message.
     - [] This should hit an http 'redact' endpoint which requires admin privileges.
       - [] This endpoint should be separate from the chat instance and be a
            serverless function.
+      - [] But why not just have it on the chat instance?
       - [] It should trigger an update on all clients that erases the message.
            This could be done through redis...
-
   - [x] Show timestamps on chat messages.
     - [x] Live last message stamp.
-
   + Done
+  - [x] Finish timestamp picking.
+    - [x] Tapping shows yellow.
   - [x] Add 'admin:chat-system:mute' / 'admin:chat-system:unmute' action / endpoint which will be
         separate from handle stripping.
   - [x] Check stripping process.
-  - [x] Put mute list in the database per instance. 
+  - [x] Put mute list in the database per instance.
   - [?] Should stripping also invalidate emails or does it already?
+
+* ios app *
+  - [] Update notifications.
+  - [] Tapping 'Download' doesn't actually trigger a download.
+  - [] Auto-reload the piece after the browser tab has been suspended.
+       (How to trigger this or detect this?)
 
 *** $1 handle toll / troll toll ***
   - [] Sketch out the copy for a new signup flow below...
@@ -57,10 +117,10 @@ Projects in Progress (PIP) 🌟
        after holding down to affect a javascript or kid lisp value.
 
 *** `sotce-net` ***
- - [] "substantial page count" 
+ - [] "substantial page count"
  - [] take down `botce`
  - [] make it free later on?
- - [] 
+ - []
       "really enjoying it, was already a part of my practice"
       "i don't struggle to maintain it"
       "good and stable"
@@ -79,7 +139,7 @@ Projects in Progress (PIP) 🌟
       - "makes me nervous to feel like i can't speak to you and you are hosting
          all my of my work."
 
-      - first end 
+      - first end
         - sotce take over
       - medium end
         - jeffrey goes to 10%
@@ -90,7 +150,7 @@ Projects in Progress (PIP) 🌟
 *** `pill` / android devices and shop ***
   - [] flash the uniherz jelly to boot directly into ac with
     - [] custom boot screen
-    - [] 
+    - []
   - [] set up a page to sell the phone through an ac `shop` command
   - [] `pill` should go directly to the product page
 
@@ -144,7 +204,7 @@ Projects in Progress (PIP) 🌟
 
 *** triple undo tap ***
   - [] Try to hide the undo overlay bar that appears when you three finger
-       tap on ios. 
+       tap on ios.
 
 *** bleep ***
   - [🟠] fix bleep held key bug.
@@ -168,7 +228,7 @@ Projects in Progress (PIP) 🌟
   - [x] (Concept / Discussion) Review notebooks.
 
 -- Required pieces...
-  At least one... 
+  At least one...
    1- [] ucla-1
    2- [] ucla-1-a
    3- [] ucla-1-box
@@ -178,8 +238,8 @@ Projects in Progress (PIP) 🌟
   Each one
     - [] ucla-3-keyboard
     - [] ucla-4
-    - [] ucla-5-rect 
-    - [] ucla-5-worm 
+    - [] ucla-5-rect
+    - [] ucla-5-worm
     - [] ucla-6-clock
     - [] ucla-6-turtle
     - [] ucla-7-dial
@@ -205,10 +265,10 @@ Projects in Progress (PIP) 🌟
   - [] autoprompt for local ssl install off the qr code?
   - [x] finish the local `ngrok` tunnel for all services and add socket support
     - [x] needs to be working in localhost / in the vscode extension
-    - [] make sure the udp server works on local.aesthetic.computer 
+    - [] make sure the udp server works on local.aesthetic.computer
   - [] fix vscode extension auth bug
   - [] the 'act' function is sometimes not being exported automatically by the parser.
-  
+
 - [] The 'Open Window' action in the VSCode extension no longer seems to work.
 - [] make sure .mjs saving works (EXCEPT on vscode.dev)
   - [] It seems to still work fine on my local machine but didn't work for some students... maybe an old VS Code Extension version?

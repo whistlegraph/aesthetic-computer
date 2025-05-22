@@ -5,12 +5,15 @@
 // TODO: Use key repeat / e.repeat to shorten code if necessary / prevent
 //       unwanted resets of state / ✨ allow disabling of state... ✨ - 24.07.03.02.50
 
+const { abs } = Math;
+
 export class CamDoll {
   cam;
   sensitivity;
 
   #dolly;
 
+  // Keyboard controls.
   #W;
   #S;
   #A;
@@ -21,6 +24,20 @@ export class CamDoll {
   #DOWN;
   #LEFT;
   #RIGHT;
+
+  // Stick based controls.
+  #ANALOG = {
+    move: {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
+    look: {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
+  };
 
   #penLocked = false;
 
@@ -57,10 +74,25 @@ export class CamDoll {
       this.#dolly.push({ x: strafe, y: updown, z: forward });
     }
 
+    if (abs(this.#ANALOG.move.z) > 0 || abs(this.#ANALOG.move.x) > 0) {
+      console.log("Over zero:", this.#ANALOG.move.z);
+      this.#dolly.push({
+        x: this.#ANALOG.move.x,
+        y: 0,
+        z: this.#ANALOG.move.z,
+      });
+    }
+
+    if (abs(this.#ANALOG.look.x) > 0 || abs(this.#ANALOG.look.y) > 0) {
+      this.cam.rotX += this.#ANALOG.look.x;
+      this.cam.rotY += this.#ANALOG.look.y;
+    }
+
     if (this.#UP) this.cam.rotX += 1;
     if (this.#DOWN) this.cam.rotX -= 1;
     if (this.#LEFT) this.cam.rotY += 1;
     if (this.#RIGHT) this.cam.rotY -= 1;
+
     this.#dolly.sim();
   }
 
@@ -116,5 +148,51 @@ export class CamDoll {
     // Three fingers for moving backward.
     if (e.is("touch:3")) this.#S = true;
     if (e.is("lift:3")) this.#S = false;
+
+    // 🎮 Gamepad
+
+    if (e.is("gamepad")) {
+      const deadzone = 0.05;
+      const moveDamp = 0.002;
+      const lookDamp = 1;
+
+      // Move Forward and Backward
+      if (e.is("gamepad:0:axis:1:move")) {
+        if (abs(e.value) < deadzone) {
+          this.#ANALOG.move.z = 0;
+        } else {
+          this.#ANALOG.move.z = e.value * moveDamp;
+        }
+      }
+
+      // Strafe Left and Right
+      if (e.is("gamepad:0:axis:0:move")) {
+        if (abs(e.value) < deadzone) {
+          this.#ANALOG.move.x = 0;
+        } else {
+          this.#ANALOG.move.x = e.value * moveDamp;
+        }
+      }
+
+      // Look Up And Down
+      if (e.is("gamepad:0:axis:2:move")) {
+        if (abs(e.value) < deadzone) {
+          this.#ANALOG.look.y = 0;
+        } else {
+          this.#ANALOG.look.y = -e.value * lookDamp;
+          console.log(this.#ANALOG.look.y);
+        }
+      }
+
+      // Look Left And Right
+      if (e.is("gamepad:0:axis:3:move")) {
+        if (abs(e.value) < deadzone) {
+          this.#ANALOG.look.x = 0;
+        } else {
+          this.#ANALOG.look.x = -e.value * lookDamp;
+          console.log(this.#ANALOG.look.x);
+        }
+      }
+    }
   }
 }

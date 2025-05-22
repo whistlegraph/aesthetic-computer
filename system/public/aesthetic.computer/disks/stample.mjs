@@ -2,7 +2,6 @@
 // Spread a sample across some pats.
 
 /* 📝 Notes
-  - [🩷] Add positional swiping.
   - [] Paint a line from each pen start point to the current point.
   - [] Add loop toggle / switch?
   - [] Add a subtle attack and decay to sample playback. 
@@ -13,6 +12,7 @@
   - [] Add visual printing / stamping of pixel data and loading of that
        data.
   + Done
+  - [x] Add positional swiping.
   - [x] Add `paintSound` to the disk library / make a really good abstraction for
         that.
   - [x] Add live pitch shifting / speed.
@@ -136,12 +136,15 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
 
         const space = prog * btn.box.h;
         const negative = btn.box.h - space;
-
         let startY, height;
 
-        if (options.speed > 0) {
-          startY = btn.box.y;
+        if (options.speed > 0 || !options.speed) {
+          // startY = btn.box.y;
+          // console.log(options.to, options.from);
+          // startY = btn.box.y + (1 - options.to) * btn.box.h;
           height = (1 - options.from) * btn.box.h;
+          height = btn.box.h;
+          startY = btn.box.y;
         } else {
           startY = btn.box.y + (1 - options.to) * btn.box.h;
           height = options.to * btn.box.h;
@@ -159,21 +162,37 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
         // );
 
         if (progressions[index]) {
-          ink("red", 64).box(
-            btn.box.x,
-            startY, // btn.box.y + btn.box.h,
-            btn.box.w,
-            height,
-            // -btn.box.h * prog - progressions[index] * negative, // progressions[index],
+          ink("magenta").line(
+            0,
+            startY /* + 2*/,
+            screen.width,
+            startY /* + 2*/,
           );
+          // console.log(startY);
+
+          // ink("green", 64).box(
+          //   btn.box.x,
+          //   startY, // btn.box.y + btn.box.h,
+          //   btn.box.w,
+          //   height,
+          //   // -btn.box.h * prog - progressions[index] * negative, // progressions[index],
+          // );
 
           let y;
           let basey;
-          if (options.speed > 0) {
-            basey = btn.box.y + (1 - options.from) * btn.box.h;
+          const originaly = 24;
+          if (options.speed > 0 || !options.speed) {
+            basey = floor(
+              originaly + (1 - options.from) * (btn.box.h * btns.length),
+            ); // btn.box.y + (1 - options.from) * btn.box.h;
+
             y =
               btn.box.y +
-              (1 - options.from) * (1 - progressions[index]) * btn.box.h;
+              /* (1 - options.from) */ 1 *
+                (1 - progressions[index]) *
+                btn.box.h;
+
+            // console.log(basey);
             //y =
             //  btn.box.y +
             //  (1 - options.from / (1 - progressions[index])) * btn.box.h;
@@ -183,7 +202,8 @@ function paint({ api, wipe, ink, sound, screen, num, text, help, pens }) {
           }
 
           ink("orange").line(0, y, btn.box.x + btn.box.w, y);
-          ink("red").line(0, basey, btn.box.x + btn.box.w, basey);
+          ink("blue").line(0, basey, btn.box.x + btn.box.w, basey);
+          // ink("lime").line(0, 100, btn.box.x + btn.box.w, 100);
 
           // const y =
           // btn.box.y + btn.box.h * (1 - prog) - progressions[index] * negative;
@@ -287,10 +307,16 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
     btn.act(
       e,
       {
-        down: (btn) => {
+        down: (btn, opts) => {
           // if (downs[note]) return false; // Cancel the down if the key is held.
           anyDown = true;
           if (btn.down) return false;
+
+          // if (opts?.keyboard) {
+          // const fromPos = from; // 1 - (/*e.y -*/ 0 -  btn.box.y) / btn.box.h;
+          // from = fromPos;
+          sounds[index] = sound.play(sampleId, { from, to, loop: true });
+          // }
 
           // const fromPos = 1 - (e.y - btn.box.y) / btn.box.h;
           // from = fromPos;
@@ -300,6 +326,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // console.log("Playing sound index:", index);
           if (sound.microphone.connected) sound.microphone.disconnect();
         },
+
         over: (btn) => {
           // if (btn.up && anyDown) {
           //  btn.up = false;
@@ -311,7 +338,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // btn.down = false;
           // btn.actions.up(btn);
         },
-        up: (btn) => {
+        up: (btn, opts) => {
           // if (downs[note]) return false;
           //if (btn.box.contains(e.dragBox)) {
           //if (
@@ -319,7 +346,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           //  (e.pointer === btn.downPointer && btn.box.contains(e))
           //) {
 
-          if (e.pointer === btn.downPointer) {
+          if (e.pointer === btn.downPointer || opts?.keyboard) {
             sounds[index]?.kill(0.1);
             delete btnSounds[index];
             return true;
@@ -335,6 +362,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           // console.log("Killing sound index:", index, sounds[index]);
         },
         scrub: (btn) => {
+          /*
           if (abs(e.delta.y) > 0 && !btnSounds[index]) {
             // console.log(`Scrub ${index}:`, e.delta);
             // sounds[index] = sound.play(sampleId, { from, to });
@@ -357,6 +385,7 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
             btnSounds[index] = true;
             sounds[index] = sound.play(sampleId, { from, to, speed, loop });
           }
+          */
 
           // if (e.pointer === btn.downPointer) {
           if (abs(e.delta.y) > 0) {
@@ -417,12 +446,12 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
       const btn = btns[btns.length - 1 - index];
       if (e.is("keyboard:down") && !btn.down) {
         // console.log(`${e.key} key pressed!`);
-        btn.actions.down(btn);
+        btn.actions.down(btn, { keyboard: true });
         btn.downPointer = 0;
         btn.down = true;
       } else if (e.is("keyboard:up")) {
         btn.down = false;
-        btn.actions.up(btn);
+        btn.actions.up(btn, { keyboard: true });
         btn.downPointer = undefined;
       }
     }

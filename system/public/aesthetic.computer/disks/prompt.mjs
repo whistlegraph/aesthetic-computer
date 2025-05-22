@@ -49,7 +49,7 @@ You are playing a character who tries to help me find the command I'm searching 
 (insert correct command)?"
   - for example, if I write "linr", you write "Try typing 'line' instead"
   - you only suggest correct commands that are in the above data set
-  - when you suggest a command, always put it in quotes.
+  - when you suggest a command, always put it in "quotes."
   - if I type "hife" you do not suggest "life" because that is not a command in the data set
   - you do not respond with any additional information
 
@@ -69,6 +69,7 @@ import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
+import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
@@ -219,9 +220,18 @@ async function boot({
     });
   }
 
+  // TODO: Fix this.
   if (params[0]) {
+    console.log("Existing `prompt` param:", params);
     const text = params.join(" ");
     // const text = params[0].replaceAll("~", " ");
+
+    activated(api, true);
+    system.prompt.input.canType = true;
+    send({ type: "keyboard:unlock" });
+    send({ type: "keyboard:open" }); // Necessary for desktop.
+
+    // TODO: This is still a little janky.
     system.prompt.input.text = text;
     system.prompt.input.runnable = true;
     system.prompt.input.addUserText(text);
@@ -302,7 +312,35 @@ async function halt($, text) {
   if (slug.startsWith("/")) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
+  } else if (slug === "shop") {
+    console.log(slug);
+    // TODO: Do the mapping here...
+
+    // @jeffrey/help
+    // cart
+    // every timecode
+
+    if (params.length > 0) {
+      if (shop.indexOf(params[0]) > -1) {
+        jump("/" + params[0]);
+      } else {
+        jump("/shop/" + params.join("/"));
+      }
+    } else {
+      jump("/shop");
+    }
+  } else if (slug.startsWith("shop")) {
+    jump("/" + params[0]);
+  } else if (shop.indexOf(slug) > -1) {
+    jump("/" + slug); // Matches a product so jump to a new page / redirect.
   } else if (
+    slug === "tape" ||
+    slug === "tape:add" ||
+    slug === "tape:tt" ||
+    slug === "tape:nomic" ||
+    slug === "tape:mic" ||
+    slug === "tapem"
+  ) {
     // 📼 Start taping.
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
@@ -312,13 +350,6 @@ async function halt($, text) {
     // Each of these clips can be stored in indexedDB more easily and played
     // back or be rearranged.
     // 23.09.16.18.01
-    slug === "tape" ||
-    slug === "tape:add" ||
-    slug === "tape:tt" ||
-    slug === "tape:nomic" ||
-    slug === "tape:mic" ||
-    slug === "tapem"
-  ) {
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 7;
     const tapePromise = new Promise((resolve, reject) => {
@@ -1206,30 +1237,31 @@ async function halt($, text) {
     let size;
     if (!isNaN(w) && !isNaN(h)) size = { w, h };
     await system.nopaint.noBang(
-      {
-        system,
-        store,
-        screen,
-        needsPaint,
-        painting,
-      },
+      // {
+      // system,
+      // store,
+      // screen,
+      // needsPaint,
+      // painting,
+      api,
+      // },
       size, // Set a custom resolution to start.
     );
     let fullText = slug;
     if (params.length > 0) fullText += "~" + params.join("~");
-    nopaint_adjust(screen, system, painting, store, size, fullText);
+    nopaint_adjust(api, size, fullText);
     system.nopaint.startRecord(fullText); // Start recording paintings.
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
   } else if (text === "painting:reset" || text === "no!") {
-    const deleted = await system.nopaint.noBang({
-      system,
-      store,
-      screen,
-      needsPaint,
-      painting,
-    });
+    const deleted = await system.nopaint.noBang(api); //{
+    //   system,
+    //   store,
+    //   screen,
+    //   needsPaint,
+    //   painting,
+    // });
 
     system.nopaint.startRecord("new"); // Start recording paintings.
 
@@ -1431,6 +1463,21 @@ function paint($) {
   const { screen, ink, history, net, help } = $;
 
   if ($.system.prompt.input.canType) {
+    const currentInputText = $.system.prompt.input.text;
+    // If activeCompletions is currently empty, but the input text itself
+    // is a valid, non-hidden command, it's likely due to a Tab completion
+    // that cleared the active suggestions. In this case, we want to treat
+    // the current input text as the single active completion to show its description.
+    if (activeCompletions.length === 0 &&
+        currentInputText && // Ensure text is not empty
+        autocompletions[currentInputText] &&
+        !autocompletions[currentInputText].hidden) {
+      activeCompletions.push(currentInputText);
+      // This modification allows the description rendering logic below to pick up
+      // the tab-completed command. activeCompletions will be naturally reset
+      // by other parts of the system (e.g., in halt() or by TextInput updates).
+    }
+
     if (activeCompletions.length === 0) {
       // History
       let historyTexts =
@@ -1443,7 +1490,7 @@ function paint($) {
     }
 
     // Autocompetions
-    if (activeCompletions.length > 0)
+    if (activeCompletions.length > 0) {
       activeCompletions.forEach((completion, i) => {
         $.system.prompt.input.text;
         const diff =
@@ -1461,11 +1508,18 @@ function paint($) {
           y: 6 + i * 12,
         });
       });
+    }
+
+    if (activeCompletions.length === 1) {
+      // console.log("has completions!");
+      ink($.dark ? "white" : "red", $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255).write(autocompletions[activeCompletions[0]].desc, {center: "xy"}, null, screen.width - 8);
+    }
+
   }
 
   if (progressBar >= 0) {
     ink(255, 180, 0, 120).box(0, 0, screen.width, screen.height, "inline");
-    ink(0).box(1, 1, screen.width - 2, 1);
+    ink(0).box(1, 1, screen.width - 2, screen.height - 2);
     if (progressBar > 0) {
       ink(scheme.dark.block).box(1, 1, (screen.width - 2) * progressBar, 1);
     }
@@ -1626,6 +1680,7 @@ function act({
   num,
   jump,
   system,
+  painting,
   user,
   store,
   sound: { play, synth },
@@ -1799,7 +1854,11 @@ function act({
   });
 
   // 🖥️ Screen
-  if (e.is("reframed")) positionWelcomeButtons(screen, net.iframe);
+  if (e.is("reframed")) {
+    positionWelcomeButtons(screen, net.iframe);
+    nopaint_adjust(api);
+    system.nopaint.present(api);
+  }
 
   // ⌨️ Keyboard (Skip startup sound if a key is pressed or text is pasted.)
   if (e.is("keyboard:open") && firstActivation && e.method !== "pointer") {
@@ -1878,7 +1937,7 @@ function act({
   if (e.is("load-error")) {
     makeFlash(api, false);
     flashColor = [255, 0, 0];
-    if (MetaBrowser) api.system.prompt.input.canType = false;
+       if (MetaBrowser) api.system.prompt.input.canType = false;
     needsPaint();
   }
 }

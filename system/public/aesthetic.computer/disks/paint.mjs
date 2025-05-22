@@ -58,7 +58,6 @@ async function boot({ params, system: { painting }, needsPaint, store, slug }) {
       if (semicolon !== -1) {
         const line = code.slice(0, semicolon + 1); // A full statement.
         lines.push(line.trim() + "\n"); // Trim and add a line terminating character.
-        console.log(lines);
         code = code.slice(semicolon + 1); // Remove the line from `code`.
       }
     },

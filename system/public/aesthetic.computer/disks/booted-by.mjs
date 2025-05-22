@@ -5,7 +5,7 @@
 #endregion */
 
 /* #region 🏁 TODO 
-  - [] ...
+  - [] Add a bar for Eric and a bar for Matt. 
   + Done
   - [x] Comment out the modal. 
   - [x] Remove prior empty claim slots. 
@@ -28,14 +28,14 @@ const blockHeight = 11;
 const barColors = [
   "red",
   "orange",
-  // "yellow",
   "green",
   "blue",
   "indigo",
   "grey",
   "violet",
   "white",
-  //"brown",
+  "brown",
+  "purple",
 ];
 let ok,
   demo,
@@ -106,6 +106,10 @@ function paint({
         text = "caesuras";
       } else if (bar.color === "grey") {
         text = "Artur Matveichenkov";
+      } else if (bar.color === "brown") {
+        text = "Eric Doyle";
+      } else if (bar.color === "purple") {
+        text = "Matt Doyle & Yuehao Jiang";
       } else {
         text = bar.tb.btn.down ? undefined : claim ? "CLAIM" : "$10k+";
       }
@@ -150,8 +154,8 @@ function paint({
 
   if (!overlay) {
     ink(help.choose([200], [160])).write(
-      "These original patrons helped boot Aesthetic Computer in its early days.",
-      { center: "x", y: screen.height - 72 },
+      "These original patrons helped boot Aesthetic Computer.",
+      { center: "x", y: screen.height - 54 },
       "black",
       screen.width - 32,
     );

@@ -1,4 +1,5 @@
 version: "2"
+web_addr: false
 
 tunnels:
   http_server:
