@@ -1,5 +1,66 @@
 #!/usr/bin/env fish
 
+# Function to ensure correct Docker socket permissions
+function ensure_docker_socket_permissions
+    set -l DOCKER_SOCKET /var/run/docker.sock
+    if test -S $DOCKER_SOCKET
+        set -l DOCKER_GID (stat -c '%g' $DOCKER_SOCKET)
+        set -l CURRENT_DOCKER_GROUP_INFO (getent group $DOCKER_GID)
+
+        if test -z "$CURRENT_DOCKER_GROUP_INFO" # No group with this GID exists
+            if getent group docker > /dev/null
+                echo "Modifying existing docker group to GID $DOCKER_GID..."
+                sudo groupmod -g $DOCKER_GID docker
+            else
+                echo "Creating new docker group with GID $DOCKER_GID..."
+                sudo groupadd -g $DOCKER_GID docker
+            end
+        else # A group with this GID already exists, check if it's named 'docker'
+            set -l GROUP_NAME (echo $CURRENT_DOCKER_GROUP_INFO | cut -d: -f1)
+            if test "$GROUP_NAME" != "docker"
+                echo "Warning: Group with GID $DOCKER_GID exists but is named '$GROUP_NAME', not 'docker'. Manual intervention might be needed."
+                # Optionally, you could decide to add 'me' to this group anyway,
+                # or try to rename it if it's safe, or delete and recreate 'docker' group.
+                # For now, we'll proceed assuming 'docker' is the target group name.
+                if getent group docker > /dev/null
+                    echo "Modifying existing docker group to GID $DOCKER_GID..."
+                    sudo groupmod -g $DOCKER_GID docker
+                else
+                    echo "Creating new docker group with GID $DOCKER_GID..."
+                    sudo groupadd -g $DOCKER_GID docker
+                end
+            else
+                echo "Docker group '$GROUP_NAME' with GID $DOCKER_GID already exists."
+            end
+        end
+
+        # Ensure 'me' user is in the 'docker' group
+        if not groups me | string match -q -r '\\bdocker\\b'
+            echo "Adding user 'me' to docker group..."
+            sudo usermod -aG docker me
+            # Changes to group membership may require a new login session or `newgrp docker`
+            # to take effect immediately in the current shell.
+            # For a script, subsequent commands in this same script might not see the new group immediately.
+            # However, for processes spawned after this script, it should be fine.
+        else
+            echo "User 'me' is already in docker group."
+        end
+    else
+        echo "Docker socket $DOCKER_SOCKET not found."
+    end
+end
+
+# Call the function to set up Docker socket permissions
+ensure_docker_socket_permissions
+
+# Start Docker daemon in the background if not already running
+if not pgrep -x dockerd >/dev/null
+    echo "Starting Docker daemon..."
+    sudo dockerd >/tmp/dockerd.log 2>&1 &
+else
+    echo "Docker daemon already running."
+end
+
 if test -d /home/me/envs
     source /home/me/envs/load_envs.fish
     load_envs # Load devcontainer envs conditionally.
@@ -133,7 +194,6 @@ sudo chown -R me:me ~/.emacs.d
 
 # Trigger the 'waiter' alias to boot the platform.
 # touch /home/me/.waiter
-
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
