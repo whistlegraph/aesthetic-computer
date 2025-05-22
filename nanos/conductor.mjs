@@ -60,6 +60,10 @@ const instances = {
     name: "chat-sotce",
     subdomain: "chat.sotce.net",
   },
+  "chat-clock": {
+    name: "chat-clock",
+    subdomain: "chat-clock.aesthetic.computer",
+  },
 };
 
 const instance = instances[process.argv[2]];
@@ -73,9 +77,9 @@ async function deploy() {
 
   const parsed = JSON.parse(out);
   let currentInstance;
-  // console.log(parsed.length, "Instance:", instance);
+  console.log(parsed.length, "Instance:", instance);
   for (let i = 0; i < parsed.length; i += 1) {
-    // console.log("Parsed name:", parsed[i].Name);
+    console.log("Parsed name:", parsed[i].Name, parsed[i]);
     if (parsed[i].Name === instance.name) {
       currentInstance = parsed[i];
       break;
