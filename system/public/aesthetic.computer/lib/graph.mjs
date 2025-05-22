@@ -1313,7 +1313,7 @@ const BOX_CENTER = "center";
 // (4) x, y, size, mode:string (4)
 // (5) x, y, w, h, mode (5)
 // TODO: ♾️ If width or height (size) is infinity then make sure the box covers
-//          the entire pixel buffer width. 25.05.11.16.30 
+//          the entire pixel buffer width. 25.05.11.16.30
 function box() {
   let x,
     y,
@@ -1860,8 +1860,6 @@ function draw() {
       let ny1 = x1 * s + y1 * c;
       let nx2 = x2 * c - y2 * s;
       let ny2 = x2 * s + y2 * c;
-
-     
 
       if (nx1 !== nx2 || ny1 !== ny2) {
         if (thickness === 1) {
@@ -3426,3 +3424,5 @@ function clipPolygonComponent(
     prevInside = curInside;
   }
 }
+
+export { Camera, Form, Dolly };

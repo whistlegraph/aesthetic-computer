@@ -1,0 +1,22 @@
+{
+  "name": "dark-window-conductor",
+  "version": "1.0.0",
+  "description": "Scripts to manage the dark-window chromium container",
+  "main": "conductor.mjs",
+  "type": "module",
+  "scripts": {
+    "dev": "node conductor.mjs dev",
+    "deploy": "node conductor.mjs deploy",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chromium",
+    "puppeteer",
+    "cloud-run"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fs-extra": "^11.2.0"
+  }
+}
