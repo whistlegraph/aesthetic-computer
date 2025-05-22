@@ -35,7 +35,7 @@ WantedBy=default.target" > ~/.config/systemd/user/aesthetic-daemon.path
 systemctl --user daemon-reload
 
 # Ensure the script has execute permissions
-chmod +x /home/$username/aesthetic-computer/ssl-dev/fedora-install.fish
+chmod +x /home/$username/aesthetic-computer/ssl-dev/ssl-install.fish
 
 # Enable the service and the path unit
 systemctl --user enable aesthetic-daemon.service

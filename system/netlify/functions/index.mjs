@@ -20,6 +20,7 @@ const dev = process.env.CONTEXT === "dev";
 async function fun(event, context) {
   // TODO: Return a 500 or 404 for everything that does not exist...
   //       - [] Like for example if the below import fails...
+  console.log("📁 index ➡️", event.path);
 
   if (
     event.path === "/favicon.ico" ||
@@ -27,8 +28,6 @@ async function fun(event, context) {
   ) {
     return { statusCode: 500 };
   }
-
-  // console.log("HOOOOOST", event.headers["host"]);
 
   if (event.headers["host"] === "sotce.local:8888") {
     return respond(
@@ -41,7 +40,6 @@ async function fun(event, context) {
     );
   }
 
-  console.log("📁", event.path);
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
@@ -212,16 +210,16 @@ async function fun(event, context) {
       const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
       try {
-        // console.log("💾 Writing temp module to", tempPath);
-        // console.log("📄 Source code:\n", sourceCode);
-
-        await fs.writeFile(tempPath, sourceCode, "utf8");
-
-        if (language === "javascript") {
-          console.log("📦 Attempting import from", `file://${tempPath}`);
+        console.log(
+          "📖 Writing to:",
+          tempPath,
+          "Source length:",
+          sourceCode?.length,
+        );
+        await fs.writeFile(tempPath, sourceCode);
+        if (language === "javascript")
           module = await import(`file://${tempPath}`);
-          // console.log("✅ Import succeeded");
-        }
+        // TODO: This fails in development sometimes, still not sure why...
       } catch (err) {
         console.error("⚠️ Import error:", err);
         const exists = await fs.exists(tempPath);
@@ -240,12 +238,13 @@ async function fun(event, context) {
         }
       }
 
-      console.log("🧊 Module:", module.meta, tempPath);
+      console.log("🧊 Module:", module?.meta, tempPath);
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     }
-  } catch {
+  } catch (err) {
     // If either module doesn't load, then we can fallback to the main route.
+    console.log("🔴 Error loading module:", err, sourceCode);
     return redirect;
   }
 
@@ -255,14 +254,19 @@ async function fun(event, context) {
     meta,
   );
 
+  // TODO: Not sure if 'location' is correct here, but I wan tto skip rendering the link rel icon and og:image if the icon or preview parameter is present
+  //      in the request url qury params...
+const qsp = event.queryStringParameters || {};
+const previewOrIcon = "icon" in qsp || "preview" in qsp;
+
   const body = html`
     <!doctype html>
     <html>
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
-        <link rel="icon" href="${icon}" type="image/png" />
-        <link rel="apple-touch-icon" href="${icon}" />
+        ${!previewOrIcon ? html`<link rel="icon" href="${icon}" type="image/png" />` : ''}
+        ${!previewOrIcon ? html`<link rel="apple-touch-icon" href="${icon}" />` : ''}
         <link rel="manifest" href="${manifest}" />
         <meta
           name="viewport"
@@ -271,7 +275,7 @@ async function fun(event, context) {
         <meta name="description" content="${encode(desc)}" />
         <meta name="og:title" content="${encode(title)}" />
         <meta name="og:description" content="${encode(desc)}" />
-        <meta name="og:image" content="${ogImage}" />
+        ${!previewOrIcon ? html`<meta name="og:image" content="${ogImage}" />` : ''}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${encode(title)}" />
         <meta name="twitter:site" content="aesthetic.computer" />

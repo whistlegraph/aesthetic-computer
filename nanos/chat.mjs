@@ -1,50 +1,14 @@
 // Chat, 24.03.30.14.53
-// This file is a unikernal compatible chat server designed to eventually replace
+// This file is a unikernel compatible chat server designed to eventually replace
 // `session-server/session.mjs` by adding both websocket and udp support.
 // But its first job is to be the chat server for AC.
 
 /* #region 🏁 TODO 
-
-  *** Logs ***
-  - [?] Does adding the radar key prevent gcp logs from running?
-    - [] Or maybe the log name / id needs to change each time?
-    - [🟤] Try adding the radar key back or... running a deployment again with the same log name...
-  - [🟠] Add a basic client to `sotce-net`.
-    - [🫐] Start with 'dev' / 'local' version.
-    - [🟠] Write it as a totally separate UI layer that always connects.
-      - [❄️] Import the chat module to `sotce-net`.
-    - [] Have it on the loged out page grayed out, the logged in page opaque
-          and scrollable, and the subscriber page interactable.
-    - [] Messages should make a sound.
-      - [] Bring in AC sound engine here.
-    - [] Add support for web notifications in the chat.
-  - [] Add web notficiations to `sotce-net` chat.
-  - [] Add images to AC chat.
-  - [] Add textual links to AC chat.
-  + Done
-  - [x] Set up another instance of this chat for `sotce-net` that...
-    - [x] Will have a different subdomain setup so `conductor` will need updates. 
-      - [x] Add the new production deploy command to package.json
-      - [x] Walk through `conductor.mjs` to see where chat-system needs changes.
-      - [x] Set up separate subdomain in Cloudflare at `chat.sotce.net`.
-      - [x] Run a test deployment.
-  - [x] How will it know what version it's running both in production and in development?
-  - [x] Run the sotce-net instance in development in addition to the AC one in emacs.
-  - [x] Will use a different table in the database like `chat-sotce-net` instead
-        of chat-system.
-  - [x] Will require subscriber authorization from `sotce-net` users (code can be found in`sotce-net.mjs`)
-        if running that instance in order to actually send messages but not to join or
-        observe chats.
-  - [x] Add the proper commands for a new system to package.json.
-    - [x] Development command.
-      - [x] Run the development command in tandem with `chat-system` and
-            see if it boots up properly.
- - [x] Update nanos versions / dependencies in this dir.
- - [x] Set up logging so I know why this server is crashing.
-   - [x] Maybe it's a setting in Google Cloud to log the serial console. 
-   - [x] Also check the nanos logs.
-   - [x] Or maybe I need to use an external service. (Signed up for nanos Radar) 
-#endregion */
+  - [🔵] Add full support for and launch a `chat-clock` backend instance. 
+    - [] Proofread the code.
+    - [] Update any dependencies
+    - [] Make a dev deployment script and emacs tab.
+*/
 
 // Management:
 // https://console.cloud.google.com/compute/instances?project=aesthetic-computer
@@ -83,6 +47,12 @@ const instances = {
     allowedHost: "chat.sotce.net",
     userInfoEndpoint: "https://sotce.us.auth0.com/userinfo",
     devPort: 8084,
+  },
+  "chat-clock": {
+    name: "chat-clock",
+    allowedHost: "chat-clock.aesthetic.computer",
+    userInfoEndpoint: "https://aesthetic.us.auth0.com/userinfo",
+    devPort: 8085,
   },
 };
 
@@ -340,9 +310,9 @@ await getLast100MessagesfromMongo();
 const port = dev ? instance.devPort : 80;
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(
-    `--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`,
-  );
+  // console.log(
+  //   `--> Web server running at ${dev ? "https" : "http"}://0.0.0.0:${port} 🕷️`,
+  // );
   startChatServer();
 });
 
@@ -674,9 +644,33 @@ async function startChatServer() {
             filteredText = filter(message.text);
           }
 
-          // Don't store any actual messages to the MongoDB in development.
-          const when = new Date();
+          // Determine 'when' by fetching from server clock or falling back to local time
+          let when;
+          const clockHost = dev
+            ? "https://localhost:8888"
+            : "https://aesthetic.computer";
+          const clockUrl = `${clockHost}/api/clock`;
 
+          try {
+            const clockResponse = await fetch(clockUrl);
+            if (clockResponse.ok) {
+              const serverTimeISO = await clockResponse.text();
+              when = new Date(serverTimeISO);
+              console.log("⏲️ Using server time...");
+            } else {
+              console.error(
+                `🔴 Chat: Failed to fetch server time from ${clockUrl}: ${clockResponse.status} ${await clockResponse.text()}. Using local time.`,
+              );
+              when = new Date(); // Fallback
+            }
+          } catch (error) {
+            console.error(
+              `🔴 Chat: Error fetching server time from ${clockUrl}: ${error}. Using local time.`,
+            );
+            when = new Date(); // Fallback
+          }
+
+          // Don't store any actual messages to the MongoDB in development.
           if (!dev) {
             console.log("🟡 Storing message...");
             const dbmsg = {
@@ -713,6 +707,36 @@ async function startChatServer() {
 
           if (instance.name === "chat-system")
             notify(handle + " 💬", filteredText); // Push notification.
+
+          if (instance.name === "chat-clock") {
+            const getClockEmoji = (date) => {
+              let hour = date.getHours(); // 0-23
+              const minutes = date.getMinutes(); // 0-59
+
+              // Convert to 12-hour format for emoji indexing (1-12)
+              let hour12 = hour % 12;
+              if (hour12 === 0) {
+                hour12 = 12; // Midnight or noon is 12
+              }
+
+              let emojiCode;
+              if (minutes < 30) {
+                // Use o'clock emoji for minutes 0-29
+                // 🕐 (0x1F550) to 🕛 (0x1F55B)
+                emojiCode = 0x1f550 + hour12 - 1;
+              } else {
+                // Use half-past emoji for minutes 30-59
+                // 🕜 (0x1F55C) to 🕧 (0x1F567)
+                emojiCode = 0x1f55c + hour12 - 1;
+              }
+              return String.fromCodePoint(emojiCode);
+            };
+
+            // 'when' is the timestamp of the current message, defined a few lines above
+            const clockEmoji = getClockEmoji(when);
+            // console.log("The clock emoji is...!", clockEmoji);
+            notify(handle + " " + clockEmoji, filteredText); // Push notification.
+          }
 
           // 3. Send a confirmation back to the user.
           // No need, as this comes through redis...
@@ -778,11 +802,11 @@ async function startChatServer() {
     );
   });
 
-  console.log(
-    `--> Socket server running at ${
-      dev ? "wss" : "ws"
-    }://0.0.0.0:${port} 🧦 \n`,
-  );
+  // console.log(
+  //   `--> Socket server running at ${
+  //     dev ? "wss" : "ws"
+  //   }://0.0.0.0:${port} 🧦 \n`,
+  // );
 
   // Sends a message to all connected clients.
   everyone = (string) => {
@@ -839,13 +863,23 @@ async function getLast100MessagesfromMongo() {
   let combinedMessages;
 
   if (instance.name === "chat-sotce") {
-    // 🪷 Don't include AC logs.
+    // 🪷 Don't include AC logs or reverse.
     combinedMessages = await chatCollection
       .find({})
       .sort({ when: -1 })
       .limit(100)
       .toArray();
+  } else if (instance.name !== "chat-system") {
+    // 🕰️ Don't include logs.
+    combinedMessages = await chatCollection
+      .find({})
+      .sort({ when: -1 })
+      .limit(100)
+      .toArray()
+      .reverse();
   } else {
+    // chat-system
+    // todo; take into account chat-clock
     // 🟪 Assume an AC chat instance with logs rolled in.
     combinedMessages = (
       await chatCollection
@@ -876,14 +910,18 @@ async function getLast100MessagesfromMongo() {
     let from;
 
     if (message.user) {
-      console.log("🗨️ User message:", message);
+      // console.log("🗨️ User message:", message);
+      // console.log(message);
+
       const fromSub = message.user;
       from = await getHandleFromSub(fromSub);
     } else {
       // 'logs' has a 'users' array but never a 'user' field.
-      console.log("🪵 System log:", message);
+      // console.log("🪵 System log:", message);
       from = message.from || "deleted";
     }
+
+    console.log(`🔵 ${from}: "${message.text}" at ${message.when}`);
 
     messages.push({
       from,
@@ -898,7 +936,7 @@ async function getHandleFromSub(fromSub) {
   let handle;
   // if (await isMuted(fromSub)) return "nohandle"; // Catch this on rendering.
 
-  console.log("🟡 Looking up user record for...", fromSub);
+  // console.log("🟡 Looking up user record for...", fromSub);
   if (!subsToHandles[fromSub]) {
     try {
       let prefix = "";
@@ -917,7 +955,7 @@ async function getHandleFromSub(fromSub) {
 
       // console.log("Host:", host);
       const url = `${host}/handle?for=${prefix}${fromSub}`;
-      console.log("Fetching from url:", url);
+      // console.log("Fetching from url:", url);
 
       const options = {};
       if (dev) options.agent = agent;
@@ -925,19 +963,19 @@ async function getHandleFromSub(fromSub) {
       if (response.status === 200) {
         const data = await response.json();
         handle = data.handle;
-        console.log("🫅 Handle found:", handle);
+        // console.log("🫅 Handle found:", handle);
       } else {
-        console.warn("❌ 🫅 Handle not found:", await response.json());
+        // console.warn("❌ 🫅 Handle not found:", await response.json());
       }
     } catch (error) {
-      console.error("❌ 🫅 Handle retrieval error:", error);
+      // console.error("❌ 🫅 Handle retrieval error:", error);
     }
 
-    console.log("🟢 Got handle from network:", handle);
+    // console.log("🟢 Got handle from network:", handle);
     subsToHandles[fromSub] = handle;
   } else {
     handle = subsToHandles[fromSub];
-    console.log("🟢 Got handle from cache:", handle);
+    // console.log("🟢 Got handle from cache:", handle);
   }
 
   return "@" + handle;

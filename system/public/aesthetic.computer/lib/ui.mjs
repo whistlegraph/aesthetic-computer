@@ -154,9 +154,12 @@ class Button {
           btn.box.containsNone(pens) &&
           btn.box.contains(e)) ||
         //(pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
-        ((!pens || pens.length <= 1) && btn.box.contains(e)) ||
-        e.pointer === btn.downPointer // TOOD: Hope this doesn't ruin
+        ((!pens || pens.length <= 1) && btn.box.contains(e)) // ||
+
+        // TODO: This may need to be fixed for stample multi touch again...
+        // e.pointer === btn.downPointer // TOOD: Hope this doesn't ruin
         //  multi-touch / create problems across `bleep` and `stample`. 25.03.05.21.51
+
       ) {
         // console.log(
         //   "Button up (push):",

@@ -4,3 +4,6 @@
 
 # a message txt file to tell the host when the container started
 .started
+
+host.env
+fish_history

@@ -104,7 +104,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       if (msg.type === "new-bpm") {
         this.#bpm = msg.data;
         this.#bpmInSec = 60 / this.#bpm;
-        console.log("🎼 New BPM:", this.#bpm);
+        // console.log("🎼 New BPM:", this.#bpm);
         return;
       }
 
@@ -149,6 +149,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // Clear the full sample cache.
+      if (msg.type === "cache:clear") {
+        for (const k in sampleStore) delete sampleStore[k];
+        return;
+      }
+
       // 📢 Sound
       // Fires just once and gets recreated on every call.
 
@@ -177,6 +183,8 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             } else {
               sampleStore[data.options.label] = data.options.buffer;
             }
+
+            // console.log("Buffer:", data.options.buffer, data.options.label);
 
             // Ensure 'from' and 'to' are within the valid range [0,1]
             let from = clamp(data.options.from || 0, 0, 1);
@@ -223,24 +231,33 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         // console.log(msg.data);
 
         // Trigger the sound...
-        const sound = new Synth({
-          type: msg.data.type,
-          id: msg.data.id,
-          options: msg.data.options || { tone: msg.data.tone },
-          duration,
-          attack,
-          decay,
-          volume: msg.data.volume ?? 1,
-          pan: msg.data.pan || 0,
-        });
 
-        // console.log("🔊🚩 Sound ID:", msg.data.id);
+        // TODO: Use the `when` value to trigger the sound here.
 
-        // if (duration === Infinity && msg.data.id > -1n) {
-        this.#running[msg.data.id] = sound; // Index by the unique id.
+        //if (msg.data.when === "now") {
+          const sound = new Synth({
+            type: msg.data.type,
+            id: msg.data.id,
+            options: msg.data.options || { tone: msg.data.tone },
+            duration,
+            attack,
+            decay,
+            volume: msg.data.volume ?? 1,
+            pan: msg.data.pan || 0,
+          });
+
+          // console.log("🔊🚩 Sound ID:", msg.data.id);
+
+          // if (duration === Infinity && msg.data.id > -1n) {
+          this.#running[msg.data.id] = sound; // Index by the unique id.
+          // }
+
+          this.#queue.push(sound);
+        //} else {
+          // Wait and then trigger...
+          // console.log("😊 Waiting on sound:", msg.data.when);
         // }
 
-        this.#queue.push(sound);
         return;
       }
 

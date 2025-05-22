@@ -19,6 +19,7 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
+import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import { Chat } from "./chat.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -207,7 +208,7 @@ function addUndoPainting(painting, step = "unspecified") {
       pixels.every((value, index) => value === lastPainting.pixels[index]);
 
     if (eq) {
-      console.log("💩 The undo stack was not changed:", undoPaintings.length);
+      // console.log("💩 The undo stack was not changed:", undoPaintings.length);
       return;
     }
   }
@@ -276,6 +277,7 @@ let currentPath,
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
+  currentHUDScrub = 0,
   currentHUDOffset;
 //currentPromptButton;
 
@@ -366,12 +368,8 @@ const fairies = []; // Render cursor points of other active users,
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
-let darkModeWipeNum = 32;
-let darkModeWipeBG = 32;
-// let DMStatusColor;
-
 // *** Dark Mode ***
-//tarighian
+// (By @tarighian)
 // Pass `true` or `false` to override or `default` to the system setting.
 function darkMode(enabled) {
   if (enabled === "default") {
@@ -384,18 +382,6 @@ function darkMode(enabled) {
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
-    if (enabled === true) {
-      // DMStatusColor = "lime";
-      darkModeWipeBG = 32;
-      darkModeWipeNum = 64;
-      // console.log("🌜 Dark Mode");
-    }
-    if (enabled === false) {
-      // DMStatusColor = "teal";
-      darkModeWipeBG = 150;
-      darkModeWipeNum = 200;
-      // console.log("🌞 Light Mode");
-    }
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
   }
@@ -583,7 +569,11 @@ async function uploadPainting(picture, progress, handle, filename) {
     try {
       const data = await $commonApi.upload(
         filename,
-        picture,
+        {
+          pixels: picture.pixels,
+          width: picture.width,
+          height: picture.height,
+        },
         (p) => {
           console.log("Painting upload progress:", p);
           progress?.(p);
@@ -606,14 +596,85 @@ function isLeaving(set) {
 
 let docs; // Memorized by `requestDocs`.
 
-// For every function to access.
+let baseTime = Date.now(); // Virtual clock base
+let baseReal = Date.now(); // Real time at last baseTime
+let clockFetching = false;
+let lastServerTime = undefined;
+let clockOffset = 0; // Smoothed offset from server
+
 const $commonApi = {
+  clock: {
+    offset: function () {
+      if (clockFetching) return;
+
+      clockFetching = true;
+      const t0 = Date.now();
+
+      fetch("/api/clock")
+        .then((response) => {
+          if (!response.ok) {
+            return response.text().then((err) => {
+              clockFetching = false;
+              throw new Error(
+                `Failed to fetch offset: ${response.status} ${err}`,
+              );
+            });
+          }
+
+          return response.text().then((serverTimeISO) => {
+            const t1 = Date.now();
+            const serverTime = new Date(serverTimeISO).getTime();
+
+            // Assume serverTime is the midpoint of request
+            const rtt = t1 - t0;
+            const approxClientMidpoint = t0 + rtt / 2;
+            const targetOffset = serverTime - approxClientMidpoint;
+
+            // Blend the clock offset gradually (e.g. 10% of the way each resync)
+            const blendFactor = 0.25;
+            clockOffset += (targetOffset - clockOffset) * blendFactor;
+
+            // Recompute base time to keep virtual time in sync
+            baseTime = Date.now() + clockOffset;
+            baseReal = Date.now();
+
+            // console.log('synced')
+
+            lastServerTime = serverTime;
+            clockFetching = false;
+          });
+        })
+        .catch((err) => {
+          console.error("Clock:", err);
+          clockFetching = false;
+        });
+    },
+
+    resync: function () {
+      $commonApi.clock.offset();
+    },
+
+    time: function () {
+      return new Date(baseTime + (Date.now() - baseReal));
+    },
+  },
+
   // Enable Pointer Lock
   penLock: () => {
     send({ type: "pen:lock" });
   },
   chat: chatClient.system,
   dark: undefined, // If we are in dark mode.
+  theme: {
+    light: {
+      wipeBG: 150,
+      wipeNum: 200,
+    },
+    dark: {
+      wipeBG: 32,
+      wipeNum: 64,
+    },
+  },
   glaze: function (content) {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
@@ -628,6 +689,8 @@ const $commonApi = {
     }
     const jumpOut =
       to.startsWith("out:") || (to.startsWith("http") && platform.Aesthetic);
+
+    if (shop.indexOf(to) > -1) to = "/" + to; // Jump out for shop products.
 
     if (
       ((to.startsWith("http") || to.startsWith("/")) && !to.endsWith(".mjs")) ||
@@ -817,8 +880,8 @@ const $commonApi = {
     current: {}, // Will get replaced by an update event.
   },
   // Speak an `utterance` aloud.
-  speak: (utterance, voice, mode, opts) => {
-    send({ type: "speak", content: { utterance, voice, mode, opts } });
+  speak: function speak(utterance, voice = "female:18", mode = "cloud", opts) {
+    return send({ type: "speak", content: { utterance, voice, mode, opts } });
   },
   // Broadcast an event through the entire act system.
   act: (event, data = {}) => {
@@ -875,6 +938,9 @@ const $commonApi = {
     });
     serverUploadProgressReporter = progress;
     serverUploadProgressReporter?.(0);
+
+    console.log("Painting data:", data);
+
     send({ type: "upload", content: { filename, data, bucket } });
     return prom;
   },
@@ -1178,7 +1244,11 @@ const $commonApi = {
       // TODO: - [] Add Zoom
       //       - [] And Rotation!
 
-      present: ({ system, screen, wipe, paste, ink, slug }, tx, ty) => {
+      present: (
+        { system, screen, wipe, paste, ink, slug, dark, theme },
+        tx,
+        ty,
+      ) => {
         system.nopaint.needsPresent = false;
 
         const x = tx || system.nopaint.translation.x;
@@ -1198,7 +1268,7 @@ const $commonApi = {
         } else {
           // If we are panned or the painting is a custom resolution.
 
-          wipe(darkModeWipeBG)
+          wipe(theme[dark ? "dark" : "light"].wipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel)
             .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
             .ink(128)
@@ -1223,14 +1293,13 @@ const $commonApi = {
       },
       // Kill an existing painting.
       noBang: async (
-        { system, store, needsPaint, painting },
+        { system, store, needsPaint, painting, theme, dark },
         res = { w: screen.width, h: screen.height },
       ) => {
         // console.log("deleting...");
         const deleted = await store.delete("painting", "local:db");
         await store.delete("painting:resolution-lock", "local:db");
         await store.delete("painting:transform", "local:db");
-        // console.log("deleted");
         system.nopaint.undo.paintings.length = 0; // Reset undo stack.
         system.painting = null;
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
@@ -1239,7 +1308,7 @@ const $commonApi = {
         // Make a blank painting.
         // I don't like that these getters will not re-associate.
         system.painting = painting(res.w, res.h, ($) => {
-          $.wipe(darkModeWipeNum);
+          $.wipe(theme[dark ? "dark" : "light"].wipeNum);
         });
         store["painting"] = $commonApi.system.painting;
 
@@ -1911,8 +1980,10 @@ const $paintApi = {
           tf?.print(
             $activePaintApi,
             {
-              x: pos.x,
-              y: pos.y + index * tf.data.glyphHeight + lineHeightGap,
+              x: pos?.x,
+              y: pos
+                ? pos.y + index * tf.data.glyphHeight + lineHeightGap
+                : undefined,
             },
             0,
             line,
@@ -3246,7 +3317,34 @@ async function load(
       }
     }
 
-    if (extension === "json") {
+    if (extension === "xml" || extension === undefined) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        options.signal?.addEventListener("abort", () => {
+          xhr.abort();
+          rejection(reject);
+        });
+
+        xhr.open("GET", path, true);
+        xhr.onprogress = function (event) {
+          const progress = min(event.loaded / event.total, 1);
+          if (debug && logs.download) {
+            console.log(`💈 XML Download: ${progress * 100}%`);
+          }
+          progressReport?.(progress);
+        };
+        xhr.onload = function () {
+          if (xhr.status === 200 || xhr.status === 304) {
+            resolve(xhr.responseXML || xhr.responseText);
+          } else {
+            reject(xhr.status);
+          }
+        };
+        xhr.onerror = reject;
+        xhr.send();
+      });
+    } else if (extension === "json") {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
@@ -3679,11 +3777,15 @@ async function load(
     glazeEnabled = null;
     // soundClear = null;
     hourGlasses.length = 0;
-    labelBack = false;
+    // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
+
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
+
+    // console.log("🔴 PREVIEW OR ICON:", PREVIEW_OR_ICON, "Preview mode:", previewMode, "Icon mode:", iconMode);
     // console.log("📑 Search:", parsed.search);
     // console.log("🖼️ ICON MODE:", iconMode);
+
     previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
@@ -3722,6 +3824,7 @@ async function load(
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
+    currentHUDScrub = 0;
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -3862,7 +3965,7 @@ async function makeFrame({ data: { type, content } }) {
       load(content.parsed); // Load after some of the default frames run.
     };
 
-    if (previewOrIconMode) {
+    if (PREVIEW_OR_ICON) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
@@ -4498,7 +4601,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1c. Loading from History
   if (type === "history-load") {
-    if (debug) console.log("⏳ History:", content);
+    if (debug && logs.history) console.log("⏳ History:", content);
     $commonApi.load(content, true);
     return;
   }
@@ -4651,6 +4754,7 @@ async function makeFrame({ data: { type, content } }) {
           system !== "prompt" &&
           system !== "world" &&
           currentText !== "chat" &&
+          currentText !== "laer-klokken" &&
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
@@ -4779,7 +4883,7 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // 🔈 Sound
-    // TODO: Most of $sound doesn't need to be generated per
+    // TODO: Most of the $sound api doesn't need to be generated per
     //       frame. 24.01.14.15.19
 
     // For reference in `freq` below.
@@ -4904,7 +5008,7 @@ async function makeFrame({ data: { type, content } }) {
           width,
           height,
           color,
-          options = { noamp: false },
+          options = { noamp: false, nobounds: false },
         ) {
           const yMid = round(y + (height - 2) / 2),
             yMax = round((height - 2) / 2);
@@ -4912,9 +5016,11 @@ async function makeFrame({ data: { type, content } }) {
           const xStep = (width - lw) / waveform.length;
 
           // Vertical bounds.
-          ink("yellow")
-            .line(x + lw, y, x + width - 1, y)
-            .line(x + lw, y + height, x + width - 1, y + height);
+          if (!options.nobounds) {
+            ink("yellow")
+              .line(x + lw, y, x + width - 1, y)
+              .line(x + lw, y + height, x + width - 1, y + height);
+          }
 
           // Level meter.
           if (!options.noamp) {
@@ -4981,7 +5087,7 @@ async function makeFrame({ data: { type, content } }) {
           y,
           width,
           height,
-          color,
+          color = "yellow",
           options,
         ) {
           if (waveform?.length < 1) return;
@@ -4992,7 +5098,7 @@ async function makeFrame({ data: { type, content } }) {
             const yMid = y + height / 2,
               yMax = height / 2;
 
-            ink("yellow", 128).poly(
+            ink(color, 128).poly(
               waveform.map((v, i) => {
                 const p = [x + i * xStep, yMid + (v || 0) * yMax];
                 return p;
@@ -5043,17 +5149,17 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
+    soundTime = content.audioTime;
+
     $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
       $sampleCount += 1n;
-
-      // console.log(options);
 
       send({ type: "sfx:play", content: { sfx, id, options } });
 
       const playingSound = {
         options, // Allow the options passed to BIOS to be inspected.
-        startedAt: performance.now(),
+        startedAt: soundTime, // performance.now(),
         killed: false,
         kill: (fade) => {
           send({ type: "sfx:kill", content: { id, fade } });
@@ -5085,10 +5191,14 @@ async function makeFrame({ data: { type, content } }) {
       return playingSound;
     };
 
-    soundTime = content.audioTime;
-
     $sound.skip = function () {
       send({ type: "beat:skip" });
+    };
+
+    $sound.at = function (timeToRun, callback) {
+      // TODO: Finish this implementation.
+      // timeToRun;
+      // content.audioTime;
     };
 
     $sound.synth = function synth({
@@ -5116,10 +5226,11 @@ async function makeFrame({ data: { type, content } }) {
       if (beats === undefined && duration !== undefined) seconds = duration;
       else seconds = (60 / sound.bpm) * beats;
       // console.log("Beats:", beats, "Duration:", duration, "Seconds:", seconds, "BPM:", sound.bpm);
+
       const end = soundTime + seconds;
 
       return {
-        startedAt: performance.now(),
+        startedAt: soundTime, // performance.now(),
         id,
         kill: function (fade) {
           sound.kills.push({ id, fade });
@@ -5350,6 +5461,7 @@ async function makeFrame({ data: { type, content } }) {
           currentHUDButton?.act(e, {
             down: () => {
               originalColor = currentHUDTextColor;
+              currentHUDScrub = 0;
               currentHUDTextColor = [0, 255, 0];
               send({ type: "keyboard:enabled" }); // Enable keyboard flag.
               send({ type: "keyboard:unlock" });
@@ -5366,7 +5478,14 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.25,
               });
             },
-            push: () => {
+            push: (btn) => {
+              const glyphWidth = 6;
+              const shareWidth = glyphWidth * "share ".length;
+              if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
+                btn.actions.cancel?.();
+                return;
+              }
+
               $api.sound.synth({
                 tone: 1200,
                 beats: 0.1,
@@ -5377,6 +5496,7 @@ async function makeFrame({ data: { type, content } }) {
               if (!labelBack) {
                 jump("prompt");
               } else {
+                labelBack = false; // Reset `labelBack` after jumping.
                 if ($commonApi.history.length > 0) {
                   send({ type: "back-to-piece" });
                 } else {
@@ -5385,19 +5505,88 @@ async function makeFrame({ data: { type, content } }) {
               }
               $api.needsPaint();
               masked = true;
+              currentHUDScrub = 0;
+            },
+            scrub: (btn) => {
+              if (piece === "share") return; // No need to share scrub while in share.
+
+              if (btn.over || currentHUDScrub > 0) {
+                currentHUDScrub += e.delta.x;
+              }
+
+              const glyphWidth = 6;
+              const shareWidth = glyphWidth * "share ".length;
+
+              if (currentHUDScrub >= 0) {
+                btn.box.w = glyphWidth * currentHUDTxt.length + currentHUDScrub;
+                // console.log(btn.b);
+              }
+
+              if (currentHUDScrub < 0) currentHUDScrub = 0;
+
+              if (currentHUDScrub >= shareWidth) {
+                currentHUDScrub = shareWidth;
+                currentHUDTextColor = [255, 255, 0];
+              } else if (currentHUDScrub > 0) {
+                currentHUDTextColor = [255, 0, 0];
+              } else if (currentHUDScrub === 0) {
+                if (btn.over) {
+                  currentHUDTextColor = [0, 255, 0];
+                } else {
+                  currentHUDTextColor = [255, 0, 0];
+                }
+              }
             },
             cancel: () => {
               currentHUDTextColor = originalColor;
+
+              const glyphWidth = 6; // As above.
+              const shareWidth = glyphWidth * "share ".length;
+
+              if (currentHUDScrub === shareWidth) {
+                $api.sound.synth({
+                  tone: 1800,
+                  beats: 0.15,
+                  attack: 0.01,
+                  decay: 0.5,
+                  volume: 0.15,
+                });
+                $api.sound.synth({
+                  tone: 1800 / 2,
+                  beats: 0.15 * 2,
+                  attack: 0.01,
+                  decay: 0.5,
+                  volume: 0.1,
+                });
+                $api.jump("share " + currentHUDTxt);
+                return;
+              }
+
+              currentHUDScrub = 0;
               // TODO: This might break on pieces where the keyboard is already
               //       open.
               send({ type: "keyboard:disabled" }); // Disable keyboard flag.
               send({ type: "keyboard:lock" });
               $api.needsPaint();
+              $api.sound.synth({
+                tone: 200,
+                beats: 0.1,
+                attack: 0.01,
+                decay: 0.5,
+                volume: 0.15,
+              });
             },
             rollover: (btn) => {
-              if (btn) send({ type: "keyboard:unlock" });
+              if (btn) {
+                send({ type: "keyboard:unlock" });
+                if (btn.down) {
+                  currentHUDTextColor = [0, 255, 0];
+                }
+              }
             },
             rollout: () => {
+              // console.log("rolled out...");
+              currentHUDTextColor = [200, 80, 80];
               send({ type: "keyboard:lock" });
             },
           });
@@ -5564,6 +5753,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: Disable the depth buffer for now... it doesn't need to be
       //       regenerated on every frame.
+      // TODO: This only needs to run if 'form' is running in a piece. 25.03.20.19.27
       graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
       graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
 
@@ -5919,7 +6109,9 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        let w = currentHUDTxt.length * 6;
+        const glyphWidth = 6;
+        let w = currentHUDTxt.length * glyphWidth + currentHUDScrub;
+
         const h = 11;
         if (piece === "video") w = screen.width;
 
@@ -5937,8 +6129,20 @@ async function makeFrame({ data: { type, content } }) {
             if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
               text = currentHUDTxt?.replaceAll("~", " ");
             }
-            $.ink(0).write(text, { x: 1, y: 1 });
-            $.ink(c).write(text, { x: 0, y: 0 });
+            $.ink(0).write(text, { x: 1 + currentHUDScrub, y: 1 });
+            $.ink(c).write(text, { x: 0 + currentHUDScrub, y: 0 });
+
+            if (currentHUDScrub > 0) {
+              const shareWidth = glyphWidth * "share ".length;
+              $.ink(0).write("share", {
+                x: 1 + currentHUDScrub - shareWidth,
+                y: 1,
+              });
+              $.ink(c).write("share", {
+                x: 0 + currentHUDScrub - shareWidth,
+                y: 0,
+              });
+            }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
             $.ink(c).line(0, 0, 0, h - 2);
@@ -5977,12 +6181,10 @@ async function makeFrame({ data: { type, content } }) {
           );
         });
 
-        if (tapeProgressBar)
-          sendData.tapeProgressBar = {
-            x: 0,
-            y: 0, // screen.height - 1,
-            img: tapeProgressBar,
-          };
+        if (tapeProgressBar) {
+          const { api, ...img } = tapeProgressBar;
+          sendData.tapeProgressBar = { x: 0, y: 0, img };
+        }
       }
 
       maybeLeave();

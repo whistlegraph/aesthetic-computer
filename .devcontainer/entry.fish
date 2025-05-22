@@ -79,7 +79,7 @@ cd /home/me/aesthetic-computer/ssl-dev
 # Check if the files exist in ssl-dev directory
 #if not test -f localhost.pem; or not test -f localhost-key.pem
 # Generate SSL certificates
-sudo fish fedora-install.fish --install-only
+sudo fish ssl-install.fish --install-only
 #end
 
 # Check if the nanos/ssl directory exists, and transfer the ssl certs over.
