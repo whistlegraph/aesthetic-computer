@@ -94,6 +94,7 @@ function beat({ api, sound, params, store, hud }) {
     pan: 0,
   });
 
+  /*
   // Schedule half-step sound to play at 0.5 beats
   setTimeout(() => {
     if (square && square.progress && square.progress(sound.time) < 1) {
@@ -115,7 +116,7 @@ function beat({ api, sound, params, store, hud }) {
       });
     }
   }, (60000 / currentBpm) / 2); // Half the beat interval
-
+  */
   flash = true;
   flashColor.fill(255);
   firstBeat = false;
