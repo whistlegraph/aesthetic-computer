@@ -21,7 +21,6 @@ const melody = [2000, 3000]; //, "c4", "c4", "d4", "e4", "c4", "d4", "e4", "f4",
 let melodyIndex = 0;
 let square;
 let firstBeat = true;
-let beatCount = 0;
 
 // Tap BPM tracking
 let tapTimes = [];
@@ -69,68 +68,59 @@ function beat({ api, sound, params, store, hud }) {
 
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
   odd = !odd;
-  isHalfStep = !isHalfStep;
 
-  if (isHalfStep) {
-    // Half step - play lower tick
-    const halfTick = sound.synth({
-      type: "sawtooth",
-      tone: melody[melodyIndex] / 2, // Lower pitch
-      duration: 0.002,
-      volume: 0.2,
-      pan: odd ? -0.5 : 0.5,
-    });
+  const tick = sound.synth({
+    type: "sawtooth",
+    tone: melody[melodyIndex],
+    duration: 0.0025,
+    volume: 0.35 * 1.5,
+    pan: odd ? -0.75 : 0.75,
+  });
 
-    const halfLotick = sound.synth({
-      type: "square",
-      tone: melody[melodyIndex] / 8, // Much lower
-      duration: 0.004,
-      volume: 0.08,
-      decay: 0.998,
-      pan: odd ? -0.6 : 0.6,
-    });
+  const lotick = sound.synth({
+    type: "square",
+    tone: melody[melodyIndex] / 4,
+    duration: 0.005,
+    volume: 0.15 * 2,
+    decay: 0.999,
+    pan: odd ? -0.8 : 0.8,
+  });
 
-    halfStepSquare = sound.synth({
-      type: "square",
-      tone: melody[melodyIndex] / 2,
-      beats: 0.5, // Half beat duration
-      volume: 0.0001,
-      pan: 0,
-    });
-  } else {
-    // Full step - regular tick
-    const tick = sound.synth({
-      type: "sawtooth",
-      tone: melody[melodyIndex],
-      duration: 0.0025,
-      volume: 0.35 * 1.5,
-      pan: odd ? -0.75 : 0.75,
-    });
+  square = sound.synth({
+    type: "square",
+    tone: melody[melodyIndex],
+    beats: 1,
+    volume: 0.0001,
+    pan: 0,
+  });
 
-    const lotick = sound.synth({
-      type: "square",
-      tone: melody[melodyIndex] / 4,
-      duration: 0.005,
-      volume: 0.15 * 2,
-      decay: 0.999,
-      pan: odd ? -0.8 : 0.8,
-    });
+  // Schedule half-step sound to play at 0.5 beats
+  setTimeout(() => {
+    if (square && square.progress && square.progress(sound.time) < 1) {
+      const halfTick = sound.synth({
+        type: "sawtooth",
+        tone: melody[melodyIndex] / 2,
+        duration: 0.002,
+        volume: 0.2,
+        pan: odd ? -0.5 : 0.5,
+      });
 
-    square = sound.synth({
-      type: "square",
-      tone: melody[melodyIndex],
-      beats: 1,
-      volume: 0.0001,
-      pan: 0,
-    });
-
-    // Only advance melody on full steps
-    melodyIndex = (melodyIndex + 1) % melody.length;
-  }
+      const halfLotick = sound.synth({
+        type: "square",
+        tone: melody[melodyIndex] / 8,
+        duration: 0.004,
+        volume: 0.08,
+        decay: 0.998,
+        pan: odd ? -0.6 : 0.6,
+      });
+    }
+  }, (60000 / currentBpm) / 2); // Half the beat interval
 
   flash = true;
   flashColor.fill(255);
   firstBeat = false;
+
+  melodyIndex = (melodyIndex + 1) % melody.length;
 }
 
 let squareP = 0;
@@ -142,7 +132,7 @@ function sim({ sound: { time, bpm } }) {
     flashColor[0] = 0;
     flashColor[1] = 0;
     flashColor[2] = Math.floor(((1 - p) / 4) * 255);
-    if (p === 1) flash = false; // TODO: This might be skipping 1 frame.
+    if (p === 1) flash = false;
   }
   
   // Handle tap flash decay
@@ -154,7 +144,7 @@ function sim({ sound: { time, bpm } }) {
 function paint({ wipe, ink, line, screen, num: { lerp } }) {
   // Combine beat flash and tap flash
   const shouldFlash = flash || tapFlash;
-  const currentFlashColor = tapFlash ? [255, 200, 100] : flashColor; // Tap flash is orange-ish
+  const currentFlashColor = tapFlash ? [255, 200, 100] : flashColor;
   
   wipe(shouldFlash ? currentFlashColor : 0);
 
@@ -164,7 +154,6 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
-  // Main pendulum swings every beat
   let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
   if (firstBeat) angle = left;
 
@@ -175,10 +164,11 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
     angle,
   );
 
-  // Half-step indicator - show when we're on a half step
-  if (beatCount % 2 === 0) {
+  // Half-step indicator - show blue dot when we're past midpoint
+  if (squareP > 0.5) {
+    const halfProgress = (squareP - 0.5) * 2; // 0-1 for second half
     const dotY = screen.height - screen.height / 3;
-    const dotSize = 4 + Math.sin(squareP * Math.PI) * 2; // Pulses during half-step
+    const dotSize = 3 + halfProgress * 3;
     
     ink(150, 150, 255).circle(screen.width / 2, dotY, dotSize);
   }
