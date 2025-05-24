@@ -21,6 +21,8 @@ const melody = [2000, 3000]; //, "c4", "c4", "d4", "e4", "c4", "d4", "e4", "f4",
 let melodyIndex = 0;
 let square;
 let firstBeat = true;
+let isHalfStep = false;
+let halfStepSquare;
 
 // Tap BPM tracking
 let tapTimes = [];
@@ -68,40 +70,72 @@ function beat({ api, sound, params, store, hud }) {
 
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
   odd = !odd;
+  isHalfStep = !isHalfStep;
 
-  const tick = sound.synth({
-    type: "sawtooth",
-    tone: melody[melodyIndex],
-    duration: 0.0025,
-    volume: 0.35 * 1.5,
-    pan: odd ? -0.75 : 0.75, // Should I pan left or right on every other beat?
-  });
+  if (isHalfStep) {
+    // Half step - play lower tick
+    const halfTick = sound.synth({
+      type: "sawtooth",
+      tone: melody[melodyIndex] / 2, // Lower pitch
+      duration: 0.002,
+      volume: 0.2,
+      pan: odd ? -0.5 : 0.5,
+    });
 
-  const lotick = sound.synth({
-    type: "square",
-    tone: melody[melodyIndex] / 4,
-    duration: 0.005,
-    volume: 0.15 * 2,
-    decay: 0.999,
-    pan: odd ? -0.8 : 0.8, // Should I pan left or right on every other beat?
-  });
+    const halfLotick = sound.synth({
+      type: "square",
+      tone: melody[melodyIndex] / 8, // Much lower
+      duration: 0.004,
+      volume: 0.08,
+      decay: 0.998,
+      pan: odd ? -0.6 : 0.6,
+    });
 
-  square = sound.synth({
-    type: "square",
-    tone: melody[melodyIndex],
-    beats: 1,
-    volume: 0.0001,
-    pan: 0, // Should I pan left or right on every other beat?
-  });
+    halfStepSquare = sound.synth({
+      type: "square",
+      tone: melody[melodyIndex] / 2,
+      beats: 0.5, // Half beat duration
+      volume: 0.0001,
+      pan: 0,
+    });
+  } else {
+    // Full step - regular tick
+    const tick = sound.synth({
+      type: "sawtooth",
+      tone: melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.35 * 1.5,
+      pan: odd ? -0.75 : 0.75,
+    });
+
+    const lotick = sound.synth({
+      type: "square",
+      tone: melody[melodyIndex] / 4,
+      duration: 0.005,
+      volume: 0.15 * 2,
+      decay: 0.999,
+      pan: odd ? -0.8 : 0.8,
+    });
+
+    square = sound.synth({
+      type: "square",
+      tone: melody[melodyIndex],
+      beats: 1,
+      volume: 0.0001,
+      pan: 0,
+    });
+
+    // Only advance melody on full steps
+    melodyIndex = (melodyIndex + 1) % melody.length;
+  }
 
   flash = true;
   flashColor.fill(255);
   firstBeat = false;
-
-  melodyIndex = (melodyIndex + 1) % melody.length;
 }
 
 let squareP = 0;
+let halfSquareP = 0;
 
 function sim({ sound: { time, bpm } }) {
   if (square) {
@@ -111,6 +145,12 @@ function sim({ sound: { time, bpm } }) {
     flashColor[1] = 0;
     flashColor[2] = Math.floor(((1 - p) / 4) * 255);
     if (p === 1) flash = false; // TODO: This might be skipping 1 frame.
+  }
+  
+  if (halfStepSquare) {
+    const p = halfStepSquare.progress(time);
+    halfSquareP = p;
+    if (p === 1) halfStepSquare = null; // Clean up completed half step
   }
   
   // Handle tap flash decay
@@ -126,23 +166,44 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
   
   wipe(shouldFlash ? currentFlashColor : 0);
 
-  if (!square) return;
+  if (!square && !halfStepSquare) return;
 
   const baseAngle = -90;
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
-  let angle =
-    melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
+  // Main pendulum (full steps)
+  if (square) {
+    let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
+    if (firstBeat) angle = left;
 
-  if (firstBeat) angle = left;
+    ink(255).lineAngle(
+      screen.width / 2,
+      screen.height - screen.height / 4,
+      screen.height / 2,
+      angle,
+    );
+  }
 
-  ink(255).lineAngle(
-    screen.width / 2,
-    screen.height - screen.height / 4,
-    screen.height / 2,
-    angle,
-  );
+  // Half-step indicator (smaller pendulum or dot)
+  if (halfStepSquare) {
+    const halfLeft = baseAngle - 10;
+    const halfRight = baseAngle + 10;
+    let halfAngle = melodyIndex === 0 ? lerp(halfLeft, halfRight, halfSquareP) : lerp(halfRight, halfLeft, halfSquareP);
+    
+    // Draw smaller half-step pendulum in different color
+    ink(150, 150, 255).lineAngle(
+      screen.width / 2,
+      screen.height - screen.height / 3,
+      screen.height / 4,
+      halfAngle,
+    );
+    
+    // Also draw a small dot at the tip to make it more visible
+    const tipX = screen.width / 2 + Math.cos((halfAngle * Math.PI) / 180) * (screen.height / 4);
+    const tipY = screen.height - screen.height / 3 + Math.sin((halfAngle * Math.PI) / 180) * (screen.height / 4);
+    ink(100, 100, 255).circle(tipX, tipY, 4);
+  }
 }
 
 function calculateBpmFromTaps() {
@@ -218,8 +279,8 @@ function calculateBpmFromTaps() {
     }
   }
   
-  // Clamp to reasonable range
-  return finalBpm ? Math.max(60, Math.min(300, finalBpm)) : null;
+  // Clamp to reasonable range (no upper limit for fast tapping)
+  return finalBpm ? Math.max(30, finalBpm) : null;
 }
 
 function act({ event: e, sound }) {
