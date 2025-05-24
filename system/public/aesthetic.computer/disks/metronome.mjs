@@ -183,13 +183,13 @@ function calculateBpmFromTaps() {
   const lastInterval = tapTimes[tapTimes.length - 1] - tapTimes[tapTimes.length - 2];
   const instantBpm = Math.round(60000 / lastInterval);
   
-  // Build up exponential moving average more gradually
+  // Build up exponential moving average
   recentIntervals.push(lastInterval);
-  if (recentIntervals.length > 20) { // Keep more history for smoother averaging
+  if (recentIntervals.length > 20) {
     recentIntervals.shift();
   }
   
-  // Calculate exponential moving average with much more smoothing
+  // Calculate exponential moving average
   let emaInterval = recentIntervals[0];
   for (let i = 1; i < recentIntervals.length; i++) {
     emaInterval = emaInterval * (1 - SMOOTHING_FACTOR) + recentIntervals[i] * SMOOTHING_FACTOR;
@@ -204,40 +204,43 @@ function calculateBpmFromTaps() {
     overallBpm = Math.round(60000 / avgInterval);
   }
   
-  // Very gradual blending strategy for maximum smoothness
+  // Much more aggressive strategy - prioritize immediate response
   let finalBpm;
   
   if (totalTapCount <= 2) {
+    // First 2 taps: Use instant BPM immediately
     finalBpm = instantBpm;
-  } else if (totalTapCount <= 5) {
-    // Gradually introduce smoothing
-    const instantWeight = Math.max(0.3, 1.0 - (totalTapCount - 2) * 0.2);
-    finalBpm = Math.round(instantBpm * instantWeight + emaBpm * (1 - instantWeight));
+  } else if (totalTapCount <= 4) {
+    // Next 2 taps: Still heavily favor instant, but start blending
+    finalBpm = Math.round(instantBpm * 0.8 + emaBpm * 0.2);
+  } else if (totalTapCount <= 8) {
+    // Building confidence: 60/40 split
+    finalBpm = Math.round(instantBpm * 0.6 + emaBpm * 0.4);
   } else {
-    // Heavily favor the smooth EMA
-    finalBpm = emaBpm;
+    // Established pattern: Still responsive but more stable
+    finalBpm = Math.round(instantBpm * 0.4 + emaBpm * 0.6);
     
     // Very gentle overall validation - only for major drift
-    if (overallBpm && Math.abs(finalBpm - overallBpm) > overallBpm * 0.15) {
-      finalBpm = Math.round(finalBpm * 0.9 + overallBpm * 0.1);
+    if (overallBpm && Math.abs(finalBpm - overallBpm) > overallBpm * 0.2) {
+      finalBpm = Math.round(finalBpm * 0.85 + overallBpm * 0.15);
     }
   }
   
-  // Super smooth BPM history filtering
+  // Much more lenient BPM history filtering - allow bigger changes
   if (finalBpm) {
     bpmHistory.push(finalBpm);
-    if (bpmHistory.length > 15) { // Keep more history
+    if (bpmHistory.length > 10) { // Less history for faster response
       bpmHistory.shift();
     }
     
-    // Very conservative change limiting for ultra-smooth results
-    if (bpmHistory.length > 5) {
-      const recentAvg = bpmHistory.slice(-5).reduce((sum, bpm) => sum + bpm, 0) / 5;
+    // Only limit very extreme changes
+    if (bpmHistory.length > 3) {
+      const recentAvg = bpmHistory.slice(-3).reduce((sum, bpm) => sum + bpm, 0) / 3;
       const change = Math.abs(finalBpm - recentAvg);
       
-      // Limit changes to be very gradual
-      if (change > recentAvg * 0.03) { // Only 3% change allowed
-        const maxChange = Math.ceil(recentAvg * 0.03);
+      // Allow up to 10% change (much more than before)
+      if (change > recentAvg * 0.1) {
+        const maxChange = Math.ceil(recentAvg * 0.1);
         if (finalBpm > recentAvg) {
           finalBpm = Math.min(finalBpm, recentAvg + maxChange);
         } else {
@@ -290,8 +293,8 @@ function act({ event: e, sound }) {
       tapTimes.shift();
     }
     
-    // Clear session if there's been a long gap (> 5 seconds)
-    const gapThreshold = 5000;
+    // Clear session if there's been a long gap (> 3 seconds) - shorter for faster reset
+    const gapThreshold = 3000;
     if (tapTimes.length > 1) {
       const lastGap = currentTime - tapTimes[tapTimes.length - 2];
       if (lastGap > gapThreshold) {
