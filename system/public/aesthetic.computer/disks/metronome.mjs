@@ -164,7 +164,7 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
-  // Main pendulum - now smoothly covers 2 beats (full + half)
+  // Main pendulum swings every beat
   let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
   if (firstBeat) angle = left;
 
@@ -175,11 +175,10 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
     angle,
   );
 
-  // Half-step indicator - show a small dot when we're past the midpoint
-  if (squareP > 0.5) {
-    const halfProgress = (squareP - 0.5) * 2; // Normalize to 0-1 for second half
+  // Half-step indicator - show when we're on a half step
+  if (beatCount % 2 === 0) {
     const dotY = screen.height - screen.height / 3;
-    const dotSize = 3 + halfProgress * 3; // Grows as we approach half-step
+    const dotSize = 4 + Math.sin(squareP * Math.PI) * 2; // Pulses during half-step
     
     ink(150, 150, 255).circle(screen.width / 2, dotY, dotSize);
   }
