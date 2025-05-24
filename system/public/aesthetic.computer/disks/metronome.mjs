@@ -1,5 +1,3 @@
-// Metronome, 2022.01.16.17.59
-
 /* #region 🟢 TODO 
   - [🟠] Show the bpm rate visually and use arrow keys for dynamic adjustment.
   - [] Add a really nice drum sound.
@@ -24,6 +22,11 @@ let melodyIndex = 0;
 let square;
 let firstBeat = true;
 
+// Tap BPM tracking
+let tapTimes = [];
+let calculatedBpm = null;
+let bpmUpdatePending = false;
+
 function boot({ sound }) {
   sound.skip(); // 💀 Send a signal to skip to the next beat.
 }
@@ -31,7 +34,7 @@ function boot({ sound }) {
 let odd = false;
 
 // 💗 Beat
-function beat({ api, sound, params, store }) {
+function beat({ api, sound, params, store, hud }) {
   // Set the system metronome using `store`.
   let newBpm;
   if (params) {
@@ -41,7 +44,19 @@ function beat({ api, sound, params, store }) {
     else newBpm = parseInt(params[0]);
   }
 
-  store["metronome:bpm"] = sound.bpm(newBpm || store["metronome:bpm"] || 180);
+  // Use calculated BPM from tapping if available
+  if (bpmUpdatePending && calculatedBpm) {
+    newBpm = calculatedBpm;
+    bpmUpdatePending = false;
+  }
+
+  const currentBpm = sound.bpm(newBpm || store["metronome:bpm"] || 180);
+  store["metronome:bpm"] = currentBpm;
+
+  // Update HUD with current BPM
+  if (hud) {
+    hud.label(`BPM: ${Math.round(currentBpm)}`);
+  }
 
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
   odd = !odd;
@@ -80,7 +95,7 @@ function beat({ api, sound, params, store }) {
 
 let squareP = 0;
 
-function sim({ sound: { time } }) {
+function sim({ sound: { time, bpm } }) {
   if (square) {
     const p = square.progress(time);
     squareP = p;
@@ -114,7 +129,50 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
   );
 }
 
-export { boot, beat, sim, paint };
+function calculateBpmFromTaps() {
+  if (tapTimes.length < 2) return null;
+  
+  // Calculate intervals between taps
+  const intervals = [];
+  for (let i = 1; i < tapTimes.length; i++) {
+    intervals.push(tapTimes[i] - tapTimes[i - 1]);
+  }
+  
+  // Calculate average interval in milliseconds
+  const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+  
+  // Convert to BPM (60000 ms per minute)
+  const bpm = 60000 / avgInterval;
+  
+  // Clamp BPM to reasonable range
+  return Math.max(60, Math.min(300, Math.round(bpm)));
+}
+
+function act({ event: e, sound }) {
+  if (e.is("touch")) {
+    const currentTime = Date.now();
+    
+    // Add current tap time
+    tapTimes.push(currentTime);
+    
+    // Keep only the last 8 taps for calculation
+    if (tapTimes.length > 8) {
+      tapTimes.shift();
+    }
+    
+    // Clear old taps (older than 3 seconds)
+    const cutoffTime = currentTime - 3000;
+    tapTimes = tapTimes.filter(time => time > cutoffTime);
+    
+    // Calculate BPM if we have enough taps
+    if (tapTimes.length >= 2) {
+      calculatedBpm = calculateBpmFromTaps();
+      bpmUpdatePending = true;
+    }
+  }
+}
+
+export { boot, beat, sim, paint, act };
 
 // 📚 Library
 // ...
