@@ -21,8 +21,7 @@ const melody = [2000, 3000]; //, "c4", "c4", "d4", "e4", "c4", "d4", "e4", "f4",
 let melodyIndex = 0;
 let square;
 let firstBeat = true;
-let isHalfStep = false;
-let halfStepSquare;
+let beatCount = 0;
 
 // Tap BPM tracking
 let tapTimes = [];
@@ -135,7 +134,6 @@ function beat({ api, sound, params, store, hud }) {
 }
 
 let squareP = 0;
-let halfSquareP = 0;
 
 function sim({ sound: { time, bpm } }) {
   if (square) {
@@ -145,12 +143,6 @@ function sim({ sound: { time, bpm } }) {
     flashColor[1] = 0;
     flashColor[2] = Math.floor(((1 - p) / 4) * 255);
     if (p === 1) flash = false; // TODO: This might be skipping 1 frame.
-  }
-  
-  if (halfStepSquare) {
-    const p = halfStepSquare.progress(time);
-    halfSquareP = p;
-    if (p === 1) halfStepSquare = null; // Clean up completed half step
   }
   
   // Handle tap flash decay
@@ -166,43 +158,30 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
   
   wipe(shouldFlash ? currentFlashColor : 0);
 
-  if (!square && !halfStepSquare) return;
+  if (!square) return;
 
   const baseAngle = -90;
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
-  // Main pendulum (full steps)
-  if (square) {
-    let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
-    if (firstBeat) angle = left;
+  // Main pendulum - now smoothly covers 2 beats (full + half)
+  let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
+  if (firstBeat) angle = left;
 
-    ink(255).lineAngle(
-      screen.width / 2,
-      screen.height - screen.height / 4,
-      screen.height / 2,
-      angle,
-    );
-  }
+  ink(255).lineAngle(
+    screen.width / 2,
+    screen.height - screen.height / 4,
+    screen.height / 2,
+    angle,
+  );
 
-  // Half-step indicator (smaller pendulum or dot)
-  if (halfStepSquare) {
-    const halfLeft = baseAngle - 10;
-    const halfRight = baseAngle + 10;
-    let halfAngle = melodyIndex === 0 ? lerp(halfLeft, halfRight, halfSquareP) : lerp(halfRight, halfLeft, halfSquareP);
+  // Half-step indicator - show a small dot when we're past the midpoint
+  if (squareP > 0.5) {
+    const halfProgress = (squareP - 0.5) * 2; // Normalize to 0-1 for second half
+    const dotY = screen.height - screen.height / 3;
+    const dotSize = 3 + halfProgress * 3; // Grows as we approach half-step
     
-    // Draw smaller half-step pendulum in different color
-    ink(150, 150, 255).lineAngle(
-      screen.width / 2,
-      screen.height - screen.height / 3,
-      screen.height / 4,
-      halfAngle,
-    );
-    
-    // Also draw a small dot at the tip to make it more visible
-    const tipX = screen.width / 2 + Math.cos((halfAngle * Math.PI) / 180) * (screen.height / 4);
-    const tipY = screen.height - screen.height / 3 + Math.sin((halfAngle * Math.PI) / 180) * (screen.height / 4);
-    ink(100, 100, 255).circle(tipX, tipY, 4);
+    ink(150, 150, 255).circle(screen.width / 2, dotY, dotSize);
   }
 }
 
