@@ -26,6 +26,12 @@ let firstBeat = true;
 let tapTimes = [];
 let calculatedBpm = null;
 let bpmUpdatePending = false;
+let runningBpmAverage = null;
+let totalTapCount = 0;
+let firstTapTime = null;
+let recentIntervals = [];
+let bpmHistory = [];
+const SMOOTHING_FACTOR = 0.15; // Lower = more smoothing
 
 function boot({ sound }) {
   sound.skip(); // 💀 Send a signal to skip to the next beat.
@@ -53,9 +59,10 @@ function beat({ api, sound, params, store, hud }) {
   const currentBpm = sound.bpm(newBpm || store["metronome:bpm"] || 180);
   store["metronome:bpm"] = currentBpm;
 
-  // Update HUD with current BPM
+  // Update HUD with current BPM and tap info
   if (hud) {
-    hud.label(`BPM: ${Math.round(currentBpm)}`);
+    const tapCount = totalTapCount > 0 ? ` (${totalTapCount} taps)` : '';
+    hud.label(`BPM: ${Math.round(currentBpm)}${tapCount}`);
   }
 
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
@@ -132,37 +139,137 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
 function calculateBpmFromTaps() {
   if (tapTimes.length < 2) return null;
   
-  // Calculate intervals between taps
-  const intervals = [];
-  for (let i = 1; i < tapTimes.length; i++) {
-    intervals.push(tapTimes[i] - tapTimes[i - 1]);
+  const currentTime = tapTimes[tapTimes.length - 1];
+  
+  // Method 1: Overall average from first tap to now
+  let overallBpm = null;
+  if (firstTapTime && totalTapCount > 1) {
+    const totalDuration = currentTime - firstTapTime;
+    const avgInterval = totalDuration / (totalTapCount - 1);
+    overallBpm = Math.round(60000 / avgInterval);
   }
   
-  // Calculate average interval in milliseconds
-  const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+  // Method 2: Recent intervals (last 4-8 taps)
+  let recentBpm = null;
+  if (tapTimes.length >= 2) {
+    const intervals = [];
+    const numRecentTaps = Math.min(8, tapTimes.length);
+    for (let i = tapTimes.length - numRecentTaps; i < tapTimes.length - 1; i++) {
+      intervals.push(tapTimes[i + 1] - tapTimes[i]);
+    }
+    
+    // Filter out outliers (intervals that are too different from median)
+    intervals.sort((a, b) => a - b);
+    const median = intervals[Math.floor(intervals.length / 2)];
+    const filteredIntervals = intervals.filter(interval => 
+      Math.abs(interval - median) < median * 0.3 // Within 30% of median
+    );
+    
+    if (filteredIntervals.length > 0) {
+      const avgInterval = filteredIntervals.reduce((sum, interval) => sum + interval, 0) / filteredIntervals.length;
+      recentBpm = Math.round(60000 / avgInterval);
+    }
+  }
   
-  // Convert to BPM (60000 ms per minute)
-  const bpm = 60000 / avgInterval;
+  // Method 3: Exponential moving average of intervals
+  const lastInterval = tapTimes[tapTimes.length - 1] - tapTimes[tapTimes.length - 2];
+  recentIntervals.push(lastInterval);
   
-  // Clamp BPM to reasonable range
-  return Math.max(60, Math.min(300, Math.round(bpm)));
+  // Keep only recent intervals for moving average
+  if (recentIntervals.length > 16) {
+    recentIntervals.shift();
+  }
+  
+  // Calculate exponential moving average
+  let emaBpm = null;
+  if (recentIntervals.length > 0) {
+    let emaInterval = recentIntervals[0];
+    for (let i = 1; i < recentIntervals.length; i++) {
+      emaInterval = emaInterval * (1 - SMOOTHING_FACTOR) + recentIntervals[i] * SMOOTHING_FACTOR;
+    }
+    emaBpm = Math.round(60000 / emaInterval);
+  }
+  
+  // Choose the best BPM estimate
+  let finalBpm;
+  
+  if (totalTapCount <= 3) {
+    // For first few taps, use recent calculation
+    finalBpm = recentBpm || emaBpm;
+  } else if (totalTapCount <= 8) {
+    // Blend recent and overall for medium tap counts
+    const recentWeight = 0.7;
+    const overallWeight = 0.3;
+    finalBpm = Math.round(
+      (recentBpm || emaBpm) * recentWeight + 
+      (overallBpm || recentBpm || emaBpm) * overallWeight
+    );
+  } else {
+    // For many taps, prefer the smoothed exponential moving average
+    // but validate against overall trend
+    finalBpm = emaBpm;
+    
+    // Validate against overall BPM - if too different, blend them
+    if (overallBpm && Math.abs(finalBpm - overallBpm) > overallBpm * 0.1) {
+      finalBpm = Math.round(finalBpm * 0.8 + overallBpm * 0.2);
+    }
+  }
+  
+  // Keep BPM history for stability checking
+  if (finalBpm) {
+    bpmHistory.push(finalBpm);
+    if (bpmHistory.length > 10) {
+      bpmHistory.shift();
+    }
+    
+    // If we have history, smooth out sudden changes
+    if (bpmHistory.length > 3) {
+      const recentAvg = bpmHistory.slice(-3).reduce((sum, bpm) => sum + bpm, 0) / 3;
+      const change = Math.abs(finalBpm - recentAvg);
+      
+      // If change is dramatic, moderate it
+      if (change > recentAvg * 0.05) { // More than 5% change
+        finalBpm = Math.round(finalBpm * 0.7 + recentAvg * 0.3);
+      }
+    }
+  }
+  
+  // Clamp to reasonable range
+  return finalBpm ? Math.max(60, Math.min(300, finalBpm)) : null;
 }
 
 function act({ event: e, sound }) {
   if (e.is("touch")) {
     const currentTime = Date.now();
     
+    // Initialize first tap time
+    if (firstTapTime === null) {
+      firstTapTime = currentTime;
+    }
+    
     // Add current tap time
     tapTimes.push(currentTime);
+    totalTapCount++;
     
-    // Keep only the last 8 taps for calculation
-    if (tapTimes.length > 8) {
+    // Keep a sliding window of recent taps (last 16 taps)
+    if (tapTimes.length > 16) {
       tapTimes.shift();
     }
     
-    // Clear old taps (older than 3 seconds)
-    const cutoffTime = currentTime - 3000;
-    tapTimes = tapTimes.filter(time => time > cutoffTime);
+    // Clear session if there's been a long gap (> 4 seconds)
+    const gapThreshold = 4000;
+    if (tapTimes.length > 1) {
+      const lastGap = currentTime - tapTimes[tapTimes.length - 2];
+      if (lastGap > gapThreshold) {
+        // Reset for new tapping session
+        tapTimes = [currentTime];
+        firstTapTime = currentTime;
+        totalTapCount = 1;
+        recentIntervals = [];
+        bpmHistory = [];
+        runningBpmAverage = null;
+      }
+    }
     
     // Calculate BPM if we have enough taps
     if (tapTimes.length >= 2) {
