@@ -392,10 +392,16 @@
 
 ;; (add-to-list 'command-line-functions 'my/helm-find-files-directory-handler)
 
-(use-package lsp-mode)
+(use-package lsp-mode
+  :config
+  (setq lsp-auto-install-server t)
+  (setq lsp-warn-no-matched-clients nil)
+  ;; Disable Copilot language server
+  (setq lsp-disabled-clients '(copilot-ls))
+  ;; Or alternatively, remove copilot from the server list entirely
+  (delete 'copilot-ls lsp-language-id-configuration))
 (add-hook 'prog-mode-hook #'lsp)
-(setq lsp-auto-install-server t)
-(setq lsp-warn-no-matched-clients nil)
+
 (use-package origami :hook (after-init . global-origami-mode))
 
 ;; (use-package dap-mode
@@ -415,8 +421,8 @@
 (use-package dockerfile-mode) ;; Dockerfile support.
 (use-package fish-mode) ;; Fish shell syntax.
 
-(use-package gptel) ;; ChatGPT / LLM support.
-(setq gptel-api-key (getenv "OPENAI_API_KEY"))
+;; (use-package gptel) ;; ChatGPT / LLM support.
+;; (setq gptel-api-key (getenv "OPENAI_API_KEY"))
 ;; Optional: set `gptel-api-key` to the API key.
 ;; (use-package chatgpt-shell
 ;;  :custom

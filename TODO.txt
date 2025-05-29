@@ -2,10 +2,23 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * UNIFONT support * 
+    - [] Auto switch to `unifont` across prompt and ui / etc with a flag in disk.
+      - [] Make this a prompt setting?
+    - [🟠] Get rid of yellow / non-printing characters in prompt.
+    - [] Show a cool animated blinky thing before the glyph loads. (type.mjs)
+    - [] These glyphs could also be cached locally in indexedDB as an object. (type.mjs)
+  - [] Take care of visual inconsistencies across the system. 
+       (all hardcoded numbers from `font_1`)
+       - [] Test every piece in `list`.
+  + Done
+  - [x] Cache on assets.aesthetic.computer as necessary via digital object s3
+         storage in the assets bucket. (bdf-glyph.js)
+        - [x] If the file exists on `assets.aesthetic.computer/type/unifont/charcode.json`
+             then no need.
+
  * `typeline` aka `tobby` *
-                        | 
   - [] Type the line: xgHij 
-                        |
   - [] Ambiently show other players progress like an obby.
   - [] Reset the map / sequence of characters every 3 for all players using
        the major clock.

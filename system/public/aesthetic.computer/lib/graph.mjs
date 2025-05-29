@@ -1846,7 +1846,7 @@ function draw() {
     gesture.length = 0;
   }
 
-  drawing.commands.forEach(({ name, args }, i) => {
+  drawing?.commands?.forEach(({ name, args }, i) => {
     args = args.map((a) => a * scale);
 
     // console.log(name, i, drawing.commands.length, drawing);

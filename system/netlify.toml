@@ -492,6 +492,10 @@ from = "/shop~25.4.13.18.54"
 to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-54"
 status = 301
 [[redirects]]
+from = "/api/bdf-glyph"
+to = "/.netlify/functions/bdf-glyph"
+status = 200
+[[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"
 status = 200

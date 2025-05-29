@@ -1485,7 +1485,7 @@ function paint($) {
 
       historyTexts.reverse().forEach((t, i) => {
         const ii = i + 1;
-        ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 18 + 12 * i });
+        ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 6 + $.system.prompt.input.typeface.blockHeight * i });
       });
     }
 
@@ -1505,7 +1505,7 @@ function paint($) {
         }
         ink($.dark ? "white" : "red", 32).write(text, {
           x: 6,
-          y: 6 + i * 12,
+          y: 6 + i * $.system.prompt.input.typeface.blockHeight,
         });
       });
     }
