@@ -168,15 +168,22 @@ async function handler(event, context) {
       page = await browser.newPage();
       // Route console logs from Puppeteer page to shell.log
       page.on("console", async (msg) => {
-        const args = msg.args();
-        const logArgs = [];
-        for (let i = 0; i < args.length; ++i) {
-          logArgs.push(args[i].jsonValue());
+        try {
+          const args = msg.args();
+          const logArgs = [];
+          for (let i = 0; i < args.length; ++i) {
+            try {
+              logArgs.push(await args[i].jsonValue());
+            } catch (serializationError) {
+              // Fallback for non-serializable objects
+              logArgs.push(`[Object: ${args[i].toString()}]`);
+            }
+          }
+          shell.log(`📄 Page: (${msg.type()}):`, ...logArgs);
+        } catch (err) {
+          // Fallback if entire console handling fails
+          shell.log(`📄 Page: (${msg.type()}): [Could not serialize console message]`);
         }
-        Promise.all(logArgs).then((resolvedArgs) => {
-          // Use shell.log for consistency, or keep console.log if preferred for page logs
-          shell.log(`📄 Page: (${msg.type()}):`, ...resolvedArgs);
-        });
       });
       page.on('error', err => {
         shell.log('🔴 Page crashed:', err);

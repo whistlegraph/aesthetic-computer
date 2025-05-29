@@ -1,0 +1,39 @@
+# Source files (keep only compiled output)
+**/*.ts
+!out/**
+
+# Development files
+.vscode/
+.vscode-test-web/
+tsconfig.json
+development+publishing.txt
+package-lock.json
+.gitignore
+
+# Dependencies (bundled into output)
+node_modules/
+
+# Documentation files
+README.md
+*.md
+!readme.md
+
+# Test files
+test/
+tests/
+**/*.test.*
+**/*.spec.*
+
+# Build artifacts and logs
+*.vsix
+*.log
+logs/
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
