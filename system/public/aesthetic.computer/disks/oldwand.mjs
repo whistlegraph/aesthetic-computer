@@ -56,7 +56,7 @@ async function boot({
   } // Set up empty params for randomization.
 
   entries(font1).forEach(([glyph, location]) => {
-    preload(`aesthetic.computer/disks/drawings/font-1/${location}.json`).then(
+    preload(`aesthetic.computer/disks/drawings/font_1/${location}.json`).then(
       (res) => {
         glyphs[glyph] = res;
       }

@@ -1,8 +1,9 @@
 // 🔤 Fonts
 // Contains lists of characters mapped -> resource files.
 
-export const font1 = {
+export const font_1 = {
   glyphHeight: 9,
+  glyphWidth: 6,
   0: "numbers/0 - 2021.12.16.18.28.06",
   1: "numbers/1 - 2021.12.16.17.56.44",
   2: "numbers/2 - 2021.12.16.17.59.01",
@@ -101,17 +102,7 @@ export const font1 = {
   "…": "symbols/ellipsis - 2024.4.27.09.25.16.717",
 };
 
-// TODO: These shoul dbe removed: 25.05.09.22.11
-export const icons = {
-  a: "lowercase/A",
-  e: "lowercase/E",
-  i: "lowercase/I",
-  o: "lowercase/O",
-  p: "lowercase/P",
-  q: "lowercase/Q",
-  r: "lowercase/R",
-  t: "lowercase/T",
-  u: "lowercase/U",
-  w: "lowercase/W",
-  y: "lowercase/Y",
+export const unifont = {
+  glyphHeight: 16,
+  glyphWidth: 8,
 };

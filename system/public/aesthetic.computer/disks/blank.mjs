@@ -6,10 +6,7 @@
 
 
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
-  // console.log(api); // Log the API or enter `docs` (WIP) in `prompt`.
-
   wipe("gray"); // Clear the background.
-
   ink("yellow"); // Paint a diagonal yellow line.
   line(0, 0, screen.width, screen.height);
 
@@ -21,7 +18,7 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
 
   if (pen) {
     ink().circle(pen.x, pen.y, 6); // Paint a cursor with text underneath.
-    ink("white").write("Hello AC!", { x: pen.x, y: pen.y + 12, center: "x" });
+    ink("white").write("😄 Hello AC!", { x: pen.x, y: pen.y + 12, center: "x" });
   }
 }
 

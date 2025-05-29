@@ -47,7 +47,7 @@ function boot({
   //       I need to display per disk... 2022.01.16.23.38
   // Preload all glyphs.
   entries(font1).forEach(([glyph, location]) => {
-    preload(`aesthetic.computer/disks/drawings/font-1/${location}.json`).then(
+    preload(`aesthetic.computer/disks/drawings/font_1/${location}.json`).then(
       (res) => {
         glyphs[glyph] = res;
       }
