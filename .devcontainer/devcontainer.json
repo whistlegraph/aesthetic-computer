@@ -17,7 +17,8 @@
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/fish_history,target=/home/me/.local/share/fish/fish_history,type=bind,consistency=cached",
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
-    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
+    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
+    "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
   ],
   "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345],
   "customizations": {
@@ -49,7 +50,9 @@
         "ms-python.vscode-pylance",
         "ms-toolsai.vscode-jupyter-cell-tags",
         "ms-toolsai.jupyter-keymap",
-        "ms-toolsai.jupyter-renderers"
+        "ms-toolsai.jupyter-renderers",
+        "rust-lang.rust-analyzer",
+        "jinxdash.prettier-rust"
       ]
     }
   },
@@ -80,6 +83,6 @@
     //    "linux/amd64"
   ],
   "initializeCommand": "touch .devcontainer/fish_history",
-  "postStartCommand": ["fish", "/entry.fish"],
+  "postStartCommand": "fish /entry.fish",
   "postAttachCommand": "sudo touch /home/me/.waiter && sudo chmod 777 /home/me/.waiter && sudo chmod +w /home/me"
 }

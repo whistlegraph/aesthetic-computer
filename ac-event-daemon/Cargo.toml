@@ -1,0 +1,13 @@
+[package]
+name = "ac-event-daemon"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ac-event-daemon"
+path = "src/ac-event-daemon.rs"
+
+[dependencies]
+evdev = "0.12"
+rodio = "0.17"
+crossterm = "0.27"
