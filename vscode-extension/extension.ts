@@ -195,14 +195,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           docsPanel.onDidDispose(() => {
             docsPanel = null;
           }, null);
-        }        const nonce = getNonce();
-
-        // Check if running in web environment
+        }        const nonce = getNonce();        // Check if running in web environment
         const isWeb = extContext.extensionKind === vscode.ExtensionKind.UI;
         const imgSrc = isWeb ? "'self' https:" : "'self' vscode-resource: https:";
         const iframeAttributes = isWeb ? 
-          `sandbox="allow-scripts allow-modals"` : 
-          `credentialless sandbox="allow-scripts allow-modals"`;
+          `sandbox="allow-scripts allow-modals allow-same-origin"` : 
+          `credentialless sandbox="allow-scripts allow-modals allow-same-origin"`;
 
         // And set its HTML content
         docsPanel.webview.html = `
