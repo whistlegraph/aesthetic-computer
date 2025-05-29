@@ -2,6 +2,10 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * `dark-window` *
+  - [🟠] But first, use it for screenshots.
+  - [] Put up a live remote chromium instance progrmatically that windows into AC.
+
  * UNIFONT support * 
     - [] Auto switch to `unifont` across prompt and ui / etc with a flag in disk.
       - [] Make this a prompt setting?

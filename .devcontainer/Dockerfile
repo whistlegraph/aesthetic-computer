@@ -68,11 +68,11 @@ RUN dnf install -y chromium
 # Install nginx
 # RUN dnf install -y nginx
 
-# Install 'docker'
+# Install \'docker\'
 # RUN sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
 # RUN dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Add 'me' user.
+# Add \'me\' user.
 RUN useradd -m me && \
     # Optional: Set password for the user (replace 'password' with your desired password)
     # echo "me:micro" | chpasswd && \
