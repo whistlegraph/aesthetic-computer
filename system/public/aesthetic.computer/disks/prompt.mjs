@@ -1567,8 +1567,8 @@ function paint($) {
   // Paint UI Buttons
   //if (!net.iframe) {
 
-  //what we actually want for login and signup is pal.signup / pal.login
-  //currently gives an error, I think because of paint (works fine with ink)
+  // what we actually want for login and signup is pal.signup / pal.login
+  // currently gives an error, I think because of paint (works fine with ink)
   if (!net.sandboxed) {
     if (!login?.btn.disabled) {
       login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
