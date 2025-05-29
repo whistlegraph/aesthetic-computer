@@ -1461,7 +1461,7 @@ const $commonApi = {
         characterWrap(text);
       }
 
-      const blockHeight = 11 * scale;
+      const blockHeight = tf.blockHeight * scale;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -1982,7 +1982,7 @@ const $paintApi = {
             {
               x: pos?.x,
               y: pos
-                ? pos.y + index * tf.data.glyphHeight + lineHeightGap
+                ? pos.y + index * tf.blockHeight + lineHeightGap
                 : undefined,
             },
             0,
@@ -3475,8 +3475,9 @@ async function load(
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  if (!tf) tf = await new Typeface().load($commonApi.net.preload);
+  if (!tf) tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
+  ui.setTypeface(tf); // Set the default `ui` typeface.
 
   /**
    * @function video
@@ -5479,8 +5480,7 @@ async function makeFrame({ data: { type, content } }) {
               });
             },
             push: (btn) => {
-              const glyphWidth = 6;
-              const shareWidth = glyphWidth * "share ".length;
+              const shareWidth = tf.blockWidth * "share ".length;
               if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
                 btn.actions.cancel?.();
                 return;
@@ -5514,11 +5514,11 @@ async function makeFrame({ data: { type, content } }) {
                 currentHUDScrub += e.delta.x;
               }
 
-              const glyphWidth = 6;
-              const shareWidth = glyphWidth * "share ".length;
+              const shareWidth = tf.blockWidth * "share ".length;
 
               if (currentHUDScrub >= 0) {
-                btn.box.w = glyphWidth * currentHUDTxt.length + currentHUDScrub;
+                btn.box.w =
+                  tf.blockWidth * currentHUDTxt.length + currentHUDScrub;
                 // console.log(btn.b);
               }
 
@@ -5540,8 +5540,7 @@ async function makeFrame({ data: { type, content } }) {
             cancel: () => {
               currentHUDTextColor = originalColor;
 
-              const glyphWidth = 6; // As above.
-              const shareWidth = glyphWidth * "share ".length;
+              const shareWidth = tf.blockWidth * "share ".length;
 
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
@@ -6109,10 +6108,9 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        const glyphWidth = 6;
-        let w = currentHUDTxt.length * glyphWidth + currentHUDScrub;
+        let w = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
 
-        const h = 11;
+        const h = tf.blockHeight;
         if (piece === "video") w = screen.width;
 
         label = $api.painting(w, h, ($) => {
@@ -6133,7 +6131,7 @@ async function makeFrame({ data: { type, content } }) {
             $.ink(c).write(text, { x: 0 + currentHUDScrub, y: 0 });
 
             if (currentHUDScrub > 0) {
-              const shareWidth = glyphWidth * "share ".length;
+              const shareWidth = tf.blockWidth * "share ".length;
               $.ink(0).write("share", {
                 x: 1 + currentHUDScrub - shareWidth,
                 y: 1,

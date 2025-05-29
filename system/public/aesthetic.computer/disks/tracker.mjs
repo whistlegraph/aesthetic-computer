@@ -88,7 +88,7 @@ function boot({
 
   // Preload all glyphs.
   entries(font1).forEach(([glyph, location]) => {
-    preload(`aesthetic.computer/disks/drawings/font-1/${location}.json`).then((res) => {
+    preload(`aesthetic.computer/disks/drawings/font_1/${location}.json`).then((res) => {
       glyphs[glyph] = res;
     });
   });

@@ -5,6 +5,8 @@ const { round } = Math;
 const spinnerDelayMax = 8; // Skip a few frames of the spinner.
 let spinnerDelay = 0;
 
+let TYPEFACE_UI; // A default `Typeface` instance carried over from `disk`.
+
 function spinnerReset() {
   spinnerDelay = 0;
 }
@@ -159,7 +161,6 @@ class Button {
         // TODO: This may need to be fixed for stample multi touch again...
         // e.pointer === btn.downPointer // TOOD: Hope this doesn't ruin
         //  multi-touch / create problems across `bleep` and `stample`. 25.03.05.21.51
-
       ) {
         // console.log(
         //   "Button up (push):",
@@ -249,13 +250,17 @@ class TextButton {
   txt;
   btn;
 
-  #cw = 6;
   #gap = 4;
+  #cw = 6; // Character width in pixels. Set from `typeface`.
   #g2 = this.#gap * 2;
+  #h = 12 + this.#g2; // 19; //
   #offset = { x: this.#gap, y: this.#gap };
-  #h = 19;
 
-  constructor(text = "Button", pos = { x: 0, y: 0 }) {
+  constructor(text = "Button", pos = { x: 0, y: 0 }, typeface = TYPEFACE_UI) {
+
+    this.#cw = typeface.blockWidth;
+    this.#h = typeface.blockHeight + this.#gap * 2;
+
     this.txt = text;
     this.btn = new Button(this.#computePosition(text, { ...pos }));
   }
@@ -365,4 +370,8 @@ class TextButton {
   }
 }
 
-export { spinner, spinnerReset, cached, Button, TextButton };
+function setTypeface(tf) {
+  TYPEFACE_UI = tf;
+}
+
+export { spinner, spinnerReset, cached, Button, TextButton, setTypeface };
