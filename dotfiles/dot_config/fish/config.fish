@@ -76,10 +76,6 @@ function acd
     # if pgrep node >/dev/null
     #     pkill node
     # end
-    # Kill any code instances that are running
-    # if pgrep code >/dev/null
-    #    pkill code
-    # end
     # devcontainer build --workspace-folder .
     set containers (docker ps -q)
     if test -n "$containers"
@@ -106,7 +102,7 @@ function ac-event-daemon
             # Use sudo -E to preserve the user environment, ensuring fish is found.
             # Pass the user's HOME directory as an argument to the script.
             sudo -E fish "$daemon_dev_script" "$HOME"
-            echo "ac-event-daemon (via dev.fish) started."
+            echo "ac-event-daemon (via dev.fish) finished."
         else
             echo "Error: $daemon_dev_script not found."
         end
@@ -115,10 +111,22 @@ function ac-event-daemon
     end
 end
 
-alias start 'ac-event-daemon; ac-ssl; acd'
+function start
+    # Kill any code instances that are runningdark-window
+    if pgrep code >/dev/null
+        echo "Killing existing VS Code instances..."
+        pkill code
+        # Give VS Code a moment to shut down properly
+        sleep 1
+    end
+    ac-ssl &
+    acd # &
+    # ac-event-daemon $argv
+end
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
-alias platform 'cd ~/aesthetic-computer; npm run platform'
+alias platform 'cd ~/aesthetie-computer; npm run platform'
+
 
 # set default editor to nvim
 set -gx EDITOR emacs -nw

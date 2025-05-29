@@ -2,6 +2,10 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * `dark-window` *
+  - [🟠] But first, use it for screenshots.
+  - [] Put up a live remote chromium instance progrmatically that windows into AC.
+
  * `typeline` aka `tobby` *
                         | 
   - [] Type the line: xgHij 
