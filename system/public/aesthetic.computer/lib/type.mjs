@@ -6,7 +6,7 @@
   - [] Gracefully allow for multiple instances of TextInput in a single piece? 
 endregion */
 
-import { font1 } from "../disks/common/fonts.mjs";
+import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
 
 const { floor, min } = Math;
@@ -20,9 +20,9 @@ class Typeface {
   glyphs = {};
   //loaded = false;
 
-  constructor(data = font1, name = "font-1") {
-    this.data = data;
+  constructor(name = "font_1") {
     this.name = name;
+    this.data = fonts[name] || fonts.font_1;
   }
 
   // Return only the character index from the data.
@@ -30,34 +30,241 @@ class Typeface {
     const glyphsOnly = { ...this.data };
     // TODO: Remove other "glyph" prefixes here if they ever exist. 23.06.07.01.10
     delete glyphsOnly.glyphHeight;
+    delete glyphsOnly.glyphWidth;
     return glyphsOnly;
   }
 
   get blockWidth() {
-    return this.glyphs.a.resolution[0];
+    return this.data.glyphWidth;
   }
 
-  async load($preload) {
-    // 1. Ignore any keys with a "glyph" prefix because these are settings.
-    const glyphsToLoad = entries(this.data).filter(
-      ([g, loc]) => !g.startsWith("glyph"),
-    );
-    const promises = glyphsToLoad.map(([glyph, location], i) => {
-      // 2. Load all other keys / glyphs over the network.
-      return $preload(
-        `aesthetic.computer/disks/drawings/${this.name}/${location}.json`,
-      )
-        .then((res) => {
-          this.glyphs[glyph] = res;
-        })
-        .catch((err) => {
-          console.error("Couldn't load typeface:", err);
-        });
-    });
+  get blockHeight() {
+    return this.data.glyphHeight;
+  }
 
-    // Wait for all the promises to resolve before returning
-    await Promise.all(promises);
+  async load($preload, needsPaintCallback) {
+    // TODO: Add support for on-demand character loading here using this api that
+    //       gets the json for the glyphs: https://localhost:8888/api/bdf-glyph?char=h
+    if (this.name === "font_1") {
+      // 1. Ignore any keys with a "glyph" prefix because these are settings.
+      const glyphsToLoad = entries(this.data).filter(
+        ([g, loc]) => !g.startsWith("glyph"),
+      );
+      const promises = glyphsToLoad.map(([glyph, location], i) => {
+        // 2. Load all other keys / glyphs over the network.
+        return $preload(
+          `aesthetic.computer/disks/drawings/${this.name}/${location}.json`,
+        )
+          .then((res) => {
+            this.glyphs[glyph] = res;
+          })
+          .catch((err) => {
+            console.error("Couldn't load typeface:", err);
+          });
+      }); // Wait for all the promises to resolve before returning
+      await Promise.all(promises);
+    } else if (this.name === "unifont") {
+      // 🗺️ UNIFONT Homepage: https://unifoundry.com/unifont.html
+      // Add a basic placeholder glyph for "?" character
+
+      this.glyphs["?"] = {
+        resolution: [6, 9],
+        pixels: [
+          [0, 1, 1, 1, 0],
+          [1, 0, 0, 0, 1],
+          [0, 0, 0, 1, 0],
+          [0, 0, 1, 0, 0],
+          [0, 1, 0, 0, 0],
+          [0, 1, 0, 0, 0],
+          [0, 0, 0, 0, 0],
+          [0, 1, 0, 0, 0],
+          [0, 0, 0, 0, 0],
+        ],
+      };
+
+      // Add a better fallback for emoji - a simple smiley
+      this.glyphs["☺"] = {
+        resolution: [6, 9],
+        pixels: [
+          [0, 1, 1, 1, 1, 0],
+          [1, 0, 0, 0, 0, 1],
+          [1, 0, 1, 0, 1, 0],
+          [1, 0, 0, 0, 0, 1],
+          [1, 0, 1, 1, 0, 1],
+          [1, 0, 0, 0, 0, 1],
+          [0, 1, 1, 1, 1, 0],
+          [0, 0, 0, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0],
+        ],
+      };
+
+      // Create a set to track glyphs currently being loaded to avoid duplicate requests
+      const loadingGlyphs = new Set();
+
+      // Create a set to track failed glyphs to avoid repeated requests
+      const failedGlyphs = new Set();
+
+      // Wrap the glyphs object with a Proxy for automatic loading
+      this.glyphs = new Proxy(this.glyphs, {
+        get: (target, char) => {
+          // if (char === "glyphWidth") console.log("Target:", target, "Char:", char);
+
+          // If glyph exists, return it immediately
+          if (target[char]) {
+            return target[char];
+          }
+
+          // If glyph has failed to load before, don't try again
+          if (failedGlyphs.has(char)) {
+            return this.getEmojiFallback(char, target);
+          }
+
+          // If glyph is currently being loaded, return placeholder
+          if (loadingGlyphs.has(char)) {
+            return this.getEmojiFallback(char, target);
+          }
+
+          // If it's a special character we shouldn't load, return fallback
+          if (char === "?" || typeof char !== "string" || char.length === 0) {
+            return target["?"] || null;
+          }
+
+          // Start loading the glyph asynchronously
+          loadingGlyphs.add(char);
+
+          // Convert character to Unicode code point(s) for API request
+          // This handles emoji and multi-byte characters properly
+          const codePoints = [];
+
+          // Handle the case where we might have invalid/corrupted characters
+          try {
+            // Use Array.from to properly iterate over Unicode code points
+            // This handles surrogate pairs correctly
+            const characters = Array.from(char);
+
+            for (const singleChar of characters) {
+              const codePoint = singleChar.codePointAt(0);
+
+              if (codePoint !== undefined) {
+                // Check for lone surrogates (U+D800-U+DFFF) which are invalid
+                if (codePoint >= 0xd800 && codePoint <= 0xdfff) {
+                  console.warn(
+                    `Invalid lone surrogate detected: U+${codePoint.toString(16).toUpperCase()} in char "${char}"`,
+                  );
+                  // For debugging, let's also try to reconstruct what this should be
+                  if (char.length >= 2) {
+                    console.warn(
+                      `Original char length: ${char.length}, char codes:`,
+                      Array.from(char).map(
+                        (c) =>
+                          `U+${c.codePointAt(0).toString(16).toUpperCase()}`,
+                      ),
+                    );
+                  }
+                  // Use replacement character instead
+                  codePoints.push("FFFD");
+                  continue;
+                }
+
+                // Use proper hex formatting for all code points
+                const hexValue = codePoint
+                  .toString(16)
+                  .toUpperCase()
+                  .padStart(codePoint > 0xffff ? 5 : 4, "0");
+                codePoints.push(hexValue);
+              }
+            }
+          } catch (error) {
+            console.warn(`Error processing character "${char}":`, error);
+            // Fallback to replacement character
+            codePoints.push("FFFD");
+          }
+
+          // If no valid code points were found, use replacement character
+          if (codePoints.length === 0) {
+            codePoints.push("FFFD");
+          }
+
+          // Join multiple code points with underscores for complex characters
+          const codePointStr = codePoints.join("_");
+
+          // Make API call to load the glyph using code points
+          fetch(`/api/bdf-glyph?char=${codePointStr}`)
+            .then((response) => {
+              if (!response.ok) {
+                if (response.status === 404) {
+                  console.info(
+                    `Glyph "${char}" (${codePointStr}) not available in unifont`,
+                  );
+                } else {
+                  console.warn(
+                    `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
+                  );
+                }
+                throw new Error(`Failed to load glyph: ${response.status}`);
+              }
+              return response.json();
+            })
+            .then((glyphData) => {
+              // Store the loaded glyph
+              target[char] = glyphData;
+              loadingGlyphs.delete(char);
+
+              // Trigger a repaint to show the newly loaded glyph
+              if (
+                needsPaintCallback &&
+                typeof needsPaintCallback === "function"
+              ) {
+                needsPaintCallback();
+              }
+            })
+            .catch((err) => {
+              // Mark this glyph as failed to avoid future requests
+              failedGlyphs.add(char);
+              loadingGlyphs.delete(char);
+
+              // Don't log as error for 404s, just info
+              if (!err.message.includes("404")) {
+                console.warn(
+                  `Failed to load glyph "${char}" (${codePointStr}):`,
+                  err,
+                );
+              }
+            });
+
+          // Return appropriate fallback immediately while loading
+          return this.getEmojiFallback(char, target);
+        },
+      });
+    }
     return this;
+  }
+
+  // Helper method to get appropriate fallback for different character types
+  getEmojiFallback(char, target) {
+    if (!char || char.length === 0) {
+      return target["?"] || null;
+    }
+
+    const codePoint = char.codePointAt(0);
+
+    // Check if it's an emoji (rough heuristic)
+    if (codePoint >= 0x1f600 && codePoint <= 0x1f64f) {
+      // Emoticons block - use simple smiley fallback
+      return target["☺"] || target["?"] || null;
+    } else if (codePoint >= 0x1f300 && codePoint <= 0x1f5ff) {
+      // Miscellaneous Symbols and Pictographs - use question mark
+      return target["?"] || null;
+    } else if (codePoint >= 0x1f680 && codePoint <= 0x1f6ff) {
+      // Transport and Map Symbols - use question mark
+      return target["?"] || null;
+    } else if (codePoint >= 0x2600 && codePoint <= 0x26ff) {
+      // Miscellaneous Symbols - use question mark
+      return target["?"] || null;
+    } else {
+      // For other missing characters, use standard fallback
+      return target["?"] || null;
+    }
   }
 
   // 📓 tf.print
@@ -73,7 +280,7 @@ class Typeface {
     const lineHeightGap = 2;
     const size = pos.size || 1;
     const blockHeight = (this.data.glyphHeight || 9) * size + lineHeightGap;
-    const blockWidth = 6;
+    const blockWidth = this.data.glyphWidth * size;
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
     const fullWidth = blockWidth * size * text.length;
@@ -246,7 +453,7 @@ class TextInput {
     processCommand,
     options = {
       palette: undefined,
-      font: font1,
+      font: "font_1", /*"unifont"*/ // fonts.font_1,
       //autolock: true,
       wrap: "char",
     },
@@ -260,13 +467,19 @@ class TextInput {
     this.hideGutter = options.hideGutter || false;
     // ^ Close keyboard on empty entry.
 
-    this.copiedCallback = options.copied;
+    this.copiedCallback = options.copied; // Load typeface, preventing double loading of the system default.
+    if (!options.font) options.font = "font_1"; // Use preloaded font as needed.
 
-    // Load typeface, preventing double loading of the system default.
-    if (!options.font) options.font = font1; // Use preloaded font as needed.
+    // Flag to track if we need to repaint due to async glyph loading
+    this._needsRepaint = false;
+
     if ($.typeface?.data !== options.font) {
       this.typeface = new Typeface(options.font); // Load custom typeface.
-      this.typeface.load($.net.preload);
+      this.#moveThreshold = this.typeface.blockWidth;
+      // Pass needsPaint callback for async glyph loading
+      this.typeface.load($.net.preload, () => {
+        this._needsRepaint = true;
+      });
     } else {
       this.typeface = $.typeface; // Set to system typeface.
     }
@@ -275,16 +488,17 @@ class TextInput {
     //this.#autolock = options.autolock;
     this.didReset = options.didReset;
 
-    const blockWidth = 6;
+    const blockWidth = this.typeface.blockWidth;
     this.#gutterMax = options.gutterMax || 48;
 
     this.#prompt = new Prompt(
-      blockWidth,
-      blockWidth,
+      6, // blockWidth,
+      6, // blockWidth,
       options.wrap || "char", // "char" or "word"
       $.store["gutter:lock"] ||
         Math.min(this.#gutterMax, floor($.screen.width / blockWidth) - 2),
       options.lineSpacing,
+      this.typeface
     );
 
     this.print(text); // Set initial text.
@@ -329,7 +543,7 @@ class TextInput {
   fullGutter($) {
     this.gutter = Math.min(
       this.#gutterMax,
-      floor($.screen.width / this.#prompt.blockWidth) - 2,
+      floor($.screen.width / this.#prompt.letterWidth) - 2,
     );
   }
 
@@ -352,7 +566,7 @@ class TextInput {
   // Adjust the gutter width for text wrapping.
   set gutter(n) {
     this.#prompt.colWidth = n;
-    this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.blockWidth;
+    this.#prompt.gutter = this.#prompt.colWidth * this.#prompt.letterWidth;
   }
 
   // Alias for the setter above, returned in columns.
@@ -448,7 +662,10 @@ class TextInput {
       if (char.charCodeAt(0) === 10 && ti.#renderSpaces) {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
+        //
+
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
+
         $.ink(!alt ? ti.pal.text : ti.pal.prompt || ti.pal.text).draw(
           pic,
           pos,
@@ -614,7 +831,6 @@ class TextInput {
       keys(this.typeface.glyphs).length === keys(this.typeface.glyphData).length
     );
   }
-
   // Simulate anything necessary.
   sim({ seconds, needsPaint, gizmo: { Hourglass } }) {
     this.blink =
@@ -631,6 +847,12 @@ class TextInput {
 
     if (this.#lock) needsPaint();
     if (this.canType) this.blink.step();
+
+    // Check if we need to repaint due to async glyph loading
+    if (this._needsRepaint) {
+      this._needsRepaint = false;
+      needsPaint();
+    }
   }
 
   showButton($, { nocopy, nopaste } = { nocopy: false, nopaste: false }) {
@@ -1445,8 +1667,9 @@ class Prompt {
 
   wrap = "char"; // auto-wrap setting, could also be "word".
   scale = 1;
-  blockWidth = 6;
-  blockHeight = 10;
+
+  letterWidth; // Taken from the typeface's block sizing.
+  letterHeight;
 
   colWidth = 48; // Maximum character width of each line before wrapping.
 
@@ -1462,14 +1685,14 @@ class Prompt {
 
   #mappedTo = ""; // Text that has been mapped.
 
-  constructor(top = 0, left = 0, wrap, colWidth = 48, lineSpacing = 0) {
-    this.letterWidth = this.blockWidth * this.scale;
-    this.letterHeight = this.blockHeight * this.scale + lineSpacing;
+  constructor(top = 0, left = 0, wrap, colWidth = 48, lineSpacing = 0, typeface) {
+    this.letterWidth = typeface.blockWidth * this.scale;
+    this.letterHeight = typeface.blockHeight * this.scale + lineSpacing;
     this.top = top;
     this.left = left;
     this.wrap = wrap;
     this.colWidth = colWidth;
-    this.gutter = this.colWidth * this.blockWidth;
+    this.gutter = this.colWidth * this.letterWidth;
   }
 
   // Snap the cursor to the end of a text.
@@ -1489,17 +1712,18 @@ class Prompt {
     this.cursorToTextMap = {};
     this.textToCursorMap = [];
     this.wrappedWordIndices = [];
-    const cursor = { x: 0, y: 0 };
-
-    // Wrap and map the text either by character or word.
+    const cursor = { x: 0, y: 0 }; // Wrap and map the text either by character or word.
     // (Word wrapping is complex and skips text indices for invisible
     //  characters and in some edge cases with line breaks)
     if (this.wrap === "char") {
       let textIndex = 0;
       let brokeLine = false;
 
-      for (let c = 0; c < text.length; c += 1) {
-        const char = text[c];
+      // Use Array.from to properly handle Unicode code points
+      const characters = Array.from(text);
+
+      for (let c = 0; c < characters.length; c += 1) {
+        const char = characters[c];
         const newLine = char.charCodeAt(0) === 10;
 
         if (c === 0) {
@@ -1526,8 +1750,11 @@ class Prompt {
       let wordStart = false;
       let wordCount = 0;
 
-      for (let c = 0; c < text?.length; c += 1) {
-        const char = text[c];
+      // Use Array.from to properly handle Unicode code points
+      const characters = Array.from(text);
+
+      for (let c = 0; c < characters.length; c += 1) {
+        const char = characters[c];
         let newLine = char.charCodeAt(0) === 10;
 
         // First character...
@@ -1549,10 +1776,9 @@ class Prompt {
           if (!wordStart) {
             wordStart = true;
             wordCount += 1;
-
             let len = 0;
-            for (let i = c; i < text.length; i += 1) {
-              const char = text[i];
+            for (let i = c; i < characters.length; i += 1) {
+              const char = characters[i];
               if (char !== " " && char.charCodeAt(0) !== 10) {
                 len += 1;
               } else {
@@ -1570,14 +1796,12 @@ class Prompt {
           }
         } else {
           wordStart = false;
-        }
-
-        // Create a line break if a line will begin with a space and we're
+        } // Create a line break if a line will begin with a space and we're
         // not on a space.
         if (
           char === " " &&
           cursor.x + 1 === this.colWidth - 1 &&
-          text[textIndex] !== " "
+          characters[textIndex] !== " "
         ) {
           newLine = true;
         }
@@ -1654,7 +1878,7 @@ class Prompt {
       x,
       y,
       w: this.letterWidth,
-      h: bh ? this.blockHeight : this.letterHeight,
+      h: this.letterHeight,
     };
   }
 

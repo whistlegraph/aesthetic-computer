@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.171.0",
+  "version": "1.175.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.88.0"
@@ -26,10 +26,12 @@
   },
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
   "activationEvents": [
-    "onStartupFinished",
-    "onLanguage:javascript",
-    "onLanguage:pjs"
+    "onStartupFinished"
   ],
   "contributes": {
     "languages": [
@@ -122,7 +124,8 @@
         {
           "type": "webview",
           "id": "aestheticComputer.sidebarView",
-          "name": ""
+          "name": "",
+          "icon": "resources/aesthetic-computer.svg"
         }
       ]
     }
@@ -136,11 +139,8 @@
     "@types/node": "^20.14.9",
     "@types/vscode": "^1.88.0",
     "@vscode/test-web": "^0.0.53",
-    "@vscode/vsce": "^3.0.0",
+    "@vscode/vsce": "^3.4.2",
     "esbuild": "^0.20.0",
     "typescript": "^5.5.2"
-  },
-  "dependencies": {
-    "node-fetch": "^3.3.2"
   }
 }
