@@ -108,7 +108,8 @@ const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
 
-let sandboxed = window.origin === "null";
+let sandboxed = window.origin === "null" && !window.acVSCODE;
+console.log("🏜️ Sandboxed:", sandboxed, window.acVSCODE);
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
