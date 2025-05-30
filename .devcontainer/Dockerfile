@@ -161,7 +161,7 @@ ENV PATH="/home/me/.fnm:$PATH"
 RUN eval "$(fnm env --use-on-cd)" && \
     fnm install 20.5.0 && fnm install 20.11.0 && fnm default 20.11.0 && \
     fnm install lts-jod && \
-    npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript && \
+    npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript @openai/codex && \
     ijsinstall --install=global --spec-path=full && \
     jupyter kernelspec install --user --replace "$(ijsnotebook --spec-path=full)" || true
 

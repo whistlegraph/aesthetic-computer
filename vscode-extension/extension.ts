@@ -20,15 +20,6 @@ let path: any, fs: any;
 import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProviderRemote";
 const { keys } = Object;
 
-// Helper function for web-compatible base64 encoding
-function safeBase64Encode(str: string): string {
-  if (typeof btoa !== 'undefined') {
-    return btoa(str);
-  }
-  // Fallback for environments where btoa is not available
-  return Buffer.from(str, 'utf8').toString('base64');
-}
-
 let local: boolean = false;
 let codeChannel: string | undefined;
 
@@ -195,12 +186,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           docsPanel.onDidDispose(() => {
             docsPanel = null;
           }, null);
-        }        const nonce = getNonce();        // Check if running in web environment
-        const isWeb = extContext.extensionKind === vscode.ExtensionKind.UI;
-        const imgSrc = isWeb ? "'self' https:" : "'self' vscode-resource: https:";
-        const iframeAttributes = isWeb ? 
-          `sandbox="allow-scripts allow-modals allow-same-origin"` : 
-          `credentialless sandbox="allow-scripts allow-modals allow-same-origin"`;
+        }
+
+        const nonce = getNonce();
 
         // And set its HTML content
         docsPanel.webview.html = `
@@ -209,7 +197,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         <head>
           <meta charset="UTF-8">
           <meta http-equiv="Permissions-Policy" content="midi=*">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src ${imgSrc};">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' vscode-resource:;">
           <style nonce="${nonce}">
             body {
               margin: 0;
@@ -224,7 +212,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe allow="clipboard-write; clipboard-read" ${iframeAttributes} src="https://aesthetic.computer/docs${path}">
+          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts allow-modals" src="https://aesthetic.computer/docs${path}">
         </body>
         </html>
       `.trim();
@@ -907,10 +895,12 @@ function getWebViewContent(webview: any, slug: string) {
   param += "?vscode=true"; // Add a vscode flag.
 
   [sessionAesthetic, sessionSotce].forEach((session, index) => {
-    const paramBase = `&session-${index === 0 ? "aesthetic" : "sotce"}=`;    if (typeof session === "object") {
+    const paramBase = `&session-${index === 0 ? "aesthetic" : "sotce"}=`;
+
+    if (typeof session === "object") {
       // Logged in.
       if (keys(session)?.length > 0) {
-        const base64EncodedSession = safeBase64Encode(JSON.stringify(session));
+        const base64EncodedSession = btoa(JSON.stringify(session));
         param += paramBase + encodeURIComponent(base64EncodedSession);
       }
     } else {
@@ -921,20 +911,13 @@ function getWebViewContent(webview: any, slug: string) {
 
   // param = "?clearSession=true"; Probably never needed.
 
-  // Check if running in web environment by checking extension context
-  const isWeb = extContext.extensionKind === vscode.ExtensionKind.UI;
-  const imgSrc = isWeb ? `${webview.cspSource} https:` : `'self' vscode-resource: ${webview.cspSource} https:`;
-  const iframeAttributes = isWeb ? 
-    `sandbox="allow-scripts allow-pointer-lock allow-modals"` : 
-    `credentialless sandbox="allow-scripts allow-pointer-lock allow-modals"`;
-
   return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888; style-src ${
           webview.cspSource
-        }; script-src 'nonce-${nonce}'; media-src *; img-src ${imgSrc};">
+        }; script-src 'nonce-${nonce}'; media-src *; img-src 'self' vscode-resource:;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleUri}" rel="stylesheet">
 				<link href="${resetStyleUri}" rel="stylesheet">
@@ -942,7 +925,7 @@ function getWebViewContent(webview: any, slug: string) {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" ${iframeAttributes} allow="clipboard-write; clipboard-read; camera; microphone; gyroscope; pointer-lock" src="https://${
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope; pointer-lock" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
         }/${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
