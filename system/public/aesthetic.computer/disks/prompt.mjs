@@ -1485,7 +1485,7 @@ function paint($) {
 
       historyTexts.reverse().forEach((t, i) => {
         const ii = i + 1;
-        ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 6 + $.system.prompt.input.typeface.blockHeight * i });
+        ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 6 + $.system.prompt.input.typeface.blockHeight * ii });
       });
     }
 
