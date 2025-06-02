@@ -2,7 +2,7 @@
 // Contains lists of characters mapped -> resource files.
 
 export const font_1 = {
-  glyphHeight: 9,
+  glyphHeight: 10,
   glyphWidth: 6,
   0: "numbers/0 - 2021.12.16.18.28.06",
   1: "numbers/1 - 2021.12.16.17.56.44",
