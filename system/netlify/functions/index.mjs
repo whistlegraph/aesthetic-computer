@@ -209,8 +209,7 @@ async function fun(event, context) {
 
       const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
-      try {
-        console.log(
+      try {        console.log(
           "📖 Writing to:",
           tempPath,
           "Source length:",
@@ -222,11 +221,11 @@ async function fun(event, context) {
         // TODO: This fails in development sometimes, still not sure why...
       } catch (err) {
         console.error("⚠️ Import error:", err);
-        const exists = await fs.exists(tempPath);
-        if (exists) {
+        try {
+          await fs.access(tempPath);
           const contents = await fs.readFile(tempPath, "utf8");
-          console.error("🪵 Temp file contents:\n", contents);
-        } else {
+          // console.error("🪵 Temp file contents:\n", contents);
+        } catch (accessErr) {
           console.error("❌ Temp file does not exist:", tempPath);
         }
       } finally {

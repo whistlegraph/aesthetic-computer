@@ -277,10 +277,10 @@ class Typeface {
   ) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
-    const lineHeightGap = 2;
     const size = pos.size || 1;
-    const blockHeight = (this.data.glyphHeight || 9) * size + lineHeightGap;
-    const blockWidth = this.data.glyphWidth * size;
+    const blockMargin = 1;
+    const blockHeight = ((this.blockHeight || 10) + blockMargin) * size;
+    const blockWidth = this.data.glyphWidth;// * size;
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
     const fullWidth = blockWidth * size * text.length;

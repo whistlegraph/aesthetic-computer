@@ -174,7 +174,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  let density = 2; // added to window.devicePixelRatio
+  let density = window.acVSCODE ? 1.3333 : 2; // added to window.devicePixelRatio
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;

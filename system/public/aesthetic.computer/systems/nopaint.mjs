@@ -202,8 +202,6 @@ function nopaint_adjust(
   size = null,
   slug = "resize",
 ) {
-  // console.log("Adjusting?", size, store["painting:resolution-lock"]);
-
   if (!size && store["painting:resolution-lock"] === true) return;
 
   if (
