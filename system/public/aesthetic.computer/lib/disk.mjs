@@ -1399,7 +1399,7 @@ const $commonApi = {
       }
       pos = { ...pos };
       let run = 0;
-      const blockWidth = 6 * abs(scale);
+      const blockWidth = tf.blockWidth * abs(scale);
 
       const lines = [[]];
       let line = 0;
@@ -1410,9 +1410,20 @@ const $commonApi = {
         run = 0;
         line += 1;
         lines[line] = [];
-      }
-
-      function characterWrap(word) {
+      }      function characterWrap(word, preserveSpaceBefore = false) {
+        // If we need to preserve space before this word, add it first
+        if (preserveSpaceBefore && run > 0) {
+          const spaceChar = " ";
+          const spaceLen = blockWidth;
+          if (run + spaceLen > bounds) newLine();
+          if (!lines[line].length) {
+            lines[line].push(spaceChar);
+          } else {
+            lines[line][lines[line].length - 1] += spaceChar;
+          }
+          run += spaceLen;
+        }
+        
         for (let i = 0; i < word.length; i++) {
           const char = word[i];
           const charLen = blockWidth;
@@ -1425,7 +1436,6 @@ const $commonApi = {
           run += charLen;
         }
       }
-
       if (wordWrap) {
         const splitWords = text.split(" ");
         const words = [];
@@ -1435,33 +1445,41 @@ const $commonApi = {
           } else {
             words.push(splitWords[i]);
           }
-        }
-
-        words.forEach((word) => {
-          const wordLen = (word.length + 1) * blockWidth;
+        }        words.forEach((word, wordIndex) => {
+          const wordLen = word.length * blockWidth;
+          const spaceWidth = blockWidth;
+          
           if (wordLen >= bounds) {
-            characterWrap(word);
+            // Pass true to preserve space if this isn't the first word
+            characterWrap(word, wordIndex > 0);
             return;
           }
           if (word.includes("\n")) {
             const segs = word.split("\n");
             segs.forEach((seg, i) => {
-              const segLen = (seg.length + 1) * blockWidth;
-              if (run + segLen >= bounds || i > 0) newLine();
+              const segLen = seg.length * blockWidth;
+              // For segments after a newline (i > 0), always start a new line
+              if (i > 0) newLine();
+              // For boundary checking, account for space only if this isn't the first item on the line
+              const spaceNeeded = run > 0 ? spaceWidth : 0;
+              if (run + spaceNeeded + segLen >= bounds) newLine();
               lines[line].push(seg);
-              run += segLen;
+              run += segLen + spaceWidth; // Always add space width to run for consistent spacing
             });
           } else {
-            if (run + wordLen >= bounds) newLine();
+            // For boundary checking, account for space only if this isn't the first word on the line
+            const spaceNeeded = run > 0 ? spaceWidth : 0;
+            if (run + spaceNeeded + wordLen >= bounds) newLine();
             lines[line].push(word);
-            run += wordLen;
+            run += wordLen + spaceWidth; // Always add space width to run for consistent spacing
           }
         });
       } else {
         characterWrap(text);
       }
 
-      const blockHeight = tf.blockHeight * scale;
+      const blockMargin = 1;
+      const blockHeight = (tf.blockHeight + blockMargin) * scale;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -1474,6 +1492,7 @@ const $commonApi = {
       const height = lines.length * blockHeight;
       const box = { x: pos.x, y: pos.y, width: bounds, height };
 
+      if (lines[0]?.[0].startsWith("test:")) console.log(lines);
       return { pos, box, lines };
     },
   },
@@ -1965,10 +1984,10 @@ const $paintApi = {
     const scale = pos?.size || 1;
 
     if (bounds) {
-      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap);
-      // TODO: Get the current ink color, memoize it, and make it static here.
+      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap); // TODO: Get the current ink color, memoize it, and make it static here.
       //       23.10.12.22.04
       tb.lines.forEach((line, index) => {
+        // console.log(line, index);
         tf?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
       });
     } else {
