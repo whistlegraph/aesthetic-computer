@@ -2,14 +2,17 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
- * `dark-window` *
-  - [🟠] But first, use it for screenshots.
-  - [] Put up a live remote chromium instance progrmatically that windows into AC.
+ * `make` *
+ - [] `make` will work just like 'paint' except it will automatically write
+      aesthetic computer pieces from a prompt, with some output, in a one
+      shot fashion?
 
  * UNIFONT support * 
+    - [🔵] Smooth out new spacing and button issues from switching back to font_1?
+         (blockheight of buttons, etc.)
     - [] Auto switch to `unifont` across prompt and ui / etc with a flag in disk.
       - [] Make this a prompt setting?
-    - [🟠] Get rid of yellow / non-printing characters in prompt.
+    - [] Get rid of yellow / non-printing characters in prompt.
     - [] Show a cool animated blinky thing before the glyph loads. (type.mjs)
     - [] These glyphs could also be cached locally in indexedDB as an object. (type.mjs)
   - [] Take care of visual inconsistencies across the system. 
@@ -20,6 +23,10 @@
          storage in the assets bucket. (bdf-glyph.js)
         - [x] If the file exists on `assets.aesthetic.computer/type/unifont/charcode.json`
              then no need.
+
+ * `dark-window` *
+  - [🟠] But first, use it for screenshots.
+  - [] Put up a live remote chromium instance progrmatically that windows into AC.
 
  * `typeline` aka `tobby` *
   - [] Type the line: xgHij 

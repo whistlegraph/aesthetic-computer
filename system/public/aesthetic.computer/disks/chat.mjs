@@ -36,8 +36,8 @@ let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
 
-const rowHeight = 11,
-  lineGap = 1,
+let rowHeight;
+const lineGap = 1,
   topMargin = 22,
   bottomMargin = 33,
   leftMargin = 6;
@@ -64,9 +64,12 @@ async function boot(
     sound,
     net,
     store,
+    typeface,
   },
   otherChat,
 ) {
+  rowHeight = typeface.blockHeight + 1;
+
   const client = otherChat || chat;
 
   // console.log("💬 Chat booting...");
@@ -832,14 +835,13 @@ function computeMessagesLayout({ screen, text }, chat) {
     const prompts = []; // Parse `prompts`.
     const urls = []; // Parse any 'urls'.
 
-    const totalHeight = msg.tb.lines.length * rowHeight;
-
-    // Map links (handles, urls and prompts) inside of messages.
+    const totalHeight = msg.tb.lines.length * rowHeight; // Map links (handles, urls and prompts) inside of messages.
     // - Handles always appear on one line.
-    // - Prompts and URLs now support multi-line rendering by storing lines (each with x, y, width, and text).
-    let wordIndex = 0;
-    let paintableMessage = "";
+    // - Prompts and URLs now support multi-line rendering by storing lines (each with x, y, width, and text).    // Use the original message text directly to preserve all spaces
+    const paintableMessage = msg.fullMessage;
+
     const charWidth = 6; // constant
+    let wordIndex = 0; // Track word position for cursor calculation
 
     // State for multi-line prompts.
     let insidePrompt = false;
@@ -851,14 +853,11 @@ function computeMessagesLayout({ screen, text }, chat) {
     let insideURL = false;
     let currentURL = null; // { text: string, lines: [ { x, y, width, text } ] }
     let urlSegmentStart = undefined;
-    let currentURLLineText = "";
-
-    // Regex for starting a URL.
+    let currentURLLineText = "";    // Regex for starting a URL.
     const urlStartRegex = /^(https?:\/\/|www\.)/;
-    // Regex for URL continuation: require either a leading URL-specific punctuation or the token to contain one.
-    const urlContRegex =
-      /^(?:(\/|\.|\?|#|&|=)[\w/:.?=&%-]+|(?=.*[\/\.\?#&=])[\w/:.?=&%-]+)$/;
-    const basicWordRegex = /^[\w-]+$/;
+    
+    // Debug: Log when we start processing a message
+    console.log("🔍 Processing message for URLs:", paintableMessage);
 
     for (let rowIndex = 0; rowIndex < msg.tb.lines.length; rowIndex += 1) {
       let rowY = y + rowIndex * rowHeight;
@@ -875,7 +874,8 @@ function computeMessagesLayout({ screen, text }, chat) {
       }
 
       for (let word of msg.tb.lines[rowIndex]) {
-        const wordWidth = word.length * charWidth;
+        const wordWidth = word.length * charWidth; // Store original word for paintableMessage
+        const originalWord = word;
 
         // Process handles: always single-line.
         if (word.startsWith("@")) {
@@ -892,11 +892,8 @@ function computeMessagesLayout({ screen, text }, chat) {
           //   handles[handles.length - 1].over = true;
           // }
 
-          // Replace handle with spaces for painting.
-          word = word.replace(/./g, " ");
-        }
-
-        // Process prompts (multi-line, enclosed in single quotes).
+          // Don't replace word for paintableMessage - we'll overlay the handle rendering
+        } // Process prompts (multi-line, enclosed in single quotes).
         if (!insidePrompt && word.startsWith("'")) {
           insidePrompt = true;
           // Initialize currentPrompt with text without the starting quote.
@@ -920,9 +917,8 @@ function computeMessagesLayout({ screen, text }, chat) {
             currentPrompt = null;
             promptSegmentStart = undefined;
             currentPromptLineText = "";
-            word = word.replace(/./g, " ");
           }
-          word = word.replace(/./g, " ");
+          // Don't replace word for paintableMessage - we'll overlay the prompt rendering
         } else if (insidePrompt) {
           // Inside a multi-line prompt.
           if (promptSegmentStart === undefined) {
@@ -932,120 +928,114 @@ function computeMessagesLayout({ screen, text }, chat) {
           // Append a space if not the first word on this line.
           if (currentPromptLineText.length > 0) {
             currentPromptLineText += " ";
-          }
-          // Check if this word ends the prompt.
+          } // Check if this word ends the prompt.
           if (word.endsWith("'")) {
             let trimmedWord = word; // word.slice(0, -1);
             currentPromptLineText += trimmedWord;
             currentPrompt.text += " " + trimmedWord;
+            const finalText = currentPromptLineText.trim();
             currentPrompt.lines.push({
               x: promptSegmentStart,
               y: rowY,
-              width: cursorX + wordWidth - promptSegmentStart,
+              width: finalText.length * charWidth, // Use actual trimmed text width
               height: rowHeight,
-              text: currentPromptLineText,
+              text: finalText,
             });
             prompts.push(currentPrompt);
             insidePrompt = false;
             currentPrompt = null;
             promptSegmentStart = undefined;
-            currentPromptLineText = "";
-          } else {
+            currentPromptLineText = "";          } else {
             currentPromptLineText += word;
-            currentPrompt.text += " " + word;
-          }
+            currentPrompt.text += " " + word;          }
 
-          word = word.replace(/./g, " ");
-        }
-
-        // Process URLs (multi-line support similar to prompts).
-        if (!insideURL && urlStartRegex.test(word)) {
-          // Start a new URL.
-          insideURL = true;
-          currentURL = { text: word, lines: [] };
-          urlSegmentStart = cursorX;
-          currentURLLineText = word;
-          word = word.replace(/./g, " ");
-        } else if (insideURL) {
-          // Decide if this word should be part of the URL.
-          let allowContinuation = false;
-          if (urlContRegex.test(word)) {
-            allowContinuation = true;
-          } else if (
-            currentURL.text.slice(-1) === "/" &&
-            basicWordRegex.test(word)
-          ) {
-            // Allow continuation if previous URL ended with a slash and current word is a basic word.
-            allowContinuation = true;
-          }
+          // Don't replace word for paintableMessage - we'll overlay the prompt rendering
+        } // Process URLs (multi-line support similar to prompts).
+        if (insideURL) {
+          // Allow continuation unless the word starts a new URL
+          let allowContinuation = !urlStartRegex.test(word);
 
           if (allowContinuation) {
-            if (urlSegmentStart === undefined) {
+            if (urlSegmentStart === undefined) { // First word of this URL segment on current line
               urlSegmentStart = cursorX;
-              currentURLLineText = "";
+              currentURLLineText = word;
+            } else { // Subsequent word on same line for this URL segment
+              currentURLLineText += word; // Concatenate for display width calculation
             }
-            if (currentURLLineText.length > 0) {
-              currentURLLineText += " ";
-            }
-            currentURLLineText += word;
-            currentURL.text += " " + word;
+            // Append current word to the canonical URL text (no spaces between URL parts)
+            currentURL.text += word;
           } else {
-            // Finalize the current URL segment.
-            if (urlSegmentStart !== undefined) {
+            // Word does not continue the current URL. Finalize it.
+            if (urlSegmentStart !== undefined) { // Ensure there's a segment to push
               currentURL.lines.push({
                 x: urlSegmentStart,
-                y: rowY,
-                width: cursorX - urlSegmentStart,
+                y: rowY, // y of the current row where this segment part lies
+                width: currentURLLineText.length * charWidth,
                 height: rowHeight,
-                text: currentURLLineText.trim(),
+                text: currentURLLineText,
               });
-              urlSegmentStart = undefined;
-              currentURLLineText = "";
             }
             urls.push(currentURL);
             insideURL = false;
             currentURL = null;
+            urlSegmentStart = undefined; // Reset for the current word
+            currentURLLineText = "";
+
+            // Now, check if the 'word' that broke the sequence starts a new URL.
+            if (urlStartRegex.test(word)) {
+              insideURL = true;
+              currentURL = { text: word, lines: [] };
+              urlSegmentStart = cursorX; // x-position of this new URL's first word
+              currentURLLineText = word;
+            }
+          }        } else { // Not insideURL, check if 'word' starts one
+          if (urlStartRegex.test(word)) {
+            console.log("🔍 URL detected:", word);
+            insideURL = true;
+            currentURL = { text: word, lines: [] }; // Initialize .text with the first word
+            urlSegmentStart = cursorX;
+            currentURLLineText = word;
           }
         }
 
-        if (wordIndex > 0) paintableMessage += " ";
-        paintableMessage += word;
+        // Track the current word position
         wordIndex += 1;
         cursorX += wordWidth + charWidth; // Advance for the next word.
-      }
-
-      // End-of-line: if a prompt is still open, record the line for this row.
+      } // End-of-line: if a prompt is still open, record the line for this row.
       if (insidePrompt && promptSegmentStart !== undefined) {
+        const trimmedText = currentPromptLineText.trim();
         currentPrompt.lines.push({
           x: promptSegmentStart,
           y: rowY,
-          width: cursorX - promptSegmentStart,
+          width: trimmedText.length * charWidth, // Use actual trimmed text width
           height: rowHeight,
-          text: currentPromptLineText,
+          text: trimmedText,
         });
         promptSegmentStart = undefined;
         currentPromptLineText = "";
-      }
-
-      // End-of-line: if a URL is still open, record the line for this row.
+      } // End-of-line: if a URL is still open, record the line for this row.
       if (insideURL && urlSegmentStart !== undefined) {
+        const trimmedText = currentURLLineText.trim();
         currentURL.lines.push({
           x: urlSegmentStart,
           y: rowY,
-          width: cursorX - urlSegmentStart,
+          width: trimmedText.length * charWidth, // Use actual trimmed text width
           height: rowHeight,
-          text: currentURLLineText.trim(),
+          text: trimmedText,
         });
         urlSegmentStart = undefined;
         currentURLLineText = "";
       }
-    }
-    // If a URL spans to the very end without a non-URL word, push it.
+    }    // If a URL spans to the very end without a non-URL word, push it.
     if (insideURL && currentURL) {
+      console.log("🔍 Final URL pushed:", currentURL.text);
       urls.push(currentURL);
       insideURL = false;
       currentURL = null;
     }
+    
+    // Debug: Log final URLs found
+    console.log("🔍 Total URLs found:", urls.length, urls);
 
     const timestamp = {
       x: text.width(msg.tb.lines[msg.tb.lines.length - 1]) + 6,

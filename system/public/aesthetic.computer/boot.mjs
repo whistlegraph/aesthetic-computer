@@ -40,12 +40,13 @@ function cleanUrlParams(url, params) {
 
 {
   const params = new URLSearchParams(window.location.search);
-  const vscode = params.get("vscode") === "true";
+  const vscode = params.get("vscode") === "true" || localStorage.getItem("vscode") === "true";
 
   if (vscode) {
     params.delete("vscode");
     cleanUrlParams(url, params);
     window.acVSCODE = true;
+    localStorage.setItem("vscode", "true");
   }
 }
 
