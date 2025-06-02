@@ -34,15 +34,16 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // Show all environment variables...
   // console.log("🌎 Environment:", process.env);
-
+  // Always retrieve the stored local state first
+  local = context.globalState.get("aesthetic:local", false);
+  
   const isInDevContainer = process?.env.REMOTE_CONTAINERS === "true";
   if (isInDevContainer) {
     // console.log("✅ 🥡 Running inside a container.");
-    local = context.globalState.get("aesthetic:local", false); // Retrieve env.
+    // Keep the retrieved local state
   } else {
-    local = false;
-    // Always default to production if we aren't running in a container.
     // console.log("❌ 🥡 Not in container.");
+    // Keep the user's preference even when not in container
   }
 
   // console.log("🟢 Aesthetic Computer Extension: Activated");

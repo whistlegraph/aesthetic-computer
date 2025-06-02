@@ -1099,10 +1099,12 @@ async function halt($, text) {
       flashColor = [255, 0, 0];
     } else {
       const result = nopaint_adjust(
-        screen,
-        system,
-        painting,
-        store,
+        {
+          screen,
+          system,
+          painting,
+          store,
+        },
         { w, h, scale: true },
         fullText,
       );
@@ -1468,10 +1470,12 @@ function paint($) {
     // is a valid, non-hidden command, it's likely due to a Tab completion
     // that cleared the active suggestions. In this case, we want to treat
     // the current input text as the single active completion to show its description.
-    if (activeCompletions.length === 0 &&
-        currentInputText && // Ensure text is not empty
-        autocompletions[currentInputText] &&
-        !autocompletions[currentInputText].hidden) {
+    if (
+      activeCompletions.length === 0 &&
+      currentInputText && // Ensure text is not empty
+      autocompletions[currentInputText] &&
+      !autocompletions[currentInputText].hidden
+    ) {
       activeCompletions.push(currentInputText);
       // This modification allows the description rendering logic below to pick up
       // the tab-completed command. activeCompletions will be naturally reset
@@ -1485,7 +1489,10 @@ function paint($) {
 
       historyTexts.reverse().forEach((t, i) => {
         const ii = i + 1;
-        ink(140, 90, 235, 80 / ii).write(t, { x: 6, y: 6 + $.system.prompt.input.typeface.blockHeight * ii });
+        ink(140, 90, 235, 80 / ii).write(t, {
+          x: 6,
+          y: 6 + $.system.prompt.input.typeface.blockHeight * ii,
+        });
       });
     }
 
@@ -1512,9 +1519,16 @@ function paint($) {
 
     if (activeCompletions.length === 1) {
       // console.log("has completions!");
-      ink($.dark ? "white" : "red", $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255).write(autocompletions[activeCompletions[0]].desc, {center: "xy"}, null, screen.width - 8);
+      ink(
+        $.dark ? "white" : "red",
+        $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255,
+      ).write(
+        autocompletions[activeCompletions[0]].desc,
+        { center: "xy" },
+        null,
+        screen.width - 8,
+      );
     }
-
   }
 
   if (progressBar >= 0) {
@@ -1937,7 +1951,7 @@ function act({
   if (e.is("load-error")) {
     makeFlash(api, false);
     flashColor = [255, 0, 0];
-       if (MetaBrowser) api.system.prompt.input.canType = false;
+    if (MetaBrowser) api.system.prompt.input.canType = false;
     needsPaint();
   }
 }

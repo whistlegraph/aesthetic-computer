@@ -24,7 +24,7 @@ let scale = 1;
 
 let moodRing = [],
   moodRingY = 18,
-  moodRingRow = 12;
+  moodRingRow;// = 10;
 
 const blockWidth = 6 * scale;
 let bounceCount = 1;
@@ -35,8 +35,9 @@ let ringSpots = 8,
 const { floor, min, abs, ceil, sin } = Math;
 
 // 🥾 Boot
-function boot({ wipe, screen, colon, params }) {
+function boot({ wipe, screen, colon, params, typeface }) {
   scale = parseInt(colon[0]) || 1;
+  moodRingRow = typeface.blockHeight;
   if (scale === 2) moodRingY *= scale / 1.5;
   moodRingRow *= scale;
   wipe(0);

@@ -243,9 +243,49 @@ function addExportsToCode(code) {
     "brush",
     "filter",
   ];
-
-  // Remove all comments from the code
-  const codeWithoutComments = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "");
+  // Remove comments from the code more carefully
+  const codeWithoutComments = code
+    .split('\n')
+    .map(line => {
+      // Only remove comments that are not inside strings
+      let inString = false;
+      let stringChar = '';
+      let result = '';
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+        
+        if (!inString && (char === '"' || char === "'" || char === '`')) {
+          inString = true;
+          stringChar = char;
+          result += char;
+        } else if (inString && char === stringChar && line[i - 1] !== '\\') {
+          inString = false;
+          stringChar = '';
+          result += char;
+        } else if (!inString && char === '/' && nextChar === '/') {
+          // Found a comment outside of a string, stop processing this line
+          break;
+        } else if (!inString && char === '/' && nextChar === '*') {
+          // Found start of block comment outside string, skip until end
+          i += 2;
+          while (i < line.length - 1) {
+            if (line[i] === '*' && line[i + 1] === '/') {
+              i += 2;
+              break;
+            }
+            i++;
+          }
+          i--; // Adjust for loop increment
+        } else {
+          result += char;
+        }
+      }
+      
+      return result;
+    })
+    .join('\n');
 
   // Check if the file already contains an 'export { ... }' statement
   const hasExportObject = /export\s+{[^}]*}/m.test(codeWithoutComments);
