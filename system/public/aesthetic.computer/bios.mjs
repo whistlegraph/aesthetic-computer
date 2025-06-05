@@ -2960,9 +2960,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "beat:skip") {
       beatSkip();
       return;
+    }    if (type === "synth:update") {
+      updateSound?.(content);
+      return;
     }
 
-    if (type === "synth:update") {
+    if (type === "bubble:update") {
       updateSound?.(content);
       return;
     }
