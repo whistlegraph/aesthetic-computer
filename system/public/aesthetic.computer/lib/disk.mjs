@@ -5266,10 +5266,24 @@ async function makeFrame({ data: { type, content } }) {
           });
         },
       };
-    };
+    };    $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
+      const id = soundId;
+      sound.bubbles.push({ id, radius: radius, rise, volume, pan });
+      soundId += 1n;
 
-    $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
-      sound.bubbles.push({ radius: radius, rise, volume, pan });
+      return {
+        startedAt: soundTime,
+        id,
+        kill: function (fade) {
+          sound.kills.push({ id, fade });
+        },
+        update: function (properties) {
+          send({
+            type: "bubble:update",
+            content: { id, properties },
+          });
+        },
+      };
     };
 
     $sound.kill = function (id, fade) {

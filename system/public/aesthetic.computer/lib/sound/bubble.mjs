@@ -28,7 +28,31 @@ export default class Bubble {
 
   #QUIET = 0.000001;
 
-  constructor(radius, rise, volume, pan) {
+  // Parameter update properties for smooth transitions
+  #futureRadius;
+  #futureRise;
+  #futureVolume;
+  #futurePan;
+  
+  #radiusUpdatesTotal;
+  #radiusUpdatesLeft;
+  #radiusUpdateSlice;
+  
+  #riseUpdatesTotal;
+  #riseUpdatesLeft;
+  #riseUpdateSlice;
+  
+  #volumeUpdatesTotal;
+  #volumeUpdatesLeft;
+  #volumeUpdateSlice;
+    #panUpdatesTotal;
+  #panUpdatesLeft;
+  #panUpdateSlice;
+  
+  #sustain = false;
+  
+  constructor(radius, rise, volume, pan, id) {
+    this.id = id; // Store the ID for tracking
     this.start(radius, rise, volume, pan);
   }
 
@@ -42,6 +66,13 @@ export default class Bubble {
     this.#volume = volume;
     this.#radius = radius * 0.001;
     this.#rise = rise;
+    
+    // Initialize future values for parameter updates
+    this.#futureRadius = this.#radius;
+    this.#futureRise = this.#rise;
+    this.#futureVolume = this.#volume;
+    this.#futurePan = this.#pan;
+    
     this.#timestep = 1 / sampleRate;
     this.#lastOut = this.#out;
     const pRadius = this.#radius * Math.sqrt(this.#radius);
@@ -55,9 +86,97 @@ export default class Bubble {
     //this.#maxOut = 1;
   }
 
+  update({ radius, rise, volume, pan, duration = 0.1 }) {
+    // Radius updates (affects fundamental frequency and timbre)
+    if (typeof radius === "number" && radius > 0) {
+      this.#futureRadius = radius * 0.001;
+      this.#radiusUpdatesTotal = duration * sampleRate;
+      this.#radiusUpdatesLeft = this.#radiusUpdatesTotal;
+      this.#radiusUpdateSlice =
+        (this.#futureRadius - this.#radius) / this.#radiusUpdatesTotal;
+    }
+    
+    // Rise updates (affects surface tension and bubble behavior)
+    if (typeof rise === "number") {
+      this.#futureRise = rise;
+      this.#riseUpdatesTotal = duration * sampleRate;
+      this.#riseUpdatesLeft = this.#riseUpdatesTotal;
+      this.#riseUpdateSlice =
+        (this.#futureRise - this.#rise) / this.#riseUpdatesTotal;
+    }
+    
+    // Volume updates
+    if (typeof volume === "number") {
+      this.#futureVolume = volume;
+      this.#volumeUpdatesTotal = duration * sampleRate;
+      this.#volumeUpdatesLeft = this.#volumeUpdatesTotal;
+      this.#volumeUpdateSlice =
+        (this.#futureVolume - this.#volume) / this.#volumeUpdatesTotal;
+    }
+    
+    // Pan updates
+    if (typeof pan === "number") {
+      this.#futurePan = pan;
+      this.#panUpdatesTotal = duration * sampleRate;
+      this.#panUpdatesLeft = this.#panUpdatesTotal;
+      this.#panUpdateSlice =
+        (this.#futurePan - this.#pan) / this.#panUpdatesTotal;
+    }
+  }
+
+  // Sustain control methods
+  setSustain(sustain) {
+    this.#sustain = sustain;
+  }
+  
+  enableSustain() {
+    this.#sustain = true;
+  }
+  
+  disableSustain() {
+    this.#sustain = false;
+  }
+
   next() {
-    // get sound value
-    if (this.#amp < this.#QUIET && this.#phase > 1.0) {
+    // Interpolated parameter updates
+    
+    // Radius updates (recalculate physical properties when radius changes)
+    if (this.#radiusUpdatesLeft > 0) {
+      this.#radius += this.#radiusUpdateSlice;
+      
+      // Recalculate dependent physical properties
+      const pRadius = this.#radius * Math.sqrt(this.#radius);
+      this.#amp = 17.2133 * pRadius * this.#depth;
+      this.#decay = 0.13 / this.#radius + 0.0072 * pRadius;
+      this.#gain = Math.exp(-this.#decay * this.#timestep);
+      this.#phaseStep = (3.0 / this.#radius) * this.#timestep;
+      this.#phaseRise = this.#phaseStep * this.#decay * this.#rise * this.#timestep;
+      
+      this.#radiusUpdatesLeft -= 1;
+    }
+    
+    // Rise updates (affects phase rise behavior)
+    if (this.#riseUpdatesLeft > 0) {
+      this.#rise += this.#riseUpdateSlice;
+      
+      // Update phase rise calculation
+      this.#phaseRise = this.#phaseStep * this.#decay * this.#rise * this.#timestep;
+      
+      this.#riseUpdatesLeft -= 1;
+    }
+    
+    // Volume updates
+    if (this.#volumeUpdatesLeft > 0) {
+      this.#volume += this.#volumeUpdateSlice;
+      this.#volumeUpdatesLeft -= 1;
+    }
+    
+    // Pan updates
+    if (this.#panUpdatesLeft > 0) {
+      this.#pan += this.#panUpdateSlice;
+      this.#panUpdatesLeft -= 1;
+    }    // get sound value - only stop if not in sustain mode
+    if (!this.#sustain && this.#amp < this.#QUIET && this.#phase > 1.0) {
       //console.log("DONE!", this.#progress);
       this.playing = false;
       return 0;
