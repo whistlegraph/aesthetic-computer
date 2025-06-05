@@ -131,6 +131,43 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   context.subscriptions.push(hoverProvider);
 
+  // Code Action Provider for manual documentation opening
+  const codeActionProvider = vscode.languages.registerCodeActionsProvider(
+    { language: "javascript", pattern: "**/*.mjs" },
+    {
+      provideCodeActions(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        token: vscode.CancellationToken
+      ): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
+        if (document.lineCount > 500 || !docs) return []; // Skip for long files.
+
+        const wordRange = document.getWordRangeAtPosition(range.start);
+        if (!wordRange) return [];
+        
+        const word = document.getText(wordRange);
+        
+        if (keys(mergedDocs).indexOf(word) > -1) {
+          const action = new vscode.CodeAction(
+            `📚 Open documentation for "${word}"`,
+            vscode.CodeActionKind.QuickFix
+          );
+          action.command = {
+            title: `Open docs for ${word}`,
+            command: "aestheticComputer.openDoc",
+            arguments: [word]
+          };
+          action.isPreferred = true;
+          return [action];
+        }
+        
+        return [];
+      }
+    }
+  );
+
+  context.subscriptions.push(codeActionProvider);
   const definitionProvider = vscode.languages.registerDefinitionProvider(
     { language: "javascript", pattern: "**/*.mjs" },
     {
@@ -145,8 +182,10 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         const word = document.getText(range);
 
         if (mergedDocs[word]) {
-          vscode.commands.executeCommand("aestheticComputer.openDoc", [word]);
-          return null;
+          // Instead of automatically opening docs, create a virtual definition location
+          // that shows in the peek definition view without triggering a popup
+          const uri = vscode.Uri.parse(`aesthetic-doc:${word}`);
+          return new vscode.Location(uri, new vscode.Position(0, 0));
         }
 
         return null;
