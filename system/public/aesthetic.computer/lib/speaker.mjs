@@ -278,18 +278,22 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       // this.#queue.push(sound);
       //  return;
-      // }
-
-      // Bubble works similarly to Square.
+      // }      // Bubble works similarly to Square.
       if (msg.type === "bubble") {
-        this.#queue.push(
-          new Bubble(
-            msg.data.radius,
-            msg.data.rise,
-            msg.data.volume,
-            msg.data.pan,
-          ),
+        const bubble = new Bubble(
+          msg.data.radius,
+          msg.data.rise,
+          msg.data.volume,
+          msg.data.pan,
+          msg.data.id,
         );
+        
+        // Track bubble by ID if provided
+        if (msg.data.id !== undefined) {
+          this.#running[msg.data.id] = bubble;
+        }
+        
+        this.#queue.push(bubble);
         return;
       }
     };
