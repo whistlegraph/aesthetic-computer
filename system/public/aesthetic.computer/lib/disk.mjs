@@ -66,7 +66,6 @@ let visible = true; // Is aesthetic.computer visibly rendering or not?
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
-
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
 // import { update } from "./glaze.mjs";
 const alphabet =
@@ -1411,32 +1410,41 @@ const $commonApi = {
         line += 1;
         lines[line] = [];
       }      function characterWrap(word, preserveSpaceBefore = false) {
-        // If we need to preserve space before this word, add it first
-        if (preserveSpaceBefore && run > 0) {
-          const spaceChar = " ";
-          const spaceLen = blockWidth;
-          if (run + spaceLen > bounds) newLine();
-          if (!lines[line].length) {
-            lines[line].push(spaceChar);
-          } else {
-            lines[line][lines[line].length - 1] += spaceChar;
-          }
-          run += spaceLen;
-        }
+        let needsSpace = preserveSpaceBefore && run > 0;
         
         for (let i = 0; i < word.length; i++) {
           const char = word[i];
           const charLen = blockWidth;
-          if (run + charLen > bounds) newLine();
-          if (!lines[line].length) {
-            lines[line].push(char);
-          } else {
-            lines[line][lines[line].length - 1] += char;
+          const spaceLen = needsSpace ? blockWidth : 0;
+          
+          if (run + spaceLen + charLen > bounds) {
+            newLine();
+            needsSpace = false; // Don't add space at start of new line
           }
-          run += charLen;
+          
+          if (!lines[line].length) {
+            // Start of line - add space if needed, then character
+            if (needsSpace) {
+              lines[line].push(" " + char);
+              run += spaceLen + charLen;
+              needsSpace = false;
+            } else {
+              lines[line].push(char);
+              run += charLen;
+            }
+          } else {
+            // Continuing existing word - add space if needed, then character
+            if (needsSpace) {
+              lines[line][lines[line].length - 1] += " " + char;
+              run += spaceLen + charLen;
+              needsSpace = false;
+            } else {
+              lines[line][lines[line].length - 1] += char;
+              run += charLen;
+            }
+          }
         }
-      }
-      if (wordWrap) {
+      }if (wordWrap) {
         const splitWords = text.split(" ");
         const words = [];
         for (let i = 0; i < splitWords.length; i++) {
@@ -1452,6 +1460,7 @@ const $commonApi = {
           if (wordLen >= bounds) {
             // Pass true to preserve space if this isn't the first word
             characterWrap(word, wordIndex > 0);
+            // Don't add extra space width after character wrapping
             return;
           }
           if (word.includes("\n")) {
@@ -1464,14 +1473,14 @@ const $commonApi = {
               const spaceNeeded = run > 0 ? spaceWidth : 0;
               if (run + spaceNeeded + segLen >= bounds) newLine();
               lines[line].push(seg);
-              run += segLen + spaceWidth; // Always add space width to run for consistent spacing
+              run += segLen + (wordIndex < words.length - 1 ? spaceWidth : 0); // Only add space if not the last word
             });
           } else {
             // For boundary checking, account for space only if this isn't the first word on the line
             const spaceNeeded = run > 0 ? spaceWidth : 0;
             if (run + spaceNeeded + wordLen >= bounds) newLine();
             lines[line].push(word);
-            run += wordLen + spaceWidth; // Always add space width to run for consistent spacing
+            run += wordLen + (wordIndex < words.length - 1 ? spaceWidth : 0); // Only add space if not the last word
           }
         });
       } else {
@@ -3624,6 +3633,7 @@ async function load(
       bake = module.bake || nopaint.bake;
       system = "nopaint";
     } else if (module.system?.startsWith("prompt")) {
+      // 📖 prompt system
       // Default wrap to "word" if using `prompt:character`.
       const wrap =
         module.wrap ||
@@ -3700,6 +3710,7 @@ async function load(
 
       system = "prompt";
     } else if (module.system?.startsWith("world")) {
+      // 🗺️ world system
       boot = async ($) => {
         await world.world_boot($, module.world);
         await module.boot?.($);
@@ -3729,6 +3740,7 @@ async function load(
 
       system = "world";
     } else if (module.system?.startsWith("fps")) {
+      // 🧊 fps system
       let doll;
 
       boot = ($) => {
@@ -3756,7 +3768,12 @@ async function load(
       leave = module.leave || defaults.leave;
 
       system = "fps";
+    } else if (module.system?.startsWith("game")) {
+      // 🎲 🎮 game system
+      console.log("game!");
+      // TODO: ⚠️ Make game template. 25.06.05.09.19
     } else {
+      // 🧩 piece
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
       paint = module.paint || defaults.paint;
