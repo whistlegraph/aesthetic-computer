@@ -68,6 +68,7 @@ function makeBuffer(width, height, fillProcess, painting, api) {
     const savedBuffer = getBuffer();
     const rc = c; // Remember color.
     setBuffer(buffer);
+    api.screen.pixels = buffer.pixels; // Set the API's pixel buffer.
     fillProcess(api); // Every fill process gets a painting API.
     painting.paint(true);
     // Restore old buffer and color.

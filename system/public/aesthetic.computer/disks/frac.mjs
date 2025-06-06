@@ -263,11 +263,11 @@ export function paint({ wipe, screen, write, sound }) {
         const depthFactor = Math.min(iterations / (dynMaxIter * 0.7), 1.0);
         const colorPersonality = Math.sin(pixelX * 0.03 + time * 0.1) * Math.cos(pixelY * 0.025 + time * 0.08);
         
-        const baseHue = 200 + Math.sin(time * 0.05) * 40 + bassBoost * 20;  // Much subtler bass hue shift
-        const proximityHue = proximityValue * 50 + colorPersonality * 20 + audioPulse * 15;  // Reduced audio hue impact
-        const depthHue = depthFactor * 30 + trebleSparkle * 10;  // Much subtler treble hue
+        const baseHue = 220 + Math.sin(time * 0.05) * 20 + bassBoost * 10;  // Blue-focused base hue
+        const proximityHue = proximityValue * 25 + colorPersonality * 10 + audioPulse * 8;  // Reduced hue variation
+        const depthHue = depthFactor * 15 + trebleSparkle * 5;  // Minimal hue shifts
         
-        const hue = (baseHue + proximityHue + depthHue + zoomLevel * 8) % 360;
+        const hue = Math.max(190, Math.min(270, baseHue + proximityHue + depthHue + zoomLevel * 4)); // Constrain to blue range
         const saturation = Math.min(0.65 + proximityValue * 0.25 + Math.abs(colorPersonality) * 0.1 + audioPulse * 0.05, 1.0);  // Minimal saturation changes
         const lightness = Math.min(0.25 + proximityValue * 0.35 + depthFactor * 0.2 + Math.sin(time * 0.12) * 0.05 + bassBoost * 0.05, 0.9);  // Minimal lightness changes
         
@@ -280,9 +280,9 @@ export function paint({ wipe, screen, write, sound }) {
         const sparkle = Math.sin(smoothIter * 0.5 + time * 2) * 0.3 + trebleSparkle * 0.1;  // Much subtler treble sparkle
         const personalityHue = Math.sin(pixelX * 0.02) * Math.cos(pixelY * 0.018) + bassBoost * 0.1;  // Reduced bass personality
         
-        const baseHue = (t * 240 + time * 8 + zoomLevel * 12 + audioPulse * 30) % 360;  // Much reduced audio pulse hue
-        const sparklyHue = sparkle * 60 + personalityHue * 40 + mid * 20;  // Much reduced mid hue impact
-        const hue = (baseHue + sparklyHue) % 360;
+        const baseHue = 210 + time * 4 + zoomLevel * 6 + audioPulse * 15; // Blue-focused exterior
+        const sparklyHue = sparkle * 30 + personalityHue * 20 + mid * 10;  // Reduced variation
+        const hue = Math.max(180, Math.min(280, baseHue + sparklyHue)); // Constrain to blue-cyan range
         
         const saturation = Math.min(0.75 + t * 0.2 + Math.abs(sparkle) * 0.15 + audioPulse * 0.05, 1.0);  // Minimal audio saturation
         const lightness = Math.min(0.35 + t * 0.4 + sparkle * 0.1 + Math.sin(time * 0.15) * 0.05 + bassBoost * 0.03, 0.95);  // Minimal bass lightness
