@@ -2491,6 +2491,7 @@ class Painting {
       $activePaintApi.screen = {
         width: arguments[0],
         height: arguments[1],
+        // pix gets added in the makeBuffer...
       };
       const pix = graph.makeBuffer(...arguments, painting, $activePaintApi);
       $activePaintApi = oldActivePaintApi;

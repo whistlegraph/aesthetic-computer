@@ -1,5 +1,5 @@
 // Paint, 23.05.15.00.01
-// Ask a LLM to produce code that automatically paints the request!
+// Ask Claude 4 Opus to produce code that automatically paints the request!
 
 /* #region 📓 TODO
   + Now
@@ -15,6 +15,7 @@
   - [] And have two chacters talk to one another in turns, adding a human?
   - [] ASCII graphics.
   + Done
+  - [x] Add Claude 4 Opus model option via 'claude' flag.
   - [X] Request cancellation handling on the server via `ask.js`.
   - [x] Use GPT-3.5.
   - [x] Always print the full source code.
