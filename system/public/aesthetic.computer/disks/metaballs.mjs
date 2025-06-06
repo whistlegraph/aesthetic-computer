@@ -117,22 +117,67 @@ function paint({ screen }) {
         // Normalize colors and add some overall noise
         r = Math.min(255, r / totalWeight);
         g = Math.min(255, g / totalWeight);
-        b = Math.min(255, b / totalWeight);
-          // Add subtle organic color variation without banding
+        b = Math.min(255, b / totalWeight);        // Add subtle organic color variation with enhanced effects
         const colorNoise = Math.sin(x * 0.0234 + y * 0.0345 + time * 8.91) * 10;
         r = Math.max(0, Math.min(255, r + colorNoise));
         g = Math.max(0, Math.min(255, g + colorNoise * 0.7));
         b = Math.max(0, Math.min(255, b + colorNoise * 1.1));
-      }
+        
+        // Add pixel-level effects
+        const pixelEffect = Math.sin(x * 0.05 + y * 0.07 + time * 15) * 0.5 + 0.5;
+        
+        // Random pixel brightness variation
+        if (pixelEffect > 0.9) {
+          const brightness = 1.1 + Math.sin(time * 20 + x + y) * 0.1;
+          r = Math.min(255, r * brightness);
+          g = Math.min(255, g * brightness);
+          b = Math.min(255, b * brightness);
+        }
+        
+        // Add dithering effect for retro look
+        const ditherPattern = ((x + y) % 2) * 0.05;
+        r = Math.max(0, Math.min(255, r - ditherPattern * 20));
+        g = Math.max(0, Math.min(255, g - ditherPattern * 15));
+        b = Math.max(0, Math.min(255, b - ditherPattern * 25));
+      
         // Fill the current pixel (no block filling needed with step=1)
-      const pixelIndex = (y * width + x) * 4;
-      pixels[pixelIndex] = r;     // Red
+      const pixelIndex = (y * width + x) * 4;pixels[pixelIndex] = r;     // Red
       pixels[pixelIndex + 1] = g; // Green
       pixels[pixelIndex + 2] = b; // Blue
       pixels[pixelIndex + 3] = 255;    // Alpha
-    }  }  
+    }
+  }  
   // Apply doom-style screen wipe effect
   applyDoomWipeEffect(pixels, width, height);
+  
+  // Add occasional glitch effect
+  applyGlitchEffect(pixels, width, height);
+  
+  // Draw connection lines between metaball centers
+  drawConnectionLines(pixels, width, height);
+  
+  // Draw triangles using the first 3 metaballs as vertices
+  if (balls.length >= 3) {
+    drawTriangle(pixels, width, height, balls[0], balls[1], balls[2]);
+  }
+}
+
+// Draw a triangle connecting three metaballs with enhanced effects
+function drawTriangle(pixels, width, height, ball1, ball2, ball3) {
+  // Animated color for triangle edges
+  const timeColor = (Math.sin(time * 2) * 0.5 + 0.5) * 255;
+  const color = [255, timeColor, 255 - timeColor, 255]; 
+  
+  // Draw lines between each pair of vertices with rounded coordinates
+  drawLine(pixels, width, height, 
+    Math.round(ball1.x), Math.round(ball1.y), 
+    Math.round(ball2.x), Math.round(ball2.y), color);
+  drawLine(pixels, width, height, 
+    Math.round(ball2.x), Math.round(ball2.y), 
+    Math.round(ball3.x), Math.round(ball3.y), color);
+  drawLine(pixels, width, height, 
+    Math.round(ball3.x), Math.round(ball3.y), 
+    Math.round(ball1.x), Math.round(ball1.y), color);
 }
 
 // Helper function to check if a point is inside a triangle using barycentric coordinates
@@ -170,26 +215,51 @@ function getBarycentricCoords(px, py, a, b, c) {
   return [u, v, w];
 }
 
-// Helper function to draw lines between metaball centers
+// Helper function to draw lines between metaball centers with effects
 function drawConnectionLines(pixels, width, height) {
-  // Draw lines connecting each ball to every other ball
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
+  // Only draw lines between the first 3 balls to avoid performance issues
+  const maxBalls = Math.min(3, balls.length);
+  for (let i = 0; i < maxBalls; i++) {
+    for (let j = i + 1; j < maxBalls; j++) {
       const ball1 = balls[i];
       const ball2 = balls[j];
       
-      // Draw line from ball1 to ball2
+      // Animate line opacity based on distance
+      const dx = ball2.x - ball1.x;
+      const dy = ball2.y - ball1.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const maxDistance = 200;
+      const opacity = Math.max(50, 255 - (distance / maxDistance) * 200);
+      
+      // Pulse effect
+      const pulse = Math.sin(time * 3 + i + j) * 0.3 + 0.7;
+      const finalOpacity = Math.min(255, opacity * pulse);
+      
+      // Draw line from ball1 to ball2 with animated color
+      const lineColor = [
+        Math.round(255 * (0.7 + Math.sin(time * 2 + i) * 0.3)),
+        Math.round(255 * (0.7 + Math.sin(time * 2.5 + j) * 0.3)),
+        255,
+        finalOpacity
+      ];
+      
       drawLine(pixels, width, height, 
         Math.round(ball1.x), Math.round(ball1.y),
         Math.round(ball2.x), Math.round(ball2.y),
-        [255, 255, 255, 128] // White with some transparency
+        lineColor
       );
     }
   }
 }
 
-// Bresenham's line algorithm for drawing lines
+// Bresenham's line algorithm for drawing lines with safety checks
 function drawLine(pixels, width, height, x0, y0, x1, y1, color) {
+  // Ensure coordinates are integers and within bounds
+  x0 = Math.max(0, Math.min(width - 1, Math.round(x0)));
+  y0 = Math.max(0, Math.min(height - 1, Math.round(y0)));
+  x1 = Math.max(0, Math.min(width - 1, Math.round(x1)));
+  y1 = Math.max(0, Math.min(height - 1, Math.round(y1)));
+  
   const dx = Math.abs(x1 - x0);
   const dy = Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1;
@@ -200,18 +270,25 @@ function drawLine(pixels, width, height, x0, y0, x1, y1, color) {
   let y = y0;
   
   while (true) {
-    // Check bounds
+    // Double check bounds before writing pixel
     if (x >= 0 && x < width && y >= 0 && y < height) {
       const pixelIndex = (y * width + x) * 4;
       
-      // Blend the line color with existing pixel
-      const alpha = color[3] / 255;
-      const invAlpha = 1 - alpha;
-      
-      pixels[pixelIndex] = pixels[pixelIndex] * invAlpha + color[0] * alpha;
-      pixels[pixelIndex + 1] = pixels[pixelIndex + 1] * invAlpha + color[1] * alpha;
-      pixels[pixelIndex + 2] = pixels[pixelIndex + 2] * invAlpha + color[2] * alpha;
-      // Alpha channel stays 255
+      // Simplified color blending to avoid potential issues
+      if (color.length >= 4) {
+        const alpha = color[3] / 255;
+        const invAlpha = 1 - alpha;
+        
+        pixels[pixelIndex] = Math.round(pixels[pixelIndex] * invAlpha + color[0] * alpha);
+        pixels[pixelIndex + 1] = Math.round(pixels[pixelIndex + 1] * invAlpha + color[1] * alpha);
+        pixels[pixelIndex + 2] = Math.round(pixels[pixelIndex + 2] * invAlpha + color[2] * alpha);
+      } else {
+        // Fallback: solid color
+        pixels[pixelIndex] = color[0] || 255;
+        pixels[pixelIndex + 1] = color[1] || 255;
+        pixels[pixelIndex + 2] = color[2] || 255;
+      }
+      pixels[pixelIndex + 3] = 255; // Always set alpha to fully opaque
     }
     
     if (x === x1 && y === y1) break;
@@ -259,124 +336,104 @@ function generateNoiseTexture() {
   }
 }
 
-// Doom-style screen wipe effect with both horizontal and vertical passes
+// Random glitch effect for added visual interest
+function applyGlitchEffect(pixels, width, height) {
+  const currentTime = Date.now() * 0.001;
+  const glitchIntensity = Math.sin(currentTime * 0.5) * 0.5 + 0.5;
+  
+  // Only apply glitch occasionally
+  if (glitchIntensity > 0.8) {
+    const glitchRows = Math.floor(height * 0.1); // Affect 10% of rows
+    
+    for (let i = 0; i < glitchRows; i++) {
+      const randomY = Math.floor(Math.random() * height);
+      const shift = Math.floor((Math.random() - 0.5) * 20); // Random horizontal shift
+      
+      // Shift pixels in this row
+      for (let x = 0; x < width; x++) {
+        const sourceX = Math.max(0, Math.min(width - 1, x + shift));
+        const sourceIndex = (randomY * width + sourceX) * 4;
+        const destIndex = (randomY * width + x) * 4;
+        
+        if (sourceIndex < pixels.length - 3 && destIndex < pixels.length - 3) {
+          // Apply color channel separation for RGB glitch effect
+          pixels[destIndex] = pixels[sourceIndex + ((i % 3) * 4)]; // Offset red
+          pixels[destIndex + 1] = pixels[sourceIndex + 1]; // Keep green
+          pixels[destIndex + 2] = pixels[sourceIndex + 2 + ((i % 2) * 4)]; // Offset blue
+          pixels[destIndex + 3] = 255;
+        }
+      }
+    }
+  }
+}
+
+// Enhanced doom-style screen wipe effect with pixel effects
 function applyDoomWipeEffect(pixels, width, height) {
-  // Initialize screen buffer and wipe patterns if needed
-  if (!screenBuffer || screenBuffer.length !== pixels.length) {
-    screenBuffer = new Uint8ClampedArray(pixels.length);
-    tempBuffer = new Uint8ClampedArray(pixels.length);
-    
-    // Copy current pixels to buffer immediately for seamless start
-    for (let i = 0; i < pixels.length; i++) {
-      screenBuffer[i] = pixels[i];
-    }
-    
-    // Initialize horizontal wipe pattern (for rows)
-    wipeColumns = [];
-    rowSpeeds = [];
-    for (let y = 0; y < height; y++) {
-      const seed = Math.sin(y * 0.1) * 1000;
-      const randomWidth = Math.abs(Math.sin(seed) * width * 0.3);
-      wipeColumns[y] = Math.floor(randomWidth);      // Each row gets its own speed multiplier (0.95x to 1.05x base speed - ultra subtle variation)
-      const speedSeed = Math.sin(y * 0.073 + 123.456) * 1000;
-      rowSpeeds[y] = 0.95 + Math.abs(Math.sin(speedSeed)) * 0.1;
-    }
-    
-    // Initialize vertical wipe pattern (for columns)
-    wipeRows = [];
-    colSpeeds = [];
-    for (let x = 0; x < width; x++) {
-      const seed = Math.sin(x * 0.1) * 1000;
-      const randomHeight = Math.abs(Math.sin(seed) * height * 0.3);
-      wipeRows[x] = Math.floor(randomHeight);      // Each column gets its own speed multiplier (0.97x to 1.03x base speed - ultra subtle variation)
-      const speedSeed = Math.sin(x * 0.089 + 789.123) * 1000;
-      colSpeeds[x] = 0.97 + Math.abs(Math.sin(speedSeed)) * 0.06;
-    }
-  }  // Update wipe progress continuously (glacial crawl speed)
-  wipeProgress += 0.0003; // Ultra slow base speed for barely perceptible movement
+  const currentTime = Date.now() * 0.001;
   
-  // Always capture current frame to buffer (continuous capture)
-  for (let i = 0; i < pixels.length; i++) {
-    screenBuffer[i] = pixels[i];
-  }
-    // PASS 1: Horizontal sliding wipe effect with per-row speed variation
-  for (let y = 0; y < height; y++) {    // Fully linear wipe effect from top to bottom
-    const rowWipePos = (wipeProgress * width) % (width * 2);
-    const normalizedY = y / height;
-    let slideProgress = (rowWipePos / width) - normalizedY * 0.3; // Linear delay based on row position
-    
-    slideProgress = slideProgress % 1;
-    if (slideProgress < 0) slideProgress += 1;
-      const baseSlide = slideProgress * width;
-    const slideDistance = Math.floor(baseSlide); // Removed per-row randomness for pure linear effect
-    
-    // Copy row from buffer to temp buffer with horizontal wrapping and pixel skipping
+  for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const sourceX = x;
-      let destX = (x + slideDistance) % width;
-      if (destX < 0) destX += width;
+      const index = (y * width + x) * 4;
       
-      const sourceIndex = (y * width + sourceX) * 4;
-      const destIndex = (y * width + destX) * 4;        // Reduced pixel skipping for more visible morphing (skip 2 out of 3 pixels)
-      const skipPattern = (x + y * 2) % 3;
-      if (skipPattern === 0) {
-        // Only apply wipe effect to 1 in 3 pixels for more visible morphing
-        tempBuffer[destIndex] = screenBuffer[sourceIndex];
-        tempBuffer[destIndex + 1] = screenBuffer[sourceIndex + 1];
-        tempBuffer[destIndex + 2] = screenBuffer[sourceIndex + 2];
-        tempBuffer[destIndex + 3] = screenBuffer[sourceIndex + 3];
+      // Create gentle wave patterns focused on speed rather than distortion
+      const waveX = Math.sin((x + currentTime * 60) * 0.008) * 3;  
+      const waveY = Math.sin((y + currentTime * 45) * 0.012) * 2; 
+      
+      // Combine waves for gentle effect
+      const totalWave = waveX + waveY;
+      const wipePosition = (y + totalWave) % height;
+      
+      // Create a moving wipe effect with different speeds in different regions
+      const speedVariation = 1 + Math.sin(x * 0.005) * 0.2; 
+      const wipeThreshold = (currentTime * 25 * speedVariation) % height;
+      
+      // Add pixel effects based on position and time
+      const pixelSeed = x * 0.1 + y * 0.13 + currentTime * 5;
+      const pixelNoise = Math.sin(pixelSeed) * 0.5 + 0.5;
+      
+      if (wipePosition < wipeThreshold) {
+        // Apply enhanced color effects to wiped areas
+        const enhancement = 1 + pixelNoise * 0.1;
+        pixels[index] = Math.min(255, pixels[index] * (1.03 * enhancement));     
+        pixels[index + 1] = Math.min(255, pixels[index + 1] * (1.01 * enhancement)); 
+        pixels[index + 2] = Math.min(255, pixels[index + 2] * (1.05 * enhancement)); 
+        
+        // Add scanline effect
+        if (y % 2 === 0 && pixelNoise > 0.7) {
+          pixels[index] = Math.min(255, pixels[index] * 1.2);
+          pixels[index + 1] = Math.min(255, pixels[index + 1] * 0.9);
+          pixels[index + 2] = Math.min(255, pixels[index + 2] * 1.1);
+        }
+        
+        // Add random pixel corruption effect
+        if (pixelNoise > 0.95) {
+          const corruption = Math.sin(currentTime * 20 + x + y) * 50;
+          pixels[index] = Math.max(0, Math.min(255, pixels[index] + corruption));
+          pixels[index + 1] = Math.max(0, Math.min(255, pixels[index + 1] + corruption * 0.8));
+          pixels[index + 2] = Math.max(0, Math.min(255, pixels[index + 2] + corruption * 1.2));
+        }
       } else {
-        // Keep original pixel (no wipe effect)
-        tempBuffer[destIndex] = screenBuffer[sourceIndex];
-        tempBuffer[destIndex + 1] = screenBuffer[sourceIndex + 1];
-        tempBuffer[destIndex + 2] = screenBuffer[sourceIndex + 2];
-        tempBuffer[destIndex + 3] = screenBuffer[sourceIndex + 3];
+        // Add subtle flickering to non-wiped areas
+        if (pixelNoise > 0.8) {
+          const flicker = 0.95 + Math.sin(currentTime * 15 + x * 0.1 + y * 0.1) * 0.05;
+          pixels[index] = Math.round(pixels[index] * flicker);
+          pixels[index + 1] = Math.round(pixels[index + 1] * flicker);
+          pixels[index + 2] = Math.round(pixels[index + 2] * flicker);
+        }
       }
-    }  }
-  
-  // Copy temp buffer to final pixels (horizontal pass only)
-  for (let i = 0; i < pixels.length; i++) {
-    pixels[i] = tempBuffer[i];
-  }
-  
-  /* PASS 2: Vertical sliding wipe effect with per-column speed variation - TEMPORARILY DISABLED
-  for (let x = 0; x < width; x++) {    // Each column moves at its own speed
-    const colWipePos = (wipeProgress * colSpeeds[x] * height * 0.3) % (height * 2); // Ultra slow vertical
-    const normalizedX = x / width;
-    let slideProgress = (colWipePos / height) - normalizedX * 0.25;
-    
-    slideProgress = slideProgress % 1;
-    if (slideProgress < 0) slideProgress += 1;
-    
-    const baseSlide = slideProgress * height;
-    const slideDistance = Math.floor(baseSlide + wipeRows[x]);
-    
-    // Copy column from temp buffer to final pixels with vertical wrapping and pixel skipping
-    for (let y = 0; y < height; y++) {
-      const sourceY = y;
-      let destY = (y + slideDistance) % height;
-      if (destY < 0) destY += height;
       
-      const sourceIndex = (sourceY * width + x) * 4;
-      const destIndex = (destY * width + x) * 4;
-        // Skip more pixels to make vertical pass glacially subtle (skip 5 out of 6 pixels)
-      const skipPattern = (x * 2 + y) % 6;
-      if (skipPattern === 0) {
-        // Keep the horizontally-wiped pixel (from temp buffer) without vertical wipe
-        pixels[destIndex] = tempBuffer[sourceIndex];
-        pixels[destIndex + 1] = tempBuffer[sourceIndex + 1];
-        pixels[destIndex + 2] = tempBuffer[sourceIndex + 2];
-        pixels[destIndex + 3] = 255;
-      } else {
-        // Apply vertical wipe effect
-        pixels[destIndex] = tempBuffer[sourceIndex];
-        pixels[destIndex + 1] = tempBuffer[sourceIndex + 1];
-        pixels[destIndex + 2] = tempBuffer[sourceIndex + 2];
-        pixels[destIndex + 3] = 255; // Alpha
+      // Add occasional pixel shift effect
+      if (pixelNoise > 0.98 && x > 2 && x < width - 2) {
+        const shiftDirection = Math.sin(currentTime * 10 + x + y) > 0 ? 1 : -1;
+        const sourceIndex = (y * width + (x + shiftDirection * 2)) * 4;
+        if (sourceIndex >= 0 && sourceIndex < pixels.length - 3) {
+          pixels[index] = pixels[sourceIndex];
+          pixels[index + 1] = pixels[sourceIndex + 1];
+          pixels[index + 2] = pixels[sourceIndex + 2];
+        }
       }
     }
   }
-  */
 }
 
 // 📚 Library
@@ -384,29 +441,3 @@ function applyDoomWipeEffect(pixels, width, height) {
 // function boot() {
 // Runs once at the start.
 // }
-
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
-
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
-
-// function beat() {
-//   // Runs once per system metronome (BPM) tick.
-// }
-
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
-
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// function icon() {
-// Render an application icon, aka favicon.
-// }
-
-// ⚠️ Also available: `brush` and `filter`.
