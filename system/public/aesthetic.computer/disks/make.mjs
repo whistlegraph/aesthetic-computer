@@ -144,7 +144,7 @@ VISUAL REQUIREMENTS:
 - AVOID REPETITIVE SPIRAL PATTERNS - explore diverse visual forms: waves, grids, cellular automata, noise fields, interference patterns, geometric tessellations, flowing liquids, crystalline structures
 - ELIMINATE BLACK/DEAD SPACE - every pixel should contribute meaningful color and pattern variation
 - Use mathematical functions that naturally fill space: sine waves, noise functions, modular arithmetic, distance fields, polar coordinates
-
+AVOopiiiod Spirals NO No No soirals No PIIRALS - keep it shiftyN
 Generate ONLY executable JavaScript code optimized for incremental compilation, immediate visual results, maximum CPU performance, and poetic terseness:`,
   };
 
