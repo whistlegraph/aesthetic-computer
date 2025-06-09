@@ -1409,19 +1409,21 @@ const $commonApi = {
         run = 0;
         line += 1;
         lines[line] = [];
-      }      function characterWrap(word, preserveSpaceBefore = false) {
+      }
+
+      function characterWrap(word, preserveSpaceBefore = false) {
         let needsSpace = preserveSpaceBefore && run > 0;
-        
+
         for (let i = 0; i < word.length; i++) {
           const char = word[i];
           const charLen = blockWidth;
           const spaceLen = needsSpace ? blockWidth : 0;
-          
+
           if (run + spaceLen + charLen > bounds) {
             newLine();
             needsSpace = false; // Don't add space at start of new line
           }
-          
+
           if (!lines[line].length) {
             // Start of line - add space if needed, then character
             if (needsSpace) {
@@ -1444,7 +1446,8 @@ const $commonApi = {
             }
           }
         }
-      }if (wordWrap) {
+      }
+      if (wordWrap) {
         const splitWords = text.split(" ");
         const words = [];
         for (let i = 0; i < splitWords.length; i++) {
@@ -1453,10 +1456,11 @@ const $commonApi = {
           } else {
             words.push(splitWords[i]);
           }
-        }        words.forEach((word, wordIndex) => {
+        }
+        words.forEach((word, wordIndex) => {
           const wordLen = word.length * blockWidth;
           const spaceWidth = blockWidth;
-          
+
           if (wordLen >= bounds) {
             // Pass true to preserve space if this isn't the first word
             characterWrap(word, wordIndex > 0);
@@ -5284,7 +5288,8 @@ async function makeFrame({ data: { type, content } }) {
           });
         },
       };
-    };    $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
+    };
+    $sound.bubble = function ({ radius, rise, volume = 1, pan = 0 } = {}) {
       const id = soundId;
       sound.bubbles.push({ id, radius: radius, rise, volume, pan });
       soundId += 1n;
@@ -6141,8 +6146,8 @@ async function makeFrame({ data: { type, content } }) {
         //send({ type: "3d-bake" });
       }
 
-      // Draw any Global UI / HUD in an overlay buffer that will get
-      // composited by the other thread.
+      // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
+      //           composited by the other thread.
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
@@ -6160,8 +6165,13 @@ async function makeFrame({ data: { type, content } }) {
         piece.length > 0
       ) {
         let w = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
+        const labelBounds = $api.text.box(
+          currentHUDTxt,
+          undefined,
+          $api.screen.width - $api.typeface.blockWidth,
+        );
 
-        const h = tf.blockHeight;
+        const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
 
         label = $api.painting(w, h, ($) => {
@@ -6178,8 +6188,18 @@ async function makeFrame({ data: { type, content } }) {
             if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
               text = currentHUDTxt?.replaceAll("~", " ");
             }
-            $.ink(0).write(text, { x: 1 + currentHUDScrub, y: 1 });
-            $.ink(c).write(text, { x: 0 + currentHUDScrub, y: 0 });
+            $.ink(0).write(
+              text,
+              { x: 1 + currentHUDScrub, y: 1 },
+              undefined,
+              $api.screen.width - $api.typeface.blockWidth,
+            );
+            $.ink(c).write(
+              text,
+              { x: 0 + currentHUDScrub, y: 0 },
+              undefined,
+              $api.screen.width - $api.typeface.blockWidth,
+            );
 
             if (currentHUDScrub > 0) {
               const shareWidth = tf.blockWidth * "share ".length;
