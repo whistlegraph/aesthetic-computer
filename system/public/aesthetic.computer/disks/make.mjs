@@ -43,21 +43,20 @@ let conversation,
   foundParameters = new Set(), // Track which parameter indices have been found
   streamingEndTime = 0, // Track when streaming ended for pause duration
   labelRestored = false, // Track if we've restored the original label
-  parameterQueue = [], // Queue for parameters found in chunks: [{index, foundFrame}]
-  currentQueueIndex = 0, // Current position in the queue
-  lastQueueAdvanceFrame = 0, // Last frame when we advanced the queue
+  lastParameterFoundFrame = 0, // Track when the last parameter was found
   characterBuffer = "", // Buffer for incoming code chunks
   displayedCode = "", // Code that has been displayed character by character
   lastCharacterDisplayFrame = 0, // Last frame when we displayed a character
-  charactersPerFrame = 1; // How many characters to show per frame (adjustable speed, up to 4 when catching up)
+  scrollingDisplayBuffer = "", // Rolling buffer for scrolling text display
+  charactersPerFrame = 1, // How many characters to show per frame (adjustable speed, up to 4 when catching up)
+  state = {}; // Persistent state object that survives between frames
 
-const DEBUG_MODE = false; // Set to true for detailed logging
+const DEBUG_MODE = true; // Set to true for detailed logging
 const TEXT_SCALE = 1.0; // Normal text scale for better readability
 const LINE_HEIGHT = 12; // Normal line height for scale 1.0
-const RENDER_SCALE = 0.5; // Render at 50% resolution for performance (0.25 for quarter resolution)
-const HIGHLIGHT_DURATION_FRAMES = 120; // How long each parameter highlight lasts (2 seconds at 60fps)
-const MIN_PARAM_DISPLAY_FRAMES = 6; // Minimum frames to show each parameter (0.1 seconds at 60fps)
-const PAUSE_DURATION = 120; // 2 seconds at 60fps to give enough time for last parameter (was 30)
+const RENDER_SCALE = 0.25; // Full resolution for debugging - was 0.5
+const PAUSE_DURATION = 0; // 4 seconds at 60fps to give enough time to read the final code
+const MIN_CODE_DISPLAY_TIME = 120; // Minimum time to show code before cleanup (2 seconds)
 
 // 🥾 Boot (Runs once before first paint and sim)
 function boot({ params, store, slug, hud: { label, currentLabel } }) {
@@ -68,32 +67,31 @@ function boot({ params, store, slug, hud: { label, currentLabel } }) {
 
   // Store the original params for simple highlighting
   originalParams = [...params];
-  atParams = params.map(param => `/* @${param} */`); // Create multiline comment versions
-  currentParamIndex = 0;
+  atParams = params.map((param) => `/* @${param} */`); // Create multiline comment versions
+  currentParamIndex = -1; // Start with "make" highlighted (-1 means no parameter, just "make")
   lastWordChangeTime = 0;
   processedWords.clear(); // Reset processed words
   foundParameters.clear(); // Reset found parameters
   streamingEndTime = 0;
   labelRestored = false; // Reset label restoration flag
-  parameterQueue = []; // Reset parameter queue
-  currentQueueIndex = 0;
-  lastQueueAdvanceFrame = 0;
+  lastParameterFoundFrame = 0; // Reset last parameter found frame
   characterBuffer = ""; // Reset character buffer
   displayedCode = ""; // Reset displayed code
   lastCharacterDisplayFrame = 0;
+  state = {}; // Reset persistent state for new prompt
 
   // Load the prompt template from the .prompt file synchronously
   let programSource;
   let promptLoaded = false;
-  
+
   fetch("../prompts/make.prompt")
-    .then(response => response.text())
-    .then(text => {
+    .then((response) => response.text())
+    .then((text) => {
       programSource = text;
       promptLoaded = true;
       initializeConversation();
     })
-    .catch(error => {
+    .catch((error) => {
       console.error("Failed to load make.prompt:", error);
       programSource = `You are a code poet that makes art. Create JavaScript for: "{{{ USER INPUT }}}"`;
       promptLoaded = true;
@@ -190,9 +188,6 @@ function paint({
   // Process character buffer for smooth streaming effect
   processCharacterBuffer();
 
-  // Process the parameter queue to advance highlighting
-  processParameterQueue();
-
   // Create a custom screen buffer for the animation
   let animationBuffer = null;
 
@@ -208,7 +203,7 @@ function paint({
         bufferHeight,
         ({ wipe, screen: bufferScreen }) => {
           // Execute the AI-generated animation code on the custom buffer
-          // Ensure the buffer screen has the expected interface
+          // The screen interface should use the actual buffer dimensions
           const screenInterface = {
             pixels: bufferScreen.pixels,
             width: bufferScreen.width,
@@ -225,7 +220,8 @@ function paint({
                 drawing: pen.drawing || false,
               }
             : { x: 0, y: 0, drawing: false };
-          executeCode(screenInterface, frameCount, scaledPen);
+
+          executeCode(screenInterface, frameCount, scaledPen, state);
         },
       );
     } catch (err) {
@@ -247,6 +243,7 @@ function paint({
             "screen",
             "frameCount",
             "pen",
+            "state",
             lastValidCode,
           );
           if (DEBUG_MODE)
@@ -340,24 +337,27 @@ export { boot, paint, leave };
 // Process character buffer to display characters one by one for smooth streaming effect
 function processCharacterBuffer() {
   if (characterBuffer.length === 0) return;
-  
+
   // Only process characters if enough frames have passed (controls speed)
   if (frameCount - lastCharacterDisplayFrame < 1) return; // 1 frame per character
-  
+
   // Adaptive speed: show more characters per frame when buffer is building up
-  const adaptiveSpeed = Math.min(16, Math.max(1, Math.floor(characterBuffer.length / 20))); // 1-16 chars per frame
+  const adaptiveSpeed = Math.min(
+    16,
+    Math.max(1, Math.floor(characterBuffer.length / 20)),
+  ); // 1-16 chars per frame
   const charactersToAdd = Math.min(adaptiveSpeed, characterBuffer.length);
   const newCharacters = characterBuffer.substring(0, charactersToAdd);
-  
+
   const previousLength = displayedCode.length;
   displayedCode += newCharacters;
   characterBuffer = characterBuffer.substring(charactersToAdd);
   lastCharacterDisplayFrame = frameCount;
-  
+
   if (DEBUG_MODE && charactersToAdd > 1) {
     // console.log(`⚡ Adaptive speed: showing ${charactersToAdd} characters (buffer: ${characterBuffer.length})`);
   }
-  
+
   // Check for the next expected parameter in sequence
   // Find the next unprocessed parameter index
   let nextExpectedIndex = -1;
@@ -367,61 +367,37 @@ function processCharacterBuffer() {
       break;
     }
   }
-  
+
   // Only check for the next expected parameter
   if (nextExpectedIndex !== -1) {
     const atParam = atParams[nextExpectedIndex];
     const lastOccurrence = displayedCode.lastIndexOf(atParam);
-    
-    if (lastOccurrence !== -1 && lastOccurrence + atParam.length >= previousLength) {
-      console.log(`🟡 Next expected parameter detected: ${atParam} at index ${nextExpectedIndex}`);
+
+    if (
+      lastOccurrence !== -1 &&
+      lastOccurrence + atParam.length >= previousLength
+    ) {
+      // console.log(`🟡 Next expected parameter detected: ${atParam} at index ${nextExpectedIndex}`);
       foundParameters.add(nextExpectedIndex);
       processedWords.add(atParam + "_" + nextExpectedIndex);
-      
-      if (!parameterQueue.some(p => p.index === nextExpectedIndex)) {
-        parameterQueue.push({ 
-          index: nextExpectedIndex, 
-          foundFrame: frameCount 
-        });
-        
-        // If this is the first item in the queue, start processing immediately
-        if (parameterQueue.length === 1) {
-          currentQueueIndex = 0;
-          lastQueueAdvanceFrame = frameCount;
-          currentParamIndex = nextExpectedIndex;
-          lastWordChangeTime = frameCount;
-        }
-        
-        console.log(`📋 Added to queue: ${atParam} (index ${nextExpectedIndex}). Queue length: ${parameterQueue.length}`);
-      }
-    }
-  }
-}
 
-// Process the parameter queue to show each parameter for minimum duration
-function processParameterQueue() {
-  if (parameterQueue.length === 0) return;
-  
-  // Check if we need to advance to the next parameter in the queue
-  const framesSinceLastAdvance = frameCount - lastQueueAdvanceFrame;
-  
-  if (currentQueueIndex < parameterQueue.length - 1 && framesSinceLastAdvance >= MIN_PARAM_DISPLAY_FRAMES) {
-    currentQueueIndex++;
-    lastQueueAdvanceFrame = frameCount;
-    
-    if (DEBUG_MODE) {
-      const queueItem = parameterQueue[currentQueueIndex];
-      console.log(`⏭️  Queue advanced to index ${currentQueueIndex}, showing param ${queueItem.index}: "${originalParams[queueItem.index]}"`);
-    }
-  }
-  
-  // Update currentParamIndex based on current queue position
-  if (currentQueueIndex < parameterQueue.length) {
-    const queueItem = parameterQueue[currentQueueIndex];
-    currentParamIndex = queueItem.index;
-    
-    if (DEBUG_MODE && frameCount % 30 === 0) {
-      console.log(`📍 Current param index: ${currentParamIndex}, queue index: ${currentQueueIndex}/${parameterQueue.length}, param: "${originalParams[currentParamIndex] || 'UNKNOWN'}"`);
+      // Immediately advance to this parameter (stream-driven)
+      currentParamIndex = nextExpectedIndex;
+      lastWordChangeTime = frameCount;
+
+      if (DEBUG_MODE) {
+        console.log(
+          `🎯 Stream-driven parameter transition: Immediately highlighting "${originalParams[nextExpectedIndex]}" (index ${nextExpectedIndex})`,
+        );
+      }
+
+      // If this was the last parameter, record when it was found
+      if (nextExpectedIndex === originalParams.length - 1) {
+        lastParameterFoundFrame = frameCount;
+        if (DEBUG_MODE) {
+          console.log(`📍 Last parameter found at frame ${frameCount}`);
+        }
+      }
     }
   }
 }
@@ -431,62 +407,52 @@ function checkForParamMatches(code, fromFullCode = false) {
   if (!code || !atParams.length) return;
 
   if (DEBUG_MODE) {
-    const currentParam = currentParamIndex < originalParams.length ? originalParams[currentParamIndex] : "DONE";
-    console.log(`🔍 Checking for @params. Current index: ${currentParamIndex}, current param: "${currentParam}"`);
+    const currentParam =
+      currentParamIndex < originalParams.length
+        ? originalParams[currentParamIndex]
+        : "DONE";
+    console.log(
+      `🔍 Checking for @params. Current index: ${currentParamIndex}, current param: "${currentParam}"`,
+    );
   }
-
-  let foundInThisChunk = [];
 
   // Check ALL parameters, not just from currentParamIndex
   for (let paramIndex = 0; paramIndex < atParams.length; paramIndex++) {
     const atParam = atParams[paramIndex];
-    
+
     // Skip if we've already processed this specific parameter index when scanning full code
     if (fromFullCode && foundParameters.has(paramIndex)) {
       continue;
     }
-    
+
     // Direct string match - much simpler!
     if (code.includes(atParam)) {
       // For duplicate words, only process if this specific parameter index hasn't been processed yet
       if (!foundParameters.has(paramIndex)) {
         if (DEBUG_MODE) {
-          console.log(`🎯 FOUND! ${atParam} matches param "${originalParams[paramIndex]}" at index ${paramIndex}`);
+          console.log(
+            `🎯 FOUND! ${atParam} matches param "${originalParams[paramIndex]}" at index ${paramIndex}`,
+          );
         }
-        
+
         // Mark this specific parameter index as processed and found
         processedWords.add(atParam + "_" + paramIndex); // Use unique key for duplicates
         foundParameters.add(paramIndex);
-        
-        // Add to queue if not already in queue and not from full code scan
-        if (!fromFullCode && !parameterQueue.some(item => item.index === paramIndex)) {
-          foundInThisChunk.push({ index: paramIndex, foundFrame: frameCount });
+
+        // Stream-driven: immediately advance to this parameter if it's the next expected one
+        if (!fromFullCode && paramIndex === currentParamIndex + 1) {
+          currentParamIndex = paramIndex;
+          lastWordChangeTime = frameCount;
+          if (DEBUG_MODE) {
+            console.log(
+              `🎯 Stream-driven parameter advance: Now highlighting "${originalParams[paramIndex]}" (index ${paramIndex})`,
+            );
+          }
         }
-        
+
         // Continue checking other parameters - don't break on first match
         // This allows processing multiple parameters in the same chunk
       }
-    }
-  }
-  
-  // Add all found parameters to the queue in order
-  if (foundInThisChunk.length > 0) {
-    // Sort by parameter index to maintain logical order
-    foundInThisChunk.sort((a, b) => a.index - b.index);
-    
-    parameterQueue.push(...foundInThisChunk);
-    
-    // If this is the first time we're adding to the queue, start processing immediately
-    if (parameterQueue.length === foundInThisChunk.length) {
-      currentQueueIndex = 0;
-      lastQueueAdvanceFrame = frameCount;
-      currentParamIndex = parameterQueue[0].index;
-      lastWordChangeTime = frameCount;
-    }
-    
-    if (DEBUG_MODE) {
-      console.log(`📥 Added ${foundInThisChunk.length} parameters to queue:`, foundInThisChunk.map(item => `${item.index}:${originalParams[item.index]}`));
-      console.log(`📋 Queue now has ${parameterQueue.length} items`);
     }
   }
 }
@@ -499,17 +465,21 @@ function renderPromptWithHighlighting(
   params,
   currentIndex,
   typeface,
+  shouldShowCode = false, // New parameter to sync with code display
+  displayState = {} // Additional display state for fine-grained control
 ) {
-  // Show highlighting during streaming AND during the pause period after streaming ends
-  // Also show the final prompt state after everything is complete (if any parameters were found)
-  const isPauseActive = streamingEndTime > 0 && frameCount - streamingEndTime < PAUSE_DURATION;
-  const shouldShowHighlighting = streaming || isPauseActive || foundParameters.size > 0;
-  
+  // Only show highlighting when shouldShowCode is true
+  // This ensures perfect synchronization with code display
+  const shouldShowHighlighting = shouldShowCode;
+
   if (DEBUG_MODE && frameCount % 30 === 0) {
-    console.log(`🔍 Highlighting debug: streaming=${streaming}, streamingEndTime=${streamingEndTime}, isPauseActive=${isPauseActive}, shouldShow=${shouldShowHighlighting}, foundParams=${foundParameters.size}, currentIndex=${currentIndex}`);
+    console.log(
+      `🔍 Highlighting debug: shouldShow=${shouldShowHighlighting}, foundParams=${foundParameters.size}, currentIndex=${currentIndex}, shouldShowCode=${shouldShowCode}, displayState=${JSON.stringify(displayState)}`,
+    );
   }
-  
-  if (!params || !params.length || !shouldShowHighlighting) return { highlights: [] };
+
+  if (!params || !params.length || !shouldShowHighlighting)
+    return { highlights: [] };
 
   const words = ["make", ...params]; // Include "make" at the beginning
   const startX = 6;
@@ -525,40 +495,30 @@ function renderPromptWithHighlighting(
       // Check if this is a parameter (not "make")
       const paramIndex = index - 1; // Convert word index to param index (skip "make")
       const isParameter = paramIndex >= 0;
-      
+
       let color = [128, 128, 128]; // Default gray
       let isHighlighted = false;
-      
+
       if (isParameter) {
         const isCurrent = paramIndex === currentIndex;
-        const hasBeenFound = foundParameters.has(paramIndex);
-        
-        if (DEBUG_MODE && frameCount % 60 === 0 && paramIndex === originalParams.length - 1) {
-          console.log(`🔍 Last param debug: paramIndex=${paramIndex}, word="${word}", isCurrent=${isCurrent}, hasBeenFound=${hasBeenFound}, currentIndex=${currentIndex}`);
-        }
-        
-        // Show highlighting in different states:
-        if (streaming || isPauseActive) {
-          // During streaming and pause: only highlight current parameter
-          if (isCurrent && hasBeenFound) {
-            color = [255, 255, 0];
-            isHighlighted = true;
-          }
-        } else {
-          // After streaming is complete: show all found parameters in gray, no wiggling
-          if (hasBeenFound) {
-            color = [200, 200, 200]; // Light gray for completed parameters
-            isHighlighted = false; // No wiggling
-          }
-        }
-      } else {
-        // This is "make" - highlight it when no parameters have been found yet
-        if (foundParameters.size === 0) {
+
+        // SIMPLIFIED: Only highlight when code is showing, this is current param, and highlighting not complete
+        if (shouldShowCode && isCurrent && currentIndex < originalParams.length) {
           color = [255, 255, 0];
           isHighlighted = true;
-        } else if (!streaming && !isPauseActive) {
-          // After completion, show "make" in light gray
-          color = [200, 200, 200];
+        } else {
+          // Default gray for non-active parameters
+          color = [128, 128, 128];
+          isHighlighted = false;
+        }
+      } else {
+        // This is "make" - only highlight when showing code and currentParamIndex is -1 (before any parameters)
+        if (shouldShowCode && currentParamIndex === -1) {
+          color = [255, 255, 0];
+          isHighlighted = true;
+        } else {
+          // Default gray for "make" when not active
+          color = [128, 128, 128];
           isHighlighted = false;
         }
       }
@@ -578,25 +538,49 @@ function renderPromptWithHighlighting(
           y: currentY,
           width: wordWidth,
           word: word,
-          atParam: `/* @${word} */`
+          atParam: `/* @${word} */`,
         });
       }
 
-      // Render the word with appropriate color and wiggle if highlighted
+      // ENHANCED WIGGLE LOGIC: Tie wiggle directly to text display state
       if (isHighlighted) {
-        // Calculate wiggle offset for animated movement
-        const wiggleSpeed = 0.15;
-        const wiggleAmount = 1; // 1 pixel wiggle
-        const wiggleX = Math.round(Math.sin(frameCount * wiggleSpeed) * wiggleAmount);
-        const wiggleY = Math.round(Math.cos(frameCount * wiggleSpeed * 0.7) * wiggleAmount);
+        // Only wiggle when text is actively being displayed
+        const shouldWiggle = displayState.hasActiveText && (
+          displayState.isCharacterStreaming || 
+          displayState.streaming || 
+          displayState.isHighlightingInProgress
+        );
         
-        ink(color[0], color[1], color[2]).write(word, { 
-          x: currentX + wiggleX, 
-          y: currentY + wiggleY, 
-          size: 1 
-        });
+        if (shouldWiggle) {
+          // Calculate wiggle offset for animated movement
+          const wiggleSpeed = 0.15;
+          const wiggleAmount = 1; // 1 pixel wiggle
+          const wiggleX = Math.round(
+            Math.sin(frameCount * wiggleSpeed) * wiggleAmount,
+          );
+          const wiggleY = Math.round(
+            Math.cos(frameCount * wiggleSpeed * 0.7) * wiggleAmount,
+          );
+
+          ink(color[0], color[1], color[2]).write(word, {
+            x: currentX + wiggleX,
+            y: currentY + wiggleY,
+            size: 1,
+          });
+        } else {
+          // Highlighted but no wiggle - render static yellow text
+          ink(color[0], color[1], color[2]).write(word, {
+            x: currentX,
+            y: currentY,
+            size: 1,
+          });
+        }
       } else {
-        ink(color[0], color[1], color[2]).write(word, { x: currentX, y: currentY, size: 1 });
+        ink(color[0], color[1], color[2]).write(word, {
+          x: currentX,
+          y: currentY,
+          size: 1,
+        });
       }
 
       // Move cursor position for next word
@@ -612,7 +596,7 @@ function renderPromptWithHighlighting(
       }
     }
   });
-  
+
   return { highlights };
 }
 
@@ -632,86 +616,157 @@ function displayScrollingCodeBuffer(
   // Determine vertical offset to start right under the corner label
   let codeStartY = hud.currentLabel().btn.box.h + 12;
 
-  // Only show code overlay while streaming OR character buffer is not empty OR for a brief period after streaming ends
-  const isCharacterStreaming = characterBuffer.length > 0; // Still characters to display
-  const shouldShowCode = streaming || isCharacterStreaming || (streamingEndTime > 0 && frameCount - streamingEndTime < PAUSE_DURATION);
+  // Check if we're still highlighting parameters
+  const isCharacterStreaming = characterBuffer.length > 0;
+  const hasParametersToHighlight = originalParams && originalParams.length > 0;
   
-  // Only start the pause timer when both network streaming is done AND character buffer is empty
-  if (!streaming && !isCharacterStreaming && streamingEndTime === 0) {
-    streamingEndTime = frameCount; // Start pause timer
+  // CRITICAL: Handle completion logic FIRST, before calculating any display states
+  
+  // If streaming has finished and no parameters were found, mark highlighting as complete
+  if (!streaming && !isCharacterStreaming && hasParametersToHighlight && foundParameters.size === 0 && currentParamIndex < originalParams.length) {
+    currentParamIndex = originalParams.length; // Signal completion immediately
     if (DEBUG_MODE) {
-      console.log(`⏱️  PAUSE STARTED: Frame ${frameCount}, will end at frame ${frameCount + PAUSE_DURATION}`);
+      console.log(`✅ No @parameter comments detected after streaming - marking highlighting complete immediately.`);
     }
   }
   
-  // Reset streamingEndTime and parameter tracking after the pause period to clean up
+  // If all parameters have been found, mark highlighting as complete after the delay
+  if (!streaming && !isCharacterStreaming && hasParametersToHighlight && foundParameters.size === originalParams.length && currentParamIndex < originalParams.length) {
+    // Give the last parameter a brief moment to be visible (60 frames = 1 second)
+    if (lastParameterFoundFrame > 0 && frameCount - lastParameterFoundFrame >= 60) {
+      currentParamIndex = originalParams.length; // Signal completion
+      if (DEBUG_MODE) {
+        console.log(`✅ All ${foundParameters.size} @parameter comments found - marking highlighting complete after ${frameCount - lastParameterFoundFrame} frames. Frame: ${frameCount}`);
+      }
+    }
+  }
+  
+  // Calculate isHighlightingInProgress AFTER all completion logic is handled
+  const isHighlightingInProgress = hasParametersToHighlight && currentParamIndex < originalParams.length;
+  
+  if (DEBUG_MODE && frameCount % 30 === 0) {
+    console.log(`🔍 Timing debug: frame=${frameCount}, isHighlightingInProgress=${isHighlightingInProgress}, currentParamIndex=${currentParamIndex}/${originalParams.length}, lastParamFrame=${lastParameterFoundFrame}, framesSinceLastParam=${lastParameterFoundFrame > 0 ? frameCount - lastParameterFoundFrame : 0}`);
+  }
+  
+  // Show code overlay while:
+  // 1. Network streaming is active, OR
+  // 2. Character buffer has content to display, OR  
+  // 3. Parameter highlighting is still in progress, OR
+  // 4. Brief pause after everything completes (if PAUSE_DURATION > 0)
+  const shouldShowCode =
+    streaming ||
+    isCharacterStreaming ||
+    isHighlightingInProgress ||
+    (streamingEndTime > 0 && frameCount - streamingEndTime < PAUSE_DURATION);
+
+  // Start cleanup timer only when ALL phases are complete:
+  // - Network streaming is done
+  // - Character buffer is empty  
+  // - Parameter highlighting is complete (or no parameters to highlight)
+  if (!streaming && !isCharacterStreaming && !isHighlightingInProgress && streamingEndTime === 0) {
+    streamingEndTime = frameCount;
+
+  }
+
+  // Perform cleanup after pause (or immediately if PAUSE_DURATION = 0)
   if (streamingEndTime > 0 && frameCount - streamingEndTime >= PAUSE_DURATION) {
-    // Print the final source code right before the pause ends
-    if (DEBUG_MODE && code && code.trim()) {
-      console.log("🎬 FINAL SOURCE CODE (before transition):");
-      console.log("=" .repeat(60));
-      console.log(code);
-      console.log("=" .repeat(60));
+    // Print the final results to console for debugging/analysis
+    if (code && code.trim()) {
+      // console.log("🎬 FINAL GENERATED CODE:");
+      // console.log("=".repeat(60));
+      console.log(code); // TODO: Can this be formatted purple with yellow background?
+      // console.log("=".repeat(60));
+      
+      if (originalParams && originalParams.length > 0) {
+        console.log(`"${originalParams.join(" ")}"`);
+        console.log("=".repeat(60));
+      }
     }
-    
-    if (DEBUG_MODE) {
-      console.log(`🧹 CLEANUP: Pause expired after ${frameCount - streamingEndTime} frames. Cleaning up all state.`);
-    }
-    
-    // Atomic cleanup - do everything at once to prevent visual glitches
+
+    console.log(`🧹 CLEANUP: Resetting all state after ${frameCount - streamingEndTime} frame delay.`);
+
+    // Perform complete cleanup to ensure clean state for next generation
     streamingEndTime = 0;
-    currentParamIndex = 0;
+    currentParamIndex = -1; // Reset to "make" highlighted
     processedWords.clear();
     foundParameters.clear();
-    parameterQueue = [];
-    currentQueueIndex = 0;
-    lastQueueAdvanceFrame = 0;
+    lastParameterFoundFrame = 0;
     characterBuffer = "";
     displayedCode = "";
     lastCharacterDisplayFrame = 0;
-    
-    // At this point, shouldShowCode will become false and the prompt will disappear cleanly
+
+    // Reset label restoration flag for next run
+    labelRestored = false;
   }
-  
+
   // Restore the original HUD label after code display has finished
   if (!shouldShowCode && !labelRestored && label && originalLabel) {
     // Don't actually restore the label - let it stay empty so prompt shows
-    // label(originalLabel); // DISABLED - this was causing the flickering
+    label(originalLabel); // DISABLED - this was causing the flickering
+    // label
     labelRestored = true;
     if (DEBUG_MODE) {
-      console.log(`🏷️  Label restoration skipped to keep prompt visible: "${originalLabel}"`);
+      console.log(
+        `🏷️  Label restoration skipped to keep prompt visible: "${originalLabel}"`,
+      );
     }
   }
-  
+
+  // Always render the prompt with current param highlighting - but tie it to shouldShowCode
+  if (!labelRestored) {
+    renderPromptWithHighlighting(
+      screen,
+      ink,
+      text,
+      originalParams,
+      currentParamIndex,
+      typeface,
+      shouldShowCode, // Pass shouldShowCode to synchronize highlighting
+      {
+        isCharacterStreaming,
+        isHighlightingInProgress,
+        streaming,
+        hasActiveText: shouldShowCode && (displayedCode && displayedCode.trim().length > 0)
+      }
+    );
+  }
+
   if (!shouldShowCode) return;
 
   // Expanded typewriter effect - fill available screen space
   const textAlpha = 200;
-  
-  // Calculate how much screen space we can use
-  const availableHeight = screen.height - codeStartY - 30; // Leave bottom margin
-  const maxLines = Math.floor(availableHeight / LINE_HEIGHT); // How many lines fit
-  const charsPerLine = Math.floor((screen.width - 16) / 6); // Chars per line (6px char width)
+
+  // Calculate how much screen space we can use for text display
+  const availableHeight = screen.height - codeStartY - 50; // Leave margin for "Making..." label at bottom
+  const maxLines = Math.floor(availableHeight / LINE_HEIGHT); // Use full available height
+  const charWidth = typeface ? typeface.blockWidth : 6; // Use actual character width from typeface
+  const charsPerLine = Math.floor((screen.width - 16) / charWidth); // Chars per line with margins
   const maxDisplayLength = maxLines * charsPerLine; // Total characters we can display
-  
+
   // Flatten the code into one continuous line for the typewriter effect
-  const flatCode = code.trim().replace(/\n/g, ' ').replace(/\s+/g, ' ');
+  const flatCode = code.trim().replace(/\n/g, " ").replace(/\s+/g, " ");
+
+  // For the scrolling display, we'll pass the full code and let renderCodeWithHighlighting
+  // extract the relevant segment based on the current parameter
+  let displayCode = flatCode;
   
-  // Determine how much of the flattened code to show
-  let displayCode = "";
-  
-  if (flatCode.length <= maxDisplayLength) {
-    // Show everything if it fits
-    displayCode = flatCode;
-  } else {
-    // Show the most recent code that fits in our display area
+  // Apply scrolling only if the current segment (after extraction) would be too long
+  // The actual segmentation happens in renderCodeWithHighlighting
+  if (flatCode.length > maxDisplayLength) {
+    // Show the most recent characters that fit
     displayCode = flatCode.substring(flatCode.length - maxDisplayLength);
     
-    // Trim to word boundary if possible to avoid cutting words in half
-    const spaceIndex = displayCode.indexOf(' ');
+    // Try to start from a word boundary to avoid cutting words
+    const spaceIndex = displayCode.indexOf(" ");
     if (spaceIndex > 0 && spaceIndex < 20) {
       displayCode = displayCode.substring(spaceIndex + 1);
     }
+  }
+
+  if (DEBUG_MODE && frameCount % 120 === 0) {
+    console.log(
+      `📺 Display: showing ${displayCode.length}/${flatCode.length} chars, maxDisplay=${maxDisplayLength}, maxLines=${maxLines}`,
+    );
   }
 
   // Render the code with text wrapping to fill the available space
@@ -719,9 +774,9 @@ function displayScrollingCodeBuffer(
     ink,
     displayCode,
     { x: 6, y: codeStartY - 8, size: TEXT_SCALE }, // 6px from left edge, 8px higher than codeStartY
-    screen.width - 6, // Wrap to screen width minus 6px
+    screen.width - 12, // Wrap to screen width with proper margins (6px on each side)
     textAlpha,
-    text
+    text,
   );
 
   // Show status indicators
@@ -729,23 +784,12 @@ function displayScrollingCodeBuffer(
   if (streaming) {
     const dots = ".".repeat((Math.floor(frameCount / 10) % 3) + 1);
     ink(0, 255, 0, 255).write(`Making${dots}`, {
-      x: 10,
+      x: 6,
       y: screen.height - 15,
       size: 1,
     });
   }
 
-  // Render the prompt with current param highlighting (show during streaming and after until final execution)
-  // Show the most recently found parameter directly
-  const promptHighlightResult = renderPromptWithHighlighting(
-    screen,
-    ink,
-    text,
-    originalParams,
-    currentParamIndex,
-    typeface,
-  );
-  
   // Draw connection lines between prompt highlights and code highlights
   // drawHighlightConnections(
   //   screen,
@@ -759,37 +803,33 @@ function displayScrollingCodeBuffer(
 }
 
 // Render code text with @word highlighting for only the current active parameter
-function renderCodeWithHighlighting(ink, code, position, bounds, textAlpha, text) {
-  if (!code || !atParams.length) {
-    // No highlighting needed, render normally
-    ink(180, 180, 180, textAlpha).write(code, position, undefined, bounds);
+function renderCodeWithHighlighting(
+  ink,
+  code,
+  position,
+  bounds,
+  textAlpha,
+  text,
+) {
+  if (!code) {
     return;
   }
 
-  // Only highlight the current active parameter (the most recently found one)
-  const highlightAtParam = currentParamIndex < atParams.length ? atParams[currentParamIndex] : null;
+  // Only show the code segment that comes after the current active @parameter
+  let displayText = "";
   
-  if (DEBUG_MODE && frameCount % 60 === 0) {
-    console.log(`🎨 Render debug: currentParamIndex=${currentParamIndex}, highlightAtParam="${highlightAtParam}", atParams.length=${atParams.length}`);
-  }
-  
-  if (highlightAtParam) {
-    // Extract just the word from the comment format /* @word */
-    const wordMatch = highlightAtParam.match(/\/\* @(\w+) \*\//);
-    if (wordMatch) {
-      const justTheWord = wordMatch[1];
-      
-      if (DEBUG_MODE && frameCount % 60 === 0) {
-        console.log(`🎨 Showing code after "${highlightAtParam}" for word "${justTheWord}"`);
-      }
-      
+  if (atParams.length > 0 && currentParamIndex < atParams.length) {
+    const highlightAtParam = atParams[currentParamIndex];
+    
+    if (highlightAtParam) {
       // Find the code that comes after this @word comment
       const commentIndex = code.indexOf(highlightAtParam);
       if (commentIndex !== -1) {
+        const beforeComment = code.substring(0, commentIndex);
         const afterComment = code.substring(commentIndex + highlightAtParam.length);
-        
+
         // Find the next @word comment to know where to stop
-        let nextCommentIndex = afterComment.length; // Default to end of code
+        let nextCommentIndex = afterComment.length;
         for (let i = 0; i < atParams.length; i++) {
           const nextComment = atParams[i];
           const nextIndex = afterComment.indexOf(nextComment);
@@ -797,24 +837,46 @@ function renderCodeWithHighlighting(ink, code, position, bounds, textAlpha, text
             nextCommentIndex = nextIndex;
           }
         }
-        
+
         // Extract just the code between this @word and the next one
-        const codeSegment = afterComment.substring(0, nextCommentIndex).trim();
+        let segmentCode = afterComment.substring(0, nextCommentIndex).trim();
         
-        if (codeSegment) {
-          // Show the code segment directly without "Implementing:" prefix - always yellow
-          ink(255, 255, 0, textAlpha).write(codeSegment, position, undefined, bounds);
+        // If there's no code after this comment, show the code before it instead
+        // This handles cases where the @parameter comment is at the end
+        if (!segmentCode || segmentCode.length === 0) {
+          // Find the previous @word comment to know where to start
+          let prevCommentIndex = 0;
+          for (let i = 0; i < atParams.length; i++) {
+            if (i === currentParamIndex) continue; // Skip current param
+            const prevComment = atParams[i];
+            const prevIndex = beforeComment.lastIndexOf(prevComment);
+            if (prevIndex !== -1 && prevIndex > prevCommentIndex) {
+              prevCommentIndex = prevIndex + prevComment.length;
+            }
+          }
           
-          if (DEBUG_MODE && frameCount % 60 === 0) {
-            console.log(`🎨 Code segment for "${justTheWord}": "${codeSegment.substring(0, 50)}..."`);
+          // Show the code before this comment (from previous comment or start)
+          segmentCode = beforeComment.substring(prevCommentIndex).trim();
+          
+          if (DEBUG_MODE && frameCount % 120 === 0) {
+            console.log(
+              `🎯 Showing code BEFORE "${originalParams[currentParamIndex]}" (end comment): "${segmentCode.substring(0, 50)}..." (${segmentCode.length} chars)`,
+            );
+          }
+        } else {
+          if (DEBUG_MODE && frameCount % 120 === 0) {
+            console.log(
+              `🎯 Showing code AFTER "${originalParams[currentParamIndex]}": "${segmentCode.substring(0, 50)}..." (${segmentCode.length} chars)`,
+            );
           }
         }
+        
+        displayText = segmentCode;
       }
     }
-  } else if (foundParameters.size === 0 && code) {
+  } else if (currentParamIndex === -1) {
     // Show initial code before any @word comments appear (when "make" is highlighted)
-    // Find the first @word comment position
-    let firstCommentIndex = code.length; // Default to entire code
+    let firstCommentIndex = code.length;
     for (let i = 0; i < atParams.length; i++) {
       const atParam = atParams[i];
       const commentIndex = code.indexOf(atParam);
@@ -822,19 +884,25 @@ function renderCodeWithHighlighting(ink, code, position, bounds, textAlpha, text
         firstCommentIndex = commentIndex;
       }
     }
+    displayText = code.substring(0, firstCommentIndex).trim();
     
-    // Show code before the first @word comment
-    const initialCode = code.substring(0, firstCommentIndex).trim();
-    if (initialCode) {
-      ink(255, 255, 0, textAlpha).write(initialCode, position, undefined, bounds);
-      
-      if (DEBUG_MODE && frameCount % 60 === 0) {
-        console.log(`🎨 Showing initial code: "${initialCode.substring(0, 50)}..."`);
-      }
+    if (DEBUG_MODE && frameCount % 120 === 0) {
+      console.log(
+        `🎯 Showing initial code before @params (make highlighted): "${displayText.substring(0, 50)}..." (${displayText.length} chars)`,
+      );
     }
-  } else {
-    // No highlighting, render normally - always yellow
-    ink(255, 255, 0, textAlpha).write(code, position, undefined, bounds);
+  }
+
+  // Only render if we have text to display
+  if (displayText) {
+    // Always render in yellow - this is the streaming preview text
+    ink(255, 255, 0, textAlpha).write(displayText, position, undefined, bounds);
+  }
+
+  if (DEBUG_MODE && frameCount % 120 === 0) {
+    console.log(
+      `🟡 Rendering code segment: "${displayText.substring(0, 50)}..." (${displayText.length} chars)`,
+    );
   }
 }
 
@@ -870,8 +938,8 @@ function tryExecuteCurrentCode(isFinal = false, label) {
       // console.log("📄 Executing Code:\n", cleanCode);
     }
 
-    // Try to compile the code - now with pen parameter
-    const testFunction = new Function("screen", "frameCount", "pen", cleanCode);
+    // Try to compile the code - now with pen and state parameters
+    const testFunction = new Function("screen", "frameCount", "pen", "state", cleanCode);
 
     // If compilation succeeds, update our execute function
     executeCode = testFunction;
@@ -881,6 +949,14 @@ function tryExecuteCurrentCode(isFinal = false, label) {
       currentEvalLine = -1; // Clear highlighting when done
       streaming = false; // Ensure streaming is marked as complete
       if (completionTime === 0) completionTime = frameCount; // Set completion time if not already set
+
+      // If no parameters were found in the final code, mark highlighting as complete immediately
+      if (foundParameters.size === 0 && originalParams && originalParams.length > 0) {
+        currentParamIndex = originalParams.length; // Signal completion
+        if (DEBUG_MODE) {
+          console.log(`✅ Final execution: No @parameter comments found - marking highlighting complete.`);
+        }
+      }
 
       // Don't reset param tracking here - let the pause logic handle it after the pause expires
       // currentParamIndex = 0;
@@ -913,6 +989,7 @@ function tryExecuteCurrentCode(isFinal = false, label) {
             "screen",
             "frameCount",
             "pen",
+            "state",
             lastValidCode,
           );
         } catch (fallbackErr) {
@@ -958,38 +1035,57 @@ function hasIncompleteStructures(code) {
 }
 
 // Draw connection lines between prompt highlights and code highlights
-function drawHighlightConnections(screen, ink, promptHighlights, codePosition, bounds, code, text) {
-  if (!promptHighlights || !promptHighlights.highlights || !promptHighlights.highlights.length) return;
-  
+function drawHighlightConnections(
+  screen,
+  ink,
+  promptHighlights,
+  codePosition,
+  bounds,
+  code,
+  text,
+) {
+  if (
+    !promptHighlights ||
+    !promptHighlights.highlights ||
+    !promptHighlights.highlights.length
+  )
+    return;
+
   // Get text bounds for the code to find @word positions
   const textBounds = text.box(code, codePosition, bounds);
-  
+
   // For each highlighted prompt word, find its @word in the code and draw a connection line
-  promptHighlights.highlights.forEach(highlight => {
+  promptHighlights.highlights.forEach((highlight) => {
     const atParam = highlight.atParam;
-    
+
     // Find the position of this @word in the code
     const codeIndex = code.indexOf(atParam);
     if (codeIndex === -1) return; // Not found in visible code
-    
+
     // Calculate approximate position of the @word in the rendered text
     // This is a rough approximation - getting exact text positions is complex
-    const codeLines = code.substring(0, codeIndex).split('\n');
+    const codeLines = code.substring(0, codeIndex).split("\n");
     const lineIndex = codeLines.length - 1;
     const charIndex = codeLines[lineIndex].length;
-    
+
     // Approximate position in the code display
-    const codeHighlightX = codePosition.x + (charIndex * 6); // Rough character width
-    const codeHighlightY = codePosition.y + (lineIndex * LINE_HEIGHT);
-    
+    const codeHighlightX = codePosition.x + charIndex * 6; // Rough character width
+    const codeHighlightY = codePosition.y + lineIndex * LINE_HEIGHT;
+
     // Only draw line if code highlight is within visible area
-    if (codeHighlightY >= codePosition.y && codeHighlightY <= codePosition.y + textBounds.box.height) {
+    if (
+      codeHighlightY >= codePosition.y &&
+      codeHighlightY <= codePosition.y + textBounds.box.height
+    ) {
       // Draw a subtle yellow line connecting the highlights
       const startX = highlight.x + highlight.width / 2;
       const startY = highlight.y + 6; // Bottom of prompt text
-      const endX = Math.max(codePosition.x, Math.min(codeHighlightX, screen.width - 10));
+      const endX = Math.max(
+        codePosition.x,
+        Math.min(codeHighlightX, screen.width - 10),
+      );
       const endY = codeHighlightY + 3; // Middle of code text
-      
+
       // Draw line with low alpha for subtlety
       ink(255, 255, 0, 80).line(startX, startY, endX, endY);
     }
