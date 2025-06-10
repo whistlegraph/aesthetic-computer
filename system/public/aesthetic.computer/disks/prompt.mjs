@@ -222,7 +222,7 @@ async function boot({
 
   // TODO: Fix this.
   if (params[0]) {
-    console.log("Existing `prompt` param:", params);
+    // console.log("Existing `prompt` param:", params);
     const text = params.join(" ");
     // const text = params[0].replaceAll("~", " ");
 
