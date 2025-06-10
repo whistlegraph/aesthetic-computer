@@ -3,22 +3,28 @@
  🌟 Projects in Progress (PIP) 🌟
 
  * `make` *
- - [] `make` will work just like 'paint' except it will automatically write
+ - [] Uncaught `prompt` inputs should now be routed to `make`.
+ - [] The 'Enter' button should now say `Make` unless the prompt exists?
+ - [] The paste button doesn't need to appear on desktop (and doesn't even work on desktop)
+ - [] And should only appear after opening the prompt once?
+
+ - [x] `make` will work just like 'paint' except it will automatically write
       aesthetic computer pieces from a prompt, with some output, in a one
       shot fashion?
-
  * UNIFONT support * 
     - [🔵] Smooth out new spacing and button issues from switching back to font_1?
          (blockheight of buttons, etc.)
-    - [] Auto switch to `unifont` across prompt and ui / etc with a flag in disk.
-      - [] Make this a prompt setting?
+    - [] Make this a prompt setting?
     - [] Get rid of yellow / non-printing characters in prompt.
     - [] Show a cool animated blinky thing before the glyph loads. (type.mjs)
     - [] These glyphs could also be cached locally in indexedDB as an object. (type.mjs)
-  - [] Take care of visual inconsistencies across the system. 
-       (all hardcoded numbers from `font_1`)
-       - [] Test every piece in `list`.
+    - [] Make unifont the default font.
+      - [] Take care of visual inconsistencies across the system. 
+        - [] Test every piece in `list`.
+        (all hardcoded numbers from `font_1`)
   + Done
+  - [x] Auto switch to `unifont` across prompt and ui / etc with a flag in disk.
+  - [x] Render all unifont glyphs properly.
   - [x] Cache on assets.aesthetic.computer as necessary via digital object s3
          storage in the assets bucket. (bdf-glyph.js)
         - [x] If the file exists on `assets.aesthetic.computer/type/unifont/charcode.json`
