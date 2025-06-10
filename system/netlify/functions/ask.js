@@ -223,7 +223,10 @@ exports.handler = stream(async (event) => {
       } else {
         console.log("🔧 Using model from hint:", model);
       }
-      max_tokens = 2048; // Increased for longer, more detailed code responses
+      max_tokens = 4048; // Increased for longer, more detailed code responses
+      temperature = 1;
+      console.log("♦️ Using tokens:", max_tokens);
+      console.log("🌡️ Temperature:", temperature);
     }
 
     // Check if it's a Claude model

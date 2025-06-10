@@ -91,7 +91,7 @@ function paint({ wipe, ink, ui, hud, screen, paintCount }) {
   ink(0, 128).box(0, 0, screen.width, 18);
   if (anyDown) {
     ink(/*"gray"*/ [200, 30, 100]).box(
-      6 + hud.currentLabel.text.length * 6,
+      6 + hud.currentLabel().text.length * 6,
       6,
       6,
       10,

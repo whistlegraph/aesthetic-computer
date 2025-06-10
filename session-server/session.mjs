@@ -763,9 +763,7 @@ if (dev) {
           .replace(/\.mjs|\.lisp$/, "");
         everyone(pack("reload", { piece: piece || "*" }, "local"));
       }
-    });
-
-  // 2. Watch base system files.
+    });  // 2. Watch base system files.
   chokidar
     .watch([
       "../system/netlify/functions",
@@ -780,6 +778,17 @@ if (dev) {
     .on("all", (event, path) => {
       if (event === "change")
         everyone(pack("reload", { piece: "*refresh*" }, "local"));
+    });
+
+  // 2b. Watch prompt files separately (piece reload instead of full refresh)
+  chokidar
+    .watch("../system/public/aesthetic.computer/prompts")
+    .on("all", (event, path) => {
+      if (event === "change") {
+        const filename = path.split("/").pop();
+        console.log(`🎨 Prompt file changed: ${filename}`);
+        everyone(pack("reload", { piece: "*piece-reload*" }, "local"));
+      }
     });
 
   // 3. Watch vscode extension
