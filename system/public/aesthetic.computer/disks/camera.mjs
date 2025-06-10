@@ -155,7 +155,7 @@ function act({
       capturing = false;
     }
 
-    if (e.is("touch") && !swap?.btn.down && !hud.currentLabel.btn.down) {
+    if (e.is("touch") && !swap?.btn.down && !hud.currentLabel().btn.down) {
       sfx.down(sound);
     }
   }

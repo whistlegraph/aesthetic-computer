@@ -3045,10 +3045,26 @@ async function load(
       console.log("🟡 A piece is already loading.");
       return;
     }
-
     if (piece === "*refresh*") {
       console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
+    } else if (piece === "*piece-reload*") {
+      console.log("🎨 Reloading current piece...");
+      // Reload the current piece without refreshing the entire page
+      $commonApi.load(
+        {
+          path: currentPath,
+          host: currentHost,
+          search: currentSearch,
+          colon: currentColon,
+          params: currentParams,
+          hash: currentHash,
+          text: currentText,
+        },
+        true, // fromHistory - don't add to history stack
+        alias,
+        true, // devReload
+      );
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // TODO: 🔥 This should somehow keep current commands or params, etc.
@@ -6229,10 +6245,12 @@ async function makeFrame({ data: { type, content } }) {
             w: w + currentHUDOffset.x,
             h: h + currentHUDOffset.y,
           });
-        $commonApi.hud.currentLabel = {
-          text: currentHUDTxt,
-          btn: currentHUDButton,
-        };
+
+        // $commonApi.hud.currentLabel = {
+        //   text: currentHUDTxt,
+        //   btn: currentHUDButton,
+        // };
+
       }
 
       // Return frame data back to the main thread.
