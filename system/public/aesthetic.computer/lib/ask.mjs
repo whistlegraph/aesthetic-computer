@@ -64,7 +64,7 @@ export class Conversation {
       this.messages.push({ by: "user", text: prompt });
     }
 
-    if (DEBUG) console.log("🗨️ Sending a conversation:", this.messages);
+    // if (DEBUG) console.log("🗨️ Sending a conversation:", this.messages);
 
     this.controller?.abort(); // Prevent multiple asks / cancel existing ones.
     this.controller = new AbortController();
@@ -97,7 +97,7 @@ export class Conversation {
     const convo = this;
 
     function reportFailure(error) {
-      console.error("Failed to ask:", error);
+      // console.error("Failed to ask:", error);
       // Clear the messages that were added,
       convo.messages = convo.messages.slice(0, messageLength);
       fail?.(); // and fail out.
