@@ -9,6 +9,4 @@
     "**/aesthetic-computer-code/**": false,
     "**/aesthetic-computer-vault/**": false
   },
-  "editor.minimap.scale": 1,
-  "editor.minimap.autohide": true,
 }
