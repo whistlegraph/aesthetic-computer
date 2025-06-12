@@ -3,6 +3,9 @@
 
 /* #region 📓 TODO
   + Now
+  - [🟠] Show last generated piece when the same prompt loads / regeneration occurs.
+    - [] Cache the existing source.
+    - [] On boot, check if it's in the cache and run it while generating.
   - [] Clean up code.
   - [] Fail if prompt is empty / provide a sane default.
   + Later
