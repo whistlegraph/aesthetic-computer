@@ -3046,10 +3046,10 @@ async function load(
       return;
     }
     if (piece === "*refresh*") {
-      console.log("💥️ Restarting system...");
+      //  padding: 8px; border-radius: 2px;console.log("💥️ Restarting system...");
       send({ type: "refresh" }); // Refresh the browser.
     } else if (piece === "*piece-reload*") {
-      console.log("🎨 Reloading current piece...");
+      // console.log("🎨 Reloading current piece...");
       // Reload the current piece without refreshing the entire page
       $commonApi.load(
         {

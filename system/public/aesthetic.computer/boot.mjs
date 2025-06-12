@@ -110,7 +110,7 @@ const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
 
 let sandboxed = window.origin === "null" && !window.acVSCODE;
-console.log("🏜️ Sandboxed:", sandboxed, window.acVSCODE);
+// console.log("🏜️ Sandboxed:", sandboxed, window.acVSCODE);
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
