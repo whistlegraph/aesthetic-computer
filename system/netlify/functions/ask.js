@@ -88,6 +88,7 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
   const stream = new ReadableStream({
     async start(controller) {
       let buffer = "";
+      let tokenUsage = null;
 
       try {
         for await (const chunk of res.body) {
@@ -126,10 +127,54 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
                       controller.enqueue(new TextEncoder().encode(text));
                     }
                   } else if (json.type === "message_stop") {
+                    // Log token usage before closing
+                    if (tokenUsage) {
+                      const inputTokens = tokenUsage.input_tokens || 0;
+                      const outputTokens = tokenUsage.output_tokens || 0;
+                      const totalTokens = inputTokens + outputTokens;
+                      const maxTokens = max_tokens;
+                      
+                      // Create visual progress bar for output tokens vs limit
+                      const outputProgress = Math.min(outputTokens / maxTokens, 1.0);
+                      const barLength = 20;
+                      const filledBars = Math.floor(outputProgress * barLength);
+                      
+                      // Terminal escape codes for colors
+                      const colors = {
+                        green: '\x1b[32m',
+                        orange: '\x1b[33m',
+                        red: '\x1b[31m',
+                        reset: '\x1b[0m'
+                      };
+                      
+                      // Color coding: green if under 80%, orange if 80-95%, red if over 95%
+                      let color = colors.green;
+                      if (outputProgress > 0.95) color = colors.red;
+                      else if (outputProgress > 0.8) color = colors.orange;
+                      
+                      const outputBar = color + '█'.repeat(filledBars) + colors.reset + colors.red + '█'.repeat(barLength - filledBars) + colors.reset;
+                      const percentage = Math.round(outputProgress * 100);
+                      
+                      console.log(`📊 Claude Tokens: In:${inputTokens} Out:${outputTokens}/${maxTokens} ${outputBar} ${percentage}%`);
+                      
+                      // Check if Claude hit the maximum token limit (100% usage)
+                      if (outputTokens === maxTokens) {
+                        console.log(`🚨 Claude hit maximum token limit: ${outputTokens}/${maxTokens} tokens`);
+                        // Send error message to client for compilation error handling
+                        const errorMessage = "COMPILATION ERROR: Maximum tokens reached - response truncated";
+                        controller.enqueue(new TextEncoder().encode(errorMessage));
+                      }
+                    }
                     controller.close();
                     return;
+                  } else if (json.type === "message_start" && json.message?.usage) {
+                    // Capture initial token usage (input tokens)
+                    tokenUsage = json.message.usage;
+                  } else if (json.type === "message_delta" && json.usage) {
+                    // Update token usage with output tokens
+                    tokenUsage = { ...tokenUsage, ...json.usage };
                   }
-                  // Skip other event types (ping, message_start, content_block_start, etc.)
+                  // Skip other event types (ping, content_block_start, etc.)
                 } catch (e) {
                   console.error("Error parsing Anthropic response:", e);
                   // Don't error the whole stream for one bad event
@@ -210,8 +255,16 @@ exports.handler = stream(async (event) => {
       max_tokens = 256;
     }
 
-    let model = hint.split(":")[1] || "gpt-4o-mini";
-    console.log("🔧 Initial model from hint:", model);
+    // Parse model from hint - handle both "model" and "prefix:model" formats
+    let model;
+    if (hint.includes(":")) {
+      model = hint.split(":")[1] || "gpt-4o-mini";
+    } else if (hint.includes("claude") || hint.includes("gpt") || hint.includes("o1")) {
+      // Direct model name without prefix
+      model = hint;
+    } else {
+      model = "gpt-4o-mini";
+    }
 
     if (hint.startsWith("code")) {
       // Only set default model if none was specified in the hint
@@ -223,9 +276,19 @@ exports.handler = stream(async (event) => {
       } else {
         console.log("🔧 Using model from hint:", model);
       }
-      max_tokens = 4048; // Increased for longer, more detailed code responses
+      max_tokens = 4096; // Increased for longer, more detailed code responses (was 512)
       temperature = 1;
-      console.log("♦️ Using tokens:", max_tokens);
+      console.log("♦ Using tokens:", max_tokens);
+      console.log("🌡 Temperature:", temperature);
+    }
+    
+    console.log("🔧 Final model from hint:", model);
+    
+    // Set appropriate token limits for Claude models
+    if (model.includes("claude")) {
+      max_tokens = 4096; // Claude models get 1024 tokens for code generation
+      temperature = 1;
+      console.log("♦️ Using tokens for Claude:", max_tokens);
       console.log("🌡️ Temperature:", temperature);
     }
 
@@ -253,6 +316,7 @@ exports.handler = stream(async (event) => {
         };
       }
 
+      // Use max_completion_tokens for o1 models and other reasoning models, max_tokens for standard models
       const payload = {
         model,
         messages,
@@ -260,10 +324,23 @@ exports.handler = stream(async (event) => {
         top_p,
         frequency_penalty: 0,
         presence_penalty: 0,
-        max_tokens,
         stream: true,
+        stream_options: { include_usage: true }, // Request usage data in stream
         n: 1,
       };
+
+      // Add the appropriate token limit parameter based on model
+      // o1 models and some newer models require max_completion_tokens
+      if (model.startsWith('o1') || model.includes('o4') || model.startsWith('o4')) {
+        payload.max_completion_tokens = max_tokens;
+        // o1 models also don't support temperature and top_p
+        if (model.startsWith('o1') || model.startsWith('o4')) {
+          delete payload.temperature;
+          delete payload.top_p;
+        }
+      } else {
+        payload.max_tokens = max_tokens;
+      }
 
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -287,6 +364,7 @@ exports.handler = stream(async (event) => {
       const stream = new ReadableStream({
         async start(controller) {
           let buffer = "";
+          let tokenUsage = null;
 
           for await (const chunk of res.body) {
             buffer += new TextDecoder().decode(chunk);
@@ -300,11 +378,65 @@ exports.handler = stream(async (event) => {
               if (part.startsWith("data: ")) {
                 const jsonString = part.slice(6).trim();
                 if (jsonString === "[DONE]") {
+                  // Log token usage before closing
+                  if (tokenUsage) {
+                    const inputTokens = tokenUsage.prompt_tokens || 0;
+                    const outputTokens = tokenUsage.completion_tokens || 0;
+                    const totalTokens = inputTokens + outputTokens;
+                    const maxTokens = max_tokens;
+                    
+                    // Create visual progress bar for output tokens vs limit
+                    const outputProgress = Math.min(outputTokens / maxTokens, 1.0);
+                    const barLength = 20;
+                    const filledBars = Math.floor(outputProgress * barLength);
+                    
+                    // Terminal escape codes for colors
+                    const colors = {
+                      green: '\x1b[32m',
+                      orange: '\x1b[33m',
+                      red: '\x1b[31m',
+                      reset: '\x1b[0m'
+                    };
+                    
+                    // Color coding: green if under 80%, orange if 80-95%, red if over 95%
+                    let color = colors.green;
+                    if (outputProgress > 0.95) color = colors.red;
+                    else if (outputProgress > 0.8) color = colors.orange;
+                    
+                    const outputBar = color + '█'.repeat(filledBars) + colors.reset + colors.red + '█'.repeat(barLength - filledBars) + colors.reset;
+                    const percentage = Math.round(outputProgress * 100);
+                    
+                    console.log(`📊 OpenAI Tokens: In:${inputTokens} Out:${outputTokens}/${maxTokens} ${outputBar} ${percentage}%`);
+                    
+                    // Check if OpenAI hit the maximum token limit (100% usage)
+                    if (outputTokens === maxTokens) {
+                      console.log(`🚨 OpenAI hit maximum token limit: ${outputTokens}/${maxTokens} tokens`);
+                      // Send error message to client for compilation error handling
+                      const errorMessage = "COMPILATION ERROR: Maximum tokens reached - response truncated";
+                      controller.enqueue(new TextEncoder().encode(errorMessage));
+                    }
+                  } else {
+                    // No token usage data available from OpenAI - log that we completed without usage info
+                    console.log(`📊 OpenAI Tokens: Usage data not available (limit: ${max_tokens}) - Stream completed successfully`);
+                  }
                   controller.close();
                   return;
                 }
                 try {
                   const json = JSON.parse(jsonString);
+                  
+                  // Capture token usage if present (can appear in final chunks)
+                  if (json.usage) {
+                    tokenUsage = json.usage;
+                    // console.log("🔍 Found token usage:", tokenUsage);
+                  }
+                  
+                  // Also check for usage in choices (some OpenAI responses put it there)
+                  if (json.choices?.[0]?.usage) {
+                    tokenUsage = json.choices[0].usage;
+                    // console.log("🔍 Found token usage in choices:", tokenUsage);
+                  }
+                  
                   const text = json.choices[0]?.delta?.content || "";
                   if (text) {
                     controller.enqueue(new TextEncoder().encode(text));
