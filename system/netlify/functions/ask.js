@@ -286,7 +286,7 @@ exports.handler = stream(async (event) => {
     
     // Set appropriate token limits for Claude models
     if (model.includes("claude")) {
-      max_tokens = 4096; // Claude models get 1024 tokens for code generation
+      max_tokens = 4096; // 4096; // Claude models get 1024 tokens for code generation
       temperature = 1;
       console.log("♦️ Using tokens for Claude:", max_tokens);
       console.log("🌡️ Temperature:", temperature);
