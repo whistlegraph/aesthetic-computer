@@ -5257,11 +5257,9 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: Finish this implementation.
       // timeToRun;
       // content.audioTime;
-    };
-
-    $sound.synth = function synth({
+    };    $sound.synth = function synth({
       tone = 440, // hz, or musical note
-      type = "square", // "sine", "triangle", "square", "sawtooth"
+      type = "square", // "sine", "triangle", "square", "sawtooth", "custom"
       // "noise-white" <-ignores tone
       duration = 0.1, // In seconds... (where beats is a shortcut)
       beats = undefined, // 🧧 Should this be deprecated?
@@ -5269,6 +5267,7 @@ async function makeFrame({ data: { type, content } }) {
       decay = 0.9, // A multiplier for when the sound fades.
       volume,
       pan = 0,
+      generator = null, // Custom waveform generator function for type "custom"
     } = {}) {
       const id = soundId;
       if (volume === undefined) volume = 1;
@@ -5278,7 +5277,13 @@ async function makeFrame({ data: { type, content } }) {
 
       tone = $sound.freq(tone);
       // console.log("⛈️ Tone:", tone);
-      sound.sounds.push({ id, type, tone, beats, attack, decay, volume, pan });
+        // Add generator to sound data for custom type
+      const soundData = { id, type, tone, beats, attack, decay, volume, pan };
+      if (type === "custom" && generator) {
+        soundData.generator = generator.toString(); // Convert function to string for postMessage
+      }
+      
+      sound.sounds.push(soundData);
       soundId += 1n;
       let seconds;
       if (beats === undefined && duration !== undefined) seconds = duration;
@@ -5302,6 +5307,13 @@ async function makeFrame({ data: { type, content } }) {
             type: "synth:update",
             content: { id, properties },
           });
+        },        updateGenerator: function (newGenerator) {
+          if (type === "custom") {
+            send({
+              type: "update-generator",
+              content: { id, generator: newGenerator.toString() }, // Convert function to string
+            });
+          }
         },
       };
     };
