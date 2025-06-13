@@ -10,7 +10,7 @@ export default class Synth {
   fadeProgress;
   fadeDuration;
 
-  type; // square, sine, triangle, sawtooth, sample, noise-white
+  type; // square, sine, triangle, sawtooth, sample, noise-white, custom
 
   #phase = 0;
   #frequency;
@@ -45,6 +45,11 @@ export default class Synth {
 
   #up = false; // Specific to `square`.
   #step = 0;
+
+  // Custom waveform generation
+  #customGenerator; // Function that generates waveform data
+  #customBuffer = []; // Buffer for streaming waveform data
+  #customBufferSize = 1024; // Size of the streaming buffer
 
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
     // console.log("New Synth:", arguments);
@@ -88,7 +93,28 @@ export default class Synth {
       );
 
       this.#sampleIndex =
-        this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;
+        this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;    } else if (type === "custom") {
+      this.#frequency = options.tone || 440; // Default frequency for custom waveforms
+      
+      // Handle generator function (could be a string from postMessage)
+      if (typeof options.generator === "string") {
+        try {
+          // Convert string back to function
+          this.#customGenerator = eval(`(${options.generator})`);
+        } catch (error) {
+          console.error("🎨 Failed to parse custom generator:", error);
+          throw new Error("Invalid custom generator function string");
+        }
+      } else {
+        this.#customGenerator = options.generator; // Direct function
+      }
+
+      if (typeof this.#customGenerator !== "function") {
+        throw new Error("Custom synth type requires a generator function");
+      }
+
+      // Pre-fill the buffer with initial data
+      this.#fillCustomBuffer();
     } else if (type === "noise-white") {
       this.#frequency = null; //undefined;
     }
@@ -201,6 +227,24 @@ export default class Synth {
           // console.log("🛑 Sample finished.", this.#sampleIndex, this.#sampleEndIndex);
           return 0;
         }
+      }
+    } else if (this.type === "custom") {
+      // 🎨 Custom Waveform Generation
+      // Ensure buffer has data available
+      if (this.#customBuffer.length === 0) {
+        this.#fillCustomBuffer();
+      }
+      
+      // Get the next value from our buffer
+      if (this.#customBuffer.length > 0) {
+        value = this.#customBuffer.shift();
+      } else {
+        value = 0; // Silence if no data available
+      }
+      
+      // Refill buffer if it's running low
+      if (this.#customBuffer.length < this.#customBufferSize / 4) {
+        this.#fillCustomBuffer();
       }
     }
 
@@ -330,6 +374,59 @@ export default class Synth {
       );
     } else {
       return this.#progress / this.#duration;
+    }
+  }
+
+  // Fill the custom buffer with generated waveform data
+  #fillCustomBuffer() {
+    if (!this.#customGenerator) return;
+    
+    try {
+      // Generate new samples for the buffer
+      const bufferSize = this.#customBufferSize - this.#customBuffer.length;
+      const newSamples = this.#customGenerator({
+        frequency: this.#frequency,
+        sampleRate: sampleRate,
+        progress: this.#progress,
+        time: this.#progress / sampleRate,
+        samplesNeeded: bufferSize
+      });
+      
+      if (Array.isArray(newSamples)) {
+        // Clamp values to [-1, 1] range
+        const clampedSamples = newSamples.map(sample => {
+          if (sample > 1) return 1;
+          if (sample < -1) return -1;
+          return sample;
+        });
+        this.#customBuffer.push(...clampedSamples);
+      }
+    } catch (error) {
+      console.warn('🎨 Custom waveform generator error:', error);
+      // Fill with silence on error
+      const silenceSamples = new Array(this.#customBufferSize).fill(0);
+      this.#customBuffer.push(...silenceSamples);
+    }
+  }
+  // Update custom generator function
+  setCustomGenerator(generator) {
+    if (this.type === "custom") {
+      if (typeof generator === "string") {
+        try {
+          // Convert string back to function
+          this.#customGenerator = eval(`(${generator})`);
+        } catch (error) {
+          console.error("🎨 Failed to parse custom generator in setCustomGenerator:", error);
+          return;
+        }
+      } else if (typeof generator === 'function') {
+        this.#customGenerator = generator;
+      } else {
+        console.error("🎨 Invalid generator type in setCustomGenerator:", typeof generator);
+        return;
+      }
+      
+      this.#customBuffer.length = 0; // Clear buffer to force regeneration
     }
   }
 }
