@@ -2,11 +2,11 @@
 // Creates animated art from text prompts with sequential parameter highlighting
 
 // Configuration flags (must be defined before any variable declarations that use them)
-const ADAPTIVE_RESOLUTION_ENABLED = false; // Set to false to disable adaptive resolution scaling
+const ADAPTIVE_RESOLUTION_ENABLED = true; // Re-enabled for dynamic performance scaling
 const DEBUG_MODE = true; // Set to true for detailed logging
 
 // Dynamic resolution scaling constants (moved early for initialization order)
-const MAX_RENDER_SCALE = 0.25; // Maximum 25% resolution
+const MAX_RENDER_SCALE = 1.0; // Maximum full resolution
 
 /* #region 📓 TODO
   + Now
@@ -70,10 +70,14 @@ let conversation,
   makingProgress = 0.0, // Current making progress (0.0 to 1.0)
   // Dynamic resolution scaling variables
   currentRenderScale = ADAPTIVE_RESOLUTION_ENABLED ? 0.25 : MAX_RENDER_SCALE, // Start at 25% resolution or max if disabled
+  targetRenderScale = ADAPTIVE_RESOLUTION_ENABLED ? 0.25 : MAX_RENDER_SCALE, // Target scale for smooth interpolation
   frameTimings = [], // Array to store recent frame times
   lastFrameTime = 0, // Track last frame time for FPS calculation
   lastScaleAdjustment = 0, // Track when we last adjusted scale
   averageFPS = 30, // Running average FPS
+  // Paste optimization cache
+  lastCachedScale = -1, // Track last scale for cache invalidation
+  cachedPasteParams = null, // Cache for paste calculations
   // Relative coordinate system for resolution-independent state persistence
   relativeStateStore = new Map(), // Internal storage for relative coordinates
   screenDimensions = { width: 0, height: 0 }; // Track current screen dimensions
@@ -86,11 +90,12 @@ const MIN_CODE_DISPLAY_TIME = 120; // Minimum time to show code before cleanup (
 // Dynamic resolution scaling - Enhanced for ultra-responsive performance adaptation
 const TARGET_FPS = 30;
 const MIN_RENDER_SCALE = 0.03; // Minimum 3% resolution - even more aggressive for extreme cases
-const SCALE_ADJUSTMENT = 0.03; // Smaller incremental adjustments for finer control
-const FPS_SAMPLE_SIZE = 8; // Even smaller sample size for ultra-fast response
-const SCALE_COOLDOWN = 45; // Faster normal cooldown (0.75 seconds at 60fps)
-const CRITICAL_FPS_COOLDOWN = 8; // Ultra-fast critical response
-const EMERGENCY_FPS_COOLDOWN = 2; // Nearly instant emergency response
+const SCALE_ADJUSTMENT = 0.015; // Smaller base adjustments for smoother scaling
+const SMOOTH_INTERPOLATION_SPEED = 0.12; // How fast to interpolate towards target (0.12 = 12% per frame)
+const FPS_SAMPLE_SIZE = 6; // Smaller sample size for faster response
+const SCALE_COOLDOWN = 30; // Faster normal cooldown
+const CRITICAL_FPS_COOLDOWN = 6; // Ultra-fast critical response
+const EMERGENCY_FPS_COOLDOWN = 3; // Nearly instant emergency response
 const SEVERE_FPS_COOLDOWN = 1; // Immediate response for severe drops
 
 // Styled console logging utility for consistent source code display
@@ -143,10 +148,14 @@ function boot({ glaze, params, store, slug, hud: { label, currentLabel } }) {
   makingProgress = 0.0; // Reset making progress
   // Reset dynamic scaling variables
   currentRenderScale = ADAPTIVE_RESOLUTION_ENABLED ? 0.25 : MAX_RENDER_SCALE; // Reset to 25% or max if disabled
+  targetRenderScale = ADAPTIVE_RESOLUTION_ENABLED ? 0.25 : MAX_RENDER_SCALE; // Reset target scale too
   frameTimings = []; // Clear frame timing history
   lastFrameTime = 0; // Reset frame time tracking
   lastScaleAdjustment = 0; // Reset scale adjustment tracking
   averageFPS = 30; // Reset average FPS
+  // Reset paste optimization cache
+  lastCachedScale = -1; // Invalidate cache
+  cachedPasteParams = null; // Clear cached parameters
 
   // Load the prompt template from the .prompt file synchronously
   let programSource;
@@ -311,206 +320,112 @@ function paint({
         frameTimings.reduce((sum, time) => sum + time, 0) / frameTimings.length;
       averageFPS = 1000 / averageFrameTime; // Convert to FPS
 
-      // Adaptive resolution scaling (can be disabled via flag)
+      // Adaptive resolution scaling with smooth interpolation
       if (ADAPTIVE_RESOLUTION_ENABLED) {
         // Enhanced dynamic scaling logic with ultra-responsive multi-tier system
         const timeSinceLastAdjustment = frameCount - lastScaleAdjustment;
 
-      // Determine urgency level and required cooldown with more granular tiers
-      let requiredCooldown;
-      let scalingMode = "";
+        // Determine urgency level and required cooldown with more granular tiers
+        let requiredCooldown;
+        let scalingMode = "";
 
-      if (averageFPS < 5) {
-        // Severe: Catastrophic FPS, immediate action
-        requiredCooldown = SEVERE_FPS_COOLDOWN;
-        scalingMode = "SEVERE";
-      } else if (averageFPS < 10) {
-        // Emergency: Very low FPS, almost immediate scaling
-        requiredCooldown = EMERGENCY_FPS_COOLDOWN;
-        scalingMode = "EMERGENCY";
-      } else if (averageFPS < 20) {
-        // Critical: Low FPS, fast scaling
-        requiredCooldown = CRITICAL_FPS_COOLDOWN;
-        scalingMode = "CRITICAL";
-      } else if (averageFPS < 25) {
-        // Poor: Below target, normal scaling
-        requiredCooldown = SCALE_COOLDOWN;
-        scalingMode = "POOR";
-      } else {
-        // Normal or good FPS
-        requiredCooldown = SCALE_COOLDOWN;
-        scalingMode = "NORMAL";
-      }
+        if (averageFPS < 5) {
+          // Severe: Catastrophic FPS, immediate action
+          requiredCooldown = SEVERE_FPS_COOLDOWN;
+          scalingMode = "SEVERE";
+        } else if (averageFPS < 10) {
+          // Emergency: Very low FPS, almost immediate scaling
+          requiredCooldown = EMERGENCY_FPS_COOLDOWN;
+          scalingMode = "EMERGENCY";
+        } else if (averageFPS < 20) {
+          // Critical: Low FPS, fast scaling
+          requiredCooldown = CRITICAL_FPS_COOLDOWN;
+          scalingMode = "CRITICAL";
+        } else if (averageFPS < 25) {
+          // Poor: Below target, normal scaling
+          requiredCooldown = SCALE_COOLDOWN;
+          scalingMode = "POOR";
+        } else {
+          // Normal or good FPS
+          requiredCooldown = SCALE_COOLDOWN;
+          scalingMode = "NORMAL";
+        }
 
-      if (timeSinceLastAdjustment > requiredCooldown) {
-        let scaleChanged = false;
+        if (timeSinceLastAdjustment > requiredCooldown) {
+          let targetScaleChanged = false;
 
-        if (averageFPS < 5 && currentRenderScale > MIN_RENDER_SCALE) {
-          // Severe: Catastrophic FPS - massive reduction
-          const currentBufferWidth = Math.ceil(
-            screen.width * currentRenderScale,
-          );
-          const severeReduction = Math.max(
-            5,
-            Math.floor(currentBufferWidth * 0.25),
-          ); // Reduce by 25% or 5 pixels, whichever is larger
-          const targetBufferWidth = Math.max(
-            Math.ceil(screen.width * MIN_RENDER_SCALE),
-            currentBufferWidth - severeReduction,
-          );
-          const newScale = Math.max(
-            MIN_RENDER_SCALE,
-            targetBufferWidth / screen.width,
-          );
-
-          if (newScale !== currentRenderScale) {
-            currentRenderScale = newScale;
-            lastScaleAdjustment = frameCount;
-            scaleChanged = true;
+          // Determine target scale based on FPS performance
+          if (averageFPS < 5 && targetRenderScale > MIN_RENDER_SCALE) {
+            // Severe: Catastrophic FPS - large reduction to target
+            const reductionAmount = Math.max(0.08, targetRenderScale * 0.4); // 40% reduction or 8% minimum
+            targetRenderScale = Math.max(MIN_RENDER_SCALE, targetRenderScale - reductionAmount);
+            targetScaleChanged = true;
             if (DEBUG_MODE) {
-              console.log(
-                `💀 SEVERE: Catastrophic reduction to ${Math.ceil(currentRenderScale * 100)}% (${targetBufferWidth}x${Math.ceil(screen.height * currentRenderScale)}px, FPS: ${averageFPS.toFixed(1)})`,
-              );
+              console.log(`💀 SEVERE: Target scale reduced to ${Math.ceil(targetRenderScale * 100)}% (FPS: ${averageFPS.toFixed(1)})`);
             }
-          }
-        } else if (averageFPS < 10 && currentRenderScale > MIN_RENDER_SCALE) {
-          // Emergency: Aggressive scaling down - reduce by multiple pixels or large percentage
-          const currentBufferWidth = Math.ceil(
-            screen.width * currentRenderScale,
-          );
-          const emergencyReduction = Math.max(
-            4,
-            Math.floor(currentBufferWidth * 0.18),
-          ); // Reduce by 18% or 4 pixels, whichever is larger
-          const targetBufferWidth = Math.max(
-            Math.ceil(screen.width * MIN_RENDER_SCALE),
-            currentBufferWidth - emergencyReduction,
-          );
-          const newScale = Math.max(
-            MIN_RENDER_SCALE,
-            targetBufferWidth / screen.width,
-          );
-
-          if (newScale !== currentRenderScale) {
-            currentRenderScale = newScale;
-            lastScaleAdjustment = frameCount;
-            scaleChanged = true;
+          } else if (averageFPS < 10 && targetRenderScale > MIN_RENDER_SCALE) {
+            // Emergency: Very low FPS - significant reduction
+            const reductionAmount = Math.max(0.05, targetRenderScale * 0.25); // 25% reduction or 5% minimum
+            targetRenderScale = Math.max(MIN_RENDER_SCALE, targetRenderScale - reductionAmount);
+            targetScaleChanged = true;
             if (DEBUG_MODE) {
-              console.log(
-                `🚨 EMERGENCY: Aggressive reduction to ${Math.ceil(currentRenderScale * 100)}% (${targetBufferWidth}x${Math.ceil(screen.height * currentRenderScale)}px, FPS: ${averageFPS.toFixed(1)})`,
-              );
+              console.log(`🚨 EMERGENCY: Target scale reduced to ${Math.ceil(targetRenderScale * 100)}% (FPS: ${averageFPS.toFixed(1)})`);
             }
-          }
-        } else if (averageFPS < 20 && currentRenderScale > MIN_RENDER_SCALE) {
-          // Critical: Fast multi-pixel reduction
-          const currentBufferWidth = Math.ceil(
-            screen.width * currentRenderScale,
-          );
-          const pixelReduction = averageFPS < 12 ? 4 : averageFPS < 15 ? 3 : 2; // More aggressive scaling based on severity
-          const targetBufferWidth = Math.max(
-            Math.ceil(screen.width * MIN_RENDER_SCALE),
-            currentBufferWidth - pixelReduction,
-          );
-          const newScale = Math.max(
-            MIN_RENDER_SCALE,
-            targetBufferWidth / screen.width,
-          );
+          } else if (averageFPS < 20 && targetRenderScale > MIN_RENDER_SCALE) {
+            // Critical: Low FPS - moderate reduction
+            const reductionAmount = averageFPS < 12 ? SCALE_ADJUSTMENT * 3 : 
+                                   averageFPS < 15 ? SCALE_ADJUSTMENT * 2 : 
+                                   SCALE_ADJUSTMENT * 1.5;
+            targetRenderScale = Math.max(MIN_RENDER_SCALE, targetRenderScale - reductionAmount);
+            targetScaleChanged = true;
+          } else if (averageFPS < 25 && targetRenderScale > MIN_RENDER_SCALE) {
+            // Poor: Below target - gentle reduction
+            const reductionAmount = averageFPS < 22 ? SCALE_ADJUSTMENT * 1.2 : SCALE_ADJUSTMENT;
+            targetRenderScale = Math.max(MIN_RENDER_SCALE, targetRenderScale - reductionAmount);
+            targetScaleChanged = true;
+          } else if (averageFPS > 35 && targetRenderScale < MAX_RENDER_SCALE) {
+            // Good FPS: Increase target scale
+            let increaseAmount;
 
-          if (newScale !== currentRenderScale) {
-            currentRenderScale = newScale;
+            if (averageFPS > 50) {
+              // Excellent FPS: Fast increases
+              increaseAmount = SCALE_ADJUSTMENT * 3;
+            } else if (averageFPS > 42) {
+              // Very good FPS: Moderate increases
+              increaseAmount = SCALE_ADJUSTMENT * 2;
+            } else if (averageFPS > 38) {
+              // Good FPS: Normal increases
+              increaseAmount = SCALE_ADJUSTMENT * 1.5;
+            } else {
+              // Stable FPS: Gradual increases
+              increaseAmount = SCALE_ADJUSTMENT;
+            }
+
+            targetRenderScale = Math.min(MAX_RENDER_SCALE, targetRenderScale + increaseAmount);
+            targetScaleChanged = true;
+          }
+
+          if (targetScaleChanged) {
             lastScaleAdjustment = frameCount;
-            scaleChanged = true;
           }
-        } else if (averageFPS < 25 && currentRenderScale > MIN_RENDER_SCALE) {
-          // Poor: Enhanced pixel reduction
-          const currentBufferWidth = Math.ceil(
-            screen.width * currentRenderScale,
-          );
-          const pixelReduction = averageFPS < 22 ? 2 : 1; // More aggressive if very poor
-          const targetBufferWidth = Math.max(
-            Math.ceil(screen.width * MIN_RENDER_SCALE),
-            currentBufferWidth - pixelReduction,
-          );
-          const newScale = Math.max(
-            MIN_RENDER_SCALE,
-            targetBufferWidth / screen.width,
-          );
+        }
 
-          if (newScale !== currentRenderScale) {
-            currentRenderScale = newScale;
-            lastScaleAdjustment = frameCount;
-            scaleChanged = true;
-          }
-        } else if (averageFPS > 35 && currentRenderScale < MAX_RENDER_SCALE) {
-          // Good FPS: More responsive resolution increases with lower threshold
-          let increaseAmount;
-          let increaseType;
-
-          if (averageFPS > 50) {
-            // Excellent FPS: Very fast increases
-            increaseAmount = SCALE_ADJUSTMENT * 4;
-            increaseType = "excellent";
-          } else if (averageFPS > 42) {
-            // Very good FPS: Fast increases
-            increaseAmount = SCALE_ADJUSTMENT * 2.5;
-            increaseType = "very good";
-          } else if (averageFPS > 38) {
-            // Good FPS: Normal increases
-            increaseAmount = SCALE_ADJUSTMENT * 1.5;
-            increaseType = "good";
+        // Smooth interpolation towards target scale every frame
+        if (Math.abs(targetRenderScale - currentRenderScale) > 0.001) {
+          const scaleDifference = targetRenderScale - currentRenderScale;
+          const interpolationStep = scaleDifference * SMOOTH_INTERPOLATION_SPEED;
+          
+          // Ensure we don't overshoot the target
+          if (Math.abs(interpolationStep) < Math.abs(scaleDifference)) {
+            currentRenderScale += interpolationStep;
           } else {
-            // Stable FPS: Gradual increases
-            increaseAmount = SCALE_ADJUSTMENT * 0.75;
-            increaseType = "stable";
+            currentRenderScale = targetRenderScale;
           }
-
-          const newScale = Math.min(
-            MAX_RENDER_SCALE,
-            currentRenderScale + increaseAmount,
-          );
-          if (newScale !== currentRenderScale) {
-            currentRenderScale = newScale;
-            lastScaleAdjustment = frameCount;
-            scaleChanged = true;
-          }
+          
+          // Clamp to valid range
+          currentRenderScale = Math.max(MIN_RENDER_SCALE, Math.min(MAX_RENDER_SCALE, currentRenderScale));
         }
-
-        // Enhanced debugging for blocked scaling with new tiers
-        if (
-          !scaleChanged &&
-          (averageFPS < 20 ||
-            scalingMode === "SEVERE" ||
-            scalingMode === "EMERGENCY")
-        ) {
-          const atMinScale = currentRenderScale <= MIN_RENDER_SCALE + 0.01;
-        }
-
-        // Debug scaling blocked for resolution increases
-        if (
-          !scaleChanged &&
-          averageFPS > 35 &&
-          currentRenderScale < MAX_RENDER_SCALE
-        ) {
-          const atMaxScale = currentRenderScale >= MAX_RENDER_SCALE - 0.01;
-        }
-
-        // Enhanced performance monitoring with more frequent updates for critical situations
-        const monitoringInterval =
-          scalingMode === "SEVERE"
-            ? 30
-            : scalingMode === "EMERGENCY"
-              ? 60
-              : 180;
-      } else if (
-        DEBUG_MODE &&
-        (averageFPS < 12 ||
-          scalingMode === "SEVERE" ||
-          scalingMode === "EMERGENCY") &&
-        frameCount % 45 === 0
-      ) {
-        // More frequent logging for severe situations about why we're not scaling
       }
-      } // End of ADAPTIVE_RESOLUTION_ENABLED block
     }
   }
   if (currentTime) {
@@ -681,12 +596,71 @@ function paint({
 
   wipe("purple");
 
-  // If we have an animation buffer, paste it to the main screen (upscaled to fit)
+  // If we have an animation buffer, paste it to the main screen (optimized, full coverage)
   if (animationBuffer) {
-    // Scale the reduced resolution buffer back to full screen size
-    paste(animationBuffer, 0, 0, {
-      scale: 1 / currentRenderScale, // Upscale the buffer to fill the full screen
-    });
+    // Optimization: Check if we're at full resolution for direct paste
+    if (Math.abs(currentRenderScale - 1.0) < 0.001) {
+      // Full resolution - direct paste without scaling (fastest path)
+      paste(animationBuffer, 0, 0);
+    } else {
+      // Scaled resolution - paste at full screen coverage (no centering)
+      const scaleThreshold = 0.001; // Only recalculate if scale changed significantly
+      
+      if (Math.abs(currentRenderScale - lastCachedScale) > scaleThreshold || !cachedPasteParams) {
+        // Recalculate paste parameters for center-based scaling
+        const bufferWidth = animationBuffer.width;
+        const bufferHeight = animationBuffer.height;
+        
+        // Calculate scale factors needed to cover full screen dimensions
+        const scaleX = screen.width / bufferWidth;
+        const scaleY = screen.height / bufferHeight;
+        
+        // Use the larger scale factor and add aggressive safety margin to guarantee complete coverage
+        const baseScale = Math.max(scaleX, scaleY);
+        const upscaleFactor = baseScale * 1.05; // Increase to 5% safety margin for better edge coverage
+        
+        // Calculate scaled dimensions with final scale
+        const scaledWidth = bufferWidth * upscaleFactor;
+        const scaledHeight = bufferHeight * upscaleFactor;
+        
+        // Calculate center offsets but ensure they never create gaps
+        let offsetX = (screen.width - scaledWidth) / 2;
+        let offsetY = (screen.height - scaledHeight) / 2;
+        
+        // Clamp offsets to ensure scaled content always covers entire screen
+        // If offset is positive, it means scaled content is smaller than screen (shouldn't happen with safety margin)
+        // If offset is negative, ensure it's negative enough to cover the screen completely
+        if (offsetX > 0) {
+          offsetX = 0; // Force to cover from left edge
+        } else if (offsetX + scaledWidth < screen.width) {
+          offsetX = screen.width - scaledWidth; // Ensure right edge is covered
+        }
+        
+        if (offsetY > 0) {
+          offsetY = 0; // Force to cover from top edge
+        } else if (offsetY + scaledHeight < screen.height) {
+          offsetY = screen.height - scaledHeight; // Ensure bottom edge is covered
+        }
+        
+        // Cache the calculated parameters
+        cachedPasteParams = {
+          upscaleFactor,
+          offsetX,
+          offsetY
+        };
+        lastCachedScale = currentRenderScale;
+        
+        // Debug logging to understand scaling behavior
+        // if (DEBUG_MODE && Math.abs(baseScale - upscaleFactor) > 0.001) {
+        //   console.log(`🔍 Coverage scaling: ${baseScale.toFixed(3)} → ${upscaleFactor.toFixed(3)} (buffer: ${bufferWidth}x${bufferHeight}, screen: ${screen.width}x${screen.height}, offset: ${offsetX.toFixed(1)},${offsetY.toFixed(1)}, coverage: ${scaledWidth.toFixed(1)}x${scaledHeight.toFixed(1)})`);
+        // }
+      }
+      
+      // Use cached parameters for paste operation - guaranteed full coverage with center scaling
+      paste(animationBuffer, cachedPasteParams.offsetX, cachedPasteParams.offsetY, {
+        scale: cachedPasteParams.upscaleFactor,
+      });
+    }
   } else {
     // No animation yet, show purple background
     wipe("purple");
@@ -908,29 +882,22 @@ function paint({
     }
   }
 
-  // Show debug info for dynamic scaling (bottom-right corner) - DISABLED
-  /*
+  // Show FPS display (bottom-right corner)
   if (DEBUG_MODE) {
-    // When adaptive resolution is disabled, use max scale for display
-    const effectiveScale = ADAPTIVE_RESOLUTION_ENABLED ? currentRenderScale : MAX_RENDER_SCALE;
-    const bufferWidth = Math.ceil(screen.width * effectiveScale);
-    const bufferHeight = Math.ceil(screen.height * effectiveScale);
-    const adaptiveStatus = ADAPTIVE_RESOLUTION_ENABLED ? "" : " [FIXED]";
-    const debugText = `${bufferWidth}x${bufferHeight}px | ${averageFPS.toFixed(1)}fps${adaptiveStatus}`;
+    const fpsText = `${averageFPS.toFixed(1)}fps`;
     // Draw shadow (black text offset by 1px down and right)
-    ink(0, 0, 0).write(debugText, {
-      x: screen.width - debugText.length * 6 - 5,
+    ink(0, 0, 0).write(fpsText, {
+      x: screen.width - fpsText.length * 6 - 5,
       y: screen.height - 25,
       size: 1,
     });
     // Draw main text
-    ink(255, 255, 255).write(debugText, {
-      x: screen.width - debugText.length * 6 - 6,
+    ink(255, 255, 255).write(fpsText, {
+      x: screen.width - fpsText.length * 6 - 6,
       y: screen.height - 26,
       size: 1,
     });
   }
-  */
 }
 
 // 👋 Leave (Runs once before the piece is unloaded)
