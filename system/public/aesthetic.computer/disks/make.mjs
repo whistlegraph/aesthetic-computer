@@ -1,6 +1,13 @@
 // Make, 25.06.05.00.01 - Simplified Architecture
 // Creates animated art from text prompts with sequential parameter highlighting
 
+// Configuration flags (must be defined before any variable declarations that use them)
+const ADAPTIVE_RESOLUTION_ENABLED = false; // Set to false to disable adaptive resolution scaling
+const DEBUG_MODE = true; // Set to true for detailed logging
+
+// Dynamic resolution scaling constants (moved early for initialization order)
+const MAX_RENDER_SCALE = 0.25; // Maximum 25% resolution
+
 /* #region 📓 TODO
   + Now
   - [🟠] Show last generated piece when the same prompt loads / regeneration occurs.
@@ -54,20 +61,37 @@ let conversation,
   scrollingDisplayBuffer = "", // Rolling buffer for scrolling text display
   charactersPerFrame = 1, // How many characters to show per frame (adjustable speed, up to 4 when catching up)
   state = {}, // Persistent state object that survives between frames
-  finalCountdownStartTime = 0, // Track when final countdown timer starts
-  finalCountdownDuration = 12 * 60, // 7 seconds at 60fps
+  finalCountdownStartTime = null, // Track when final countdown timer starts (UTC timestamp)
+  finalCountdownDuration = 12000, // 12 seconds in milliseconds
   canRegenerate = false, // Flag to allow regeneration
-  countdownHitZeroTime = 0, // Track when countdown first hit 0 (for quarter-second delay)
+  countdownHitZeroTime = null, // Track when countdown first hit 0 (UTC timestamp)
   regenerationTriggeredTime = 0, // Track when regeneration was triggered
   makingStartTime = 0, // Track when making (streaming) starts
-  makingProgress = 0.0; // Current making progress (0.0 to 1.0)
+  makingProgress = 0.0, // Current making progress (0.0 to 1.0)
+  // Dynamic resolution scaling variables
+  currentRenderScale = ADAPTIVE_RESOLUTION_ENABLED ? 0.25 : MAX_RENDER_SCALE, // Start at 25% resolution or max if disabled
+  frameTimings = [], // Array to store recent frame times
+  lastFrameTime = 0, // Track last frame time for FPS calculation
+  lastScaleAdjustment = 0, // Track when we last adjusted scale
+  averageFPS = 30, // Running average FPS
+  // Relative coordinate system for resolution-independent state persistence
+  relativeStateStore = new Map(), // Internal storage for relative coordinates
+  screenDimensions = { width: 0, height: 0 }; // Track current screen dimensions
 
-const DEBUG_MODE = true; // Set to true for detailed logging
 const TEXT_SCALE = 1.0; // Normal text scale for better readability
 const LINE_HEIGHT = 12; // Normal line height for scale 1.0
-const RENDER_SCALE = 0.5; // Full resolution for debugging - was 0.5
 const PAUSE_DURATION = 0; // 4 seconds at 60fps to give enough time to read the final code
 const MIN_CODE_DISPLAY_TIME = 120; // Minimum time to show code before cleanup (2 seconds)
+
+// Dynamic resolution scaling - Enhanced for ultra-responsive performance adaptation
+const TARGET_FPS = 30;
+const MIN_RENDER_SCALE = 0.03; // Minimum 3% resolution - even more aggressive for extreme cases
+const SCALE_ADJUSTMENT = 0.03; // Smaller incremental adjustments for finer control
+const FPS_SAMPLE_SIZE = 8; // Even smaller sample size for ultra-fast response
+const SCALE_COOLDOWN = 45; // Faster normal cooldown (0.75 seconds at 60fps)
+const CRITICAL_FPS_COOLDOWN = 8; // Ultra-fast critical response
+const EMERGENCY_FPS_COOLDOWN = 2; // Nearly instant emergency response
+const SEVERE_FPS_COOLDOWN = 1; // Immediate response for severe drops
 
 // Styled console logging utility for consistent source code display
 function logStyledSource(title, code, isError = false, userPrompt = "") {
@@ -79,7 +103,8 @@ function logStyledSource(title, code, isError = false, userPrompt = "") {
   const timestamp = new Date().toLocaleTimeString();
 
   // Create title comment
-  const titleComment = userPrompt && userPrompt.trim() ? `made ${userPrompt}` : `Generated Code`;
+  const titleComment =
+    userPrompt && userPrompt.trim() ? `made ${userPrompt}` : `Generated Code`;
 
   // Add title comment at the beginning and timestamp comment at the end
   const codeWithComments = `/* ${titleComment} */\n${code}\n/* ${timestamp} */`;
@@ -88,9 +113,12 @@ function logStyledSource(title, code, isError = false, userPrompt = "") {
 }
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ params, store, slug, hud: { label, currentLabel } }) {
+function boot({ glaze, params, store, slug, hud: { label, currentLabel } }) {
+  // glaze({ on: true });
   // Store the original label text and label function
   originalLabel = currentLabel().text || "";
+
+  lastValidCode = store["make-last-code"] || ""; // Load last valid code from store
 
   // Store the original params for simple highlighting
   originalParams = [...params];
@@ -107,16 +135,27 @@ function boot({ params, store, slug, hud: { label, currentLabel } }) {
   displayedCode = ""; // Reset displayed code
   lastCharacterDisplayFrame = 0;
   state = {}; // Reset persistent state for new prompt
-  finalCountdownStartTime = 0; // Reset countdown timer
+  finalCountdownStartTime = null; // Reset countdown timer
   canRegenerate = false; // Reset regeneration flag
-  countdownHitZeroTime = 0; // Reset countdown hit zero time
+  countdownHitZeroTime = null; // Reset countdown hit zero time
   regenerationTriggeredTime = 0; // Reset regeneration triggered time
   makingStartTime = 0; // Reset making start time
   makingProgress = 0.0; // Reset making progress
+  // Reset dynamic scaling variables
+  currentRenderScale = ADAPTIVE_RESOLUTION_ENABLED ? 0.25 : MAX_RENDER_SCALE; // Reset to 25% or max if disabled
+  frameTimings = []; // Clear frame timing history
+  lastFrameTime = 0; // Reset frame time tracking
+  lastScaleAdjustment = 0; // Reset scale adjustment tracking
+  averageFPS = 30; // Reset average FPS
 
   // Load the prompt template from the .prompt file synchronously
   let programSource;
   let promptLoaded = false;
+
+  if (lastValidCode.length > 0) {
+    currentCode = lastValidCode;
+    tryExecuteCurrentCode(false, label, store);
+  }
 
   fetch("../prompts/make.prompt")
     .then((response) => response.text())
@@ -156,6 +195,9 @@ function boot({ params, store, slug, hud: { label, currentLabel } }) {
         function and(msg) {
           if (fullCode === "PROCESSING...") {
             fullCode = ``; // Clear any waiting message.
+            currentCode = ``; // Clear the current code
+            // Don't clear executeCode here if we have lastValidCode - let it keep running
+            // executeCode = null; // Clear the old execution function so new code can take over
             streaming = true; // Mark that we're actively streaming
             makingStartTime = frameCount; // Track when making starts
             makingProgress = 0.0; // Reset making progress
@@ -192,8 +234,9 @@ function boot({ params, store, slug, hud: { label, currentLabel } }) {
 
           // Try to evaluate code less frequently for safer streaming (was every 3, now every 8)
           // This reduces the chance of trying to execute incomplete structures
-          if (chunkCount % 8 === 0) {
-            tryExecuteCurrentCode(undefined, label);
+          // Only try to execute during streaming if we don't have valid code already running
+          if (chunkCount % 8 === 0 && (!executeCode || !lastValidCode)) {
+            tryExecuteCurrentCode(undefined, label, store);
           }
         },
         function done() {
@@ -212,7 +255,7 @@ function boot({ params, store, slug, hud: { label, currentLabel } }) {
           // label(originalLabel);
 
           if (fullCode && fullCode.trim()) {
-            tryExecuteCurrentCode(true, label); // Final attempt with full cleanup
+            tryExecuteCurrentCode(true, label, store); // Final attempt with full cleanup
           }
         },
         function fail() {
@@ -245,9 +288,234 @@ function paint({
   pen,
   text,
   typeface,
+  clock,
   hud: { label, currentLabel },
 }) {
-  frameCount++; // Increment frame counter for animations
+  frameCount++;
+
+  // Track FPS and adjust render scale dynamically
+  const currentTime = clock.time();
+  if (currentTime && lastFrameTime > 0) {
+    const frameTime = currentTime.getTime() - lastFrameTime;
+    frameTimings.push(frameTime);
+
+    // Keep only recent frame timings
+    if (frameTimings.length > FPS_SAMPLE_SIZE) {
+      frameTimings.shift();
+    }
+
+    // Calculate average FPS over recent frames
+    if (frameTimings.length >= 3) {
+      // Need even fewer samples for ultra-fast response
+      const averageFrameTime =
+        frameTimings.reduce((sum, time) => sum + time, 0) / frameTimings.length;
+      averageFPS = 1000 / averageFrameTime; // Convert to FPS
+
+      // Adaptive resolution scaling (can be disabled via flag)
+      if (ADAPTIVE_RESOLUTION_ENABLED) {
+        // Enhanced dynamic scaling logic with ultra-responsive multi-tier system
+        const timeSinceLastAdjustment = frameCount - lastScaleAdjustment;
+
+      // Determine urgency level and required cooldown with more granular tiers
+      let requiredCooldown;
+      let scalingMode = "";
+
+      if (averageFPS < 5) {
+        // Severe: Catastrophic FPS, immediate action
+        requiredCooldown = SEVERE_FPS_COOLDOWN;
+        scalingMode = "SEVERE";
+      } else if (averageFPS < 10) {
+        // Emergency: Very low FPS, almost immediate scaling
+        requiredCooldown = EMERGENCY_FPS_COOLDOWN;
+        scalingMode = "EMERGENCY";
+      } else if (averageFPS < 20) {
+        // Critical: Low FPS, fast scaling
+        requiredCooldown = CRITICAL_FPS_COOLDOWN;
+        scalingMode = "CRITICAL";
+      } else if (averageFPS < 25) {
+        // Poor: Below target, normal scaling
+        requiredCooldown = SCALE_COOLDOWN;
+        scalingMode = "POOR";
+      } else {
+        // Normal or good FPS
+        requiredCooldown = SCALE_COOLDOWN;
+        scalingMode = "NORMAL";
+      }
+
+      if (timeSinceLastAdjustment > requiredCooldown) {
+        let scaleChanged = false;
+
+        if (averageFPS < 5 && currentRenderScale > MIN_RENDER_SCALE) {
+          // Severe: Catastrophic FPS - massive reduction
+          const currentBufferWidth = Math.ceil(
+            screen.width * currentRenderScale,
+          );
+          const severeReduction = Math.max(
+            5,
+            Math.floor(currentBufferWidth * 0.25),
+          ); // Reduce by 25% or 5 pixels, whichever is larger
+          const targetBufferWidth = Math.max(
+            Math.ceil(screen.width * MIN_RENDER_SCALE),
+            currentBufferWidth - severeReduction,
+          );
+          const newScale = Math.max(
+            MIN_RENDER_SCALE,
+            targetBufferWidth / screen.width,
+          );
+
+          if (newScale !== currentRenderScale) {
+            currentRenderScale = newScale;
+            lastScaleAdjustment = frameCount;
+            scaleChanged = true;
+            if (DEBUG_MODE) {
+              console.log(
+                `💀 SEVERE: Catastrophic reduction to ${Math.ceil(currentRenderScale * 100)}% (${targetBufferWidth}x${Math.ceil(screen.height * currentRenderScale)}px, FPS: ${averageFPS.toFixed(1)})`,
+              );
+            }
+          }
+        } else if (averageFPS < 10 && currentRenderScale > MIN_RENDER_SCALE) {
+          // Emergency: Aggressive scaling down - reduce by multiple pixels or large percentage
+          const currentBufferWidth = Math.ceil(
+            screen.width * currentRenderScale,
+          );
+          const emergencyReduction = Math.max(
+            4,
+            Math.floor(currentBufferWidth * 0.18),
+          ); // Reduce by 18% or 4 pixels, whichever is larger
+          const targetBufferWidth = Math.max(
+            Math.ceil(screen.width * MIN_RENDER_SCALE),
+            currentBufferWidth - emergencyReduction,
+          );
+          const newScale = Math.max(
+            MIN_RENDER_SCALE,
+            targetBufferWidth / screen.width,
+          );
+
+          if (newScale !== currentRenderScale) {
+            currentRenderScale = newScale;
+            lastScaleAdjustment = frameCount;
+            scaleChanged = true;
+            if (DEBUG_MODE) {
+              console.log(
+                `🚨 EMERGENCY: Aggressive reduction to ${Math.ceil(currentRenderScale * 100)}% (${targetBufferWidth}x${Math.ceil(screen.height * currentRenderScale)}px, FPS: ${averageFPS.toFixed(1)})`,
+              );
+            }
+          }
+        } else if (averageFPS < 20 && currentRenderScale > MIN_RENDER_SCALE) {
+          // Critical: Fast multi-pixel reduction
+          const currentBufferWidth = Math.ceil(
+            screen.width * currentRenderScale,
+          );
+          const pixelReduction = averageFPS < 12 ? 4 : averageFPS < 15 ? 3 : 2; // More aggressive scaling based on severity
+          const targetBufferWidth = Math.max(
+            Math.ceil(screen.width * MIN_RENDER_SCALE),
+            currentBufferWidth - pixelReduction,
+          );
+          const newScale = Math.max(
+            MIN_RENDER_SCALE,
+            targetBufferWidth / screen.width,
+          );
+
+          if (newScale !== currentRenderScale) {
+            currentRenderScale = newScale;
+            lastScaleAdjustment = frameCount;
+            scaleChanged = true;
+          }
+        } else if (averageFPS < 25 && currentRenderScale > MIN_RENDER_SCALE) {
+          // Poor: Enhanced pixel reduction
+          const currentBufferWidth = Math.ceil(
+            screen.width * currentRenderScale,
+          );
+          const pixelReduction = averageFPS < 22 ? 2 : 1; // More aggressive if very poor
+          const targetBufferWidth = Math.max(
+            Math.ceil(screen.width * MIN_RENDER_SCALE),
+            currentBufferWidth - pixelReduction,
+          );
+          const newScale = Math.max(
+            MIN_RENDER_SCALE,
+            targetBufferWidth / screen.width,
+          );
+
+          if (newScale !== currentRenderScale) {
+            currentRenderScale = newScale;
+            lastScaleAdjustment = frameCount;
+            scaleChanged = true;
+          }
+        } else if (averageFPS > 35 && currentRenderScale < MAX_RENDER_SCALE) {
+          // Good FPS: More responsive resolution increases with lower threshold
+          let increaseAmount;
+          let increaseType;
+
+          if (averageFPS > 50) {
+            // Excellent FPS: Very fast increases
+            increaseAmount = SCALE_ADJUSTMENT * 4;
+            increaseType = "excellent";
+          } else if (averageFPS > 42) {
+            // Very good FPS: Fast increases
+            increaseAmount = SCALE_ADJUSTMENT * 2.5;
+            increaseType = "very good";
+          } else if (averageFPS > 38) {
+            // Good FPS: Normal increases
+            increaseAmount = SCALE_ADJUSTMENT * 1.5;
+            increaseType = "good";
+          } else {
+            // Stable FPS: Gradual increases
+            increaseAmount = SCALE_ADJUSTMENT * 0.75;
+            increaseType = "stable";
+          }
+
+          const newScale = Math.min(
+            MAX_RENDER_SCALE,
+            currentRenderScale + increaseAmount,
+          );
+          if (newScale !== currentRenderScale) {
+            currentRenderScale = newScale;
+            lastScaleAdjustment = frameCount;
+            scaleChanged = true;
+          }
+        }
+
+        // Enhanced debugging for blocked scaling with new tiers
+        if (
+          !scaleChanged &&
+          (averageFPS < 20 ||
+            scalingMode === "SEVERE" ||
+            scalingMode === "EMERGENCY")
+        ) {
+          const atMinScale = currentRenderScale <= MIN_RENDER_SCALE + 0.01;
+        }
+
+        // Debug scaling blocked for resolution increases
+        if (
+          !scaleChanged &&
+          averageFPS > 35 &&
+          currentRenderScale < MAX_RENDER_SCALE
+        ) {
+          const atMaxScale = currentRenderScale >= MAX_RENDER_SCALE - 0.01;
+        }
+
+        // Enhanced performance monitoring with more frequent updates for critical situations
+        const monitoringInterval =
+          scalingMode === "SEVERE"
+            ? 30
+            : scalingMode === "EMERGENCY"
+              ? 60
+              : 180;
+      } else if (
+        DEBUG_MODE &&
+        (averageFPS < 12 ||
+          scalingMode === "SEVERE" ||
+          scalingMode === "EMERGENCY") &&
+        frameCount % 45 === 0
+      ) {
+        // More frequent logging for severe situations about why we're not scaling
+      }
+      } // End of ADAPTIVE_RESOLUTION_ENABLED block
+    }
+  }
+  if (currentTime) {
+    lastFrameTime = currentTime.getTime();
+  }
 
   // Update making progress based on parameter highlighting progress
   if (streaming && originalParams) {
@@ -265,40 +533,124 @@ function paint({
   // Execute the animation code in a custom buffer (if available)
   if (executeCode) {
     try {
-      // Create custom buffer at reduced resolution for performance
-      const bufferWidth = Math.ceil(screen.width * RENDER_SCALE);
-      const bufferHeight = Math.ceil(screen.height * RENDER_SCALE);
+      // Create custom buffer at dynamically scaled resolution for performance
+      const bufferWidth = Math.ceil(screen.width * currentRenderScale);
+      const bufferHeight = Math.ceil(screen.height * currentRenderScale);
+
+      // Update screen dimensions for coordinate system
+      screenDimensions.width = screen.width;
+      screenDimensions.height = screen.height;
 
       animationBuffer = painting(
         bufferWidth,
         bufferHeight,
         ({ wipe, screen: bufferScreen }) => {
           // Execute the AI-generated animation code on the custom buffer
-          // The screen interface should use the actual buffer dimensions
           const screenInterface = {
             pixels: bufferScreen.pixels,
             width: bufferScreen.width,
             height: bufferScreen.height,
           };
-          // Scale pen coordinates to match the buffer resolution
 
-          const scaledPen = pen
-            ? {
-                x: Math.floor(pen.x * RENDER_SCALE),
-                y: Math.floor(pen.y * RENDER_SCALE),
-                drawing: pen.drawing || false,
-              }
-            : { x: 0, y: 0, drawing: false };
+          // Create resolution-aware pen with both scaled and relative coordinates
+          let finalPen = createScaledPen(
+            pen,
+            screen.width,
+            screen.height,
+            currentRenderScale,
+          );
 
-          executeCode(screenInterface, frameCount, scaledPen, state);
+          // Auto-animate drawing actions when pen is not active
+          if (!pen || (!pen.drawing && !pen.x && !pen.y)) {
+            // Create automatic pen simulation using real time instead of frame count
+            const currentTime = clock.time();
+            const autoTime = currentTime
+              ? (currentTime.getTime() % 60000) / 1000
+              : 0; // 60 second cycle in seconds
+            const centerX = Math.floor(bufferWidth / 2);
+            const centerY = Math.floor(bufferHeight / 2);
+
+            // Create different movement patterns based on time
+            const patternIndex = Math.floor(autoTime / 10) % 4; // Change pattern every 10 seconds
+            let autoX, autoY;
+
+            switch (patternIndex) {
+              case 0: // Circular motion
+                const radius1 = Math.min(centerX, centerY) * 0.3;
+                autoX = centerX + Math.cos(autoTime) * radius1;
+                autoY = centerY + Math.sin(autoTime * 0.7) * radius1;
+                break;
+              case 1: // Figure-8 pattern
+                const scale = Math.min(centerX, centerY) * 0.25;
+                autoX = centerX + Math.sin(autoTime) * scale;
+                autoY = centerY + Math.sin(autoTime * 2) * scale;
+                break;
+              case 2: // Linear sweep
+                const sweepProgress = (autoTime % 6) / 6; // 6-second cycle
+                autoX = centerX * 0.3 + sweepProgress * centerX * 1.4;
+                autoY =
+                  centerY +
+                  Math.sin(sweepProgress * Math.PI * 2) * centerY * 0.2;
+                break;
+              case 3: // Random walk
+                const walkSpeed = 0.1;
+                autoX =
+                  centerX +
+                  Math.sin(autoTime * walkSpeed) * centerX * 0.4 +
+                  Math.cos(autoTime * walkSpeed * 1.3) * centerX * 0.2;
+                autoY =
+                  centerY +
+                  Math.cos(autoTime * walkSpeed * 0.7) * centerY * 0.4 +
+                  Math.sin(autoTime * walkSpeed * 1.7) * centerY * 0.2;
+                break;
+              default:
+                autoX = centerX;
+                autoY = centerY;
+            }
+
+            // Simulate drawing with varied patterns - drawing ~50% of the time with pulses
+            const drawingCycle =
+              Math.sin(autoTime * 0.3) * Math.cos(autoTime * 0.17); // Complex wave
+            const autoDrawing = drawingCycle > 0.2; // Drawing when wave is above threshold
+
+            finalPen = {
+              x: Math.floor(autoX),
+              y: Math.floor(autoY),
+              drawing: autoDrawing,
+              relativeX: autoX / bufferWidth,
+              relativeY: autoY / bufferHeight,
+              originalX: autoX / currentRenderScale,
+              originalY: autoY / currentRenderScale,
+            };
+          }
+
+          // Create resolution-aware state proxy that handles coordinate conversion
+          const relativeState = createRelativeStateProxy(
+            state,
+            screen.width,
+            screen.height,
+          );
+
+          // Calculate time-based animation parameter for generated code
+          const currentTime = clock.time();
+          const animationTime = currentTime
+            ? (currentTime.getTime() % 60000) / 1000
+            : frameCount * 0.016; // Fallback to ~60fps timing
+
+          executeCode(
+            screenInterface,
+            frameCount,
+            finalPen,
+            relativeState,
+            animationTime,
+          );
         },
       );
     } catch (err) {
-      // Create error buffer with black background at reduced resolution
-      const bufferWidth = Math.floor(screen.width * RENDER_SCALE);
-      const bufferHeight = Math.floor(screen.height * RENDER_SCALE);
+      // Create error buffer with black background at dynamically scaled resolution
+      const bufferWidth = Math.ceil(screen.width * currentRenderScale);
+      const bufferHeight = Math.ceil(screen.height * currentRenderScale);
 
-      // 🟠 TODO: Make this animation buffer memoized. 25.06.09.07.53
       animationBuffer = painting(bufferWidth, bufferHeight, ({ wipe }) => {
         // wipe("black");
       });
@@ -311,6 +663,7 @@ function paint({
             "frameCount",
             "pen",
             "state",
+            "animationTime",
             lastValidCode,
           );
           if (DEBUG_MODE)
@@ -328,11 +681,11 @@ function paint({
 
   wipe("purple");
 
-  // If we have an animation buffer, paste it to the main screen (stretched to fit)
+  // If we have an animation buffer, paste it to the main screen (upscaled to fit)
   if (animationBuffer) {
-    // Use transform object to specify exact target dimensions
+    // Scale the reduced resolution buffer back to full screen size
     paste(animationBuffer, 0, 0, {
-      scale: 1 / RENDER_SCALE, // Scale to upscale the reduced resolution buffer back to full size
+      scale: 1 / currentRenderScale, // Upscale the buffer to fill the full screen
     });
   } else {
     // No animation yet, show purple background
@@ -368,6 +721,7 @@ function paint({
         text,
         typeface,
         label, // Pass label function for cleanup
+        clock, // Pass clock for UTC timing
       );
     }
     // Note: No center message for "PROCESSING..." - rely on bottom corner indicator
@@ -389,6 +743,7 @@ function paint({
       text,
       typeface,
       label, // Pass label function for cleanup
+      clock, // Pass clock for UTC timing
     );
   }
 
@@ -426,8 +781,12 @@ function paint({
     }
 
     // Show making text with shadow
-    const dots = ".".repeat((Math.floor(frameCount / 10) % 3) + 1);
-    const makingText = `Making${dots}`;
+    const currentTime = clock.time();
+    const timeMs = currentTime ? currentTime.getMilliseconds() : 0;
+    const dots = ".".repeat((Math.floor(timeMs / 333) % 3) + 1); // 333ms cycle for ~3 dots per second
+    // Show "Remaking..." if there was already stored code, otherwise "Making..."
+    const isRemaking = lastValidCode && lastValidCode.length > 0;
+    const makingText = `${isRemaking ? "Remaking" : "Making"}${dots}`;
     // Draw shadow (black text offset by 1px down and right)
     ink(0, 0, 0).write(makingText, {
       x: barX + 1,
@@ -443,105 +802,139 @@ function paint({
   }
 
   // Handle final countdown timer and regeneration
-  if (finalCountdownStartTime > 0) {
-    const elapsedFrames = frameCount - finalCountdownStartTime;
-    const progress = Math.min(elapsedFrames / finalCountdownDuration, 1.0);
+  if (finalCountdownStartTime !== null) {
+    const currentTime = clock.time();
+    if (currentTime) {
+      const elapsedMs = currentTime.getTime() - finalCountdownStartTime;
+      const progress = Math.min(elapsedMs / finalCountdownDuration, 1.0);
 
-    // Draw red progress bar at bottom of screen
-    const barWidth = screen.width - 12; // 6px margin on each side
-    const barHeight = 4;
-    const barX = 6;
-    const barY = screen.height - 12;
+      // Draw red progress bar at bottom of screen
+      const barWidth = screen.width - 12; // 6px margin on each side
+      const barHeight = 4;
+      const barX = 6;
+      const barY = screen.height - 12;
 
-    // Background (dark gray)
-    ink(40, 40, 40).box(barX, barY, barWidth, barHeight);
+      // Background (dark gray)
+      ink(40, 40, 40).box(barX, barY, barWidth, barHeight);
 
-    // Decreasing red bar: start full and shrink from right to left
-    const remainingProgress = 1.0 - progress; // Invert: 1.0 -> 0.0
-    const fillWidth = Math.floor(barWidth * remainingProgress);
-    if (fillWidth > 0) {
-      // Draw from the left side, shrinking from the right
-      ink(255, 60, 60).box(barX, barY, fillWidth, barHeight);
-    }
-
-    // Show countdown text
-    const remainingSeconds = Math.max(
-      0,
-      Math.ceil((finalCountdownDuration - elapsedFrames) / 60),
-    );
-
-    if (remainingSeconds > 0) {
-      const remakingText = `Remaking in ${remainingSeconds}s`;
-      // Draw shadow (black text offset by 1px down and right)
-      ink(0, 0, 0).write(remakingText, {
-        x: barX + 1,
-        y: barY - 15 + 1,
-        size: 1,
-      });
-      // Draw main text
-      ink(255, 255, 255).write(remakingText, {
-        x: barX,
-        y: barY - 15,
-        size: 1,
-      });
-    } else {
-      // Track when countdown first hit zero
-      if (countdownHitZeroTime === 0) {
-        countdownHitZeroTime = frameCount;
+      // Decreasing red bar: start full and shrink from right to left
+      const remainingProgress = 1.0 - progress; // Invert: 1.0 -> 0.0
+      const fillWidth = Math.floor(barWidth * remainingProgress);
+      if (fillWidth > 0) {
+        // Draw from the left side, shrinking from the right
+        ink(255, 60, 60).box(barX, barY, fillWidth, barHeight);
       }
 
-      // Hold "Remaking in 0s" for quarter second (15 frames) before showing regeneration prompt
-      const framesAtZero = frameCount - countdownHitZeroTime;
-      if (framesAtZero < 15) {
-        // Quarter second delay at 60fps
-        const remakingZeroText = `Remaking in 0s`;
+      // Show countdown text
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((finalCountdownDuration - elapsedMs) / 1000),
+      );
+
+      if (remainingSeconds > 0) {
+        const remakingText = `Remaking in ${remainingSeconds}s`;
         // Draw shadow (black text offset by 1px down and right)
-        ink(0, 0, 0).write(remakingZeroText, {
+        ink(0, 0, 0).write(remakingText, {
           x: barX + 1,
           y: barY - 15 + 1,
           size: 1,
         });
         // Draw main text
-        ink(255, 255, 255).write(remakingZeroText, {
+        ink(255, 255, 255).write(remakingText, {
           x: barX,
           y: barY - 15,
           size: 1,
         });
       } else {
-        // After delay, allow regeneration and show prompt
-        if (!canRegenerate) {
-          canRegenerate = true;
+        // Track when countdown first hit zero
+        if (countdownHitZeroTime === null) {
+          countdownHitZeroTime = clock.time()?.getTime() || 0;
         }
-        const remakingZeroText = "Remaking in 0s";
-        // Draw shadow (black text offset by 1px down and right)
-        ink(0, 0, 0).write(remakingZeroText, {
-          x: barX + 1,
-          y: barY - 15 + 1,
-          size: 1,
-        });
-        // Draw main text
-        ink(255, 255, 255).write(remakingZeroText, {
-          x: barX,
-          y: barY - 15,
-          size: 1,
-        });
+
+        // Hold "Remaking in 0s" for quarter second (250ms) before showing regeneration prompt
+        const currentTime = clock.time();
+        const msAtZero = currentTime
+          ? currentTime.getTime() - countdownHitZeroTime
+          : 0;
+        if (msAtZero < 250) {
+          // Quarter second delay (250ms)
+          const remakingZeroText = `Remaking in 0s`;
+          // Draw shadow (black text offset by 1px down and right)
+          ink(0, 0, 0).write(remakingZeroText, {
+            x: barX + 1,
+            y: barY - 15 + 1,
+            size: 1,
+          });
+          // Draw main text
+          ink(255, 255, 255).write(remakingZeroText, {
+            x: barX,
+            y: barY - 15,
+            size: 1,
+          });
+        } else {
+          // After delay, allow regeneration and show prompt
+          if (!canRegenerate) {
+            canRegenerate = true;
+          }
+          const remakingZeroText = "Remaking in 0s";
+          // Draw shadow (black text offset by 1px down and right)
+          ink(0, 0, 0).write(remakingZeroText, {
+            x: barX + 1,
+            y: barY - 15 + 1,
+            size: 1,
+          });
+          // Draw main text
+          ink(255, 255, 255).write(remakingZeroText, {
+            x: barX,
+            y: barY - 15,
+            size: 1,
+          });
+        }
+      }
+
+      // When countdown completes, allow regeneration (but only after the delay)
+      const msAtZero =
+        currentTime && countdownHitZeroTime
+          ? currentTime.getTime() - countdownHitZeroTime
+          : 0;
+      if (
+        progress >= 1.0 &&
+        countdownHitZeroTime !== null &&
+        msAtZero >= 250 &&
+        !canRegenerate
+      ) {
+        canRegenerate = true;
       }
     }
-
-    // When countdown completes, allow regeneration (but only after the delay)
-    if (
-      progress >= 1.0 &&
-      countdownHitZeroTime > 0 &&
-      frameCount - countdownHitZeroTime >= 15 &&
-      !canRegenerate
-    ) {
-      canRegenerate = true;
-    }
   }
+
+  // Show debug info for dynamic scaling (bottom-right corner) - DISABLED
+  /*
+  if (DEBUG_MODE) {
+    // When adaptive resolution is disabled, use max scale for display
+    const effectiveScale = ADAPTIVE_RESOLUTION_ENABLED ? currentRenderScale : MAX_RENDER_SCALE;
+    const bufferWidth = Math.ceil(screen.width * effectiveScale);
+    const bufferHeight = Math.ceil(screen.height * effectiveScale);
+    const adaptiveStatus = ADAPTIVE_RESOLUTION_ENABLED ? "" : " [FIXED]";
+    const debugText = `${bufferWidth}x${bufferHeight}px | ${averageFPS.toFixed(1)}fps${adaptiveStatus}`;
+    // Draw shadow (black text offset by 1px down and right)
+    ink(0, 0, 0).write(debugText, {
+      x: screen.width - debugText.length * 6 - 5,
+      y: screen.height - 25,
+      size: 1,
+    });
+    // Draw main text
+    ink(255, 255, 255).write(debugText, {
+      x: screen.width - debugText.length * 6 - 6,
+      y: screen.height - 26,
+      size: 1,
+    });
+  }
+  */
 }
 
 // 👋 Leave (Runs once before the piece is unloaded)
-function leave() {
+function leave({ store }) {
   abort?.(); // Cancel any existing `ask` which halts the server.
 }
 
@@ -550,7 +943,7 @@ function sim({ event, jump, reload }) {
   // Handle regeneration when countdown is complete
   if (canRegenerate) {
     // Hide progress bars immediately to prevent flash
-    finalCountdownStartTime = 0;
+    finalCountdownStartTime = null;
     canRegenerate = false;
     regenerationTriggeredTime = frameCount; // Track when regeneration was triggered
 
@@ -570,7 +963,7 @@ function sim({ event, jump, reload }) {
   ) {
     // 3 seconds at 60fps
     // Cancel the timer and reset state
-    finalCountdownStartTime = 0;
+    finalCountdownStartTime = null;
     canRegenerate = false;
     regenerationTriggeredTime = 0;
     if (DEBUG_MODE) {
@@ -708,6 +1101,7 @@ function renderPromptWithHighlighting(
   typeface,
   shouldShowCode = false, // New parameter to sync with code display
   displayState = {}, // Additional display state for fine-grained control
+  clock, // Add clock parameter for time-based animations
 ) {
   // Only show highlighting when shouldShowCode is true
   // This ensures perfect synchronization with code display
@@ -791,14 +1185,18 @@ function renderPromptWithHighlighting(
             displayState.isHighlightingInProgress);
 
         if (shouldWiggle) {
-          // Calculate wiggle offset for animated movement
-          const wiggleSpeed = 0.15;
+          // Calculate wiggle offset using real time for frame-rate independence
+          const currentTime = clock.time();
+          const timeMs = currentTime
+            ? currentTime.getMilliseconds() + currentTime.getSeconds() * 1000
+            : 0;
+          const wiggleSpeed = 0.003; // Adjusted for millisecond timing (was 0.15 for frame timing)
           const wiggleAmount = 1; // 1 pixel wiggle
           const wiggleX = Math.round(
-            Math.sin(frameCount * wiggleSpeed) * wiggleAmount,
+            Math.sin(timeMs * wiggleSpeed) * wiggleAmount,
           );
           const wiggleY = Math.round(
-            Math.cos(frameCount * wiggleSpeed * 0.7) * wiggleAmount,
+            Math.cos(timeMs * wiggleSpeed * 0.7) * wiggleAmount,
           );
 
           ink(color[0], color[1], color[2]).write(word, {
@@ -849,6 +1247,7 @@ function displayScrollingCodeBuffer(
   text,
   typeface,
   label, // Add label function parameter
+  clock, // Add clock parameter for UTC timing
 ) {
   if (!code || !code.trim()) return;
 
@@ -953,9 +1352,12 @@ function displayScrollingCodeBuffer(
     labelRestored = false;
 
     // Start the final countdown timer for regeneration
-    if (finalCountdownStartTime === 0) {
+    if (finalCountdownStartTime === null) {
       // Only start if not already started
-      finalCountdownStartTime = frameCount;
+      const currentTime = clock.time();
+      finalCountdownStartTime = currentTime
+        ? currentTime.getTime()
+        : Date.now();
       canRegenerate = false; // Will be set to true when countdown completes
     }
   }
@@ -985,6 +1387,7 @@ function displayScrollingCodeBuffer(
         hasActiveText:
           shouldShowCode && displayedCode && displayedCode.trim().length > 0,
       },
+      clock, // Pass clock for time-based animations
     );
   }
 
@@ -1184,7 +1587,7 @@ function renderCodeWithHighlighting(
   }
 }
 
-function tryExecuteCurrentCode(isFinal = false, label) {
+function tryExecuteCurrentCode(isFinal = false, label, store) {
   if (!currentCode || currentCode.trim().length < 10) return;
 
   // Use the raw code as-is without any cleaning or formatting
@@ -1214,12 +1617,13 @@ function tryExecuteCurrentCode(isFinal = false, label) {
     const codeLines = codeToExecute.split("\n");
     currentEvalLine = codeLines.length - 1; // Highlight the last (most recent) line
 
-    // Try to compile the code - now with pen and state parameters
+    // Try to compile the code - now with pen, state, and animationTime parameters
     const testFunction = new Function(
       "screen",
       "frameCount",
       "pen",
       "state",
+      "animationTime",
       codeToExecute,
     );
 
@@ -1248,6 +1652,7 @@ function tryExecuteCurrentCode(isFinal = false, label) {
 
       // Restore the original HUD label when final execution is complete
       // label(originalLabel);
+      store["make-last-code"] = lastValidCode; // Save the last generated code to store
     }
   } catch (err) {
     // Silently ignore compilation errors during streaming
@@ -1273,6 +1678,7 @@ function tryExecuteCurrentCode(isFinal = false, label) {
             "frameCount",
             "pen",
             "state",
+            "animationTime",
             lastValidCode,
           );
         } catch (fallbackErr) {
@@ -1394,4 +1800,166 @@ function drawHighlightConnections(
       ink(255, 255, 0, 80).line(startX, startY, endX, endY);
     }
   });
+}
+
+// Dynamic resolution scaling variables
+(currentRenderScale = 0.5), // Start at 50% resolution
+  (frameTimings = []), // Array to store recent frame times
+  (lastFrameTime = 0), // Track last frame time for FPS calculation
+  (lastScaleAdjustment = 0), // Track when we last adjusted scale
+  (averageFPS = 30), // Running average FPS
+  // Relative coordinate system for resolution-independent state persistence
+  (relativeStateStore = new Map()), // Internal storage for relative coordinates
+  (screenDimensions = { width: 0, height: 0 }); // Track current screen dimensions
+
+// Coordinate conversion utilities
+function toRelative(absValue, dimension) {
+  // Convert absolute pixel value to relative proportion (0.0-1.0)
+  if (typeof absValue !== "number" || !isFinite(absValue)) return absValue;
+  return dimension > 0 ? Math.max(0, Math.min(1, absValue / dimension)) : 0;
+}
+
+function toAbsolute(relValue, dimension) {
+  // Convert relative proportion (0.0-1.0) to absolute pixel value
+  if (typeof relValue !== "number" || !isFinite(relValue)) return relValue;
+  return Math.round(relValue * dimension);
+}
+
+function isCoordinateLike(key, value) {
+  // Detect if a property might be a coordinate based on key name and value
+  if (typeof value !== "number" || !isFinite(value)) return false;
+  const coordinateKeys =
+    /^(x|y|pos|position|left|top|right|bottom|width|height|w|h|centerX|centerY|startX|startY|endX|endY|targetX|targetY|prevX|prevY|lastX|lastY|deltaX|deltaY|offsetX|offsetY)$/i;
+  return coordinateKeys.test(key);
+}
+
+function isXCoordinate(key) {
+  return /^(x|left|right|width|w|centerX|startX|endX|targetX|prevX|lastX|deltaX|offsetX)$/i.test(
+    key,
+  );
+}
+
+function isYCoordinate(key) {
+  return /^(y|top|bottom|height|h|centerY|startY|endY|targetY|prevY|lastY|deltaY|offsetY)$/i.test(
+    key,
+  );
+}
+
+// Enhanced state proxy that automatically converts between relative and absolute coordinates
+function createRelativeStateProxy(baseState, screenWidth, screenHeight) {
+  // Store a unique ID for this proxy instance to avoid conflicts
+  const proxyId = Math.random().toString(36).substr(2, 9);
+
+  return new Proxy(baseState, {
+    get(target, prop) {
+      const key = String(prop);
+
+      // Handle array-like access for coordinate arrays
+      if (Array.isArray(target[prop])) {
+        return target[prop].map((item, index) => {
+          if (typeof item === "object" && item !== null) {
+            return createRelativeStateProxy(item, screenWidth, screenHeight);
+          }
+          return item;
+        });
+      }
+
+      // Handle nested objects
+      if (
+        typeof target[prop] === "object" &&
+        target[prop] !== null &&
+        !Array.isArray(target[prop])
+      ) {
+        return createRelativeStateProxy(
+          target[prop],
+          screenWidth,
+          screenHeight,
+        );
+      }
+
+      // Check if this property is stored as relative coordinate
+      const relativeKey = `${proxyId}_${prop}_rel`;
+      if (relativeStateStore.has(relativeKey)) {
+        const relativeValue = relativeStateStore.get(relativeKey);
+        if (isXCoordinate(key)) {
+          return toAbsolute(relativeValue, screenWidth);
+        } else if (isYCoordinate(key)) {
+          return toAbsolute(relativeValue, screenHeight);
+        }
+        // For non-coordinate values that are stored as relative, return as-is
+        return relativeValue;
+      }
+
+      return target[prop];
+    },
+
+    set(target, prop, value) {
+      const key = String(prop);
+
+      // If this looks like a coordinate, store as relative coordinate internally
+      if (isCoordinateLike(key, value)) {
+        const relativeKey = `${proxyId}_${prop}_rel`;
+        if (isXCoordinate(key)) {
+          // Store relative value (0.0-1.0) internally
+          relativeStateStore.set(relativeKey, toRelative(value, screenWidth));
+        } else if (isYCoordinate(key)) {
+          // Store relative value (0.0-1.0) internally
+          relativeStateStore.set(relativeKey, toRelative(value, screenHeight));
+        }
+
+        // Don't store the absolute value in the target object
+        // The proxy will convert back to absolute when accessed
+        return true;
+      }
+
+      // For non-coordinate values, store normally
+      target[prop] = value;
+      return true;
+    },
+  });
+}
+
+// Create resolution-aware pen object that provides coordinates scaled to current buffer
+function createScaledPen(basePen, screenWidth, screenHeight, renderScale) {
+  if (!basePen) return { x: 0, y: 0, drawing: false };
+
+  // Create a proxy that stores pen coordinates as relative values internally
+  const penProxyId = Math.random().toString(36).substr(2, 9);
+
+  // Store the current pen coordinates as relative values
+  const xRelativeKey = `${penProxyId}_x_rel`;
+  const yRelativeKey = `${penProxyId}_y_rel`;
+  relativeStateStore.set(xRelativeKey, toRelative(basePen.x, screenWidth));
+  relativeStateStore.set(yRelativeKey, toRelative(basePen.y, screenHeight));
+
+  return {
+    // Scale pen coordinates to match the current render buffer size
+    get x() {
+      const relativeX = relativeStateStore.get(xRelativeKey) || 0;
+      return Math.floor(toAbsolute(relativeX, screenWidth) * renderScale);
+    },
+    get y() {
+      const relativeY = relativeStateStore.get(yRelativeKey) || 0;
+      return Math.floor(toAbsolute(relativeY, screenHeight) * renderScale);
+    },
+    drawing: basePen.drawing || false,
+
+    // Provide relative coordinates (0.0-1.0) for absolute positioning
+    get relativeX() {
+      return relativeStateStore.get(xRelativeKey) || 0;
+    },
+    get relativeY() {
+      return relativeStateStore.get(yRelativeKey) || 0;
+    },
+
+    // Original coordinates for reference
+    originalX: basePen.x,
+    originalY: basePen.y,
+
+    // Method to update pen position (stores as relative coordinates)
+    setPosition(newX, newY) {
+      relativeStateStore.set(xRelativeKey, toRelative(newX, screenWidth));
+      relativeStateStore.set(yRelativeKey, toRelative(newY, screenHeight));
+    },
+  };
 }
