@@ -130,6 +130,13 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // Update custom generator for a custom synth
+      if (msg.type === "update-generator") {
+        // console.log("🎨 Got custom generator update!", msg.data);
+        this.#running[msg.data.id]?.setCustomGenerator(msg.data.generator);
+        return;
+      }
+
       // 💀 Kill an existing sound.
       if (msg.type === "kill") {
         // Try and kill the sound if it exists, linearly over 'fade' seconds.
@@ -232,13 +239,17 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
         // Trigger the sound...
 
-        // TODO: Use the `when` value to trigger the sound here.
-
-        //if (msg.data.when === "now") {
+        // TODO: Use the `when` value to trigger the sound here.        //if (msg.data.when === "now") {
+          // Prepare options with generator for custom type
+          let synthOptions = msg.data.options || { tone: msg.data.tone };
+          if (msg.data.type === "custom" && msg.data.generator) {
+            synthOptions = { ...synthOptions, generator: msg.data.generator };
+          }
+          
           const sound = new Synth({
             type: msg.data.type,
             id: msg.data.id,
-            options: msg.data.options || { tone: msg.data.tone },
+            options: synthOptions,
             duration,
             attack,
             decay,
