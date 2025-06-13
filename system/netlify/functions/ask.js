@@ -65,15 +65,50 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
     payload.system = systemContent;
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
-  });
+  // Add timeout and connection error handling
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error("Anthropic fetch error:", error);
+    
+    // Handle specific error types
+    if (error.name === 'AbortError') {
+      return {
+        statusCode: 408,
+        headers: { "Content-Type": "text/plain" },
+        body: "Request timeout",
+      };
+    }
+    
+    if (error.code === 'ECONNRESET' || error.message.includes('ECONNRESET')) {
+      return {
+        statusCode: 503,
+        headers: { "Content-Type": "text/plain" },
+        body: "Connection reset by server",
+      };
+    }
+    
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "text/plain" },
+      body: "Network error",
+    };
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ error: "Failed to parse error response" }));
@@ -91,8 +126,23 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
       let tokenUsage = null;
 
       try {
-        for await (const chunk of res.body) {
-          const chunkText = new TextDecoder().decode(chunk);
+        const reader = res.body.getReader();
+        
+        while (true) {
+          let result;
+          try {
+            result = await reader.read();
+          } catch (readError) {
+            console.error("Stream read error:", readError);
+            if (readError.code === 'ECONNRESET' || readError.message.includes('ECONNRESET')) {
+              controller.enqueue(new TextEncoder().encode("\n\n[Connection lost - partial response]"));
+            }
+            break;
+          }
+          
+          if (result.done) break;
+          
+          const chunkText = new TextDecoder().decode(result.value);
           buffer += chunkText;
 
           // Process complete SSE events (separated by double newlines)
@@ -183,10 +233,29 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
             }
           }
         }
+        
         controller.close();
       } catch (e) {
         console.error("Stream error:", e);
-        controller.error(e);
+        
+        // Try to send a helpful error message to the client
+        try {
+          if (e.code === 'ECONNRESET' || e.message.includes('ECONNRESET')) {
+            controller.enqueue(new TextEncoder().encode("\n\n[Connection reset - response may be incomplete]"));
+          } else {
+            controller.enqueue(new TextEncoder().encode("\n\n[Stream error occurred]"));
+          }
+        } catch (controllerError) {
+          console.error("Error enqueueing error message:", controllerError);
+        }
+        
+        // Close the stream gracefully instead of erroring
+        try {
+          controller.close();
+        } catch (closeError) {
+          console.error("Error closing controller:", closeError);
+          controller.error(e);
+        }
       }
     },
   });
@@ -342,14 +411,49 @@ exports.handler = stream(async (event) => {
         payload.max_tokens = max_tokens;
       }
 
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      // Add timeout and connection error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      let res;
+      try {
+        res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error("OpenAI fetch error:", error);
+        
+        // Handle specific error types
+        if (error.name === 'AbortError') {
+          return {
+            statusCode: 408,
+            headers: { "Content-Type": "text/plain" },
+            body: "Request timeout",
+          };
+        }
+        
+        if (error.code === 'ECONNRESET' || error.message.includes('ECONNRESET')) {
+          return {
+            statusCode: 503,
+            headers: { "Content-Type": "text/plain" },
+            body: "Connection reset by server",
+          };
+        }
+        
+        return {
+          statusCode: 500,
+          headers: { "Content-Type": "text/plain" },
+          body: "Network error",
+        };
+      }
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -366,86 +470,126 @@ exports.handler = stream(async (event) => {
           let buffer = "";
           let tokenUsage = null;
 
-          for await (const chunk of res.body) {
-            buffer += new TextDecoder().decode(chunk);
-
-            let boundary = buffer.indexOf("\n\n");
-            while (boundary !== -1) {
-              const part = buffer.slice(0, boundary).trim();
-              buffer = buffer.slice(boundary + 2);
-              boundary = buffer.indexOf("\n\n");
-
-              if (part.startsWith("data: ")) {
-                const jsonString = part.slice(6).trim();
-                if (jsonString === "[DONE]") {
-                  // Log token usage before closing
-                  if (tokenUsage) {
-                    const inputTokens = tokenUsage.prompt_tokens || 0;
-                    const outputTokens = tokenUsage.completion_tokens || 0;
-                    const totalTokens = inputTokens + outputTokens;
-                    const maxTokens = max_tokens;
-                    
-                    // Create visual progress bar for output tokens vs limit
-                    const outputProgress = Math.min(outputTokens / maxTokens, 1.0);
-                    const barLength = 20;
-                    const filledBars = Math.floor(outputProgress * barLength);
-                    
-                    // Terminal escape codes for colors
-                    const colors = {
-                      green: '\x1b[32m',
-                      orange: '\x1b[33m',
-                      red: '\x1b[31m',
-                      reset: '\x1b[0m'
-                    };
-                    
-                    // Color coding: green if under 80%, orange if 80-95%, red if over 95%
-                    let color = colors.green;
-                    if (outputProgress > 0.95) color = colors.red;
-                    else if (outputProgress > 0.8) color = colors.orange;
-                    
-                    const outputBar = color + '█'.repeat(filledBars) + colors.reset + colors.red + '█'.repeat(barLength - filledBars) + colors.reset;
-                    const percentage = Math.round(outputProgress * 100);
-                    
-                    console.log(`📊 OpenAI Tokens: In:${inputTokens} Out:${outputTokens}/${maxTokens} ${outputBar} ${percentage}%`);
-                    
-                    // Check if OpenAI hit the maximum token limit (100% usage)
-                    if (outputTokens === maxTokens) {
-                      console.log(`🚨 OpenAI hit maximum token limit: ${outputTokens}/${maxTokens} tokens`);
-                      // Send error message to client for compilation error handling
-                      const errorMessage = "COMPILATION ERROR: Maximum tokens reached - response truncated";
-                      controller.enqueue(new TextEncoder().encode(errorMessage));
-                    }
-                  } else {
-                    // No token usage data available from OpenAI - log that we completed without usage info
-                    console.log(`📊 OpenAI Tokens: Usage data not available (limit: ${max_tokens}) - Stream completed successfully`);
-                  }
-                  controller.close();
-                  return;
+          try {
+            const reader = res.body.getReader();
+            
+            while (true) {
+              let result;
+              try {
+                result = await reader.read();
+              } catch (readError) {
+                console.error("Stream read error:", readError);
+                if (readError.code === 'ECONNRESET' || readError.message.includes('ECONNRESET')) {
+                  controller.enqueue(new TextEncoder().encode("\n\n[Connection lost - partial response]"));
                 }
-                try {
-                  const json = JSON.parse(jsonString);
-                  
-                  // Capture token usage if present (can appear in final chunks)
-                  if (json.usage) {
-                    tokenUsage = json.usage;
-                    // console.log("🔍 Found token usage:", tokenUsage);
+                break;
+              }
+              
+              if (result.done) break;
+              
+              buffer += new TextDecoder().decode(result.value);
+
+              let boundary = buffer.indexOf("\n\n");
+              while (boundary !== -1) {
+                const part = buffer.slice(0, boundary).trim();
+                buffer = buffer.slice(boundary + 2);
+                boundary = buffer.indexOf("\n\n");
+
+                if (part.startsWith("data: ")) {
+                  const jsonString = part.slice(6).trim();
+                  if (jsonString === "[DONE]") {
+                    // Log token usage before closing
+                    if (tokenUsage) {
+                      const inputTokens = tokenUsage.prompt_tokens || 0;
+                      const outputTokens = tokenUsage.completion_tokens || 0;
+                      const totalTokens = inputTokens + outputTokens;
+                      const maxTokens = max_tokens;
+                      
+                      // Create visual progress bar for output tokens vs limit
+                      const outputProgress = Math.min(outputTokens / maxTokens, 1.0);
+                      const barLength = 20;
+                      const filledBars = Math.floor(outputProgress * barLength);
+                      
+                      // Terminal escape codes for colors
+                      const colors = {
+                        green: '\x1b[32m',
+                        orange: '\x1b[33m',
+                        red: '\x1b[31m',
+                        reset: '\x1b[0m'
+                      };
+                      
+                      // Color coding: green if under 80%, orange if 80-95%, red if over 95%
+                      let color = colors.green;
+                      if (outputProgress > 0.95) color = colors.red;
+                      else if (outputProgress > 0.8) color = colors.orange;
+                      
+                      const outputBar = color + '█'.repeat(filledBars) + colors.reset + colors.red + '█'.repeat(barLength - filledBars) + colors.reset;
+                      const percentage = Math.round(outputProgress * 100);
+                      
+                      console.log(`📊 OpenAI Tokens: In:${inputTokens} Out:${outputTokens}/${maxTokens} ${outputBar} ${percentage}%`);
+                      
+                      // Check if OpenAI hit the maximum token limit (100% usage)
+                      if (outputTokens === maxTokens) {
+                        console.log(`🚨 OpenAI hit maximum token limit: ${outputTokens}/${maxTokens} tokens`);
+                        // Send error message to client for compilation error handling
+                        const errorMessage = "COMPILATION ERROR: Maximum tokens reached - response truncated";
+                        controller.enqueue(new TextEncoder().encode(errorMessage));
+                      }
+                    } else {
+                      // No token usage data available from OpenAI - log that we completed without usage info
+                      console.log(`📊 OpenAI Tokens: Usage data not available (limit: ${max_tokens}) - Stream completed successfully`);
+                    }
+                    controller.close();
+                    return;
                   }
-                  
-                  // Also check for usage in choices (some OpenAI responses put it there)
-                  if (json.choices?.[0]?.usage) {
-                    tokenUsage = json.choices[0].usage;
-                    // console.log("🔍 Found token usage in choices:", tokenUsage);
+                  try {
+                    const json = JSON.parse(jsonString);
+                    
+                    // Capture token usage if present (can appear in final chunks)
+                    if (json.usage) {
+                      tokenUsage = json.usage;
+                      // console.log("🔍 Found token usage:", tokenUsage);
+                    }
+                    
+                    // Also check for usage in choices (some OpenAI responses put it there)
+                    if (json.choices?.[0]?.usage) {
+                      tokenUsage = json.choices[0].usage;
+                      // console.log("🔍 Found token usage in choices:", tokenUsage);
+                    }
+                    
+                    const text = json.choices[0]?.delta?.content || "";
+                    if (text) {
+                      controller.enqueue(new TextEncoder().encode(text));
+                    }
+                  } catch (e) {
+                    console.error("Error parsing part:", e);
+                    // Don't error the whole stream for one bad event
                   }
-                  
-                  const text = json.choices[0]?.delta?.content || "";
-                  if (text) {
-                    controller.enqueue(new TextEncoder().encode(text));
-                  }
-                } catch (e) {
-                  console.error("Error parsing part:", e);
-                  controller.error(e);
                 }
               }
+            }
+            
+            controller.close();
+          } catch (e) {
+            console.error("Stream error:", e);
+            
+            // Try to send a helpful error message to the client
+            try {
+              if (e.code === 'ECONNRESET' || e.message.includes('ECONNRESET')) {
+                controller.enqueue(new TextEncoder().encode("\n\n[Connection reset - response may be incomplete]"));
+              } else {
+                controller.enqueue(new TextEncoder().encode("\n\n[Stream error occurred]"));
+              }
+            } catch (controllerError) {
+              console.error("Error enqueueing error message:", controllerError);
+            }
+            
+            // Close the stream gracefully instead of erroring
+            try {
+              controller.close();
+            } catch (closeError) {
+              console.error("Error closing controller:", closeError);
+              controller.error(e);
             }
           }
         },
