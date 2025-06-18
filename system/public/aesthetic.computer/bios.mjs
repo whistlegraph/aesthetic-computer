@@ -13,8 +13,10 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
+import { isKidlispSource, encodeKidlispForUrl } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
+import * as USB from "./lib/usb.mjs";
 import {
   MetaBrowser,
   iOS,
@@ -50,6 +52,9 @@ function consumeDiskSends(send) {
   diskSends.length = 0;
   diskSendsConsumed = true;
 }
+
+// 🔌 USB
+USB.initialize();
 
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
@@ -1163,7 +1168,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
-  const sandboxed = (window.origin === "null" || !window.origin) && !window.acVSCODE;
+  const sandboxed =
+    (window.origin === "null" || !window.origin) && !window.acVSCODE;
 
   const microphonePermission = await checkMicrophonePermission();
 
@@ -2397,14 +2403,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           TwoD?.render();
         },
       );
-    }
-
-    // 💾 Disk Loading
+    } // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
-    if (type === "disk-loaded") {
-      // Clear any active parameters once the disk has been loaded.
-      window.history.replaceState({}, "", window.location.pathname);
+    if (type === "disk-loaded") {      // Clear any active parameters once the disk has been loaded.
+      // For kidlisp pieces, preserve the URL path with proper encoding
+      if (content.text && isKidlispSource(content.text)) {
+        // For kidlisp pieces, use centralized URL encoding
+        const encodedPath = "/" + encodeKidlispForUrl(content.text);
+        window.history.replaceState({}, "", encodedPath);
+      } else {
+        // For regular pieces, clear parameters but keep the basic path structure
+        window.history.replaceState({}, "", window.location.pathname);
+      }
 
       // if (currentPiece !== null) firstPiece = false;
       currentPiece = content.path;
@@ -2546,16 +2557,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //}
 
       // Clear the ThreeD buffer.
-      // ThreeD.clear();
-
-      // Emit a push state for the old disk if it was not the first. This is so
+      // ThreeD.clear();      // Emit a push state for the old disk if it was not the first. This is so
       // a user can use browser history to switch between disks.
       if (content.pieceCount > 0 || content.alias === true) {
-        if (content.fromHistory === false /*&& window.origin !== "null"*/) {
+        if (content.fromHistory === false /*&& window.origin !== "null"*/) {          // Handle URL encoding for different piece types
+          let urlPath;
+          if (content.text === "/prompt") {
+            urlPath = "/";
+          } else if (isKidlispSource(content.text)) {
+            // For kidlisp pieces, use centralized URL encoding
+            urlPath = "/" + encodeKidlispForUrl(content.text);
+          } else {
+            // For regular pieces, use normal text
+            urlPath = "/" + content.text;
+          }
+
           history.pushState(
             "",
             document.title,
-            content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
+            urlPath, // Replace "prompt" with "/".
           );
 
           // console.log("🧩 Updating piece:", content);
@@ -2569,9 +2589,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             },
             "*",
           );
-        }
-
-        // Replace the state if we are running an aliased `load` or `jump`.
+        } // Replace the state if we are running an aliased `load` or `jump`.
         // (That doesn't avoid the history stack.)
         // Note: History state changes do not work in a sandboxed iframe!
         if (
@@ -2579,12 +2597,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           content.alias === false //&&
           // window.origin !== "null"
         ) {
-          try {
-            history.replaceState(
-              "",
-              document.title,
-              content.text === "/prompt" ? "/" : "/" + content.text, // Replace "prompt" with "/".
-            );
+          try {            // Handle URL encoding for different piece types
+            let urlPath;
+            if (content.text === "/prompt") {
+              urlPath = "/";
+            } else if (isKidlispSource(content.text)) {
+              // For kidlisp pieces, use centralized URL encoding
+              urlPath = "/" + encodeKidlispForUrl(content.text);
+            } else {
+              // For regular pieces, use normal encoding
+              urlPath = "/" + content.text;
+            }
+
+            history.replaceState("", document.title, urlPath);
           } catch (err) {
             console.warn("⚠️ Couldn't change url state. Going too fast!? ➿🚗");
           }
@@ -2960,7 +2985,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "beat:skip") {
       beatSkip();
       return;
-    }    if (type === "synth:update") {
+    }
+    if (type === "synth:update") {
       updateSound?.(content);
       return;
     }
@@ -5381,28 +5407,6 @@ function iOSAppSend(message) {
   const packedMessage = JSON.stringify(message);
   console.log("📱 Sending to iOS App:", packedMessage);
   window.webkit?.messageHandlers?.iOSApp.postMessage(packedMessage);
-}
-
-// Zero-crossing pitch computation.
-function computeOriginalPitch(buffer, sampleRate) {
-  const channelData = buffer.getChannelData(0); // Use the first channel
-  let zeroCrossings = 0;
-
-  // Count zero crossings
-  for (let i = 1; i < channelData.length; i++) {
-    if (
-      (channelData[i - 1] < 0 && channelData[i] > 0) ||
-      (channelData[i - 1] > 0 && channelData[i] < 0)
-    ) {
-      zeroCrossings++;
-    }
-  }
-
-  // Estimate the fundamental frequency
-  const durationInSeconds = channelData.length / sampleRate;
-  const frequency = zeroCrossings / (2 * durationInSeconds); // Divide by 2 because each cycle has two zero crossings
-
-  return frequency;
 }
 
 async function checkMicrophonePermission() {

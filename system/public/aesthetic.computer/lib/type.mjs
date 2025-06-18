@@ -266,7 +266,6 @@ class Typeface {
       return target["?"] || null;
     }
   }
-
   // 📓 tf.print
   print(
     $,
@@ -274,6 +273,7 @@ class Typeface {
     lineNumber,
     text,
     bg = null,
+    charColors = null,
   ) {
     // TODO: Pass printLine params through / make a state machine.
     const font = this.glyphs;
@@ -348,27 +348,58 @@ class Typeface {
     //   x < -w
     // ) {
     //   // Offscreen render.
-    //   return;
-    // }
+    //   return;    // }
 
     const rn = $.inkrn(); // Remember the current ink color.
 
     // Background
     if (bg !== null) $.ink(bg).box(x, y, fullWidth, blockHeight);
 
-    // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);
-
-    $.ink(rn).printLine(
-      text,
-      font,
-      x,
-      y,
-      blockWidth,
-      size,
-      0,
-      thickness,
-      rotation,
-    ); // Text
+    // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);    // Check if we have per-character colors
+    if (charColors && charColors.length > 0) {
+      // Render each character with its own color
+      let currentX = x;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const charColor = charColors[i];
+        
+        // Set color for this character
+        if (charColor) {
+          $.ink(charColor);
+        } else {
+          $.ink(...rn); // Use original color if no specific color
+        }
+        
+        // Render single character
+        $.printLine(
+          char,
+          font,
+          currentX,
+          y,
+          blockWidth,
+          size,
+          0,
+          thickness,
+          rotation,
+        );
+        
+        // Move to next character position
+        currentX += blockWidth * size;
+      }
+    } else {
+      // Original single-color rendering
+      $.ink(...rn).printLine(
+        text,
+        font,
+        x,
+        y,
+        blockWidth,
+        size,
+        0,
+        thickness,
+        rotation,
+      ); // Text
+    }
   }
 }
 
@@ -752,9 +783,12 @@ class TextInput {
           $.line(...topL, ...bottomR);
         }
       }
-    } else {
-      if (this.cursor === "blink" && this.showBlink && this.canType) {
-        $.ink(this.pal.block).box(prompt.pos(undefined, true)); // Draw blinking cursor.
+    } else {      if (this.cursor === "blink" && this.showBlink && this.canType) {
+        // Use green cursor in kidlisp mode, otherwise use normal color
+        const cursorColor = $.system?.prompt?.kidlispMode ? 
+          ($.dark ? [100, 255, 100] : [0, 150, 0]) : 
+          this.pal.block;
+        $.ink(cursorColor).box(prompt.pos(undefined, true)); // Draw blinking cursor.
         const char = this.text[this.#prompt.textPos()];
         const pic = this.typeface.glyphs[char];
         if (pic)

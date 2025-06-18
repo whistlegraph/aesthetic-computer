@@ -10,6 +10,7 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import * as starfield from "./starfield.mjs";
+import { isKidlispSource, encodeKidlispForUrl } from "../lib/kidlisp.mjs";
 
 let cells,
   enter,
@@ -30,7 +31,16 @@ function boot({ api, hud, params, net, ui, blink }) {
     } else {
       url = net.lan ? net.lan : `https://${net.host}`;
     }
-    slug = params.join("~");
+      // Check if this is kidlisp source code
+    if (isKidlispSource(params[0])) {
+      // For kidlisp, rejoin with spaces and then use centralized URL encoding
+      const kidlispSource = params.join(" ");
+      slug = encodeKidlispForUrl(kidlispSource);
+    } else {
+      // For regular pieces, use the normal tilde joining
+      slug = params.join("~");
+    }
+    
     if (slug) url += `/${slug}`;
     if (slug.length === 0) {
       slug = "prompt";

@@ -871,12 +871,11 @@ async function getLast100MessagesfromMongo() {
       .toArray();
   } else if (instance.name !== "chat-system") {
     // 🕰️ Don't include logs.
-    combinedMessages = await chatCollection
+    combinedMessages = (await chatCollection
       .find({})
       .sort({ when: -1 })
       .limit(100)
-      .toArray()
-      .reverse();
+      .toArray()).reverse();
   } else {
     // chat-system
     // todo; take into account chat-clock

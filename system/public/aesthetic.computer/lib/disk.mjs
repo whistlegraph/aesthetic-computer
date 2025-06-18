@@ -42,7 +42,8 @@ import { CamDoll } from "./cam-doll.mjs";
 
 import { TextInput, Typeface } from "../lib/type.mjs";
 
-import * as lisp from "./kidlisp.mjs"; // Add lisp evaluator.
+import * as lisp from "./kidlisp.mjs";
+import { isKidlispSource } from "./kidlisp.mjs"; // Add lisp evaluator.
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.
@@ -602,6 +603,8 @@ let lastServerTime = undefined;
 let clockOffset = 0; // Smoothed offset from server
 
 const $commonApi = {
+  lisp, //  A global reference to the `kidlisp` evalurator.
+  undef: undefined, // A global api shorthand for undefined.
   clock: {
     offset: function () {
       if (clockFetching) return;
@@ -1955,14 +1958,13 @@ function ink2() {
 const $paintApi = {
   // 1. Composite functions (that use $activePaintApi)
   //    (Must be unwrapped)
-
   // Prints a line of text using the default / current global font.
   // Argument options:
   // text, pos: {x, y, center}, bg (optional)
 
   // Parameters:
   // text, x, y, options
-  // text, pos, bg, bounds, wordWrap = true) {
+  // text, pos, bg, bounds, wordWrap = true
   write: function () {
     let text = arguments[0],
       pos,
@@ -1989,9 +1991,94 @@ const $paintApi = {
       bg = arguments[2];
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
+    }    // 🎨 Color code processing
+    // Check for color codes like \\blue\\, \\red\\, etc.
+    const colorCodeRegex = /\\([a-zA-Z]+)\\/g;
+    const hasColorCodes = text.includes('\\');
+    
+    if (hasColorCodes) {
+      // Remember the current ink color to restore it later
+      const originalColor = $activePaintApi.inkrn();
+      
+      // Process color codes into per-character color array
+      let cleanText = "";
+      let charColors = [];
+      let currentColor = null;
+      
+      // Split text by color codes and process each segment
+      const segments = text.split(colorCodeRegex);
+      
+      for (let i = 0; i < segments.length; i++) {
+        if (i % 2 === 0) {
+          // This is regular text
+          const segment = segments[i];
+          for (let j = 0; j < segment.length; j++) {
+            cleanText += segment[j];
+            charColors.push(currentColor);
+          }
+        } else {
+          // This is a color name (from the captured group)
+          currentColor = segments[i];
+        }      }
+      
+      // Check if we have any actual text to display after removing color codes
+      if (cleanText.trim().length === 0) {
+        return $activePaintApi; // Exit silently if no text content remains
+      }
+      
+      // Now use the original text processing logic but with per-character colors
+      const scale = pos?.size || 1;
+
+      if (bounds) {
+        const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap);
+        if (!tb || !tb.lines) {
+          return $activePaintApi; // Exit silently if text.box fails
+        }
+        tb.lines.forEach((line, index) => {
+          // Calculate the starting character index for this line
+          let lineStartIndex = 0;
+          for (let i = 0; i < index; i++) {
+            lineStartIndex += tb.lines[i].join(" ").length;
+            if (i < tb.lines.length - 1) lineStartIndex++; // Add 1 for space between lines
+          }
+          
+          tf?.print($activePaintApi, tb.pos, index, line.join(" "), bg, charColors.slice(lineStartIndex, lineStartIndex + line.join(" ").length));
+        });
+      } else {
+        // Break on `\n` and handle separate lines
+        if (cleanText.indexOf("\n") !== -1) {
+          const lines = cleanText.split("\n");
+          const lineHeightGap = 2;
+          let charIndex = 0;
+          lines.forEach((line, index) => {
+            const lineColors = charColors.slice(charIndex, charIndex + line.length);
+            tf?.print(
+              $activePaintApi,
+              {
+                x: pos?.x,
+                y: pos
+                  ? pos.y + index * tf.blockHeight + lineHeightGap
+                  : undefined,
+              },
+              0,
+              line,
+              bg,
+              lineColors,
+            );
+            charIndex += line.length + 1; // +1 for the newline character
+          });
+        } else {
+          tf?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
+        }
+      }
+      
+      // Restore the original ink color
+      $activePaintApi.ink(...originalColor);
+      
+      return $activePaintApi;
     }
 
-    // 🎁
+    // 🎁 Original code for text without color codes
     // See if the text length is greater than the bounds, and if it is then
     // print on a new line.
     const scale = pos?.size || 1;
@@ -2821,22 +2908,23 @@ async function load(
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
     // if (debug) console.log("🕸", fullUrl);
   } else {
-    // 📃 Loading with provided source code.
-    // This could either be JavaScript or LISP.
+  // 📃 Loading with provided source code.
+  // This could either be JavaScript or LISP.
 
-    if (
-      devReload === true &&
-      parsed.codeChannel &&
-      parsed.codeChannel !== codeChannel
-    ) {
-      console.warn(
-        "🙅 Not reloading, code channel invalid:",
-        codeChannel || "N/A",
-      );
-      return;
-    }
-
-    source = parsed.source;
+  if (
+    devReload === true &&
+    parsed.codeChannel &&
+    parsed.codeChannel !== codeChannel
+  ) {
+    console.warn(
+      "🙅 Not reloading, code channel invalid:",
+      codeChannel || "N/A",
+    );
+    return;
+  }
+  console.log("📃 Loading from source:", JSON.stringify(parsed));
+  console.log("📃 Source content to run:", JSON.stringify(parsed.source));
+  source = parsed.source;
     params = parsed.params;
     search = parsed.search;
     colon = parsed.colon || [];
@@ -2896,19 +2984,17 @@ async function load(
         sourceToRun = source;
       }
 
-      // TODO: ?
-      // 🔥
+      // 🔥 Idea
       // One should be able to drag a piece in, then be able to load the piece
       // go back to the prompt, and return to it and it should still load
       // the modded code!
-      // ♻️
-      // Then refresh should be able to function as well?
+      // Then refresh should be able to function as well?      // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
+      // Note: This may not be the most reliable way to detect `kidlisp`?
 
-      // Detect if we are running LISP or JavaScript syntax.
-
-      // TODO: This may not be the most reliable way to detect lisp?
-
+      // 🚗 TODO: Needs to know if the source was from a prompt with a lisp module.      console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
       if (sourceToRun.startsWith("(") || sourceToRun.startsWith(";")) {
+        // Only use basic detection, not the broader isKidlispSource function
+        // which can incorrectly detect JavaScript as kidlisp
         // Assume lisp.
         console.log("🐍 Lisp piece detected.");
         sourceCode = sourceToRun;

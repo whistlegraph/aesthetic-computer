@@ -2,6 +2,8 @@
 // Parses everything that can be typed into the `prompt` piece and anything
 // that appears after `aesthetic.computer/` in the address bar of the browser.
 
+import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
+
 // TODO:
 // [] This should eventually have tests that run?
 
@@ -36,8 +38,25 @@ function parse(text, location = self?.location) {
       .split("/")
       .pop();
   }
-
   text = text.trim(); // Clear any spaces.
+  
+  // 🤖 Detect kidlisp source code and handle it directly
+  if (isKidlispSource(text)) {
+    // This is kidlisp source code, decode underscores to spaces
+    const decodedSource = decodeKidlispFromUrl(text);
+    return {
+      host: location.hostname + (location.port ? ":" + location.port : ""),
+      path: "(...)", // Use a special path indicator for kidlisp
+      piece: "(...)",
+      colon: undefined,
+      params: [],
+      search: undefined,
+      hash: undefined,
+      text: decodedSource,
+      source: decodedSource, // Include the decoded source code
+      name: decodedSource // Use the source as the name too
+    };
+  }
 
   // Squish any spaces inside of colon parameters.
   text = text.replace(/\s*:\s*/g, ":"); // Squash space before & after colons.
@@ -118,12 +137,18 @@ function parse(text, location = self?.location) {
 // Cleans a url for feeding into `parse` as the text parameter.
 function slug(url) {
   // Remove http protocol and host from current url before feeding it to parser.
-  return url
+  let cleanedUrl = url
     .replace(/^http(s?):\/\//i, "")
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
     .replace(window.location.hostname + "/", "")
-    .split("#")[0]; // Remove any hash.
-  // .split("?")[0]; // Remove any search param.
+    .split("#")[0] // Remove any hash.
+    .split("?")[0]; // Remove any search params (important for kidlisp with session params)
+  
+  // Decode URL-encoded characters first
+  cleanedUrl = decodeURIComponent(cleanedUrl);
+  
+  // Use centralized kidlisp URL decoding
+  return decodeKidlispFromUrl(cleanedUrl);
 }
 
 // Read first two lines of JavaScript or Lisp source to pull off a title & desc.
