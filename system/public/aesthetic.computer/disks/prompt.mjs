@@ -71,6 +71,7 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
+import { isPromptInKidlispMode } from "../lib/kidlisp.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
 
@@ -1420,8 +1421,9 @@ async function halt($, text) {
 
     let body, loaded;
     const trimmed = text.trim();
+    // 🍏 TODO: Detect if we are in kidlisp mode and pass that flag thourgh to 'load', modifying load in disk.mjs
     if (trimmed.startsWith("(") || trimmed.startsWith(";")) {
-      body = { name: "(...)", source: trimmed };
+      body = { name: trimmed, source: trimmed };
       loaded = await load(body, false, false, true); // Force `devReload` flag.
       //                                                (in case of publish)
     } else {
@@ -1463,9 +1465,15 @@ function paint($) {
   $.layer(1); // 🅱️ And above it...
 
   const { screen, ink, history, net, help } = $;
-
   if ($.system.prompt.input.canType) {
     const currentInputText = $.system.prompt.input.text;
+
+    // 🤖 Check if we're in kidlisp mode
+    const inKidlispMode = isPromptInKidlispMode(currentInputText);
+
+    // Store kidlisp mode state for other parts of the prompt to use
+    $.system.prompt.kidlispMode = inKidlispMode;
+
     // If activeCompletions is currently empty, but the input text itself
     // is a valid, non-hidden command, it's likely due to a Tab completion
     // that cleared the active suggestions. In this case, we want to treat
