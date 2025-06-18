@@ -71,8 +71,8 @@ export class Conversation {
     const signal = this.controller.signal;
 
     const host = ``; // DEBUG
-      // ? `` // Just use current host, via `netlify.toml`.
-      // : "https://ai.aesthetic.computer";
+    // ? `` // Just use current host, via `netlify.toml`.
+    // : "https://ai.aesthetic.computer";
 
     const responsePromise = fetch(`${host}/api/ask`, {
       method: "POST",
@@ -143,7 +143,6 @@ export class Conversation {
         read();
       })
       .catch(reportFailure);
-
     return () => {
       this.controller?.abort();
     };
