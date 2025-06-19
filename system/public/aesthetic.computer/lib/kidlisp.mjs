@@ -980,6 +980,9 @@ function encodeKidlispForUrl(source) {
     return source;
   }
   
+  // For sharing, we want to preserve the structure so it can be parsed correctly
+  // Spaces become underscores, newlines become § symbols
+  // But we keep parentheses and other structural elements intact
   const encoded = source.replace(/ /g, "_").replace(/\n/g, "§");
   return encoded;
 }
