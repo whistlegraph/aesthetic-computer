@@ -109,7 +109,6 @@
   - [x] Get a named command running through, like "line" and "ink". 
 #endregion */
 
-
 const VERBOSE = false;
 const { floor, max } = Math;
 
@@ -119,7 +118,7 @@ const validIdentifierRegex = /^[a-zA-Z_]\w*$/;
 
 function tokenize(input) {
   if (VERBOSE) console.log("🪙 Tokenizing:", input);
-  
+
   const regex = /\s*(;.*|[()]|"(?:[^"\\]|\\.)*"|[^\s()";]+)/g;
   const tokens = [];
   let match;
@@ -130,7 +129,7 @@ function tokenize(input) {
       tokens.push(token);
     }
   }
-  
+
   // Auto-close incomplete expressions by counting parentheses balance
   let parenBalance = 0;
   for (const token of tokens) {
@@ -140,13 +139,13 @@ function tokenize(input) {
       parenBalance--;
     }
   }
-  
+
   // Add closing parentheses for any unclosed expressions
   while (parenBalance > 0) {
     tokens.push(")");
     parenBalance--;
   }
-  
+
   if (VERBOSE) console.log("🪙 Tokens:", tokens);
   return tokens;
 }
@@ -249,7 +248,7 @@ class KidLisp {
         this.globalDef.paramC = params[2];
       },
       paint: ($) => {
-        // console.log("🖌️ Painting");
+        console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         try {
           // TODO: Eventually compose programs together by stringing their
           //       output in a unix pipe-like fashion?
@@ -262,7 +261,7 @@ class KidLisp {
         }
         // Print the program output value in the center of the screen.
         // ink("white").write(evaluated || "nada", { center: "xy" });
-        return false;
+        // return false;
       },
       act: ({ event: e, api }) => {
         if (e.is("touch")) {
@@ -280,21 +279,22 @@ class KidLisp {
   // Main parsing method - handles both single expressions and multi-line input
   parse(input) {
     // Handle multi-line kidlisp input by auto-wrapping function calls
-    if (input.includes('\n')) {
-      const lines = input.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && !line.startsWith(';'));
-      
-      const wrappedLines = lines.map(line => {
+    if (input.includes("\n")) {
+      const lines = input
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith(";"));
+
+      const wrappedLines = lines.map((line) => {
         // If line doesn't start with ( and looks like a function call, wrap it
-        if (!line.startsWith('(') && /^[a-zA-Z_]\w*/.test(line)) {
+        if (!line.startsWith("(") && /^[a-zA-Z_]\w*/.test(line)) {
           return `(${line})`;
         }
         return line;
       });
-      
+
       // Join lines and parse as single input
-      input = wrappedLines.join(' ');
+      input = wrappedLines.join(" ");
     }
 
     const tokens = tokenize(input);
@@ -495,35 +495,53 @@ class KidLisp {
       },
       // ➗ Mathematical Operators
       max: (api, args) => {
-        const nums = args.map(arg => parseFloat(unquoteString(arg))).filter(n => !isNaN(n));
+        const nums = args
+          .map((arg) => parseFloat(unquoteString(arg)))
+          .filter((n) => !isNaN(n));
         return nums.length > 0 ? Math.max(...nums) : 0;
       },
       "+": (api, args) => {
-        const nums = args.map(arg => {
-          if (arg === undefined || arg === null) return NaN;
-          return typeof arg === 'number' ? arg : parseFloat(unquoteString(arg));
-        }).filter(n => !isNaN(n));
+        const nums = args
+          .map((arg) => {
+            if (arg === undefined || arg === null) return NaN;
+            return typeof arg === "number"
+              ? arg
+              : parseFloat(unquoteString(arg));
+          })
+          .filter((n) => !isNaN(n));
         return nums.reduce((a, b) => a + b, 0);
       },
       "-": (api, args) => {
-        const nums = args.map(arg => {
-          if (arg === undefined || arg === null) return NaN;
-          return typeof arg === 'number' ? arg : parseFloat(unquoteString(arg));
-        }).filter(n => !isNaN(n));
+        const nums = args
+          .map((arg) => {
+            if (arg === undefined || arg === null) return NaN;
+            return typeof arg === "number"
+              ? arg
+              : parseFloat(unquoteString(arg));
+          })
+          .filter((n) => !isNaN(n));
         return nums.length > 0 ? nums.reduce((a, b) => a - b) : 0;
       },
       "*": (api, args) => {
-        const nums = args.map(arg => {
-          if (arg === undefined || arg === null) return NaN;
-          return typeof arg === 'number' ? arg : parseFloat(unquoteString(arg));
-        }).filter(n => !isNaN(n));
+        const nums = args
+          .map((arg) => {
+            if (arg === undefined || arg === null) return NaN;
+            return typeof arg === "number"
+              ? arg
+              : parseFloat(unquoteString(arg));
+          })
+          .filter((n) => !isNaN(n));
         return nums.reduce((a, b) => a * b, 1);
       },
       "/": (api, args) => {
-        const nums = args.map(arg => {
-          if (arg === undefined || arg === null) return NaN;
-          return typeof arg === 'number' ? arg : parseFloat(unquoteString(arg));
-        }).filter(n => !isNaN(n));
+        const nums = args
+          .map((arg) => {
+            if (arg === undefined || arg === null) return NaN;
+            return typeof arg === "number"
+              ? arg
+              : parseFloat(unquoteString(arg));
+          })
+          .filter((n) => !isNaN(n));
         return nums.length > 0 ? nums.reduce((a, b) => a / b) : 0;
       },
       // Paint API
@@ -617,18 +635,25 @@ class KidLisp {
 
       body = parsed.body;
 
-      parsed.params.forEach(
-        (param, i) => {
-          console.log("😉 Binding param:", param, "to value:", inArgs?.[i], "at index:", i);
-          // inArgs are already evaluated arguments, so just bind them directly
-          if (i < inArgs.length) {
-            newLocalEnv[param] = inArgs[i];
-          } else {
-            console.warn(`Parameter ${param} at index ${i} has no corresponding argument`);
-            newLocalEnv[param] = undefined;
-          }
-        },
-      );
+      parsed.params.forEach((param, i) => {
+        console.log(
+          "😉 Binding param:",
+          param,
+          "to value:",
+          inArgs?.[i],
+          "at index:",
+          i,
+        );
+        // inArgs are already evaluated arguments, so just bind them directly
+        if (i < inArgs.length) {
+          newLocalEnv[param] = inArgs[i];
+        } else {
+          console.warn(
+            `Parameter ${param} at index ${i} has no corresponding argument`,
+          );
+          newLocalEnv[param] = undefined;
+        }
+      });
 
       // Set up the new local environment
       this.localEnvLevel += 1;
@@ -636,12 +661,21 @@ class KidLisp {
         this.localEnvStore[this.localEnvLevel] = {};
       }
       // Copy existing environment and add new bindings
-      this.localEnvStore[this.localEnvLevel] = { ...this.localEnv, ...newLocalEnv };
+      this.localEnvStore[this.localEnvLevel] = {
+        ...this.localEnv,
+        ...newLocalEnv,
+      };
       this.localEnv = this.localEnvStore[this.localEnvLevel];
-      
-      console.log("🟠 Local env level:", this.localEnvLevel, "Environment:", this.localEnv);
 
-      if (VERBOSE) console.log("Running:", body, "with environment:", this.localEnv);
+      console.log(
+        "🟠 Local env level:",
+        this.localEnvLevel,
+        "Environment:",
+        this.localEnv,
+      );
+
+      if (VERBOSE)
+        console.log("Running:", body, "with environment:", this.localEnv);
     } else {
       // Or just evaluate with the global environment, ensuring it's an array.
       body = Array.isArray(parsed) ? parsed : [parsed];
@@ -692,7 +726,11 @@ class KidLisp {
 
         if (existing(this.localEnv[head])) {
           if (VERBOSE)
-            console.log("😫 Local definition found!", head, this.localEnv[head]);
+            console.log(
+              "😫 Local definition found!",
+              head,
+              this.localEnv[head],
+            );
 
           if (this.localEnv[head].iterable)
             result = this.iterate(this.localEnv[head], api, args, env);
@@ -749,7 +787,7 @@ class KidLisp {
           }
         } else if (existing(this.globalDef[head])) {
           // Check if the value needs recursive evaluation.
-          
+
           // Evaluate arguments for user-defined functions
           const evaluatedArgs = args.map((arg) =>
             Array.isArray(arg) ||
@@ -757,13 +795,18 @@ class KidLisp {
               ? this.evaluate([arg], api, env)
               : arg,
           );
-          
+
           result =
             Array.isArray(this.globalDef[head]) || this.globalDef[head].body
               ? this.evaluate(this.globalDef[head], api, env, evaluatedArgs)
               : this.globalDef[head];
         } else {
-          console.log("⛔ No match found for:", head, "localEnv:", this.localEnv);
+          console.log(
+            "⛔ No match found for:",
+            head,
+            "localEnv:",
+            this.localEnv,
+          );
           if (Array.isArray(head)) {
             if (VERBOSE) console.log("Environment:", this.localEnv);
             result = this.evaluate(head, api, this.localEnv);
@@ -772,7 +815,6 @@ class KidLisp {
           }
         }
       } else {
-
         let root, tail;
         if (typeof item === "string") {
           // TODO: 🔵 First check to see if the string is a mathematical expression,
@@ -814,14 +856,19 @@ class KidLisp {
         }
       }
     }
-    
+
     // Restore previous local environment if we were in a function
     if (parsed.body) {
       this.localEnvLevel -= 1;
       this.localEnv = this.localEnvStore[this.localEnvLevel] || {};
-      console.log("🔙 Restored env level:", this.localEnvLevel, "Environment:", this.localEnv);
+      console.log(
+        "🔙 Restored env level:",
+        this.localEnvLevel,
+        "Environment:",
+        this.localEnv,
+      );
     }
-    
+
     return result;
   }
 
@@ -849,7 +896,8 @@ class KidLisp {
       let value;
 
       if (
-        !existing(env?.[id]) &&      !existing(this.localEnv[id]) &&
+        !existing(env?.[id]) &&
+        !existing(this.localEnv[id]) &&
         !existing(this.globalDef[id]) &&
         !existing(globalEnv[id])
       ) {
@@ -864,10 +912,7 @@ class KidLisp {
       }
 
       // Replace any identifiers and cancel out prefixed double negatives.
-      expression = expression.replace(
-        new RegExp(`\\b${id}\\b`, "g"),
-        value,
-      );
+      expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
     });
 
     const compute = new Function(`return ${expression};`);
@@ -915,40 +960,46 @@ function evaluate(parsed, api = {}) {
 // URL encoding/decoding utilities for kidlisp pieces
 function isKidlispSource(text) {
   if (!text) return false;
-  
+
   // Traditional kidlisp indicators
   if (text.startsWith("(") || text.startsWith(";")) {
     return true;
   }
-  
+
   // Check for encoded kidlisp (contains § or _ suggesting it was URL encoded)
-  if (text.includes('§')) {
+  if (text.includes("§")) {
     const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
     // Check decoded version without recursion
     if (decoded.startsWith("(") || decoded.startsWith(";")) {
       return true;
     }
-    if (decoded.includes('\n')) {
-      const lines = decoded.split('\n');
-      const hasKidlispLines = lines.some(line => {
+    if (decoded.includes("\n")) {
+      const lines = decoded.split("\n");
+      const hasKidlispLines = lines.some((line) => {
         const trimmed = line.trim();
-        return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
+        return (
+          trimmed &&
+          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+        );
       });
       return hasKidlispLines;
     }
   }
-  
-  if (text.includes('_') && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
+
+  if (text.includes("_") && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
     const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
     // Check decoded version without recursion
     if (decoded.startsWith("(") || decoded.startsWith(";")) {
       return true;
     }
-    if (decoded.includes('\n')) {
-      const lines = decoded.split('\n');
-      const hasKidlispLines = lines.some(line => {
+    if (decoded.includes("\n")) {
+      const lines = decoded.split("\n");
+      const hasKidlispLines = lines.some((line) => {
         const trimmed = line.trim();
-        return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
+        return (
+          trimmed &&
+          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+        );
       });
       return hasKidlispLines;
     }
@@ -958,28 +1009,31 @@ function isKidlispSource(text) {
       return true;
     }
   }
-  
+
   // Check if it contains newlines and looks like kidlisp (has function calls)
-  if (text.includes('\n')) {
-    const lines = text.split('\n');
+  if (text.includes("\n")) {
+    const lines = text.split("\n");
     // If any line looks like a function call, treat as kidlisp
-    const hasKidlispLines = lines.some(line => {
+    const hasKidlispLines = lines.some((line) => {
       const trimmed = line.trim();
-      return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
+      return (
+        trimmed &&
+        (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+      );
     });
     return hasKidlispLines;
   }
-  
+
   return false;
 }
 
 function encodeKidlispForUrl(source) {
   const isKidlisp = isKidlispSource(source);
-  
+
   if (!isKidlisp) {
     return source;
   }
-  
+
   // For sharing, we want to preserve the structure so it can be parsed correctly
   // Spaces become underscores, newlines become § symbols
   // But we keep parentheses and other structural elements intact
@@ -995,20 +1049,35 @@ function decodeKidlispFromUrl(encoded) {
 
 // Check if the prompt is currently in kidlisp mode based on the input text
 function isPromptInKidlispMode(promptText) {
-  if (!promptText || typeof promptText !== 'string') return false;
+  if (!promptText || typeof promptText !== "string") return false;
   const trimmed = promptText.trim();
   // Check for traditional kidlisp indicators
   if (isKidlispSource(trimmed)) return true;
   // Check for newlines which also trigger kidlisp mode
-  if (promptText.includes('\n')) return true;
+  if (promptText.includes("\n")) return true;
   return false;
 }
 
 // Add result logging to see if detection is working
 function logKidlispDetection(source) {
-  const result = source.includes('\n') || source.includes('wipe') || source.includes('line');
-  console.log("🔍 MANUAL DETECTION for:", JSON.stringify(source), "result:", result);
+  const result =
+    source.includes("\n") || source.includes("wipe") || source.includes("line");
+  console.log(
+    "🔍 MANUAL DETECTION for:",
+    JSON.stringify(source),
+    "result:",
+    result,
+  );
   return result;
 }
 
-export { module, parse, evaluate, KidLisp, isKidlispSource, encodeKidlispForUrl, decodeKidlispFromUrl, isPromptInKidlispMode };
+export {
+  module,
+  parse,
+  evaluate,
+  KidLisp,
+  isKidlispSource,
+  encodeKidlispForUrl,
+  decodeKidlispFromUrl,
+  isPromptInKidlispMode,
+};
