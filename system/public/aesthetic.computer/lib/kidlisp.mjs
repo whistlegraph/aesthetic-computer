@@ -897,24 +897,45 @@ function evaluate(parsed, api = {}) {
 function isKidlispSource(text) {
   console.log("🔍 isKidlispSource checking:", JSON.stringify(text));
   
-  if (!text) return false;
+  if (!text) {
+    console.log("🔍 isKidlispSource result: false (empty text)");
+    return false;
+  }
+  
   // Traditional kidlisp indicators
-  if (text.startsWith("(") || text.startsWith(";")) return true;
+  if (text.startsWith("(") || text.startsWith(";")) {
+    console.log("🔍 isKidlispSource result: true (starts with ( or ;)");
+    return true;
+  }
+  
   // Check if it contains newlines and looks like kidlisp (has function calls)
   if (text.includes('\n')) {
     const lines = text.split('\n');
     // If any line looks like a function call, treat as kidlisp
-    return lines.some(line => {
+    const hasKidlispLines = lines.some(line => {
       const trimmed = line.trim();
       return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
     });
+    console.log("🔍 isKidlispSource result:", hasKidlispLines, "(multiline check)");
+    return hasKidlispLines;
   }
+  
+  console.log("🔍 isKidlispSource result: false (no indicators found)");
   return false;
 }
 
 function encodeKidlispForUrl(source) {
-  if (!isKidlispSource(source)) return source;
-  return source.replace(/ /g, "_").replace(/\n/g, "§");
+  const isKidlisp = isKidlispSource(source);
+  console.log("🔗 encodeKidlispForUrl - source detected as kidlisp:", isKidlisp);
+  
+  if (!isKidlisp) {
+    console.log("🔗 encodeKidlispForUrl result: no encoding (not kidlisp)");
+    return source;
+  }
+  
+  const encoded = source.replace(/ /g, "_").replace(/\n/g, "§");
+  console.log("🔗 encodeKidlispForUrl result:", JSON.stringify(encoded));
+  return encoded;
 }
 
 function decodeKidlispFromUrl(encoded) {
