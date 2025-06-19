@@ -759,6 +759,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
             const srcIndex = (srcX + srcY * srcWidth) << 2; // Fast * 4
             
             if (srcIndex < srcPixels.length) {
+              // Extract color data directly
               const r = srcPixels[srcIndex];
               const g = srcPixels[srcIndex + 1];
               const b = srcPixels[srcIndex + 2];
@@ -1962,14 +1963,13 @@ function grid(
         if (pixelHeight > 0 && destStartY >= 0 && destEndY <= height) {
           for (let i = 0; i < cols; i += 1) {
             const srcX = i % bufWidth;
-            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast multiplication by 4
-            
-            if (srcIndex < srcPixels.length) {
+            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
+              if (srcIndex < bufPixels.length) {
               // Extract color data directly
-              const r = srcPixels[srcIndex];
-              const g = srcPixels[srcIndex + 1];
-              const b = srcPixels[srcIndex + 2];
-              const a = srcPixels[srcIndex + 3];
+              const r = bufPixels[srcIndex];
+              const g = bufPixels[srcIndex + 1];
+              const b = bufPixels[srcIndex + 2];
+              const a = bufPixels[srcIndex + 3];
               
               const destStartX = ~~(x + i * colPixInt);
               const destEndX = ~~(x + (i + 1) * colPixInt);
@@ -2323,9 +2323,6 @@ function noiseTinted(tint, amount, saturation) {
 function shift(dx = 0, dy = 0) {
   if (dx === 0 && dy === 0) return; // No change needed
   
-  // Create a copy of the current pixel buffer
-  const tempPixels = new Uint8ClampedArray(pixels);
-  
   // Determine bounds - use mask if active, otherwise full screen
   let minX = 0, maxX = width, minY = 0, maxY = height;
   if (activeMask) {
@@ -2335,29 +2332,79 @@ function shift(dx = 0, dy = 0) {
     maxY = activeMask.y + activeMask.height;
   }
   
-  // Process each pixel within the bounds and wrap coordinates
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      // Calculate source position with wrapping within the bounds
-      let srcX = x - dx;
-      let srcY = y - dy;
+  const boundsWidth = maxX - minX;
+  const boundsHeight = maxY - minY;
+  
+  // Normalize shifts to avoid unnecessary wrapping calculations
+  dx = ((dx % boundsWidth) + boundsWidth) % boundsWidth;
+  dy = ((dy % boundsHeight) + boundsHeight) % boundsHeight;
+  
+  if (dx === 0 && dy === 0) return; // No effective shift after normalization
+  
+  // Fast path: if shifting by full rows/columns, use bulk memory operations
+  if (dx === 0 && dy !== 0) {
+    // Vertical shift only - can copy entire rows at once
+    const tempPixels = new Uint8ClampedArray(pixels.subarray(minY * width * 4, maxY * width * 4));
+    const rowsToShift = dy;
+    const bytesPerRow = boundsWidth * 4;
+    
+    for (let y = 0; y < boundsHeight; y++) {
+      const srcY = (y + boundsHeight - rowsToShift) % boundsHeight;
+      const destOffset = ((minY + y) * width + minX) * 4;
+      const srcOffset = srcY * boundsWidth * 4;
       
-      // Wrap source coordinates within the bounds
-      const boundsWidth = maxX - minX;
-      const boundsHeight = maxY - minY;
+      pixels.set(tempPixels.subarray(srcOffset, srcOffset + bytesPerRow), destOffset);
+    }
+    return;
+  }
+  
+  if (dy === 0 && dx !== 0) {
+    // Horizontal shift only - optimize row by row
+    for (let y = minY; y < maxY; y++) {
+      const rowStart = y * width * 4;
+      const tempRow = new Uint8ClampedArray(pixels.subarray(rowStart + minX * 4, rowStart + maxX * 4));
+      const pixelsToShift = dx;
       
-      srcX = minX + ((srcX - minX) % boundsWidth + boundsWidth) % boundsWidth;
-      srcY = minY + ((srcY - minY) % boundsHeight + boundsHeight) % boundsHeight;
-      
-      // Calculate pixel indices
-      const destIndex = (y * width + x) * 4;
-      const srcIndex = (srcY * width + srcX) * 4;
+      for (let x = 0; x < boundsWidth; x++) {
+        const srcX = (x + boundsWidth - pixelsToShift) % boundsWidth;
+        const destOffset = rowStart + (minX + x) * 4;
+        const srcOffset = srcX * 4;
+        
+        // Copy 4 bytes (RGBA) at once
+        pixels[destOffset] = tempRow[srcOffset];
+        pixels[destOffset + 1] = tempRow[srcOffset + 1];
+        pixels[destOffset + 2] = tempRow[srcOffset + 2];
+        pixels[destOffset + 3] = tempRow[srcOffset + 3];
+      }
+    }
+    return;
+  }
+  
+  // General case: both dx and dy are non-zero, use optimized pixel-by-pixel
+  const tempPixels = new Uint8ClampedArray(pixels);
+  const widthBytes = width * 4;
+  
+  // Pre-calculate y-offsets to avoid repeated multiplication
+  const yOffsets = new Int32Array(boundsHeight);
+  for (let i = 0; i < boundsHeight; i++) {
+    const srcY = minY + ((i + boundsHeight - dy) % boundsHeight);
+    yOffsets[i] = srcY * widthBytes;
+  }
+  
+  for (let y = 0; y < boundsHeight; y++) {
+    const destRowOffset = (minY + y) * widthBytes;
+    const srcRowOffset = yOffsets[y];
+    
+    for (let x = 0; x < boundsWidth; x++) {
+      const srcX = minX + ((x + boundsWidth - dx) % boundsWidth);
+      const destOffset = destRowOffset + (minX + x) * 4;
+      const srcOffset = srcRowOffset + srcX * 4;
       
       // Copy RGBA values
-      pixels[destIndex] = tempPixels[srcIndex];     // r
-      pixels[destIndex + 1] = tempPixels[srcIndex + 1]; // g
-      pixels[destIndex + 2] = tempPixels[srcIndex + 2]; // b
-      pixels[destIndex + 3] = tempPixels[srcIndex + 3]; // a
+      pixels[destOffset] = tempPixels[srcOffset];
+      pixels[destOffset + 1] = tempPixels[srcOffset + 1];
+      pixels[destOffset + 2] = tempPixels[srcOffset + 2];
+      pixels[destOffset + 3] = tempPixels[srcOffset + 3];
     }
   }
 }
