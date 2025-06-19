@@ -3019,7 +3019,15 @@ async function load(
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
-        console.log("🐍 Lisp piece detected (slug:", slug, "path:", path, "forceKidlisp:", forceKidlisp, ")");
+        console.log(
+          "🐍 Lisp piece detected (slug:",
+          slug,
+          "path:",
+          path,
+          "forceKidlisp:",
+          forceKidlisp,
+          ")",
+        );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         loadedModule = lisp.module(sourceToRun);
@@ -5738,7 +5746,8 @@ async function makeFrame({ data: { type, content } }) {
             cancel: () => {
               currentHUDTextColor = originalColor;
 
-              const shareWidth = tf.blockWidth * "share ".length;              console.log("scrub:", currentHUDScrub, shareWidth);
+              const shareWidth = tf.blockWidth * "share ".length;
+              console.log("scrub:", currentHUDScrub, shareWidth);
 
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
