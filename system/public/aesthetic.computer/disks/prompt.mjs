@@ -71,7 +71,7 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
-import { isPromptInKidlispMode } from "../lib/kidlisp.mjs";
+import { isPromptInKidlispMode, decodeKidlispFromUrl, encodeKidlispForUrl, isKidlispSource } from "../lib/kidlisp.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
 
@@ -220,12 +220,11 @@ async function boot({
       nopaste: pieceCount === 0,
     });
   }
-
-  // TODO: Fix this.
+  // Handle params, decode kidlisp if needed
   if (params[0]) {
     // console.log("Existing `prompt` param:", params);
-    const text = params.join(" ");
-    // const text = params[0].replaceAll("~", " ");
+    const rawText = params.join(" ");
+    const text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
 
     activated(api, true);
     system.prompt.input.canType = true;
@@ -1412,21 +1411,24 @@ async function halt($, text) {
     // Disconnect from socket server, chat, and udp in 5 seconds...
     net.hiccup();
     return true;
-  } else {
-    // console.log("🟢 Attempting a load!");
-    // 🟠 Local and remote pieces...
+  } else {    // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?
     //         (Whereas this is eval/apply at the program level.)
-
+    
     let body, loaded;
     const trimmed = text.trim();
-    // 🍏 TODO: Detect if we are in kidlisp mode and pass that flag thourgh to 'load', modifying load in disk.mjs
-    if (trimmed.startsWith("(") || trimmed.startsWith(";")) {
+    console.log("🔍 PROMPT: checking text for kidlisp:", JSON.stringify(trimmed));
+    // 🍏 Detect if we are in kidlisp mode and pass that flag through to 'load'
+    const isKidlisp = trimmed.startsWith("(") || trimmed.startsWith(";") || isKidlispSource(trimmed);
+    console.log("🔍 PROMPT: isKidlisp result:", isKidlisp);
+    if (isKidlisp) {
+      console.log("🔍 PROMPT: treating as kidlisp, calling load with forceKidlisp=true");
       body = { name: trimmed, source: trimmed };
-      loaded = await load(body, false, false, true); // Force `devReload` flag.
-      //                                                (in case of publish)
+      loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
+      //                                        ^^^^ devReload  ^^^^^ forceKidlisp
     } else {
+      console.log("🔍 PROMPT: treating as regular command");
       body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
     }
