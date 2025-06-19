@@ -2181,6 +2181,86 @@ function noiseTinted(tint, amount, saturation) {
   }
 }
 
+// Shift the entire pixel buffer by x and/or y pixels with wrapping
+function shift(dx = 0, dy = 0) {
+  if (dx === 0 && dy === 0) return; // No change needed
+  
+  // Create a copy of the current pixel buffer
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  // Process each pixel and wrap coordinates
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Calculate source position with wrapping
+      let srcX = x - dx;
+      let srcY = y - dy;
+      
+      // Wrap source coordinates
+      srcX = ((srcX % width) + width) % width;
+      srcY = ((srcY % height) + height) % height;
+      
+      // Calculate pixel indices
+      const destIndex = (y * width + x) * 4;
+      const srcIndex = (srcY * width + srcX) * 4;
+      
+      // Copy RGBA values
+      pixels[destIndex] = tempPixels[srcIndex];     // r
+      pixels[destIndex + 1] = tempPixels[srcIndex + 1]; // g
+      pixels[destIndex + 2] = tempPixels[srcIndex + 2]; // b
+      pixels[destIndex + 3] = tempPixels[srcIndex + 3]; // a
+    }
+  }
+}
+
+// Rotate the entire pixel buffer by an angle (in degrees) with fine tiling - raw pixel style
+function spin(angle = 0) {
+  if (angle === 0) return; // No change needed
+  
+  // Convert angle to radians
+  const rad = (angle * PI) / 180;
+  
+  // Rotation matrix
+  const cosA = Math.cos(rad);
+  const sinA = Math.sin(rad);
+  
+  // Create a copy of the current pixel buffer
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  // Calculate center of rotation
+  const centerX = width * 0.5;
+  const centerY = height * 0.5;
+  
+  // Texture-mapped quad with nearest neighbor filtering
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Transform destination coordinate to source coordinate
+      const dx = x - centerX;
+      const dy = y - centerY;
+      
+      // Apply inverse rotation
+      const srcX = dx * cosA + dy * sinA + centerX;
+      const srcY = -dx * sinA + dy * cosA + centerY;
+      
+      // Nearest neighbor sampling
+      const iSrcX = Math.round(srcX);
+      const iSrcY = Math.round(srcY);
+      
+      // Wrap edges (non-destructive)
+      const wrappedX = ((iSrcX % width) + width) % width;
+      const wrappedY = ((iSrcY % height) + height) % height;
+      
+      // Copy pixel
+      const destIndex = (y * width + x) * 4;
+      const srcIndex = (wrappedY * width + wrappedX) * 4;
+      
+      pixels[destIndex] = tempPixels[srcIndex];
+      pixels[destIndex + 1] = tempPixels[srcIndex + 1];
+      pixels[destIndex + 2] = tempPixels[srcIndex + 2];
+      pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+    }
+  }
+}
+
 export {
   clear,
   point,
@@ -2212,10 +2292,11 @@ export {
   noise16,
   noise16DIGITPAIN,
   noise16Aesthetic,
-  noise16Sotce,
-  noiseTinted,
+  noise16Sotce,  noiseTinted,
   printLine,
   blendMode,
+  shift,
+  spin,
 };
 
 // 3. 3D Drawing (Kinda mixed with some 2D)
