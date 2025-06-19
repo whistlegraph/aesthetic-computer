@@ -5738,9 +5738,7 @@ async function makeFrame({ data: { type, content } }) {
             cancel: () => {
               currentHUDTextColor = originalColor;
 
-              const shareWidth = tf.blockWidth * "share ".length;
-
-              console.log("scrub:", currentHUDScrub, shareWidth);
+              const shareWidth = tf.blockWidth * "share ".length;              console.log("scrub:", currentHUDScrub, shareWidth);
 
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
@@ -5757,7 +5755,8 @@ async function makeFrame({ data: { type, content } }) {
                   decay: 0.5,
                   volume: 0.1,
                 });
-                $api.jump("share " + lisp.encodeKidlispForUrl(currentHUDTxt));
+                // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
+                $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
                 return;
               }
 
