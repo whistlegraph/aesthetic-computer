@@ -685,8 +685,9 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
+    console.log("🐎 Jumping to:", to);
     if (leaving) {
-      console.log("🚪🙅 Jump cancelled, already leaving...");
+      console.log("🚪🐴 Jump cancelled, already leaving...");
       return;
     }
     const jumpOut =
@@ -1991,23 +1992,23 @@ const $paintApi = {
       bg = arguments[2];
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
-    }    // 🎨 Color code processing
+    } // 🎨 Color code processing
     // Check for color codes like \\blue\\, \\red\\, etc.
     const colorCodeRegex = /\\([a-zA-Z]+)\\/g;
-    const hasColorCodes = text.includes('\\');
-    
+    const hasColorCodes = text.includes("\\");
+
     if (hasColorCodes) {
       // Remember the current ink color to restore it later
       const originalColor = $activePaintApi.inkrn();
-      
+
       // Process color codes into per-character color array
       let cleanText = "";
       let charColors = [];
       let currentColor = null;
-      
+
       // Split text by color codes and process each segment
       const segments = text.split(colorCodeRegex);
-      
+
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
           // This is regular text
@@ -2019,13 +2020,14 @@ const $paintApi = {
         } else {
           // This is a color name (from the captured group)
           currentColor = segments[i];
-        }      }
-      
+        }
+      }
+
       // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {
         return $activePaintApi; // Exit silently if no text content remains
       }
-      
+
       // Now use the original text processing logic but with per-character colors
       const scale = pos?.size || 1;
 
@@ -2041,8 +2043,18 @@ const $paintApi = {
             lineStartIndex += tb.lines[i].join(" ").length;
             if (i < tb.lines.length - 1) lineStartIndex++; // Add 1 for space between lines
           }
-          
-          tf?.print($activePaintApi, tb.pos, index, line.join(" "), bg, charColors.slice(lineStartIndex, lineStartIndex + line.join(" ").length));
+
+          tf?.print(
+            $activePaintApi,
+            tb.pos,
+            index,
+            line.join(" "),
+            bg,
+            charColors.slice(
+              lineStartIndex,
+              lineStartIndex + line.join(" ").length,
+            ),
+          );
         });
       } else {
         // Break on `\n` and handle separate lines
@@ -2051,7 +2063,10 @@ const $paintApi = {
           const lineHeightGap = 2;
           let charIndex = 0;
           lines.forEach((line, index) => {
-            const lineColors = charColors.slice(charIndex, charIndex + line.length);
+            const lineColors = charColors.slice(
+              charIndex,
+              charIndex + line.length,
+            );
             tf?.print(
               $activePaintApi,
               {
@@ -2071,10 +2086,10 @@ const $paintApi = {
           tf?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
         }
       }
-      
+
       // Restore the original ink color
       $activePaintApi.ink(...originalColor);
-      
+
       return $activePaintApi;
     }
 
@@ -2846,7 +2861,7 @@ async function load(
     text,
     slug;
 
-  // console.log("🧩 Loading:", parsed, "dev:", devReload);
+  console.log("🧩 Loading:", parsed, "dev:", devReload);
 
   if (loading === false) {
     loading = true;
@@ -2908,23 +2923,23 @@ async function load(
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
     // if (debug) console.log("🕸", fullUrl);
   } else {
-  // 📃 Loading with provided source code.
-  // This could either be JavaScript or LISP.
+    // 📃 Loading with provided source code.
+    // This could either be JavaScript or LISP.
 
-  if (
-    devReload === true &&
-    parsed.codeChannel &&
-    parsed.codeChannel !== codeChannel
-  ) {
-    console.warn(
-      "🙅 Not reloading, code channel invalid:",
-      codeChannel || "N/A",
-    );
-    return;
-  }
-  console.log("📃 Loading from source:", JSON.stringify(parsed));
-  console.log("📃 Source content to run:", JSON.stringify(parsed.source));
-  source = parsed.source;
+    if (
+      devReload === true &&
+      parsed.codeChannel &&
+      parsed.codeChannel !== codeChannel
+    ) {
+      console.warn(
+        "🙅 Not reloading, code channel invalid:",
+        codeChannel || "N/A",
+      );
+      return;
+    }
+    console.log("📃 Loading from source:", JSON.stringify(parsed));
+    console.log("📃 Source content to run:", JSON.stringify(parsed.source));
+    source = parsed.source;
     params = parsed.params;
     search = parsed.search;
     colon = parsed.colon || [];
@@ -4106,6 +4121,7 @@ async function makeFrame({ data: { type, content } }) {
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
+      console.log("parsed content:", content.parsed);
       load(content.parsed); // Load after some of the default frames run.
     };
 
@@ -5343,7 +5359,8 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: Finish this implementation.
       // timeToRun;
       // content.audioTime;
-    };    $sound.synth = function synth({
+    };
+    $sound.synth = function synth({
       tone = 440, // hz, or musical note
       type = "square", // "sine", "triangle", "square", "sawtooth", "custom"
       // "noise-white" <-ignores tone
@@ -5363,12 +5380,12 @@ async function makeFrame({ data: { type, content } }) {
 
       tone = $sound.freq(tone);
       // console.log("⛈️ Tone:", tone);
-        // Add generator to sound data for custom type
+      // Add generator to sound data for custom type
       const soundData = { id, type, tone, beats, attack, decay, volume, pan };
       if (type === "custom" && generator) {
         soundData.generator = generator.toString(); // Convert function to string for postMessage
       }
-      
+
       sound.sounds.push(soundData);
       soundId += 1n;
       let seconds;
@@ -5393,7 +5410,8 @@ async function makeFrame({ data: { type, content } }) {
             type: "synth:update",
             content: { id, properties },
           });
-        },        updateGenerator: function (newGenerator) {
+        },
+        updateGenerator: function (newGenerator) {
           if (type === "custom") {
             send({
               type: "update-generator",
@@ -6348,7 +6366,6 @@ async function makeFrame({ data: { type, content } }) {
         //   text: currentHUDTxt,
         //   btn: currentHUDButton,
         // };
-
       }
 
       // Return frame data back to the main thread.
