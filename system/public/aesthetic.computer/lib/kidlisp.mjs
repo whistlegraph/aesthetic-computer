@@ -1,6 +1,8 @@
 // Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
+import { cssColors } from "./num.mjs";
+
 /* #region 📚 Examples / Notebook 
  Working programs:
 
@@ -670,6 +672,14 @@ class KidLisp {
           volume: 0.15,
         });
       },
+      rainbow: (api) => {
+        return api.num?.rainbow() || [255, 0, 0]; // Fallback to red if not available
+      },
+      // Programmatically add all CSS color constants to the global environment.
+      ...Object.keys(cssColors).reduce((acc, colorName) => {
+        acc[colorName] = () => cssColors[colorName];
+        return acc;
+      }, {}),
     };
   }
 
@@ -1161,12 +1171,8 @@ function decodeKidlispFromUrl(encoded) {
 // Check if the prompt is currently in kidlisp mode based on the input text
 function isPromptInKidlispMode(promptText) {
   if (!promptText || typeof promptText !== "string") return false;
-  const trimmed = promptText.trim();
-  // Check for traditional kidlisp indicators
-  if (isKidlispSource(trimmed)) return true;
-  // Check for newlines which also trigger kidlisp mode
-  if (promptText.includes("\n")) return true;
-  return false;
+  // Use the original text (not trimmed) for proper newline detection
+  return isKidlispSource(promptText);
 }
 
 // Add result logging to see if detection is working
