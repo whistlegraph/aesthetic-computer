@@ -259,8 +259,13 @@ class KidLisp {
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
-        // Print the program output value in the center of the screen.
+
+        // TODO: Re-enable the below:
+        // Print the program output value in the center of the screen if
+        // necessary.
         // ink("white").write(evaluated || "nada", { center: "xy" });
+
+        // TODO: Add haltability to paint with a shortcut that triggers the below.
         // return false;
       },
       act: ({ event: e, api }) => {
@@ -563,6 +568,12 @@ class KidLisp {
       box: (api, args = []) => {
         // console.log(args);
         api.box(...args);
+      },
+      shift: (api, args = []) => {
+        api.shift(...args);
+      },
+      spin: (api, args = []) => {
+        api.spin(...args);
       },
       write: (api, args = []) => {
         const content = processArgStringTypes(args[0]);
