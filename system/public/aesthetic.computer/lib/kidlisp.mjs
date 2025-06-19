@@ -186,8 +186,8 @@ function readExpression(tokens) {
 function atom(token) {
   if (token[0] === '"' && token[token.length - 1] === '"') {
     return token; // Return string with quotes intact for later processing
-  } else if (/^\d+s$/.test(token)) {
-    // Preserve tokens like "1s", "2s", "10s" as strings for timing
+  } else if (/^\d*\.?\d+s$/.test(token)) {
+    // Preserve tokens like "1s", "2s", "10s", "1.5s", "0.3s" as strings for timing
     return token;
   } else {
     const num = parseFloat(token);
@@ -250,7 +250,7 @@ class KidLisp {
       boot: ({ params, wipe, clock }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
-        
+
         this.globalDef.paramA = params[0];
         this.globalDef.paramB = params[1];
         this.globalDef.paramC = params[2];
@@ -258,7 +258,6 @@ class KidLisp {
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
-        console.log("🔥 KIDLISP PAINT CALLED");
         this.frameCount++; // Increment frame counter for timing functions
         try {
           // TODO: Eventually compose programs together by stringing their
@@ -266,9 +265,7 @@ class KidLisp {
 
           this.localEnvLevel = 0; // Reset state per program evaluation.
           this.localEnv = this.localEnvStore[this.localEnvLevel];
-          console.log("🔥 ABOUT TO EVALUATE AST:", this.ast);
           /*const evaluated = */ this.evaluate(this.ast, $);
-          console.log("🔥 FINISHED EVALUATING");
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
@@ -588,67 +585,24 @@ class KidLisp {
       spin: (api, args = []) => {
         api.spin(...args);
       },
+      sort: (api, args = []) => {
+        api.sort(...args);
+      },
       zoom: (api, args = []) => {
         api.zoom(...args);
       },
-      // 🎵 Timing functions - musical intervals for frame-based execution
-      whole: (api, args = []) => {
-        // Execute every frame (no timing restriction)
-        let result;
-        for (const arg of args) {
-          result = this.evaluate(arg, api);
-        }
-        return result;
+      blur: (api, args = []) => {
+        api.blur(...args);
       },
-      half: (api, args = []) => {
-        // Execute every 2nd frame
-        if (this.frameCount % 2 === 0) {
-          let result;
-          for (const arg of args) {
-            result = this.evaluate(arg, api);
-          }
-          return result;
+      mask: (api, args = []) => {
+        // Convert individual args to a box object that mask() expects
+        if (args.length >= 4) {
+          const box = { x: args[0], y: args[1], width: args[2], height: args[3] };
+          api.mask(box);
         }
       },
-      quarter: (api, args = []) => {
-        // Execute every 4th frame
-        if (this.frameCount % 4 === 0) {
-          let result;
-          for (const arg of args) {
-            result = this.evaluate(arg, api);
-          }
-          return result;
-        }
-      },
-      eighth: (api, args = []) => {
-        // Execute every 8th frame
-        if (this.frameCount % 8 === 0) {
-          let result;
-          for (const arg of args) {
-            result = this.evaluate(arg, api);
-          }
-          return result;
-        }
-      },
-      sixteenth: (api, args = []) => {
-        // Execute every 16th frame
-        if (this.frameCount % 16 === 0) {
-          let result;
-          for (const arg of args) {
-            result = this.evaluate(arg, api);
-          }
-          return result;
-        }
-      },
-      thirtysecond: (api, args = []) => {
-        // Execute every 32nd frame
-        if (this.frameCount % 32 === 0) {
-          let result;
-          for (const arg of args) {
-            result = this.evaluate(arg, api);
-          }
-          return result;
-        }
+      unmask: (api, args = []) => {
+        api.unmask();
       },
       write: (api, args = []) => {
         const content = processArgStringTypes(args[0]);
@@ -685,6 +639,17 @@ class KidLisp {
       },
       height: (api) => {
         return api.screen.height;
+      },
+      // 🎲 Random selection
+      choose: (api, args = []) => {
+        if (args.length === 0) return undefined;
+        // Use the help.choose function from the common API if available
+        if (api.help?.choose) {
+          return api.help.choose(...args);
+        }
+        // Fallback to simple random selection
+        const randomIndex = Math.floor(Math.random() * args.length);
+        return args[randomIndex];
       },
       // 🔈 Sound
       overtone: (api, args = []) => {
@@ -777,13 +742,10 @@ class KidLisp {
       if (Array.isArray(item)) {
         // The first element indicates the function to call
         let [head, ...args] = item;
-        
-        // 🔥 Debug what head actually is
-        console.log(`🔥 HEAD DEBUG: head="${head}", type=${typeof head}, args=`, args);
-        
+
         // 🎵 Handle integer timing: (0 ...), (1 ...), (2 ...), etc.
         // Also handle second timing: (1s ...), (2s ...), etc.
-        if (typeof head === 'number' && Number.isInteger(head)) {
+        if (typeof head === "number" && Number.isInteger(head)) {
           const frameDivisor = head + 1; // 0 = every frame, 1 = every 2nd frame, etc.
           if (this.frameCount % frameDivisor === 0) {
             // Execute the timing arguments with proper context
@@ -794,68 +756,52 @@ class KidLisp {
             result = timingResult;
           }
           continue; // Skip normal function processing
-        } else if (typeof head === 'string' && /^\d+s$/.test(head)) {
-          // Handle second-based timing like "0s", "1s", "2s", "5s"
-          const seconds = parseInt(head.slice(0, -1)); // Remove 's' and parse
-          
-          console.log(`🔥 Second timing detected: ${head}, seconds=${seconds}`);
-          
+        } else if (typeof head === "string" && /^\d*\.?\d+s$/.test(head)) {
+          // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
+          const seconds = parseFloat(head.slice(0, -1)); // Remove 's' and parse as float
+
           if (seconds === 0) {
             // 0s = every frame (no timing restriction)
-            console.log(`🔥 0s - executing every frame`);
             let timingResult;
             for (const arg of args) {
               timingResult = this.evaluate([arg], api, env);
             }
             result = timingResult;
           } else {
-            console.log(`🔥 Non-zero second timing: ${head}`);
+            const clockResult = api.clock.time(); // Get time (Date object)
+            if (!clockResult) continue;
             
-            const currentTimeMs = api.clock.time(); // Get time in milliseconds
-            console.log(`🔥 api.clock.time() returned:`, currentTimeMs, typeof currentTimeMs);
-            
-            if (!currentTimeMs) {
-              console.log(`🔥 No valid time, skipping execution`);
-              continue;
-            }
-            
-            const currentTime = Math.floor(currentTimeMs / 1000); // Convert to seconds
-            
+            // Convert Date object to milliseconds, then to seconds
+            const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
+            const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
+
             // Create a unique key for this timing expression
             const timingKey = `${head}_${JSON.stringify(args)}`;
-            
-            console.log(`� Timing key: ${timingKey}, currentTime: ${currentTime}`);
-            
+
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-              console.log(`� Initializing timing for ${timingKey} at time ${currentTime}`);
               this.lastSecondExecutions[timingKey] = currentTime;
               continue; // Skip first execution to establish baseline
             }
-            
+
             const lastExecution = this.lastSecondExecutions[timingKey];
             const diff = currentTime - lastExecution;
-            
-            console.log(`🔥 Last: ${lastExecution}, Current: ${currentTime}, Diff: ${diff}, Required: ${seconds}`);
-            
+
             // Check if enough time has passed since last execution
             if (diff >= seconds) {
-              console.log(`� EXECUTING ${head} - diff ${diff} >= required ${seconds}`);
               this.lastSecondExecutions[timingKey] = currentTime;
-              
+
               // Execute the timing arguments with proper context
               let timingResult;
               for (const arg of args) {
                 timingResult = this.evaluate([arg], api, env);
               }
               result = timingResult;
-            } else {
-              console.log(`🔥 SKIPPING ${head} - diff ${diff} < required ${seconds}`);
             }
           }
           continue; // Skip normal function processing
         }
-        
+
         // const colon = head.split(":")[1]; // TODO: Take into account colon param / work it in.
 
         // Make sure head exists and re-evaluate or iterate if not a string.
@@ -921,18 +867,12 @@ class KidLisp {
               head === "if" ||
               head === "not" ||
               head === "wipe" ||
-              head === "ink" ||
               head === ">" ||
               head === "<" ||
               head === "=" ||
               head === "net" ||
               head === "source" ||
-              head === "whole" ||
-              head === "half" ||
-              head === "quarter" ||
-              head === "eighth" ||
-              head === "sixteenth" ||
-              head === "thirtysecond"
+              head === "choose"
             ) {
               processedArgs = args;
             } else {

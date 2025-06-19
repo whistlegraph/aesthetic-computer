@@ -321,11 +321,34 @@ function clear() {
   // pixels[3] = 255;
   // pixels.copyWithin(4, 0);
 
-  for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = c[0]; // r
-    pixels[i + 1] = c[1]; // g
-    pixels[i + 2] = c[2]; // b
-    pixels[i + 3] = c[3]; // alpha
+  // Determine the area to clear (mask or full screen)
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
+  }
+
+  if (activeMask) {
+    // Clear only the masked area
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const i = (y * width + x) * 4;
+        pixels[i] = c[0];     // r
+        pixels[i + 1] = c[1]; // g
+        pixels[i + 2] = c[2]; // b
+        pixels[i + 3] = c[3]; // alpha
+      }
+    }
+  } else {
+    // Clear the entire screen (original behavior)
+    for (let i = 0; i < pixels.length; i += 4) {
+      pixels[i] = c[0]; // r
+      pixels[i + 1] = c[1]; // g
+      pixels[i + 2] = c[2]; // b
+      pixels[i + 3] = c[3]; // alpha
+    }
   }
 }
 
@@ -345,13 +368,12 @@ function plot(x, y) {
   if (x >= width) return;
   if (y < 0) return;
   if (y >= height) return;
-
   // And pixels in the active mask.
   if (activeMask)
     if (
       y < activeMask.y ||
-      y >= activeMask.height ||
-      x >= activeMask.width ||
+      y >= activeMask.y + activeMask.height ||
+      x >= activeMask.x + activeMask.width ||
       x < activeMask.x
     )
       return;
@@ -569,6 +591,117 @@ function resize(bitmap, width, height) {
     }
   }
   return { pixels, width, height };
+}
+
+// Apply a blur effect to the current pixel buffer using smooth weighted blur
+// radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
+function blur(radius = 1) {
+  if (radius <= 0) return;
+
+  // Clamp radius to reasonable values for performance
+  radius = Math.min(radius, 20);
+
+  // Create a copy of the current pixels to read from
+  const sourcePixels = new Uint8ClampedArray(pixels);
+
+  // Apply horizontal blur pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0;
+      let totalWeight = 0;
+
+      // Always sample at least immediate neighbors for visible blur effect
+      const sampleRadius = Math.max(1, Math.ceil(radius));
+      
+      for (let i = -sampleRadius; i <= sampleRadius; i++) {
+        const distance = Math.abs(i);
+        // Calculate weight using a smoother function that works well for fractional values
+        let weight;
+        if (distance === 0) {
+          // Center pixel gets base weight
+          weight = 1.0;
+        } else {
+          // Neighbors get weight based on radius
+          // For radius < 1, this gives fractional weights to immediate neighbors
+          // For radius >= 1, this gives decreasing weights with distance
+          weight = Math.max(0, radius - distance + 1) * radius;
+        }
+        
+        const sampleX = Math.max(0, Math.min(width - 1, x + i));
+        const index = (y * width + sampleX) * 4;
+
+        r += sourcePixels[index] * weight;
+        g += sourcePixels[index + 1] * weight;
+        b += sourcePixels[index + 2] * weight;
+        a += sourcePixels[index + 3] * weight;
+        totalWeight += weight;
+      }
+
+      // Write weighted average back to main buffer
+      const index = (y * width + x) * 4;
+      if (totalWeight > 0) {
+        pixels[index] = r / totalWeight;
+        pixels[index + 1] = g / totalWeight;
+        pixels[index + 2] = b / totalWeight;
+        pixels[index + 3] = a / totalWeight;
+      }
+    }
+  }
+
+  // Copy result for vertical pass
+  for (let i = 0; i < pixels.length; i++) {
+    sourcePixels[i] = pixels[i];
+  }
+
+  // Apply vertical blur pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0;
+      let totalWeight = 0;
+
+      // Always sample at least immediate neighbors for visible blur effect
+      const sampleRadius = Math.max(1, Math.ceil(radius));
+      
+      for (let i = -sampleRadius; i <= sampleRadius; i++) {
+        const distance = Math.abs(i);
+        // Calculate weight using a smoother function that works well for fractional values
+        let weight;
+        if (distance === 0) {
+          // Center pixel gets base weight
+          weight = 1.0;
+        } else {
+          // Neighbors get weight based on radius
+          // For radius < 1, this gives fractional weights to immediate neighbors
+          // For radius >= 1, this gives decreasing weights with distance
+          weight = Math.max(0, radius - distance + 1) * radius;
+        }
+        
+        const sampleY = Math.max(0, Math.min(height - 1, y + i));
+        const index = (sampleY * width + x) * 4;
+
+        r += sourcePixels[index] * weight;
+        g += sourcePixels[index + 1] * weight;
+        b += sourcePixels[index + 2] * weight;
+        a += sourcePixels[index + 3] * weight;
+        totalWeight += weight;
+      }
+
+      // Write weighted average back to main buffer
+      const index = (y * width + x) * 4;
+      if (totalWeight > 0) {
+        pixels[index] = r / totalWeight;
+        pixels[index + 1] = g / totalWeight;
+        pixels[index + 2] = b / totalWeight;
+        pixels[index + 3] = a / totalWeight;
+      }
+    }
+  }
 }
 
 // Copies pixels from a source buffer to the active buffer and returns
@@ -816,19 +949,27 @@ function lineh(x0, x1, y) {
   x0 = floor(x0);
   x1 = floor(x1);
   y = floor(y);
-
   if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
+  
+  // Check if the entire line is outside the mask
   if (
     activeMask &&
     (y < activeMask.y ||
-      y >= activeMask.height ||
-      x0 >= activeMask.width ||
-      x1 < activeMask.x)
+      y >= activeMask.y + activeMask.height ||
+      x1 < activeMask.x ||
+      x0 >= activeMask.x + activeMask.width)
   )
     return;
 
+  // Clamp to screen bounds first
   x0 = clamp(x0, 0, width - 1);
   x1 = clamp(x1, 0, width - 1);
+  
+  // Then clamp to mask bounds if mask is active
+  if (activeMask) {
+    x0 = clamp(x0, activeMask.x, activeMask.x + activeMask.width - 1);
+    x1 = clamp(x1, activeMask.x, activeMask.x + activeMask.width - 1);
+  }
 
   const firstIndex = (x0 + y * width) * 4;
   const secondIndex = (x1 + y * width) * 4;
@@ -1217,19 +1358,16 @@ function pline(coords, thickness, shader) {
     const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
     const offset2 = vec2.scale([], rot, -thickness / 2);
 
-    let c1 = vec2.add([], cp, offset1);
-    let c2 = vec2.add([], cp, offset2);
-
-    let l1, l2;
+    let c1, c2;
     if (!lpar) {
-      l1 = vec2.add([], lp, offset1); // Compute both sets of points.
-      l2 = vec2.add([], lp, offset2);
-      lpar = [l1, l2];
+      c1 = vec2.add([], lp, offset1); // Compute both sets of points.
+      c2 = vec2.add([], lp, offset2);
+      lpar = [c1, c2];
     } else {
-      [l1, l2] = lpar;
+      [c1, c2] = lpar;
     }
 
-    [l1, l2, c1, c2].forEach((v) => vec2.floor(v, v)); // Floor everything.
+    [c1, c2, lp, cp].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
     // 2. Plotting
 
@@ -1240,19 +1378,19 @@ function pline(coords, thickness, shader) {
     if (dot > 0) {
       // Vertex order for forward direction.
       trig = [
-        [l1, l2, c1],
-        [l2, c1, c2],
+        [c1, c2, lp],
+        [c2, lp, cp],
       ];
-      lines.push(...bresenham(...l1, ...c1)); // Par line 1
-      lines.push(...bresenham(...l2, ...c2)); // Par line 2
+      lines.push(...bresenham(...c1, ...lp)); // Par line 1
+      lines.push(...bresenham(...c2, ...cp)); // Par line 2
     } else {
       // Vertex order for backward direction.
       trig = [
-        [l2, c1, l1],
-        [l1, c2, c1],
+        [c2, lp, c1],
+        [c1, cp, lp],
       ];
-      lines.push(...bresenham(...l2, ...c1)); // Par line 1
-      lines.push(...bresenham(...l1, ...c2)); // Par line 2
+      lines.push(...bresenham(...c2, ...lp)); // Par line 1
+      lines.push(...bresenham(...c1, ...cp)); // Par line 2
     }
 
     // Partial outside clipping.
@@ -1281,9 +1419,9 @@ function pline(coords, thickness, shader) {
     lines.push(...bresenham(...lp, ...cp));
 
     if (i === coords.length - 2)
-      points.push({ x: l1[0], y: l1[1] }, { x: l2[0], y: l2[1] });
+      points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] });
 
-    points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] }); // Add points.
+    points.push({ x: lp[0], y: lp[1] }, { x: cp[0], y: cp[1] }); // Add points.
 
     // Paint each triangle.
     if (cur.color === "rainbow") color(...rainbow());
@@ -1714,7 +1852,7 @@ function grid(
 
   if (angle) {
     // Odd width.
-    if (w % 2 !== 0 && h % 2 === 0) {
+    if (w %  2 !== 0 && h % 2 === 0) {
       if (x % 1 !== 0 && angle === 90) xmod += 0.5;
 
       // if (angle === 90 || angle === 270) ymod += 1;
@@ -1826,12 +1964,12 @@ function grid(
             const srcX = i % bufWidth;
             const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast multiplication by 4
             
-            if (srcIndex < bufPixels.length) {
+            if (srcIndex < srcPixels.length) {
               // Extract color data directly
-              const r = bufPixels[srcIndex];
-              const g = bufPixels[srcIndex + 1];
-              const b = bufPixels[srcIndex + 2];
-              const a = bufPixels[srcIndex + 3];
+              const r = srcPixels[srcIndex];
+              const g = srcPixels[srcIndex + 1];
+              const b = srcPixels[srcIndex + 2];
+              const a = srcPixels[srcIndex + 3];
               
               const destStartX = ~~(x + i * colPixInt);
               const destEndX = ~~(x + (i + 1) * colPixInt);
@@ -1926,7 +2064,7 @@ function grid(
                 } else {
                   // Fall back to line drawing for thin regions
                   for (let dy = 0; dy < pixelHeight; dy += 1) {
-                    lineh(destStartX, destStartX + pixelWidth - 1, destStartY + dy);
+                    lineh(destStartX, destEndX - 1, destStartY + dy);
                   }
                 }
               } else {
@@ -2188,16 +2326,28 @@ function shift(dx = 0, dy = 0) {
   // Create a copy of the current pixel buffer
   const tempPixels = new Uint8ClampedArray(pixels);
   
-  // Process each pixel and wrap coordinates
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      // Calculate source position with wrapping
+  // Determine bounds - use mask if active, otherwise full screen
+  let minX = 0, maxX = width, minY = 0, maxY = height;
+  if (activeMask) {
+    minX = activeMask.x;
+    maxX = activeMask.x + activeMask.width;
+    minY = activeMask.y;
+    maxY = activeMask.y + activeMask.height;
+  }
+  
+  // Process each pixel within the bounds and wrap coordinates
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      // Calculate source position with wrapping within the bounds
       let srcX = x - dx;
       let srcY = y - dy;
       
-      // Wrap source coordinates
-      srcX = ((srcX % width) + width) % width;
-      srcY = ((srcY % height) + height) % height;
+      // Wrap source coordinates within the bounds
+      const boundsWidth = maxX - minX;
+      const boundsHeight = maxY - minY;
+      
+      srcX = minX + ((srcX - minX) % boundsWidth + boundsWidth) % boundsWidth;
+      srcY = minY + ((srcY - minY) % boundsHeight + boundsHeight) % boundsHeight;
       
       // Calculate pixel indices
       const destIndex = (y * width + x) * 4;
@@ -2212,7 +2362,8 @@ function shift(dx = 0, dy = 0) {
   }
 }
 
-// Rotate the entire pixel buffer by an angle (in degrees) with fine tiling - raw pixel style
+// Rotate the pixel buffer by an angle (in degrees) with fine tiling - raw pixel style
+// If a mask is active, only rotates within the masked area
 function spin(angle = 0) {
   if (angle === 0) return; // No change needed
   
@@ -2226,13 +2377,24 @@ function spin(angle = 0) {
   // Create a copy of the current pixel buffer
   const tempPixels = new Uint8ClampedArray(pixels);
   
-  // Calculate center of rotation
-  const centerX = width * 0.5;
-  const centerY = height * 0.5;
+  // Determine the area to process (mask or full screen)
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  let centerX = width * 0.5;
+  let centerY = height * 0.5;
+  
+  if (activeMask) {
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
+    // Use center of masked area for rotation
+    centerX = activeMask.x + activeMask.width * 0.5;
+    centerY = activeMask.y + activeMask.height * 0.5;
+  }
   
   // Texture-mapped quad with nearest neighbor filtering
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
       // Transform destination coordinate to source coordinate
       const dx = x - centerX;
       const dy = y - centerY;
@@ -2245,9 +2407,18 @@ function spin(angle = 0) {
       const iSrcX = Math.round(srcX);
       const iSrcY = Math.round(srcY);
       
-      // Wrap edges (non-destructive)
-      const wrappedX = ((iSrcX % width) + width) % width;
-      const wrappedY = ((iSrcY % height) + height) % height;
+      // For masked areas, wrap within the mask bounds
+      let wrappedX, wrappedY;
+      if (activeMask) {
+        const maskWidth = activeMask.width;
+        const maskHeight = activeMask.height;
+        wrappedX = ((iSrcX - activeMask.x) % maskWidth + maskWidth) % maskWidth + activeMask.x;
+        wrappedY = ((iSrcY - activeMask.y) % maskHeight + maskHeight) % maskHeight + activeMask.y;
+      } else {
+        // Wrap edges for full screen
+        wrappedX = ((iSrcX % width) + width) % width;
+        wrappedY = ((iSrcY % height) + height) % height;
+      }
       
       // Copy pixel
       const destIndex = (y * width + x) * 4;
@@ -2256,125 +2427,276 @@ function spin(angle = 0) {
       pixels[destIndex] = tempPixels[srcIndex];
       pixels[destIndex + 1] = tempPixels[srcIndex + 1];
       pixels[destIndex + 2] = tempPixels[srcIndex + 2];
-      pixels[destIndex + 3] = tempPixels[srcIndex + 3];    }
+      pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+    }
   }
 }
 
-// Zoom the entire pixel buffer using integer / nearest neighbor scaling
+// Zoom the entire pixel buffer with 1.0 as neutral (no change)
+// Zoom the entire pixel buffer with 1.0 as neutral (no change)
+// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing  
+// anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
-  if (level === 0) return; // No change needed
+  if (level === 1.0) return; // No change needed - neutral zoom
   
   // Create a copy of the current pixel buffer
   const tempPixels = new Uint8ClampedArray(pixels);
   
-  // Clear the buffer
-  pixels.fill(0);
+  // Determine the area to process (mask or full screen)
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
+  }
   
-  if (level >= 1) {
-    // ZOOM IN: Each pixel becomes a bigger block
-    const scale = Math.floor(level + 1); // zoom(1) = 2x2 blocks, zoom(2) = 3x3 blocks
-    
-    // Calculate offset to center the zoomed image based on anchor
-    const offsetX = Math.floor((width - width * scale) * anchorX);
-    const offsetY = Math.floor((height - height * scale) * anchorY);
-    
-    for (let srcY = 0; srcY < height; srcY++) {
-      for (let srcX = 0; srcX < width; srcX++) {
-        const srcIndex = (srcY * width + srcX) * 4;
-        
-        // Only process pixels with alpha > 0 (non-transparent)
-        if (tempPixels[srcIndex + 3] === 0) continue;
-        
-        // Draw a scale x scale block for this pixel
-        for (let blockY = 0; blockY < scale; blockY++) {
-          for (let blockX = 0; blockX < scale; blockX++) {
-            const destX = srcX * scale + blockX + offsetX;
-            const destY = srcY * scale + blockY + offsetY;
-            
-            // Check if the destination is within screen bounds
-            if (destX >= 0 && destX < width && destY >= 0 && destY < height) {
-              const destIndex = (destY * width + destX) * 4;
-              
-              // Only copy if we have valid indices and source has alpha
-              if (destIndex >= 0 && destIndex + 3 < pixels.length &&
-                  srcIndex >= 0 && srcIndex + 3 < tempPixels.length) {
-                pixels[destIndex] = tempPixels[srcIndex];
-                pixels[destIndex + 1] = tempPixels[srcIndex + 1];
-                pixels[destIndex + 2] = tempPixels[srcIndex + 2];
-                pixels[destIndex + 3] = tempPixels[srcIndex + 3];
-              }
-            }
-          }
-        }
-      }
-    }  } else if (level > 0) {
-    // FRACTIONAL ZOOM (0 < level < 1): Sample at intervals to stretch the image
-    const invLevel = 1 / level; // zoom(0.5) = 2, zoom(0.25) = 4
-    
-    // Calculate offset to center the stretched image based on anchor
-    const offsetX = Math.floor((width - width / invLevel) * anchorX);
-    const offsetY = Math.floor((height - height / invLevel) * anchorY);
-    
-    for (let destY = 0; destY < height; destY++) {
-      for (let destX = 0; destX < width; destX++) {
-        // Calculate source position by sampling at intervals
-        const srcX = Math.floor((destX - offsetX) * invLevel);
-        const srcY = Math.floor((destY - offsetY) * invLevel);
-        
-        // Check if source position is valid
-        if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
-          const srcIndex = (srcY * width + srcX) * 4;
-          
-          // Only process pixels with alpha > 0 (non-transparent)
-          if (srcIndex >= 0 && srcIndex + 3 < tempPixels.length && 
-              tempPixels[srcIndex + 3] > 0) {
-            const destIndex = (destY * width + destX) * 4;
-            
-            if (destIndex >= 0 && destIndex + 3 < pixels.length) {
-              pixels[destIndex] = tempPixels[srcIndex];
-              pixels[destIndex + 1] = tempPixels[srcIndex + 1];
-              pixels[destIndex + 2] = tempPixels[srcIndex + 2];
-              pixels[destIndex + 3] = tempPixels[srcIndex + 3];
-            }
-          }
-        }
+  // Clear only the area we're going to process
+  if (activeMask) {
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const idx = (y * width + x) * 4;
+        pixels[idx] = 0;
+        pixels[idx + 1] = 0;
+        pixels[idx + 2] = 0;
+        pixels[idx + 3] = 0;
       }
     }
   } else {
-    // ZOOM OUT: Sample every nth pixel, centered on anchor
-    const step = Math.abs(level) + 1; // zoom(-1) = every 2nd pixel
+    pixels.fill(0);
+  }
+    if (level > 1.0) {
+    // ZOOM IN: level > 1.0 (1.01, 1.5, 2.0, etc.) - MAGICAL SAMPLING
+    const scale = level;
     
-    // Calculate offset to center the shrunken image based on anchor
-    const resultWidth = Math.floor(width / step);
-    const resultHeight = Math.floor(height / step);
-    const offsetX = Math.floor((width - resultWidth) * anchorX);
-    const offsetY = Math.floor((height - resultHeight) * anchorY);
+    // Calculate the anchor point in pixels (relative to mask area if active)
+    let anchorPixelX, anchorPixelY;
+    if (activeMask) {
+      anchorPixelX = minX + (maxX - minX) * anchorX;
+      anchorPixelY = minY + (maxY - minY) * anchorY;
+    } else {
+      anchorPixelX = width * anchorX;
+      anchorPixelY = height * anchorY;
+    }
     
-    for (let srcY = 0; srcY < height; srcY += step) {
-      for (let srcX = 0; srcX < width; srcX += step) {
-        const srcIndex = (srcY * width + srcX) * 4;
+    for (let destY = minY; destY < maxY; destY++) {
+      for (let destX = minX; destX < maxX; destX++) {
+        // Calculate the source position by scaling from anchor point
+        const srcX = anchorPixelX + (destX - anchorPixelX) / scale;
+        const srcY = anchorPixelY + (destY - anchorPixelY) / scale;
         
-        // Only process pixels with alpha > 0 (non-transparent)
-        if (srcIndex < 0 || srcIndex + 3 >= tempPixels.length || 
-            tempPixels[srcIndex + 3] === 0) continue;
+        // Magical spiral sampling with color bleeding
+        let r = 0, g = 0, b = 0, a = 0;
+        let totalWeight = 0;
         
-        // Place pixel at reduced position with offset
-        const destX = Math.floor(srcX / step) + offsetX;
-        const destY = Math.floor(srcY / step) + offsetY;
+        // Sample in a spiral pattern with varying distances
+        const sampleCount = 8;
+        const radius = 1.2; // Base sampling radius
         
-        // Check bounds
-        if (destX >= 0 && destX < width && destY >= 0 && destY < height) {
-          const destIndex = (destY * width + destX) * 4;
+        for (let i = 0; i < sampleCount; i++) {
+          // Create a spiral pattern with some chaos
+          const angle = (i / sampleCount) * Math.PI * 2 * 1.618; // Golden ratio spiral
+          const distance = radius * (0.3 + 0.7 * (i / sampleCount)); // Varying distance
           
-          // Only copy if we have valid indices
-          if (destIndex >= 0 && destIndex + 3 < pixels.length) {
-            pixels[destIndex] = tempPixels[srcIndex];
-            pixels[destIndex + 1] = tempPixels[srcIndex + 1];
-            pixels[destIndex + 2] = tempPixels[srcIndex + 2];
-            pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+          // Add subtle chaos based on pixel position
+          const chaos = Math.sin(destX * 0.1) * Math.cos(destY * 0.1) * 0.3;
+          const actualDistance = distance + chaos;
+          
+          const sampleX = srcX + Math.cos(angle) * actualDistance;
+          const sampleY = srcY + Math.sin(angle) * actualDistance;
+          
+          const x = Math.floor(sampleX);
+          const y = Math.floor(sampleY);
+          
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            const idx = (y * width + x) * 4;
+            
+            // Weight based on distance from center, with magical falloff
+            const weight = Math.pow(1 - (actualDistance / (radius * 2)), 1.5); // Add epsilon to prevent division instability
+            
+            // Color bleeding: stronger colors influence more
+            const colorIntensity = (tempPixels[idx] + tempPixels[idx + 1] + tempPixels[idx + 2]) / 765;
+            const magicalWeight = weight * (0.5 + colorIntensity * 0.5);
+            
+            r += tempPixels[idx] * magicalWeight;
+            g += tempPixels[idx + 1] * magicalWeight;
+            b += tempPixels[idx + 2] * magicalWeight;
+            a += tempPixels[idx + 3] * magicalWeight;
+            totalWeight += magicalWeight;
           }
         }
+        
+        // Always include the center sample with high weight
+        const centerSampleX = Math.floor(srcX);
+        const centerSampleY = Math.floor(srcY);
+        if (centerSampleX >= 0 && centerSampleX < width && centerSampleY >= 0 && centerSampleY < height) {
+          const centerIdx = (centerSampleY * width + centerSampleX) * 4;
+          const centerWeight = 2.0; // Strong center influence
+          
+          r += tempPixels[centerIdx] * centerWeight;
+          g += tempPixels[centerIdx + 1] * centerWeight;
+          b += tempPixels[centerIdx + 2] * centerWeight;
+          a += tempPixels[centerIdx + 3] * centerWeight;
+          totalWeight += centerWeight;
+        }
+        
+        const destIndex = (destY * width + destX) * 4;
+        
+        if (totalWeight > 0) {
+          // Add subtle color enhancement during zoom
+          const enhancement = 1 + (scale - 1) * 0.1; // Slight saturation boost
+          
+          pixels[destIndex] = Math.min(255, Math.round((r / totalWeight) * enhancement));
+          pixels[destIndex + 1] = Math.min(255, Math.round((g / totalWeight) * enhancement));
+          pixels[destIndex + 2] = Math.min(255, Math.round((b / totalWeight) * enhancement));
+          pixels[destIndex + 3] = Math.round(a / totalWeight);
+        }
       }
+    }  } else {
+    // ZOOM OUT: level < 1.0 (0.5, 0.9, etc.) - MAGICAL SAMPLING
+    const scale = level;
+    
+    // Calculate the anchor point in pixels (relative to mask area if active)
+    let anchorPixelX, anchorPixelY;
+    if (activeMask) {
+      anchorPixelX = minX + (maxX - minX) * anchorX;
+      anchorPixelY = minY + (maxY - minY) * anchorY;
+    } else {
+      anchorPixelX = width * anchorX;
+      anchorPixelY = height * anchorY;
+    }
+    
+    for (let destY = minY; destY < maxY; destY++) {
+      for (let destX = minX; destX < maxX; destX++) {
+        // Calculate the source position by scaling from anchor point
+        const srcX = anchorPixelX + (destX - anchorPixelX) / scale;
+        const srcY = anchorPixelY + (destY - anchorPixelY) / scale;
+        
+        // Magical spiral sampling for zoom out too!
+        let r = 0, g = 0, b = 0, a = 0;
+        let totalWeight = 0;
+        
+        // For zoom out, use wider sampling to capture more detail
+        const sampleCount = 12; // More samples for zoom out
+        const radius = 1.5 + (1 - scale) * 2; // Wider radius for smaller scales
+        
+        for (let i = 0; i < sampleCount; i++) {
+          // Create a reverse spiral pattern with chaos
+          const angle = (i / sampleCount) * Math.PI * 2 * 2.618; // Wider spiral
+          const distance = radius * (0.2 + 0.8 * (i / sampleCount));
+          
+          // Add chaos based on zoom level - more chaos for more zoom out
+          const chaosAmount = (1 - scale) * 0.5;
+          const chaos = Math.sin(destX * 0.08) * Math.cos(destY * 0.08) * chaosAmount;
+          const actualDistance = distance + chaos;
+          
+          const sampleX = srcX + Math.cos(angle) * actualDistance;
+          const sampleY = srcY + Math.sin(angle) * actualDistance;
+          
+          const x = Math.round(sampleX);
+          const y = Math.round(sampleY);
+          
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            const idx = (y * width + x) * 4;
+            
+            if (tempPixels[idx + 3] > 0) { // Only sample non-transparent pixels
+              // Weight based on distance and alpha
+              const weight = Math.pow(1 - (actualDistance / (radius * 2)), 2);
+              
+              // For zoom out, enhance edge detection
+              const edgeIntensity = Math.abs(tempPixels[idx] - tempPixels[idx + 1]) + 
+                                  Math.abs(tempPixels[idx + 1] - tempPixels[idx + 2]);
+              const magicalWeight = weight * (0.8 + edgeIntensity * 0.002);
+              
+              r += tempPixels[idx] * magicalWeight;
+              g += tempPixels[idx + 1] * magicalWeight;
+              b += tempPixels[idx + 2] * magicalWeight;
+              a += tempPixels[idx + 3] * magicalWeight;
+              totalWeight += magicalWeight;
+            }
+          }
+        }
+        
+        // Include center sample with strong weight
+        const centerSampleX = Math.round(srcX);
+        const centerSampleY = Math.round(srcY);
+        if (centerSampleX >= 0 && centerSampleX < width && centerSampleY >= 0 && centerSampleY < height) {
+          const centerIdx = (centerSampleY * width + centerSampleX) * 4;
+          if (tempPixels[centerIdx + 3] > 0) {
+            const centerWeight = 3.0; // Strong center influence for zoom out
+            
+            r += tempPixels[centerIdx] * centerWeight;
+            g += tempPixels[centerIdx + 1] * centerWeight;
+            b += tempPixels[centerIdx + 2] * centerWeight;
+            a += tempPixels[centerIdx + 3] * centerWeight;
+            totalWeight += centerWeight;
+          }
+        }
+        
+        const destIndex = (destY * width + destX) * 4;
+        
+        if (totalWeight > 0) {
+          // Add contrast enhancement for zoom out to maintain detail
+          const contrast = 1 + (1 - scale) * 0.2; // Slight contrast boost
+          
+          pixels[destIndex] = Math.min(255, Math.round((r / totalWeight) * contrast));
+          pixels[destIndex + 1] = Math.min(255, Math.round((g / totalWeight) * contrast));
+          pixels[destIndex + 2] = Math.min(255, Math.round((b / totalWeight) * contrast));
+          pixels[destIndex + 3] = Math.round(a / totalWeight);
+        }
+      }
+    }
+  }
+}
+
+// Sort pixels by color within the masked area (or entire screen if no mask)
+// Sorts by luminance (brightness) - darker pixels first, lighter pixels last
+function sort() {
+  // Determine the area to sort (mask or full screen)
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = Math.max(0, Math.floor(activeMask.x));
+    minY = Math.max(0, Math.floor(activeMask.y));
+    maxX = Math.min(width, Math.floor(activeMask.x + activeMask.width));
+    maxY = Math.min(height, Math.floor(activeMask.y + activeMask.height));
+  }
+  
+  // Collect all pixels in the area
+  const pixelsToSort = [];
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const index = (y * width + x) * 4;
+      const r = pixels[index];
+      const g = pixels[index + 1];
+      const b = pixels[index + 2];
+      const a = pixels[index + 3];
+      
+      // Calculate luminance for sorting (standard formula)
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      
+      pixelsToSort.push({
+        r, g, b, a,
+        luminance
+      });
+    }
+  }
+  
+  // Sort by luminance (darker to lighter)
+  pixelsToSort.sort((a, b) => a.luminance - b.luminance);
+  
+  // Write sorted pixels back to their positions
+  let sortedIndex = 0;
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const index = (y * width + x) * 4;
+      const sortedPixel = pixelsToSort[sortedIndex];
+      
+      pixels[index] = sortedPixel.r;
+      pixels[index + 1] = sortedPixel.g;
+      pixels[index + 2] = sortedPixel.b;
+      pixels[index + 3] = sortedPixel.a;
+      
+      sortedIndex++;
     }
   }
 }
@@ -2394,6 +2716,7 @@ export {
   skip,
   copy,
   resize,
+  blur,
   paste,
   stamp,
   line,
@@ -2410,1415 +2733,12 @@ export {
   noise16,
   noise16DIGITPAIN,
   noise16Aesthetic,
-  noise16Sotce,  noiseTinted,
-  printLine,  blendMode,
+  noise16Sotce,
+  noiseTinted,
+  printLine,
+  blendMode,
   shift,
   spin,
   zoom,
+  sort,
 };
-
-// 3. 3D Drawing (Kinda mixed with some 2D)
-
-// a. Globals
-
-const X = 0;
-const Y = 1;
-const Z = 2;
-const W = 3;
-let screenMatrix;
-
-// b. Geometric Abstractions
-
-// For producing a projection matrix.
-// For matrix & linear algebra help: https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
-class Camera {
-  type = "perspective";
-  matrix;
-  #x = 0;
-  #rotX = 0;
-  #y = 0;
-  #rotY = 0;
-  #z = 0;
-  #rotZ = 0;
-  fov;
-
-  near = 0.001;
-  far = 1000;
-
-  position = [0, 0, 0, 1];
-  rotation = [0, 0, 0];
-  scale = [1, 1, 1];
-
-  // centerCached; // Saved after each call to `center()`.
-
-  perspectiveMatrix;
-  #transformMatrix;
-
-  // Takes x, y, z position and an optional scale (xyz) array.
-  constructor(fov = 80, { x, y, z, scale } = { x: 0, y: 0, z: 0, scale: 1 }) {
-    this.fov = fov;
-
-    this.x = x;
-    this.y = y;
-    this.z = z;
-
-    if (scale) this.scale = scale;
-
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-  }
-
-  set rotX(n) {
-    this.#rotX = n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-    this.rotation[0] = n;
-  }
-
-  get rotX() {
-    return this.#rotX;
-  }
-
-  set rotY(n) {
-    this.#rotY = n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-    this.rotation[1] = n;
-  }
-
-  get rotY() {
-    return this.#rotY;
-  }
-
-  set rotZ(n) {
-    this.#rotZ = n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-    this.rotation[2] = n;
-  }
-
-  get rotZ() {
-    return this.#rotZ;
-  }
-
-  // Returns the rotation of the camera in radians.
-  get rot() {
-    return [this.#rotX, this.#rotY, this.#rotZ];
-  }
-
-  set x(n = 0) {
-    this.#x = n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-    this.position[0] = n;
-  }
-
-  get x() {
-    return this.#x;
-  }
-
-  set y(n = 0) {
-    this.#y = n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-    this.position[1] = n;
-  }
-
-  get y() {
-    return this.#y;
-  }
-
-  set z(n = 0) {
-    this.#z = n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-    this.position[2] = n;
-  }
-
-  get z() {
-    return this.#z;
-  }
-
-  forward(n) {
-    this.#z -= n;
-    this.#perspective(this.fov);
-    this.#transform();
-    this.matrix = this.#transformMatrix;
-  }
-
-  #perspective(fov) {
-    const zNear = this.near;
-    const zFar = this.far;
-
-    this.perspectiveMatrix = mat4.perspective(
-      mat4.create(),
-      radians(fov),
-      width / height,
-      zNear,
-      zFar,
-    );
-
-    // See: https://github.com/BennyQBD/3DSoftwareRenderer/blob/641f59125351d9565e744a90ad86256c3970a724/src/Matrix4f.java#L89
-    // And compare it with: https://glmatrix.net/docs/mat4.js.html#line1508
-
-    const zRange = zNear - zFar;
-    const ten = (-zNear - zFar) / zRange;
-    const fourteen = (2 * zFar * zNear) / zRange;
-
-    this.perspectiveMatrix[10] = ten; // Zero the Z component.
-    this.perspectiveMatrix[14] = fourteen;
-    this.perspectiveMatrix[11] = 1; // Flip the Y so we see things rightside up.
-  }
-
-  get perspective() {
-    return this.perspectiveMatrix;
-  }
-
-  // Recalculate the camera matrix for a new display constraint.
-  // TODO: Eventually this should be redundant for custom cameras
-  //       that don't hook into the `screen`. 24.02.21.15.26
-  resize() {
-    this.forward(0);
-  }
-
-  // Get an XYZ position on a plane at a given depth,
-  // relative to screen coordinates.
-  ray(X = width / 2, Y = height / 2, depth = 1, flippedY = false) {
-    this.#perspective(this.fov);
-
-    // 1. Camera World Space
-    const pos = [...this.position];
-
-    if (flippedY) pos[1] *= -1; // TODO: This is a little janky now, both CPU
-    //                                   and GPU should have the same Y.
-
-    const rotX = mat4.fromXRotation(mat4.create(), radians(this.#rotX));
-    const rotY = mat4.fromYRotation(mat4.create(), radians(this.#rotY));
-    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.#rotZ));
-
-    const rotatedX = mat4.multiply(mat4.create(), rotX, mat4.create());
-    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
-
-    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
-
-    const world = scaled;
-
-    // Camera World Space -> Inverted Perspective Projection
-    const invertedProjection = mat4.invert(
-      mat4.create(),
-      this.perspectiveMatrix,
-    );
-    const invWorldPersProj = mat4.mul(mat4.create(), world, invertedProjection);
-
-    // 2. Screen Point -> Inverted World Perspective Projection
-
-    // Normalize from screen coordinates.
-    X = 1 - X / width;
-    Y = 1 - Y / height;
-
-    // 2. -> Normalized Device Space (NDS)
-    let x = 2.0 * X - 1;
-    let y = 2.0 * Y - 1;
-
-    // NDS -> Homogeneous Space
-    // (flipped Z, because we are in a left-handed coordinate system.)
-    const screenPos = vec4.fromValues(x, -y, 1, 1);
-
-    // Adjust Z depth of plane... (scale screen position)
-    const shiftedScreenPos = vec4.scale(vec4.create(), screenPos, depth);
-
-    // Get near plane.
-    const xyz = vec4.transformMat4(
-      vec4.create(),
-      shiftedScreenPos,
-      invWorldPersProj,
-    );
-
-    // Subtract transformed point from camera position.
-    const worldPos = vec4.sub(vec4.create(), pos, xyz);
-
-    return worldPos;
-  }
-
-  #transform() {
-    // TODO: Why does this and the FPS camera control need to be inverted?
-    //       Can't I just somehow invert the matrix to avoid all the swapping?
-    //       Maybe it has something to do with rotation order?
-    //       The default in three.js is XYZ, but here I'm using YXZ which I
-    //       had to override there. 22.10.09.20.31
-
-    // Translation.
-    const panned = mat4.translate(mat4.create(), mat4.create(), [
-      this.#x,
-      this.#y,
-      this.#z,
-    ]);
-
-    // Rotation
-    const rotY = mat4.fromYRotation(mat4.create(), radians(-this.#rotY)); // FLIPPED
-    const rotX = mat4.fromXRotation(mat4.create(), radians(this.#rotX));
-    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.#rotZ));
-
-    const rotatedY = mat4.multiply(mat4.create(), rotY, panned);
-    const rotatedX = mat4.multiply(mat4.create(), rotX, rotatedY);
-    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
-
-    // Scale
-    // TODO: Add support for camera scaling.
-    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
-
-    // Perspective
-    this.#transformMatrix = mat4.multiply(
-      mat4.create(),
-      this.perspectiveMatrix,
-      scaled,
-    );
-  }
-}
-
-// For moving a camera round over time.
-// TODO: Add a track? (Rollercoaster / coast)
-// TODO: Only supports sideways movement right now.
-class Dolly {
-  camera;
-
-  xVel = 0;
-  yVel = 0;
-  zVel = 0;
-  dec = 0.9;
-
-  constructor(camera) {
-    this.camera = camera;
-  }
-
-  sim() {
-    this.xVel *= this.dec;
-    this.yVel *= this.dec;
-    this.zVel *= this.dec;
-
-    if (abs(this.xVel) > 0) this.camera.x += this.xVel;
-    if (abs(this.yVel) > 0) this.camera.y += this.yVel;
-    if (abs(this.zVel) > 0) this.camera.z += this.zVel;
-  }
-
-  push({ x, y, z }) {
-    // Strafe x and z.
-    const xz = vec2.rotate(
-      vec2.create(),
-      vec2.fromValues(x, z),
-      vec2.fromValues(0, 0),
-      radians(-this.camera.rotY), // Take the camera Y axis for strafing.
-    );
-
-    this.xVel += xz[0] || 0;
-    this.yVel += y || 0;
-    this.zVel += xz[1] || 0;
-  }
-}
-
-let formId = 0;
-
-// Mesh
-class Form {
-  primitive = "triangle";
-  type = "triangle";
-
-  limiter = 0; // Only enabled on CPU rendered `line` at the moment. 22.11.06.18.19
-
-  uid; // = nanoid(4); // An id to keep across threads. Takes ~4 milliseconds. 😢
-
-  tag; // Gets sent to the GPU as a named / marked tag.
-  // Currently only available on `buffered` types in `3d.mjs` 23.02.07.09.46
-
-  // Model
-  vertices = [];
-  indices = [];
-
-  // TODO: Texture and color should be optional, and perhaps based on type.
-  // TODO: Should this use a parameter called shader?
-  texture; // = makeBuffer(32, 32);
-  color;
-  colorModifier;
-
-  // GPU Specific Params & Buffers
-  gpuVerticesSent = 0;
-  gpuReset = false; // Assumes this object is being recreated on the GPU.
-  gpuKeep = true;
-  gpuConvertColors = true;
-  gpuTransformed = false;
-  gpuRecolored = false;
-  MAX_POINTS = 100000; // Some buffered geometry gpu calls may use this hint.
-  uvs = [];
-
-  #gradientColors = [
-    [1.0, 0.0, 0.0, 1.0],
-    [0.0, 1.0, 0.0, 1.0],
-    [0.0, 0.0, 1.0, 1.0],
-  ];
-
-  /* I haven't needed support for this yet so it's left commented. 22.10.13.23.12
-  #texCoords = [
-    [0.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [1.0, 1.0, 0.0, 0.0],
-  ];
-  */
-
-  // Transform
-  position = [0, 0, 0];
-  rotation = [0, 0, 0];
-  scale = [1, 1, 1];
-
-  gradients = true;
-
-  // Blending
-  alpha = 1.0;
-
-  constructor(
-    // Model
-    // `type` can be "triangle", or "line" or "line:buffered"
-    // `positions` and colors can be sent and then verticies will be generated
-    {
-      type,
-      vertices,
-      uvs = [],
-      positions,
-      colors,
-      gradients,
-      indices,
-      keep = true,
-    },
-    fill,
-    // Transform
-    transform,
-  ) {
-    this.gradients = gradients; // A flag to decide if we use gradients or not. Only for line3d right now. 22.11.06.02.00
-
-    // Give an incremental id per session.
-    this.uid = formId;
-    formId += 1;
-
-    // Set the primitive type.
-    this.primitive = type;
-    this.type = type;
-
-    // Decide whether to throw this away after being drawn once
-    this.gpuKeep = keep;
-
-    // Take into account form -> primitive relationships.
-    if (type === "quad") this.primitive = "triangle";
-    if (type === "triangle:buffered") this.primitive = "triangle";
-    if (type === "line:buffered") this.primitive = "line";
-
-    this.indices = indices || repeat(positions?.length, (i) => i);
-
-    // 🌩️ Ingest positions and turn them into vertices.
-    // ("Import" a model...)
-
-    // Switch fill to transform if the was skipped.
-    if (fill?.pos || fill?.rot || fill?.scale) {
-      transform = fill;
-      fill = undefined;
-    }
-
-    // Assign texture or color.
-    if (fill?.tex) this.texture = fill.tex;
-    if (fill?.color) this.color = fill.color || c.slice();
-    if (fill?.alpha) this.alpha = fill.alpha;
-
-    // TODO: There is no maxed out notice here.
-    if (positions?.length > 0)
-      this.addPoints({ positions, colors }, this.indices);
-
-    // Or just set vertices directly.
-    if (vertices?.length > 0) {
-      this.vertices = vertices;
-      this.uvs = uvs;
-    }
-
-    this.position = transform?.pos || [0, 0, 0];
-    this.rotation = transform?.rot || [0, 0, 0];
-
-    if (typeof transform.scale === "number") {
-      this.scale = [transform.scale, transform.scale, transform.scale];
-    } else {
-      this.scale = transform?.scale || [1, 1, 1];
-    }
-  }
-
-  // TODO: This needs to support color (and eventually N vertex attributes).
-
-  resetUID() {
-    this.uid = nanoid(4);
-    //this.uid = formId;
-    //formId += 1;
-  }
-
-  // Clears vertex and index attributes to prepare for replacement geometry.
-  clear() {
-    this.uvs = [];
-    this.vertices = [];
-    this.indices = [];
-    this.gpuReset = true;
-    this.gpuVerticesSent = 0;
-  }
-
-  // How close we are to being beyond the max points allotted by the GPU for
-  // buffer geometries.
-  maxProgress() {
-    return this.vertices.length / (this.MAX_POINTS + 1);
-  }
-
-  addPoints(attributes, indices) {
-    const incomingLength = attributes.positions.length;
-    const verticesLength = this.vertices.length;
-    const pointsAvailable = this.MAX_POINTS - verticesLength;
-
-    let end = incomingLength;
-    let maxedOut = false;
-
-    /* Left for debugging. 22.10.30.18.30
-    if (this.MAX_POINTS === 256) {
-      console.log(
-        "Incoming:", incomingLength, "Current:", verticesLength,
-        "Max:", this.MAX_POINTS
-      );
-    }
-    */
-
-    if (pointsAvailable < incomingLength) {
-      end = pointsAvailable;
-      maxedOut = true;
-      if (debug)
-        console.warn(
-          "Max. cutoff in GPU form!",
-          this,
-          incomingLength,
-          pointsAvailable,
-        );
-    }
-
-    // Create new vertices from incoming positions.
-    for (let i = 0; i < end; i++) {
-      // Generate texCoord from position instead of loading.
-      // (Vertex / 2) + 0.5 // Vertex to UV
-      // See also: (Vertex - 0.5) * 2 // UV to Vertex
-      // TODO: This only works for quads right now.
-      const texCoord = [
-        attributes.positions[i][X] / 2 + 0.5,
-        attributes.positions[i][Y] / 2 + 0.5,
-        //0, //positions[i][Z] / 2 + 0.5; // TODO: Is this necessary to calculate for UV?
-        //0,
-      ];
-
-      // 🔥
-      // TODO:
-      // Wrap based on MAX_POINTS.
-
-      this.uvs.push(...texCoord); // For sending to the GPU.
-
-      // Optionally put color through a special function here.
-      if (attributes.colors?.[i] && typeof this.colorModifier === "function") {
-        attributes.colors[i] = this.colorModifier(attributes.colors[i]);
-      }
-
-      this.vertices.push(
-        // For sending to the CPU.
-        new Vertex(
-          attributes.positions[i],
-          attributes.colors?.[i],
-          // this.#gradientColors[i % 3],
-          texCoord, //this.#texCoords[i % 3] // Replace to enable bespoke texture coordinates.
-          attributes.normals?.[i],
-        ),
-      );
-
-      // TODO: This may need to be turned back on for the GPU?
-      //       What was with the -1 here?  22.11.06.17.42
-      // if (!indices) this.indices.push(verticesLength - 1 + i);
-      if (!indices) this.indices.push(verticesLength + i);
-      // console.log(indices, !indices, i, verticesLength);
-    }
-
-    if (indices) this.indices = indices;
-
-    // Create indices from pre-indexed positions or generate
-    // a linear set of indices based on length.
-
-    // TODO: How inefficient is this? 22.10.30.17.30
-    // this.indices = indices || repeat(this.vertices.length, (i) => i);
-
-    return maxedOut;
-  }
-
-  // Get the world position of this form's local vertex.
-  transformVertex(vertex) {
-    // Build a matrix to represent this form's position, rotation and scale.
-    const panned = mat4.fromTranslation(mat4.create(), [
-      this.position[X],
-      this.position[Y],
-      this.position[Z],
-    ]);
-
-    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
-    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
-    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
-
-    const rotatedX = mat4.mul(mat4.create(), panned, rotX);
-    const rotatedY = mat4.mul(mat4.create(), rotatedX, rotY);
-    const rotatedZ = mat4.mul(mat4.create(), rotatedY, rotZ);
-
-    const matrix = rotatedZ;
-
-    //mat4.translate(matrix, matrix, this.position);
-
-    // Apply scale.
-    mat4.scale(matrix, matrix, this.scale);
-
-    // Apply the world matrix.
-    //matrix = mat4.mul(mat4.create(), worldMatrix, matrix);
-
-    // const transformedVertices = [];
-    // Transform each vertex by the matrix.
-    //this.vertices.forEach((vertex) => {
-    return vertex.transformWorld(matrix);
-    //});
-  }
-
-  graph({ matrix: cameraMatrix }) {
-    // Build a matrix to represent this form's position, rotation and scale.
-    const panned = mat4.fromTranslation(mat4.create(), [
-      this.position[X] * -1,
-      this.position[Y],
-      this.position[Z] * -1,
-    ]);
-
-    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
-
-    const rotX = mat4.fromXRotation(
-      mat4.create(),
-      radians(this.rotation[X] * -1), // FLIPPED
-    );
-
-    const rotZ = mat4.fromZRotation(
-      mat4.create(),
-      radians(this.rotation[Z] * -1), // FLIPPED
-    );
-
-    const rotatedX = mat4.mul(mat4.create(), panned, rotX);
-    const rotatedY = mat4.mul(mat4.create(), rotatedX, rotY);
-    const rotatedZ = mat4.mul(mat4.create(), rotatedY, rotZ);
-
-    let matrix = rotatedZ;
-
-    // Apply scale.
-    mat4.scale(matrix, matrix, this.scale);
-
-    // Apply the camera matrix.
-    matrix = mat4.mul(mat4.create(), cameraMatrix, matrix);
-
-    const transformedVertices = [];
-
-    // Transform each vertex by the matrix.
-    this.vertices.forEach((vertex) => {
-      transformedVertices.push(vertex.transform(matrix));
-    });
-
-    screenMatrix = initScreenSpaceTransformMatrix(width / 2, height / 2);
-
-    // *** Choose a render primitive. ***
-
-    // TODO: Add indexed drawing. Right now only length is used.
-    //       22.10.11.20.21
-
-    if (this.primitive === "triangle") {
-      //if (this.indices.length % 3 !== 0) return; // Since it's triangles, make sure we always draw have a multiple of 3 indices.
-
-      let posLimitMax = this.indices.length / 3;
-      let posLimit = this.limiter % (posLimitMax + 1);
-
-      // Loop indices list to draw each triangle.
-      for (let i = 0; i < this.indices.length - posLimit * 3; i += 3) {
-        if (i + 1 > this.indices.length || i + 3 > this.indices.length) return;
-
-        // Draw each triangle by applying the screen transform &
-        // perspective divide (with clipping).
-        drawTriangle(
-          transformedVertices[this.indices[i]],
-          transformedVertices[this.indices[i + 1]],
-          transformedVertices[this.indices[i + 2]],
-          // Eventually pass in a "shader" function instead of texture or alpha..
-          this.texture,
-          this.alpha,
-        );
-      }
-    }
-
-    if (this.primitive === "line") {
-      // Limit positions and colors in order to know their drawing order...
-      let posLimitMax = this.indices.length / 2;
-      let posLimit = this.limiter % (posLimitMax + 1);
-      // let posLimit = posLimitMax - ((limiter % posLimitMax) + 1); // Reverse the order.
-
-      // Loop indices list to draw each triangle.
-      for (let i = 0; i < this.indices.length - posLimit * 2; i += 2) {
-        // Draw each line by applying the screen transform &
-        // perspective divide (with clipping).
-        //console.log( || this.color)
-        // console.log(transformedVertices[this.indices[i]].color)
-
-        drawLine3d(
-          transformedVertices[this.indices[i]],
-          transformedVertices[this.indices[i + 1]],
-          transformedVertices[this.indices[i]].color || c,
-          this.gradients,
-        );
-      }
-    }
-  }
-
-  angle(x, y, z) {
-    this.rotation[X] = x;
-    this.rotation[Y] = y;
-    this.rotation[Z] = z;
-
-    this.gpuTransformed = true;
-  }
-
-  turn({ x, y, z }) {
-    this.rotation[X] = (this.rotation[X] + (x || 0)) % 360;
-    this.rotation[Y] = (this.rotation[Y] + (y || 0)) % 360;
-    this.rotation[Z] = (this.rotation[Z] + (z || 0)) % 360;
-
-    this.gpuTransformed = true;
-  }
-}
-
-/*
-class Model {
-  positions;
-  texCoords;
-
-  constructor(positions, texCoords) {
-    this.positions = positions;
-    this.texCoords = texCoords;
-  }
-}
-*/
-
-class Vertex {
-  pos; // vec4
-  color; // vec4
-  texCoords; // vec4
-  normal; // vec3 (gpu only for now)
-
-  get x() {
-    return this.pos[X];
-  }
-
-  get y() {
-    return this.pos[Y];
-  }
-
-  get z() {
-    return this.pos[Z];
-  }
-
-  get w() {
-    return this.pos[W];
-  }
-
-  get color24bit() {
-    // 0-255
-    return this.color.map((c) => floor(c * 255));
-  }
-
-  constructor(
-    pos = [0, 0, 0, 1],
-    color, // = [...c, 1.0],
-    texCoords = [0, 0, 0, 0],
-    normal = [0, 0, 0],
-  ) {
-    this.pos = vec4.fromValues(...pos);
-    if (color) this.color = vec4.fromValues(...color);
-    this.texCoords = vec4.fromValues(...texCoords);
-    this.normal = vec3.fromValues(...normal);
-  }
-
-  // TODO: Optimize this function for large vertex counts. 22.10.13.00.14
-  transform(matrix) {
-    // Camera
-    const vert = new Vertex(
-      vec4.transformMat4(
-        vec4.create(),
-        [
-          this.pos[X] * -1, // FLIPPED
-          this.pos[Y],
-          this.pos[Z] * -1, // FLIPPED
-          this.pos[W],
-        ],
-        matrix,
-      ),
-      this.color,
-      this.texCoords,
-    );
-    // console.log(matrix, vert);
-    return vert;
-  }
-
-  transformWorld(matrix) {
-    return new Vertex(
-      vec4.transformMat4(
-        vec4.create(),
-        [
-          this.pos[X], // FLIPPED
-          this.pos[Y],
-          this.pos[Z], // FLIPPED
-          this.pos[W],
-        ],
-        matrix,
-      ),
-      this.color,
-      this.texCoords,
-    );
-  }
-
-  perspectiveDivide() {
-    return new Vertex(
-      vec4.fromValues(
-        this.pos[X] / this.pos[W],
-        this.pos[Y] / this.pos[W],
-        this.pos[Z] / this.pos[W],
-        this.pos[W],
-      ),
-      this.color || c.slice(),
-      this.texCoords,
-    );
-  }
-
-  lerp(other, lerpAmt) {
-    const pos = vec4.lerp(vec4.create(), this.pos, other.pos, lerpAmt);
-    const col = this.color
-      ? vec4.lerp(vec4.create(), this.color, other.color, lerpAmt)
-      : undefined;
-    const texCoords = vec4.lerp(
-      vec4.create(),
-      this.texCoords,
-      other.texCoords,
-      lerpAmt,
-    );
-    return new Vertex(pos, col, texCoords);
-  }
-}
-
-function initScreenSpaceTransformMatrix(halfWidth, halfHeight) {
-  const m = mat4.create();
-  mat4.translate(m, m, [halfWidth - 0.5, halfHeight - 0.5, 0]);
-  mat4.scale(m, m, [halfWidth, -halfHeight, 1]);
-  return m;
-}
-
-function isInsideViewFrustum(v4) {
-  return (
-    abs(v4[X]) <= abs(v4[W]) &&
-    abs(v4[Y]) <= abs(v4[W]) &&
-    abs(v4[Z]) <= abs(v4[W])
-  );
-}
-
-// c. Rendering Procedures
-
-class Edge {
-  #x;
-  #yStart;
-  #yEnd;
-
-  color;
-  #colorStep;
-
-  texCoordX;
-  #texCoordXStep;
-  texCoordY;
-  #texCoordYStep;
-
-  oneOverZ;
-  #oneOverZStep;
-
-  depth;
-  #depthStep;
-
-  get x() {
-    return this.#x;
-  }
-
-  get yStart() {
-    return this.#yStart;
-  }
-
-  get yEnd() {
-    return this.#yEnd;
-  }
-
-  #xStep;
-
-  constructor(gradients, minYVert, maxYVert, minYVertIndex) {
-    this.#yStart = ceil(minYVert.y);
-    this.#yEnd = ceil(maxYVert.y);
-
-    const yDist = maxYVert.y - minYVert.y;
-    const xDist = maxYVert.x - minYVert.x;
-
-    const yPrestep = this.#yStart - minYVert.y;
-
-    this.#xStep = xDist / yDist;
-
-    this.#x = minYVert.x + yPrestep * this.#xStep;
-
-    const xPrestep = this.#x - minYVert.x;
-
-    // Texture
-
-    this.texCoordX =
-      gradients.texCoordX[minYVertIndex] +
-      gradients.texCoordXXStep * xPrestep +
-      gradients.texCoordXYStep * yPrestep;
-
-    this.#texCoordXStep =
-      gradients.texCoordXYStep + gradients.texCoordXXStep * this.#xStep;
-
-    this.texCoordY =
-      gradients.texCoordY[minYVertIndex] +
-      gradients.texCoordYXStep * xPrestep +
-      gradients.texCoordYYStep * yPrestep;
-
-    this.#texCoordYStep =
-      gradients.texCoordYYStep + gradients.texCoordYXStep * this.#xStep;
-
-    this.oneOverZ =
-      gradients.oneOverZ[minYVertIndex] +
-      gradients.oneOverZXStep * xPrestep +
-      gradients.oneOverZYStep * yPrestep;
-
-    this.#oneOverZStep =
-      gradients.oneOverZYStep + gradients.oneOverZXStep * this.#xStep;
-
-    this.depth =
-      gradients.depth[minYVertIndex] +
-      gradients.depthXStep * xPrestep +
-      gradients.depthYStep * yPrestep;
-
-    this.#depthStep = gradients.depthYStep + gradients.depthXStep * this.#xStep;
-
-    // Color
-    {
-      const vec = gradients.color[minYVertIndex].slice();
-      vec4.add(
-        vec,
-        vec,
-        vec4.scale(vec4.create(), gradients.colorYStep, yPrestep),
-      );
-      vec4.add(
-        vec,
-        vec,
-        vec4.scale(vec4.create(), gradients.colorXStep, xPrestep),
-      );
-      this.color = vec;
-    }
-
-    {
-      const vec = gradients.colorYStep.slice();
-      const scaled = vec4.scale(
-        vec4.create(),
-        gradients.colorXStep,
-        this.#xStep,
-      );
-      vec4.add(vec, vec, scaled);
-      this.#colorStep = vec;
-    }
-  }
-
-  step() {
-    this.#x += this.#xStep; // add xStep
-
-    vec4.add(this.color, this.color, this.#colorStep); // add colorStep
-
-    this.texCoordX += this.#texCoordXStep;
-    this.texCoordY += this.#texCoordYStep;
-    this.oneOverZ += this.#oneOverZStep;
-    this.depth += this.#depthStep;
-
-    // this.#lighting += this.#lightingStep // TODO: Add lighting.
-  }
-}
-
-class Gradients {
-  // See also: https://github.com/BennyQBD/3DSoftwareRenderer/blob/8f196cd3d9811c47638d102e08988162afffc04e/src/Gradients.java.
-  // https://youtu.be/4sSL0kGMjMQ?t=1016
-
-  oneOverZ;
-  texCoordX;
-  texCoordY;
-  depth;
-
-  texCoordXXStep;
-  texCoordXYStep;
-  texCoordYXStep;
-  texCoordYYStep;
-
-  oneOverZXStep;
-  oneOverZYStep;
-
-  depthXStep;
-  depthYStep;
-
-  color;
-  colorYStep;
-  colorXStep;
-
-  constructor(minYVert, midYVert, maxYVert) {
-    this.color = [minYVert.color, midYVert.color, maxYVert.color];
-
-    const oneOverdX =
-      1 /
-      ((midYVert.x - maxYVert.x) * (minYVert.y - maxYVert.y) -
-        (minYVert.x - maxYVert.x) * (midYVert.y - maxYVert.y));
-
-    const oneOverdY = -oneOverdX;
-
-    // Texture
-
-    this.oneOverZ = [
-      1 / minYVert.pos[W],
-      1 / midYVert.pos[W],
-      1 / maxYVert.pos[W],
-    ];
-
-    this.texCoordX = [
-      minYVert.texCoords[X] * this.oneOverZ[0],
-      midYVert.texCoords[X] * this.oneOverZ[1],
-      maxYVert.texCoords[X] * this.oneOverZ[2],
-    ];
-
-    this.texCoordY = [
-      minYVert.texCoords[Y] * this.oneOverZ[0],
-      midYVert.texCoords[Y] * this.oneOverZ[1],
-      maxYVert.texCoords[Y] * this.oneOverZ[2],
-    ];
-
-    this.depth = [minYVert.pos[Z], midYVert.pos[Z], maxYVert.pos[Z]];
-
-    // Note that the W component is the perspective Z value;
-    // The Z component is the occlusion Z value
-    this.texCoordXXStep = Gradients.calcXStep(
-      this.texCoordX,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdX,
-    );
-
-    this.texCoordXYStep = Gradients.calcYStep(
-      this.texCoordX,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdY,
-    );
-
-    this.texCoordYXStep = Gradients.calcXStep(
-      this.texCoordY,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdX,
-    );
-
-    this.texCoordYYStep = Gradients.calcYStep(
-      this.texCoordY,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdY,
-    );
-
-    this.oneOverZXStep = Gradients.calcXStep(
-      this.oneOverZ,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdX,
-    );
-
-    this.oneOverZYStep = Gradients.calcYStep(
-      this.oneOverZ,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdY,
-    );
-
-    this.depthXStep = Gradients.calcXStep(
-      this.depth,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdX,
-    );
-
-    this.depthYStep = Gradients.calcYStep(
-      this.depth,
-      minYVert,
-      midYVert,
-      maxYVert,
-      oneOverdY,
-    );
-
-    // Color
-
-    // (c1 - c2) * (y0 - y2) - (c0 - c2) * (y1 - y2)
-    // a           b           c           d
-    {
-      const a = vec4.sub(vec4.create(), this.color[1], this.color[2]);
-      const b = minYVert.y - maxYVert.y;
-
-      const c = vec4.sub(vec4.create(), this.color[0], this.color[2]);
-      const d = midYVert.y - maxYVert.y;
-
-      const left = vec4.scale(vec4.create(), a, b);
-      const right = vec4.scale(vec4.create(), c, d);
-
-      const sub = vec4.sub(vec4.create(), left, right);
-
-      this.colorXStep = vec4.scale(vec4.create(), sub, oneOverdX);
-    }
-
-    // (c1 - c2) * (x0 - x2) - (c0 - c2) * (x1 - x2)
-    // a           b           c           d
-    {
-      const a = vec4.sub(vec4.create(), this.color[1], this.color[2]);
-      const b = minYVert.x - maxYVert.x;
-
-      const c = vec4.sub(vec4.create(), this.color[0], this.color[2]);
-      const d = midYVert.x - maxYVert.x;
-
-      const left = vec4.scale(vec4.create(), a, b);
-      const right = vec4.scale(vec4.create(), c, d);
-
-      const sub = vec4.sub(vec4.create(), left, right);
-
-      this.colorYStep = vec4.scale(vec4.create(), sub, oneOverdY);
-    }
-  }
-
-  static calcXStep(values, minYVert, midYVert, maxYVert, oneOverdX) {
-    return (
-      ((values[1] - values[2]) * (minYVert.y - maxYVert.y) -
-        (values[0] - values[2]) * (midYVert.y - maxYVert.y)) *
-      oneOverdX
-    );
-  }
-
-  static calcYStep(values, minYVert, midYVert, maxYVert, oneOverdY) {
-    return (
-      ((values[1] - values[2]) * (minYVert.x - maxYVert.x) -
-        (values[0] - values[2]) * (midYVert.x - maxYVert.x)) *
-      oneOverdY
-    );
-  }
-}
-
-// ?. Line Rendering
-
-function drawLine3d(a, b, color = c, gradients) {
-  const aInside = isInsideViewFrustum(a.pos);
-  const bInside = isInsideViewFrustum(b.pos);
-
-  if (aInside && bInside) {
-    line3d(a, b, color, gradients);
-    return;
-  }
-
-  // Don't draw anything if we are completely outside.
-  //if (!aInside && !bInside) return;
-
-  const vertices = [a, b];
-  const auxillaryList = [];
-
-  if (
-    clipPolygonAxis(vertices, auxillaryList, 0) &&
-    clipPolygonAxis(vertices, auxillaryList, 1) &&
-    clipPolygonAxis(vertices, auxillaryList, 2)
-  ) {
-    const initialVertex = vertices[0];
-    for (let i = 1; i < vertices.length - 1; i += 1) {
-      line3d(initialVertex, vertices[i], color, gradients);
-    }
-  }
-}
-
-// d. Triangle Rendering
-
-function drawTriangle(v1, v2, v3, texture, alpha) {
-  const v1Inside = isInsideViewFrustum(v1.pos);
-  const v2Inside = isInsideViewFrustum(v2.pos);
-  const v3Inside = isInsideViewFrustum(v3.pos);
-
-  if (v1Inside && v2Inside && v3Inside) {
-    fillTriangle(v1, v2, v3, texture, alpha);
-    return;
-  }
-
-  // Don't draw anyhing if we are completely outside.
-  //if (!v1Inside && !v2Inside && !v3Inside) return;
-
-  const vertices = [v1, v2, v3];
-  const auxillaryList = [];
-
-  if (
-    clipPolygonAxis(vertices, auxillaryList, 0) &&
-    clipPolygonAxis(vertices, auxillaryList, 1) &&
-    clipPolygonAxis(vertices, auxillaryList, 2)
-  ) {
-    const initialVertex = vertices[0];
-    for (let i = 1; i < vertices.length - 1; i += 1) {
-      fillTriangle(initialVertex, vertices[i], vertices[i + 1], texture, alpha);
-    }
-  }
-}
-
-function fillTriangle(minYVert, midYVert, maxYVert, texture, alpha) {
-  minYVert = minYVert.transform(screenMatrix).perspectiveDivide();
-  midYVert = midYVert.transform(screenMatrix).perspectiveDivide();
-  maxYVert = maxYVert.transform(screenMatrix).perspectiveDivide();
-
-  // Backface culling by checking if Z normal is negative.
-
-  // TODO: Add normal to vertex (for basic lighting) here?
-  //if (triangleAreaDouble(minYVert, maxYVert, midYVert) >= 0) {
-  //  return;
-  //}
-
-  if (maxYVert.y < midYVert.y) {
-    const temp = maxYVert;
-    maxYVert = midYVert;
-    midYVert = temp;
-  }
-
-  if (midYVert.y < minYVert.y) {
-    const temp = midYVert;
-    midYVert = minYVert;
-    minYVert = temp;
-  }
-
-  if (maxYVert.y < midYVert.y) {
-    const temp = maxYVert;
-    maxYVert = midYVert;
-    midYVert = temp;
-  }
-
-  const handedness = triangleAreaDouble(minYVert, maxYVert, midYVert) >= 0;
-
-  scanTriangle(minYVert, midYVert, maxYVert, handedness, texture, alpha);
-
-  // Debug / Wireframes
-  // TODO: How to accurately outline a triangle?
-  // in drawScanLine: Add border at xMin and xMax and also use j to know if we are at the bottom.
-
-  const tempColor = c.slice();
-  color(127, 127, 127);
-
-  line(minYVert.x, minYVert.y, midYVert.x, midYVert.y);
-  line(midYVert.x, midYVert.y, maxYVert.x, maxYVert.y);
-  line(minYVert.x, minYVert.y, maxYVert.x, maxYVert.y);
-
-  color(...minYVert.color);
-  plot(minYVert.x, minYVert.y);
-
-  color(...midYVert.color);
-  plot(midYVert.x, midYVert.y);
-
-  color(...maxYVert.color);
-  plot(maxYVert.x, maxYVert.y);
-
-  color(...tempColor);
-}
-
-function triangleAreaDouble(a, b, c) {
-  const x1 = b.x - a.x;
-  const y1 = b.y - a.y;
-  const x2 = c.x - a.x;
-  const y2 = c.y - a.y;
-  return x1 * y2 - x2 * y1;
-}
-
-function scanTriangle(
-  minYVert,
-  midYVert,
-  maxYVert,
-  handedness,
-  texture,
-  alpha,
-) {
-  const gradients = new Gradients(minYVert, midYVert, maxYVert);
-  const topToBottom = new Edge(gradients, minYVert, maxYVert, 0);
-  const topToMiddle = new Edge(gradients, minYVert, midYVert, 0);
-  const middleToBottom = new Edge(gradients, midYVert, maxYVert, 1);
-
-  scanEdges(gradients, topToBottom, topToMiddle, handedness, texture, alpha);
-  scanEdges(gradients, topToBottom, middleToBottom, handedness, texture, alpha);
-}
-
-function scanEdges(gradients, a, b, handedness, texture, alpha, render = true) {
-  let left = a;
-  let right = b;
-  if (handedness) {
-    let temp = left;
-    left = right;
-    right = temp;
-  }
-
-  const yStart = b.yStart;
-  const yEnd = b.yEnd;
-
-  //console.log(yStart, yEnd)
-  for (let i = yStart; i < yEnd; i += 1) {
-    if (render) {
-      drawScanLine(gradients, left, right, i, texture, alpha, render);
-    }
-    left.step();
-    right.step();
-  }
-}
-
-function drawScanLine(
-  gradients,
-  left,
-  right,
-  j,
-  texture,
-  alpha,
-  render = true,
-) {
-  const xMin = ceil(left.x);
-  const xMax = ceil(right.x);
-
-  const xPrestep = xMin - left.x;
-
-  // Texture
-  const xDist = right.x - left.x;
-  const texCoordXXStep = (right.texCoordX - left.texCoordX) / xDist;
-  const texCoordYXStep = (right.texCoordY - left.texCoordY) / xDist;
-
-  let texCoordX = left.texCoordX + texCoordXXStep * xPrestep;
-  let texCoordY = left.texCoordY + texCoordYXStep * xPrestep;
-
-  // Depth
-  const depthXStep = (right.depth - left.depth) / xDist;
-  const oneOverZXStep = (right.oneOverZ - left.oneOverZ) / xDist;
-  let oneOverZ = left.oneOverZ + oneOverZXStep * xPrestep;
-  let depth = left.depth + depthXStep * xPrestep;
-
-  // Color
-  const gradientColor = vec4.add(
-    vec4.create(),
-    left.color,
-    vec4.scale(vec4.create(), gradients.colorXStep, xPrestep),
-  );
-
-  //console.log(xMin, xMax, j)
-
-  for (let i = xMin; i < xMax; i += 1) {
-    const index = i + j * width;
-
-    //if (index < depthBuffer.length && depth < depthBuffer[index]) {
-    //if (depth < depthBuffer[index]) {
-    //  depthBuffer[index] = depth;
-
-    // TODO: Add color and fog.
-    // const stretchedDepth = 1 - (depth - 0.9) * 10;
-    // console.log(stretchedDepth);
-    // const r = Math.floor(gradientColor[X] * 255 + 0.5);
-    // const g = Math.floor(gradientColor[Y] * 255 + 0.5);
-    // const b = Math.floor(gradientColor[Z] * 255 + 0.5);
-    // color(255 * stretchedDepth, 255 * stretchedDepth, 255 * stretchedDepth);
-    // plot(i, j);
-
-    const z = 1 / oneOverZ;
-
-    if (texture) {
-      const srcX = texCoordX * z * (texture.width - 1) + 0.5;
-      const srcY = texCoordY * z * (texture.height - 1) + 0.5;
-
-      if (render) {
-        copy(i, j, srcX, srcY, texture, alpha); // TODO: Eventually remove alpha from here.
-        //plot(i, j);
-      }
-
-      texCoordX += texCoordXXStep;
-      texCoordY += texCoordYXStep;
-    } else {
-      vec4.add(gradientColor, gradientColor, gradients.colorXStep);
-      color(...gradientColor);
-      plot(i, j);
-    }
-
-    // Depth
-    oneOverZ += oneOverZXStep;
-    depth += depthXStep;
-  }
-}
-
-function clipPolygonAxis(vertices, auxillaryList, componentIndex) {
-  clipPolygonComponent(vertices, componentIndex, 1.0, auxillaryList);
-  vertices.length = 0;
-
-  if (auxillaryList.length === 0) {
-    return false;
-  }
-
-  clipPolygonComponent(auxillaryList, componentIndex, -1.0, vertices);
-  auxillaryList.length = 0;
-
-  return !(vertices.length === 0);
-}
-
-function clipPolygonComponent(
-  vertices,
-  componentIndex,
-  componentFactor,
-  result,
-) {
-  let prevVertex = vertices[vertices.length - 1];
-  let prevComponent = prevVertex.pos[componentIndex] * componentFactor;
-  let prevInside = prevComponent <= prevVertex.w;
-
-  for (let i = 0; i < vertices.length; i += 1) {
-    const curVertex = vertices[i];
-    const curComponent = curVertex.pos[componentIndex] * componentFactor;
-
-    const curInside = curComponent <= curVertex.w;
-
-    if (curInside ^ prevInside) {
-      const lerpAmount =
-        (prevVertex.w - prevComponent) /
-        (prevVertex.w - prevComponent - (curVertex.w - curComponent));
-      result.push(prevVertex.lerp(curVertex, lerpAmount));
-    }
-
-    if (curInside) result.push(curVertex);
-
-    prevVertex = curVertex;
-    prevComponent = curComponent;
-    prevInside = curInside;
-  }
-}
-
-export { Camera, Form, Dolly };
