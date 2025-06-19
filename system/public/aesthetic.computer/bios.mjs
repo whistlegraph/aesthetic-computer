@@ -2406,7 +2406,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
-    if (type === "disk-loaded") {      // Clear any active parameters once the disk has been loaded.
+    if (type === "disk-loaded") {
+      // Clear any active parameters once the disk has been loaded.
       // For kidlisp pieces, preserve the URL path with proper encoding
       if (content.text && isKidlispSource(content.text)) {
         // For kidlisp pieces, use centralized URL encoding
@@ -2560,7 +2561,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // ThreeD.clear();      // Emit a push state for the old disk if it was not the first. This is so
       // a user can use browser history to switch between disks.
       if (content.pieceCount > 0 || content.alias === true) {
-        if (content.fromHistory === false /*&& window.origin !== "null"*/) {          // Handle URL encoding for different piece types
+        if (content.fromHistory === false /*&& window.origin !== "null"*/) {
+          // Handle URL encoding for different piece types
           let urlPath;
           if (content.text === "/prompt") {
             urlPath = "/";
@@ -2577,15 +2579,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             document.title,
             urlPath, // Replace "prompt" with "/".
           );
-
-          // console.log("🧩 Updating piece:", content);
-
           window.parent?.postMessage(
             {
               type: "url:updated",
               slug: content.text?.startsWith("/")
                 ? content.text.slice(1)
-                : content.text,
+                : isKidlispSource(content.text)
+                  ? encodeKidlispForUrl(content.text)
+                  : content.text,
             },
             "*",
           );
@@ -2597,7 +2598,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           content.alias === false //&&
           // window.origin !== "null"
         ) {
-          try {            // Handle URL encoding for different piece types
+          try {
+            // Handle URL encoding for different piece types
             let urlPath;
             if (content.text === "/prompt") {
               urlPath = "/";
