@@ -873,28 +873,34 @@ function lineh(x0, x1, y) {
 function line() {
   let x0, y0, x1, y1;
   if (arguments.length === 1) {
-    x0 = arguments[0].x0; // Assume an object { x0, y0, x1, y1 }
-    y0 = arguments[0].y0;
-    x1 = arguments[0].x1;
-    y1 = arguments[0].y1;
+    // Safely access properties on the first argument
+    const arg0 = arguments[0];
+    if (arg0 && typeof arg0 === 'object') {
+      x0 = arg0.x0; // Assume an object { x0, y0, x1, y1 }
+      y0 = arg0.y0;
+      x1 = arg0.x1;
+      y1 = arg0.y1;
+    }
   } else if (arguments.length === 4) {
     x0 = arguments[0]; // Set all `undefined` or `null` values to 0.
     y0 = arguments[1];
     x1 = arguments[2];
     y1 = arguments[3];
   } else if (arguments.length === 2) {
-    if (Array.isArray(arguments[0])) {
+    const arg0 = arguments[0];
+    const arg1 = arguments[1];
+    if (Array.isArray(arg0) && Array.isArray(arg1)) {
       // assume [x, y], [x, y]
-      x0 = arguments[0][0];
-      y0 = arguments[0][1];
-      x1 = arguments[1][0];
-      y1 = arguments[1][1];
-    } else {
+      x0 = arg0[0];
+      y0 = arg0[1];
+      x1 = arg1[0];
+      y1 = arg1[1];
+    } else if (arg0 && typeof arg0 === 'object' && arg1 && typeof arg1 === 'object') {
       // assume {x, y}, {x, y}
-      x0 = arguments[0].x;
-      y0 = arguments[0].y;
-      x1 = arguments[1].x;
-      y1 = arguments[1].y;
+      x0 = arg0.x;
+      y0 = arg0.y;
+      x1 = arg1.x;
+      y1 = arg1.y;
     }
   } else {
     // if (debug) {

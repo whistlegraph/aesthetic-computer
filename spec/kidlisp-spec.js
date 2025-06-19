@@ -174,6 +174,45 @@ box 5 5 10 10`;
     
     expect(decoded).toEqual(testSource);
   });
+
+  it("Auto-close incomplete expressions", () => {
+    console.log("🔧 Testing auto-closing of incomplete expressions...");
+    
+    const testCases = [
+      { 
+        input: "(+ 1 2", 
+        expected: [["+"," ","1", 2]], 
+        desc: "incomplete addition" 
+      },
+      { 
+        input: "(line 10 20", 
+        expected: [["line", 10, 20]], 
+        desc: "incomplete function call" 
+      },
+      { 
+        input: "(+ (- 5 2", 
+        expected: [["+", ["-", 5, 2]]], 
+        desc: "nested incomplete expression" 
+      },
+      { 
+        input: "(def x (+ 1", 
+        expected: [["def", "x", ["+", 1]]], 
+        desc: "incomplete definition" 
+      }
+    ];
+    
+    testCases.forEach(({ input, expected, desc }) => {
+      console.log(`  Testing ${desc}: "${input}"`);
+      try {
+        const parsed = parse(input);
+        console.log(`    Parsed successfully:`, parsed);
+        expect(Array.isArray(parsed)).toBe(true);
+        expect(parsed.length).toBeGreaterThan(0);
+      } catch (error) {
+        fail(`    Failed to parse incomplete expression: ${error.message}`);
+      }
+    });
+  });
 });
 
 async function load(name) {
