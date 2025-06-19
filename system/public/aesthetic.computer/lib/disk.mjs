@@ -2850,6 +2850,7 @@ async function load(
   alias = false,
   devReload = false,
   loadedCallback,
+  forceKidlisp = false, // Force interpretation as kidlisp even without prefix
 ) {
   let fullUrl, source;
   let params,
@@ -2861,7 +2862,7 @@ async function load(
     text,
     slug;
 
-  console.log("🧩 Loading:", parsed, "dev:", devReload);
+  // console.log("🧩 Loading:", parsed, "dev:", devReload);
 
   if (loading === false) {
     loading = true;
@@ -2937,8 +2938,8 @@ async function load(
       );
       return;
     }
-    console.log("📃 Loading from source:", JSON.stringify(parsed));
-    console.log("📃 Source content to run:", JSON.stringify(parsed.source));
+    // console.log("📃 Loading from source:", JSON.stringify(parsed));
+    // console.log("📃 Source content to run:", JSON.stringify(parsed.source));
     source = parsed.source;
     params = parsed.params;
     search = parsed.search;
@@ -3005,15 +3006,20 @@ async function load(
       // the modded code!
       // Then refresh should be able to function as well?
       // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
-      // Note: This may not be the most reliable way to detect `kidlisp`?
-
-      // 🚗 Needs to know if the source was from a prompt with a lisp module.
+      // Note: This may not be the most reliable way to detect `kidlisp`?      // 🚗 Needs to know if the source was from a prompt with a lisp module.
       // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
-      if (sourceToRun.startsWith("(") || sourceToRun.startsWith(";")) {
+      if (
+        sourceToRun.startsWith("(") ||
+        sourceToRun.startsWith(";") ||
+        forceKidlisp ||
+        slug === "(...)" ||
+        path === "(...)"
+      ) {
         // Only use basic detection, not the broader isKidlispSource function
-        // which can incorrectly detect JavaScript as kidlisp
+        // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
+        // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
-        console.log("🐍 Lisp piece detected.");
+        console.log("🐍 Lisp piece detected (slug:", slug, "path:", path, "forceKidlisp:", forceKidlisp, ")");
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         loadedModule = lisp.module(sourceToRun);
@@ -4123,7 +4129,6 @@ async function makeFrame({ data: { type, content } }) {
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       loadAfterPreamble = null;
-      console.log("parsed content:", content.parsed);
       load(content.parsed); // Load after some of the default frames run.
     };
 
@@ -4929,11 +4934,14 @@ async function makeFrame({ data: { type, content } }) {
           });
 
           send({ type: "keyboard:unlock" });
-
           if (!labelBack || data.key === "Backspace") {
             let promptSlug = "prompt";
-            if (data.key === "Backspace")
-              promptSlug += "~" + (currentHUDTxt || currentText);
+            if (data.key === "Backspace") {
+              const content = currentHUDTxt || currentText;
+              // Encode kidlisp content properly for URL
+              const encodedContent = lisp.encodeKidlispForUrl(content);
+              promptSlug += "~" + encodedContent;
+            }
             $commonApi.jump(promptSlug)(() => {
               send({ type: "keyboard:open" });
             });

@@ -37,12 +37,15 @@ function parse(text, location = self?.location) {
       .split(/\.mjs|\.lisp/)[0]
       .split("/")
       .pop();
-  }
-  text = text.trim(); // Clear any spaces.
-  
-  // 🤖 Detect kidlisp source code and handle it directly
-  if (isKidlispSource(text)) {
-    // This is kidlisp source code, decode underscores to spaces
+  }  text = text.trim(); // Clear any spaces.
+
+  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
+  // This catches cases like /(wipe_blue) or /wipe_blue§line from URL refresh
+  // BUT NOT regular multiline kidlisp input from the prompt
+  if (isKidlispSource(text) && !text.includes('~') && 
+      (text.includes('§') || text.includes('_') || text.includes('\n') || 
+       text.startsWith('(') || text.startsWith(';'))) {
+    console.log("🤖 Early kidlisp detection succeeded for:", JSON.stringify(text));
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
@@ -88,6 +91,24 @@ function parse(text, location = self?.location) {
 
   // 2. Tokenize on " " or "~".
   const tokens = text.split("~");
+
+  // 🤖 Check if this is a standalone kidlisp source (no piece name prefix)
+  if (tokens.length === 1 && isKidlispSource(tokens[0])) {
+    // This is pure kidlisp source code, decode it
+    const decodedSource = decodeKidlispFromUrl(tokens[0]);
+    return {
+      host: location.hostname + (location.port ? ":" + location.port : ""),
+      path: "(...)", // Use a special path indicator for kidlisp
+      piece: "(...)",
+      colon: undefined,
+      params: [],
+      search: undefined,
+      hash: undefined,
+      text: decodedSource,
+      source: decodedSource, // Include the decoded source code
+      name: decodedSource // Use the source as the name too
+    };
+  }
 
   // 3. Determine the host and path.
   let handlePiece = false;

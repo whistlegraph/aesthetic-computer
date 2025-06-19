@@ -130,6 +130,23 @@ function tokenize(input) {
       tokens.push(token);
     }
   }
+  
+  // Auto-close incomplete expressions by counting parentheses balance
+  let parenBalance = 0;
+  for (const token of tokens) {
+    if (token === "(") {
+      parenBalance++;
+    } else if (token === ")") {
+      parenBalance--;
+    }
+  }
+  
+  // Add closing parentheses for any unclosed expressions
+  while (parenBalance > 0) {
+    tokens.push(")");
+    parenBalance--;
+  }
+  
   if (VERBOSE) console.log("🪙 Tokens:", tokens);
   return tokens;
 }
@@ -156,7 +173,9 @@ function readExpression(tokens) {
       list.push(readExpression(tokens));
     }
     if (tokens.length === 0) {
-      throw new Error("Missing ')'");
+      // Auto-closing should have handled this, but just in case
+      console.warn("🔧 Auto-closing: Missing ')' was handled by tokenizer");
+      return list;
     }
     tokens.shift(); // Remove the ')'
     return list;
@@ -220,7 +239,7 @@ class KidLisp {
   module(source) {
     const parsed = this.parse(source);
     this.ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
-    /*if (VERBOSE)*/ console.log("🐍 Snake:", parsed);
+    /*if (VERBOSE)*/ // console.log("🐍 Snake:", parsed);
 
     // 🧩 Piece API
     return {
@@ -895,17 +914,49 @@ function evaluate(parsed, api = {}) {
 
 // URL encoding/decoding utilities for kidlisp pieces
 function isKidlispSource(text) {
-  console.log("🔍 isKidlispSource checking:", JSON.stringify(text));
-  
-  if (!text) {
-    console.log("🔍 isKidlispSource result: false (empty text)");
-    return false;
-  }
+  if (!text) return false;
   
   // Traditional kidlisp indicators
   if (text.startsWith("(") || text.startsWith(";")) {
-    console.log("🔍 isKidlispSource result: true (starts with ( or ;)");
     return true;
+  }
+  
+  // Check for encoded kidlisp (contains § or _ suggesting it was URL encoded)
+  if (text.includes('§')) {
+    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
+    // Check decoded version without recursion
+    if (decoded.startsWith("(") || decoded.startsWith(";")) {
+      return true;
+    }
+    if (decoded.includes('\n')) {
+      const lines = decoded.split('\n');
+      const hasKidlispLines = lines.some(line => {
+        const trimmed = line.trim();
+        return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
+      });
+      return hasKidlispLines;
+    }
+  }
+  
+  if (text.includes('_') && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
+    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
+    // Check decoded version without recursion
+    if (decoded.startsWith("(") || decoded.startsWith(";")) {
+      return true;
+    }
+    if (decoded.includes('\n')) {
+      const lines = decoded.split('\n');
+      const hasKidlispLines = lines.some(line => {
+        const trimmed = line.trim();
+        return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
+      });
+      return hasKidlispLines;
+    }
+    // Check if decoded looks like kidlisp function calls
+    const trimmed = decoded.trim();
+    if (/^[a-zA-Z_]\w*(\s|$)/.test(trimmed)) {
+      return true;
+    }
   }
   
   // Check if it contains newlines and looks like kidlisp (has function calls)
@@ -916,25 +967,20 @@ function isKidlispSource(text) {
       const trimmed = line.trim();
       return trimmed && (trimmed.startsWith('(') || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed));
     });
-    console.log("🔍 isKidlispSource result:", hasKidlispLines, "(multiline check)");
     return hasKidlispLines;
   }
   
-  console.log("🔍 isKidlispSource result: false (no indicators found)");
   return false;
 }
 
 function encodeKidlispForUrl(source) {
   const isKidlisp = isKidlispSource(source);
-  console.log("🔗 encodeKidlispForUrl - source detected as kidlisp:", isKidlisp);
   
   if (!isKidlisp) {
-    console.log("🔗 encodeKidlispForUrl result: no encoding (not kidlisp)");
     return source;
   }
   
   const encoded = source.replace(/ /g, "_").replace(/\n/g, "§");
-  console.log("🔗 encodeKidlispForUrl result:", JSON.stringify(encoded));
   return encoded;
 }
 

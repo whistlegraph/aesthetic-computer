@@ -1106,7 +1106,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (sfx[soundData] instanceof ArrayBuffer) return;
 
       if (!sfx[soundData]) {
-        console.log("🔉 No buffer found for:", soundData);
+        // console.log("🔉 No buffer found for:", soundData);
         return;
       }
 
