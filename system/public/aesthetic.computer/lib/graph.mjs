@@ -2256,7 +2256,125 @@ function spin(angle = 0) {
       pixels[destIndex] = tempPixels[srcIndex];
       pixels[destIndex + 1] = tempPixels[srcIndex + 1];
       pixels[destIndex + 2] = tempPixels[srcIndex + 2];
-      pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+      pixels[destIndex + 3] = tempPixels[srcIndex + 3];    }
+  }
+}
+
+// Zoom the entire pixel buffer using integer / nearest neighbor scaling
+function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
+  if (level === 0) return; // No change needed
+  
+  // Create a copy of the current pixel buffer
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  // Clear the buffer
+  pixels.fill(0);
+  
+  if (level >= 1) {
+    // ZOOM IN: Each pixel becomes a bigger block
+    const scale = Math.floor(level + 1); // zoom(1) = 2x2 blocks, zoom(2) = 3x3 blocks
+    
+    // Calculate offset to center the zoomed image based on anchor
+    const offsetX = Math.floor((width - width * scale) * anchorX);
+    const offsetY = Math.floor((height - height * scale) * anchorY);
+    
+    for (let srcY = 0; srcY < height; srcY++) {
+      for (let srcX = 0; srcX < width; srcX++) {
+        const srcIndex = (srcY * width + srcX) * 4;
+        
+        // Only process pixels with alpha > 0 (non-transparent)
+        if (tempPixels[srcIndex + 3] === 0) continue;
+        
+        // Draw a scale x scale block for this pixel
+        for (let blockY = 0; blockY < scale; blockY++) {
+          for (let blockX = 0; blockX < scale; blockX++) {
+            const destX = srcX * scale + blockX + offsetX;
+            const destY = srcY * scale + blockY + offsetY;
+            
+            // Check if the destination is within screen bounds
+            if (destX >= 0 && destX < width && destY >= 0 && destY < height) {
+              const destIndex = (destY * width + destX) * 4;
+              
+              // Only copy if we have valid indices and source has alpha
+              if (destIndex >= 0 && destIndex + 3 < pixels.length &&
+                  srcIndex >= 0 && srcIndex + 3 < tempPixels.length) {
+                pixels[destIndex] = tempPixels[srcIndex];
+                pixels[destIndex + 1] = tempPixels[srcIndex + 1];
+                pixels[destIndex + 2] = tempPixels[srcIndex + 2];
+                pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+              }
+            }
+          }
+        }
+      }
+    }  } else if (level > 0) {
+    // FRACTIONAL ZOOM (0 < level < 1): Sample at intervals to stretch the image
+    const invLevel = 1 / level; // zoom(0.5) = 2, zoom(0.25) = 4
+    
+    // Calculate offset to center the stretched image based on anchor
+    const offsetX = Math.floor((width - width / invLevel) * anchorX);
+    const offsetY = Math.floor((height - height / invLevel) * anchorY);
+    
+    for (let destY = 0; destY < height; destY++) {
+      for (let destX = 0; destX < width; destX++) {
+        // Calculate source position by sampling at intervals
+        const srcX = Math.floor((destX - offsetX) * invLevel);
+        const srcY = Math.floor((destY - offsetY) * invLevel);
+        
+        // Check if source position is valid
+        if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+          const srcIndex = (srcY * width + srcX) * 4;
+          
+          // Only process pixels with alpha > 0 (non-transparent)
+          if (srcIndex >= 0 && srcIndex + 3 < tempPixels.length && 
+              tempPixels[srcIndex + 3] > 0) {
+            const destIndex = (destY * width + destX) * 4;
+            
+            if (destIndex >= 0 && destIndex + 3 < pixels.length) {
+              pixels[destIndex] = tempPixels[srcIndex];
+              pixels[destIndex + 1] = tempPixels[srcIndex + 1];
+              pixels[destIndex + 2] = tempPixels[srcIndex + 2];
+              pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+            }
+          }
+        }
+      }
+    }
+  } else {
+    // ZOOM OUT: Sample every nth pixel, centered on anchor
+    const step = Math.abs(level) + 1; // zoom(-1) = every 2nd pixel
+    
+    // Calculate offset to center the shrunken image based on anchor
+    const resultWidth = Math.floor(width / step);
+    const resultHeight = Math.floor(height / step);
+    const offsetX = Math.floor((width - resultWidth) * anchorX);
+    const offsetY = Math.floor((height - resultHeight) * anchorY);
+    
+    for (let srcY = 0; srcY < height; srcY += step) {
+      for (let srcX = 0; srcX < width; srcX += step) {
+        const srcIndex = (srcY * width + srcX) * 4;
+        
+        // Only process pixels with alpha > 0 (non-transparent)
+        if (srcIndex < 0 || srcIndex + 3 >= tempPixels.length || 
+            tempPixels[srcIndex + 3] === 0) continue;
+        
+        // Place pixel at reduced position with offset
+        const destX = Math.floor(srcX / step) + offsetX;
+        const destY = Math.floor(srcY / step) + offsetY;
+        
+        // Check bounds
+        if (destX >= 0 && destX < width && destY >= 0 && destY < height) {
+          const destIndex = (destY * width + destX) * 4;
+          
+          // Only copy if we have valid indices
+          if (destIndex >= 0 && destIndex + 3 < pixels.length) {
+            pixels[destIndex] = tempPixels[srcIndex];
+            pixels[destIndex + 1] = tempPixels[srcIndex + 1];
+            pixels[destIndex + 2] = tempPixels[srcIndex + 2];
+            pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+          }
+        }
+      }
     }
   }
 }
@@ -2293,10 +2411,10 @@ export {
   noise16DIGITPAIN,
   noise16Aesthetic,
   noise16Sotce,  noiseTinted,
-  printLine,
-  blendMode,
+  printLine,  blendMode,
   shift,
   spin,
+  zoom,
 };
 
 // 3. 3D Drawing (Kinda mixed with some 2D)
