@@ -3003,10 +3003,12 @@ async function load(
       // One should be able to drag a piece in, then be able to load the piece
       // go back to the prompt, and return to it and it should still load
       // the modded code!
-      // Then refresh should be able to function as well?      // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
+      // Then refresh should be able to function as well?
+      // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
       // Note: This may not be the most reliable way to detect `kidlisp`?
 
-      // 🚗 TODO: Needs to know if the source was from a prompt with a lisp module.      console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
+      // 🚗 Needs to know if the source was from a prompt with a lisp module.
+      // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
       if (sourceToRun.startsWith("(") || sourceToRun.startsWith(";")) {
         // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp
@@ -5669,7 +5671,7 @@ async function makeFrame({ data: { type, content } }) {
             },
             push: (btn) => {
               const shareWidth = tf.blockWidth * "share ".length;
-              if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
+              if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
                 btn.actions.cancel?.();
                 return;
               }
@@ -5730,6 +5732,8 @@ async function makeFrame({ data: { type, content } }) {
 
               const shareWidth = tf.blockWidth * "share ".length;
 
+              console.log("scrub:", currentHUDScrub, shareWidth);
+
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
                   tone: 1800,
@@ -5745,7 +5749,7 @@ async function makeFrame({ data: { type, content } }) {
                   decay: 0.5,
                   volume: 0.1,
                 });
-                $api.jump("share " + currentHUDTxt);
+                $api.jump("share " + lisp.encodeKidlispForUrl(currentHUDTxt));
                 return;
               }
 
