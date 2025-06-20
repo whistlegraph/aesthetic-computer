@@ -641,11 +641,9 @@ class KidLisp {
         api.unmask();
       },
       steal: (api, args = []) => {
-        console.log("🧠 kidlisp steal called with args:", args);
         api.steal(...args);
       },
       putback: (api, args = []) => {
-        console.log("🧠 kidlisp putback called with args:", args);
         api.putback(...args);
       },
       copy: (api, args = []) => {
