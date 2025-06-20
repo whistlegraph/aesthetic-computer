@@ -1,35 +1,35 @@
-; 🐢 Tap test with proper variable updating
+; 🐢 Test file
+
+; wipe blue
+ink red
+(line 10 10 100 100)
+; page ; 'page' should make a new 'painting' context / pixel buffer so the subsequent
+       ; 'wipe' doesn't clear
 
 ; Define variables once
-(def tapCount 0)
-(def spinDirection 1)
-(def autoFlipCount 0)
-
-; Register tap handler using 'now' to update variables
-(tap 
-  (now tapCount (+ tapCount 1))
-  (now spinDirection (* spinDirection -1)))
-
-; Use a light background so we can see dark text
-; (wipe "lightblue")
-
-; Show debugging info
-; Add spinning box that changes direction on tap
-; (line)
-(ink rainbow 64)
-(pan 1 (choose 4 8 -4 -8))
-(0.03s (box 48 48 (- width 96) (- height 96)))
-(unpan)
-; (1s (unpan))
-; (scroll 0 1)
-;(unpan)
-
-; Test if 5s timer works by flipping every 5 seconds (simple version)
+; (def tapCount 0)
+; (def spinDirection 1)
+; (def autoFlipCount 0)
+; ; Register tap handler using 'now' to update variables
+; (tap 
+;   (now tapCount (+ tapCount 1))
+;   (now spinDirection (* spinDirection -1)))
+; ; Use a light background so we can see dark text
+; ; (wipe "lightblue")
+; ; Show debugging info
+; ; Add spinning box that changes direction on tap
+; ; (line)
+; (ink (choose white white white white gray black) 128)
+; (0.03s (box 24 48 32 (- height 96)))
+; (scroll (choose 1 -5 15 -1 0 0 0 0 0 0) 0)
+; (unpan)
+; (unpan)
+; ; (line) (line)
+; ; Test if 5s timer works by flipping every 5 seconds (simple version)
 ; (0.5s (now spinDirection (* spinDirection -1)))
-(zoom 1.01)
-
-; Apply the spin effect
-(spin (* 1 spinDirection))
+;  (zoom 1.005)
+; ; Apply the spin effect
+; (spin (* 1 spinDirection) 48 height/2)
 
 ; (scroll 100)
 ; (spin -frame)
