@@ -2515,7 +2515,11 @@ const $paintApiUnwrapped = {
   pan: graph.pan,
   unpan: graph.unpan,
   savepan: graph.savepan,
-  loadpan: graph.loadpan,  mask: graph.mask,  unmask: graph.unmask,  skip: graph.skip,  shift: graph.shift,
+  loadpan: graph.loadpan,
+  mask: graph.mask,
+  unmask: graph.unmask,
+  skip: graph.skip,
+  scroll: graph.scroll,
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
@@ -3742,9 +3746,7 @@ async function load(
         if (chatEnabled) chat.boot($);
       };
 
-      sim = module.sim || defaults.sim;
-      paint = ($) => {
-        if (module.paint) {
+      sim = module.sim || defaults.sim;      paint = ($) => {        if (module.paint) {
           const painted = module.paint($);
           $.system.nopaint.needsPresent = true;
 
@@ -3756,8 +3758,7 @@ async function load(
       };
       beat = module.beat || defaults.beat;
       brush = module.brush;
-      filter = module.filter;
-      act = ($) => {
+      filter = module.filter;      act = ($) => {
         nopaint_act($); // Inherit base functionality.
         if (module.act) {
           return module.act($);
@@ -6127,9 +6128,11 @@ async function makeFrame({ data: { type, content } }) {
         previewMode === false &&
         iconMode === false &&
         (noPaint === false || scream || fairies.length > 0) &&
-        booted
-      ) {
+        booted      ) {
         let paintOut;
+
+        // Restore kidlisp's accumulated pan state from previous frame
+        $api.loadpan();
 
         try {
           // 📓 Bake any painting from the nopaint system before anything else.
@@ -6175,10 +6178,13 @@ async function makeFrame({ data: { type, content } }) {
             } else if (np.is("painting") || np.needsPresent) {
               np.present($api); // No Paint: prepaint
             }
-          }
-
-          // All: Paint
+          }          // All: Paint
           paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+          
+          // Save kidlisp's accumulated pan state for next frame
+          $api.savepan();
+          // Reset pan for system UI rendering
+          $api.unpan();
         } catch (e) {
           console.warn("🎨 Paint failure...", e);
         }
@@ -6325,9 +6331,10 @@ async function makeFrame({ data: { type, content } }) {
         );
 
         const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
-        if (piece === "video") w = screen.width;
-
-        label = $api.painting(w, h, ($) => {
+        if (piece === "video") w = screen.width;        label = $api.painting(w, h, ($) => {
+          // Ensure label renders with clean pan state
+          $.unpan();
+          
           let c;
           if (currentHUDTextColor) {
             c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);

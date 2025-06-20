@@ -2319,8 +2319,8 @@ function noiseTinted(tint, amount, saturation) {
   }
 }
 
-// Shift the entire pixel buffer by x and/or y pixels with wrapping
-function shift(dx = 0, dy = 0) {
+// Scroll the entire pixel buffer by x and/or y pixels with wrapping
+function scroll(dx = 0, dy = 0) {
   if (dx === 0 && dy === 0) return; // No change needed
   
   // Determine bounds - use mask if active, otherwise full screen
@@ -2409,72 +2409,118 @@ function shift(dx = 0, dy = 0) {
   }
 }
 
-// Rotate the pixel buffer by an angle (in degrees) with fine tiling - raw pixel style
-// If a mask is active, only rotates within the masked area
-function spin(angle = 0) {
-  if (angle === 0) return; // No change needed
+// Accumulated fractional steps for smooth fractional spinning
+let spinAccumulator = 0;
+
+// Rotates pixels in concentric rings around the center point
+// steps: positive for clockwise, negative for counterclockwise
+// Each ring rotates by exactly 'steps' pixels, preserving all data
+// Supports fractional steps by accumulating them over time
+function spin(steps = 0) {
+  if (steps === 0) return;
   
-  // Convert angle to radians
-  const rad = (angle * PI) / 180;
+  // Handle fractional steps by accumulating them
+  spinAccumulator += steps;
+  const integerSteps = floor(spinAccumulator);
+  spinAccumulator -= integerSteps; // Keep the fractional remainder
   
-  // Rotation matrix
-  const cosA = Math.cos(rad);
-  const sinA = Math.sin(rad);
-  
-  // Create a copy of the current pixel buffer
-  const tempPixels = new Uint8ClampedArray(pixels);
+  if (integerSteps === 0) return; // No integer steps to process yet
   
   // Determine the area to process (mask or full screen)
   let minX = 0, minY = 0, maxX = width, maxY = height;
-  let centerX = width * 0.5;
-  let centerY = height * 0.5;
-  
   if (activeMask) {
     minX = activeMask.x;
     minY = activeMask.y;
     maxX = activeMask.x + activeMask.width;
     maxY = activeMask.y + activeMask.height;
-    // Use center of masked area for rotation
-    centerX = activeMask.x + activeMask.width * 0.5;
-    centerY = activeMask.y + activeMask.height * 0.5;
   }
   
-  // Texture-mapped quad with nearest neighbor filtering
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+  
+  // Find center of the working area
+  const centerX = minX + floor(workingWidth / 2);
+  const centerY = minY + floor(workingHeight / 2);
+  
+  // Calculate maximum ring radius to reach the furthest corner
+  const maxRadius = floor(sqrt(
+    max(
+      (centerX - minX) * (centerX - minX) + (centerY - minY) * (centerY - minY),
+      (maxX - 1 - centerX) * (maxX - 1 - centerX) + (centerY - minY) * (centerY - minY),
+      (centerX - minX) * (centerX - minX) + (maxY - 1 - centerY) * (maxY - 1 - centerY),
+      (maxX - 1 - centerX) * (maxX - 1 - centerX) + (maxY - 1 - centerY) * (maxY - 1 - centerY)
+    )
+  )) + 1;
+  
+  if (maxRadius < 1) return;
+  
+  // Create a copy of the pixels to read from
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  // Group pixels by radius in a single pass - much faster!
+  const ringsByRadius = new Array(maxRadius + 1);
+  for (let i = 0; i <= maxRadius; i++) {
+    ringsByRadius[i] = [];
+  }
+  
+  // Single pass to collect all pixels and group by radius
   for (let y = minY; y < maxY; y++) {
+    const dy = y - centerY;
+    const dy2 = dy * dy; // Cache dy squared
+    
     for (let x = minX; x < maxX; x++) {
-      // Transform destination coordinate to source coordinate
       const dx = x - centerX;
-      const dy = y - centerY;
+      const distanceSquared = dx * dx + dy2;
+      const radius = floor(sqrt(distanceSquared) + 0.5);
       
-      // Apply inverse rotation
-      const srcX = dx * cosA + dy * sinA + centerX;
-      const srcY = -dx * sinA + dy * cosA + centerY;
-      
-      // Nearest neighbor sampling
-      const iSrcX = Math.round(srcX);
-      const iSrcY = Math.round(srcY);
-      
-      // For masked areas, wrap within the mask bounds
-      let wrappedX, wrappedY;
-      if (activeMask) {
-        const maskWidth = activeMask.width;
-        const maskHeight = activeMask.height;
-        wrappedX = ((iSrcX - activeMask.x) % maskWidth + maskWidth) % maskWidth + activeMask.x;
-        wrappedY = ((iSrcY - activeMask.y) % maskHeight + maskHeight) % maskHeight + activeMask.y;
-      } else {
-        // Wrap edges for full screen
-        wrappedX = ((iSrcX % width) + width) % width;
-        wrappedY = ((iSrcY % height) + height) % height;
+      if (radius >= 1 && radius <= maxRadius) {
+        const idx = (y * width + x) * 4;
+        const pixel = [
+          tempPixels[idx],
+          tempPixels[idx + 1], 
+          tempPixels[idx + 2],
+          tempPixels[idx + 3]
+        ];
+        
+        // Pre-calculate angle for sorting
+        const angle = Math.atan2(dy, dx);
+        const normalizedAngle = angle < 0 ? angle + 2 * PI : angle;
+        
+        ringsByRadius[radius].push({
+          x, y, pixel, angle: normalizedAngle
+        });
       }
+    }
+  }
+  
+  // Process each ring that has pixels
+  for (let radius = 1; radius <= maxRadius; radius++) {
+    const ringData = ringsByRadius[radius];
+    if (ringData.length === 0) continue;
+    
+    // Sort once by pre-calculated angles - much faster than calculating during sort
+    ringData.sort((a, b) => a.angle - b.angle);
+    
+    const ringSize = ringData.length;
+    const effectiveSteps = ((integerSteps % ringSize) + ringSize) % ringSize;
+    
+    if (effectiveSteps === 0) continue; // No rotation needed
+    
+    // Direct pixel copying without intermediate arrays
+    for (let i = 0; i < ringSize; i++) {
+      const sourceIndex = i;
+      const targetIndex = (i + effectiveSteps) % ringSize;
       
-      // Copy pixel
-      const destIndex = (y * width + x) * 4;
-      const srcIndex = (wrappedY * width + wrappedX) * 4;
+      const sourceData = ringData[sourceIndex];
+      const targetPos = ringData[targetIndex];
       
-      pixels[destIndex] = tempPixels[srcIndex];
-      pixels[destIndex + 1] = tempPixels[srcIndex + 1];
-      pixels[destIndex + 2] = tempPixels[srcIndex + 2];
-      pixels[destIndex + 3] = tempPixels[srcIndex + 3];
+      const idx = (targetPos.y * width + targetPos.x) * 4;
+      const sourcePixel = sourceData.pixel;
+      
+      pixels[idx] = sourcePixel[0];
+      pixels[idx + 1] = sourcePixel[1];
+      pixels[idx + 2] = sourcePixel[2];
+      pixels[idx + 3] = sourcePixel[3];
     }
   }
 }
@@ -2781,10 +2827,8 @@ export {
   noise16DIGITPAIN,
   noise16Aesthetic,
   noise16Sotce,
-  noiseTinted,
-  printLine,
-  blendMode,
-  shift,
+  noiseTinted,  printLine,  blendMode,
+  scroll,
   spin,
   zoom,
   sort,
