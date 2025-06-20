@@ -458,7 +458,7 @@ class KidLisp {
       if: (api, args, env) => {
         const evaled = this.evaluate(args[0], api, env);
         const signal = evaled ? "🟢" : "🔴";
-        // console.log(`${signal} If:`, args[0], "evaluated as:", evaled, "with env:", env);
+        console.log(`${signal} If:`, args[0], "evaluated as:", evaled, "with env:", env);
         if (evaled) this.evaluate(args.slice(1), api, env);
         // this.evaluate([evaled ? args[1] : args[2]], api, env);
       },
@@ -495,16 +495,24 @@ class KidLisp {
       },
       // 🧠 Logical Operators
       ">": (api, args, env) => {
+        if (args.length < 2) {
+          console.error("❗ Invalid `>`. Wrong number of arguments.");
+          return false;
+        }
         const left = this.evaluate(args[0], api, env),
           right = this.evaluate(args[1], api, env);
         if (left > right) {
           // console.log("✅", left, "is > than", right, args.slice(2));
-          return this.evaluate(args.slice(1), api, env);
+          return this.evaluate(args.slice(2), api, env);
         } else {
           return false;
         }
       },
       "<": (api, args, env) => {
+        if (args.length < 2) {
+          console.error("❗ Invalid `<`. Wrong number of arguments.");
+          return false;
+        }
         const left = this.evaluate(args[0], api, env),
           right = this.evaluate(args[1], api, env);
         if (left < right) {
@@ -515,10 +523,14 @@ class KidLisp {
         }
       },
       "=": (api, args, env) => {
+        if (args.length < 2) {
+          console.error("❗ Invalid `=`. Wrong number of arguments.");
+          return false;
+        }
         const left = this.evaluate(args[0], api, env),
           right = this.evaluate(args[1], api, env);
         if (left === right) {
-          // console.log("✅", left, "is equal to", right, args.slice(2));
+          console.log("✅", left, "is equal to", right, args.slice(2));
           return this.evaluate(args.slice(2), api, env);
         } else {
           return false;
