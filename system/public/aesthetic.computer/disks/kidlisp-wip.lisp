@@ -43,6 +43,7 @@ scroll width/5.67666*0.828
 
 ; ✏️ Notes
 ; Add `slide` command to auto switch between setctions.
+; Sonify these! 🚗 Using the work from seashell
 ; Switcher uses def flag (clock/5000%3) to cycle every 5 seconds:
 ; - flag < 1: Stripes (0-4.999s)
 ; - flag = 1: Train (5-9.999s) 
