@@ -721,15 +721,12 @@ function blur(radius = 1) {
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
-  console.log("🎯 paste called with:", from, destX, destY, scale, blit);
   if (!from) {
-    console.log("🎯 paste: no 'from' buffer provided");
     return;
   }
 
   destX += panTranslation.x;
   destY += panTranslation.y;
-  console.log("🎯 paste: after pan translation:", destX, destY);
 
   if (scale !== 1) {
     let angle = 0;
@@ -2574,15 +2571,9 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  
   // Use provided anchor point or default to center of working area
   const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
   const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
-  
-
-  // Find center of the working area
-  const centerX = minX + floor(workingWidth / 2);
-  const centerY = minY + floor(workingHeight / 2);
 
   // Calculate maximum ring radius to reach the furthest corner
   const maxRadius =
@@ -2678,19 +2669,19 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
 }
 
 // Zoom the entire pixel buffer with 1.0 as neutral (no change)
-// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing  
+// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing
 // anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right
 // Uses bicubic interpolation for sharp, smooth zooming with seamless wrapping
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (level === 1.0) return; // No change needed - neutral zoom
-  
+
   // Accumulate zoom level for fractional zoom support
   zoomAccumulator *= level;
-  
+
   // For very small changes, wait until we have enough accumulated zoom
   const threshold = zoomAccumulator < 1.0 ? 0.005 : 0.01;
   if (Math.abs(Math.log(zoomAccumulator)) < threshold) return;
-  
+
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -2702,26 +2693,26 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     maxX = activeMask.x + activeMask.width;
     maxY = activeMask.y + activeMask.height;
   }
-  
+
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  
+
   // Calculate anchor point in pixel coordinates within working area
   const anchorPixelX = minX + workingWidth * anchorX;
   const anchorPixelY = minY + workingHeight * anchorY;
-  
+
   // Create a copy of the current pixels to read from
   const tempPixels = new Uint8ClampedArray(pixels);
-  
+
   const scale = zoomAccumulator;
   const invScale = 1.0 / scale;
-  
+
   // Bicubic kernel function (Catmull-Rom spline, a = -0.5)
   function cubic(t) {
     const a = -0.5;
     const t2 = t * t;
     const t3 = t2 * t;
-    
+
     if (t <= 1) {
       return (a + 2) * t3 - (a + 3) * t2 + 1;
     } else if (t <= 2) {
@@ -2729,41 +2720,41 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     }
     return 0;
   }
-  
+
   // Get pixel with seamless wrapping
   function getPixel(x, y) {
     // Wrap coordinates within working area
     let wrappedX = x - minX;
     let wrappedY = y - minY;
-    
+
     wrappedX = wrappedX % workingWidth;
     wrappedY = wrappedY % workingHeight;
-    
+
     if (wrappedX < 0) wrappedX += workingWidth;
     if (wrappedY < 0) wrappedY += workingHeight;
-    
+
     // Convert back to absolute coordinates and clamp
     wrappedX = Math.max(minX, Math.min(maxX - 1, Math.floor(wrappedX + minX)));
     wrappedY = Math.max(minY, Math.min(maxY - 1, Math.floor(wrappedY + minY)));
-    
+
     const idx = (wrappedY * width + wrappedX) * 4;
     return [
-      tempPixels[idx],     // R
+      tempPixels[idx], // R
       tempPixels[idx + 1], // G
       tempPixels[idx + 2], // B
-      tempPixels[idx + 3]  // A
+      tempPixels[idx + 3], // A
     ];
   }
-  
+
   // Bicubic sampling function (4x4 kernel)
   function sampleBicubic(x, y) {
     const x1 = Math.floor(x);
     const y1 = Math.floor(y);
     const fx = x - x1;
     const fy = y - y1;
-    
+
     const result = new Array(4).fill(0);
-    
+
     // Sample 4x4 neighborhood
     for (let dy = -1; dy <= 2; dy++) {
       for (let dx = -1; dx <= 2; dx++) {
@@ -2771,31 +2762,31 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
         const weightX = cubic(Math.abs(fx - dx));
         const weightY = cubic(Math.abs(fy - dy));
         const weight = weightX * weightY;
-        
+
         for (let c = 0; c < 4; c++) {
           result[c] += pixel[c] * weight;
         }
       }
     }
-    
+
     // Clamp results
     for (let c = 0; c < 4; c++) {
       result[c] = Math.max(0, Math.min(255, Math.round(result[c])));
     }
-    
+
     return result;
   }
-  
+
   // Bicubic resampling with seamless wrapping
   for (let destY = minY; destY < maxY; destY++) {
     for (let destX = minX; destX < maxX; destX++) {
       // Convert destination to texture coordinates relative to anchor
       const texX = (destX - anchorPixelX) * invScale + anchorPixelX;
       const texY = (destY - anchorPixelY) * invScale + anchorPixelY;
-      
+
       // Sample with bicubic interpolation
       const color = sampleBicubic(texX, texY);
-      
+
       const destIdx = (destY * width + destX) * 4;
       pixels[destIdx] = color[0];
       pixels[destIdx + 1] = color[1];
@@ -2803,7 +2794,7 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
       pixels[destIdx + 3] = color[3];
     }
   }
-  
+
   // Reset zoom accumulator after applying
   zoomAccumulator = 1.0;
 }
@@ -2921,29 +2912,14 @@ let stolen;
 
 // TODO: Steal should run copyregion and keep the buffer in a global 'stolen' variable.
 function steal(x, y, width, height) {
-  console.log("🎯 steal called with:", x, y, width, height);
   stolen = copyRegion(x, y, width, height);
-  console.log(
-    "🎯 steal result:",
-    stolen ? `${stolen.width}x${stolen.height} buffer` : "null",
-  );
   return stolen;
 }
 
 // Paste the stolen buffer at the specified coordinates with optional scaling
 function putback(x, y, scale = 1) {
-  console.log("🎯 putback called with:", x, y, scale);
-  console.log(
-    "🎯 putback: stolen buffer state:",
-    stolen ? `${stolen.width}x${stolen.height}` : "null",
-  );
-  if (!stolen) {
-    console.log("🎯 putback: no stolen buffer available");
-    return;
-  }
-  console.log("🎯 putback: calling paste with stolen buffer");
+  if (!stolen) return;
   const result = paste(stolen, x, y, scale);
-  console.log("🎯 putback: paste completed");
   return result;
 }
 
