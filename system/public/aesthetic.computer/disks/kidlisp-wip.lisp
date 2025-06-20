@@ -1,39 +1,49 @@
 ; kidlisp-wip, 25.06.20.02.38
 ; 🚸 Working Developments for the Kid Lisp API
 
-; Clear the screen first
-; wipe brown
+; 🏡 Stripes, 25.06.20.08.33
+label "'stripes', 25.06.20.08.33"
+;; (ink rainbow (? 45 128 20))
+;; (0.028s 
+;;   (scroll width/8)
+;;   (box 0 0 width/16 height)
+;; )
+;; (shear 0.00343 (? 0.03 0.1 -1))
 
-; Create a colorful pattern
-; noise
-pan 32 32 
-ink rainbow
-box 0 0 30 30
-ink rainbow
-box 10 10 20 20
-ink rainbow
-box 15 15 10 10
-unpan
+; 🚋 Train, 25.06.20.07.29
+;; label "'train', 25.06.20.07.29"
+;; (0.5s (zoom 0.5))
+;; mask 0 frame%height (? 1 10) height/4 
+;; blur 7
+;; unmask
+;; (0.09s
+;;   (ink
+;;    (? white black rainbow white black)
+;;    (? 6 12 50 50 150 6 6 6 6 6 50 50 50 50 70 230))
+;;   (box 0 0 width/2 height/2)
+;; )
+;; ink rainbow 16
+;; (repeat 3 (line))
+;; (0.5s (zoom (? 0.9 1.2)))
+;; scroll width/5.67666*0.828 
+;; (8s (mask 0 height/2 width height/2) (sort) (unmask))
 
-; Test steal and putback functions
-steal 32 32 16 16 ; Steal a 48x48 region starting at 32,32
-putback 64 64     ; Put it back at 64,64 with scale 1
-scroll 100
-;putback 64 64     ; Put it back at 64,64 with scale 1
-scroll frame
-;putback 64 64     ; Put it back at 64,64 with scale 1
-; zoom 1.2
-steal 32 32 48 48 
-putback 30 30 2 
-spin frame/8 
-zoom 0.99
-;putback 120 120 2 ; Put it back at 120,120 with scale 2
-;putback 200 64 0.5 ; Put it back at 200,64 with scale 0.5
+; 🌪️ Spin cycle, 25.06.20.08.34
+;; label "'spin cycle', 25.06.20.08.34"
+;; (0.02s (zoom 0.97))
+;; ink rainbow 200
+;; (repeat 5 (line))
+;; ink black 180
+;; (1s (blur (? 2 1)))
+;; (repeat 4 (line))
+;; steal 0 0 width 1
+;; putback 0 clock/7%height 20 
+;; spin 0.28888
+;; scroll 0.5
 
-; todo labels could be used here to mark copies and paste with them
-; if no label is used it just uses one 
-
-; could i potentially `steal:identifier to use a label?
-
-; steal:red-stuff 32 32 48 48
-; paste red-stuff 64 64
+; ✏️ Notes
+; Switcher uses def flag (clock/5000%3) to cycle every 5 seconds:
+; - flag < 1: Stripes (0-4.999s)
+; - flag = 1: Train (5-9.999s) 
+; - flag >= 2: Spin cycle (10-14.999s)
+; Then repeats every 15 seconds
