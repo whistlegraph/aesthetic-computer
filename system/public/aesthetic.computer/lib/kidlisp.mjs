@@ -376,9 +376,8 @@ class KidLisp {
           if (!this.globalDef.hasOwnProperty(name)) {
             this.globalDef[name] = args[1];
           } else {
-            // console.warn("🧠 Already defined:", name);
-            // console.warn("🧠 Re-declaring:", name, args[1]);
-            // this.globalDef[name] = args[1];
+            // Allow redefinition
+            this.globalDef[name] = args[1];
           }
           return args[1];
         }
@@ -448,27 +447,26 @@ class KidLisp {
         },
       },
       tap: (api, args) => {
-        if (!this.tapper) {
-          this.tapper = args;
-        }
+        this.tapper = args;
       },
       draw: (api, args) => {
         this.drawer = args;
       },
       if: (api, args, env) => {
+        if (!args || args.length < 1) {
+          console.error("❗ Invalid `if`. Wrong number of arguments.");
+          return false;
+        }
         const evaled = this.evaluate(args[0], api, env);
-        const signal = evaled ? "🟢" : "🔴";
-        console.log(`${signal} If:`, args[0], "evaluated as:", evaled, "with env:", env);
         if (evaled) this.evaluate(args.slice(1), api, env);
-        // this.evaluate([evaled ? args[1] : args[2]], api, env);
       },
       not: (api, args, env) => {
+        if (!args || args.length < 1) {
+          console.error("❗ Invalid `not`. Wrong number of arguments.");
+          return false;
+        }
         const evaled = this.evaluate(args[0], api, env);
-        const signal = evaled ? "🟢" : "🔴";
-        // console.log(`${signal} Not:`, args[0], "evaluated as:", evaled, "with env:", env);
-        // console.log(args[2]);
         if (!evaled) this.evaluate(args.slice(1), api, env);
-        // this.evaluate([!evaled ? args[1] : args[2]], api, env);
       },
       range: (api, args) => {
         // console.log("Range detected:", args);
@@ -495,7 +493,7 @@ class KidLisp {
       },
       // 🧠 Logical Operators
       ">": (api, args, env) => {
-        if (args.length < 2) {
+        if (!args || args.length < 2) {
           console.error("❗ Invalid `>`. Wrong number of arguments.");
           return false;
         }
@@ -509,7 +507,7 @@ class KidLisp {
         }
       },
       "<": (api, args, env) => {
-        if (args.length < 2) {
+        if (!args || args.length < 2) {
           console.error("❗ Invalid `<`. Wrong number of arguments.");
           return false;
         }
@@ -523,15 +521,15 @@ class KidLisp {
         }
       },
       "=": (api, args, env) => {
-        if (args.length < 2) {
+        if (!args || args.length < 2) {
           console.error("❗ Invalid `=`. Wrong number of arguments.");
           return false;
         }
         const left = this.evaluate(args[0], api, env),
           right = this.evaluate(args[1], api, env);
         if (left === right) {
-          console.log("✅", left, "is equal to", right, args.slice(2));
-          return this.evaluate(args.slice(2), api, env);
+          // If there are additional arguments, evaluate them, otherwise return true
+          return args.length > 2 ? this.evaluate(args.slice(2), api, env) : true;
         } else {
           return false;
         }
@@ -867,7 +865,12 @@ class KidLisp {
         console.log("Running:", body, "with environment:", this.localEnv);
     } else {
       // Or just evaluate with the global environment, ensuring it's an array.
-      body = Array.isArray(parsed) ? parsed : [parsed];
+      // If parsed is an array that looks like a function call, wrap it
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        body = [parsed]; // Wrap the function call
+      } else {
+        body = Array.isArray(parsed) ? parsed : [parsed];
+      }
     }
 
     if (VERBOSE) console.log("🏃 Body:", body);
