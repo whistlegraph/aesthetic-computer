@@ -26,7 +26,7 @@ scroll frame
 steal 32 32 48 48 
 putback 30 30 2 
 spin frame/8 
-; zoom 0.99
+zoom 0.99
 ;putback 120 120 2 ; Put it back at 120,120 with scale 2
 ;putback 200 64 0.5 ; Put it back at 200,64 with scale 0.5
 
