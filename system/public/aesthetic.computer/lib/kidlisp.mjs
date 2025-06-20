@@ -646,6 +646,9 @@ class KidLisp {
       putback: (api, args = []) => {
         api.putback(...args);
       },
+      label: (api, args = []) => {
+        api.hud?.label(...processArgStringTypes(args));
+      },
       copy: (api, args = []) => {
         //
       },
@@ -688,6 +691,33 @@ class KidLisp {
       },
       frame: (api) => {
         return this.frameCount || 0;
+      },
+      clock: (api) => {
+        return Date.now(); // Returns UTC milliseconds since epoch
+      },
+      // 🔄 Repeat function
+      repeat: (api, args, env) => {
+        if (args.length < 2) {
+          console.error("❗ repeat requires at least 2 arguments: count and expression(s)");
+          return undefined;
+        }
+        
+        const count = Number(args[0]);
+        if (isNaN(count) || count < 0) {
+          console.error("❗ repeat count must be a non-negative number");
+          return undefined;
+        }
+        
+        const expressions = args.slice(1);
+        let result;
+        
+        for (let i = 0; i < count; i++) {
+          for (const expr of expressions) {
+            result = this.evaluate(expr, api, env);
+          }
+        }
+        
+        return result;
       },
       // 🎲 Random selection
       choose: (api, args = []) => {
@@ -968,7 +998,8 @@ class KidLisp {
               head === "net" ||
               head === "source" ||
               head === "choose" ||
-              head === "?"
+              head === "?" ||
+              head === "repeat"
             ) {
               processedArgs = args;
             } else {
