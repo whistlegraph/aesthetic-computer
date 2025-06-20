@@ -2412,11 +2412,15 @@ function scroll(dx = 0, dy = 0) {
 // Accumulated fractional steps for smooth fractional spinning
 let spinAccumulator = 0;
 
-// Rotates pixels in concentric rings around the center point
+// Accumulated fractional zoom for smooth zooming
+let zoomAccumulator = 1.0;
+
+// Rotates pixels in concentric rings around a specified anchor point
 // steps: positive for clockwise, negative for counterclockwise
+// anchorX, anchorY: optional anchor point (defaults to center of working area)
 // Each ring rotates by exactly 'steps' pixels, preserving all data
 // Supports fractional steps by accumulating them over time
-function spin(steps = 0) {
+function spin(steps = 0, anchorX = null, anchorY = null) {
   if (steps === 0) return;
   
   // Handle fractional steps by accumulating them
@@ -2438,9 +2442,9 @@ function spin(steps = 0) {
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
   
-  // Find center of the working area
-  const centerX = minX + floor(workingWidth / 2);
-  const centerY = minY + floor(workingHeight / 2);
+  // Use provided anchor point or default to center of working area
+  const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
+  const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
   
   // Calculate maximum ring radius to reach the furthest corner
   const maxRadius = floor(sqrt(
@@ -2526,14 +2530,18 @@ function spin(steps = 0) {
 }
 
 // Zoom the entire pixel buffer with 1.0 as neutral (no change)
-// Zoom the entire pixel buffer with 1.0 as neutral (no change)
 // level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing  
 // anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right
+// Uses bicubic interpolation for sharp, smooth zooming with seamless wrapping
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (level === 1.0) return; // No change needed - neutral zoom
   
-  // Create a copy of the current pixel buffer
-  const tempPixels = new Uint8ClampedArray(pixels);
+  // Accumulate zoom level for fractional zoom support
+  zoomAccumulator *= level;
+  
+  // For very small changes, wait until we have enough accumulated zoom
+  const threshold = zoomAccumulator < 1.0 ? 0.005 : 0.01;
+  if (Math.abs(Math.log(zoomAccumulator)) < threshold) return;
   
   // Determine the area to process (mask or full screen)
   let minX = 0, minY = 0, maxX = width, maxY = height;
@@ -2544,202 +2552,109 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     maxY = activeMask.y + activeMask.height;
   }
   
-  // Clear only the area we're going to process
-  if (activeMask) {
-    for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const idx = (y * width + x) * 4;
-        pixels[idx] = 0;
-        pixels[idx + 1] = 0;
-        pixels[idx + 2] = 0;
-        pixels[idx + 3] = 0;
-      }
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+  
+  // Calculate anchor point in pixel coordinates within working area
+  const anchorPixelX = minX + workingWidth * anchorX;
+  const anchorPixelY = minY + workingHeight * anchorY;
+  
+  // Create a copy of the current pixels to read from
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  const scale = zoomAccumulator;
+  const invScale = 1.0 / scale;
+  
+  // Bicubic kernel function (Catmull-Rom spline, a = -0.5)
+  function cubic(t) {
+    const a = -0.5;
+    const t2 = t * t;
+    const t3 = t2 * t;
+    
+    if (t <= 1) {
+      return (a + 2) * t3 - (a + 3) * t2 + 1;
+    } else if (t <= 2) {
+      return a * t3 - 5 * a * t2 + 8 * a * t - 4 * a;
     }
-  } else {
-    pixels.fill(0);
+    return 0;
   }
-    if (level > 1.0) {
-    // ZOOM IN: level > 1.0 (1.01, 1.5, 2.0, etc.) - MAGICAL SAMPLING
-    const scale = level;
+  
+  // Get pixel with seamless wrapping
+  function getPixel(x, y) {
+    // Wrap coordinates within working area
+    let wrappedX = x - minX;
+    let wrappedY = y - minY;
     
-    // Calculate the anchor point in pixels (relative to mask area if active)
-    let anchorPixelX, anchorPixelY;
-    if (activeMask) {
-      anchorPixelX = minX + (maxX - minX) * anchorX;
-      anchorPixelY = minY + (maxY - minY) * anchorY;
-    } else {
-      anchorPixelX = width * anchorX;
-      anchorPixelY = height * anchorY;
-    }
+    wrappedX = wrappedX % workingWidth;
+    wrappedY = wrappedY % workingHeight;
     
-    for (let destY = minY; destY < maxY; destY++) {
-      for (let destX = minX; destX < maxX; destX++) {
-        // Calculate the source position by scaling from anchor point
-        const srcX = anchorPixelX + (destX - anchorPixelX) / scale;
-        const srcY = anchorPixelY + (destY - anchorPixelY) / scale;
+    if (wrappedX < 0) wrappedX += workingWidth;
+    if (wrappedY < 0) wrappedY += workingHeight;
+    
+    // Convert back to absolute coordinates and clamp
+    wrappedX = Math.max(minX, Math.min(maxX - 1, Math.floor(wrappedX + minX)));
+    wrappedY = Math.max(minY, Math.min(maxY - 1, Math.floor(wrappedY + minY)));
+    
+    const idx = (wrappedY * width + wrappedX) * 4;
+    return [
+      tempPixels[idx],     // R
+      tempPixels[idx + 1], // G
+      tempPixels[idx + 2], // B
+      tempPixels[idx + 3]  // A
+    ];
+  }
+  
+  // Bicubic sampling function (4x4 kernel)
+  function sampleBicubic(x, y) {
+    const x1 = Math.floor(x);
+    const y1 = Math.floor(y);
+    const fx = x - x1;
+    const fy = y - y1;
+    
+    const result = new Array(4).fill(0);
+    
+    // Sample 4x4 neighborhood
+    for (let dy = -1; dy <= 2; dy++) {
+      for (let dx = -1; dx <= 2; dx++) {
+        const pixel = getPixel(x1 + dx, y1 + dy);
+        const weightX = cubic(Math.abs(fx - dx));
+        const weightY = cubic(Math.abs(fy - dy));
+        const weight = weightX * weightY;
         
-        // Magical spiral sampling with color bleeding
-        let r = 0, g = 0, b = 0, a = 0;
-        let totalWeight = 0;
-        
-        // Sample in a spiral pattern with varying distances
-        const sampleCount = 8;
-        const radius = 1.2; // Base sampling radius
-        
-        for (let i = 0; i < sampleCount; i++) {
-          // Create a spiral pattern with some chaos
-          const angle = (i / sampleCount) * Math.PI * 2 * 1.618; // Golden ratio spiral
-          const distance = radius * (0.3 + 0.7 * (i / sampleCount)); // Varying distance
-          
-          // Add subtle chaos based on pixel position
-          const chaos = Math.sin(destX * 0.1) * Math.cos(destY * 0.1) * 0.3;
-          const actualDistance = distance + chaos;
-          
-          const sampleX = srcX + Math.cos(angle) * actualDistance;
-          const sampleY = srcY + Math.sin(angle) * actualDistance;
-          
-          const x = Math.floor(sampleX);
-          const y = Math.floor(sampleY);
-          
-          if (x >= 0 && x < width && y >= 0 && y < height) {
-            const idx = (y * width + x) * 4;
-            
-            // Weight based on distance from center, with magical falloff
-            const weight = Math.pow(1 - (actualDistance / (radius * 2)), 1.5); // Add epsilon to prevent division instability
-            
-            // Color bleeding: stronger colors influence more
-            const colorIntensity = (tempPixels[idx] + tempPixels[idx + 1] + tempPixels[idx + 2]) / 765;
-            const magicalWeight = weight * (0.5 + colorIntensity * 0.5);
-            
-            r += tempPixels[idx] * magicalWeight;
-            g += tempPixels[idx + 1] * magicalWeight;
-            b += tempPixels[idx + 2] * magicalWeight;
-            a += tempPixels[idx + 3] * magicalWeight;
-            totalWeight += magicalWeight;
-          }
-        }
-        
-        // Always include the center sample with high weight
-        const centerSampleX = Math.floor(srcX);
-        const centerSampleY = Math.floor(srcY);
-        if (centerSampleX >= 0 && centerSampleX < width && centerSampleY >= 0 && centerSampleY < height) {
-          const centerIdx = (centerSampleY * width + centerSampleX) * 4;
-          const centerWeight = 2.0; // Strong center influence
-          
-          r += tempPixels[centerIdx] * centerWeight;
-          g += tempPixels[centerIdx + 1] * centerWeight;
-          b += tempPixels[centerIdx + 2] * centerWeight;
-          a += tempPixels[centerIdx + 3] * centerWeight;
-          totalWeight += centerWeight;
-        }
-        
-        const destIndex = (destY * width + destX) * 4;
-        
-        if (totalWeight > 0) {
-          // Add subtle color enhancement during zoom
-          const enhancement = 1 + (scale - 1) * 0.1; // Slight saturation boost
-          
-          pixels[destIndex] = Math.min(255, Math.round((r / totalWeight) * enhancement));
-          pixels[destIndex + 1] = Math.min(255, Math.round((g / totalWeight) * enhancement));
-          pixels[destIndex + 2] = Math.min(255, Math.round((b / totalWeight) * enhancement));
-          pixels[destIndex + 3] = Math.round(a / totalWeight);
+        for (let c = 0; c < 4; c++) {
+          result[c] += pixel[c] * weight;
         }
       }
-    }  } else {
-    // ZOOM OUT: level < 1.0 (0.5, 0.9, etc.) - MAGICAL SAMPLING
-    const scale = level;
-    
-    // Calculate the anchor point in pixels (relative to mask area if active)
-    let anchorPixelX, anchorPixelY;
-    if (activeMask) {
-      anchorPixelX = minX + (maxX - minX) * anchorX;
-      anchorPixelY = minY + (maxY - minY) * anchorY;
-    } else {
-      anchorPixelX = width * anchorX;
-      anchorPixelY = height * anchorY;
     }
     
-    for (let destY = minY; destY < maxY; destY++) {
-      for (let destX = minX; destX < maxX; destX++) {
-        // Calculate the source position by scaling from anchor point
-        const srcX = anchorPixelX + (destX - anchorPixelX) / scale;
-        const srcY = anchorPixelY + (destY - anchorPixelY) / scale;
-        
-        // Magical spiral sampling for zoom out too!
-        let r = 0, g = 0, b = 0, a = 0;
-        let totalWeight = 0;
-        
-        // For zoom out, use wider sampling to capture more detail
-        const sampleCount = 12; // More samples for zoom out
-        const radius = 1.5 + (1 - scale) * 2; // Wider radius for smaller scales
-        
-        for (let i = 0; i < sampleCount; i++) {
-          // Create a reverse spiral pattern with chaos
-          const angle = (i / sampleCount) * Math.PI * 2 * 2.618; // Wider spiral
-          const distance = radius * (0.2 + 0.8 * (i / sampleCount));
-          
-          // Add chaos based on zoom level - more chaos for more zoom out
-          const chaosAmount = (1 - scale) * 0.5;
-          const chaos = Math.sin(destX * 0.08) * Math.cos(destY * 0.08) * chaosAmount;
-          const actualDistance = distance + chaos;
-          
-          const sampleX = srcX + Math.cos(angle) * actualDistance;
-          const sampleY = srcY + Math.sin(angle) * actualDistance;
-          
-          const x = Math.round(sampleX);
-          const y = Math.round(sampleY);
-          
-          if (x >= 0 && x < width && y >= 0 && y < height) {
-            const idx = (y * width + x) * 4;
-            
-            if (tempPixels[idx + 3] > 0) { // Only sample non-transparent pixels
-              // Weight based on distance and alpha
-              const weight = Math.pow(1 - (actualDistance / (radius * 2)), 2);
-              
-              // For zoom out, enhance edge detection
-              const edgeIntensity = Math.abs(tempPixels[idx] - tempPixels[idx + 1]) + 
-                                  Math.abs(tempPixels[idx + 1] - tempPixels[idx + 2]);
-              const magicalWeight = weight * (0.8 + edgeIntensity * 0.002);
-              
-              r += tempPixels[idx] * magicalWeight;
-              g += tempPixels[idx + 1] * magicalWeight;
-              b += tempPixels[idx + 2] * magicalWeight;
-              a += tempPixels[idx + 3] * magicalWeight;
-              totalWeight += magicalWeight;
-            }
-          }
-        }
-        
-        // Include center sample with strong weight
-        const centerSampleX = Math.round(srcX);
-        const centerSampleY = Math.round(srcY);
-        if (centerSampleX >= 0 && centerSampleX < width && centerSampleY >= 0 && centerSampleY < height) {
-          const centerIdx = (centerSampleY * width + centerSampleX) * 4;
-          if (tempPixels[centerIdx + 3] > 0) {
-            const centerWeight = 3.0; // Strong center influence for zoom out
-            
-            r += tempPixels[centerIdx] * centerWeight;
-            g += tempPixels[centerIdx + 1] * centerWeight;
-            b += tempPixels[centerIdx + 2] * centerWeight;
-            a += tempPixels[centerIdx + 3] * centerWeight;
-            totalWeight += centerWeight;
-          }
-        }
-        
-        const destIndex = (destY * width + destX) * 4;
-        
-        if (totalWeight > 0) {
-          // Add contrast enhancement for zoom out to maintain detail
-          const contrast = 1 + (1 - scale) * 0.2; // Slight contrast boost
-          
-          pixels[destIndex] = Math.min(255, Math.round((r / totalWeight) * contrast));
-          pixels[destIndex + 1] = Math.min(255, Math.round((g / totalWeight) * contrast));
-          pixels[destIndex + 2] = Math.min(255, Math.round((b / totalWeight) * contrast));
-          pixels[destIndex + 3] = Math.round(a / totalWeight);
-        }
-      }
+    // Clamp results
+    for (let c = 0; c < 4; c++) {
+      result[c] = Math.max(0, Math.min(255, Math.round(result[c])));
+    }
+    
+    return result;
+  }
+  
+  // Bicubic resampling with seamless wrapping
+  for (let destY = minY; destY < maxY; destY++) {
+    for (let destX = minX; destX < maxX; destX++) {
+      // Convert destination to texture coordinates relative to anchor
+      const texX = (destX - anchorPixelX) * invScale + anchorPixelX;
+      const texY = (destY - anchorPixelY) * invScale + anchorPixelY;
+      
+      // Sample with bicubic interpolation
+      const color = sampleBicubic(texX, texY);
+      
+      const destIdx = (destY * width + destX) * 4;
+      pixels[destIdx] = color[0];
+      pixels[destIdx + 1] = color[1];
+      pixels[destIdx + 2] = color[2];
+      pixels[destIdx + 3] = color[3];
     }
   }
+  
+  // Reset zoom accumulator after applying
+  zoomAccumulator = 1.0;
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
