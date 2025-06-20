@@ -355,13 +355,12 @@ class KidLisp {
           const name = unquoteString(args[0]);
           if (this.globalDef.hasOwnProperty(name)) {
             this.globalDef[name] = args[1];
-            // console.warn("🧠 Now:", name);
           } else {
             console.warn("🚫🧠 Not defined:", name);
           }
           return args[1];
         }
-        console.error("❗ Invalid `def`. Wrong number of arguments.");
+        console.error("❗ Invalid `now`. Wrong number of arguments.");
       },
       // Program Architecture
       def: (api, args) => {
@@ -376,8 +375,7 @@ class KidLisp {
           if (!this.globalDef.hasOwnProperty(name)) {
             this.globalDef[name] = args[1];
           } else {
-            // Allow redefinition
-            this.globalDef[name] = args[1];
+            // Variable already defined, skip redefinition
           }
           return args[1];
         }
@@ -961,6 +959,11 @@ class KidLisp {
         }
 
         // Parse the head string splitting on dots and colons.
+        if (typeof head !== "string") {
+          // If head is not a string, it might be a number or other value
+          // Convert to string or handle appropriately
+          head = String(head);
+        }
         const splitHead = head.split(".");
         head = splitHead[0];
 
@@ -1063,12 +1066,12 @@ class KidLisp {
           );
           result = api[head](...evaluatedArgs);
         } else {
-          console.log(
-            "⛔ No match found for:",
-            head,
-            "localEnv:",
-            this.localEnv,
-          );
+          // console.log(
+          //   "⛔ No match found for:",
+          //   head,
+          //   "localEnv:",
+          //   this.localEnv,
+          // );
           if (Array.isArray(head)) {
             if (VERBOSE) console.log("Environment:", this.localEnv);
             result = this.evaluate(head, api, this.localEnv);
