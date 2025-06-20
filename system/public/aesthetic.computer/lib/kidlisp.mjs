@@ -321,7 +321,9 @@ class KidLisp {
 
   // 🫵 Tap
   tap(api) {
-    if (this.tapper) this.evaluate(this.tapper, api);
+    if (this.tapper) {
+      this.evaluate(this.tapper, api);
+    }
   }
 
   // ✏️ Draw
@@ -436,7 +438,9 @@ class KidLisp {
         },
       },
       tap: (api, args) => {
-        this.tapper = args;
+        if (!this.tapper) {
+          this.tapper = args;
+        }
       },
       draw: (api, args) => {
         this.drawer = args;
@@ -561,6 +565,17 @@ class KidLisp {
           .filter((n) => !isNaN(n));
         return nums.length > 0 ? nums.reduce((a, b) => a / b) : 0;
       },
+      "%": (api, args) => {
+        const nums = args
+          .map((arg) => {
+            if (arg === undefined || arg === null) return NaN;
+            return typeof arg === "number"
+              ? arg
+              : parseFloat(unquoteString(arg));
+          })
+          .filter((n) => !isNaN(n));
+        return nums.length >= 2 ? nums[0] % nums[1] : 0;
+      },
       // Paint API
       resolution: (api, args) => {
         api.resolution?.(...args);
@@ -581,11 +596,14 @@ class KidLisp {
         // console.log(args);
         api.box(...args);
       },
-      shift: (api, args = []) => {
-        api.shift(...args);
+      scroll: (api, args = []) => {
+        api.scroll(...args);
       },
       spin: (api, args = []) => {
         api.spin(...args);
+      },
+      resetSpin: (api, args = []) => {
+        api.resetSpin();
       },
       sort: (api, args = []) => {
         api.sort(...args);
@@ -641,6 +659,9 @@ class KidLisp {
       },
       height: (api) => {
         return api.screen.height;
+      },
+      frame: (api) => {
+        return this.frameCount || 0;
       },
       // 🎲 Random selection
       choose: (api, args = []) => {
@@ -921,6 +942,15 @@ class KidLisp {
             Array.isArray(this.globalDef[head]) || this.globalDef[head].body
               ? this.evaluate(this.globalDef[head], api, env, evaluatedArgs)
               : this.globalDef[head];
+        } else if (existing(api[head]) && typeof api[head] === "function") {
+          // Check if the function exists in the API (e.g., pan, unpan, etc.)
+          const evaluatedArgs = args.map((arg) =>
+            Array.isArray(arg) ||
+            (typeof arg === "string" && !/^".*"$/.test(arg))
+              ? this.evaluate([arg], api, env)
+              : arg,
+          );
+          result = api[head](...evaluatedArgs);
         } else {
           console.log(
             "⛔ No match found for:",
