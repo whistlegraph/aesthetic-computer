@@ -320,14 +320,17 @@ function clear() {
   // pixels[2] = 255;
   // pixels[3] = 255;
   // pixels.copyWithin(4, 0);
-
   // Determine the area to clear (mask or full screen)
-  let minX = 0, minY = 0, maxX = width, maxY = height;
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
   if (activeMask) {
-    minX = activeMask.x;
-    minY = activeMask.y;
-    maxX = activeMask.x + activeMask.width;
-    maxY = activeMask.y + activeMask.height;
+    // Apply pan translation to mask bounds
+    minX = activeMask.x + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
   }
 
   if (activeMask) {
@@ -335,7 +338,7 @@ function clear() {
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         const i = (y * width + x) * 4;
-        pixels[i] = c[0];     // r
+        pixels[i] = c[0]; // r
         pixels[i + 1] = c[1]; // g
         pixels[i + 2] = c[2]; // b
         pixels[i + 3] = c[3]; // alpha
@@ -367,16 +370,19 @@ function plot(x, y) {
   if (x < 0) return;
   if (x >= width) return;
   if (y < 0) return;
-  if (y >= height) return;
-  // And pixels in the active mask.
-  if (activeMask)
+  if (y >= height) return; // And pixels in the active mask.
+  if (activeMask) {
+    // Account for pan translation when checking mask bounds
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
     if (
-      y < activeMask.y ||
-      y >= activeMask.y + activeMask.height ||
-      x >= activeMask.x + activeMask.width ||
-      x < activeMask.x
+      y < maskY ||
+      y >= maskY + activeMask.height ||
+      x >= maskX + activeMask.width ||
+      x < maskX
     )
       return;
+  }
 
   for (const s of skips) if (x === s.x && y === s.y) return;
 
@@ -615,7 +621,7 @@ function blur(radius = 1) {
 
       // Always sample at least immediate neighbors for visible blur effect
       const sampleRadius = Math.max(1, Math.ceil(radius));
-      
+
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
         const distance = Math.abs(i);
         // Calculate weight using a smoother function that works well for fractional values
@@ -629,7 +635,7 @@ function blur(radius = 1) {
           // For radius >= 1, this gives decreasing weights with distance
           weight = Math.max(0, radius - distance + 1) * radius;
         }
-        
+
         const sampleX = Math.max(0, Math.min(width - 1, x + i));
         const index = (y * width + sampleX) * 4;
 
@@ -667,7 +673,7 @@ function blur(radius = 1) {
 
       // Always sample at least immediate neighbors for visible blur effect
       const sampleRadius = Math.max(1, Math.ceil(radius));
-      
+
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
         const distance = Math.abs(i);
         // Calculate weight using a smoother function that works well for fractional values
@@ -681,7 +687,7 @@ function blur(radius = 1) {
           // For radius >= 1, this gives decreasing weights with distance
           weight = Math.max(0, radius - distance + 1) * radius;
         }
-        
+
         const sampleY = Math.max(0, Math.min(height - 1, y + i));
         const index = (sampleY * width + x) * 4;
 
@@ -715,16 +721,21 @@ function blur(radius = 1) {
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
-  if (!from) return;
+  console.log("🎯 paste called with:", from, destX, destY, scale, blit);
+  if (!from) {
+    console.log("🎯 paste: no 'from' buffer provided");
+    return;
+  }
 
   destX += panTranslation.x;
   destY += panTranslation.y;
+  console.log("🎯 paste: after pan translation:", destX, destY);
 
   if (scale !== 1) {
     let angle = 0;
     let anchor;
     let width, height;
-    
+
     if (typeof scale === "object") {
       angle = scale.angle;
       width = scale.width;
@@ -735,44 +746,55 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     }
 
     // Fast path for simple integer scaling (no rotation, no custom dimensions)
-    if (!angle && !width && !height && !anchor && 
-        typeof scale === "number" && scale > 0 && 
-        scale === ~~scale && scale <= 8) { // Integer scale up to 8x for safety
-      
+    if (
+      !angle &&
+      !width &&
+      !height &&
+      !anchor &&
+      typeof scale === "number" &&
+      scale > 0 &&
+      scale === ~~scale &&
+      scale <= 8
+    ) {
+      // Integer scale up to 8x for safety
+
       // Ultra-fast nearest-neighbor scaling using direct pixel manipulation
       const srcWidth = from.width;
       const srcHeight = from.height;
       const srcPixels = from.pixels;
       const scaleInt = ~~scale; // Convert to integer
-      
+
       // Pre-calculate destination bounds
       const destWidth = srcWidth * scaleInt;
       const destHeight = srcHeight * scaleInt;
-      
+
       // Boundary check
-      if (destX >= 0 && destY >= 0 && 
-          destX + destWidth <= width && destY + destHeight <= height) {
-        
+      if (
+        destX >= 0 &&
+        destY >= 0 &&
+        destX + destWidth <= width &&
+        destY + destHeight <= height
+      ) {
         // Direct pixel buffer manipulation for maximum speed
         for (let srcY = 0; srcY < srcHeight; srcY += 1) {
           for (let srcX = 0; srcX < srcWidth; srcX += 1) {
             const srcIndex = (srcX + srcY * srcWidth) << 2; // Fast * 4
-            
+
             if (srcIndex < srcPixels.length) {
               // Extract color data directly
               const r = srcPixels[srcIndex];
               const g = srcPixels[srcIndex + 1];
               const b = srcPixels[srcIndex + 2];
               const a = srcPixels[srcIndex + 3];
-              
+
               // Skip transparent pixels for efficiency
               if (a > 0) {
-                const baseDestX = destX + (srcX * scaleInt);
-                const baseDestY = destY + (srcY * scaleInt);
-                
+                const baseDestX = destX + srcX * scaleInt;
+                const baseDestY = destY + srcY * scaleInt;
+
                 // Set color once and draw scaled block
                 color(r, g, b, a);
-                
+
                 // Use box for efficiency when scale > 1
                 if (scaleInt > 1) {
                   box(baseDestX, baseDestY, scaleInt, scaleInt, "fill");
@@ -806,16 +828,20 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     // A cropped copy - optimize with row-wise operations where possible.
     const cropW = from.crop.w;
     const cropH = from.crop.h;
-    
+
     // Check if we can do efficient row copying
-    if (cropW > 8 && destX >= 0 && destY >= 0 && 
-        destX + cropW <= width && destY + cropH <= height) {
-      
+    if (
+      cropW > 8 &&
+      destX >= 0 &&
+      destY >= 0 &&
+      destX + cropW <= width &&
+      destY + cropH <= height
+    ) {
       // Row-wise copying for better cache efficiency
       for (let y = 0; y < cropH; y += 1) {
         const srcY = from.crop.y + y;
         const destRowY = destY + y;
-        
+
         // Copy entire row when possible
         for (let x = 0; x < cropW; x += 1) {
           copy(destX + x, destRowY, from.crop.x + x, srcY, from.painting);
@@ -844,12 +870,16 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       // Optimize pixel-by-pixel copy with better access patterns
       const srcWidth = from.width;
       const srcHeight = from.height;
-      
+
       // Check if we can do efficient bulk operations
-      if (srcWidth > 4 && srcHeight > 4 && 
-          destX >= 0 && destY >= 0 && 
-          destX + srcWidth <= width && destY + srcHeight <= height) {
-        
+      if (
+        srcWidth > 4 &&
+        srcHeight > 4 &&
+        destX >= 0 &&
+        destY >= 0 &&
+        destX + srcWidth <= width &&
+        destY + srcHeight <= height
+      ) {
         // Row-major order for better cache performance
         for (let y = 0; y < srcHeight; y += 1) {
           for (let x = 0; x < srcWidth; x += 1) {
@@ -951,21 +981,24 @@ function lineh(x0, x1, y) {
   x1 = floor(x1);
   y = floor(y);
   if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
-  
   // Check if the entire line is outside the mask
-  if (
-    activeMask &&
-    (y < activeMask.y ||
-      y >= activeMask.y + activeMask.height ||
-      x1 < activeMask.x ||
-      x0 >= activeMask.x + activeMask.width)
-  )
-    return;
+  if (activeMask) {
+    // Account for pan translation when checking mask bounds
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
+    if (
+      y < maskY ||
+      y >= maskY + activeMask.height ||
+      x1 < maskX ||
+      x0 >= maskX + activeMask.width
+    )
+      return;
+  }
 
   // Clamp to screen bounds first
   x0 = clamp(x0, 0, width - 1);
   x1 = clamp(x1, 0, width - 1);
-  
+
   // Then clamp to mask bounds if mask is active
   if (activeMask) {
     x0 = clamp(x0, activeMask.x, activeMask.x + activeMask.width - 1);
@@ -1017,7 +1050,7 @@ function line() {
   if (arguments.length === 1) {
     // Safely access properties on the first argument
     const arg0 = arguments[0];
-    if (arg0 && typeof arg0 === 'object') {
+    if (arg0 && typeof arg0 === "object") {
       x0 = arg0.x0; // Assume an object { x0, y0, x1, y1 }
       y0 = arg0.y0;
       x1 = arg0.x1;
@@ -1037,7 +1070,12 @@ function line() {
       y0 = arg0[1];
       x1 = arg1[0];
       y1 = arg1[1];
-    } else if (arg0 && typeof arg0 === 'object' && arg1 && typeof arg1 === 'object') {
+    } else if (
+      arg0 &&
+      typeof arg0 === "object" &&
+      arg1 &&
+      typeof arg1 === "object"
+    ) {
       // assume {x, y}, {x, y}
       x0 = arg0.x;
       y0 = arg0.y;
@@ -1853,7 +1891,7 @@ function grid(
 
   if (angle) {
     // Odd width.
-    if (w %  2 !== 0 && h % 2 === 0) {
+    if (w % 2 !== 0 && h % 2 === 0) {
       if (x % 1 !== 0 && angle === 90) xmod += 0.5;
 
       // if (angle === 90 || angle === 270) ymod += 1;
@@ -1926,19 +1964,19 @@ function grid(
     const bufWidth = buffer.width;
     const bufHeight = buffer.height;
     const bufPixels = buffer.pixels;
-    
+
     // Use fast integer conversions and pre-calculate values
     const scaleXAbs = ~~abs(scale.x); // Fast float-to-int conversion
     const scaleYAbs = ~~abs(scale.y);
     const isAngleZero = angle === 0;
-    
+
     // Pre-calculate trigonometric values only if needed
     let cosValue, sinValue;
     if (!isAngleZero) {
       cosValue = cos(angle);
       sinValue = sin(angle);
     }
-    
+
     // Pre-calculate integer boundaries and scales
     const bufferWidth = scaleXAbs;
     const bufferHeight = scaleYAbs;
@@ -1946,39 +1984,45 @@ function grid(
     const halfBoxHeight = bufferHeight >> 1;
     const adjustedBufferWidth = bufferWidth + (halfBoxWidth << 1); // Fast multiplication by 2
     const adjustedBufferHeight = bufferHeight + (halfBoxHeight << 1);
-    
+
     // Pre-calculate row and column pixel increments
     const colPixInt = ~~(w / cols);
     const rowPixInt = ~~(h / rows);
-    
+
     // Fast path for simple scaling (no rotation, integer scales)
-    if (isAngleZero && scale.x === scaleXAbs && scale.y === scaleYAbs && scale.x > 0 && scale.y > 0) {
+    if (
+      isAngleZero &&
+      scale.x === scaleXAbs &&
+      scale.y === scaleYAbs &&
+      scale.x > 0 &&
+      scale.y > 0
+    ) {
       // Ultra-fast nearest-neighbor scaling with direct buffer operations
       for (let j = 0; j < rows; j += 1) {
         const srcY = j % bufHeight;
         const destStartY = ~~(y + j * rowPixInt);
         const destEndY = ~~(y + (j + 1) * rowPixInt);
         const pixelHeight = destEndY - destStartY;
-        
+
         if (pixelHeight > 0 && destStartY >= 0 && destEndY <= height) {
           for (let i = 0; i < cols; i += 1) {
             const srcX = i % bufWidth;
             const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
-              if (srcIndex < bufPixels.length) {
+            if (srcIndex < bufPixels.length) {
               // Extract color data directly
               const r = bufPixels[srcIndex];
               const g = bufPixels[srcIndex + 1];
               const b = bufPixels[srcIndex + 2];
               const a = bufPixels[srcIndex + 3];
-              
+
               const destStartX = ~~(x + i * colPixInt);
               const destEndX = ~~(x + (i + 1) * colPixInt);
               const pixelWidth = destEndX - destStartX;
-              
+
               if (pixelWidth > 0 && destStartX >= 0 && destEndX <= width) {
                 // Set color once and draw block efficiently
                 color(r, g, b, a);
-                
+
                 // Use box for rectangular fills when possible (faster than multiple lineh calls)
                 if (pixelWidth > 1 && pixelHeight > 1) {
                   box(destStartX, destStartY, pixelWidth, pixelHeight, "fill");
@@ -2027,7 +2071,7 @@ function grid(
           ) {
             continue; // Skip drawing this box
           }
-          
+
           // Find the proper color
           const repeatX = i % bufWidth;
           const pixIndex = (repeatX + bufWidth * repeatY) << 2; // Fast multiplication by 4
@@ -2040,19 +2084,19 @@ function grid(
               bufPixels[pixIndex + 3],
             ];
             color(...colorData);
-            
+
             // Calculate destination pixel ranges ensuring no gaps
             const scaleX = abs(scale.x);
             const scaleY = abs(scale.y);
-            
+
             const destStartX = ~~(x + i * scaleX); // Fast floor conversion
             const destEndX = ~~(x + (i + 1) * scaleX);
             const destStartY = ~~(y + j * scaleY);
             const destEndY = ~~(y + (j + 1) * scaleY);
-            
+
             const pixelWidth = destEndX - destStartX;
             const pixelHeight = destEndY - destStartY;
-            
+
             // Only draw if there's actually area to fill
             if (pixelWidth > 0 && pixelHeight > 0) {
               // Apply rotation if needed
@@ -2073,13 +2117,13 @@ function grid(
                   for (let dx = 0; dx < pixelWidth; dx += 1) {
                     const px = destStartX + dx;
                     const py = destStartY + dy;
-                    
+
                     // Rotate around center
                     const relX = px - centerX;
                     const relY = py - centerY;
                     const rotX = relX * cosValue - relY * sinValue + centerX;
                     const rotY = relX * sinValue + relY * cosValue + centerY;
-                    
+
                     plot(~~rotX, ~~rotY); // Fast floor conversion
                   }
                 }
@@ -2260,38 +2304,114 @@ function printLine(
 }
 
 function noise16() {
-  for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = byteInterval17(randInt(16)); // r
-    pixels[i + 1] = byteInterval17(randInt(16)); // g
-    pixels[i + 2] = byteInterval17(randInt(16)); // b
-    pixels[i + 3] = 255; // a
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    minX = Math.max(0, activeMask.x + panTranslation.x);
+    minY = Math.max(0, activeMask.y + panTranslation.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
+    maxY = Math.min(
+      height,
+      activeMask.y + activeMask.height + panTranslation.y,
+    );
+  }
+
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = byteInterval17(randInt(16)); // r
+      pixels[i + 1] = byteInterval17(randInt(16)); // g
+      pixels[i + 2] = byteInterval17(randInt(16)); // b
+      pixels[i + 3] = 255; // a
+    }
   }
 }
 
 function noise16DIGITPAIN() {
-  for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = byteInterval17(randInt(16)) * 0.6; // r
-    pixels[i + 1] = byteInterval17(randInt(16)) * 0.15; // g
-    pixels[i + 2] = byteInterval17(randInt(16)) * 0.55; // b
-    pixels[i + 3] = 255; // a
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    minX = Math.max(0, activeMask.x + panTranslation.x);
+    minY = Math.max(0, activeMask.y + panTranslation.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
+    maxY = Math.min(
+      height,
+      activeMask.y + activeMask.height + panTranslation.y,
+    );
+  }
+
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = byteInterval17(randInt(16)) * 0.6; // r
+      pixels[i + 1] = byteInterval17(randInt(16)) * 0.15; // g
+      pixels[i + 2] = byteInterval17(randInt(16)) * 0.55; // b
+      pixels[i + 3] = 255; // a
+    }
   }
 }
 
 function noise16Aesthetic() {
-  for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = byteInterval17(randInt(16)) * 0.4; // r
-    pixels[i + 1] = byteInterval17(randInt(16)) * 0.15; // g
-    pixels[i + 2] = byteInterval17(randInt(16)) * 0.8; // b
-    pixels[i + 3] = 255; // a
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    minX = Math.max(0, activeMask.x + panTranslation.x);
+    minY = Math.max(0, activeMask.y + panTranslation.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
+    maxY = Math.min(
+      height,
+      activeMask.y + activeMask.height + panTranslation.y,
+    );
+  }
+
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = byteInterval17(randInt(16)) * 0.4; // r
+      pixels[i + 1] = byteInterval17(randInt(16)) * 0.15; // g
+      pixels[i + 2] = byteInterval17(randInt(16)) * 0.8; // b
+      pixels[i + 3] = 255; // a
+    }
   }
 }
 
 function noise16Sotce() {
-  for (let i = 0; i < pixels.length; i += 4) {
-    if (flip()) pixels[i] = byteInterval17(14 + randInt(2)); // r
-    if (flip()) pixels[i + 1] = byteInterval17(8 + randInt(2)) * 0.9; // g
-    if (flip()) pixels[i + 2] = byteInterval17(8 + randInt(2)) * 0.9; // b
-    pixels[i + 3] = 255; // a
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    minX = Math.max(0, activeMask.x + panTranslation.x);
+    minY = Math.max(0, activeMask.y + panTranslation.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
+    maxY = Math.min(
+      height,
+      activeMask.y + activeMask.height + panTranslation.y,
+    );
+  }
+
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const i = (y * width + x) * 4;
+      if (flip()) pixels[i] = byteInterval17(14 + randInt(2)); // r
+      if (flip()) pixels[i + 1] = byteInterval17(8 + randInt(2)) * 0.9; // g
+      if (flip()) pixels[i + 2] = byteInterval17(8 + randInt(2)) * 0.9; // b
+      pixels[i + 3] = 255; // a
+    }
   }
 }
 
@@ -2322,54 +2442,64 @@ function noiseTinted(tint, amount, saturation) {
 // Scroll the entire pixel buffer by x and/or y pixels with wrapping
 function scroll(dx = 0, dy = 0) {
   if (dx === 0 && dy === 0) return; // No change needed
-  
   // Determine bounds - use mask if active, otherwise full screen
-  let minX = 0, maxX = width, minY = 0, maxY = height;
+  let minX = 0,
+    maxX = width,
+    minY = 0,
+    maxY = height;
   if (activeMask) {
-    minX = activeMask.x;
-    maxX = activeMask.x + activeMask.width;
-    minY = activeMask.y;
-    maxY = activeMask.y + activeMask.height;
+    // Apply pan translation to mask bounds
+    minX = activeMask.x + panTranslation.x;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
   }
-  
+
   const boundsWidth = maxX - minX;
   const boundsHeight = maxY - minY;
-  
+
   // Normalize shifts to avoid unnecessary wrapping calculations
   dx = ((dx % boundsWidth) + boundsWidth) % boundsWidth;
   dy = ((dy % boundsHeight) + boundsHeight) % boundsHeight;
-  
+
   if (dx === 0 && dy === 0) return; // No effective shift after normalization
-  
+
   // Fast path: if shifting by full rows/columns, use bulk memory operations
   if (dx === 0 && dy !== 0) {
     // Vertical shift only - can copy entire rows at once
-    const tempPixels = new Uint8ClampedArray(pixels.subarray(minY * width * 4, maxY * width * 4));
+    const tempPixels = new Uint8ClampedArray(
+      pixels.subarray(minY * width * 4, maxY * width * 4),
+    );
     const rowsToShift = dy;
     const bytesPerRow = boundsWidth * 4;
-    
+
     for (let y = 0; y < boundsHeight; y++) {
       const srcY = (y + boundsHeight - rowsToShift) % boundsHeight;
       const destOffset = ((minY + y) * width + minX) * 4;
       const srcOffset = srcY * boundsWidth * 4;
-      
-      pixels.set(tempPixels.subarray(srcOffset, srcOffset + bytesPerRow), destOffset);
+
+      pixels.set(
+        tempPixels.subarray(srcOffset, srcOffset + bytesPerRow),
+        destOffset,
+      );
     }
     return;
   }
-  
+
   if (dy === 0 && dx !== 0) {
     // Horizontal shift only - optimize row by row
     for (let y = minY; y < maxY; y++) {
       const rowStart = y * width * 4;
-      const tempRow = new Uint8ClampedArray(pixels.subarray(rowStart + minX * 4, rowStart + maxX * 4));
+      const tempRow = new Uint8ClampedArray(
+        pixels.subarray(rowStart + minX * 4, rowStart + maxX * 4),
+      );
       const pixelsToShift = dx;
-      
+
       for (let x = 0; x < boundsWidth; x++) {
         const srcX = (x + boundsWidth - pixelsToShift) % boundsWidth;
         const destOffset = rowStart + (minX + x) * 4;
         const srcOffset = srcX * 4;
-        
+
         // Copy 4 bytes (RGBA) at once
         pixels[destOffset] = tempRow[srcOffset];
         pixels[destOffset + 1] = tempRow[srcOffset + 1];
@@ -2379,27 +2509,27 @@ function scroll(dx = 0, dy = 0) {
     }
     return;
   }
-  
+
   // General case: both dx and dy are non-zero, use optimized pixel-by-pixel
   const tempPixels = new Uint8ClampedArray(pixels);
   const widthBytes = width * 4;
-  
+
   // Pre-calculate y-offsets to avoid repeated multiplication
   const yOffsets = new Int32Array(boundsHeight);
   for (let i = 0; i < boundsHeight; i++) {
     const srcY = minY + ((i + boundsHeight - dy) % boundsHeight);
     yOffsets[i] = srcY * widthBytes;
   }
-  
+
   for (let y = 0; y < boundsHeight; y++) {
     const destRowOffset = (minY + y) * widthBytes;
     const srcRowOffset = yOffsets[y];
-    
+
     for (let x = 0; x < boundsWidth; x++) {
       const srcX = minX + ((x + boundsWidth - dx) % boundsWidth);
       const destOffset = destRowOffset + (minX + x) * 4;
       const srcOffset = srcRowOffset + srcX * 4;
-      
+
       // Copy RGBA values
       pixels[destOffset] = tempPixels[srcOffset];
       pixels[destOffset + 1] = tempPixels[srcOffset + 1];
@@ -2418,105 +2548,118 @@ let spinAccumulator = 0;
 // Supports fractional steps by accumulating them over time
 function spin(steps = 0) {
   if (steps === 0) return;
-  
+
   // Handle fractional steps by accumulating them
   spinAccumulator += steps;
   const integerSteps = floor(spinAccumulator);
   spinAccumulator -= integerSteps; // Keep the fractional remainder
-  
   if (integerSteps === 0) return; // No integer steps to process yet
-  
+
   // Determine the area to process (mask or full screen)
-  let minX = 0, minY = 0, maxX = width, maxY = height;
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
   if (activeMask) {
-    minX = activeMask.x;
-    minY = activeMask.y;
-    maxX = activeMask.x + activeMask.width;
-    maxY = activeMask.y + activeMask.height;
+    // Apply pan translation to mask bounds
+    minX = activeMask.x + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
   }
-  
+
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  
+
   // Find center of the working area
   const centerX = minX + floor(workingWidth / 2);
   const centerY = minY + floor(workingHeight / 2);
-  
+
   // Calculate maximum ring radius to reach the furthest corner
-  const maxRadius = floor(sqrt(
-    max(
-      (centerX - minX) * (centerX - minX) + (centerY - minY) * (centerY - minY),
-      (maxX - 1 - centerX) * (maxX - 1 - centerX) + (centerY - minY) * (centerY - minY),
-      (centerX - minX) * (centerX - minX) + (maxY - 1 - centerY) * (maxY - 1 - centerY),
-      (maxX - 1 - centerX) * (maxX - 1 - centerX) + (maxY - 1 - centerY) * (maxY - 1 - centerY)
-    )
-  )) + 1;
-  
+  const maxRadius =
+    floor(
+      sqrt(
+        max(
+          (centerX - minX) * (centerX - minX) +
+            (centerY - minY) * (centerY - minY),
+          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
+            (centerY - minY) * (centerY - minY),
+          (centerX - minX) * (centerX - minX) +
+            (maxY - 1 - centerY) * (maxY - 1 - centerY),
+          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
+            (maxY - 1 - centerY) * (maxY - 1 - centerY),
+        ),
+      ),
+    ) + 1;
+
   if (maxRadius < 1) return;
-  
+
   // Create a copy of the pixels to read from
   const tempPixels = new Uint8ClampedArray(pixels);
-  
+
   // Group pixels by radius in a single pass - much faster!
   const ringsByRadius = new Array(maxRadius + 1);
   for (let i = 0; i <= maxRadius; i++) {
     ringsByRadius[i] = [];
   }
-  
+
   // Single pass to collect all pixels and group by radius
   for (let y = minY; y < maxY; y++) {
     const dy = y - centerY;
     const dy2 = dy * dy; // Cache dy squared
-    
+
     for (let x = minX; x < maxX; x++) {
       const dx = x - centerX;
       const distanceSquared = dx * dx + dy2;
       const radius = floor(sqrt(distanceSquared) + 0.5);
-      
+
       if (radius >= 1 && radius <= maxRadius) {
         const idx = (y * width + x) * 4;
         const pixel = [
           tempPixels[idx],
-          tempPixels[idx + 1], 
+          tempPixels[idx + 1],
           tempPixels[idx + 2],
-          tempPixels[idx + 3]
+          tempPixels[idx + 3],
         ];
-        
+
         // Pre-calculate angle for sorting
         const angle = Math.atan2(dy, dx);
         const normalizedAngle = angle < 0 ? angle + 2 * PI : angle;
-        
+
         ringsByRadius[radius].push({
-          x, y, pixel, angle: normalizedAngle
+          x,
+          y,
+          pixel,
+          angle: normalizedAngle,
         });
       }
     }
   }
-  
+
   // Process each ring that has pixels
   for (let radius = 1; radius <= maxRadius; radius++) {
     const ringData = ringsByRadius[radius];
     if (ringData.length === 0) continue;
-    
+
     // Sort once by pre-calculated angles - much faster than calculating during sort
     ringData.sort((a, b) => a.angle - b.angle);
-    
+
     const ringSize = ringData.length;
     const effectiveSteps = ((integerSteps % ringSize) + ringSize) % ringSize;
-    
+
     if (effectiveSteps === 0) continue; // No rotation needed
-    
+
     // Direct pixel copying without intermediate arrays
     for (let i = 0; i < ringSize; i++) {
       const sourceIndex = i;
       const targetIndex = (i + effectiveSteps) % ringSize;
-      
+
       const sourceData = ringData[sourceIndex];
       const targetPos = ringData[targetIndex];
-      
+
       const idx = (targetPos.y * width + targetPos.x) * 4;
       const sourcePixel = sourceData.pixel;
-      
+
       pixels[idx] = sourcePixel[0];
       pixels[idx + 1] = sourcePixel[1];
       pixels[idx + 2] = sourcePixel[2];
@@ -2527,23 +2670,26 @@ function spin(steps = 0) {
 
 // Zoom the entire pixel buffer with 1.0 as neutral (no change)
 // Zoom the entire pixel buffer with 1.0 as neutral (no change)
-// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing  
+// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing
 // anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (level === 1.0) return; // No change needed - neutral zoom
-  
+
   // Create a copy of the current pixel buffer
   const tempPixels = new Uint8ClampedArray(pixels);
-  
   // Determine the area to process (mask or full screen)
-  let minX = 0, minY = 0, maxX = width, maxY = height;
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
   if (activeMask) {
-    minX = activeMask.x;
-    minY = activeMask.y;
-    maxX = activeMask.x + activeMask.width;
-    maxY = activeMask.y + activeMask.height;
+    // Apply pan translation to mask bounds
+    minX = activeMask.x + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
   }
-  
+
   // Clear only the area we're going to process
   if (activeMask) {
     for (let y = minY; y < maxY; y++) {
@@ -2558,10 +2704,10 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   } else {
     pixels.fill(0);
   }
-    if (level > 1.0) {
+  if (level > 1.0) {
     // ZOOM IN: level > 1.0 (1.01, 1.5, 2.0, etc.) - MAGICAL SAMPLING
     const scale = level;
-    
+
     // Calculate the anchor point in pixels (relative to mask area if active)
     let anchorPixelX, anchorPixelY;
     if (activeMask) {
@@ -2571,46 +2717,51 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
       anchorPixelX = width * anchorX;
       anchorPixelY = height * anchorY;
     }
-    
+
     for (let destY = minY; destY < maxY; destY++) {
       for (let destX = minX; destX < maxX; destX++) {
         // Calculate the source position by scaling from anchor point
         const srcX = anchorPixelX + (destX - anchorPixelX) / scale;
         const srcY = anchorPixelY + (destY - anchorPixelY) / scale;
-        
+
         // Magical spiral sampling with color bleeding
-        let r = 0, g = 0, b = 0, a = 0;
+        let r = 0,
+          g = 0,
+          b = 0,
+          a = 0;
         let totalWeight = 0;
-        
+
         // Sample in a spiral pattern with varying distances
         const sampleCount = 8;
         const radius = 1.2; // Base sampling radius
-        
+
         for (let i = 0; i < sampleCount; i++) {
           // Create a spiral pattern with some chaos
           const angle = (i / sampleCount) * Math.PI * 2 * 1.618; // Golden ratio spiral
           const distance = radius * (0.3 + 0.7 * (i / sampleCount)); // Varying distance
-          
+
           // Add subtle chaos based on pixel position
           const chaos = Math.sin(destX * 0.1) * Math.cos(destY * 0.1) * 0.3;
           const actualDistance = distance + chaos;
-          
+
           const sampleX = srcX + Math.cos(angle) * actualDistance;
           const sampleY = srcY + Math.sin(angle) * actualDistance;
-          
+
           const x = Math.floor(sampleX);
           const y = Math.floor(sampleY);
-          
+
           if (x >= 0 && x < width && y >= 0 && y < height) {
             const idx = (y * width + x) * 4;
-            
+
             // Weight based on distance from center, with magical falloff
-            const weight = Math.pow(1 - (actualDistance / (radius * 2)), 1.5); // Add epsilon to prevent division instability
-            
+            const weight = Math.pow(1 - actualDistance / (radius * 2), 1.5); // Add epsilon to prevent division instability
+
             // Color bleeding: stronger colors influence more
-            const colorIntensity = (tempPixels[idx] + tempPixels[idx + 1] + tempPixels[idx + 2]) / 765;
+            const colorIntensity =
+              (tempPixels[idx] + tempPixels[idx + 1] + tempPixels[idx + 2]) /
+              765;
             const magicalWeight = weight * (0.5 + colorIntensity * 0.5);
-            
+
             r += tempPixels[idx] * magicalWeight;
             g += tempPixels[idx + 1] * magicalWeight;
             b += tempPixels[idx + 2] * magicalWeight;
@@ -2618,37 +2769,52 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
             totalWeight += magicalWeight;
           }
         }
-        
+
         // Always include the center sample with high weight
         const centerSampleX = Math.floor(srcX);
         const centerSampleY = Math.floor(srcY);
-        if (centerSampleX >= 0 && centerSampleX < width && centerSampleY >= 0 && centerSampleY < height) {
+        if (
+          centerSampleX >= 0 &&
+          centerSampleX < width &&
+          centerSampleY >= 0 &&
+          centerSampleY < height
+        ) {
           const centerIdx = (centerSampleY * width + centerSampleX) * 4;
           const centerWeight = 2.0; // Strong center influence
-          
+
           r += tempPixels[centerIdx] * centerWeight;
           g += tempPixels[centerIdx + 1] * centerWeight;
           b += tempPixels[centerIdx + 2] * centerWeight;
           a += tempPixels[centerIdx + 3] * centerWeight;
           totalWeight += centerWeight;
         }
-        
+
         const destIndex = (destY * width + destX) * 4;
-        
+
         if (totalWeight > 0) {
           // Add subtle color enhancement during zoom
           const enhancement = 1 + (scale - 1) * 0.1; // Slight saturation boost
-          
-          pixels[destIndex] = Math.min(255, Math.round((r / totalWeight) * enhancement));
-          pixels[destIndex + 1] = Math.min(255, Math.round((g / totalWeight) * enhancement));
-          pixels[destIndex + 2] = Math.min(255, Math.round((b / totalWeight) * enhancement));
+
+          pixels[destIndex] = Math.min(
+            255,
+            Math.round((r / totalWeight) * enhancement),
+          );
+          pixels[destIndex + 1] = Math.min(
+            255,
+            Math.round((g / totalWeight) * enhancement),
+          );
+          pixels[destIndex + 2] = Math.min(
+            255,
+            Math.round((b / totalWeight) * enhancement),
+          );
           pixels[destIndex + 3] = Math.round(a / totalWeight);
         }
       }
-    }  } else {
+    }
+  } else {
     // ZOOM OUT: level < 1.0 (0.5, 0.9, etc.) - MAGICAL SAMPLING
     const scale = level;
-    
+
     // Calculate the anchor point in pixels (relative to mask area if active)
     let anchorPixelX, anchorPixelY;
     if (activeMask) {
@@ -2658,49 +2824,55 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
       anchorPixelX = width * anchorX;
       anchorPixelY = height * anchorY;
     }
-    
+
     for (let destY = minY; destY < maxY; destY++) {
       for (let destX = minX; destX < maxX; destX++) {
         // Calculate the source position by scaling from anchor point
         const srcX = anchorPixelX + (destX - anchorPixelX) / scale;
         const srcY = anchorPixelY + (destY - anchorPixelY) / scale;
-        
+
         // Magical spiral sampling for zoom out too!
-        let r = 0, g = 0, b = 0, a = 0;
+        let r = 0,
+          g = 0,
+          b = 0,
+          a = 0;
         let totalWeight = 0;
-        
+
         // For zoom out, use wider sampling to capture more detail
         const sampleCount = 12; // More samples for zoom out
         const radius = 1.5 + (1 - scale) * 2; // Wider radius for smaller scales
-        
+
         for (let i = 0; i < sampleCount; i++) {
           // Create a reverse spiral pattern with chaos
           const angle = (i / sampleCount) * Math.PI * 2 * 2.618; // Wider spiral
           const distance = radius * (0.2 + 0.8 * (i / sampleCount));
-          
+
           // Add chaos based on zoom level - more chaos for more zoom out
           const chaosAmount = (1 - scale) * 0.5;
-          const chaos = Math.sin(destX * 0.08) * Math.cos(destY * 0.08) * chaosAmount;
+          const chaos =
+            Math.sin(destX * 0.08) * Math.cos(destY * 0.08) * chaosAmount;
           const actualDistance = distance + chaos;
-          
+
           const sampleX = srcX + Math.cos(angle) * actualDistance;
           const sampleY = srcY + Math.sin(angle) * actualDistance;
-          
+
           const x = Math.round(sampleX);
           const y = Math.round(sampleY);
-          
+
           if (x >= 0 && x < width && y >= 0 && y < height) {
             const idx = (y * width + x) * 4;
-            
-            if (tempPixels[idx + 3] > 0) { // Only sample non-transparent pixels
+
+            if (tempPixels[idx + 3] > 0) {
+              // Only sample non-transparent pixels
               // Weight based on distance and alpha
-              const weight = Math.pow(1 - (actualDistance / (radius * 2)), 2);
-              
+              const weight = Math.pow(1 - actualDistance / (radius * 2), 2);
+
               // For zoom out, enhance edge detection
-              const edgeIntensity = Math.abs(tempPixels[idx] - tempPixels[idx + 1]) + 
-                                  Math.abs(tempPixels[idx + 1] - tempPixels[idx + 2]);
+              const edgeIntensity =
+                Math.abs(tempPixels[idx] - tempPixels[idx + 1]) +
+                Math.abs(tempPixels[idx + 1] - tempPixels[idx + 2]);
               const magicalWeight = weight * (0.8 + edgeIntensity * 0.002);
-              
+
               r += tempPixels[idx] * magicalWeight;
               g += tempPixels[idx + 1] * magicalWeight;
               b += tempPixels[idx + 2] * magicalWeight;
@@ -2709,15 +2881,20 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
             }
           }
         }
-        
+
         // Include center sample with strong weight
         const centerSampleX = Math.round(srcX);
         const centerSampleY = Math.round(srcY);
-        if (centerSampleX >= 0 && centerSampleX < width && centerSampleY >= 0 && centerSampleY < height) {
+        if (
+          centerSampleX >= 0 &&
+          centerSampleX < width &&
+          centerSampleY >= 0 &&
+          centerSampleY < height
+        ) {
           const centerIdx = (centerSampleY * width + centerSampleX) * 4;
           if (tempPixels[centerIdx + 3] > 0) {
             const centerWeight = 3.0; // Strong center influence for zoom out
-            
+
             r += tempPixels[centerIdx] * centerWeight;
             g += tempPixels[centerIdx + 1] * centerWeight;
             b += tempPixels[centerIdx + 2] * centerWeight;
@@ -2725,16 +2902,25 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
             totalWeight += centerWeight;
           }
         }
-        
+
         const destIndex = (destY * width + destX) * 4;
-        
+
         if (totalWeight > 0) {
           // Add contrast enhancement for zoom out to maintain detail
           const contrast = 1 + (1 - scale) * 0.2; // Slight contrast boost
-          
-          pixels[destIndex] = Math.min(255, Math.round((r / totalWeight) * contrast));
-          pixels[destIndex + 1] = Math.min(255, Math.round((g / totalWeight) * contrast));
-          pixels[destIndex + 2] = Math.min(255, Math.round((b / totalWeight) * contrast));
+
+          pixels[destIndex] = Math.min(
+            255,
+            Math.round((r / totalWeight) * contrast),
+          );
+          pixels[destIndex + 1] = Math.min(
+            255,
+            Math.round((g / totalWeight) * contrast),
+          );
+          pixels[destIndex + 2] = Math.min(
+            255,
+            Math.round((b / totalWeight) * contrast),
+          );
           pixels[destIndex + 3] = Math.round(a / totalWeight);
         }
       }
@@ -2746,14 +2932,20 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
 // Sorts by luminance (brightness) - darker pixels first, lighter pixels last
 function sort() {
   // Determine the area to sort (mask or full screen)
-  let minX = 0, minY = 0, maxX = width, maxY = height;
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
   if (activeMask) {
-    minX = Math.max(0, Math.floor(activeMask.x));
-    minY = Math.max(0, Math.floor(activeMask.y));
-    maxX = Math.min(width, Math.floor(activeMask.x + activeMask.width));
-    maxY = Math.min(height, Math.floor(activeMask.y + activeMask.height));
+    // Apply pan translation to mask bounds
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
+    minX = Math.max(0, Math.floor(maskX));
+    minY = Math.max(0, Math.floor(maskY));
+    maxX = Math.min(width, Math.floor(maskX + activeMask.width));
+    maxY = Math.min(height, Math.floor(maskY + activeMask.height));
   }
-  
+
   // Collect all pixels in the area
   const pixelsToSort = [];
   for (let y = minY; y < maxY; y++) {
@@ -2763,35 +2955,116 @@ function sort() {
       const g = pixels[index + 1];
       const b = pixels[index + 2];
       const a = pixels[index + 3];
-      
+
       // Calculate luminance for sorting (standard formula)
       const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-      
+
       pixelsToSort.push({
-        r, g, b, a,
-        luminance
+        r,
+        g,
+        b,
+        a,
+        luminance,
       });
     }
   }
-  
+
   // Sort by luminance (darker to lighter)
   pixelsToSort.sort((a, b) => a.luminance - b.luminance);
-  
+
   // Write sorted pixels back to their positions
   let sortedIndex = 0;
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
       const index = (y * width + x) * 4;
       const sortedPixel = pixelsToSort[sortedIndex];
-      
+
       pixels[index] = sortedPixel.r;
       pixels[index + 1] = sortedPixel.g;
       pixels[index + 2] = sortedPixel.b;
       pixels[index + 3] = sortedPixel.a;
-      
+
       sortedIndex++;
     }
   }
+}
+
+// Copy a region from the current screen buffer into a new buffer
+// Returns a buffer object that can be used with paste()
+function copyRegion(x, y, w, h) {
+  x = Math.floor(x);
+  y = Math.floor(y);
+  w = Math.floor(w);
+  h = Math.floor(h);
+
+  // Apply pan translation to coordinates
+  x += panTranslation.x;
+  y += panTranslation.y;
+
+  // Clamp to screen bounds
+  x = Math.max(0, Math.min(x, width));
+  y = Math.max(0, Math.min(y, height));
+  w = Math.max(0, Math.min(w, width - x));
+  h = Math.max(0, Math.min(h, height - y));
+
+  if (w <= 0 || h <= 0) {
+    return null;
+  }
+
+  // Create new buffer using ImageData like makeBuffer does
+  const imageData = new ImageData(w, h);
+  const buffer = {
+    pixels: imageData.data,
+    width: imageData.width,
+    height: imageData.height,
+  };
+
+  // Copy pixels from screen buffer to new buffer
+  for (let srcY = 0; srcY < h; srcY++) {
+    for (let srcX = 0; srcX < w; srcX++) {
+      const srcIndex = ((y + srcY) * width + (x + srcX)) * 4;
+      const destIndex = (srcY * w + srcX) * 4;
+
+      if (srcIndex >= 0 && srcIndex < pixels.length - 3) {
+        buffer.pixels[destIndex] = pixels[srcIndex];
+        buffer.pixels[destIndex + 1] = pixels[srcIndex + 1];
+        buffer.pixels[destIndex + 2] = pixels[srcIndex + 2];
+        buffer.pixels[destIndex + 3] = pixels[srcIndex + 3];
+      }
+    }
+  }
+
+  return buffer;
+}
+
+let stolen;
+
+// TODO: Steal should run copyregion and keep the buffer in a global 'stolen' variable.
+function steal(x, y, width, height) {
+  console.log("🎯 steal called with:", x, y, width, height);
+  stolen = copyRegion(x, y, width, height);
+  console.log(
+    "🎯 steal result:",
+    stolen ? `${stolen.width}x${stolen.height} buffer` : "null",
+  );
+  return stolen;
+}
+
+// Paste the stolen buffer at the specified coordinates with optional scaling
+function putback(x, y, scale = 1) {
+  console.log("🎯 putback called with:", x, y, scale);
+  console.log(
+    "🎯 putback: stolen buffer state:",
+    stolen ? `${stolen.width}x${stolen.height}` : "null",
+  );
+  if (!stolen) {
+    console.log("🎯 putback: no stolen buffer available");
+    return;
+  }
+  console.log("🎯 putback: calling paste with stolen buffer");
+  const result = paste(stolen, x, y, scale);
+  console.log("🎯 putback: paste completed");
+  return result;
 }
 
 export {
@@ -2812,6 +3085,8 @@ export {
   blur,
   paste,
   stamp,
+  steal,
+  putback,
   line,
   pline,
   pixelPerfectPolyline,
@@ -2827,7 +3102,9 @@ export {
   noise16DIGITPAIN,
   noise16Aesthetic,
   noise16Sotce,
-  noiseTinted,  printLine,  blendMode,
+  noiseTinted,
+  printLine,
+  blendMode,
   scroll,
   spin,
   zoom,
