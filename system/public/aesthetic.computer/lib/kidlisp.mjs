@@ -246,26 +246,28 @@ class KidLisp {
   module(source) {
     const parsed = this.parse(source);
     this.ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
+    
     /*if (VERBOSE)*/ // console.log("🐍 Snake:", parsed);
 
     // 🧩 Piece API
     return {
-      boot: ({ params, wipe, clock }) => {
+      boot: ({ params, wipe, clock, screen }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
         this.globalDef.paramA = params[0];
         this.globalDef.paramB = params[1];
         this.globalDef.paramC = params[2];
-        wipe(0);
+        
+        // Just set up initial state, don't execute program here
+        // wipe("yellow");
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         this.frameCount++; // Increment frame counter for timing functions
+        
         try {
-          // TODO: Eventually compose programs together by stringing their
-          //       output in a unix pipe-like fashion?
-
+          // Then execute the full program
           this.localEnvLevel = 0; // Reset state per program evaluation.
           this.localEnv = this.localEnvStore[this.localEnvLevel];
           /*const evaluated = */ this.evaluate(this.ast, $);
@@ -1125,6 +1127,16 @@ class KidLisp {
           this.globalDef[id] ||
           globalEnv[id] ||
           0;
+        
+        // If the value is a function, call it to get the actual value
+        if (typeof value === "function") {
+          try {
+            value = value(api);
+          } catch (error) {
+            console.warn("❗ Error calling function for identifier:", id, error);
+            value = 0;
+          }
+        }
       }
 
       // Replace any identifiers and cancel out prefixed double negatives.
