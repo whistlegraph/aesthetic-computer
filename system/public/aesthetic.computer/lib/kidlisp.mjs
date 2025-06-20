@@ -238,6 +238,7 @@ class KidLisp {
     this.drawer = null;
     this.frameCount = 0; // Frame counter for timing functions
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
+
   }
 
   // Parse and evaluate a lisp source module
@@ -299,8 +300,15 @@ class KidLisp {
     if (input.includes("\n")) {
       const lines = input
         .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0 && !line.startsWith(";"));
+        .map((line) => {
+          // Strip inline comments (everything after semicolon)
+          const commentIndex = line.indexOf(";");
+          if (commentIndex !== -1) {
+            line = line.substring(0, commentIndex);
+          }
+          return line.trim();
+        })
+        .filter((line) => line.length > 0);
 
       const wrappedLines = lines.map((line) => {
         // If line doesn't start with ( and looks like a function call, wrap it
@@ -614,6 +622,12 @@ class KidLisp {
       blur: (api, args = []) => {
         api.blur(...args);
       },
+      pan: (api, args = []) => {
+        api.pan(...args);
+      },
+      unpan: (api, args = []) => {
+        api.unpan();
+      },
       mask: (api, args = []) => {
         // Convert individual args to a box object that mask() expects
         if (args.length >= 4) {
@@ -624,6 +638,18 @@ class KidLisp {
       unmask: (api, args = []) => {
         api.unmask();
       },
+      steal: (api, args = []) => {
+        console.log("🧠 kidlisp steal called with args:", args);
+        api.steal(...args);
+      },
+      putback: (api, args = []) => {
+        console.log("🧠 kidlisp putback called with args:", args);
+        api.putback(...args);
+      },
+      copy: (api, args = []) => {
+        //
+      },
+      // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
         const content = processArgStringTypes(args[0]);
         // console.log("✏️ Write:", content, args);
@@ -674,6 +700,17 @@ class KidLisp {
         const randomIndex = Math.floor(Math.random() * args.length);
         return args[randomIndex];
       },
+      // 🎲 Random selection (alias)
+      "?": (api, args = []) => {
+        if (args.length === 0) return undefined;
+        // Use the help.choose function from the common API if available
+        if (api.help?.choose) {
+          return api.help.choose(...args);
+        }
+        // Fallback to simple random selection
+        const randomIndex = Math.floor(Math.random() * args.length);
+        return args[randomIndex];
+      },
       // 🔈 Sound
       overtone: (api, args = []) => {
         // console.log("Synth at:", args);
@@ -696,6 +733,29 @@ class KidLisp {
       rainbow: (api) => {
         return api.num?.rainbow() || [255, 0, 0]; // Fallback to red if not available
       },
+      // 🎨 Noise generation
+      noise: (api, args = []) => {
+        const variant = args.length > 0 ? unquoteString(args[0]) : null;
+        if (variant === "digitpain") {
+          api.noise16DIGITPAIN?.();
+        } else if (variant === "aesthetic") {
+          api.noise16Aesthetic?.();
+        } else if (variant === "sotce") {
+          api.noise16Sotce?.();
+        } else {
+          // Default to basic noise16
+          api.noise16?.();
+        }
+      },
+      // 🔧 Debug function
+      debug: (api, args = []) => {
+        console.log("🔧 DEBUG:", args);
+        return "debug called";
+      },
+      log: (api, args = []) => {
+        console.log("📝 LOG:", ...args);
+        return args[0];
+      },
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
         acc[colorName] = () => cssColors[colorName];
@@ -710,6 +770,11 @@ class KidLisp {
 
     // Get global environment for this instance
     const globalEnv = this.getGlobalEnv();
+    
+    // Add screen reference directly to global environment
+    if (api.screen) {
+      globalEnv.screen = api.screen;
+    }
 
     // Create local environment for a function that temporarily keeps the params.
     if (parsed.body) {
@@ -897,13 +962,13 @@ class KidLisp {
               head === "draw" ||
               head === "if" ||
               head === "not" ||
-              head === "wipe" ||
               head === ">" ||
               head === "<" ||
               head === "=" ||
               head === "net" ||
               head === "source" ||
-              head === "choose"
+              head === "choose" ||
+              head === "?"
             ) {
               processedArgs = args;
             } else {
