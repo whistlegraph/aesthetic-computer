@@ -1,6 +1,6 @@
 ; 🐢 Test file
 
-; wipe blue
+wipe blue
 ink red
 (line 10 10 100 100)
 ; page ; 'page' should make a new 'painting' context / pixel buffer so the subsequent

@@ -1415,20 +1415,15 @@ async function halt($, text) {
 
     // Theory: Is `load` actually similar to eval?
     //         (Whereas this is eval/apply at the program level.)
-    
-    let body, loaded;
+      let body, loaded;
     const trimmed = text.trim();
-    console.log("🔍 PROMPT: checking text for kidlisp:", JSON.stringify(trimmed));
     // 🍏 Detect if we are in kidlisp mode and pass that flag through to 'load'
     const isKidlisp = trimmed.startsWith("(") || trimmed.startsWith(";") || isKidlispSource(trimmed);
-    console.log("🔍 PROMPT: isKidlisp result:", isKidlisp);
     if (isKidlisp) {
-      console.log("🔍 PROMPT: treating as kidlisp, calling load with forceKidlisp=true");
       body = { name: trimmed, source: trimmed };
       loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
       //                                        ^^^^ devReload  ^^^^^ forceKidlisp
     } else {
-      console.log("🔍 PROMPT: treating as regular command");
       body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
     }
