@@ -319,18 +319,17 @@ function clear() {
   // pixels[1] = 255;
   // pixels[2] = 255;
   // pixels[3] = 255;
-  // pixels.copyWithin(4, 0);
-  // Determine the area to clear (mask or full screen)
+  // pixels.copyWithin(4, 0);  // Determine the area to clear (mask or full screen)
   let minX = 0,
     minY = 0,
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = activeMask.x + panTranslation.x;
-    minY = activeMask.y + panTranslation.y;
-    maxX = activeMask.x + activeMask.width + panTranslation.x;
-    maxY = activeMask.y + activeMask.height + panTranslation.y;
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
   }
 
   if (activeMask) {
@@ -364,30 +363,29 @@ function clear() {
 function plot(x, y) {
   x = floor(x);
   y = floor(y);
-
   // Skip pixels that are offscreen and/or found in the `skips` list.
-  //if (x < 0 || x >= width || y < 0 || y >= height) return;
-  if (x < 0) return;
-  if (x >= width) return;
-  if (y < 0) return;
-  if (y >= height) return; // And pixels in the active mask.
+  if (x < 0 || x >= width || y < 0 || y >= height) return;
+
+  // Check pixels in the active mask.
   if (activeMask) {
-    // Account for pan translation when checking mask bounds
-    const maskX = activeMask.x + panTranslation.x;
-    const maskY = activeMask.y + panTranslation.y;
+    // Don't apply pan translation to mask bounds when checking plot coordinates
+    // The mask coordinates are already set relative to the current pan position
     if (
-      y < maskY ||
-      y >= maskY + activeMask.height ||
-      x >= maskX + activeMask.width ||
-      x < maskX
+      y < activeMask.y ||
+      y >= activeMask.y + activeMask.height ||
+      x >= activeMask.x + activeMask.width ||
+      x < activeMask.x
     )
       return;
   }
 
   for (const s of skips) if (x === s.x && y === s.y) return;
-
   // Plot our pixel.
   const i = (x + y * width) * 4;
+  
+  // Additional safety check for array bounds
+  if (i < 0 || i >= pixels.length - 3) return;
+  
   const alpha = c[3];
 
   // Erasing
@@ -613,11 +611,11 @@ function blur(radius = 1) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width + panTranslation.x));
-    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height + panTranslation.y));
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = Math.max(0, Math.min(width, activeMask.x));
+    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
+    minY = Math.max(0, Math.min(height, activeMask.y));
+    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height));
   }
 
   const workingWidth = maxX - minX;
@@ -1004,27 +1002,23 @@ function lineh(x0, x1, y) {
   x0 = floor(x0);
   x1 = floor(x1);
   y = floor(y);
-  if (y < 0 || y >= height || x0 >= width || x1 < 0) return;
-  // Check if the entire line is outside the mask
+  if (y < 0 || y >= height || x0 >= width || x1 < 0) return; // Check if the entire line is outside the mask
   if (activeMask) {
-    // Account for pan translation when checking mask bounds
-    const maskX = activeMask.x + panTranslation.x;
-    const maskY = activeMask.y + panTranslation.y;
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
     if (
-      y < maskY ||
-      y >= maskY + activeMask.height ||
-      x1 < maskX ||
-      x0 >= maskX + activeMask.width
+      y < activeMask.y ||
+      y >= activeMask.y + activeMask.height ||
+      x1 < activeMask.x ||
+      x0 >= activeMask.x + activeMask.width
     )
       return;
   }
 
   // Clamp to screen bounds first
   x0 = clamp(x0, 0, width - 1);
-  x1 = clamp(x1, 0, width - 1);
-
-  // Then clamp to mask bounds if mask is active
+  x1 = clamp(x1, 0, width - 1); // Then clamp to mask bounds if mask is active
   if (activeMask) {
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
     x0 = clamp(x0, activeMask.x, activeMask.x + activeMask.width - 1);
     x1 = clamp(x1, activeMask.x, activeMask.x + activeMask.width - 1);
   }
@@ -2030,13 +2024,14 @@ function grid(
 
         if (pixelHeight > 0 && destStartY >= 0 && destEndY <= height) {
           for (let i = 0; i < cols; i += 1) {
-            const srcX = i % bufWidth;            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
+            const srcX = i % bufWidth;
+            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
             if (srcIndex < bufPixels.length) {
               // Extract color data directly
-              const r = bufPixels[srcIndex];
-              const g = bufPixels[srcIndex + 1];
-              const b = bufPixels[srcIndex + 2];
-              const a = bufPixels[srcIndex + 3];
+              const r = srcPixels[srcIndex];
+              const g = srcPixels[srcIndex + 1];
+              const b = srcPixels[srcIndex + 2];
+              const a = srcPixels[srcIndex + 3];
 
               const destStartX = ~~(x + i * colPixInt);
               const destEndX = ~~(x + (i + 1) * colPixInt);
@@ -2314,6 +2309,23 @@ function printLine(
   rotation = 0,
 ) {
   if (!text) return;
+
+  // Early culling for mask bounds
+  if (activeMask) {
+    const lineHeight = font?.A?.box?.height || 10; // Estimate line height
+    const scaledHeight = lineHeight * scale;
+
+    // Check if the entire line is outside the mask bounds
+    if (
+      startY >= activeMask.y + activeMask.height ||
+      startY + scaledHeight <= activeMask.y ||
+      startX >= activeMask.x + activeMask.width ||
+      startX + text.length * blockWidth * scale <= activeMask.x
+    ) {
+      return; // Don't render if completely outside mask
+    }
+  }
+
   [...text.toString()].forEach((char, i) => {
     draw(
       font[char],
@@ -2333,14 +2345,11 @@ function noise16() {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = Math.max(0, activeMask.x + panTranslation.x);
-    minY = Math.max(0, activeMask.y + panTranslation.y);
-    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
-    maxY = Math.min(
-      height,
-      activeMask.y + activeMask.height + panTranslation.y,
-    );
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = Math.max(0, activeMask.x);
+    minY = Math.max(0, activeMask.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width);
+    maxY = Math.min(height, activeMask.y + activeMask.height);
   }
 
   for (let y = minY; y < maxY; y++) {
@@ -2361,14 +2370,11 @@ function noise16DIGITPAIN() {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = Math.max(0, activeMask.x + panTranslation.x);
-    minY = Math.max(0, activeMask.y + panTranslation.y);
-    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
-    maxY = Math.min(
-      height,
-      activeMask.y + activeMask.height + panTranslation.y,
-    );
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = Math.max(0, activeMask.x);
+    minY = Math.max(0, activeMask.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width);
+    maxY = Math.min(height, activeMask.y + activeMask.height);
   }
 
   for (let y = minY; y < maxY; y++) {
@@ -2389,14 +2395,11 @@ function noise16Aesthetic() {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = Math.max(0, activeMask.x + panTranslation.x);
-    minY = Math.max(0, activeMask.y + panTranslation.y);
-    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
-    maxY = Math.min(
-      height,
-      activeMask.y + activeMask.height + panTranslation.y,
-    );
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = Math.max(0, activeMask.x);
+    minY = Math.max(0, activeMask.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width);
+    maxY = Math.min(height, activeMask.y + activeMask.height);
   }
 
   for (let y = minY; y < maxY; y++) {
@@ -2417,14 +2420,11 @@ function noise16Sotce() {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = Math.max(0, activeMask.x + panTranslation.x);
-    minY = Math.max(0, activeMask.y + panTranslation.y);
-    maxX = Math.min(width, activeMask.x + activeMask.width + panTranslation.x);
-    maxY = Math.min(
-      height,
-      activeMask.y + activeMask.height + panTranslation.y,
-    );
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = Math.max(0, activeMask.x);
+    minY = Math.max(0, activeMask.y);
+    maxX = Math.min(width, activeMask.x + activeMask.width);
+    maxY = Math.min(height, activeMask.y + activeMask.height);
   }
 
   for (let y = minY; y < maxY; y++) {
@@ -2483,33 +2483,39 @@ let pixelShearAccumY = null;
 // Scroll the entire pixel buffer by x and/or y pixels with wrapping
 function scroll(dx = 0, dy = 0) {
   if (dx === 0 && dy === 0) return; // No change needed
-  
+
   // Accumulate fractional scroll amounts
   scrollAccumulatorX += dx;
   scrollAccumulatorY += dy;
-  
+
   // Extract integer parts for actual scrolling
   const integerDx = Math.floor(scrollAccumulatorX);
   const integerDy = Math.floor(scrollAccumulatorY);
-  
+
   // Keep fractional remainders
   scrollAccumulatorX -= integerDx;
   scrollAccumulatorY -= integerDy;
-  
+
   // Only proceed if we have integer pixels to scroll
   if (integerDx === 0 && integerDy === 0) return;
-  
+
   // Determine the area to scroll (mask or full screen)
   let minX = 0,
-    maxX = width,
     minY = 0,
+    maxX = width,
     maxY = height;
   if (activeMask) {
     // Apply pan translation to mask bounds and ensure they're within screen bounds
     minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
     minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
   }
 
   const boundsWidth = maxX - minX;
@@ -2533,15 +2539,22 @@ function scroll(dx = 0, dy = 0) {
       // Calculate source coordinates with wrapping within bounds
       const srcX = minX + ((x + boundsWidth - finalDx) % boundsWidth);
       const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
-      
+
       // Calculate destination coordinates
       const destX = minX + x;
       const destY = minY + y;
-      
+
       // Ensure coordinates are within valid bounds
-      if (srcX >= minX && srcX < maxX && srcY >= minY && srcY < maxY &&
-          destX >= minX && destX < maxX && destY >= minY && destY < maxY) {
-        
+      if (
+        srcX >= minX &&
+        srcX < maxX &&
+        srcY >= minY &&
+        srcY < maxY &&
+        destX >= minX &&
+        destX < maxX &&
+        destY >= minY &&
+        destY < maxY
+      ) {
         const srcOffset = (srcY * width + srcX) * 4;
         const destOffset = (destY * width + destX) * 4;
 
@@ -2720,11 +2733,11 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   const invScale = 1.0 / scale;
   // Pre-calculate constants for performance
   const widthTimes4 = width * 4;
-  
+
   // Bilinear math for smooth positioning, nearest neighbor sampling for crisp output
   for (let destY = minY; destY < maxY; destY++) {
     const destRowOffset = destY * widthTimes4;
-    
+
     for (let destX = minX; destX < maxX; destX++) {
       // Convert destination to texture coordinates relative to anchor (bilinear math)
       const texX = (destX - anchorPixelX) * invScale + anchorPixelX;
@@ -2735,48 +2748,64 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
       const y1 = Math.floor(texY);
       const fx = texX - x1;
       const fy = texY - y1;
-      
+
       // Calculate bilinear weights to determine sampling bias
       const w00 = (1 - fx) * (1 - fy); // top-left
-      const w01 = fx * (1 - fy);       // top-right
-      const w10 = (1 - fx) * fy;       // bottom-left
-      const w11 = fx * fy;             // bottom-right
-      
+      const w01 = fx * (1 - fy); // top-right
+      const w10 = (1 - fx) * fy; // bottom-left
+      const w11 = fx * fy; // bottom-right
+
       // Find which quadrant has the most influence
       const weights = [w00, w01, w10, w11];
-      const offsets = [[0, 0], [1, 0], [0, 1], [1, 1]];
+      const offsets = [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ];
       let maxWeight = 0;
       let bestOffset = [0, 0];
-      
+
       for (let i = 0; i < 4; i++) {
         if (weights[i] > maxWeight) {
           maxWeight = weights[i];
           bestOffset = offsets[i];
         }
       }
-      
+
       // Apply nearest neighbor sampling at the bilinear-determined position
       const srcX = x1 + bestOffset[0];
       const srcY = y1 + bestOffset[1];
-      
+
       // Wrap source coordinates within working bounds
       let wrappedSrcX = ((srcX - minX) % workingWidth) + workingWidth;
       let wrappedSrcY = ((srcY - minY) % workingHeight) + workingHeight;
-      
-      wrappedSrcX = wrappedSrcX >= workingWidth ? wrappedSrcX - workingWidth : wrappedSrcX;
-      wrappedSrcY = wrappedSrcY >= workingHeight ? wrappedSrcY - workingHeight : wrappedSrcY;
+
+      wrappedSrcX =
+        wrappedSrcX >= workingWidth ? wrappedSrcX - workingWidth : wrappedSrcX;
+      wrappedSrcY =
+        wrappedSrcY >= workingHeight
+          ? wrappedSrcY - workingHeight
+          : wrappedSrcY;
 
       // Convert back to absolute coordinates
       const finalSrcX = minX + wrappedSrcX;
       const finalSrcY = minY + wrappedSrcY;
-      
+
       // Ensure coordinates are within valid bounds
-      if (finalSrcX >= minX && finalSrcX < maxX && finalSrcY >= minY && finalSrcY < maxY &&
-          destX >= minX && destX < maxX && destY >= minY && destY < maxY) {
-        
+      if (
+        finalSrcX >= minX &&
+        finalSrcX < maxX &&
+        finalSrcY >= minY &&
+        finalSrcY < maxY &&
+        destX >= minX &&
+        destX < maxX &&
+        destY >= minY &&
+        destY < maxY
+      ) {
         const srcIdx = (finalSrcY * width + finalSrcX) * 4;
         const destIdx = destRowOffset + destX * 4;
-        
+
         // Copy RGBA values
         pixels[destIdx] = tempPixels[srcIdx];
         pixels[destIdx + 1] = tempPixels[srcIdx + 1];
@@ -2917,7 +2946,7 @@ function putback(x, y, scale = 1) {
 // KidPix-style shear function
 // shearX: horizontal shear amount (positive = right lean, negative = left lean)
 // Simple shear by moving entire rows/columns
-// shearX: horizontal shear factor (positive = right lean, negative = left lean)  
+// shearX: horizontal shear factor (positive = right lean, negative = left lean)
 // shearY: vertical shear factor (positive = down lean, negative = up lean)
 function shear(shearX = 0, shearY = 0) {
   if (shearX === 0 && shearY === 0) return;
@@ -2925,20 +2954,29 @@ function shear(shearX = 0, shearY = 0) {
   // Accumulate fractional shear amounts
   shearAccumulatorX += shearX;
   shearAccumulatorY += shearY;
-  
+
   const finalShearX = shearAccumulatorX;
   const finalShearY = shearAccumulatorY;
-  
+
   shearAccumulatorX = 0;
   shearAccumulatorY = 0;
-  
+
   // Work area bounds
-  let minX = 0, maxX = width, minY = 0, maxY = height;
+  let minX = 0,
+    maxX = width,
+    minY = 0,
+    maxY = height;
   if (activeMask) {
     minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
     minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
   }
 
   const workingWidth = maxX - minX;
@@ -2947,19 +2985,19 @@ function shear(shearX = 0, shearY = 0) {
 
   const tempPixels = new Uint8ClampedArray(pixels);
   const centerY = workingHeight / 2;
-  const centerX = workingWidth / 2;  // Horizontal shear: each row shifts more based on distance from center
+  const centerX = workingWidth / 2; // Horizontal shear: each row shifts more based on distance from center
   if (finalShearX !== 0) {
     for (let y = 0; y < workingHeight; y++) {
-      const distFromCenter = y - workingHeight/2;
+      const distFromCenter = y - workingHeight / 2;
       const rowShift = Math.round(finalShearX * distFromCenter);
-      
+
       for (let x = 0; x < workingWidth; x++) {
         let srcX = x - rowShift;
         srcX = ((srcX % workingWidth) + workingWidth) % workingWidth;
-        
+
         const srcOffset = ((minY + y) * width + (minX + srcX)) * 4;
         const destOffset = ((minY + y) * width + (minX + x)) * 4;
-        
+
         pixels[destOffset] = tempPixels[srcOffset];
         pixels[destOffset + 1] = tempPixels[srcOffset + 1];
         pixels[destOffset + 2] = tempPixels[srcOffset + 2];
@@ -2967,25 +3005,955 @@ function shear(shearX = 0, shearY = 0) {
       }
     }
     tempPixels.set(pixels);
-  }  // Vertical shear: each column shifts more based on distance from center
+  } // Vertical shear: each column shifts more based on distance from center
   if (finalShearY !== 0) {
     for (let x = 0; x < workingWidth; x++) {
-      const distFromCenter = x - workingWidth/2;
+      const distFromCenter = x - workingWidth / 2;
       const colShift = Math.round(finalShearY * distFromCenter);
-      
+
       for (let y = 0; y < workingHeight; y++) {
         let srcY = y - colShift;
         srcY = ((srcY % workingHeight) + workingHeight) % workingHeight;
-        
+
         const srcOffset = ((minY + srcY) * width + (minX + x)) * 4;
         const destOffset = ((minY + y) * width + (minX + x)) * 4;
-        
+
         pixels[destOffset] = tempPixels[srcOffset];
         pixels[destOffset + 1] = tempPixels[srcOffset + 1];
         pixels[destOffset + 2] = tempPixels[srcOffset + 2];
         pixels[destOffset + 3] = tempPixels[srcOffset + 3];
       }
     }
+  }
+}
+
+// b. Geometric Abstractions
+
+// For producing a projection matrix.
+// For matrix & linear algebra help: https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
+class Camera {
+  type = "perspective";
+  matrix;
+  #x = 0;
+  #rotX = 0;
+  #y = 0;
+  #rotY = 0;
+  #z = 0;
+  #rotZ = 0;
+  fov;
+
+  near = 0.001;
+  far = 1000;
+
+  position = [0, 0, 0, 1];
+  rotation = [0, 0, 0];
+  scale = [1, 1, 1];
+
+  // centerCached; // Saved after each call to `center()`.
+
+  perspectiveMatrix;
+  #transformMatrix;
+
+  // Takes x, y, z position and an optional scale (xyz) array.
+  constructor(fov = 80, { x, y, z, scale } = { x: 0, y: 0, z: 0, scale: 1 }) {
+    this.fov = fov;
+
+    this.x = x;
+    this.y = y;
+    this.z = z;
+
+    if (scale) this.scale = scale;
+
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+  }
+
+  set rotX(n) {
+    this.#rotX = n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+    this.rotation[0] = n;
+  }
+
+  get rotX() {
+    return this.#rotX;
+  }
+
+  set rotY(n) {
+    this.#rotY = n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+    this.rotation[1] = n;
+  }
+
+  get rotY() {
+    return this.#rotY;
+  }
+
+  set rotZ(n) {
+    this.#rotZ = n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+    this.rotation[2] = n;
+  }
+
+  get rotZ() {
+    return this.#rotZ;
+  }
+
+  // Returns the rotation of the camera in radians.
+  get rot() {
+    return [this.#rotX, this.#rotY, this.#rotZ];
+  }
+
+  set x(n = 0) {
+    this.#x = n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+    this.position[0] = n;
+  }
+
+  get x() {
+    return this.#x;
+  }
+
+  set y(n = 0) {
+    this.#y = n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+    this.position[1] = n;
+  }
+
+  get y() {
+    return this.#y;
+  }
+
+  set z(n = 0) {
+    this.#z = n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+    this.position[2] = n;
+  }
+
+  get z() {
+    return this.#z;
+  }
+
+  forward(n) {
+    this.#z -= n;
+    this.#perspective(this.fov);
+    this.#transform();
+    this.matrix = this.#transformMatrix;
+  }
+
+  #perspective(fov) {
+    const zNear = this.near;
+    const zFar = this.far;
+
+    this.perspectiveMatrix = mat4.perspective(
+      mat4.create(),
+      radians(fov),
+      width / height,
+      zNear,
+      zFar,
+    );
+
+    // See: https://github.com/BennyQBD/3DSoftwareRenderer/blob/641f59125351d9565e744a90ad86256c3970a724/src/Matrix4f.java#L89
+    // And compare it with: https://glmatrix.net/docs/mat4.js.html#line1508
+
+    const zRange = zNear - zFar;
+    const ten = (-zNear - zFar) / zRange;
+    const fourteen = (2 * zFar * zNear) / zRange;
+
+    this.perspectiveMatrix[10] = ten; // Zero the Z component.
+    this.perspectiveMatrix[14] = fourteen;
+    this.perspectiveMatrix[11] = 1; // Flip the Y so we see things rightside up.
+  }
+
+  get perspective() {
+    return this.perspectiveMatrix;
+  }
+
+  // Recalculate the camera matrix for a new display constraint.
+  // TODO: Eventually this should be redundant for custom cameras
+  //       that don't hook into the `screen`. 24.02.21.15.26
+  resize() {
+    this.forward(0);
+  }
+
+  // Get an XYZ position on a plane at a given depth,
+  // relative to screen coordinates.
+  ray(X = width / 2, Y = height / 2, depth = 1, flippedY = false) {
+    this.#perspective(this.fov);
+
+    // 1. Camera World Space
+    const pos = [...this.position];
+
+    if (flippedY) pos[1] *= -1; // TODO: This is a little janky now, both CPU
+    //                                   and GPU should have the same Y.
+
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.#rotX));
+    const rotY = mat4.fromYRotation(mat4.create(), radians(this.#rotY));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.#rotZ));
+
+    const rotatedX = mat4.multiply(mat4.create(), rotX, mat4.create());
+    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
+    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
+
+    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
+
+    const world = scaled;
+
+    // Camera World Space -> Inverted Perspective Projection
+    const invertedProjection = mat4.invert(
+      mat4.create(),
+      this.perspectiveMatrix,
+    );
+    const invWorldPersProj = mat4.mul(mat4.create(), world, invertedProjection);
+
+    // 2. Screen Point -> Inverted World Perspective Projection
+
+    // Normalize from screen coordinates.
+    X = 1 - X / width;
+    Y = 1 - Y / height;
+
+    // 2. -> Normalized Device Space (NDS)
+    let x = 2.0 * X - 1;
+    let y = 2.0 * Y - 1;
+
+    // NDS -> Homogeneous Space
+    // (flipped Z, because we are in a left-handed coordinate system.)
+    const screenPos = vec4.fromValues(x, -y, 1, 1);
+
+    // Adjust Z depth of plane... (scale screen position)
+    const shiftedScreenPos = vec4.scale(vec4.create(), screenPos, depth);
+
+    // Get near plane.
+    const xyz = vec4.transformMat4(
+      vec4.create(),
+      shiftedScreenPos,
+      invWorldPersProj,
+    );
+
+    // Subtract transformed point from camera position.
+    const worldPos = vec4.sub(vec4.create(), pos, xyz);
+
+    return worldPos;
+  }
+
+  #transform() {
+    // TODO: Why does this and the FPS camera control need to be inverted?
+    //       Can't I just somehow invert the matrix to avoid all the swapping?
+    //       Maybe it has something to do with rotation order?
+    //       The default in three.js is XYZ, but here I'm using YXZ which I
+    //       had to override there. 22.10.09.20.31
+
+    // Translation.
+    const panned = mat4.translate(mat4.create(), mat4.create(), [
+      this.#x,
+      this.#y,
+      this.#z,
+    ]);
+
+    // Rotation
+    const rotY = mat4.fromYRotation(mat4.create(), radians(-this.#rotY)); // FLIPPED
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.#rotX));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.#rotZ));
+    const rotatedY = mat4.multiply(mat4.create(), rotY, panned);
+    const rotatedX = mat4.multiply(mat4.create(), rotX, rotatedY);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedX);
+
+    // Scale
+    // TODO: Add support for camera scaling.
+    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
+
+    // Perspective
+    this.#transformMatrix = mat4.multiply(
+      mat4.create(),
+      this.perspectiveMatrix,
+      scaled,
+    );
+  }
+}
+
+// For moving a camera round over time.
+// TODO: Add a track? (Rollercoaster / coast)
+// TODO: Only supports sideways movement right now.
+class Dolly {
+  camera;
+
+  xVel = 0;
+  yVel = 0;
+  zVel = 0;
+  dec = 0.9;
+
+  constructor(camera) {
+    this.camera = camera;
+  }
+
+  sim() {
+    this.xVel *= this.dec;
+    this.yVel *= this.dec;
+    this.zVel *= this.dec;
+
+    if (abs(this.xVel) > 0) this.camera.x += this.xVel;
+    if (abs(this.yVel) > 0) this.camera.y += this.yVel;
+    if (abs(this.zVel) > 0) this.camera.z += this.zVel;
+  }
+
+  push({ x, y, z }) {
+    // Strafe x and z.
+    const xz = vec2.rotate(
+      vec2.create(),
+      vec2.fromValues(x, z),
+      vec2.fromValues(0, 0),
+      radians(-this.camera.rotY), // Take the camera Y axis for strafing.
+    );
+
+    this.xVel += xz[0] || 0;
+    this.yVel += y || 0;
+    this.zVel += xz[1] || 0;
+  }
+}
+
+let formId = 0;
+
+// Mesh
+class Form {
+  primitive = "triangle";
+  type = "triangle";
+
+  limiter = 0; // Only enabled on CPU rendered `line` at the moment. 22.11.06.18.19
+
+  uid; // = nanoid(4); // An id to keep across threads. Takes ~4 milliseconds. 😢
+
+  tag; // Gets sent to the GPU as a named / marked tag.
+  // Currently only available on `buffered` types in `3d.mjs` 23.02.07.09.46
+
+  // Model
+  vertices = [];
+  indices = [];
+
+  // TODO: Texture and color should be optional, and perhaps based on type.
+  // TODO: Should this use a parameter called shader?
+  texture; // = makeBuffer(32, 32);
+  color;
+  colorModifier;
+
+  // GPU Specific Params & Buffers
+  gpuVerticesSent = 0;
+  gpuReset = false; // Assumes this object is being recreated on the GPU.
+  gpuKeep = true;
+  gpuConvertColors = true;
+  gpuTransformed = false;
+  gpuRecolored = false;
+  MAX_POINTS = 100000; // Some buffered geometry gpu calls may use this hint.
+  uvs = [];
+
+  #gradientColors = [
+    [1.0, 0.0, 0.0, 1.0],
+    [0.0, 1.0, 0.0, 1.0],
+    [0.0, 0.0, 1.0, 1.0],
+  ];
+
+  /* I haven't needed support for this yet so it's left commented. 22.10.13.23.12
+  #texCoords = [
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0, 0.0],
+  ];
+  */
+
+  // Transform
+  position = [0, 0, 0];
+  rotation = [0, 0, 0];
+  scale = [1, 1, 1];
+
+  gradients = true;
+
+  // Blending
+  alpha = 1.0;
+
+  constructor(
+    // Model
+    // `type` can be "triangle", or "line" or "line:buffered"
+    // `positions` and colors can be sent and then verticies will be generated
+    {
+      type,
+      vertices,
+      uvs = [],
+      positions,
+      colors,
+      gradients,
+      indices,
+      keep = true,
+    },
+    fill,
+    // Transform
+    transform,
+  ) {
+    this.gradients = gradients; // A flag to decide if we use gradients or not. Only for line3d right now. 22.11.06.02.00
+
+    // Give an incremental id per session.
+    this.uid = formId;
+    formId += 1;
+
+    // Set the primitive type.
+    this.primitive = type;
+    this.type = type;
+
+    // Decide whether to throw this away after being drawn once
+    this.gpuKeep = keep;
+
+    // Take into account form -> primitive relationships.
+    if (type === "quad") this.primitive = "triangle";
+    if (type === "triangle:buffered") this.primitive = "triangle";
+    if (type === "line:buffered") this.primitive = "line";
+
+    this.indices = indices || repeat(positions?.length, (i) => i);
+
+    // 🌩️ Ingest positions and turn them into vertices.
+    // ("Import" a model...)
+
+    // Switch fill to transform if the was skipped.
+    if (fill?.pos || fill?.rot || fill?.scale) {
+      transform = fill;
+      fill = undefined;
+    }
+
+    // Assign texture or color.
+    if (fill?.tex) this.texture = fill.tex;
+    if (fill?.color) this.color = fill.color || c.slice();
+    if (fill?.alpha) this.alpha = fill.alpha;
+
+    // TODO: There is no maxed out notice here.
+    if (positions?.length > 0)
+      this.addPoints({ positions, colors }, this.indices);
+
+    // Or just set vertices directly.
+    if (vertices?.length > 0) {
+      this.vertices = vertices;
+      this.uvs = uvs;
+    }
+
+    this.position = transform?.pos || [0, 0, 0];
+    this.rotation = transform?.rot || [0, 0, 0];
+
+    if (typeof transform.scale === "number") {
+      this.scale = [transform.scale, transform.scale, transform.scale];
+    } else {
+      this.scale = transform?.scale || [1, 1, 1];
+    }
+  }
+
+  // TODO: This needs to support color (and eventually N vertex attributes).
+
+  resetUID() {
+    this.uid = nanoid(4);
+    //this.uid = formId;
+    //formId += 1;
+  }
+
+  // Clears vertex and index attributes to prepare for replacement geometry.
+  clear() {
+    this.uvs = [];
+    this.vertices = [];
+    this.indices = [];
+    this.gpuReset = true;
+    this.gpuVerticesSent = 0;
+  }
+
+  // How close we are to being beyond the max points allotted by the GPU for
+  // buffer geometries.
+  maxProgress() {
+    return this.vertices.length / (this.MAX_POINTS + 1);
+  }
+
+  addPoints(attributes, indices) {
+    const incomingLength = attributes.positions.length;
+    const verticesLength = this.vertices.length;
+    const pointsAvailable = this.MAX_POINTS - verticesLength;
+
+    let end = incomingLength;
+    let maxedOut = false;
+
+    /* Left for debugging. 22.10.30.18.30
+    if (this.MAX_POINTS === 256) {
+      console.log(
+        "Incoming:", incomingLength, "Current:", verticesLength,
+        "Max:", this.MAX_POINTS
+      );
+    }
+    */
+
+    if (pointsAvailable < incomingLength) {
+      end = pointsAvailable;
+      maxedOut = true;
+      if (debug)
+        console.warn(
+          "Max. cutoff in GPU form!",
+          this,
+          incomingLength,
+          pointsAvailable,
+        );
+    }
+
+    // Create new vertices from incoming positions.
+    for (let i = 0; i < end; i++) {
+      // Generate texCoord from position instead of loading.
+      // (Vertex / 2) + 0.5 // Vertex to UV
+      // See also: (Vertex - 0.5) * 2 // UV to Vertex
+      // TODO: This only works for quads right now.
+      const texCoord = [
+        attributes.positions[i][X] / 2 + 0.5,
+        attributes.positions[i][Y] / 2 + 0.5,
+        //0, //positions[i][Z] / 2 + 0.5; // TODO: Is this necessary to calculate for UV?
+        //0,
+      ];
+
+      // 🔥
+      // TODO:
+      // Wrap based on MAX_POINTS.
+
+      this.uvs.push(...texCoord); // For sending to the GPU.
+
+      // Optionally put color through a special function here.
+      if (attributes.colors?.[i] && typeof this.colorModifier === "function") {
+        attributes.colors[i] = this.colorModifier(attributes.colors[i]);
+      }
+
+      this.vertices.push(
+        // For sending to the CPU.
+        new Vertex(
+          attributes.positions[i],
+          attributes.colors?.[i],
+          // this.#gradientColors[i % 3],
+          texCoord, //this.#texCoords[i % 3] // Replace to enable bespoke texture coordinates.
+          attributes.normals?.[i],
+        ),
+      );
+
+      // TODO: This may need to be turned back on for the GPU?
+      //       What was with the -1 here?  22.11.06.17.42
+      // if (!indices) this.indices.push(verticesLength - 1 + i);
+      if (!indices) this.indices.push(verticesLength + i);
+      // console.log(indices, !indices, i, verticesLength);
+    }
+
+    if (indices) this.indices = indices;
+
+    // Create indices from pre-indexed positions or generate
+    // a linear set of indices based on length.
+
+    // TODO: How inefficient is this? 22.10.30.17.30
+    // this.indices = indices || repeat(this.vertices.length, (i) => i);
+
+    return maxedOut;
+  }
+
+  // Get the world position of this form's local vertex.
+  transformVertex(vertex) {
+    // Build a matrix to represent this form's position, rotation and scale.
+    const panned = mat4.fromTranslation(mat4.create(), [
+      this.position[X],
+      this.position[Y],
+      this.position[Z],
+    ]);
+
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
+    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
+
+    const rotatedX = mat4.mul(mat4.create(), panned, rotX);
+    const rotatedY = mat4.mul(mat4.create(), rotatedX, rotY);
+    const rotatedZ = mat4.mul(mat4.create(), rotatedY, rotZ);
+
+    const matrix = rotatedZ;
+
+    //mat4.translate(matrix, matrix, this.position);
+
+    // Apply scale.
+    mat4.scale(matrix, matrix, this.scale);
+
+    // Apply the world matrix.
+    //matrix = mat4.mul(mat4.create(), worldMatrix, matrix);
+
+    // const transformedVertices = [];
+    // Transform each vertex by the matrix.
+    //this.vertices.forEach((vertex) => {
+    return vertex.transformWorld(matrix);
+    //});
+  }
+  graph({ matrix: cameraMatrix }) {
+    // Build a matrix to represent this form's position, rotation and scale.
+    const panned = mat4.fromTranslation(mat4.create(), [
+      this.position[X] * -1,
+      this.position[Y],
+      this.position[Z] * -1,
+    ]);
+
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
+    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
+
+    const rotatedX = mat4.multiply(mat4.create(), rotX, panned);
+    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
+
+    // Scale
+    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale); // Render wireframe lines for line type forms using untransformed vertices
+    if (this.type === "line" && this.vertices.length > 0) {
+      const lineColor = this.color || [255, 0, 0, 255]; // Default to red
+
+      // Use the full combined matrix for line3d
+      const fullMatrix = mat4.multiply(mat4.create(), cameraMatrix, scaled);
+
+      // Render lines between pairs of vertices using original vertices
+      for (let i = 0; i < this.vertices.length; i += 2) {
+        if (i + 1 < this.vertices.length) {
+          const a = this.vertices[i];
+          const b = this.vertices[i + 1];
+          // Create temporary transformed vertices for line3d
+          const transformedA = a.transform(fullMatrix);
+          const transformedB = b.transform(fullMatrix);
+
+          // Skip drawing if either vertex is behind the camera (negative Z)
+          if (transformedA.pos[2] <= 0 || transformedB.pos[2] <= 0) {
+            continue;
+          }
+
+          // Apply perspective divide and screen space transformation
+          const perspA = perspectiveDivide(transformedA);
+          const perspB = perspectiveDivide(transformedB);
+          const screenA = toScreenSpace(perspA);
+          const screenB = toScreenSpace(perspB);
+
+          // Draw simple 2D line
+          line(screenA.pos[0], screenA.pos[1], screenB.pos[0], screenB.pos[1]);
+        }
+      }
+    }
+
+    // Still return transformed vertices for compatibility
+    const transformedVertices = [];
+    const matrix = mat4.multiply(mat4.create(), cameraMatrix, scaled);
+    this.vertices.forEach((vertex) => {
+      transformedVertices.push(vertex.transform(matrix));
+    });
+
+    return transformedVertices;
+  }
+}
+
+// Constants for accessing Vector / Position components.
+const X = 0;
+const Y = 1;
+const Z = 2;
+const W = 3;
+
+// A single point in space with color and texture coordinate information.
+class Vertex {
+  static X = 0;
+  static Y = 1;
+  static Z = 2;
+  static W = 3;
+
+  pos;
+  color;
+  texCoords;
+  normal;
+  constructor(
+    position = [0, 0, 0, 1],
+    color = [1, 1, 1, 1],
+    textureCoordinates = [0, 0],
+    normal = null,
+  ) {
+    this.pos = position;
+    this.color = color;
+    this.texCoords = textureCoordinates;
+
+    if (normal !== null) {
+      this.normal = vec3.fromValues(...normal);
+    } else {
+      this.normal = vec3.fromValues(0, 0, 1); // Default normal pointing up
+    }
+  }
+
+  // TODO: Optimize this function for large vertex counts. 22.10.13.00.14
+  transform(matrix) {
+    // Camera
+    const vert = new Vertex(
+      vec4.transformMat4(
+        vec4.create(),
+        [
+          this.pos[X] * -1, // FLIPPED
+          this.pos[Y],
+          this.pos[Z] * -1, // FLIPPED
+          this.pos[W],
+        ],
+        matrix,
+      ),
+      this.color,
+      this.texCoords,
+    );
+    // console.log(matrix, vert);
+    return vert;
+  }
+
+  transformWorld(matrix) {
+    return new Vertex(
+      vec4.transformMat4(vec4.create(), this.pos, matrix),
+      this.color,
+      this.texCoords,
+    );
+  }
+}
+
+// Sutherland-Hodgman clipping algorithm
+function clip(vertices, clippingBoundary) {
+  let clipped = [];
+
+  function inside(p, edge) {
+    switch (edge) {
+      case "left":
+        return p[X] >= -1;
+      case "right":
+        return p[X] <= 1;
+      case "bottom":
+        return p[Y] >= -1;
+      case "top":
+        return p[Y] <= 1;
+      case "near":
+        return p[Z] >= 0;
+      case "far":
+        return p[Z] <= 1;
+    }
+  }
+
+  function computeIntersection(p1, p2, edge) {
+    let t;
+    switch (edge) {
+      case "left":
+        t = (-1 - p1[X]) / (p2[X] - p1[X]);
+        break;
+      case "right":
+        t = (1 - p1[X]) / (p2[X] - p1[X]);
+        break;
+      case "bottom":
+        t = (-1 - p1[Y]) / (p2[Y] - p1[Y]);
+        break;
+      case "top":
+        t = (1 - p1[Y]) / (p2[Y] - p1[Y]);
+        break;
+      case "near":
+        t = (0 - p1[Z]) / (p2[Z] - p1[Z]);
+        break;
+      case "far":
+        t = (1 - p1[Z]) / (p2[Z] - p1[Z]);
+        break;
+    }
+
+    return vec4.lerp(vec4.create(), p1, p2, t);
+  }
+
+  for (const edge of clippingBoundary) {
+    const input = clipped.length > 0 ? clipped : vertices;
+    clipped = [];
+
+    if (input.length === 0) break;
+
+    let prevVertex = input[input.length - 1];
+
+    for (let i = 0; i < input.length; i++) {
+      const curVertex = input[i];
+
+      if (inside(curVertex.pos, edge)) {
+        if (!inside(prevVertex.pos, edge)) {
+          const intersection = computeIntersection(
+            prevVertex.pos,
+            curVertex.pos,
+            edge,
+          );
+          clipped.push(new Vertex(intersection, curVertex.color));
+        }
+        clipped.push(curVertex);
+      } else if (inside(prevVertex.pos, edge)) {
+        const intersection = computeIntersection(
+          prevVertex.pos,
+          curVertex.pos,
+          edge,
+        );
+        clipped.push(new Vertex(intersection, curVertex.color));
+      }
+
+      prevVertex = curVertex;
+    }
+  }
+
+  return clipped;
+}
+
+// for 3d line clipping
+function clipLineToFrustum(v1, v2) {
+  const clippingBoundary = ["left", "right", "bottom", "top", "near", "far"];
+
+  function inside(p, edge) {
+    switch (edge) {
+      case "left":
+        return p[X] >= -p[W];
+      case "right":
+        return p[X] <= p[W];
+      case "bottom":
+        return p[Y] >= -p[W];
+      case "top":
+        return p[Y] <= p[W];
+      case "near":
+        return p[Z] >= 0;
+      case "far":
+        return p[Z] <= p[W];
+    }
+  }
+
+  function computeIntersection(p1, p2, edge) {
+    let t;
+    switch (edge) {
+      case "left":
+        t = (-p1[W] - p1[X]) / (p2[X] - p1[X] + p2[W] - p1[W]);
+        break;
+      case "right":
+        t = (p1[W] - p1[X]) / (p2[X] - p1[X] - p2[W] + p1[W]);
+        break;
+      case "bottom":
+        t = (-p1[W] - p1[Y]) / (p2[Y] - p1[Y] + p2[W] - p1[W]);
+        break;
+      case "top":
+        t = (p1[W] - p1[Y]) / (p2[Y] - p1[Y] - p2[W] + p1[W]);
+        break;
+      case "near":
+        t = (0 - p1[Z]) / (p2[Z] - p1[Z]);
+        break;
+      case "far":
+        t = (p1[W] - p1[Z]) / (p2[Z] - p1[Z] - p2[W] + p1[W]);
+        break;
+    }
+
+    return [
+      p1[X] + t * (p2[X] - p1[X]),
+      p1[Y] + t * (p2[Y] - p1[Y]),
+      p1[Z] + t * (p2[Z] - p1[Z]),
+      p1[W] + t * (p2[W] - p1[W]),
+    ];
+  }
+
+  let clippedVertices = [v1, v2];
+
+  for (const edge of clippingBoundary) {
+    if (clippedVertices.length < 2) break;
+
+    const [p1, p2] = clippedVertices;
+    const p1Inside = inside(p1.pos, edge);
+    const p2Inside = inside(p2.pos, edge);
+
+    if (p1Inside && p2Inside) {
+      // Both inside, keep both
+      continue;
+    } else if (!p1Inside && !p2Inside) {
+      // Both outside, discard both
+      clippedVertices = [];
+      break;
+    } else {
+      // One inside, one outside
+      const intersection = computeIntersection(p1.pos, p2.pos, edge);
+      const intersectionVertex = new Vertex(intersection, p1.color);
+
+      if (p1Inside) {
+        // p1 inside, p2 outside
+        clippedVertices = [p1, intersectionVertex];
+      } else {
+        // p1 outside, p2 inside
+        clippedVertices = [intersectionVertex, p2];
+      }
+    }
+  }
+
+  return clippedVertices;
+}
+
+function perspectiveDivide(vertex) {
+  const vert = new Vertex([
+    vertex.pos[X] / vertex.pos[W],
+    vertex.pos[Y] / vertex.pos[W],
+    vertex.pos[Z] / vertex.pos[W],
+    vertex.pos[W],
+  ]);
+
+  vert.color = vertex.color;
+  vert.texCoords = vertex.texCoords;
+
+  return vert;
+}
+
+function toScreenSpace(vertex) {
+  // Flip Y.
+  const x = vertex.pos[X];
+  const y = -vertex.pos[Y];
+  const z = vertex.pos[Z];
+
+  const sX = ((x + 1.0) / 2.0) * width;
+  const sY = ((y + 1.0) / 2.0) * height;
+
+  const vert = new Vertex([sX, sY, z, vertex.pos[W]]);
+  vert.color = vertex.color;
+  vert.texCoords = vertex.texCoords;
+  return vert;
+}
+
+function zeroLineClip(vertices) {
+  const clipped = [];
+
+  let prevVertex = vertices[vertices.length - 1]; // Start with the last vertex
+  let prevComponent = prevVertex.pos[Z];
+  let prevInside = prevComponent >= 0;
+
+  for (const curVertex of vertices) {
+    const curComponent = curVertex.pos[Z];
+    const curInside = curComponent >= 0;
+
+    if (curInside !== prevInside) {
+      // Edge crosses the z=0 plane, find intersection
+      const t = prevComponent / (prevComponent - curComponent);
+      const intersectionPos = [
+        prevVertex.pos[X] + t * (curVertex.pos[X] - prevVertex.pos[X]),
+        prevVertex.pos[Y] + t * (curVertex.pos[Y] - prevVertex.pos[Y]),
+        0, // z = 0
+        prevVertex.pos[W] + t * (curVertex.pos[W] - prevVertex.pos[W]),
+      ];
+
+      // Interpolate color as well
+      const intersectionColor = [
+        prevVertex.color[0] + t * (curVertex.color[0] - prevVertex.color[0]),
+        prevVertex.color[1] + t * (curVertex.color[1] - prevVertex.color[1]),
+        prevVertex.color[2] + t * (curVertex.color[2] - prevVertex.color[2]),
+        prevVertex.color[3] + t * (curVertex.color[3] - prevVertex.color[3]),
+      ];
+
+      clipped.push(new Vertex(intersectionPos, intersectionColor));
+    }
+
+    if (curInside) {
+      clipped.push(curVertex);
+    }
+
+    prevVertex = curVertex;
+    prevComponent = curComponent;
+    prevInside = curInside;
   }
 }
 
@@ -3032,4 +4000,7 @@ export {
   zoom,
   sort,
   shear,
+  Camera,
+  Form,
+  Dolly,
 };
