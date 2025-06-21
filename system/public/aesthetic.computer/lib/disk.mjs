@@ -2176,8 +2176,7 @@ function form(
     keep: true,
     background: backgroundColor3D,
   },
-) {
-  // Exit silently if no forms are present.
+) {  // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
 
   if (cpu === true) {

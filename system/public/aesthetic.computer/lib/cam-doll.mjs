@@ -55,11 +55,10 @@ export class CamDoll {
     // 🔫 FPS style camera movement.
     let forward = 0,
       updown = 0,
-      strafe = 0;
-    if (this.#W) forward = -this.sensitivity;
+      strafe = 0;    if (this.#W) forward = -this.sensitivity;
     if (this.#S) forward = this.sensitivity;
-    if (this.#A) strafe = -this.sensitivity;
-    if (this.#D) strafe = this.sensitivity;
+    if (this.#A) strafe = this.sensitivity;  // Flipped: A now moves right
+    if (this.#D) strafe = -this.sensitivity; // Flipped: D now moves left
     if (this.#SPACE) updown = -this.sensitivity;
     if (this.#SHIFT) updown = this.sensitivity;
 
