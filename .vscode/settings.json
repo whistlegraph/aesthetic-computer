@@ -9,4 +9,6 @@
     "**/aesthetic-computer-code/**": false,
     "**/aesthetic-computer-vault/**": false
   },
+  "workbench.list.smoothScrolling": true,
+  "terminal.integrated.smoothScrolling": true,
 }

@@ -158,10 +158,16 @@ RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_am
 # Install fnm and base javascript tooling.
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:$PATH"
-RUN eval "$(fnm env --use-on-cd)" && \
-    fnm install 20.5.0 && fnm install 20.11.0 && fnm default 20.11.0 && \
-    fnm install lts-jod && \
-    npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript @openai/codex && \
+# Set up fnm for Fish shell
+RUN mkdir -p /home/me/.config/fish/conf.d && \
+    echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish
+# Install Node.js versions and global packages
+RUN /home/me/.fnm/fnm install 20.5.0 && \
+    /home/me/.fnm/fnm install lts-jod && \
+    /home/me/.fnm/fnm default lts-jod && \    eval "$(/home/me/.fnm/fnm env --shell bash)" && \
+    npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript && \
+    npm install -g @anthropic-ai/claude-code && \
+    npm install -g @githubnext/github-copilot-cli && \
     ijsinstall --install=global --spec-path=full && \
     jupyter kernelspec install --user --replace "$(ijsnotebook --spec-path=full)" || true
 

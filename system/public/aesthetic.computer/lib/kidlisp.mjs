@@ -112,7 +112,53 @@ import { cssColors } from "./num.mjs";
 #endregion */
 
 const VERBOSE = false;
+const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
+
+// Performance tracking utilities
+const perfTimers = {};
+const perfLogs = []; // Store logs for display in piece
+const perfOrder = ['parse', 'precompile', 'frame-evaluation', 'repeat-setup', 'repeat-with-iterator', 'fast-draw-loop']; // Fixed order for consistent display
+
+function perfStart(label) {
+  if (PERF_LOG) perfTimers[label] = performance.now();
+}
+function perfEnd(label) {
+  if (PERF_LOG && perfTimers[label]) {
+    const duration = performance.now() - perfTimers[label];
+    if (duration > 0.1) { // Only log operations > 0.1ms
+      const logEntry = `${label}: ${duration.toFixed(2)}ms`;
+      
+      // Remove existing entry for this label to maintain order
+      const existingIndex = perfLogs.findIndex(log => log.startsWith(label + ':'));
+      if (existingIndex !== -1) {
+        perfLogs.splice(existingIndex, 1);
+      }
+      
+      // Insert in correct position based on perfOrder
+      const orderIndex = perfOrder.indexOf(label);
+      if (orderIndex !== -1) {
+        // Find where to insert based on order
+        let insertIndex = 0;
+        for (let i = 0; i < perfLogs.length; i++) {
+          const logLabel = perfLogs[i].split(':')[0];
+          const logOrderIndex = perfOrder.indexOf(logLabel);
+          if (logOrderIndex !== -1 && logOrderIndex < orderIndex) {
+            insertIndex = i + 1;
+          }
+        }
+        perfLogs.splice(insertIndex, 0, logEntry);
+      } else {
+        // If not in predefined order, add at end
+        perfLogs.push(logEntry);
+      }
+      
+      // Keep only last 8 logs to avoid memory issues
+      if (perfLogs.length > 8) perfLogs.splice(8);
+    }
+    delete perfTimers[label];
+  }
+}
 
 // 🎰 Parser & Evaluation utility functions (stateless)
 const identifierRegex = /[a-zA-Z_]\w*/g;
@@ -238,14 +284,92 @@ class KidLisp {
     this.drawer = null;
     this.frameCount = 0; // Frame counter for timing functions
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
+    
+    // Performance optimizations
+    this.functionCache = new Map(); // Cache function lookups
+    this.globalEnvCache = null; // Cache global environment
+    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<']); // Common functions for fast path
+    this.expressionCache = new Map(); // Cache for simple expressions
+    this.variableCache = new Map(); // Cache for variable lookups
+    this.mathCache = new Map(); // Cache for math expressions
+  }
 
+  // Optimize common patterns - this could be expanded for other patterns
+  compileOptimizedRepeat(ast) {
+    // Actually, let's disable optimization for rainbow ink to preserve correct behavior
+    // The rainbow function needs to be called through the interpreter to work properly
+    return null;
+    
+    /* Disabled optimization - keeping for reference
+    // Look for pattern: (repeat height i (ink rainbow) (line 0 i width i))
+    // More flexible pattern matching
+    if (Array.isArray(ast) && ast.length >= 3 && ast[0] === 'repeat' && 
+        ast[1] === 'height' && ast[2] === 'i') {
+      
+      // Check if there's a line drawing pattern in the body
+      const hasLinePattern = ast.slice(3).some(item => 
+        Array.isArray(item) && item[0] === 'line'
+      );
+      
+      const hasRainbowInk = ast.slice(3).some(item =>
+        Array.isArray(item) && item[0] === 'ink' && item.includes('rainbow')
+      );
+      
+      if (hasLinePattern && hasRainbowInk) {
+        // Return optimized JavaScript function that respects the rainbow ink
+        return (api) => {
+          perfStart('optimized-repeat');
+          const height = api.screen?.height || 256;
+          
+          for (let i = 0; i < height; i++) {
+            // Call rainbow for each line to get proper color variation
+            api.ink?.(api.help?.rainbow?.() || [255, 0, 0]);
+            api.line?.(0, i, api.screen?.width || 256, i);
+          }
+          perfEnd('optimized-repeat');
+          return height; // Return number of lines drawn
+        };
+      }
+    }
+    return null;
+    */
+  }
+
+  // Method to pre-compile AST for optimizations
+  precompileAST(ast) {
+    if (!Array.isArray(ast)) return ast;
+    
+    const optimized = [];
+    for (const item of ast) {
+      if (Array.isArray(item)) {
+        const compiledOptimization = this.compileOptimizedRepeat(item);
+        if (compiledOptimization) {
+          optimized.push({ optimized: true, func: compiledOptimization });
+        } else {
+          optimized.push(this.precompileAST(item));
+        }
+      } else {
+        optimized.push(item);
+      }
+    }
+    return optimized;
   }
 
   // Parse and evaluate a lisp source module
   // into a running aesthetic computer piece.
   module(source) {
+    perfStart('parse');
     const parsed = this.parse(source);
+    perfEnd('parse');
+    
+    perfStart('ast-copy');
     this.ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
+    perfEnd('ast-copy');
+    
+    // Precompile optimizations
+    perfStart('precompile');
+    this.ast = this.precompileAST(this.ast);
+    perfEnd('precompile');
     
     /*if (VERBOSE)*/ // console.log("🐍 Snake:", parsed);
 
@@ -266,6 +390,11 @@ class KidLisp {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         this.frameCount++; // Increment frame counter for timing functions
         
+        // Clear caches that might have stale data between frames
+        this.variableCache.clear();
+        this.expressionCache.clear();
+        
+        perfStart('frame-evaluation');
         try {
           // Then execute the full program
           this.localEnvLevel = 0; // Reset state per program evaluation.
@@ -273,6 +402,15 @@ class KidLisp {
           /*const evaluated = */ this.evaluate(this.ast, $);
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
+        }
+        perfEnd('frame-evaluation');
+
+        // Display performance logs in the piece
+        if (PERF_LOG && perfLogs.length > 0) {
+          $.ink?.("yellow");
+          perfLogs.forEach((log, index) => {
+            $.write?.(log, { x: 2, y: 24 + (index * 12) });
+          });
         }
 
         // TODO: Re-enable the below:
@@ -343,9 +481,13 @@ class KidLisp {
     }
   }
 
-  // Create global environment
+  // Create global environment (cached for performance)
   getGlobalEnv() {
-    return {
+    if (this.globalEnvCache) {
+      return this.globalEnvCache;
+    }
+    
+    this.globalEnvCache = {
       // once: (api, args) => {
       //   console.log("Oncing...", args);
       //   if (this.drawer) this.evaluate(this.drawer, api);
@@ -363,7 +505,7 @@ class KidLisp {
         console.error("❗ Invalid `now`. Wrong number of arguments.");
       },
       // Program Architecture
-      def: (api, args) => {
+      def: (api, args, env) => {
         if (args.length === 2) {
           const name = unquoteString(args[0]);
           // Validate the identifier.
@@ -372,10 +514,17 @@ class KidLisp {
             return;
           }
 
-          if (!this.globalDef.hasOwnProperty(name)) {
-            this.globalDef[name] = args[1];
+          // If we're in a local environment (like inside a repeat loop), 
+          // define the variable in the current local environment
+          if (this.localEnvLevel > 0) {
+            this.localEnv[name] = args[1];
           } else {
-            // Variable already defined, skip redefinition
+            // Otherwise, define globally as before
+            if (!this.globalDef.hasOwnProperty(name)) {
+              this.globalDef[name] = args[1];
+            } else {
+              // Variable already defined, skip redefinition
+            }
           }
           return args[1];
         }
@@ -540,6 +689,12 @@ class KidLisp {
         return nums.length > 0 ? Math.max(...nums) : 0;
       },
       "+": (api, args) => {
+        // Fast path for numbers only
+        if (args.every(arg => typeof arg === "number")) {
+          return args.reduce((a, b) => a + b, 0);
+        }
+        
+        // Slower path with conversion
         const nums = args
           .map((arg) => {
             if (arg === undefined || arg === null) return NaN;
@@ -551,6 +706,12 @@ class KidLisp {
         return nums.reduce((a, b) => a + b, 0);
       },
       "-": (api, args) => {
+        // Fast path for numbers only
+        if (args.every(arg => typeof arg === "number")) {
+          return args.length > 0 ? args.reduce((a, b) => a - b) : 0;
+        }
+        
+        // Slower path with conversion
         const nums = args
           .map((arg) => {
             if (arg === undefined || arg === null) return NaN;
@@ -562,6 +723,12 @@ class KidLisp {
         return nums.length > 0 ? nums.reduce((a, b) => a - b) : 0;
       },
       "*": (api, args) => {
+        // Fast path for numbers only
+        if (args.every(arg => typeof arg === "number")) {
+          return args.reduce((a, b) => a * b, 1);
+        }
+        
+        // Slower path with conversion
         const nums = args
           .map((arg) => {
             if (arg === undefined || arg === null) return NaN;
@@ -573,6 +740,12 @@ class KidLisp {
         return nums.reduce((a, b) => a * b, 1);
       },
       "/": (api, args) => {
+        // Fast path for numbers only
+        if (args.every(arg => typeof arg === "number")) {
+          return args.length > 0 ? args.reduce((a, b) => a / b) : 0;
+        }
+        
+        // Slower path with conversion
         const nums = args
           .map((arg) => {
             if (arg === undefined || arg === null) return NaN;
@@ -606,6 +779,17 @@ class KidLisp {
       },
       line: (api, args = []) => {
         api.line(...args);
+      },
+      // Batch line drawing for performance
+      lines: (api, args = []) => {
+        // Expects arrays of line coordinates: (lines [[x1 y1 x2 y2] [x1 y1 x2 y2] ...])
+        if (args.length > 0 && Array.isArray(args[0])) {
+          args[0].forEach(lineArgs => {
+            if (Array.isArray(lineArgs) && lineArgs.length >= 4) {
+              api.line(...lineArgs);
+            }
+          });
+        }
       },
       wiggle: (api, args = []) => {
         api.wiggle(...args);
@@ -703,25 +887,188 @@ class KidLisp {
       clock: (api) => {
         return Date.now(); // Returns UTC milliseconds since epoch
       },
-      // 🔄 Repeat function
+      // 🔄 Repeat function (highly optimized)
       repeat: (api, args, env) => {
+        perfStart('repeat-setup');
         if (args.length < 2) {
           console.error("❗ repeat requires at least 2 arguments: count and expression(s)");
           return undefined;
         }
         
-        const count = Number(args[0]);
+        // Evaluate the count argument in case it's a variable or expression
+        const countValue = this.evaluate(args[0], api, env);
+        const count = Number(countValue);
         if (isNaN(count) || count < 0) {
-          console.error("❗ repeat count must be a non-negative number");
+          console.error("❗ repeat count must be a non-negative number, got:", countValue);
           return undefined;
         }
+        perfEnd('repeat-setup');
         
-        const expressions = args.slice(1);
+        // Fast math expression evaluator for common patterns
+        const evaluateFastMath = (expr, i, screenWidth, screenHeight) => {
+          if (typeof expr === 'number') return expr;
+          if (expr === 'i') return i;
+          if (expr === 'width') return screenWidth;
+          if (expr === 'height') return screenHeight;
+          if (expr === 0) return 0;
+          
+          // Handle infix math expressions like "i*2", "width/2", "i+10"
+          if (typeof expr === 'string') {
+            // Check for simple infix patterns
+            const infixMatch = expr.match(/^(\w+)\s*([+\-*/%])\s*(\w+|\d+)$/);
+            if (infixMatch) {
+              const [, left, op, right] = infixMatch;
+              const leftVal = evaluateFastMath(left, i, screenWidth, screenHeight);
+              const rightVal = evaluateFastMath(right, i, screenWidth, screenHeight);
+              switch (op) {
+                case '*': return leftVal * rightVal;
+                case '+': return leftVal + rightVal;
+                case '-': return leftVal - rightVal;
+                case '/': return leftVal / rightVal;
+                case '%': return leftVal % rightVal;
+              }
+            }
+          }
+          
+          // Handle proper Lisp prefix expressions like ["*", "i", 2]
+          if (Array.isArray(expr) && expr.length === 3) {
+            const [op, left, right] = expr;
+            if (op === '*' || op === '+' || op === '-' || op === '/' || op === '%') {
+              const leftVal = evaluateFastMath(left, i, screenWidth, screenHeight);
+              const rightVal = evaluateFastMath(right, i, screenWidth, screenHeight);
+              switch (op) {
+                case '*': return leftVal * rightVal;
+                case '+': return leftVal + rightVal;
+                case '-': return leftVal - rightVal;
+                case '/': return leftVal / rightVal;
+                case '%': return leftVal % rightVal;
+              }
+            }
+          }
+          
+          // Fall back to full evaluation for complex expressions
+          return this.evaluate([expr], api, env);
+        };
+        
         let result;
         
-        for (let i = 0; i < count; i++) {
-          for (const expr of expressions) {
-            result = this.evaluate(expr, api, env);
+        // Check if we have an iterator variable (3+ args with 2nd arg being a string)
+        if (args.length >= 3 && typeof args[1] === 'string') {
+          perfStart('repeat-with-iterator');
+          const iteratorVar = args[1];
+          const expressions = args.slice(2);
+          
+          // Super optimization: detect common drawing patterns and other fast patterns
+          if (expressions.length === 2 && 
+              Array.isArray(expressions[0]) && expressions[0][0] === 'ink' &&
+              Array.isArray(expressions[1]) && expressions[1][0] === 'line') {
+            
+            // Fast path for ink + line pattern
+            perfStart('fast-draw-loop');
+            const inkExpr = expressions[0];
+            const lineExpr = expressions[1];
+            
+            // Cache screen dimensions
+            const screenWidth = api.screen?.width || 256;
+            const screenHeight = api.screen?.height || 256;
+            
+            // Pre-evaluate static parts of line expression
+            const lineArgs = lineExpr.slice(1);
+            
+            for (let i = 0; i < count; i++) {
+              // Fast ink evaluation - properly handle rainbow
+              if (inkExpr.length > 1 && inkExpr[1] === 'rainbow') {
+                // Call the rainbow function from global environment using this context
+                const rainbowColor = this.getGlobalEnv().rainbow(api);
+                api.ink?.(rainbowColor);
+              } else if (inkExpr.length > 1) {
+                // Handle other ink arguments
+                const inkArgs = inkExpr.slice(1).map(arg => 
+                  typeof arg === 'string' && !arg.startsWith('"') ? 
+                  this.evaluate([arg], api, env) : arg);
+                api.ink?.(...inkArgs);
+              }
+              
+              // Fast line evaluation with iterator substitution using fast math
+              if (lineArgs.length >= 4) {
+                const x1 = evaluateFastMath(lineArgs[0], i, screenWidth, screenHeight);
+                const y1 = evaluateFastMath(lineArgs[1], i, screenWidth, screenHeight);
+                const x2 = evaluateFastMath(lineArgs[2], i, screenWidth, screenHeight);
+                const y2 = evaluateFastMath(lineArgs[3], i, screenWidth, screenHeight);
+                api.line?.(x1, y1, x2, y2);
+              }
+            }
+            perfEnd('fast-draw-loop');
+            perfEnd('repeat-with-iterator');
+            return count;
+          }
+          
+          // General fast path for any single drawing command
+          if (expressions.length === 1 && Array.isArray(expressions[0])) {
+            const expr = expressions[0];
+            const cmd = expr[0];
+            
+            // Fast path for common drawing commands with math expressions
+            if (cmd === 'line' || cmd === 'box' || cmd === 'circle') {
+              perfStart('fast-single-draw-loop');
+              const screenWidth = api.screen?.width || 256;
+              const screenHeight = api.screen?.height || 256;
+              const args = expr.slice(1);
+              
+              for (let i = 0; i < count; i++) {
+                const evaluatedArgs = args.map(arg => evaluateFastMath(arg, i, screenWidth, screenHeight));
+                api[cmd]?.(...evaluatedArgs);
+              }
+              perfEnd('fast-single-draw-loop');
+              perfEnd('repeat-with-iterator');
+              return count;
+            }
+          }
+          
+          // Fallback to standard loop for non-pattern expressions
+          const baseEnv = { ...this.localEnv, ...env };
+          const prevLocalEnv = this.localEnv;
+          
+          // Create reusable environment object
+          this.localEnvLevel += 1;
+          if (!this.localEnvStore[this.localEnvLevel]) {
+            this.localEnvStore[this.localEnvLevel] = { ...baseEnv };
+          }
+          
+          // Reuse the same environment object, just update the iterator
+          const loopEnv = this.localEnvStore[this.localEnvLevel];
+          Object.assign(loopEnv, baseEnv); // Copy base environment once
+          this.localEnv = loopEnv;
+          
+          for (let i = 0; i < count; i++) {
+            // Optimize: only update the iterator variable, don't recreate object
+            loopEnv[iteratorVar] = i;
+            
+            // Execute expressions with iterator variable in scope - use fast eval
+            for (const expr of expressions) {
+              result = this.fastEval(expr, api, this.localEnv);
+              // If fast eval didn't work, fall back to full evaluation
+              if (result === expr && Array.isArray(expr)) {
+                result = this.evaluate(expr, api, this.localEnv);
+              }
+            }
+          }
+          
+          // Restore previous environment
+          this.localEnvLevel -= 1;
+          this.localEnv = prevLocalEnv;
+          perfEnd('repeat-with-iterator');
+        } else {
+          // Original behavior - no iterator variable - use fast eval
+          const expressions = args.slice(1);
+          for (let i = 0; i < count; i++) {
+            for (const expr of expressions) {
+              result = this.fastEval(expr, api, env);
+              // If fast eval didn't work, fall back to full evaluation
+              if (result === expr && Array.isArray(expr)) {
+                result = this.evaluate(expr, api, env);
+              }
+            }
           }
         }
         
@@ -791,6 +1138,7 @@ class KidLisp {
         return "debug called";
       },
       log: (api, args = []) => {
+        console.clear();
         console.log("📝 LOG:", ...args);
         return args[0];
       },
@@ -800,14 +1148,103 @@ class KidLisp {
         return acc;
       }, {}),
     };
+    
+    return this.globalEnvCache;
+  }
+
+  // Fast evaluation for common expressions to avoid full recursive evaluation
+  fastEval(expr, api, env) {
+    if (typeof expr === 'number') return expr;
+    if (typeof expr === 'string') {
+      // Check variable cache first
+      const cacheKey = `${expr}_${this.localEnvLevel}`;
+      if (this.variableCache.has(cacheKey)) {
+        return this.variableCache.get(cacheKey);
+      }
+      
+      // Fast variable lookup
+      let value = this.localEnv[expr] || env?.[expr] || this.globalDef[expr];
+      if (value !== undefined) {
+        // Cache simple values (not functions)
+        if (typeof value !== 'function' && typeof value !== 'object') {
+          this.variableCache.set(cacheKey, value);
+        }
+        return value;
+      }
+      
+      // Check global environment
+      const globalEnv = this.getGlobalEnv();
+      value = globalEnv[expr];
+      if (typeof value === 'function') {
+        value = value(api);
+      }
+      return value !== undefined ? value : expr;
+    }
+    
+    // Fast math expression evaluation
+    if (Array.isArray(expr) && expr.length === 3) {
+      const [op, left, right] = expr;
+      if (op === '+' || op === '-' || op === '*' || op === '/' || op === '%') {
+        const leftVal = this.fastEval(left, api, env);
+        const rightVal = this.fastEval(right, api, env);
+        
+        // Only proceed if both are numbers
+        if (typeof leftVal === 'number' && typeof rightVal === 'number') {
+          switch (op) {
+            case '+': return leftVal + rightVal;
+            case '-': return leftVal - rightVal;
+            case '*': return leftVal * rightVal;
+            case '/': return leftVal / rightVal;
+            case '%': return leftVal % rightVal;
+          }
+        }
+      }
+    }
+    
+    // Fall back to full evaluation
+    return this.evaluate(expr, api, env);
+  }
+
+  // Optimized function resolution
+  resolveFunction(head, api, env) {
+    // Check cache first
+    const cacheKey = `${head}_${this.localEnvLevel}`;
+    if (this.functionCache.has(cacheKey)) {
+      return this.functionCache.get(cacheKey);
+    }
+    
+    let result = null;
+    
+    // Fast lookup order: local -> env -> global -> globalDef -> api
+    if (existing(this.localEnv[head])) {
+      result = { type: 'local', value: this.localEnv[head] };
+    } else if (existing(env?.[head])) {
+      result = { type: 'env', value: env[head] };
+    } else if (existing(this.getGlobalEnv()[head])) {
+      result = { type: 'global', value: this.getGlobalEnv()[head] };
+    } else if (existing(this.globalDef[head])) {
+      result = { type: 'globalDef', value: this.globalDef[head] };
+    } else if (existing(api[head]) && typeof api[head] === "function") {
+      result = { type: 'api', value: api[head] };
+    }
+    
+    // Cache the result (but not for local env since it changes)
+    if (result && result.type !== 'local') {
+      this.functionCache.set(cacheKey, result);
+    }
+    
+    return result;
   }
 
   evaluate(parsed, api = {}, env, inArgs) {
+    perfStart('evaluate-total');
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
     let body;
 
     // Get global environment for this instance
+    perfStart('get-global-env');
     const globalEnv = this.getGlobalEnv();
+    perfEnd('get-global-env');
     
     // Add screen reference directly to global environment
     if (api.screen) {
@@ -877,6 +1314,14 @@ class KidLisp {
 
     for (const item of body) {
       /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
+
+      // Handle optimized functions first
+      if (item && typeof item === 'object' && item.optimized) {
+        perfStart('optimized-execution');
+        result = item.func(api);
+        perfEnd('optimized-execution');
+        continue;
+      }
 
       if (Array.isArray(item)) {
         // The first element indicates the function to call
@@ -979,92 +1424,90 @@ class KidLisp {
         if (head === "now" || head === "def" || head === "die")
           args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
-        if (existing(this.localEnv[head])) {
-          if (VERBOSE)
-            console.log(
-              "😫 Local definition found!",
-              head,
-              this.localEnv[head],
-            );
-
-          if (this.localEnv[head].iterable)
-            result = this.iterate(this.localEnv[head], api, args, env);
-
-          result = this.localEnv[head];
-        } else if (existing(env?.[head])) {
-          // console.log("FOUND HEAD:", head, env);
-          if (env[head].iterable) {
-            result = this.iterate(env[head], api, args, env);
-          }
-
-          // 🟣 Handle calls to the Aesthetic Computer Piece API.
-        } else if (existing(globalEnv[head])) {
-          if (
-            typeof globalEnv[head] === "function" ||
-            typeof globalEnv[head] === "object"
-          ) {
-            let processedArgs;
-            if (
-              head === "later" ||
-              head === "tap" ||
-              head === "draw" ||
-              head === "if" ||
-              head === "not" ||
-              head === ">" ||
-              head === "<" ||
-              head === "=" ||
-              head === "net" ||
-              head === "source" ||
-              head === "choose" ||
-              head === "?" ||
-              head === "repeat"
-            ) {
-              processedArgs = args;
-            } else {
-              processedArgs = args.map((arg) =>
-                Array.isArray(arg) ||
-                (typeof arg === "string" && !/^".*"$/.test(arg))
-                  ? this.evaluate([arg], api, env)
-                  : arg,
-              );
-            }
-            // Prepare arguments, evaluate if they are also functions or strings.
-            if (splitHead[1]) {
-              result = getNestedValue(globalEnv, item[0])(api, processedArgs);
-            } else {
-              result = globalEnv[head](api, processedArgs, env, colon);
-              if (result?.iterable) {
-                result = this.iterate(result, api, args, env);
-                continue;
+        // Use optimized function resolution
+        const resolved = this.resolveFunction(head, api, env);
+        
+        if (resolved) {
+          const { type, value } = resolved;
+          
+          switch (type) {
+            case 'local':
+              perfStart(`local-${head}`);
+              if (VERBOSE) console.log("😫 Local definition found!", head, value);
+              if (value.iterable) {
+                result = this.iterate(value, api, args, env);
+              } else {
+                result = value;
               }
-            }
-          } else {
-            result = globalEnv[head];
+              perfEnd(`local-${head}`);
+              break;
+              
+            case 'env':
+              perfStart(`env-${head}`);
+              if (value.iterable) {
+                result = this.iterate(value, api, args, env);
+              } else {
+                result = value;
+              }
+              perfEnd(`env-${head}`);
+              break;
+              
+            case 'global':
+              // Handle global environment functions
+              if (typeof value === "function" || typeof value === "object") {
+                let processedArgs;
+                // Functions that don't need argument evaluation
+                if (head === "later" || head === "tap" || head === "draw" || head === "if" || 
+                    head === "not" || head === ">" || head === "<" || head === "=" || 
+                    head === "net" || head === "source" || head === "choose" || head === "?" || 
+                    head === "repeat") {
+                  processedArgs = args;
+                } else {
+                  // Use fast evaluation for arguments
+                  processedArgs = args.map((arg) =>
+                    Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
+                      ? this.fastEval(arg, api, env)
+                      : arg
+                  );
+                }
+                
+                if (splitHead[1]) {
+                  result = getNestedValue(value, item[0])(api, processedArgs);
+                } else {
+                  result = value(api, processedArgs, env, colon);
+                  if (result?.iterable) {
+                    result = this.iterate(result, api, args, env);
+                    continue;
+                  }
+                }
+              } else {
+                result = value;
+              }
+              break;
+              
+            case 'globalDef':
+              // User-defined functions - use fast evaluation for arguments
+              const evaluatedArgs = args.map((arg) =>
+                Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
+                  ? this.fastEval(arg, api, env)
+                  : arg
+              );
+              
+              result = Array.isArray(value) || value.body
+                ? this.evaluate(value, api, env, evaluatedArgs)
+                : value;
+              break;
+              
+            case 'api':
+              // API functions - use fast evaluation for arguments
+              const apiArgs = args.map((arg) =>
+                Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
+                  ? this.fastEval(arg, api, env)
+                  : arg
+              );
+              result = value(...apiArgs);
+              break;
           }
-        } else if (existing(this.globalDef[head])) {
-          // Check if the value needs recursive evaluation.
-
-          // Evaluate arguments for user-defined functions
-          const evaluatedArgs = args.map((arg) =>
-            Array.isArray(arg) ||
-            (typeof arg === "string" && !/^".*"$/.test(arg))
-              ? this.evaluate([arg], api, env)
-              : arg,
-          );
-
-          result =
-            Array.isArray(this.globalDef[head]) || this.globalDef[head].body
-              ? this.evaluate(this.globalDef[head], api, env, evaluatedArgs)
-              : this.globalDef[head];
-        } else if (existing(api[head]) && typeof api[head] === "function") {
-          // Check if the function exists in the API (e.g., pan, unpan, etc.)
-          const evaluatedArgs = args.map((arg) =>
-            Array.isArray(arg) ||
-            (typeof arg === "string" && !/^".*"$/.test(arg))
-              ? this.evaluate([arg], api, env)
-              : arg,
-          );
-          result = api[head](...evaluatedArgs);
         } else {
           // console.log(
           //   "⛔ No match found for:",
@@ -1080,43 +1523,25 @@ class KidLisp {
           }
         }
       } else {
+        // Handle simple variable lookups and expressions
         let root, tail;
         if (typeof item === "string") {
-          // TODO: 🔵 First check to see if the string is a mathematical expression,
-          //       and evaluate as javascript if it is.
           [root, tail] = item.split(".");
         }
 
         if (!Array.isArray(env) && existing(env?.[root])) {
           result = getNestedValue(env, item);
-        } else if (existing(this.localEnv[item])) {
-          result = this.evaluate(this.localEnv[item], api, env);
-        } else if (existing(globalEnv[root])) {
-          if (!tail) {
-            result =
-              typeof globalEnv[item] === "function"
-                ? globalEnv[item](api)
-                : (result = globalEnv[item]);
-          } else {
-            // Assume a function with dot syntax.
-            const end = globalEnv[root][tail];
-            // console.log(root, tail);
-            result = typeof end === "function" ? end(api) : end;
-          }
-        } else if (existing(this.globalDef[root])) {
-          if (!tail) {
-            result = this.evaluate(this.globalDef[root], api, env);
-          } else {
-            // Assume a function with dot.syntax.
-            const end = this.globalDef[root][tail];
-            result = typeof end === "function" ? end() : end;
-          }
         } else {
-          /*if (VERBOSE)*/ // console.log(item, "⛔ Not found");
-          if (Array.isArray(item)) {
-            result = this.evaluate(item, api, env);
-          } else {
-            result = this.evalNotFound(item, api, env);
+          // Use fast evaluation for simple cases
+          result = this.fastEval(item, api, env);
+          
+          // If fast eval returned the original item, it wasn't found
+          if (result === item) {
+            if (Array.isArray(item)) {
+              result = this.evaluate(item, api, env);
+            } else {
+              result = this.evalNotFound(item, api, env);
+            }
           }
         }
       }
@@ -1134,6 +1559,7 @@ class KidLisp {
       );
     }
 
+    perfEnd('evaluate-total');
     return result;
   }
 
@@ -1157,33 +1583,13 @@ class KidLisp {
 
     // Evaluate identifiers by running this.evaluate([id], api, env);
     identifiers.forEach((id) => {
-      // console.log("🗼 Identifier:", id, env, this.localEnv, this.globalDef, globalEnv);
-      let value;
-
-      if (
-        !existing(env?.[id]) &&
-        !existing(this.localEnv[id]) &&
-        !existing(this.globalDef[id]) &&
-        !existing(globalEnv[id])
-      ) {
+      // Use fast evaluation for identifier lookup
+      let value = this.fastEval(id, api, env);
+      
+      if (value === id) {
+        // Variable not found, try to get it from global environment
         console.warn("❗ Identifier not found:", id);
-      } else {
-        value =
-          env?.[id] ||
-          this.localEnv[id] ||
-          this.globalDef[id] ||
-          globalEnv[id] ||
-          0;
-        
-        // If the value is a function, call it to get the actual value
-        if (typeof value === "function") {
-          try {
-            value = value(api);
-          } catch (error) {
-            console.warn("❗ Error calling function for identifier:", id, error);
-            value = 0;
-          }
-        }
+        value = 0;
       }
 
       // Replace any identifiers and cancel out prefixed double negatives.
