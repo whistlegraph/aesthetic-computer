@@ -261,13 +261,12 @@ function paint(
     chatHeight = computeScrollbarHeight(api, client);
     messagesNeedLayout = false;
   }
-
   // Mask off the area of renderable messages.
   mask({
     x: 0,
     y: topMargin,
     width: screen.width,
-    height: screen.height - bottomMargin + 3,
+    height: screen.height - topMargin - bottomMargin,
   });
 
   let lastAgo; // Keep track of last rendered timestamp.
@@ -299,34 +298,29 @@ function paint(
       undefined,
       screen.width - x,
     );
-
     layout.handles.forEach((handle) => {
-      ink(handle.over ? "yellow" : handle.color).write(
-        handle.word,
-        x + handle.x,
-        handle.y,
-      );
+      ink(handle.over ? "yellow" : handle.color).write(handle.word, {
+        x: x + handle.x,
+        y: handle.y,
+      });
     });
-
     layout.prompts.forEach((prompt) => {
       // if (handle.over) handle.color = pen?.drawing ? "yellow" : [190, 180, 255];
       prompt.lines.forEach((line) => {
-        ink(prompt.over ? "yellow" : "lime").write(
-          line.text,
-          x + line.x,
-          line.y,
-        );
+        ink(prompt.over ? "yellow" : "lime").write(line.text, {
+          x: x + line.x,
+          y: line.y,
+        });
       });
     });
 
     layout.urls.forEach((url) => {
       // if (handle.over) handle.color = pen?.drawing ? "yellow" : [190, 180, 255];
       url.lines.forEach((line) => {
-        ink(url.over ? "yellow" : "orange").write(
-          line.text,
-          x + line.x,
-          line.y,
-        );
+        ink(url.over ? "yellow" : "orange").write(line.text, {
+          x: x + line.x,
+          y: line.y,
+        });
       });
     });
 
@@ -820,113 +814,140 @@ function computeMessagesLayout({ screen, text }, chat) {
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
 
-    y -= rowHeight * (msg.tb.lines.length - 1) + lineGap;
-
-    if (y > screen.height - bottomMargin) {
+    y -= rowHeight * (msg.tb.lines.length - 1) + lineGap;    if (y > screen.height - bottomMargin) {
       y -= rowHeight;
       continue;
-    } // Outline a 🪧 renderable message and its geometry.
+    }
+      // Outline a 🪧 renderable message and its geometry.
     let msgColor = "white",
       inBox = msg.lastLayout?.inBox || false; // A flag that determines if we are in the message box or not.
 
     const handles = []; // Parse '@handle' names.
     const prompts = []; // Parse `prompts`.
     const urls = []; // Parse any 'urls'.
-    const totalHeight = msg.tb.lines.length * rowHeight;    const paintableMessage = msg.fullMessage;
-
-    // Parse the original message to find complete URLs and prompts
+    const paintableMessage = msg.fullMessage;
+      // Debug: Log message formats (can be removed once mapping is confirmed stable)
+    // console.log("🔍 Message formats:");
+    // console.log("  msg.text (original):", msg.text);
+    // console.log("  msg.fullMessage (with handle):", msg.fullMessage);
+    // console.log("  paintableMessage:", paintableMessage);
+    
+    // Parse elements from the original message
     const parsedElements = parseMessageElements(paintableMessage);
+    const activeContainers = new Map(); // Track active element containers// Build a more accurate mapping of words to their positions in the original message
+    const wordToPositionMap = buildWordPositionMap(paintableMessage, msg.tb.lines);
 
-    // Build word-level element map instead of character-level
-    // This approach reconstructs which words belong to which elements
-    const wordElementMap = new Map();
-    
-    // Split the original message into words to match how text.box breaks it
-    const originalWords = paintableMessage.split(/(\s+)/);
-    let charPos = 0;
-    
-    for (let wordIdx = 0; wordIdx < originalWords.length; wordIdx++) {
-      const word = originalWords[wordIdx];
-      const wordStart = charPos;
-      const wordEnd = charPos + word.length;
-      
-      // Check if this word overlaps with any parsed elements
-      for (const element of parsedElements) {
-        if (wordStart < element.end && wordEnd > element.start) {
-          wordElementMap.set(wordIdx, element);
-          break;
-        }
-      }
-      
-      charPos += word.length;
-    }
-
-    // Track active elements for multi-line spanning
-    const activeElements = new Map(); // elementText -> { element, container }
-
-    // Track word position in flattened word array
-    let flatWordIndex = 0;for (let rowIndex = 0; rowIndex < msg.tb.lines.length; rowIndex += 1) {
+    for (let rowIndex = 0; rowIndex < msg.tb.lines.length; rowIndex += 1) {
       let rowY = y + rowIndex * rowHeight;
-      let cursorX = 0;      for (
+      let cursorX = 0;
+
+      for (
         let wordIndex = 0;
         wordIndex < msg.tb.lines[rowIndex].length;
         wordIndex += 1
       ) {
         const word = msg.tb.lines[rowIndex][wordIndex];
         const wordWidth = text.width(word);
-
-        // Check if this word belongs to any parsed element
-        const element = wordElementMap.get(flatWordIndex);
         
-        if (element) {
-          // This word belongs to a URL or prompt
-          let container = activeElements.get(element.text);
-
-          if (!container) {
-            // Create new container for this element
-            container = {
-              text: element.text,
-              lines: [],
-            };
-
-            if (element.type === "url") {
-              urls.push(container);
-            } else if (element.type === "prompt") {
-              prompts.push(container);
-            }
-
-            activeElements.set(element.text, container);
+        // Get the word's position from our mapping
+        const wordMapKey = `${rowIndex}-${wordIndex}`;
+        const wordPosition = wordToPositionMap.get(wordMapKey);
+        
+        if (!wordPosition) {
+          cursorX += wordWidth;
+          if (wordIndex < msg.tb.lines[rowIndex].length - 1) {
+            cursorX += text.width(" ");
           }
+          continue;
+        }
+        
+        const { startIndex: wordStartIndex, endIndex: wordEndIndex } = wordPosition;        // Find which element (if any) this word range overlaps with
+        const overlappingElements = [];
 
-          // Add this word to the container
-          container.lines.push({
-            text: word,
-            x: cursorX,
-            y: rowY,
-            width: wordWidth,
-            height: rowHeight,
-          });
+        for (const element of parsedElements) {
+          // Check if word's range has any overlap with element's range
+          const overlapStart = Math.max(wordStartIndex, element.start);
+          const overlapEnd = Math.min(wordEndIndex, element.end);
+          const overlapLength = Math.max(0, overlapEnd - overlapStart);
+          
+          if (overlapLength > 0) {
+            overlappingElements.push({
+              element,
+              overlapStart,
+              overlapEnd,
+              overlapLength
+            });
+          }
         }
 
-        // Handle @mentions (always single words)
-        if (word.startsWith("@")) {
-          handles.push({
-            word,
-            color: [255, 230, 220],
-            x: cursorX,
-            y: rowY,
-            width: wordWidth,
-            height: rowHeight,
-          });
+        // Process each overlapping element
+        for (const overlap of overlappingElements) {
+          const { element, overlapStart, overlapEnd } = overlap;
+          
+          // Calculate the portion of the word that corresponds to this element
+          const elementStartInWord = Math.max(0, overlapStart - wordStartIndex);
+          const elementEndInWord = Math.min(word.length, overlapEnd - wordStartIndex);
+          const elementText = word.substring(elementStartInWord, elementEndInWord);
+          
+          if (elementText.length === 0) continue;
+
+          if (element.type === "handle") {
+            // Handles are stored as individual segments
+            handles.push({
+              word: elementText,
+              color: "pink",
+              x: cursorX + text.width(word.substring(0, elementStartInWord)),
+              y: rowY,
+              width: text.width(elementText),
+              height: rowHeight,
+            });
+          } else {
+            // For URLs and prompts, use containers
+            let container = activeContainers.get(element.text);
+
+            if (!container) {
+              // Create new container for this element
+              container = {
+                text: element.text,
+                lines: [],
+              };
+
+              if (element.type === "url") {
+                urls.push(container);
+              } else if (element.type === "prompt") {
+                prompts.push(container);
+              }
+
+              activeContainers.set(element.text, container);
+            }            // Add this portion to the container
+            container.lines.push({
+              text: elementText,
+              x: cursorX + text.width(word.substring(0, elementStartInWord)),
+              y: rowY,
+              width: text.width(elementText),
+              height: rowHeight,
+            });
+          }
         }
 
-        flatWordIndex++;
-        cursorX += wordWidth;        // Add space character and width, except for last word in line
+        cursorX += wordWidth;
         if (wordIndex < msg.tb.lines[rowIndex].length - 1) {
           cursorX += text.width(" ");
         }
       }
-    }
+    }// Debug: Log the parsed elements and text box lines for URLs (can be removed once mapping is confirmed stable)
+    // if (parsedElements.some(e => e.type === "url")) {
+    //   console.log("📝 Original message:", paintableMessage);
+    //   console.log("📦 Text box lines:", msg.tb.lines);
+    //   console.log("🗺️ Word position map:", Array.from(wordToPositionMap.entries()));
+    // }    // Debug: Log segment counts for multi-line elements (can be removed once confirmed stable)
+    // urls.forEach((url) => {
+    //   console.log(`🕸️ URL "${url.text}" has ${url.lines.length} segments`);
+    // });
+    // 
+    // prompts.forEach((prompt) => {
+    //   console.log(`💬 Prompt "${prompt.text}" has ${prompt.lines.length} segments`);
+    // });
 
     const timestamp = {
       x: text.width(msg.tb.lines[msg.tb.lines.length - 1]) + 6,
@@ -934,7 +955,6 @@ function computeMessagesLayout({ screen, text }, chat) {
       height: rowHeight,
       width: text.width(timeAgo(msg.when)),
     };
-
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
     msg.layout = {
       x: leftMargin,
@@ -988,7 +1008,87 @@ function timeAgo(timestamp) {
   return "just now";
 }
 
-// Parse prompts and URLs from the original message string
+// Build a mapping of word positions in the text.box output to their positions in the original message
+function buildWordPositionMap(originalMessage, textBoxLines) {
+  const wordMap = new Map();
+  
+  // Reconstruct the full text as it appears in the text box
+  let reconstructedText = "";
+  const wordPositions = [];
+  
+  for (let rowIndex = 0; rowIndex < textBoxLines.length; rowIndex++) {
+    for (let wordIndex = 0; wordIndex < textBoxLines[rowIndex].length; wordIndex++) {
+      const word = textBoxLines[rowIndex][wordIndex];
+      const startPos = reconstructedText.length;
+      
+      wordPositions.push({
+        word,
+        rowIndex,
+        wordIndex,
+        key: `${rowIndex}-${wordIndex}`,
+        reconstructedStart: startPos,
+        reconstructedEnd: startPos + word.length
+      });
+      
+      reconstructedText += word;
+      
+      // Add space between words (except for the last word in a row)
+      if (wordIndex < textBoxLines[rowIndex].length - 1) {
+        reconstructedText += " ";
+      }
+    }
+    
+    // Add space between rows (except for the last row)
+    if (rowIndex < textBoxLines.length - 1) {
+      reconstructedText += " ";
+    }
+  }
+    // Debug logging (can be removed once mapping is confirmed stable)
+  // console.log("🔨 Building word position map:");
+  // console.log("  Original message:", originalMessage);
+  // console.log("  Reconstructed text:", reconstructedText);
+  // console.log("  Word positions:", wordPositions);
+  
+  // Now find the mapping between reconstructed text and original message
+  // Handle cases where text wrapping might have changed the structure
+  let originalIndex = 0;
+  let reconstructedIndex = 0;
+  
+  for (const wordPos of wordPositions) {
+    // Find where this reconstructed word appears in the original message
+    let found = false;
+    
+    // Look for the word starting from our current position in the original
+    for (let searchStart = originalIndex; searchStart <= originalMessage.length - wordPos.word.length; searchStart++) {
+      const candidate = originalMessage.substr(searchStart, wordPos.word.length);
+      
+      if (candidate === wordPos.word) {
+        // Found a match!
+        wordMap.set(wordPos.key, {
+          startIndex: searchStart,
+          endIndex: searchStart + wordPos.word.length
+        });
+        
+        // Debug mapping (can be removed once confirmed stable)
+        // console.log(`  Mapped "${wordPos.word}" (${wordPos.key}) to ${searchStart}-${searchStart + wordPos.word.length}`);
+        
+        // Update our position in the original message
+        originalIndex = searchStart + wordPos.word.length;
+        found = true;
+        break;
+      }
+    }
+      // Debug warning (can be removed once confirmed stable)
+    // if (!found) {
+    //   console.log(`  Warning: Could not map word "${wordPos.word}" (${wordPos.key})`);
+    // }
+  }
+    // Debug final result (can be removed once confirmed stable)
+  // console.log("  Final word map:", Array.from(wordMap.entries()));
+  return wordMap;
+}
+
+// Parse prompts, URLs, and @handles from the original message string
 function parseMessageElements(message) {
   const elements = [];
 
@@ -1002,7 +1102,9 @@ function parseMessageElements(message) {
       start: match.index,
       end: match.index + match[0].length,
     });
-  }  // Parse URLs (starting with http://, https://, or www.)
+  }
+
+  // Parse URLs (starting with http://, https://, or www.)
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
   while ((match = urlRegex.exec(message)) !== null) {
     elements.push({
@@ -1012,6 +1114,20 @@ function parseMessageElements(message) {
       end: match.index + match[0].length,
     });
   }
+
+  // Parse @handles
+  const handleRegex = /@[^\s]+/g;
+  while ((match = handleRegex.exec(message)) !== null) {
+    elements.push({
+      type: "handle",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
+  // Sort elements by start position to ensure proper ordering
+  elements.sort((a, b) => a.start - b.start);
 
   return elements;
 }
