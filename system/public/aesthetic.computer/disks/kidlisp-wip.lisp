@@ -1,15 +1,31 @@
 ; kidlisp-wip, 25.06.20.02.38
 ; 🚸 Working Developments for the Kid Lisp API
 
-(def slide -1)
+(def slide 3)
 
 ; Test performance with math expressions in repeat loops
-wipe blue
+; wipe blue
 
 ; Test 1: Simple fast test first (should be super fast)
-(repeat height i 
-   (ink rainbow) 
-   (line 0 i width i))
+; (repeat height/2 i
+;  (ink rainbow) 
+;  (line 0 i*2 width i*2)
+;  )
+; 
+; (repeat width/2 i
+;  (ink (? yellow lime)) 
+;  (line i*2 0 i*2 height)
+;  )
+
+ ; (zoom 0.8)
+
+; Debug version
+;(ink yellow) 
+;(repeat width/2 i (line i*2 0 i*2 height))
+
+; (repeat height i 
+;    (ink rainbow) 
+;    (line 0 i width i))
 
 ; Test 2: Then try with math
 ;(repeat height/2 i 
@@ -86,6 +102,7 @@ wipe blue
 )
 
 ; 🏡 Stripes, 25.06.20.08.33
+;wipe
 (if (= slide 1)
   ; (label "'stripes', 25.06.20.08.33")
   (ink rainbow (? 45 128 20))
@@ -93,7 +110,7 @@ wipe blue
     (scroll width/8)
     (box 0 0 width/16 height)
   )
-  (shear 0.00343 (? 0.03 0.1 -1 10))
+  (shear 0.00400 (? 0.03 0.1 -1 10))
 )
 
 ; 🚋 Train, 25.06.20.07.29
@@ -112,7 +129,7 @@ wipe blue
   (ink rainbow 16)
   (repeat 3 (line))
   (0.5s (zoom (? 0.9 1.2)))
-  scroll width/5.67666*0.828 
+  scroll width/5.67666*0.828
   (8s (mask 0 height/2 width height/2) (sort) (unmask))
 )
 
