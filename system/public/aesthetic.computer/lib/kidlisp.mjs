@@ -1,8 +1,6 @@
 // Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
-import { cssColors } from "./num.mjs";
-
 /* #region 📚 Examples / Notebook 
  Working programs:
 
@@ -114,6 +112,7 @@ import { cssColors } from "./num.mjs";
 const VERBOSE = false;
 const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
+import { cssColors } from "./num.mjs";
 
 // Performance tracking utilities
 const perfTimers = {};
@@ -346,13 +345,51 @@ class KidLisp {
         if (compiledOptimization) {
           optimized.push({ optimized: true, func: compiledOptimization });
         } else {
-          optimized.push(this.precompileAST(item));
+          // Apply macro expansion to convert fastmath expressions
+          const expanded = this.expandFastMathMacros(item);
+          optimized.push(this.precompileAST(expanded));
         }
       } else {
-        optimized.push(item);
+        // Apply macro expansion to atoms as well
+        optimized.push(this.expandFastMathMacros(item));
       }
     }
     return optimized;
+  }
+
+  // Macro expansion step: convert fastmath expressions like "i*2" to ["*", "i", 2]
+  expandFastMathMacros(expr) {
+    if (typeof expr === 'string') {
+      // Check for chained math expressions like "width/5.67666*0.828"
+      const chainedMatch = expr.match(/^(\w+)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)$/);
+      if (chainedMatch) {
+        const [, variable, op1, num1, op2, num2] = chainedMatch;
+        
+        // Convert to nested prefix expressions: (* (/ width 5.67666) 0.828)
+        const innerExpr = [op1, variable, parseFloat(num1)];
+        const outerExpr = [op2, innerExpr, parseFloat(num2)];
+        return outerExpr;
+      }
+      
+      // Check for simple infix math expressions
+      const infixMatch = expr.match(/^(\w+)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/);
+      if (infixMatch) {
+        const [, left, op, right] = infixMatch;
+        
+        // Convert right operand to number if it's numeric
+        const rightValue = /^\d+(?:\.\d+)?$/.test(right) ? parseFloat(right) : right;
+        
+        // Return the expanded prefix expression - left should stay as unquoted identifier
+        const result = [op, left, rightValue];
+        return result;
+      }
+    } else if (Array.isArray(expr)) {
+      // Recursively expand all elements in arrays
+      return expr.map(item => this.expandFastMathMacros(item));
+    }
+    
+    // Return unchanged if no expansion needed
+    return expr;
   }
 
   // Parse and evaluate a lisp source module
@@ -409,7 +446,7 @@ class KidLisp {
         if (PERF_LOG && perfLogs.length > 0) {
           $.ink?.("yellow");
           perfLogs.forEach((log, index) => {
-            $.write?.(log, { x: 2, y: 24 + (index * 12) });
+            $.write?.(log, { x: 2, y: 24 + (index * 12) }, "black");
           });
         }
 
@@ -688,84 +725,55 @@ class KidLisp {
           .filter((n) => !isNaN(n));
         return nums.length > 0 ? Math.max(...nums) : 0;
       },
-      "+": (api, args) => {
-        // Fast path for numbers only
-        if (args.every(arg => typeof arg === "number")) {
-          return args.reduce((a, b) => a + b, 0);
-        }
-        
-        // Slower path with conversion
-        const nums = args
-          .map((arg) => {
-            if (arg === undefined || arg === null) return NaN;
-            return typeof arg === "number"
-              ? arg
-              : parseFloat(unquoteString(arg));
-          })
-          .filter((n) => !isNaN(n));
-        return nums.reduce((a, b) => a + b, 0);
+      "+": (api, args, env) => {
+        // Simply evaluate each argument in the current environment and add
+        const result = args.reduce((acc, arg) => {
+          const value = this.evaluate(arg, api, this.localEnv);
+          return acc + (typeof value === 'number' ? value : 0);
+        }, 0);
+        return result;
       },
-      "-": (api, args) => {
-        // Fast path for numbers only
-        if (args.every(arg => typeof arg === "number")) {
-          return args.length > 0 ? args.reduce((a, b) => a - b) : 0;
+      "-": (api, args, env) => {
+        // Simply evaluate each argument in the current environment and subtract
+        if (args.length === 0) return 0;
+        if (args.length === 1) {
+          const value = this.evaluate(args[0], api, this.localEnv);
+          return -(typeof value === 'number' ? value : 0);
         }
-        
-        // Slower path with conversion
-        const nums = args
-          .map((arg) => {
-            if (arg === undefined || arg === null) return NaN;
-            return typeof arg === "number"
-              ? arg
-              : parseFloat(unquoteString(arg));
-          })
-          .filter((n) => !isNaN(n));
-        return nums.length > 0 ? nums.reduce((a, b) => a - b) : 0;
+        const first = this.evaluate(args[0], api, this.localEnv);
+        const result = args.slice(1).reduce((acc, arg) => {
+          const value = this.evaluate(arg, api, this.localEnv);
+          return acc - (typeof value === 'number' ? value : 0);
+        }, typeof first === 'number' ? first : 0);
+        return result;
       },
-      "*": (api, args) => {
-        // Fast path for numbers only
-        if (args.every(arg => typeof arg === "number")) {
-          return args.reduce((a, b) => a * b, 1);
-        }
-        
-        // Slower path with conversion
-        const nums = args
-          .map((arg) => {
-            if (arg === undefined || arg === null) return NaN;
-            return typeof arg === "number"
-              ? arg
-              : parseFloat(unquoteString(arg));
-          })
-          .filter((n) => !isNaN(n));
-        return nums.reduce((a, b) => a * b, 1);
+      "*": (api, args, env) => {
+        // Simply evaluate each argument in the current environment and multiply
+        const result = args.reduce((acc, arg) => {
+          const value = this.evaluate(arg, api, this.localEnv);
+          return acc * (typeof value === 'number' ? value : 0);
+        }, 1);
+        return result;
       },
-      "/": (api, args) => {
-        // Fast path for numbers only
-        if (args.every(arg => typeof arg === "number")) {
-          return args.length > 0 ? args.reduce((a, b) => a / b) : 0;
-        }
-        
-        // Slower path with conversion
-        const nums = args
-          .map((arg) => {
-            if (arg === undefined || arg === null) return NaN;
-            return typeof arg === "number"
-              ? arg
-              : parseFloat(unquoteString(arg));
-          })
-          .filter((n) => !isNaN(n));
-        return nums.length > 0 ? nums.reduce((a, b) => a / b) : 0;
+      "/": (api, args, env) => {
+        // Simply evaluate each argument in the current environment and divide
+        if (args.length === 0) return 0;
+        const first = this.evaluate(args[0], api, this.localEnv);
+        const result = args.slice(1).reduce((acc, arg) => {
+          const value = this.evaluate(arg, api, this.localEnv);
+          const divisor = typeof value === 'number' ? value : 1;
+          return divisor !== 0 ? acc / divisor : acc;
+        }, typeof first === 'number' ? first : 0);
+        return result;
       },
-      "%": (api, args) => {
-        const nums = args
-          .map((arg) => {
-            if (arg === undefined || arg === null) return NaN;
-            return typeof arg === "number"
-              ? arg
-              : parseFloat(unquoteString(arg));
-          })
-          .filter((n) => !isNaN(n));
-        return nums.length >= 2 ? nums[0] % nums[1] : 0;
+      "%": (api, args, env) => {
+        // Simply evaluate each argument in the current environment and apply modulo
+        if (args.length < 2) return 0;
+        const first = this.evaluate(args[0], api, this.localEnv);
+        const second = this.evaluate(args[1], api, this.localEnv);
+        const a = typeof first === 'number' ? first : 0;
+        const b = typeof second === 'number' ? second : 1;
+        return b !== 0 ? a % b : 0;
       },
       // Paint API
       resolution: (api, args) => {
@@ -904,52 +912,6 @@ class KidLisp {
         }
         perfEnd('repeat-setup');
         
-        // Fast math expression evaluator for common patterns
-        const evaluateFastMath = (expr, i, screenWidth, screenHeight) => {
-          if (typeof expr === 'number') return expr;
-          if (expr === 'i') return i;
-          if (expr === 'width') return screenWidth;
-          if (expr === 'height') return screenHeight;
-          if (expr === 0) return 0;
-          
-          // Handle infix math expressions like "i*2", "width/2", "i+10"
-          if (typeof expr === 'string') {
-            // Check for simple infix patterns
-            const infixMatch = expr.match(/^(\w+)\s*([+\-*/%])\s*(\w+|\d+)$/);
-            if (infixMatch) {
-              const [, left, op, right] = infixMatch;
-              const leftVal = evaluateFastMath(left, i, screenWidth, screenHeight);
-              const rightVal = evaluateFastMath(right, i, screenWidth, screenHeight);
-              switch (op) {
-                case '*': return leftVal * rightVal;
-                case '+': return leftVal + rightVal;
-                case '-': return leftVal - rightVal;
-                case '/': return leftVal / rightVal;
-                case '%': return leftVal % rightVal;
-              }
-            }
-          }
-          
-          // Handle proper Lisp prefix expressions like ["*", "i", 2]
-          if (Array.isArray(expr) && expr.length === 3) {
-            const [op, left, right] = expr;
-            if (op === '*' || op === '+' || op === '-' || op === '/' || op === '%') {
-              const leftVal = evaluateFastMath(left, i, screenWidth, screenHeight);
-              const rightVal = evaluateFastMath(right, i, screenWidth, screenHeight);
-              switch (op) {
-                case '*': return leftVal * rightVal;
-                case '+': return leftVal + rightVal;
-                case '-': return leftVal - rightVal;
-                case '/': return leftVal / rightVal;
-                case '%': return leftVal % rightVal;
-              }
-            }
-          }
-          
-          // Fall back to full evaluation for complex expressions
-          return this.evaluate([expr], api, env);
-        };
-        
         let result;
         
         // Check if we have an iterator variable (3+ args with 2nd arg being a string)
@@ -958,74 +920,7 @@ class KidLisp {
           const iteratorVar = args[1];
           const expressions = args.slice(2);
           
-          // Super optimization: detect common drawing patterns and other fast patterns
-          if (expressions.length === 2 && 
-              Array.isArray(expressions[0]) && expressions[0][0] === 'ink' &&
-              Array.isArray(expressions[1]) && expressions[1][0] === 'line') {
-            
-            // Fast path for ink + line pattern
-            perfStart('fast-draw-loop');
-            const inkExpr = expressions[0];
-            const lineExpr = expressions[1];
-            
-            // Cache screen dimensions
-            const screenWidth = api.screen?.width || 256;
-            const screenHeight = api.screen?.height || 256;
-            
-            // Pre-evaluate static parts of line expression
-            const lineArgs = lineExpr.slice(1);
-            
-            for (let i = 0; i < count; i++) {
-              // Fast ink evaluation - properly handle rainbow
-              if (inkExpr.length > 1 && inkExpr[1] === 'rainbow') {
-                // Call the rainbow function from global environment using this context
-                const rainbowColor = this.getGlobalEnv().rainbow(api);
-                api.ink?.(rainbowColor);
-              } else if (inkExpr.length > 1) {
-                // Handle other ink arguments
-                const inkArgs = inkExpr.slice(1).map(arg => 
-                  typeof arg === 'string' && !arg.startsWith('"') ? 
-                  this.evaluate([arg], api, env) : arg);
-                api.ink?.(...inkArgs);
-              }
-              
-              // Fast line evaluation with iterator substitution using fast math
-              if (lineArgs.length >= 4) {
-                const x1 = evaluateFastMath(lineArgs[0], i, screenWidth, screenHeight);
-                const y1 = evaluateFastMath(lineArgs[1], i, screenWidth, screenHeight);
-                const x2 = evaluateFastMath(lineArgs[2], i, screenWidth, screenHeight);
-                const y2 = evaluateFastMath(lineArgs[3], i, screenWidth, screenHeight);
-                api.line?.(x1, y1, x2, y2);
-              }
-            }
-            perfEnd('fast-draw-loop');
-            perfEnd('repeat-with-iterator');
-            return count;
-          }
-          
-          // General fast path for any single drawing command
-          if (expressions.length === 1 && Array.isArray(expressions[0])) {
-            const expr = expressions[0];
-            const cmd = expr[0];
-            
-            // Fast path for common drawing commands with math expressions
-            if (cmd === 'line' || cmd === 'box' || cmd === 'circle') {
-              perfStart('fast-single-draw-loop');
-              const screenWidth = api.screen?.width || 256;
-              const screenHeight = api.screen?.height || 256;
-              const args = expr.slice(1);
-              
-              for (let i = 0; i < count; i++) {
-                const evaluatedArgs = args.map(arg => evaluateFastMath(arg, i, screenWidth, screenHeight));
-                api[cmd]?.(...evaluatedArgs);
-              }
-              perfEnd('fast-single-draw-loop');
-              perfEnd('repeat-with-iterator');
-              return count;
-            }
-          }
-          
-          // Fallback to standard loop for non-pattern expressions
+          // Standard loop - set up proper environment with iterator variable
           const baseEnv = { ...this.localEnv, ...env };
           const prevLocalEnv = this.localEnv;
           
@@ -1041,16 +936,12 @@ class KidLisp {
           this.localEnv = loopEnv;
           
           for (let i = 0; i < count; i++) {
-            // Optimize: only update the iterator variable, don't recreate object
+            // Update the iterator variable in the environment
             loopEnv[iteratorVar] = i;
             
-            // Execute expressions with iterator variable in scope - use fast eval
+            // Execute expressions with iterator variable in scope
             for (const expr of expressions) {
-              result = this.fastEval(expr, api, this.localEnv);
-              // If fast eval didn't work, fall back to full evaluation
-              if (result === expr && Array.isArray(expr)) {
-                result = this.evaluate(expr, api, this.localEnv);
-              }
+              result = this.evaluate(expr, api, this.localEnv);
             }
           }
           
@@ -1059,15 +950,11 @@ class KidLisp {
           this.localEnv = prevLocalEnv;
           perfEnd('repeat-with-iterator');
         } else {
-          // Original behavior - no iterator variable - use fast eval
+          // Original behavior - no iterator variable
           const expressions = args.slice(1);
           for (let i = 0; i < count; i++) {
             for (const expr of expressions) {
-              result = this.fastEval(expr, api, env);
-              // If fast eval didn't work, fall back to full evaluation
-              if (result === expr && Array.isArray(expr)) {
-                result = this.evaluate(expr, api, env);
-              }
+              result = this.evaluate(expr, api, env);
             }
           }
         }
@@ -1156,19 +1043,17 @@ class KidLisp {
   fastEval(expr, api, env) {
     if (typeof expr === 'number') return expr;
     if (typeof expr === 'string') {
-      // Check variable cache first
-      const cacheKey = `${expr}_${this.localEnvLevel}`;
-      if (this.variableCache.has(cacheKey)) {
-        return this.variableCache.get(cacheKey);
+      // Fast variable lookup - don't cache iterator variables that change frequently
+      let value;
+      if (this.localEnv.hasOwnProperty(expr)) {
+        value = this.localEnv[expr];
+      } else if (env && env.hasOwnProperty(expr)) {
+        value = env[expr];
+      } else if (this.globalDef.hasOwnProperty(expr)) {
+        value = this.globalDef[expr];
       }
       
-      // Fast variable lookup
-      let value = this.localEnv[expr] || env?.[expr] || this.globalDef[expr];
       if (value !== undefined) {
-        // Cache simple values (not functions)
-        if (typeof value !== 'function' && typeof value !== 'object') {
-          this.variableCache.set(cacheKey, value);
-        }
         return value;
       }
       
@@ -1463,12 +1348,15 @@ class KidLisp {
                     head === "repeat") {
                   processedArgs = args;
                 } else {
-                  // Use fast evaluation for arguments
-                  processedArgs = args.map((arg) =>
-                    Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
-                      ? this.fastEval(arg, api, env)
-                      : arg
-                  );
+                  // Use fast evaluation for arguments with current local environment
+                  processedArgs = args.map((arg, index) => {
+                    if (Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))) {
+                      const result = this.fastEval(arg, api, this.localEnv);
+                      return result;
+                    } else {
+                      return arg;
+                    }
+                  });
                 }
                 
                 if (splitHead[1]) {
@@ -1489,12 +1377,12 @@ class KidLisp {
               // User-defined functions - use fast evaluation for arguments
               const evaluatedArgs = args.map((arg) =>
                 Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
-                  ? this.fastEval(arg, api, env)
+                  ? this.fastEval(arg, api, this.localEnv)
                   : arg
               );
               
               result = Array.isArray(value) || value.body
-                ? this.evaluate(value, api, env, evaluatedArgs)
+                ? this.evaluate(value, api, this.localEnv, evaluatedArgs)
                 : value;
               break;
               
@@ -1502,7 +1390,7 @@ class KidLisp {
               // API functions - use fast evaluation for arguments
               const apiArgs = args.map((arg) =>
                 Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
-                  ? this.fastEval(arg, api, env)
+                  ? this.fastEval(arg, api, this.localEnv)
                   : arg
               );
               result = value(...apiArgs);

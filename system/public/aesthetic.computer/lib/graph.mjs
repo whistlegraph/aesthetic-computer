@@ -2024,14 +2024,13 @@ function grid(
 
         if (pixelHeight > 0 && destStartY >= 0 && destEndY <= height) {
           for (let i = 0; i < cols; i += 1) {
-            const srcX = i % bufWidth;
-            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
+            const srcX = i % bufWidth;            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
             if (srcIndex < bufPixels.length) {
               // Extract color data directly
-              const r = srcPixels[srcIndex];
-              const g = srcPixels[srcIndex + 1];
-              const b = srcPixels[srcIndex + 2];
-              const a = srcPixels[srcIndex + 3];
+              const r = bufPixels[srcIndex];
+              const g = bufPixels[srcIndex + 1];
+              const b = bufPixels[srcIndex + 2];
+              const a = bufPixels[srcIndex + 3];
 
               const destStartX = ~~(x + i * colPixInt);
               const destEndX = ~~(x + (i + 1) * colPixInt);
