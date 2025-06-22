@@ -1,36 +1,21 @@
 ; kidlisp-wip, 25.06.20.02.38
 ; 🚸 Working Developments for the Kid Lisp API
 
-(def slide 3)
+(def slide 5)
 
-; Test performance with math expressions in repeat loops
-; wipe blue
+; Test the ... function
+(... red lime blue)
 
-; Test 1: Simple fast test first (should be super fast)
-; (repeat height/2 i
-;  (ink rainbow) 
-;  (line 0 i*2 width i*2)
-;  )
-; 
-; (repeat width/2 i
-;  (ink (? yellow lime)) 
-;  (line i*2 0 i*2 height)
-;  )
+(mask )
+(0.1s (wipe (... red lime blue)))
+
+
+;; (repeat width/2 i
+;;  (ink (... red lime blue)) 
+;;  (line i*2 0 i*2 height)
+;;  Below is a sample of how to use `clock`.)
 
  ; (zoom 0.8)
-
-; Debug version
-;(ink yellow) 
-;(repeat width/2 i (line i*2 0 i*2 height))
-
-; (repeat height i 
-;    (ink rainbow) 
-;    (line 0 i width i))
-
-; Test 2: Then try with math
-;(repeat height/2 i 
-;   (ink rainbow) 
-;   (line i*2 0 i*2 height))
 
 ; Original simple test for comparison
 ;(repeat height i 
