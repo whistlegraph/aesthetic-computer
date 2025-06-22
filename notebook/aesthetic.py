@@ -1,12 +1,14 @@
 import sys
 import importlib
 import urllib.parse
+import hashlib
 
 # Check if the module is already loaded
 if "aesthetic" in sys.modules:
     importlib.reload(sys.modules["aesthetic"])
 
 from IPython.display import display, IFrame, HTML
+from IPython.core.magic import Magics, cell_magic, line_magic, magics_class
 
 def show(piece, width="100%", height=54):
     importlib.reload(importlib.import_module('aesthetic'))
@@ -30,16 +32,29 @@ def kidlisp(code, width="100%", height=500, auto_scale=False):
     # Use kidlisp-specific encoding with proper quote handling
     # Clean up the code first, then apply encoding
     clean_code = code.strip()
-    encoded_code = clean_code.replace('"', '%22').replace(' ', '_').replace('\n', '§')
+    # Properly encode parentheses, dots, and percent signs which cause URI issues
+    # Use ~ instead of § to avoid UTF-8 encoding issues with Netlify CLI
+    encoded_code = (clean_code
+                   .replace('%', '%25')  # Must encode % first to avoid double-encoding
+                   .replace('"', '%22')
+                   .replace(' ', '_')
+                   .replace('\n', '~')   # Use ~ instead of § to avoid UTF-8 issues
+                   .replace('(', '%28')
+                   .replace(')', '%29')
+                   .replace('.', '%2E'))
     
     # Create URL with proper query parameter format
     url = f"https://localhost:8888/{encoded_code}?nolabel=true&nogap=true"
+    
+    # Create a stable ID based on content hash to reduce flicker on re-runs
+    content_hash = hashlib.md5(f"{clean_code}{width}{height}".encode()).hexdigest()[:8]
+    iframe_id = f"ac-iframe-{content_hash}"
     
     # Always use HTML approach with no margins, positioned at top-left
     if auto_scale:
         iframe_html = f'''
         <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
-            <iframe src="{url}" 
+            <iframe id="{iframe_id}" src="{url}" 
                     width="{width}" 
                     height="{height}" 
                     frameborder="0"
@@ -50,7 +65,7 @@ def kidlisp(code, width="100%", height=500, auto_scale=False):
     else:
         iframe_html = f'''
         <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
-            <iframe src="{url}" 
+            <iframe id="{iframe_id}" src="{url}" 
                     width="{width}" 
                     height="{height}" 
                     frameborder="0"
@@ -140,7 +155,7 @@ def λ(*args, **kwargs):
     # Default values
     code = None
     width = "100%"
-    height = 32
+    height = 30
     auto_scale = kwargs.get('auto_scale', False)
     resolution = kwargs.get('resolution', None)
     
@@ -190,9 +205,59 @@ def λ(*args, **kwargs):
     
     return kidlisp(code, width, height, auto_scale)
 
+# IPython Magic Commands for Native Kidlisp Syntax
+@magics_class
+class AestheticComputerMagics(Magics):
+    """IPython magic commands for native kidlisp syntax in Jupyter notebooks"""
+    
+    @cell_magic
+    def ac(self, line, cell):
+        """
+        Cell magic to execute kidlisp code directly without quotes.
+        
+        Usage:
+            %%ac
+            (ink red)
+            (line 0 0 100 100)
+            
+        With size options:
+            %%ac 800 600
+            (your kidlisp code here)
+            
+        First number = width, second = height
+        """
+        # Parse simple arguments: width height
+        args = line.strip().split() if line.strip() else []
+        width = "100%"
+        height = 400
+        
+        if len(args) >= 1:
+            try:
+                width = int(args[0])
+            except ValueError:
+                width = args[0]  # Keep as string like "100%"
+        
+        if len(args) >= 2:
+            try:
+                height = int(args[1])
+            except ValueError:
+                height = 400
+                
+        return kidlisp(cell.strip(), width, height, False)
+    
+    @line_magic
+    def ac_line(self, line):
+        """
+        Line magic to execute a single line of kidlisp code.
+        
+        Usage:
+            %ac (ink red) (circle 25 25 10)
+        """
+        return kidlisp(line.strip(), "100%", 30, False)
+
 # Automatic IPython/Jupyter setup - makes λ globally available
 def _setup_ipython():
-    """Automatically setup λ in IPython/Jupyter environment"""
+    """Automatically setup λ and magic commands in IPython/Jupyter environment"""
     try:
         from IPython import get_ipython
         ip = get_ipython()
@@ -206,6 +271,14 @@ def _setup_ipython():
             # Register as a built-in so it's available everywhere
             import builtins
             builtins.λ = λ
+            
+            # Register the magic commands class
+            magic_instance = AestheticComputerMagics(ip)
+            ip.register_magics(AestheticComputerMagics)
+            
+            # Also register the line magic under the same name 
+            ip.register_magic_function(magic_instance.ac_line, 'line', 'ac')
+            
             return True
     except ImportError:
         pass
@@ -215,4 +288,4 @@ def _setup_ipython():
 _setup_ipython()
 
 # Export all functions for proper IDE support
-__all__ = ['show', 'show_side_by_side', 'kidlisp', 'kidlisp_display', 'k', '_', 'l', 'λ']
+__all__ = ['show', 'show_side_by_side', 'kidlisp', 'kidlisp_display', 'k', '_', 'l', 'λ', 'AestheticComputerMagics']
