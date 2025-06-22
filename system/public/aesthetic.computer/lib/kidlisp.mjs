@@ -238,7 +238,8 @@ function atom(token) {
     return token;
   } else {
     const num = parseFloat(token);
-    return isNaN(num) ? token : num;
+    const result = isNaN(num) ? token : num;
+    return result;
   }
 }
 
@@ -291,6 +292,7 @@ class KidLisp {
     this.expressionCache = new Map(); // Cache for simple expressions
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
+    this.sequenceCounters = new Map(); // Track sequence positions for ... function
   }
 
   // Optimize common patterns - this could be expanded for other patterns
@@ -983,6 +985,35 @@ class KidLisp {
         const randomIndex = Math.floor(Math.random() * args.length);
         return args[randomIndex];
       },
+      // 🔄 Sequential selection (cycles through arguments in order)
+      "...": (api, args = [], env) => {
+        if (args.length === 0) return undefined;
+        
+        // Create a stable sequence key based on argument values
+        const sequenceKey = JSON.stringify(args);
+        
+        // Initialize sequence counters if needed
+        if (!this.sequenceCounters) {
+          this.sequenceCounters = new Map();
+        }
+        
+        // Initialize counter for this specific argument combination
+        if (!this.sequenceCounters.has(sequenceKey)) {
+          this.sequenceCounters.set(sequenceKey, 0);
+        }
+        
+        // Get current index and increment for next call
+        const currentIndex = this.sequenceCounters.get(sequenceKey);
+        const nextIndex = (currentIndex + 1) % args.length;
+        this.sequenceCounters.set(sequenceKey, nextIndex);
+        
+        return args[currentIndex];
+      },
+      // 🔄 Sequential selection (alias with two dots)
+      "..": (api, args = [], env) => {
+        // Delegate to the three-dot version
+        return this.getGlobalEnv()["..."](api, args, env);
+      },
       // 🔈 Sound
       overtone: (api, args = []) => {
         // console.log("Synth at:", args);
@@ -1025,7 +1056,7 @@ class KidLisp {
         return "debug called";
       },
       log: (api, args = []) => {
-        console.clear();
+        // console.clear(); // Commented out to preserve debug logs
         console.log("📝 LOG:", ...args);
         return args[0];
       },
@@ -1063,7 +1094,8 @@ class KidLisp {
       if (typeof value === 'function') {
         value = value(api);
       }
-      return value !== undefined ? value : expr;
+      const result = value !== undefined ? value : expr;
+      return result;
     }
     
     // Fast math expression evaluation
@@ -1124,6 +1156,7 @@ class KidLisp {
   evaluate(parsed, api = {}, env, inArgs) {
     perfStart('evaluate-total');
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
+    
     let body;
 
     // Get global environment for this instance
@@ -1274,7 +1307,9 @@ class KidLisp {
         // const colon = head.split(":")[1]; // TODO: Take into account colon param / work it in.
 
         // Make sure head exists and re-evaluate or iterate if not a string.
-        if (!existing(head)) return this.evalNotFound(head);
+        if (!existing(head)) {
+          return this.evalNotFound(head);
+        }
 
         if (Array.isArray(head)) {
           const evaledHead = this.evaluate([head], api, env);
@@ -1294,12 +1329,23 @@ class KidLisp {
           // Convert to string or handle appropriately
           head = String(head);
         }
-        const splitHead = head.split(".");
-        head = splitHead[0];
+        
+        let splitHead = [];
+        let colon = null;
+        
+        // Special handling for ... function name to avoid dot splitting
+        if (head === "..." || head === "..") {
+          // Don't split these special function names
+          colon = head.includes(":") ? head.split(":")[1] : null;
+          head = head.split(":")[0];
+        } else {
+          splitHead = head.split(".");
+          head = splitHead[0];
 
-        const colonSplit = head.split(":");
-        head = colonSplit[0];
-        const colon = colonSplit[1]; // Will be incorporated in globalEnv api.
+          const colonSplit = head.split(":");
+          head = colonSplit[0];
+          colon = colonSplit[1]; // Will be incorporated in globalEnv api.
+        }
 
         // if (head === "box") {
         //  console.log("🧕 Head:", head);
