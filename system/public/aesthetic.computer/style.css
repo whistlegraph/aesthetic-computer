@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html {
@@ -24,10 +24,12 @@ body {
   cursor: url('cursors/precise.svg') 12 12, auto;
 }
 
+/* Remove checkerboard for embedded contexts (like VS Code notebooks) */
+
 body.nogap {
   background-image: none;
   /* background-color: none; */
-  background-color: transparent;
+  background-color: transparent !important;
 }
 
 * {
