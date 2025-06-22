@@ -414,7 +414,7 @@ class KidLisp {
 
     // 🧩 Piece API
     return {
-      boot: ({ params, wipe, clock, screen }) => {
+      boot: ({ wipe, params, clock, screen, pieceCount }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
@@ -423,7 +423,8 @@ class KidLisp {
         this.globalDef.paramC = params[2];
         
         // Just set up initial state, don't execute program here
-        // wipe("yellow");
+        // console.log(pieceCount);
+        wipe("erase");
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
