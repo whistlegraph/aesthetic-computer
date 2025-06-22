@@ -35,24 +35,28 @@ def kidlisp(code, width="100%", height=500, auto_scale=False):
     # Create URL with proper query parameter format
     url = f"https://localhost:8888/{encoded_code}?nolabel=true&nogap=true"
     
-    # Always use HTML approach to ensure black background
+    # Always use HTML approach with no margins, positioned at top-left
     if auto_scale:
         iframe_html = f'''
-        <iframe src="{url}" 
-                width="{width}" 
-                height="{height}" 
-                frameborder="0"
-                style="background-color: black; transform-origin: top left; max-width: 100%; height: auto; aspect-ratio: 1/1;">
-        </iframe>
+        <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+            <iframe src="{url}" 
+                    width="{width}" 
+                    height="{height}" 
+                    frameborder="0"
+                    style="background: transparent; margin: 0; padding: 0; border: none; display: block; transform-origin: top left; max-width: 100%; height: auto; aspect-ratio: 1/1;">
+            </iframe>
+        </div>
         '''
     else:
         iframe_html = f'''
-        <iframe src="{url}" 
-                width="{width}" 
-                height="{height}" 
-                frameborder="0"
-                style="background-color: black;">
-        </iframe>
+        <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+            <iframe src="{url}" 
+                    width="{width}" 
+                    height="{height}" 
+                    frameborder="0"
+                    style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
+            </iframe>
+        </div>
         '''
     
     display(HTML(iframe_html))
@@ -107,45 +111,82 @@ def show_side_by_side(*pieces_and_options):
     display(HTML(container_html))
 
 # Short aliases for kidlisp function
-def k(code, width="100%", height=None, auto_scale=False):
+def k(*args, **kwargs):
     """Ultra-short alias for kidlisp function"""
-    return λ(code, width, height, auto_scale)
+    return λ(*args, **kwargs)
 
-def _(code, width="100%", height=None, auto_scale=False):
+def _(*args, **kwargs):
     """Single underscore alias for kidlisp function"""
-    return λ(code, width, height, auto_scale)
+    return λ(*args, **kwargs)
 
 # Even shorter - single character functions
-def l(code, width="100%", height=None, auto_scale=False):
+def l(*args, **kwargs):
     """Single letter 'l' for lisp"""
-    return λ(code, width, height, auto_scale)
+    return λ(*args, **kwargs)
 
 # Lambda symbol alias - perfect for functional programming!
-def λ(code, width="100%", height=None, auto_scale=False):
+def λ(*args, **kwargs):
     """
     Lambda symbol alias for kidlisp function - λ()
     
     Usage:
-        λ("kidlisp code")                           # Auto height: 1px per character (minimum 1px)
-        λ("kidlisp code", height=300)              # Custom height
+        λ("kidlisp code")                           # Default: 100% width, 32px height
+        λ("kidlisp code", 300)                      # Single number = height (width stays 100%)
+        λ("kidlisp code", 800, 600)                # Two numbers = width, height
+        λ("kidlisp code", (800, 600))              # Resolution tuple
         λ(("kidlisp code", 500, 300))              # Tuple format: (code, width, height)
+        λ("kidlisp code", resolution=(800, 600))   # Named resolution tuple
     """
-    # Handle tuple input for resolution
+    # Default values
+    code = None
+    width = "100%"
+    height = 32
+    auto_scale = kwargs.get('auto_scale', False)
+    resolution = kwargs.get('resolution', None)
+    
+    # Parse positional arguments
+    if len(args) >= 1:
+        code = args[0]
+    if len(args) >= 2:
+        # Check if second argument is a resolution tuple
+        if isinstance(args[1], tuple) and len(args[1]) == 2:
+            resolution = args[1]
+        elif isinstance(args[1], (int, float)):
+            # Single number = height only (width stays 100%)
+            height = args[1]
+        else:
+            width = args[1]
+    if len(args) >= 3:
+        # Third argument could be height or resolution tuple
+        if isinstance(args[2], tuple) and len(args[2]) == 2:
+            resolution = args[2]
+        else:
+            # If we have 3 args and second was a number, then this is width, height
+            if isinstance(args[1], (int, float)):
+                width = args[1]
+                height = args[2]
+            else:
+                height = args[2]
+    if len(args) >= 4:
+        auto_scale = args[3]
+    
+    # Handle tuple input for resolution in first parameter
     if isinstance(code, tuple):
         if len(code) == 3:
             # Format: ("code", width, height)
             code, width, height = code
         elif len(code) == 2:
-            # Format: ("code", width) - use width for both dimensions
-            code, width = code
-            height = width
+            # Format: ("code", height) - width stays 100%
+            code, height = code
         else:
-            raise ValueError("Tuple must have 2 or 3 elements: (code, width[, height])")
+            raise ValueError("Tuple must have 2 or 3 elements: (code, height[, width])")
     
-    # Auto-calculate height based on character count (1px per character, minimum 1px)
-    if height is None:
-        char_count = len(code.strip())
-        height = max(1, char_count)  # Exactly 1px per character, minimum 1px
+    # Handle resolution tuple parameter (overrides other width/height settings)
+    if resolution is not None:
+        if isinstance(resolution, tuple) and len(resolution) == 2:
+            width, height = resolution
+        else:
+            raise ValueError("Resolution must be a tuple of (width, height)")
     
     return kidlisp(code, width, height, auto_scale)
 
