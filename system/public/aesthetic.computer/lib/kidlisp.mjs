@@ -858,8 +858,22 @@ class KidLisp {
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
         const content = processArgStringTypes(args[0]);
-        // console.log("✏️ Write:", content, args);
-        api.write(content, { x: args[1], y: args[2] });
+        const x = args[1];
+        const y = args[2];
+        const bg = args[3] ? processArgStringTypes(args[3]) : undefined;
+        
+        // Build options object if we have additional parameters
+        const options = {};
+        if (bg !== undefined) {
+          options.bg = bg;
+        }
+        
+        // Call write with proper parameters
+        if (x !== undefined && y !== undefined) {
+          api.write(content, x, y, options);
+        } else {
+          api.write(content, { x, y }, bg);
+        }
       },
       len: (api, args = []) => {
         return args[0]?.toString().length;
@@ -1582,9 +1596,9 @@ function isKidlispSource(text) {
     return true;
   }
 
-  // Check for encoded kidlisp (contains § or _ suggesting it was URL encoded)
-  if (text.includes("§")) {
-    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
+  // Check for encoded kidlisp (contains § or ~ or _ suggesting it was URL encoded)
+  if (text.includes("§") || text.includes("~")) {
+    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n").replace(/~/g, "\n");
     // Check decoded version without recursion
     if (decoded.startsWith("(") || decoded.startsWith(";")) {
       return true;
@@ -1603,7 +1617,7 @@ function isKidlispSource(text) {
   }
 
   if (text.includes("_") && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
-    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
+    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n").replace(/~/g, "\n");
     // Check decoded version without recursion
     if (decoded.startsWith("(") || decoded.startsWith(";")) {
       return true;
@@ -1651,15 +1665,22 @@ function encodeKidlispForUrl(source) {
   }
 
   // For sharing, we want to preserve the structure so it can be parsed correctly
-  // Spaces become underscores, newlines become § symbols
+  // Spaces become underscores, newlines become ~ symbols (avoiding UTF-8 encoding issues with §)
   // But we keep parentheses and other structural elements intact
-  const encoded = source.replace(/ /g, "_").replace(/\n/g, "§");
+  const encoded = source.replace(/ /g, "_").replace(/\n/g, "~");
   return encoded;
 }
 
 function decodeKidlispFromUrl(encoded) {
   // Only decode if the result would be valid kidlisp
-  const decoded = encoded.replace(/_/g, " ").replace(/§/g, "\n");
+  const decoded = encoded
+    .replace(/_/g, " ")
+    .replace(/§/g, "\n")     // Support legacy § separator
+    .replace(/~/g, "\n")     // Support new ~ separator (avoids UTF-8 encoding issues)
+    .replace(/%28/g, "(")
+    .replace(/%29/g, ")")
+    .replace(/%2E/g, ".")
+    .replace(/%22/g, '"');
   return isKidlispSource(decoded) ? decoded : encoded;
 }
 
