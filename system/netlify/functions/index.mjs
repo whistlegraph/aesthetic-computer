@@ -42,7 +42,7 @@ async function fun(event, context) {
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
-  
+
   // Safely decode URL-encoded characters in the slug
   try {
     slug = decodeURIComponent(slug);
@@ -50,10 +50,10 @@ async function fun(event, context) {
     console.log("⚠️ Failed to decode URL slug:", slug, "Error:", error.message);
     // If decoding fails, fall back to original slug but replace common problematic sequences
     slug = slug
-      .replace(/%C2%A7/g, "§")  // § character
-      .replace(/%28/g, "(")     // (
-      .replace(/%29/g, ")")     // )
-      .replace(/%20/g, " ");    // space
+      .replace(/%C2%A7/g, "§") // § character
+      .replace(/%28/g, "(") // (
+      .replace(/%29/g, ")") // )
+      .replace(/%20/g, " "); // space
   }
 
   // console.log("Path:", event.path, "Host:", event.headers["host"]);
@@ -61,6 +61,8 @@ async function fun(event, context) {
   // Some domains will rewrite the initial slug.
   if (event.headers["host"] === "botce.ac") {
     slug = "botce";
+  } else if (event.headers["host"] === "wipppps.world") {
+    slug = "wipppps";
   } else if (
     event.headers["host"] === "m2w2.whistlegraph.com" &&
     event.path.length <= 1
@@ -153,7 +155,7 @@ async function fun(event, context) {
       try {
         let path = parsed.path.replace("aesthetic.computer/disks/", "");
         if (path.startsWith("@")) path = "profile";
-        
+
         // Handle special kidlisp path case
         if (path === "(...)" || path === "(...)") {
           // This is inline kidlisp code, not a file to load
@@ -228,7 +230,8 @@ async function fun(event, context) {
 
       const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
-      try {        console.log(
+      try {
+        console.log(
           "📖 Writing to:",
           tempPath,
           "Source length:",
@@ -254,14 +257,20 @@ async function fun(event, context) {
         } catch (e) {
           // console.warn("⚠️ Failed to delete temp file:", e);
         }
-      }      console.log("🧊 Module:", module?.meta, tempPath);
+      }
+      console.log("🧊 Module:", module?.meta, tempPath);
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     } else if (parsed.source) {
       // Handle inline kidlisp code that doesn't need file loading
       console.log("🤖 Using inline kidlisp source for metadata");
       meta = inferTitleDesc(parsed.source);
-      console.log("📰 Kidlisp Metadata:", meta, "Source:", parsed.source?.substring(0, 100) + "...");
+      console.log(
+        "📰 Kidlisp Metadata:",
+        meta,
+        "Source:",
+        parsed.source?.substring(0, 100) + "...",
+      );
     }
   } catch (err) {
     // If either module doesn't load, then we can fallback to the main route.
@@ -277,8 +286,8 @@ async function fun(event, context) {
 
   // TODO: Not sure if 'location' is correct here, but I wan tto skip rendering the link rel icon and og:image if the icon or preview parameter is present
   //      in the request url qury params...
-const qsp = event.queryStringParameters || {};
-const previewOrIcon = "icon" in qsp || "preview" in qsp;
+  const qsp = event.queryStringParameters || {};
+  const previewOrIcon = "icon" in qsp || "preview" in qsp;
 
   const body = html`
     <!doctype html>
@@ -286,8 +295,12 @@ const previewOrIcon = "icon" in qsp || "preview" in qsp;
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
-        ${!previewOrIcon ? html`<link rel="icon" href="${icon}" type="image/png" />` : ''}
-        ${!previewOrIcon ? html`<link rel="apple-touch-icon" href="${icon}" />` : ''}
+        ${!previewOrIcon
+          ? html`<link rel="icon" href="${icon}" type="image/png" />`
+          : ""}
+        ${!previewOrIcon
+          ? html`<link rel="apple-touch-icon" href="${icon}" />`
+          : ""}
         <link rel="manifest" href="${manifest}" />
         <meta
           name="viewport"
@@ -296,7 +309,9 @@ const previewOrIcon = "icon" in qsp || "preview" in qsp;
         <meta name="description" content="${encode(desc)}" />
         <meta name="og:title" content="${encode(title)}" />
         <meta name="og:description" content="${encode(desc)}" />
-        ${!previewOrIcon ? html`<meta name="og:image" content="${ogImage}" />` : ''}
+        ${!previewOrIcon
+          ? html`<meta name="og:image" content="${ogImage}" />`
+          : ""}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${encode(title)}" />
         <meta name="twitter:site" content="aesthetic.computer" />
