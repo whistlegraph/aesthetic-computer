@@ -11,4 +11,5 @@
   },
   "workbench.list.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
+  "notebook.lineNumbers": "off"
 }
