@@ -376,15 +376,11 @@ function darkMode(enabled) {
     darkMode($commonApi.dark || false);
     store.delete("dark-mode");
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
-    return $commonApi.dark;
-  } else {
+    return $commonApi.dark;  } else {
     // true or false
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
-    
-    // Update the CSS color-scheme property to match the dark mode setting
-    document.documentElement.style.setProperty('color-scheme', enabled ? 'dark' : 'light');
     
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
