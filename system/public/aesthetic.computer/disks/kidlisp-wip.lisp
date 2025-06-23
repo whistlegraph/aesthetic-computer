@@ -1,12 +1,12 @@
 ; kidlisp-wip, 25.06.20.02.38
 ; 🚸 Working Developments for the Kid Lisp API
 
-(def slide 3)
+(def slide 5)
 
 ; Test performance with math expressions in repeat loops
 ; wipe blue
 
-; Test 1: Simple fast test first (should be super fast)
+; Test 1:  ; Display the amplitude value
 ; (repeat height/2 i
 ;  (ink rainbow) 
 ;  (line 0 i*2 width i*2)
@@ -150,6 +150,49 @@
 
 (if (= slide 4)
  noise 
+)
+
+; 🎤 Microphone Tests, 25.06.22
+(if (= slide 5)
+  ; Simple microphone amplitude test
+  (wipe "black")
+  (def amp (mic))
+  (ink "white")
+  (write "Mic Level:" 6 24)
+  (ink "cyan")
+  (write amp 150 24)
+  (ink "lime")
+  (box 10 40 (* amp 200) 30)
+)
+
+(if (= slide 6)
+  ; Microphone visualizer
+  (wipe "black")
+  (def amp (mic))
+  
+  ; Display the amplitude value
+  (ink "white")
+  (write "Microphone Level:" 10 24)
+  (ink "cyan")
+  (write amp 200 24)
+  
+  ; Visual amplitude bar
+  (ink "lime")
+  (box 10 40 (* amp 200) 30)
+  
+  ; Amplitude meter with scale
+  (ink "gray")
+  (box 10 80 200 20 "out")
+  (ink "red")
+  (box 10 80 (* amp 200) 20)
+  
+  ; Responsive background color based on amplitude
+  (wipe (+ 50 (* amp 100)) 0 (+ 100 (* amp 100)))
+  
+  ; Circle that grows with amplitude
+  (ink "yellow")
+  (def radius (+ 20 (* amp 50)))
+  (box (- 150 radius) (- 150 radius) (* radius 2) (* radius 2))
 )
 
 ; sonify

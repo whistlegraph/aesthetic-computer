@@ -158,18 +158,24 @@ RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_am
 # Install fnm and base javascript tooling.
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:$PATH"
+
 # Set up fnm for Fish shell
 RUN mkdir -p /home/me/.config/fish/conf.d && \
     echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish
+
 # Install Node.js versions and global packages
-RUN /home/me/.fnm/fnm install 20.5.0 && \
+# Use a single RUN command with proper fnm environment setup
+RUN eval "$(/home/me/.fnm/fnm env --shell bash)" && \
+    /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm install lts-jod && \
-    /home/me/.fnm/fnm default lts-jod && \    eval "$(/home/me/.fnm/fnm env --shell bash)" && \
-    npm install -g prettier typescript typescript-language-server npm-check-updates ijavascript && \
+    /home/me/.fnm/fnm default lts-jod && \
+    /home/me/.fnm/fnm use lts-jod && \
+    npm install -g prettier typescript typescript-language-server npm-check-updates && \
     npm install -g @anthropic-ai/claude-code && \
-    npm install -g @githubnext/github-copilot-cli && \
-    ijsinstall --install=global --spec-path=full && \
-    jupyter kernelspec install --user --replace "$(ijsnotebook --spec-path=full)" || true
+    npm install -g @openai/codex
+
+# Ensure the default Node.js version is available in Fish shell sessions
+RUN echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
 
 RUN sudo dnf install -y sbcl zeromq-devel redhat-rpm-config
 
