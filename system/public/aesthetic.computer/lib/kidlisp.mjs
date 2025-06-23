@@ -284,10 +284,14 @@ class KidLisp {
     this.frameCount = 0; // Frame counter for timing functions
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
     
+    // Microphone state tracking
+    this.microphoneConnected = false;
+    this.microphoneApi = null;
+    
     // Performance optimizations
     this.functionCache = new Map(); // Cache function lookups
     this.globalEnvCache = null; // Cache global environment
-    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<']); // Common functions for fast path
+    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<', 'mic']); // Common functions for fast path
     this.expressionCache = new Map(); // Cache for simple expressions
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
@@ -412,13 +416,29 @@ class KidLisp {
 
     // 🧩 Piece API
     return {
-      boot: ({ params, wipe, clock, screen }) => {
+      boot: ({ params, wipe, clock, screen, sound, delay }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
         this.globalDef.paramA = params[0];
         this.globalDef.paramB = params[1];
         this.globalDef.paramC = params[2];
+        
+        // Initialize microphone like stample does
+        if (sound?.microphone) {
+          this.microphoneApi = sound.microphone;
+          console.log("🎤 Boot: Microphone available, permission:", this.microphoneApi.permission, "enabled:", sound.enabled?.());
+          
+          // Check permission and auto-connect if granted (like stample)
+          if (this.microphoneApi.permission === "granted" && sound.enabled?.()) {
+            console.log("🎤 Boot: Attempting to connect microphone...");
+            delay(() => {
+              this.microphoneApi.connect();
+            }, 15);
+          }
+        } else {
+          console.log("🎤 Boot: No microphone API available");
+        }
         
         // Just set up initial state, don't execute program here
         // wipe("yellow");
@@ -458,6 +478,28 @@ class KidLisp {
         // TODO: Add haltability to paint with a shortcut that triggers the below.
         // return false;
       },
+      sim: ({ sound }) => {
+        // Make sure we have microphone reference (could come from sound parameter)
+        if (!this.microphoneApi && sound?.microphone) {
+          this.microphoneApi = sound.microphone;
+        }
+        
+        // Always poll microphone if available (like stample does)
+        if (this.microphoneApi) {
+          this.microphoneApi.poll?.();
+          
+          // Update connection status
+          if (this.microphoneApi.connected && !this.microphoneConnected) {
+            this.microphoneConnected = true;
+            console.log("🎤 Microphone connected in kidlisp");
+          }
+        }
+        
+        // Debug: Log mic data occasionally
+        if (this.frameCount % 60 === 0 && this.microphoneApi?.connected) {
+          console.log("🎤 Mic amplitude:", this.microphoneApi.amplitude);
+        }
+      },
       act: ({ event: e, api }) => {
         if (e.is("touch")) {
           api.needsPaint();
@@ -466,6 +508,15 @@ class KidLisp {
         if (e.is("draw")) {
           api.needsPaint();
           this.draw(api, { dy: e.delta.y, dx: e.delta.x });
+        }
+        
+        // Handle microphone connection events
+        if (e.is("microphone-connect:success")) {
+          console.log("🎤 Microphone connected successfully!");
+          this.microphoneConnected = true;
+        }
+        if (e.is("microphone-connect:failure")) {
+          console.warn("🎤 Failed to connect microphone:", e.reason);
         }
       },
     };
@@ -1029,6 +1080,21 @@ class KidLisp {
         console.log("📝 LOG:", ...args);
         return args[0];
       },
+      // 🎤 Microphone
+      mic: (api, args = []) => {
+        // Debug: Log the current state
+        if (this.frameCount % 60 === 0) {
+          console.log("🎤 Mic function called - API:", !!this.microphoneApi, "Connected:", this.microphoneApi?.connected, "Amplitude:", this.microphoneApi?.amplitude);
+        }
+        
+        // Return current amplitude if microphone is available and connected
+        if (this.microphoneApi && this.microphoneApi.connected) {
+          return this.microphoneApi.amplitude || 0;
+        }
+        
+        // If not connected yet, return 0 (connection is handled in boot)
+        return 0;
+      },
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
         acc[colorName] = () => cssColors[colorName];
@@ -1530,15 +1596,15 @@ function evaluate(parsed, api = {}) {
 function isKidlispSource(text) {
   if (!text) return false;
 
-  // Traditional kidlisp indicators
+  // Traditional kidlisp indicators - must start with ( or ;
   if (text.startsWith("(") || text.startsWith(";")) {
     return true;
   }
 
-  // Check for encoded kidlisp (contains § or _ suggesting it was URL encoded)
+  // Check for encoded kidlisp (contains § suggesting newlines were encoded)
   if (text.includes("§")) {
     const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
-    // Check decoded version without recursion
+    // Check decoded version - must start with ( or ; or contain newlines
     if (decoded.startsWith("(") || decoded.startsWith(";")) {
       return true;
     }
@@ -1552,30 +1618,6 @@ function isKidlispSource(text) {
         );
       });
       return hasKidlispLines;
-    }
-  }
-
-  if (text.includes("_") && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
-    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
-    // Check decoded version without recursion
-    if (decoded.startsWith("(") || decoded.startsWith(";")) {
-      return true;
-    }
-    if (decoded.includes("\n")) {
-      const lines = decoded.split("\n");
-      const hasKidlispLines = lines.some((line) => {
-        const trimmed = line.trim();
-        return (
-          trimmed &&
-          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
-        );
-      });
-      return hasKidlispLines;
-    }
-    // Check if decoded looks like kidlisp function calls
-    const trimmed = decoded.trim();
-    if (/^[a-zA-Z_]\w*(\s|$)/.test(trimmed)) {
-      return true;
     }
   }
 
@@ -1593,6 +1635,8 @@ function isKidlispSource(text) {
     return hasKidlispLines;
   }
 
+  // For simple text without § or newlines, only consider it kidlisp if it starts with ( or ;
+  // This prevents simple slugs like "line~red" (which might become "line_red") from being detected as kidlisp
   return false;
 }
 
