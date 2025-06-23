@@ -1458,9 +1458,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "udp:send") {
       UDP.send(content);
       return;
-    }
-
-    // Disconect from the UDP server.
+    }    // Disconect from the UDP server.
     if (type === "udp:disconnect") {
       UDP.disconnect(content.outageSeconds);
       return;
@@ -2329,16 +2327,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.visualViewport.addEventListener("resize", () => {
         const y = window.visualViewport.height;
         window.acDISK_SEND({ type: "viewport-height:changed", content: { y } });
-      });
-
-      // 🌒 Detect light or dark mode.
+      });      // 🌒 Detect light or dark mode.
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
       if (window.matchMedia) {
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          document.documentElement.style.setProperty('color-scheme', 'dark');
           send({ type: "dark-mode", content: { enabled: true } });
         } else {
+          document.documentElement.style.setProperty('color-scheme', 'light');
           send({ type: "dark-mode", content: { enabled: false } });
         }
 
@@ -2346,8 +2344,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
             if (event.matches) {
+              document.documentElement.style.setProperty('color-scheme', 'dark');
               send({ type: "dark-mode", content: { enabled: true } });
             } else {
+              document.documentElement.style.setProperty('color-scheme', 'light');
               send({ type: "dark-mode", content: { enabled: false } });
             }
           });
