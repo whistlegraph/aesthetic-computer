@@ -9,7 +9,7 @@
 */
 
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
-  // wipe("gray"); // Clear the background.
+  wipe("gray"); // Clear the background.
   ink("yellow"); // Paint a diagonal yellow line.
   line(0, 0, screen.width, screen.height);
 
