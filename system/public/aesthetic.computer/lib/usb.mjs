@@ -23,7 +23,7 @@ const connectToUsb = async () => {
 const listUsbDevices = async () => {
   try {
     const devices = await navigator.usb.getDevices();
-    console.log("🔌 Connected USB devices:", devices);
+    // console.log("🔌 Connected USB devices:", devices);
   } catch (error) {
     if (error.name !== 'SecurityError') {
       console.error("🔌 Failed to list USB devices:", error);
