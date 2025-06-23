@@ -39,10 +39,22 @@ async function fun(event, context) {
       },
     );
   }
-
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
+  
+  // Safely decode URL-encoded characters in the slug
+  try {
+    slug = decodeURIComponent(slug);
+  } catch (error) {
+    console.log("⚠️ Failed to decode URL slug:", slug, "Error:", error.message);
+    // If decoding fails, fall back to original slug but replace common problematic sequences
+    slug = slug
+      .replace(/%C2%A7/g, "§")  // § character
+      .replace(/%28/g, "(")     // (
+      .replace(/%29/g, ")")     // )
+      .replace(/%20/g, " ");    // space
+  }
 
   // console.log("Path:", event.path, "Host:", event.headers["host"]);
 
@@ -136,35 +148,42 @@ async function fun(event, context) {
       //   fromHandle = true;
       // } catch (err) {
       //   console.log("Failed to load handled piece:", err);
-      // }
-    } else {
+      // }    } else {
       // Locally hosted piece.
       try {
         let path = parsed.path.replace("aesthetic.computer/disks/", "");
         if (path.startsWith("@")) path = "profile";
-        try {
-          const basePath = `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}`;
+        
+        // Handle special kidlisp path case
+        if (path === "(...)" || path === "(...)") {
+          // This is inline kidlisp code, not a file to load
+          console.log("🤖 Detected inline kidlisp, skipping file load");
+          sourceCode = null; // No source code to load
+        } else {
           try {
-            sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
-          } catch (errJavaScript) {
+            const basePath = `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}`;
             try {
-              sourceCode = await fs.readFile(`${basePath}.lisp`, "utf8");
-              language = "lisp";
-            } catch (errLisp) {
-              console.error(
-                "📃 Error reading or importing source code (both .mjs and .lisp failed):",
-                errJavaScript,
-                errLisp,
-              );
-              statusCode = 404;
-              // return respond(statusCode, `Content not found: ${path}`);
+              sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
+            } catch (errJavaScript) {
+              try {
+                sourceCode = await fs.readFile(`${basePath}.lisp`, "utf8");
+                language = "lisp";
+              } catch (errLisp) {
+                console.error(
+                  "📃 Error reading or importing source code (both .mjs and .lisp failed):",
+                  errJavaScript,
+                  errLisp,
+                );
+                statusCode = 404;
+                // return respond(statusCode, `Content not found: ${path}`);
+              }
             }
+          } catch (err) {
+            console.error("📃 Error:", err);
+            statusCode = 404;
+            // return respond(statusCode, `Content not found: ${path}`);
+            // throw err;
           }
-        } catch (err) {
-          console.error("📃 Error:", err);
-          statusCode = 404;
-          // return respond(statusCode, `Content not found: ${path}`);
-          // throw err;
         }
       } catch (e) {
         console.log("🔴 Piece load failure...");
@@ -235,11 +254,14 @@ async function fun(event, context) {
         } catch (e) {
           // console.warn("⚠️ Failed to delete temp file:", e);
         }
-      }
-
-      console.log("🧊 Module:", module?.meta, tempPath);
+      }      console.log("🧊 Module:", module?.meta, tempPath);
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
+    } else if (parsed.source) {
+      // Handle inline kidlisp code that doesn't need file loading
+      console.log("🤖 Using inline kidlisp source for metadata");
+      meta = inferTitleDesc(parsed.source);
+      console.log("📰 Kidlisp Metadata:", meta, "Source:", parsed.source?.substring(0, 100) + "...");
     }
   } catch (err) {
     // If either module doesn't load, then we can fallback to the main route.

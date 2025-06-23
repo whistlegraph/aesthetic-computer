@@ -238,7 +238,8 @@ function atom(token) {
     return token;
   } else {
     const num = parseFloat(token);
-    return isNaN(num) ? token : num;
+    const result = isNaN(num) ? token : num;
+    return result;
   }
 }
 
@@ -295,6 +296,7 @@ class KidLisp {
     this.expressionCache = new Map(); // Cache for simple expressions
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
+    this.sequenceCounters = new Map(); // Track sequence positions for ... function
   }
 
   // Optimize common patterns - this could be expanded for other patterns
@@ -416,7 +418,7 @@ class KidLisp {
 
     // 🧩 Piece API
     return {
-      boot: ({ params, wipe, clock, screen, sound, delay }) => {
+      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
@@ -441,7 +443,8 @@ class KidLisp {
         }
         
         // Just set up initial state, don't execute program here
-        // wipe("yellow");
+        // console.log(pieceCount);
+        wipe("erase");
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
@@ -906,8 +909,22 @@ class KidLisp {
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
         const content = processArgStringTypes(args[0]);
-        // console.log("✏️ Write:", content, args);
-        api.write(content, { x: args[1], y: args[2] });
+        const x = args[1];
+        const y = args[2];
+        const bg = args[3] ? processArgStringTypes(args[3]) : undefined;
+        
+        // Build options object if we have additional parameters
+        const options = {};
+        if (bg !== undefined) {
+          options.bg = bg;
+        }
+        
+        // Call write with proper parameters
+        if (x !== undefined && y !== undefined) {
+          api.write(content, x, y, options);
+        } else {
+          api.write(content, { x, y }, bg);
+        }
       },
       len: (api, args = []) => {
         return args[0]?.toString().length;
@@ -1034,6 +1051,35 @@ class KidLisp {
         const randomIndex = Math.floor(Math.random() * args.length);
         return args[randomIndex];
       },
+      // 🔄 Sequential selection (cycles through arguments in order)
+      "...": (api, args = [], env) => {
+        if (args.length === 0) return undefined;
+        
+        // Create a stable sequence key based on argument values
+        const sequenceKey = JSON.stringify(args);
+        
+        // Initialize sequence counters if needed
+        if (!this.sequenceCounters) {
+          this.sequenceCounters = new Map();
+        }
+        
+        // Initialize counter for this specific argument combination
+        if (!this.sequenceCounters.has(sequenceKey)) {
+          this.sequenceCounters.set(sequenceKey, 0);
+        }
+        
+        // Get current index and increment for next call
+        const currentIndex = this.sequenceCounters.get(sequenceKey);
+        const nextIndex = (currentIndex + 1) % args.length;
+        this.sequenceCounters.set(sequenceKey, nextIndex);
+        
+        return args[currentIndex];
+      },
+      // 🔄 Sequential selection (alias with two dots)
+      "..": (api, args = [], env) => {
+        // Delegate to the three-dot version
+        return this.getGlobalEnv()["..."](api, args, env);
+      },
       // 🔈 Sound
       overtone: (api, args = []) => {
         // console.log("Synth at:", args);
@@ -1076,7 +1122,7 @@ class KidLisp {
         return "debug called";
       },
       log: (api, args = []) => {
-        console.clear();
+        // console.clear(); // Commented out to preserve debug logs
         console.log("📝 LOG:", ...args);
         return args[0];
       },
@@ -1129,7 +1175,8 @@ class KidLisp {
       if (typeof value === 'function') {
         value = value(api);
       }
-      return value !== undefined ? value : expr;
+      const result = value !== undefined ? value : expr;
+      return result;
     }
     
     // Fast math expression evaluation
@@ -1190,6 +1237,7 @@ class KidLisp {
   evaluate(parsed, api = {}, env, inArgs) {
     perfStart('evaluate-total');
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
+    
     let body;
 
     // Get global environment for this instance
@@ -1340,7 +1388,9 @@ class KidLisp {
         // const colon = head.split(":")[1]; // TODO: Take into account colon param / work it in.
 
         // Make sure head exists and re-evaluate or iterate if not a string.
-        if (!existing(head)) return this.evalNotFound(head);
+        if (!existing(head)) {
+          return this.evalNotFound(head);
+        }
 
         if (Array.isArray(head)) {
           const evaledHead = this.evaluate([head], api, env);
@@ -1360,12 +1410,23 @@ class KidLisp {
           // Convert to string or handle appropriately
           head = String(head);
         }
-        const splitHead = head.split(".");
-        head = splitHead[0];
+        
+        let splitHead = [];
+        let colon = null;
+        
+        // Special handling for ... function name to avoid dot splitting
+        if (head === "..." || head === "..") {
+          // Don't split these special function names
+          colon = head.includes(":") ? head.split(":")[1] : null;
+          head = head.split(":")[0];
+        } else {
+          splitHead = head.split(".");
+          head = splitHead[0];
 
-        const colonSplit = head.split(":");
-        head = colonSplit[0];
-        const colon = colonSplit[1]; // Will be incorporated in globalEnv api.
+          const colonSplit = head.split(":");
+          head = colonSplit[0];
+          colon = colonSplit[1]; // Will be incorporated in globalEnv api.
+        }
 
         // if (head === "box") {
         //  console.log("🧕 Head:", head);
@@ -1621,6 +1682,30 @@ function isKidlispSource(text) {
     }
   }
 
+  if (text.includes("_") && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
+    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n").replace(/~/g, "\n");
+    // Check decoded version without recursion
+    if (decoded.startsWith("(") || decoded.startsWith(";")) {
+      return true;
+    }
+    if (decoded.includes("\n")) {
+      const lines = decoded.split("\n");
+      const hasKidlispLines = lines.some((line) => {
+        const trimmed = line.trim();
+        return (
+          trimmed &&
+          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+        );
+      });
+      return hasKidlispLines;
+    }
+    // Check if decoded looks like kidlisp function calls
+    const trimmed = decoded.trim();
+    if (/^[a-zA-Z_]\w*(\s|$)/.test(trimmed)) {
+      return true;
+    }
+  }
+
   // Check if it contains newlines and looks like kidlisp (has function calls)
   if (text.includes("\n")) {
     const lines = text.split("\n");
@@ -1648,15 +1733,22 @@ function encodeKidlispForUrl(source) {
   }
 
   // For sharing, we want to preserve the structure so it can be parsed correctly
-  // Spaces become underscores, newlines become § symbols
+  // Spaces become underscores, newlines become ~ symbols (avoiding UTF-8 encoding issues with §)
   // But we keep parentheses and other structural elements intact
-  const encoded = source.replace(/ /g, "_").replace(/\n/g, "§");
+  const encoded = source.replace(/ /g, "_").replace(/\n/g, "~");
   return encoded;
 }
 
 function decodeKidlispFromUrl(encoded) {
   // Only decode if the result would be valid kidlisp
-  const decoded = encoded.replace(/_/g, " ").replace(/§/g, "\n");
+  const decoded = encoded
+    .replace(/_/g, " ")
+    .replace(/§/g, "\n")     // Support legacy § separator
+    .replace(/~/g, "\n")     // Support new ~ separator (avoids UTF-8 encoding issues)
+    .replace(/%28/g, "(")
+    .replace(/%29/g, ")")
+    .replace(/%2E/g, ".")
+    .replace(/%22/g, '"');
   return isKidlispSource(decoded) ? decoded : encoded;
 }
 

@@ -37,13 +37,11 @@ function parse(text, location = self?.location) {
       .split(/\.mjs|\.lisp/)[0]
       .split("/")
       .pop();
-  }  text = text.trim(); // Clear any spaces.
-
-  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
-  // This catches cases like /(wipe_blue) or /wipe_blue§line from URL refresh
+  }  text = text.trim(); // Clear any spaces.  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
+  // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
-  if (isKidlispSource(text) && !text.includes('~') && 
-      (text.includes('§') || text.includes('_') || text.includes('\n') || 
+  if (isKidlispSource(text) && 
+      (text.includes('§') || text.includes('~') || text.includes('_') || text.includes('\n') || 
        text.startsWith('(') || text.startsWith(';'))) {
     console.log("🤖 Early kidlisp detection succeeded for:", JSON.stringify(text));
     const decodedSource = decodeKidlispFromUrl(text);

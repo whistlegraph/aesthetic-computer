@@ -382,6 +382,10 @@ function darkMode(enabled) {
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
+    
+    // Update the CSS color-scheme property to match the dark mode setting
+    document.documentElement.style.setProperty('color-scheme', enabled ? 'dark' : 'light');
+    
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
   }
@@ -995,16 +999,18 @@ const $commonApi = {
     return prom;
   }, // Get a token for a logged in user.
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
-  hand: { mediapipe: { screen: [], world: [], hand: "None" } },
-  hud: {
+  hand: { mediapipe: { screen: [], world: [], hand: "None" } },  hud: {
     label: (text, color, offset) => {
-      currentHUDTxt = text;
-      if (!color) {
-        currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
-      } else {
-        currentHUDTextColor = graph.findColor(color);
+      // Respect hideLabel setting from nolabel parameter
+      if (!hideLabel) {
+        currentHUDTxt = text;
+        if (!color) {
+          currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
+        } else {
+          currentHUDTextColor = graph.findColor(color);
+        }
+        currentHUDOffset = offset;
       }
-      currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
@@ -3997,9 +4003,7 @@ async function load(
       notice = $commonApi.query.notice;
       noticeColor = ["white", "green"];
       noticeBell(cachedAPI, { tone: 300 });
-    }
-
-    if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
+    }    if (!alias && !hideLabel) currentHUDTxt = slug; // Update hud if this is not an alias and labels are not hidden.
     if (module.nohud || system === "prompt") currentHUDTxt = undefined;
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
@@ -6308,16 +6312,14 @@ async function makeFrame({ data: { type, content } }) {
 
         //console.log("bake")
         //send({ type: "3d-bake" });
-      }
-
-      // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
+      }      // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
       //           composited by the other thread.
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
       // System info label (addressability).
-      let label;
+      let label = null;
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
 
@@ -6325,6 +6327,7 @@ async function makeFrame({ data: { type, content } }) {
         !previewMode &&
         !iconMode &&
         !hideLabel &&
+        !location.search.includes("nolabel") &&
         piece !== undefined &&
         piece.length > 0
       ) {
