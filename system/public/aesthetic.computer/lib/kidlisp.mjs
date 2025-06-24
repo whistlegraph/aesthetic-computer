@@ -292,7 +292,7 @@ class KidLisp {
     // Performance optimizations
     this.functionCache = new Map(); // Cache function lookups
     this.globalEnvCache = null; // Cache global environment
-    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<', 'mic']); // Common functions for fast path
+    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<', 'mic', 'paste', 'stamp']); // Common functions for fast path
     this.expressionCache = new Map(); // Cache for simple expressions
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
@@ -900,11 +900,24 @@ class KidLisp {
       putback: (api, args = []) => {
         api.putback(...args);
       },
-      label: (api, args = []) => {
-        api.hud?.label(...processArgStringTypes(args));
+      // 🖼️ Image pasting and stamping
+      paste: (api, args = []) => {
+        // Process string arguments to remove quotes (e.g., "@handle/timestamp")
+        const processedArgs = args.map(arg => 
+          typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"') 
+            ? arg.slice(1, -1) 
+            : arg
+        );
+        api.paste(...processedArgs);
       },
-      copy: (api, args = []) => {
-        //
+      stamp: (api, args = []) => {
+        // Process string arguments to remove quotes (e.g., "@handle/timestamp")  
+        const processedArgs = args.map(arg => 
+          typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"') 
+            ? arg.slice(1, -1) 
+            : arg
+        );
+        api.stamp(...processedArgs);
       },
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
