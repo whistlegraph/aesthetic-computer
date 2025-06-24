@@ -43,7 +43,7 @@ function parse(text, location = self?.location) {
   if (isKidlispSource(text) && 
       (text.includes('§') || text.includes('~') || text.includes('_') || text.includes('\n') || 
        text.startsWith('(') || text.startsWith(';'))) {
-    console.log("🤖 Early kidlisp detection succeeded for:", JSON.stringify(text));
+    // console.log("🤖 Early kidlisp detection succeeded for:", JSON.stringify(text));
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),

@@ -14,7 +14,7 @@ const connectToUsb = async () => {
       usbDevice = null;
     };
   } catch (error) {
-    if (error.name !== 'SecurityError') {
+    if (error.name !== 'SecurityError' && error.name !== 'NotAllowedError') {
       console.error("🔌 USB connection failed:", error);
     }
   }
@@ -25,18 +25,31 @@ const listUsbDevices = async () => {
     const devices = await navigator.usb.getDevices();
     // console.log("🔌 Connected USB devices:", devices);
   } catch (error) {
-    if (error.name !== 'SecurityError') {
+    if (error.name !== 'SecurityError' && error.name !== 'NotAllowedError') {
       console.error("🔌 Failed to list USB devices:", error);
     }
   }
 };
 
 function initialize() {
-  if (navigator.usb) {
-    listUsbDevices();
-    connectToUsb();
+  // Check if WebUSB is supported and available in this context
+  if (typeof navigator !== 'undefined' && navigator.usb && 
+      navigator.usb.getDevices && typeof navigator.usb.getDevices === 'function') {
+    // Check if we have permissions to use USB
+    try {
+      listUsbDevices();
+      connectToUsb();
+    } catch (error) {
+      // Silently handle permission errors
+      if (error.name !== 'SecurityError' && error.name !== 'NotAllowedError') {
+        console.warn("🔌 USB initialization failed:", error.message);
+      }
+    }
   } else {
-    console.warn("🔌 WebUSB not supported.");
+    // Only log if WebUSB should be available but isn't (not in iframe/restricted context)
+    if (typeof navigator !== 'undefined' && window.location.protocol === 'https:') {
+      console.warn("🔌 WebUSB not supported in this context.");
+    }
   }
 }
 

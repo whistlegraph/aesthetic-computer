@@ -933,8 +933,27 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 }
 
 // Similar to `paste` but always centered.
-function stamp(from, x, y) {
-  paste(from, x - from.width / 2, y - from.height / 2);
+function stamp(from, x, y, scale = 1, rotation = 0) {
+  if (scale === 1 && rotation === 0) {
+    // Original behavior for scale 1 and no rotation - no scaling calculations needed
+    paste(from, x - from.width / 2, y - from.height / 2);
+  } else if (rotation !== 0) {
+    // With rotation, we need to pass a transform object to paste
+    const transform = {
+      scale: scale,
+      angle: rotation
+    };
+    // For rotation, grid function expects top-left position and calculates center as x + w/2, y + h/2
+    // So to center at (x, y), we need to pass (x - w/2, y - h/2) accounting for scale
+    const scaledWidth = from.width * scale;
+    const scaledHeight = from.height * scale;
+    paste(from, x - scaledWidth / 2, y - scaledHeight / 2, transform);
+  } else {
+    // With scaling only, we need to account for the scaled dimensions when centering
+    const scaledWidth = from.width * scale;
+    const scaledHeight = from.height * scale;
+    paste(from, x - scaledWidth / 2, y - scaledHeight / 2, scale);
+  }
 }
 
 let blendingMode = "blend";
