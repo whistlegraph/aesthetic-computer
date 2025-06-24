@@ -604,9 +604,7 @@ function act(
           continue; // If `tb` is not defined then kill this. 👾
         }
         // 🟠 TODO: Reset all the other potential tapped handles and prompts.
-        message.layout.inBox = false;
-
-        // Handles
+        message.layout.inBox = false;        // Handles
         for (let h = 0; h < message.layout.handles.length; h += 1) {
           const handle = message.layout.handles[h];
           if (handle.over) {
@@ -616,9 +614,7 @@ function act(
             handle.over = false;
             break;
           }
-        }
-
-        // Prompts
+        }        // Prompts
         for (let p = 0; p < message.layout.prompts.length; p += 1) {
           const prompt = message.layout.prompts[p];
           if (prompt.over) {
