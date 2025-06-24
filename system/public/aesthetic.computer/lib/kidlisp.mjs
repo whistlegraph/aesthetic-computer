@@ -307,6 +307,10 @@ class KidLisp {
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
     this.sequenceCounters = new Map(); // Track sequence positions for ... function
+    
+    // Melody state tracking
+    this.melodies = new Map(); // Track active melodies
+    this.melodyTimers = new Map(); // Track timing for each melody
   }
 
   // Optimize common patterns - this could be expanded for other patterns
@@ -376,6 +380,34 @@ class KidLisp {
   // Macro expansion step: convert fastmath expressions like "i*2" to ["*", "i", 2]
   expandFastMathMacros(expr) {
     if (typeof expr === "string") {
+      // Check for parenthesized expressions like "(min width height)/250"
+      const parenMatch = expr.match(
+        /^(\([^)]+\))\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/,
+      );
+      if (parenMatch) {
+        const [, parenExpr, op, right] = parenMatch;
+        
+        // Parse the parenthesized expression (strip outer parens and tokenize)
+        const innerExpr = parenExpr.slice(1, -1).trim(); // Remove ( and )
+        
+        // Simple tokenization - split by spaces and convert to appropriate types
+        const tokens = innerExpr.split(/\s+/).map(token => {
+          // Convert numeric tokens to numbers
+          if (/^\d+(?:\.\d+)?$/.test(token)) {
+            return parseFloat(token);
+          }
+          return token;
+        });
+        
+        // Convert right operand to number if it's numeric
+        const rightValue = /^\d+(?:\.\d+)?$/.test(right)
+          ? parseFloat(right)
+          : right;
+        
+        // Return the expanded prefix expression
+        return [op, tokens, rightValue];
+      }
+
       // Check for chained math expressions like "width/5.67666*0.828"
       const chainedMatch = expr.match(
         /^(\w+)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)$/,
@@ -406,8 +438,29 @@ class KidLisp {
         return result;
       }
     } else if (Array.isArray(expr)) {
-      // Recursively expand all elements in arrays
-      return expr.map((item) => this.expandFastMathMacros(item));
+      // Handle adjacent array elements that might form fast math expressions
+      // Look for patterns like [expression, "/10"] or [expression, "*2"]
+      const expanded = [];
+      for (let i = 0; i < expr.length; i++) {
+        const current = expr[i];
+        const next = expr[i + 1];
+        
+        // Check if current is an array/expression and next is a math operation string
+        if (Array.isArray(current) && typeof next === "string") {
+          const mathMatch = next.match(/^([+\-*/%])(\d+(?:\.\d+)?)$/);
+          if (mathMatch) {
+            const [, op, num] = mathMatch;
+            // Combine them into a proper math expression
+            expanded.push([op, this.expandFastMathMacros(current), parseFloat(num)]);
+            i++; // Skip the next element since we consumed it
+            continue;
+          }
+        }
+        
+        // Otherwise, recursively expand the current element
+        expanded.push(this.expandFastMathMacros(current));
+      }
+      return expanded;
     }
 
     // Return unchanged if no expansion needed
@@ -445,25 +498,25 @@ class KidLisp {
         // Initialize microphone like stample does
         if (sound?.microphone) {
           this.microphoneApi = sound.microphone;
-          console.log(
-            "🎤 Boot: Microphone available, permission:",
-            this.microphoneApi.permission,
-            "enabled:",
-            sound.enabled?.(),
-          );
+          // console.log(
+          //   "🎤 Boot: Microphone available, permission:",
+          //   this.microphoneApi.permission,
+          //   "enabled:",
+          //   sound.enabled?.(),
+          // );
 
           // Check permission and auto-connect if granted (like stample)
           if (
             this.microphoneApi.permission === "granted" &&
             sound.enabled?.()
           ) {
-            console.log("🎤 Boot: Attempting to connect microphone...");
+            // console.log("🎤 Boot: Attempting to connect microphone...");
             delay(() => {
               this.microphoneApi.connect();
             }, 15);
           }
         } else {
-          console.log("🎤 Boot: No microphone API available");
+          // console.log("🎤 Boot: No microphone API available");
         }
 
         // Just set up initial state, don't execute program here
@@ -526,6 +579,9 @@ class KidLisp {
         if (this.frameCount % 60 === 0 && this.microphoneApi?.connected) {
           console.log("🎤 Mic amplitude:", this.microphoneApi.amplitude);
         }
+
+        // Update melody playback
+        this.updateMelodies({ sound });
       },
       act: ({ event: e, api }) => {
         if (e.is("touch")) {
@@ -594,6 +650,267 @@ class KidLisp {
     if (this.drawer) {
       this.evaluate(this.drawer, api, env);
     }
+  }
+
+  // 🎵 Melody playback methods
+  parseMelodyString(melodyString) {
+    const notes = [];
+    let i = 0;
+    
+    while (i < melodyString.length) {
+      let char = melodyString[i];
+      
+      // Handle octave-first notation (4c, 5g#, etc)
+      if (/[0-9]/.test(char)) {
+        const octave = parseInt(char);
+        i++;
+        
+        if (i < melodyString.length) {
+          const noteChar = melodyString[i].toLowerCase();
+          if (/[a-g]/.test(noteChar)) {
+            let note = noteChar;
+            i++;
+            
+            // Check for sharp or flat modifiers
+            if (i < melodyString.length) {
+              const nextChar = melodyString[i];
+              if (nextChar === 's' || nextChar === '#') {
+                note += '#'; // Convert both 's' and '#' to # internally
+                i++;
+              } else if (nextChar === 'b') {
+                note += 'b';
+                i++;
+              }
+            }
+            
+            // Default duration is 1 (quarter note)
+            let duration = 1;
+            
+            // Check for duration modifiers using dots or dashes (optional)
+            if (i < melodyString.length) {
+              const nextChar = melodyString[i];
+              // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
+              if (nextChar === '.') {
+                let dots = 0;
+                while (i < melodyString.length && melodyString[i] === '.') {
+                  dots++;
+                  i++;
+                }
+                // no dots = quarter (1.0), . = eighth (0.5), .. = sixteenth (0.25), ... = thirty-second (0.125), etc.
+                duration = 1.0 / Math.pow(2, dots);
+              }
+              // Use dashes for longer notes: - = half, -- = whole, --- = double whole, etc.
+              else if (nextChar === '-') {
+                let dashes = 0;
+                while (i < melodyString.length && melodyString[i] === '-') {
+                  dashes++;
+                  i++;
+                }
+                // - = half (2.0), -- = whole (4.0), --- = double whole (8.0), etc.
+                duration = Math.pow(2, dashes);
+              }
+            }
+            
+            notes.push({ note, octave, duration });
+          }
+        }
+      }
+      // Handle note-first notation (c4, d#5, etc) 
+      else if (/[a-g]/.test(char.toLowerCase())) {
+        let note = char.toLowerCase();
+        i++;
+        
+        // Check for sharp or flat modifiers
+        if (i < melodyString.length) {
+          const nextChar = melodyString[i];
+          if (nextChar === 's' || nextChar === '#') {
+            note += '#'; // Convert both 's' and '#' to # internally
+            i++;
+          } else if (nextChar === 'b') {
+            note += 'b';
+            i++;
+          }
+        }
+        
+        // Check for octave number
+        let octave = 4; // Default octave
+        if (i < melodyString.length) {
+          const nextChar = melodyString[i];
+          if (/[0-9]/.test(nextChar)) {
+            octave = parseInt(nextChar);
+            i++;
+          }
+        }
+        
+        // Default duration is 1 (quarter note)
+        let duration = 1;
+        
+        // Check for duration modifiers using dots or dashes (optional)
+        if (i < melodyString.length) {
+          const nextChar = melodyString[i];
+          // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
+          if (nextChar === '.') {
+            let dots = 0;
+            while (i < melodyString.length && melodyString[i] === '.') {
+              dots++;
+              i++;
+            }
+            // no dots = quarter (1.0), . = eighth (0.5), .. = sixteenth (0.25), ... = thirty-second (0.125), etc.
+            duration = 1.0 / Math.pow(2, dots);
+          }
+          // Use dashes for longer notes: - = half, -- = whole, --- = double whole, etc.
+          else if (nextChar === '-') {
+            let dashes = 0;
+            while (i < melodyString.length && melodyString[i] === '-') {
+              dashes++;
+              i++;
+            }
+            // - = half (2.0), -- = whole (4.0), --- = double whole (8.0), etc.
+            duration = Math.pow(2, dashes);
+          }
+        }
+        
+        notes.push({ note, octave, duration });
+      }
+      // Handle rests
+      else if (char === '_' || char === ' ' || char === '-') {
+        let duration = 1;
+        i++;
+        
+        // Check for duration modifiers using dots or dashes on rests
+        if (i < melodyString.length) {
+          const nextChar = melodyString[i];
+          // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
+          if (nextChar === '.') {
+            let dots = 0;
+            while (i < melodyString.length && melodyString[i] === '.') {
+              dots++;
+              i++;
+            }
+            // no dots = quarter (1.0), . = eighth (0.5), .. = sixteenth (0.25), ... = thirty-second (0.125), etc.
+            duration = 1.0 / Math.pow(2, dots);
+          }
+          // Use dashes for longer rests: - = half, -- = whole, --- = double whole, etc.
+          else if (nextChar === '-') {
+            let dashes = 0;
+            while (i < melodyString.length && melodyString[i] === '-') {
+              dashes++;
+              i++;
+            }
+            // - = half (2.0), -- = whole (4.0), --- = double whole (8.0), etc.
+            duration = Math.pow(2, dashes);
+          }
+        }
+        
+        notes.push({ note: 'rest', octave: null, duration });
+      }
+      // Handle measure separators (optional, for readability)
+      else if (char === '|') {
+        // Measure bars are just visual separators, skip them
+        i++;
+      } else {
+        i++;
+      }
+    }
+    
+    return notes;
+  }
+
+  playMelodyNote(api, melodyId) {
+    const melodyState = this.melodies.get(melodyId);
+    if (!melodyState) return;
+
+    const noteData = melodyState.notes[melodyState.index];
+    if (!noteData) return;
+    
+    const { note, octave, duration } = noteData;
+    let noteDuration = duration * melodyState.baseTempo;
+    
+    // Apply swing/feel adjustments
+    if (melodyState.feel === "waltz" && melodyState.timeSignature === "3/4") {
+      // In waltz feel, slightly rush beats 2 and 3, emphasize beat 1
+      const beatInMeasure = melodyState.measurePosition % melodyState.beatsPerMeasure;
+      if (beatInMeasure === 0) {
+        // Beat 1: slightly longer (emphasized)
+        noteDuration *= 1.05;
+      } else {
+        // Beats 2 and 3: slightly shorter (lighter)
+        noteDuration *= 0.98;
+      }
+    } else if (melodyState.feel === "swing") {
+      // Classic jazz swing: off-beats are delayed and shortened
+      const beatInMeasure = melodyState.measurePosition % melodyState.beatsPerMeasure;
+      if (beatInMeasure % 1 !== 0) { // Off-beat
+        noteDuration *= 0.9; // Shorter off-beats
+      }
+    }
+    
+    if (note !== 'rest' && api.sound?.synth) {
+      // Convert note to tone format expected by the synth
+      const tone = this.noteToTone(note, octave);
+      
+      api.sound.synth({
+        type: "sine",
+        tone: tone,
+        duration: (noteDuration / 1000) * 0.98, // 98% of the duration for smoother flow
+        attack: 0.01,
+        decay: 0.99,
+        volume: 0.8  // Increased volume to make it more audible
+      });
+    }
+
+    // Update measure position for swing calculations
+    melodyState.measurePosition += duration;
+    
+    // Schedule next note based on current note's duration
+    melodyState.nextNoteTime = performance.now() + noteDuration;
+    melodyState.lastPlayTime = performance.now();
+    
+    // Advance to next note
+    melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
+  }
+
+  // Update melody playback in simulation loop
+  updateMelodies(api) {
+    const currentTime = performance.now();
+    
+    for (const [melodyId, melodyState] of this.melodies) {
+      if (currentTime >= melodyState.nextNoteTime) {
+        this.playMelodyNote(api, melodyId);
+      }
+    }
+  }
+
+  // Convert note letter to frequency
+  noteToTone(note, octave = null) {
+    // Handle both simple notes and notes with octave/modifiers
+    const noteMap = {
+      'c': 'C',
+      'c#': 'C#',
+      'db': 'C#',
+      'd': 'D',
+      'd#': 'D#',
+      'eb': 'D#',
+      'e': 'E',
+      'f': 'F',
+      'f#': 'F#',
+      'gb': 'F#',
+      'g': 'G',
+      'g#': 'G#',
+      'ab': 'G#',
+      'a': 'A',
+      'a#': 'A#',
+      'bb': 'A#',
+      'b': 'B'
+    };
+    
+    const normalizedNote = note.toLowerCase();
+    const baseNote = noteMap[normalizedNote] || 'C';
+    
+    // Use specified octave, or default to 4
+    const finalOctave = octave !== null ? octave : 4;
+    
+    return `${finalOctave}${baseNote}`;
   }
 
   // Create global environment (cached for performance)
@@ -799,11 +1116,19 @@ class KidLisp {
         }
       },
       // ➗ Mathematical Operators
-      max: (api, args) => {
+      max: (api, args, env) => {
+        // Simply evaluate each argument in the current environment
         const nums = args
-          .map((arg) => parseFloat(unquoteString(arg)))
-          .filter((n) => !isNaN(n));
+          .map((arg) => this.evaluate(arg, api, this.localEnv))
+          .filter((value) => typeof value === "number" && !isNaN(value));
         return nums.length > 0 ? Math.max(...nums) : 0;
+      },
+      min: (api, args, env) => {
+        // Simply evaluate each argument in the current environment
+        const nums = args
+          .map((arg) => this.evaluate(arg, api, this.localEnv))
+          .filter((value) => typeof value === "number" && !isNaN(value));
+        return nums.length > 0 ? Math.min(...nums) : 0;
       },
       "+": (api, args, env) => {
         // Simply evaluate each argument in the current environment and add
@@ -838,6 +1163,14 @@ class KidLisp {
         }, 1);
         return result;
       },
+      mul: (api, args, env) => {
+        // Alias for * (multiplication operator)
+        const result = args.reduce((acc, arg) => {
+          const value = this.evaluate(arg, api, this.localEnv);
+          return acc * (typeof value === "number" ? value : 0);
+        }, 1);
+        return result;
+      },
       "/": (api, args, env) => {
         // Simply evaluate each argument in the current environment and divide
         if (args.length === 0) return 0;
@@ -854,6 +1187,15 @@ class KidLisp {
       },
       "%": (api, args, env) => {
         // Simply evaluate each argument in the current environment and apply modulo
+        if (args.length < 2) return 0;
+        const first = this.evaluate(args[0], api, this.localEnv);
+        const second = this.evaluate(args[1], api, this.localEnv);
+        const a = typeof first === "number" ? first : 0;
+        const b = typeof second === "number" ? second : 1;
+        return b !== 0 ? a % b : 0;
+      },
+      mod: (api, args, env) => {
+        // Alias for % (modulo operator)
         if (args.length < 2) return 0;
         const first = this.evaluate(args[0], api, this.localEnv);
         const second = this.evaluate(args[1], api, this.localEnv);
@@ -1202,6 +1544,64 @@ class KidLisp {
 
         // If not connected yet, return 0 (connection is handled in boot)
         return 0;
+      },
+      // 🎵 Melody - plays a sequence of notes in a loop
+      melody: (api, args = []) => {
+        if (args.length === 0) return;
+        
+        const melodyString = unquoteString(args[0]);
+        const bpm = args.length > 1 ? parseFloat(args[1]) : 120; // Default 120 BPM
+        const timeSignature = args.length > 2 ? unquoteString(args[2]) : "4/4"; // Default 4/4 time
+        const feel = args.length > 3 ? unquoteString(args[3]) : "straight"; // Default straight feel
+        
+        // Parse time signature
+        const [numerator, denominator] = timeSignature.split('/').map(Number);
+        const beatsPerMeasure = numerator;
+        const beatUnit = denominator; // 4 = quarter note, 8 = eighth note, etc.
+        
+        // Convert BPM to milliseconds per quarter note
+        // Adjust base tempo based on beat unit
+        let baseTempo = (60 / bpm) * 1000; // 60 seconds / BPM * 1000ms
+        if (beatUnit === 8) {
+          baseTempo = baseTempo / 2; // Eighth note gets the beat
+        } else if (beatUnit === 2) {
+          baseTempo = baseTempo * 2; // Half note gets the beat
+        }
+        
+        const melodyId = melodyString + timeSignature + feel; // Include time signature and feel in ID
+        
+        // Check if this melody is already defined and hasn't changed
+        if (this.melodies.has(melodyId)) {
+          // Melody already exists, don't redefine (like def behavior)
+          return;
+        }
+        
+        // Parse the melody string into notes with durations
+        const notes = this.parseMelodyString(melodyString);
+        
+        if (notes.length === 0) return;
+        
+        // Store the melody state
+        const melodyState = {
+          notes: notes,
+          index: 0,
+          lastPlayTime: 0,
+          nextNoteTime: 0,
+          baseTempo: baseTempo,
+          timeSignature: timeSignature,
+          beatsPerMeasure: beatsPerMeasure,
+          beatUnit: beatUnit,
+          feel: feel,
+          measurePosition: 0, // Track position within the measure for swing
+          isPlaying: false
+        };
+        
+        this.melodies.set(melodyId, melodyState);
+        
+        // Start playing immediately
+        this.playMelodyNote(api, melodyId);
+        
+        return melodyString;
       },
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
@@ -1845,7 +2245,11 @@ function encodeKidlispForUrl(source) {
   // For sharing, we want to preserve the structure so it can be parsed correctly
   // Spaces become underscores, newlines become ~ symbols (avoiding UTF-8 encoding issues with §)
   // But we keep parentheses and other structural elements intact
-  const encoded = source.replace(/ /g, "_").replace(/\n/g, "~");
+  // Handle problematic characters specially since they can cause URI malformation
+  const encoded = source
+    .replace(/ /g, "_")
+    .replace(/\n/g, "~")
+    .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
   return encoded;
 }
 
@@ -1858,7 +2262,9 @@ function decodeKidlispFromUrl(encoded) {
     .replace(/%28/g, "(")
     .replace(/%29/g, ")")
     .replace(/%2E/g, ".")
-    .replace(/%22/g, '"');
+    .replace(/%22/g, '"')
+    .replace(/%3B/g, ";") // Decode semicolons
+    .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   return isKidlispSource(decoded) ? decoded : encoded;
 }
 
