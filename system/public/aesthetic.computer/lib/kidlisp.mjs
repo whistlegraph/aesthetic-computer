@@ -1677,6 +1677,22 @@ class KidLisp {
       // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
     }
 
+    // Check if this is a simple function identifier that can be auto-called
+    if (validIdentifierRegex.test(expression)) {
+      const globalEnv = this.getGlobalEnv();
+      
+      // Check if the identifier exists as a function in the global environment
+      if (globalEnv[expression] && typeof globalEnv[expression] === 'function') {
+        // Auto-call the function with no arguments
+        return globalEnv[expression](api, [], env);
+      }
+      
+      // Check if it exists in the API
+      if (api[expression] && typeof api[expression] === 'function') {
+        return api[expression]();
+      }
+    }
+
     // 📖 Identifiers can only start with a letter a-z or A-Z and cannot
     //    include mathematical operators but can include underscores or
     //    digits after the first character
