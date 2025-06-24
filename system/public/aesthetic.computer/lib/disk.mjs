@@ -2310,10 +2310,9 @@ function form(
 
 // Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
 // Occurs also when loading a piece's source code.
-function prefetchPicture(code) {
-  if (paintings[code] === "fetching") return;
+function prefetchPicture(code) {  if (paintings[code] === "fetching") return;
 
-  console.log("🖼️ Prefetching...", code);
+  // console.log("🖼️ Prefetching...", code);
   paintings[code] = "fetching";
 
   if (code.startsWith("http")) {
@@ -3022,20 +3021,10 @@ async function load(
         forceKidlisp ||
         slug === "(...)" ||
         path === "(...)"
-      ) {
-        // Only use basic detection, not the broader isKidlispSource function
+      ) {        // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
-        console.log(
-          "🐍 Lisp piece detected (slug:",
-          slug,
-          "path:",
-          path,
-          "forceKidlisp:",
-          forceKidlisp,
-          ")",
-        );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         loadedModule = lisp.module(sourceToRun);
@@ -4011,14 +4000,9 @@ async function load(
     if (
       !fromHistory &&
       currentText &&
-      currentText !== "prompt" &&
-      currentText !== $commonApi.history[$commonApi.history.length - 1]
+      currentText !== "prompt" &&      currentText !== $commonApi.history[$commonApi.history.length - 1]
     ) {
-      console.log("📚 Adding to history:", currentText, "New piece:", slug);
       $commonApi.history.push(currentText);
-      console.log("📚 History after push:", $commonApi.history);
-    } else {
-      console.log("📚 Skipping history addition for:", currentText, "fromHistory:", fromHistory, "slug:", slug);
     }
 
     currentText = slug;
@@ -4789,10 +4773,9 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.load(content, true);
     return;
   }
-
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("🖼️ Bitmap loaded:", content);
+    // if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
