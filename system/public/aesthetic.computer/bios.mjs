@@ -2406,13 +2406,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
-    if (type === "disk-loaded") {
-      // Clear any active parameters once the disk has been loaded.
+    if (type === "disk-loaded") {      // Clear any active parameters once the disk has been loaded.
       // For kidlisp pieces, preserve the URL path with proper encoding
       if (content.text && isKidlispSource(content.text)) {
         // For kidlisp pieces, use centralized URL encoding
         const encodedPath = "/" + encodeKidlispForUrl(content.text);
-        window.history.replaceState({}, "", encodedPath);
+        // Use pushState instead of replaceState to preserve history navigation
+        if (!content.fromHistory) {
+          window.history.pushState({}, "", encodedPath);
+        } else {
+          window.history.replaceState({}, "", encodedPath);
+        }
       } else {
         // For regular pieces, clear parameters but keep the basic path structure
         window.history.replaceState({}, "", window.location.pathname);
@@ -3944,9 +3948,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       consumeDiskSends(send);
       return;
-    }
-
-    if (type === "back-to-piece") {
+    }    if (type === "back-to-piece") {
+      console.log("🔙 Browser history.back() called from URL:", window.location.href);
+      console.log("🔙 Browser history length:", window.history.length);
       history.back();
       return false;
     }

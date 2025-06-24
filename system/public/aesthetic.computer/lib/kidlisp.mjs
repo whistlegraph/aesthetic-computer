@@ -117,7 +117,14 @@ import { cssColors } from "./num.mjs";
 // Performance tracking utilities
 const perfTimers = {};
 const perfLogs = []; // Store logs for display in piece
-const perfOrder = ['parse', 'precompile', 'frame-evaluation', 'repeat-setup', 'repeat-with-iterator', 'fast-draw-loop']; // Fixed order for consistent display
+const perfOrder = [
+  "parse",
+  "precompile",
+  "frame-evaluation",
+  "repeat-setup",
+  "repeat-with-iterator",
+  "fast-draw-loop",
+]; // Fixed order for consistent display
 
 function perfStart(label) {
   if (PERF_LOG) perfTimers[label] = performance.now();
@@ -125,22 +132,25 @@ function perfStart(label) {
 function perfEnd(label) {
   if (PERF_LOG && perfTimers[label]) {
     const duration = performance.now() - perfTimers[label];
-    if (duration > 0.1) { // Only log operations > 0.1ms
+    if (duration > 0.1) {
+      // Only log operations > 0.1ms
       const logEntry = `${label}: ${duration.toFixed(2)}ms`;
-      
+
       // Remove existing entry for this label to maintain order
-      const existingIndex = perfLogs.findIndex(log => log.startsWith(label + ':'));
+      const existingIndex = perfLogs.findIndex((log) =>
+        log.startsWith(label + ":"),
+      );
       if (existingIndex !== -1) {
         perfLogs.splice(existingIndex, 1);
       }
-      
+
       // Insert in correct position based on perfOrder
       const orderIndex = perfOrder.indexOf(label);
       if (orderIndex !== -1) {
         // Find where to insert based on order
         let insertIndex = 0;
         for (let i = 0; i < perfLogs.length; i++) {
-          const logLabel = perfLogs[i].split(':')[0];
+          const logLabel = perfLogs[i].split(":")[0];
           const logOrderIndex = perfOrder.indexOf(logLabel);
           if (logOrderIndex !== -1 && logOrderIndex < orderIndex) {
             insertIndex = i + 1;
@@ -151,7 +161,7 @@ function perfEnd(label) {
         // If not in predefined order, add at end
         perfLogs.push(logEntry);
       }
-      
+
       // Keep only last 8 logs to avoid memory issues
       if (perfLogs.length > 8) perfLogs.splice(8);
     }
@@ -284,15 +294,29 @@ class KidLisp {
     this.drawer = null;
     this.frameCount = 0; // Frame counter for timing functions
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
-    
+
     // Microphone state tracking
     this.microphoneConnected = false;
     this.microphoneApi = null;
-    
+
     // Performance optimizations
     this.functionCache = new Map(); // Cache function lookups
     this.globalEnvCache = null; // Cache global environment
-    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<', 'mic']); // Common functions for fast path
+    this.fastPathFunctions = new Set([
+      "line",
+      "ink",
+      "wipe",
+      "box",
+      "repeat",
+      "+",
+      "-",
+      "*",
+      "/",
+      "=",
+      ">",
+      "<",
+      "mic",
+    ]); // Common functions for fast path
     this.expressionCache = new Map(); // Cache for simple expressions
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
@@ -304,7 +328,7 @@ class KidLisp {
     // Actually, let's disable optimization for rainbow ink to preserve correct behavior
     // The rainbow function needs to be called through the interpreter to work properly
     return null;
-    
+
     /* Disabled optimization - keeping for reference
     // Look for pattern: (repeat height i (ink rainbow) (line 0 i width i))
     // More flexible pattern matching
@@ -343,7 +367,7 @@ class KidLisp {
   // Method to pre-compile AST for optimizations
   precompileAST(ast) {
     if (!Array.isArray(ast)) return ast;
-    
+
     const optimized = [];
     for (const item of ast) {
       if (Array.isArray(item)) {
@@ -365,35 +389,41 @@ class KidLisp {
 
   // Macro expansion step: convert fastmath expressions like "i*2" to ["*", "i", 2]
   expandFastMathMacros(expr) {
-    if (typeof expr === 'string') {
+    if (typeof expr === "string") {
       // Check for chained math expressions like "width/5.67666*0.828"
-      const chainedMatch = expr.match(/^(\w+)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)$/);
+      const chainedMatch = expr.match(
+        /^(\w+)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)\s*([+\-*/%])\s*(\d+(?:\.\d+)?)$/,
+      );
       if (chainedMatch) {
         const [, variable, op1, num1, op2, num2] = chainedMatch;
-        
+
         // Convert to nested prefix expressions: (* (/ width 5.67666) 0.828)
         const innerExpr = [op1, variable, parseFloat(num1)];
         const outerExpr = [op2, innerExpr, parseFloat(num2)];
         return outerExpr;
       }
-      
+
       // Check for simple infix math expressions
-      const infixMatch = expr.match(/^(\w+)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/);
+      const infixMatch = expr.match(
+        /^(\w+)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/,
+      );
       if (infixMatch) {
         const [, left, op, right] = infixMatch;
-        
+
         // Convert right operand to number if it's numeric
-        const rightValue = /^\d+(?:\.\d+)?$/.test(right) ? parseFloat(right) : right;
-        
+        const rightValue = /^\d+(?:\.\d+)?$/.test(right)
+          ? parseFloat(right)
+          : right;
+
         // Return the expanded prefix expression - left should stay as unquoted identifier
         const result = [op, left, rightValue];
         return result;
       }
     } else if (Array.isArray(expr)) {
       // Recursively expand all elements in arrays
-      return expr.map(item => this.expandFastMathMacros(item));
+      return expr.map((item) => this.expandFastMathMacros(item));
     }
-    
+
     // Return unchanged if no expansion needed
     return expr;
   }
@@ -401,19 +431,19 @@ class KidLisp {
   // Parse and evaluate a lisp source module
   // into a running aesthetic computer piece.
   module(source) {
-    perfStart('parse');
+    perfStart("parse");
     const parsed = this.parse(source);
-    perfEnd('parse');
-    
-    perfStart('ast-copy');
+    perfEnd("parse");
+
+    perfStart("ast-copy");
     this.ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
-    perfEnd('ast-copy');
-    
+    perfEnd("ast-copy");
+
     // Precompile optimizations
-    perfStart('precompile');
+    perfStart("precompile");
     this.ast = this.precompileAST(this.ast);
-    perfEnd('precompile');
-    
+    perfEnd("precompile");
+
     /*if (VERBOSE)*/ // console.log("🐍 Snake:", parsed);
 
     // 🧩 Piece API
@@ -425,14 +455,22 @@ class KidLisp {
         this.globalDef.paramA = params[0];
         this.globalDef.paramB = params[1];
         this.globalDef.paramC = params[2];
-        
+
         // Initialize microphone like stample does
         if (sound?.microphone) {
           this.microphoneApi = sound.microphone;
-          console.log("🎤 Boot: Microphone available, permission:", this.microphoneApi.permission, "enabled:", sound.enabled?.());
-          
+          console.log(
+            "🎤 Boot: Microphone available, permission:",
+            this.microphoneApi.permission,
+            "enabled:",
+            sound.enabled?.(),
+          );
+
           // Check permission and auto-connect if granted (like stample)
-          if (this.microphoneApi.permission === "granted" && sound.enabled?.()) {
+          if (
+            this.microphoneApi.permission === "granted" &&
+            sound.enabled?.()
+          ) {
             console.log("🎤 Boot: Attempting to connect microphone...");
             delay(() => {
               this.microphoneApi.connect();
@@ -441,7 +479,7 @@ class KidLisp {
         } else {
           console.log("🎤 Boot: No microphone API available");
         }
-        
+
         // Just set up initial state, don't execute program here
         // console.log(pieceCount);
         wipe("erase");
@@ -449,12 +487,12 @@ class KidLisp {
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         this.frameCount++; // Increment frame counter for timing functions
-        
+
         // Clear caches that might have stale data between frames
         this.variableCache.clear();
         this.expressionCache.clear();
-        
-        perfStart('frame-evaluation');
+
+        perfStart("frame-evaluation");
         try {
           // Then execute the full program
           this.localEnvLevel = 0; // Reset state per program evaluation.
@@ -463,13 +501,13 @@ class KidLisp {
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
-        perfEnd('frame-evaluation');
+        perfEnd("frame-evaluation");
 
         // Display performance logs in the piece
         if (PERF_LOG && perfLogs.length > 0) {
           $.ink?.("yellow");
           perfLogs.forEach((log, index) => {
-            $.write?.(log, { x: 2, y: 24 + (index * 12) }, "black");
+            $.write?.(log, { x: 2, y: 24 + index * 12 }, "black");
           });
         }
 
@@ -486,18 +524,18 @@ class KidLisp {
         if (!this.microphoneApi && sound?.microphone) {
           this.microphoneApi = sound.microphone;
         }
-        
+
         // Always poll microphone if available (like stample does)
         if (this.microphoneApi) {
           this.microphoneApi.poll?.();
-          
+
           // Update connection status
           if (this.microphoneApi.connected && !this.microphoneConnected) {
             this.microphoneConnected = true;
             console.log("🎤 Microphone connected in kidlisp");
           }
         }
-        
+
         // Debug: Log mic data occasionally
         if (this.frameCount % 60 === 0 && this.microphoneApi?.connected) {
           console.log("🎤 Mic amplitude:", this.microphoneApi.amplitude);
@@ -512,7 +550,7 @@ class KidLisp {
           api.needsPaint();
           this.draw(api, { dy: e.delta.y, dx: e.delta.x });
         }
-        
+
         // Handle microphone connection events
         if (e.is("microphone-connect:success")) {
           console.log("🎤 Microphone connected successfully!");
@@ -577,7 +615,7 @@ class KidLisp {
     if (this.globalEnvCache) {
       return this.globalEnvCache;
     }
-    
+
     this.globalEnvCache = {
       // once: (api, args) => {
       //   console.log("Oncing...", args);
@@ -605,7 +643,7 @@ class KidLisp {
             return;
           }
 
-          // If we're in a local environment (like inside a repeat loop), 
+          // If we're in a local environment (like inside a repeat loop),
           // define the variable in the current local environment
           if (this.localEnvLevel > 0) {
             this.localEnv[name] = args[1];
@@ -767,7 +805,9 @@ class KidLisp {
           right = this.evaluate(args[1], api, env);
         if (left === right) {
           // If there are additional arguments, evaluate them, otherwise return true
-          return args.length > 2 ? this.evaluate(args.slice(2), api, env) : true;
+          return args.length > 2
+            ? this.evaluate(args.slice(2), api, env)
+            : true;
         } else {
           return false;
         }
@@ -783,7 +823,7 @@ class KidLisp {
         // Simply evaluate each argument in the current environment and add
         const result = args.reduce((acc, arg) => {
           const value = this.evaluate(arg, api, this.localEnv);
-          return acc + (typeof value === 'number' ? value : 0);
+          return acc + (typeof value === "number" ? value : 0);
         }, 0);
         return result;
       },
@@ -792,20 +832,23 @@ class KidLisp {
         if (args.length === 0) return 0;
         if (args.length === 1) {
           const value = this.evaluate(args[0], api, this.localEnv);
-          return -(typeof value === 'number' ? value : 0);
+          return -(typeof value === "number" ? value : 0);
         }
         const first = this.evaluate(args[0], api, this.localEnv);
-        const result = args.slice(1).reduce((acc, arg) => {
-          const value = this.evaluate(arg, api, this.localEnv);
-          return acc - (typeof value === 'number' ? value : 0);
-        }, typeof first === 'number' ? first : 0);
+        const result = args.slice(1).reduce(
+          (acc, arg) => {
+            const value = this.evaluate(arg, api, this.localEnv);
+            return acc - (typeof value === "number" ? value : 0);
+          },
+          typeof first === "number" ? first : 0,
+        );
         return result;
       },
       "*": (api, args, env) => {
         // Simply evaluate each argument in the current environment and multiply
         const result = args.reduce((acc, arg) => {
           const value = this.evaluate(arg, api, this.localEnv);
-          return acc * (typeof value === 'number' ? value : 0);
+          return acc * (typeof value === "number" ? value : 0);
         }, 1);
         return result;
       },
@@ -813,11 +856,14 @@ class KidLisp {
         // Simply evaluate each argument in the current environment and divide
         if (args.length === 0) return 0;
         const first = this.evaluate(args[0], api, this.localEnv);
-        const result = args.slice(1).reduce((acc, arg) => {
-          const value = this.evaluate(arg, api, this.localEnv);
-          const divisor = typeof value === 'number' ? value : 1;
-          return divisor !== 0 ? acc / divisor : acc;
-        }, typeof first === 'number' ? first : 0);
+        const result = args.slice(1).reduce(
+          (acc, arg) => {
+            const value = this.evaluate(arg, api, this.localEnv);
+            const divisor = typeof value === "number" ? value : 1;
+            return divisor !== 0 ? acc / divisor : acc;
+          },
+          typeof first === "number" ? first : 0,
+        );
         return result;
       },
       "%": (api, args, env) => {
@@ -825,8 +871,8 @@ class KidLisp {
         if (args.length < 2) return 0;
         const first = this.evaluate(args[0], api, this.localEnv);
         const second = this.evaluate(args[1], api, this.localEnv);
-        const a = typeof first === 'number' ? first : 0;
-        const b = typeof second === 'number' ? second : 1;
+        const a = typeof first === "number" ? first : 0;
+        const b = typeof second === "number" ? second : 1;
         return b !== 0 ? a % b : 0;
       },
       // Paint API
@@ -846,7 +892,7 @@ class KidLisp {
       lines: (api, args = []) => {
         // Expects arrays of line coordinates: (lines [[x1 y1 x2 y2] [x1 y1 x2 y2] ...])
         if (args.length > 0 && Array.isArray(args[0])) {
-          args[0].forEach(lineArgs => {
+          args[0].forEach((lineArgs) => {
             if (Array.isArray(lineArgs) && lineArgs.length >= 4) {
               api.line(...lineArgs);
             }
@@ -887,7 +933,12 @@ class KidLisp {
       mask: (api, args = []) => {
         // Convert individual args to a box object that mask() expects
         if (args.length >= 4) {
-          const box = { x: args[0], y: args[1], width: args[2], height: args[3] };
+          const box = {
+            x: args[0],
+            y: args[1],
+            width: args[2],
+            height: args[3],
+          };
           api.mask(box);
         }
       },
@@ -912,13 +963,13 @@ class KidLisp {
         const x = args[1];
         const y = args[2];
         const bg = args[3] ? processArgStringTypes(args[3]) : undefined;
-        
+
         // Build options object if we have additional parameters
         const options = {};
         if (bg !== undefined) {
           options.bg = bg;
         }
-        
+
         // Call write with proper parameters
         if (x !== undefined && y !== undefined) {
           api.write(content, x, y, options);
@@ -965,58 +1016,63 @@ class KidLisp {
       },
       // 🔄 Repeat function (highly optimized)
       repeat: (api, args, env) => {
-        perfStart('repeat-setup');
+        perfStart("repeat-setup");
         if (args.length < 2) {
-          console.error("❗ repeat requires at least 2 arguments: count and expression(s)");
+          console.error(
+            "❗ repeat requires at least 2 arguments: count and expression(s)",
+          );
           return undefined;
         }
-        
+
         // Evaluate the count argument in case it's a variable or expression
         const countValue = this.evaluate(args[0], api, env);
         const count = Number(countValue);
         if (isNaN(count) || count < 0) {
-          console.error("❗ repeat count must be a non-negative number, got:", countValue);
+          console.error(
+            "❗ repeat count must be a non-negative number, got:",
+            countValue,
+          );
           return undefined;
         }
-        perfEnd('repeat-setup');
-        
+        perfEnd("repeat-setup");
+
         let result;
-        
+
         // Check if we have an iterator variable (3+ args with 2nd arg being a string)
-        if (args.length >= 3 && typeof args[1] === 'string') {
-          perfStart('repeat-with-iterator');
+        if (args.length >= 3 && typeof args[1] === "string") {
+          perfStart("repeat-with-iterator");
           const iteratorVar = args[1];
           const expressions = args.slice(2);
-          
+
           // Standard loop - set up proper environment with iterator variable
           const baseEnv = { ...this.localEnv, ...env };
           const prevLocalEnv = this.localEnv;
-          
+
           // Create reusable environment object
           this.localEnvLevel += 1;
           if (!this.localEnvStore[this.localEnvLevel]) {
             this.localEnvStore[this.localEnvLevel] = { ...baseEnv };
           }
-          
+
           // Reuse the same environment object, just update the iterator
           const loopEnv = this.localEnvStore[this.localEnvLevel];
           Object.assign(loopEnv, baseEnv); // Copy base environment once
           this.localEnv = loopEnv;
-          
+
           for (let i = 0; i < count; i++) {
             // Update the iterator variable in the environment
             loopEnv[iteratorVar] = i;
-            
+
             // Execute expressions with iterator variable in scope
             for (const expr of expressions) {
               result = this.evaluate(expr, api, this.localEnv);
             }
           }
-          
+
           // Restore previous environment
           this.localEnvLevel -= 1;
           this.localEnv = prevLocalEnv;
-          perfEnd('repeat-with-iterator');
+          perfEnd("repeat-with-iterator");
         } else {
           // Original behavior - no iterator variable
           const expressions = args.slice(1);
@@ -1026,7 +1082,7 @@ class KidLisp {
             }
           }
         }
-        
+
         return result;
       },
       // 🎲 Random selection
@@ -1054,25 +1110,25 @@ class KidLisp {
       // 🔄 Sequential selection (cycles through arguments in order)
       "...": (api, args = [], env) => {
         if (args.length === 0) return undefined;
-        
+
         // Create a stable sequence key based on argument values
         const sequenceKey = JSON.stringify(args);
-        
+
         // Initialize sequence counters if needed
         if (!this.sequenceCounters) {
           this.sequenceCounters = new Map();
         }
-        
+
         // Initialize counter for this specific argument combination
         if (!this.sequenceCounters.has(sequenceKey)) {
           this.sequenceCounters.set(sequenceKey, 0);
         }
-        
+
         // Get current index and increment for next call
         const currentIndex = this.sequenceCounters.get(sequenceKey);
         const nextIndex = (currentIndex + 1) % args.length;
         this.sequenceCounters.set(sequenceKey, nextIndex);
-        
+
         return args[currentIndex];
       },
       // 🔄 Sequential selection (alias with two dots)
@@ -1130,14 +1186,21 @@ class KidLisp {
       mic: (api, args = []) => {
         // Debug: Log the current state
         if (this.frameCount % 60 === 0) {
-          console.log("🎤 Mic function called - API:", !!this.microphoneApi, "Connected:", this.microphoneApi?.connected, "Amplitude:", this.microphoneApi?.amplitude);
+          console.log(
+            "🎤 Mic function called - API:",
+            !!this.microphoneApi,
+            "Connected:",
+            this.microphoneApi?.connected,
+            "Amplitude:",
+            this.microphoneApi?.amplitude,
+          );
         }
-        
+
         // Return current amplitude if microphone is available and connected
         if (this.microphoneApi && this.microphoneApi.connected) {
           return this.microphoneApi.amplitude || 0;
         }
-        
+
         // If not connected yet, return 0 (connection is handled in boot)
         return 0;
       },
@@ -1147,14 +1210,14 @@ class KidLisp {
         return acc;
       }, {}),
     };
-    
+
     return this.globalEnvCache;
   }
 
   // Fast evaluation for common expressions to avoid full recursive evaluation
   fastEval(expr, api, env) {
-    if (typeof expr === 'number') return expr;
-    if (typeof expr === 'string') {
+    if (typeof expr === "number") return expr;
+    if (typeof expr === "string") {
       // Fast variable lookup - don't cache iterator variables that change frequently
       let value;
       if (this.localEnv.hasOwnProperty(expr)) {
@@ -1164,41 +1227,46 @@ class KidLisp {
       } else if (this.globalDef.hasOwnProperty(expr)) {
         value = this.globalDef[expr];
       }
-      
+
       if (value !== undefined) {
         return value;
       }
-      
+
       // Check global environment
       const globalEnv = this.getGlobalEnv();
       value = globalEnv[expr];
-      if (typeof value === 'function') {
+      if (typeof value === "function") {
         value = value(api);
       }
       const result = value !== undefined ? value : expr;
       return result;
     }
-    
+
     // Fast math expression evaluation
     if (Array.isArray(expr) && expr.length === 3) {
       const [op, left, right] = expr;
-      if (op === '+' || op === '-' || op === '*' || op === '/' || op === '%') {
+      if (op === "+" || op === "-" || op === "*" || op === "/" || op === "%") {
         const leftVal = this.fastEval(left, api, env);
         const rightVal = this.fastEval(right, api, env);
-        
+
         // Only proceed if both are numbers
-        if (typeof leftVal === 'number' && typeof rightVal === 'number') {
+        if (typeof leftVal === "number" && typeof rightVal === "number") {
           switch (op) {
-            case '+': return leftVal + rightVal;
-            case '-': return leftVal - rightVal;
-            case '*': return leftVal * rightVal;
-            case '/': return leftVal / rightVal;
-            case '%': return leftVal % rightVal;
+            case "+":
+              return leftVal + rightVal;
+            case "-":
+              return leftVal - rightVal;
+            case "*":
+              return leftVal * rightVal;
+            case "/":
+              return leftVal / rightVal;
+            case "%":
+              return leftVal % rightVal;
           }
         }
       }
     }
-    
+
     // Fall back to full evaluation
     return this.evaluate(expr, api, env);
   }
@@ -1210,41 +1278,41 @@ class KidLisp {
     if (this.functionCache.has(cacheKey)) {
       return this.functionCache.get(cacheKey);
     }
-    
+
     let result = null;
-    
+
     // Fast lookup order: local -> env -> global -> globalDef -> api
     if (existing(this.localEnv[head])) {
-      result = { type: 'local', value: this.localEnv[head] };
+      result = { type: "local", value: this.localEnv[head] };
     } else if (existing(env?.[head])) {
-      result = { type: 'env', value: env[head] };
+      result = { type: "env", value: env[head] };
     } else if (existing(this.getGlobalEnv()[head])) {
-      result = { type: 'global', value: this.getGlobalEnv()[head] };
+      result = { type: "global", value: this.getGlobalEnv()[head] };
     } else if (existing(this.globalDef[head])) {
-      result = { type: 'globalDef', value: this.globalDef[head] };
+      result = { type: "globalDef", value: this.globalDef[head] };
     } else if (existing(api[head]) && typeof api[head] === "function") {
-      result = { type: 'api', value: api[head] };
+      result = { type: "api", value: api[head] };
     }
-    
+
     // Cache the result (but not for local env since it changes)
-    if (result && result.type !== 'local') {
+    if (result && result.type !== "local") {
       this.functionCache.set(cacheKey, result);
     }
-    
+
     return result;
   }
 
   evaluate(parsed, api = {}, env, inArgs) {
-    perfStart('evaluate-total');
+    perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
-    
+
     let body;
 
     // Get global environment for this instance
-    perfStart('get-global-env');
+    perfStart("get-global-env");
     const globalEnv = this.getGlobalEnv();
-    perfEnd('get-global-env');
-    
+    perfEnd("get-global-env");
+
     // Add screen reference directly to global environment
     if (api.screen) {
       globalEnv.screen = api.screen;
@@ -1300,7 +1368,11 @@ class KidLisp {
     } else {
       // Or just evaluate with the global environment, ensuring it's an array.
       // If parsed is an array that looks like a function call, wrap it
-      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+      if (
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        typeof parsed[0] === "string"
+      ) {
         body = [parsed]; // Wrap the function call
       } else {
         body = Array.isArray(parsed) ? parsed : [parsed];
@@ -1315,10 +1387,10 @@ class KidLisp {
       /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
 
       // Handle optimized functions first
-      if (item && typeof item === 'object' && item.optimized) {
-        perfStart('optimized-execution');
+      if (item && typeof item === "object" && item.optimized) {
+        perfStart("optimized-execution");
         result = item.func(api);
-        perfEnd('optimized-execution');
+        perfEnd("optimized-execution");
         continue;
       }
 
@@ -1353,9 +1425,11 @@ class KidLisp {
           } else {
             const clockResult = api.clock.time(); // Get time (Date object)
             if (!clockResult) continue;
-            
+
             // Convert Date object to milliseconds, then to seconds
-            const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
+            const currentTimeMs = clockResult.getTime
+              ? clockResult.getTime()
+              : Date.now();
             const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
 
             // Create a unique key for this timing expression
@@ -1410,10 +1484,10 @@ class KidLisp {
           // Convert to string or handle appropriately
           head = String(head);
         }
-        
+
         let splitHead = [];
         let colon = null;
-        
+
         // Special handling for ... function name to avoid dot splitting
         if (head === "..." || head === "..") {
           // Don't split these special function names
@@ -1438,14 +1512,15 @@ class KidLisp {
 
         // Use optimized function resolution
         const resolved = this.resolveFunction(head, api, env);
-        
+
         if (resolved) {
           const { type, value } = resolved;
-          
+
           switch (type) {
-            case 'local':
+            case "local":
               perfStart(`local-${head}`);
-              if (VERBOSE) console.log("😫 Local definition found!", head, value);
+              if (VERBOSE)
+                console.log("😫 Local definition found!", head, value);
               if (value.iterable) {
                 result = this.iterate(value, api, args, env);
               } else {
@@ -1453,8 +1528,8 @@ class KidLisp {
               }
               perfEnd(`local-${head}`);
               break;
-              
-            case 'env':
+
+            case "env":
               perfStart(`env-${head}`);
               if (value.iterable) {
                 result = this.iterate(value, api, args, env);
@@ -1463,21 +1538,35 @@ class KidLisp {
               }
               perfEnd(`env-${head}`);
               break;
-              
-            case 'global':
+
+            case "global":
               // Handle global environment functions
               if (typeof value === "function" || typeof value === "object") {
                 let processedArgs;
                 // Functions that don't need argument evaluation
-                if (head === "later" || head === "tap" || head === "draw" || head === "if" || 
-                    head === "not" || head === ">" || head === "<" || head === "=" || 
-                    head === "net" || head === "source" || head === "choose" || head === "?" || 
-                    head === "repeat") {
+                if (
+                  head === "later" ||
+                  head === "tap" ||
+                  head === "draw" ||
+                  head === "if" ||
+                  head === "not" ||
+                  head === ">" ||
+                  head === "<" ||
+                  head === "=" ||
+                  head === "net" ||
+                  head === "source" ||
+                  head === "choose" ||
+                  head === "?" ||
+                  head === "repeat"
+                ) {
                   processedArgs = args;
                 } else {
                   // Use fast evaluation for arguments with current local environment
                   processedArgs = args.map((arg, index) => {
-                    if (Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))) {
+                    if (
+                      Array.isArray(arg) ||
+                      (typeof arg === "string" && !/^".*"$/.test(arg))
+                    ) {
                       const result = this.fastEval(arg, api, this.localEnv);
                       return result;
                     } else {
@@ -1485,7 +1574,7 @@ class KidLisp {
                     }
                   });
                 }
-                
+
                 if (splitHead[1]) {
                   result = getNestedValue(value, item[0])(api, processedArgs);
                 } else {
@@ -1499,26 +1588,29 @@ class KidLisp {
                 result = value;
               }
               break;
-              
-            case 'globalDef':
+
+            case "globalDef":
               // User-defined functions - use fast evaluation for arguments
               const evaluatedArgs = args.map((arg) =>
-                Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
+                Array.isArray(arg) ||
+                (typeof arg === "string" && !/^".*"$/.test(arg))
                   ? this.fastEval(arg, api, this.localEnv)
-                  : arg
+                  : arg,
               );
-              
-              result = Array.isArray(value) || value.body
-                ? this.evaluate(value, api, this.localEnv, evaluatedArgs)
-                : value;
+
+              result =
+                Array.isArray(value) || value.body
+                  ? this.evaluate(value, api, this.localEnv, evaluatedArgs)
+                  : value;
               break;
-              
-            case 'api':
+
+            case "api":
               // API functions - use fast evaluation for arguments
               const apiArgs = args.map((arg) =>
-                Array.isArray(arg) || (typeof arg === "string" && !/^".*"$/.test(arg))
+                Array.isArray(arg) ||
+                (typeof arg === "string" && !/^".*"$/.test(arg))
                   ? this.fastEval(arg, api, this.localEnv)
-                  : arg
+                  : arg,
               );
               result = value(...apiArgs);
               break;
@@ -1549,7 +1641,7 @@ class KidLisp {
         } else {
           // Use fast evaluation for simple cases
           result = this.fastEval(item, api, env);
-          
+
           // If fast eval returned the original item, it wasn't found
           if (result === item) {
             if (Array.isArray(item)) {
@@ -1574,7 +1666,7 @@ class KidLisp {
       );
     }
 
-    perfEnd('evaluate-total');
+    perfEnd("evaluate-total");
     return result;
   }
 
@@ -1600,7 +1692,7 @@ class KidLisp {
     identifiers.forEach((id) => {
       // Use fast evaluation for identifier lookup
       let value = this.fastEval(id, api, env);
-      
+
       if (value === id) {
         // Variable not found, try to get it from global environment
         console.warn("❗ Identifier not found:", id);
@@ -1683,7 +1775,10 @@ function isKidlispSource(text) {
   }
 
   if (text.includes("_") && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
-    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n").replace(/~/g, "\n");
+    const decoded = text
+      .replace(/_/g, " ")
+      .replace(/§/g, "\n")
+      .replace(/~/g, "\n");
     // Check decoded version without recursion
     if (decoded.startsWith("(") || decoded.startsWith(";")) {
       return true;
@@ -1743,8 +1838,8 @@ function decodeKidlispFromUrl(encoded) {
   // Only decode if the result would be valid kidlisp
   const decoded = encoded
     .replace(/_/g, " ")
-    .replace(/§/g, "\n")     // Support legacy § separator
-    .replace(/~/g, "\n")     // Support new ~ separator (avoids UTF-8 encoding issues)
+    .replace(/§/g, "\n") // Support legacy § separator
+    .replace(/~/g, "\n") // Support new ~ separator (avoids UTF-8 encoding issues)
     .replace(/%28/g, "(")
     .replace(/%29/g, ")")
     .replace(/%2E/g, ".")
