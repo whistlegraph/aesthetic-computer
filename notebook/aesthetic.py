@@ -250,7 +250,7 @@ class AestheticComputerMagics(Magics):
         # Parse simple arguments: width height
         args = line.strip().split() if line.strip() else []
         width = "100%"
-        height = 400
+        height = 30
         
         if len(args) >= 1:
             try:
@@ -262,7 +262,7 @@ class AestheticComputerMagics(Magics):
             try:
                 height = int(args[1])
             except ValueError:
-                height = 400
+                height = 30
                 
         return kidlisp(cell.strip(), width, height, False)
     
