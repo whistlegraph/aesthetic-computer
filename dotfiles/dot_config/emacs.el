@@ -29,6 +29,7 @@
 (setq scroll-step 1)
 
 (global-auto-revert-mode 1) ;; Always keep buffers up to date with disk.
+(setq auto-revert-interval 2) ;; Check every 2 seconds instead of default 5
 
 ;;(setq display-buffer-alist
 ;;      '((".*" . (display-buffer-reuse-window display-buffer-below-selected))))
@@ -57,10 +58,18 @@
     (save-buffer)))
 
 (when (window-system)
+  ;; Throttle auto-save to prevent infinite loops with development processes
+  (defvar auto-save-throttle-timer nil)
+  (defun throttled-auto-save ()
+    (when auto-save-throttle-timer
+      (cancel-timer auto-save-throttle-timer))
+    (setq auto-save-throttle-timer
+          (run-with-timer 1 nil #'auto-save-buffer)))
+  
   (add-hook 'window-configuration-change-hook
 	    (lambda ()
 	      (unless (minibuffer-window-active-p (minibuffer-window))
-		(auto-save-buffer))))
+		(throttled-auto-save))))
   (add-hook 'focus-out-hook 'auto-save-buffer))
 
 (custom-set-faces
@@ -533,14 +542,17 @@
 ;;       "X" #'cust/split-file-open)
 (defun eat-tab-change (original-fun &rest args)
   (interactive)
-  (message "eat-tab-change triggered")  ; Output to *Messages* buffer
+  ;; Remove message to avoid *Messages* buffer updates
   (apply original-fun args)
-  (walk-windows (lambda (window)
-                  (with-current-buffer (window-buffer window)
-                    (when (eq major-mode 'eat-mode)
-                      (end-of-buffer)
-                      (evil-insert-state))))
-               nil 'visible))
+  ;; Throttle window walking to prevent excessive CPU usage
+  (run-with-idle-timer 0.1 nil
+    (lambda ()
+      (walk-windows (lambda (window)
+                      (with-current-buffer (window-buffer window)
+                        (when (eq major-mode 'eat-mode)
+                          (end-of-buffer)
+                          (evil-insert-state))))
+                   nil 'visible))))
 
 (advice-add 'tab-bar-select-tab :around #'eat-tab-change)
 
