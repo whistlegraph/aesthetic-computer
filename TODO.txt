@@ -2,6 +2,27 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * `fia-birthday` *
+ - [] Fia's birthday
+ July 5
+ Karaoke & Dancing w/ DJs
+ 8pm-2am
+ Invite only-plus ones welcome
+ Echo Park
+
+ * `kidlisp` *
+ - Future proof URL sharing and attribution.
+ - [] Any kidlisp that runs successfully should automatically be added to the
+      database and given a unique UTC timestamp identifier or other meaningful
+      identifier.
+ - [] Uploaded kidlisp's uniqueness should be enforced somehow similar to how
+      handles must be unique. If another record is found just return or use that.
+ - [] Uploaded kidlisp should automatically be attributed to the user who uploaded it
+      or be treated as anonymous contributions otherwise.
+ - [] If the kidlisp was generated from a prompt, that prompt should be recorded
+      as was the model used to generate it and a git hash reference to the
+      pre-prompt file so it could be regenerated under various conditions.
+
  * `notebook` *
  - [] Make my firts notebook post.
 
