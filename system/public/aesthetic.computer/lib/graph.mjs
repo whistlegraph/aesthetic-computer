@@ -547,6 +547,18 @@ function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
     return;
   }
 
+  // Check pixels in the active mask.
+  if (activeMask) {
+    if (
+      destY < activeMask.y ||
+      destY >= activeMask.y + activeMask.height ||
+      destX >= activeMask.x + activeMask.width ||
+      destX < activeMask.x
+    ) {
+      return;
+    }
+  }
+
   const di = (destX + destY * width) * 4;
   const si = (srcX + srcY * src.width) * 4;
 
