@@ -2,6 +2,10 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * Regressions *
+ - [] `painting` ... no longer is tappable because of
+      new multiline label hitboxes?
+
  * `kidlisp` *
  - Future proof URL sharing and attribution.
  - [] Any kidlisp that runs successfully should automatically be added to the
