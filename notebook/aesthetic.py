@@ -2,6 +2,8 @@ import sys
 import importlib
 import urllib.parse
 import hashlib
+import subprocess
+import os
 
 # Check if the module is already loaded
 if "aesthetic" in sys.modules:
@@ -17,6 +19,36 @@ def show(piece, width="100%", height=54):
     url = f"https://localhost:8888/{piece}?nolabel=true"
     display(IFrame(src=url, width=width, height=height, frameborder="0"))
 
+def encode_kidlisp_with_node(code):
+    """
+    Use Node.js to encode kidlisp code using the same function as kidlisp.mjs
+    Falls back to Python implementation if Node.js is not available
+    """
+    try:
+        # Get the directory of this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        encoder_script = os.path.join(script_dir, 'encode_kidlisp.mjs')
+        
+        # Run the Node.js encoder
+        result = subprocess.run(
+            ['node', encoder_script, code],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            print(f"Node.js encoder failed: {result.stderr}")
+            raise subprocess.CalledProcessError(result.returncode, 'node')
+            
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+        print(f"Falling back to Python encoder: {e}")
+        # Fallback to Python implementation with full URL
+        encoded = code.replace(' ', '_').replace('\n', '~')
+        return f"https://localhost:8888/{encoded}?nolabel=true&nogap=true"
+
 def kidlisp(code, width="100%", height=500, auto_scale=False):
     """
     Run kidlisp code in Aesthetic Computer.
@@ -29,24 +61,13 @@ def kidlisp(code, width="100%", height=500, auto_scale=False):
     """
     importlib.reload(importlib.import_module('aesthetic'))
     
-    # Use kidlisp-specific encoding with proper quote handling
-    # Clean up the code first, then apply encoding
+    # Use Node.js to encode kidlisp code and get the full URL
     clean_code = code.strip()
-    # Properly encode parentheses, dots, and percent signs which cause URI issues
-    # Use ~ instead of § to avoid UTF-8 encoding issues with Netlify CLI
-    encoded_code = (clean_code
-                   .replace('%', '%25')  # Must encode % first to avoid double-encoding
-                   .replace('"', '%22')
-                   .replace(' ', '_')
-                   .replace('\n', '~')   # Use ~ instead of § to avoid UTF-8 issues
-                   .replace('(', '%28')
-                   .replace(')', '%29')
-                   .replace('.', '%2E'))
-    
-    # Create URL with proper query parameter format
-    url = f"https://localhost:8888/{encoded_code}?nolabel=true&nogap=true"
+    url = encode_kidlisp_with_node(clean_code)
     
     # Create a stable ID based on content hash to reduce flicker on re-runs
+    content_hash = hashlib.md5(f"{clean_code}{width}{height}".encode()).hexdigest()[:8]
+    iframe_id = f"ac-iframe-{content_hash}"
     content_hash = hashlib.md5(f"{clean_code}{width}{height}".encode()).hexdigest()[:8]
     iframe_id = f"ac-iframe-{content_hash}"
     
@@ -229,7 +250,7 @@ class AestheticComputerMagics(Magics):
         # Parse simple arguments: width height
         args = line.strip().split() if line.strip() else []
         width = "100%"
-        height = 400
+        height = 30
         
         if len(args) >= 1:
             try:
@@ -241,7 +262,7 @@ class AestheticComputerMagics(Magics):
             try:
                 height = int(args[1])
             except ValueError:
-                height = 400
+                height = 30
                 
         return kidlisp(cell.strip(), width, height, False)
     
