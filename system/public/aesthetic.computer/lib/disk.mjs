@@ -325,10 +325,6 @@ let storeRetrievalResolutions = {},
 // There are two instances of Socket that run in parallel...
 let socket, socketStartDelay; // Socket server for each piece.
 
-// ❤️‍🔥 TODO: Explose these somehow to the $commonApi.
-
-// TODO: Extract `chat` into an external class.
-
 const chatDebug =
   location.host === "local.aesthetic.computer" ||
   location.host === "localhost:8888" ||
@@ -376,12 +372,13 @@ function darkMode(enabled) {
     darkMode($commonApi.dark || false);
     store.delete("dark-mode");
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
-    return $commonApi.dark;  } else {
+    return $commonApi.dark;
+  } else {
     // true or false
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
-    
+
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
   }
@@ -995,7 +992,8 @@ const $commonApi = {
     return prom;
   }, // Get a token for a logged in user.
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
-  hand: { mediapipe: { screen: [], world: [], hand: "None" } },  hud: {
+  hand: { mediapipe: { screen: [], world: [], hand: "None" } },
+  hud: {
     label: (text, color, offset) => {
       // Respect hideLabel setting from nolabel parameter
       if (!hideLabel) {
@@ -2178,7 +2176,8 @@ function form(
     keep: true,
     background: backgroundColor3D,
   },
-) {  // Exit silently if no forms are present.
+) {
+  // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
 
   if (cpu === true) {
@@ -2520,7 +2519,8 @@ const $paintApiUnwrapped = {
   mask: graph.mask,
   unmask: graph.unmask,
   steal: graph.steal,
-  putback: graph.putback,  skip: graph.skip,
+  putback: graph.putback,
+  skip: graph.skip,
   scroll: graph.scroll,
   spin: graph.spin,
   sort: graph.sort,
@@ -3999,23 +3999,26 @@ async function load(
       notice = $commonApi.query.notice;
       noticeColor = ["white", "green"];
       noticeBell(cachedAPI, { tone: 300 });
-    }    if (!alias && !hideLabel) currentHUDTxt = slug; // Update hud if this is not an alias and labels are not hidden.
+    }
+    if (!alias && !hideLabel) currentHUDTxt = slug; // Update hud if this is not an alias and labels are not hidden.
     if (module.nohud || system === "prompt") currentHUDTxt = undefined;
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
     currentHUDScrub = 0;
-    // currentPromptButton = undefined;
-
-    // Push last piece to a history list, skipping prompt and repeats.
+    // currentPromptButton = undefined;    // Push last piece to a history list, skipping prompt and repeats.
     if (
       !fromHistory &&
       currentText &&
       currentText !== "prompt" &&
       currentText !== $commonApi.history[$commonApi.history.length - 1]
     ) {
+      console.log("📚 Adding to history:", currentText, "New piece:", slug);
       $commonApi.history.push(currentText);
+      console.log("📚 History after push:", $commonApi.history);
+    } else {
+      console.log("📚 Skipping history addition for:", currentText, "fromHistory:", fromHistory, "slug:", slug);
     }
 
     currentText = slug;
@@ -5706,11 +5709,21 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.15,
               });
               if (!labelBack) {
-                jump("prompt");
-              } else {
+                jump("prompt");              } else {
                 labelBack = false; // Reset `labelBack` after jumping.
+                console.log("🔙 Back button pressed, history length:", $commonApi.history.length);
+                console.log("🔙 Current history:", $commonApi.history);
                 if ($commonApi.history.length > 0) {
-                  send({ type: "back-to-piece" });
+                  // Check if current piece is kidlisp - if so, use internal history navigation
+                  if (currentText && (currentText.startsWith("(") || currentText.includes("("))) {
+                    console.log("🔙 Kidlisp piece detected, using internal history navigation");
+                    const lastPiece = $commonApi.history.pop(); // Remove and get the last piece
+                    console.log("🔙 Navigating back to:", lastPiece);
+                    jump(lastPiece, true); // Jump with fromHistory = true
+                  } else {
+                    console.log("🔙 Regular piece, using browser history");
+                    send({ type: "back-to-piece" });
+                  }
                 } else {
                   jump("prompt");
                 }
@@ -6308,7 +6321,7 @@ async function makeFrame({ data: { type, content } }) {
 
         //console.log("bake")
         //send({ type: "3d-bake" });
-      }      // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
+      } // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
       //           composited by the other thread.
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
