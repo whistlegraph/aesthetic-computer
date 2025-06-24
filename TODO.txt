@@ -2,14 +2,6 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
- * `fia-birthday` *
- - [] Fia's birthday
- July 5
- Karaoke & Dancing w/ DJs
- 8pm-2am
- Invite only-plus ones welcome
- Echo Park
-
  * `kidlisp` *
  - Future proof URL sharing and attribution.
  - [] Any kidlisp that runs successfully should automatically be added to the

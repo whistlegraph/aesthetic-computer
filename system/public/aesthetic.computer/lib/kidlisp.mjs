@@ -921,7 +921,7 @@ class KidLisp {
       },
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
-        const content = processArgStringTypes(args[0]);
+        const content = unquoteString(args[0]?.toString() || "");
         const x = args[1];
         const y = args[2];
         const bg = args[3] ? processArgStringTypes(args[3]) : undefined;
