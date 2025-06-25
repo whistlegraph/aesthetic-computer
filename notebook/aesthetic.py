@@ -243,26 +243,89 @@ class AestheticComputerMagics(Magics):
             
         With size options:
             %%ac 800 600
+            %%ac 320 240*2
+            %%ac width/2 height*1.5
+            %%ac canvas_width canvas_height
             (your kidlisp code here)
             
-        First number = width, second = height
+        Parameters support math expressions and variables from the current namespace.
+        Examples:
+            %%ac 400*2 300+50
+            %%ac my_width my_height
+            %%ac int(800/2) int(600*1.5)
         """
-        # Parse simple arguments: width height
+        # Parse and evaluate arguments with math support
         args = line.strip().split() if line.strip() else []
         width = "100%"
         height = 30
         
-        if len(args) >= 1:
+        def safe_eval(expr, context=None):
+            """Safely evaluate math expressions with access to IPython variables"""
+            if context is None:
+                context = {}
+            
+            # Handle special cases first
+            if expr == "100%" or expr.endswith('%'):
+                return expr
+            
+            # Try simple int conversion first
             try:
-                width = int(args[0])
+                return int(expr)
             except ValueError:
-                width = args[0]  # Keep as string like "100%"
+                pass
+            
+            # Try float conversion
+            try:
+                return float(expr)
+            except ValueError:
+                pass
+            
+            # Set up safe evaluation context with math functions and user variables
+            import math
+            safe_dict = {
+                '__builtins__': {},
+                # Basic functions
+                'abs': abs, 'min': min, 'max': max, 'round': round,
+                'int': int, 'float': float, 'sum': sum, 'len': len,
+                'pow': pow,
+                # Math module
+                'math': math, 'pi': math.pi, 'e': math.e,
+                'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+                'sqrt': math.sqrt, 'log': math.log, 'log10': math.log10,
+                'exp': math.exp, 'floor': math.floor, 'ceil': math.ceil,
+                # Add all variables from the IPython user namespace
+                **context
+            }
+            
+            try:
+                result = eval(expr, safe_dict)
+                # Convert to int if it's a clean number
+                if isinstance(result, float) and result.is_integer():
+                    return int(result)
+                return result
+            except Exception as e:
+                # If evaluation fails, return the original expression
+                print(f"Warning: Could not evaluate '{expr}': {e}")
+                return expr
+        
+        # Get IPython user namespace for variable access
+        context = {}
+        try:
+            from IPython import get_ipython
+            ip = get_ipython()
+            if ip is not None:
+                # Include user variables in the evaluation context
+                context = ip.user_ns.copy()
+        except:
+            pass
+        
+        if len(args) >= 1:
+            width_expr = args[0]
+            width = safe_eval(width_expr, context)
         
         if len(args) >= 2:
-            try:
-                height = int(args[1])
-            except ValueError:
-                height = 30
+            height_expr = args[1]
+            height = safe_eval(height_expr, context)
                 
         return kidlisp(cell.strip(), width, height, False)
     
