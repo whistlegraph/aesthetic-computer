@@ -1423,11 +1423,16 @@ class KidLisp {
       write: (api, args = []) => {
         const content = unquoteString(args[0]?.toString() || "");
         let x = args[1];
-        const y = args[2];
+        let y = args[2];
         
         // Process x argument to handle quoted strings
         if (typeof x === "string" && x.startsWith('"') && x.endsWith('"')) {
           x = unquoteString(x);
+        }
+        
+        // Process y argument to handle quoted strings
+        if (typeof y === "string" && y.startsWith('"') && y.endsWith('"')) {
+          y = unquoteString(y);
         }
         
         // Only process background if it's not undefined - no should pass undefined for transparent bg
@@ -1445,17 +1450,28 @@ class KidLisp {
           options.bounds = bounds;
         }
 
-        // Check if x position is "center" keyword - convert to center property in pos
-        const useCenter = x === "center";
+        // Check for centering keywords
+        const centerX = x === "center";
+        const centerY = y === "center";
         
         // Build position object
-        const pos = { y };
-        if (useCenter) {
-          pos.center = "x";  // Put center in position object, not options
-          pos.x = undefined; // Explicitly set x to undefined for centering
-        } else if (x !== undefined) {
+        const pos = {};
+        
+        // Handle centering
+        if (centerX && centerY) {
+          pos.center = "xy";  // Center both x and y
+        } else if (centerX) {
+          pos.center = "x";   // Center only x
+          pos.y = y;
+        } else if (centerY) {
+          pos.center = "y";   // Center only y
           pos.x = x;
+        } else {
+          // No centering, use explicit coordinates
+          if (x !== undefined) pos.x = x;
+          if (y !== undefined) pos.y = y;
         }
+        
         if (size !== undefined) {
           pos.size = size;
         }
