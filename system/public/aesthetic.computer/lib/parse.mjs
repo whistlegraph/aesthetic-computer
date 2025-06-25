@@ -38,19 +38,20 @@ function parse(text, location = self?.location) {
       .split("/")
       .pop();
   }
-  text = text.trim(); // Clear any spaces.  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
+  text = text.trim(); // Clear any spaces.  
+  
+  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
   // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
-  if (
-    isKidlispSource(text) &&
-    (text.includes("§") ||
-      text.includes("~") ||
-      text.includes("_") ||
-      text.includes("\n") ||
-      text.startsWith("(") ||
-      text.startsWith(";"))
-  ) {
-    // console.log("🤖 Early kidlisp detection succeeded for:", JSON.stringify(text));
+  const kidlispCheck = isKidlispSource(text);
+  const hasSpecialChars = text.includes("§") ||
+    text.includes("~") ||
+    text.includes("_") ||
+    text.includes("\n") ||
+    text.startsWith("(") ||
+    text.startsWith(";");
+  
+  if (kidlispCheck && hasSpecialChars) {
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
