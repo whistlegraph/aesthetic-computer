@@ -139,6 +139,7 @@ function flood(x, y, fillColor = c) {
 
   color(...findColor(fillColor));
   const oldColor = c;
+  
   while (stack.length) {
     const [cx, cy] = stack.pop();
     const key = `${cx},${cy}`;
@@ -1860,7 +1861,8 @@ function fillShape(points) {
   for (let i = 0; i < points.length; i++) {
     minY = min(minY, points[i][1]);
     maxY = max(maxY, points[i][1]);
-  }
+
+ }
 
   // For each scan line from minY to maxY
   for (let y = minY; y <= maxY; y++) {
@@ -2058,10 +2060,10 @@ function grid(
             const srcX = i % bufWidth;            const srcIndex = (srcX + srcY * bufWidth) << 2; // Fast * 4
             if (srcIndex < bufPixels.length) {
               // Extract color data directly
-              const r = bufPixels[srcIndex];
-              const g = bufPixels[srcIndex + 1];
-              const b = bufPixels[srcIndex + 2];
-              const a = bufPixels[srcIndex + 3];
+              const r = srcPixels[srcIndex];
+              const g = srcPixels[srcIndex + 1];
+              const b = srcPixels[srcIndex + 2];
+              const a = srcPixels[srcIndex + 3];
 
               const destStartX = ~~(x + i * colPixInt);
               const destEndX = ~~(x + (i + 1) * colPixInt);
@@ -2669,11 +2671,19 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
     anchorY = null;
   }
 
-  // Handle fractional steps by accumulating them
+  // Handle fractional steps by accumulating them with higher sensitivity
   spinAccumulator += steps;
-  const integerSteps = floor(spinAccumulator);
+  
+  // More sensitive threshold - process smaller fractional amounts
+  const integerSteps = Math.floor(spinAccumulator + 0.1); // Lower threshold for more responsiveness
   spinAccumulator -= integerSteps; // Keep the fractional remainder
-  if (integerSteps === 0) return; // No integer steps to process yet
+  
+  // Prevent accumulator drift but maintain precision
+  if (Math.abs(spinAccumulator) > 100) {
+    spinAccumulator = spinAccumulator % 1;
+  }
+  
+  if (integerSteps === 0) return; // No steps to process yet
 
   // Determine the area to process (mask or full screen)
   let minX = 0,
@@ -2690,26 +2700,22 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
+  
   // Use provided anchor point or default to center of working area
-  const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
-  const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
+  const centerX = anchorX !== null ? anchorX : minX + Math.floor(workingWidth / 2);
+  const centerY = anchorY !== null ? anchorY : minY + Math.floor(workingHeight / 2);
 
   // Calculate maximum ring radius to reach the furthest corner
-  const maxRadius =
-    floor(
-      sqrt(
-        max(
-          (centerX - minX) * (centerX - minX) +
-            (centerY - minY) * (centerY - minY),
-          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
-            (centerY - minY) * (centerY - minY),
-          (centerX - minX) * (centerX - minX) +
-            (maxY - 1 - centerY) * (maxY - 1 - centerY),
-          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
-            (maxY - 1 - centerY) * (maxY - 1 - centerY),
-        ),
-      ),
-    ) + 1;
+  const maxRadius = Math.floor(
+    Math.sqrt(
+      Math.max(
+        (centerX - minX) * (centerX - minX) + (centerY - minY) * (centerY - minY),
+        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (centerY - minY) * (centerY - minY),
+        (centerX - minX) * (centerX - minX) + (maxY - 1 - centerY) * (maxY - 1 - centerY),
+        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (maxY - 1 - centerY) * (maxY - 1 - centerY)
+      )
+    )
+  ) + 1;
 
   if (maxRadius < 1) return;
 
@@ -2783,6 +2789,128 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
       pixels[idx + 1] = sourcePixel[1];
       pixels[idx + 2] = sourcePixel[2];
       pixels[idx + 3] = sourcePixel[3];
+    }
+  }
+}
+
+// Reset spin accumulator to prevent floating-point precision jitter
+function resetSpin() {
+  spinAccumulator = 0;
+}
+
+// Smooth spin with sub-pixel interpolation for ultra-smooth fractional rotations
+// This version doesn't wait for integer steps - it applies fractional rotation immediately
+let smoothSpinAccumulator = 0;
+
+function smoothSpin(steps = 0, anchorX = null, anchorY = null) {
+  // Validate input parameters
+  if (!isFinite(steps) || isNaN(steps)) {
+    console.warn("⚠️ smoothSpin: Invalid steps parameter:", steps, "- must be a finite number");
+    return;
+  }
+  
+  if (steps === 0) return;
+
+  // Validate anchor parameters if provided
+  if (anchorX !== null && (!isFinite(anchorX) || isNaN(anchorX))) {
+    console.warn("⚠️ smoothSpin: Invalid anchorX parameter:", anchorX, "- using center");
+    anchorX = null;
+  }
+  
+  if (anchorY !== null && (!isFinite(anchorY) || isNaN(anchorY))) {
+    console.warn("⚠️ smoothSpin: Invalid anchorY parameter:", anchorY, "- using center");
+    anchorY = null;
+  }
+
+  // Accumulate the fractional steps for smooth continuous rotation
+  smoothSpinAccumulator += steps;
+  
+  // Use sub-pixel precision - don't wait for integer steps
+  const totalRotation = smoothSpinAccumulator;
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    minX = activeMask.x + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+  
+  // Use provided anchor point or default to center of working area
+  const centerX = anchorX !== null ? anchorX : minX + Math.floor(workingWidth / 2);
+  const centerY = anchorY !== null ? anchorY : minY + Math.floor(workingHeight / 2);
+
+  // Calculate maximum radius to reach the furthest corner
+  const maxRadius = Math.floor(
+    Math.sqrt(
+      Math.max(
+        (centerX - minX) * (centerX - minX) + (centerY - minY) * (centerY - minY),
+        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (centerY - minY) * (centerY - minY),
+        (centerX - minX) * (centerX - minX) + (maxY - 1 - centerY) * (maxY - 1 - centerY),
+        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (maxY - 1 - centerY) * (maxY - 1 - centerY)
+      )
+    )
+  ) + 1;
+
+  if (maxRadius < 1) return;
+
+  // Create a copy of the pixels to read from
+  const tempPixels = new Uint8ClampedArray(pixels);
+
+  // For smooth sub-pixel rotation, we'll use interpolation
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const radius = Math.sqrt(dx * dx + dy * dy);
+      
+      if (radius >= 1 && radius <= maxRadius) {
+        // Calculate the current angle
+        const currentAngle = Math.atan2(dy, dx);
+        
+        // Apply the rotation with sub-pixel precision
+        const rotationRadians = (totalRotation * Math.PI) / 180; // Convert to radians
+        const newAngle = currentAngle - rotationRadians; // Rotate by the accumulated amount
+        
+        // Calculate source position
+        const sourceX = centerX + radius * Math.cos(newAngle);
+        const sourceY = centerY + radius * Math.sin(newAngle);
+        
+        // Bounds checking for source
+        if (sourceX >= minX && sourceX < maxX - 1 && sourceY >= minY && sourceY < maxY - 1) {
+          // Bilinear interpolation for smooth sub-pixel sampling
+          const x1 = Math.floor(sourceX);
+          const y1 = Math.floor(sourceY);
+          const x2 = x1 + 1;
+          const y2 = y1 + 1;
+          
+          const fx = sourceX - x1;
+          const fy = sourceY - y1;
+          
+          const idx = (y * width + x) * 4;
+          
+          // Sample the four surrounding pixels
+          const idx1 = (y1 * width + x1) * 4; // top-left
+          const idx2 = (y1 * width + x2) * 4; // top-right
+          const idx3 = (y2 * width + x1) * 4; // bottom-left
+          const idx4 = (y2 * width + x2) * 4; // bottom-right
+          
+          // Interpolate each color channel
+          for (let c = 0; c < 4; c++) {
+            const top = tempPixels[idx1 + c] * (1 - fx) + tempPixels[idx2 + c] * fx;
+            const bottom = tempPixels[idx3 + c] * (1 - fx) + tempPixels[idx4 + c] * fx;
+            pixels[idx + c] = Math.round(top * (1 - fy) + bottom * fy);
+          }
+        }
+      }
     }
   }
 }
@@ -3298,7 +3426,7 @@ class Camera {
 
     const rotatedX = mat4.multiply(mat4.create(), rotX, mat4.create());
     const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
 
     const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
 
@@ -3361,11 +3489,11 @@ class Camera {
     const rotZ = mat4.fromZRotation(mat4.create(), radians(this.#rotZ));
     const rotatedY = mat4.multiply(mat4.create(), rotY, panned);
     const rotatedX = mat4.multiply(mat4.create(), rotX, rotatedY);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedX);
+    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
 
     // Scale
     // TODO: Add support for camera scaling.
-    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
+    const scaled = mat4.multiply(mat4.create(), rotatedZ, this.scale);
 
     // Perspective
     this.#transformMatrix = mat4.multiply(
@@ -3698,7 +3826,7 @@ class Form {
 
     const rotatedX = mat4.multiply(mat4.create(), rotX, panned);
     const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
+    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
 
     // Scale
     const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale); // Render wireframe lines for line type forms using untransformed vertices
@@ -4090,6 +4218,8 @@ export {
   blendMode,
   scroll,
   spin,
+  resetSpin,
+  smoothSpin,
   zoom,
   sort,
   shear,
