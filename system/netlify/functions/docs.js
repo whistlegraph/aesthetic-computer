@@ -2394,6 +2394,11 @@ export async function handler(event, context) {
         desc: "Tests of a new language.",
         done: false,
       },
+      'fia-birthday': {
+        sig: "fia-birthday",
+        desc: "Come to Fía's birthday!",
+        done: false,
+      },
       line: {
         sig: "line",
         desc: "Draw a 1px line.",
