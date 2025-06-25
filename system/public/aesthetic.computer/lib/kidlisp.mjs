@@ -318,6 +318,14 @@ class KidLisp {
     // Melody state tracking
     this.melodies = new Map(); // Track active melodies
     this.melodyTimers = new Map(); // Track timing for each melody
+    
+    // Resolution state tracking
+    this.halfResolutionApplied = false;
+    this.thirdResolutionApplied = false;
+    this.fourthResolutionApplied = false;
+    
+    // Resolution state tracking
+    this.halfResolutionApplied = false; // Track if half resolution has been applied
   }
 
   // Optimize common patterns - this could be expanded for other patterns
@@ -1262,7 +1270,60 @@ class KidLisp {
       },
       // Paint API
       resolution: (api, args) => {
-        api.resolution?.(...args);
+        // Handle special fraction keywords
+        if (args.length === 1 && typeof args[0] === "string") {
+          const fraction = args[0];
+          let divisor;
+          let trackingFlag;
+          
+          switch (fraction) {
+            case "half":
+              divisor = 2;
+              trackingFlag = "halfResolutionApplied";
+              break;
+            case "third":
+              divisor = 3;
+              trackingFlag = "thirdResolutionApplied";
+              break;
+            case "fourth":
+              divisor = 4;
+              trackingFlag = "fourthResolutionApplied";
+              break;
+            default:
+              // Not a recognized fraction keyword, treat as regular resolution call
+              api.resolution?.(...args);
+              return;
+          }
+          
+          // Initialize tracking if not exists
+          if (!this[trackingFlag]) {
+            this[trackingFlag] = false;
+          }
+          
+          // Only apply fractional resolution once to prevent repeated scaling
+          if (!this[trackingFlag]) {
+            const currentWidth = api.screen?.width || 256;
+            const currentHeight = api.screen?.height || 256;
+            
+            // Set resolution to the fraction of current dimensions
+            const newWidth = Math.floor(currentWidth / divisor);
+            const newHeight = Math.floor(currentHeight / divisor);
+            
+            api.resolution?.(newWidth, newHeight);
+            this[trackingFlag] = true;
+            
+            console.log(`🔄 ${fraction} resolution applied: ${currentWidth}x${currentHeight} → ${newWidth}x${newHeight}`);
+          } else {
+            console.log(`🔄 ${fraction} resolution already applied, skipping to prevent squashing`);
+          }
+        } else {
+          // Regular resolution call with explicit dimensions
+          api.resolution?.(...args);
+          // Reset all fraction resolution flags when explicit dimensions are set
+          this.halfResolutionApplied = false;
+          this.thirdResolutionApplied = false;
+          this.fourthResolutionApplied = false;
+        }
       },
       wipe: (api, args) => {
         api.wipe?.(processArgStringTypes(args));

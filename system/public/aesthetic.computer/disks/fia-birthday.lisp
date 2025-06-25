@@ -1,6 +1,8 @@
 ; fia-birthday, 2025.6.25.09.03.27.272
 ; Celebrate Fia's Birthday
 
+; TODO: tap to enable sound preview?
+
 (label)
 (ink (... blue pink gray))
 (mask 0 22 width height-22)
