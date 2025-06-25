@@ -5,6 +5,7 @@
  */
 
 let sfx, sfxData, progress, playingSfx, xml;
+export const nolabel = true;
 
 export async function boot({ net: { preload }, sound, params }) {
   if (params[0] === "zzzZWAP") {
@@ -25,6 +26,7 @@ export async function boot({ net: { preload }, sound, params }) {
     sfxData = data;
     // console.log("🔴 Sample Data:", sfxData);
   });
+
 }
 
 let comp;
