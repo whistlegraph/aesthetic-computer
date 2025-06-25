@@ -23,6 +23,7 @@ export const font_1 = {
   g: "lowercase/g - 2022.1.11.16.20.34",
   h: "lowercase/h - 2022.1.11.16.22.10",
   i: "lowercase/i - 2022.1.11.16.23.36",
+  í: "lowercase/í - 2025.6.25.01.00.00",
   j: "lowercase/j - 2022.1.11.16.25.14",
   k: "lowercase/k - 2022.1.11.16.29.25",
   l: "lowercase/l - 2022.1.11.16.30.34",
