@@ -2,6 +2,7 @@
 ; Celebrate Fia's Birthday
 
 ; TODO: tap to enable sound preview?
+;       (make a flag to show whether sound is enabled or not)
 
 (label)
 (ink (... blue pink gray))
