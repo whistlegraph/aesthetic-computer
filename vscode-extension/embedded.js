@@ -86,6 +86,13 @@
         });
         break;
       }
+      case "openExternal": {
+        vscode.postMessage({
+          type: "openExternal",
+          url: message.url,
+        });
+        break;
+      }
       case "ready": {
         clearTimeout(readyTimeout);
         break;
