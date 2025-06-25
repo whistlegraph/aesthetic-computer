@@ -5,7 +5,7 @@
  */
 
 let sfx, sfxData, progress, playingSfx, xml;
-export const nolabel = true;
+export const nohud = true;
 
 export async function boot({ net: { preload }, sound, params }) {
   if (params[0] === "zzzZWAP") {
