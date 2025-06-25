@@ -1523,6 +1523,12 @@ class KidLisp {
         console.log("📝 LOG:", ...args);
         return args[0];
       },
+      // 🚫 Disable wrapper - ignores wrapped expressions
+      no: (api, args = []) => {
+        // Simply return undefined without evaluating the wrapped expression
+        // This effectively disables/comments out the expression
+        return undefined;
+      },
       // 🎤 Microphone
       mic: (api, args = []) => {
         // Debug: Log the current state
