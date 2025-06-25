@@ -110,7 +110,7 @@
 #endregion */
 
 const VERBOSE = false;
-const PERF_LOG = true; // Enable performance logging
+const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
 import { cssColors } from "./num.mjs";
 
@@ -631,9 +631,21 @@ class KidLisp {
         })
         .filter((line) => line.length > 0);
 
-      const wrappedLines = lines.map((line) => {
+      const wrappedLines = lines.map((line, index) => {
+        // Check if this line is likely a continuation of a multi-line expression
+        const isContinuation = index > 0 && (
+          // Line starts with an identifier but not at the beginning of the input
+          (/^[a-zA-Z_]\w*/.test(line) && !line.startsWith("(")) &&
+          (
+            // Previous line ends with an incomplete expression (has opening paren or is incomplete)
+            lines[index - 1].includes("(") && 
+            (lines[index - 1].split("(").length > lines[index - 1].split(")").length)
+          )
+        );
+        
         // If line doesn't start with ( and looks like a function call, wrap it
-        if (!line.startsWith("(") && /^[a-zA-Z_]\w*/.test(line)) {
+        // BUT don't wrap if it's likely a continuation line
+        if (!line.startsWith("(") && /^[a-zA-Z_]\w*/.test(line) && !isContinuation) {
           return `(${line})`;
         }
         return line;
@@ -923,6 +935,20 @@ class KidLisp {
     return `${finalOctave}${baseNote}`;
   }
 
+  // CORE OPTIMIZATION HELPER: Check if expression contains a variable
+  containsVariable(expr, varName) {
+    if (typeof expr === 'string') {
+      return expr === varName;
+    }
+    if (typeof expr === 'number') {
+      return false;
+    }
+    if (Array.isArray(expr)) {
+      return expr.some(subExpr => this.containsVariable(subExpr, varName));
+    }
+    return false;
+  }
+
   // Create global environment (cached for performance)
   getGlobalEnv() {
     // Force cache refresh for debugging - remove this line later
@@ -965,7 +991,7 @@ class KidLisp {
             this.localEnv[name] = args[1];
           } else {
             // Otherwise, define globally as before
-            if (!this.globalDef.hasOwnProperty(name)) {
+            if (!Object.prototype.hasOwnProperty.call(this.globalDef, name)) {
               this.globalDef[name] = args[1];
             } else {
               // Variable already defined, skip redefinition
@@ -1142,6 +1168,24 @@ class KidLisp {
           .map((arg) => this.evaluate(arg, api, this.localEnv))
           .filter((value) => typeof value === "number" && !isNaN(value));
         return nums.length > 0 ? Math.min(...nums) : 0;
+      },
+      sin: (api, args = []) => {
+        // If no argument provided, use frame count * 0.01 as time-based oscillator
+        if (args.length === 0) {
+          return Math.sin(this.frameCount * 0.01);
+        }
+        // Otherwise, evaluate the argument and return its sine
+        const value = this.evaluate(args[0], api, this.localEnv);
+        return typeof value === "number" ? Math.sin(value) : 0;
+      },
+      cos: (api, args = []) => {
+        // If no argument provided, use frame count * 0.01 as time-based oscillator
+        if (args.length === 0) {
+          return Math.cos(this.frameCount * 0.01);
+        }
+        // Otherwise, evaluate the argument and return its cosine
+        const value = this.evaluate(args[0], api, this.localEnv);
+        return typeof value === "number" ? Math.cos(value) : 0;
       },
       "+": (api, args, env) => {
         // Simply evaluate each argument in the current environment and add
@@ -1362,6 +1406,14 @@ class KidLisp {
           api.write(content, pos);
         }
       },
+      // 🏷️ HUD label
+      label: (api, args = []) => {
+        const text = args[0] ? unquoteString(args[0].toString()) : undefined;
+        const color = args[1];
+        const offset = args[2];
+        api.hud?.label?.(text, color, offset);
+        return text;
+      },
       len: (api, args = []) => {
         return args[0]?.toString().length;
       },
@@ -1440,12 +1492,23 @@ class KidLisp {
             const inkExpr = expressions[0];
             const boxExpr = expressions[1];
             
-            // Check if ink expression is (ink (... palette)) pattern
+            // OPTIMIZATION 1: Pre-resolve color palette to avoid repeated parsing
             let paletteColors = null;
             let sequenceKey = null;
+            let resolvedColors = null;
+            
             if (inkExpr.length === 2 && Array.isArray(inkExpr[1]) && inkExpr[1][0] === "...") {
               paletteColors = inkExpr[1].slice(1); // Extract palette colors
               sequenceKey = JSON.stringify(paletteColors);
+              
+              // Pre-resolve colors to RGB values
+              resolvedColors = paletteColors.map(colorName => {
+                // Use the API's color resolution if available
+                if (api.help?.color) {
+                  return api.help.color(colorName);
+                }
+                return colorName; // Fallback to string
+              });
               
               // Initialize sequence counter if needed
               if (!this.sequenceCounters) {
@@ -1456,36 +1519,76 @@ class KidLisp {
               }
             }
             
-            // Pre-evaluate box arguments once
+            // OPTIMIZATION 2: Pre-analyze box arguments for constant vs variable parts
             const boxArgs = boxExpr.slice(1);
+            const analyzedBoxArgs = boxArgs.map(arg => {
+              if (Array.isArray(arg) && arg.length === 3 && arg[0] === "*" && arg[1] === iteratorVar) {
+                // This is i*multiplier pattern
+                return { type: 'iterator_multiply', multiplier: arg[2] };
+              } else if (this.containsVariable(arg, iteratorVar)) {
+                return { type: 'variable', expr: arg };
+              } else {
+                // Pre-evaluate constant expressions
+                return { type: 'constant', value: this.evaluate(arg, api, { ...this.localEnv, ...env }) };
+              }
+            });
+            
             const prevLocalEnv = this.localEnv;
             
             // Set up minimal environment
             this.localEnvLevel += 1;
             if (!this.localEnvStore[this.localEnvLevel]) {
-              this.localEnvStore[this.localEnvLevel] = { ...this.localEnv, ...env };
+              this.localEnvStore[this.localEnvLevel] = Object.create(null);
             }
             const loopEnv = this.localEnvStore[this.localEnvLevel];
-            Object.assign(loopEnv, this.localEnv, env);
+            
+            // Copy environment efficiently
+            for (const key in this.localEnv) {
+              loopEnv[key] = this.localEnv[key];
+            }
+            for (const key in env) {
+              loopEnv[key] = env[key];
+            }
             this.localEnv = loopEnv;
 
+            // OPTIMIZATION 3: Ultra-fast hot loop with pre-computed values
             for (let i = 0; i < count; i++) {
               loopEnv[iteratorVar] = i;
               
-              // Super fast ink evaluation for palette patterns
-              if (paletteColors) {
+              // OPTIMIZATION 4: Direct color application without evaluation overhead
+              if (resolvedColors) {
                 const currentIndex = this.sequenceCounters.get(sequenceKey);
-                const nextIndex = (currentIndex + 1) % paletteColors.length;
+                const nextIndex = (currentIndex + 1) % resolvedColors.length;
                 this.sequenceCounters.set(sequenceKey, nextIndex);
-                const color = paletteColors[currentIndex];
-                api.ink(color); // Direct API call, bypass interpreter
+                const color = resolvedColors[currentIndex];
+                
+                // Direct color application
+                if (typeof color === 'object' && color.r !== undefined) {
+                  // Pre-resolved RGB
+                  api.ink(color.r, color.g, color.b, color.a || 255);
+                } else {
+                  api.ink(color);
+                }
               } else {
-                // Fallback to regular evaluation for other ink expressions
+                // Fallback to regular evaluation
                 this.evaluate(inkExpr, api, this.localEnv);
               }
               
-              // Fast box evaluation with pre-computed arguments
-              const evaluatedBoxArgs = boxArgs.map(arg => this.evaluate(arg, api, this.localEnv));
+              // OPTIMIZATION 5: Fast box evaluation with pre-computed args
+              const evaluatedBoxArgs = analyzedBoxArgs.map(arg => {
+                switch (arg.type) {
+                  case 'iterator_multiply':
+                    return i * arg.multiplier; // Direct multiplication, no evaluation
+                  case 'constant':
+                    return arg.value; // Pre-computed constant
+                  case 'variable':
+                    return this.evaluate(arg.expr, api, this.localEnv);
+                  default:
+                    return 0;
+                }
+              });
+              
+              // Direct API call with minimal overhead
               api.box(...evaluatedBoxArgs);
             }
             
@@ -1496,29 +1599,49 @@ class KidLisp {
             return result;
           }
 
-          // Standard loop - set up proper environment with iterator variable
+          // OPTIMIZED: Standard loop with pre-evaluation and environment reuse
           const baseEnv = { ...this.localEnv, ...env };
           const prevLocalEnv = this.localEnv;
+
+          // CORE OPTIMIZATION: Pre-analyze expressions for iterator dependency
+          const expressionAnalysis = expressions.map(expr => {
+            const containsIterator = this.containsVariable ? this.containsVariable(expr, iteratorVar) : true;
+            return { expr, containsIterator };
+          });
+
+          // CORE OPTIMIZATION: Pre-evaluate iterator-independent expressions
+          const invariantResults = new Map();
+          expressionAnalysis.forEach((analysis, index) => {
+            if (!analysis.containsIterator) {
+              invariantResults.set(index, this.evaluate(analysis.expr, api, baseEnv));
+            }
+          });
 
           // Create reusable environment object
           this.localEnvLevel += 1;
           if (!this.localEnvStore[this.localEnvLevel]) {
-            this.localEnvStore[this.localEnvLevel] = { ...baseEnv };
+            this.localEnvStore[this.localEnvLevel] = Object.create(null); // Faster than {}
           }
 
-          // Reuse the same environment object, just update the iterator
+          // CORE OPTIMIZATION: Reuse environment object, direct property assignment
           const loopEnv = this.localEnvStore[this.localEnvLevel];
-          Object.assign(loopEnv, baseEnv); // Copy base environment once
+          for (const key in baseEnv) {
+            loopEnv[key] = baseEnv[key];
+          }
           this.localEnv = loopEnv;
 
           for (let i = 0; i < count; i++) {
-            // Update the iterator variable in the environment
+            // CORE OPTIMIZATION: Direct assignment instead of environment spread
             loopEnv[iteratorVar] = i;
 
-            // Execute expressions with iterator variable in scope
-            for (const expr of expressions) {
-              result = this.evaluate(expr, api, this.localEnv);
-            }
+            // Execute expressions with optimized evaluation
+            expressionAnalysis.forEach((analysis, index) => {
+              if (invariantResults.has(index)) {
+                result = invariantResults.get(index);
+              } else {
+                result = this.evaluate(analysis.expr, api, this.localEnv);
+              }
+            });
           }
 
           // Restore previous environment
@@ -1640,6 +1763,13 @@ class KidLisp {
         // This effectively disables/comments out the expression and passes undefined to callers
         return undefined;
       },
+      // ✅ Enable wrapper - passthrough that evaluates wrapped expressions
+      yes: (api, args = []) => {
+        // Evaluate and return the first argument (passthrough behavior)
+        // This allows easy toggling between no/yes during development
+        if (args.length === 0) return undefined;
+        return this.evaluate(args[0], api, this.localEnv);
+      },
       // 🎤 Microphone
       mic: (api, args = []) => {
         // Debug: Log the current state
@@ -1751,11 +1881,11 @@ class KidLisp {
     if (typeof expr === "string") {
       // Fast variable lookup - don't cache iterator variables that change frequently
       let value;
-      if (this.localEnv.hasOwnProperty(expr)) {
+      if (Object.prototype.hasOwnProperty.call(this.localEnv, expr)) {
         value = this.localEnv[expr];
-      } else if (env && env.hasOwnProperty(expr)) {
+      } else if (env && Object.prototype.hasOwnProperty.call(env, expr)) {
         value = env[expr];
-      } else if (this.globalDef.hasOwnProperty(expr)) {
+      } else if (Object.prototype.hasOwnProperty.call(this.globalDef, expr)) {
         value = this.globalDef[expr];
       }
 
