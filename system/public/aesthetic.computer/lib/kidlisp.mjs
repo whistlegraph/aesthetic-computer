@@ -2617,7 +2617,7 @@ function isKidlispSource(text) {
         const trimmed = line.trim();
         return (
           trimmed &&
-          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*\s+/.test(trimmed)) // Must have spaces after function name
         );
       });
       return hasKidlispLines;
@@ -2639,14 +2639,15 @@ function isKidlispSource(text) {
         const trimmed = line.trim();
         return (
           trimmed &&
-          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*\s+/.test(trimmed)) // Must have spaces after function name
         );
       });
       return hasKidlispLines;
     }
-    // Check if decoded looks like kidlisp function calls
+    // Check if decoded looks like kidlisp function calls - but be more strict
+    // Only consider it kidlisp if it has multiple words or parentheses
     const trimmed = decoded.trim();
-    if (/^[a-zA-Z_]\w*(\s|$)/.test(trimmed)) {
+    if (/^[a-zA-Z_]\w*\s+/.test(trimmed)) { // Must have spaces after the function name
       return true;
     }
   }
@@ -2655,11 +2656,12 @@ function isKidlispSource(text) {
   if (text.includes("\n")) {
     const lines = text.split("\n");
     // If any line looks like a function call, treat as kidlisp
+    // Be more strict - require either parentheses or function calls with arguments
     const hasKidlispLines = lines.some((line) => {
       const trimmed = line.trim();
       return (
         trimmed &&
-        (trimmed.startsWith("(") || /^[a-zA-Z_]\w*(\s|$)/.test(trimmed))
+        (trimmed.startsWith("(") || /^[a-zA-Z_]\w*\s+/.test(trimmed)) // Must have spaces after function name
       );
     });
     return hasKidlispLines;
