@@ -37,12 +37,19 @@ function parse(text, location = self?.location) {
       .split(/\.mjs|\.lisp/)[0]
       .split("/")
       .pop();
-  }  text = text.trim(); // Clear any spaces.  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
+  }
+  text = text.trim(); // Clear any spaces.  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
   // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
-  if (isKidlispSource(text) && 
-      (text.includes('§') || text.includes('~') || text.includes('_') || text.includes('\n') || 
-       text.startsWith('(') || text.startsWith(';'))) {
+  if (
+    isKidlispSource(text) &&
+    (text.includes("§") ||
+      text.includes("~") ||
+      text.includes("_") ||
+      text.includes("\n") ||
+      text.startsWith("(") ||
+      text.startsWith(";"))
+  ) {
     // console.log("🤖 Early kidlisp detection succeeded for:", JSON.stringify(text));
     const decodedSource = decodeKidlispFromUrl(text);
     return {
@@ -55,7 +62,7 @@ function parse(text, location = self?.location) {
       hash: undefined,
       text: decodedSource,
       source: decodedSource, // Include the decoded source code
-      name: decodedSource // Use the source as the name too
+      name: decodedSource, // Use the source as the name too
     };
   }
 
@@ -104,7 +111,7 @@ function parse(text, location = self?.location) {
       hash: undefined,
       text: decodedSource,
       source: decodedSource, // Include the decoded source code
-      name: decodedSource // Use the source as the name too
+      name: decodedSource, // Use the source as the name too
     };
   }
 
@@ -162,10 +169,10 @@ function slug(url) {
     .replace(window.location.hostname + "/", "")
     .split("#")[0] // Remove any hash.
     .split("?")[0]; // Remove any search params (important for kidlisp with session params)
-  
+
   // Decode URL-encoded characters first
   cleanedUrl = decodeURIComponent(cleanedUrl);
-  
+
   // Use centralized kidlisp URL decoding
   return decodeKidlispFromUrl(cleanedUrl);
 }
@@ -190,9 +197,13 @@ function inferTitleDesc(source) {
 // Generates some metadata fields that are shared both on the client and server.
 function metadata(host, slug, pieceMetadata) {
   // Use a default title if there is no override.
-  const notAesthetic = host.indexOf("sotce") > -1 || host.indexOf("botce") > -1;
+  const notAesthetic =
+    host.indexOf("sotce") > -1 ||
+    host.indexOf("botce") > -1 ||
+    host.indexOf("wipppps.world") > -1;
   const title =
-    (pieceMetadata?.title || slug) + (notAesthetic ? "" : " · Aesthetic Computer") ||
+    (pieceMetadata?.title || slug) +
+      (notAesthetic ? "" : " · Aesthetic Computer") ||
     (slug !== "prompt" ? slug + " · Aesthetic Computer" : "Aesthetic Computer");
   // Use existing or default description.
   const desc = pieceMetadata?.desc || "An Aesthetic Computer piece.";
@@ -289,33 +300,33 @@ function addExportsToCode(code) {
   ];
   // Remove comments from the code more carefully
   const codeWithoutComments = code
-    .split('\n')
-    .map(line => {
+    .split("\n")
+    .map((line) => {
       // Only remove comments that are not inside strings
       let inString = false;
-      let stringChar = '';
-      let result = '';
-      
+      let stringChar = "";
+      let result = "";
+
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
         const nextChar = line[i + 1];
-        
-        if (!inString && (char === '"' || char === "'" || char === '`')) {
+
+        if (!inString && (char === '"' || char === "'" || char === "`")) {
           inString = true;
           stringChar = char;
           result += char;
-        } else if (inString && char === stringChar && line[i - 1] !== '\\') {
+        } else if (inString && char === stringChar && line[i - 1] !== "\\") {
           inString = false;
-          stringChar = '';
+          stringChar = "";
           result += char;
-        } else if (!inString && char === '/' && nextChar === '/') {
+        } else if (!inString && char === "/" && nextChar === "/") {
           // Found a comment outside of a string, stop processing this line
           break;
-        } else if (!inString && char === '/' && nextChar === '*') {
+        } else if (!inString && char === "/" && nextChar === "*") {
           // Found start of block comment outside string, skip until end
           i += 2;
           while (i < line.length - 1) {
-            if (line[i] === '*' && line[i + 1] === '/') {
+            if (line[i] === "*" && line[i + 1] === "/") {
               i += 2;
               break;
             }
@@ -326,10 +337,10 @@ function addExportsToCode(code) {
           result += char;
         }
       }
-      
+
       return result;
     })
-    .join('\n');
+    .join("\n");
 
   // Check if the file already contains an 'export { ... }' statement
   const hasExportObject = /export\s+{[^}]*}/m.test(codeWithoutComments);
