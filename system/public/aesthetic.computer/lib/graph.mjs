@@ -2650,7 +2650,24 @@ function scroll(dx = 0, dy = 0) {
 // Each ring rotates by exactly 'steps' pixels, preserving all data
 // Supports fractional steps by accumulating them over time
 function spin(steps = 0, anchorX = null, anchorY = null) {
+  // Validate input parameters
+  if (!isFinite(steps) || isNaN(steps)) {
+    console.warn("⚠️ spin: Invalid steps parameter:", steps, "- must be a finite number");
+    return;
+  }
+  
   if (steps === 0) return;
+
+  // Validate anchor parameters if provided
+  if (anchorX !== null && (!isFinite(anchorX) || isNaN(anchorX))) {
+    console.warn("⚠️ spin: Invalid anchorX parameter:", anchorX, "- using center");
+    anchorX = null;
+  }
+  
+  if (anchorY !== null && (!isFinite(anchorY) || isNaN(anchorY))) {
+    console.warn("⚠️ spin: Invalid anchorY parameter:", anchorY, "- using center");
+    anchorY = null;
+  }
 
   // Handle fractional steps by accumulating them
   spinAccumulator += steps;

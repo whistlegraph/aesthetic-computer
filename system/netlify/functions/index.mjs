@@ -61,7 +61,7 @@ async function fun(event, context) {
   // Some domains will rewrite the initial slug.
   if (event.headers["host"] === "botce.ac") {
     slug = "botce";
-  } else if (event.headers["host"] === "wipppps.world") {
+  } else if (event.headers["host"] === "wipppps.world" || event.headers["host"] === "www.wipppps.world") {
     slug = "wipppps";
   } else if (
     event.headers["host"] === "m2w2.whistlegraph.com" &&
