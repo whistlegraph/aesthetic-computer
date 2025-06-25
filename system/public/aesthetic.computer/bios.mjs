@@ -2992,6 +2992,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.blank === true) {
         if (Aesthetic) {
           iOSAppSend({ type: "url", body: content.url });
+        } else if (window.acVSCODE && window.parent !== window) {
+          // In VSCode extension, send message to parent to handle external URL
+          window.parent.postMessage({ 
+            type: "openExternal", 
+            url: content.url 
+          }, "*");
         } else {
           window.open(content.url); // Open URL in a new tab
         }

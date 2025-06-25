@@ -252,7 +252,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
           </style>
         </head>
         <body>
-          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts allow-modals" src="https://aesthetic.computer/docs${path}">
+          <iframe allow="clipboard-write; clipboard-read" credentialless sandbox="allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox" src="https://aesthetic.computer/docs${path}">
         </body>
         </html>
       `.trim();
@@ -863,6 +863,13 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand(`aestheticComputer.${command}`);
           break;
         }
+        case "openExternal": {
+          console.log("🌐 Opening external URL:", data.url);
+          if (data.url) {
+            vscode.env.openExternal(vscode.Uri.parse(data.url));
+          }
+          break;
+        }
       }
     });
 
@@ -965,7 +972,7 @@ function getWebViewContent(webview: any, slug: string) {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope; pointer-lock" src="https://${
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read; camera; microphone; gyroscope; pointer-lock" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
         }/${param}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>

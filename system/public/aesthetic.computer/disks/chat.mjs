@@ -636,7 +636,7 @@ function act(
           const url = message.layout.urls[u];
           if (url.over) {
             beep();
-            jump("out:", url.text);
+            jump("out:" + url.text);
             console.log("🟨 Visiting...", url);
             url.over = false;
             break;
