@@ -1,11 +1,14 @@
 ; kidlisp-wip, 25.06.20.02.38
 ; 🚸 Working Developments for the Kid Lisp API
 
-(def slide 0) ; 🛝 Slideshow Mechanism
-(5s (now slide (% slide+1 4)))
+; todo: Fix sharing on the updated labels.
+;       Swipe down for source?
+
+(def slide 1) ; 🛝 Slideshow Mechanism
+(3s (now slide (% slide+1 4)))
 
 ; 🪧 Title Screen
-(if (= slide 0) (label) (wipe black) (ink white)
+(if (= slide 0) (label) (ink white) (wipe black)
  (write "'3 kidlisp tests'" center center))
 
 ; 🏡 Stripes, 25.06.20.08.33
