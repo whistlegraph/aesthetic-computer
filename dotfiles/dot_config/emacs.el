@@ -1,5 +1,9 @@
 ;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
 
+;; Disable native compilation to prevent high CPU usage
+(setq native-comp-async-report-warnings-errors nil)
+(setq native-comp-deferred-compilation nil)
+
 (setq x-gtk-use-system-tooltips nil)
 
 ;; Open emacs maximized and with undecorated window.
@@ -365,16 +369,17 @@
 ;;   (setq mlscroll-shortfun-min-width 11) ;truncate which-func, for default mode-line-format's
 ;;   (mlscroll-mode 1))
 
-;; 🌳 Tree-Sitter
+;; 🌳 Tree-Sitter - DISABLED to prevent compilation issues
 ;; https://github.com/renzmann/treesit-auto
-(use-package treesit-auto
-  :custom
-  (treesit-auto-install t) ;; or 'prompt
-  :config
-  (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode))
+;; (use-package treesit-auto
+;;   :custom
+;;   (treesit-auto-install t) ;; or 'prompt
+;;   :config
+;;   (treesit-auto-add-to-auto-mode-alist 'all)
+;;   (global-treesit-auto-mode))
 
-(add-to-list 'auto-mode-alist '("\\.mjs\\'" . typescript-ts-mode)) ;; Support mjs files.
+;; Commented out to prevent tree-sitter issues
+;; (add-to-list 'auto-mode-alist '("\\.mjs\\'" . typescript-ts-mode)) ;; Support mjs files.
 
 ;; (use-package helm ;; Add helm: https://github.com/emacs-helm/helm/wiki#from-melpa
 ;;       ;; :straight t
@@ -401,15 +406,16 @@
 
 ;; (add-to-list 'command-line-functions 'my/helm-find-files-directory-handler)
 
-(use-package lsp-mode
-  :config
-  (setq lsp-auto-install-server t)
-  (setq lsp-warn-no-matched-clients nil)
-  ;; Disable Copilot language server
-  (setq lsp-disabled-clients '(copilot-ls))
-  ;; Or alternatively, remove copilot from the server list entirely
-  (delete 'copilot-ls lsp-language-id-configuration))
-(add-hook 'prog-mode-hook #'lsp)
+;; LSP mode disabled to prevent freezing issues
+;; (use-package lsp-mode
+;;   :config
+;;   (setq lsp-auto-install-server t)
+;;   (setq lsp-warn-no-matched-clients nil)
+;;   ;; Disable Copilot language server
+;;   (setq lsp-disabled-clients '(copilot-ls))
+;;   ;; Or alternatively, remove copilot from the server list entirely
+;;   (delete 'copilot-ls lsp-language-id-configuration))
+;; (add-hook 'prog-mode-hook #'lsp)
 
 (use-package origami :hook (after-init . global-origami-mode))
 
