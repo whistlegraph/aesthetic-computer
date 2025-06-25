@@ -2389,6 +2389,11 @@ export async function handler(event, context) {
         desc: "Incredibly honest and trustworthy.",
         done: false,
       },
+      '3-kidlisp-tests': {
+        sig: "3-kidlisp-tests",
+        desc: "Tests of a new language.",
+        done: false,
+      },
       line: {
         sig: "line",
         desc: "Draw a 1px line.",
