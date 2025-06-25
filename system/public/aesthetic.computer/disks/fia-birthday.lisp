@@ -36,7 +36,7 @@
 (write " BYOB" -10 height-17 red 2)
 
 (if (speaker)
-  (melody "4d.4d.4e4d4g4fs-_4d.4d.4e4d4a4g-_4d.4d.5d4b4g4fs4e_5c5c4b4g4a4g-"
+  (melody "5d.5d.5e5d5g5fs-_5d.5d.5e5d5a5g-_5d.5d.6d5b5g5fs5e_6c6c5b5g5a5g-"
     180 "3/4" "waltz")
 )
 
