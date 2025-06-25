@@ -42,6 +42,9 @@ const { isFinite } = Number;
 const diskSends = [];
 let diskSendsConsumed = false;
 
+// Store original URL parameters for refresh functionality
+let preservedParams = {};
+
 window.acDISK_SEND = function (message) {
   !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
 };
@@ -59,6 +62,11 @@ USB.initialize();
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
   headers(); // Print console headers.
+
+  // Store original URL parameters for refresh functionality from the resolution object
+  preservedParams = {};
+  if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
+  if (resolution.nolabel === true) preservedParams.nolabel = "true";
 
   if (debug) {
     if (window.isSecureContext) {
@@ -2954,7 +2962,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      window.location.reload();
+      // Reconstruct URL with preserved parameters (nogap, nolabel)
+      const currentUrl = new URL(window.location);
+      
+      if (debug) {
+        console.log("🔄 Refresh triggered, preservedParams:", preservedParams);
+        console.log("🔄 Current URL before reconstruction:", currentUrl.toString());
+      }
+      
+      // Add preserved parameters back to the URL
+      if (preservedParams.nogap) {
+        currentUrl.searchParams.set("nogap", preservedParams.nogap);
+      }
+      if (preservedParams.nolabel) {
+        currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
+      }
+      
+      if (debug) {
+        console.log("🔄 Reconstructed URL:", currentUrl.toString());
+      }
+      
+      // Update the URL and reload
+      window.location.href = currentUrl.toString();
       return;
     }
 
