@@ -527,6 +527,11 @@ function unmask() {
   activeMask = null;
 }
 
+// 👁️ Get the current mask, if any.
+function getMask() {
+  return activeMask;
+}
+
 function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
   destX = floor(destX);
   destY = floor(destY);
@@ -4190,6 +4195,7 @@ export {
   loadpan,
   mask,
   unmask,
+  getMask,
   skip,
   copy,
   resize,
