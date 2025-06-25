@@ -3376,14 +3376,31 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
+    let pieceMeta = loadedModule.meta?.({
+      ...parsed,
+      num: $commonApi.num,
+      store: $commonApi.store,
+    }) || inferTitleDesc(originalCode);
+    
+    // Extract title from first line comment if it's a Lisp file and no title exists
+    if (originalCode && (!pieceMeta?.title || pieceMeta.title === parsed.text)) {
+      const isLispSource = originalCode.startsWith("(") || originalCode.startsWith(";");
+      if (isLispSource) {
+        const firstLine = originalCode.split('\n')[0]?.trim();
+        if (firstLine && firstLine.startsWith(';')) {
+          const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
+          if (title) {
+            pieceMeta = { ...pieceMeta, title, standaloneTitle: true };
+            console.log("📝 Using Lisp title from comment:", title);
+          }
+        }
+      }
+    }
+    
     const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
       slug,
-      loadedModule.meta?.({
-        ...parsed,
-        num: $commonApi.num,
-        store: $commonApi.store,
-      }) || inferTitleDesc(originalCode),
+      pieceMeta,
     );
 
     meta = {

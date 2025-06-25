@@ -182,7 +182,7 @@ function inferTitleDesc(source) {
   let title, desc;
   const lines = source.split("\n");
 
-  // Check for JavaScript-style comments
+  // Check for JavaScript-style comments or Lisp comments
   if (lines[0].startsWith("//") || lines[0].startsWith(";")) {
     title = lines[0].split(",")[0].slice(2).trim();
   }
@@ -190,8 +190,11 @@ function inferTitleDesc(source) {
   if (lines[1]?.startsWith("//") || lines[1]?.startsWith(";")) {
     desc = lines[1].slice(2).trim();
   }
-
-  return { title, desc };
+  
+  // If title was extracted from a Lisp comment (starts with ;), mark it as standalone
+  const standaloneTitle = lines[0]?.startsWith(";") && !!title;
+  
+  return { title, desc, standaloneTitle };
 }
 
 // Generates some metadata fields that are shared both on the client and server.
@@ -201,10 +204,18 @@ function metadata(host, slug, pieceMetadata) {
     host.indexOf("sotce") > -1 ||
     host.indexOf("botce") > -1 ||
     host.indexOf("wipppps.world") > -1;
-  const title =
-    (pieceMetadata?.title || slug) +
-      (notAesthetic ? "" : " · Aesthetic Computer") ||
-    (slug !== "prompt" ? slug + " · Aesthetic Computer" : "Aesthetic Computer");
+  
+  // Check if this is a standalone title from Lisp comment (skip " · Aesthetic Computer")
+  const isStandaloneTitle = pieceMetadata?.standaloneTitle === true;
+  
+  let title;
+  if (pieceMetadata?.title) {
+    // Use the piece's custom title, with or without suffix based on standaloneTitle flag
+    title = pieceMetadata.title + (notAesthetic || isStandaloneTitle ? "" : " · Aesthetic Computer");
+  } else {
+    // Fallback to slug-based title
+    title = slug !== "prompt" ? slug + " · Aesthetic Computer" : "Aesthetic Computer";
+  }
   // Use existing or default description.
   const desc = pieceMetadata?.desc || "An Aesthetic Computer piece.";
 
