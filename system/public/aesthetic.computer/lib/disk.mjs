@@ -3193,7 +3193,23 @@ async function load(
       // );
 
       // Note: This is used for live development via the socket server.
-      $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
+      // Preserve current URL parameters during live reload.
+      $commonApi.load(
+        {
+          source,
+          name,
+          codeChannel,
+          path: currentPath,
+          host: currentHost,
+          search: currentSearch,
+          colon: currentColon,
+          params: currentParams,
+          hash: currentHash,
+        },
+        false,
+        false,
+        true
+      ); // Load source code with preserved URL state.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
       // console.log("💾️ Reloading:", piece, "Params:", currentParams);
       // $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
