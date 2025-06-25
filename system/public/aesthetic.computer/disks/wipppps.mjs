@@ -4,32 +4,28 @@
 /* 📝 Notes
  */
 
-let sfx, sfxData, progress, playingSfx, xml;
-export const nohud = true;
+let sfx, sfxData, progress, playingSfx, comp, xml;
 
 export async function boot({ net: { preload }, sound, params }) {
+  /*
   if (params[0] === "zzzZWAP") {
     sfx = await preload(
       "https://assets.aesthetic.computer/wipppps/zzzZWAP.ogg",
     );
   } else if (params[0] === "WHoOSH") {
     sfx = await preload("https://assets.aesthetic.computer/wipppps/WHoOSH.ogg");
-  } else if (params[0] === "BLURP") {
+  } else if (params[0] === "BLURP" || true) {
     sfx = await preload("https://assets.aesthetic.computer/wipppps/BLURP.ogg");
     xml = await preload("https://assets.aesthetic.computer/wipppps/BLURP");
     console.log("🔴 XML:", xml);
-  } else {
-    sfx = await preload("startup");
   }
-
   sound.getSampleData(sfx).then((data) => {
     sfxData = data;
     // console.log("🔴 Sample Data:", sfxData);
   });
-
+  */
 }
 
-let comp;
 
 export function paint({
   api,
@@ -57,6 +53,7 @@ export function paint({
   //   x += 1;
   // });
 
+  /*
   const startY = 0;
 
   sound.paint.bars(
@@ -130,22 +127,31 @@ export function paint({
     const progressX = num.clamp(fromX + progress * (toX - fromX), fromX, toX);
     ink("red").line(progressX, 0, progressX, screen.height);
   }
+  */
 }
 
 export function sim({ sound }) {
+  /*
   sound.speaker?.poll();
   playingSfx?.progress().then((p) => {
     progress = p.progress;
     // console.log("📏 Progress:", progress);
   }); // Get progress data.
+  */
 }
-
-// 📚 Library
 
 export function act({ event: e, sound }) {
   // Respond to user input here.
-  if (e.is("touch")) playingSfx = sound.play(sfx, { speed: 1 });
+  // if (e.is("touch")) playingSfx = sound.play(sfx, { speed: 1 });
 }
+
+export function meta() {
+  return {
+    title: "wipppps by @oskie"
+  };
+}
+
+export const nohud = true;
 
 // function beat() {
 //   // Runs once per system metronome (BPM) tick.
