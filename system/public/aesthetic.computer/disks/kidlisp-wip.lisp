@@ -6,7 +6,7 @@
 
 ; 🪧 Title Screen
 (if (= slide 0) (label) (wipe black) (ink white)
- (write "3 kidlisp tests" center center))
+ (write "'3 kidlisp tests'" center center))
 
 ; 🏡 Stripes, 25.06.20.08.33
 (if (= slide 1)
