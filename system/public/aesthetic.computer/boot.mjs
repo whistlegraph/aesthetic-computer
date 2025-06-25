@@ -117,7 +117,7 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 
 // Parse the query string to detect both ?nogap and ?nolabel parameters
 const params = new URLSearchParams(location.search);
-const nogap = params.has("nogap") || location.search.includes("nogap");
+const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 
 // Pass the parameters directly without stripping them
