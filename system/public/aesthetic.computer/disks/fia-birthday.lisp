@@ -1,4 +1,4 @@
-; Fía's Birthday
+; Fía's Birthday · July 5th
 ; fia-birthday, 2025.6.25.0.272
 
 (label)
