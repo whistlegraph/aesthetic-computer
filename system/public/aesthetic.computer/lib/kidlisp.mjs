@@ -110,7 +110,7 @@
 #endregion */
 
 const VERBOSE = false;
-const PERF_LOG = false; // Enable performance logging
+const PERF_LOG = true; // Enable performance logging
 const { floor, max } = Math;
 import { cssColors } from "./num.mjs";
 
@@ -1317,43 +1317,49 @@ class KidLisp {
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
         const content = unquoteString(args[0]?.toString() || "");
-        const x = args[1];
+        let x = args[1];
         const y = args[2];
+        
+        // Process x argument to handle quoted strings
+        if (typeof x === "string" && x.startsWith('"') && x.endsWith('"')) {
+          x = unquoteString(x);
+        }
         
         // Only process background if it's not undefined - no should pass undefined for transparent bg
         const bg = args[3] !== undefined ? processArgStringTypes(args[3]) : undefined;
         
         const size = args[4]; // 5th parameter for scale/size
+        const bounds = args[5]; // 6th parameter for text bounds/wrapping
 
         // Build options object if we have additional parameters
         const options = {};
         if (bg !== undefined) {
           options.bg = bg;
         }
+        if (bounds !== undefined) {
+          options.bounds = bounds;
+        }
 
-        // Build position object with size if provided
-        const pos = { x, y };
+        // Check if x position is "center" keyword - convert to center property in pos
+        const useCenter = x === "center";
+        
+        // Build position object
+        const pos = { y };
+        if (useCenter) {
+          pos.center = "x";  // Put center in position object, not options
+          pos.x = undefined; // Explicitly set x to undefined for centering
+        } else if (x !== undefined) {
+          pos.x = x;
+        }
         if (size !== undefined) {
           pos.size = size;
         }
 
-        // Call write with proper parameters
-        if (x !== undefined && y !== undefined) {
-          // Only pass options if we actually have options to pass
-          if (Object.keys(options).length > 0) {
-            // We have background or other options
-            api.write(content, pos, options);
-          } else {
-            // No background or options, call with just text and position (size is already in pos)
-            api.write(content, pos);
-          }
+        // Use options-based call if we have options, otherwise simple position call
+        if (Object.keys(options).length > 0) {
+          api.write(content, pos, options);
         } else {
-          // Fallback path - handle undefined background consistently
-          if (bg !== undefined) {
-            api.write(content, { x, y }, bg);
-          } else {
-            api.write(content, { x, y });
-          }
+          api.write(content, pos);
         }
       },
       len: (api, args = []) => {
@@ -1422,6 +1428,73 @@ class KidLisp {
           perfStart("repeat-with-iterator");
           const iteratorVar = args[1];
           const expressions = args.slice(2);
+
+          // Fast path optimization: Check if this is a simple drawing pattern
+          // like: (repeat count i (ink ...) (box ...))
+          if (expressions.length === 2 && 
+              Array.isArray(expressions[0]) && expressions[0][0] === "ink" &&
+              Array.isArray(expressions[1]) && expressions[1][0] === "box") {
+            
+            perfStart("fast-draw-loop");
+            // Optimized fast path for ink+box patterns
+            const inkExpr = expressions[0];
+            const boxExpr = expressions[1];
+            
+            // Check if ink expression is (ink (... palette)) pattern
+            let paletteColors = null;
+            let sequenceKey = null;
+            if (inkExpr.length === 2 && Array.isArray(inkExpr[1]) && inkExpr[1][0] === "...") {
+              paletteColors = inkExpr[1].slice(1); // Extract palette colors
+              sequenceKey = JSON.stringify(paletteColors);
+              
+              // Initialize sequence counter if needed
+              if (!this.sequenceCounters) {
+                this.sequenceCounters = new Map();
+              }
+              if (!this.sequenceCounters.has(sequenceKey)) {
+                this.sequenceCounters.set(sequenceKey, 0);
+              }
+            }
+            
+            // Pre-evaluate box arguments once
+            const boxArgs = boxExpr.slice(1);
+            const prevLocalEnv = this.localEnv;
+            
+            // Set up minimal environment
+            this.localEnvLevel += 1;
+            if (!this.localEnvStore[this.localEnvLevel]) {
+              this.localEnvStore[this.localEnvLevel] = { ...this.localEnv, ...env };
+            }
+            const loopEnv = this.localEnvStore[this.localEnvLevel];
+            Object.assign(loopEnv, this.localEnv, env);
+            this.localEnv = loopEnv;
+
+            for (let i = 0; i < count; i++) {
+              loopEnv[iteratorVar] = i;
+              
+              // Super fast ink evaluation for palette patterns
+              if (paletteColors) {
+                const currentIndex = this.sequenceCounters.get(sequenceKey);
+                const nextIndex = (currentIndex + 1) % paletteColors.length;
+                this.sequenceCounters.set(sequenceKey, nextIndex);
+                const color = paletteColors[currentIndex];
+                api.ink(color); // Direct API call, bypass interpreter
+              } else {
+                // Fallback to regular evaluation for other ink expressions
+                this.evaluate(inkExpr, api, this.localEnv);
+              }
+              
+              // Fast box evaluation with pre-computed arguments
+              const evaluatedBoxArgs = boxArgs.map(arg => this.evaluate(arg, api, this.localEnv));
+              api.box(...evaluatedBoxArgs);
+            }
+            
+            this.localEnvLevel -= 1;
+            this.localEnv = prevLocalEnv;
+            perfEnd("fast-draw-loop");
+            perfEnd("repeat-with-iterator");
+            return result;
+          }
 
           // Standard loop - set up proper environment with iterator variable
           const baseEnv = { ...this.localEnv, ...env };
