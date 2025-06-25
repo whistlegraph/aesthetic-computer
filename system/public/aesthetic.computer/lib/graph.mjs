@@ -615,13 +615,13 @@ function resize(bitmap, width, height) {
   return { pixels, width, height };
 }
 
-// Apply a blur effect to the current pixel buffer using smooth weighted blur
-// radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
+// Apply a blur effect to the current pixel buffer using fast nearest neighbor sampling
+// radius: The blur radius (integer values work best for this approach)
 function blur(radius = 1) {
   if (radius <= 0) return;
 
   // Clamp radius to reasonable values for performance
-  radius = Math.min(radius, 20);
+  radius = Math.min(Math.floor(radius), 10);
 
   // Determine the area to blur (mask or full screen)
   let minX = 0,
@@ -629,7 +629,6 @@ function blur(radius = 1) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Don't apply pan translation to mask bounds - mask is already set at current pan position
     minX = Math.max(0, Math.min(width, activeMask.x));
     maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
     minY = Math.max(0, Math.min(height, activeMask.y));
@@ -645,110 +644,59 @@ function blur(radius = 1) {
   // Create a copy of the current pixels to read from
   const sourcePixels = new Uint8ClampedArray(pixels);
 
-  // Apply horizontal blur pass (only within mask bounds)
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
-        a = 0;
-      let totalWeight = 0;
-
-      // Always sample at least immediate neighbors for visible blur effect
-      const sampleRadius = Math.max(1, Math.ceil(radius));
-
-      for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const distance = Math.abs(i);
-        // Calculate weight using a smoother function that works well for fractional values
-        let weight;
-        if (distance === 0) {
-          // Center pixel gets base weight
-          weight = 1.0;
-        } else {
-          // Neighbors get weight based on radius
-          // For radius < 1, this gives fractional weights to immediate neighbors
-          // For radius >= 1, this gives decreasing weights with distance
-          weight = Math.max(0, radius - distance + 1) * radius;
-        }
-
-        // Clamp sampling to mask bounds for proper edge handling
-        const sampleX = Math.max(minX, Math.min(maxX - 1, x + i));
-        const index = (y * width + sampleX) * 4;
-
-        r += sourcePixels[index] * weight;
-        g += sourcePixels[index + 1] * weight;
-        b += sourcePixels[index + 2] * weight;
-        a += sourcePixels[index + 3] * weight;
-        totalWeight += weight;
-      }
-
-      // Write weighted average back to main buffer
-      const index = (y * width + x) * 4;
-      if (totalWeight > 0) {
-        pixels[index] = r / totalWeight;
-        pixels[index + 1] = g / totalWeight;
-        pixels[index + 2] = b / totalWeight;
-        pixels[index + 3] = a / totalWeight;
-      }
-    }
+  // Pre-calculate sample offsets for the radius to avoid repeated calculations
+  const samples = Math.min(radius + 1, 5); // Limit samples for performance
+  const offsets = [];
+  const step = radius / samples;
+  
+  // Generate deterministic offsets in a pattern for consistency
+  for (let i = 0; i < samples; i++) {
+    const angle = (i / samples) * Math.PI * 2;
+    const distance = step * (i + 1);
+    offsets.push({
+      x: Math.round(Math.cos(angle) * distance),
+      y: Math.round(Math.sin(angle) * distance)
+    });
   }
 
-  // Copy result for vertical pass (only the working area)
+  // Fast blur using pre-calculated offsets and 32-bit operations
+  const sourceData = new Uint32Array(sourcePixels.buffer);
+  const destData = new Uint32Array(pixels.buffer);
+  
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      const index = (y * width + x) * 4;
-      sourcePixels[index] = pixels[index];
-      sourcePixels[index + 1] = pixels[index + 1];
-      sourcePixels[index + 2] = pixels[index + 2];
-      sourcePixels[index + 3] = pixels[index + 3];
-    }
-  }
-
-  // Apply vertical blur pass (only within mask bounds)
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
-        a = 0;
-      let totalWeight = 0;
-
-      // Always sample at least immediate neighbors for visible blur effect
-      const sampleRadius = Math.max(1, Math.ceil(radius));
-
-      for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const distance = Math.abs(i);
-        // Calculate weight using a smoother function that works well for fractional values
-        let weight;
-        if (distance === 0) {
-          // Center pixel gets base weight
-          weight = 1.0;
-        } else {
-          // Neighbors get weight based on radius
-          // For radius < 1, this gives fractional weights to immediate neighbors
-          // For radius >= 1, this gives decreasing weights with distance
-          weight = Math.max(0, radius - distance + 1) * radius;
-        }
-
-        // Clamp sampling to mask bounds for proper edge handling
-        const sampleY = Math.max(minY, Math.min(maxY - 1, y + i));
-        const index = (sampleY * width + x) * 4;
-
-        r += sourcePixels[index] * weight;
-        g += sourcePixels[index + 1] * weight;
-        b += sourcePixels[index + 2] * weight;
-        a += sourcePixels[index + 3] * weight;
-        totalWeight += weight;
+      let r = 0, g = 0, b = 0, a = 0;
+      
+      // Sample center pixel
+      const centerIndex = y * width + x;
+      const centerPixel = sourceData[centerIndex];
+      r += centerPixel & 0xFF;
+      g += (centerPixel >> 8) & 0xFF;
+      b += (centerPixel >> 16) & 0xFF;
+      a += (centerPixel >> 24) & 0xFF;
+      
+      // Sample offset pixels
+      for (let i = 0; i < samples; i++) {
+        const sampleX = Math.max(minX, Math.min(maxX - 1, x + offsets[i].x));
+        const sampleY = Math.max(minY, Math.min(maxY - 1, y + offsets[i].y));
+        
+        const sampleIndex = sampleY * width + sampleX;
+        const samplePixel = sourceData[sampleIndex];
+        
+        r += samplePixel & 0xFF;
+        g += (samplePixel >> 8) & 0xFF;
+        b += (samplePixel >> 16) & 0xFF;
+        a += (samplePixel >> 24) & 0xFF;
       }
 
-      // Write weighted average back to main buffer
-      const index = (y * width + x) * 4;
-      if (totalWeight > 0) {
-        pixels[index] = r / totalWeight;
-        pixels[index + 1] = g / totalWeight;
-        pixels[index + 2] = b / totalWeight;
-        pixels[index + 3] = a / totalWeight;
-      }
+      // Average and pack back into 32-bit value
+      const totalSamples = samples + 1;
+      const avgR = (r / totalSamples) | 0;
+      const avgG = (g / totalSamples) | 0;
+      const avgB = (b / totalSamples) | 0;
+      const avgA = (a / totalSamples) | 0;
+      
+      destData[centerIndex] = avgR | (avgG << 8) | (avgB << 16) | (avgA << 24);
     }
   }
 }
