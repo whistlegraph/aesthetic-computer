@@ -559,6 +559,9 @@ class KidLisp {
         // return false;
       },
       sim: ({ sound }) => {
+        // Poll speaker for audio amplitude data (like clock.mjs does)
+        sound.speaker?.poll();
+        
         // Make sure we have microphone reference (could come from sound parameter)
         if (!this.microphoneApi && sound?.microphone) {
           this.microphoneApi = sound.microphone;
@@ -1304,6 +1307,7 @@ class KidLisp {
         const x = args[1];
         const y = args[2];
         const bg = args[3] ? processArgStringTypes(args[3]) : undefined;
+        const size = args[4]; // 5th parameter for scale/size
 
         // Build options object if we have additional parameters
         const options = {};
@@ -1311,9 +1315,15 @@ class KidLisp {
           options.bg = bg;
         }
 
+        // Build position object with size if provided
+        const pos = { x, y };
+        if (size !== undefined) {
+          pos.size = size;
+        }
+
         // Call write with proper parameters
         if (x !== undefined && y !== undefined) {
-          api.write(content, x, y, options);
+          api.write(content, pos, options);
         } else {
           api.write(content, { x, y }, bg);
         }
@@ -1550,6 +1560,21 @@ class KidLisp {
 
         // If not connected yet, return 0 (connection is handled in boot)
         return 0;
+      },
+      // 🔊 Real-time audio amplitude from speakers/system audio
+      amplitude: (api, args = []) => {
+        let amplitudeValue = 0;
+        
+        // Access speaker amplitude from the sound API like clock.mjs does
+        if (api.sound?.speaker?.amplitudes?.left !== undefined) {
+          amplitudeValue = api.sound.speaker.amplitudes.left;
+        }
+        // Fallback: check for right channel if left is not available
+        else if (api.sound?.speaker?.amplitudes?.right !== undefined) {
+          amplitudeValue = api.sound.speaker.amplitudes.right;
+        }
+        
+        return amplitudeValue;
       },
       // 🎵 Melody - plays a sequence of notes in a loop
       melody: (api, args = []) => {
