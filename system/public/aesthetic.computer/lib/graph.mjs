@@ -2160,20 +2160,66 @@ function grid(
                   }
                 }
               } else {
-                // Rotation path - preserve existing pixel-by-pixel approach for accuracy
-                for (let dy = 0; dy < pixelHeight; dy += 1) {
-                  for (let dx = 0; dx < pixelWidth; dx += 1) {
-                    const px = destStartX + dx;
-                    const py = destStartY + dy;
-
-                    // Rotate around center
-                    const relX = px - centerX;
-                    const relY = py - centerY;
-                    const rotX = relX * cosValue - relY * sinValue + centerX;
-                    const rotY = relX * sinValue + relY * cosValue + centerY;
-
-                    plot(~~rotX, ~~rotY); // Fast floor conversion
+                // Optimized rotation path using incremental transformations
+                // Calculate rotated bounding box for this pixel block
+                const blockCorners = [
+                  [destStartX, destStartY],
+                  [destStartX + pixelWidth, destStartY],
+                  [destStartX, destStartY + pixelHeight],
+                  [destStartX + pixelWidth, destStartY + pixelHeight],
+                ];
+                
+                let blockMinX = width, blockMaxX = 0, blockMinY = height, blockMaxY = 0;
+                blockCorners.forEach(([px, py]) => {
+                  const dx = px - centerX;
+                  const dy = py - centerY;
+                  const rotX = dx * cosValue - dy * sinValue + centerX;
+                  const rotY = dx * sinValue + dy * cosValue + centerY;
+                  blockMinX = Math.min(blockMinX, Math.floor(rotX));
+                  blockMaxX = Math.max(blockMaxX, Math.ceil(rotX));
+                  blockMinY = Math.min(blockMinY, Math.floor(rotY));
+                  blockMaxY = Math.max(blockMaxY, Math.ceil(rotY));
+                });
+                
+                // Pre-calculate pixel block bounds for faster checking
+                const srcMinX = destStartX - x;
+                const srcMaxX = srcMinX + pixelWidth;
+                const srcMinY = destStartY - y;
+                const srcMaxY = srcMinY + pixelHeight;
+                
+                // Use incremental transformation for better performance
+                const startDx = blockMinX - centerX;
+                const startDy = blockMinY - centerY;
+                
+                // Calculate starting source coordinates for the scan line
+                let baseSrcX = startDx * cosValue + startDy * sinValue + centerX - x;
+                let baseSrcY = -startDx * sinValue + startDy * cosValue + centerY - y;
+                
+                // Incremental deltas for moving one pixel right and down
+                const deltaXRight = cosValue;
+                const deltaYRight = -sinValue;
+                const deltaXDown = sinValue;
+                const deltaYDown = cosValue;
+                
+                // Scan through the bounding box with incremental transforms
+                for (let destY = blockMinY; destY <= blockMaxY; destY++) {
+                  let srcX = baseSrcX;
+                  let srcY = baseSrcY;
+                  
+                  for (let destX = blockMinX; destX <= blockMaxX; destX++) {
+                    // Fast bounds check using pre-calculated values
+                    if (srcX >= srcMinX && srcX < srcMaxX && srcY >= srcMinY && srcY < srcMaxY) {
+                      plot(destX, destY);
+                    }
+                    
+                    // Increment to next pixel position
+                    srcX += deltaXRight;
+                    srcY += deltaYRight;
                   }
+                  
+                  // Move to next scan line
+                  baseSrcX += deltaXDown;
+                  baseSrcY += deltaYDown;
                 }
               }
             }
