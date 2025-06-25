@@ -3391,7 +3391,6 @@ async function load(
           const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
           if (title) {
             pieceMeta = { ...pieceMeta, title, standaloneTitle: true };
-            console.log("📝 Using Lisp title from comment:", title);
           }
         }
       }

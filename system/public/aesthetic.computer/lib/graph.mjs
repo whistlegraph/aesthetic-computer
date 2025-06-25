@@ -620,8 +620,8 @@ function resize(bitmap, width, height) {
 function blur(radius = 1) {
   if (radius <= 0) return;
 
-  // Clamp radius to reasonable values for performance
-  radius = Math.min(Math.floor(radius), 10);
+  // Clamp radius to reasonable values for performance, but allow higher values
+  radius = Math.min(Math.floor(radius), 50);
 
   // Determine the area to blur (mask or full screen)
   let minX = 0,
@@ -645,7 +645,8 @@ function blur(radius = 1) {
   const sourcePixels = new Uint8ClampedArray(pixels);
 
   // Pre-calculate sample offsets for the radius to avoid repeated calculations
-  const samples = Math.min(radius + 1, 5); // Limit samples for performance
+  // Scale samples with radius but cap for performance
+  const samples = Math.min(Math.max(radius + 1, 5), 20);
   const offsets = [];
   const step = radius / samples;
   

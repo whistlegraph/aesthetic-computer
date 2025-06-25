@@ -301,6 +301,7 @@ class KidLisp {
     this.drawer = null;
     this.frameCount = 0; // Frame counter for timing functions
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
+    this.instantTriggersExecuted = {}; // Track which instant triggers have already fired
 
     // Microphone state tracking
     this.microphoneConnected = false;
@@ -1352,6 +1353,33 @@ class KidLisp {
         // console.log(args);
         api.box(...args);
       },
+      shape: (api, args = []) => {
+        // Handle shape arguments - can be flat array of coordinates or array of pairs
+        if (args.length === 0) return;
+        
+        // Check if last argument is a string indicating filled/outline
+        let filled = true;
+        let thickness = 1;
+        let points = args;
+        
+        const lastArg = args[args.length - 1];
+        if (typeof lastArg === "string") {
+          const fillMode = unquoteString(lastArg);
+          if (fillMode === "outline" || fillMode === "unfilled" || fillMode === "false") {
+            filled = false;
+            points = args.slice(0, -1); // Remove the fill mode from points
+          }
+          // Check for thickness specification like "outline:3"
+          if (fillMode.startsWith("outline:")) {
+            filled = false;
+            thickness = parseInt(fillMode.split(":")[1]) || 1;
+            points = args.slice(0, -1);
+          }
+        }
+        
+        // Pass the arguments to the API shape function
+        api.shape({ points, filled, thickness });
+      },
       scroll: (api, args = []) => {
         api.scroll(...args);
       },
@@ -1942,6 +1970,10 @@ class KidLisp {
         
         return melodyString;
       },
+      // 🔊 Speaker - returns whether sound is enabled
+      speaker: (api) => {
+        return api.sound?.enabled?.() || false;
+      },
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
         acc[colorName] = () => cssColors[colorName];
@@ -2151,9 +2183,12 @@ class KidLisp {
             result = timingResult;
           }
           continue; // Skip normal function processing
-        } else if (typeof head === "string" && /^\d*\.?\d+s$/.test(head)) {
+        } else if (typeof head === "string" && /^\d*\.?\d+s!?$/.test(head)) {
           // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
-          const seconds = parseFloat(head.slice(0, -1)); // Remove 's' and parse as float
+          // Also handle instant trigger modifier like "0.25s!", "1s!", "2s!"
+          const hasInstantTrigger = head.endsWith('!');
+          const timeString = hasInstantTrigger ? head.slice(0, -1) : head;
+          const seconds = parseFloat(timeString.slice(0, -1)); // Remove 's' and parse as float
 
           if (seconds === 0) {
             // 0s = every frame (no timing restriction)
@@ -2177,23 +2212,37 @@ class KidLisp {
 
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-              this.lastSecondExecutions[timingKey] = currentTime;
-              continue; // Skip first execution to establish baseline
-            }
-
-            const lastExecution = this.lastSecondExecutions[timingKey];
-            const diff = currentTime - lastExecution;
-
-            // Check if enough time has passed since last execution
-            if (diff >= seconds) {
-              this.lastSecondExecutions[timingKey] = currentTime;
-
-              // Execute the timing arguments with proper context
-              let timingResult;
-              for (const arg of args) {
-                timingResult = this.evaluate([arg], api, env);
+              // If has instant trigger (!) and hasn't been executed yet, execute immediately
+              if (hasInstantTrigger && !this.instantTriggersExecuted[timingKey]) {
+                this.instantTriggersExecuted[timingKey] = true;
+                // Set baseline time for future intervals
+                this.lastSecondExecutions[timingKey] = currentTime;
+                
+                let timingResult;
+                for (const arg of args) {
+                  timingResult = this.evaluate([arg], api, env);
+                }
+                result = timingResult;
+              } else {
+                // Normal first-time setup - establish baseline without executing
+                this.lastSecondExecutions[timingKey] = currentTime;
               }
-              result = timingResult;
+            } else {
+              // Normal timing logic for subsequent calls
+              const lastExecution = this.lastSecondExecutions[timingKey];
+              const diff = currentTime - lastExecution;
+
+              // Check if enough time has passed since last execution
+              if (diff >= seconds) {
+                this.lastSecondExecutions[timingKey] = currentTime;
+
+                // Execute the timing arguments with proper context
+                let timingResult;
+                for (const arg of args) {
+                  timingResult = this.evaluate([arg], api, env);
+                }
+                result = timingResult;
+              }
             }
           }
           continue; // Skip normal function processing
