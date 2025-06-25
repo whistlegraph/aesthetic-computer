@@ -98,8 +98,10 @@ fish_add_path ~/.ops/bin
 
 # Assume the daemon is running when entering emacs.
 
-# For fast config reloading.
-alias platform "emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el; emacsclient -nw -c --eval '(aesthetic-backend (quote \"status\"))'; emacsclient -e \"(kill-emacs)\""
+# For fast config reloading - simple approach
+function platform
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
+end
 
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
@@ -111,7 +113,18 @@ function aesthetic
         clear
     end
     sudo rm /home/me/.waiter
-    platform
+    
+    # Start emacs daemon if not running
+    if not pgrep -f "emacs.*daemon" >/dev/null
+        echo "Starting emacs daemon..."
+        emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el
+        while not emacsclient -e t >/dev/null 2>&1
+            sleep 1
+        end
+    end
+    
+    # Connect to emacs with aesthetic-backend
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
 end
 
 # TODO: Automatically kill online mode and go to offline mode if necessary.

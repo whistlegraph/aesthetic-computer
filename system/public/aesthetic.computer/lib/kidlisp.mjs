@@ -243,6 +243,9 @@ function readExpression(tokens) {
 function atom(token) {
   if (token[0] === '"' && token[token.length - 1] === '"') {
     return token; // Return string with quotes intact for later processing
+  } else if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
+    // Preserve tokens like "1s...", "2s...", "1.5s..." as strings for timed iteration
+    return token;
   } else if (/^\d*\.?\d+s$/.test(token)) {
     // Preserve tokens like "1s", "2s", "10s", "1.5s", "0.3s" as strings for timing
     return token;
@@ -255,6 +258,10 @@ function atom(token) {
 
 function processArgStringTypes(args) {
   if (!Array.isArray(args)) {
+    // Don't convert undefined to string - preserve it as undefined
+    if (args === undefined) {
+      return undefined;
+    }
     return args?.toString();
   }
   return args.map((arg) => {
@@ -918,6 +925,9 @@ class KidLisp {
 
   // Create global environment (cached for performance)
   getGlobalEnv() {
+    // Force cache refresh for debugging - remove this line later
+    this.globalEnvCache = null;
+    
     if (this.globalEnvCache) {
       return this.globalEnvCache;
     }
@@ -1246,6 +1256,9 @@ class KidLisp {
       resetSpin: (api, args = []) => {
         api.resetSpin();
       },
+      smoothspin: (api, args = []) => {
+        api.smoothSpin(...args);
+      },
       sort: (api, args = []) => {
         api.sort(...args);
       },
@@ -1306,7 +1319,10 @@ class KidLisp {
         const content = unquoteString(args[0]?.toString() || "");
         const x = args[1];
         const y = args[2];
-        const bg = args[3] ? processArgStringTypes(args[3]) : undefined;
+        
+        // Only process background if it's not undefined - no should pass undefined for transparent bg
+        const bg = args[3] !== undefined ? processArgStringTypes(args[3]) : undefined;
+        
         const size = args[4]; // 5th parameter for scale/size
 
         // Build options object if we have additional parameters
@@ -1323,9 +1339,21 @@ class KidLisp {
 
         // Call write with proper parameters
         if (x !== undefined && y !== undefined) {
-          api.write(content, pos, options);
+          // Only pass options if we actually have options to pass
+          if (Object.keys(options).length > 0) {
+            // We have background or other options
+            api.write(content, pos, options);
+          } else {
+            // No background or options, call with just text and position (size is already in pos)
+            api.write(content, pos);
+          }
         } else {
-          api.write(content, { x, y }, bg);
+          // Fallback path - handle undefined background consistently
+          if (bg !== undefined) {
+            api.write(content, { x, y }, bg);
+          } else {
+            api.write(content, { x, y });
+          }
         }
       },
       len: (api, args = []) => {
@@ -1535,8 +1563,8 @@ class KidLisp {
       },
       // 🚫 Disable wrapper - ignores wrapped expressions
       no: (api, args = []) => {
-        // Simply return undefined without evaluating the wrapped expression
-        // This effectively disables/comments out the expression
+        // Always return JavaScript undefined, regardless of arguments
+        // This effectively disables/comments out the expression and passes undefined to callers
         return undefined;
       },
       // 🎤 Microphone
@@ -1666,8 +1694,10 @@ class KidLisp {
       const globalEnv = this.getGlobalEnv();
       value = globalEnv[expr];
       if (typeof value === "function") {
-        value = value(api);
+        value = value(api, []); // Pass empty args array for functions called as variables
+        return value; // Return the function result directly, even if it's undefined
       }
+      
       const result = value !== undefined ? value : expr;
       return result;
     }
@@ -1887,6 +1917,50 @@ class KidLisp {
             }
           }
           continue; // Skip normal function processing
+        } else if (typeof head === "string" && /^\d*\.?\d+s\.\.\.?$/.test(head)) {
+          // Handle timed iteration like "1s...", "2s...", "1.5s..."
+          const seconds = parseFloat(head.slice(0, head.indexOf('s'))); // Extract seconds part
+
+          const clockResult = this.evaluate("clock", api, env);
+          if (clockResult) {
+            const currentTimeMs = clockResult.getTime
+              ? clockResult.getTime()
+              : Date.now();
+            const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
+
+            // Create a unique key for this timed iteration expression
+            const timingKey = `${head}_${JSON.stringify(args)}`;
+
+            // Initialize timing tracking if not set
+            if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
+              this.lastSecondExecutions[timingKey] = currentTime;
+              // Initialize sequence counter for this timed iteration
+              if (!this.sequenceCounters) {
+                this.sequenceCounters = new Map();
+              }
+              this.sequenceCounters.set(timingKey, 0);
+            }
+
+            const lastExecution = this.lastSecondExecutions[timingKey];
+            const diff = currentTime - lastExecution;
+
+            // Check if enough time has passed to advance to next item
+            if (diff >= seconds) {
+              this.lastSecondExecutions[timingKey] = currentTime;
+              
+              // Advance the sequence counter
+              const currentIndex = this.sequenceCounters.get(timingKey) || 0;
+              const nextIndex = (currentIndex + 1) % args.length;
+              this.sequenceCounters.set(timingKey, nextIndex);
+            }
+
+            // Always return the current item (not just when advancing)
+            if (args.length > 0) {
+              const currentIndex = this.sequenceCounters.get(timingKey) || 0;
+              result = args[currentIndex];
+            }
+          }
+          continue; // Skip normal function processing
         }
 
         // const colon = head.split(":")[1]; // TODO: Take into account colon param / work it in.
@@ -1921,6 +1995,7 @@ class KidLisp {
         // Special handling for ... function name to avoid dot splitting
         if (head === "..." || head === "..") {
           // Don't split these special function names
+
           colon = head.includes(":") ? head.split(":")[1] : null;
           head = head.split(":")[0];
         } else {

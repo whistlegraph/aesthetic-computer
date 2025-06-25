@@ -33,7 +33,7 @@
 (setq scroll-step 1)
 
 (global-auto-revert-mode 1) ;; Always keep buffers up to date with disk.
-(setq auto-revert-interval 2) ;; Check every 2 seconds instead of default 5
+(setq auto-revert-interval 5) ;; Use default 5 seconds to prevent excessive polling
 
 ;;(setq display-buffer-alist
 ;;      '((".*" . (display-buffer-reuse-window display-buffer-below-selected))))
@@ -68,12 +68,13 @@
     (when auto-save-throttle-timer
       (cancel-timer auto-save-throttle-timer))
     (setq auto-save-throttle-timer
-          (run-with-timer 1 nil #'auto-save-buffer)))
+          (run-with-timer 3 nil #'auto-save-buffer))) ;; Increased delay to 3 seconds
   
-  (add-hook 'window-configuration-change-hook
-	    (lambda ()
-	      (unless (minibuffer-window-active-p (minibuffer-window))
-		(throttled-auto-save))))
+  ;; Disable window-configuration-change-hook to prevent auto-save loops
+  ;; (add-hook 'window-configuration-change-hook
+  ;;         (lambda ()
+  ;;           (unless (minibuffer-window-active-p (minibuffer-window))
+  ;;             (throttled-auto-save))))
   (add-hook 'focus-out-hook 'auto-save-buffer))
 
 (custom-set-faces
@@ -550,17 +551,21 @@
   (interactive)
   ;; Remove message to avoid *Messages* buffer updates
   (apply original-fun args)
-  ;; Throttle window walking to prevent excessive CPU usage
-  (run-with-idle-timer 0.1 nil
+  ;; Increased throttle and limit to current tab only to prevent excessive CPU usage
+  (run-with-idle-timer 0.5 nil
     (lambda ()
-      (walk-windows (lambda (window)
-                      (with-current-buffer (window-buffer window)
-                        (when (eq major-mode 'eat-mode)
-                          (end-of-buffer)
-                          (evil-insert-state))))
-                   nil 'visible))))
+      ;; Only process windows in the current tab, not all visible windows
+      (let ((current-tab-windows (window-list nil 'never (selected-frame))))
+        (dolist (window current-tab-windows)
+          (with-current-buffer (window-buffer window)
+            (when (eq major-mode 'eat-mode)
+              (with-selected-window window
+                (end-of-buffer)
+                (evil-insert-state)))))))))
 
-(advice-add 'tab-bar-select-tab :around #'eat-tab-change)
+;; Only apply advice if eat is actually loaded to prevent issues
+(with-eval-after-load 'eat
+  (advice-add 'tab-bar-select-tab :around #'eat-tab-change))
 
 (defun kill-eat-processes ()
   "Kill processes associated with eat terminal buffers."
