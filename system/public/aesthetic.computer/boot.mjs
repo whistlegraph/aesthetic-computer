@@ -16,7 +16,7 @@ function cleanUrlParams(url, params) {
   history.pushState(
     {},
     "",
-    url.pathname + (queryString ? "?" + queryString : "")
+    url.pathname + (queryString ? "?" + queryString : ""),
   );
 }
 
@@ -40,7 +40,9 @@ function cleanUrlParams(url, params) {
 
 {
   const params = new URLSearchParams(window.location.search);
-  const vscode = params.get("vscode") === "true" || localStorage.getItem("vscode") === "true";
+  const vscode =
+    params.get("vscode") === "true" ||
+    localStorage.getItem("vscode") === "true";
 
   if (vscode) {
     params.delete("vscode");
@@ -95,9 +97,21 @@ if (window.acDEBUG) window.acLAN_HOST = document.body.dataset.lanHost;
 if (location.hostname === "m2w2.whistlegraph.com")
   window.acSTARTING_PIECE = "wg~m2w2";
 if (location.hostname === "botce.ac") window.acSTARTING_PIECE = "botce";
+if (
+  location.hostname === "wipppps.world" ||
+  location.hostname === "www.wipppps.world"
+) {
+  window.acSTARTING_PIECE = "wipppps";
+}
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 const parsed = parse(slug(location.href) || window.acSTARTING_PIECE);
+
+// Preserve the original search parameters that were stripped by slug()
+if (location.search) {
+  parsed.search = location.search;
+}
+
 const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Wait for fonts to load before booting.
 
