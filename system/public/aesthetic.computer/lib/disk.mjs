@@ -1972,6 +1972,7 @@ const $paintApi = {
       bg,
       bounds,
       wordWrap = true;
+    
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
 
@@ -2522,6 +2523,7 @@ const $paintApiUnwrapped = {
   skip: graph.skip,
   scroll: graph.scroll,
   spin: graph.spin,
+  smoothSpin: graph.smoothSpin,
   sort: graph.sort,
   zoom: graph.zoom,
   blur: graph.blur,
