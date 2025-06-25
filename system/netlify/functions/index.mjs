@@ -71,7 +71,6 @@ async function fun(event, context) {
   }
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
-  console.log("🎯 Parsed object:", JSON.stringify(parsed, null, 2));
 
   // Get local IP.
   let lanHost;
@@ -153,12 +152,10 @@ async function fun(event, context) {
       //   console.log("Failed to load handled piece:", err);
       // }
     } else {
-      console.log("🏠 Taking locally hosted piece path");
       // Locally hosted piece.
       try {
         let path = parsed.path.replace("aesthetic.computer/disks/", "");
         if (path.startsWith("@")) path = "profile";
-        console.log("🛤️ Parsed path:", parsed.path, "➡️ Processed path:", path);
 
         // Handle special kidlisp path case
         if (path === "(...)" || path === "(...)") {
@@ -168,17 +165,12 @@ async function fun(event, context) {
         } else {
           try {
             const basePath = `${dev ? "./" : "/var/task/system/"}public/aesthetic.computer/disks/${path}`;
-            console.log("🗂️ Trying to load from basePath:", basePath);
             try {
-              console.log("📄 Attempting to read .mjs file:", `${basePath}.mjs`);
               sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
-              console.log("✅ Successfully loaded .mjs file");
             } catch (errJavaScript) {
-              console.log("❌ .mjs file not found, trying .lisp:", `${basePath}.lisp`);
               try {
                 sourceCode = await fs.readFile(`${basePath}.lisp`, "utf8");
                 language = "lisp";
-                console.log("✅ Successfully loaded .lisp file, language set to:", language);
               } catch (errLisp) {
                 console.error(
                   "📃 Error reading or importing source code (both .mjs and .lisp failed):",
@@ -268,53 +260,35 @@ async function fun(event, context) {
         }
       }
       console.log("🧊 Module:", module?.meta, tempPath);
-      console.log("🔍 Language:", language);
-      console.log("📄 Original code first 100 chars:", originalCode?.substring(0, 100));
       
       // Get initial metadata from module or infer it
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
-      console.log("📊 Initial meta:", meta);
-      console.log("🏷️ Parsed text:", parsed.text);
       
       // Override title with first line comment if it's a Lisp file and no meta.title exists
       if (language === "lisp" && originalCode && (!meta?.title || meta.title === parsed.text)) {
         const firstLine = originalCode.split('\n')[0]?.trim();
-        console.log("📝 First line:", firstLine);
         if (firstLine && firstLine.startsWith(';')) {
           const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
-          console.log("🎯 Extracted title:", title);
           if (title) {
             meta = { ...meta, title, standaloneTitle: true };
-            console.log("✅ Using Lisp title from comment:", title);
           }
-        } else {
-          console.log("❌ First line doesn't start with semicolon");
         }
-      } else {
-        console.log("🚫 Skipping Lisp title extraction. Language:", language, "Has original code:", !!originalCode, "Meta title:", meta?.title, "Parsed text:", parsed.text);
       }
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     } else if (parsed.source) {
       // Handle inline kidlisp code that doesn't need file loading
       console.log("🤖 Using inline kidlisp source for metadata");
-      console.log("📄 Inline source first 100 chars:", parsed.source?.substring(0, 100));
       
       // Get initial metadata from inference
       meta = inferTitleDesc(parsed.source);
-      console.log("📊 Initial inline meta:", meta);
       
       // Override title with first line comment if it exists and current title is default
       const firstLine = parsed.source.split('\n')[0]?.trim();
-      console.log("📝 Inline first line:", firstLine);
       if (firstLine && firstLine.startsWith(';') && (!meta?.title || meta.title === parsed.text)) {
         const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
-        console.log("🎯 Inline extracted title:", title);
         if (title) {
           meta = { ...meta, title, standaloneTitle: true };
-          console.log("✅ Using inline Lisp title from comment:", title);
         }
-      } else {
-        console.log("🚫 Skipping inline Lisp title extraction. First line starts with ';':", firstLine?.startsWith(';'), "Meta title:", meta?.title, "Parsed text:", parsed.text);
       }
       
       console.log(
