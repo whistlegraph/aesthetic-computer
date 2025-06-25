@@ -2518,6 +2518,7 @@ const $paintApiUnwrapped = {
   loadpan: graph.loadpan,
   mask: graph.mask,
   unmask: graph.unmask,
+  getMask: graph.getMask,
   steal: graph.steal,
   putback: graph.putback,
   skip: graph.skip,
