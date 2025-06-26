@@ -2995,21 +2995,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Reconstruct URL with preserved parameters (nogap, nolabel)
       const currentUrl = new URL(window.location);
       
-      if (debug) {
-        console.log("🔄 Refresh triggered, preservedParams:", preservedParams);
-        console.log("🔄 Current URL before reconstruction:", currentUrl.toString());
-      }
-      
       // Add preserved parameters back to the URL
       if (preservedParams.nogap) {
         currentUrl.searchParams.set("nogap", preservedParams.nogap);
       }
       if (preservedParams.nolabel) {
         currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
-      }
-      
-      if (debug) {
-        console.log("🔄 Reconstructed URL:", currentUrl.toString());
       }
       
       // Update the URL and reload

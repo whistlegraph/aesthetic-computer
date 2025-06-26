@@ -937,7 +937,7 @@ function getWebViewContent(webview: any, slug: string) {
   const sessionSotce = extContext.globalState.get("sotce:session", undefined);
   // console.log("🟪 Aesthetic:", sessionAesthetic, "🪷 Sotce:", sessionSotce);
 
-  console.log("🪱 Slug:", slug);
+  // console.log("🪱 Slug:", slug);
   let param = slug; // || "prompt";
   param += "?vscode=true"; // Add a vscode flag.
 
