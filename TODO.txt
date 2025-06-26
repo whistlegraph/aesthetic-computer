@@ -30,7 +30,6 @@
  - [] The 'Enter' button should now say `Make` unless the prompt exists?
  - [] The paste button doesn't need to appear on desktop (and doesn't even work on desktop)
  - [] And should only appear after opening the prompt once?
-
  - [x] `make` will work just like 'paint' except it will automatically write
       aesthetic computer pieces from a prompt, with some output, in a one
       shot fashion?
