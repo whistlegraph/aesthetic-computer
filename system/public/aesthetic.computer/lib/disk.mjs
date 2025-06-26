@@ -4974,8 +4974,25 @@ async function makeFrame({ data: { type, content } }) {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
               const content = currentHUDTxt || currentText;
-              // Encode kidlisp content properly for URL
-              const encodedContent = lisp.encodeKidlispForUrl(content);
+              
+              // If content contains underscores or tildes, try decoding it first
+              let actualContent = content;
+              if (content && (content.includes("_") || content.includes("~"))) {
+                const decoded = content.replace(/_/g, " ").replace(/§/g, "\n").replace(/~/g, " ");
+                if (lisp.isKidlispSource(decoded)) {
+                  actualContent = decoded;
+                } else {
+                  // Even if it's not kidlisp, we should still convert tildes to spaces
+                  // since tildes in URLs represent spaces in piece slugs
+                  actualContent = content.replace(/~/g, " ");
+                }
+              }
+              
+              // For kidlisp content, encode it for URL. For regular pieces, pass as-is.
+              const encodedContent = lisp.isKidlispSource(actualContent) 
+                ? lisp.encodeKidlispForUrl(actualContent)
+                : actualContent;
+              
               promptSlug += "~" + encodedContent;
             }
             $commonApi.jump(promptSlug)(() => {
