@@ -2416,9 +2416,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {      // Clear any active parameters once the disk has been loaded.
-      // For kidlisp pieces, preserve the URL path with proper encoding
-      if (content.text && isKidlispSource(content.text)) {
-        // For kidlisp pieces, use centralized URL encoding
+      // Special handling for prompt piece with kidlisp content
+      if (content.path === "aesthetic.computer/disks/prompt" && 
+          content.params && content.params.length > 0 && 
+          isKidlispSource(content.params[0])) {
+        // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
+        const encodedContent = encodeKidlispForUrl(content.params[0]);
+        const encodedPath = "/prompt~" + encodedContent;
+        // Use pushState instead of replaceState to preserve history navigation
+        if (!content.fromHistory) {
+          window.history.pushState({}, "", encodedPath);
+        } else {
+          window.history.replaceState({}, "", encodedPath);
+        }
+      } else if (content.text && isKidlispSource(content.text)) {
+        // For standalone kidlisp pieces, use centralized URL encoding
         const encodedPath = "/" + encodeKidlispForUrl(content.text);
         // Use pushState instead of replaceState to preserve history navigation
         if (!content.fromHistory) {
@@ -2579,8 +2591,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let urlPath;
           if (content.text === "/prompt") {
             urlPath = "/";
+          } else if (content.path === "aesthetic.computer/disks/prompt" && 
+                     content.params && content.params.length > 0 && 
+                     isKidlispSource(content.params[0])) {
+            // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
+            urlPath = "/prompt~" + encodeKidlispForUrl(content.params[0]);
           } else if (isKidlispSource(content.text)) {
-            // For kidlisp pieces, use centralized URL encoding
+            // For standalone kidlisp pieces, use centralized URL encoding
             urlPath = "/" + encodeKidlispForUrl(content.text);
           } else {
             // For regular pieces, use normal text
@@ -2595,11 +2612,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           window.parent?.postMessage(
             {
               type: "url:updated",
-              slug: content.text?.startsWith("/")
-                ? content.text.slice(1)
-                : isKidlispSource(content.text)
-                  ? encodeKidlispForUrl(content.text)
-                  : content.text,
+              slug: (() => {
+                if (content.text?.startsWith("/")) {
+                  return content.text.slice(1);
+                } else if (content.path === "aesthetic.computer/disks/prompt" && 
+                          content.params && content.params.length > 0 && 
+                          isKidlispSource(content.params[0])) {
+                  return "prompt~" + encodeKidlispForUrl(content.params[0]);
+                } else if (isKidlispSource(content.text)) {
+                  return encodeKidlispForUrl(content.text);
+                } else {
+                  return content.text;
+                }
+              })(),
             },
             "*",
           );
@@ -2616,8 +2641,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             let urlPath;
             if (content.text === "/prompt") {
               urlPath = "/";
+            } else if (content.path === "aesthetic.computer/disks/prompt" && 
+                       content.params && content.params.length > 0 && 
+                       isKidlispSource(content.params[0])) {
+              // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
+              urlPath = "/prompt~" + encodeKidlispForUrl(content.params[0]);
             } else if (isKidlispSource(content.text)) {
-              // For kidlisp pieces, use centralized URL encoding
+              // For standalone kidlisp pieces, use centralized URL encoding
               urlPath = "/" + encodeKidlispForUrl(content.text);
             } else {
               // For regular pieces, use normal encoding
