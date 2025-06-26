@@ -125,6 +125,11 @@ if (nogap) {
   document.body.classList.add("nogap");
 }
 
+// Force dark background when in VSCode (like when not embedded)
+if (window.acVSCODE) {
+  document.body.classList.add("vscode");
+}
+
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
 

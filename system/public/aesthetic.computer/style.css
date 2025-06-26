@@ -40,6 +40,10 @@ body.embed {
   background-color: transparent;
 }
 
+body.vscode {
+  background-color: rgb(32, 32, 32) !important;
+}
+
 body.native-cursor {
   cursor: auto;
   /* touch-action: none; */
