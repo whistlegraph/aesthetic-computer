@@ -1,5 +1,9 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+ * Regressions *
+ - [x] `painting` ... no longer is tappable because of
+      new multiline label hitboxes?
+
  * from 'chat.mjs' * 
   + Done
   - [x] Add textual links to AC chat.

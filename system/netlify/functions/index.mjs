@@ -374,6 +374,11 @@ async function fun(event, context) {
         <div id="console" class="hidden">booting...</div>
         <script>
           if (window.self !== window.top) document.body.classList.add("embed");
+          // Apply nogap class immediately if parameter is present to prevent flash
+          const params = new URLSearchParams(location.search);
+          if (params.has("nogap") || location.search.includes("nogap")) {
+            document.body.classList.add("nogap");
+          }
         </script>
       </body>
     </html>

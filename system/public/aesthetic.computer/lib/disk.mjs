@@ -6383,7 +6383,7 @@ async function makeFrame({ data: { type, content } }) {
           $api.screen.width - $api.typeface.blockWidth,
         );
 
-        const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
+        const h = labelBounds.box.height; // Remove extra blockHeight for proper single-line sizing
         if (piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state

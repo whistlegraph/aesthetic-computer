@@ -69,12 +69,6 @@
     - [] and it needs to be built into the running page
     - [] this starts by making a drawing / graph of the ast
     - [] and by lighting up each list / atom as it gets evaluated / lighting
- - [] Closing and opening the VS Code extension should remember the last piece
-      loaded.
-   - [] This should work by broadcasting the piece slug to the extension
-        on each switch then using that for the page open url, but not storing
-        it across vscode opened and closed
-        sessions.
  - [] `def` and `later` should be the same keyword.
  - [] Should code reloads reset the state or could I dump
       the state on each reload?
@@ -97,6 +91,12 @@
   - [] Or something to enable looping.
   - [] Add the ability to make sound.
   + Done
+  - [x] Closing and opening the VS Code extension should remember the last piece
+      loaded.
+   - [x] This should work by broadcasting the piece slug to the extension
+        on each switch then using that for the page open url, but not storing
+        it across vscode opened and closed
+        sessions.
   - [x] Refactored for multiple environment support - 2025.6.17
   - [x] Have tests run automatically in some window.
   - [x] Set up this module with some actual JavaScript testing framework
@@ -329,6 +329,21 @@ class KidLisp {
     this.halfResolutionApplied = false; // Track if half resolution has been applied
   }
 
+  // Check if the AST contains microphone-related functions
+  containsMicrophoneFunctions(ast) {
+    if (!ast) return false;
+    
+    if (typeof ast === 'string') {
+      return ast === 'mic' || ast === 'amplitude';
+    }
+    
+    if (Array.isArray(ast)) {
+      return ast.some(item => this.containsMicrophoneFunctions(item));
+    }
+    
+    return false;
+  }
+
   // Optimize common patterns - this could be expanded for other patterns
   compileOptimizedRepeat(ast) {
     // Actually, let's disable optimization for rainbow ink to preserve correct behavior
@@ -511,25 +526,22 @@ class KidLisp {
         this.globalDef.paramB = params[1];
         this.globalDef.paramC = params[2];
 
-        // Initialize microphone like stample does
+        // Initialize microphone reference but don't auto-connect
         if (sound?.microphone) {
           this.microphoneApi = sound.microphone;
-          // console.log(
-          //   "🎤 Boot: Microphone available, permission:",
-          //   this.microphoneApi.permission,
-          //   "enabled:",
-          //   sound.enabled?.(),
-          // );
-
-          // Check permission and auto-connect if granted (like stample)
-          if (
-            this.microphoneApi.permission === "granted" &&
-            sound.enabled?.()
-          ) {
-            // console.log("🎤 Boot: Attempting to connect microphone...");
+          
+          // Only auto-connect if the piece actually uses microphone functions
+          const usesMicrophone = this.containsMicrophoneFunctions(this.ast);
+          
+          if (usesMicrophone && 
+              this.microphoneApi.permission === "granted" &&
+              sound.enabled?.()) {
+            console.log("🎤 Boot: Auto-connecting microphone (piece uses mic functions)");
             delay(() => {
               this.microphoneApi.connect();
             }, 15);
+          } else if (usesMicrophone) {
+            console.log("🎤 Boot: Piece uses microphone but permission not granted or sound disabled");
           }
         } else {
           // console.log("🎤 Boot: No microphone API available");
@@ -1877,15 +1889,26 @@ class KidLisp {
       },
       // 🎤 Microphone
       mic: (api, args = []) => {
-        // Debug: Log the current state
-        if (this.frameCount % 60 === 0) {
+        // Lazy connection: try to connect microphone if not already connected
+        if (this.microphoneApi && !this.microphoneApi.connected) {
+          if (this.microphoneApi.permission === "granted" && api.sound?.enabled?.()) {
+            console.log("🎤 Lazy connecting microphone (mic function called)");
+            this.microphoneApi.connect();
+          } else if (this.microphoneApi.permission !== "granted") {
+            // Only log this occasionally to avoid spam
+            if (this.frameCount % 120 === 0) {
+              console.log("🎤 Microphone permission not granted, cannot connect");
+            }
+          }
+        }
+
+        // Debug: Log the current state (less frequently)
+        if (this.frameCount % 120 === 0 && this.microphoneApi) {
           console.log(
-            "🎤 Mic function called - API:",
-            !!this.microphoneApi,
-            "Connected:",
-            this.microphoneApi?.connected,
+            "🎤 Mic function called - Connected:",
+            this.microphoneApi.connected,
             "Amplitude:",
-            this.microphoneApi?.amplitude,
+            this.microphoneApi.amplitude,
           );
         }
 
@@ -1894,7 +1917,7 @@ class KidLisp {
           return this.microphoneApi.amplitude || 0;
         }
 
-        // If not connected yet, return 0 (connection is handled in boot)
+        // If not connected yet, return 0
         return 0;
       },
       // 🔊 Real-time audio amplitude from speakers/system audio
