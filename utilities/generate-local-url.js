@@ -1,5 +1,5 @@
 // import { networkInterfaces } from "os";
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import qrcode from "qrcode-terminal";
 import got from "got";
 
@@ -7,20 +7,19 @@ let bootUps = 0;
 const bootUpTimer = setInterval(() => {
   process.stdout.write("\x1Bc"); // Clear terminal.
 
-  const command = `echo '' && echo "${
-    bootUps % 2 === 0 ? "Booting up..." : "Booting up. . ."
-  }" | toilet -f smblock`;
-
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error executing command: ${error}`);
-      return;
-    }
-    process.stdout.write(stdout);
-    if (stderr) {
-      console.error(`stderr: ${stderr}`);
-    }
+  const message = bootUps % 2 === 0 ? "Booting up..." : "Booting up. . .";
+  
+  const toilet = spawn("toilet", ["-f", "future"], {
+    stdio: ['pipe', 'pipe', 'inherit']
   });
+  
+  const lolcat = spawn("lolcat", ["-x", "-r"], {
+    stdio: ['pipe', 'inherit', 'inherit']
+  });
+
+  toilet.stdout.pipe(lolcat.stdin);
+  toilet.stdin.write(message);
+  toilet.stdin.end();
 
   bootUps += 1;
 }, 250);
