@@ -19,6 +19,7 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
+import { Ticker, ticker } from "./ticker.mjs";
 import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -1598,7 +1599,12 @@ const $commonApi = {
       return { width: painting.width, height: painting.height, pixels };
     },
   },
-  gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker },
+  gizmo: { 
+    Hourglass: gizmo.Hourglass, 
+    EllipsisTicker: gizmo.EllipsisTicker,
+    Ticker: Ticker,
+    ticker: ticker,
+  },
   rec: new Recorder(),
   net: {
     signup: () => {
