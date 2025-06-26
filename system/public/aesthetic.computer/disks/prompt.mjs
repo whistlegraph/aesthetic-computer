@@ -90,6 +90,7 @@ let login, // A login button in the center of the display.
   profileAction;
 let resendVerificationText;
 let ellipsisTicker;
+let chatTicker; // Ticker instance for chat messages
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -1566,26 +1567,41 @@ function paint($) {
 
     // 📊 Stats / Analytics
 
+    // Last 'chat-system' message.
     if ($.chat.messages.length > 0) {
       const msg = $.chat.messages[$.chat.messages.length - 1];
       const fullText = msg.from + ": " + msg.text;
-      ink("teal", 128).write(
-        fullText,
-        {
-          center: "x",
-          y: screen.height / 2 + 38,
-        },
-        undefined,
-        screen.width - 8,
-      );
+      
+      // Create or update ticker instance
+      if (!chatTicker) {
+        chatTicker = new $.gizmo.Ticker(fullText, { speed: 1, separator: " - " });
+      } else {
+        chatTicker.setText(fullText);
+      }
+      
+      // Update ticker animation
+      chatTicker.update($);
+      
+      // Position midway between login button (screen center) and handles text
+      const loginY = screen.height / 2; // Login button is centered vertically
+      const handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Handles text position
+      const tickerY = (loginY + handlesY) / 2; // Midway point
+      
+      // Paint the ticker
+      chatTicker.paint($, 0, tickerY, {
+        color: "teal",
+        alpha: 128,
+        width: screen.width,
+      });
     }
 
+    // Handle Stats
     if (handles && screen.height > 200)
       ink(pal.handleColor).write(
         `${handles.toLocaleString()} HANDLES SET`,
         {
           center: "x",
-          y: screen.height / 2 + screen.height / 3.25 - 11,
+          y: screen.height / 2 + screen.height / 3.25 - 11 + 15,
         },
         [255, 50, 200, 24],
         screen.width - 18,

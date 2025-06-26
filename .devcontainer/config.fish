@@ -108,7 +108,7 @@ end
 function aesthetic
     clear
     while not test -f /home/me/.waiter
-        toilet "Configuring..." -f smblock | lolcat -x -r
+        toilet "Configuring..." -f future | lolcat -x -r
         sleep 1
         clear
     end

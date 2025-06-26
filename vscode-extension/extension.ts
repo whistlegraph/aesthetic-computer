@@ -939,7 +939,7 @@ function getWebViewContent(webview: any, slug: string) {
 
   // console.log("🪱 Slug:", slug);
   let param = slug; // || "prompt";
-  param += "?vscode=true&nogap=true"; // Add vscode and nogap flags.
+  param += "?vscode=true"; // Add vscode flag.
 
   [sessionAesthetic, sessionSotce].forEach((session, index) => {
     const paramBase = `&session-${index === 0 ? "aesthetic" : "sotce"}=`;
