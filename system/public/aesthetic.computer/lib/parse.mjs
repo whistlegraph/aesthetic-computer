@@ -40,6 +40,25 @@ function parse(text, location = self?.location) {
   }
   text = text.trim(); // Clear any spaces.  
   
+  // 🚨 Special case for prompt~ slugs - ALWAYS route to prompt piece
+  // This prevents prompt~(wipe blue) from being treated as kidlisp function call
+  if (text.startsWith("prompt~")) {
+    console.log("🎯 Parse: Detected prompt~ slug, routing to prompt piece:", text);
+    const promptContent = text.slice(7); // Remove "prompt~" prefix
+    const decodedContent = decodeKidlispFromUrl(promptContent);
+    
+    return {
+      host: location.hostname + (location.port ? ":" + location.port : ""),
+      path: "aesthetic.computer/disks/prompt",
+      piece: "prompt",
+      colon: undefined,
+      params: [decodedContent], // Pass the content as a parameter
+      search: undefined,
+      hash: undefined,
+      text: text,
+    };
+  }
+  
   // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
   // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
