@@ -43,7 +43,6 @@ function parse(text, location = self?.location) {
   // 🚨 Special case for prompt~ slugs - ALWAYS route to prompt piece
   // This prevents prompt~(wipe blue) from being treated as kidlisp function call
   if (text.startsWith("prompt~")) {
-    console.log("🎯 Parse: Detected prompt~ slug, routing to prompt piece:", text);
     const promptContent = text.slice(7); // Remove "prompt~" prefix
     const decodedContent = decodeKidlispFromUrl(promptContent);
     

@@ -2673,13 +2673,9 @@ function isKidlispSource(text) {
 }
 
 function encodeKidlispForUrl(source) {
-  console.log("🔵 ENCODE TEST - Input:", JSON.stringify(source));
-  
   const isKidlisp = isKidlispSource(source);
-  console.log("🔵 ENCODE TEST - isKidlisp:", isKidlisp);
 
   if (!isKidlisp) {
-    console.log("🔵 ENCODE TEST - Not kidlisp, returning original:", JSON.stringify(source));
     return source;
   }
 
@@ -2692,18 +2688,14 @@ function encodeKidlispForUrl(source) {
     .replace(/\n/g, "§")
     .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
   
-  console.log("🔵 ENCODE TEST - Encoded result:", JSON.stringify(encoded));
   return encoded;
 }
 
 function decodeKidlispFromUrl(encoded) {
-  console.log("🟢 DECODE TEST - Input:", JSON.stringify(encoded));
-  
   // Special handling: Don't decode tildes to newlines if this looks like a prompt~ slug
   let decoded;
   if (encoded.startsWith("prompt~")) {
     // For prompt~ slugs, don't convert the first tilde to a newline
-    console.log("🟢 DECODE TEST - Detected prompt~ pattern, preserving tilde structure");
     decoded = encoded
       .replace(/_/g, " ")
       .replace(/§/g, "\n") // Primary newline encoding to avoid collision with URL separator ~
@@ -2728,13 +2720,8 @@ function decodeKidlispFromUrl(encoded) {
       .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   }
   
-  console.log("🟢 DECODE TEST - Decoded result:", JSON.stringify(decoded));
-  
   const isValidKidlisp = isKidlispSource(decoded);
-  console.log("🟢 DECODE TEST - isValidKidlisp:", isValidKidlisp);
-  
   const result = isValidKidlisp ? decoded : encoded;
-  console.log("🟢 DECODE TEST - Final result:", JSON.stringify(result));
   
   return result;
 }
