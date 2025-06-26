@@ -74,6 +74,7 @@ if (!instance) {
 }
 
 const dev = process.env.NODE_ENV === "development";
+const filterDebug = process.env.FILTER_DEBUG === "true";
 
 console.log(
   `\n🌟 Starting the Aesthetic Computer Chat Server for: ${instance.name} 🌟\n`,
@@ -641,7 +642,7 @@ async function startChatServer() {
             redact(message);
             filteredText = message.text;
           } else {
-            filteredText = filter(message.text);
+            filteredText = filter(message.text, filterDebug);
           }
 
           // Determine 'when' by fetching from server clock or falling back to local time
@@ -924,7 +925,7 @@ async function getLast100MessagesfromMongo() {
 
     messages.push({
       from,
-      text: filter(message.text) || "message forgotten",
+      text: filter(message.text, filterDebug) || "message forgotten",
       redactedText: message.redactedText,
       when: message.when,
     });

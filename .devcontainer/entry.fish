@@ -72,7 +72,7 @@ set -gx TERM xterm-256color
 # dbus-run-session -- sh -c "eval \$(echo \$DBUS_SESSION_BUS_ADDRESS); exec $argv"
 
 # Send a welcome message!
-toilet "*** Aesthetic Computer ***" -f smblock | lolcat -x -r
+toilet "Aesthetic Computer" -f future | lolcat -x -r
 
 # Go to the user's directory.
 cd /home/me
