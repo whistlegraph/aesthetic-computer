@@ -2673,36 +2673,70 @@ function isKidlispSource(text) {
 }
 
 function encodeKidlispForUrl(source) {
+  console.log("🔵 ENCODE TEST - Input:", JSON.stringify(source));
+  
   const isKidlisp = isKidlispSource(source);
+  console.log("🔵 ENCODE TEST - isKidlisp:", isKidlisp);
 
   if (!isKidlisp) {
+    console.log("🔵 ENCODE TEST - Not kidlisp, returning original:", JSON.stringify(source));
     return source;
   }
 
   // For sharing, we want to preserve the structure so it can be parsed correctly
-  // Spaces become underscores, newlines become ~ symbols (avoiding UTF-8 encoding issues with §)
+  // Spaces become underscores, newlines become § symbols to avoid collision with URL separator ~
   // But we keep parentheses and other structural elements intact
   // Handle problematic characters specially since they can cause URI malformation
   const encoded = source
     .replace(/ /g, "_")
-    .replace(/\n/g, "~")
+    .replace(/\n/g, "§")
     .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
+  
+  console.log("🔵 ENCODE TEST - Encoded result:", JSON.stringify(encoded));
   return encoded;
 }
 
 function decodeKidlispFromUrl(encoded) {
-  // Only decode if the result would be valid kidlisp
-  const decoded = encoded
-    .replace(/_/g, " ")
-    .replace(/§/g, "\n") // Support legacy § separator
-    .replace(/~/g, "\n") // Support new ~ separator (avoids UTF-8 encoding issues)
-    .replace(/%28/g, "(")
-    .replace(/%29/g, ")")
-    .replace(/%2E/g, ".")
-    .replace(/%22/g, '"')
-    .replace(/%3B/g, ";") // Decode semicolons
-    .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
-  return isKidlispSource(decoded) ? decoded : encoded;
+  console.log("🟢 DECODE TEST - Input:", JSON.stringify(encoded));
+  
+  // Special handling: Don't decode tildes to newlines if this looks like a prompt~ slug
+  let decoded;
+  if (encoded.startsWith("prompt~")) {
+    // For prompt~ slugs, don't convert the first tilde to a newline
+    console.log("🟢 DECODE TEST - Detected prompt~ pattern, preserving tilde structure");
+    decoded = encoded
+      .replace(/_/g, " ")
+      .replace(/§/g, "\n") // Primary newline encoding to avoid collision with URL separator ~
+      // Skip the ~ to \n replacement for prompt~ patterns
+      .replace(/%28/g, "(")
+      .replace(/%29/g, ")")
+      .replace(/%2E/g, ".")
+      .replace(/%22/g, '"')
+      .replace(/%3B/g, ";") // Decode semicolons
+      .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
+  } else {
+    // For regular kidlisp content, apply legacy ~ to newline conversion
+    decoded = encoded
+      .replace(/_/g, " ")
+      .replace(/§/g, "\n") // Primary newline encoding to avoid collision with URL separator ~
+      .replace(/~/g, "\n") // Support legacy ~ separator for backwards compatibility
+      .replace(/%28/g, "(")
+      .replace(/%29/g, ")")
+      .replace(/%2E/g, ".")
+      .replace(/%22/g, '"')
+      .replace(/%3B/g, ";") // Decode semicolons
+      .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
+  }
+  
+  console.log("🟢 DECODE TEST - Decoded result:", JSON.stringify(decoded));
+  
+  const isValidKidlisp = isKidlispSource(decoded);
+  console.log("🟢 DECODE TEST - isValidKidlisp:", isValidKidlisp);
+  
+  const result = isValidKidlisp ? decoded : encoded;
+  console.log("🟢 DECODE TEST - Final result:", JSON.stringify(result));
+  
+  return result;
 }
 
 // Check if the prompt is currently in kidlisp mode based on the input text
