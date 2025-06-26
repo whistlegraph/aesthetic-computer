@@ -16,7 +16,7 @@ def show(piece, width="100%", height=54):
     importlib.reload(importlib.import_module('aesthetic'))
     # Ensure parameters are separated explicitly in the URL
     # url = f"https://aesthetic.computer/{piece}?nolabel&nogap"
-    url = f"https://localhost:8888/{piece}?nolabel=true"
+    url = f"https://localhost:8888/{piece}?nolabel=true&nogap=true"
     display(IFrame(src=url, width=width, height=height, frameborder="0"))
 
 def encode_kidlisp_with_node(code):
