@@ -208,9 +208,14 @@ async function boot({
     !system.prompt.convo.messages ||
     system.prompt.convo.messages?.length === 0
   ) {
+    // Check if we'll be activating the prompt later to avoid showing MOTD when focused
+    const willActivate = (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
+                         (vscode && pieceCount === 0);
+    
     if (pieceCount === 0 || store["prompt:splash"] === true) {
       // system.prompt.input.print("aesthetic.computer"); // Set a default empty motd.
-      if (!params[0]) makeMotd(api);
+      // Only show MOTD if we won't be activating the prompt (which means it's not focused)
+      if (!params[0] && !willActivate) makeMotd(api);
     } else {
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
@@ -252,6 +257,10 @@ async function boot({
     // 🍫 Create a pleasurable blinking cursor delay.
     // system.prompt.input.showBlink = false;
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
+    
+    // Clear any latent text before activating to prevent MOTD showing when focused
+    system.prompt.input.text = "";
+    
     activated(api, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
@@ -1728,6 +1737,8 @@ function act({
   // Via vscode extension.
   if (e.is("aesthetic-parent:focused")) {
     // console.log("🔭 Focusing in on `prompt`...");
+    // Clear any latent text when gaining focus to prevent MOTD showing when focused
+    system.prompt.input.text = "";
     // activated(api, true);
     // system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
@@ -1973,6 +1984,11 @@ function act({
 
 // 🖥️ Run When the Prompt is activated.
 function activated($, state) {
+  // Clear any latent text when activating to prevent MOTD showing when focused
+  if (state === true) {
+    $.system.prompt.input.text = "";
+  }
+  
   if (firstActivation) {
     $.sound.play(startupSfx); // Play startup sound...
     flashColor = scheme.dark.block; // Trigger startup animation...

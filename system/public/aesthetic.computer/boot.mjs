@@ -120,6 +120,11 @@ const params = new URLSearchParams(location.search);
 const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 
+// Apply nogap class immediately to prevent flash
+if (nogap) {
+  document.body.classList.add("nogap");
+}
+
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
 

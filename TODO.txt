@@ -2,10 +2,6 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
- * Regressions *
- - [] `painting` ... no longer is tappable because of
-      new multiline label hitboxes?
-
  * `kidlisp` *
  - Future proof URL sharing and attribution.
  - [] Any kidlisp that runs successfully should automatically be added to the
@@ -18,6 +14,13 @@
  - [] If the kidlisp was generated from a prompt, that prompt should be recorded
       as was the model used to generate it and a git hash reference to the
       pre-prompt file so it could be regenerated under various conditions.
+
+ * `clock` syntax * 
+  - [] Take the melody syntax from kidlisp.mjs and develop it further.
+  - [] Record `clock` tutorial audio for `laer-klokken` radio show.
+
+ * `wipppps` pattern + logo *
+  - [] Put the logo over the page on wipppps.world.
 
  * `notebook` *
  - [] Make my firts notebook post.
