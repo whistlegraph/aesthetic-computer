@@ -84,11 +84,11 @@
 ;; Tab navigation
 (defun my-tab-next ()
   (interactive)
-  (eat-tab-change #'tab-next))
+  (tab-next))
 
 (defun my-tab-previous ()
   (interactive)
-  (eat-tab-change #'tab-previous))
+  (tab-previous))
 
 (global-set-key (kbd "C-x <right>") 'my-tab-next)
 (global-set-key (kbd "C-x <left>") 'my-tab-previous)
@@ -139,7 +139,7 @@
 ;; Package management
 (setq package-enable-at-startup nil)
 
-;; Straight.el bootstrap
+;; Straight.el bootstrap with timeout
 (defvar bootstrap-version)
 (let ((bootstrap-file
        (expand-file-name
@@ -148,15 +148,20 @@
             user-emacs-directory)))
       (bootstrap-version 7))
   (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
+    (condition-case err
+        (with-timeout (30 (error "Bootstrap download timed out"))
+          (with-current-buffer
+              (url-retrieve-synchronously
+               "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+               'silent 'inhibit-cookies)
+            (goto-char (point-max))
+            (eval-print-last-sexp)))
+      (error (message "Failed to bootstrap straight.el: %s" err))))
+  (when (file-exists-p bootstrap-file)
+    (load bootstrap-file nil 'nomessage)))
 
-(setq straight-use-package-by-default t)
+(setq straight-use-package-by-default t
+      straight-vc-git-default-clone-depth 1)  ; Shallow clones for faster setup
 
 ;; Completion
 (use-package vertico
@@ -167,11 +172,15 @@
   :init
   (savehist-mode))
 
-;; Org-mode
-(use-package org)
-(global-set-key (kbd "C-c l") #'org-store-link)
-(global-set-key (kbd "C-c a") #'org-agenda)
-(global-set-key (kbd "C-c c") #'org-capture)
+;; Org-mode (temporarily disabled due to cloning issues)
+;; (condition-case nil
+;;     (progn
+;;       (use-package org
+;;         :defer t)
+;;       (global-set-key (kbd "C-c l") #'org-store-link)
+;;       (global-set-key (kbd "C-c a") #'org-agenda)
+;;       (global-set-key (kbd "C-c c") #'org-capture))
+;;   (error (message "Failed to load org-mode, continuing without it...")))
 
 ;; Enhanced completion
 (use-package emacs
@@ -303,27 +312,28 @@
 (setq-default eat-shell "/usr/bin/fish"
               eat-term-name "xterm-256color")
 
-;; Eat tab integration
-(defun eat-tab-change (original-fun &rest args)
-  (interactive)
-  (apply original-fun args)
-  
-  (run-with-idle-timer 0.5 nil
-    (lambda ()
-      (when (and (selected-frame) (frame-live-p (selected-frame)))
-        (condition-case err
-            (let ((current-tab-windows (window-list (selected-frame) 'never)))
-              (dolist (window current-tab-windows)
-                (when (and (windowp window) (window-live-p window))
-                  (with-current-buffer (window-buffer window)
-                    (when (eq major-mode 'eat-mode)
-                      (with-selected-window window
-                        (end-of-buffer)
-                        (evil-insert-state)))))))
-          (error (message "Error in eat-tab-change timer: %s" err)))))))
+;; Eat tab integration (temporarily disabled for debugging)
+;; (defun eat-tab-change (original-fun &rest args)
+;;   (interactive)
+;;   (let ((result (apply original-fun args)))
+;;     (run-with-idle-timer 0.1 nil
+;;       (lambda ()
+;;         (when (and (selected-frame) (frame-live-p (selected-frame)))
+;;           (condition-case err
+;;               (let ((current-tab-windows (window-list (selected-frame) 'never)))
+;;                 (dolist (window current-tab-windows)
+;;                   (when (and (windowp window) (window-live-p window))
+;;                     (with-current-buffer (window-buffer window)
+;;                       (when (eq major-mode 'eat-mode)
+;;                         (with-selected-window window
+;;                           (end-of-buffer)
+;;                           (when (bound-and-true-p evil-mode)
+;;                             (evil-insert-state))))))))
+;;             (error nil)))))
+;;     result))
 
-(with-eval-after-load 'eat
-  (advice-add 'tab-bar-select-tab :around #'eat-tab-change))
+;; (with-eval-after-load 'eat
+;;   (advice-add 'tab-bar-select-tab :around #'eat-tab-change))
 
 (defun kill-eat-processes ()
   (interactive)
@@ -358,93 +368,75 @@
   (interactive)
   
   (let ((directory-path "~/aesthetic-computer")
-        (commands '()) ; Individual tab commands (currently empty)
         (emoji-for-command
-         '(("code" . "📂") ("source" . "📂") ("status" . "📡") 
-           ("url" . "🌐") ("tunnel" . "🚇") ("site" . "📰") 
-           ("session" . "🔒") ("redis" . "🔄") ("stripe" . "💳") 
-           ("chat" . "💬") ("stripe-print" . "💳 🖨️") 
-           ("stripe-ticket" . "💳🎫") ("web 1/2" . "🌐") 
-           ("web 2/2" . "🌐") ("servers" . "🤖") ("bookmarks" . "🔖") 
-           ("chat-system" . "🧭") ("chat-sotce" . "🪷") 
-           ("chat-clock" . "🕑") ("tests" . "🧪") ("web" . "🌐"))))
+         '(("code" . "📂") ("status" . "📡") ("url" . "⚡") 
+           ("tunnel" . "🚇") ("agent" . "⚡") ("stripe-print" . "💳")
+           ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
+           ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
+           ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪"))))
 
-    ;; Clean up unwanted buffers before starting
-    (dolist (bufname '("*scratch*" "*Messages*" "*straight-process*" "*async-native-comp*"))
-      (when-let ((buf (get-buffer bufname)))
-        (dolist (win (get-buffer-window-list buf nil t))
-          (with-selected-window win
-            (switch-to-buffer (other-buffer buf t))))
-        (kill-buffer buf)))
+    ;; Clean up unwanted buffers before starting (with error handling)
+    (condition-case nil
+        (dolist (bufname '("*scratch*" "*Messages*" "*straight-process*" "*async-native-comp*"))
+          (when-let ((buf (get-buffer bufname)))
+            (dolist (win (get-buffer-window-list buf nil t))
+              (with-selected-window win
+                (switch-to-buffer (other-buffer buf t))))
+            (kill-buffer buf)))
+      (error nil))
 
     ;; Initialize the first tab as "code" with ac-agent terminal
     (tab-rename "code")
     (let ((default-directory directory-path))
-      (eat "fish -c 'ac-agent'"))
+      (eat "fish -c 'ac-agent'")
+      (when (get-buffer "*eat*")
+        (with-current-buffer "*eat*"
+          (rename-buffer "⚡-agent" t))))
 
-    ;; Define helper function for creating split tabs
-    (cl-labels
-        ((run-split-tab (tab-name &rest cmds)
-           "Create a new tab with multiple commands in split windows."
-           (tab-new)
-           (tab-rename tab-name)
-           (let ((default-directory directory-path))
-             (delete-other-windows)
-             (let ((first t))
-               (dolist (cmd cmds)
-                 ;; Create splits for all commands except the first
-                 (unless first 
-                   (if (member tab-name '("status" "stripe" "chat" "web 1/2" "web 2/2"))
-                       (split-window-below)  ; Horizontal splits for these tabs
-                     (split-window-right))   ; Vertical splits for others
-                   (other-window 1))
-                 (setq first nil)
-                 
-                 ;; Handle command name mapping (bookmarks -> servers)
-                 (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
-                   (eat (format "fish -c 'ac-%s'" actual-cmd)))
-                 
-                 ;; Rename buffer with emoji and command name
-                 (with-current-buffer "*eat*"
-                   (rename-buffer
-                    (format "%s-%s"
-                            (cdr (assoc cmd emoji-for-command))
-                            cmd) t))
-                 (goto-char (point-max)))
-               
-               ;; Balance window sizes and move to first window
-               (balance-windows)
-               (other-window 1)))))
+    ;; Helper function to create split tabs safely
+    (defun create-split-tab (tab-name commands)
+      (condition-case err
+          (progn
+            (tab-new)
+            (tab-rename tab-name)
+            (let ((default-directory directory-path))
+              (delete-other-windows)
+              (let ((first t))
+                (dolist (cmd commands)
+                  (unless first 
+                    (split-window-below)
+                    (other-window 1))
+                  (setq first nil)
+                  
+                  (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
+                    (eat (format "fish -c 'ac-%s'" actual-cmd)))
+                  
+                  (when (get-buffer "*eat*")
+                    (with-current-buffer "*eat*"
+                      (rename-buffer
+                       (format "%s-%s"
+                               (or (cdr (assoc cmd emoji-for-command)) "🔧")
+                               cmd) t)))
+                  (goto-char (point-max)))
+                
+                (balance-windows)
+                (other-window 1))))
+        (error (message "Error creating tab %s: %s" tab-name err))))
 
-      ;; Create all the split tabs
-      (run-split-tab "status"   "url" "tunnel")
-      (run-split-tab "stripe"   "stripe-print" "stripe-ticket")
-      (run-split-tab "chat"     "chat-system" "chat-sotce" "chat-clock")
-      (run-split-tab "web 1/2"  "site" "session")
-      (run-split-tab "web 2/2"  "redis" "bookmarks")
-      (run-split-tab "tests"    "kidlisp")
-
-      ;; Create individual tabs (currently none, but structure is ready)
-      (dolist (cmd commands)
-        (tab-new)
-        (tab-rename cmd)
-        (let ((default-directory directory-path))
-          (let ((actual-cmd (if (string= cmd "tests") "kidlisp" cmd)))
-            (eat (format "fish -c 'ac-%s'" actual-cmd)))
-          (with-current-buffer "*eat*"
-            (rename-buffer
-             (format "%s-%s"
-                     (cdr (assoc cmd emoji-for-command))
-                     cmd) t))
-          (goto-char (point-max))
-          (dolist (win (get-buffer-window-list (current-buffer) nil t))
-            (set-window-point win (point-max))))))
+    ;; Create all the split tabs
+    (create-split-tab "status"   '("url" "tunnel"))
+    (create-split-tab "stripe"   '("stripe-print" "stripe-ticket"))
+    (create-split-tab "chat"     '("chat-system" "chat-sotce" "chat-clock"))
+    (create-split-tab "web 1/2"  '("site" "session"))
+    (create-split-tab "web 2/2"  '("redis" "bookmarks"))
+    (create-split-tab "tests"    '("kidlisp"))
 
     ;; Switch to the requested tab if it exists
-    (let ((tab-emoji (cdr (assoc target-tab emoji-for-command))))
-      (if tab-emoji
-          (tab-bar-switch-to-tab target-tab)
-        (message "No such tab: %s" target-tab)))))
+    (condition-case nil
+        (if (member target-tab '("code" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+            (tab-bar-switch-to-tab target-tab)
+          (message "No such tab: %s" target-tab))
+      (error nil))))
 
 ;;; ===================================================================
 ;;; END OF AESTHETIC COMPUTER EMACS CONFIGURATION

@@ -17,16 +17,12 @@ function spinner(ctx, timePassed) {
     spinnerDelay += 1;
     return;
   }
-
   const gap = 20,
     s = 8;
-
   ctx.save();
   const scaledWidth = ctx.canvas.width / window.devicePixelRatio;
   ctx.translate(scaledWidth - (s + gap), s + gap);
-
   ctx.rotate(radians(timePassed % 360) * 1);
-
   ctx.beginPath();
   // \ of the X
   ctx.moveTo(-s, -s); // top left
@@ -34,12 +30,10 @@ function spinner(ctx, timePassed) {
   // / of the X
   //ctx.moveTo(-s, s); // bottom left
   //ctx.lineTo(s, -s); // top right
-
   ctx.strokeStyle = "rgb(255, 255, 0)";
   ctx.lineWidth = 4;
   ctx.lineCap = "round";
   ctx.stroke();
-
   ctx.restore();
 }
 
@@ -84,6 +78,7 @@ class Button {
   multitouch = true; // Toggle to false to make a single touch button2.
   downPointer; // Keep track of what original pointer downed the button.
   actions; // A held list of callbacks for virtually triggering events.
+  noEdgeDetection = false; // Set to true to opt out of global edge detection cancellation
 
   get up() {
     return !this.down;
@@ -127,6 +122,18 @@ class Button {
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
     btn.actions = callbacks;
+
+    // Handle global edge detection cancellation
+    if (e.is("ui:cancel-interactions") && !btn.noEdgeDetection) {
+      // Only cancel if the button is still down (not already cancelled by other means)
+      if (btn.down) {
+        btn.down = false;
+        btn.over = false;
+        btn.downPointer = undefined;
+        callbacks.cancel?.(btn);
+      }
+      return;
+    }
 
     const t = this.multitouch ? "any" : "1";
 
@@ -216,7 +223,9 @@ class Button {
       btn.box.contains(e.drag)
     ) {
       // console.log(e);
-      if (e.pointer === btn.downPointer) callbacks.scrub?.(btn);
+      if (e.pointer === btn.downPointer) {
+        callbacks.scrub?.(btn);
+      }
     }
 
     // 5. Rollout: Run a rollout event if dragged off.
@@ -283,6 +292,14 @@ class TextButton {
 
   set down(d) {
     return (this.btn.down = d);
+  }
+
+  get noEdgeDetection() {
+    return this.btn.noEdgeDetection;
+  }
+
+  set noEdgeDetection(value) {
+    this.btn.noEdgeDetection = value;
   }
 
   get width() {
@@ -374,4 +391,11 @@ function setTypeface(tf) {
   TYPEFACE_UI = tf;
 }
 
-export { spinner, spinnerReset, cached, Button, TextButton, setTypeface };
+export { 
+  spinner, 
+  spinnerReset, 
+  cached, 
+  Button, 
+  TextButton, 
+  setTypeface
+};
