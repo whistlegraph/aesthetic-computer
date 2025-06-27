@@ -1,6 +1,8 @@
 FROM fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
+ENV DENO_DIR=/home/me/.cache/deno
+ENV NETLIFY_DENO_VERSION=1.45.0
 
 # Update all packages.
 RUN dnf update -y
@@ -171,7 +173,8 @@ RUN eval "$(/home/me/.fnm/fnm env --shell bash)" && \
     /home/me/.fnm/fnm use lts-jod && \
     npm install -g prettier typescript typescript-language-server npm-check-updates && \
     npm install -g @anthropic-ai/claude-code && \
-    npm install -g @openai/codex
+    npm install -g @openai/codex && \
+    npm install -g netlify-cli
 
 # Ensure the default Node.js version is available in Fish shell sessions
 RUN echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
@@ -212,6 +215,12 @@ RUN curl https://ops.city/get.sh -sSfL | sh
 
 # Install deno
 RUN curl -fsSL https://deno.land/install.sh | sh
+
+# Pre-cache Edge Functions bootstrap files to speed up netlify dev
+RUN eval "$(/home/me/.deno/bin/deno --version)" && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || echo "Bootstrap cache attempt completed" && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || echo "Handler cache attempt completed" && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || echo "Server cache attempt completed"
 
 # Copy over a custom xdg-open for opening browser URLs on the host.
 # COPY xdg-open.fish /usr/local/bin/xdg-open

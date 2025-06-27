@@ -60,6 +60,8 @@ external_node_modules = ["got", "crypto", "patreon"]
 external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
 external_node_modules = ["discord-interactions"]
+[functions.playlist]
+# No special external dependencies needed for static playlist
 [functions.clock]
 # No special config needed for clock
 [dev]
@@ -90,9 +92,9 @@ Access-Control-Allow-Origin = "*"
 Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://aesthetic.computer https://assets.aesthetic.computer blob: 'unsafe-eval';"
 # Cross-Origin-Resource-Policy = "cross-origin"
 Vary = "*"
-[[edge_functions]]
-path = "/media/*"
-function = "media"
+# [[edge_functions]]
+# path = "/media/*" 
+# function = "media"
 [[redirects]]
 from = "https://botce.ac"
 to = "https://aesthetic.computer/botce"
@@ -362,6 +364,10 @@ status = 200
 # to = "http://localhost:3000/api/ask"
 # status = 200
 # force = false
+[[redirects]]
+from = "/api/playlist"
+to = "/.netlify/functions/playlist"
+status = 200
 [[redirects]]
 from = "/api/say"
 to = "/.netlify/functions/say"
