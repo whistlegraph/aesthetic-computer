@@ -17,9 +17,18 @@ const bootUpTimer = setInterval(() => {
     stdio: ['pipe', 'inherit', 'inherit']
   });
 
+  // Handle process cleanup to prevent blocking
+  toilet.on('error', () => {});
+  lolcat.on('error', () => {});
+  
   toilet.stdout.pipe(lolcat.stdin);
   toilet.stdin.write(message);
   toilet.stdin.end();
+  
+  // Ensure processes exit properly
+  toilet.on('close', () => {
+    lolcat.stdin.end();
+  });
 
   bootUps += 1;
 }, 250);
@@ -28,11 +37,17 @@ async function constructUrl() {
   const url = `https://${process.env.HOST_IP}:8888`;
 
   // Generate QR code in the terminal once a 200 is received from `url`.
+  let attempts = 0;
+  const maxAttempts = 120; // 60 seconds max wait time
+  
   try {
-    while (true) {
+    while (attempts < maxAttempts) {
       try {
         const response = await got.get("https://localhost:8888", {
           https: { rejectUnauthorized: false },
+          timeout: {
+            request: 2000 // 2 second timeout per request
+          }
         });
         if (response.statusCode === 200) {
           clearInterval(bootUpTimer);
@@ -47,9 +62,19 @@ async function constructUrl() {
           break;
         }
       } catch (error) {
-        // Keep trying indefinitely
+        // Debug: uncomment to see what's happening
+        console.error(`Attempt ${attempts + 1}: ${error.message}`);
       }
+      attempts++;
       await new Promise((res) => setTimeout(res, 500)); // Hang out half a sec.
+    }
+    
+    if (attempts >= maxAttempts) {
+      clearInterval(bootUpTimer);
+      process.stdout.write("\x1Bc"); // Clear terminal.
+      console.log("❌ Server failed to start after 60 seconds");
+      console.log("🔧 Try running 'npm run site' manually to debug");
+      process.exit(1);
     }
   } finally {
     console.log("🟪 Tunneling...");

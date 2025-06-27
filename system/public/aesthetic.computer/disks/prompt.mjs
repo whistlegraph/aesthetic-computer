@@ -71,7 +71,12 @@ import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
-import { isPromptInKidlispMode, decodeKidlispFromUrl, encodeKidlispForUrl, isKidlispSource } from "../lib/kidlisp.mjs";
+import {
+  isPromptInKidlispMode,
+  decodeKidlispFromUrl,
+  encodeKidlispForUrl,
+  isKidlispSource,
+} from "../lib/kidlisp.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
 
@@ -91,6 +96,7 @@ let login, // A login button in the center of the display.
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
+let chatTickerButton; // Button for chat ticker hover interaction
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -210,9 +216,10 @@ async function boot({
     system.prompt.convo.messages?.length === 0
   ) {
     // Check if we'll be activating the prompt later to avoid showing MOTD when focused
-    const willActivate = (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
-                         (vscode && pieceCount === 0);
-    
+    const willActivate =
+      (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
+      (vscode && pieceCount === 0);
+
     if (pieceCount === 0 || store["prompt:splash"] === true) {
       // system.prompt.input.print("aesthetic.computer"); // Set a default empty motd.
       // Only show MOTD if we won't be activating the prompt (which means it's not focused)
@@ -258,10 +265,10 @@ async function boot({
     // 🍫 Create a pleasurable blinking cursor delay.
     // system.prompt.input.showBlink = false;
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
-    
+
     // Clear any latent text before activating to prevent MOTD showing when focused
     system.prompt.input.text = "";
-    
+
     activated(api, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
@@ -1421,14 +1428,18 @@ async function halt($, text) {
     // Disconnect from socket server, chat, and udp in 5 seconds...
     net.hiccup();
     return true;
-  } else {    // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
+  } else {
+    // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?
     //         (Whereas this is eval/apply at the program level.)
-      let body, loaded;
+    let body, loaded;
     const trimmed = text.trim();
     // 🍏 Detect if we are in kidlisp mode and pass that flag through to 'load'
-    const isKidlisp = trimmed.startsWith("(") || trimmed.startsWith(";") || isKidlispSource(trimmed);
+    const isKidlisp =
+      trimmed.startsWith("(") ||
+      trimmed.startsWith(";") ||
+      isKidlispSource(trimmed);
     if (isKidlisp) {
       body = { name: trimmed, source: trimmed };
       loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
@@ -1571,28 +1582,76 @@ function paint($) {
     if ($.chat.messages.length > 0) {
       const msg = $.chat.messages[$.chat.messages.length - 1];
       const fullText = msg.from + ": " + msg.text;
-      
-      // Create or update ticker instance
-      if (!chatTicker) {
-        chatTicker = new $.gizmo.Ticker(fullText, { speed: 1, separator: " - " });
-      } else {
-        chatTicker.setText(fullText);
-      }
-      
-      // Update ticker animation
-      chatTicker.update($);
-      
+
       // Position midway between login button (screen center) and handles text
       const loginY = screen.height / 2; // Login button is centered vertically
       const handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Handles text position
-      const tickerY = (loginY + handlesY) / 2; // Midway point
-      
-      // Paint the ticker
-      chatTicker.paint($, 0, tickerY, {
-        color: "teal",
-        alpha: 128,
-        width: screen.width,
-      });
+      let tickerY = (loginY + handlesY) / 2; // Midway point
+
+      // Ensure ticker doesn't go below screen bounds (leave 20px margin from bottom)
+      const maxTickerY = screen.height - 20;
+      if (tickerY > maxTickerY) {
+        tickerY = maxTickerY;
+      }
+
+      // Check if there's enough vertical space for the ticker
+      // We need at least 24px between login button and handles text to show ticker
+      // AND the ticker position must be at least 12px below the login button
+      const minSpacingRequired = 24;
+      const availableSpace = handlesY - loginY;
+      const tickerBelowLogin = tickerY > loginY + 12;
+      const showTicker =
+        availableSpace >= minSpacingRequired &&
+        tickerBelowLogin &&
+        tickerY < screen.height - 12;
+
+      if (showTicker) {
+        // Create or update ticker instance
+        if (!chatTicker) {
+          chatTicker = new $.gizmo.Ticker(fullText, {
+            speed: 1,
+            separator: " - ",
+          });
+          chatTicker.paused = false;
+          chatTicker.offset = 0;
+        } else {
+          chatTicker.setText(fullText);
+        }
+
+        // Update ticker animation only if not paused
+        if (!chatTicker.paused) {
+          chatTicker.update($);
+        }
+
+        // Create or update invisible button over ticker area
+        if (!chatTickerButton) {
+          chatTickerButton = new $.ui.Button({
+            x: 0,
+            y: tickerY - 6, // Give some padding above text
+            w: screen.width,
+            h: 20, // Height to cover text plus padding
+          });
+        } else {
+          // Update button position in case screen size changed
+          chatTickerButton.box.x = 0;
+          chatTickerButton.box.y = tickerY - 6;
+          chatTickerButton.box.w = screen.width;
+          chatTickerButton.box.h = 20;
+        }
+
+        // Paint the ticker with alpha based on button state
+        const tickerAlpha = chatTickerButton.down ? 200 : 128;
+
+        chatTicker.paint($, 0, tickerY, {
+          color: "teal",
+          alpha: tickerAlpha,
+          width: screen.width,
+        });
+      } else {
+        // Hide ticker when there's not enough space
+        chatTicker = null;
+        chatTickerButton = null;
+      }
     }
 
     // Handle Stats
@@ -1802,6 +1861,16 @@ function act({
     });
   };
 
+  const cancelSound = () => {
+    synth({
+      tone: 200,
+      beats: 0.1,
+      attack: 0.01,
+      decay: 0.5,
+      volume: 0.15,
+    });
+  };
+
   if (!net.sandboxed) {
     login?.btn.act(e, {
       down: () => downSound(),
@@ -1810,6 +1879,7 @@ function act({
         net.login();
         // if (net.iframe) jump("login-wait");
       },
+      cancel: () => cancelSound(),
     });
   }
 
@@ -1820,6 +1890,84 @@ function act({
         pushSound();
         net.signup();
       },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // Chat ticker button (invisible, just for click interaction)
+  if (chatTickerButton) {
+    chatTickerButton.act(e, {
+      down: () => {
+        // Sound feedback on tap down
+        downSound();
+
+        // Stop ticker animation and store initial scrub position
+        if (chatTicker) {
+          chatTicker.paused = true;
+          chatTickerButton.scrubStartX = e.x;
+          chatTickerButton.scrubInitialOffset = chatTicker.getOffset();
+          chatTickerButton.hasScrubbed = false;
+        }
+        needsPaint();
+      },
+      scrub: (btn) => {
+        // Manual scrubbing - move content left/right using current position vs start
+        if (chatTicker && e.x !== undefined && e.y !== undefined) {
+          const scrubDelta = e.x - chatTickerButton.scrubStartX;
+
+          // Calculate the raw offset
+          let newOffset = chatTickerButton.scrubInitialOffset - scrubDelta;
+
+          // Add elastic bounce effect for negative values
+          if (newOffset < 0) {
+            // Apply diminishing returns for negative values (elastic effect)
+            // The further negative, the less responsive it becomes
+            newOffset = newOffset * 0.3; // Scale down negative movement to 30%
+          }
+
+          chatTicker.setOffset(newOffset);
+
+          chatTickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
+
+          // Play softer, shorter tick sound during scrubbing
+          synth({
+            type: "sine",
+            tone: 1200 + Math.abs(scrubDelta) * 2, // Pitch varies with scrub distance
+            attack: 0.005,
+            decay: 0.9,
+            volume: 0.08,
+            duration: 0.01,
+          });
+
+          needsPaint();
+        }
+      },
+      push: () => {
+        // Sound feedback on successful action
+        if (!chatTickerButton.hasScrubbed) {
+          pushSound();
+        }
+
+        // Only jump to chat if we didn't scrub
+        if (!chatTickerButton.hasScrubbed) {
+          // Keep ticker stopped when jumping to chat
+          jump("chat");
+        } else {
+          // Resume animation if we scrubbed
+          if (chatTicker) {
+            chatTicker.paused = false;
+          }
+        }
+      },
+      cancel: () => {
+        // Cancel sound
+        cancelSound();
+
+        // Resume animation on cancel
+        if (chatTicker) {
+          chatTicker.paused = false;
+        }
+      },
     });
   }
 
@@ -1829,7 +1977,8 @@ function act({
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
+      (chatTickerButton && chatTickerButton.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -1841,7 +1990,8 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
-        profileAction === "profile"))
+        profileAction === "profile") ||
+      (chatTickerButton && chatTickerButton.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
     system.prompt.input.backdropTouchOff = true;
@@ -1891,6 +2041,8 @@ function act({
       }
     },
     cancel: () => {
+      cancelSound();
+
       if (profileAction !== "profile") {
         // send({ type: "keyboard:disabled" }); // Disable keyboard flag.
         send({ type: "keyboard:lock" });
@@ -2004,7 +2156,7 @@ function activated($, state) {
   if (state === true) {
     $.system.prompt.input.text = "";
   }
-  
+
   if (firstActivation) {
     $.sound.play(startupSfx); // Play startup sound...
     flashColor = scheme.dark.block; // Trigger startup animation...

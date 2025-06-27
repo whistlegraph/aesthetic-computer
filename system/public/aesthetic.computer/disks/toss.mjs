@@ -160,11 +160,13 @@ function act({ event: e, api, sound, pens }) {
           band.sound?.kill(killFade);
           band.sound = null;
         },
+        cancel: () => {
+          // Handle button cancellation (including edge detection)
+          band.sound?.kill(killFade);
+          band.sound = null;
+        },
         over: (btn) => {
-          if (btn.up /* && anyDown*/) {
-            btn.up = false;
-            btn.actions.down(btn);
-          }
+          // Simple rollover - no complex activation logic
         },
         // TODO: The order of over and out will be important...
         out: (btn) => {

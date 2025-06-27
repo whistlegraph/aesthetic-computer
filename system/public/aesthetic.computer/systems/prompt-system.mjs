@@ -229,6 +229,7 @@ export function prompt_act($) {
   // Note: Any event typed added to `TextInput` -> `act` must be
   //       whitelisted here. 💬
   if (
+    e.is("ui:cancel-interactions") ||
     e.is("move") ||
     e.is("draw") ||
     e.is("touch") ||

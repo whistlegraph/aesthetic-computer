@@ -4335,6 +4335,13 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Cancel any active UI button interactions when pointer leaves window
+  if (type === "ui:cancel-interactions") {
+    // Add to actAlerts so it gets processed through the normal event flow
+    actAlerts.push("ui:cancel-interactions");
+    return;
+  }
+
   // if (type === "hand-tracking-data") {
   // $commonApi.hand = { mediapipe: content };
   // return;
