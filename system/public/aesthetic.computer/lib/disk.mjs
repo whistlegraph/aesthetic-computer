@@ -1599,8 +1599,8 @@ const $commonApi = {
       return { width: painting.width, height: painting.height, pixels };
     },
   },
-  gizmo: { 
-    Hourglass: gizmo.Hourglass, 
+  gizmo: {
+    Hourglass: gizmo.Hourglass,
     EllipsisTicker: gizmo.EllipsisTicker,
     Ticker: Ticker,
     ticker: ticker,
@@ -1978,7 +1978,7 @@ const $paintApi = {
       bg,
       bounds,
       wordWrap = true;
-    
+
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
 
@@ -2317,7 +2317,8 @@ function form(
 
 // Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
 // Occurs also when loading a piece's source code.
-function prefetchPicture(code) {  if (paintings[code] === "fetching") return;
+function prefetchPicture(code) {
+  if (paintings[code] === "fetching") return;
 
   // console.log("🖼️ Prefetching...", code);
   paintings[code] = "fetching";
@@ -3030,7 +3031,8 @@ async function load(
         forceKidlisp ||
         slug === "(...)" ||
         path === "(...)"
-      ) {        // Only use basic detection, not the broader isKidlispSource function
+      ) {
+        // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
@@ -3192,7 +3194,6 @@ async function load(
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
       // TODO: 🔥 This should somehow keep current commands or params, etc.
 
-
       // console.log(
       //   "🪷 Current: params:",
       //   currentParams,
@@ -3218,7 +3219,7 @@ async function load(
         },
         false,
         false,
-        true
+        true,
       ); // Load source code with preserved URL state.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
       // console.log("💾️ Reloading:", piece, "Params:", currentParams);
@@ -3382,18 +3383,23 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
-    let pieceMeta = loadedModule.meta?.({
-      ...parsed,
-      num: $commonApi.num,
-      store: $commonApi.store,
-    }) || inferTitleDesc(originalCode);
-    
+    let pieceMeta =
+      loadedModule.meta?.({
+        ...parsed,
+        num: $commonApi.num,
+        store: $commonApi.store,
+      }) || inferTitleDesc(originalCode);
+
     // Extract title from first line comment if it's a Lisp file and no title exists
-    if (originalCode && (!pieceMeta?.title || pieceMeta.title === parsed.text)) {
-      const isLispSource = originalCode.startsWith("(") || originalCode.startsWith(";");
+    if (
+      originalCode &&
+      (!pieceMeta?.title || pieceMeta.title === parsed.text)
+    ) {
+      const isLispSource =
+        originalCode.startsWith("(") || originalCode.startsWith(";");
       if (isLispSource) {
-        const firstLine = originalCode.split('\n')[0]?.trim();
-        if (firstLine && firstLine.startsWith(';')) {
+        const firstLine = originalCode.split("\n")[0]?.trim();
+        if (firstLine && firstLine.startsWith(";")) {
           const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
           if (title) {
             pieceMeta = { ...pieceMeta, title, standaloneTitle: true };
@@ -3401,7 +3407,7 @@ async function load(
         }
       }
     }
-    
+
     const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
       slug,
@@ -4042,7 +4048,8 @@ async function load(
     if (
       !fromHistory &&
       currentText &&
-      currentText !== "prompt" &&      currentText !== $commonApi.history[$commonApi.history.length - 1]
+      currentText !== "prompt" &&
+      currentText !== $commonApi.history[$commonApi.history.length - 1]
     ) {
       $commonApi.history.push(currentText);
     }
@@ -4987,11 +4994,14 @@ async function makeFrame({ data: { type, content } }) {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
               const content = currentHUDTxt || currentText;
-              
+
               // If content contains underscores or tildes, try decoding it first
               let actualContent = content;
               if (content && (content.includes("_") || content.includes("~"))) {
-                const decoded = content.replace(/_/g, " ").replace(/§/g, "\n").replace(/~/g, " ");
+                const decoded = content
+                  .replace(/_/g, " ")
+                  .replace(/§/g, "\n")
+                  .replace(/~/g, " ");
                 if (lisp.isKidlispSource(decoded)) {
                   actualContent = decoded;
                 } else {
@@ -5000,12 +5010,12 @@ async function makeFrame({ data: { type, content } }) {
                   actualContent = content.replace(/~/g, " ");
                 }
               }
-              
+
               // For kidlisp content, encode it for URL. For regular pieces, pass as-is.
-              const encodedContent = lisp.isKidlispSource(actualContent) 
+              const encodedContent = lisp.isKidlispSource(actualContent)
                 ? lisp.encodeKidlispForUrl(actualContent)
                 : actualContent;
-              
+
               promptSlug += "~" + encodedContent;
             }
             $commonApi.jump(promptSlug)(() => {
@@ -5246,6 +5256,24 @@ async function makeFrame({ data: { type, content } }) {
           color,
           options = { noamp: false, nobounds: false },
         ) {
+          // Add validation to prevent random boxes when data is undefined
+          if (
+            amplitude === undefined ||
+            amplitude === null ||
+            isNaN(amplitude)
+          ) {
+            amplitude = 0; // Default to 0 if undefined
+          }
+
+          if (!waveform || !Array.isArray(waveform) || waveform.length === 0) {
+            return; // Don't draw anything if no valid waveform data
+          }
+
+          // Ensure waveform values are valid numbers
+          waveform = waveform.map((v) =>
+            v === undefined || v === null || isNaN(v) ? 0 : v,
+          );
+
           const yMid = round(y + (height - 2) / 2),
             yMax = round((height - 2) / 2);
           let lw = options.noamp ? 0 : 4; // levelWidth;
@@ -5758,14 +5786,23 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.15,
               });
               if (!labelBack) {
-                jump("prompt");              } else {
+                jump("prompt");
+              } else {
                 labelBack = false; // Reset `labelBack` after jumping.
-                console.log("🔙 Back button pressed, history length:", $commonApi.history.length);
+                console.log(
+                  "🔙 Back button pressed, history length:",
+                  $commonApi.history.length,
+                );
                 console.log("🔙 Current history:", $commonApi.history);
                 if ($commonApi.history.length > 0) {
                   // Check if current piece is kidlisp - if so, use internal history navigation
-                  if (currentText && (currentText.startsWith("(") || currentText.includes("("))) {
-                    console.log("🔙 Kidlisp piece detected, using internal history navigation");
+                  if (
+                    currentText &&
+                    (currentText.startsWith("(") || currentText.includes("("))
+                  ) {
+                    console.log(
+                      "🔙 Kidlisp piece detected, using internal history navigation",
+                    );
                     const lastPiece = $commonApi.history.pop(); // Remove and get the last piece
                     console.log("🔙 Navigating back to:", lastPiece);
                     jump(lastPiece, true); // Jump with fromHistory = true
