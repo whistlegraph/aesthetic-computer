@@ -107,10 +107,18 @@ end
 
 function aesthetic
     clear
+    set -l config_count 0
     while not test -f /home/me/.waiter
-        toilet "Configuring..." -f future | lolcat -x -r
-        sleep 1
+        set -l message
+        if test (math $config_count % 2) -eq 0
+            set message "Configuring..."
+        else
+            set message "Configuring. . ."
+        end
+        toilet $message -f future | lolcat -x -r
+        sleep 0.25
         clear
+        set config_count (math $config_count + 1)
     end
     sudo rm /home/me/.waiter
     
@@ -153,6 +161,7 @@ end
 alias ac 'cd ~/aesthetic-computer'
 alias watch 'ac; npm run watch' # check for new deployments
 alias ac-watch 'ac; npm run watch'
+alias ac-agent 'ac; fish'
 alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
