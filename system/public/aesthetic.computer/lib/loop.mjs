@@ -66,6 +66,7 @@ function start(inputFun, updateAndRenderFun) {
 
 // Update the frame rate.
 function frameRate(n = 165) {
+  if (renderFps === n) return; // Skip if framerate hasn't changed
   renderFps = n;
   if (renderFps !== 165) console.log("🎞️ FPS:", renderFps);
   renderRate = 1000 / renderFps;
