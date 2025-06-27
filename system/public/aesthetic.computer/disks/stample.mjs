@@ -361,6 +361,12 @@ function act({ event: e, sound, pens, screen, ui, notice, beep }) {
           //}
           // console.log("Killing sound index:", index, sounds[index]);
         },
+        cancel: (btn) => {
+          // Kill the sound when button is cancelled (e.g., mouse leaves screen)
+          sounds[index]?.kill(0.1);
+          delete btnSounds[index];
+          anyDown = false;
+        },
         scrub: (btn) => {
           /*
           if (abs(e.delta.y) > 0 && !btnSounds[index]) {
@@ -492,6 +498,9 @@ function genPats({ screen, ui }) {
       y = labelHeight + strip * i,
       width = screen.width,
       height = strip;
-    btns.push(new ui.Button(x, y, width, height));
+    const button = new ui.Button(x, y, width, height);
+    button.offScreenScrubbing = true; // Enable off-screen scrubbing for stample buttons
+    button.noRolloverActivation = true; // Prevent rollover activation between buttons
+    btns.push(button);
   }
 }
