@@ -141,19 +141,18 @@ RUN mkdir -p .config/fish && \
 # 🐈 websocat
 # Install Rust toolchain & 
 # Clone websocat repository and build a specific release version
-# RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
-#     && . $HOME/.cargo/env \
-#     && git clone https://github.com/vi/websocat.git \
-#     && cd websocat \
-#     && cargo build --release \
-#     && sudo cp target/release/websocat /usr/local/bin/
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && . $HOME/.cargo/env \
+    && git clone https://github.com/vi/websocat.git \
+    && cd websocat \
+    && cargo build --release \
+    && sudo cp target/release/websocat /usr/local/bin/
+
 # RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_amd64-linux -o /usr/local/bin/websocat \
 #     && chmod +x /usr/local/bin/websocat
-RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_amd64-linux -o /tmp/websocat \
-    && chmod +x /tmp/websocat \
-    && sudo mv /tmp/websocat /usr/local/bin/websocat
-
-
+# RUN curl -L https://github.com/vi/websocat/releases/download/v1.11.0/websocat_amd64-linux -o /tmp/websocat \
+#     && chmod +x /tmp/websocat \
+#     && sudo mv /tmp/websocat /usr/local/bin/websocat
 
 # Install fnm and base javascript tooling.
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "/home/me/.fnm" --skip-shell
