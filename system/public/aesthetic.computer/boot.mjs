@@ -1,4 +1,5 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
+console.clear();
 
 // Alert the parent /  we are ready.
 if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
