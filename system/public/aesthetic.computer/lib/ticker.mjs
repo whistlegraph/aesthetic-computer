@@ -102,6 +102,12 @@ export class Ticker {
     return this.#offset;
   }
 
+  // Set the offset directly (useful for manual control)
+  setOffset(offset) {
+    this.#offset = offset; // Allow negative values for bidirectional scrubbing
+    return this;
+  }
+
   // Reset the ticker to the beginning
   reset() {
     this.#offset = 0;

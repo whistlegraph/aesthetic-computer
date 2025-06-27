@@ -225,6 +225,18 @@ export class Pen {
       pointer.untransformedPosition = { x: e.x, y: e.y };
       pointer.pressure = reportPressure(e);
 
+      // Check if pointer is close to window edges (within 50px)
+      const edgeThreshold = 50;
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      const x = e.x;
+      const y = e.y;
+      
+      if (x < edgeThreshold || x > windowWidth - edgeThreshold || 
+          y < edgeThreshold || y > windowHeight - edgeThreshold) {
+        // console.log(`📍 Pointer near edge: x=${x}, y=${y}, window=${windowWidth}x${windowHeight}`);
+      }
+
       pointer.saveDelta();
 
       if (pointer.drawing) {
@@ -301,6 +313,35 @@ export class Pen {
     // Automatically dispatch a pointer release when hidden.
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) pen.up();
+    });
+
+    // Handle pointer leaving the window - send message to cancel UI interactions
+    window.addEventListener("pointerleave", function (e) {
+      // Send message to worker to cancel any active UI button interactions
+      if (window.acSEND) {
+        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+      }
+    });
+    
+    window.addEventListener("mouseleave", function (e) {
+      // Send message to worker to cancel any active UI button interactions
+      if (window.acSEND) {
+        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+      }
+    });
+
+    document.addEventListener("pointerleave", function (e) {
+      // Send UI cancellation message
+      if (window.acSEND) {
+        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+      }
+    });
+
+    document.body.addEventListener("pointerleave", function (e) {
+      // Send UI cancellation message
+      if (window.acSEND) {
+        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+      }
     });
 
     // Mousewheel

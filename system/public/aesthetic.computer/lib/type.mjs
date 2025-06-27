@@ -439,6 +439,7 @@ class TextInput {
   hideGutter = false;
   #gutterMax;
   #activatingPress = false;
+  #edgeCancelled = false;
 
   typeface;
   pal; // color palette
@@ -953,6 +954,23 @@ class TextInput {
   async act($) {
     const { debug, event: e, store, needsPaint, sound } = $;
 
+    // Handle UI interaction cancellation when pointer leaves window
+    if (e.is("ui:cancel-interactions")) {
+      // Mark that edge cancellation happened and cancel the activation state
+      this.#edgeCancelled = true;
+      this.#activatingPress = false; // Cancel the activation state immediately
+      
+      // Reset any backdrop touch state to ensure fresh interactions
+      this.backdropTouchOff = false;
+      
+      // Handle all buttons to ensure proper cancellation
+      this.enter.btn.act(e);
+      this.copy.btn.act(e);
+      this.paste.btn.act(e);
+      needsPaint(); // Repaint to remove the activation outline
+      return;
+    }
+
     // Reflow the prompt on frame resize.
     if (e.is("reframed")) {
       if (!$.store["gutter:lock"]) this.fullGutter($);
@@ -1268,7 +1286,7 @@ class TextInput {
             }
             await this.run(store);
           }
-        } else if (!this.canType) {
+        } else if (!this.canType && !this.#edgeCancelled) {
           activate(this);
         }
       }
@@ -1279,7 +1297,7 @@ class TextInput {
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    if (e.is("keyboard:open") && !this.#lock) activate(this);
+    if (e.is("keyboard:open") && !this.#lock && !this.#edgeCancelled) activate(this);
     if (e.is("keyboard:close") && !this.#lock) {
       deactivate(this);
     }
@@ -1294,6 +1312,7 @@ class TextInput {
       (this.paste.btn.disabled === true || !this.paste.btn.box.contains(e))
     ) {
       this.#activatingPress = true;
+      this.#edgeCancelled = false; // Reset edge cancellation on new touch
       $.send({ type: "keyboard:unlock" });
       if (!this.mute) {
         sound.synth({
@@ -1307,15 +1326,25 @@ class TextInput {
       }
     }
 
-    if (e.is("lift") && !this.canType) this.#activatingPress = false;
+    if (e.is("lift") && !this.canType) {
+      // Only process lift if we had an activating press (prevents orphaned lifts)
+      if (this.#activatingPress) {
+        // Check if we should activate BEFORE setting activatingPress to false
+        // But only if edge cancellation didn't happen
+        if (!this.#edgeCancelled) {
+          activate(this);
+        }
+        
+        this.#activatingPress = false;
+      }
+      // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
+    }
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
-      // console.log("😃 Activating TextInput...");
       ti.activatedOnce = true;
 
       if (ti.canType) {
-        // console.log("✔️✍️ TextInput already activated.");
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
         return;
@@ -1459,7 +1488,7 @@ class TextInput {
             } else if (this.closeOnEmptyEnter) {
               $.send({ type: "keyboard:close" });
             }
-          } else {
+          } else if (!this.#edgeCancelled) {
             activate(this);
             if (this.runnable && this.text.trim().length > 0) {
               await this.run(store);
