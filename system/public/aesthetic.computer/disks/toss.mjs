@@ -80,7 +80,9 @@ function layoutBandButtons({ screen, ui }) {
   const hw = screen.width / 2;
   const segWidth = screen.width / bandCount;
   for (let i = 0; i < bandCount; i += 1) {
-    bands[i].btn = new ui.Button(i * segWidth, 0, segWidth, screen.height);
+    const button = new ui.Button(i * segWidth, 0, segWidth, screen.height);
+    button.offScreenScrubbing = true; // Enable off-screen scrubbing for toss buttons
+    bands[i].btn = button;
   }
 }
 
@@ -168,10 +170,8 @@ function act({ event: e, api, sound, pens }) {
         over: (btn) => {
           // Simple rollover - no complex activation logic
         },
-        // TODO: The order of over and out will be important...
         out: (btn) => {
-          btn.down = false;
-          btn.actions.up(btn);
+          // Simple rollout - no complex deactivation logic
         },
         scrub: (g) => {
           band.tone -= e.delta.y;
