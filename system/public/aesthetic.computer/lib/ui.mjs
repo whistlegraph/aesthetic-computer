@@ -66,6 +66,9 @@ function cached(ctx) {
   ctx.restore();
 }
 
+// Global tracking for drag-between-buttons behavior
+const activeButtons = new Set(); // Track which buttons are currently active
+
 // An interactive button model.
 class Button {
   btn;
@@ -79,6 +82,9 @@ class Button {
   downPointer; // Keep track of what original pointer downed the button.
   actions; // A held list of callbacks for virtually triggering events.
   noEdgeDetection = false; // Set to true to opt out of global edge detection cancellation
+  noRolloverActivation = false; // Set to true to prevent activation via rollover from other buttons
+  stickyScrubbing = false; // Set to true to prevent rollover activation when scrubbing from another button
+  offScreenScrubbing = false; // Set to true to allow scrubbing to continue off-screen but still allow horizontal rollover
 
   get up() {
     return !this.down;
@@ -126,10 +132,16 @@ class Button {
     // Handle global edge detection cancellation
     if (e.is("ui:cancel-interactions") && !btn.noEdgeDetection) {
       // Only cancel if the button is still down (not already cancelled by other means)
-      if (btn.down) {
+      // For offScreenScrubbing buttons, don't cancel if cursor is horizontally within bounds
+      // For stickyScrubbing buttons, always cancel when mouse leaves screen to prevent sounds getting stuck
+      const shouldCancel = btn.down && (!btn.offScreenScrubbing || 
+        (btn.offScreenScrubbing && (e.x < btn.box.x || e.x >= btn.box.x + btn.box.w)));
+      
+      if (shouldCancel) {
         btn.down = false;
         btn.over = false;
         btn.downPointer = undefined;
+        activeButtons.delete(btn); // Remove from activeButtons Set
         callbacks.cancel?.(btn);
       }
       return;
@@ -144,6 +156,8 @@ class Button {
       if (btn.down && btn.downPointer === undefined)
         btn.downPointer = e.pointer || 0;
       btn.over = btn.down;
+      // Add to active buttons set
+      if (btn.down) activeButtons.add(btn);
     }
 
     // 3. Push: Trigger the button if we push it.
@@ -155,6 +169,7 @@ class Button {
           btn.over = true;
         } else {
           btn.downPointer = undefined;
+          activeButtons.delete(btn);
         }
       }
 
@@ -182,6 +197,7 @@ class Button {
         // );
         btn.down = false;
         btn.over = false;
+        activeButtons.delete(btn);
         callbacks.push?.(btn);
         up();
       } else if (
@@ -197,6 +213,7 @@ class Button {
         // );
         btn.down = false;
         btn.over = false;
+        activeButtons.delete(btn);
         callbacks.cancel?.(btn);
         up();
         //console.log("Button up (cancel):", btn, pens);
@@ -208,22 +225,89 @@ class Button {
 
     // 4. Rollover: Run a rollover event if dragged on.
     // if (e.is("draw:any") && !this.down && this.box.contains(e)) {
-    if (e.is(`draw:${t}`) && !btn.over && btn.box.contains(e)) {
-      if (callbacks.rollover) {
-        callbacks.rollover(btn);
-      } else {
-        callbacks.over?.(btn);
-      }
-      btn.over = true;
-    }
+
+    // For offScreenScrubbing, check if cursor is horizontally within bounds
+    const horizontallyWithin =
+      btn.offScreenScrubbing && e.x >= btn.box.x && e.x < btn.box.x + btn.box.w;
 
     if (
       e.is(`draw:${t}`) &&
-      /*btn.over*/ btn.down &&
-      btn.box.contains(e.drag)
+      !btn.over &&
+      (btn.box.contains(e) || horizontallyWithin)
     ) {
-      // console.log(e);
-      if (e.pointer === btn.downPointer) {
+      // Check if we're dragging from another button
+      const isDraggingFromOtherButton = activeButtons.size > 0 && !btn.down;
+
+      // Check if any active button has sticky scrubbing enabled
+      const hasStickyButton = Array.from(activeButtons).some(
+        (activeBtn) => activeBtn.stickyScrubbing,
+      );
+
+      if (
+        isDraggingFromOtherButton &&
+        !hasStickyButton &&
+        !btn.noRolloverActivation && // Respect the noRolloverActivation flag
+        (btn.box.contains(e) || horizontallyWithin)
+      ) {
+        // Only allow rollover activation if no sticky scrubbing buttons are active
+        // Deactivate all other buttons first
+        for (const otherBtn of activeButtons) {
+          if (otherBtn !== btn) {
+            otherBtn.down = false;
+            otherBtn.over = false;
+            otherBtn.actions?.up?.(otherBtn);
+            activeButtons.delete(otherBtn);
+          }
+        }
+
+        // Activate this button for dragging
+        btn.down = true;
+        btn.downPointer = e.pointer || 0;
+        activeButtons.add(btn);
+        callbacks.down?.(btn);
+      }
+
+      // Always allow rollover callbacks, even with sticky scrubbing
+      if (
+        !hasStickyButton ||
+        !isDraggingFromOtherButton ||
+        horizontallyWithin
+      ) {
+        if (callbacks.rollover) {
+          callbacks.rollover(btn);
+        } else {
+          callbacks.over?.(btn);
+        }
+        btn.over = true;
+      }
+    }
+
+    // Scrub condition: allow if drag is within bounds OR if button is active from rollover
+    // For sticky scrubbing, allow scrubbing even when dragging outside bounds
+    // For offScreenScrubbing, allow scrubbing when horizontally within bounds even if vertically off-screen
+    const containsDrag = btn.box.contains(e.drag);
+    const inActiveButtons = activeButtons.has(btn);
+    const horizontallyWithinForOffScreen =
+      btn.offScreenScrubbing &&
+      e.drag &&
+      e.drag.x >= btn.box.x &&
+      e.drag.x < btn.box.x + btn.box.w;
+    const allowScrub =
+      containsDrag ||
+      (inActiveButtons && !btn.stickyScrubbing) ||
+      (btn.stickyScrubbing && btn.down) ||
+      (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen);
+
+    if (e.is(`draw:${t}`) && btn.down && allowScrub) {
+      // Allow scrubbing if pointers match OR if this button was activated via rollover
+      // For sticky scrubbing, always allow if the button is down regardless of pointer position
+      // For offScreenScrubbing, allow if horizontally within bounds
+      if (
+        e.pointer === btn.downPointer ||
+        (inActiveButtons && !btn.stickyScrubbing) ||
+        (btn.stickyScrubbing && btn.down) ||
+        (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen)
+      ) {
         callbacks.scrub?.(btn);
       }
     }
@@ -235,13 +319,23 @@ class Button {
       !btn.box.contains(e) &&
       btn.box.containsNone(pens)
     ) {
-      if (callbacks.rollout) {
-        callbacks.rollout(btn);
-      } else {
-        callbacks.out?.(btn);
+      // For offScreenScrubbing buttons, only trigger rollout if we're also outside horizontal bounds
+      const shouldRollout =
+        !btn.offScreenScrubbing ||
+        (btn.offScreenScrubbing &&
+          (e.x < btn.box.x || e.x >= btn.box.x + btn.box.w));
+
+      if (shouldRollout) {
+        // Only truly deactivate if we're not dragging to another button
+        // The rollover on the new button will handle the transition
+        if (callbacks.rollout) {
+          callbacks.rollout(btn);
+        } else {
+          callbacks.out?.(btn);
+        }
+        // console.log("Button out (rollout):", btn, pens);
+        btn.over = false;
       }
-      // console.log("Button out (rollout):", btn, pens);
-      btn.over = false;
     }
   }
 
@@ -266,7 +360,6 @@ class TextButton {
   #offset = { x: this.#gap, y: this.#gap };
 
   constructor(text = "Button", pos = { x: 0, y: 0 }, typeface = TYPEFACE_UI) {
-
     this.#cw = typeface.blockWidth;
     this.#h = typeface.blockHeight + this.#gap * 2;
 
@@ -300,6 +393,14 @@ class TextButton {
 
   set noEdgeDetection(value) {
     this.btn.noEdgeDetection = value;
+  }
+
+  get stickyScrubbing() {
+    return this.btn.stickyScrubbing;
+  }
+
+  set stickyScrubbing(value) {
+    this.btn.stickyScrubbing = value;
   }
 
   get width() {
@@ -391,11 +492,4 @@ function setTypeface(tf) {
   TYPEFACE_UI = tf;
 }
 
-export { 
-  spinner, 
-  spinnerReset, 
-  cached, 
-  Button, 
-  TextButton, 
-  setTypeface
-};
+export { spinner, spinnerReset, cached, Button, TextButton, setTypeface };

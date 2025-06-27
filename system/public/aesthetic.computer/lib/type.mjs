@@ -280,7 +280,7 @@ class Typeface {
     const size = pos.size || 1;
     const blockMargin = 1;
     const blockHeight = ((this.blockHeight || 10) + blockMargin) * size;
-    const blockWidth = this.data.glyphWidth;// * size;
+    const blockWidth = this.data.glyphWidth; // * size;
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
     const fullWidth = blockWidth * size * text.length;
@@ -362,14 +362,14 @@ class Typeface {
       for (let i = 0; i < text.length; i++) {
         const char = text[i];
         const charColor = charColors[i];
-        
+
         // Set color for this character
         if (charColor) {
           $.ink(charColor);
         } else {
           $.ink(...rn); // Use original color if no specific color
         }
-        
+
         // Render single character
         $.printLine(
           char,
@@ -382,7 +382,7 @@ class Typeface {
           thickness,
           rotation,
         );
-        
+
         // Move to next character position
         currentX += blockWidth * size;
       }
@@ -485,7 +485,7 @@ class TextInput {
     processCommand,
     options = {
       palette: undefined,
-      font: "font_1", /*"unifont"*/ // fonts.font_1,
+      font: "font_1" /*"unifont"*/, // fonts.font_1,
       //autolock: true,
       wrap: "char",
     },
@@ -530,7 +530,7 @@ class TextInput {
       $.store["gutter:lock"] ||
         Math.min(this.#gutterMax, floor($.screen.width / blockWidth) - 2),
       options.lineSpacing,
-      this.typeface
+      this.typeface,
     );
 
     this.print(text); // Set initial text.
@@ -558,6 +558,8 @@ class TextInput {
     } = $;
 
     this.enter = new TB(this.scheme.buttons?.enter || "Enter");
+    this.enter.stickyScrubbing = true; // Prevent drag-between-button behavior
+    this.enter.btn.stickyScrubbing = true; // Also set on the actual button object
     this.copy = new TB(this.scheme.buttons?.copy.label || "Copy");
     this.paste = new TB(this.scheme.buttons?.paste?.label || "Paste");
     this.copy.btn.disabled = true; // Copy is disabled by default,
@@ -784,11 +786,14 @@ class TextInput {
           $.line(...topL, ...bottomR);
         }
       }
-    } else {      if (this.cursor === "blink" && this.showBlink && this.canType) {
+    } else {
+      if (this.cursor === "blink" && this.showBlink && this.canType) {
         // Use green cursor in kidlisp mode, otherwise use normal color
-        const cursorColor = $.system?.prompt?.kidlispMode ? 
-          ($.dark ? [100, 255, 100] : [0, 150, 0]) : 
-          this.pal.block;
+        const cursorColor = $.system?.prompt?.kidlispMode
+          ? $.dark
+            ? [100, 255, 100]
+            : [0, 150, 0]
+          : this.pal.block;
         $.ink(cursorColor).box(prompt.pos(undefined, true)); // Draw blinking cursor.
         const char = this.text[this.#prompt.textPos()];
         const pic = this.typeface.glyphs[char];
@@ -959,10 +964,10 @@ class TextInput {
       // Mark that edge cancellation happened and cancel the activation state
       this.#edgeCancelled = true;
       this.#activatingPress = false; // Cancel the activation state immediately
-      
+
       // Reset any backdrop touch state to ensure fresh interactions
       this.backdropTouchOff = false;
-      
+
       // Handle all buttons to ensure proper cancellation
       this.enter.btn.act(e);
       this.copy.btn.act(e);
@@ -1297,7 +1302,8 @@ class TextInput {
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    if (e.is("keyboard:open") && !this.#lock && !this.#edgeCancelled) activate(this);
+    if (e.is("keyboard:open") && !this.#lock && !this.#edgeCancelled)
+      activate(this);
     if (e.is("keyboard:close") && !this.#lock) {
       deactivate(this);
     }
@@ -1334,7 +1340,7 @@ class TextInput {
         if (!this.#edgeCancelled) {
           activate(this);
         }
-        
+
         this.#activatingPress = false;
       }
       // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
@@ -1392,7 +1398,7 @@ class TextInput {
 
       if (ti.canType === false) {
         // Assume we are already deactivated.
-        if (debug) console.log("❌✍️ TextInput already deactivated.");
+        // if (debug) console.log("❌✍️ TextInput already deactivated.");
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
         return;
@@ -1444,7 +1450,9 @@ class TextInput {
       this.backdropTouchOff = true;
     }
 
-    if (e.is("lift")) this.backdropTouchOff = false;
+    if (e.is("lift")) {
+      this.backdropTouchOff = false;
+    }
 
     // UI Button Actions
     if (!this.#lock) {
@@ -1480,6 +1488,12 @@ class TextInput {
       this.enter.btn.act(e, {
         down: () => {
           needsPaint();
+        },
+        scrub: () => {
+          // Silent scrubbing
+        },
+        cancel: () => {
+          // Silent cancel
         },
         push: async () => {
           if (this.runnable) {
@@ -1748,7 +1762,14 @@ class Prompt {
 
   #mappedTo = ""; // Text that has been mapped.
 
-  constructor(top = 0, left = 0, wrap, colWidth = 48, lineSpacing = 0, typeface) {
+  constructor(
+    top = 0,
+    left = 0,
+    wrap,
+    colWidth = 48,
+    lineSpacing = 0,
+    typeface,
+  ) {
     this.letterWidth = typeface.blockWidth * this.scale;
     this.letterHeight = typeface.blockHeight * this.scale + lineSpacing;
     this.top = top;

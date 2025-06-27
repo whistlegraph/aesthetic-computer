@@ -187,7 +187,9 @@ async function boot({
   // Create login & signup buttons.
   if (!user) {
     login = new ui.TextButton("Log in", { center: "xy", screen });
+    login.stickyScrubbing = true; // Prevent drag-between-button behavior
     signup = new ui.TextButton("I'm new", { center: "xy", screen });
+    signup.stickyScrubbing = true; // Prevent drag-between-button behavior
     positionWelcomeButtons(screen, net.iframe);
   }
 
@@ -198,8 +200,10 @@ async function boot({
     if (hand) {
       profileAction = "profile";
       profile = new ui.TextButton(hand, btnPos);
+      profile.stickyScrubbing = true; // Prevent drag-between-button behavior
     } else if (!user.email_verified) {
       profile = new ui.TextButton("Resend email", btnPos);
+      profile.stickyScrubbing = true; // Prevent drag-between-button behavior
       profileAction = "resend-verification";
       ellipsisTicker = new gizmo.EllipsisTicker();
       fetchUserAPI = api;
@@ -207,6 +211,7 @@ async function boot({
     } else if (user.email_verified) {
       profileAction = "set-handle";
       profile = new ui.TextButton("Create handle", btnPos);
+      profile.stickyScrubbing = true; // Prevent drag-between-button behavior
     }
   }
 
@@ -879,6 +884,7 @@ async function halt($, text) {
         notice("Check " + res.email);
         send({ type: "keyboard:close" });
         profile = new ui.TextButton("Resend email", { center: "xy", screen });
+        profile.stickyScrubbing = true; // Prevent drag-between-button behavior
         profileAction = "resend-verification";
         ellipsisTicker = new gizmo.EllipsisTicker();
         user.email = res.email; // Update the global `user` object for this session.
@@ -1586,24 +1592,51 @@ function paint($) {
       // Position midway between login button (screen center) and handles text
       const loginY = screen.height / 2; // Login button is centered vertically
       const handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Handles text position
+      
+      // Calculate text input area height - typically positioned at bottom with buttons
+      // Use a more conservative estimate that scales with screen height
+      const inputAreaHeight = Math.min(60, screen.height * 0.15); // 15% of screen or 60px max
+      const inputAreaTop = screen.height - inputAreaHeight;
+      
+      // Position ticker midway between login and handles, but ensure it doesn't overlap input area
       let tickerY = (loginY + handlesY) / 2; // Midway point
-
-      // Ensure ticker doesn't go below screen bounds (leave 20px margin from bottom)
-      const maxTickerY = screen.height - 20;
+      
+      // Ensure ticker stays above input area with at least 12px clearance
+      const maxTickerY = inputAreaTop - 12;
+      
+      // Also ensure minimum distance from screen bottom (fallback safety)
+      const absoluteMaxY = screen.height - 80;
+      
+      // Apply constraints but ensure ticker stays below login button
+      const minTickerY = loginY + 20; // 20 pixels below login button
+      
       if (tickerY > maxTickerY) {
         tickerY = maxTickerY;
       }
+      if (tickerY > absoluteMaxY) {
+        tickerY = absoluteMaxY;
+      }
+      
+      // If constraints push ticker too high, position it at minimum safe distance from login
+      if (tickerY < minTickerY) {
+        tickerY = minTickerY;
+      }
 
       // Check if there's enough vertical space for the ticker
+      // Don't show ticker if screen height is less than 130 pixels
       // We need at least 24px between login button and handles text to show ticker
-      // AND the ticker position must be at least 12px below the login button
+      // AND the ticker must not overlap with input area
       const minSpacingRequired = 24;
       const availableSpace = handlesY - loginY;
-      const tickerBelowLogin = tickerY > loginY + 12;
+      const tickerBelowLogin = tickerY >= loginY + 20;
+      const tickerAboveInput = tickerY <= inputAreaTop - 12;
+      const screenTallEnough = screen.height >= 130;
+      
       const showTicker =
+        screenTallEnough &&
         availableSpace >= minSpacingRequired &&
         tickerBelowLogin &&
-        tickerY < screen.height - 12;
+        tickerAboveInput;
 
       if (showTicker) {
         // Create or update ticker instance
@@ -1631,6 +1664,9 @@ function paint($) {
             w: screen.width,
             h: 20, // Height to cover text plus padding
           });
+          chatTickerButton.noEdgeDetection = true; // Prevent interference from Enter button edge detection
+          chatTickerButton.noRolloverActivation = true; // Prevent activation via rollover from other buttons
+          chatTickerButton.stickyScrubbing = true; // Prevent drag-between-button behavior
         } else {
           // Update button position in case screen size changed
           chatTickerButton.box.x = 0;
@@ -1642,11 +1678,14 @@ function paint($) {
         // Paint the ticker with alpha based on button state
         const tickerAlpha = chatTickerButton.down ? 200 : 128;
 
-        chatTicker.paint($, 0, tickerY, {
-          color: "teal",
-          alpha: tickerAlpha,
-          width: screen.width,
-        });
+        // Only paint ticker if button is not disabled
+        if (!chatTickerButton.disabled) {
+          chatTicker.paint($, 0, tickerY, {
+            color: "teal",
+            alpha: tickerAlpha,
+            width: screen.width,
+          });
+        }
       } else {
         // Hide ticker when there's not enough space
         chatTicker = null;
@@ -1655,16 +1694,40 @@ function paint($) {
     }
 
     // Handle Stats
-    if (handles && screen.height > 200)
+    if (handles && screen.height >= 180) {
+      // Position handles text 20 pixels below ticker if ticker is shown,
+      // otherwise use original positioning
+      let handlesY;
+      if (chatTicker && $.chat.messages.length > 0) {
+        // Get the ticker Y position from the ticker logic above
+        const loginY = screen.height / 2;
+        const originalHandlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15;
+        const inputAreaHeight = Math.min(60, screen.height * 0.15);
+        const inputAreaTop = screen.height - inputAreaHeight;
+        const maxTickerY = inputAreaTop - 12;
+        const absoluteMaxY = screen.height - 80;
+        const minTickerY = loginY + 20;
+        
+        let tickerY = (loginY + originalHandlesY) / 2;
+        if (tickerY > maxTickerY) tickerY = maxTickerY;
+        if (tickerY > absoluteMaxY) tickerY = absoluteMaxY;
+        if (tickerY < minTickerY) tickerY = minTickerY;
+        
+        handlesY = tickerY + 20; // 20 pixels below ticker
+      } else {
+        handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Original position
+      }
+      
       ink(pal.handleColor).write(
         `${handles.toLocaleString()} HANDLES SET`,
         {
           center: "x",
-          y: screen.height / 2 + screen.height / 3.25 - 11 + 15,
+          y: handlesY,
         },
         [255, 50, 200, 24],
         screen.width - 18,
       );
+    }
   }
 
   // Paint UI Buttons
@@ -1758,6 +1821,7 @@ function sim($) {
       center: "xy",
       screen: $.screen,
     });
+    profile.stickyScrubbing = true; // Prevent drag-between-button behavior
     if (login) login.btn.disabled = true;
     if (signup) signup.btn.disabled = true;
     delete $.store["handle:received"];
@@ -1872,30 +1936,34 @@ function act({
   };
 
   if (!net.sandboxed) {
-    login?.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        net.login();
-        // if (net.iframe) jump("login-wait");
-      },
-      cancel: () => cancelSound(),
-    });
+    if (login && !login.btn.disabled) {
+      login.btn.act(e, {
+        down: () => downSound(),
+        push: () => {
+          pushSound();
+          net.login();
+          // if (net.iframe) jump("login-wait");
+        },
+        cancel: () => cancelSound(),
+      });
+    }
   }
 
   if (!net.iframe) {
-    signup?.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        net.signup();
-      },
-      cancel: () => cancelSound(),
-    });
+    if (signup && !signup.btn.disabled) {
+      signup.btn.act(e, {
+        down: () => downSound(),
+        push: () => {
+          pushSound();
+          net.signup();
+        },
+        cancel: () => cancelSound(),
+      });
+    }
   }
 
   // Chat ticker button (invisible, just for click interaction)
-  if (chatTickerButton) {
+  if (chatTickerButton && !chatTickerButton.disabled) {
     chatTickerButton.act(e, {
       down: () => {
         // Sound feedback on tap down
@@ -1977,8 +2045,7 @@ function act({
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton && chatTickerButton.box.contains(e)))
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -1990,8 +2057,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
-        profileAction === "profile") ||
-      (chatTickerButton && chatTickerButton.box.contains(e)))
+        profileAction === "profile"))
   ) {
     send({ type: "keyboard:lock" });
     system.prompt.input.backdropTouchOff = true;
@@ -2005,7 +2071,8 @@ function act({
   //          used in the `paint` function
   //          to allow for manual optimizations. 23.06.20.00.30
 
-  profile?.btn.act(e, {
+  if (profile && !profile.btn.disabled) {
+    profile.btn.act(e, {
     down: () => {
       downSound();
       if (profileAction !== "profile") {
@@ -2050,6 +2117,7 @@ function act({
       }
     },
   });
+  }
 
   // 🖥️ Screen
   if (e.is("reframed")) {
@@ -2167,6 +2235,7 @@ function activated($, state) {
   if (login) login.btn.disabled = state;
   if (signup) signup.btn.disabled = state;
   if (profile) profile.btn.disabled = state;
+  if (chatTickerButton) chatTickerButton.disabled = state;
 }
 
 // 💬 Receive each response in full.
@@ -2363,6 +2432,7 @@ function fetchUser() {
         if (previousHandle) {
           profileAction = "profile";
           profile = new ui.TextButton(previousHandle, { center: "xy", screen });
+          profile.stickyScrubbing = true; // Prevent drag-between-button behavior
         } else if (u.handle) {
           broadcast("handle:updated:" + u.handle);
           store["handle"] = u.handle;
@@ -2375,6 +2445,7 @@ function fetchUser() {
             center: "xy",
             screen,
           });
+          profile.stickyScrubbing = true; // Prevent drag-between-button behavior
           user.email_verified = true; // Set verified on global 'user' object.
           // store["aesthetic:refresh-user"] = true;
           // store.persist("aesthetic:refresh-user");
