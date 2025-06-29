@@ -28,15 +28,15 @@ export async function boot({ net: { preload }, sound, params, dom: { html } }) {
       id="wipppps-logo" 
       src="https://assets.aesthetic.computer/wipppps/wipppps.webp" 
       crossorigin="anonymous"
-      class="logo-hidden"
+      class="logo-visible"
     />
     <style>
       #wipppps-logo {
         position: absolute;
         top: 0;
         left: 8px;
-        width: 30vmin;
-        height: 30vmin;
+        width: 35vmin;
+        height: 35vmin;
         z-index: 1000;
         object-fit: contain;
         pointer-events: none;
