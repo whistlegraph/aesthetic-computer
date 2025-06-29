@@ -240,21 +240,37 @@ async function boot({
   }
   // Handle params, decode kidlisp if needed
   if (params[0]) {
-    // console.log("Existing `prompt` param:", params);
     const rawText = params.join(" ");
-    const text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
+    
+    // Only decode if it's actually kidlisp, otherwise use as-is
+    let text;
+    if (isKidlispSource(rawText)) {
+      text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
+    } else {
+      text = rawText; // Use text as-is (tildes already converted to spaces)
+    }
 
-    activated(api, true);
-    system.prompt.input.canType = true;
-    send({ type: "keyboard:unlock" });
-    send({ type: "keyboard:open" }); // Necessary for desktop.
-
-    // TODO: This is still a little janky.
+    // Set the text and user text first before activating
     system.prompt.input.text = text;
     system.prompt.input.runnable = true;
     system.prompt.input.addUserText(text);
     system.prompt.input.snap();
     send({ type: "keyboard:text:replace", content: { text } });
+    
+    activated({ ...api, params }, true);
+    system.prompt.input.canType = true;
+    send({ type: "keyboard:unlock" });
+    send({ type: "keyboard:open" }); // Necessary for desktop.
+    
+    // Ensure text and cursor position persist after any system initialization
+    setTimeout(() => {
+      if (system.prompt.input.text !== text) {
+        system.prompt.input.text = text;
+        send({ type: "keyboard:text:replace", content: { text } });
+      }
+      // Always ensure cursor is at the end
+      system.prompt.input.snap();
+    }, 100);
   } else {
     system.prompt.input.text = "";
   }
@@ -272,9 +288,12 @@ async function boot({
     // setTimeout(() => (system.prompt.input.showBlink = true), 100);
 
     // Clear any latent text before activating to prevent MOTD showing when focused
-    system.prompt.input.text = "";
+    // but only if we don't have params (which means we're not coming from backspace navigation)
+    if (!params[0]) {
+      system.prompt.input.text = "";
+    }
 
-    activated(api, true);
+    activated({ ...api, params }, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
@@ -2221,7 +2240,8 @@ function act({
 // 🖥️ Run When the Prompt is activated.
 function activated($, state) {
   // Clear any latent text when activating to prevent MOTD showing when focused
-  if (state === true) {
+  // but only if we don't have params (which means we're not coming from backspace navigation)
+  if (state === true && !$.params[0]) {
     $.system.prompt.input.text = "";
   }
 
