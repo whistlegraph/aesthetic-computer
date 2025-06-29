@@ -816,6 +816,11 @@ function boot({
         </div>
       </div>
     </div>
+    <img 
+      id="wg-logo" 
+      src="https://assets.aesthetic.computer/wipppps/wippppps.webp" 
+      crossorigin="anonymous"
+    />
     <script
       src="/aesthetic.computer/disks/whistlegraph/whistlegraph-cards.js"
       type="module"

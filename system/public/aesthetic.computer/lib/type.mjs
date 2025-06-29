@@ -895,6 +895,25 @@ class TextInput {
     }
   }
 
+  // Helper method to ensure blink is initialized before use
+  #ensureBlink() {
+    if (!this.blink) {
+      // Initialize blink with a basic Hourglass if sim hasn't run yet
+      const Hourglass = this.$.gizmo?.Hourglass;
+      if (Hourglass) {
+        this.blink = new Hourglass(45, { // 0.75 seconds at 60fps
+          flipped: (count, showBlinkOverride) => {
+            if (showBlinkOverride !== undefined)
+              this.showBlink = showBlinkOverride;
+            else this.showBlink = !this.showBlink;
+            this.$.needsPaint?.();
+          },
+          autoFlip: true,
+        });
+      }
+    }
+  }
+
   showButton($, { nocopy, nopaste } = { nocopy: false, nopaste: false }) {
     this.enter.btn.disabled = false;
     if (!nocopy && this.text.length > 0) {
@@ -1010,7 +1029,8 @@ class TextInput {
           index = 0;
           this.text = insert + this.text;
           this.#prompt.forward(this.#prompt.cursor, insert.length);
-          this.blink.flip(true);
+          this.#ensureBlink();
+          this.blink?.flip(true);
           this.showBlink = true;
           return;
         }
@@ -1021,7 +1041,8 @@ class TextInput {
           this.text =
             this.text.slice(0, index + 1) + insert + this.text.slice(index + 1);
           this.#prompt.forward();
-          this.blink.flip(true);
+          this.#ensureBlink();
+          this.blink?.flip(true);
           this.showBlink = true;
           return;
         }
@@ -1128,7 +1149,8 @@ class TextInput {
                 };
               }
 
-              this.blink.flip(true);
+              this.#ensureBlink();
+              this.blink?.flip(true);
               this.showBlink = true;
               return;
             }
@@ -1296,7 +1318,8 @@ class TextInput {
         }
       }
 
-      this.blink.flip(true);
+      this.#ensureBlink();
+      this.blink?.flip(true);
       this.showBlink = true;
     }
 
@@ -1648,7 +1671,8 @@ class TextInput {
       this.#lastUserText = e.text;
       this.#prompt.snapTo(this.text.slice(0, e.cursor));
       // this.runnable = true;
-      this.blink.flip(true);
+      this.#ensureBlink();
+      this.blink?.flip(true);
       this.selection = null;
 
       if (this.text.length > 0) {
@@ -1676,10 +1700,14 @@ class TextInput {
         this.selection = null;
       }
 
-      this.blink.flip(true);
+      this.#ensureBlink();
+      this.blink?.flip(true);
     }
 
-    if (e.is("touch") && !this.#lock) this.blink.flip(true);
+    if (e.is("touch") && !this.#lock) {
+      this.#ensureBlink();
+      this.blink?.flip(true);
+    }
 
     if (e.is("lift") && !this.#lock) {
       if (this.shifting) {
@@ -1731,7 +1759,8 @@ class TextInput {
         $.send({ type: "keyboard:cursor", content: 1 });
       }
 
-      this.blink.flip(true);
+      this.#ensureBlink();
+      this.blink?.flip(true);
     }
   }
 }
