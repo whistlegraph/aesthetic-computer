@@ -43,7 +43,7 @@ export class Socket {
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
-      console.warn("🧦 Connection failed.");
+      console.log('%cconnection failed, retrying in ' + (this.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
       return;
     }
 
@@ -75,9 +75,7 @@ export class Socket {
       socket.connected = false;
       // Only reconnect if we are not killing the socket and not in development mode.
       if (socket.#killSocket === false) {
-        if (logs.socket) {
-          console.log("🧦 Reconnecting in:", socket.#reconnectTime, "ms");
-        }
+        console.log('%cconnection failed, retrying in ' + (socket.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
         this.#reconnectTimeout = setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
         }, socket.#reconnectTime);
@@ -89,7 +87,7 @@ export class Socket {
 
     // Close on error.
     ws.onerror = (err) => {
-      console.error("🧦 Error:", err);
+      console.log('%cconnection failed, retrying...', 'color: orange; background: black; padding: 2px;');
       ws.close();
     };
   }

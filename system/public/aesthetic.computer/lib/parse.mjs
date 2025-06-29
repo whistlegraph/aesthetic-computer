@@ -44,7 +44,15 @@ function parse(text, location = self?.location) {
   // This prevents prompt~(wipe blue) from being treated as kidlisp function call
   if (text.startsWith("prompt~")) {
     const promptContent = text.slice(7); // Remove "prompt~" prefix
-    const decodedContent = decodeKidlispFromUrl(promptContent);
+    
+    // Only decode if it's actually kidlisp, otherwise use as-is
+    let decodedContent;
+    if (isKidlispSource(promptContent)) {
+      decodedContent = decodeKidlispFromUrl(promptContent);
+    } else {
+      // For regular piece names, use as-is (tildes already converted to spaces)
+      decodedContent = promptContent;
+    }
     
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),

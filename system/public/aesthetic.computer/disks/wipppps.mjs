@@ -1,12 +1,50 @@
-// Wipppps, 2025.3.18.04.34.58.007
-// Visualizations for `wipppps` musical tracks.
+// Frac Optimized, 2025.6.04.01.26.48.500
+// High-performance audio-reactive fractal visualizations.
 
-/* 📝 Notes
- */
+let sfx, progress, playingSfx, pausedAt, playStartTime, totalDuration, isPlaying, shouldAutoPlay, actualDuration, isBuffering;
 
-let sfx, sfxData, progress, playingSfx, comp, xml;
+export const nohud = true;
 
-export async function boot({ net: { preload }, sound, params }) {
+export async function boot({ net: { preload }, sound, params, dom: { html } }) {
+  // Initialize playback state
+  progress = 0;
+  pausedAt = 0;
+  playStartTime = 0;
+  actualDuration = null; // Will be set when sample data loads
+  isPlaying = false;
+  shouldAutoPlay = false;
+  isBuffering = false;
+
+  // Load audio immediately for instant playback
+  const audioUrl = "https://assets.aesthetic.computer/wipppps/zzzZWAP.ogg";
+  sfx = await preload(audioUrl);
+  
+  // Load accurate sample data AFTER audio starts playing to avoid blocking
+  // This way the audio is already decoded when we request sample data
+  
+  // Add logo to top left corner
+  html`
+    <img 
+      id="wipppps-logo" 
+      src="https://assets.aesthetic.computer/wipppps/wipppps.webp" 
+      crossorigin="anonymous"
+    />
+    <style>
+      #wipppps-logo {
+        position: absolute;
+        top: 0;
+        left: 8px;
+        width: 25vmin;
+        height: 25vmin;
+        z-index: 1000;
+        opacity: 0.75;
+        object-fit: contain;
+        pointer-events: none;
+      }
+
+    </style>
+  `;
+  
   /*
   if (params[0] === "zzzZWAP") {
     sfx = await preload(
@@ -14,159 +52,656 @@ export async function boot({ net: { preload }, sound, params }) {
     );
   } else if (params[0] === "WHoOSH") {
     sfx = await preload("https://assets.aesthetic.computer/wipppps/WHoOSH.ogg");
-  } else if (params[0] === "BLURP" || true) {
+  } else if (params[0] === "BLURP") {
     sfx = await preload("https://assets.aesthetic.computer/wipppps/BLURP.ogg");
-    xml = await preload("https://assets.aesthetic.computer/wipppps/BLURP");
-    console.log("🔴 XML:", xml);
+  } else {
+    sfx = await preload("startup");
   }
-  sound.getSampleData(sfx).then((data) => {
-    sfxData = data;
-    // console.log("🔴 Sample Data:", sfxData);
-  });
   */
 }
 
+export function paint({ wipe, screen, write, sound, ink, box, shape }) {
+  // Animation parameters - declare time first
+  const time = performance.now() * 0.001;
 
-export function paint({
-  api,
-  wipe,
-  ink,
-  line,
-  screen,
-  box,
-  circle,
-  pen,
-  sound,
-  help,
-  write,
-  num,
-}) {
-  // console.log(api); // Log the API or enter `docs` (WIP) in `prompt`.
-  wipe("blue"); // Clear the background.
-
-  // wipe(sfx.data.amplitude || 127);
-
-  // let x = 0;
-  // bgm.data.sample.forEach((smp) => {
-  //   ink(smp, 0, 0);
-  //   line(x, screen.height, x, screen.height - smp);
-  //   x += 1;
-  // });
-
-  /*
-  const startY = 0;
-
-  sound.paint.bars(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 1),
-    0,
-    startY,
-    screen.width / 4,
-    screen.height - startY,
-    undefined, // [255, 0, 0, 255],
-    { noamp: true, primaryColor: "red", secondaryColor: "blue" },
-  );
-
-  sound.paint.bars(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 2),
-    (screen.width / 4) * 1,
-    startY,
-    (screen.width / 4) * 1,
-    screen.height - startY,
-    undefined, // [255, 0, 0, 255],
-    { noamp: true, primaryColor: "blue", secondaryColor: "red" },
-    // { noamp: true, primaryColor: "red", secondaryColor: "blue" },
-  );
-
-  sound.paint.bars(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 3),
-    (screen.width / 4) * 2,
-    startY,
-    screen.width / 4,
-    screen.height - startY,
-    undefined, // [255, 0, 0, 255],
-    { noamp: true, primaryColor: "red", secondaryColor: "blue" },
-  );
-
-  sound.paint.bars(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 4),
-    (screen.width / 4) * 3,
-    startY,
-    screen.width / 4,
-    screen.height - startY,
-    undefined, // [255, 0, 0, 255],
-    { noamp: true, primaryColor: "blue", secondaryColor: "red" },
-    // { noamp: true, primaryColor: "red", secondaryColor: "blue" },
-  );
-
-  if (sfxData) {
-    // comp ||= num.arrCompress(sfxData, 256);
-    // sound.paint.waveform(
-    //   api,
-    //   num.arrMax(sfxData),
-    //   comp, // 🔴 TODO: This could be made much faster.
-    //   0,
-    //   0,
-    //   screen.width,
-    //   screen.height,
-    //   [255, 255, 255, 32],
-    //   { direction: "left-to-right" },
-    // );
+  // Check if we should end buffering - wait for actual waveform data
+  if (isBuffering && isPlaying) {
+    const audioWaveform = sound.speaker?.waveforms?.left || [];
+    
+    // End buffering only when we have substantial waveform data
+    if (audioWaveform.length > 0) {
+      // Check for non-zero waveform values (actual audio signal)
+      const hasRealSignal = audioWaveform.some(sample => Math.abs(sample) > 0.01);
+      if (hasRealSignal) {
+        isBuffering = false;
+        console.log("🎵 Real audio waveform detected, ending buffering!");
+      }
+    }
   }
 
-  if (progress) {
-    const fromX = 0;
-    const toX = screen.width;
-    const progressX = num.clamp(fromX + progress * (toX - fromX), fromX, toX);
-    ink("red").line(progressX, 0, progressX, screen.height);
+  // Show buffering screen - dark animated stripes
+  if (isBuffering) {
+    wipe(0, 0, 0); // Black screen base
+    
+    // Animated dark stripe pattern
+    const stripeWidth = 12 + Math.sin(time * 2) * 4; // Variable stripe width
+    const stripeSpeed = time * 60; // Stripe movement speed
+    const stripeAngle = Math.sin(time * 0.8) * 0.3; // Subtle angle variation
+    
+    // Draw multiple layers of dark stripes
+    for (let layer = 0; layer < 3; layer++) {
+      const layerOffset = layer * 40;
+      const layerSpeed = stripeSpeed + layerOffset;
+      const layerOpacity = 0.3 + layer * 0.1;
+      
+      // Create diagonal stripes across the screen
+      for (let y = -stripeWidth; y < screen.height + stripeWidth; y += stripeWidth * 2) {
+        for (let x = -stripeWidth; x < screen.width + stripeWidth; x += stripeWidth * 2) {
+          // Calculate stripe position with animation
+          const stripeX = x + Math.sin(stripeAngle) * y + layerSpeed;
+          const stripeY = y + Math.cos(stripeAngle) * x;
+          
+          // Dark colors only - grays and very dark tones
+          const darkR = Math.floor(10 + Math.sin(time * 1.2 + layer) * 8);
+          const darkG = Math.floor(12 + Math.cos(time * 1.5 + layer) * 6);
+          const darkB = Math.floor(15 + Math.sin(time * 0.9 + layer) * 10);
+          
+          ink(darkR, darkG, darkB, Math.floor(layerOpacity * 255));
+          
+          // Draw rotated stripe rectangle
+          const stripeLength = stripeWidth * 1.5;
+          box(stripeX % screen.width, stripeY % screen.height, stripeLength, stripeWidth);
+        }
+      }
+    }
+    
+    return; // Skip fractal rendering while buffering
   }
-  */
+
+  // Wiggle control flag - set to true for subtle living effects
+  const enableWiggling = true;
+
+  // 🎵 Audio-reactive parameters with enhanced sensitivity
+  const audioAmplitude = sound.speaker?.amplitudes?.left || 0;
+  const audioWaveform = sound.speaker?.waveforms?.left || [];
+
+  // Enhanced frequency analysis with subtle sensitivity
+  const bassLevel =
+    audioWaveform.slice(0, 8).reduce((a, b) => a + Math.abs(b), 0) / 8;
+  const midLevel =
+    audioWaveform.slice(8, 24).reduce((a, b) => a + Math.abs(b), 0) / 16;
+  const trebleLevel =
+    audioWaveform.slice(24).reduce((a, b) => a + Math.abs(b), 0) /
+    (audioWaveform.length - 24);
+
+  // Subtle sensitivity for gentle visual effects
+  const bass = Math.min(bassLevel * 2, 1); // Much more gentle
+  const mid = Math.min(midLevel * 2.5, 1); // Reduced sensitivity
+  const treble = Math.min(trebleLevel * 3, 1); // Less aggressive
+  const overallAmplitude = Math.min(audioAmplitude * 2, 1); // Much more subtle
+
+  // Audio-driven dynamic effects - gentle and smooth
+  const audioPulse = Math.pow(overallAmplitude, 0.8); // Gentler pulse response
+  const bassBoost = Math.pow(bass, 0.6) * 0.5; // Much more subtle bass
+  const trebleSparkle = treble * 0.3; // Linear, gentle treble
+
+  // Multiple interesting zoom points organized by audio characteristics
+  const zoomPoints = [
+    { x: -0.77568377, y: 0.13646737 }, // Deep zoom point with infinite detail
+    { x: -0.7269, y: 0.1889 }, // Misiurewicz point
+    { x: -0.163176, y: 1.041198 }, // Spiral formation
+    { x: -1.25066, y: 0.02012 }, // Mini mandelbrot
+    { x: -0.8, y: 0.156 }, // Another interesting region
+    { x: -0.74529, y: 0.11307 }, // Seahorse valley
+    { x: -1.78, y: 0.0 }, // Filament region
+    { x: -0.16, y: 1.03 }, // Spiral zoom
+  ];
+
+  // Audio-reactive view switching with thresholds
+  const audioThresholds = {
+    high: 0.7, // Switch rapidly on high amplitude
+    medium: 0.4, // Medium speed switching
+    low: 0.2, // Slow switching
+  };
+
+  // Determine switching speed based on audio levels
+  let switchingSpeed = 1.0; // Base speed multiplier
+  let targetPointIndex = 0;
+
+  if (overallAmplitude > audioThresholds.high) {
+    // High energy - rapid switching every 10 seconds
+    switchingSpeed = 12.0;
+    // Bass-driven point selection for high energy
+    targetPointIndex = Math.floor(bass * zoomPoints.length);
+  } else if (overallAmplitude > audioThresholds.medium) {
+    // Medium energy - switch every 20 seconds
+    switchingSpeed = 6.0;
+    // Mid-driven point selection
+    targetPointIndex = Math.floor(mid * zoomPoints.length);
+  } else if (overallAmplitude > audioThresholds.low) {
+    // Low-medium energy - switch every 40 seconds
+    switchingSpeed = 3.0;
+    // Treble-driven point selection
+    targetPointIndex = Math.floor(treble * zoomPoints.length);
+  } else {
+    // Very low energy - use normal slow cycle (120 seconds)
+    switchingSpeed = 1.0;
+    targetPointIndex = Math.floor(time / 120) % zoomPoints.length;
+  }
+
+  // Audio-reactive cycle time with dramatic speed changes
+  const dynamicCycleTime = 120 / switchingSpeed;
+  const audioReactiveIndex =
+    Math.floor(time / dynamicCycleTime) % zoomPoints.length;
+
+  // Blend between audio-reactive selection and time-based cycling
+  const finalPointIndex =
+    overallAmplitude > audioThresholds.low
+      ? Math.max(0, Math.min(zoomPoints.length - 1, targetPointIndex))
+      : audioReactiveIndex;
+
+  const cycleProgress = (time % dynamicCycleTime) / dynamicCycleTime;
+
+  // Yoyo progress: 0->1->0 over the cycle using triangle wave
+  const pointProgress =
+    cycleProgress <= 0.5
+      ? cycleProgress * 2 // First half: 0 to 1
+      : 2 - cycleProgress * 2; // Second half: 1 to 0
+
+  const deepZoomPoint = zoomPoints[finalPointIndex];
+
+  // Audio-reactive zoom depth - faster zooms on high energy
+  const baseMaxZoomDepth = 8.0;
+  const audioZoomBoost = Math.min(overallAmplitude * 4, 3.0); // Up to 3x deeper zoom
+  const maxZoomDepth = baseMaxZoomDepth + audioZoomBoost;
+  const zoomLevel = pointProgress * maxZoomDepth;
+
+  // Gentle iteration count for faster rendering - subtly audio reactive
+  const baseIterations = 150 + Math.floor(bassBoost * 50); // Much less variation
+  const maxIterations = Math.min(
+    250 + Math.floor(mid * 100), // Reduced range
+    baseIterations + Math.floor(zoomLevel * 6) + Math.floor(trebleSparkle * 30),
+  );
+
+  // Screen parameters with cute 3D depth! 🌀
+  const centerX = screen.width / 2;
+  const centerY = screen.height / 2;
+  const zoom = Math.pow(2, zoomLevel);
+  const pixelSize = 4.0 / (zoom * Math.min(screen.width, screen.height));
+
+  // Adorable 3D depth animation - breathing z-axis motion ✨ + DRAMATICALLY geometric reactive
+  const zDepth = Math.sin(time * 0.3) * 0.5 + bassBoost * 2.0; // Much stronger bass geometric response
+  const zSliceSpeed = time * 0.1 + mid * 0.4; // Increased mid geometric response
+  const baseZ = zSliceSpeed + zDepth;
+
+  // Cute organic wiggling - bringing back the life! 🌊 + DRAMATICALLY geometric reactive
+  const baseWiggleAmplitude = 0.0008 + trebleSparkle * 0.012; // More dramatic treble wiggling
+  const wiggleAmplitude = baseWiggleAmplitude / Math.pow(zoom, 0.7);
+
+  // Cute dual-layer wiggling with personality + dramatic geometric reactive
+  const wigglePhase = time * 0.8 + audioPulse * 12; // Much stronger pulse geometric impact
+  const primaryWiggle =
+    Math.sin(wigglePhase * 0.3) + 0.3 * Math.cos(wigglePhase * 0.7);
+  const cuteWiggle =
+    0.2 * Math.sin(wigglePhase * 1.2) + 0.15 * Math.cos(wigglePhase * 0.5);
+
+  // Adorable breathing motion + DRAMATICALLY bass geometric reactive
+  const breathingAmplitude = 1 + 0.05 * Math.sin(time * 0.4) + bassBoost * 0.8; // Much stronger bass breathing
+  const wiggleX =
+    wiggleAmplitude * breathingAmplitude * (primaryWiggle + cuteWiggle);
+  const wiggleY =
+    wiggleAmplitude *
+    breathingAmplitude *
+    (Math.cos(wigglePhase * 0.35) + 0.2 * cuteWiggle);
+
+  // Apply optional wiggle to the zoom point for dynamic center shifting
+  const wiggledZoomPoint = {
+    x: deepZoomPoint.x + (enableWiggling ? wiggleX : 0),
+    y: deepZoomPoint.y + (enableWiggling ? wiggleY : 0),
+  };
+
+  // Cache expensive calculations outside the pixel loop with DRAMATIC audio-reactive rotation
+  const rotationAngle = time * 0.02 + bassBoost * 0.5 + audioPulse * 0.3; // Much more dramatic audio rotation
+  const cosTheta = Math.cos(rotationAngle);
+  const sinTheta = Math.sin(rotationAngle);
+
+  // 🚀 HIGH-PERFORMANCE HIERARCHICAL BLOCK RENDERING 🚀
+  renderFractalOptimized();
+
+  // Pause overlay - only show when paused (not during loading)
+  if (!isPlaying && (playingSfx !== null || pausedAt > 0)) {
+    // Darker semi-transparent overlay covering the full screen
+    ink(0, 180).box(0, 0, screen.width, screen.height);
+    
+    // White play triangle in center
+    const centerX = screen.width / 2;
+    const centerY = screen.height / 2;
+    const triangleSize = 14; // Smaller and cuter size
+    
+    // Draw black shadow for play triangle (offset by 1px)
+    ink(0, 0, 0, 255);
+    shape([
+      [centerX - triangleSize/2 + 1, centerY - triangleSize/2 + 1],
+      [centerX + triangleSize/2 + 1, centerY + 1],
+      [centerX - triangleSize/2 + 1, centerY + triangleSize/2 + 1]
+    ]);
+    
+    // Draw white play triangle
+    ink(255, 255, 255, 255);
+    shape([
+      [centerX - triangleSize/2, centerY - triangleSize/2],
+      [centerX + triangleSize/2, centerY],
+      [centerX - triangleSize/2, centerY + triangleSize/2]
+    ]);
+  }
+
+  // Progress bar at the bottom - drawn AFTER pause overlay to appear on top
+  if (progress !== undefined) {
+    const barHeight = 4; // 4px tall progress bar
+    const barY = screen.height - barHeight;
+    
+    // Background bar (dark) - full width using ink().box()
+    ink(0, 0, 0, 255);
+    box(0, barY, screen.width, barHeight);
+    
+    // Progress bar - bright white using ink().box()
+    const progressWidth = progress * screen.width;
+    if (progressWidth > 0) {
+      ink(255, 255, 255, 255);
+      box(0, barY, progressWidth, barHeight);
+    }
+  }
+
+  // Draw track timer in bottom right corner - only when we have valid duration data
+  if (actualDuration && progress !== undefined) {
+    const currentTime = progress * actualDuration;
+    
+    // Format time as MM:SS
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+    
+    const timeText = `${formatTime(currentTime)} / ${formatTime(actualDuration)}`;
+    
+    // Position in bottom right, accounting for text width
+    const textX = screen.width - (timeText.length * 6) - 6; // Approximate character width
+    const textY = screen.height - 16; // Higher up to be above progress bar
+    
+    // Draw shadow (offset by 1px down and right) using ink() for proper shadow color
+    ink(32, 32, 32); // Set dark gray ink for shadow
+    write(timeText, textX + 1, textY + 1);
+    
+    // Draw main text in white using ink()
+    ink(255, 255, 255); // Set white ink for main text
+    write(timeText, textX, textY);
+  }
+
+  function renderFractalOptimized() {
+    // High-performance rendering with hierarchical subdivision
+    const maxBlockSize = Math.max(
+      4,
+      Math.floor(16 + bass * 48 + overallAmplitude * 24),
+    );
+    const minBlockSize = Math.max(1, Math.floor(1 + trebleSparkle * 3));
+
+    // Fast point sampling with caching
+    const sampleCache = new Map();
+
+    function samplePoint(pixelX, pixelY) {
+      const key = `${pixelX},${pixelY}`;
+      if (sampleCache.has(key)) return sampleCache.get(key);
+
+      // Convert to complex plane coordinates
+      const baseReal = (pixelX - centerX) * pixelSize;
+      const baseImag = (pixelY - centerY) * pixelSize;
+
+      // DRAMATIC audio-reactive coordinate transformations
+      const scaleFactorX = 1.0 + bassBoost * 0.6; // Bass stretches X axis
+      const scaleFactorY = 1.0 + mid * 0.4; // Mid stretches Y axis
+      const skewFactor = trebleSparkle * 0.3; // Treble adds skew
+
+      // Apply audio-reactive scaling and skewing
+      const scaledReal = baseReal * scaleFactorX + baseImag * skewFactor;
+      const scaledImag = baseImag * scaleFactorY;
+
+      // Apply rotation
+      const rotatedReal = scaledReal * cosTheta - scaledImag * sinTheta;
+      const rotatedImag = scaledReal * sinTheta + scaledImag * cosTheta;
+
+      // Apply per-pixel wiggling
+      let pixelWiggleX = 0,
+        pixelWiggleY = 0;
+      if (enableWiggling) {
+        const spatialPhase =
+          pixelX * 0.008 + pixelY * 0.006 + baseZ * 0.5 + time * 0.3;
+        const pixelPersonality =
+          Math.sin(pixelX * 0.02) * Math.cos(pixelY * 0.015);
+
+        pixelWiggleX =
+          wiggleAmplitude *
+          0.4 *
+          (Math.sin(spatialPhase) +
+            0.3 * Math.cos(spatialPhase * 1.7) +
+            0.1 * pixelPersonality);
+        pixelWiggleY =
+          wiggleAmplitude *
+          0.4 *
+          (Math.cos(spatialPhase * 1.1) +
+            0.25 * Math.sin(spatialPhase * 0.8) +
+            0.12 * pixelPersonality);
+      }
+
+      // Final coordinates
+      const cReal = wiggledZoomPoint.x + rotatedReal + pixelWiggleX;
+      const cImag = wiggledZoomPoint.y + rotatedImag + pixelWiggleY;
+
+      // Fast Mandelbrot calculation
+      let zReal = 0.0,
+        zImag = 0.0;
+      let iterations = 0;
+      let magnitude = 0.0;
+
+      // Audio-reactive iteration boost - gentler now
+      const audioIterationBoost = Math.floor(
+        bass * 75 + mid * 75 + trebleSparkle * 25,
+      ); // Much reduced
+      const dynamicMaxIterations = Math.max(
+        50,
+        maxIterations + audioIterationBoost,
+      );
+
+      while (iterations < dynamicMaxIterations) {
+        magnitude = zReal * zReal + zImag * zImag;
+        if (magnitude > 4.0) break;
+
+        const newReal = zReal * zReal - zImag * zImag + cReal;
+        const newImag = 2 * zReal * zImag + cImag;
+        zReal = newReal;
+        zImag = newImag;
+        iterations++;
+      }
+
+      const result = {
+        iterations,
+        magnitude,
+        escaped: magnitude > 4.0,
+        maxIterations: dynamicMaxIterations,
+      };
+
+      sampleCache.set(key, result);
+      return result;
+    }
+
+    // Fast color calculation
+    function calculateColor(sample, pixelX, pixelY) {
+      const {
+        iterations,
+        magnitude,
+        escaped,
+        maxIterations: dynMaxIter,
+      } = sample;
+
+      if (!escaped || iterations >= dynMaxIter - 1) {
+        // Interior coloring
+        const proximityValue = Math.min(Math.sqrt(magnitude) * 0.4, 1.0);
+        const depthFactor = Math.min(iterations / (dynMaxIter * 0.7), 1.0);
+        const colorPersonality =
+          Math.sin(pixelX * 0.03 + time * 0.1) *
+          Math.cos(pixelY * 0.025 + time * 0.08);
+
+        const baseHue = 180 + Math.sin(time * 0.08) * 120 + bassBoost * 60; // Full spectrum base hue
+        const proximityHue =
+          proximityValue * 80 + colorPersonality * 40 + audioPulse * 50; // Dramatic hue variation
+        const depthHue = depthFactor * 60 + trebleSparkle * 40; // Major hue shifts
+
+        const hue = (baseHue + proximityHue + depthHue + zoomLevel * 15) % 360; // Full spectrum cycling
+        const saturation = Math.min(
+          0.8 +
+            proximityValue * 0.2 +
+            Math.abs(colorPersonality) * 0.15 +
+            audioPulse * 0.2,
+          1.0,
+        ); // High saturation for dayglo effect
+        const lightness = Math.min(
+          0.3 +
+            proximityValue * 0.4 +
+            depthFactor * 0.3 +
+            Math.sin(time * 0.15) * 0.1 +
+            bassBoost * 0.15,
+          0.9,
+        ); // More dynamic lightness
+
+        return hslToRgb(hue, saturation, lightness);
+      } else {
+        // Exterior coloring
+        const smoothIter = iterations + 1 - Math.log2(Math.log2(magnitude));
+        const t = smoothIter / dynMaxIter;
+
+        const sparkle =
+          Math.sin(smoothIter * 0.8 + time * 3) * 0.5 + trebleSparkle * 0.3; // More dramatic treble sparkle
+        const personalityHue =
+          Math.sin(pixelX * 0.03) * Math.cos(pixelY * 0.025) + bassBoost * 0.4; // Increased bass personality
+
+        const baseHue = 90 + time * 12 + zoomLevel * 20 + audioPulse * 60; // Dynamic full-spectrum exterior
+        const sparklyHue = sparkle * 120 + personalityHue * 80 + mid * 40; // Dramatic variation
+        const hue = (baseHue + sparklyHue) % 360; // Full spectrum cycling
+
+        const saturation = Math.min(
+          0.9 + t * 0.1 + Math.abs(sparkle) * 0.2 + audioPulse * 0.15,
+          1.0,
+        ); // High saturation for dayglo
+        const lightness = Math.min(
+          0.4 +
+            t * 0.35 +
+            sparkle * 0.2 +
+            Math.sin(time * 0.2) * 0.1 +
+            bassBoost * 0.1,
+          0.95,
+        ); // More dynamic lightness
+
+        return hslToRgb(hue, saturation, lightness);
+      }
+    }
+
+    // Fast HSL to RGB conversion
+    function hslToRgb(hue, saturation, lightness) {
+      const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+      const x_hsl = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+      const m = lightness - c / 2;
+
+      let r, g, b;
+      const hueSegment = Math.floor(hue / 60) % 6;
+      switch (hueSegment) {
+        case 0:
+          r = c;
+          g = x_hsl;
+          b = 0;
+          break;
+        case 1:
+          r = x_hsl;
+          g = c;
+          b = 0;
+          break;
+        case 2:
+          r = 0;
+          g = c;
+          b = x_hsl;
+          break;
+        case 3:
+          r = 0;
+          g = x_hsl;
+          b = c;
+          break;
+        case 4:
+          r = x_hsl;
+          g = 0;
+          b = c;
+          break;
+        default:
+          r = c;
+          g = 0;
+          b = x_hsl;
+          break;
+      }
+
+      return {
+        r: Math.floor(255 * Math.max(0, Math.min(1, r + m))),
+        g: Math.floor(255 * Math.max(0, Math.min(1, g + m))),
+        b: Math.floor(255 * Math.max(0, Math.min(1, b + m))),
+      };
+    }
+
+    // Optimized block filling with typed array access
+    function fillBlock(x, y, size, color) {
+      const endX = Math.min(x + size, screen.width);
+      const endY = Math.min(y + size, screen.height);
+
+      for (let fillY = y; fillY < endY; fillY++) {
+        const rowStart = fillY * screen.width * 4;
+        for (let fillX = x; fillX < endX; fillX++) {
+          const fillIndex = rowStart + fillX * 4;
+          screen.pixels[fillIndex] = color.r;
+          screen.pixels[fillIndex + 1] = color.g;
+          screen.pixels[fillIndex + 2] = color.b;
+          screen.pixels[fillIndex + 3] = 255;
+        }
+      }
+    }
+
+    // Hierarchical block subdivision with queue
+    const renderQueue = [];
+
+    // Start with large blocks
+    for (let blockY = 0; blockY < screen.height; blockY += maxBlockSize) {
+      for (let blockX = 0; blockX < screen.width; blockX += maxBlockSize) {
+        const blockSize = Math.min(
+          maxBlockSize,
+          Math.min(screen.width - blockX, screen.height - blockY),
+        );
+        renderQueue.push({ x: blockX, y: blockY, size: blockSize });
+      }
+    }
+
+    // Process render queue with subdivision
+    while (renderQueue.length > 0) {
+      const block = renderQueue.shift();
+      const { x, y, size } = block;
+
+      // Skip tiny blocks or blocks outside screen
+      if (size < minBlockSize || x >= screen.width || y >= screen.height)
+        continue;
+
+      // Sample corners to determine if subdivision is needed
+      const samples = [
+        samplePoint(x, y),
+        samplePoint(x + size - 1, y),
+        samplePoint(x, y + size - 1),
+        samplePoint(x + size - 1, y + size - 1),
+      ];
+
+      // Check variation between samples to decide subdivision
+      const maxDiff = Math.max(
+        Math.abs(samples[0].iterations - samples[1].iterations),
+        Math.abs(samples[0].iterations - samples[2].iterations),
+        Math.abs(samples[0].iterations - samples[3].iterations),
+        Math.abs(samples[1].iterations - samples[2].iterations),
+        Math.abs(samples[1].iterations - samples[3].iterations),
+        Math.abs(samples[2].iterations - samples[3].iterations),
+      );
+
+      // Audio increases detail sensitivity
+      const subdivisionThreshold = 3 + trebleSparkle * 8 + audioPulse * 5;
+
+      // Subdivide if variation is high and block is large enough
+      if (maxDiff > subdivisionThreshold && size > minBlockSize * 2) {
+        const halfSize = Math.floor(size / 2);
+        if (halfSize >= minBlockSize) {
+          renderQueue.push({ x: x, y: y, size: halfSize });
+          renderQueue.push({ x: x + halfSize, y: y, size: halfSize });
+          renderQueue.push({ x: x, y: y + halfSize, size: halfSize });
+          renderQueue.push({
+            x: x + halfSize,
+            y: y + halfSize,
+            size: halfSize,
+          });
+          continue;
+        }
+      }
+
+      // Render uniform block using center sample
+      const centerX = x + Math.floor(size / 2);
+      const centerY = y + Math.floor(size / 2);
+      const sample = samplePoint(centerX, centerY);
+      const color = calculateColor(sample, centerX, centerY);
+
+      // Fast block fill
+      fillBlock(x, y, size, color);
+    }
+  }
 }
 
 export function sim({ sound }) {
-  /*
   sound.speaker?.poll();
-  playingSfx?.progress().then((p) => {
-    progress = p.progress;
-    // console.log("📏 Progress:", progress);
-  }); // Get progress data.
-  */
+  
+  // Update progress using manual timing when playing
+  if (isPlaying && playingSfx && !playingSfx.killed) {
+    const currentTime = performance.now();
+    const elapsedSeconds = (currentTime - playStartTime) / 1000;
+    
+    // Use actual duration if available for accurate progress calculation
+    const trackDuration = actualDuration || totalDuration;
+    const totalElapsed = pausedAt * trackDuration + elapsedSeconds;
+    progress = Math.min(totalElapsed / trackDuration, 1.0);
+    
+    // Stop if we've reached the end
+    if (progress >= 1.0) {
+      playingSfx.kill(0.1);
+      playingSfx = null;
+      isPlaying = false;
+      progress = 0;
+      pausedAt = 0;
+    }
+  }
 }
 
 export function act({ event: e, sound }) {
-  // Respond to user input here.
-  // if (e.is("touch")) playingSfx = sound.play(sfx, { speed: 1 });
+  // Handle play/pause/resume functionality - audio is always ready
+  if (e.is("touch")) {
+    // Don't allow interaction while buffering
+    if (isBuffering) return;
+    
+    if (isPlaying && playingSfx && !playingSfx.killed) {
+      // Currently playing - pause the track
+      const currentTime = performance.now();
+      const elapsedSeconds = (currentTime - playStartTime) / 1000;
+      
+      // Use actual duration if available for accurate pause position
+      const trackDuration = actualDuration || totalDuration;
+      pausedAt = Math.min((pausedAt * trackDuration + elapsedSeconds) / trackDuration, 1.0);
+      
+      playingSfx.kill(0.1); // Fade out quickly
+      playingSfx = null;
+      isPlaying = false;
+    } else {
+      // Not playing - start buffering, then play
+      isBuffering = true;
+      
+      // Start audio immediately but keep buffering until we have waveform data
+      playingSfx = sound.play(sfx, { speed: 1, from: pausedAt });
+      playStartTime = performance.now();
+      isPlaying = true;
+      
+      // Get duration AFTER playback starts (audio already decoded)
+      if (!actualDuration) {
+        sound.getDuration(sfx).then(duration => {
+          actualDuration = duration;
+          console.log("🎵 Got audio duration after playback start!");
+        }).catch(error => {
+          console.warn("🎵 Duration load failed:", error);
+        });
+      }
+    }
+  }
 }
-
-export function meta() {
-  return {
-    title: "wipppps by @oskie"
-  };
-}
-
-export const nohud = true;
-
-// function beat() {
-//   // Runs once per system metronome (BPM) tick.
-// }
-
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
-
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// function icon() {
-// Render an application icon, aka favicon.
-// }
-
-// ⚠️ Also available: `brush` and `filter`.

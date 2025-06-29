@@ -139,7 +139,6 @@ function flood(x, y, fillColor = c) {
 
   color(...findColor(fillColor));
   const oldColor = c;
-  
   while (stack.length) {
     const [cx, cy] = stack.pop();
     const key = `${cx},${cy}`;
@@ -527,11 +526,6 @@ function unmask() {
   activeMask = null;
 }
 
-// 👁️ Get the current mask, if any.
-function getMask() {
-  return activeMask;
-}
-
 function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
   destX = floor(destX);
   destY = floor(destY);
@@ -551,18 +545,6 @@ function copy(destX, destY, srcX, srcY, src, alpha = 1.0) {
     srcY >= src.height
   ) {
     return;
-  }
-
-  // Check pixels in the active mask.
-  if (activeMask) {
-    if (
-      destY < activeMask.y ||
-      destY >= activeMask.y + activeMask.height ||
-      destX >= activeMask.x + activeMask.width ||
-      destX < activeMask.x
-    ) {
-      return;
-    }
   }
 
   const di = (destX + destY * width) * 4;
@@ -615,13 +597,13 @@ function resize(bitmap, width, height) {
   return { pixels, width, height };
 }
 
-// Apply a blur effect to the current pixel buffer using fast nearest neighbor sampling
-// radius: The blur radius (integer values work best for this approach)
+// Apply a blur effect to the current pixel buffer using smooth weighted blur
+// radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
 function blur(radius = 1) {
   if (radius <= 0) return;
 
-  // Clamp radius to reasonable values for performance, but allow higher values
-  radius = Math.min(Math.floor(radius), 50);
+  // Clamp radius to reasonable values for performance
+  radius = Math.min(radius, 20);
 
   // Determine the area to blur (mask or full screen)
   let minX = 0,
@@ -629,6 +611,7 @@ function blur(radius = 1) {
     maxX = width,
     maxY = height;
   if (activeMask) {
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
     minX = Math.max(0, Math.min(width, activeMask.x));
     maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
     minY = Math.max(0, Math.min(height, activeMask.y));
@@ -644,60 +627,110 @@ function blur(radius = 1) {
   // Create a copy of the current pixels to read from
   const sourcePixels = new Uint8ClampedArray(pixels);
 
-  // Pre-calculate sample offsets for the radius to avoid repeated calculations
-  // Scale samples with radius but cap for performance
-  const samples = Math.min(Math.max(radius + 1, 5), 20);
-  const offsets = [];
-  const step = radius / samples;
-  
-  // Generate deterministic offsets in a pattern for consistency
-  for (let i = 0; i < samples; i++) {
-    const angle = (i / samples) * Math.PI * 2;
-    const distance = step * (i + 1);
-    offsets.push({
-      x: Math.round(Math.cos(angle) * distance),
-      y: Math.round(Math.sin(angle) * distance)
-    });
-  }
-
-  // Fast blur using pre-calculated offsets and 32-bit operations
-  const sourceData = new Uint32Array(sourcePixels.buffer);
-  const destData = new Uint32Array(pixels.buffer);
-  
+  // Apply horizontal blur pass (only within mask bounds)
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
-      
-      // Sample center pixel
-      const centerIndex = y * width + x;
-      const centerPixel = sourceData[centerIndex];
-      r += centerPixel & 0xFF;
-      g += (centerPixel >> 8) & 0xFF;
-      b += (centerPixel >> 16) & 0xFF;
-      a += (centerPixel >> 24) & 0xFF;
-      
-      // Sample offset pixels
-      for (let i = 0; i < samples; i++) {
-        const sampleX = Math.max(minX, Math.min(maxX - 1, x + offsets[i].x));
-        const sampleY = Math.max(minY, Math.min(maxY - 1, y + offsets[i].y));
-        
-        const sampleIndex = sampleY * width + sampleX;
-        const samplePixel = sourceData[sampleIndex];
-        
-        r += samplePixel & 0xFF;
-        g += (samplePixel >> 8) & 0xFF;
-        b += (samplePixel >> 16) & 0xFF;
-        a += (samplePixel >> 24) & 0xFF;
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0;
+      let totalWeight = 0;
+
+      // Always sample at least immediate neighbors for visible blur effect
+      const sampleRadius = Math.max(1, Math.ceil(radius));
+
+      for (let i = -sampleRadius; i <= sampleRadius; i++) {
+        const distance = Math.abs(i);
+        // Calculate weight using a smoother function that works well for fractional values
+        let weight;
+        if (distance === 0) {
+          // Center pixel gets base weight
+          weight = 1.0;
+        } else {
+          // Neighbors get weight based on radius
+          // For radius < 1, this gives fractional weights to immediate neighbors
+          // For radius >= 1, this gives decreasing weights with distance
+          weight = Math.max(0, radius - distance + 1) * radius;
+        }
+
+        // Clamp sampling to mask bounds for proper edge handling
+        const sampleX = Math.max(minX, Math.min(maxX - 1, x + i));
+        const index = (y * width + sampleX) * 4;
+
+        r += sourcePixels[index] * weight;
+        g += sourcePixels[index + 1] * weight;
+        b += sourcePixels[index + 2] * weight;
+        a += sourcePixels[index + 3] * weight;
+        totalWeight += weight;
       }
 
-      // Average and pack back into 32-bit value
-      const totalSamples = samples + 1;
-      const avgR = (r / totalSamples) | 0;
-      const avgG = (g / totalSamples) | 0;
-      const avgB = (b / totalSamples) | 0;
-      const avgA = (a / totalSamples) | 0;
-      
-      destData[centerIndex] = avgR | (avgG << 8) | (avgB << 16) | (avgA << 24);
+      // Write weighted average back to main buffer
+      const index = (y * width + x) * 4;
+      if (totalWeight > 0) {
+        pixels[index] = r / totalWeight;
+        pixels[index + 1] = g / totalWeight;
+        pixels[index + 2] = b / totalWeight;
+        pixels[index + 3] = a / totalWeight;
+      }
+    }
+  }
+
+  // Copy result for vertical pass (only the working area)
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const index = (y * width + x) * 4;
+      sourcePixels[index] = pixels[index];
+      sourcePixels[index + 1] = pixels[index + 1];
+      sourcePixels[index + 2] = pixels[index + 2];
+      sourcePixels[index + 3] = pixels[index + 3];
+    }
+  }
+
+  // Apply vertical blur pass (only within mask bounds)
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0;
+      let totalWeight = 0;
+
+      // Always sample at least immediate neighbors for visible blur effect
+      const sampleRadius = Math.max(1, Math.ceil(radius));
+
+      for (let i = -sampleRadius; i <= sampleRadius; i++) {
+        const distance = Math.abs(i);
+        // Calculate weight using a smoother function that works well for fractional values
+        let weight;
+        if (distance === 0) {
+          // Center pixel gets base weight
+          weight = 1.0;
+        } else {
+          // Neighbors get weight based on radius
+          // For radius < 1, this gives fractional weights to immediate neighbors
+          // For radius >= 1, this gives decreasing weights with distance
+          weight = Math.max(0, radius - distance + 1) * radius;
+        }
+
+        // Clamp sampling to mask bounds for proper edge handling
+        const sampleY = Math.max(minY, Math.min(maxY - 1, y + i));
+        const index = (sampleY * width + x) * 4;
+
+        r += sourcePixels[index] * weight;
+        g += sourcePixels[index + 1] * weight;
+        b += sourcePixels[index + 2] * weight;
+        a += sourcePixels[index + 3] * weight;
+        totalWeight += weight;
+      }
+
+      // Write weighted average back to main buffer
+      const index = (y * width + x) * 4;
+      if (totalWeight > 0) {
+        pixels[index] = r / totalWeight;
+        pixels[index + 1] = g / totalWeight;
+        pixels[index + 2] = b / totalWeight;
+        pixels[index + 3] = a / totalWeight;
+      }
     }
   }
 }
@@ -888,27 +921,8 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 }
 
 // Similar to `paste` but always centered.
-function stamp(from, x, y, scale = 1, rotation = 0) {
-  if (scale === 1 && rotation === 0) {
-    // Original behavior for scale 1 and no rotation - no scaling calculations needed
-    paste(from, x - from.width / 2, y - from.height / 2);
-  } else if (rotation !== 0) {
-    // With rotation, we need to pass a transform object to paste
-    const transform = {
-      scale: scale,
-      angle: rotation
-    };
-    // For rotation, grid function expects top-left position and calculates center as x + w/2, y + h/2
-    // So to center at (x, y), we need to pass (x - w/2, y - h/2) accounting for scale
-    const scaledWidth = from.width * scale;
-    const scaledHeight = from.height * scale;
-    paste(from, x - scaledWidth / 2, y - scaledHeight / 2, transform);
-  } else {
-    // With scaling only, we need to account for the scaled dimensions when centering
-    const scaledWidth = from.width * scale;
-    const scaledHeight = from.height * scale;
-    paste(from, x - scaledWidth / 2, y - scaledHeight / 2, scale);
-  }
+function stamp(from, x, y) {
+  paste(from, x - from.width / 2, y - from.height / 2);
 }
 
 let blendingMode = "blend";
@@ -1815,8 +1829,7 @@ function fillShape(points) {
   for (let i = 0; i < points.length; i++) {
     minY = min(minY, points[i][1]);
     maxY = max(maxY, points[i][1]);
-
- }
+  }
 
   // For each scan line from minY to maxY
   for (let y = minY; y <= maxY; y++) {
@@ -2116,66 +2129,20 @@ function grid(
                   }
                 }
               } else {
-                // Optimized rotation path using incremental transformations
-                // Calculate rotated bounding box for this pixel block
-                const blockCorners = [
-                  [destStartX, destStartY],
-                  [destStartX + pixelWidth, destStartY],
-                  [destStartX, destStartY + pixelHeight],
-                  [destStartX + pixelWidth, destStartY + pixelHeight],
-                ];
-                
-                let blockMinX = width, blockMaxX = 0, blockMinY = height, blockMaxY = 0;
-                blockCorners.forEach(([px, py]) => {
-                  const dx = px - centerX;
-                  const dy = py - centerY;
-                  const rotX = dx * cosValue - dy * sinValue + centerX;
-                  const rotY = dx * sinValue + dy * cosValue + centerY;
-                  blockMinX = Math.min(blockMinX, Math.floor(rotX));
-                  blockMaxX = Math.max(blockMaxX, Math.ceil(rotX));
-                  blockMinY = Math.min(blockMinY, Math.floor(rotY));
-                  blockMaxY = Math.max(blockMaxY, Math.ceil(rotY));
-                });
-                
-                // Pre-calculate pixel block bounds for faster checking
-                const srcMinX = destStartX - x;
-                const srcMaxX = srcMinX + pixelWidth;
-                const srcMinY = destStartY - y;
-                const srcMaxY = srcMinY + pixelHeight;
-                
-                // Use incremental transformation for better performance
-                const startDx = blockMinX - centerX;
-                const startDy = blockMinY - centerY;
-                
-                // Calculate starting source coordinates for the scan line
-                let baseSrcX = startDx * cosValue + startDy * sinValue + centerX - x;
-                let baseSrcY = -startDx * sinValue + startDy * cosValue + centerY - y;
-                
-                // Incremental deltas for moving one pixel right and down
-                const deltaXRight = cosValue;
-                const deltaYRight = -sinValue;
-                const deltaXDown = sinValue;
-                const deltaYDown = cosValue;
-                
-                // Scan through the bounding box with incremental transforms
-                for (let destY = blockMinY; destY <= blockMaxY; destY++) {
-                  let srcX = baseSrcX;
-                  let srcY = baseSrcY;
-                  
-                  for (let destX = blockMinX; destX <= blockMaxX; destX++) {
-                    // Fast bounds check using pre-calculated values
-                    if (srcX >= srcMinX && srcX < srcMaxX && srcY >= srcMinY && srcY < srcMaxY) {
-                      plot(destX, destY);
-                    }
-                    
-                    // Increment to next pixel position
-                    srcX += deltaXRight;
-                    srcY += deltaYRight;
+                // Rotation path - preserve existing pixel-by-pixel approach for accuracy
+                for (let dy = 0; dy < pixelHeight; dy += 1) {
+                  for (let dx = 0; dx < pixelWidth; dx += 1) {
+                    const px = destStartX + dx;
+                    const py = destStartY + dy;
+
+                    // Rotate around center
+                    const relX = px - centerX;
+                    const relY = py - centerY;
+                    const rotX = relX * cosValue - relY * sinValue + centerX;
+                    const rotY = relX * sinValue + relY * cosValue + centerY;
+
+                    plot(~~rotX, ~~rotY); // Fast floor conversion
                   }
-                  
-                  // Move to next scan line
-                  baseSrcX += deltaXDown;
-                  baseSrcY += deltaYDown;
                 }
               }
             }
@@ -2606,38 +2573,13 @@ function scroll(dx = 0, dy = 0) {
 // Each ring rotates by exactly 'steps' pixels, preserving all data
 // Supports fractional steps by accumulating them over time
 function spin(steps = 0, anchorX = null, anchorY = null) {
-  // Validate input parameters
-  if (!isFinite(steps) || isNaN(steps)) {
-    console.warn("⚠️ spin: Invalid steps parameter:", steps, "- must be a finite number");
-    return;
-  }
-  
   if (steps === 0) return;
 
-  // Validate anchor parameters if provided
-  if (anchorX !== null && (!isFinite(anchorX) || isNaN(anchorX))) {
-    console.warn("⚠️ spin: Invalid anchorX parameter:", anchorX, "- using center");
-    anchorX = null;
-  }
-  
-  if (anchorY !== null && (!isFinite(anchorY) || isNaN(anchorY))) {
-    console.warn("⚠️ spin: Invalid anchorY parameter:", anchorY, "- using center");
-    anchorY = null;
-  }
-
-  // Handle fractional steps by accumulating them with higher sensitivity
+  // Handle fractional steps by accumulating them
   spinAccumulator += steps;
-  
-  // More sensitive threshold - process smaller fractional amounts
-  const integerSteps = Math.floor(spinAccumulator + 0.1); // Lower threshold for more responsiveness
+  const integerSteps = floor(spinAccumulator);
   spinAccumulator -= integerSteps; // Keep the fractional remainder
-  
-  // Prevent accumulator drift but maintain precision
-  if (Math.abs(spinAccumulator) > 100) {
-    spinAccumulator = spinAccumulator % 1;
-  }
-  
-  if (integerSteps === 0) return; // No steps to process yet
+  if (integerSteps === 0) return; // No integer steps to process yet
 
   // Determine the area to process (mask or full screen)
   let minX = 0,
@@ -2654,22 +2596,26 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  
   // Use provided anchor point or default to center of working area
-  const centerX = anchorX !== null ? anchorX : minX + Math.floor(workingWidth / 2);
-  const centerY = anchorY !== null ? anchorY : minY + Math.floor(workingHeight / 2);
+  const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
+  const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
 
   // Calculate maximum ring radius to reach the furthest corner
-  const maxRadius = Math.floor(
-    Math.sqrt(
-      Math.max(
-        (centerX - minX) * (centerX - minX) + (centerY - minY) * (centerY - minY),
-        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (centerY - minY) * (centerY - minY),
-        (centerX - minX) * (centerX - minX) + (maxY - 1 - centerY) * (maxY - 1 - centerY),
-        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (maxY - 1 - centerY) * (maxY - 1 - centerY)
-      )
-    )
-  ) + 1;
+  const maxRadius =
+    floor(
+      sqrt(
+        max(
+          (centerX - minX) * (centerX - minX) +
+            (centerY - minY) * (centerY - minY),
+          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
+            (centerY - minY) * (centerY - minY),
+          (centerX - minX) * (centerX - minX) +
+            (maxY - 1 - centerY) * (maxY - 1 - centerY),
+          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
+            (maxY - 1 - centerY) * (maxY - 1 - centerY),
+        ),
+      ),
+    ) + 1;
 
   if (maxRadius < 1) return;
 
@@ -2743,128 +2689,6 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
       pixels[idx + 1] = sourcePixel[1];
       pixels[idx + 2] = sourcePixel[2];
       pixels[idx + 3] = sourcePixel[3];
-    }
-  }
-}
-
-// Reset spin accumulator to prevent floating-point precision jitter
-function resetSpin() {
-  spinAccumulator = 0;
-}
-
-// Smooth spin with sub-pixel interpolation for ultra-smooth fractional rotations
-// This version doesn't wait for integer steps - it applies fractional rotation immediately
-let smoothSpinAccumulator = 0;
-
-function smoothSpin(steps = 0, anchorX = null, anchorY = null) {
-  // Validate input parameters
-  if (!isFinite(steps) || isNaN(steps)) {
-    console.warn("⚠️ smoothSpin: Invalid steps parameter:", steps, "- must be a finite number");
-    return;
-  }
-  
-  if (steps === 0) return;
-
-  // Validate anchor parameters if provided
-  if (anchorX !== null && (!isFinite(anchorX) || isNaN(anchorX))) {
-    console.warn("⚠️ smoothSpin: Invalid anchorX parameter:", anchorX, "- using center");
-    anchorX = null;
-  }
-  
-  if (anchorY !== null && (!isFinite(anchorY) || isNaN(anchorY))) {
-    console.warn("⚠️ smoothSpin: Invalid anchorY parameter:", anchorY, "- using center");
-    anchorY = null;
-  }
-
-  // Accumulate the fractional steps for smooth continuous rotation
-  smoothSpinAccumulator += steps;
-  
-  // Use sub-pixel precision - don't wait for integer steps
-  const totalRotation = smoothSpinAccumulator;
-  
-  // Determine the area to process (mask or full screen)
-  let minX = 0,
-    minY = 0,
-    maxX = width,
-    maxY = height;
-  if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = activeMask.x + panTranslation.x;
-    minY = activeMask.y + panTranslation.y;
-    maxX = activeMask.x + activeMask.width + panTranslation.x;
-    maxY = activeMask.y + activeMask.height + panTranslation.y;
-  }
-
-  const workingWidth = maxX - minX;
-  const workingHeight = maxY - minY;
-  
-  // Use provided anchor point or default to center of working area
-  const centerX = anchorX !== null ? anchorX : minX + Math.floor(workingWidth / 2);
-  const centerY = anchorY !== null ? anchorY : minY + Math.floor(workingHeight / 2);
-
-  // Calculate maximum radius to reach the furthest corner
-  const maxRadius = Math.floor(
-    Math.sqrt(
-      Math.max(
-        (centerX - minX) * (centerX - minX) + (centerY - minY) * (centerY - minY),
-        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (centerY - minY) * (centerY - minY),
-        (centerX - minX) * (centerX - minX) + (maxY - 1 - centerY) * (maxY - 1 - centerY),
-        (maxX - 1 - centerX) * (maxX - 1 - centerX) + (maxY - 1 - centerY) * (maxY - 1 - centerY)
-      )
-    )
-  ) + 1;
-
-  if (maxRadius < 1) return;
-
-  // Create a copy of the pixels to read from
-  const tempPixels = new Uint8ClampedArray(pixels);
-
-  // For smooth sub-pixel rotation, we'll use interpolation
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const dx = x - centerX;
-      const dy = y - centerY;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      
-      if (radius >= 1 && radius <= maxRadius) {
-        // Calculate the current angle
-        const currentAngle = Math.atan2(dy, dx);
-        
-        // Apply the rotation with sub-pixel precision
-        const rotationRadians = (totalRotation * Math.PI) / 180; // Convert to radians
-        const newAngle = currentAngle - rotationRadians; // Rotate by the accumulated amount
-        
-        // Calculate source position
-        const sourceX = centerX + radius * Math.cos(newAngle);
-        const sourceY = centerY + radius * Math.sin(newAngle);
-        
-        // Bounds checking for source
-        if (sourceX >= minX && sourceX < maxX - 1 && sourceY >= minY && sourceY < maxY - 1) {
-          // Bilinear interpolation for smooth sub-pixel sampling
-          const x1 = Math.floor(sourceX);
-          const y1 = Math.floor(sourceY);
-          const x2 = x1 + 1;
-          const y2 = y1 + 1;
-          
-          const fx = sourceX - x1;
-          const fy = sourceY - y1;
-          
-          const idx = (y * width + x) * 4;
-          
-          // Sample the four surrounding pixels
-          const idx1 = (y1 * width + x1) * 4; // top-left
-          const idx2 = (y1 * width + x2) * 4; // top-right
-          const idx3 = (y2 * width + x1) * 4; // bottom-left
-          const idx4 = (y2 * width + x2) * 4; // bottom-right
-          
-          // Interpolate each color channel
-          for (let c = 0; c < 4; c++) {
-            const top = tempPixels[idx1 + c] * (1 - fx) + tempPixels[idx2 + c] * fx;
-            const bottom = tempPixels[idx3 + c] * (1 - fx) + tempPixels[idx4 + c] * fx;
-            pixels[idx + c] = Math.round(top * (1 - fy) + bottom * fy);
-          }
-        }
-      }
     }
   }
 }
@@ -3380,7 +3204,7 @@ class Camera {
 
     const rotatedX = mat4.multiply(mat4.create(), rotX, mat4.create());
     const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
+    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
 
     const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
 
@@ -3443,11 +3267,11 @@ class Camera {
     const rotZ = mat4.fromZRotation(mat4.create(), radians(this.#rotZ));
     const rotatedY = mat4.multiply(mat4.create(), rotY, panned);
     const rotatedX = mat4.multiply(mat4.create(), rotX, rotatedY);
-    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedX);
 
     // Scale
     // TODO: Add support for camera scaling.
-    const scaled = mat4.multiply(mat4.create(), rotatedZ, this.scale);
+    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale);
 
     // Perspective
     this.#transformMatrix = mat4.multiply(
@@ -3780,7 +3604,7 @@ class Form {
 
     const rotatedX = mat4.multiply(mat4.create(), rotX, panned);
     const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotatedY, rotZ);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
 
     // Scale
     const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale); // Render wireframe lines for line type forms using untransformed vertices
@@ -4144,7 +3968,6 @@ export {
   loadpan,
   mask,
   unmask,
-  getMask,
   skip,
   copy,
   resize,
@@ -4173,8 +3996,6 @@ export {
   blendMode,
   scroll,
   spin,
-  resetSpin,
-  smoothSpin,
   zoom,
   sort,
   shear,
