@@ -35,12 +35,17 @@ export async function boot({ net: { preload }, sound, params, dom: { html } }) {
         position: absolute;
         top: 0;
         left: 8px;
-        width: 35vmin;
-        height: 35vmin;
+        width: 25vmin;
+        height: 25vmin;
         z-index: 1000;
         object-fit: contain;
         pointer-events: none;
         transition: opacity 1s ease-in-out;
+        filter: contrast(1.2) brightness(1.1) saturate(1.1)
+                drop-shadow(0px 0px 1px rgba(255, 0, 255, 0.1))
+                drop-shadow(1px 0px 2px rgba(0, 255, 255, 0.2));
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
       }
       
       #wipppps-logo.logo-hidden {
@@ -752,7 +757,6 @@ export function act({ event: e, sound }) {
       if (!actualDuration) {
         sound.getDuration(sfx).then(duration => {
           actualDuration = duration;
-          console.log("🎵 Got audio duration after playback start!");
         }).catch(error => {
           console.warn("🎵 Duration load failed:", error);
         });
