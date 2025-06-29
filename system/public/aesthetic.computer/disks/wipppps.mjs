@@ -1,4 +1,4 @@
-// Frac Optimized, 2025.6.04.01.26.48.500
+// wipppps, 2025.6.04.01.26.48.500
 // High-performance audio-reactive fractal visualizations.
 
 let sfx, progress, playingSfx, pausedAt, playStartTime, totalDuration, isPlaying, shouldAutoPlay, actualDuration, isBuffering;
@@ -28,20 +28,28 @@ export async function boot({ net: { preload }, sound, params, dom: { html } }) {
       id="wipppps-logo" 
       src="https://assets.aesthetic.computer/wipppps/wipppps.webp" 
       crossorigin="anonymous"
+      class="logo-hidden"
     />
     <style>
       #wipppps-logo {
         position: absolute;
         top: 0;
         left: 8px;
-        width: 25vmin;
-        height: 25vmin;
+        width: 30vmin;
+        height: 30vmin;
         z-index: 1000;
-        opacity: 0.75;
         object-fit: contain;
         pointer-events: none;
+        transition: opacity 1s ease-in-out;
       }
-
+      
+      #wipppps-logo.logo-hidden {
+        opacity: 0;
+      }
+      
+      #wipppps-logo.logo-visible {
+        opacity: 0.85;
+      }
     </style>
   `;
   
@@ -79,20 +87,20 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
     }
   }
 
-  // Show buffering screen - dark animated stripes
+  // Show buffering screen - vibrant animated pattern
   if (isBuffering) {
     wipe(0, 0, 0); // Black screen base
     
-    // Animated dark stripe pattern
+    // Animated vibrant stripe pattern
     const stripeWidth = 12 + Math.sin(time * 2) * 4; // Variable stripe width
     const stripeSpeed = time * 60; // Stripe movement speed
     const stripeAngle = Math.sin(time * 0.8) * 0.3; // Subtle angle variation
     
-    // Draw multiple layers of dark stripes
-    for (let layer = 0; layer < 3; layer++) {
+    // Draw multiple layers of vibrant stripes
+    for (let layer = 0; layer < 4; layer++) {
       const layerOffset = layer * 40;
       const layerSpeed = stripeSpeed + layerOffset;
-      const layerOpacity = 0.3 + layer * 0.1;
+      const layerOpacity = 0.4 + layer * 0.15;
       
       // Create diagonal stripes across the screen
       for (let y = -stripeWidth; y < screen.height + stripeWidth; y += stripeWidth * 2) {
@@ -101,12 +109,32 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
           const stripeX = x + Math.sin(stripeAngle) * y + layerSpeed;
           const stripeY = y + Math.cos(stripeAngle) * x;
           
-          // Dark colors only - grays and very dark tones
-          const darkR = Math.floor(10 + Math.sin(time * 1.2 + layer) * 8);
-          const darkG = Math.floor(12 + Math.cos(time * 1.5 + layer) * 6);
-          const darkB = Math.floor(15 + Math.sin(time * 0.9 + layer) * 10);
+          // Vibrant, saturated colors - full spectrum cycling
+          const hueBase = (time * 60 + layer * 90 + x * 0.1 + y * 0.08) % 360;
+          const saturation = 0.8 + Math.sin(time * 1.5 + layer) * 0.2;
+          const lightness = 0.5 + Math.sin(time * 2 + layer * 0.5) * 0.3;
           
-          ink(darkR, darkG, darkB, Math.floor(layerOpacity * 255));
+          // Convert HSL to RGB for vibrant colors
+          const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+          const x_hsl = c * (1 - Math.abs(((hueBase / 60) % 2) - 1));
+          const m = lightness - c / 2;
+          
+          let r, g, b;
+          const hueSegment = Math.floor(hueBase / 60) % 6;
+          switch (hueSegment) {
+            case 0: r = c; g = x_hsl; b = 0; break;
+            case 1: r = x_hsl; g = c; b = 0; break;
+            case 2: r = 0; g = c; b = x_hsl; break;
+            case 3: r = 0; g = x_hsl; b = c; break;
+            case 4: r = x_hsl; g = 0; b = c; break;
+            default: r = c; g = 0; b = x_hsl; break;
+          }
+          
+          const vibrantR = Math.floor(255 * Math.max(0, Math.min(1, r + m)));
+          const vibrantG = Math.floor(255 * Math.max(0, Math.min(1, g + m)));
+          const vibrantB = Math.floor(255 * Math.max(0, Math.min(1, b + m)));
+          
+          ink(vibrantR, vibrantG, vibrantB, Math.floor(layerOpacity * 255));
           
           // Draw rotated stripe rectangle
           const stripeLength = stripeWidth * 1.5;
@@ -267,6 +295,10 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
 
   // 🚀 HIGH-PERFORMANCE HIERARCHICAL BLOCK RENDERING 🚀
   renderFractalOptimized();
+  
+  // Update logo visibility based on buffering state
+  const logoClass = isBuffering ? 'logo-hidden' : 'logo-visible';
+  // Note: We can't directly manipulate DOM here, the CSS transition handles the fade
 
   // Pause overlay - only show when paused (not during loading)
   if (!isPlaying && (playingSfx !== null || pausedAt > 0)) {
@@ -553,14 +585,21 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
       };
     }
 
-    // Optimized block filling with typed array access
+    // Optimized block filling with typed array access and bounds checking
     function fillBlock(x, y, size, color) {
-      const endX = Math.min(x + size, screen.width);
-      const endY = Math.min(y + size, screen.height);
+      fillBlockSafe(x, y, size, size, color);
+    }
+    
+    function fillBlockSafe(x, y, width, height, color) {
+      // Ensure we don't exceed screen boundaries
+      const endX = Math.min(x + width, screen.width);
+      const endY = Math.min(y + height, screen.height);
+      const startX = Math.max(x, 0);
+      const startY = Math.max(y, 0);
 
-      for (let fillY = y; fillY < endY; fillY++) {
+      for (let fillY = startY; fillY < endY; fillY++) {
         const rowStart = fillY * screen.width * 4;
-        for (let fillX = x; fillX < endX; fillX++) {
+        for (let fillX = startX; fillX < endX; fillX++) {
           const fillIndex = rowStart + fillX * 4;
           screen.pixels[fillIndex] = color.r;
           screen.pixels[fillIndex + 1] = color.g;
@@ -573,7 +612,7 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
     // Hierarchical block subdivision with queue
     const renderQueue = [];
 
-    // Start with large blocks
+    // Start with large blocks - ensure we cover the entire screen
     for (let blockY = 0; blockY < screen.height; blockY += maxBlockSize) {
       for (let blockX = 0; blockX < screen.width; blockX += maxBlockSize) {
         const blockSize = Math.min(
@@ -589,16 +628,27 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
       const block = renderQueue.shift();
       const { x, y, size } = block;
 
-      // Skip tiny blocks or blocks outside screen
-      if (size < minBlockSize || x >= screen.width || y >= screen.height)
-        continue;
+      // Skip blocks completely outside screen bounds
+      if (x >= screen.width || y >= screen.height) continue;
+      
+      // Clamp block to screen boundaries
+      const actualWidth = Math.min(size, screen.width - x);
+      const actualHeight = Math.min(size, screen.height - y);
+      
+      // Skip if no valid area to render
+      if (actualWidth <= 0 || actualHeight <= 0) continue;
 
-      // Sample corners to determine if subdivision is needed
+      // Sample corners within valid bounds for subdivision decision
+      const sampleX1 = Math.min(x, screen.width - 1);
+      const sampleY1 = Math.min(y, screen.height - 1);
+      const sampleX2 = Math.min(x + actualWidth - 1, screen.width - 1);
+      const sampleY2 = Math.min(y + actualHeight - 1, screen.height - 1);
+      
       const samples = [
-        samplePoint(x, y),
-        samplePoint(x + size - 1, y),
-        samplePoint(x, y + size - 1),
-        samplePoint(x + size - 1, y + size - 1),
+        samplePoint(sampleX1, sampleY1),
+        samplePoint(sampleX2, sampleY1),
+        samplePoint(sampleX1, sampleY2),
+        samplePoint(sampleX2, sampleY2),
       ];
 
       // Check variation between samples to decide subdivision
@@ -615,29 +665,34 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
       const subdivisionThreshold = 3 + trebleSparkle * 8 + audioPulse * 5;
 
       // Subdivide if variation is high and block is large enough
-      if (maxDiff > subdivisionThreshold && size > minBlockSize * 2) {
-        const halfSize = Math.floor(size / 2);
-        if (halfSize >= minBlockSize) {
-          renderQueue.push({ x: x, y: y, size: halfSize });
-          renderQueue.push({ x: x + halfSize, y: y, size: halfSize });
-          renderQueue.push({ x: x, y: y + halfSize, size: halfSize });
-          renderQueue.push({
-            x: x + halfSize,
-            y: y + halfSize,
-            size: halfSize,
-          });
+      if (maxDiff > subdivisionThreshold && Math.min(actualWidth, actualHeight) > minBlockSize * 2) {
+        const halfWidth = Math.floor(actualWidth / 2);
+        const halfHeight = Math.floor(actualHeight / 2);
+        
+        if (halfWidth >= minBlockSize && halfHeight >= minBlockSize) {
+          // Create four sub-blocks, ensuring they don't exceed screen bounds
+          renderQueue.push({ x: x, y: y, size: Math.max(halfWidth, halfHeight) });
+          if (x + halfWidth < screen.width) {
+            renderQueue.push({ x: x + halfWidth, y: y, size: Math.max(actualWidth - halfWidth, halfHeight) });
+          }
+          if (y + halfHeight < screen.height) {
+            renderQueue.push({ x: x, y: y + halfHeight, size: Math.max(halfWidth, actualHeight - halfHeight) });
+          }
+          if (x + halfWidth < screen.width && y + halfHeight < screen.height) {
+            renderQueue.push({ x: x + halfWidth, y: y + halfHeight, size: Math.max(actualWidth - halfWidth, actualHeight - halfHeight) });
+          }
           continue;
         }
       }
 
       // Render uniform block using center sample
-      const centerX = x + Math.floor(size / 2);
-      const centerY = y + Math.floor(size / 2);
+      const centerX = Math.min(x + Math.floor(actualWidth / 2), screen.width - 1);
+      const centerY = Math.min(y + Math.floor(actualHeight / 2), screen.height - 1);
       const sample = samplePoint(centerX, centerY);
       const color = calculateColor(sample, centerX, centerY);
 
-      // Fast block fill
-      fillBlock(x, y, size, color);
+      // Fast block fill with proper bounds checking
+      fillBlockSafe(x, y, actualWidth, actualHeight, color);
     }
   }
 }
