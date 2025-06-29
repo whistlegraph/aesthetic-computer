@@ -297,6 +297,7 @@ let reframe;
 
 const sfxProgressReceivers = {},
   sfxSampleReceivers = {},
+  sfxDurationReceivers = {},
   sfxKillReceivers = {};
 let $sampleCount = 0n;
 
@@ -325,6 +326,10 @@ let storeRetrievalResolutions = {},
 
 // There are two instances of Socket that run in parallel...
 let socket, socketStartDelay; // Socket server for each piece.
+
+// ❤️‍🔥 TODO: Explose these somehow to the $commonApi.
+
+// TODO: Extract `chat` into an external class.
 
 const chatDebug =
   location.host === "local.aesthetic.computer" ||
@@ -379,7 +384,6 @@ function darkMode(enabled) {
     store["dark-mode"] = enabled;
     store.persist("dark-mode");
     $commonApi.dark = enabled;
-
     actAlerts.push($commonApi.dark ? "dark-mode" : "light-mode");
     return enabled;
   }
@@ -996,16 +1000,13 @@ const $commonApi = {
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
     label: (text, color, offset) => {
-      // Respect hideLabel setting from nolabel parameter
-      if (!hideLabel) {
-        currentHUDTxt = text;
-        if (!color) {
-          currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
-        } else {
-          currentHUDTextColor = graph.findColor(color);
-        }
-        currentHUDOffset = offset;
+      currentHUDTxt = text;
+      if (!color) {
+        currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
+      } else {
+        currentHUDTextColor = graph.findColor(color);
       }
+      currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
@@ -1978,7 +1979,6 @@ const $paintApi = {
       bg,
       bounds,
       wordWrap = true;
-
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
 
@@ -2320,7 +2320,7 @@ function form(
 function prefetchPicture(code) {
   if (paintings[code] === "fetching") return;
 
-  // console.log("🖼️ Prefetching...", code);
+  console.log("🖼️ Prefetching...", code);
   paintings[code] = "fetching";
 
   if (code.startsWith("http")) {
@@ -2525,13 +2525,11 @@ const $paintApiUnwrapped = {
   loadpan: graph.loadpan,
   mask: graph.mask,
   unmask: graph.unmask,
-  getMask: graph.getMask,
   steal: graph.steal,
   putback: graph.putback,
   skip: graph.skip,
   scroll: graph.scroll,
   spin: graph.spin,
-  smoothSpin: graph.smoothSpin,
   sort: graph.sort,
   zoom: graph.zoom,
   blur: graph.blur,
@@ -2929,13 +2927,23 @@ async function load(
     if (host === "") host = originalHost;
     loadFailure = undefined;
     host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
-    //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00
-
-    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
+    //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
     // if (path === firstPiece && params.length === 0) params = firstParams;
 
-    fullUrl =
-      location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
+    // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
+    if (path.endsWith(".lisp")) {
+      fullUrl = location.protocol + "//" + host + "/" + path + "#" + Date.now();
+    } else {
+      fullUrl =
+        location.protocol +
+        "//" +
+        host +
+        "/" +
+        path +
+        ".mjs" +
+        "#" +
+        Date.now();
+    }
     // The hash `time` parameter busts the cache so that the environment is
     // reset if a disk is re-entered while the system is running.
     // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
@@ -2997,13 +3005,14 @@ async function load(
         if (logs.loading) console.log("📥 Loading from url:", fullUrl);
         response = await fetch(fullUrl);
         if (response.status === 404 || response.status === 403) {
+          const extension = path.endsWith(".lisp") ? ".lisp" : ".mjs";
           const anonUrl =
             location.protocol +
             "//" +
             "art.aesthetic.computer" +
             "/" +
             path.split("/").pop() +
-            ".mjs" +
+            extension +
             "#" +
             Date.now();
           if (logs.loading)
@@ -3020,22 +3029,32 @@ async function load(
       // 🔥 Idea
       // One should be able to drag a piece in, then be able to load the piece
       // go back to the prompt, and return to it and it should still load
-      // the modded code!
-      // Then refresh should be able to function as well?
+      // the modded code!      // Then refresh should be able to function as well?
       // ⚠️ Detect if we are running `kidlisp` or JavaScript syntax.
-      // Note: This may not be the most reliable way to detect `kidlisp`?      // 🚗 Needs to know if the source was from a prompt with a lisp module.
+      // Note: This may not be the most reliable way to detect `kidlisp`?
+      // 🚗 Needs to know if the source was from a prompt with a lisp module.
       // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
       if (
         sourceToRun.startsWith("(") ||
         sourceToRun.startsWith(";") ||
         forceKidlisp ||
         slug === "(...)" ||
-        path === "(...)"
+        path === "(...)" ||
+        path.endsWith(".lisp")
       ) {
         // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
+        console.log(
+          "🐍 Lisp piece detected (slug:",
+          slug,
+          "path:",
+          path,
+          "forceKidlisp:",
+          forceKidlisp,
+          ")",
+        );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         loadedModule = lisp.module(sourceToRun);
@@ -3074,43 +3093,67 @@ async function load(
     }
   } catch (err) {
     console.log("🟡 Error loading mjs module:", err);
-    // Look for lisp files if the mjs file is not found.
-    try {
-      fullUrl = fullUrl.replace(".mjs", ".lisp");
-      let response;
-      if (logs.loading) console.log("📥 Loading lisp from url:", fullUrl);
-      response = await fetch(fullUrl);
-      console.log("🤖 Response:", response);
+    // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
+    if (!fullUrl.includes(".lisp")) {
+      try {
+        fullUrl = fullUrl.replace(".mjs", ".lisp");
+        let response;
+        if (logs.loading) console.log("📥 Loading lisp from url:", fullUrl);
+        response = await fetch(fullUrl);
+        console.log("🤖 Response:", response);
 
-      if (response.status === 404 || response.status === 403) {
-        const anonUrl =
-          location.protocol +
-          "//" +
-          "art.aesthetic.computer" +
-          "/" +
-          path.split("/").pop() +
-          ".lisp" +
-          "#" +
-          Date.now();
-        console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-        response = await fetch(anonUrl);
+        if (response.status === 404 || response.status === 403) {
+          const anonUrl =
+            location.protocol +
+            "//" +
+            "art.aesthetic.computer" +
+            "/" +
+            path.split("/").pop() +
+            ".lisp" +
+            "#" +
+            Date.now();
+          console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+          response = await fetch(anonUrl);
 
-        console.log("🚏 Response:", response);
+          console.log("🚏 Response:", response);
 
-        if (response.status === 404 || response.status === 403)
-          throw new Error(response.status);
+          if (response.status === 404 || response.status === 403)
+            throw new Error(response.status);
+        }
+        sourceCode = await response.text();
+        // console.log("📓 Source:", sourceCode);
+        originalCode = sourceCode;
+        loadedModule = lisp.module(sourceCode);
+        if (devReload) {
+          store["publishable-piece"] = {
+            slug,
+            source: sourceCode,
+            ext: "lisp",
+          };
+          // console.log("💌 Publishable:", store["publishable-piece"]);
+        }
+      } catch (err) {
+        // 🧨 Continue with current module if one has already loaded.
+        console.error(
+          `😡 "${path}" load failure:`,
+          err,
+          "💾 First load:",
+          firstLoad,
+        );
+        loadFailure = err;
+        $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
+        loading = false;
+
+        // Only return a 404 if the error type is correct.
+        if (firstLoad && (err.message === "404" || err.message === "403")) {
+          $commonApi.jump(`404~${slug}`);
+        } else {
+          $commonApi.notice(":(", ["red", "yellow"]);
+        }
+        return false;
       }
-      sourceCode = await response.text();
-      // console.log("📓 Source:", sourceCode);
-      originalCode = sourceCode;
-      loadedModule = lisp.module(sourceCode);
-
-      if (devReload) {
-        store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
-        // console.log("💌 Publishable:", store["publishable-piece"]);
-      }
-    } catch (err) {
-      // 🧨 Continue with current module if one has already loaded.
+    } else {
+      // If we were already trying to load a .lisp file and it failed, just propagate the error
       console.error(
         `😡 "${path}" load failure:`,
         err,
@@ -3204,23 +3247,7 @@ async function load(
       // );
 
       // Note: This is used for live development via the socket server.
-      // Preserve current URL parameters during live reload.
-      $commonApi.load(
-        {
-          source,
-          name,
-          codeChannel,
-          path: currentPath,
-          host: currentHost,
-          search: currentSearch,
-          colon: currentColon,
-          params: currentParams,
-          hash: currentHash,
-        },
-        false,
-        false,
-        true,
-      ); // Load source code with preserved URL state.
+      $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
       // console.log("💾️ Reloading:", piece, "Params:", currentParams);
       // $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
@@ -3383,35 +3410,14 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
-    let pieceMeta =
+    const { title, desc, ogImage, twitterImage, icon } = metadata(
+      location.host, // "aesthetic.computer",
+      slug,
       loadedModule.meta?.({
         ...parsed,
         num: $commonApi.num,
         store: $commonApi.store,
-      }) || inferTitleDesc(originalCode);
-
-    // Extract title from first line comment if it's a Lisp file and no title exists
-    if (
-      originalCode &&
-      (!pieceMeta?.title || pieceMeta.title === parsed.text)
-    ) {
-      const isLispSource =
-        originalCode.startsWith("(") || originalCode.startsWith(";");
-      if (isLispSource) {
-        const firstLine = originalCode.split("\n")[0]?.trim();
-        if (firstLine && firstLine.startsWith(";")) {
-          const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
-          if (title) {
-            pieceMeta = { ...pieceMeta, title, standaloneTitle: true };
-          }
-        }
-      }
-    }
-
-    const { title, desc, ogImage, twitterImage, icon } = metadata(
-      location.host, // "aesthetic.computer",
-      slug,
-      pieceMeta,
+      }) || inferTitleDesc(originalCode),
     );
 
     meta = {
@@ -4037,14 +4043,17 @@ async function load(
       noticeColor = ["white", "green"];
       noticeBell(cachedAPI, { tone: 300 });
     }
-    if (!alias && !hideLabel) currentHUDTxt = slug; // Update hud if this is not an alias and labels are not hidden.
+
+    if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
     if (module.nohud || system === "prompt") currentHUDTxt = undefined;
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
     currentHUDScrub = 0;
-    // currentPromptButton = undefined;    // Push last piece to a history list, skipping prompt and repeats.
+    // currentPromptButton = undefined;
+
+    // Push last piece to a history list, skipping prompt and repeats.
     if (
       !fromHistory &&
       currentText &&
@@ -4339,13 +4348,6 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "microphone-disconnect") {
     microphone.connected = false;
-    return;
-  }
-
-  // Cancel any active UI button interactions when pointer leaves window
-  if (type === "ui:cancel-interactions") {
-    // Add to actAlerts so it gets processed through the normal event flow
-    actAlerts.push("ui:cancel-interactions");
     return;
   }
 
@@ -4647,6 +4649,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "sfx:got-duration") {
+    sfxDurationReceivers[content.id]?.(content.duration);
+    return;
+  }
+
   if (type === "sfx:progress:report") {
     sfxProgressReceivers[content.id]?.(content); // Resolve the progress report.
     return;
@@ -4829,9 +4836,10 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.load(content, true);
     return;
   }
+
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    // if (debug) console.log("🖼️ Bitmap loaded:", content);
+    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
@@ -4994,29 +5002,15 @@ async function makeFrame({ data: { type, content } }) {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
               const content = currentHUDTxt || currentText;
-
-              // If content contains underscores or tildes, try decoding it first
-              let actualContent = content;
-              if (content && (content.includes("_") || content.includes("~"))) {
-                const decoded = content
-                  .replace(/_/g, " ")
-                  .replace(/§/g, "\n")
-                  .replace(/~/g, " ");
-                if (lisp.isKidlispSource(decoded)) {
-                  actualContent = decoded;
-                } else {
-                  // Even if it's not kidlisp, we should still convert tildes to spaces
-                  // since tildes in URLs represent spaces in piece slugs
-                  actualContent = content.replace(/~/g, " ");
-                }
+              // Only encode kidlisp content with kidlisp encoder
+              if (lisp.isKidlispSource(content)) {
+                const encodedContent = lisp.encodeKidlispForUrl(content);
+                promptSlug += "~" + encodedContent;
+              } else {
+                // For regular piece names, convert tildes to spaces for display
+                const spaceContent = content.replace(/~/g, " ");
+                promptSlug += "~" + spaceContent;
               }
-
-              // For kidlisp content, encode it for URL. For regular pieces, pass as-is.
-              const encodedContent = lisp.isKidlispSource(actualContent)
-                ? lisp.encodeKidlispForUrl(actualContent)
-                : actualContent;
-
-              promptSlug += "~" + encodedContent;
             }
             $commonApi.jump(promptSlug)(() => {
               send({ type: "keyboard:open" });
@@ -5196,10 +5190,34 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         const frequency = noteFrequencies[note]; // Look up freq for the note.
-        if (!frequency) throw new Error("Note not found in the list");
+        if (!frequency) {
+          console.error("🎵 Note lookup failed:", {
+            originalInput: input,
+            parsedNote: note,
+            parsedOctave: octave,
+            availableNotes: Object.keys(noteFrequencies)
+          });
+          throw new Error(`Note not found in the list: "${note}" (from input: "${input}")`);
+        }
 
         // Calculate the frequency for the given octave
+        // Limit octave to reasonable audio range (0-9)
+        if (octave < 0) {
+          console.warn(`🎵 Octave too low: ${octave}, clamping to 0`);
+          octave = 0;
+        }
+        if (octave > 9) {
+          console.warn(`🎵 Octave too high: ${octave}, clamping to 9`);
+          octave = 9;
+        }
+        
         const finalFreq = frequency * Math.pow(2, octave);
+        
+        // Final sanity check on frequency range (20 Hz to 20000 Hz)
+        if (finalFreq < 20 || finalFreq > 20000) {
+          console.warn(`🎵 Frequency out of audible range: ${finalFreq.toFixed(2)} Hz for ${input}`);
+        }
+        
         return finalFreq;
       },
       // Calculate a musical note from a frequency.
@@ -5256,24 +5274,6 @@ async function makeFrame({ data: { type, content } }) {
           color,
           options = { noamp: false, nobounds: false },
         ) {
-          // Add validation to prevent random boxes when data is undefined
-          if (
-            amplitude === undefined ||
-            amplitude === null ||
-            isNaN(amplitude)
-          ) {
-            amplitude = 0; // Default to 0 if undefined
-          }
-
-          if (!waveform || !Array.isArray(waveform) || waveform.length === 0) {
-            return; // Don't draw anything if no valid waveform data
-          }
-
-          // Ensure waveform values are valid numbers
-          waveform = waveform.map((v) =>
-            v === undefined || v === null || isNaN(v) ? 0 : v,
-          );
-
           const yMid = round(y + (height - 2) / 2),
             yMax = round((height - 2) / 2);
           let lw = options.noamp ? 0 : 4; // levelWidth;
@@ -5410,6 +5410,15 @@ async function makeFrame({ data: { type, content } }) {
         return { resolve, reject };
       });
       send({ type: "sfx:get-sample-data", content: { id } });
+      return prom;
+    };
+
+    $sound.getDuration = async function getDuration(id) {
+      const prom = new Promise((resolve, reject) => {
+        sfxDurationReceivers[id] = resolve;
+        return { resolve, reject };
+      });
+      send({ type: "sfx:get-duration", content: { id } });
       return prom;
     };
 
@@ -5789,27 +5798,8 @@ async function makeFrame({ data: { type, content } }) {
                 jump("prompt");
               } else {
                 labelBack = false; // Reset `labelBack` after jumping.
-                console.log(
-                  "🔙 Back button pressed, history length:",
-                  $commonApi.history.length,
-                );
-                console.log("🔙 Current history:", $commonApi.history);
                 if ($commonApi.history.length > 0) {
-                  // Check if current piece is kidlisp - if so, use internal history navigation
-                  if (
-                    currentText &&
-                    (currentText.startsWith("(") || currentText.includes("("))
-                  ) {
-                    console.log(
-                      "🔙 Kidlisp piece detected, using internal history navigation",
-                    );
-                    const lastPiece = $commonApi.history.pop(); // Remove and get the last piece
-                    console.log("🔙 Navigating back to:", lastPiece);
-                    jump(lastPiece, true); // Jump with fromHistory = true
-                  } else {
-                    console.log("🔙 Regular piece, using browser history");
-                    send({ type: "back-to-piece" });
-                  }
+                  send({ type: "back-to-piece" });
                 } else {
                   jump("prompt");
                 }
@@ -6407,14 +6397,16 @@ async function makeFrame({ data: { type, content } }) {
 
         //console.log("bake")
         //send({ type: "3d-bake" });
-      } // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
+      }
+
+      // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
       //           composited by the other thread.
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
       // System info label (addressability).
-      let label = null;
+      let label;
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
 
@@ -6422,7 +6414,6 @@ async function makeFrame({ data: { type, content } }) {
         !previewMode &&
         !iconMode &&
         !hideLabel &&
-        !location.search.includes("nolabel") &&
         piece !== undefined &&
         piece.length > 0
       ) {
@@ -6433,7 +6424,7 @@ async function makeFrame({ data: { type, content } }) {
           $api.screen.width - $api.typeface.blockWidth,
         );
 
-        const h = labelBounds.box.height; // Remove extra blockHeight for proper single-line sizing
+        const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state

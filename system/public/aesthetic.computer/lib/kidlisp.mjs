@@ -1,6 +1,8 @@
 // Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
+import { parseMelody, noteToTone } from "./melody-parser.mjs";
+
 /* #region 📚 Examples / Notebook 
  Working programs:
 
@@ -334,7 +336,9 @@ class KidLisp {
     if (!ast) return false;
     
     if (typeof ast === 'string') {
-      return ast === 'mic' || ast === 'amplitude';
+      // Only 'mic' function requires microphone access
+      // 'amplitude' is for speaker amplitude, not microphone
+      return ast === 'mic';
     }
     
     if (Array.isArray(ast)) {
@@ -697,166 +701,8 @@ class KidLisp {
 
   // 🎵 Melody playback methods
   parseMelodyString(melodyString) {
-    const notes = [];
-    let i = 0;
-    
-    while (i < melodyString.length) {
-      let char = melodyString[i];
-      
-      // Handle octave-first notation (4c, 5g#, etc)
-      if (/[0-9]/.test(char)) {
-        const octave = parseInt(char);
-        i++;
-        
-        if (i < melodyString.length) {
-          const noteChar = melodyString[i].toLowerCase();
-          if (/[a-g]/.test(noteChar)) {
-            let note = noteChar;
-            i++;
-            
-            // Check for sharp or flat modifiers
-            if (i < melodyString.length) {
-              const nextChar = melodyString[i];
-              if (nextChar === 's' || nextChar === '#') {
-                note += '#'; // Convert both 's' and '#' to # internally
-                i++;
-              } else if (nextChar === 'b') {
-                note += 'b';
-                i++;
-              }
-            }
-            
-            // Default duration is 1 (quarter note)
-            let duration = 1;
-            
-            // Check for duration modifiers using dots or dashes (optional)
-            if (i < melodyString.length) {
-              const nextChar = melodyString[i];
-              // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
-              if (nextChar === '.') {
-                let dots = 0;
-                while (i < melodyString.length && melodyString[i] === '.') {
-                  dots++;
-                  i++;
-                }
-                // no dots = quarter (1.0), . = eighth (0.5), .. = sixteenth (0.25), ... = thirty-second (0.125), etc.
-                duration = 1.0 / Math.pow(2, dots);
-              }
-              // Use dashes for longer notes: - = half, -- = whole, --- = double whole, etc.
-              else if (nextChar === '-') {
-                let dashes = 0;
-                while (i < melodyString.length && melodyString[i] === '-') {
-                  dashes++;
-                  i++;
-                }
-                // - = half (2.0), -- = whole (4.0), --- = double whole (8.0), etc.
-                duration = Math.pow(2, dashes);
-              }
-            }
-            
-            notes.push({ note, octave, duration });
-          }
-        }
-      }
-      // Handle note-first notation (c4, d#5, etc) 
-      else if (/[a-g]/.test(char.toLowerCase())) {
-        let note = char.toLowerCase();
-        i++;
-        
-        // Check for sharp or flat modifiers
-        if (i < melodyString.length) {
-          const nextChar = melodyString[i];
-          if (nextChar === 's' || nextChar === '#') {
-            note += '#'; // Convert both 's' and '#' to # internally
-            i++;
-          } else if (nextChar === 'b') {
-            note += 'b';
-            i++;
-          }
-        }
-        
-        // Check for octave number
-        let octave = 4; // Default octave
-        if (i < melodyString.length) {
-          const nextChar = melodyString[i];
-          if (/[0-9]/.test(nextChar)) {
-            octave = parseInt(nextChar);
-            i++;
-          }
-        }
-        
-        // Default duration is 1 (quarter note)
-        let duration = 1;
-        
-        // Check for duration modifiers using dots or dashes (optional)
-        if (i < melodyString.length) {
-          const nextChar = melodyString[i];
-          // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
-          if (nextChar === '.') {
-            let dots = 0;
-            while (i < melodyString.length && melodyString[i] === '.') {
-              dots++;
-              i++;
-            }
-            // no dots = quarter (1.0), . = eighth (0.5), .. = sixteenth (0.25), ... = thirty-second (0.125), etc.
-            duration = 1.0 / Math.pow(2, dots);
-          }
-          // Use dashes for longer notes: - = half, -- = whole, --- = double whole, etc.
-          else if (nextChar === '-') {
-            let dashes = 0;
-            while (i < melodyString.length && melodyString[i] === '-') {
-              dashes++;
-              i++;
-            }
-            // - = half (2.0), -- = whole (4.0), --- = double whole (8.0), etc.
-            duration = Math.pow(2, dashes);
-          }
-        }
-        
-        notes.push({ note, octave, duration });
-      }
-      // Handle rests
-      else if (char === '_' || char === ' ' || char === '-') {
-        let duration = 1;
-        i++;
-        
-        // Check for duration modifiers using dots or dashes on rests
-        if (i < melodyString.length) {
-          const nextChar = melodyString[i];
-          // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
-          if (nextChar === '.') {
-            let dots = 0;
-            while (i < melodyString.length && melodyString[i] === '.') {
-              dots++;
-              i++;
-            }
-            // no dots = quarter (1.0), . = eighth (0.5), .. = sixteenth (0.25), ... = thirty-second (0.125), etc.
-            duration = 1.0 / Math.pow(2, dots);
-          }
-          // Use dashes for longer rests: - = half, -- = whole, --- = double whole, etc.
-          else if (nextChar === '-') {
-            let dashes = 0;
-            while (i < melodyString.length && melodyString[i] === '-') {
-              dashes++;
-              i++;
-            }
-            // - = half (2.0), -- = whole (4.0), --- = double whole (8.0), etc.
-            duration = Math.pow(2, dashes);
-          }
-        }
-        
-        notes.push({ note: 'rest', octave: null, duration });
-      }
-      // Handle measure separators (optional, for readability)
-      else if (char === '|') {
-        // Measure bars are just visual separators, skip them
-        i++;
-      } else {
-        i++;
-      }
-    }
-    
-    return notes;
+    // Delegate to the shared melody parser
+    return parseMelody(melodyString);
   }
 
   playMelodyNote(api, melodyId) {
@@ -926,34 +772,8 @@ class KidLisp {
 
   // Convert note letter to frequency
   noteToTone(note, octave = null) {
-    // Handle both simple notes and notes with octave/modifiers
-    const noteMap = {
-      'c': 'C',
-      'c#': 'C#',
-      'db': 'C#',
-      'd': 'D',
-      'd#': 'D#',
-      'eb': 'D#',
-      'e': 'E',
-      'f': 'F',
-      'f#': 'F#',
-      'gb': 'F#',
-      'g': 'G',
-      'g#': 'G#',
-      'ab': 'G#',
-      'a': 'A',
-      'a#': 'A#',
-      'bb': 'A#',
-      'b': 'B'
-    };
-    
-    const normalizedNote = note.toLowerCase();
-    const baseNote = noteMap[normalizedNote] || 'C';
-    
-    // Use specified octave, or default to 4
-    const finalOctave = octave !== null ? octave : 4;
-    
-    return `${finalOctave}${baseNote}`;
+    // Delegate to the shared melody parser
+    return noteToTone(note, octave);
   }
 
   // CORE OPTIMIZATION HELPER: Check if expression contains a variable
@@ -2622,76 +2442,50 @@ function evaluate(parsed, api = {}) {
 function isKidlispSource(text) {
   if (!text) return false;
 
-  // Traditional kidlisp indicators - must start with ( or ;
-  if (text.startsWith("(") || text.startsWith(";")) {
+  // Only consider input as KidLisp if:
+  // 1. It starts with '(' (parenthesis), OR
+  // 2. It contains a newline
+  // This prevents false positives on commands like "clock (ceg) (dfa)"
+  // where parentheses appear later in the string but it's not KidLisp code
+  
+  // Check if it starts with opening parenthesis (clear KidLisp indicator)
+  if (text.startsWith("(")) {
     return true;
   }
 
-  // Check for encoded kidlisp (contains § suggesting newlines were encoded)
+  // Check if it contains newlines (multi-line input is likely KidLisp)
+  if (text.includes("\n")) {
+    return true;
+  }
+
+  // Check for encoded kidlisp that might have newlines encoded as §
   if (text.includes("§")) {
     const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
-    // Check decoded version - must start with ( or ; or contain newlines
-    if (decoded.startsWith("(") || decoded.startsWith(";")) {
+    // If decoded version starts with ( or contains newlines, it's KidLisp
+    if (decoded.startsWith("(") || decoded.includes("\n")) {
       return true;
-    }
-    if (decoded.includes("\n")) {
-      const lines = decoded.split("\n");
-      const hasKidlispLines = lines.some((line) => {
-        const trimmed = line.trim();
-        return (
-          trimmed &&
-          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*\s+/.test(trimmed)) // Must have spaces after function name
-        );
-      });
-      return hasKidlispLines;
     }
   }
 
-  if (text.includes("_") && text.match(/[a-zA-Z_]\w*_[a-zA-Z]/)) {
+  // Check for encoded kidlisp that might have newlines encoded as ~ or _
+  // Only check this if it looks like URL-encoded content (multiple underscores in sequence 
+  // or typical KidLisp function patterns), not just any underscore usage
+  if (text.includes("_") && (
+    text.includes("__") || // Multiple consecutive underscores (likely encoded spaces)
+    text.match(/\b(wipe|ink|line|box|def|later)_/) // Known KidLisp functions with underscore
+  )) {
     const decoded = text
       .replace(/_/g, " ")
-      .replace(/§/g, "\n")
-      .replace(/~/g, "\n");
-    // Check decoded version without recursion
-    if (decoded.startsWith("(") || decoded.startsWith(";")) {
-      return true;
-    }
-    if (decoded.includes("\n")) {
-      const lines = decoded.split("\n");
-      const hasKidlispLines = lines.some((line) => {
-        const trimmed = line.trim();
-        return (
-          trimmed &&
-          (trimmed.startsWith("(") || /^[a-zA-Z_]\w*\s+/.test(trimmed)) // Must have spaces after function name
-        );
-      });
-      return hasKidlispLines;
-    }
-    // Check if decoded looks like kidlisp function calls - but be more strict
-    // Only consider it kidlisp if it has multiple words or parentheses
-    const trimmed = decoded.trim();
-    if (/^[a-zA-Z_]\w*\s+/.test(trimmed)) { // Must have spaces after the function name
+      .replace(/§/g, "\n");
+      // Note: NOT replacing ~ with newlines - ~ is not an encoded newline character
+    // If decoded version starts with ( or contains newlines, it's KidLisp
+    if (decoded.startsWith("(") || decoded.includes("\n")) {
       return true;
     }
   }
 
-  // Check if it contains newlines and looks like kidlisp (has function calls)
-  if (text.includes("\n")) {
-    const lines = text.split("\n");
-    // If any line looks like a function call, treat as kidlisp
-    // Be more strict - require either parentheses or function calls with arguments
-    const hasKidlispLines = lines.some((line) => {
-      const trimmed = line.trim();
-      return (
-        trimmed &&
-        (trimmed.startsWith("(") || /^[a-zA-Z_]\w*\s+/.test(trimmed)) // Must have spaces after function name
-      );
-    });
-    return hasKidlispLines;
-  }
-
-  // For simple text without § or newlines, only consider it kidlisp if it starts with ( or ;
-  // This prevents simple slugs like "line~red" (which might become "line_red") from being detected as kidlisp
+  // For all other cases (single line input that doesn't start with '('), 
+  // don't consider it KidLisp to avoid false positives
   return false;
 }
 
@@ -2730,17 +2524,31 @@ function decodeKidlispFromUrl(encoded) {
       .replace(/%3B/g, ";") // Decode semicolons
       .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   } else {
-    // For regular kidlisp content, apply legacy ~ to newline conversion
-    decoded = encoded
+    // First, try decoding without ~ to newline conversion to check if it's already KidLisp
+    const preliminaryDecoded = encoded
       .replace(/_/g, " ")
-      .replace(/§/g, "\n") // Primary newline encoding to avoid collision with URL separator ~
-      .replace(/~/g, "\n") // Support legacy ~ separator for backwards compatibility
+      .replace(/§/g, "\n") // Primary newline encoding
       .replace(/%28/g, "(")
       .replace(/%29/g, ")")
       .replace(/%2E/g, ".")
       .replace(/%22/g, '"')
-      .replace(/%3B/g, ";") // Decode semicolons
-      .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
+      .replace(/%3B/g, ";")
+      .replace(/S/g, "#");
+    
+    // Only apply ~ to newline conversion if the text has strong KidLisp indicators
+    // beyond just starting with ( or containing newlines (which ~ conversion would create)
+    const hasKidlispFunctions = /\b(wipe|ink|line|box|def|later|circle|poly|resolution)\b/.test(preliminaryDecoded);
+    const hasMultipleUnderscores = encoded.includes("__");
+    const startsWithParen = preliminaryDecoded.startsWith("(");
+    const hasExistingNewlines = preliminaryDecoded.includes("\n");
+    
+    // Apply ~ to newline conversion only if there are strong indicators this is actually KidLisp
+    if (startsWithParen || hasExistingNewlines || hasKidlispFunctions || hasMultipleUnderscores) {
+      decoded = preliminaryDecoded.replace(/~/g, "\n");
+    } else {
+      // Don't convert ~ to newlines for commands that don't show clear KidLisp patterns
+      decoded = preliminaryDecoded;
+    }
   }
   
   const isValidKidlisp = isKidlispSource(decoded);

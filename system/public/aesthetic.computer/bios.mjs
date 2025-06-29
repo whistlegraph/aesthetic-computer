@@ -3828,12 +3828,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           [bitmap.pixels.buffer],
         );
         img.removeEventListener("error", onError);
+        // Clean up the loading tracker since the load completed successfully
+        delete mediaPathsLoading[content];
       };
 
       const onError = (err) => {
         // console.error(err);
         send({ type: "loaded-bitmap-rejection", content: { url: content } });
         img.removeEventListener("load", onLoad); // Remove the other listener too
+        // Clean up the loading tracker since the load failed
+        delete mediaPathsLoading[content];
       };
 
       img.addEventListener("load", onLoad);
@@ -3846,6 +3850,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Update src to stop current loading.
         img.src =
           "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+        // Clean up the loading tracker since the load was aborted
+        delete mediaPathsLoading[content];
       });
 
       return;
@@ -3858,7 +3864,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Load a sound from a url.
+    // Load a sound from a url with instant playback support.
     if (type === "sfx:load") {
       let internal = false;
 
@@ -3880,40 +3886,68 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else url = content;
 
+      // Enhanced instant playback audio loading strategy
+      const audioId = content;
+      
+      // Strategy 1: Immediate HTML5 Audio for instant playback
+      const htmlAudioElement = new Audio();
+      htmlAudioElement.crossOrigin = "anonymous";
+      htmlAudioElement.preload = "auto";
+      htmlAudioElement.src = url;
+      
+      // Store the HTML5 audio for instant playback
+      sfx[audioId + "_html5"] = htmlAudioElement;
+      
+      // Strategy 2: Background fetch and decode for high-quality playback
       fetch(url)
         .then((response) => {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
-          // console.log("🔉", url, audioContext, arrayBuffer);
           try {
             if (!audioContext) {
-              sfx[content] = arrayBuffer;
-              send({
-                type: "loaded-sfx-success",
-                content: { url, sfx: content },
-              });
+              sfx[audioId] = arrayBuffer;
             } else {
-              const audioBuffer =
-                await audioContext.decodeAudioData(arrayBuffer);
-              sfx[content] = audioBuffer;
-              send({
-                type: "loaded-sfx-success",
-                content: { url, sfx: content },
-              });
+              // Background decode the buffer
+              const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+              sfx[audioId] = audioBuffer;
+              
+              // Clean up HTML5 audio once high-quality buffer is ready
+              if (sfx[audioId + "_html5"]) {
+                delete sfx[audioId + "_html5"];
+              }
+              
+              if (debug && logs.audio)
+                console.log("🔈 Background decoded for high-quality playback:", audioId);
             }
+            
+            send({
+              type: "loaded-sfx-success",
+              content: { url, sfx: audioId },
+            });
           } catch (error) {
             if (debug && logs.audio)
-              console.error("Sound loading failed:", error);
+              console.error("Background audio decoding failed:", error);
+            // Keep the HTML5 audio as fallback
             send({
-              type: "loaded-sfx-rejection",
-              content: { sfx: content },
+              type: "loaded-sfx-success",
+              content: { url, sfx: audioId },
             });
           }
         })
         .catch((error) => {
-          send({ type: "loaded-sfx-rejection", content: { sfx: content } });
+          // Keep the HTML5 audio as fallback
+          send({
+            type: "loaded-sfx-success", 
+            content: { url, sfx: audioId },
+          });
         });
+
+      // Immediately signal success with instant playback capability
+      send({
+        type: "loaded-sfx-success",
+        content: { url, sfx: audioId, instantPlayback: true },
+      });
 
       return;
     }
@@ -3952,6 +3986,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       checkForSampleData();
+      return;
+    }
+
+    if (type === "sfx:get-duration") {
+      async function checkForDuration() {
+        if (audioContext) {
+          const audioBuffer = await decodeSfx(content.id);
+
+          if (!audioBuffer) {
+            setTimeout(checkForDuration, 100);
+          } else {
+            // Just send duration, not the expensive sample data
+            send({
+              type: "sfx:got-duration",
+              content: { id: content.id, duration: audioBuffer.duration },
+            });
+          }
+        } else {
+          setTimeout(checkForDuration, 100);
+        }
+      }
+
+      checkForDuration();
       return;
     }
 

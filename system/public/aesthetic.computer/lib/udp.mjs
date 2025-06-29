@@ -40,7 +40,7 @@ function connect(port = 8889, url = undefined, send) {
 
   channel.onConnect((error) => {
     if (error) {
-      console.error("🩰", error.message);
+      console.log('%cUDP connection failed, retrying in ' + (reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
       reconnect();
       return;
     }
@@ -77,7 +77,7 @@ function connect(port = 8889, url = undefined, send) {
     connected = false;
     send({ type: "udp:disconnected" });
     if (error || !dontreconnect) {
-      console.warn("🩰 Reconnecting...");
+      console.log('%cUDP connection failed, retrying in ' + (reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
       reconnect();
     }
   });

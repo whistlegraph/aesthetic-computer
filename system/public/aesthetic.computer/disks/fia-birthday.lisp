@@ -1,7 +1,8 @@
 ; Fía's Birthday · July 5th
 ; fia-birthday, 2025.6.25.0.272
+(label) ; No label in the corner.
 
-(label)
+; 📆 Main invite
 (ink (... blue pink gray))
 (mask 0 22 width height-22)
 (repeat width/16 i (ink (0.05s... gray purple blue pink)) (box i*16 0 4 height))
@@ -35,11 +36,13 @@
 (ink (0.1s... blue white))
 (write " BYOB" -10 height-17 red 2)
 
+; 🎵 Happy Birthday Song
 (if (speaker)
   (melody "5d.5d.5e5d5g5fs-_5d.5d.5e5d5a5g-_5d.5d.6d5b5g5fs5e_6c6c5b5g5a5g-"
     180 "3/4" "waltz")
 )
 
+; 🌠 Stars on top / start screen (no audio)
 (not (speaker)
   (ink purple 190)
   (box 0 0 width height)
