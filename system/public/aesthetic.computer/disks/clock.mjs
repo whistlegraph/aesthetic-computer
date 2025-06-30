@@ -36,15 +36,19 @@
                 Plays: c+f, then d+f, then e+f
     (c) (d) (e) - Three single-note parallel tracks
                   Plays: c+d+e simultaneously
+    x(ceg) (dfa) - Disable first track with x() - only second track plays
 
-  🎵 NEW: Waveform Type Support!
-  Use {type} syntax to set the waveform type:
+  🎵 NEW: Waveform Type & Volume Support!
+  Use {type} or {type:volume} or {volume} syntax:
     {sine} cdefg - Sine wave (default)
     {square} cdefg - Square wave
     {sawtooth} cdefg - Sawtooth wave  
     {triangle} cdefg - Triangle wave
+    {0.5} cdefg - Set volume to 50% (keeps current waveform)
+    {square:0.3} cdefg - Square wave at 30% volume
+    {0.8} c{0.2}d{1.0}e - Volume changes during melody
     {square} (ceg) (dfa) - Square wave for both parallel tracks
-    (ceg) ({triangle} dfa) - Sine for first track, triangle for second
+    (ceg) ({triangle:0.6} dfa) - Sine for first track, triangle at 60% for second
 
   Examples:
     clock/cdefg               - Play in octave 4 with 1s timing
@@ -93,6 +97,12 @@ let utcTriggerDivisor = 1.0; // Divisor used for UTC triggering (stable during l
 let lastNoteTime = 0; // Time when the last note was triggered
 let animationProgress = 0; // Progress towards next note (0 to 1)
 let specialCharFlashTime = 0; // Time when special character was processed (for green flash)
+let currentNoteStartTime = 0; // When the current red note started playing
+let currentNoteDuration = 0; // Duration of the current red note
+
+// Sound management similar to notepat
+const activeSounds = {}; // Track active synth instances for proper timing control
+const scheduledNotes = []; // Queue of notes to be released at specific times
 
 function boot({ ui, clock, params, colon }) {
   // Get the UTC offset from /api/clock and use that to set the clock.
@@ -142,6 +152,28 @@ function boot({ ui, clock, params, colon }) {
         timingMode: parseFloat(colon[0]) || 1.0,
         type: 'single'
       };
+    } else if (melodyTracks.tracks.length === 1 && melodyTracks.tracks[0].length === 1) {
+      // Special case: single note in parentheses like (c) - treat as single track
+      parsedMelody = melodyTracks.tracks[0];
+      
+      // Check if the first note has an explicit octave, if so use that as the base octave
+      if (parsedMelody.length > 0 && parsedMelody[0].octave !== octave) {
+        octave = parsedMelody[0].octave;
+      }
+      
+      // Extract tone strings for the sequence, using the determined octave as default
+      sequence = extractTones(parsedMelody, { skipRests: false, restTone: `${octave}G` });
+      
+      // Initialize melody timing state as single track
+      melodyState = {
+        notes: parsedMelody,
+        index: 0,
+        baseTempo: baseTempo,
+        isPlaying: false,
+        startTime: performance.now(),
+        timingMode: parseFloat(colon[0]) || 1.0,
+        type: 'single'
+      };
     } else {
       // Multiple tracks - create state for parallel playback with independent timing
       melodyState = {
@@ -153,13 +185,14 @@ function boot({ ui, clock, params, colon }) {
         timingMode: parseFloat(colon[0]) || 1.0,
         type: melodyTracks.type, // 'parallel' or 'multi'
         maxLength: melodyTracks.maxLength || 0,
-        cycleStartTime: 0, // Shared cycle timing for parallel tracks
         // Independent timing state for each parallel track
         trackStates: melodyTracks.tracks.map((track, trackIndex) => ({
           trackIndex: trackIndex,
           noteIndex: 0,
           track: track,
-          nextNoteTargetTime: 0 // Each track has its own target time
+          nextNoteTargetTime: 0, // When this track should play its next note
+          startTime: 0, // UTC-aligned start time for this track (set when first note plays)
+          totalElapsedBeats: 0 // Total musical time elapsed for this track
         }))
       };
       
@@ -167,6 +200,29 @@ function boot({ ui, clock, params, colon }) {
       parsedMelody = melodyTracks.tracks[0];
       sequence = extractTones(parsedMelody, { skipRests: false, restTone: `${octave}G` });
     }
+  } else {
+    // No melody provided - set up fallback notes early in boot
+    // Use a simple pentatonic scale pattern that sounds pleasant
+    originalMelodyString = "cdefgab";
+    
+    // Parse the fallback melody using the same system as regular melodies
+    melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
+    parsedMelody = melodyTracks.tracks[0];
+    
+    // Extract tone strings for the fallback sequence
+    sequence = extractTones(parsedMelody, { skipRests: false, restTone: `${octave}G` });
+    
+    // Initialize fallback melody timing state (same structure as regular melodies)
+    melodyState = {
+      notes: parsedMelody,
+      index: 0,
+      baseTempo: baseTempo,
+      isPlaying: false,
+      startTime: performance.now(),
+      timingMode: parseFloat(colon[0]) || 1.0,
+      type: 'single',
+      isFallback: true // Mark as fallback for special yellow coloring
+    };
   }
   
   // Check for melody mode in params
@@ -222,7 +278,7 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
   sound.paint.bars(
     api,
     sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 32),
+    help.resampleArray(sound.speaker.waveforms.left, 8),
     0,
     0,
     availableWidth,
@@ -236,16 +292,16 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
     },
   );
 
-  sound.paint.waveform(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 32),
-    0,
-    0,
-    availableWidth,
-    availableHeight,
-    [255, 255, 0, 255],
-  );
+  // sound.paint.waveform(
+  //   api,
+  //   sound.speaker.amplitudes.left,
+  //   help.resampleArray(sound.speaker.waveforms.left, 8),
+  //   0,
+  //   0,
+  //   availableWidth,
+  //   availableHeight,
+  //   [255, 255, 0, 255],
+  // );
 
   // Making a digital clock display.
   if (syncedDate) {
@@ -359,7 +415,7 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
       currentNoteIndex = melodyState.index % totalBeats;
     }
   } else {
-    // No melody - show a default pattern
+    // Fallback behavior when no melody state exists
     melodyString = "cdefgab";
     currentNoteIndex = 0;
   }
@@ -376,6 +432,26 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
   const flashDuration = 200; // 200ms flash
   const shouldFlashGreen = (now - specialCharFlashTime) < flashDuration;
   
+  // Function to get red note color with fade to yellow (representing decay)
+  function getRedNoteColor() {
+    if (currentNoteStartTime === 0 || currentNoteDuration === 0) {
+      return "red"; // Default red if no timing info
+    }
+    
+    const timeSinceNoteStart = now - currentNoteStartTime;
+    const fadeProgress = Math.min(timeSinceNoteStart / currentNoteDuration, 1.0);
+    
+    // Fade from red to yellow over the note duration
+    if (fadeProgress < 0.1) {
+      return "red"; // Stay bright red for first 10% of note
+    } else if (fadeProgress < 1.0) {
+      // Gradually fade to yellow
+      return "orange"; // Intermediate color showing decay
+    } else {
+      return "yellow"; // Fade to yellow at end
+    }
+  }
+  
   if (melodyState && originalMelodyString) {
     // Create a mapping from string positions to notes for proper highlighting
     let noteCharPositions = []; // Array of {charIndex, noteIndex} for note characters
@@ -385,13 +461,23 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
     // First pass: identify all note character positions and their duration modifiers
     // Handle both single tracks and parallel tracks with groups
     let inGroup = false;
+    let inWaveform = false; // Track if we're inside a {waveform} specifier
     let currentTrackIndex = 0;
     let noteIndexInCurrentTrack = 0;
     
     for (let i = 0; i < melodyString.length; i++) {
       const char = melodyString[i];
       
-      if (char === '(') {
+      if (char === '{') {
+        inWaveform = true;
+        continue;
+      } else if (char === '}') {
+        inWaveform = false;
+        continue;
+      } else if (inWaveform) {
+        // Skip all characters inside {waveform} specifiers
+        continue;
+      } else if (char === '(') {
         inGroup = true;
         continue;
       } else if (char === ')') {
@@ -404,8 +490,8 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
         continue;
       }
       
-      if (/[a-g#b-]/i.test(char)) {
-        // This is a note character - mark it and any following duration modifiers
+      if (/[a-g#b_]/i.test(char)) {
+        // This is a note character (including rests _) - mark it and any following duration modifiers
         let noteEnd = i;
         
         // Look ahead for duration modifiers (dots, dashes)
@@ -437,23 +523,66 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
       }
     }
     
-    // Color the original melody string character by character
-    for (let i = 0; i < melodyString.length; i++) {
-      const char = melodyString[i];
-      let color = "yellow"; // Default color
-      
-      // Check for special characters that should flash green
-      if (shouldFlashGreen && (char === '+' || char === '{' || char === '}')) {
+  // Color the original melody string character by character
+  let inWaveformForColoring = false; // Track if we're inside a {waveform} for coloring
+  
+  for (let i = 0; i < melodyString.length; i++) {
+    const char = melodyString[i];
+    let color = "yellow"; // Default color
+    
+    // Handle waveform bracket coloring
+    if (char === '{') {
+      inWaveformForColoring = true;
+      // Brackets should flash green when waveforms are processed
+      if (shouldFlashGreen) {
         color = "green";
+      } else {
+        color = "yellow"; // Default color when not flashing
       }
+    } else if (char === '}') {
+      inWaveformForColoring = false;
+      // Brackets should flash green when waveforms are processed
+      if (shouldFlashGreen) {
+        color = "green";
+      } else {
+        color = "yellow"; // Default color when not flashing
+      }
+    } else if (inWaveformForColoring) {
+      // Characters inside {waveform} should stay cyan for readability - no blinking
+      color = "cyan";
+    }
+    // Check if this is a fallback melody - if so, make notes yellow (except current note)
+    else if (melodyState.isFallback) {
+      // For fallback melody, highlight the current playing note in red, others in yellow (but only notes)
+      if (melodyState.type === 'single') {
+        const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
+        if (noteCharData) {
+          // This is a note character
+          if (noteCharData.noteIndex === currentNoteIndex) {
+            color = getRedNoteColor(); // Use fade color for fallback melodies too
+          } else {
+            color = "yellow";
+          }
+        } else {
+          // Not a note character, use white for modifiers/separators
+          color = "white";
+        }
+      } else {
+        // For non-single tracks or no track info, just use white for non-notes
+        color = "white";
+      }
+    } else {
+      // Regular melody coloring logic
+      // Note: + and - octave modifiers don't flash since they're absorbed into note octave during parsing
+      
       // Check if this is a note character that should be highlighted red
-      else if (melodyState.type === 'single') {
+      if (melodyState.type === 'single') {
         // Find if this character position corresponds to a note
         const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
         if (noteCharData) {
           // This is a note character, check if it's the current one
           if (noteCharData.noteIndex === currentNoteIndex) {
-            color = "red";
+            color = getRedNoteColor(); // Use fade color instead of solid red
           }
         }
       }
@@ -464,15 +593,19 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
         if (noteCharData && noteCharData.trackIndex < melodyState.trackStates.length) {
           const trackState = melodyState.trackStates[noteCharData.trackIndex];
           // Check if this note is the currently playing note in this track
-          // With the new cycle-based timing, trackState.noteIndex directly points to the current note
-          if (noteCharData.noteIndex === trackState.noteIndex) {
-            color = "red";
+          // Since trackState.noteIndex points to the next note to play after incrementing,
+          // we need to check against the previous note (with proper wrapping)
+          const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
+          
+          if (noteCharData.noteIndex === currentPlayingIndex) {
+            color = getRedNoteColor(); // Use fade color instead of solid red
           }
         }
       }
-      
-      coloredMelodyString += `\\${color}\\${char}`;
     }
+    
+    coloredMelodyString += `\\${color}\\${char}`;
+  }
   } else {
     // For default melody or no melody state
     for (let i = 0; i < melodyString.length; i++) {
@@ -516,12 +649,22 @@ function isNotePlayingInParallelTrack(melodyString, charIndex, trackStates) {
   let currentTrackIndex = 0;
   let noteIndexInTrack = 0;
   let inGroup = false;
+  let inWaveform = false; // Track if we're inside a {waveform} specifier
   
   // Find which track the character at charIndex belongs to
   for (let i = 0; i < melodyString.length; i++) {
     const char = melodyString[i];
     
-    if (char === '(') {
+    if (char === '{') {
+      inWaveform = true;
+      continue;
+    } else if (char === '}') {
+      inWaveform = false;
+      continue;
+    } else if (inWaveform) {
+      // Skip all characters inside {waveform} specifiers
+      continue;
+    } else if (char === '(') {
       inGroup = true;
       continue;
     } else if (char === ')') {
@@ -548,7 +691,7 @@ function isNotePlayingInParallelTrack(melodyString, charIndex, trackStates) {
     }
     
     // Count notes, treating duration-modified notes as single units
-    if (/[a-g#b-]/i.test(char)) {
+    if (/[a-g#b_]/i.test(char)) {
       // Skip ahead past any duration modifiers
       let j = i;
       while (j + 1 < melodyString.length) {
@@ -678,6 +821,236 @@ function hasMelodyContent(melodyState) {
   return false;
 }
 
+// Create a managed synth sound with proper lifecycle control (similar to notepat)
+function createManagedSound(sound, tone, waveType, duration, volume = 0.8, isFallback = false) {
+  // Add a proportional gap that scales inversely with duration - shorter notes need much bigger gaps
+  let gapRatio;
+  
+  if (duration <= 100) {
+    // Very short notes (like c....) need massive gaps to be audible - 90%
+    gapRatio = 0.90;
+  } else if (duration <= 200) {
+    // Short notes (like c...) need huge gaps - 85%
+    gapRatio = 0.85;
+  } else if (duration <= 400) {
+    // Medium-short notes (like c.) need big gaps - 70%
+    gapRatio = 0.70;
+  } else if (duration <= 800) {
+    // Regular notes need moderate gaps - 30%
+    gapRatio = 0.30;
+  } else {
+    // Long notes need minimal gaps - 15%
+    gapRatio = 0.15;
+  }
+  
+  const noteGap = duration * gapRatio;
+  const actualDuration = Math.max(50, duration - noteGap); // Ensure minimum 50ms duration
+  
+  // Calculate fade time proportional to note duration
+  let fadeTime;
+  if (actualDuration <= 100) {
+    // Very short notes need very fast fade - 5ms
+    fadeTime = 0.005;
+  } else if (actualDuration <= 300) {
+    // Short notes need fast fade - 10ms
+    fadeTime = 0.010;
+  } else if (actualDuration <= 600) {
+    // Medium notes need moderate fade - 20ms
+    fadeTime = 0.020;
+  } else {
+    // Long notes can have normal fade - 50ms
+    fadeTime = 0.050;
+  }
+  
+  const synthInstance = sound.synth({
+    type: waveType || "sine",
+    tone: tone,
+    duration: "🔁", // Infinite duration - we'll manage the lifecycle manually
+    attack: 0.01,
+    decay: 0.995,
+    volume: volume
+  });
+  
+  // Calculate when this note should be released (using the shorter duration)
+  const releaseTime = performance.now() + actualDuration;
+  
+  // Store the sound for lifecycle management (use performance.now() + random for unique IDs)
+  const soundId = `${tone}_${performance.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  activeSounds[soundId] = {
+    synth: synthInstance,
+    tone: tone,
+    waveType: waveType,
+    startTime: performance.now(),
+    releaseTime: releaseTime,
+    fadeTime: fadeTime, // Store the calculated fade time
+    isFallback: isFallback
+  };
+  
+  // Schedule the note to be released
+  scheduledNotes.push({
+    soundId: soundId,
+    releaseTime: releaseTime,
+    fadeTime: fadeTime // Store fade time with the scheduled release
+  });
+  
+  // Sort scheduled notes by release time for efficient processing
+  scheduledNotes.sort((a, b) => a.releaseTime - b.releaseTime);
+  
+  // Log with appropriate styling
+  if (isFallback) {
+    // console.log(`%c♪ ${tone} ${waveType || 'sine'} ${(duration / 1000).toFixed(1)}s (fallback, managed)`, 'color: #ffff00; background: black; font-weight: bold; padding: 2px;');
+  } else {
+    // console.log(`%c♪ ${tone} ${waveType || 'sine'} ${(duration / 1000).toFixed(1)}s (managed)`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
+  }
+  
+  return soundId;
+}
+
+// Process scheduled note releases
+function processScheduledReleases() {
+  const now = performance.now();
+  const overdueThreshold = 5000; // 5 seconds - notes this overdue should be force-killed
+  
+  // Release notes that have reached their scheduled release time
+  while (scheduledNotes.length > 0 && scheduledNotes[0].releaseTime <= now) {
+    const noteToRelease = scheduledNotes.shift();
+    const sound = activeSounds[noteToRelease.soundId];
+    
+    if (sound && sound.synth) {
+      // Use the fade time that was calculated for this specific note
+      const fadeTime = noteToRelease.fadeTime || sound.fadeTime || 0.05; // Fallback to 50ms if not set
+      
+      // Check if note is extremely overdue (likely from standby)
+      const overdueBy = now - noteToRelease.releaseTime;
+      if (overdueBy > overdueThreshold) {
+        // console.log(`%cForce-killing overdue note (${(overdueBy/1000).toFixed(1)}s late)`, 'color: red; background: black; padding: 2px;');
+        sound.synth.kill(0.001); // Very fast kill for overdue notes
+      } else {
+        sound.synth.kill(fadeTime);
+      }
+      delete activeSounds[noteToRelease.soundId];
+    }
+  }
+  
+  // Also check for any orphaned active sounds that don't have scheduled releases
+  const activeIds = Object.keys(activeSounds);
+  const scheduledIds = new Set(scheduledNotes.map(note => note.soundId));
+  
+  activeIds.forEach(soundId => {
+    if (!scheduledIds.has(soundId)) {
+      const sound = activeSounds[soundId];
+      if (sound) {
+        const age = now - sound.startTime;
+        // If a sound has been active for more than 10 seconds without a release schedule, kill it
+        if (age > 10000) {
+          // console.log(`%cCleaning up orphaned sound: ${sound.tone}`, 'color: yellow; background: black; padding: 2px;');
+          if (sound.synth) sound.synth.kill(0.1);
+          delete activeSounds[soundId];
+        }
+      }
+    }
+  });
+}
+
+// Clear all active sounds (useful for cleanup or emergency stop)
+function clearAllSounds() {
+  const fadeTime = 0.02; // Quick fade for cleanup
+  
+  // Kill all active sounds
+  Object.keys(activeSounds).forEach(soundId => {
+    const sound = activeSounds[soundId];
+    if (sound && sound.synth) {
+      sound.synth.kill(fadeTime);
+    }
+  });
+  
+  // Clear all tracking arrays
+  Object.keys(activeSounds).forEach(key => delete activeSounds[key]);
+  scheduledNotes.length = 0;
+}
+
+// Detect and handle standby/resume situations
+let lastFrameTime = 0;
+const STANDBY_THRESHOLD = 1000; // If more than 1 second has passed, assume standby
+
+function handleStandbyResume() {
+  const now = performance.now();
+  
+  if (lastFrameTime > 0) {
+    const timeDelta = now - lastFrameTime;
+    
+    // If a large time gap is detected, we likely returned from standby
+    if (timeDelta > STANDBY_THRESHOLD) {
+      // console.log(`%cStandby detected (${(timeDelta/1000).toFixed(1)}s gap) - cleaning up sounds`, 'color: orange; background: black; padding: 2px;');
+      
+      // Clear all hanging sounds
+      clearAllSounds();
+      
+      // Reset timing to prevent multiple rapid fires
+      nextNoteTargetTime = 0;
+      
+      // Reset all track timing states
+      if (melodyState && melodyState.trackStates) {
+        melodyState.trackStates.forEach(trackState => {
+          trackState.nextNoteTargetTime = 0;
+          trackState.startTime = 0;
+          // Keep noteIndex and totalElapsedBeats to preserve musical position
+        });
+      }
+      
+      return true; // Indicate that standby cleanup occurred
+    }
+  }
+  
+  lastFrameTime = now;
+  return false;
+}
+
+// Slide existing active sounds to a new octave (similar to notepat's slide function)
+function slideActiveSoundsToNewOctave(oldOctave, newOctave) {
+  const octaveChange = newOctave - oldOctave;
+  
+  // Iterate through all active sounds and update their tones
+  Object.keys(activeSounds).forEach(soundId => {
+    const sound = activeSounds[soundId];
+    if (sound && sound.synth && sound.tone) {
+      // Parse the current tone to extract note and octave
+      const toneMatch = sound.tone.match(/^(\d+)([A-G]#?)$/);
+      if (toneMatch) {
+        const currentOctave = parseInt(toneMatch[1]);
+        const note = toneMatch[2];
+        
+        // Calculate new octave, clamping to valid range (1-9)
+        const targetOctave = Math.max(1, Math.min(9, currentOctave + octaveChange));
+        const newTone = `${targetOctave}${note}`;
+        
+        try {
+          // Update the synth to slide to the new tone
+          sound.synth.update({
+            tone: newTone,
+            duration: 0.05 // Very fast slide duration - minimal delay/skip
+          });
+          
+          // Update our tracking information
+          sound.tone = newTone;
+          
+          // Log the slide
+          if (sound.isFallback) {
+            // console.log(`%c↗ ${sound.tone} → ${newTone} (slide, fallback)`, 'color: #ffff88; background: black; font-weight: bold; padding: 2px;');
+          } else {
+            // console.log(`%c↗ ${sound.tone} → ${newTone} (slide)`, 'color: #88ff88; background: black; font-weight: bold; padding: 2px;');
+          }
+        } catch (error) {
+          console.warn(`Failed to slide ${sound.tone} to ${newTone}:`, error);
+          // If sliding fails, gracefully fade out the sound
+          sound.synth.kill(0.1);
+          delete activeSounds[soundId];
+        }
+      }
+    }
+  });
+}
+
 function reparseMelodyWithNewOctave(newOctave) {
   if (originalMelodyString) {
     // Reparse the melody with the new base octave
@@ -692,32 +1065,35 @@ function reparseMelodyWithNewOctave(newOctave) {
       if (melodyState && melodyState.type === 'single') {
         // Store current timing state
         const currentIndex = melodyState.index;
+        const isFallback = melodyState.isFallback;
         
         // Update with new notes
         melodyState.notes = parsedMelody;
         
         // Preserve timing - don't reset position
         melodyState.index = currentIndex;
-        
-        // Important: Don't reset nextNoteTargetTime - let playback continue seamlessly
+        melodyState.isFallback = isFallback; // Preserve fallback status
       }
     } else {
       // Multiple tracks
       if (melodyState && (melodyState.type === 'multi' || melodyState.type === 'parallel')) {
         // Store current timing state for the main melody index
         const currentIndex = melodyState.index;
+        const isFallback = melodyState.isFallback;
         
-        // Store current track states if they exist, including timing
+        // Store current track states if they exist
         const currentTrackStates = melodyState.trackStates ? 
           melodyState.trackStates.map(ts => ({
             noteIndex: ts.noteIndex,
-            nextNoteTargetTime: ts.nextNoteTargetTime // Preserve timing!
+            startTime: ts.startTime,
+            totalElapsedBeats: ts.totalElapsedBeats
           })) : null;
         
         // Update with new parsed tracks
         melodyState.tracks = melodyTracks.tracks;
         melodyState.type = melodyTracks.type;
         melodyState.maxLength = melodyTracks.maxLength || 0;
+        melodyState.isFallback = isFallback; // Preserve fallback status
         
         // Update or create track states for parallel timing
         if (melodyState.type === 'parallel') {
@@ -728,7 +1104,9 @@ function reparseMelodyWithNewOctave(newOctave) {
               trackIndex: trackIndex,
               noteIndex: existingState ? existingState.noteIndex : 0,
               track: track,
-              nextNoteTargetTime: existingState ? existingState.nextNoteTargetTime : 0 // Preserve timing!
+              nextNoteTargetTime: 0, // Reset target time for new track
+              startTime: existingState ? existingState.startTime : 0, // Preserve start time
+              totalElapsedBeats: existingState ? existingState.totalElapsedBeats : 0 // Preserve elapsed time
             };
           });
         }
@@ -741,6 +1119,17 @@ function reparseMelodyWithNewOctave(newOctave) {
         sequence = extractTones(parsedMelody, { skipRests: false, restTone: `${newOctave}G` });
       }
     }
+  } else if (melodyState && melodyState.isFallback) {
+    // Handle fallback notes - reparse with new octave
+    originalMelodyString = "cdefgab"; // Use the same fallback pattern
+    melodyTracks = parseSimultaneousMelody(originalMelodyString, newOctave);
+    parsedMelody = melodyTracks.tracks[0];
+    sequence = extractTones(parsedMelody, { skipRests: false, restTone: `${newOctave}G` });
+    
+    // Update fallback melody state with new octave
+    const currentIndex = melodyState.index;
+    melodyState.notes = parsedMelody;
+    melodyState.index = currentIndex; // Preserve timing
   }
 }
 
@@ -802,25 +1191,25 @@ function act({ event: e, clock, sound: { synth } }) {
   if (e.is("keyboard:down:arrowup")) {
     // Increase octave (max 8)
     if (octave < 8) {
+      const oldOctave = octave;
       octave++;
+      
+      // Slide existing sounds to new octave instead of cutting them off
+      slideActiveSoundsToNewOctave(oldOctave, octave);
       
       // Reparse melody with new octave
       reparseMelodyWithNewOctave(octave);
-      
-      // Play a preview note at the new octave
-      // synth({
-      //   type: "sine",
-      //   tone: `${octave}C`,
-      //   duration: 0.1,
-      //   volume: 0.5
-      // });
     }
   }
 
   if (e.is("keyboard:down:arrowdown")) {
     // Decrease octave (min 1)
     if (octave > 1) {
+      const oldOctave = octave;
       octave--;
+      
+      // Slide existing sounds to new octave instead of cutting them off
+      slideActiveSoundsToNewOctave(oldOctave, octave);
       
       // Reparse melody with new octave
       reparseMelodyWithNewOctave(octave);
@@ -851,6 +1240,12 @@ const RESYNC_INTERVAL = 3000; // Resync every 3 seconds
 function sim({ sound, beep, clock, num, help, params, colon }) {
   sound.speaker?.poll();
 
+  // Check for standby/resume before processing anything else
+  const wasInStandby = handleStandbyResume();
+  
+  // Process scheduled note releases for managed sound system
+  processScheduledReleases();
+
   // Get the current synced time
   const syncedDate = clock.time();
   
@@ -867,7 +1262,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
         realignMelodyTiming(newSyncedTime);
       }
     } catch (error) {
-      console.log('%cclock unsynced', 'color: orange; background: black; padding: 2px;');
+      // console.log('%cclock unsynced', 'color: orange; background: black; padding: 2px;');
       lastResyncTime = now; // Still update to avoid spamming the error
     }
   }
@@ -886,23 +1281,8 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
   function bleep(syncedTime) {
     if (!melodyState) {
-      // Fallback to simple sequence if no melody state
-      const fallbackTone = sequence?.[sequenceIndex] || `${octave}${help.choose("G", "B", "D")}`;
-      
-      try {
-        sound.synth({
-          type: "sine",
-          tone: fallbackTone,
-          duration: 0.1,
-          attack: 0.01,
-          decay: 0.995,
-          volume: 0.8
-        });
-      } catch (error) {
-        console.error("🎵 Error playing fallback tone:", fallbackTone, "Error:", error);
-      }
-      
-      sequenceIndex = (sequenceIndex + 1) % (sequence?.length || 1);
+      // This should not happen since fallback notes are now set up in boot()
+      console.warn("🎵 No melody state available - this should not happen");
       return;
     }
 
@@ -915,22 +1295,23 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
       const noteData = melodyState.notes[melodyState.index];
       if (!noteData) return;
       
-      const { note, octave: noteOctave, duration, swing, swingAmount, waveType } = noteData;
+      const { note, octave: noteOctave, duration, swing, swingAmount, waveType, volume } = noteData;
       
-      // Play the note
+      // Play the note using managed sound system
       if (note !== 'rest') {
         let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
+        const noteDuration = duration * melodyState.baseTempo;
         
         try {
-          sound.synth({
-            type: waveType || "sine",
-            tone: tone,
-            duration: (duration * melodyState.baseTempo) / 1000,
-            attack: 0.01,
-            decay: 0.995,
-            volume: 0.8
-          });
-          console.log(`%c♪ ${tone} ${waveType || 'sine'} ${duration}`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
+          // Create managed sound that will be automatically released
+          createManagedSound(
+            sound, 
+            tone, 
+            waveType, 
+            noteDuration, 
+            volume || 0.8, // Use note volume or default to 0.8
+            melodyState.isFallback
+          );
         } catch (error) {
           console.error(`%c✗ ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
         }
@@ -940,12 +1321,16 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
         specialCharFlashTime = performance.now();
       }
       
-      // Update timing tracking
+      // Update timing tracking for single tracks
       lastNoteStartTime = currentTime;
       lastNoteDuration = duration * melodyState.baseTempo;
       
-      // Set target time for next note
-      nextNoteTargetTime = currentTime + lastNoteDuration;
+      // Update current note timing for red highlight fade
+      currentNoteStartTime = performance.now();
+      currentNoteDuration = duration * melodyState.baseTempo;
+      
+      // Don't set nextNoteTargetTime here - it's handled in the main timing loop
+      // to ensure UTC alignment
       
       // Advance to next note
       melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
@@ -953,7 +1338,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
   }
 
   // Super simple melody timing - check against target time
-  if (time) {
+  if (time && !wasInStandby) { // Skip timing checks on standby frames to prevent rapid-fire
     const currentTimeMs = time.getTime();
     
     if (hasMelodyContent(melodyState)) {
@@ -968,80 +1353,85 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
         if (currentTimeMs >= nextNoteTargetTime) {
           bleep(time);
           synced = true;
+          
+          // After playing, set next note time based on the note's actual duration
+          if (melodyState && melodyState.notes && melodyState.notes.length > 0) {
+            const currentNoteData = melodyState.notes[(melodyState.index - 1 + melodyState.notes.length) % melodyState.notes.length];
+            if (currentNoteData) {
+              const noteDuration = currentNoteData.duration * melodyState.baseTempo;
+              nextNoteTargetTime = currentTimeMs + noteDuration;
+            }
+          }
         }
       } else if (melodyState.type === 'parallel') {
-        // Parallel tracks - use shared cycle timing to prevent drift
+        // Parallel tracks - each track follows its own musical logic but stays UTC-aligned
         let anyTrackPlayed = false;
         
-        // Initialize shared cycle start time if not set
-        if (!melodyState.cycleStartTime) {
-          melodyState.cycleStartTime = Math.ceil(currentTimeMs / 1000) * 1000;
-        }
-        
-        // Calculate shared cycle position
-        const timeSinceCycleStart = currentTimeMs - melodyState.cycleStartTime;
-        const cycleDurationMs = melodyState.baseTempo; // One beat duration
-        
-        melodyState.trackStates.forEach((trackState) => {
+        melodyState.trackStates.forEach((trackState, trackIndex) => {
           const track = trackState.track;
           if (!track || track.length === 0) return;
           
-          // Calculate total duration of this track in beats
-          const trackTotalDuration = track.reduce((sum, note) => sum + note.duration, 0);
-          const trackCycleDurationMs = trackTotalDuration * melodyState.baseTempo;
-          
-          // Calculate where we are in this track's cycle
-          const trackCycleTime = timeSinceCycleStart % trackCycleDurationMs;
-          
-          // Find which note should be playing based on cycle position
-          let accumulatedTime = 0;
-          let currentNoteIndex = 0;
-          let noteStartTime = 0;
-          
-          for (let i = 0; i < track.length; i++) {
-            const noteDuration = track[i].duration * melodyState.baseTempo;
-            if (trackCycleTime >= accumulatedTime && trackCycleTime < accumulatedTime + noteDuration) {
-              currentNoteIndex = i;
-              noteStartTime = accumulatedTime;
-              break;
-            }
-            accumulatedTime += noteDuration;
+          // Skip disabled tracks (marked with x() syntax)
+          if (track.isDisabled) {
+            return;
           }
           
-          // Check if we need to play this note (just started)
-          const noteData = track[currentNoteIndex];
-          const timeSinceNoteStart = trackCycleTime - noteStartTime;
-          
-          // Play if we just started this note (within a small window)
-          if (timeSinceNoteStart < 50 && trackState.noteIndex !== currentNoteIndex) {
-            if (noteData && noteData.note !== 'rest') {
-              const { note, octave: noteOctave, duration, waveType } = noteData;
-              let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
-              
-              try {
-                sound.synth({
-                  type: waveType || "sine",
-                  tone: tone,
-                  duration: (duration * melodyState.baseTempo) / 1000,
-                  attack: 0.01,
-                  decay: 0.995,
-                  volume: 0.7 / melodyState.tracks.length
-                });
-                console.log(`%c♪ Track${trackState.trackIndex}: ${tone} ${waveType || 'sine'} ${duration}`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
-              } catch (error) {
-                console.error(`%c✗ Track${trackState.trackIndex}: ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
-              }
-              
-              if (waveType) {
-                specialCharFlashTime = performance.now();
-              }
-            }
-            
-            anyTrackPlayed = true;
+          // Set start time for this track's first note if not set
+          if (trackState.startTime === 0) {
+            // Start each track at the next UTC boundary based on timing divisor
+            const timeDivisor = utcTriggerDivisor;
+            const intervalMs = timeDivisor * 1000;
+            trackState.startTime = Math.ceil(currentTimeMs / intervalMs) * intervalMs;
+            trackState.nextNoteTargetTime = trackState.startTime;
+            trackState.totalElapsedBeats = 0;
           }
           
-          // Update track state
-          trackState.noteIndex = currentNoteIndex;
+          // Check if it's time for this track to play its next note
+          if (currentTimeMs >= trackState.nextNoteTargetTime) {
+            const noteData = track[trackState.noteIndex];
+            if (noteData) {
+              // Play this track's note using managed sound system
+              if (noteData.note !== 'rest') {
+                const { note, octave: noteOctave, duration, waveType, volume } = noteData;
+                let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
+                const noteDuration = duration * melodyState.baseTempo;
+                
+                try {
+                  // Create managed sound with reduced volume for parallel tracks
+                  createManagedSound(
+                    sound, 
+                    tone, 
+                    waveType, 
+                    noteDuration, 
+                    (volume || 0.7) / melodyState.tracks.length, // Use note volume or default, adjust for track count
+                    melodyState.isFallback
+                  );
+                } catch (error) {
+                  console.error(`%c✗ Track${trackIndex}: ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
+                }
+                
+                if (waveType) {
+                  specialCharFlashTime = performance.now();
+                }
+                
+                // Update current note timing for red highlight fade
+                currentNoteStartTime = performance.now();
+                currentNoteDuration = noteData.duration * melodyState.baseTempo;
+              }
+              
+              // Calculate next note time from UTC-aligned start time to prevent drift
+              // Add this note's duration to the total elapsed time
+              const noteDuration = noteData.duration * melodyState.baseTempo;
+              trackState.totalElapsedBeats += noteDuration;
+              
+              // Calculate next target time from the original start time + total elapsed
+              trackState.nextNoteTargetTime = trackState.startTime + trackState.totalElapsedBeats;
+              
+              // Advance this track to its next note
+              trackState.noteIndex = (trackState.noteIndex + 1) % track.length;
+              anyTrackPlayed = true;
+            }
+          }
         });
         
         if (anyTrackPlayed) {
@@ -1049,7 +1439,9 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
         }
       }
     } else {
-      // No melody - use UTC boundaries for simple bleep
+      // No melody - this case should not occur since fallback notes are set up in boot()
+      // But if it does, use UTC boundaries for simple bleep
+      console.warn("🎵 No melody state in UTC timing - this should not happen");
       const timeDivisor = utcTriggerDivisor;
       const intervalMs = timeDivisor * 1000;
       const utcBeatIndex = Math.floor(currentTimeMs / intervalMs);
@@ -1074,9 +1466,26 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 //  // Runs once before the piece is unloaded.
 // }
 
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
+function preview({ ink, wipe, write }) {
+  // Render a custom thumbnail image showing the fallback melody
+  wipe("black");
+  
+  // Show the fallback melody in yellow
+  ink("yellow");
+  write("cdefgab", {
+    x: 6,
+    y: 6,
+    scale: 1
+  });
+  
+  // Add a small clock icon below
+  ink("cyan");
+  write("🕐", {
+    x: 20,
+    y: 18,
+    scale: 1
+  });
+}
 
 // function icon() {
 // Render an application icon, aka favicon.
