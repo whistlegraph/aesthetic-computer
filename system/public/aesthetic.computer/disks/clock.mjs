@@ -92,7 +92,7 @@ let targetTimeDivisor = 1.0; // Target divisor for lerping back to original
 let utcTriggerDivisor = 1.0; // Divisor used for UTC triggering (stable during lerping)
 let lastNoteTime = 0; // Time when the last note was triggered
 let animationProgress = 0; // Progress towards next note (0 to 1)
-let accumulatedMovement = 0; // Accumulated pixel movement between quantized values
+let specialCharFlashTime = 0; // Time when special character was processed (for green flash)
 
 function boot({ ui, clock, params, colon }) {
   // Get the UTC offset from /api/clock and use that to set the clock.
@@ -136,13 +136,10 @@ function boot({ ui, clock, params, colon }) {
       melodyState = {
         notes: parsedMelody,
         index: 0,
-        nextNoteTime: 0,
         baseTempo: baseTempo,
         isPlaying: false,
         startTime: performance.now(),
         timingMode: parseFloat(colon[0]) || 1.0,
-        idealBeatTime: 0,
-        actualPlayTime: 0,
         type: 'single'
       };
     } else {
@@ -150,23 +147,18 @@ function boot({ ui, clock, params, colon }) {
       melodyState = {
         tracks: melodyTracks.tracks,
         index: 0,
-        nextNoteTime: 0,
         baseTempo: baseTempo,
         isPlaying: false,
         startTime: performance.now(),
         timingMode: parseFloat(colon[0]) || 1.0,
-        idealBeatTime: 0,
-        actualPlayTime: 0,
         type: melodyTracks.type, // 'parallel' or 'multi'
         maxLength: melodyTracks.maxLength || 0,
         // Independent timing state for each parallel track
         trackStates: melodyTracks.tracks.map((track, trackIndex) => ({
           trackIndex: trackIndex,
           noteIndex: 0,
-          nextNoteTime: 0,
-          idealBeatTime: 0,
-          actualPlayTime: 0,
-          track: track
+          track: track,
+          nextNoteTargetTime: 0 // Each track has its own target time
         }))
       };
       
@@ -347,46 +339,23 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
   const timelineEndX = screen.width - 16;
   const timelineWidth = timelineEndX - timelineStartX;
   
-  // Get the melody string to display (one complete cycle)
+  // Get the melody string to display (use original input)
   let melodyString = "";
   let currentNoteIndex = 0;
   
-  if (melodyState && melodyState.notes && melodyState.notes.length > 0) {
-    currentNoteIndex = melodyState.index || 0;
+  if (melodyState && originalMelodyString) {
+    // Use the original melody string exactly as typed
+    melodyString = originalMelodyString;
     
+    // Calculate current position based on melody type
     if (melodyState.type === 'single') {
-      // Single track - build string from all notes in the melody
-      melodyState.notes.forEach((noteData) => {
-        if (noteData.note === 'rest') {
-          melodyString += '-';
-        } else {
-          melodyString += noteData.note.toLowerCase();
-        }
-      });
+      const totalNotes = melodyState.notes.length;
+      // Since melodyState.index is incremented after playing, we need the previous note
+      currentNoteIndex = (melodyState.index - 1 + totalNotes) % totalNotes;
     } else if (melodyState.type === 'parallel') {
-      // Parallel tracks - show combined notation like "(ce)"
-      for (let i = 0; i < melodyState.maxLength; i++) {
-        let parallelNotes = [];
-        
-        melodyState.trackStates.forEach((trackState) => {
-          const track = trackState.track;
-          if (track && track.length > 0) {
-            const trackIndex = i % track.length;
-            const noteData = track[trackIndex];
-            if (noteData && noteData.note !== 'rest') {
-              parallelNotes.push(noteData.note.toLowerCase());
-            }
-          }
-        });
-        
-        if (parallelNotes.length > 1) {
-          melodyString += `(${parallelNotes.join('')})`;
-        } else if (parallelNotes.length === 1) {
-          melodyString += parallelNotes[0];
-        } else {
-          melodyString += '-';
-        }
-      }
+      // For parallel tracks, use the main melody index
+      const totalBeats = melodyState.maxLength;
+      currentNoteIndex = melodyState.index % totalBeats;
     }
   } else {
     // No melody - show a default pattern
@@ -400,14 +369,123 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
   
   // Build the melody string with inline color codes
   let coloredMelodyString = "";
-  for (let i = 0; i < melodyString.length; i++) {
-    const char = melodyString[i];
+  
+  // Check if we should flash green for special characters
+  const now = performance.now();
+  const flashDuration = 200; // 200ms flash
+  const shouldFlashGreen = (now - specialCharFlashTime) < flashDuration;
+  
+  if (melodyState && originalMelodyString) {
+    // Create a mapping from string positions to notes for proper highlighting
+    let noteCharPositions = []; // Array of {charIndex, noteIndex} for note characters
+    let charIndex = 0;
+    let noteIndex = 0;
     
-    // Highlight the current playing note in red, others in yellow
-    if (i === currentNoteIndex) {
-      coloredMelodyString += `\\red\\${char}`;
-    } else {
-      coloredMelodyString += `\\yellow\\${char}`;
+    // First pass: identify all note character positions and their duration modifiers
+    // Handle both single tracks and parallel tracks with groups
+    let inGroup = false;
+    let currentTrackIndex = 0;
+    let noteIndexInCurrentTrack = 0;
+    
+    for (let i = 0; i < melodyString.length; i++) {
+      const char = melodyString[i];
+      
+      if (char === '(') {
+        inGroup = true;
+        continue;
+      } else if (char === ')') {
+        inGroup = false;
+        currentTrackIndex++;
+        noteIndexInCurrentTrack = 0;
+        continue;
+      } else if (char === ' ') {
+        // Skip spaces - track index is managed by parentheses
+        continue;
+      }
+      
+      if (/[a-g#b-]/i.test(char)) {
+        // This is a note character - mark it and any following duration modifiers
+        let noteEnd = i;
+        
+        // Look ahead for duration modifiers (dots, dashes)
+        while (noteEnd + 1 < melodyString.length) {
+          const nextChar = melodyString[noteEnd + 1];
+          if (nextChar === '.' || nextChar === '-' || nextChar === '<' || nextChar === '>') {
+            noteEnd++;
+          } else {
+            break;
+          }
+        }
+        
+        // Mark all characters from i to noteEnd as part of this note
+        // For parallel tracks, use the note index within the current track
+        // For single tracks, use the global note index
+        const noteIndexToUse = melodyState.type === 'parallel' ? noteIndexInCurrentTrack : noteIndex;
+        
+        for (let j = i; j <= noteEnd; j++) {
+          noteCharPositions.push({ 
+            charIndex: j, 
+            noteIndex: noteIndexToUse,
+            trackIndex: currentTrackIndex // Store track info for parallel tracks
+          });
+        }
+        
+        noteIndex++; // Global note counter
+        noteIndexInCurrentTrack++; // Track-specific note counter
+        i = noteEnd; // Skip ahead to avoid reprocessing duration modifiers
+      }
+    }
+    
+    // Color the original melody string character by character
+    for (let i = 0; i < melodyString.length; i++) {
+      const char = melodyString[i];
+      let color = "yellow"; // Default color
+      
+      // Check for special characters that should flash green
+      if (shouldFlashGreen && (char === '+' || char === '{' || char === '}')) {
+        color = "green";
+      }
+      // Check if this is a note character that should be highlighted red
+      else if (melodyState.type === 'single') {
+        // Find if this character position corresponds to a note
+        const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
+        if (noteCharData) {
+          // This is a note character, check if it's the current one
+          if (noteCharData.noteIndex === currentNoteIndex) {
+            color = "red";
+          }
+        }
+      }
+      // For parallel tracks, highlight based on current beat position
+      else if (melodyState.type === 'parallel') {
+        // For parallel tracks, check if this character is part of the currently playing note
+        const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
+        if (noteCharData && noteCharData.trackIndex < melodyState.trackStates.length) {
+          const trackState = melodyState.trackStates[noteCharData.trackIndex];
+          // Check if this note is the currently playing note in this track
+          // Since trackState.noteIndex points to the next note to play after incrementing,
+          // we need to check against the previous note (with proper wrapping)
+          const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
+          
+          if (noteCharData.noteIndex === currentPlayingIndex) {
+            color = "red";
+          }
+        }
+      }
+      
+      coloredMelodyString += `\\${color}\\${char}`;
+    }
+  } else {
+    // For default melody or no melody state
+    for (let i = 0; i < melodyString.length; i++) {
+      const char = melodyString[i];
+      
+      // Highlight the current playing note in red, others in yellow
+      if (i === currentNoteIndex) {
+        coloredMelodyString += `\\red\\${char}`;
+      } else {
+        coloredMelodyString += `\\yellow\\${char}`;
+      }
     }
   }
   
@@ -432,6 +510,74 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
     y: infoY,
     scale: 1
   });
+}
+
+// Helper function to determine if a note character is playing in parallel tracks
+function isNotePlayingInParallelTrack(melodyString, charIndex, trackStates) {
+  // Parse the parallel structure to find which track this character belongs to
+  let currentTrackIndex = 0;
+  let noteIndexInTrack = 0;
+  let inGroup = false;
+  
+  // Find which track the character at charIndex belongs to
+  for (let i = 0; i < melodyString.length; i++) {
+    const char = melodyString[i];
+    
+    if (char === '(') {
+      inGroup = true;
+      continue;
+    } else if (char === ')') {
+      inGroup = false;
+      currentTrackIndex++;
+      noteIndexInTrack = 0;
+      continue;
+    } else if (char === ' ') {
+      // Skip spaces - track index is managed by parentheses
+      continue;
+    }
+    
+    if (i === charIndex) {
+      // Found the character we're checking
+      if (currentTrackIndex < trackStates.length) {
+        const trackState = trackStates[currentTrackIndex];
+        // Check if this note is the currently playing note in this track
+        // Since trackState.noteIndex points to the next note to play after incrementing,
+        // we need to check against the previous note (with proper wrapping)
+        const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
+        return noteIndexInTrack === currentPlayingIndex;
+      }
+      return false;
+    }
+    
+    // Count notes, treating duration-modified notes as single units
+    if (/[a-g#b-]/i.test(char)) {
+      // Skip ahead past any duration modifiers
+      let j = i;
+      while (j + 1 < melodyString.length) {
+        const nextChar = melodyString[j + 1];
+        if (nextChar === '.' || nextChar === '-' || nextChar === '<' || nextChar === '>') {
+          j++;
+        } else {
+          break;
+        }
+      }
+      
+      // If we're checking a character within this note unit, it belongs to the current note
+      if (charIndex >= i && charIndex <= j) {
+        if (currentTrackIndex < trackStates.length) {
+          const trackState = trackStates[currentTrackIndex];
+          const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
+          return noteIndexInTrack === currentPlayingIndex;
+        }
+        return false;
+      }
+      
+      noteIndexInTrack++;
+      i = j; // Skip ahead to avoid reprocessing duration modifiers
+    }
+  }
+  
+  return false;
 }
 
 // Draw a timing graph on the right side with measurement lines
@@ -548,35 +694,23 @@ function reparseMelodyWithNewOctave(newOctave) {
       if (melodyState && melodyState.type === 'single') {
         // Store current timing state
         const currentIndex = melodyState.index;
-        const currentNextNoteTime = melodyState.nextNoteTime;
-        const currentIdealBeatTime = melodyState.idealBeatTime;
-        const currentActualPlayTime = melodyState.actualPlayTime;
         
         // Update with new notes
         melodyState.notes = parsedMelody;
         
-        // Preserve timing - don't reset position or timing
+        // Preserve timing - don't reset position
         melodyState.index = currentIndex;
-        melodyState.nextNoteTime = currentNextNoteTime;
-        melodyState.idealBeatTime = currentIdealBeatTime;
-        melodyState.actualPlayTime = currentActualPlayTime;
       }
     } else {
       // Multiple tracks
       if (melodyState && (melodyState.type === 'multi' || melodyState.type === 'parallel')) {
         // Store current timing state for the main melody index
         const currentIndex = melodyState.index;
-        const currentNextNoteTime = melodyState.nextNoteTime;
-        const currentIdealBeatTime = melodyState.idealBeatTime;
-        const currentActualPlayTime = melodyState.actualPlayTime;
         
         // Store current track states if they exist
         const currentTrackStates = melodyState.trackStates ? 
           melodyState.trackStates.map(ts => ({
-            noteIndex: ts.noteIndex,
-            nextNoteTime: ts.nextNoteTime,
-            idealBeatTime: ts.idealBeatTime,
-            actualPlayTime: ts.actualPlayTime
+            noteIndex: ts.noteIndex
           })) : null;
         
         // Update with new parsed tracks
@@ -592,19 +726,14 @@ function reparseMelodyWithNewOctave(newOctave) {
             return {
               trackIndex: trackIndex,
               noteIndex: existingState ? existingState.noteIndex : 0,
-              nextNoteTime: existingState ? existingState.nextNoteTime : 0,
-              idealBeatTime: existingState ? existingState.idealBeatTime : 0,
-              actualPlayTime: existingState ? existingState.actualPlayTime : 0,
-              track: track
+              track: track,
+              nextNoteTargetTime: 0 // Reset target time for new track
             };
           });
         }
         
         // Preserve global timing
         melodyState.index = currentIndex;
-        melodyState.nextNoteTime = currentNextNoteTime;
-        melodyState.idealBeatTime = currentIdealBeatTime;
-        melodyState.actualPlayTime = currentActualPlayTime;
         
         // Update parsedMelody for backward compatibility
         parsedMelody = melodyTracks.tracks[0];
@@ -614,88 +743,42 @@ function reparseMelodyWithNewOctave(newOctave) {
   }
 }
 
-// Realign melody timing with clock resyncs for better synchronization
+// Simple timing adjustment - no longer needed with direct UTC checking
 function realignMelodyTiming(currentSyncedTime) {
-  if (!melodyState) return;
-  
-  // Calculate how far we are from the next expected note
-  const timeDiff = currentSyncedTime - melodyState.nextNoteTime;
-  
-  // If the time difference is significant (more than half a beat), realign
-  const halfBeat = melodyState.baseTempo / 2;
-  
-  if (Math.abs(timeDiff) > halfBeat) {
-    // Realign to the current synced time
-    melodyState.idealBeatTime = currentSyncedTime;
-    melodyState.actualPlayTime = currentSyncedTime;
-    melodyState.nextNoteTime = currentSyncedTime;
-    
-    // For parallel tracks, realign each track's timing
-    if (melodyState.type === 'parallel' && melodyState.trackStates) {
-      melodyState.trackStates.forEach(trackState => {
-        trackState.idealBeatTime = currentSyncedTime;
-        trackState.actualPlayTime = currentSyncedTime;
-        trackState.nextNoteTime = currentSyncedTime;
-      });
-    }
-  } else if (!isLerpingToSync) {
-    // Only do small adjustments if we're not in the middle of lerping
-    // Small adjustment - just shift the timing slightly to stay aligned
-    const adjustment = timeDiff / 4; // Gentle adjustment
-    melodyState.nextNoteTime -= adjustment;
-    melodyState.idealBeatTime -= adjustment;
-    
-    // Adjust parallel tracks as well
-    if (melodyState.type === 'parallel' && melodyState.trackStates) {
-      melodyState.trackStates.forEach(trackState => {
-        trackState.nextNoteTime -= adjustment;
-        trackState.idealBeatTime -= adjustment;
-      });
-    }
-  }
+  // No-op - we now check UTC time directly
 }
 
 function act({ event: e, clock, sound: { synth } }) {
   // Handle mouse/touch interaction for timing adjustment
   if (e.is("draw")) {
-    // Accumulate pixel movement for dead zone logic
+    // Direct pixel-by-pixel adjustment
     // Negative delta.y (moving up) decreases divisor (faster timing)
     // Positive delta.y (moving down) increases divisor (slower timing)
-    const pixelMovement = e.delta.y * 0.005; // Convert pixels to timing units
-    accumulatedMovement += pixelMovement;
+    const pixelMovement = e.delta.y * 0.01; // More sensitive pixel-to-timing conversion
     
-    // Calculate what the new divisor would be if we applied all accumulated movement
-    const potentialNewDivisor = currentTimeDivisor + accumulatedMovement;
-    
-    // Snap to 0.1 increments
-    const snappedDivisor = Math.round(potentialNewDivisor * 10) / 10;
+    // Apply movement directly to current divisor
+    const newDivisor = currentTimeDivisor + pixelMovement;
     
     // Clamp to reasonable values (0.1s to 10.0s)
-    const clampedDivisor = Math.max(0.1, Math.min(10.0, snappedDivisor));
+    const clampedDivisor = Math.max(0.1, Math.min(10.0, newDivisor));
     
-    // Only update if we've crossed a 0.1 boundary (dead zone logic)
-    if (Math.abs(clampedDivisor - currentTimeDivisor) >= 0.1) {
-      // Calculate how much movement we actually consumed
-      const actualChange = clampedDivisor - currentTimeDivisor;
-      
-      // Update the divisor values
+    // Update if there's any change (pixel-by-pixel)
+    if (Math.abs(clampedDivisor - currentTimeDivisor) > 0.001) {
+      // Update the divisor values immediately
       currentTimeDivisor = clampedDivisor;
       targetTimeDivisor = clampedDivisor; // Update target to match - no lerping back
       utcTriggerDivisor = clampedDivisor; // Update UTC trigger immediately
       
-      // Reset accumulated movement, keeping any leftover precision
-      accumulatedMovement -= actualChange;
-      
       // Update timing
       baseTempo = (currentTimeDivisor * 1000) / 2;
       
-      // Play a tick sound for feedback
+      // Play a subtle tick sound for each pixel movement
       synth({
         type: "square",
-        tone: currentTimeDivisor === 1.0 ? "6C" : "5G", // Higher pitch for 1.0, lower for others
-        duration: 0.05,
-        attack: 0.01,
-        volume: 0.3
+        tone: currentTimeDivisor === 1.0 ? "7C" : "6G", // Higher pitch for feedback
+        duration: 0.03, // Very short tick
+        attack: 0.005,
+        volume: 0.15 // Quieter since it plays more frequently
       });
       
       // Update melody state timing if it exists
@@ -708,9 +791,9 @@ function act({ event: e, clock, sound: { synth } }) {
     isLerpingToSync = false;
   }
   
-  // Reset accumulated movement when user stops dragging
+  // Reset any drag state when user stops dragging
   if (e.is("lift")) {
-    accumulatedMovement = 0;
+    // No need to reset accumulated movement since we're doing direct pixel adjustment
   }
   // Remove the lerp-back behavior - timing stays where user sets it
 
@@ -758,7 +841,9 @@ function act({ event: e, clock, sound: { synth } }) {
   }
 }
 
-let lastTriggerTime = null; // Track the last trigger time for UTC-aligned timing
+let lastNoteStartTime = 0; // When the last note started playing (UTC time)
+let lastNoteDuration = 0; // Duration of the last note in milliseconds
+let nextNoteTargetTime = 0; // When the next note should play (UTC time)
 let lastResyncTime = 0; // Track when we last resynced
 const RESYNC_INTERVAL = 3000; // Resync every 3 seconds
 
@@ -809,7 +894,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
           tone: fallbackTone,
           duration: 0.1,
           attack: 0.01,
-          decay: 0.995, // Maximum sustain - notes ring out fully
+          decay: 0.995,
           volume: 0.8
         });
       } catch (error) {
@@ -820,450 +905,139 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
       return;
     }
 
+    const currentTime = syncedTime ? syncedTime.getTime() : performance.now();
+
+    // Only handle single track melodies here - parallel tracks are handled in sim()
     if (melodyState.type === 'single') {
-      // Handle single track melody (existing logic)
-      if (!melodyState.notes || melodyState.notes.length === 0) {
-        return;
-      }
+      if (!melodyState.notes || melodyState.notes.length === 0) return;
       
       const noteData = melodyState.notes[melodyState.index];
-      if (!noteData) {
-        return;
-      }
+      if (!noteData) return;
       
       const { note, octave: noteOctave, duration, swing, swingAmount, waveType } = noteData;
       
-      // Update animation timing
-      lastNoteTime = performance.now();
-      
-      const currentTime = syncedTime ? syncedTime.getTime() : performance.now(); // Use synced time if available
-      
-      // Initialize timing aligned with UTC boundaries for perfect sync
-      if (melodyState.idealBeatTime === 0) {
-        // Calculate next UTC-aligned beat boundary based on the current tempo parameter
-        const timeDivisor = currentTimeDivisor;
-        const timeDivisorMs = timeDivisor * 1000;
-        
-        // Find the next UTC boundary for this tempo
-        const currentSec = Math.floor(currentTime / 1000) * 1000;
-        const currentMs = currentTime % 1000;
-        const beatIndex = Math.floor(currentMs / timeDivisorMs);
-        const nextBeatTime = currentSec + ((beatIndex + 1) * timeDivisorMs);
-        
-        melodyState.idealBeatTime = nextBeatTime;
-        melodyState.actualPlayTime = nextBeatTime;
-        melodyState.nextNoteTime = nextBeatTime;
-        melodyState.utcBeatInterval = timeDivisorMs; // Store for future calculations
-      }
-      
-      // Calculate note duration with proper scaling
-      const baseDuration = duration * melodyState.baseTempo;
-      let noteDuration = baseDuration;
-      
-      // Apply swing timing if present
-      let playTime = melodyState.actualPlayTime;
-      if (swing && swingAmount) {
-        // Each swing symbol = 1/16 beat offset (62.5ms for 1-second timing)
-        const swingOffset = (swingAmount * melodyState.baseTempo) / 16;
-        if (swing === 'early') {
-          playTime -= swingOffset;
-        } else if (swing === 'late') {
-          playTime += swingOffset;
-        }
-      }
-      
-      // Only play actual notes, not rests
+      // Play the note
       if (note !== 'rest') {
-        // Format tone properly for the synth
-        let tone;
-        if (noteOctave) {
-          const noteUpper = note.toUpperCase();
-          tone = `${noteOctave}${noteUpper}`;
-        } else {
-          const noteUpper = note.toUpperCase();
-          tone = `${octave}${noteUpper}`;
-        }
-        
-        // Use consistent attack for all notes
-        const attack = 0.01;
+        let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
         
         try {
           sound.synth({
-            type: waveType || "sine", // Use parsed waveform type or default to sine
+            type: waveType || "sine",
             tone: tone,
-            duration: (noteDuration / 1000), // Convert to seconds
-            attack: attack,
-            decay: 0.995, // Maximum sustain - notes ring out fully
+            duration: (duration * melodyState.baseTempo) / 1000,
+            attack: 0.01,
+            decay: 0.995,
             volume: 0.8
           });
-          // Single clean log per note
-          console.log(`%c♪ ${tone} ${waveType || 'sine'} ${(noteDuration/1000).toFixed(2)}s`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
+          console.log(`%c♪ ${tone} ${waveType || 'sine'} ${duration}`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
         } catch (error) {
           console.error(`%c✗ ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
-          // Continue without stopping the melody
         }
       }
       
-      // Hybrid timing: UTC-aligned beats but note durations still affect playback
-      // The beat grid stays locked to UTC, but notes can have different durations
-      const nextIndex = (melodyState.index + 1) % melodyState.notes.length;
-      melodyState.index = nextIndex;
-      
-      // Calculate next beat time based on UTC boundaries and current tempo divisor
-      // This ensures tempo changes maintain sync with the UTC clock
-      const timeDivisor = currentTimeDivisor;
-      const timeDivisorMs = timeDivisor * 1000;
-      // Reuse currentTime from above - no need to redeclare
-      
-      // Always calculate the next UTC-aligned beat time
-      if (timeDivisor === 1.0) {
-        // 1-second timing: find the next second boundary
-        const nextSecBoundary = Math.ceil(currentTime / 1000) * 1000;
-        melodyState.idealBeatTime = nextSecBoundary;
-        melodyState.actualPlayTime = nextSecBoundary;
-        melodyState.nextNoteTime = nextSecBoundary;
-      } else {
-        // Non-1-second timing: find the next divisor boundary
-        const currentSec = Math.floor(currentTime / 1000) * 1000;
-        const currentMs = currentTime % 1000;
-        const nextBeatIndex = Math.floor(currentMs / timeDivisorMs) + 1;
-        let nextBeatTime = currentSec + (nextBeatIndex * timeDivisorMs);
-        
-        // If we've passed the second boundary, start from the next second
-        if (nextBeatTime >= currentSec + 1000) {
-          nextBeatTime = currentSec + 1000;
-        }
-        
-        melodyState.idealBeatTime = nextBeatTime;
-        melodyState.actualPlayTime = nextBeatTime;
-        melodyState.nextNoteTime = nextBeatTime;
+      if (waveType || swing) {
+        specialCharFlashTime = performance.now();
       }
       
-    } else if (melodyState.type === 'parallel') {
-      // Handle parallel tracks - synchronized with main beat timing like single tracks
-      const currentTime = syncedTime ? syncedTime.getTime() : performance.now(); // Use synced time if available
+      // Update timing tracking
+      lastNoteStartTime = currentTime;
+      lastNoteDuration = duration * melodyState.baseTempo;
       
-      // Update animation timing for parallel tracks
-      lastNoteTime = performance.now();
+      // Set target time for next note
+      nextNoteTargetTime = currentTime + lastNoteDuration;
       
-      // Initialize timing aligned with UTC boundaries for perfect sync (same as single tracks)
-      if (melodyState.idealBeatTime === 0) {
-        // Calculate next UTC-aligned beat boundary based on the current tempo parameter
-        const timeDivisor = currentTimeDivisor;
-        const timeDivisorMs = timeDivisor * 1000;
-        
-        // Find the next UTC boundary for this tempo
-        const currentSec = Math.floor(currentTime / 1000) * 1000;
-        const currentMs = currentTime % 1000;
-        const beatIndex = Math.floor(currentMs / timeDivisorMs);
-        const nextBeatTime = currentSec + ((beatIndex + 1) * timeDivisorMs);
-        
-        melodyState.idealBeatTime = nextBeatTime;
-        melodyState.actualPlayTime = nextBeatTime;
-        melodyState.nextNoteTime = nextBeatTime;
-        melodyState.utcBeatInterval = timeDivisorMs; // Store for future calculations
-        
-        // Initialize each track's timing to the same aligned time
-        melodyState.trackStates.forEach((trackState, index) => {
-          trackState.idealBeatTime = nextBeatTime;
-          trackState.actualPlayTime = nextBeatTime;
-          trackState.nextNoteTime = nextBeatTime;
-        });
-      }
-      
-      // Play all parallel tracks simultaneously, respecting individual note durations
-      let maxNoteDuration = 0;
-      let playingTones = []; // Collect tones for single log
-      
-      melodyState.trackStates.forEach((trackState, trackIndex) => {
-        const track = trackState.track;
-        
-        if (!track || track.length === 0) return;
-        
-        // Get the current note for this track
-        const noteData = track[trackState.noteIndex];
-        
-        if (noteData && noteData.note !== 'rest') {
-          const { note, octave: noteOctave, duration, swing, swingAmount, waveType } = noteData;
-          
-          // Calculate note duration with proper scaling
-          let noteDuration = duration * melodyState.baseTempo;
-          
-          // Apply swing timing if present
-          let trackPlayTime = melodyState.actualPlayTime;
-          if (swing && swingAmount) {
-            // Each swing symbol = 1/16 beat offset (62.5ms for 1-second timing)
-            const swingOffset = (swingAmount * melodyState.baseTempo) / 16;
-            if (swing === 'early') {
-              trackPlayTime -= swingOffset;
-            } else if (swing === 'late') {
-              trackPlayTime += swingOffset;
-            }
-          }
-          
-          // Track the longest note duration for timing the next beat
-          if (noteDuration > maxNoteDuration) {
-            maxNoteDuration = noteDuration;
-          }
-          
-          let tone;
-          if (noteOctave) {
-            const noteUpper = note.toUpperCase();
-            tone = `${noteOctave}${noteUpper}`;
-          } else {
-            const noteUpper = note.toUpperCase();
-            tone = `${octave}${noteUpper}`;
-          }
-          
-          // Use consistent attack for all notes
-          const attack = 0.01;
-          
-          // Adjust volume for parallel tracks to prevent clipping
-          const parallelVolume = 0.7 / melodyState.tracks.length;
-          
-          sound.synth({
-            type: waveType || "sine", // Use parsed waveform type or default to sine
-            tone: tone,
-            duration: (noteDuration / 1000), // Convert to seconds - use actual note duration
-            attack: attack,
-            decay: 0.995, // Maximum sustain - notes ring out fully
-            volume: parallelVolume
-          });
-          
-          // Collect tone for logging
-          playingTones.push(`${tone}(${waveType || 'sine'})`);
-        } else if (noteData) {
-          // Handle rests - still need to track duration for timing
-          const noteDuration = noteData.duration * melodyState.baseTempo;
-          if (noteDuration > maxNoteDuration) {
-            maxNoteDuration = noteDuration;
-          }
-        }
-        
-        // Advance to next note in this track
-        trackState.noteIndex = (trackState.noteIndex + 1) % track.length;
-      });
-      
-      // Single log for all parallel tracks
-      if (playingTones.length > 0) {
-        console.log(`%c♪♪ ${playingTones.join('+')} ${(maxNoteDuration/1000).toFixed(2)}s`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
-      }
-      
-      // Advance the main melody index for consistency
-      const nextIndex = (melodyState.index + 1) % melodyState.maxLength;
-      melodyState.index = nextIndex;
-      
-      // Calculate next beat time based on UTC boundaries and current tempo divisor (same as single tracks)
-      // This ensures tempo changes maintain sync with the UTC clock
-      const timeDivisor = currentTimeDivisor;
-      const timeDivisorMs = timeDivisor * 1000;
-      // Reuse currentTime from above - no need to redeclare
-      
-      // Always calculate the next UTC-aligned beat time
-      if (timeDivisor === 1.0) {
-        // 1-second timing: find the next second boundary
-        const nextSecBoundary = Math.ceil(currentTime / 1000) * 1000;
-        melodyState.idealBeatTime = nextSecBoundary;
-        melodyState.actualPlayTime = nextSecBoundary;
-        melodyState.nextNoteTime = nextSecBoundary;
-      } else {
-        // Non-1-second timing: find the next divisor boundary
-        const currentSec = Math.floor(currentTime / 1000) * 1000;
-        const currentMs = currentTime % 1000;
-        const nextBeatIndex = Math.floor(currentMs / timeDivisorMs) + 1;
-        let nextBeatTime = currentSec + (nextBeatIndex * timeDivisorMs);
-        
-        // If we've passed the second boundary, start from the next second
-        if (nextBeatTime >= currentSec + 1000) {
-          nextBeatTime = currentSec + 1000;
-        }
-        
-        melodyState.idealBeatTime = nextBeatTime;
-        melodyState.actualPlayTime = nextBeatTime;
-        melodyState.nextNoteTime = nextBeatTime;
-      }
-      
-    } else if (melodyState.type === 'multi') {
-      // Handle multiple simultaneous tracks
-      const currentTime = syncedTime ? syncedTime.getTime() : performance.now(); // Use synced time if available
-      
-      // Update animation timing for multi tracks
-      lastNoteTime = performance.now();
-      
-      // Initialize timing if not set
-      if (melodyState.idealBeatTime === 0) {
-        melodyState.idealBeatTime = currentTime;
-        melodyState.actualPlayTime = currentTime;
-      }
-      
-      // Get the current track group to play
-      const currentTrack = melodyState.tracks[melodyState.index];
-      if (!currentTrack) {
-        return;
-      }
-      
-      if (currentTrack.type === 'simultaneous') {
-        // Play all simultaneous tracks at once
-        currentTrack.tracks.forEach((track, trackIndex) => {
-          if (!track || track.length === 0) {
-            return;
-          }
-          
-          // For simultaneous tracks, each track is an array of notes
-          // We need to play the first note of each track in the group
-          const noteIndex = 0; // Always use first note for simultaneous groups
-          const noteData = track[noteIndex];
-          if (!noteData) {
-            return;
-          }
-          
-          const { note, octave: noteOctave, duration, swing, swingAmount, waveType } = noteData;
-          
-          // Calculate note duration with proper scaling
-          let noteDuration = duration * melodyState.baseTempo;
-          
-          // Apply swing timing if present
-          let trackPlayTime = melodyState.actualPlayTime;
-          if (swing && swingAmount) {
-            // Each swing symbol = 1/16 beat offset (62.5ms for 1-second timing)
-            const swingOffset = (swingAmount * melodyState.baseTempo) / 16;
-            if (swing === 'early') {
-              trackPlayTime -= swingOffset;
-            } else if (swing === 'late') {
-              trackPlayTime += swingOffset;
-            }
-          }
-          
-          // Only play actual notes, not rests
-          if (note !== 'rest') {
-            let tone;
-            if (noteOctave) {
-              const noteUpper = note.toUpperCase();
-              tone = `${noteOctave}${noteUpper}`;
-            } else {
-              const noteUpper = note.toUpperCase();
-              tone = `${octave}${noteUpper}`;
-            }
-            
-            // Use consistent attack for all notes
-            const attack = 0.01;
-            
-            // Adjust volume for simultaneous notes to prevent clipping
-            const simultaneousVolume = 0.6 / currentTrack.tracks.length;
-            
-            sound.synth({
-              type: waveType || "sine", // Use parsed waveform type or default to sine
-              tone: tone,
-              duration: (noteDuration / 1000), // Convert to seconds - full duration
-              attack: attack,
-              decay: 0.995, // Maximum sustain - notes ring out fully
-              volume: simultaneousVolume
-            });
-          }
-        });
-        
-        // Update timing for next simultaneous group
-        const baseDuration = melodyState.baseTempo; // Use base tempo for timing
-        melodyState.idealBeatTime += baseDuration;
-        melodyState.nextNoteTime = melodyState.idealBeatTime;
-        melodyState.actualPlayTime = melodyState.idealBeatTime;
-        
-        // Advance to next track group
-        const oldIndex = melodyState.index;
-        melodyState.index = (melodyState.index + 1) % melodyState.tracks.length;
-        
-      } else {
-        // Sequential track within multi-track structure
-        const track = currentTrack.tracks[0];
-        if (!track || track.length === 0) return;
-        
-        const noteIndex = melodyState.index % track.length;
-        const noteData = track[noteIndex];
-        if (!noteData) return;
-        
-        const { note, octave: noteOctave, duration, swing, swingAmount, waveType } = noteData;
-        
-        // Calculate note duration with proper scaling
-        let noteDuration = duration * melodyState.baseTempo;
-        
-        // Apply swing timing if present
-        let seqPlayTime = melodyState.actualPlayTime;
-        if (swing && swingAmount) {
-          // Each swing symbol = 1/16 beat offset (62.5ms for 1-second timing)
-          const swingOffset = (swingAmount * melodyState.baseTempo) / 16;
-          if (swing === 'early') {
-            seqPlayTime -= swingOffset;
-          } else if (swing === 'late') {
-            seqPlayTime += swingOffset;
-          }
-        }
-        
-        // Only play actual notes, not rests
-        if (note !== 'rest') {
-          let tone;
-          if (noteOctave) {
-            const noteUpper = note.toUpperCase();
-            tone = `${noteOctave}${noteUpper}`;
-          } else {
-            const noteUpper = note.toUpperCase();
-            tone = `${octave}${noteUpper}`;
-          }
-          
-          // Use consistent attack for all notes
-          const attack = 0.01;
-          
-          sound.synth({
-            type: waveType || "sine", // Use parsed waveform type or default to sine
-            tone: tone,
-            duration: (noteDuration / 1000), // Convert to seconds - full duration
-            attack: attack,
-            decay: 0.995, // Maximum sustain - notes ring out fully
-            volume: 0.8
-          });
-        }
-        
-        // Update timing using actual note duration (respecting dots, commas, etc.)
-        melodyState.idealBeatTime += noteDuration;
-        melodyState.nextNoteTime = melodyState.idealBeatTime;
-        melodyState.actualPlayTime = melodyState.idealBeatTime;
-        
-        // Advance to next track group
-        melodyState.index = (melodyState.index + 1) % melodyState.tracks.length;
-      }
+      // Advance to next note
+      melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
     }
   }
 
-  // UTC-aligned melody timing for both single and parallel tracks
-  // This ensures perfect alignment with the painted clock time
+  // Super simple melody timing - check against target time
   if (time) {
     const currentTimeMs = time.getTime();
     
-    // Use the UTC trigger divisor for stable beat boundaries (not affected by lerping)
-    const timeDivisor = utcTriggerDivisor;
-    const intervalMs = timeDivisor * 1000; // Interval between notes in milliseconds
-    
-    // Calculate the current UTC-aligned beat position
-    // For perfect synchronization, we align to absolute UTC time boundaries
-    const utcBeatIndex = Math.floor(currentTimeMs / intervalMs);
-    const nextBeatTime = (utcBeatIndex + 1) * intervalMs;
-    const timeSinceLastBeat = currentTimeMs - (utcBeatIndex * intervalMs);
-    
-    // Trigger if we just crossed a beat boundary (within 100ms tolerance)
-    const justCrossedBeat = timeSinceLastBeat < 100;
-    const currentBeatTime = utcBeatIndex * intervalMs;
-    
-    // Only trigger if this is a new beat boundary
-    if (justCrossedBeat && (lastTriggerTime === null || currentBeatTime > lastTriggerTime)) {
-      lastTriggerTime = currentBeatTime;
-      
-      // Always trigger melody playback when we cross a timing boundary
-      if (hasMelodyContent(melodyState)) {
-        bleep(time);
-      } else {
-        bleep(time); // Fallback to simple bleep
+    if (hasMelodyContent(melodyState)) {
+      if (melodyState.type === 'single') {
+        // Single track timing
+        if (nextNoteTargetTime === 0) {
+          // First note - target next UTC second boundary
+          nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
+        }
+        
+        // Check if it's time to play the next note
+        if (currentTimeMs >= nextNoteTargetTime) {
+          bleep(time);
+          synced = true;
+        }
+      } else if (melodyState.type === 'parallel') {
+        // Parallel tracks - each track has independent timing
+        let anyTrackPlayed = false;
+        
+        melodyState.trackStates.forEach((trackState) => {
+          const track = trackState.track;
+          if (!track || track.length === 0) return;
+          
+          // Set target time for this track's first note if not set
+          if (trackState.nextNoteTargetTime === 0) {
+            trackState.nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
+          }
+          
+          // Check if it's time for this track to play its next note
+          if (currentTimeMs >= trackState.nextNoteTargetTime) {
+            const noteData = track[trackState.noteIndex];
+            if (noteData) {
+              // Play this track's note
+              if (noteData.note !== 'rest') {
+                const { note, octave: noteOctave, duration, waveType } = noteData;
+                let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
+                
+                try {
+                  sound.synth({
+                    type: waveType || "sine",
+                    tone: tone,
+                    duration: (duration * melodyState.baseTempo) / 1000,
+                    attack: 0.01,
+                    decay: 0.995,
+                    volume: 0.7 / melodyState.tracks.length
+                  });
+                  console.log(`%c♪ Track${trackState.trackIndex}: ${tone} ${waveType || 'sine'} ${duration}`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
+                } catch (error) {
+                  console.error(`%c✗ Track${trackState.trackIndex}: ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
+                }
+                
+                if (waveType) {
+                  specialCharFlashTime = performance.now();
+                }
+              }
+              
+              // Set target time for this track's next note
+              const noteDuration = noteData.duration * melodyState.baseTempo;
+              trackState.nextNoteTargetTime = currentTimeMs + noteDuration;
+              
+              // Advance this track to its next note
+              trackState.noteIndex = (trackState.noteIndex + 1) % track.length;
+              anyTrackPlayed = true;
+            }
+          }
+        });
+        
+        if (anyTrackPlayed) {
+          synced = true;
+        }
       }
+    } else {
+      // No melody - use UTC boundaries for simple bleep
+      const timeDivisor = utcTriggerDivisor;
+      const intervalMs = timeDivisor * 1000;
+      const utcBeatIndex = Math.floor(currentTimeMs / intervalMs);
+      const timeSinceLastBeat = currentTimeMs - (utcBeatIndex * intervalMs);
       
-      synced = true;
+      // Trigger if we just crossed a beat boundary
+      if (timeSinceLastBeat < 50 && (lastNoteStartTime === 0 || 
+          currentTimeMs > lastNoteStartTime + 100)) {
+        lastNoteStartTime = currentTimeMs;
+        bleep(time);
+        synced = true;
+      }
     }
   }
 }
