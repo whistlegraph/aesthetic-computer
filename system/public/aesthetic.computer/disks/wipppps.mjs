@@ -98,7 +98,6 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
       );
       if (hasRealSignal) {
         isBuffering = false;
-        console.log("🎵 Real audio waveform detected, ending buffering!");
       }
     }
   }
@@ -371,8 +370,16 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
       [centerX - triangleSize / 2 + 1, centerY + triangleSize / 2 + 1],
     ]);
 
-    // Draw white play triangle
+    // Draw white outline for play triangle (slightly larger)
     ink(255, 255, 255, 255);
+    shape([
+      [centerX - triangleSize / 2 - 1, centerY - triangleSize / 2 - 1],
+      [centerX + triangleSize / 2 + 1, centerY],
+      [centerX - triangleSize / 2 - 1, centerY + triangleSize / 2 + 1],
+    ]);
+
+    // Draw rainbow play triangle
+    ink("rainbow");
     shape([
       [centerX - triangleSize / 2, centerY - triangleSize / 2],
       [centerX + triangleSize / 2, centerY],
@@ -389,10 +396,14 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
     ink(0, 0, 0, 255);
     box(0, barY, screen.width, barHeight);
 
-    // Progress bar - bright white using ink().box()
+    // Progress bar - rainbow when playing, white when paused
     const progressWidth = progress * screen.width;
     if (progressWidth > 0) {
-      ink(255, 255, 255, 255);
+      if (isPlaying) {
+        ink("rainbow");
+      } else {
+        ink(255, 255, 255, 255);
+      }
       box(0, barY, progressWidth, barHeight);
     }
   }
