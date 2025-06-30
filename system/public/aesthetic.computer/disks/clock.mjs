@@ -153,6 +153,7 @@ function boot({ ui, clock, params, colon }) {
         timingMode: parseFloat(colon[0]) || 1.0,
         type: melodyTracks.type, // 'parallel' or 'multi'
         maxLength: melodyTracks.maxLength || 0,
+        cycleStartTime: 0, // Shared cycle timing for parallel tracks
         // Independent timing state for each parallel track
         trackStates: melodyTracks.tracks.map((track, trackIndex) => ({
           trackIndex: trackIndex,
@@ -463,11 +464,8 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
         if (noteCharData && noteCharData.trackIndex < melodyState.trackStates.length) {
           const trackState = melodyState.trackStates[noteCharData.trackIndex];
           // Check if this note is the currently playing note in this track
-          // Since trackState.noteIndex points to the next note to play after incrementing,
-          // we need to check against the previous note (with proper wrapping)
-          const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
-          
-          if (noteCharData.noteIndex === currentPlayingIndex) {
+          // With the new cycle-based timing, trackState.noteIndex directly points to the current note
+          if (noteCharData.noteIndex === trackState.noteIndex) {
             color = "red";
           }
         }
@@ -700,6 +698,8 @@ function reparseMelodyWithNewOctave(newOctave) {
         
         // Preserve timing - don't reset position
         melodyState.index = currentIndex;
+        
+        // Important: Don't reset nextNoteTargetTime - let playback continue seamlessly
       }
     } else {
       // Multiple tracks
@@ -707,10 +707,11 @@ function reparseMelodyWithNewOctave(newOctave) {
         // Store current timing state for the main melody index
         const currentIndex = melodyState.index;
         
-        // Store current track states if they exist
+        // Store current track states if they exist, including timing
         const currentTrackStates = melodyState.trackStates ? 
           melodyState.trackStates.map(ts => ({
-            noteIndex: ts.noteIndex
+            noteIndex: ts.noteIndex,
+            nextNoteTargetTime: ts.nextNoteTargetTime // Preserve timing!
           })) : null;
         
         // Update with new parsed tracks
@@ -727,7 +728,7 @@ function reparseMelodyWithNewOctave(newOctave) {
               trackIndex: trackIndex,
               noteIndex: existingState ? existingState.noteIndex : 0,
               track: track,
-              nextNoteTargetTime: 0 // Reset target time for new track
+              nextNoteTargetTime: existingState ? existingState.nextNoteTargetTime : 0 // Preserve timing!
             };
           });
         }
@@ -969,55 +970,78 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
           synced = true;
         }
       } else if (melodyState.type === 'parallel') {
-        // Parallel tracks - each track has independent timing
+        // Parallel tracks - use shared cycle timing to prevent drift
         let anyTrackPlayed = false;
+        
+        // Initialize shared cycle start time if not set
+        if (!melodyState.cycleStartTime) {
+          melodyState.cycleStartTime = Math.ceil(currentTimeMs / 1000) * 1000;
+        }
+        
+        // Calculate shared cycle position
+        const timeSinceCycleStart = currentTimeMs - melodyState.cycleStartTime;
+        const cycleDurationMs = melodyState.baseTempo; // One beat duration
         
         melodyState.trackStates.forEach((trackState) => {
           const track = trackState.track;
           if (!track || track.length === 0) return;
           
-          // Set target time for this track's first note if not set
-          if (trackState.nextNoteTargetTime === 0) {
-            trackState.nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
+          // Calculate total duration of this track in beats
+          const trackTotalDuration = track.reduce((sum, note) => sum + note.duration, 0);
+          const trackCycleDurationMs = trackTotalDuration * melodyState.baseTempo;
+          
+          // Calculate where we are in this track's cycle
+          const trackCycleTime = timeSinceCycleStart % trackCycleDurationMs;
+          
+          // Find which note should be playing based on cycle position
+          let accumulatedTime = 0;
+          let currentNoteIndex = 0;
+          let noteStartTime = 0;
+          
+          for (let i = 0; i < track.length; i++) {
+            const noteDuration = track[i].duration * melodyState.baseTempo;
+            if (trackCycleTime >= accumulatedTime && trackCycleTime < accumulatedTime + noteDuration) {
+              currentNoteIndex = i;
+              noteStartTime = accumulatedTime;
+              break;
+            }
+            accumulatedTime += noteDuration;
           }
           
-          // Check if it's time for this track to play its next note
-          if (currentTimeMs >= trackState.nextNoteTargetTime) {
-            const noteData = track[trackState.noteIndex];
-            if (noteData) {
-              // Play this track's note
-              if (noteData.note !== 'rest') {
-                const { note, octave: noteOctave, duration, waveType } = noteData;
-                let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
-                
-                try {
-                  sound.synth({
-                    type: waveType || "sine",
-                    tone: tone,
-                    duration: (duration * melodyState.baseTempo) / 1000,
-                    attack: 0.01,
-                    decay: 0.995,
-                    volume: 0.7 / melodyState.tracks.length
-                  });
-                  console.log(`%c♪ Track${trackState.trackIndex}: ${tone} ${waveType || 'sine'} ${duration}`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
-                } catch (error) {
-                  console.error(`%c✗ Track${trackState.trackIndex}: ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
-                }
-                
-                if (waveType) {
-                  specialCharFlashTime = performance.now();
-                }
+          // Check if we need to play this note (just started)
+          const noteData = track[currentNoteIndex];
+          const timeSinceNoteStart = trackCycleTime - noteStartTime;
+          
+          // Play if we just started this note (within a small window)
+          if (timeSinceNoteStart < 50 && trackState.noteIndex !== currentNoteIndex) {
+            if (noteData && noteData.note !== 'rest') {
+              const { note, octave: noteOctave, duration, waveType } = noteData;
+              let tone = noteOctave ? `${noteOctave}${note.toUpperCase()}` : `${octave}${note.toUpperCase()}`;
+              
+              try {
+                sound.synth({
+                  type: waveType || "sine",
+                  tone: tone,
+                  duration: (duration * melodyState.baseTempo) / 1000,
+                  attack: 0.01,
+                  decay: 0.995,
+                  volume: 0.7 / melodyState.tracks.length
+                });
+                console.log(`%c♪ Track${trackState.trackIndex}: ${tone} ${waveType || 'sine'} ${duration}`, 'color: #00ff88; background: black; font-weight: bold; padding: 2px;');
+              } catch (error) {
+                console.error(`%c✗ Track${trackState.trackIndex}: ${tone} - ${error}`, 'color: red; background: black; font-weight: bold; padding: 2px;');
               }
               
-              // Set target time for this track's next note
-              const noteDuration = noteData.duration * melodyState.baseTempo;
-              trackState.nextNoteTargetTime = currentTimeMs + noteDuration;
-              
-              // Advance this track to its next note
-              trackState.noteIndex = (trackState.noteIndex + 1) % track.length;
-              anyTrackPlayed = true;
+              if (waveType) {
+                specialCharFlashTime = performance.now();
+              }
             }
+            
+            anyTrackPlayed = true;
           }
+          
+          // Update track state
+          trackState.noteIndex = currentNoteIndex;
         });
         
         if (anyTrackPlayed) {
