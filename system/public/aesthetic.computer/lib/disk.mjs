@@ -2320,7 +2320,6 @@ function form(
 function prefetchPicture(code) {
   if (paintings[code] === "fetching") return;
 
-  console.log("🖼️ Prefetching...", code);
   paintings[code] = "fetching";
 
   if (code.startsWith("http")) {
@@ -4839,7 +4838,6 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
