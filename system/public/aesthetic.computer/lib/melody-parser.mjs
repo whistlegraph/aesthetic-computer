@@ -40,13 +40,14 @@
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
  * - Waveform types: {sine} {sawtooth} {square} {triangle} - persists until changed
+ * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Rests: _ (explicit rest) or standalone - (context dependent)
  * - Separators: spaces (ignored), | (measure bars, ignored)
  * - Measure separators: | (ignored, visual only)
  * 
  * @param {string} melodyString - The melody string to parse
  * @param {number} [startingOctave=4] - The default octave to use if none specified
- * @returns {Array} Array of note objects with { note, octave, duration, waveType, swing?, swingAmount? } properties
+ * @returns {Array} Array of note objects with { note, octave, duration, waveType, volume, swing?, swingAmount? } properties
  */
 export function parseMelody(melodyString, startingOctave = 4) {
   const notes = [];
@@ -55,22 +56,44 @@ export function parseMelody(melodyString, startingOctave = 4) {
   let baseOctave = startingOctave; // Base octave for relative modifiers
   let relativeOffset = 0; // Current relative offset from base octave
   let currentWaveType = "sine"; // Default waveform type that persists across notes
+  let currentVolume = 0.8; // Default volume that persists across notes
   
   while (i < melodyString.length) {
     let char = melodyString[i];
     
-    // Handle waveform type syntax {sine}, {sawtooth}, {square}, {triangle}
+    // Handle waveform type and volume syntax {sine}, {sawtooth}, {square:0.5}, {0.3}
     if (char === '{') {
       const endBrace = melodyString.indexOf('}', i);
       if (endBrace !== -1) {
-        const waveType = melodyString.substring(i + 1, endBrace).toLowerCase();
-        if (['sine', 'sawtooth', 'square', 'triangle'].includes(waveType)) {
-          currentWaveType = waveType;
-          i = endBrace + 1;
-          continue; // Skip to next character after processing waveform type
+        const content = melodyString.substring(i + 1, endBrace).toLowerCase();
+        
+        // Check for type:volume syntax like {square:0.5}
+        if (content.includes(':')) {
+          const [waveType, volumeStr] = content.split(':');
+          if (['sine', 'sawtooth', 'square', 'triangle'].includes(waveType)) {
+            currentWaveType = waveType;
+          }
+          const volume = parseFloat(volumeStr);
+          if (!isNaN(volume) && volume >= 0 && volume <= 1) {
+            currentVolume = volume;
+          }
         }
+        // Check for volume-only syntax like {0.5}
+        else if (/^\d*\.?\d+$/.test(content)) {
+          const volume = parseFloat(content);
+          if (!isNaN(volume) && volume >= 0 && volume <= 1) {
+            currentVolume = volume;
+          }
+        }
+        // Check for waveform-only syntax like {sine}
+        else if (['sine', 'sawtooth', 'square', 'triangle'].includes(content)) {
+          currentWaveType = content;
+        }
+        
+        i = endBrace + 1;
+        continue; // Skip to next character after processing waveform/volume
       }
-      // If not a valid waveform type, just skip the character
+      // If not a valid syntax, just skip the character
       i++;
       continue;
     }
@@ -130,7 +153,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             }
           }
           
-          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType });
+          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume });
         } else {
           // Just an octave change without a note - currentOctave is already updated
           // This allows for patterns like "5defg" or "4c5d6e" where octave persists
@@ -200,7 +223,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             }
           }
           
-          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType });
+          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume });
         }
       }
     }
@@ -226,7 +249,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             // Handle as standalone rest dash - use comma logic now
             let commas = relativeModifier.length;
             let duration = 2 * Math.pow(2, commas); // - = half (2.0), -- = whole (4.0), etc.
-            notes.push({ note: 'rest', octave: null, duration, waveType: null });
+            notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
             continue;
           } else {
             // Invalid syntax, skip
@@ -305,7 +328,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
       }
       
-      notes.push({ note, octave, duration, waveType: currentWaveType });
+      notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume });
     }
     // Handle rests (only _ and explicit standalone -, not spaces which are separators)
     else if (char === '_') {
@@ -337,7 +360,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
       }
       
-      notes.push({ note: 'rest', octave: null, duration, waveType: null });
+      notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
     }
     // Handle spaces as separators (ignore them, don't treat as rests)
     else if (char === ' ') {
@@ -357,7 +380,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
       let duration = 2 * Math.pow(2, dashes);
       i = tempI; // Move index past all the dashes
       
-      notes.push({ note: 'rest', octave: null, duration, waveType: null });
+      notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
     }
     // Handle measure separators (optional, for readability)
     else if (char === '|') {
@@ -512,22 +535,33 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     };
   }
   
-  // Extract all parentheses groups
+  // Extract all parentheses groups and check for x() disable syntax
   const parenGroups = [];
-  const parenPattern = /\(([^)]+)\)/g;
+  const disabledTracks = []; // Track which tracks are disabled by x()
+  const parenPattern = /x?\(([^)]+)\)/g;
   let groupMatch;
   
   while ((groupMatch = parenPattern.exec(processedMelodyString)) !== null) {
-    parenGroups.push(groupMatch[1].trim());
+    const fullMatch = groupMatch[0]; // e.g., "x(ceg)" or "(ceg)"
+    const groupContent = groupMatch[1].trim(); // e.g., "ceg"
+    const isDisabled = fullMatch.startsWith('x(');
+    
+    parenGroups.push(groupContent);
+    disabledTracks.push(isDisabled);
   }
   
   // If we found parentheses groups, create parallel tracks
   if (parenGroups.length > 0) {
-    const parallelTracks = parenGroups.map(groupContent => {
+    const parallelTracks = parenGroups.map((groupContent, index) => {
       // Prepend the global wave type to each group if it doesn't have its own
       const hasLocalWaveType = /{(sine|sawtooth|square|triangle)}/.test(groupContent);
       const contentWithGlobalWave = hasLocalWaveType ? groupContent : `{${globalWaveType}} ${groupContent}`;
-      return parseMelody(contentWithGlobalWave, startingOctave);
+      const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);
+      
+      // Add disabled flag to the track
+      parsedTrack.isDisabled = disabledTracks[index];
+      
+      return parsedTrack;
     });
     
     return {
