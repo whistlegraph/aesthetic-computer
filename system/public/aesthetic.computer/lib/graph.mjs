@@ -921,8 +921,42 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 }
 
 // Similar to `paste` but always centered.
-function stamp(from, x, y) {
-  paste(from, x - from.width / 2, y - from.height / 2);
+function stamp(from, x, y, scale = 1, angle = 0) {
+  if (!from) return;
+  
+  // Handle transform object for scale/angle  
+  let transform = scale;
+  if (typeof scale !== "object") {
+    transform = { scale, angle };
+  }
+  
+  // The issue is that when paste uses grid for scaling, the center calculation
+  // gets messed up. We need to manually calculate the correct position.
+  
+  if (transform.scale === 1 && (transform.angle === 0 || transform.angle === undefined)) {
+    // Simple case - no transformation
+    paste(from, x - from.width / 2, y - from.height / 2);
+  } else {
+    // Complex case - use grid directly with proper setup
+    // We want the center of the ORIGINAL image to end up at x,y
+    const scaleValue = typeof transform.scale === 'number' ? transform.scale : 1;
+    
+    // Calculate the top-left position of the scaled image such that 
+    // its center aligns with x,y
+    const scaledWidth = from.width * scaleValue;
+    const scaledHeight = from.height * scaleValue;
+    
+    const topLeftX = x - scaledWidth / 2;
+    const topLeftY = y - scaledHeight / 2;
+    
+    grid(
+      {
+        box: { x: topLeftX, y: topLeftY, w: from.width, h: from.height },
+        transform: transform,
+      },
+      from,
+    );
+  }
 }
 
 let blendingMode = "blend";
