@@ -98,6 +98,7 @@ export function paint({ wipe, screen, write, sound, ink, box, shape }) {
       );
       if (hasRealSignal) {
         isBuffering = false;
+        console.log("🎵 Real audio waveform detected, ending buffering!");
       }
     }
   }
