@@ -1002,7 +1002,7 @@ const $commonApi = {
   hud: {
     label: (text, color, offset, logical) => {
       currentHUDTxt = text;
-      currentHUDLogicalTxt = logical || (typeof text === 'string' ? text.replace(/\\([a-zA-Z]+(?:\([^)]*\))?)\\/g, '') : text);
+      currentHUDLogicalTxt = logical || (typeof text === 'string' ? text.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, '') : text);
       if (color) {
         currentHUDTextColor = graph.findColor(color);
       } else {
@@ -6493,7 +6493,7 @@ async function makeFrame({ data: { type, content } }) {
       ) {
         // Use the actual rendered width and height from text.box, not a naive estimate
         // For label sizing, use the color-code-stripped text to avoid false wrapping
-        let cleanText = currentHUDTxt.replace(/\\[a-zA-Z]+\\/g, '');
+        let cleanText = currentHUDTxt.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, '');
         const labelBounds = $api.text.box(
           cleanText,
           undefined,
@@ -6522,13 +6522,13 @@ async function makeFrame({ data: { type, content } }) {
           const disableSyntaxColoring = currentHUDScrub >= shareWidth;
           
           // Detect inline color codes (e.g., \\yellow\\c\\red\\d\\rgb(255,20,147)\\e), but disable if at max scrub
-          const hasInlineColor = !disableSyntaxColoring && /\\([a-zA-Z]+(?:\([^)]*\))?)\\/g.test(text);
+          const hasInlineColor = !disableSyntaxColoring && /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g.test(text);
           
           // Draw a visible background box for debugging the label bounds
           // $.ink([0,0,0,64]).box(0, 0, w, h); // semi-transparent black - commented out to remove backdrop
           // Draw shadow/outline in black, but always strip color codes for the shadow
           function stripColorCodes(str) {
-            return str.replace(/\\([a-zA-Z]+(?:\([^)]*\))?)\\/g, '');
+            return str.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, '');
           }
           // For the shadow, always strip color codes and disable inline color processing
           $.ink(0).write(
@@ -6538,7 +6538,7 @@ async function makeFrame({ data: { type, content } }) {
             $api.screen.width - $api.typeface.blockWidth,
           );
           // For the foreground, parse color codes and render per-character colors
-          const colorCodeRegex = /\\([a-zA-Z]+)\\/g;
+          const colorCodeRegex = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
           let charColors = [];
           let currentColor = null;
 
@@ -6580,10 +6580,21 @@ async function makeFrame({ data: { type, content } }) {
             // Check if we're at the start of a color code
             if (text[originalIndex] === '\\') {
               // Find the end of the color code
-              const colorMatch = text.slice(originalIndex).match(/^\\([a-zA-Z]+)\\/);
+              const colorMatch = text.slice(originalIndex).match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
               if (colorMatch) {
                 // Update current color (convert to RGB)
-                currentColor = colorNameToRGB(colorMatch[1]);
+                const colorName = colorMatch[1];
+                // Check if it's an RGB value like "255,20,147"
+                if (colorName.includes(',')) {
+                  const rgbValues = colorName.split(',').map(v => parseInt(v.trim()));
+                  if (rgbValues.length === 3 && rgbValues.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+                    currentColor = rgbValues;
+                  } else {
+                    currentColor = colorNameToRGB(colorName);
+                  }
+                } else {
+                  currentColor = colorNameToRGB(colorName);
+                }
                 // Skip over the color code
                 originalIndex += colorMatch[0].length;
                 continue;
