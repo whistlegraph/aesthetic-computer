@@ -247,7 +247,7 @@ async function boot({
     if (isKidlispSource(rawText)) {
       text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
     } else {
-      text = rawText; // Use text as-is (tildes already converted to spaces)
+      text = rawText.replace(/~/g, " "); // Convert tildes to spaces for display
     }
 
     // Set the text and user text first before activating
