@@ -148,7 +148,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           if (i < melodyString.length) {
             const nextChar = melodyString[i];
             if (nextChar === 's' || nextChar === '#') {
-              note += '#'; // Convert both 's' and '#' to # internally
+              note += 's'; // Convert both 's' and '#' to s internally
               i++;
             } else if (nextChar === 'b' && i + 1 < melodyString.length && !/[a-g]/i.test(melodyString[i + 1])) {
               // Only treat 'b' as flat if it's not followed by another note letter
@@ -222,7 +222,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           if (i < melodyString.length) {
             const nextChar = melodyString[i];
             if (nextChar === 's' || nextChar === '#') {
-              note += '#'; // Convert both 's' and '#' to # internally
+              note += 's'; // Convert both 's' and '#' to s internally
               i++;
             } else if (nextChar === 'b' && i + 1 < melodyString.length && !/[a-g]/i.test(melodyString[i + 1])) {
               // Only treat 'b' as flat if it's not followed by another note letter
@@ -315,7 +315,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
       if (i < melodyString.length) {
         const nextChar = melodyString[i];
         if (nextChar === 's' || nextChar === '#') {
-          note += '#'; // Convert both 's' and '#' to # internally
+          note += 's'; // Convert both 's' and '#' to s internally
           i++;
         } else if (nextChar === 'b' && i + 1 < melodyString.length && !/[a-g]/i.test(melodyString[i + 1])) {
           // Only treat 'b' as flat if it's not followed by another note letter
@@ -469,19 +469,24 @@ export function noteToTone(note, octave = 4) {
   // Handle both simple notes and notes with octave/modifiers
   const noteMap = {
     'c': 'C',
+    'cs': 'C#',
     'c#': 'C#',
     'db': 'C#',
     'd': 'D',
+    'ds': 'D#',
     'd#': 'D#',
     'eb': 'D#',
     'e': 'E',
     'f': 'F',
+    'fs': 'F#',
     'f#': 'F#',
     'gb': 'F#',
     'g': 'G',
+    'gs': 'G#',
     'g#': 'G#',
     'ab': 'G#',
     'a': 'A',
+    'as': 'A#',
     'a#': 'A#',
     'bb': 'A#',
     'b': 'B'
@@ -666,46 +671,107 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
 export function mutateMelodyTrack(originalTrack, originalContent, startingOctave = 4) {
   if (!originalTrack || originalTrack.length === 0) return originalTrack;
   
-  // Find all notes (not rests) in the track
-  const noteIndices = [];
+  // Find all notes and rests in the track (exclude only other types of rests like '-')
+  const mutatableIndices = [];
   originalTrack.forEach((note, index) => {
-    if (note.note !== '_' && note.note !== '-') { // Not a rest
-      noteIndices.push(index);
+    if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate
+      mutatableIndices.push(index);
     }
   });
   
-  if (noteIndices.length === 0) return originalTrack; // No notes to mutate
+  if (mutatableIndices.length === 0) return originalTrack; // No notes or rests to mutate
   
-  // Pick a random note to mutate
-  const randomNoteIndex = noteIndices[Math.floor(Math.random() * noteIndices.length)];
-  const noteToMutate = originalTrack[randomNoteIndex];
+  // Pick a random note or rest to mutate
+  const randomIndex = mutatableIndices[Math.floor(Math.random() * mutatableIndices.length)];
+  const itemToMutate = originalTrack[randomIndex];
   
-  // Define possible note mutations (only natural notes - no sharps/flats)
+  // Define possible note mutations (natural notes + rest)
   const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+  const mutationOptions = [...noteNames, '_']; // Include rest as a mutation option
   
+  // Handle rest-to-note mutation
+  if (itemToMutate.note === 'rest' || itemToMutate.note === '_') {
+    // Rest mutating to a note - pick a random note
+    const randomNoteIndex = Math.floor(Math.random() * noteNames.length);
+    const newNoteName = noteNames[randomNoteIndex].toLowerCase();
+    
+    // Try to preserve original octave if available
+    let octaveToUse = itemToMutate.originalOctave || itemToMutate.octave || startingOctave || 4;
+    
+    // If no preserved octave, look for other notes in the track to get a reasonable octave
+    if (!itemToMutate.originalOctave && !itemToMutate.octave && originalTrack.length > 1) {
+      const otherNotes = originalTrack.filter(n => n.note !== 'rest' && n.note !== '_' && n.octave);
+      if (otherNotes.length > 0) {
+        // Use the most common octave from other notes
+        const octaves = otherNotes.map(n => n.octave);
+        const octaveCount = {};
+        octaves.forEach(oct => octaveCount[oct] = (octaveCount[oct] || 0) + 1);
+        octaveToUse = parseInt(Object.keys(octaveCount).reduce((a, b) => octaveCount[a] > octaveCount[b] ? a : b));
+      }
+    }
+    
+    // Create a new track with the note mutation
+    const mutatedTrack = [...originalTrack];
+    mutatedTrack[randomIndex] = {
+      note: newNoteName,
+      octave: octaveToUse,
+      duration: itemToMutate.duration, // Keep the same duration
+      waveType: itemToMutate.waveType || 'sine', // Preserve or use default
+      volume: itemToMutate.volume || 0.8, // Preserve or use default
+      tone: noteToTone(newNoteName, octaveToUse),
+      isMutation: true // Mark this as a mutation for potential visual feedback
+    };
+    
+    return mutatedTrack;
+  }
+  
+  // Handle note-to-something mutation (existing logic)
   // Extract the base note (without sharp) from the current note
-  const baseNote = noteToMutate.note.toUpperCase().replace(/[S#]/g, '');
-  const hasSharp = noteToMutate.note.toUpperCase().includes('S') || noteToMutate.note.toUpperCase().includes('#');
+  const baseNote = itemToMutate.note.toUpperCase().replace(/[S]/g, '');
+  const hasSharp = itemToMutate.note.includes('s');
   
   const currentNoteIndex = noteNames.indexOf(baseNote);
   
-  // Pick a different base note (not the same one)
-  let newNoteIndex;
+  // Pick a different mutation (not the same note)
+  let newMutationIndex;
   do {
-    newNoteIndex = Math.floor(Math.random() * noteNames.length);
-  } while (newNoteIndex === currentNoteIndex);
+    newMutationIndex = Math.floor(Math.random() * mutationOptions.length);
+  } while (mutationOptions[newMutationIndex] === baseNote);
   
-  const newBaseNote = noteNames[newNoteIndex];
+  const newMutation = mutationOptions[newMutationIndex];
+  
+  // Handle note-to-rest mutation
+  if (newMutation === '_') {
+    // Create a new track with the rest mutation
+    const mutatedTrack = [...originalTrack];
+    mutatedTrack[randomIndex] = {
+      note: 'rest', // Use 'rest' to match parser format
+      octave: itemToMutate.octave, // Preserve octave for potential back-mutation
+      duration: itemToMutate.duration, // Keep the same duration
+      waveType: itemToMutate.waveType, // Preserve wave type
+      volume: itemToMutate.volume, // Preserve volume
+      tone: null, // Rests don't have tones
+      isMutation: true, // Mark this as a mutation for potential visual feedback
+      // Store original note info for potential restoration
+      originalNote: itemToMutate.note,
+      originalOctave: itemToMutate.octave
+    };
+    
+    return mutatedTrack;
+  }
+  
+  // Handle note-to-note mutation
+  const newBaseNote = newMutation;
   
   // Preserve the sharp if the original note had one
-  const newNoteName = hasSharp ? newBaseNote + 's' : newBaseNote;
+  const newNoteName = hasSharp ? newBaseNote.toLowerCase() + 's' : newBaseNote.toLowerCase();
   
   // Create a new track with the mutation
   const mutatedTrack = [...originalTrack];
-  mutatedTrack[randomNoteIndex] = {
-    ...noteToMutate,
+  mutatedTrack[randomIndex] = {
+    ...itemToMutate,
     note: newNoteName,
-    tone: `${noteToMutate.octave}${newNoteName}`,
+    tone: noteToTone(newNoteName, itemToMutate.octave),
     isMutation: true // Mark this as a mutation for potential visual feedback
   };
   
