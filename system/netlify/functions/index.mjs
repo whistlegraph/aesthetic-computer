@@ -63,6 +63,8 @@ async function fun(event, context) {
     slug = "botce";
   } else if (event.headers["host"] === "wipppps.world" || event.headers["host"] === "www.wipppps.world") {
     slug = "wipppps";
+  } else if (event.headers["host"] === "sundarakarma.com" || event.headers["host"] === "www.sundarakarma.com") {
+    slug = "sundarakarma.com";
   } else if (
     event.headers["host"] === "m2w2.whistlegraph.com" &&
     event.path.length <= 1
