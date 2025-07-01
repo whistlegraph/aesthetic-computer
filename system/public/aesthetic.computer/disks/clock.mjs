@@ -44,6 +44,9 @@
     {square} cdefg - Square wave
     {sawtooth} cdefg - Sawtooth wave  
     {triangle} cdefg - Triangle wave
+    {noise-white} cdefg - White noise
+    {sample} cdefg - Sample playback
+    {custom} cdefg - Custom waveform generation
     {0.5} cdefg - Set volume to 50% (keeps current waveform)
     {square:0.3} cdefg - Square wave at 30% volume
     {0.8} c{0.2}d{1.0}e - Volume changes during melody
@@ -109,6 +112,7 @@ let lastNoteTime = 0; // Time when the last note was triggered
 let animationProgress = 0; // Progress towards next note (0 to 1)
 let specialCharFlashTime = 0; // Time when special character was processed (for green flash)
 let mutationFlashTime = 0; // Time when a mutation occurred (for asterisk flash)
+let mutatedNotePosition = -1; // Position of the note that was mutated (for hot pink flash)
 let currentNoteStartTime = 0; // When the current red note started playing
 let currentNoteDuration = 0; // Duration of the current red note
 let hasFirstSynthFired = false; // Flag to track when first synth plays (for syntax coloring)
@@ -165,6 +169,13 @@ function boot({ ui, clock, params, colon, hud }) {
         timingMode: parseFloat(colon[0]) || 1.0,
         type: 'single'
       };
+
+      // Preserve mutation metadata if present
+      if (parsedMelody.hasMutation) {
+        melodyState.hasMutation = true;
+        melodyState.originalContent = parsedMelody.originalContent;
+        melodyState.mutationTriggerPosition = parsedMelody.mutationTriggerPosition;
+      }
     } else if (melodyTracks.tracks.length === 1 && melodyTracks.tracks[0].length === 1) {
       // Special case: single note in parentheses like (c) - treat as single track
       parsedMelody = melodyTracks.tracks[0];
@@ -192,6 +203,7 @@ function boot({ ui, clock, params, colon, hud }) {
       if (parsedMelody.hasMutation) {
         melodyState.hasMutation = true;
         melodyState.originalContent = parsedMelody.originalContent;
+        melodyState.mutationTriggerPosition = parsedMelody.mutationTriggerPosition;
       }
     } else {
       // Multiple tracks - create state for parallel playback with independent timing
@@ -338,8 +350,8 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
       // Build the colored melody string once, use for both timeline and HUD
       const currentMelodyString = buildCurrentMelodyString(originalMelodyString, melodyState);
       coloredMelodyStringForTimeline = buildColoredMelodyStringUnified(currentMelodyString, melodyState);
-      // Commented out - HUD label preview replaces center timeline display
-      // drawMelodyTimeline(ink, write, screen, melodyState, coloredMelodyStringForTimeline);
+      // Display the colored melody timeline
+      drawMelodyTimeline(ink, write, screen, melodyState, coloredMelodyStringForTimeline);
     }
     // --- Scaled Clock Output ---
     if (!paint.scaledClockAnchor) {
@@ -464,17 +476,6 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
       // Check if melody timing has started (based on whether first synth has fired)
       const melodyTimingStarted = hasFirstSynthFired;
       
-      console.log("🕐 Clock HUD Debug:", {
-        melodyTimingStarted,
-        hasFirstSynthFired,
-        nextNoteTargetTime,
-        lastNoteTime,
-        hasTrackStates: !!(melodyState && melodyState.trackStates),
-        trackStatesStarted: melodyState && melodyState.trackStates ? melodyState.trackStates.some(ts => ts.startTime > 0) : false,
-        melodyStateIndex: melodyState ? melodyState.index : null,
-        melodyStateType: melodyState ? melodyState.type : null
-      });
-      
       // Provide "clock" prefix plus melody content - let disk.mjs handle all coloring
       let previewStringDecorative = '';
       let previewStringPlain = '';
@@ -483,18 +484,20 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
           // Melody timing has started - use colored version with highlighting
           const currentMelodyString = buildCurrentMelodyString(originalMelodyString, melodyState);
           const coloredMelody = coloredMelodyStringForTimeline || buildColoredMelodyStringUnified(currentMelodyString, melodyState);
-          console.log("🎨 Using colored melody:", coloredMelody.substring(0, 50) + "...");
+          // console.log("🎨 Using colored melody (full):", coloredMelody);
+          // console.log("🎨 Colored melody length:", coloredMelody.length);
+          // console.log("🎨 Last 30 chars:", coloredMelody.slice(-30));
           // Ensure the space after "clock" doesn't get colored by the melody colors
           previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody;
         } else {
           // Melody timing hasn't started yet - show plain uncolored text
-          console.log("🎨 Using plain melody (timing not started)");
+          // console.log("🎨 Using plain melody (timing not started)");
           previewStringDecorative = `\\white\\clock ${originalMelodyString}`;
         }
         previewStringPlain = `clock ${originalMelodyString}`;
       } else {
         // No melody content - just show "clock" with explicit neutral color
-        console.log("🎨 No melody content - just clock");
+        // console.log("🎨 No melody content - just clock");
         previewStringDecorative = `\\white\\clock`;
         previewStringPlain = `clock`;
       }
@@ -536,15 +539,6 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
   
   // Check if timing has actually started before applying current note highlighting
   const timingHasStarted = hasFirstSynthFired;
-  
-  console.log("🎵 Melody Color Debug:", {
-    timingHasStarted,
-    hasFirstSynthFired,
-    nextNoteTargetTime,
-    lastNoteTime,
-    hasTrackStates: !!(melodyState && melodyState.trackStates),
-    melodyStateIndex: melodyState ? melodyState.index : null
-  });
   
   if (timingHasStarted && melodyState && melodyState.type === 'single' && melodyState.notes) {
     const totalNotes = melodyState.notes.length;
@@ -681,6 +675,9 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
   }
   // Color the original melody string character by character
   let inWaveformForColoring = false;
+  let inDisabledGroup = false; // Track if we're inside an x() disabled group
+  let disabledGroupTrackIndex = -1; // Track which disabled group we're in
+  
   // For fade logic - red at start, fading to orange as note ends
   function getRedNoteColor() {
     if (currentNoteStartTime === 0 || currentNoteDuration === 0) {
@@ -715,7 +712,12 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
   }
   
   // Get color for mutated notes (magenta for non-active mutations, red-orange fade for active)
-  function getMutatedNoteColor(isCurrentlyPlaying = false) {
+  function getMutatedNoteColor(isCurrentlyPlaying = false, noteIndex = -1) {
+    // Check if this note should flash hot pink during mutation
+    if (shouldFlashMutation && noteIndex === mutatedNotePosition) {
+      return [255, 20, 147]; // Hot pink flash for the mutated note
+    }
+    
     if (isCurrentlyPlaying) {
       // When actively playing, mutated notes still get the red-to-orange fade
       return getRedNoteColor();
@@ -728,101 +730,140 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
   const mutationFlashDuration = 300; // Longer flash for mutations
   const shouldFlashGreen = (now - (typeof specialCharFlashTime !== 'undefined' ? specialCharFlashTime : 0)) < flashDuration;
   const shouldFlashMutation = (now - (typeof mutationFlashTime !== 'undefined' ? mutationFlashTime : 0)) < mutationFlashDuration;
+  
+  let currentTrackForColoring = 0; // Track which parallel track we're processing for coloring
+  
   for (let i = 0; i < melodyString.length; i++) {
     const char = melodyString[i];
     let color = "yellow";
     
-    // Check if this character is part of the currently playing note
-    const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
-    let isCurrentlyPlayingNote = false;
-    
-    if (noteCharData) {
-      if (melodyState && melodyState.type === 'single') {
-        isCurrentlyPlayingNote = (noteCharData.noteIndex === currentNoteIndex);
-      } else if (melodyState && melodyState.type === 'parallel' && melodyState.trackStates && noteCharData.trackIndex < melodyState.trackStates.length) {
-        const trackState = melodyState.trackStates[noteCharData.trackIndex];
-        const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
-        isCurrentlyPlayingNote = (noteCharData.noteIndex === currentPlayingIndex);
-      }
-    }
-    
-    if (char === '{') {
-      inWaveformForColoring = true;
-      color = shouldFlashGreen ? "green" : (timingHasStarted ? "yellow" : "gray");
-    } else if (char === '}') {
-      inWaveformForColoring = false;
-      color = shouldFlashGreen ? "green" : (timingHasStarted ? "yellow" : "gray");
-    } else if (inWaveformForColoring) {
-      color = timingHasStarted ? "cyan" : "gray";
-    } else if (char === '*') {
-      // Special handling for mutation asterisk
-      if (shouldFlashMutation) {
-        color = "white"; // Flash white when mutation occurs
-      } else {
-        color = timingHasStarted ? "magenta" : "gray"; // Magenta when timing started, gray before
-      }
-    } else if (melodyState && melodyState.isFallback) {
-      if (noteCharData) {
-        if (isCurrentlyPlayingNote) {
-          // Check if this note is mutated and use different coloring
-          const isMutated = isNoteMutated(noteCharData);
-          
-          // Check if this is a duration punctuation character within the current note
-          if (/[.,]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
-          } else if (/[s]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Sharp 's' uses same color as note letters
-          } else if (/[0-9+\-#<>]/i.test(char)) {
-            color = "green"; // Other special characters in current note flash green
-          } else {
-            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Note letters use mutation or normal fade
-          }
-        } else {
-          // Not currently playing - check if it's a mutated note
-          const isMutated = isNoteMutated(noteCharData);
-          if (isMutated) {
-            color = getMutatedNoteColor(false); // Purple for non-active mutated notes
-          } else {
-            // Use gray if timing hasn't started, yellow if it has
-            color = timingHasStarted ? "yellow" : "gray";
-          }
-        }
+    // Handle disabled group detection for x() syntax
+    if (char === 'x' && i + 1 < melodyString.length && melodyString[i + 1] === '(') {
+      // This is the start of a disabled group x(...)
+      color = "brown"; // Render 'x' in brown
+      inDisabledGroup = true;
+      disabledGroupTrackIndex = currentTrackForColoring;
+    } else if (char === '(' && !inDisabledGroup) {
+      // Regular group start
+      color = timingHasStarted ? "yellow" : "gray";
+      currentTrackForColoring++;
+    } else if (char === '(' && inDisabledGroup) {
+      // Opening parenthesis of disabled group
+      color = "gray"; // Render parentheses in gray for disabled groups
+    } else if (char === ')') {
+      if (inDisabledGroup) {
+        // Closing disabled group
+        color = "gray"; // Render closing parenthesis in gray
+        inDisabledGroup = false;
+        disabledGroupTrackIndex = -1;
       } else {
         color = timingHasStarted ? "yellow" : "gray";
       }
+      currentTrackForColoring++;
+    } else if (inDisabledGroup) {
+      // We're inside a disabled x() group - render everything in gray
+      color = "gray";
+    }
+    // If we haven't set a special color for disabled groups, continue with normal logic
+    else {
+      // Check if this character is part of the currently playing note
+      const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
+      let isCurrentlyPlayingNote = false;
+      
+      if (noteCharData) {
+        if (melodyState && melodyState.type === 'single') {
+          isCurrentlyPlayingNote = (noteCharData.noteIndex === currentNoteIndex);
+        } else if (melodyState && melodyState.type === 'parallel' && melodyState.trackStates && noteCharData.trackIndex < melodyState.trackStates.length) {
+          const trackState = melodyState.trackStates[noteCharData.trackIndex];
+          const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
+          isCurrentlyPlayingNote = (noteCharData.noteIndex === currentPlayingIndex);
+        }
+      }
+      
+      if (char === '{') {
+        inWaveformForColoring = true;
+        color = shouldFlashGreen ? "green" : (timingHasStarted ? "yellow" : "gray");
+      } else if (char === '}') {
+        inWaveformForColoring = false;
+        color = shouldFlashGreen ? "green" : (timingHasStarted ? "yellow" : "gray");
+      } else if (inWaveformForColoring) {
+        color = timingHasStarted ? "cyan" : "gray";
+      } else if (char === '*') {
+        // Special handling for mutation asterisk - always use RGB
+        color = [255, 20, 147]; // Always use RGB hot pink for asterisk
+      } else if (melodyState && melodyState.isFallback) {
+        if (noteCharData) {
+          if (isCurrentlyPlayingNote) {
+            // Check if this note is mutated and use different coloring
+            const isMutated = isNoteMutated(noteCharData);
+            
+            // Check if this is a duration punctuation character within the current note
+            if (/[.,]/i.test(char)) {
+              color = isMutated ? getMutatedNoteColor(true, noteCharData.noteIndex) : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
+            } else if (/[s]/i.test(char)) {
+              color = isMutated ? getMutatedNoteColor(true, noteCharData.noteIndex) : getRedNoteColor(); // Sharp 's' uses same color as note letters
+            } else if (/[0-9+\-#<>]/i.test(char)) {
+              color = "green"; // Other special characters in current note flash green
+            } else {
+              color = isMutated ? getMutatedNoteColor(true, noteCharData.noteIndex) : getRedNoteColor(); // Note letters use mutation or normal fade
+            }
+          } else {
+            // Not currently playing - check if it's a mutated note
+            const isMutated = isNoteMutated(noteCharData);
+            if (isMutated) {
+              color = getMutatedNoteColor(false, noteCharData.noteIndex); // Purple for non-active mutated notes
+            } else {
+              // Use gray if timing hasn't started, yellow if it has
+              color = timingHasStarted ? "yellow" : "gray";
+            }
+          }
+        } else {
+          color = timingHasStarted ? "yellow" : "gray";
+        }
+      } else {
+        if (noteCharData) {
+          if (isCurrentlyPlayingNote) {
+            // Check if this note is mutated and use different coloring
+            const isMutated = isNoteMutated(noteCharData);
+            
+            // Check if this is a duration punctuation character within the current note
+            if (/[.,]/i.test(char)) {
+              color = isMutated ? getMutatedNoteColor(true, noteCharData.noteIndex) : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
+            } else if (/[s]/i.test(char)) {
+              color = isMutated ? getMutatedNoteColor(true, noteCharData.noteIndex) : getRedNoteColor(); // Sharp 's' uses same color as note letters
+            } else if (/[0-9+\-#<>]/i.test(char)) {
+              color = "green"; // Other special characters in current note flash green
+            } else {
+              color = isMutated ? getMutatedNoteColor(true, noteCharData.noteIndex) : getRedNoteColor(); // Note letters use mutation or normal fade
+            }
+          } else {
+            // Not currently playing - check if it's a mutated note
+            const isMutated = isNoteMutated(noteCharData);
+            if (isMutated) {
+              color = getMutatedNoteColor(false, noteCharData.noteIndex); // Purple for non-active mutated notes
+            } else {
+              // Use gray if timing hasn't started, yellow if it has
+              color = timingHasStarted ? "yellow" : "gray";
+            }
+          }
+        } else {
+          // For non-note characters, use gray until timing starts
+          color = timingHasStarted ? "yellow" : "gray";
+        }
+      }
+    }
+    
+    // Handle RGB arrays specially - convert to simple RGB escape code format
+    if (Array.isArray(color)) {
+      const rgbString = `\\${color[0]},${color[1]},${color[2]}\\${char}`;
+      // console.log(`🎨 RGB Debug: Adding RGB for char '${char}':`, rgbString);
+      coloredMelodyString += rgbString;
     } else {
-      if (noteCharData) {
-        if (isCurrentlyPlayingNote) {
-          // Check if this note is mutated and use different coloring
-          const isMutated = isNoteMutated(noteCharData);
-          
-          // Check if this is a duration punctuation character within the current note
-          if (/[.,]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
-          } else if (/[s]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Sharp 's' uses same color as note letters
-          } else if (/[0-9+\-#<>]/i.test(char)) {
-            color = "green"; // Other special characters in current note flash green
-          } else {
-            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Note letters use mutation or normal fade
-          }
-        } else {
-          // Not currently playing - check if it's a mutated note
-          const isMutated = isNoteMutated(noteCharData);
-          if (isMutated) {
-            color = getMutatedNoteColor(false); // Purple for non-active mutated notes
-          } else {
-            // Use gray if timing hasn't started, yellow if it has
-            color = timingHasStarted ? "yellow" : "gray";
-          }
-        }
-      } else {
-        // For non-note characters, use gray until timing starts
-        color = timingHasStarted ? "yellow" : "gray";
-      }
+      coloredMelodyString += `\\${color}\\${char}`;
     }
-    coloredMelodyString += `\\${color}\\${char}`;
   }
+  // console.log("🎨 Final colored melody string:", coloredMelodyString);
+  // console.log("🎨 Final colored melody length:", coloredMelodyString.length);
   return coloredMelodyString;
 }
     // (Remove any other preview label drawing from the center)
@@ -847,6 +888,7 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
 
 // Draw a single version of the melody string with the active note highlighted
 function drawMelodyTimeline(ink, write, screen, melodyState, coloredMelodyStringOverride) {
+  // console.log("🎵 drawMelodyTimeline called with coloredMelodyStringOverride:", coloredMelodyStringOverride);
   const timelineY = screen.height - 40; // More space above info text
   const timelineStartX = 16;
   const timelineEndX = screen.width - 16;
@@ -864,11 +906,13 @@ function drawMelodyTimeline(ink, write, screen, melodyState, coloredMelodyString
   const startX = Math.max(timelineStartX, (screen.width - stringWidth) / 2);
   // Use the provided colored string if available
   let coloredMelodyString = coloredMelodyStringOverride || buildColoredMelodyStringUnified(buildCurrentMelodyString(melodyString, melodyState), melodyState);
+  // console.log("🎵 About to call write() with coloredMelodyString:", coloredMelodyString);
   write(coloredMelodyString, {
     x: startX,
     y: timelineY,
     scale: 1
   });
+  // console.log("🎵 write() call completed");
   // Draw timing info below the melody string
   const infoY = timelineY + 12;
   const timeDivisor = currentTimeDivisor;
@@ -1685,13 +1729,22 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
       const oldIndex = melodyState.index;
       melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
       
-      // Check if we've looped back to the beginning and this track has mutation enabled
-      if (oldIndex === melodyState.notes.length - 1 && melodyState.index === 0 && melodyState.hasMutation) {
+      // Check if we've looped back to the beginning and this track has mutation enabled,
+      // OR if we've reached the mutation trigger position (for mid-melody * syntax)
+      const shouldMutate = (oldIndex === melodyState.notes.length - 1 && melodyState.index === 0 && melodyState.hasMutation) ||
+                          (melodyState.hasMutation && melodyState.mutationTriggerPosition !== undefined && 
+                           melodyState.index === melodyState.mutationTriggerPosition);
+      
+      if (shouldMutate) {
         // Apply mutation to this single track
         console.log(`🎲 Mutating single track (${melodyState.originalContent})`);
         const mutatedTrack = mutateMelodyTrack(parsedMelody, melodyState.originalContent, octave);
         
-        // Set mutation flash time for asterisk animation
+        // Find which note was mutated for hot pink flash
+        const mutationIndex = mutatedTrack.findIndex(n => n.isMutation);
+        mutatedNotePosition = mutationIndex;
+        
+        // Set mutation flash time for asterisk and note animation
         mutationFlashTime = performance.now();
         
         // Update the parsed melody
