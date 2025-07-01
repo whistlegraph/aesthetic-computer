@@ -193,6 +193,16 @@ to = "https://aesthetic.computer/wipppps"
 status = 200
 force = true
 [[redirects]]
+from = "https://www.sundarakarma.com"
+to = "https://aesthetic.computer/sundarakarma.com"
+status = 200
+force = true
+[[redirects]]
+from = "https://sundarakarma.com"
+to = "https://aesthetic.computer/sundarakarma.com"
+status = 200
+force = true
+[[redirects]]
 from = "https://sotce.aesthetic.computer"
 to = "https://aesthetic.computer/sotce-blog"
 status = 200
