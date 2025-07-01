@@ -365,7 +365,11 @@ class Typeface {
 
         // Set color for this character
         if (charColor) {
-          $.ink(charColor);
+          if (Array.isArray(charColor)) {
+            $.ink(...charColor);
+          } else {
+            $.ink(charColor);
+          }
         } else {
           $.ink(...rn); // Use original color if no specific color
         }
