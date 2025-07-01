@@ -552,8 +552,8 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
 
       // To ensure the shadow is always black and not colored by inline codes, filter color codes from the decorative string
       function stripColorCodes(str) {
-        // Remove all \\color\\ sequences
-        return str.replace(/\\[a-zA-Z]+\\/g, "");
+        // Remove all \\color\\ sequences including RGB values like \\255,20,147\\
+        return str.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, "");
       }
       const shadowString = stripColorCodes(previewStringDecorative);
       // Draw the shadow label first, with all color codes stripped, in black
@@ -806,9 +806,34 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
 
       // Get color for mutated notes (magenta for non-active mutations, red-orange fade for active)
       function getMutatedNoteColor(isCurrentlyPlaying = false, noteIndex = -1) {
-        // Check if this note should flash hot pink during mutation
+        // Check if this note should flash rainbow during mutation
         if (shouldFlashMutation && noteIndex === mutatedNotePosition) {
-          return [255, 20, 147]; // Hot pink flash for the mutated note
+          // Rainbow flash effect - same as asterisk
+          const time = now * 0.005; // Slow down the cycle
+          const hue = (time % 1) * 360; // 0-360 degrees
+          
+          // Convert HSV to RGB for rainbow effect
+          function hsvToRgb(h, s, v) {
+            const c = v * s;
+            const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+            const m = v - c;
+            let r, g, b;
+            
+            if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+            else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+            else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+            else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+            else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+            
+            return [
+              Math.round((r + m) * 255),
+              Math.round((g + m) * 255),
+              Math.round((b + m) * 255)
+            ];
+          }
+          
+          return hsvToRgb(hue, 1, 1); // Full saturation and brightness for vivid rainbow
         }
 
         if (isCurrentlyPlaying) {
@@ -914,8 +939,33 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
           } else if (inWaveformForColoring) {
             color = timingHasStarted ? "cyan" : "gray";
           } else if (char === "*") {
-            // Special handling for mutation asterisk - always use RGB
-            color = [255, 20, 147]; // Always use RGB hot pink for asterisk
+            // Special handling for mutation asterisk - rainbow color effect
+            // Create a time-based rainbow that cycles through hues
+            const time = now * 0.005; // Slow down the cycle
+            const hue = (time % 1) * 360; // 0-360 degrees
+            
+            // Convert HSV to RGB for rainbow effect
+            function hsvToRgb(h, s, v) {
+              const c = v * s;
+              const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+              const m = v - c;
+              let r, g, b;
+              
+              if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+              else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+              else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+              else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+              else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+              else { r = c; g = 0; b = x; }
+              
+              return [
+                Math.round((r + m) * 255),
+                Math.round((g + m) * 255),
+                Math.round((b + m) * 255)
+              ];
+            }
+            
+            color = hsvToRgb(hue, 1, 1); // Full saturation and brightness for vivid rainbow
           } else if (melodyState && melodyState.isFallback) {
             if (noteCharData) {
               if (isCurrentlyPlayingNote) {
@@ -2213,7 +2263,7 @@ function preview({ ink, wipe, write }) {
 
   // Test colored text with wrapping to debug the off-by-one issue
   write(
-    "\\yellow\\hello \\red\\world \\green\\this \\blue\\is \\cyan\\a \\magenta\\very \\orange\\long \\white\\melody \\gray\\test",
+    "\\\\yellow\\\\hello \\\\red\\\\world \\\\green\\\\this \\\\blue\\\\is \\\\cyan\\\\a \\\\magenta\\\\very \\\\orange\\\\long \\\\white\\\\melody \\\\gray\\\\test",
     {
       x: 6,
       y: 6,
