@@ -46,6 +46,12 @@ export default class Synth {
   #up = false; // Specific to `square`.
   #step = 0;
 
+  // Specific to `noise-white` filtering
+  #noiseFilterState1 = 0;
+  #noiseFilterState2 = 0;
+  #noiseFilterState3 = 0;
+  #noiseFilterState4 = 0;
+
   // Custom waveform generation
   #customGenerator; // Function that generates waveform data
   #customBuffer = []; // Buffer for streaming waveform data
@@ -116,7 +122,12 @@ export default class Synth {
       // Pre-fill the buffer with initial data
       this.#fillCustomBuffer();
     } else if (type === "noise-white") {
-      this.#frequency = null; //undefined;
+      this.#frequency = options.tone; // Use the tone parameter for filtering
+      // Initialize filter state variables for resonant filter
+      this.#noiseFilterState1 = 0;
+      this.#noiseFilterState2 = 0;
+      this.#noiseFilterState3 = 0;
+      this.#noiseFilterState4 = 0;
     }
 
     // this.#frequency = tone || 1; // Frequency in samples.
@@ -187,8 +198,48 @@ export default class Synth {
       this.#step += 1;
       if (this.#step >= this.#wavelength) this.#step = 0;
     } else if (this.type === "noise-white") {
-      // 🌊  White Noise
-      value = random() * 2 - 1;
+      // 🌊 Filtered White Noise - responds to frequency/octave
+      // Generate white noise
+      const noise = random() * 2 - 1;
+      
+      // Apply resonant low-pass filter centered on the frequency
+      // This makes the noise "pitched" by emphasizing frequencies around the tone
+      if (this.#frequency && this.#frequency > 0) {
+        // Calculate filter coefficients based on frequency
+        // Normalize frequency to 0-1 range (0 = DC, 1 = Nyquist frequency)
+        const normalizedFreq = (this.#frequency * 2) / sampleRate;
+        const clampedFreq = clamp(normalizedFreq, 0.001, 0.99);
+        
+        // Sharp resonant filter coefficients
+        const resonance = 0.1; // High resonance for sharp, distinct pitched effect
+        const omega = clampedFreq * PI;
+        const sin = Math.sin(omega);
+        const cos = Math.cos(omega);
+        const alpha = sin / (2 * (1 / resonance));
+        
+        // Biquad low-pass filter coefficients
+        const b0 = (1 - cos) / 2;
+        const b1 = 1 - cos;
+        const b2 = (1 - cos) / 2;
+        const a0 = 1 + alpha;
+        const a1 = -2 * cos;
+        const a2 = 1 - alpha;
+        
+        // Apply filter (Direct Form I)
+        const output = (b0 * noise + b1 * this.#noiseFilterState1 + b2 * this.#noiseFilterState2 - a1 * this.#noiseFilterState3 - a2 * this.#noiseFilterState4) / a0;
+        
+        // Update filter state (store input and output history)
+        this.#noiseFilterState2 = this.#noiseFilterState1;
+        this.#noiseFilterState1 = noise;
+        this.#noiseFilterState4 = this.#noiseFilterState3;
+        this.#noiseFilterState3 = output;
+        
+        // Boost the filtered output more for sharper response
+        value = output * 3.5;
+      } else {
+        // Fallback to unfiltered white noise if no frequency
+        value = noise;
+      }
       // 🚩 TODO: Also add pink and brownian noise.
     } else if (this.type === "sample") {
       const bufferData = this.#sampleData.channels[0];
@@ -251,18 +302,30 @@ export default class Synth {
     // 🦈 Attack & Decay Computation 📉
     // Only use attack or decay envelopes on self-terminating sounds.
     if (this.#duration < Infinity) {
-      // Attack Envelope (0-1)
-      const attack = min(1, this.#progress / this.#attack);
-      if (attack) value *= attack;
+      if (this.type === "noise-white") {
+        // Much sharper attack/decay for noise-white to enable shorter, snappier sounds
+        const sharpAttack = min(1, this.#progress / (this.#attack * 0.1)); // 10x faster attack
+        if (sharpAttack) value *= sharpAttack;
 
-      // Decay Envelope (0-1)
-      const decay = min(
-        1,
-        1 - (this.#progress - this.#decayStart) / this.#decay,
-      );
-      // console.log(this.#progress, attack, decay);
+        // Much sharper decay with exponential curve for crisp cutoff
+        const decayProgress = (this.#progress - this.#decayStart) / (this.#decay * 0.05); // 20x faster decay
+        const sharpDecay = min(1, 1 - Math.pow(decayProgress, 3)); // Cubic decay for sharp cutoff
+        value *= max(0, sharpDecay);
+      } else {
+        // Standard attack/decay for other waveforms
+        // Attack Envelope (0-1)
+        const attack = min(1, this.#progress / this.#attack);
+        if (attack) value *= attack;
 
-      value *= decay;
+        // Decay Envelope (0-1)
+        const decay = min(
+          1,
+          1 - (this.#progress - this.#decayStart) / this.#decay,
+        );
+        // console.log(this.#progress, attack, decay);
+
+        value *= decay;
+      }
     } else {
       // TODO:
       // Attack will be in number of sampleFrames here... please calculate.

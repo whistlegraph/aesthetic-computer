@@ -1002,7 +1002,7 @@ const $commonApi = {
   hud: {
     label: (text, color, offset, logical) => {
       currentHUDTxt = text;
-      currentHUDLogicalTxt = logical || (typeof text === 'string' ? text.replace(/\\[a-zA-Z]+\\/g, '') : text);
+      currentHUDLogicalTxt = logical || (typeof text === 'string' ? text.replace(/\\([a-zA-Z]+(?:\([^)]*\))?)\\/g, '') : text);
       if (color) {
         currentHUDTextColor = graph.findColor(color);
       } else {
@@ -2002,16 +2002,31 @@ const $paintApi = {
       bg = arguments[2];
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
-    } // 🎨 Color code processing
-    // Check for color codes like \\blue\\, \\red\\, etc.
-    const colorCodeRegex = /\\([a-zA-Z]+)\\/g;
+    }    // 🎨 Color code processing
+    // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, etc.
+    const colorCodeRegex = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
     const hasColorCodes = text.includes("\\");
     
     // Check if inline color processing is disabled via options
     const noInlineColor = (typeof arguments[1] === "object" && arguments[1]?.noInlineColor) || 
                          (typeof arguments[3] === "object" && arguments[3]?.noInlineColor);
 
+    // console.log("🎨🎨🎨 DISK.MJS WRITE DEBUG:", {
+    //   textLength: text.length,
+    //   hasColorCodes,
+    //   noInlineColor,
+    //   textPreview: text.slice(0, 100),
+    //   containsRgb: text.includes("rgb("),
+    //   stackTrace: noInlineColor ? new Error().stack.split('\n')[1].trim() : null
+    // });
+
     if (hasColorCodes && !noInlineColor) {
+      // console.log("🎨 Color Processing Debug: Starting color code processing");
+      // console.log("🎨 Original text:", text);
+      // console.log("🎨 Color regex:", colorCodeRegex);
+      // console.log("🎨 Text length:", text.length);
+      // console.log("🎨 Last 20 chars:", text.slice(-20));
+      
       // Remember the current ink color to restore it later
       const originalColor = $activePaintApi.inkrn();
 
@@ -2022,21 +2037,44 @@ const $paintApi = {
 
       // Split text by color codes and process each segment
       const segments = text.split(colorCodeRegex);
-
+      // console.log("🎨 Split segments:", segments);
 
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
           // This is regular text
           const segment = segments[i];
+          // console.log(`🎨 Processing text segment ${i}: "${segment}"`);
           for (let j = 0; j < segment.length; j++) {
             cleanText += segment[j];
             charColors.push(currentColor);
           }
         } else {
           // This is a color name (from the captured group)
-          currentColor = segments[i];
+          const colorName = segments[i];
+          
+          // console.log("🎨 Color Debug: Processing color:", colorName);
+          
+          // Check if it's an RGB color like "255,20,147"
+          if (colorName.includes(',')) {
+            const rgbValues = colorName.split(',').map(v => parseInt(v.trim()));
+            // console.log("🎨 RGB Debug: Parsed values:", rgbValues);
+            if (rgbValues.length === 3 && rgbValues.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+              currentColor = rgbValues;
+              // console.log("🎨 RGB Debug: Successfully set RGB array:", rgbValues);
+            } else {
+              currentColor = colorName; // Fallback to string if parsing fails
+              // console.log("🎨 RGB Debug: Parsing failed, using string:", colorName);
+            }
+          } else {
+            currentColor = colorName;
+            // console.log("🎨 Color Debug: Using string color:", colorName);
+          }
         }
       }
+      
+      // console.log("🎨 Final processing results:");
+      // console.log("🎨 Clean text:", cleanText);
+      // console.log("🎨 Character colors:", charColors);
       
       // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {
@@ -6470,14 +6508,14 @@ async function makeFrame({ data: { type, content } }) {
           const shareWidth = tf.blockWidth * "share ".length;
           const disableSyntaxColoring = currentHUDScrub >= shareWidth;
           
-          // Detect inline color codes (e.g., \\yellow\\c\\red\\d), but disable if at max scrub
-          const hasInlineColor = !disableSyntaxColoring && /\\[a-zA-Z]+\\/.test(text);
+          // Detect inline color codes (e.g., \\yellow\\c\\red\\d\\rgb(255,20,147)\\e), but disable if at max scrub
+          const hasInlineColor = !disableSyntaxColoring && /\\([a-zA-Z]+(?:\([^)]*\))?)\\/g.test(text);
           
           // Draw a visible background box for debugging the label bounds
           // $.ink([0,0,0,64]).box(0, 0, w, h); // semi-transparent black - commented out to remove backdrop
           // Draw shadow/outline in black, but always strip color codes for the shadow
           function stripColorCodes(str) {
-            return str.replace(/\\[a-zA-Z]+\\/g, '');
+            return str.replace(/\\([a-zA-Z]+(?:\([^)]*\))?)\\/g, '');
           }
           // For the shadow, always strip color codes and disable inline color processing
           $.ink(0).write(
