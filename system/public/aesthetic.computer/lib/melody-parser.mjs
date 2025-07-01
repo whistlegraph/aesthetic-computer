@@ -355,7 +355,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
       // Check for duration modifiers using dots or dashes (optional)
       if (i < melodyString.length) {
         const nextChar = melodyString[i];
-        // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
+        // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = default/8, etc.
         if (nextChar === '.') {
           hasLocalModifier = true;
           let dots = 0;
@@ -599,19 +599,22 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     };
   }
   
-  // Extract all parentheses groups and check for x() disable syntax
+  // Extract all parentheses groups and check for x() disable syntax and * mutation syntax
   const parenGroups = [];
   const disabledTracks = []; // Track which tracks are disabled by x()
-  const parenPattern = /x?\(([^)]+)\)/g;
+  const mutationTracks = []; // Track which tracks have * mutation enabled
+  const parenPattern = /x?\(([^)]+)\)\*?/g;
   let groupMatch;
   
   while ((groupMatch = parenPattern.exec(processedMelodyString)) !== null) {
-    const fullMatch = groupMatch[0]; // e.g., "x(ceg)" or "(ceg)"
+    const fullMatch = groupMatch[0]; // e.g., "x(ceg)*" or "(ceg)*" or "(ceg)"
     const groupContent = groupMatch[1].trim(); // e.g., "ceg"
     const isDisabled = fullMatch.startsWith('x(');
+    const hasMutation = fullMatch.endsWith('*');
     
     parenGroups.push(groupContent);
     disabledTracks.push(isDisabled);
+    mutationTracks.push(hasMutation);
   }
   
   // If we found parentheses groups, create parallel tracks
@@ -624,6 +627,14 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
       
       // Add disabled flag to the track
       parsedTrack.isDisabled = disabledTracks[index];
+      
+      // Add mutation flag to the track
+      parsedTrack.hasMutation = mutationTracks[index];
+      if (parsedTrack.hasMutation) {
+        // Store the original track content for mutation reference
+        parsedTrack.originalContent = groupContent;
+        parsedTrack.mutationCount = 0; // Track how many times we've mutated
+      }
       
       return parsedTrack;
     });
@@ -643,4 +654,60 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     isSingleTrack: true,
     type: 'single'
   };
+}
+
+/**
+ * Mutates a melody track by randomly changing one note to a different note/sharp
+ * @param {Array} originalTrack - The original parsed track
+ * @param {string} originalContent - The original string content
+ * @param {number} startingOctave - The starting octave
+ * @returns {Array} - A new mutated track
+ */
+export function mutateMelodyTrack(originalTrack, originalContent, startingOctave = 4) {
+  if (!originalTrack || originalTrack.length === 0) return originalTrack;
+  
+  // Find all notes (not rests) in the track
+  const noteIndices = [];
+  originalTrack.forEach((note, index) => {
+    if (note.note !== '_' && note.note !== '-') { // Not a rest
+      noteIndices.push(index);
+    }
+  });
+  
+  if (noteIndices.length === 0) return originalTrack; // No notes to mutate
+  
+  // Pick a random note to mutate
+  const randomNoteIndex = noteIndices[Math.floor(Math.random() * noteIndices.length)];
+  const noteToMutate = originalTrack[randomNoteIndex];
+  
+  // Define possible note mutations (only natural notes - no sharps/flats)
+  const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+  
+  // Extract the base note (without sharp) from the current note
+  const baseNote = noteToMutate.note.toUpperCase().replace(/[S#]/g, '');
+  const hasSharp = noteToMutate.note.toUpperCase().includes('S') || noteToMutate.note.toUpperCase().includes('#');
+  
+  const currentNoteIndex = noteNames.indexOf(baseNote);
+  
+  // Pick a different base note (not the same one)
+  let newNoteIndex;
+  do {
+    newNoteIndex = Math.floor(Math.random() * noteNames.length);
+  } while (newNoteIndex === currentNoteIndex);
+  
+  const newBaseNote = noteNames[newNoteIndex];
+  
+  // Preserve the sharp if the original note had one
+  const newNoteName = hasSharp ? newBaseNote + 's' : newBaseNote;
+  
+  // Create a new track with the mutation
+  const mutatedTrack = [...originalTrack];
+  mutatedTrack[randomNoteIndex] = {
+    ...noteToMutate,
+    note: newNoteName,
+    tone: `${noteToMutate.octave}${newNoteName}`,
+    isMutation: true // Mark this as a mutation for potential visual feedback
+  };
+  
+  return mutatedTrack;
 }
