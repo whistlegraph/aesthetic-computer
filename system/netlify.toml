@@ -198,8 +198,18 @@ to = "https://aesthetic.computer/sundarakarma.com"
 status = 200
 force = true
 [[redirects]]
+from = "https://www.sundarakarma.com/oscar"
+to = "https://aesthetic.computer/sundarakarma.com/oscar.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://sundarakarma.com"
 to = "https://aesthetic.computer/sundarakarma.com"
+status = 200
+force = true
+[[redirects]]
+from = "https://sundarakarma.com/oscar"
+to = "https://aesthetic.computer/sundarakarma.com/oscar.html"
 status = 200
 force = true
 [[redirects]]
