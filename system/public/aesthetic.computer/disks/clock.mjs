@@ -714,20 +714,14 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
     return false;
   }
   
-  // Get color for mutated notes (magenta for mutations)
-  function getMutatedNoteColor() {
-    if (currentNoteStartTime === 0 || currentNoteDuration === 0) {
-      return "magenta"; // Default to magenta if timing not set
-    }
-    
-    const elapsedTime = now - currentNoteStartTime;
-    const progress = Math.min(1, elapsedTime / currentNoteDuration);
-    
-    // Fade from magenta to purple over the note duration
-    if (progress < 0.5) {
-      return "magenta"; // First half stays magenta
+  // Get color for mutated notes (magenta for non-active mutations, red-orange fade for active)
+  function getMutatedNoteColor(isCurrentlyPlaying = false) {
+    if (isCurrentlyPlaying) {
+      // When actively playing, mutated notes still get the red-to-orange fade
+      return getRedNoteColor();
     } else {
-      return "purple"; // Second half turns purple
+      // When not playing, mutated notes stay magenta
+      return "magenta";
     }
   }
   const flashDuration = 200;
@@ -765,7 +759,7 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
       if (shouldFlashMutation) {
         color = "white"; // Flash white when mutation occurs
       } else {
-        color = timingHasStarted ? "purple" : "gray"; // Purple when timing started, gray before
+        color = timingHasStarted ? "magenta" : "gray"; // Magenta when timing started, gray before
       }
     } else if (melodyState && melodyState.isFallback) {
       if (noteCharData) {
@@ -775,17 +769,23 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
           
           // Check if this is a duration punctuation character within the current note
           if (/[.,]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor() : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
+            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
           } else if (/[s]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor() : getRedNoteColor(); // Sharp 's' uses same color as note letters
+            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Sharp 's' uses same color as note letters
           } else if (/[0-9+\-#<>]/i.test(char)) {
             color = "green"; // Other special characters in current note flash green
           } else {
-            color = isMutated ? getMutatedNoteColor() : getRedNoteColor(); // Note letters use mutation or normal fade
+            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Note letters use mutation or normal fade
           }
         } else {
-          // Use gray if timing hasn't started, yellow if it has
-          color = timingHasStarted ? "yellow" : "gray";
+          // Not currently playing - check if it's a mutated note
+          const isMutated = isNoteMutated(noteCharData);
+          if (isMutated) {
+            color = getMutatedNoteColor(false); // Purple for non-active mutated notes
+          } else {
+            // Use gray if timing hasn't started, yellow if it has
+            color = timingHasStarted ? "yellow" : "gray";
+          }
         }
       } else {
         color = timingHasStarted ? "yellow" : "gray";
@@ -798,17 +798,23 @@ function buildColoredMelodyStringUnified(melodyString, melodyState) {
           
           // Check if this is a duration punctuation character within the current note
           if (/[.,]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor() : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
+            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
           } else if (/[s]/i.test(char)) {
-            color = isMutated ? getMutatedNoteColor() : getRedNoteColor(); // Sharp 's' uses same color as note letters
+            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Sharp 's' uses same color as note letters
           } else if (/[0-9+\-#<>]/i.test(char)) {
             color = "green"; // Other special characters in current note flash green
           } else {
-            color = isMutated ? getMutatedNoteColor() : getRedNoteColor(); // Note letters use mutation or normal fade
+            color = isMutated ? getMutatedNoteColor(true) : getRedNoteColor(); // Note letters use mutation or normal fade
           }
         } else {
-          // Use gray if timing hasn't started, yellow if it has
-          color = timingHasStarted ? "yellow" : "gray";
+          // Not currently playing - check if it's a mutated note
+          const isMutated = isNoteMutated(noteCharData);
+          if (isMutated) {
+            color = getMutatedNoteColor(false); // Purple for non-active mutated notes
+          } else {
+            // Use gray if timing hasn't started, yellow if it has
+            color = timingHasStarted ? "yellow" : "gray";
+          }
         }
       } else {
         // For non-note characters, use gray until timing starts
@@ -910,16 +916,17 @@ function buildCurrentMelodyString(originalMelodyString, melodyState) {
       // Skip parentheses and spaces
       if (char === '(' || char === ')' || char === ' ' || char === '*') continue;
       
-      // Check if this is a note letter (main note character)
-      if (/[a-g]/i.test(char)) {
+      // Check if this is a note letter (main note character) or underscore rest
+      if (/[a-g_]/i.test(char)) {
         const trackNote = melodyState.notes[noteIndex];
         if (trackNote && trackNote.isMutation) {
           // This note was mutated, record its position for replacement
+          const displayNote = trackNote.note === 'rest' ? '_' : trackNote.note.toLowerCase();
           notePositions.push({
             stringIndex: i,
             trackIndex: noteIndex,
             originalChar: char,
-            newNote: trackNote.note.toLowerCase()
+            newNote: displayNote
           });
         }
         noteIndex++;
@@ -962,17 +969,18 @@ function buildCurrentMelodyString(originalMelodyString, melodyState) {
         continue;
       }
       
-      // Check if this is a note letter within a group
-      if (inGroup && /[a-g]/i.test(char)) {
+      // Check if this is a note letter or underscore rest within a group
+      if (inGroup && /[a-g_]/i.test(char)) {
         const track = melodyState.tracks[currentTrackIndex];
         if (track && track[noteIndexInTrack] && track[noteIndexInTrack].isMutation) {
           // This note was mutated, record its position for replacement
+          const displayNote = track[noteIndexInTrack].note === 'rest' ? '_' : track[noteIndexInTrack].note.toLowerCase();
           notePositions.push({
             stringIndex: i,
             trackIndex: currentTrackIndex,
             noteIndex: noteIndexInTrack,
             originalChar: char,
-            newNote: track[noteIndexInTrack].note.toLowerCase()
+            newNote: displayNote
           });
         }
         noteIndexInTrack++;
