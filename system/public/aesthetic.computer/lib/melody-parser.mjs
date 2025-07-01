@@ -35,6 +35,7 @@
  * - Flat: b (4db)
  * - Duration dots: . (shorter) .. (even shorter) ... (shortest)
  * - Duration commas: , (longer) ,, (even longer) ,,, (longest)
+ * - Global duration modifiers: {...} {..} {.} {,} {,,} - applies to all following notes without local modifiers
  * - Swing prefixes: < (early/rushed) > (late/laid back)
  * - Multiple swing: << (more early) >>> (much later) - multiples the effect
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
@@ -57,19 +58,50 @@ export function parseMelody(melodyString, startingOctave = 4) {
   let relativeOffset = 0; // Current relative offset from base octave
   let currentWaveType = "sine"; // Default waveform type that persists across notes
   let currentVolume = 0.8; // Default volume that persists across notes
+  let globalDurationModifier = null; // Global duration modifier (e.g., "..." or "," or null)
+
+  // Helper function to apply global duration modifier if no local modifier is present
+  function applyGlobalDurationModifier(baseDuration, localModifier) {
+    if (localModifier) {
+      // Local modifier takes precedence, return as is
+      return baseDuration;
+    }
+    
+    if (!globalDurationModifier) {
+      // No global modifier, return base duration
+      return baseDuration;
+    }
+    
+    // Apply global duration modifier
+    if (globalDurationModifier.startsWith('.')) {
+      const dots = globalDurationModifier.length;
+      return 2 / Math.pow(2, dots); // Divide by powers of 2
+    } else if (globalDurationModifier.startsWith(',')) {
+      const commas = globalDurationModifier.length;
+      return 2 * Math.pow(2, commas); // Multiply by powers of 2
+    }
+    
+    return baseDuration;
+  }
   
   while (i < melodyString.length) {
     let char = melodyString[i];
     
     // Handle waveform type and volume syntax {sine}, {sawtooth}, {square:0.5}, {0.3}
+    // Also handle global duration modifiers like {...}, {..}, {.}, {,}, {,,}
     if (char === '{') {
       const endBrace = melodyString.indexOf('}', i);
       if (endBrace !== -1) {
-        const content = melodyString.substring(i + 1, endBrace).toLowerCase();
+        const content = melodyString.substring(i + 1, endBrace);
+        const contentLower = content.toLowerCase();
         
+        // Check for global duration modifier syntax like {...}, {..}, {.}, {,}, {,,}
+        if (/^[.,]+$/.test(content)) {
+          globalDurationModifier = content;
+        }
         // Check for type:volume syntax like {square:0.5}
-        if (content.includes(':')) {
-          const [waveType, volumeStr] = content.split(':');
+        else if (contentLower.includes(':')) {
+          const [waveType, volumeStr] = contentLower.split(':');
           if (['sine', 'sawtooth', 'square', 'triangle'].includes(waveType)) {
             currentWaveType = waveType;
           }
@@ -79,19 +111,19 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
         }
         // Check for volume-only syntax like {0.5}
-        else if (/^\d*\.?\d+$/.test(content)) {
-          const volume = parseFloat(content);
+        else if (/^\d*\.?\d+$/.test(contentLower)) {
+          const volume = parseFloat(contentLower);
           if (!isNaN(volume) && volume >= 0 && volume <= 1) {
             currentVolume = volume;
           }
         }
         // Check for waveform-only syntax like {sine}
-        else if (['sine', 'sawtooth', 'square', 'triangle'].includes(content)) {
-          currentWaveType = content;
+        else if (['sine', 'sawtooth', 'square', 'triangle'].includes(contentLower)) {
+          currentWaveType = contentLower;
         }
         
         i = endBrace + 1;
-        continue; // Skip to next character after processing waveform/volume
+        continue; // Skip to next character after processing waveform/volume/duration
       }
       // If not a valid syntax, just skip the character
       i++;
@@ -127,12 +159,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
           
           // Default duration is 2 (half note = 1 second with default 500ms baseTempo)
           let duration = 2;
+          let hasLocalModifier = false;
           
           // Check for duration modifiers using dots or dashes (optional)
           if (i < melodyString.length) {
             const nextChar = melodyString[i];
             // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
             if (nextChar === '.') {
+              hasLocalModifier = true;
               let dots = 0;
               while (i < melodyString.length && melodyString[i] === '.') {
                 dots++;
@@ -143,6 +177,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             }
             // Use commas for longer notes: , = half, ,, = whole, ,,, = double whole, etc.
             else if (nextChar === ',') {
+              hasLocalModifier = true;
               let commas = 0;
               while (i < melodyString.length && melodyString[i] === ',') {
                 commas++;
@@ -151,6 +186,11 @@ export function parseMelody(melodyString, startingOctave = 4) {
               // , = double (4.0), ,, = quadruple (8.0), ,,, = octuple (16.0), etc.
               duration = 2 * Math.pow(2, commas);
             }
+          }
+          
+          // Apply global duration modifier if no local modifier was found
+          if (!hasLocalModifier) {
+            duration = applyGlobalDurationModifier(duration, false);
           }
           
           notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume });
@@ -197,12 +237,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
           let duration = 2;
           let swing = swingType === '<' ? 'early' : 'late'; // early or late
           let swingAmount = swingCount; // How many symbols (1, 2, 3, etc.)
+          let hasLocalModifier = false;
           
           // Check for duration modifiers using dots or dashes (optional)
           if (i < melodyString.length) {
             const nextChar = melodyString[i];
             // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
             if (nextChar === '.') {
+              hasLocalModifier = true;
               let dots = 0;
               while (i < melodyString.length && melodyString[i] === '.') {
                 dots++;
@@ -213,6 +255,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             }
             // Use commas for longer notes: , = half, ,, = whole, ,,, = double whole, etc.
             else if (nextChar === ',') {
+              hasLocalModifier = true;
               let commas = 0;
               while (i < melodyString.length && melodyString[i] === ',') {
                 commas++;
@@ -221,6 +264,11 @@ export function parseMelody(melodyString, startingOctave = 4) {
               // , = double (4.0), ,, = quadruple (8.0), ,,, = octuple (16.0), etc.
               duration = 2 * Math.pow(2, commas);
             }
+          }
+          
+          // Apply global duration modifier if no local modifier was found
+          if (!hasLocalModifier) {
+            duration = applyGlobalDurationModifier(duration, false);
           }
           
           notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume });
@@ -302,12 +350,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
       // Default duration is 2 (half note = 1 second with default 500ms baseTempo)
       let duration = 2;
       // No swing for normal notes
+      let hasLocalModifier = false;
       
       // Check for duration modifiers using dots or dashes (optional)
       if (i < melodyString.length) {
         const nextChar = melodyString[i];
         // Use dots for divisions: no dots = quarter, . = eighth, .. = sixteenth, ... = thirty-second, etc.
         if (nextChar === '.') {
+          hasLocalModifier = true;
           let dots = 0;
           while (i < melodyString.length && melodyString[i] === '.') {
             dots++;
@@ -318,6 +368,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
         // Use commas for longer notes: , = half, ,, = whole, ,,, = double whole, etc.
         else if (nextChar === ',') {
+          hasLocalModifier = true;
           let commas = 0;
           while (i < melodyString.length && melodyString[i] === ',') {
             commas++;
@@ -328,11 +379,17 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
       }
       
+      // Apply global duration modifier if no local modifier was found
+      if (!hasLocalModifier) {
+        duration = applyGlobalDurationModifier(duration, false);
+      }
+      
       notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume });
     }
     // Handle rests (only _ and explicit standalone -, not spaces which are separators)
     else if (char === '_') {
       let duration = 2; // Use same default as notes
+      let hasLocalModifier = false;
       i++;
       
       // Check for duration modifiers using dots or commas on rests (consistent with notes)
@@ -340,6 +397,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         const nextChar = melodyString[i];
         // Use dots for divisions: . = default/2, .. = default/4, ... = default/8, etc.
         if (nextChar === '.') {
+          hasLocalModifier = true;
           let dots = 0;
           while (i < melodyString.length && melodyString[i] === '.') {
             dots++;
@@ -350,6 +408,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
         // Use commas for longer rests: , = double, ,, = quadruple, ,,, = octuple, etc.
         else if (nextChar === ',') {
+          hasLocalModifier = true;
           let commas = 0;
           while (i < melodyString.length && melodyString[i] === ',') {
             commas++;
@@ -358,6 +417,11 @@ export function parseMelody(melodyString, startingOctave = 4) {
           // Commas multiply the default duration: , = default*2, ,, = default*4, ,,, = default*8, etc.
           duration = 2 * Math.pow(2, commas);
         }
+      }
+      
+      // Apply global duration modifier if no local modifier was found
+      if (!hasLocalModifier) {
+        duration = applyGlobalDurationModifier(duration, false);
       }
       
       notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
