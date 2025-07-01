@@ -40,7 +40,7 @@
  * - Multiple swing: << (more early) >>> (much later) - multiples the effect
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
- * - Waveform types: {sine} {sawtooth} {square} {triangle} - persists until changed
+ * - Waveform types: {sine} {sawtooth} {square} {triangle} {noise-white} {sample} {custom} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Rests: _ (explicit rest) or standalone - (context dependent)
  * - Separators: spaces (ignored), | (measure bars, ignored)
@@ -102,7 +102,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         // Check for type:volume syntax like {square:0.5}
         else if (contentLower.includes(':')) {
           const [waveType, volumeStr] = contentLower.split(':');
-          if (['sine', 'sawtooth', 'square', 'triangle'].includes(waveType)) {
+          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(waveType)) {
             currentWaveType = waveType;
           }
           const volume = parseFloat(volumeStr);
@@ -118,7 +118,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
         }
         // Check for waveform-only syntax like {sine}
-        else if (['sine', 'sawtooth', 'square', 'triangle'].includes(contentLower)) {
+        else if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(contentLower)) {
           currentWaveType = contentLower;
         }
         
@@ -592,13 +592,47 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   
   // If no parentheses found, treat as single track
   if (!processedMelodyString.includes('(') && !processedMelodyString.includes(')')) {
+    // Check for * anywhere in the string (the "no groups + * = change anything before it" feature)
+    const asteriskIndex = processedMelodyString.indexOf('*');
+    const hasMutation = asteriskIndex !== -1;
+    let contentForParsing = processedMelodyString;
+    let mutationTriggerPosition = -1;
+    
+    if (hasMutation) {
+      // Remove all * characters from the content to parse
+      contentForParsing = processedMelodyString.replace(/\*/g, '');
+      
+      // Calculate the position in the parsed notes where mutation should trigger
+      // We need to count actual note characters before the first *
+      let noteCount = 0;
+      for (let i = 0; i < asteriskIndex; i++) {
+        const char = processedMelodyString[i];
+        // Count note letters and rests as positions that will create parsed notes
+        if (/[a-g_-]/.test(char) || 
+            (char.match(/[0-9]/) && i + 1 < processedMelodyString.length && /[a-g]/.test(processedMelodyString[i + 1]))) {
+          noteCount++;
+        }
+      }
+      mutationTriggerPosition = noteCount;
+    }
+    
     // Apply global wave type to the single track if one was specified
-    const hasLocalWaveType = /{(sine|sawtooth|square|triangle)}/.test(processedMelodyString);
-    const contentWithGlobalWave = hasLocalWaveType ? processedMelodyString : 
-                                   (globalWaveType !== "sine" ? `{${globalWaveType}} ${processedMelodyString}` : processedMelodyString);
+    const hasLocalWaveType = /{(sine|sawtooth|square|triangle)}/.test(contentForParsing);
+    const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : 
+                                   (globalWaveType !== "sine" ? `{${globalWaveType}} ${contentForParsing}` : contentForParsing);
+    
+    const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);
+    
+    // Add mutation flag to the single track if * was present
+    if (hasMutation) {
+      parsedTrack.hasMutation = true;
+      parsedTrack.originalContent = contentForParsing;
+      parsedTrack.mutationCount = 0;
+      parsedTrack.mutationTriggerPosition = mutationTriggerPosition; // Position where mutation should start
+    }
     
     return {
-      tracks: [parseMelody(contentWithGlobalWave, startingOctave)],
+      tracks: [parsedTrack],
       isSingleTrack: true,
       type: 'single'
     };
@@ -671,13 +705,26 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
 export function mutateMelodyTrack(originalTrack, originalContent, startingOctave = 4) {
   if (!originalTrack || originalTrack.length === 0) return originalTrack;
   
-  // Find all notes and rests in the track (exclude only other types of rests like '-')
-  const mutatableIndices = [];
-  originalTrack.forEach((note, index) => {
-    if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate
-      mutatableIndices.push(index);
+  // Check if this track has a mutation trigger position (for mid-melody * syntax)
+  const hasTriggerPosition = originalTrack.mutationTriggerPosition !== undefined;
+  let mutatableIndices = [];
+  
+  if (hasTriggerPosition && originalTrack.mutationTriggerPosition > 0) {
+    // Only mutate notes/rests that appear before the trigger position
+    for (let i = 0; i < Math.min(originalTrack.mutationTriggerPosition, originalTrack.length); i++) {
+      const note = originalTrack[i];
+      if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
+        mutatableIndices.push(i);
+      }
     }
-  });
+  } else {
+    // Original behavior: find all notes and rests in the track (exclude only other types of rests like '-')
+    originalTrack.forEach((note, index) => {
+      if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate
+        mutatableIndices.push(index);
+      }
+    });
+  }
   
   if (mutatableIndices.length === 0) return originalTrack; // No notes or rests to mutate
   
@@ -691,7 +738,7 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
   
   // Handle rest-to-note mutation
   if (itemToMutate.note === 'rest' || itemToMutate.note === '_') {
-    // Rest mutating to a note - pick a random note
+    // Rest mutating to a note - pick a random note (never another rest)
     const randomNoteIndex = Math.floor(Math.random() * noteNames.length);
     const newNoteName = noteNames[randomNoteIndex].toLowerCase();
     
@@ -732,13 +779,17 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
   
   const currentNoteIndex = noteNames.indexOf(baseNote);
   
-  // Pick a different mutation (not the same note)
-  let newMutationIndex;
-  do {
-    newMutationIndex = Math.floor(Math.random() * mutationOptions.length);
-  } while (mutationOptions[newMutationIndex] === baseNote);
+  // Create mutation options that exclude the current note
+  const availableMutations = mutationOptions.filter(option => option !== baseNote);
   
-  const newMutation = mutationOptions[newMutationIndex];
+  if (availableMutations.length === 0) {
+    // Fallback: if somehow no options available, return original track
+    return originalTrack;
+  }
+  
+  // Pick a different mutation (guaranteed to be different from current note)
+  const newMutationIndex = Math.floor(Math.random() * availableMutations.length);
+  const newMutation = availableMutations[newMutationIndex];
   
   // Handle note-to-rest mutation
   if (newMutation === '_') {
