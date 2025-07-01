@@ -49,6 +49,15 @@
     {0.8} c{0.2}d{1.0}e - Volume changes during melody
     {square} (ceg) (dfa) - Square wave for both parallel tracks
     (ceg) ({triangle:0.6} dfa) - Sine for first track, triangle at 60% for second
+  
+  🎵 NEW: Global Duration Modifiers!
+  Use {...} {..} {.} {,} {,,} to set default durations for all following notes:
+    {...} cdefg - All notes become very short (thirty-second notes)
+    {..} cdefg - All notes become short (sixteenth notes)  
+    {.} cdefg - All notes become eighth notes
+    {,} cdefg - All notes become half notes (longer)
+    {,,} cdefg - All notes become whole notes (very long)
+    {..} c d. e f,, - Global applies to c and e; d and f use local modifiers
 
   Examples:
     clock/cdefg               - Play in octave 4 with 1s timing
@@ -57,6 +66,8 @@
     clock/5d.d.edgf#-:2       - Play at 2s timing with octave 5
     clock/c<defg<<ab:0.5      - Play with swing timing at 0.5s
     clock/{square} cdefg      - Square wave melody
+    clock/{...} cdefg         - Very short staccato notes
+    clock/{,,} cdefg          - Long sustained notes
     clock/(ceg) (dfa)         - Parallel melodies: c+d, e+f, g+a
     clock/{triangle} (cd) (ef) (ga)  - Three parallel tracks with triangle wave
     clock/{square} (ceg) ({sawtooth} dfa)  - Mixed waveforms
@@ -99,12 +110,13 @@ let animationProgress = 0; // Progress towards next note (0 to 1)
 let specialCharFlashTime = 0; // Time when special character was processed (for green flash)
 let currentNoteStartTime = 0; // When the current red note started playing
 let currentNoteDuration = 0; // Duration of the current red note
+let hasFirstSynthFired = false; // Flag to track when first synth plays (for syntax coloring)
 
 // Sound management similar to notepat
 const activeSounds = {}; // Track active synth instances for proper timing control
 const scheduledNotes = []; // Queue of notes to be released at specific times
 
-function boot({ ui, clock, params, colon }) {
+function boot({ ui, clock, params, colon, hud }) {
   // Get the UTC offset from /api/clock and use that to set the clock.
   clock.resync();
   
@@ -231,9 +243,16 @@ function boot({ ui, clock, params, colon }) {
   } else {
     melodyMode = "continuous"; // Play melody continuously based on timing mode
   }
+
+  // --- Set the HUD preview clock label immediately on boot ---
+  if (typeof hud !== 'undefined' && hud.label) {
+    // Don't set any color - let disk.mjs handle all HUD coloring automatically
+    // Set a placeholder time string until paint runs
+    hud.label("--:--:--:---", undefined, 0);
+  }
 }
 
-function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
+function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
   const syncedDate = clock.time(); // Get time once at the beginning
   let bgColor;
   let currentSeconds; // To store seconds if syncedDate is valid
@@ -303,45 +322,126 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
   //   [255, 255, 0, 255],
   // );
 
-  // Making a digital clock display.
+  // --- Digital Clock Render ---
+  let clockDrawn = false;
   if (syncedDate) {
-    const morning = syncedDate.getHours() < 12;
-    let hours = syncedDate.getHours();
+    // Draw melody timeline if we have a melody
+    let coloredMelodyStringForTimeline = null;
+    if (hasMelodyContent(melodyState)) {
+      // Build the colored melody string once, use for both timeline and HUD
+      coloredMelodyStringForTimeline = buildColoredMelodyStringUnified(originalMelodyString, melodyState);
+      // Commented out - HUD label preview replaces center timeline display
+      // drawMelodyTimeline(ink, write, screen, melodyState, coloredMelodyStringForTimeline);
+    }
+    // --- Scaled Clock Output ---
+    if (!paint.scaledClockAnchor) {
+      paint.scaledClockAnchor = {
+        utc: syncedDate.getTime(),
+        perf: performance.now(),
+        divisor: currentTimeDivisor
+      };
+    }
+    if (paint.scaledClockAnchor.divisor !== currentTimeDivisor) {
+      const nowPerf = performance.now();
+      const elapsed = (nowPerf - paint.scaledClockAnchor.perf) * (1 / paint.scaledClockAnchor.divisor);
+      const newAnchorUtc = paint.scaledClockAnchor.utc + elapsed;
+      paint.scaledClockAnchor = {
+        utc: newAnchorUtc,
+        perf: nowPerf,
+        divisor: currentTimeDivisor
+      };
+    }
+    const nowPerf = performance.now();
+    const elapsed = (nowPerf - paint.scaledClockAnchor.perf) * (1 / currentTimeDivisor);
+    const scaledTime = new Date(paint.scaledClockAnchor.utc + elapsed);
+
+    const morning = scaledTime.getHours() < 12;
+    let hours = scaledTime.getHours();
     hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    const minutes = pad(syncedDate.getMinutes());
-    const displaySeconds = pad(currentSeconds); // Use currentSeconds from above and pad it
-    const millis = pad(syncedDate.getMilliseconds(), 3);
+    hours = hours ? hours : 12;
+    const minutes = pad(scaledTime.getMinutes());
+    const displaySeconds = pad(scaledTime.getSeconds());
+    const millis = pad(scaledTime.getMilliseconds(), 3);
     const ampm = morning ? "AM" : "PM";
+    const timeString = hours + ":" + minutes + ":" + displaySeconds + ":" + millis + " " + ampm;
+    let fontSize = 1;
 
-    const timeString =
-      hours + ":" + minutes + ":" + displaySeconds + ":" + millis + " " + ampm;
+    // --- Draw the cyan timing line first, then the clock text centered on it ---
+    // Calculate the Y position of the cyan line (same as in drawTimingGraph)
+    const meterStartY = 0;
+    const meterEndY = screen.height;
+    const meterHeight = meterEndY - meterStartY;
+    const minTiming = 0.05;
+    const maxTiming = 3.0;
+    const centerY = Math.round(screen.height / 2);
+    const scaleY = meterHeight / (maxTiming - minTiming);
+    const currentYPos = Math.round(centerY + (currentTimeDivisor - 1.0) * scaleY);
+    // Draw the cyan line first so it appears behind the text
+    ink("cyan").line(0, currentYPos, screen.width, currentYPos);
 
-    let fontSize = 1; // Default size
-
-    // if (timeString.length * 6 < screen.width) {
-    //   fontSize = 1;
-    // } else if (timeString.length * 6 < screen.width * 0.8) {
-    // }
-
-    ink("red").line(0, screen.height / 2, 8 + 5, screen.height / 2);
-    ink("red").line(
-      screen.width - 9,
-      screen.height / 2,
-      screen.width,
-      screen.height / 2,
-    );
-    ink("white").write(timeString, { center: "xy", size: fontSize }, "black");
-    
-    // Display the whole note time (baseTempo) in bottom left corner
-    const wholeNoteTime = (baseTempo * 2) / 1000; // Convert to seconds (multiply by 2 since default duration is 2)
-    const wholeText = screen.width < 200 ? `W:${wholeNoteTime.toFixed(2)}s` : `WHOLE: ${wholeNoteTime.toFixed(3)}s`;
-    ink("cyan").write(wholeText, { 
-      x: 8, // Position from left edge
-      y: screen.height - 16,  // Position from bottom edge
+    // --- Draw the 1s label on the cyan line ---
+    // The 1s timing is always at centerY
+    const oneSLabel = "1s";
+    const oneSBox = (typeof text !== 'undefined' && text.box) ? text.box(oneSLabel, { scale: 1 }) : { width: 12, height: 12 };
+    const oneSX = 8; // Padding from left edge
+    const oneSY = centerY - Math.round(oneSBox.height / 2);
+    // Draw a black background for contrast
+    if (typeof text !== 'undefined' && text.box && text.box.draw) {
+      text.box.draw(oneSLabel, {
+        x: oneSX,
+        y: oneSY,
+        scale: 1,
+        color: "black"
+      });
+    } else {
+      if (ink("black").fillRect) {
+        ink("black").fillRect(oneSX - 4, oneSY - 2, oneSBox.width + 8, oneSBox.height + 4);
+      }
+    }
+    ink("white").write(oneSLabel, {
+      x: oneSX,
+      y: oneSY,
       scale: 1
-    });
-    
+    }, "black");
+    // Draw the clock text centered on the line (in front), with white text on a colored background
+    const box = (typeof text !== 'undefined' && text.box) ? text.box(timeString, { scale: fontSize }) : { width: timeString.length * 6, height: 12 };
+    const textX = Math.round((screen.width - box.width) / 2);
+    // Center the text vertically on the line
+    const textY = currentYPos - Math.round(box.height / 2);
+    // Determine background color: black if exactly 1s, green if below, red if above
+    let timerBgColor = "black";
+    if (Math.abs(currentTimeDivisor - 1.0) < 0.01) {
+      timerBgColor = "black";
+    } else if (currentTimeDivisor > 1.0) {
+      timerBgColor = "red";
+    } else if (currentTimeDivisor < 1.0) {
+      timerBgColor = "green";
+    }
+    // Draw the background rectangle using text.box if available
+    if (typeof text !== 'undefined' && text.box && text.box.draw) {
+      text.box.draw(timeString, {
+        x: textX,
+        y: textY,
+        scale: fontSize,
+        color: timerBgColor
+      });
+    } else {
+      // Fallback: draw a filled rectangle if possible (legacy or custom ink API)
+      if (ink(timerBgColor).fillRect) {
+        ink(timerBgColor).fillRect(textX - 4, textY - 2, box.width + 8, box.height + 4);
+      }
+      // If no fillRect, just skip background
+    }
+    // Draw the time string in white, centered on the line
+    // Always use white text for the main clock display to ensure good contrast
+    // against the colored timing backgrounds (red/green/black)
+    ink("white").write(timeString, {
+      x: textX,
+      y: textY,
+      scale: fontSize
+    }, timerBgColor);
+    clockDrawn = true;
+
     // Display the base octave in red at bottom right
     const octaveText = screen.width < 200 ? `O${octave}` : `OCT ${octave}`;
     const octaveX = screen.width < 200 ? screen.width - 24 : screen.width - 48;
@@ -350,26 +450,301 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
       y: screen.height - 16,  // Position from bottom edge
       scale: 1
     });
-    
-    // Draw melody timeline if we have a melody
-    if (hasMelodyContent(melodyState)) {
-      drawMelodyTimeline(ink, write, screen, melodyState);
+
+    // --- HUD preview clock label in the corner ---
+    if (typeof hud !== 'undefined' && hud.label) {
+      // Check if melody timing has started (based on whether first synth has fired)
+      const melodyTimingStarted = hasFirstSynthFired;
+      
+      console.log("🕐 Clock HUD Debug:", {
+        melodyTimingStarted,
+        hasFirstSynthFired,
+        nextNoteTargetTime,
+        lastNoteTime,
+        hasTrackStates: !!(melodyState && melodyState.trackStates),
+        trackStatesStarted: melodyState && melodyState.trackStates ? melodyState.trackStates.some(ts => ts.startTime > 0) : false,
+        melodyStateIndex: melodyState ? melodyState.index : null,
+        melodyStateType: melodyState ? melodyState.type : null
+      });
+      
+      // Provide "clock" prefix plus melody content - let disk.mjs handle all coloring
+      let previewStringDecorative = '';
+      let previewStringPlain = '';
+      if (originalMelodyString && originalMelodyString.trim().length > 0) {
+        if (melodyTimingStarted) {
+          // Melody timing has started - use colored version with highlighting
+          const coloredMelody = coloredMelodyStringForTimeline || buildColoredMelodyStringUnified(originalMelodyString, melodyState);
+          console.log("🎨 Using colored melody:", coloredMelody.substring(0, 50) + "...");
+          // Ensure the space after "clock" doesn't get colored by the melody colors
+          previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody;
+        } else {
+          // Melody timing hasn't started yet - show plain uncolored text
+          console.log("🎨 Using plain melody (timing not started)");
+          previewStringDecorative = `\\white\\clock ${originalMelodyString}`;
+        }
+        previewStringPlain = `clock ${originalMelodyString}`;
+      } else {
+        // No melody content - just show "clock" with explicit neutral color
+        console.log("🎨 No melody content - just clock");
+        previewStringDecorative = `\\white\\clock`;
+        previewStringPlain = `clock`;
+      }
+      
+      // To ensure the shadow is always black and not colored by inline codes, filter color codes from the decorative string
+      function stripColorCodes(str) {
+        // Remove all \\color\\ sequences
+        return str.replace(/\\[a-zA-Z]+\\/g, '');
+      }
+      const shadowString = stripColorCodes(previewStringDecorative);
+      // Draw the shadow label first, with all color codes stripped, in black
+      if (hud.label && typeof hud.label === 'function') {
+        // Always pass the logical (colorless) string as the 4th argument to hud.label
+        // Let disk.mjs handle all HUD coloring automatically - no explicit color override
+        hud.label(shadowString, undefined, 0, previewStringPlain); // shadow
+        hud.supportsInlineColor = true;
+        hud.label(previewStringDecorative, undefined, 0, previewStringPlain); // colored
+      }
+      // If the HUD system supports setting the actual prompt content, set it to the plain string (no color codes)
+      if (hud.setPromptContent) {
+        hud.setPromptContent(previewStringPlain);
+      }
+    }
+
+// Unified: Build colored melody string for both timeline and HUD label
+function buildColoredMelodyStringUnified(melodyString, melodyState) {
+  // This is the same logic as in drawMelodyTimeline, but returns the colored string
+  if (!melodyString) return "";
+  let coloredMelodyString = "";
+  let noteCharPositions = [];
+  let charIndex = 0;
+  let noteIndex = 0;
+  let inGroup = false;
+  let inWaveform = false;
+  let currentTrackIndex = 0;
+  let noteIndexInCurrentTrack = 0;
+  let now = performance.now();
+  let currentNoteIndex = 0;
+  
+  // Check if timing has actually started before applying current note highlighting
+  const timingHasStarted = hasFirstSynthFired;
+  
+  console.log("🎵 Melody Color Debug:", {
+    timingHasStarted,
+    hasFirstSynthFired,
+    nextNoteTargetTime,
+    lastNoteTime,
+    hasTrackStates: !!(melodyState && melodyState.trackStates),
+    melodyStateIndex: melodyState ? melodyState.index : null
+  });
+  
+  if (timingHasStarted && melodyState && melodyState.type === 'single' && melodyState.notes) {
+    const totalNotes = melodyState.notes.length;
+    currentNoteIndex = (melodyState.index - 1 + totalNotes) % totalNotes;
+  } else if (timingHasStarted && melodyState && melodyState.type === 'parallel') {
+    // For parallel, handled below
+  } else {
+    // If timing hasn't started, set currentNoteIndex to -1 so no note is highlighted
+    currentNoteIndex = -1;
+  }
+  // First pass: identify all note character positions and their duration modifiers
+  for (let i = 0; i < melodyString.length; i++) {
+    const char = melodyString[i];
+    if (char === '{') {
+      inWaveform = true;
+      continue;
+    } else if (char === '}') {
+      inWaveform = false;
+      continue;
+    } else if (inWaveform) {
+      continue;
+    } else if (char === '(') {
+      inGroup = true;
+      continue;
+    } else if (char === ')') {
+      inGroup = false;
+      currentTrackIndex++;
+      noteIndexInCurrentTrack = 0;
+      continue;
+    } else if (char === ' ') {
+      continue;
     }
     
-    // Draw timing graph on the right side
-    drawTimingGraph(ink, write, screen);
+    // Handle octave-first notation (5f, 4c#, etc.) - octave number should be part of the note unit
+    if (/[0-9]/.test(char) && i + 1 < melodyString.length && /[a-g]/i.test(melodyString[i + 1])) {
+      let noteStart = i; // Start with the octave number
+      let noteEnd = i + 1; // Move to the note letter
+      
+      // Check for sharp modifiers
+      if (noteEnd + 1 < melodyString.length) {
+        const nextChar = melodyString[noteEnd + 1];
+        if (nextChar === 's' || nextChar === '#') {
+          noteEnd++;
+        }
+      }
+      
+      // Check for duration modifiers
+      while (noteEnd + 1 < melodyString.length) {
+        const nextChar = melodyString[noteEnd + 1];
+        if (nextChar === '.' || nextChar === '-' || nextChar === '<' || nextChar === '>' || nextChar === ',') {
+          noteEnd++;
+        } else {
+          break;
+        }
+      }
+      
+      const noteIndexToUse = melodyState && melodyState.type === 'parallel' ? noteIndexInCurrentTrack : noteIndex;
+      for (let j = noteStart; j <= noteEnd; j++) {
+        noteCharPositions.push({
+          charIndex: j,
+          noteIndex: noteIndexToUse,
+          trackIndex: currentTrackIndex
+        });
+      }
+      noteIndex++;
+      noteIndexInCurrentTrack++;
+      i = noteEnd;
+    }
+    // Handle regular note letters (without octave prefix) or relative octave modifiers (+c, -f, etc.)
+    else if (/[a-g#_+-]/i.test(char)) {
+      let noteStart = i;
+      let noteEnd = i;
+      
+      // Handle relative octave modifiers (++, --, etc.)
+      if (char === '+' || char === '-') {
+        while (noteEnd + 1 < melodyString.length && melodyString[noteEnd + 1] === char) {
+          noteEnd++;
+        }
+        // Now we should have a note letter
+        if (noteEnd + 1 < melodyString.length && /[a-g]/i.test(melodyString[noteEnd + 1])) {
+          noteEnd++;
+        } else {
+          // Handle standalone dash as rest (like ---)
+          if (char === '-') {
+            const noteIndexToUse = melodyState && melodyState.type === 'parallel' ? noteIndexInCurrentTrack : noteIndex;
+            for (let j = noteStart; j <= noteEnd; j++) {
+              noteCharPositions.push({
+                charIndex: j,
+                noteIndex: noteIndexToUse,
+                trackIndex: currentTrackIndex
+              });
+            }
+            noteIndex++;
+            noteIndexInCurrentTrack++;
+            i = noteEnd;
+            continue;
+          } else {
+            // Invalid + without note, skip
+            continue;
+          }
+        }
+      }
+      
+      // Check for sharp modifiers (for regular notes or after relative modifiers)
+      if (noteEnd + 1 < melodyString.length) {
+        const nextChar = melodyString[noteEnd + 1];
+        if (nextChar === 's' || nextChar === '#') {
+          noteEnd++;
+        }
+      }
+      
+      // Check for duration modifiers
+      while (noteEnd + 1 < melodyString.length) {
+        const nextChar = melodyString[noteEnd + 1];
+        if (nextChar === '.' || nextChar === '-' || nextChar === '<' || nextChar === '>' || nextChar === ',') {
+          noteEnd++;
+        } else {
+          break;
+        }
+      }
+      
+      const noteIndexToUse = melodyState && melodyState.type === 'parallel' ? noteIndexInCurrentTrack : noteIndex;
+      for (let j = noteStart; j <= noteEnd; j++) {
+        noteCharPositions.push({
+          charIndex: j,
+          noteIndex: noteIndexToUse,
+          trackIndex: currentTrackIndex
+        });
+      }
+      noteIndex++;
+      noteIndexInCurrentTrack++;
+      i = noteEnd;
+    }
+  }
+  // Color the original melody string character by character
+  let inWaveformForColoring = false;
+  // For fade logic
+  function getRedNoteColor() {
+    return "red"; // Just hold red while the note is playing
+  }
+  const flashDuration = 200;
+  const shouldFlashGreen = (now - (typeof specialCharFlashTime !== 'undefined' ? specialCharFlashTime : 0)) < flashDuration;
+  for (let i = 0; i < melodyString.length; i++) {
+    const char = melodyString[i];
+    let color = "yellow";
+    
+    // Check if this character is part of the currently playing note
+    const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
+    let isCurrentlyPlayingNote = false;
+    
+    if (noteCharData) {
+      if (melodyState && melodyState.type === 'single') {
+        isCurrentlyPlayingNote = (noteCharData.noteIndex === currentNoteIndex);
+      } else if (melodyState && melodyState.type === 'parallel' && melodyState.trackStates && noteCharData.trackIndex < melodyState.trackStates.length) {
+        const trackState = melodyState.trackStates[noteCharData.trackIndex];
+        const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
+        isCurrentlyPlayingNote = (noteCharData.noteIndex === currentPlayingIndex);
+      }
+    }
+    
+    if (char === '{') {
+      inWaveformForColoring = true;
+      color = shouldFlashGreen ? "green" : (timingHasStarted ? "yellow" : "gray");
+    } else if (char === '}') {
+      inWaveformForColoring = false;
+      color = shouldFlashGreen ? "green" : (timingHasStarted ? "yellow" : "gray");
+    } else if (inWaveformForColoring) {
+      color = timingHasStarted ? "cyan" : "gray";
+    } else if (melodyState && melodyState.isFallback) {
+      if (noteCharData) {
+        if (isCurrentlyPlayingNote) {
+          // Check if this is a special character within the current note
+          if (/[0-9+\-#s<>.,]/i.test(char)) {
+            color = "green"; // Special characters in current note flash green
+          } else {
+            color = getRedNoteColor(); // Note letters use red/orange/yellow fade
+          }
+        } else {
+          // Use gray if timing hasn't started, yellow if it has
+          color = timingHasStarted ? "yellow" : "gray";
+        }
+      } else {
+        color = timingHasStarted ? "yellow" : "gray";
+      }
+    } else {
+      if (noteCharData) {
+        if (isCurrentlyPlayingNote) {
+          // Check if this is a special character within the current note
+          if (/[0-9+\-#s<>.,]/i.test(char)) {
+            color = "green"; // Special characters in current note flash green
+          } else {
+            color = getRedNoteColor(); // Note letters use red/orange/yellow fade
+          }
+        } else {
+          // Use gray if timing hasn't started, yellow if it has
+          color = timingHasStarted ? "yellow" : "gray";
+        }
+      } else {
+        // For non-note characters, use gray until timing starts
+        color = timingHasStarted ? "yellow" : "gray";
+      }
+    }
+    coloredMelodyString += `\\${color}\\${char}`;
+  }
+  return coloredMelodyString;
+}
+    // (Remove any other preview label drawing from the center)
   } else {
     ink("red").write("SYNCING...", { center: "xy", size: 2 });
-    
-    // Display the whole note time even when syncing
-    const wholeNoteTime = (baseTempo * 2) / 1000;
-    const wholeText = screen.width < 200 ? `W:${wholeNoteTime.toFixed(2)}s` : `WHOLE: ${wholeNoteTime.toFixed(3)}s`;
-    ink("cyan").write(wholeText, { 
-      x: 8,
-      y: screen.height - 16,
-      scale: 1
-    });
-    
     // Display the base octave even when syncing
     const octaveText = screen.width < 200 ? `O${octave}` : `OCT ${octave}`;
     const octaveX = screen.width < 200 ? screen.width - 24 : screen.width - 48;
@@ -378,19 +753,17 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help }) {
       y: screen.height - 16,
       scale: 1
     });
-    
     // Draw melody timeline even when syncing if we have a melody
     if (hasMelodyContent(melodyState)) {
       drawMelodyTimeline(ink, write, screen, melodyState);
     }
-    
-    // Draw timing graph even when syncing
-    drawTimingGraph(ink, write, screen);
+    // Draw timing graph even when syncing (intentionally omitted)
+    // drawTimingGraph(ink, write, screen);
   }
 }
 
 // Draw a single version of the melody string with the active note highlighted
-function drawMelodyTimeline(ink, write, screen, melodyState) {
+function drawMelodyTimeline(ink, write, screen, melodyState, coloredMelodyStringOverride) {
   const timelineY = screen.height - 40; // More space above info text
   const timelineStartX = 16;
   const timelineEndX = screen.width - 16;
@@ -398,244 +771,27 @@ function drawMelodyTimeline(ink, write, screen, melodyState) {
   
   // Get the melody string to display (use original input)
   let melodyString = "";
-  let currentNoteIndex = 0;
-  
   if (melodyState && originalMelodyString) {
-    // Use the original melody string exactly as typed
     melodyString = originalMelodyString;
-    
-    // Calculate current position based on melody type
-    if (melodyState.type === 'single') {
-      const totalNotes = melodyState.notes.length;
-      // Since melodyState.index is incremented after playing, we need the previous note
-      currentNoteIndex = (melodyState.index - 1 + totalNotes) % totalNotes;
-    } else if (melodyState.type === 'parallel') {
-      // For parallel tracks, use the main melody index
-      const totalBeats = melodyState.maxLength;
-      currentNoteIndex = melodyState.index % totalBeats;
-    }
   } else {
-    // Fallback behavior when no melody state exists
     melodyString = "cdefgab";
-    currentNoteIndex = 0;
   }
-  
   // Center the melody string horizontally
-  const stringWidth = melodyString.length * 6; // Each character is 6 pixels wide
+  const stringWidth = melodyString.length * 6;
   const startX = Math.max(timelineStartX, (screen.width - stringWidth) / 2);
-  
-  // Build the melody string with inline color codes
-  let coloredMelodyString = "";
-  
-  // Check if we should flash green for special characters
-  const now = performance.now();
-  const flashDuration = 200; // 200ms flash
-  const shouldFlashGreen = (now - specialCharFlashTime) < flashDuration;
-  
-  // Function to get red note color with fade to yellow (representing decay)
-  function getRedNoteColor() {
-    if (currentNoteStartTime === 0 || currentNoteDuration === 0) {
-      return "red"; // Default red if no timing info
-    }
-    
-    const timeSinceNoteStart = now - currentNoteStartTime;
-    const fadeProgress = Math.min(timeSinceNoteStart / currentNoteDuration, 1.0);
-    
-    // Fade from red to yellow over the note duration
-    if (fadeProgress < 0.1) {
-      return "red"; // Stay bright red for first 10% of note
-    } else if (fadeProgress < 1.0) {
-      // Gradually fade to yellow
-      return "orange"; // Intermediate color showing decay
-    } else {
-      return "yellow"; // Fade to yellow at end
-    }
-  }
-  
-  if (melodyState && originalMelodyString) {
-    // Create a mapping from string positions to notes for proper highlighting
-    let noteCharPositions = []; // Array of {charIndex, noteIndex} for note characters
-    let charIndex = 0;
-    let noteIndex = 0;
-    
-    // First pass: identify all note character positions and their duration modifiers
-    // Handle both single tracks and parallel tracks with groups
-    let inGroup = false;
-    let inWaveform = false; // Track if we're inside a {waveform} specifier
-    let currentTrackIndex = 0;
-    let noteIndexInCurrentTrack = 0;
-    
-    for (let i = 0; i < melodyString.length; i++) {
-      const char = melodyString[i];
-      
-      if (char === '{') {
-        inWaveform = true;
-        continue;
-      } else if (char === '}') {
-        inWaveform = false;
-        continue;
-      } else if (inWaveform) {
-        // Skip all characters inside {waveform} specifiers
-        continue;
-      } else if (char === '(') {
-        inGroup = true;
-        continue;
-      } else if (char === ')') {
-        inGroup = false;
-        currentTrackIndex++;
-        noteIndexInCurrentTrack = 0;
-        continue;
-      } else if (char === ' ') {
-        // Skip spaces - track index is managed by parentheses
-        continue;
-      }
-      
-      if (/[a-g#b_]/i.test(char)) {
-        // This is a note character (including rests _) - mark it and any following duration modifiers
-        let noteEnd = i;
-        
-        // Look ahead for duration modifiers (dots, dashes)
-        while (noteEnd + 1 < melodyString.length) {
-          const nextChar = melodyString[noteEnd + 1];
-          if (nextChar === '.' || nextChar === '-' || nextChar === '<' || nextChar === '>') {
-            noteEnd++;
-          } else {
-            break;
-          }
-        }
-        
-        // Mark all characters from i to noteEnd as part of this note
-        // For parallel tracks, use the note index within the current track
-        // For single tracks, use the global note index
-        const noteIndexToUse = melodyState.type === 'parallel' ? noteIndexInCurrentTrack : noteIndex;
-        
-        for (let j = i; j <= noteEnd; j++) {
-          noteCharPositions.push({ 
-            charIndex: j, 
-            noteIndex: noteIndexToUse,
-            trackIndex: currentTrackIndex // Store track info for parallel tracks
-          });
-        }
-        
-        noteIndex++; // Global note counter
-        noteIndexInCurrentTrack++; // Track-specific note counter
-        i = noteEnd; // Skip ahead to avoid reprocessing duration modifiers
-      }
-    }
-    
-  // Color the original melody string character by character
-  let inWaveformForColoring = false; // Track if we're inside a {waveform} for coloring
-  
-  for (let i = 0; i < melodyString.length; i++) {
-    const char = melodyString[i];
-    let color = "yellow"; // Default color
-    
-    // Handle waveform bracket coloring
-    if (char === '{') {
-      inWaveformForColoring = true;
-      // Brackets should flash green when waveforms are processed
-      if (shouldFlashGreen) {
-        color = "green";
-      } else {
-        color = "yellow"; // Default color when not flashing
-      }
-    } else if (char === '}') {
-      inWaveformForColoring = false;
-      // Brackets should flash green when waveforms are processed
-      if (shouldFlashGreen) {
-        color = "green";
-      } else {
-        color = "yellow"; // Default color when not flashing
-      }
-    } else if (inWaveformForColoring) {
-      // Characters inside {waveform} should stay cyan for readability - no blinking
-      color = "cyan";
-    }
-    // Check if this is a fallback melody - if so, make notes yellow (except current note)
-    else if (melodyState.isFallback) {
-      // For fallback melody, highlight the current playing note in red, others in yellow (but only notes)
-      if (melodyState.type === 'single') {
-        const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
-        if (noteCharData) {
-          // This is a note character
-          if (noteCharData.noteIndex === currentNoteIndex) {
-            color = getRedNoteColor(); // Use fade color for fallback melodies too
-          } else {
-            color = "yellow";
-          }
-        } else {
-          // Not a note character, use white for modifiers/separators
-          color = "white";
-        }
-      } else {
-        // For non-single tracks or no track info, just use white for non-notes
-        color = "white";
-      }
-    } else {
-      // Regular melody coloring logic
-      // Note: + and - octave modifiers don't flash since they're absorbed into note octave during parsing
-      
-      // Check if this is a note character that should be highlighted red
-      if (melodyState.type === 'single') {
-        // Find if this character position corresponds to a note
-        const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
-        if (noteCharData) {
-          // This is a note character, check if it's the current one
-          if (noteCharData.noteIndex === currentNoteIndex) {
-            color = getRedNoteColor(); // Use fade color instead of solid red
-          }
-        }
-      }
-      // For parallel tracks, highlight based on current beat position
-      else if (melodyState.type === 'parallel') {
-        // For parallel tracks, check if this character is part of the currently playing note
-        const noteCharData = noteCharPositions.find(ncp => ncp.charIndex === i);
-        if (noteCharData && noteCharData.trackIndex < melodyState.trackStates.length) {
-          const trackState = melodyState.trackStates[noteCharData.trackIndex];
-          // Check if this note is the currently playing note in this track
-          // Since trackState.noteIndex points to the next note to play after incrementing,
-          // we need to check against the previous note (with proper wrapping)
-          const currentPlayingIndex = (trackState.noteIndex - 1 + trackState.track.length) % trackState.track.length;
-          
-          if (noteCharData.noteIndex === currentPlayingIndex) {
-            color = getRedNoteColor(); // Use fade color instead of solid red
-          }
-        }
-      }
-    }
-    
-    coloredMelodyString += `\\${color}\\${char}`;
-  }
-  } else {
-    // For default melody or no melody state
-    for (let i = 0; i < melodyString.length; i++) {
-      const char = melodyString[i];
-      
-      // Highlight the current playing note in red, others in yellow
-      if (i === currentNoteIndex) {
-        coloredMelodyString += `\\red\\${char}`;
-      } else {
-        coloredMelodyString += `\\yellow\\${char}`;
-      }
-    }
-  }
-  
-  // Draw the entire melody string with inline colors in one call
+  // Use the provided colored string if available
+  let coloredMelodyString = coloredMelodyStringOverride || buildColoredMelodyStringUnified(melodyString, melodyState);
   write(coloredMelodyString, {
     x: startX,
     y: timelineY,
     scale: 1
   });
-  
   // Draw timing info below the melody string
   const infoY = timelineY + 12;
-  
-  // Show current timing divisor
   const timeDivisor = currentTimeDivisor;
   const timingText = screen.width < 300 ? 
     `${timeDivisor.toFixed(1)}s` :
     `${timeDivisor.toFixed(1)}s timing`;
-  
   ink("cyan").write(timingText, { 
     x: timelineStartX, 
     y: infoY,
@@ -691,7 +847,7 @@ function isNotePlayingInParallelTrack(melodyString, charIndex, trackStates) {
     }
     
     // Count notes, treating duration-modified notes as single units
-    if (/[a-g#b_]/i.test(char)) {
+    if (/[a-g#_]/i.test(char)) {
       // Skip ahead past any duration modifiers
       let j = i;
       while (j + 1 < melodyString.length) {
@@ -870,6 +1026,9 @@ function createManagedSound(sound, tone, waveType, duration, volume = 0.8, isFal
     decay: 0.995,
     volume: volume
   });
+  
+  // Set flag to indicate first synth has fired (for syntax coloring)
+  hasFirstSynthFired = true;
   
   // Calculate when this note should be released (using the shorter duration)
   const releaseTime = performance.now() + actualDuration;
@@ -1145,38 +1304,29 @@ function act({ event: e, clock, sound: { synth } }) {
     // Negative delta.y (moving up) decreases divisor (faster timing)
     // Positive delta.y (moving down) increases divisor (slower timing)
     const pixelMovement = e.delta.y * 0.01; // More sensitive pixel-to-timing conversion
-    
+
     // Apply movement directly to current divisor
     const newDivisor = currentTimeDivisor + pixelMovement;
-    
+
     // Clamp to reasonable values (0.1s to 10.0s)
     const clampedDivisor = Math.max(0.1, Math.min(10.0, newDivisor));
-    
+
     // Update if there's any change (pixel-by-pixel)
     if (Math.abs(clampedDivisor - currentTimeDivisor) > 0.001) {
       // Update the divisor values immediately
       currentTimeDivisor = clampedDivisor;
       targetTimeDivisor = clampedDivisor; // Update target to match - no lerping back
       utcTriggerDivisor = clampedDivisor; // Update UTC trigger immediately
-      
+
       // Update timing
       baseTempo = (currentTimeDivisor * 1000) / 2;
-      
-      // Play a subtle tick sound for each pixel movement
-      synth({
-        type: "square",
-        tone: currentTimeDivisor === 1.0 ? "7C" : "6G", // Higher pitch for feedback
-        duration: 0.03, // Very short tick
-        attack: 0.005,
-        volume: 0.15 // Quieter since it plays more frequently
-      });
-      
+
       // Update melody state timing if it exists
       if (melodyState) {
         melodyState.baseTempo = baseTempo;
       }
     }
-    
+
     // Stop any ongoing lerping when actively dragging
     isLerpingToSync = false;
   }
@@ -1462,19 +1612,21 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 //   // Runs once per system metronome (BPM) tick.
 // }
 
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave() {
+  // Runs once before the piece is unloaded.
+  // Clear all active sounds to prevent lingering beeps
+  clearAllSounds();
+}
 
 function preview({ ink, wipe, write }) {
   // Render a custom thumbnail image showing the fallback melody
   wipe("black");
   
-  // Show the fallback melody in yellow
-  ink("yellow");
-  write("cdefgab", {
+  // Test colored text with wrapping to debug the off-by-one issue
+  write("\\yellow\\hello \\red\\world \\green\\this \\blue\\is \\cyan\\a \\magenta\\very \\orange\\long \\white\\melody \\gray\\test", {
     x: 6,
     y: 6,
+    bounds: 60,  // Force wrapping
     scale: 1
   });
   
@@ -1482,7 +1634,7 @@ function preview({ ink, wipe, write }) {
   ink("cyan");
   write("🕐", {
     x: 20,
-    y: 18,
+    y: 40,
     scale: 1
   });
 }
