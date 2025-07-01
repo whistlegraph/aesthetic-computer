@@ -4102,8 +4102,19 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     }
 
-    if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
-    if (module.nohud || system === "prompt") currentHUDTxt = undefined;
+    console.log("🔍 HUD Debug - slug:", slug, "alias:", alias);
+    if (!alias) {
+      // Convert tildes to spaces for display in the corner label
+      const displaySlug = slug.replace(/~/g, " ");
+      console.log("🔍 HUD Debug - Setting displaySlug:", displaySlug);
+      currentHUDTxt = displaySlug; // Update hud if this is not an alias.
+      currentHUDLogicalTxt = displaySlug; // Set logical text to the same space-separated version
+    }
+    if (module.nohud || system === "prompt") {
+      console.log("🔍 HUD Debug - Clearing HUD (nohud or prompt)");
+      currentHUDTxt = undefined;
+      currentHUDLogicalTxt = undefined;
+    }
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
@@ -4121,7 +4132,7 @@ async function load(
       $commonApi.history.push(currentText);
     }
 
-    currentText = slug;
+    currentText = slug; // Keep original slug with tildes for URL navigation
     currentCode = sourceCode;
 
     if (screen) screen.created = true; // Reset screen to created if it exists.
@@ -5058,15 +5069,17 @@ async function makeFrame({ data: { type, content } }) {
           if (!labelBack || data.key === "Backspace") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
-              const content = currentHUDLogicalTxt || currentHUDTxt || currentText;
-              // Only encode kidlisp content with kidlisp encoder
-              if (lisp.isKidlispSource(content)) {
-                const encodedContent = lisp.encodeKidlispForUrl(content);
-                promptSlug += "~" + encodedContent;
-              } else {
-                // For regular piece names, convert tildes to spaces for display
-                const spaceContent = content.replace(/~/g, " ");
-                promptSlug += "~" + spaceContent;
+              // Use currentText which contains the original slug with tildes (e.g., "rect~red")
+              const content = currentText;
+              if (content) {
+                // Only encode kidlisp content with kidlisp encoder
+                if (lisp.isKidlispSource(content)) {
+                  const encodedContent = lisp.encodeKidlispForUrl(content);
+                  promptSlug += "~" + encodedContent;
+                } else {
+                  // For regular piece names, currentText already has the correct tilde format
+                  promptSlug += "~" + content;
+                }
               }
             }
             $commonApi.jump(promptSlug)(() => {
