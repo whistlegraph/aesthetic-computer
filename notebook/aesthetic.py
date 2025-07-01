@@ -234,25 +234,28 @@ class AestheticComputerMagics(Magics):
     @cell_magic
     def ac(self, line, cell):
         """
-        Cell magic to execute kidlisp code directly without quotes.
+        Cell magic to execute kidlisp code or piece invocations directly.
         
         Usage:
             %%ac
             (ink red)
             (line 0 0 100 100)
             
+        Or for piece invocations:
+            %%ac
+            clock cdefg
+            
         With size options:
-            %%ac 800 600
-            %%ac 320 240*2
-            %%ac width/2 height*1.5
-            %%ac canvas_width canvas_height
+            %%ac 400          # Height only (width = 100%)
+            %%ac 800 600      # Width and height
+            %%ac 320 240*2    # Math expressions supported
             (your kidlisp code here)
             
         Parameters support math expressions and variables from the current namespace.
         Examples:
-            %%ac 400*2 300+50
+            %%ac 400*2        # Height = 800, width = 100%
             %%ac my_width my_height
-            %%ac int(800/2) int(600*1.5)
+            %%ac int(800/2) int(600*1.5)  # Width = 400, height = 900
         """
         # Parse and evaluate arguments with math support
         args = line.strip().split() if line.strip() else []
@@ -320,24 +323,148 @@ class AestheticComputerMagics(Magics):
             pass
         
         if len(args) >= 1:
-            width_expr = args[0]
-            width = safe_eval(width_expr, context)
+            # If only one argument, treat it as height and keep width as "100%"
+            if len(args) == 1:
+                height_expr = args[0]
+                height = safe_eval(height_expr, context)
+                # width stays as "100%" (already set above)
+            else:
+                # If two or more arguments, first is width, second is height
+                width_expr = args[0]
+                width = safe_eval(width_expr, context)
+                if len(args) >= 2:
+                    height_expr = args[1]
+                    height = safe_eval(height_expr, context)
         
-        if len(args) >= 2:
-            height_expr = args[1]
-            height = safe_eval(height_expr, context)
-                
-        return kidlisp(cell.strip(), width, height, False)
+        # Check if the cell content is a piece invocation or kidlisp code
+        cell_content = cell.strip()
+        
+        # Detect if this is a piece invocation vs kidlisp code
+        # Piece invocations:
+        # - Don't start with ( or ;
+        # - Don't contain newlines (single line piece calls)
+        # - First word is likely a piece name (not a kidlisp function)
+        is_piece_invocation = (
+            cell_content and
+            not cell_content.startswith('(') and 
+            not cell_content.startswith(';') and
+            '\n' not in cell_content and
+            not cell_content.startswith('~') and  # kidlisp can start with ~
+            len(cell_content.split()) >= 1
+        )
+        
+        if is_piece_invocation:
+            # Handle as piece invocation - construct URL directly
+            # Replace spaces with ~ for piece parameters
+            piece_url = cell_content.replace(' ', '~')
+            url = f"https://localhost:8888/{piece_url}?nolabel=true&nogap=true"
+            
+            # Create iframe directly
+            content_hash = hashlib.md5(f"{cell_content}{width}{height}".encode()).hexdigest()[:8]
+            iframe_id = f"ac-iframe-{content_hash}"
+            
+            iframe_html = f'''
+            <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+                <iframe id="{iframe_id}" src="{url}" 
+                        width="{width}" 
+                        height="{height}" 
+                        frameborder="0"
+                        style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
+                </iframe>
+            </div>
+            '''
+            
+            display(HTML(iframe_html))
+        else:
+            # Handle as kidlisp code
+            return kidlisp(cell_content, width, height, False)
     
     @line_magic
     def ac_line(self, line):
         """
-        Line magic to execute a single line of kidlisp code.
+        Line magic to execute a single line of kidlisp code or piece invocation.
         
         Usage:
             %ac (ink red) (circle 25 25 10)
+            %ac clock cdefg
+            %ac 100 clock cdefg          # Height = 100, width = 100%
+            %ac 400 200 clock cdefg      # Width = 400, height = 200
+            
+        Note: For piece invocations with special characters like {}, use cell magic %%ac instead
+        to avoid Python syntax parsing issues.
         """
-        return kidlisp(line.strip(), "100%", 30, False)
+        line_content = line.strip()
+        
+        # Parse potential size parameters from the beginning of the line
+        parts = line_content.split()
+        width = "100%"
+        height = 30
+        content_start_index = 0
+        
+        # Check if first part(s) are numeric parameters
+        if len(parts) >= 2:  # Need at least 2 parts to have a size parameter + content
+            try:
+                # Try to parse first part as a number (height only)
+                first_num = int(parts[0])
+                if len(parts) >= 3:
+                    try:
+                        # Try to parse second part as a number (width, height)
+                        second_num = int(parts[1])
+                        width = first_num
+                        height = second_num
+                        content_start_index = 2
+                    except ValueError:
+                        # Second part is not a number, so first is height only
+                        height = first_num
+                        content_start_index = 1
+                else:
+                    # Only two parts total, first is height, second is content
+                    height = first_num
+                    content_start_index = 1
+            except ValueError:
+                # First part is not a number, treat entire line as content
+                pass
+        
+        # Extract the actual content (after size parameters)
+        if content_start_index > 0:
+            actual_content = ' '.join(parts[content_start_index:])
+        else:
+            actual_content = line_content
+        
+        # Detect if this is a piece invocation vs kidlisp code
+        is_piece_invocation = (
+            actual_content and
+            not actual_content.startswith('(') and 
+            not actual_content.startswith(';') and
+            not actual_content.startswith('~') and
+            len(actual_content.split()) >= 1
+        )
+        
+        if is_piece_invocation:
+            # Handle as piece invocation - construct URL directly
+            # Replace spaces with ~ for piece parameters
+            piece_url = actual_content.replace(' ', '~')
+            url = f"https://localhost:8888/{piece_url}?nolabel=true&nogap=true"
+            
+            # Create iframe directly
+            content_hash = hashlib.md5(f"{actual_content}{width}{height}".encode()).hexdigest()[:8]
+            iframe_id = f"ac-iframe-{content_hash}"
+            
+            iframe_html = f'''
+            <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+                <iframe id="{iframe_id}" src="{url}" 
+                        width="{width}" 
+                        height="{height}" 
+                        frameborder="0"
+                        style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
+                </iframe>
+            </div>
+            '''
+            
+            display(HTML(iframe_html))
+        else:
+            # Handle as kidlisp code
+            return kidlisp(actual_content, width, height, False)
 
 # Automatic IPython/Jupyter setup - makes λ globally available
 def _setup_ipython():

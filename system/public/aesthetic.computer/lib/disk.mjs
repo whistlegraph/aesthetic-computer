@@ -275,6 +275,7 @@ let currentPath,
   currentText,
   currentCode,
   currentHUDTxt,
+  currentHUDLogicalTxt,
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
@@ -999,12 +1000,14 @@ const $commonApi = {
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
-    label: (text, color, offset) => {
+    label: (text, color, offset, logical) => {
       currentHUDTxt = text;
-      if (!color) {
-        currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
-      } else {
+      currentHUDLogicalTxt = logical || (typeof text === 'string' ? text.replace(/\\[a-zA-Z]+\\/g, '') : text);
+      if (color) {
         currentHUDTextColor = graph.findColor(color);
+      } else {
+        // Use default white color when no color is specified
+        currentHUDTextColor = currentHUDTextColor || [255, 200, 240];
       }
       currentHUDOffset = offset;
     },
@@ -2003,8 +2006,12 @@ const $paintApi = {
     // Check for color codes like \\blue\\, \\red\\, etc.
     const colorCodeRegex = /\\([a-zA-Z]+)\\/g;
     const hasColorCodes = text.includes("\\");
+    
+    // Check if inline color processing is disabled via options
+    const noInlineColor = (typeof arguments[1] === "object" && arguments[1]?.noInlineColor) || 
+                         (typeof arguments[3] === "object" && arguments[3]?.noInlineColor);
 
-    if (hasColorCodes) {
+    if (hasColorCodes && !noInlineColor) {
       // Remember the current ink color to restore it later
       const originalColor = $activePaintApi.inkrn();
 
@@ -2015,6 +2022,7 @@ const $paintApi = {
 
       // Split text by color codes and process each segment
       const segments = text.split(colorCodeRegex);
+
 
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
@@ -2029,7 +2037,7 @@ const $paintApi = {
           currentColor = segments[i];
         }
       }
-
+      
       // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {
         return $activePaintApi; // Exit silently if no text content remains
@@ -2043,24 +2051,32 @@ const $paintApi = {
         if (!tb || !tb.lines) {
           return $activePaintApi; // Exit silently if text.box fails
         }
-        tb.lines.forEach((line, index) => {
-          // Calculate the starting character index for this line
-          let lineStartIndex = 0;
-          for (let i = 0; i < index; i++) {
-            lineStartIndex += tb.lines[i].join(" ").length;
-            if (i < tb.lines.length - 1) lineStartIndex++; // Add 1 for space between lines
-          }
 
+        // Simple character-by-character mapping for wrapped lines
+        let cleanTextIndex = 0;
+        
+        tb.lines.forEach((line, lineIndex) => {
+          const joinedLine = line.join(" ");
+          const lineColors = [];
+          
+          // Map each character in the line to its color from the original charColors array
+          for (let charIndex = 0; charIndex < joinedLine.length; charIndex++) {
+            // Use the color from the original mapping, or null if we're past the end
+            if (cleanTextIndex < charColors.length) {
+              lineColors.push(charColors[cleanTextIndex]);
+            } else {
+              lineColors.push(null);
+            }
+            cleanTextIndex++;
+          }
+          
           tf?.print(
             $activePaintApi,
             tb.pos,
-            index,
-            line.join(" "),
+            lineIndex,
+            joinedLine,
             bg,
-            charColors.slice(
-              lineStartIndex,
-              lineStartIndex + line.join(" ").length,
-            ),
+            lineColors,
           );
         });
       } else {
@@ -2101,6 +2117,11 @@ const $paintApi = {
     }
 
     // 🎁 Original code for text without color codes
+    // If noInlineColor is true, strip color codes from the text first
+    if (noInlineColor && hasColorCodes) {
+      text = text.replace(/\\[a-zA-Z]+\\/g, '');
+    }
+    
     // See if the text length is greater than the bounds, and if it is then
     // print on a new line.
     const scale = pos?.size || 1;
@@ -4999,7 +5020,7 @@ async function makeFrame({ data: { type, content } }) {
           if (!labelBack || data.key === "Backspace") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
-              const content = currentHUDTxt || currentText;
+              const content = currentHUDLogicalTxt || currentHUDTxt || currentText;
               // Only encode kidlisp content with kidlisp encoder
               if (lisp.isKidlispSource(content)) {
                 const encodedContent = lisp.encodeKidlispForUrl(content);
@@ -5858,7 +5879,7 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.1,
                 });
                 // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDLogicalTxt || currentHUDTxt));
                 return;
               }
 
@@ -5884,9 +5905,12 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
             },
-            rollout: () => {
+            rollout: (btn) => {
               // console.log("rolled out...");
-              currentHUDTextColor = [200, 80, 80];
+              // Only change color if the button was actually pressed/down
+              if (btn && btn.down) {
+                currentHUDTextColor = [200, 80, 80];
+              }
               send({ type: "keyboard:lock" });
             },
           });
@@ -6368,19 +6392,20 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // Show a notice if necessary.
-        if (notice) {
-          ink(noticeColor[0])
-            //.pan(help.choose(-1, 0, 1), help.choose(-1, 0, 1))
-            .write(
-              notice,
-              { center: "xy", size: 2 },
-              // { center: "x", y: 32, size: 2 },
-              noticeColor[1],
-              $api.screen.width - 8,
-              noticeOpts?.wrap === "char" ? false : true,
-            );
-          //.unpan();
-        }
+        // Commented out - prompt character preview in HUD label replaces center preview
+        // if (notice) {
+        //   ink(noticeColor[0])
+        //     //.pan(help.choose(-1, 0, 1), help.choose(-1, 0, 1))
+        //     .write(
+        //       notice,
+        //       { center: "xy", size: 2 },
+        //       // { center: "x", y: 32, size: 2 },
+        //       noticeColor[1],
+        //       $api.screen.width - 8,
+        //       noticeOpts?.wrap === "char" ? false : true,
+        //     );
+        //   //.unpan();
+        // }
 
         layer(0);
 
@@ -6415,59 +6440,221 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        let w = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
+        // Use the actual rendered width and height from text.box, not a naive estimate
+        // For label sizing, use the color-code-stripped text to avoid false wrapping
+        let cleanText = currentHUDTxt.replace(/\\[a-zA-Z]+\\/g, '');
         const labelBounds = $api.text.box(
-          currentHUDTxt,
+          cleanText,
           undefined,
           $api.screen.width - $api.typeface.blockWidth,
         );
-
-        const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
+        // Use the actual width of the longest rendered line
+        let w = Math.max(...labelBounds.lines.map(lineArr => {
+          // Preserve spaces when joining words on a line, matching the rendering logic
+          return (Array.isArray(lineArr) ? lineArr.join(" ") : lineArr).length * tf.blockWidth;
+        })) + currentHUDScrub; // Exact width without extra padding
+        // Use the actual number of rendered lines for height
+        // Use only the actual text height for a tighter fit (no extra margin)
+        const scale = 1; // HUD label always uses scale 1
+        // Match the text.box rendering logic: blockHeight = (tf.blockHeight + 1) * scale
+        const h = labelBounds.lines.length * (tf.blockHeight + 1) * scale;
         if (piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
 
-          let c;
-          if (currentHUDTextColor) {
-            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
-          } else if (currentHUDStatusColor) {
-            c = currentHUDStatusColor;
-          } else {
-            c = [255, 200, 240];
+          // Always use the original currentHUDTxt for the HUD label, preserving all color codes and user content
+          let text = currentHUDTxt;
+          
+          // Check if scrub has reached max threshold (share width) to disable syntax coloring
+          const shareWidth = tf.blockWidth * "share ".length;
+          const disableSyntaxColoring = currentHUDScrub >= shareWidth;
+          
+          // Detect inline color codes (e.g., \\yellow\\c\\red\\d), but disable if at max scrub
+          const hasInlineColor = !disableSyntaxColoring && /\\[a-zA-Z]+\\/.test(text);
+          
+          // Draw a visible background box for debugging the label bounds
+          // $.ink([0,0,0,64]).box(0, 0, w, h); // semi-transparent black - commented out to remove backdrop
+          // Draw shadow/outline in black, but always strip color codes for the shadow
+          function stripColorCodes(str) {
+            return str.replace(/\\[a-zA-Z]+\\/g, '');
           }
-          if (piece !== "video") {
-            let text = currentHUDTxt;
-            if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
-              text = currentHUDTxt?.replaceAll("~", " ");
-            }
-            $.ink(0).write(
-              text,
-              { x: 1 + currentHUDScrub, y: 1 },
-              undefined,
-              $api.screen.width - $api.typeface.blockWidth,
-            );
-            $.ink(c).write(
-              text,
-              { x: 0 + currentHUDScrub, y: 0 },
-              undefined,
-              $api.screen.width - $api.typeface.blockWidth,
-            );
+          // For the shadow, always strip color codes and disable inline color processing
+          $.ink(0).write(
+            stripColorCodes(text), // Always strip color codes for shadow
+            { x: 1 + currentHUDScrub, y: 1, noInlineColor: true }, // Add flag to disable inline color processing
+            undefined,
+            $api.screen.width - $api.typeface.blockWidth,
+          );
+          // For the foreground, parse color codes and render per-character colors
+          const colorCodeRegex = /\\([a-zA-Z]+)\\/g;
+          let charColors = [];
+          let currentColor = null;
 
-            if (currentHUDScrub > 0) {
-              const shareWidth = tf.blockWidth * "share ".length;
-              $.ink(0).write("share", {
-                x: 1 + currentHUDScrub - shareWidth,
-                y: 1,
-              });
-              $.ink(c).write("share", {
-                x: 0 + currentHUDScrub - shareWidth,
-                y: 0,
-              });
+          // Use stripColorCodes result for consistent rendering (same as shadow)
+          const renderText = hasInlineColor ? stripColorCodes(text) : text;
+          
+          // Build color array by stepping through the original text and mapping colors to cleaned positions
+          let cleanIndex = 0;
+          let originalIndex = 0;
+          
+          // Helper function to convert color names to RGB arrays
+          function colorNameToRGB(colorName) {
+            if (!colorName) return null;
+            // Use the graph's color lookup if available
+            if ($api.graph && $api.graph.findColor) {
+              const rgb = $api.graph.findColor(colorName);
+              if (rgb) return rgb;
+            }
+            // Fallback color mappings
+            const colorMap = {
+              'white': [255, 255, 255],
+              'black': [0, 0, 0],
+              'red': [255, 0, 0],
+              'green': [0, 255, 0],
+              'blue': [0, 0, 255],
+              'yellow': [255, 255, 0],
+              'cyan': [0, 255, 255],
+              'magenta': [255, 0, 255],
+              'orange': [255, 165, 0],
+              'purple': [128, 0, 128],
+              'pink': [255, 192, 203],
+              'gray': [128, 128, 128],
+              'grey': [128, 128, 128]
+            };
+            return colorMap[colorName.toLowerCase()] || [255, 255, 255];
+          }
+          
+          while (originalIndex < text.length && cleanIndex < cleanText.length) {
+            // Check if we're at the start of a color code
+            if (text[originalIndex] === '\\') {
+              // Find the end of the color code
+              const colorMatch = text.slice(originalIndex).match(/^\\([a-zA-Z]+)\\/);
+              if (colorMatch) {
+                // Update current color (convert to RGB)
+                currentColor = colorNameToRGB(colorMatch[1]);
+                // Skip over the color code
+                originalIndex += colorMatch[0].length;
+                continue;
+              }
+            }
+            
+            // This is a regular character, assign the current color
+            charColors[cleanIndex] = currentColor;
+            cleanIndex++;
+            originalIndex++;
+          }
+          
+          // Fill any remaining positions with the current color
+          while (cleanIndex < cleanText.length) {
+            charColors[cleanIndex] = currentColor;
+            cleanIndex++;
+          }
+          
+          // Override piece name prefix colors to use currentHUDTextColor
+          // Find the piece name (everything before the first space) and force it to use HUD color
+          const spaceIndex = renderText.indexOf(' ');
+          if (disableSyntaxColoring) {
+            // When syntax coloring is disabled, use currentHUDTextColor for all text
+            for (let i = 0; i < renderText.length; i++) {
+              charColors[i] = currentHUDTextColor || [255, 200, 240];
+            }
+          } else if (spaceIndex > 0) {
+            // Override colors for the piece name (0 to spaceIndex) to use HUD color
+            for (let i = 0; i < spaceIndex; i++) {
+              charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+            }
+          } else if (renderText.length > 0) {
+            // If no space found, the entire text is the piece name
+            for (let i = 0; i < renderText.length; i++) {
+              charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+            }
+          }
+          
+          // Patch: ensure charColors matches renderText length
+          if (charColors.length < renderText.length) {
+            // Pad with last color
+            const padColor = charColors.length > 0 ? charColors[charColors.length - 1] : null;
+            while (charColors.length < renderText.length) charColors.push(padColor);
+          } else if (charColors.length > renderText.length) {
+            // Truncate if too long (should not happen)
+            charColors = charColors.slice(0, renderText.length);
+          }
+          
+          // Handle multi-line rendering by using the renderText for consistent line breaking
+          if (hasInlineColor) {
+            // Use the existing labelBounds which was calculated from cleanText/renderText
+            let cleanTextIndex = 0;
+            
+            for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
+              const lineArray = labelBounds.lines[lineIndex];
+              // Preserve spaces when joining words on a line, matching the width calculation logic
+              const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
+              const lineY = lineIndex * (tf.blockHeight + 1);
+              
+              // Map each character in the line to its color from the original charColors array
+              const lineColors = [];
+              for (let charIndex = 0; charIndex < lineText.length; charIndex++) {
+                // Use the color from the original mapping, or null if we're past the end
+                if (cleanTextIndex < charColors.length) {
+                  lineColors.push(charColors[cleanTextIndex]);
+                } else {
+                  lineColors.push(null);
+                }
+                cleanTextIndex++;
+              }
+              
+              // IMPORTANT: Account for spaces between lines that are lost in the word-based line breaking
+              // The text.box line breaking removes spaces at line breaks, but our color mapping includes them
+              // So we need to skip over the space characters in our color mapping
+              if (lineIndex < labelBounds.lines.length - 1) {
+                // Skip the space character that was at the end of this line/start of next line
+                if (cleanTextIndex < cleanText.length && cleanText[cleanTextIndex] === ' ') {
+                  cleanTextIndex++; // Skip the space in our color mapping
+                }
+              }
+              
+              // Render the line with per-character colors
+              if (tf?.print) {
+                tf.print($, { x: 0 + currentHUDScrub, y: lineY }, 0, lineText, undefined, lineColors);
+              } else {
+                // Fallback if tf.print doesn't exist
+                $.ink(currentHUDTextColor || [255, 200, 240]).write(lineText, {
+                  x: 0 + currentHUDScrub,
+                  y: lineY,
+                });
+              }
             }
           } else {
-            $.ink(0).line(1, 1, 1, h - 1);
-            $.ink(c).line(0, 0, 0, h - 2);
+            // Fallback to regular rendering without color codes
+            const writeOptions = {
+              x: 0 + currentHUDScrub,
+              y: 0,
+            };
+            // Disable inline color processing when syntax coloring is disabled
+            if (disableSyntaxColoring) {
+              writeOptions.noInlineColor = true;
+            }
+            $.ink(currentHUDTextColor || [255, 200, 240]).write(
+              disableSyntaxColoring ? stripColorCodes(text) : text, 
+              writeOptions,
+              undefined, 
+              $api.screen.width - $api.typeface.blockWidth
+            );
+          }
+
+          if (currentHUDScrub > 0) {
+            const shareWidth = tf.blockWidth * "share ".length;
+            // Draw shadow for 'share' in black
+            $.ink(0).write("share", {
+              x: 1 + currentHUDScrub - shareWidth,
+              y: 1,
+            });
+            // Draw 'share' in the HUD color
+            $.ink(currentHUDTextColor || [255, 200, 240]).write("share", {
+              x: 0 + currentHUDScrub - shareWidth,
+              y: 0,
+            });
           }
         });
 
