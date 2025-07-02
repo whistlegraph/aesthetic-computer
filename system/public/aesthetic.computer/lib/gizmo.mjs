@@ -57,16 +57,12 @@ export class Hourglass {
 
 // An animated "..." string.
 export class EllipsisTicker {
-  #hourglass;
   #ellipsisDots = 0;
+  #lastUpdateTime = 0;
+  #updateInterval = 500; // 500ms = 0.5 seconds, locked to 30fps equivalent
 
-  constructor() {
-    this.#hourglass = new Hourglass(30, {
-      completed: () => {
-        this.#ellipsisDots = (this.#ellipsisDots + 1) % 4;
-      },
-      autoFlip: true,
-    });
+  constructor(options = {}) {
+    this.#updateInterval = options.interval || 500; // Allow customization
   }
 
   // Get the current ellipses with a padded end.
@@ -76,7 +72,26 @@ export class EllipsisTicker {
     return opts?.pad === false ? ellipsis : ellipsis.padEnd(3, " ");
   }
 
+  // Update the ticker using clock time instead of frame counting
+  update(clockTime) {
+    if (!clockTime) return; // No clock available
+    
+    const currentTime = clockTime.getTime();
+    
+    if (this.#lastUpdateTime === 0) {
+      this.#lastUpdateTime = currentTime;
+      return;
+    }
+    
+    if (currentTime - this.#lastUpdateTime >= this.#updateInterval) {
+      this.#ellipsisDots = (this.#ellipsisDots + 1) % 4;
+      this.#lastUpdateTime = currentTime;
+    }
+  }
+
+  // Keep the old sim() method for backward compatibility, but it won't do anything
   sim() {
-    this.#hourglass.step();
+    // This method is deprecated - use update(clockTime) instead
+    // Keeping it for backward compatibility to avoid breaking existing code
   }
 }
