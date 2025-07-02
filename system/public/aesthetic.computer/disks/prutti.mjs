@@ -909,6 +909,27 @@ const lessons = [
     `,
     pictures: ["lnl52"],
     sounds: ["we_are_all_luther_blissett"]
+  },
+  {
+    title: "Lesson Not Learned 53",
+    text: `
+    lesson not learned about: --BURSDAGS--in--general-- PIKBLOD TIL DIG
+
+    Yes - A birthday present from us at: Aesthetic Laer Klokken, YOU
+    requested -out-there-music- as gift for the day & hmmmmm then think that
+    you should have some: PIKBLOD - the movie star from: INTERNET IS DEATH -
+    & --master of the organ-- I know you that you will like that - the
+    UTMOST  of fantastic performances in Scandinavia as you also do
+    yourself, yes SOME PIKBLOD Rett fra: Prut-Karlen´s gemakker & V/Vm Test
+    Nydelig musikk og ting som faaaar deg til aaaa gaaaa: Hmmmm? HAPPY
+    ---BIRTH--day---
+
+    -PIKBLOD-//-PIKBLOD-//-PIKBLOD-
+     
+    [PIKBLOD-when-you-walked-speed-up_slow-version.m4a]
+    `,
+    pictures: ["lnl53"],
+    sounds: ["PIKBLOD-when-you-walked-speed-up_slow-version"]
   }
 
 ];
@@ -1062,11 +1083,29 @@ function loadLesson(api) {
     });
   });
 
-  // Load and play sample for lesson 11.
+  // Load and play sample.
   lessons[lesson].sounds?.forEach((name) => {
     const ext = api.platform.Safari ? "m4a" : "ogg";
-    api.net.preload(`${path}/${name}.${ext}`).then((sfx) => {
-      api.sound.play(sfx, { loop: true }); // Immediately play audio after loading it, and looping it.
+    const soundUrl = `${path}/${name}.${ext}`;
+    
+    api.net.preload(soundUrl).then((sfx) => {
+      if (sfx) {
+        const playOptions = { loop: true };
+        
+        // Use the soundUrl (string) instead of the preloaded object
+        const playResult = api.sound.play(soundUrl, playOptions);
+        
+        // Set volume to maximum
+        if (playResult && typeof playResult.update === 'function') {
+          try {
+            playResult.update({ volume: 1.0 });
+          } catch (e) {
+            console.error("🎵 PRUTTI ERROR: Failed to set initial volume:", e);
+          }
+        }
+      }
+    }).catch((error) => {
+      console.error("🎵 PRUTTI ERROR: Sound preload failed:", error);
     });
   });
 }
