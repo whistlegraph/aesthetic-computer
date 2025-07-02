@@ -1828,7 +1828,7 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
-  ellipsisTicker?.sim();
+  ellipsisTicker?.update($.clock.time());
   progressTrick?.step();
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);

@@ -10,6 +10,8 @@ export class Ticker {
   #separatorWidth = 0;
   #cycleWidth = 0;
   #api = null;
+  #lastUpdateTime = 0;
+  #targetFps = 30; // Lock ticker animation to 30fps equivalent timing
 
   constructor(text = "", options = {}) {
     this.#text = text;
@@ -37,6 +39,12 @@ export class Ticker {
     return this;
   }
 
+  // Set the target FPS for animation timing (default: 30)
+  setTargetFPS(fps) {
+    this.#targetFps = fps;
+    return this;
+  }
+
   // Update text measurements when text or separator changes
   #updateMeasurements() {
     if (!this.#api || !this.#text) return;
@@ -57,12 +65,32 @@ export class Ticker {
       this.#updateMeasurements();
     }
 
-    // Advance the ticker offset
-    this.#offset += this.#speed;
-
-    // Reset when one complete cycle has passed
-    if (this.#offset >= this.#cycleWidth) {
-      this.#offset = 0;
+    // Use clock.time for frame-rate independent animation
+    const currentTime = api.clock.time();
+    if (!currentTime) return; // No clock available, skip update
+    
+    const timeMs = currentTime.getTime();
+    
+    // Initialize timing on first update
+    if (this.#lastUpdateTime === 0) {
+      this.#lastUpdateTime = timeMs;
+      return;
+    }
+    
+    // Calculate time-based movement locked to target FPS
+    const deltaTime = timeMs - this.#lastUpdateTime;
+    const targetFrameTime = 1000 / this.#targetFps; // ~33.33ms for 30fps
+    
+    // Only advance if enough time has passed to simulate target framerate
+    if (deltaTime >= targetFrameTime) {
+      const framesPassed = Math.floor(deltaTime / targetFrameTime);
+      this.#offset += this.#speed * framesPassed;
+      this.#lastUpdateTime = timeMs;
+      
+      // Reset when one complete cycle has passed
+      if (this.#offset >= this.#cycleWidth) {
+        this.#offset = this.#offset % this.#cycleWidth;
+      }
     }
   }
 
@@ -105,12 +133,20 @@ export class Ticker {
   // Set the offset directly (useful for manual control)
   setOffset(offset) {
     this.#offset = offset; // Allow negative values for bidirectional scrubbing
+    
+    // Reset timing when manually setting offset to prevent jumps
+    const currentTime = this.#api?.clock?.time?.();
+    if (currentTime) {
+      this.#lastUpdateTime = currentTime.getTime();
+    }
+    
     return this;
   }
 
   // Reset the ticker to the beginning
   reset() {
     this.#offset = 0;
+    this.#lastUpdateTime = 0;
     return this;
   }
 
