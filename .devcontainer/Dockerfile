@@ -9,7 +9,7 @@ RUN dnf update -y
 RUN dnf install -y awk which tree procps-ng coreutils unzip jq bat
 RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user
 RUN dnf install -y make cmake gcc-c++ python3-devel
-RUN dnf install -y qemu-kvm qemu-img
+RUN dnf install -y qemu-kvm qemu-img qemu-system-x86 qemu-user-static
 RUN dnf install -y openssl openssl-devel awscli redis
 RUN dnf install -y dnf-plugins-core
 RUN dnf install -y lolcat toilet
@@ -118,6 +118,7 @@ RUN curl -sSL https://sdk.cloud.google.com > install_gcloud.sh && \
     ln -s /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq && \
     rm install_gcloud.sh
 
+
 # Switch to the 'me' user.
 USER me
 
@@ -211,10 +212,12 @@ RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
 # RUN pip3 install aider-chat
 
 # Install OPS and Nanos: https://nanos.org/getting_started
-RUN curl https://ops.city/get.sh -sSfL | sh
+# QEMU components are now installed earlier as root
+# Install OPS - the installer checks for qemu-system-x86_64 specifically
+RUN curl https://ops.city/get.sh -sSfL | bash
 
 # Install deno
-RUN curl -fsSL https://deno.land/install.sh | sh
+# RUN curl -fsSL https://deno.land/install.sh | sh
 
 # Pre-cache Edge Functions bootstrap files to speed up netlify dev
 # RUN eval "$(/home/me/.deno/bin/deno --version)" && \
