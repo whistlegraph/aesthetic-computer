@@ -6552,10 +6552,16 @@ async function makeFrame({ data: { type, content } }) {
           // Helper function to convert color names to RGB arrays
           function colorNameToRGB(colorName) {
             if (!colorName) return null;
-            // Use the graph's color lookup if available
-            if ($api.graph && $api.graph.findColor) {
-              const rgb = $api.graph.findColor(colorName);
-              if (rgb) return rgb;
+            // Use the graph's parseColor if available
+            if ($api.graph && $api.graph.parseColor) {
+              try {
+                const rgb = $api.graph.parseColor([colorName]);
+                if (rgb && Array.isArray(rgb) && rgb.length >= 3) {
+                  return [rgb[0], rgb[1], rgb[2]]; // Return just RGB without alpha
+                }
+              } catch (e) {
+                // Fall through to fallback if parseColor fails
+              }
             }
             // Fallback color mappings
             const colorMap = {
@@ -6570,8 +6576,10 @@ async function makeFrame({ data: { type, content } }) {
               'orange': [255, 165, 0],
               'purple': [128, 0, 128],
               'pink': [255, 192, 203],
+              'brown': [165, 42, 42],
               'gray': [128, 128, 128],
-              'grey': [128, 128, 128]
+              'grey': [128, 128, 128],
+              'goldenrod': [218, 165, 32]
             };
             return colorMap[colorName.toLowerCase()] || [255, 255, 255];
           }
