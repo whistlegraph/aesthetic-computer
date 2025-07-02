@@ -26,8 +26,8 @@ function paint({ wipe, screen, help }) {
 }
 
 // 🧮 Sim
-function sim() {
-  ellipsisTicker?.sim();
+function sim({ clock }) {
+  ellipsisTicker?.update(clock.time());
 }
 
 // 🎪 Act
