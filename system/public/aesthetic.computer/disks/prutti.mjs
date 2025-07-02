@@ -1088,12 +1088,20 @@ function loadLesson(api) {
     const ext = api.platform.Safari ? "m4a" : "ogg";
     const soundUrl = `${path}/${name}.${ext}`;
     
+    if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: Starting preload for:", soundUrl);
+    
     api.net.preload(soundUrl).then((sfx) => {
+      if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: Preload resolved for:", soundUrl, "result:", sfx);
+      
       if (sfx) {
         const playOptions = { loop: true };
         
+        if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: About to call api.sound.play with:", soundUrl);
+        
         // Use the soundUrl (string) instead of the preloaded object
         const playResult = api.sound.play(soundUrl, playOptions);
+        
+        if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: api.sound.play returned:", playResult);
         
         // Set volume to maximum
         if (playResult && typeof playResult.update === 'function') {
