@@ -345,10 +345,10 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
   // --- Digital Clock Render ---
   let clockDrawn = false;
   if (syncedDate) {
-    // Draw melody timeline if we have a melody
+    // Build colored melody string for HUD label only (no timeline on main screen)
     let coloredMelodyStringForTimeline = null;
     if (hasMelodyContent(melodyState)) {
-      // Build the colored melody string once, use for both timeline and HUD
+      // Build the colored melody string for HUD use only
       const currentMelodyString = buildCurrentMelodyString(
         originalMelodyString,
         melodyState,
@@ -357,14 +357,7 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
         currentMelodyString,
         melodyState,
       );
-      // Display the colored melody timeline
-      drawMelodyTimeline(
-        ink,
-        write,
-        screen,
-        melodyState,
-        coloredMelodyStringForTimeline,
-      );
+      // Note: No longer drawing melody timeline on main screen
     }
     // --- Scaled Clock Output ---
     if (!paint.scaledClockAnchor) {
@@ -1064,10 +1057,7 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud }) {
       y: screen.height - 16,
       scale: 1,
     });
-    // Draw melody timeline even when syncing if we have a melody
-    if (hasMelodyContent(melodyState)) {
-      drawMelodyTimeline(ink, write, screen, melodyState);
-    }
+    // Note: No longer drawing melody timeline on main screen when syncing
     // Draw timing graph even when syncing (intentionally omitted)
     // drawTimingGraph(ink, write, screen);
   }
@@ -2071,8 +2061,32 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
       if (melodyState.type === "single") {
         // Single track timing
         if (nextNoteTargetTime === 0) {
-          // First note - target next UTC second boundary
-          nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
+          // Check if melody starts with rest notes - if so, skip ahead to first audible note
+          let firstAudibleIndex = 0;
+          let cumulativeRestDuration = 0;
+          
+          // Find the first non-rest note
+          while (firstAudibleIndex < melodyState.notes.length && 
+                 melodyState.notes[firstAudibleIndex].note === "rest") {
+            cumulativeRestDuration += melodyState.notes[firstAudibleIndex].duration * melodyState.baseTempo;
+            firstAudibleIndex++;
+          }
+          
+          if (firstAudibleIndex > 0 && firstAudibleIndex < melodyState.notes.length) {
+            // Melody starts with rest notes but has audible notes later - skip ahead to first audible note
+            melodyState.index = firstAudibleIndex;
+            // Start immediately instead of waiting for UTC boundary
+            nextNoteTargetTime = currentTimeMs;
+            console.log(`🎵 Skipping ${firstAudibleIndex} rest notes at start, jumping to first audible note`);
+          } else if (firstAudibleIndex >= melodyState.notes.length) {
+            // All notes are rests (like `_*` before mutation) - start immediately and let mutation create audible notes
+            melodyState.index = 0;
+            nextNoteTargetTime = currentTimeMs;
+            console.log(`🎵 All notes are rests, starting immediately to trigger mutations`);
+          } else {
+            // First note is audible - use UTC boundary for normal timing
+            nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
+          }
         }
 
         // Check if it's time to play the next note
@@ -2113,13 +2127,40 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
           // Set start time for this track's first note if not set
           if (trackState.startTime === 0) {
-            // Start each track at the next UTC boundary based on timing divisor
-            const timeDivisor = utcTriggerDivisor;
-            const intervalMs = timeDivisor * 1000;
-            trackState.startTime =
-              Math.ceil(currentTimeMs / intervalMs) * intervalMs;
-            trackState.nextNoteTargetTime = trackState.startTime;
-            trackState.totalElapsedBeats = 0;
+            // Check if this track starts with rest notes
+            let firstAudibleIndex = 0;
+            let cumulativeRestDuration = 0;
+            
+            // Find the first non-rest note in this track
+            while (firstAudibleIndex < track.length && 
+                   track[firstAudibleIndex].note === "rest") {
+              cumulativeRestDuration += track[firstAudibleIndex].duration * melodyState.baseTempo;
+              firstAudibleIndex++;
+            }
+            
+            if (firstAudibleIndex > 0 && firstAudibleIndex < track.length) {
+              // Track starts with rest notes but has audible notes later - skip ahead to first audible note
+              trackState.noteIndex = firstAudibleIndex;
+              trackState.totalElapsedBeats = cumulativeRestDuration;
+              // Start immediately instead of waiting for UTC boundary
+              trackState.startTime = currentTimeMs;
+              trackState.nextNoteTargetTime = currentTimeMs;
+              console.log(`🎵 Track ${trackIndex}: Skipping ${firstAudibleIndex} rest notes at start`);
+            } else if (firstAudibleIndex >= track.length) {
+              // All notes in this track are rests - start immediately and let mutation create audible notes
+              trackState.noteIndex = 0;
+              trackState.totalElapsedBeats = 0;
+              trackState.startTime = currentTimeMs;
+              trackState.nextNoteTargetTime = currentTimeMs;
+              console.log(`🎵 Track ${trackIndex}: All notes are rests, starting immediately`);
+            } else {
+              // First note is audible - use UTC boundary for normal timing
+              const timeDivisor = utcTriggerDivisor;
+              const intervalMs = timeDivisor * 1000;
+              trackState.startTime = Math.ceil(currentTimeMs / intervalMs) * intervalMs;
+              trackState.nextNoteTargetTime = trackState.startTime;
+              trackState.totalElapsedBeats = 0;
+            }
           }
 
           // Check if it's time for this track to play its next note

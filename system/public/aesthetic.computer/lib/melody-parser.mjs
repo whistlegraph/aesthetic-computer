@@ -424,7 +424,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyGlobalDurationModifier(duration, false);
       }
       
-      notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
     }
     // Handle spaces as separators (ignore them, don't treat as rests)
     else if (char === ' ') {
@@ -444,7 +444,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
       let duration = 2 * Math.pow(2, dashes);
       i = tempI; // Move index past all the dashes
       
-      notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
     }
     // Handle measure separators (optional, for readability)
     else if (char === '|') {
