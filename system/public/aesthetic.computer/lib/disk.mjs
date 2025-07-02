@@ -280,7 +280,8 @@ let currentPath,
   currentHUDStatusColor = "red",
   currentHUDButton,
   currentHUDScrub = 0,
-  currentHUDOffset;
+  currentHUDOffset,
+  justTriggeredBackspace = false;
 //currentPromptButton;
 
 function updateHUDStatus() {
@@ -1002,7 +1003,14 @@ const $commonApi = {
   hud: {
     label: (text, color, offset, logical) => {
       currentHUDTxt = text;
-      currentHUDLogicalTxt = logical || (typeof text === 'string' ? text.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, '') : text);
+      currentHUDLogicalTxt =
+        logical ||
+        (typeof text === "string"
+          ? text.replace(
+              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g,
+              "",
+            )
+          : text);
       if (color) {
         currentHUDTextColor = graph.findColor(color);
       } else {
@@ -2002,14 +2010,16 @@ const $paintApi = {
       bg = arguments[2];
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
-    }    // 🎨 Color code processing
+    } // 🎨 Color code processing
     // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, etc.
-    const colorCodeRegex = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
+    const colorCodeRegex =
+      /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
     const hasColorCodes = text.includes("\\");
-    
+
     // Check if inline color processing is disabled via options
-    const noInlineColor = (typeof arguments[1] === "object" && arguments[1]?.noInlineColor) || 
-                         (typeof arguments[3] === "object" && arguments[3]?.noInlineColor);
+    const noInlineColor =
+      (typeof arguments[1] === "object" && arguments[1]?.noInlineColor) ||
+      (typeof arguments[3] === "object" && arguments[3]?.noInlineColor);
 
     // console.log("🎨🎨🎨 DISK.MJS WRITE DEBUG:", {
     //   textLength: text.length,
@@ -2026,7 +2036,7 @@ const $paintApi = {
       // console.log("🎨 Color regex:", colorCodeRegex);
       // console.log("🎨 Text length:", text.length);
       // console.log("🎨 Last 20 chars:", text.slice(-20));
-      
+
       // Remember the current ink color to restore it later
       const originalColor = $activePaintApi.inkrn();
 
@@ -2051,14 +2061,19 @@ const $paintApi = {
         } else {
           // This is a color name (from the captured group)
           const colorName = segments[i];
-          
+
           // console.log("🎨 Color Debug: Processing color:", colorName);
-          
+
           // Check if it's an RGB color like "255,20,147"
-          if (colorName.includes(',')) {
-            const rgbValues = colorName.split(',').map(v => parseInt(v.trim()));
+          if (colorName.includes(",")) {
+            const rgbValues = colorName
+              .split(",")
+              .map((v) => parseInt(v.trim()));
             // console.log("🎨 RGB Debug: Parsed values:", rgbValues);
-            if (rgbValues.length === 3 && rgbValues.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+            if (
+              rgbValues.length === 3 &&
+              rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+            ) {
               currentColor = rgbValues;
               // console.log("🎨 RGB Debug: Successfully set RGB array:", rgbValues);
             } else {
@@ -2071,11 +2086,11 @@ const $paintApi = {
           }
         }
       }
-      
+
       // console.log("🎨 Final processing results:");
       // console.log("🎨 Clean text:", cleanText);
       // console.log("🎨 Character colors:", charColors);
-      
+
       // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {
         return $activePaintApi; // Exit silently if no text content remains
@@ -2092,11 +2107,11 @@ const $paintApi = {
 
         // Simple character-by-character mapping for wrapped lines
         let cleanTextIndex = 0;
-        
+
         tb.lines.forEach((line, lineIndex) => {
           const joinedLine = line.join(" ");
           const lineColors = [];
-          
+
           // Map each character in the line to its color from the original charColors array
           for (let charIndex = 0; charIndex < joinedLine.length; charIndex++) {
             // Use the color from the original mapping, or null if we're past the end
@@ -2107,7 +2122,7 @@ const $paintApi = {
             }
             cleanTextIndex++;
           }
-          
+
           tf?.print(
             $activePaintApi,
             tb.pos,
@@ -2157,9 +2172,9 @@ const $paintApi = {
     // 🎁 Original code for text without color codes
     // If noInlineColor is true, strip color codes from the text first
     if (noInlineColor && hasColorCodes) {
-      text = text.replace(/\\[a-zA-Z]+\\/g, '');
+      text = text.replace(/\\[a-zA-Z]+\\/g, "");
     }
-    
+
     // See if the text length is greater than the bounds, and if it is then
     // print on a new line.
     const scale = pos?.size || 1;
@@ -4119,16 +4134,13 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     }
 
-    console.log("🔍 HUD Debug - slug:", slug, "alias:", alias);
     if (!alias) {
       // Convert tildes to spaces for display in the corner label
       const displaySlug = slug.replace(/~/g, " ");
-      console.log("🔍 HUD Debug - Setting displaySlug:", displaySlug);
       currentHUDTxt = displaySlug; // Update hud if this is not an alias.
       currentHUDLogicalTxt = displaySlug; // Set logical text to the same space-separated version
     }
     if (module.nohud || system === "prompt") {
-      console.log("🔍 HUD Debug - Clearing HUD (nohud or prompt)");
       currentHUDTxt = undefined;
       currentHUDLogicalTxt = undefined;
     }
@@ -5022,6 +5034,8 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🔙 Abstracted backspace logic for reuse between keyboard and touch-scrub
     function triggerBackspaceAction() {
+      justTriggeredBackspace = true;
+
       $commonApi.sound.synth({
         tone: 800,
         beats: 0.1,
@@ -5056,6 +5070,11 @@ async function makeFrame({ data: { type, content } }) {
           send({ type: "keyboard:open" });
         }
       }
+
+      // Set a timeout to reset the flag, allowing rollout handler to see it
+      setTimeout(() => {
+        justTriggeredBackspace = false;
+      }, 10);
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
@@ -5310,9 +5329,11 @@ async function makeFrame({ data: { type, content } }) {
             originalInput: input,
             parsedNote: note,
             parsedOctave: octave,
-            availableNotes: Object.keys(noteFrequencies)
+            availableNotes: Object.keys(noteFrequencies),
           });
-          throw new Error(`Note not found in the list: "${note}" (from input: "${input}")`);
+          throw new Error(
+            `Note not found in the list: "${note}" (from input: "${input}")`,
+          );
         }
 
         // Calculate the frequency for the given octave
@@ -5325,14 +5346,16 @@ async function makeFrame({ data: { type, content } }) {
           console.warn(`🎵 Octave too high: ${octave}, clamping to 9`);
           octave = 9;
         }
-        
+
         const finalFreq = frequency * Math.pow(2, octave);
-        
+
         // Final sanity check on frequency range (20 Hz to 20000 Hz)
         if (finalFreq < 20 || finalFreq > 20000) {
-          console.warn(`🎵 Frequency out of audible range: ${finalFreq.toFixed(2)} Hz for ${input}`);
+          console.warn(
+            `🎵 Frequency out of audible range: ${finalFreq.toFixed(2)} Hz for ${input}`,
+          );
         }
-        
+
         return finalFreq;
       },
       // Calculate a musical note from a frequency.
@@ -5896,15 +5919,16 @@ async function makeFrame({ data: { type, content } }) {
               });
             },
             push: (btn) => {
+              console.log("🟠 PUSH!");
               const shareWidth = tf.blockWidth * "share ".length;
               const caretWidth = tf.blockWidth + 2; // More compact caret threshold
-              
+
               // Don't allow normal push behavior if we've been scrubbing
               if (btn.scrubbing) {
                 btn.actions.cancel?.();
                 return;
               }
-              
+
               // Handle left threshold (backspace) case
               if (currentHUDScrub === -caretWidth) {
                 // Trigger backspace action using the abstracted function
@@ -5914,7 +5938,7 @@ async function makeFrame({ data: { type, content } }) {
                 currentHUDScrub = 0;
                 return;
               }
-              
+
               // Check if we're releasing during scrub but not at a threshold
               if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
                 btn.actions.cancel?.();
@@ -5984,6 +6008,7 @@ async function makeFrame({ data: { type, content } }) {
               }
             },
             cancel: () => {
+              console.log("🔴 CANCEL!");
               currentHUDTextColor = originalColor;
 
               const shareWidth = tf.blockWidth * "share ".length;
@@ -6006,7 +6031,12 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.1,
                 });
                 // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDLogicalTxt || currentHUDTxt));
+                $api.jump(
+                  "share~" +
+                    lisp.encodeKidlispForUrl(
+                      currentHUDLogicalTxt || currentHUDTxt,
+                    ),
+                );
                 return;
               } else if (currentHUDScrub === -caretWidth) {
                 // Trigger backspace action using the abstracted function
@@ -6018,10 +6048,15 @@ async function makeFrame({ data: { type, content } }) {
               currentHUDScrub = 0;
               // Reset scrubbing flag on any button
               if (currentHUDButton) currentHUDButton.scrubbing = false;
-              // TODO: This might break on pieces where the keyboard is already
-              //       open.
-              send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-              send({ type: "keyboard:lock" });
+
+              // Disable/lock keyboard for normal cancel (not threshold actions)
+              // Threshold actions (share/backspace) handle their own keyboard state
+              if (!justTriggeredBackspace) {
+                send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+                send({ type: "keyboard:lock" });
+                justTriggeredBackspace = false; // Reset flag for normal cancels
+              }
+
               $api.needsPaint();
               $api.sound.synth({
                 tone: 200,
@@ -6045,7 +6080,10 @@ async function makeFrame({ data: { type, content } }) {
               if (btn && btn.down) {
                 currentHUDTextColor = [200, 80, 80];
               }
-              send({ type: "keyboard:lock" });
+              // Don't lock keyboard if we just triggered backspace
+              if (!justTriggeredBackspace) {
+                send({ type: "keyboard:lock" });
+              }
             },
           });
 
@@ -6576,18 +6614,26 @@ async function makeFrame({ data: { type, content } }) {
       ) {
         // Use the actual rendered width and height from text.box, not a naive estimate
         // For label sizing, use the color-code-stripped text to avoid false wrapping
-        let cleanText = currentHUDTxt.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, '');
+        let cleanText = currentHUDTxt.replace(
+          /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g,
+          "",
+        );
         const labelBounds = $api.text.box(
           cleanText,
           undefined,
           $api.screen.width - $api.typeface.blockWidth,
         );
         // Use the actual width of the longest rendered line
-        let w = Math.max(...labelBounds.lines.map(lineArr => {
-          // Preserve spaces when joining words on a line, matching the rendering logic
-          return (Array.isArray(lineArr) ? lineArr.join(" ") : lineArr).length * tf.blockWidth;
-        }));
-        
+        let w = Math.max(
+          ...labelBounds.lines.map((lineArr) => {
+            // Preserve spaces when joining words on a line, matching the rendering logic
+            return (
+              (Array.isArray(lineArr) ? lineArr.join(" ") : lineArr).length *
+              tf.blockWidth
+            );
+          }),
+        );
+
         // Adjust width based on scrub direction
         if (currentHUDScrub >= 0) {
           w += currentHUDScrub; // Positive scrub extends to the right
@@ -6605,48 +6651,58 @@ async function makeFrame({ data: { type, content } }) {
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
-          
+
           // Clear the entire label area first to prevent artifacts
           $.ink([0, 0, 0, 0]).box(0, 0, w, h); // Transparent clear
 
           // Always use the original currentHUDTxt for the HUD label, preserving all color codes and user content
           let text = currentHUDTxt;
-          
+
           // Check if scrub has reached max threshold (share width) to disable syntax coloring
           const shareWidth = tf.blockWidth * "share ".length;
           const disableSyntaxColoring = currentHUDScrub >= shareWidth;
-          
+
           // Detect inline color codes (e.g., \\yellow\\c\\red\\d\\rgb(255,20,147)\\e), but disable if at max scrub
-          const hasInlineColor = !disableSyntaxColoring && /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g.test(text);
-          
+          const hasInlineColor =
+            !disableSyntaxColoring &&
+            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g.test(text);
+
           // Draw a visible background box for debugging the label bounds
           // $.ink([0,0,0,64]).box(0, 0, w, h); // semi-transparent black - commented out to remove backdrop
           // Draw shadow/outline in black, but always strip color codes for the shadow
           function stripColorCodes(str) {
-            return str.replace(/\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g, '');
+            return str.replace(
+              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g,
+              "",
+            );
           }
           // For the shadow, always strip color codes and disable inline color processing
           $.ink(0).write(
             stripColorCodes(text), // Always strip color codes for shadow
-            { x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0), y: 1, noInlineColor: true }, // Add flag to disable inline color processing
+            {
+              x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
+              y: 1,
+              noInlineColor: true,
+            }, // Add flag to disable inline color processing
             undefined,
             $api.screen.width - $api.typeface.blockWidth,
           );
           // For the foreground, parse color codes and render per-character colors
-          const colorCodeRegex = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
+          const colorCodeRegex =
+            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
           let charColors = [];
           let currentColor = null;
 
           // Use stripColorCodes result for consistent rendering (same as shadow)
           const renderText = hasInlineColor ? stripColorCodes(text) : text;
-          
+
           // Calculate text width for caret positioning
           const textWidth = renderText.length * tf.blockWidth;
-          
+
           // Build color array by stepping through the original text and mapping colors to cleaned positions
           let cleanIndex = 0;
           let originalIndex = 0;
-          
+
           // Helper function to convert color names to RGB arrays
           function colorNameToRGB(colorName) {
             if (!colorName) return null;
@@ -6663,37 +6719,44 @@ async function makeFrame({ data: { type, content } }) {
             }
             // Fallback color mappings
             const colorMap = {
-              'white': [255, 255, 255],
-              'black': [0, 0, 0],
-              'red': [255, 0, 0],
-              'green': [0, 255, 0],
-              'blue': [0, 0, 255],
-              'yellow': [255, 255, 0],
-              'cyan': [0, 255, 255],
-              'magenta': [255, 0, 255],
-              'orange': [255, 165, 0],
-              'purple': [128, 0, 128],
-              'pink': [255, 192, 203],
-              'brown': [165, 42, 42],
-              'gray': [128, 128, 128],
-              'grey': [128, 128, 128],
-              'goldenrod': [218, 165, 32]
+              white: [255, 255, 255],
+              black: [0, 0, 0],
+              red: [255, 0, 0],
+              green: [0, 255, 0],
+              blue: [0, 0, 255],
+              yellow: [255, 255, 0],
+              cyan: [0, 255, 255],
+              magenta: [255, 0, 255],
+              orange: [255, 165, 0],
+              purple: [128, 0, 128],
+              pink: [255, 192, 203],
+              brown: [165, 42, 42],
+              gray: [128, 128, 128],
+              grey: [128, 128, 128],
+              goldenrod: [218, 165, 32],
             };
             return colorMap[colorName.toLowerCase()] || [255, 255, 255];
           }
-          
+
           while (originalIndex < text.length && cleanIndex < cleanText.length) {
             // Check if we're at the start of a color code
-            if (text[originalIndex] === '\\') {
+            if (text[originalIndex] === "\\") {
               // Find the end of the color code
-              const colorMatch = text.slice(originalIndex).match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
+              const colorMatch = text
+                .slice(originalIndex)
+                .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
               if (colorMatch) {
                 // Update current color (convert to RGB)
                 const colorName = colorMatch[1];
                 // Check if it's an RGB value like "255,20,147"
-                if (colorName.includes(',')) {
-                  const rgbValues = colorName.split(',').map(v => parseInt(v.trim()));
-                  if (rgbValues.length === 3 && rgbValues.every(v => !isNaN(v) && v >= 0 && v <= 255)) {
+                if (colorName.includes(",")) {
+                  const rgbValues = colorName
+                    .split(",")
+                    .map((v) => parseInt(v.trim()));
+                  if (
+                    rgbValues.length === 3 &&
+                    rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+                  ) {
                     currentColor = rgbValues;
                   } else {
                     currentColor = colorNameToRGB(colorName);
@@ -6706,22 +6769,22 @@ async function makeFrame({ data: { type, content } }) {
                 continue;
               }
             }
-            
+
             // This is a regular character, assign the current color
             charColors[cleanIndex] = currentColor;
             cleanIndex++;
             originalIndex++;
           }
-          
+
           // Fill any remaining positions with the current color
           while (cleanIndex < cleanText.length) {
             charColors[cleanIndex] = currentColor;
             cleanIndex++;
           }
-          
+
           // Override piece name prefix colors to use currentHUDTextColor
           // Find the piece name (everything before the first space) and force it to use HUD color
-          const spaceIndex = renderText.indexOf(' ');
+          const spaceIndex = renderText.indexOf(" ");
           if (disableSyntaxColoring) {
             // When syntax coloring is disabled, use currentHUDTextColor for all text
             for (let i = 0; i < renderText.length; i++) {
@@ -6738,31 +6801,43 @@ async function makeFrame({ data: { type, content } }) {
               charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
             }
           }
-          
+
           // Patch: ensure charColors matches renderText length
           if (charColors.length < renderText.length) {
             // Pad with last color
-            const padColor = charColors.length > 0 ? charColors[charColors.length - 1] : null;
-            while (charColors.length < renderText.length) charColors.push(padColor);
+            const padColor =
+              charColors.length > 0 ? charColors[charColors.length - 1] : null;
+            while (charColors.length < renderText.length)
+              charColors.push(padColor);
           } else if (charColors.length > renderText.length) {
             // Truncate if too long (should not happen)
             charColors = charColors.slice(0, renderText.length);
           }
-          
+
           // Handle multi-line rendering by using the renderText for consistent line breaking
           if (hasInlineColor) {
             // Use the existing labelBounds which was calculated from cleanText/renderText
             let cleanTextIndex = 0;
-            
-            for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
+
+            for (
+              let lineIndex = 0;
+              lineIndex < labelBounds.lines.length;
+              lineIndex++
+            ) {
               const lineArray = labelBounds.lines[lineIndex];
               // Preserve spaces when joining words on a line, matching the width calculation logic
-              const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
+              const lineText = Array.isArray(lineArray)
+                ? lineArray.join(" ")
+                : lineArray;
               const lineY = lineIndex * (tf.blockHeight + 1);
-              
+
               // Map each character in the line to its color from the original charColors array
               const lineColors = [];
-              for (let charIndex = 0; charIndex < lineText.length; charIndex++) {
+              for (
+                let charIndex = 0;
+                charIndex < lineText.length;
+                charIndex++
+              ) {
                 // Use the color from the original mapping, or null if we're past the end
                 if (cleanTextIndex < charColors.length) {
                   lineColors.push(charColors[cleanTextIndex]);
@@ -6771,20 +6846,30 @@ async function makeFrame({ data: { type, content } }) {
                 }
                 cleanTextIndex++;
               }
-              
+
               // IMPORTANT: Account for spaces between lines that are lost in the word-based line breaking
               // The text.box line breaking removes spaces at line breaks, but our color mapping includes them
               // So we need to skip over the space characters in our color mapping
               if (lineIndex < labelBounds.lines.length - 1) {
                 // Skip the space character that was at the end of this line/start of next line
-                if (cleanTextIndex < cleanText.length && cleanText[cleanTextIndex] === ' ') {
+                if (
+                  cleanTextIndex < cleanText.length &&
+                  cleanText[cleanTextIndex] === " "
+                ) {
                   cleanTextIndex++; // Skip the space in our color mapping
                 }
               }
-              
+
               // Render the line with per-character colors
               if (tf?.print) {
-                tf.print($, { x: currentHUDScrub >= 0 ? currentHUDScrub : 0, y: lineY }, 0, lineText, undefined, lineColors);
+                tf.print(
+                  $,
+                  { x: currentHUDScrub >= 0 ? currentHUDScrub : 0, y: lineY },
+                  0,
+                  lineText,
+                  undefined,
+                  lineColors,
+                );
               } else {
                 // Fallback if tf.print doesn't exist
                 $.ink(currentHUDTextColor || [255, 200, 240]).write(lineText, {
@@ -6804,10 +6889,10 @@ async function makeFrame({ data: { type, content } }) {
               writeOptions.noInlineColor = true;
             }
             $.ink(currentHUDTextColor || [255, 200, 240]).write(
-              disableSyntaxColoring ? stripColorCodes(text) : text, 
+              disableSyntaxColoring ? stripColorCodes(text) : text,
               writeOptions,
-              undefined, 
-              $api.screen.width - $api.typeface.blockWidth
+              undefined,
+              $api.screen.width - $api.typeface.blockWidth,
             );
           }
 
@@ -6828,86 +6913,123 @@ async function makeFrame({ data: { type, content } }) {
             const caretThreshold = tf.blockWidth + 2; // Use actual glyph width plus small margin (more compact)
             const scrubProgress = Math.abs(currentHUDScrub) / caretThreshold;
             const clampedProgress = Math.min(scrubProgress, 1);
-            
+
             const caretAreaWidth = tf.blockWidth; // Use actual typeface block width
             const caretAreaHeight = tf.blockHeight; // Use actual typeface block height
             const particleRange = tf.blockWidth * 12; // Much larger range for dramatic particle effect
-            
+
             // Clear the entire animation area first
-            $.ink([0, 0, 0, 0]).box(textWidth - 5, -1, caretAreaWidth + particleRange + 20, caretAreaHeight + 4);
-            
+            $.ink([0, 0, 0, 0]).box(
+              textWidth - 5,
+              -1,
+              caretAreaWidth + particleRange + 20,
+              caretAreaHeight + 4,
+            );
+
             // At the threshold, show complete caret block in theme-appropriate color
             if (clampedProgress >= 1) {
               // Use theme-appropriate block color: white for dark theme, black for light theme
               const blockColor = $api.dark ? [255, 255, 255] : [0, 0, 0]; // Theme-appropriate prompt block color
-              
+
               // Draw complete caret block with shadow
-              $.ink([0, 0, 0, 128]).box(textWidth + 1, 1, caretAreaWidth, caretAreaHeight); // Shadow
-              $.ink(blockColor).box(textWidth, 0, caretAreaWidth, caretAreaHeight); // Block
+              $.ink([0, 0, 0, 128]).box(
+                textWidth + 1,
+                1,
+                caretAreaWidth,
+                caretAreaHeight,
+              ); // Shadow
+              $.ink(blockColor).box(
+                textWidth,
+                0,
+                caretAreaWidth,
+                caretAreaHeight,
+              ); // Block
             } else {
               // Create particle swarm that flies from far right with improved math
-              const totalParticles = Math.floor(caretAreaWidth * caretAreaHeight * 1.5); // Dense particle swarm
-              const particlesToShow = Math.floor(clampedProgress * totalParticles);
-              
+              const totalParticles = Math.floor(
+                caretAreaWidth * caretAreaHeight * 1.5,
+              ); // Dense particle swarm
+              const particlesToShow = Math.floor(
+                clampedProgress * totalParticles,
+              );
+
               for (let i = 0; i < particlesToShow; i++) {
                 // Use consistent deterministic random for each particle based on index
                 const seed = i * 2.3456789; // Different seed for better distribution
-                const rnd1 = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
+                const rnd1 =
+                  Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
                 const rnd2 = Math.abs(Math.sin(seed * 78.233) * 43758.5453) % 1;
                 const rnd3 = Math.abs(Math.sin(seed * 37.719) * 43758.5453) % 1;
                 const rnd4 = Math.abs(Math.sin(seed * 94.673) * 43758.5453) % 1;
                 const rnd5 = Math.abs(Math.sin(seed * 15.428) * 43758.5453) % 1;
-                
+
                 // Final destination: randomly distributed across caret area
                 const finalX = textWidth + rnd1 * caretAreaWidth;
                 const finalY = rnd2 * caretAreaHeight;
-                
+
                 // Starting position: much further right with more spread
-                const startX = textWidth + caretAreaWidth + (rnd3 * particleRange) + 30;
+                const startX =
+                  textWidth + caretAreaWidth + rnd3 * particleRange + 30;
                 const startY = finalY + (rnd4 - 0.5) * caretAreaHeight * 1.5; // More Y variation
-                
+
                 // Each particle has unique timing and speed
                 const particleDelay = rnd1 * 0.4; // Stagger particle launches over 40% of animation
                 const particleSpeed = 0.8 + rnd5 * 0.4; // Speed varies from 0.8 to 1.2
-                
+
                 // Check if this particle should be active yet
                 if (clampedProgress > particleDelay) {
                   const particleAge = clampedProgress - particleDelay;
                   const normalizedAge = particleAge / (1.0 - particleDelay); // Normalize to 0-1
-                  const movementProgress = Math.min(normalizedAge * particleSpeed, 1);
-                  
+                  const movementProgress = Math.min(
+                    normalizedAge * particleSpeed,
+                    1,
+                  );
+
                   // Smooth easing for more natural movement (ease-out)
                   const easedProgress = 1 - Math.pow(1 - movementProgress, 2);
-                  
+
                   // Current position with smooth interpolation
                   const currentX = startX - (startX - finalX) * easedProgress;
                   const currentY = startY + (finalY - startY) * easedProgress;
-                  
+
                   // Distance-based alpha for particle trail effect
                   const totalDistance = startX - finalX;
                   const remainingDistance = Math.abs(currentX - finalX);
-                  const proximityFactor = 1 - (remainingDistance / totalDistance);
-                  
+                  const proximityFactor = 1 - remainingDistance / totalDistance;
+
                   // Multi-layer alpha calculation for natural fading
                   const baseAlpha = Math.min(255, proximityFactor * 220 + 35);
                   const speedAlpha = Math.min(255, easedProgress * 160 + 60);
                   const randomAlpha = 200 + rnd4 * 55; // Slight alpha variation per particle
-                  const finalAlpha = Math.min(255, Math.max(baseAlpha, speedAlpha) * (randomAlpha / 255));
-                  
+                  const finalAlpha = Math.min(
+                    255,
+                    Math.max(baseAlpha, speedAlpha) * (randomAlpha / 255),
+                  );
+
                   // Color with slight variation for more organic look
                   const redChannel = Math.floor(220 + rnd5 * 35); // Red varies 220-255
                   const particleColor = [redChannel, 0, 0, finalAlpha];
-                  
+
                   // Draw the particle
-                  $.ink(particleColor).point(Math.floor(currentX), Math.floor(currentY));
-                  
+                  $.ink(particleColor).point(
+                    Math.floor(currentX),
+                    Math.floor(currentY),
+                  );
+
                   // Add particle trails for particles that are moving fast
-                  if (easedProgress > 0.1 && easedProgress < 0.9 && rnd3 > 0.6) {
+                  if (
+                    easedProgress > 0.1 &&
+                    easedProgress < 0.9 &&
+                    rnd3 > 0.6
+                  ) {
                     const trailX = currentX + (startX - currentX) * 0.1; // Slight trail behind
                     const trailAlpha = finalAlpha * 0.3;
-                    $.ink([redChannel, 0, 0, trailAlpha]).point(Math.floor(trailX), Math.floor(currentY));
+                    $.ink([redChannel, 0, 0, trailAlpha]).point(
+                      Math.floor(trailX),
+                      Math.floor(currentY),
+                    );
                   }
-                  
+
                   // When particles are very close to destination, add clustering effect
                   if (easedProgress >= 0.85) {
                     const clusterSize = Math.floor(rnd2 * 3) + 1; // 1-3 pixels cluster
@@ -6915,7 +7037,10 @@ async function makeFrame({ data: { type, content } }) {
                       const clusterX = Math.floor(finalX) + (c % 2);
                       const clusterY = Math.floor(finalY) + Math.floor(c / 2);
                       const clusterAlpha = Math.min(255, finalAlpha + 40);
-                      $.ink([255, 0, 0, clusterAlpha]).point(clusterX, clusterY);
+                      $.ink([255, 0, 0, clusterAlpha]).point(
+                        clusterX,
+                        clusterY,
+                      );
                     }
                   }
                 }
