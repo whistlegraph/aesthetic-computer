@@ -74,8 +74,8 @@ function paint({ ink, system, help }) {
 }
 
 // 🧮 Sim(ulate) (Runs once per logic frame (120fps locked)).
-function sim() {
-  ellipsisTicker.sim();
+function sim({ clock }) {
+  ellipsisTicker.update(clock.time());
 }
 
 function bake({ paste }) {
