@@ -3750,9 +3750,25 @@ async function load(
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  if (!tf) tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
+  if (!tf) {
+    tf = await new Typeface().load($commonApi.net.preload);
+  } else {
+    // 🔤 Reset typeface to default font for each piece load
+    if (tf.name !== "font_1") {
+      tf = await new Typeface("font_1").load($commonApi.net.preload);
+    }
+  }
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
   ui.setTypeface(tf); // Set the default `ui` typeface.
+
+  // Add API to allow pieces to switch typefaces
+  $commonApi.setTypeface = async function(typefaceName) {
+    if (typefaceName && typefaceName !== tf.name) {
+      tf = await new Typeface(typefaceName).load($commonApi.net.preload);
+      $commonApi.typeface = tf; // Update the global reference
+      ui.setTypeface(tf); // Update UI typeface
+    }
+  };
 
   /**
    * @function video
@@ -4074,7 +4090,8 @@ async function load(
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
-    // 🐢 Reset turtle state.
+    
+    //  Reset turtle state.
     turtleAngle = 270;
     turtleDown = false;
     turtlePosition = { x: screen.width / 2, y: screen.height / 2 };
