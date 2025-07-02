@@ -5003,6 +5003,44 @@ async function makeFrame({ data: { type, content } }) {
       if (screen) screen.pixels = pixels;
     }
 
+    // 🔙 Abstracted backspace logic for reuse between keyboard and touch-scrub
+    function triggerBackspaceAction() {
+      $commonApi.sound.synth({
+        tone: 800,
+        beats: 0.1,
+        attack: 0.01,
+        decay: 0.5,
+        volume: 0.15,
+      });
+
+      send({ type: "keyboard:unlock" });
+      if (!labelBack) {
+        let promptSlug = "prompt";
+        // Use currentText which contains the original slug with tildes (e.g., "rect~red")
+        const content = currentText;
+        if (content) {
+          // Only encode kidlisp content with kidlisp encoder
+          if (lisp.isKidlispSource(content)) {
+            const encodedContent = lisp.encodeKidlispForUrl(content);
+            promptSlug += "~" + encodedContent;
+          } else {
+            // For regular piece names, currentText already has the correct tilde format
+            promptSlug += "~" + content;
+          }
+        }
+        $commonApi.jump(promptSlug);
+        send({ type: "keyboard:open" });
+      } else {
+        labelBack = false; // Reset `labelBack` after jumping.
+        if ($commonApi.history.length > 0) {
+          send({ type: "back-to-piece" });
+        } else {
+          $commonApi.jump("prompt");
+          send({ type: "keyboard:open" });
+        }
+      }
+    }
+
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
@@ -5057,44 +5095,34 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
-          $commonApi.sound.synth({
-            tone: data.key === "Backspace" ? 800 : 1200,
-            beats: 0.1,
-            attack: 0.01,
-            decay: 0.5,
-            volume: 0.15,
-          });
-
-          send({ type: "keyboard:unlock" });
-          if (!labelBack || data.key === "Backspace") {
-            let promptSlug = "prompt";
-            if (data.key === "Backspace") {
-              // Use currentText which contains the original slug with tildes (e.g., "rect~red")
-              const content = currentText;
-              if (content) {
-                // Only encode kidlisp content with kidlisp encoder
-                if (lisp.isKidlispSource(content)) {
-                  const encodedContent = lisp.encodeKidlispForUrl(content);
-                  promptSlug += "~" + encodedContent;
-                } else {
-                  // For regular piece names, currentText already has the correct tilde format
-                  promptSlug += "~" + content;
-                }
-              }
-            }
-            $commonApi.jump(promptSlug)(() => {
-              send({ type: "keyboard:open" });
-            });
+          if (data.key === "Backspace") {
+            triggerBackspaceAction();
           } else {
-            if ($commonApi.history.length > 0) {
-              send({ type: "back-to-piece" });
-              // $commonApi.jump(
-              //   $commonApi.history[$commonApi.history.length - 1],
-              // );
-            } else {
-              $commonApi.jump(promptSlug)(() => {
+            $commonApi.sound.synth({
+              tone: 1200,
+              beats: 0.1,
+              attack: 0.01,
+              decay: 0.5,
+              volume: 0.15,
+            });
+
+            send({ type: "keyboard:unlock" });
+            if (!labelBack) {
+              $commonApi.jump("prompt")(() => {
                 send({ type: "keyboard:open" });
               });
+            } else {
+              labelBack = false; // Reset `labelBack` after jumping.
+              if ($commonApi.history.length > 0) {
+                send({ type: "back-to-piece" });
+                // $commonApi.jump(
+                //   $commonApi.history[$commonApi.history.length - 1],
+                // );
+              } else {
+                $commonApi.jump("prompt")(() => {
+                  send({ type: "keyboard:open" });
+                });
+              }
             }
           }
         }
@@ -5852,7 +5880,30 @@ async function makeFrame({ data: { type, content } }) {
             },
             push: (btn) => {
               const shareWidth = tf.blockWidth * "share ".length;
-              if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
+              const caretWidth = tf.blockWidth + 2; // More compact caret threshold
+              
+              // Don't allow normal push behavior if we've been scrubbing
+              if (btn.scrubbing) {
+                btn.actions.cancel?.();
+                return;
+              }
+              
+              // Handle left threshold (backspace) case
+              if (currentHUDScrub === -caretWidth) {
+                // Trigger backspace action using the abstracted function
+                triggerBackspaceAction();
+                $api.needsPaint();
+                masked = true;
+                currentHUDScrub = 0;
+                return;
+              }
+              
+              // Check if we're releasing during scrub but not at a threshold
+              if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
+                btn.actions.cancel?.();
+                return;
+              }
+              if (currentHUDScrub < 0 && currentHUDScrub > -caretWidth) {
                 btn.actions.cancel?.();
                 return;
               }
@@ -5881,30 +5932,37 @@ async function makeFrame({ data: { type, content } }) {
             scrub: (btn) => {
               if (piece === "share") return; // No need to share scrub while in share.
 
-              if (btn.over || currentHUDScrub > 0) {
+              if (btn.over || currentHUDScrub !== 0) {
                 currentHUDScrub += e.delta.x;
+                // Mark that we're actively scrubbing
+                btn.scrubbing = true;
               }
 
               const shareWidth = tf.blockWidth * "share ".length;
+              const caretWidth = tf.blockWidth + 2; // More compact caret threshold (actual glyph width + small margin)
 
+              // Update button width for positive scrub
               if (currentHUDScrub >= 0) {
                 btn.box.w =
                   tf.blockWidth * currentHUDTxt.length + currentHUDScrub;
                 // console.log(btn.b);
               }
 
-              if (currentHUDScrub < 0) currentHUDScrub = 0;
-
+              // Clamp scrub values within bounds
               if (currentHUDScrub >= shareWidth) {
                 currentHUDScrub = shareWidth;
-                currentHUDTextColor = [255, 255, 0];
-              } else if (currentHUDScrub > 0) {
-                currentHUDTextColor = [255, 0, 0];
+                currentHUDTextColor = [255, 255, 0]; // Yellow for share threshold
+              } else if (currentHUDScrub <= -caretWidth) {
+                currentHUDScrub = -caretWidth;
+                currentHUDTextColor = [255, 255, 0]; // Yellow for backspace threshold
+              } else if (btn.scrubbing) {
+                // Once scrubbing has started, stay red until threshold is reached
+                currentHUDTextColor = [255, 0, 0]; // Red for scrubbing (not at threshold yet)
               } else if (currentHUDScrub === 0) {
                 if (btn.over) {
-                  currentHUDTextColor = [0, 255, 0];
+                  currentHUDTextColor = [0, 255, 0]; // Green when hovering (only when not scrubbing)
                 } else {
-                  currentHUDTextColor = [255, 0, 0];
+                  currentHUDTextColor = [255, 0, 0]; // Default red
                 }
               }
             },
@@ -5912,7 +5970,8 @@ async function makeFrame({ data: { type, content } }) {
               currentHUDTextColor = originalColor;
 
               const shareWidth = tf.blockWidth * "share ".length;
-              console.log("scrub:", currentHUDScrub, shareWidth);
+              const caretWidth = tf.blockWidth + 2; // More compact caret threshold
+              console.log("scrub:", currentHUDScrub, shareWidth, -caretWidth);
 
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
@@ -5932,9 +5991,16 @@ async function makeFrame({ data: { type, content } }) {
                 // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
                 $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDLogicalTxt || currentHUDTxt));
                 return;
+              } else if (currentHUDScrub === -caretWidth) {
+                // Trigger backspace action using the abstracted function
+                triggerBackspaceAction();
+                return;
               }
 
+              // Only cancel and play cancel sound if we haven't reached a threshold
               currentHUDScrub = 0;
+              // Reset scrubbing flag on any button
+              if (currentHUDButton) currentHUDButton.scrubbing = false;
               // TODO: This might break on pieces where the keyboard is already
               //       open.
               send({ type: "keyboard:disabled" }); // Disable keyboard flag.
@@ -6503,7 +6569,16 @@ async function makeFrame({ data: { type, content } }) {
         let w = Math.max(...labelBounds.lines.map(lineArr => {
           // Preserve spaces when joining words on a line, matching the rendering logic
           return (Array.isArray(lineArr) ? lineArr.join(" ") : lineArr).length * tf.blockWidth;
-        })) + currentHUDScrub; // Exact width without extra padding
+        }));
+        
+        // Adjust width based on scrub direction
+        if (currentHUDScrub >= 0) {
+          w += currentHUDScrub; // Positive scrub extends to the right
+        } else {
+          // Negative scrub: add space for sliding caret animation
+          // Reduce the extra space to prevent clipping and make caret start closer
+          w += tf.blockWidth * 3; // Add space for the caret box and sliding range (reduced from 6 to 3)
+        }
         // Use the actual number of rendered lines for height
         // Use only the actual text height for a tighter fit (no extra margin)
         const scale = 1; // HUD label always uses scale 1
@@ -6513,6 +6588,9 @@ async function makeFrame({ data: { type, content } }) {
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+          
+          // Clear the entire label area first to prevent artifacts
+          $.ink([0, 0, 0, 0]).box(0, 0, w, h); // Transparent clear
 
           // Always use the original currentHUDTxt for the HUD label, preserving all color codes and user content
           let text = currentHUDTxt;
@@ -6533,7 +6611,7 @@ async function makeFrame({ data: { type, content } }) {
           // For the shadow, always strip color codes and disable inline color processing
           $.ink(0).write(
             stripColorCodes(text), // Always strip color codes for shadow
-            { x: 1 + currentHUDScrub, y: 1, noInlineColor: true }, // Add flag to disable inline color processing
+            { x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0), y: 1, noInlineColor: true }, // Add flag to disable inline color processing
             undefined,
             $api.screen.width - $api.typeface.blockWidth,
           );
@@ -6544,6 +6622,9 @@ async function makeFrame({ data: { type, content } }) {
 
           // Use stripColorCodes result for consistent rendering (same as shadow)
           const renderText = hasInlineColor ? stripColorCodes(text) : text;
+          
+          // Calculate text width for caret positioning
+          const textWidth = renderText.length * tf.blockWidth;
           
           // Build color array by stepping through the original text and mapping colors to cleaned positions
           let cleanIndex = 0;
@@ -6686,11 +6767,11 @@ async function makeFrame({ data: { type, content } }) {
               
               // Render the line with per-character colors
               if (tf?.print) {
-                tf.print($, { x: 0 + currentHUDScrub, y: lineY }, 0, lineText, undefined, lineColors);
+                tf.print($, { x: currentHUDScrub >= 0 ? currentHUDScrub : 0, y: lineY }, 0, lineText, undefined, lineColors);
               } else {
                 // Fallback if tf.print doesn't exist
                 $.ink(currentHUDTextColor || [255, 200, 240]).write(lineText, {
-                  x: 0 + currentHUDScrub,
+                  x: currentHUDScrub >= 0 ? currentHUDScrub : 0,
                   y: lineY,
                 });
               }
@@ -6698,7 +6779,7 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             // Fallback to regular rendering without color codes
             const writeOptions = {
-              x: 0 + currentHUDScrub,
+              x: currentHUDScrub >= 0 ? currentHUDScrub : 0,
               y: 0,
             };
             // Disable inline color processing when syntax coloring is disabled
@@ -6725,6 +6806,104 @@ async function makeFrame({ data: { type, content } }) {
               x: 0 + currentHUDScrub - shareWidth,
               y: 0,
             });
+          } else if (currentHUDScrub < 0) {
+            // Dissolving particle animation: particles fly from far right, assembling into caret
+            const caretThreshold = tf.blockWidth + 2; // Use actual glyph width plus small margin (more compact)
+            const scrubProgress = Math.abs(currentHUDScrub) / caretThreshold;
+            const clampedProgress = Math.min(scrubProgress, 1);
+            
+            const caretAreaWidth = tf.blockWidth; // Use actual typeface block width
+            const caretAreaHeight = tf.blockHeight; // Use actual typeface block height
+            const particleRange = tf.blockWidth * 12; // Much larger range for dramatic particle effect
+            
+            // Clear the entire animation area first
+            $.ink([0, 0, 0, 0]).box(textWidth - 5, -1, caretAreaWidth + particleRange + 20, caretAreaHeight + 4);
+            
+            // At the threshold, show complete caret block in theme-appropriate color
+            if (clampedProgress >= 1) {
+              // Use theme-appropriate block color: white for dark theme, black for light theme
+              const blockColor = $api.dark ? [255, 255, 255] : [0, 0, 0]; // Theme-appropriate prompt block color
+              
+              // Draw complete caret block with shadow
+              $.ink([0, 0, 0, 128]).box(textWidth + 1, 1, caretAreaWidth, caretAreaHeight); // Shadow
+              $.ink(blockColor).box(textWidth, 0, caretAreaWidth, caretAreaHeight); // Block
+            } else {
+              // Create particle swarm that flies from far right with improved math
+              const totalParticles = Math.floor(caretAreaWidth * caretAreaHeight * 1.5); // Dense particle swarm
+              const particlesToShow = Math.floor(clampedProgress * totalParticles);
+              
+              for (let i = 0; i < particlesToShow; i++) {
+                // Use consistent deterministic random for each particle based on index
+                const seed = i * 2.3456789; // Different seed for better distribution
+                const rnd1 = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
+                const rnd2 = Math.abs(Math.sin(seed * 78.233) * 43758.5453) % 1;
+                const rnd3 = Math.abs(Math.sin(seed * 37.719) * 43758.5453) % 1;
+                const rnd4 = Math.abs(Math.sin(seed * 94.673) * 43758.5453) % 1;
+                const rnd5 = Math.abs(Math.sin(seed * 15.428) * 43758.5453) % 1;
+                
+                // Final destination: randomly distributed across caret area
+                const finalX = textWidth + rnd1 * caretAreaWidth;
+                const finalY = rnd2 * caretAreaHeight;
+                
+                // Starting position: much further right with more spread
+                const startX = textWidth + caretAreaWidth + (rnd3 * particleRange) + 30;
+                const startY = finalY + (rnd4 - 0.5) * caretAreaHeight * 1.5; // More Y variation
+                
+                // Each particle has unique timing and speed
+                const particleDelay = rnd1 * 0.4; // Stagger particle launches over 40% of animation
+                const particleSpeed = 0.8 + rnd5 * 0.4; // Speed varies from 0.8 to 1.2
+                
+                // Check if this particle should be active yet
+                if (clampedProgress > particleDelay) {
+                  const particleAge = clampedProgress - particleDelay;
+                  const normalizedAge = particleAge / (1.0 - particleDelay); // Normalize to 0-1
+                  const movementProgress = Math.min(normalizedAge * particleSpeed, 1);
+                  
+                  // Smooth easing for more natural movement (ease-out)
+                  const easedProgress = 1 - Math.pow(1 - movementProgress, 2);
+                  
+                  // Current position with smooth interpolation
+                  const currentX = startX - (startX - finalX) * easedProgress;
+                  const currentY = startY + (finalY - startY) * easedProgress;
+                  
+                  // Distance-based alpha for particle trail effect
+                  const totalDistance = startX - finalX;
+                  const remainingDistance = Math.abs(currentX - finalX);
+                  const proximityFactor = 1 - (remainingDistance / totalDistance);
+                  
+                  // Multi-layer alpha calculation for natural fading
+                  const baseAlpha = Math.min(255, proximityFactor * 220 + 35);
+                  const speedAlpha = Math.min(255, easedProgress * 160 + 60);
+                  const randomAlpha = 200 + rnd4 * 55; // Slight alpha variation per particle
+                  const finalAlpha = Math.min(255, Math.max(baseAlpha, speedAlpha) * (randomAlpha / 255));
+                  
+                  // Color with slight variation for more organic look
+                  const redChannel = Math.floor(220 + rnd5 * 35); // Red varies 220-255
+                  const particleColor = [redChannel, 0, 0, finalAlpha];
+                  
+                  // Draw the particle
+                  $.ink(particleColor).point(Math.floor(currentX), Math.floor(currentY));
+                  
+                  // Add particle trails for particles that are moving fast
+                  if (easedProgress > 0.1 && easedProgress < 0.9 && rnd3 > 0.6) {
+                    const trailX = currentX + (startX - currentX) * 0.1; // Slight trail behind
+                    const trailAlpha = finalAlpha * 0.3;
+                    $.ink([redChannel, 0, 0, trailAlpha]).point(Math.floor(trailX), Math.floor(currentY));
+                  }
+                  
+                  // When particles are very close to destination, add clustering effect
+                  if (easedProgress >= 0.85) {
+                    const clusterSize = Math.floor(rnd2 * 3) + 1; // 1-3 pixels cluster
+                    for (let c = 0; c < clusterSize; c++) {
+                      const clusterX = Math.floor(finalX) + (c % 2);
+                      const clusterY = Math.floor(finalY) + Math.floor(c / 2);
+                      const clusterAlpha = Math.min(255, finalAlpha + 40);
+                      $.ink([255, 0, 0, clusterAlpha]).point(clusterX, clusterY);
+                    }
+                  }
+                }
+              }
+            }
           }
         });
 
