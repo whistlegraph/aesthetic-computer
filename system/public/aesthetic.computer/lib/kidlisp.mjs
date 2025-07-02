@@ -2467,7 +2467,7 @@ function isKidlispSource(text) {
     }
   }
 
-  // Check for encoded kidlisp that might have newlines encoded as ~ or _
+  // Check for encoded kidlisp that might have newlines encoded as _
   // Only check this if it looks like URL-encoded content (multiple underscores in sequence 
   // or typical KidLisp function patterns), not just any underscore usage
   if (text.includes("_") && (
@@ -2477,12 +2477,16 @@ function isKidlispSource(text) {
     const decoded = text
       .replace(/_/g, " ")
       .replace(/§/g, "\n");
-      // Note: NOT replacing ~ with newlines - ~ is not an encoded newline character
     // If decoded version starts with ( or contains newlines, it's KidLisp
     if (decoded.startsWith("(") || decoded.includes("\n")) {
       return true;
     }
   }
+
+  // NOTE: We do NOT treat ~ alone as a kidlisp indicator because ~ is used
+  // as a parameter separator in regular piece URLs like "line~red"
+  // The ~ to newline conversion only happens during decoding if there are
+  // other strong indicators that the text is actually kidlisp
 
   // For all other cases (single line input that doesn't start with '('), 
   // don't consider it KidLisp to avoid false positives
@@ -2524,30 +2528,50 @@ function decodeKidlispFromUrl(encoded) {
       .replace(/%3B/g, ";") // Decode semicolons
       .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   } else {
-    // First, try decoding without ~ to newline conversion to check if it's already KidLisp
-    const preliminaryDecoded = encoded
-      .replace(/_/g, " ")
-      .replace(/§/g, "\n") // Primary newline encoding
-      .replace(/%28/g, "(")
-      .replace(/%29/g, ")")
-      .replace(/%2E/g, ".")
-      .replace(/%22/g, '"')
-      .replace(/%3B/g, ";")
-      .replace(/S/g, "#");
+    // Check if this looks like music notation before doing any replacements
+    const isMusicNotation = /^\([a-g#\d\s\*\.\-\_\<\>]*\)$/i.test(encoded) ||
+                           /\([a-g#\d\s\*\.\-\_\<\>]*\)\s*\([a-g#\d\s\*\.\-\_\<\>]*\)/i.test(encoded) ||
+                           /^[a-g#\d\s\*\.\-\_\<\>]+$/i.test(encoded);
     
-    // Only apply ~ to newline conversion if the text has strong KidLisp indicators
-    // beyond just starting with ( or containing newlines (which ~ conversion would create)
-    const hasKidlispFunctions = /\b(wipe|ink|line|box|def|later|circle|poly|resolution)\b/.test(preliminaryDecoded);
-    const hasMultipleUnderscores = encoded.includes("__");
-    const startsWithParen = preliminaryDecoded.startsWith("(");
-    const hasExistingNewlines = preliminaryDecoded.includes("\n");
-    
-    // Apply ~ to newline conversion only if there are strong indicators this is actually KidLisp
-    if (startsWithParen || hasExistingNewlines || hasKidlispFunctions || hasMultipleUnderscores) {
-      decoded = preliminaryDecoded.replace(/~/g, "\n");
+    if (isMusicNotation) {
+      // For music notation, only decode URL-encoded characters, don't replace underscores or tildes
+      decoded = encoded
+        .replace(/§/g, "\n") // Primary newline encoding
+        .replace(/%28/g, "(")
+        .replace(/%29/g, ")")
+        .replace(/%2E/g, ".")
+        .replace(/%22/g, '"')
+        .replace(/%3B/g, ";")
+        .replace(/S/g, "#");
+      // Don't replace underscores or tildes in music notation
     } else {
-      // Don't convert ~ to newlines for commands that don't show clear KidLisp patterns
-      decoded = preliminaryDecoded;
+      // First, try decoding without ~ to newline conversion to check if it's already KidLisp
+      const preliminaryDecoded = encoded
+        .replace(/_/g, " ")
+        .replace(/§/g, "\n") // Primary newline encoding
+        .replace(/%28/g, "(")
+        .replace(/%29/g, ")")
+        .replace(/%2E/g, ".")
+        .replace(/%22/g, '"')
+        .replace(/%3B/g, ";")
+        .replace(/S/g, "#");
+      
+      // Only apply ~ to newline conversion if the text has strong KidLisp indicators
+      // beyond just starting with ( or containing newlines (which ~ conversion would create)
+      // Note: We need to be careful about function names that are also piece names (like "line")
+      // Only consider it a KidLisp function if it's used in a function call context with parentheses
+      const hasKidlispFunctionCalls = /\(\s*(wipe|ink|line|box|def|later|circle|poly|resolution)\b/.test(preliminaryDecoded);
+      const hasMultipleUnderscores = encoded.includes("__");
+      const startsWithParen = preliminaryDecoded.startsWith("(");
+      const hasExistingNewlines = preliminaryDecoded.includes("\n");
+      
+      // Apply ~ to newline conversion only if there are strong indicators this is actually KidLisp
+      if (startsWithParen || hasExistingNewlines || hasKidlispFunctionCalls || hasMultipleUnderscores) {
+        decoded = preliminaryDecoded.replace(/~/g, "\n");
+      } else {
+        // Don't convert ~ to newlines for commands that don't show clear KidLisp patterns
+        decoded = preliminaryDecoded;
+      }
     }
   }
   
