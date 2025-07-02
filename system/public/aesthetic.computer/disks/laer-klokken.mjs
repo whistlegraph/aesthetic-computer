@@ -10,6 +10,7 @@ import * as chat from "./chat.mjs"; // Import chat everywhere.
 let client;
 
 function boot({ api, wipe, debug, send }) {
+  // api.setTypeface("unifont"); // Use unifont for Danish character support /
   wipe("blue");
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat.
