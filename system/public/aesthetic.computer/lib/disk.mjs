@@ -4117,16 +4117,13 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     }
 
-    console.log("🔍 HUD Debug - slug:", slug, "alias:", alias);
     if (!alias) {
       // Convert tildes to spaces for display in the corner label
       const displaySlug = slug.replace(/~/g, " ");
-      console.log("🔍 HUD Debug - Setting displaySlug:", displaySlug);
       currentHUDTxt = displaySlug; // Update hud if this is not an alias.
       currentHUDLogicalTxt = displaySlug; // Set logical text to the same space-separated version
     }
     if (module.nohud || system === "prompt") {
-      console.log("🔍 HUD Debug - Clearing HUD (nohud or prompt)");
       currentHUDTxt = undefined;
       currentHUDLogicalTxt = undefined;
     }
