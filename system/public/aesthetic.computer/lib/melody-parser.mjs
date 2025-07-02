@@ -592,28 +592,35 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   
   // If no parentheses found, treat as single track
   if (!processedMelodyString.includes('(') && !processedMelodyString.includes(')')) {
-    // Check for * anywhere in the string (the "no groups + * = change anything before it" feature)
-    const asteriskIndex = processedMelodyString.indexOf('*');
-    const hasMutation = asteriskIndex !== -1;
+    // Check for * anywhere in the string (support multiple * markers for mutation zones)
+    const asteriskIndices = [];
+    for (let i = 0; i < processedMelodyString.length; i++) {
+      if (processedMelodyString[i] === '*') {
+        asteriskIndices.push(i);
+      }
+    }
+    const hasMutation = asteriskIndices.length > 0;
     let contentForParsing = processedMelodyString;
-    let mutationTriggerPosition = -1;
+    let mutationTriggerPositions = [];
     
     if (hasMutation) {
       // Remove all * characters from the content to parse
       contentForParsing = processedMelodyString.replace(/\*/g, '');
       
-      // Calculate the position in the parsed notes where mutation should trigger
-      // We need to count actual note characters before the first *
-      let noteCount = 0;
-      for (let i = 0; i < asteriskIndex; i++) {
-        const char = processedMelodyString[i];
-        // Count note letters and rests as positions that will create parsed notes
-        if (/[a-g_-]/.test(char) || 
-            (char.match(/[0-9]/) && i + 1 < processedMelodyString.length && /[a-g]/.test(processedMelodyString[i + 1]))) {
-          noteCount++;
+      // Calculate the positions in the parsed notes where mutations should trigger
+      // For each *, count actual note characters before it
+      mutationTriggerPositions = asteriskIndices.map(asteriskIndex => {
+        let noteCount = 0;
+        for (let i = 0; i < asteriskIndex; i++) {
+          const char = processedMelodyString[i];
+          // Count note letters and rests as positions that will create parsed notes
+          if (/[a-g_-]/.test(char) || 
+              (char.match(/[0-9]/) && i + 1 < processedMelodyString.length && /[a-g]/.test(processedMelodyString[i + 1]))) {
+            noteCount++;
+          }
         }
-      }
-      mutationTriggerPosition = noteCount;
+        return noteCount;
+      });
     }
     
     // Apply global wave type to the single track if one was specified
@@ -628,7 +635,14 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
       parsedTrack.hasMutation = true;
       parsedTrack.originalContent = contentForParsing;
       parsedTrack.mutationCount = 0;
-      parsedTrack.mutationTriggerPosition = mutationTriggerPosition; // Position where mutation should start
+      parsedTrack.mutationTriggerPositions = mutationTriggerPositions; // Array of positions where mutations should trigger
+      parsedTrack.currentMutationZone = 0; // Track which mutation zone we're currently in
+      
+      // Only set legacy single position for backward compatibility if we have exactly one trigger
+      // This prevents conflicts between multiple zones and legacy systems
+      if (mutationTriggerPositions.length === 1) {
+        parsedTrack.mutationTriggerPosition = mutationTriggerPositions[0];
+      }
     }
     
     return {
@@ -705,12 +719,35 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
 export function mutateMelodyTrack(originalTrack, originalContent, startingOctave = 4) {
   if (!originalTrack || originalTrack.length === 0) return originalTrack;
   
-  // Check if this track has a mutation trigger position (for mid-melody * syntax)
-  const hasTriggerPosition = originalTrack.mutationTriggerPosition !== undefined;
+  // Check if this track has multiple mutation zones (new system) or single position (legacy)
+  const hasMultipleZones = originalTrack.mutationTriggerPositions && originalTrack.mutationTriggerPositions.length > 0;
+  const hasSingleTrigger = originalTrack.mutationTriggerPosition !== undefined;
+  
   let mutatableIndices = [];
   
-  if (hasTriggerPosition && originalTrack.mutationTriggerPosition > 0) {
-    // Only mutate notes/rests that appear before the trigger position
+  if (hasMultipleZones) {
+    // New system: Support multiple mutation zones
+    const currentZone = originalTrack.currentMutationZone || 0;
+    const triggerPositions = originalTrack.mutationTriggerPositions;
+    
+    if (currentZone < triggerPositions.length) {
+      // Determine the range for the current mutation zone
+      const zoneStart = currentZone === 0 ? 0 : triggerPositions[currentZone - 1];
+      const zoneEnd = triggerPositions[currentZone];
+      
+      // Only mutate notes within the current zone
+      for (let i = zoneStart; i < Math.min(zoneEnd, originalTrack.length); i++) {
+        const note = originalTrack[i];
+        if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
+          mutatableIndices.push(i);
+        }
+      }
+    } else {
+      // If we've reached the end of all zones, don't mutate anything
+      return originalTrack;
+    }
+  } else if (hasSingleTrigger && originalTrack.mutationTriggerPosition > 0) {
+    // Legacy system: Only mutate notes/rests that appear before the trigger position
     for (let i = 0; i < Math.min(originalTrack.mutationTriggerPosition, originalTrack.length); i++) {
       const note = originalTrack[i];
       if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
@@ -769,6 +806,26 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
       isMutation: true // Mark this as a mutation for potential visual feedback
     };
     
+    // Preserve track-level metadata
+    if (originalTrack.mutationTriggerPosition !== undefined) {
+      mutatedTrack.mutationTriggerPosition = originalTrack.mutationTriggerPosition;
+    }
+    if (originalTrack.mutationTriggerPositions !== undefined) {
+      mutatedTrack.mutationTriggerPositions = originalTrack.mutationTriggerPositions;
+    }
+    if (originalTrack.currentMutationZone !== undefined) {
+      mutatedTrack.currentMutationZone = originalTrack.currentMutationZone;
+    }
+    if (originalTrack.hasMutation !== undefined) {
+      mutatedTrack.hasMutation = originalTrack.hasMutation;
+    }
+    if (originalTrack.originalContent !== undefined) {
+      mutatedTrack.originalContent = originalTrack.originalContent;
+    }
+    if (originalTrack.mutationCount !== undefined) {
+      mutatedTrack.mutationCount = originalTrack.mutationCount;
+    }
+    
     return mutatedTrack;
   }
   
@@ -808,6 +865,26 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
       originalOctave: itemToMutate.octave
     };
     
+    // Preserve track-level metadata
+    if (originalTrack.mutationTriggerPosition !== undefined) {
+      mutatedTrack.mutationTriggerPosition = originalTrack.mutationTriggerPosition;
+    }
+    if (originalTrack.mutationTriggerPositions !== undefined) {
+      mutatedTrack.mutationTriggerPositions = originalTrack.mutationTriggerPositions;
+    }
+    if (originalTrack.currentMutationZone !== undefined) {
+      mutatedTrack.currentMutationZone = originalTrack.currentMutationZone;
+    }
+    if (originalTrack.hasMutation !== undefined) {
+      mutatedTrack.hasMutation = originalTrack.hasMutation;
+    }
+    if (originalTrack.originalContent !== undefined) {
+      mutatedTrack.originalContent = originalTrack.originalContent;
+    }
+    if (originalTrack.mutationCount !== undefined) {
+      mutatedTrack.mutationCount = originalTrack.mutationCount;
+    }
+    
     return mutatedTrack;
   }
   
@@ -825,6 +902,26 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
     tone: noteToTone(newNoteName, itemToMutate.octave),
     isMutation: true // Mark this as a mutation for potential visual feedback
   };
+  
+  // Preserve track-level metadata
+  if (originalTrack.mutationTriggerPosition !== undefined) {
+    mutatedTrack.mutationTriggerPosition = originalTrack.mutationTriggerPosition;
+  }
+  if (originalTrack.mutationTriggerPositions !== undefined) {
+    mutatedTrack.mutationTriggerPositions = originalTrack.mutationTriggerPositions;
+  }
+  if (originalTrack.currentMutationZone !== undefined) {
+    mutatedTrack.currentMutationZone = originalTrack.currentMutationZone;
+  }
+  if (originalTrack.hasMutation !== undefined) {
+    mutatedTrack.hasMutation = originalTrack.hasMutation;
+  }
+  if (originalTrack.originalContent !== undefined) {
+    mutatedTrack.originalContent = originalTrack.originalContent;
+  }
+  if (originalTrack.mutationCount !== undefined) {
+    mutatedTrack.mutationCount = originalTrack.mutationCount;
+  }
   
   return mutatedTrack;
 }
