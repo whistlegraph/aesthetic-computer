@@ -1719,6 +1719,7 @@ const $commonApi = {
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
   debug,
+  logs,
 };
 
 chatClient.$commonApi = $commonApi; // Add a reference to the `Chat` module.
@@ -4952,6 +4953,7 @@ async function makeFrame({ data: { type, content } }) {
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
     if (debug && logs.audio) console.log("Sound load success:", content);
+    if (debug && logs.audio) console.log("Resolving preload promise for:", content.sfx);
     preloadPromises[content.sfx]?.resolve(content.sfx);
     delete preloadPromises[content];
     return;
