@@ -3886,6 +3886,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a sound from a url with instant playback support.
     if (type === "sfx:load") {
+      if (debug && logs.audio) console.log("🔈 BIOS received sfx:load request for:", content);
+      
       let internal = false;
 
       for (let wl of soundWhitelist) {
@@ -3906,6 +3908,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else url = content;
 
+      if (debug && logs.audio) console.log("🔈 BIOS loading sound from URL:", url);
+
       // Enhanced instant playback audio loading strategy
       const audioId = content;
       
@@ -3918,19 +3922,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Store the HTML5 audio for instant playback
       sfx[audioId + "_html5"] = htmlAudioElement;
       
+      if (debug && logs.audio) console.log("🔈 BIOS stored HTML5 audio element for:", audioId + "_html5");
+      
       // Strategy 2: Background fetch and decode for high-quality playback
       fetch(url)
         .then((response) => {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
+          if (debug && logs.audio) console.log("🔈 BIOS fetched audio data for:", audioId);
           try {
             if (!audioContext) {
               sfx[audioId] = arrayBuffer;
+              if (debug && logs.audio) console.log("🔈 BIOS stored raw audio buffer (no audioContext):", audioId);
             } else {
               // Background decode the buffer
               const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
               sfx[audioId] = audioBuffer;
+              
+              if (debug && logs.audio) console.log("🔈 BIOS decoded and stored audio buffer:", audioId);
               
               // Clean up HTML5 audio once high-quality buffer is ready
               if (sfx[audioId + "_html5"]) {
@@ -3948,6 +3958,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               type: "loaded-sfx-success",
               content: { url, sfx: audioId },
             });
+            if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (background):", audioId);
           } catch (error) {
             if (debug && logs.audio)
               console.error("Background audio decoding failed:", error);
@@ -3971,6 +3982,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "loaded-sfx-success",
         content: { url, sfx: audioId, instantPlayback: true },
       });
+      if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (instant):", audioId);
 
       return;
     }
