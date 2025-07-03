@@ -7,7 +7,7 @@
 (mask 0 22 width height-22)
 (repeat width/16 i (ink (0.05s... gray purple blue pink)) (box i*16 0 4 height))
 (scroll frame -frame)
-(spin (* 30 (sin)))
+(spin (* 80 (sin)))
 (stamp "@jeffrey/2025.6.24.01.45.17.910" width/2 height/2
   (/ (min width height) (+ 300 (* 50 (sin)))) (* 15 (sin))
 )
@@ -27,6 +27,10 @@
 (ink (0.15s... red orange yellow lime green))
 (write (0.45s... "Karaoke & Dance" "K a r a o k e & D a n c e")
         center (+ height-50 (* 12 amplitude)) (0.5s... black blue gray indigo purple))
+(ink (0.1s.. yellow orange cyan))
+(write (0.45s... "THEME: ???")
+        0 (+ height-28) (0.5s... blue purple))
+
 (pan 10 4)
 (ink (choose blue indigo purple))
 (write (0.2s... "INVITE ONLY" "invite only") width-90 height-30 white)

@@ -688,7 +688,7 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
-    console.log("🐎 Jumping to:", to);
+    console.log("🐎 Jump:", to);
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
       return;
@@ -6073,9 +6073,7 @@ async function makeFrame({ data: { type, content } }) {
                 currentHUDTextColor = [200, 80, 80];
               }
               // Don't lock keyboard if we just triggered backspace
-              if (!justTriggeredBackspace) {
-                send({ type: "keyboard:lock" });
-              }
+              send({ type: "keyboard:lock" });
             },
           });
 
