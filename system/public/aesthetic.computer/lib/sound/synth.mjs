@@ -262,11 +262,14 @@ export default class Synth {
       // Handle looping and stopping
       if (this.#sampleLoop) {
         if (this.#sampleIndex > this.#sampleEndIndex) {
-          this.#sampleIndex =
-            this.#sampleStartIndex + (this.#sampleIndex % this.#sampleEndIndex); // Loop forwards. ➡️
+          // Calculate the range length for proper modulo operation
+          const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
+          const overshoot = this.#sampleIndex - this.#sampleEndIndex;
+          this.#sampleIndex = this.#sampleStartIndex + (overshoot % rangeLength); // Loop forwards. ➡️
         } else if (this.#sampleIndex < this.#sampleStartIndex) {
-          this.#sampleIndex =
-            this.#sampleEndIndex - (this.#sampleStartIndex - this.#sampleIndex); // Loop backwards. ⬅️
+          const rangeLength = this.#sampleEndIndex - this.#sampleStartIndex;
+          const undershoot = this.#sampleStartIndex - this.#sampleIndex;
+          this.#sampleIndex = this.#sampleEndIndex - (undershoot % rangeLength); // Loop backwards. ⬅️
         }
       } else {
         // console.log(this.#sampleIndex, this.#sampleEndIndex);

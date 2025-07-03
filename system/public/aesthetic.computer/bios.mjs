@@ -1074,6 +1074,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         activatedSoundCallback?.();
 
+        // Process any queued sound effects now that audioContext is available
+        processPendingSfx();
+
         modal.classList.remove("on");
       })();
     } catch (e) {
@@ -1101,6 +1104,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
+    console.log("🔊 [DEBUG] playSfx called with:", { id, soundData, options, audioContextState: audioContext?.state });
     if (audioContext) {
       if (sfxCancel.includes(id)) {
         console.log(sfxCancel, "Cancelling...", id);
@@ -1108,16 +1112,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return;
       }
 
+      console.log("🔊 [DEBUG] Before decodeSfx, sfx[soundData]:", typeof sfx[soundData], sfx[soundData] instanceof ArrayBuffer ? "ArrayBuffer" : "Other");
       // Instantly decode the audio before playback if it hasn't been already.
       await decodeSfx(soundData);
 
-      if (sfx[soundData] instanceof ArrayBuffer) return;
+      console.log("🔊 [DEBUG] After decodeSfx, sfx[soundData]:", typeof sfx[soundData], sfx[soundData] instanceof ArrayBuffer ? "ArrayBuffer" : "AudioBuffer or Other");
 
-      if (!sfx[soundData]) {
-        // console.log("🔉 No buffer found for:", soundData);
+      if (sfx[soundData] instanceof ArrayBuffer) {
+        console.log("🔊 [DEBUG] Still ArrayBuffer after decode, returning early");
         return;
       }
 
+      if (!sfx[soundData]) {
+        console.log("� [DEBUG] No buffer found for:", soundData);
+        return;
+      }
+
+      console.log("🔊 [DEBUG] Creating sample channels from AudioBuffer, channels:", sfx[soundData].numberOfChannels);
       const channels = [];
       for (let i = 0; i < sfx[soundData].numberOfChannels; i += 1) {
         channels.push(sfx[soundData].getChannelData(i)); // Get raw Float32Array.
@@ -1129,11 +1140,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
+      console.log("🔊 [DEBUG] Sample created:", { sampleRate: sample.sampleRate, length: sample.length, channels: sample.channels.length });
+
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
 
       // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
+      console.log("🔊 [DEBUG] About to call triggerSound with:", { id, type: "sample", sfxLoaded: sfxLoaded[soundData] });
       sfxPlaying[id] = triggerSound?.({
         id,
         type: "sample",
@@ -1153,7 +1167,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
+      console.log("🔊 [DEBUG] triggerSound returned:", sfxPlaying[id]);
+
       if (triggerSound) sfxLoaded[soundData] = true;
+    } else {
+      console.log("🔊 [DEBUG] No audioContext available, queueing sound:", soundData);
+      // Queue the sound effect to be played once audioContext is available
+      pendingSfxQueue.push({ id, soundData, options });
     }
   }
 
@@ -3866,6 +3886,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a sound from a url with instant playback support.
     if (type === "sfx:load") {
+      if (debug && logs.audio) console.log("🔈 BIOS received sfx:load request for:", content);
+      
       let internal = false;
 
       for (let wl of soundWhitelist) {
@@ -3886,6 +3908,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else url = content;
 
+      if (debug && logs.audio) console.log("🔈 BIOS loading sound from URL:", url);
+
       // Enhanced instant playback audio loading strategy
       const audioId = content;
       
@@ -3898,19 +3922,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Store the HTML5 audio for instant playback
       sfx[audioId + "_html5"] = htmlAudioElement;
       
+      if (debug && logs.audio) console.log("🔈 BIOS stored HTML5 audio element for:", audioId + "_html5");
+      
       // Strategy 2: Background fetch and decode for high-quality playback
       fetch(url)
         .then((response) => {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
+          if (debug && logs.audio) console.log("🔈 BIOS fetched audio data for:", audioId);
           try {
             if (!audioContext) {
               sfx[audioId] = arrayBuffer;
+              if (debug && logs.audio) console.log("🔈 BIOS stored raw audio buffer (no audioContext):", audioId);
             } else {
               // Background decode the buffer
               const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
               sfx[audioId] = audioBuffer;
+              
+              if (debug && logs.audio) console.log("🔈 BIOS decoded and stored audio buffer:", audioId);
               
               // Clean up HTML5 audio once high-quality buffer is ready
               if (sfx[audioId + "_html5"]) {
@@ -3919,12 +3949,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               
               if (debug && logs.audio)
                 console.log("🔈 Background decoded for high-quality playback:", audioId);
+              
+              // Process any queued sounds that might be waiting for this file
+              processPendingSfx();
             }
             
             send({
               type: "loaded-sfx-success",
               content: { url, sfx: audioId },
             });
+            if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (background):", audioId);
           } catch (error) {
             if (debug && logs.audio)
               console.error("Background audio decoding failed:", error);
@@ -3948,6 +3982,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "loaded-sfx-success",
         content: { url, sfx: audioId, instantPlayback: true },
       });
+      if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (instant):", audioId);
 
       return;
     }
@@ -5420,22 +5455,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
+    console.log("🔈 [DEBUG] decodeSfx called with:", sound, "Type:", typeof sfx[sound], "Instance:", sfx[sound] instanceof ArrayBuffer);
     if (sfx[sound] instanceof ArrayBuffer) {
       let audioBuffer;
       try {
         const buf = sfx[sound];
         sfx[sound] = null;
+        console.log("🔈 [DEBUG] About to decode ArrayBuffer, size:", buf.byteLength);
         if (buf) {
           audioBuffer = await audioContext.decodeAudioData(buf);
+          console.log("🔈 [DEBUG] Successfully decoded to AudioBuffer:", audioBuffer);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
           sfx[sound] = audioBuffer;
+          
+          // Process any queued sounds that might be waiting for this file
+          processPendingSfx();
+          
           return sfx[sound];
         }
       } catch (err) {
-        console.error("🔉", err, "➡️", sound);
+        console.error("🔉 [DEBUG] Decode error:", err, "➡️", sound);
       }
     } else {
+      console.log("🔈 [DEBUG] Sound is not ArrayBuffer, returning as-is:", sfx[sound]);
       return sfx[sound];
+    }
+  }
+
+  // Queue for sounds that need to be played once audio context is available
+  let pendingSfxQueue = [];
+
+  // Process any queued sound effects once audio context is ready
+  function processPendingSfx() {
+    if (audioContext && pendingSfxQueue.length > 0) {
+      console.log("🔊 [DEBUG] Processing", pendingSfxQueue.length, "pending sound effects");
+      const remaining = [];
+      
+      pendingSfxQueue.forEach(({ id, soundData, options }) => {
+        // Only play sounds that have been loaded into the sfx cache
+        if (sfx[soundData]) {
+          console.log("🔊 [DEBUG] Playing queued sound:", soundData);
+          playSfx(id, soundData, options);
+        } else {
+          console.log("🔊 [DEBUG] Sound not yet loaded, keeping in queue:", soundData);
+          remaining.push({ id, soundData, options });
+        }
+      });
+      
+      pendingSfxQueue = remaining;
+      
+      // If there are still sounds waiting, check again soon
+      if (pendingSfxQueue.length > 0) {
+        setTimeout(processPendingSfx, 100);
+      }
     }
   }
 }
