@@ -192,6 +192,17 @@ end
 # Make sure this user owns the emacs directory.
 sudo chown -R me:me ~/.emacs.d
 
+# Link the prompts directory to VSCode User config
+mkdir -p ~/.config/Code/User
+rm -rf ~/.config/Code/User/prompts
+ln -s /home/me/aesthetic-computer/prompts ~/.config/Code/User/prompts
+echo "✨ Prompts directory linked to VSCode User config"
+
+# Link the modes directory to .github for VSCode chatmodes
+rm -rf /home/me/aesthetic-computer/.github
+ln -s /home/me/aesthetic-computer/modes /home/me/aesthetic-computer/.github
+echo "✨ Modes directory linked to .github for VSCode chatmodes"
+
 # Trigger the 'waiter' alias to boot the platform.
 # touch /home/me/.waiter
 
