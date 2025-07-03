@@ -926,7 +926,7 @@ const lessons = [
 
     -PIKBLOD-//-PIKBLOD-//-PIKBLOD-
      
-    [PIKBLOD-when-you-walked-speed-up_slow-version.m4a]
+    [PIKBLOD-when-you-walked-speed-up-slow_version.m4a]
     `,
     pictures: ["lnl53"],
     sounds: ["PIKBLOD-when-you-walked-speed-up_slow-version"]
@@ -1096,10 +1096,10 @@ function loadLesson(api) {
       if (sfx) {
         const playOptions = { loop: true };
         
-        if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: About to call api.sound.play with:", soundUrl);
+        if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: About to call api.sound.play with:", sfx, "instead of:", soundUrl);
         
-        // Use the soundUrl (string) instead of the preloaded object
-        const playResult = api.sound.play(soundUrl, playOptions);
+        // Use the sfx result (preloaded identifier) instead of the soundUrl
+        const playResult = api.sound.play(sfx, playOptions);
         
         if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: api.sound.play returned:", playResult);
         
