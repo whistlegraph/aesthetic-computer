@@ -112,15 +112,46 @@ function ac-event-daemon
 end
 
 function start
+    echo "✨ Starting Aesthetic Computer development environment..."
+    
     # Kill any code instances that are runningdark-window
     if pgrep code >/dev/null
-        echo "Killing existing VS Code instances..."
+        echo "💀 Killing existing VS Code instances..."
         pkill code
         # Give VS Code a moment to shut down properly
         sleep 1
+        echo "   ⏱️  Waiting for graceful shutdown..."
     end
+    
+    # Create symlink for prompts directory
+    set prompts_source "$HOME/aesthetic-computer/prompts"
+    set prompts_target "$HOME/.config/Code/User/prompts"
+    
+    if test -d "$prompts_source"
+        # Create the Code/User directory if it doesn't exist
+        mkdir -p "$HOME/.config/Code/User"
+        
+        # Remove existing symlink or directory if it exists
+        if test -L "$prompts_target"
+            rm "$prompts_target"
+            echo "🗑️  Removed existing symlink"
+        else if test -d "$prompts_target"
+            rm -rf "$prompts_target"
+            echo "🗑️  Removed existing directory"
+        end
+        
+        # Create the symlink
+        ln -s "$prompts_source" "$prompts_target"
+        echo "🔗 Linked prompts directory to VS Code"
+    else
+        echo "⚠️  Prompts directory not found - skipping symlink"
+    end
+    
+    echo "🔐 Starting SSL certificates..."
     ac-ssl &
+    echo "📦 Opening dev container..."
     acd # &
+    echo "🎨 aesthetic.computer is ready! Have fun creating! 🚀"
     # ac-event-daemon $argv
 end
 
