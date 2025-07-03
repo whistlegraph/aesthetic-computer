@@ -608,13 +608,22 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
       contentForParsing = processedMelodyString.replace(/\*/g, '');
       
       // Calculate the positions in the parsed notes where mutations should trigger
-      // For each *, count actual note characters before it
+      // For each *, count actual note characters before it in the processed string
       mutationTriggerPositions = asteriskIndices.map(asteriskIndex => {
         let noteCount = 0;
         for (let i = 0; i < asteriskIndex; i++) {
           const char = processedMelodyString[i];
-          // Count note letters and rests as positions that will create parsed notes
-          if (/[a-g_-]/.test(char) || 
+          // Count note letters, rests, and skip over waveform/duration modifiers
+          if (char === '{') {
+            // Skip over entire {waveform} or {duration} block
+            while (i < processedMelodyString.length && processedMelodyString[i] !== '}') {
+              i++;
+            }
+            if (i < processedMelodyString.length && processedMelodyString[i] === '}') {
+              i++; // Skip the closing brace
+            }
+            i--; // Adjust for the loop increment
+          } else if (/[a-g_-]/.test(char) || 
               (char.match(/[0-9]/) && i + 1 < processedMelodyString.length && /[a-g]/.test(processedMelodyString[i + 1]))) {
             noteCount++;
           }
@@ -705,6 +714,11 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
       hasMutation = true;
     }
     
+    // If there's an asterisk outside the group, also enable mutation for this track
+    if (hasOutsideMutation) {
+      hasMutation = true;
+    }
+    
     parenGroups.push(groupContent);
     disabledTracks.push(isDisabled);
     mutationTracks.push(hasMutation);
@@ -741,8 +755,17 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
             let noteCount = 0;
             for (let i = 0; i < asteriskIndex; i++) {
               const char = groupContent[i];
-              // Count note letters and rests as positions that will create parsed notes
-              if (/[a-g_-]/.test(char) || 
+              // Count note letters, rests, and skip over waveform/duration modifiers
+              if (char === '{') {
+                // Skip over entire {waveform} or {duration} block
+                while (i < groupContent.length && groupContent[i] !== '}') {
+                  i++;
+                }
+                if (i < groupContent.length && groupContent[i] === '}') {
+                  i++; // Skip the closing brace
+                }
+                i--; // Adjust for the loop increment
+              } else if (/[a-g_-]/.test(char) || 
                   (char.match(/[0-9]/) && i + 1 < groupContent.length && /[a-g]/.test(groupContent[i + 1]))) {
                 noteCount++;
               }
@@ -781,8 +804,11 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
       // Handle asterisks outside groups that affect this track
       if (outsideGroupMutations[index]) {
         parsedTrack.hasOutsideMutation = true;
-        // Only set mutationType to 'outside-group' if there's no within-group mutation
-        if (!parsedTrack.hasMutation) {
+        // Set originalContent for outside group mutations
+        parsedTrack.originalContent = contentForParsing;
+        // Set mutationType to 'outside-group' if there's no within-group mutation
+        // OR if the only mutation is from outside groups
+        if (!parsedTrack.hasMutation || mutationTriggerPositions.length === 0) {
           parsedTrack.mutationType = 'outside-group'; // Random note after group finishes
         }
       }
