@@ -33,9 +33,8 @@
  * Modifiers:
  * - Sharp: # or s (4c# or 4cs)
  * - Flat: b (4db)
- * - Duration dots: . (shorter) .. (even shorter) ... (shortest)
- * - Duration commas: , (longer) ,, (even longer) ,,, (longest)
- * - Global duration modifiers: {...} {..} {.} {,} {,,} - applies to all following notes without local modifiers
+ * - Duration dots: . (shorter) .. (even shorter) ... (shortest) - STICKY: applies to following notes until changed
+ * - Duration commas: , (longer) ,, (even longer) ,,, (longest) - STICKY: applies to following notes until changed
  * - Swing prefixes: < (early/rushed) > (late/laid back)
  * - Multiple swing: << (more early) >>> (much later) - multiples the effect
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
@@ -45,6 +44,11 @@
  * - Rests: _ (explicit rest) or standalone - (context dependent)
  * - Separators: spaces (ignored), | (measure bars, ignored)
  * - Measure separators: | (ignored, visual only)
+ * 
+ * Duration modifier examples:
+ *   c... defg    -> c is very short (1/8), d,e,f,g are also very short until changed
+ *   c... d. efg  -> c is very short (1/8), d is short (1/2), e,f,g are short (1/2)
+ *   c,, defg     -> c is very long (8.0), d,e,f,g are also very long until changed
  * 
  * @param {string} melodyString - The melody string to parse
  * @param {number} [startingOctave=4] - The default octave to use if none specified
@@ -58,21 +62,21 @@ export function parseMelody(melodyString, startingOctave = 4) {
   let relativeOffset = 0; // Current relative offset from base octave
   let currentWaveType = "sine"; // Default waveform type that persists across notes
   let currentVolume = 0.8; // Default volume that persists across notes
-  let globalDurationModifier = null; // Global duration modifier (e.g., "..." or "," or null)
+  let globalDurationModifier = null; // Sticky duration modifier (e.g., "..." or "," or null)
 
-  // Helper function to apply global duration modifier if no local modifier is present
-  function applyGlobalDurationModifier(baseDuration, localModifier) {
-    if (localModifier) {
+  // Helper function to apply sticky duration modifier if no local modifier is present
+  function applyStickyDurationModifier(baseDuration, hasLocalModifier) {
+    if (hasLocalModifier) {
       // Local modifier takes precedence, return as is
       return baseDuration;
     }
     
     if (!globalDurationModifier) {
-      // No global modifier, return base duration
+      // No sticky modifier, return base duration
       return baseDuration;
     }
     
-    // Apply global duration modifier
+    // Apply sticky duration modifier
     if (globalDurationModifier.startsWith('.')) {
       const dots = globalDurationModifier.length;
       return 2 / Math.pow(2, dots); // Divide by powers of 2
@@ -88,19 +92,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
     let char = melodyString[i];
     
     // Handle waveform type and volume syntax {sine}, {sawtooth}, {square:0.5}, {0.3}
-    // Also handle global duration modifiers like {...}, {..}, {.}, {,}, {,,}
     if (char === '{') {
       const endBrace = melodyString.indexOf('}', i);
       if (endBrace !== -1) {
         const content = melodyString.substring(i + 1, endBrace);
         const contentLower = content.toLowerCase();
         
-        // Check for global duration modifier syntax like {...}, {..}, {.}, {,}, {,,}
-        if (/^[.,]+$/.test(content)) {
-          globalDurationModifier = content;
-        }
         // Check for type:volume syntax like {square:0.5}
-        else if (contentLower.includes(':')) {
+        if (contentLower.includes(':')) {
           const [waveType, volumeStr] = contentLower.split(':');
           if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(waveType)) {
             currentWaveType = waveType;
@@ -123,7 +122,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
         
         i = endBrace + 1;
-        continue; // Skip to next character after processing waveform/volume/duration
+        continue; // Skip to next character after processing waveform/volume
       }
       // If not a valid syntax, just skip the character
       i++;
@@ -174,6 +173,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
               }
               // Dots divide the default duration: . = default/2, .. = default/4, ... = default/8, etc.
               duration = 2 / Math.pow(2, dots);
+              // Make this duration modifier sticky for subsequent notes
+              globalDurationModifier = '.'.repeat(dots);
             }
             // Use commas for longer notes: , = half, ,, = whole, ,,, = double whole, etc.
             else if (nextChar === ',') {
@@ -185,12 +186,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
               }
               // , = double (4.0), ,, = quadruple (8.0), ,,, = octuple (16.0), etc.
               duration = 2 * Math.pow(2, commas);
+              // Make this duration modifier sticky for subsequent notes
+              globalDurationModifier = ','.repeat(commas);
             }
           }
           
-          // Apply global duration modifier if no local modifier was found
+          // Apply sticky duration modifier if no local modifier was found
           if (!hasLocalModifier) {
-            duration = applyGlobalDurationModifier(duration, false);
+            duration = applyStickyDurationModifier(duration, false);
           }
           
           notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume });
@@ -365,6 +368,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
           // Dots divide the default duration: . = default/2, .. = default/4, ... = default/8, etc.
           duration = 2 / Math.pow(2, dots);
+          // Make this duration modifier sticky for subsequent notes
+          globalDurationModifier = '.'.repeat(dots);
         }
         // Use commas for longer notes: , = half, ,, = whole, ,,, = double whole, etc.
         else if (nextChar === ',') {
@@ -376,12 +381,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
           // , = double (4.0), ,, = quadruple (8.0), ,,, = octuple (16.0), etc.
           duration = 2 * Math.pow(2, commas);
+          // Make this duration modifier sticky for subsequent notes
+          globalDurationModifier = ','.repeat(commas);
         }
       }
       
-      // Apply global duration modifier if no local modifier was found
+      // Apply sticky duration modifier if no local modifier was found
       if (!hasLocalModifier) {
-        duration = applyGlobalDurationModifier(duration, false);
+        duration = applyStickyDurationModifier(duration, false);
       }
       
       notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume });
@@ -405,6 +412,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
           // Dots divide the default duration: . = default/2, .. = default/4, ... = default/8, etc.
           duration = 2 / Math.pow(2, dots);
+          // Make this duration modifier sticky for subsequent notes
+          globalDurationModifier = '.'.repeat(dots);
         }
         // Use commas for longer rests: , = double, ,, = quadruple, ,,, = octuple, etc.
         else if (nextChar === ',') {
@@ -416,12 +425,14 @@ export function parseMelody(melodyString, startingOctave = 4) {
           }
           // Commas multiply the default duration: , = default*2, ,, = default*4, ,,, = default*8, etc.
           duration = 2 * Math.pow(2, commas);
+          // Make this duration modifier sticky for subsequent notes
+          globalDurationModifier = ','.repeat(commas);
         }
       }
       
-      // Apply global duration modifier if no local modifier was found
+      // Apply sticky duration modifier if no local modifier was found
       if (!hasLocalModifier) {
-        duration = applyGlobalDurationModifier(duration, false);
+        duration = applyStickyDurationModifier(duration, false);
       }
       
       notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
