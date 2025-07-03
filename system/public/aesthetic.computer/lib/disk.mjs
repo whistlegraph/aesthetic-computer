@@ -280,8 +280,7 @@ let currentPath,
   currentHUDStatusColor = "red",
   currentHUDButton,
   currentHUDScrub = 0,
-  currentHUDOffset,
-  justTriggeredBackspace = false;
+  currentHUDOffset;
 //currentPromptButton;
 
 function updateHUDStatus() {
@@ -3777,7 +3776,7 @@ async function load(
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
   // Add API to allow pieces to switch typefaces
-  $commonApi.setTypeface = async function(typefaceName) {
+  $commonApi.setTypeface = async function (typefaceName) {
     if (typefaceName && typefaceName !== tf.name) {
       tf = await new Typeface(typefaceName).load($commonApi.net.preload);
       $commonApi.typeface = tf; // Update the global reference
@@ -4105,7 +4104,7 @@ async function load(
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
-    
+
     //  Reset turtle state.
     turtleAngle = 270;
     turtleDown = false;
@@ -5034,8 +5033,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🔙 Abstracted backspace logic for reuse between keyboard and touch-scrub
     function triggerBackspaceAction() {
-      justTriggeredBackspace = true;
-
       $commonApi.sound.synth({
         tone: 800,
         beats: 0.1,
@@ -5070,11 +5067,6 @@ async function makeFrame({ data: { type, content } }) {
           send({ type: "keyboard:open" });
         }
       }
-
-      // Set a timeout to reset the flag, allowing rollout handler to see it
-      setTimeout(() => {
-        justTriggeredBackspace = false;
-      }, 10);
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
@@ -5900,6 +5892,7 @@ async function makeFrame({ data: { type, content } }) {
           // Corner prompt button.
           currentHUDButton?.act(e, {
             down: () => {
+              console.log("🔵 DOWN!")
               originalColor = currentHUDTextColor;
               currentHUDScrub = 0;
               currentHUDTextColor = [0, 255, 0];
@@ -6051,11 +6044,8 @@ async function makeFrame({ data: { type, content } }) {
 
               // Disable/lock keyboard for normal cancel (not threshold actions)
               // Threshold actions (share/backspace) handle their own keyboard state
-              if (!justTriggeredBackspace) {
-                send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-                send({ type: "keyboard:lock" });
-                justTriggeredBackspace = false; // Reset flag for normal cancels
-              }
+              send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+              send({ type: "keyboard:lock" });
 
               $api.needsPaint();
               $api.sound.synth({
