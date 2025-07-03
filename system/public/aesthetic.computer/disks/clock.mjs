@@ -132,9 +132,24 @@ function boot({ ui, clock, params, colon, hud }) {
     // Parse the melody string for simultaneous tracks
     melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
 
+    // Debug logging for mutations
+    console.log("🎵 Clock melody parsing debug:");
+    console.log("  Original string:", originalMelodyString);
+    console.log("  Parsed tracks:", melodyTracks.tracks.length);
+    console.log("  Is single track:", melodyTracks.isSingleTrack);
+
     if (melodyTracks.isSingleTrack) {
       // Single track - use existing logic
       parsedMelody = melodyTracks.tracks[0];
+
+      // Debug logging for single track mutations
+      console.log("  Single track notes:", parsedMelody.length);
+      console.log("  Has mutation:", parsedMelody.hasMutation);
+      if (parsedMelody.hasMutation) {
+        console.log("  Original content:", parsedMelody.originalContent);
+        console.log("  Mutation trigger positions:", parsedMelody.mutationTriggerPositions);
+        console.log("  Current mutation zone:", parsedMelody.currentMutationZone);
+      }
 
       // Check if the first note has an explicit octave, if so use that as the base octave
       if (parsedMelody.length > 0 && parsedMelody[0].octave !== octave) {
@@ -171,11 +186,8 @@ function boot({ ui, clock, params, colon, hud }) {
           melodyState.currentMutationZone = parsedMelody.currentMutationZone || 0;
         }
       }
-    } else if (
-      melodyTracks.tracks.length === 1 &&
-      melodyTracks.tracks[0].length === 1
-    ) {
-      // Special case: single note in parentheses like (c) - treat as single track
+    } else if (melodyTracks.tracks.length === 1) {
+      // Special case: single parallel group like (c), (ccc), ({...}ccc*) - treat as single track
       parsedMelody = melodyTracks.tracks[0];
 
       // Check if the first note has an explicit octave, if so use that as the base octave
@@ -213,8 +225,27 @@ function boot({ ui, clock, params, colon, hud }) {
           melodyState.currentMutationZone = parsedMelody.currentMutationZone || 0;
         }
       }
+      
+      // Preserve outside group mutation metadata if present
+      if (parsedMelody.hasOutsideMutation) {
+        melodyState.hasMutation = true;
+        melodyState.hasOutsideMutation = true;
+        melodyState.originalContent = parsedMelody.originalContent;
+        melodyState.mutationType = parsedMelody.mutationType || 'outside-group';
+      }
     } else {
       // Multiple tracks - create state for parallel playback with independent timing
+      
+      // Debug logging for parallel tracks
+      console.log("  Parallel tracks:", melodyTracks.tracks.length);
+      melodyTracks.tracks.forEach((track, i) => {
+        console.log(`  Track ${i + 1}: ${track.length} notes, mutation: ${track.hasMutation}`);
+        if (track.hasMutation) {
+          console.log(`    Original content: ${track.originalContent}`);
+          console.log(`    Mutation trigger positions: ${track.mutationTriggerPositions}`);
+        }
+      });
+
       melodyState = {
         tracks: melodyTracks.tracks,
         index: 0,
@@ -1977,6 +2008,8 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
           : `${octave}${note.toUpperCase()}`;
         const noteDuration = duration * melodyState.baseTempo;
 
+        console.log(`🎵 Playing note: ${tone}, duration=${noteDuration}ms, index=${melodyState.index}`);
+
         try {
           // Create managed sound that will be automatically released
           createManagedSound(
@@ -2076,6 +2109,10 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
               octave,
             );
 
+            console.log(`🎲 Mutation result: ${mutatedTrack.length} notes`);
+            console.log(`🎲 Original track:`, originalTrack.map(n => n.note).join(''));
+            console.log(`🎲 Mutated track:`, mutatedTrack.map(n => n.note).join(''));
+
             // Find which notes actually changed (not just marked as mutations)
             const mutationIndices = [];
             for (let i = 0; i < Math.min(mutatedTrack.length, originalTrack.length); i++) {
@@ -2141,14 +2178,20 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
           if (currentNoteData && lastNoteStartTime > 0) {
             const currentNoteEndTime = lastNoteStartTime + (currentNoteData.duration * melodyState.baseTempo);
             
+            // (timing debug log removed)
+            
             // Check if we're in the timing gap: current note has finished but next note hasn't started yet
-            if (currentTimeMs >= currentNoteEndTime && currentTimeMs < nextNoteTargetTime) {
+            // Also check if we're exactly at the transition point (when noteEndTime === nextTargetTime)
+            if ((currentTimeMs >= currentNoteEndTime && currentTimeMs < nextNoteTargetTime) ||
+                (currentTimeMs >= currentNoteEndTime && currentNoteEndTime === nextNoteTargetTime)) {
               // Check for mutation triggers at the note position that just finished playing
               let shouldMutate = false;
               let isEndOfTrackMutation = false;
               
               // Calculate the previous note position (the one that just finished)
               const previousNoteIndex = (melodyState.index - 1 + melodyState.notes.length) % melodyState.notes.length;
+              
+              console.log(`🎵 Note transition: index=${melodyState.index}, previousNoteIndex=${previousNoteIndex}, totalNotes=${melodyState.notes.length}`);
               
               // Check if the note that just finished was a mutation trigger position
               if (melodyState.hasMutation && melodyState.mutationTriggerPositions &&
@@ -2157,23 +2200,38 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                 const currentZone = melodyState.currentMutationZone || 0;
                 const triggerPosition = melodyState.mutationTriggerPositions[currentZone];
                 
+                console.log(`🎲 Checking mutation trigger: previousNoteIndex=${previousNoteIndex}, triggerPosition=${triggerPosition}, currentZone=${currentZone}`);
+                
                 // Check if the note that just finished was the trigger
+                // Special case: if trigger position is at or beyond the last note position, trigger when the last note finishes
                 if (currentZone < melodyState.mutationTriggerPositions.length &&
-                    previousNoteIndex === triggerPosition &&
+                    (previousNoteIndex === triggerPosition || 
+                     (triggerPosition >= melodyState.notes.length && previousNoteIndex === melodyState.notes.length - 1)) &&
                     !melodyState.lastMutationTriggered) {
+                  console.log(`🎲 Triggering mutation at position ${triggerPosition} (note ${previousNoteIndex} just finished)`);
                   shouldMutate = true;
                   melodyState.lastMutationTriggered = true; // Prevent rapid re-triggering
                 }
               }
-              // Check if we just finished the last note of the track and this track has mutation enabled
-              else if (previousNoteIndex === melodyState.notes.length - 1 && melodyState.hasMutation) {
-                // We just finished the last note, trigger end-of-track mutation
+              // Check for outside group mutations (asterisk after group like (fff)*)
+              else if (melodyState.hasOutsideMutation && previousNoteIndex === melodyState.notes.length - 1 && !melodyState.lastMutationTriggered) {
+                console.log(`🎲 Triggering outside-group mutation at end of track (note ${previousNoteIndex} just finished)`);
                 shouldMutate = true;
                 isEndOfTrackMutation = true;
+                melodyState.lastMutationTriggered = true; // Prevent rapid re-triggering
+              }
+              // Check if we just finished the last note of the track and this track has mutation enabled (legacy)
+              else if (previousNoteIndex === melodyState.notes.length - 1 && melodyState.hasMutation && !melodyState.lastMutationTriggered) {
+                // We just finished the last note, trigger end-of-track mutation
+                console.log(`🎲 Triggering legacy end-of-track mutation (note ${previousNoteIndex} just finished)`);
+                shouldMutate = true;
+                isEndOfTrackMutation = true;
+                melodyState.lastMutationTriggered = true; // Prevent rapid re-triggering
               }
 
               if (shouldMutate) {
                 console.log(`🎲 Triggering mutation during note gap (previous note index ${previousNoteIndex}) - ${isEndOfTrackMutation ? 'end-of-track' : 'mid-track'}`);
+                console.log(`🎲 Mutation state: zone ${melodyState.currentMutationZone}, positions:`, melodyState.mutationTriggerPositions);
                 
                 // Store the original track before mutation to compare changes
                 const originalTrack = [...parsedMelody];
@@ -2184,6 +2242,10 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                   melodyState.originalContent,
                   octave,
                 );
+
+                console.log(`🎲 Mutation result: ${mutatedTrack.length} notes`);
+                console.log(`🎲 Original track:`, originalTrack.map(n => n.note).join(''));
+                console.log(`🎲 Mutated track:`, mutatedTrack.map(n => n.note).join(''));
 
                 // Find which notes were actually changed (not just marked as mutations)
                 let mutationIndices = [];
@@ -2402,6 +2464,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
               trackState.totalElapsedBeats += noteDuration;
 
               // Calculate next target time from the original start time + total elapsed
+              // totalElapsedBeats is already in milliseconds, so don't multiply by baseTempo again
               trackState.nextNoteTargetTime =
                 trackState.startTime + trackState.totalElapsedBeats;
 
@@ -2415,11 +2478,61 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                   track.currentMutationZone = 0;
                   melodyState.tracks[trackIndex].currentMutationZone = 0;
                 }
+                
+                // Trigger outside-group mutations when track loops back to beginning
+                if (track.hasOutsideMutation && !trackState.lastMutationTriggered) {
+                  // (log removed)
+                  
+                  // Store the original track before mutation to compare changes
+                  const originalTrack = [...track];
+                  
+                  // Perform the mutation
+                  const mutatedTrack = mutateMelodyTrack(track, track.originalContent, octave);
+                  
+                  // Update the track with the mutated version
+                  melodyState.tracks[trackIndex] = mutatedTrack;
+                  
+                  // CRITICAL: Update the track reference in the trackState so audio system sees the changes
+                  trackState.track = mutatedTrack;
+                  
+                  // Set mutation flash time for visual feedback
+                  mutationFlashTime = performance.now();
+                  
+                  // Find actually changed notes for visual feedback
+                  const mutationIndices = [];
+                  for (let i = 0; i < Math.min(mutatedTrack.length, originalTrack.length); i++) {
+                    const originalNote = originalTrack[i];
+                    const mutatedNote = mutatedTrack[i];
+                    
+                    // Check if the note actually changed
+                    if (originalNote && mutatedNote && 
+                        (originalNote.note !== mutatedNote.note || 
+                         originalNote.octave !== mutatedNote.octave)) {
+                      mutationIndices.push(i);
+                    }
+                  }
+                  
+                  // Set positions for flash effects
+                  mutatedNotePositions = mutationIndices;
+                  triggeredAsteriskPositions = ["*"]; // Special marker to flash all asterisks
+                  
+                  // Increment mutation count
+                  melodyState.tracks[trackIndex].mutationCount = (melodyState.tracks[trackIndex].mutationCount || 0) + 1;
+                  
+                  // Set flag to prevent rapid re-triggering within the same frame
+                  trackState.lastMutationTriggered = true;
+                  
+                  // (log removed)
+                } else if (track.hasOutsideMutation) {
+                  console.log(`🎲 Track ${trackIndex}: Outside-group mutation skipped (lastMutationTriggered: ${trackState.lastMutationTriggered})`);
+                }
               }
-
-              // Reset mutation trigger flag when moving to next note
-              if (trackState.lastMutationTriggered) {
+              
+              // Reset mutation trigger flag when track advances past the first note
+              // This allows new mutations on the next loop
+              if (trackState.lastMutationTriggered && trackState.noteIndex >= 1) {
                 trackState.lastMutationTriggered = false;
+                  // (log removed)
               }
 
               // Mutation logic moved to gap checking - no longer trigger here immediately
@@ -2436,11 +2549,13 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
             ];
             
             if (currentNoteData && trackState.startTime > 0) {
-              const currentNoteEndTime = trackState.startTime + trackState.totalElapsedBeats - 
-                (currentNoteData.duration * melodyState.baseTempo);
+              // totalElapsedBeats is already in milliseconds, so don't multiply by baseTempo again
+              const currentNoteEndTime = trackState.startTime + trackState.totalElapsedBeats;
               
-              // Check if we're in the timing gap: current note has finished but next note hasn't started yet  
-              if (currentTimeMs >= currentNoteEndTime && currentTimeMs < trackState.nextNoteTargetTime) {
+              // Check if we're in the timing gap: current note has finished but next note hasn't started yet
+              // Also check if we're exactly at the transition point (when noteEndTime === nextTargetTime)
+              if ((currentTimeMs >= currentNoteEndTime && currentTimeMs < trackState.nextNoteTargetTime) ||
+                  (currentTimeMs >= currentNoteEndTime && currentNoteEndTime === trackState.nextNoteTargetTime)) {
                 // Check for mutation triggers at the note position that just finished playing
                 let shouldMutate = false;
                 let mutationReason = "";
@@ -2448,6 +2563,16 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
                 // Calculate the previous note position (the one that just finished)
                 const previousNoteIndex = (trackState.noteIndex - 1 + track.length) % track.length;
+
+                // Debug: Track timing and mutation state
+                console.log(`🎲 Track ${trackIndex}: Checking mutation timing`);
+                console.log(`  Previous note index: ${previousNoteIndex}`);
+                console.log(`  Track length: ${track.length}`);
+                console.log(`  Has mutation: ${track.hasMutation}`);
+                console.log(`  Has outside mutation: ${track.hasOutsideMutation}`);
+                console.log(`  Mutation type: ${track.mutationType}`);
+                console.log(`  Current time: ${now}`);
+                console.log(`  Last mutation triggered: ${trackState.lastMutationTriggered}`);
 
                 // Check for within-group asterisk mutations
                 if (track.hasMutation &&
@@ -2458,24 +2583,41 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                   const triggerPosition = track.mutationTriggerPositions[currentZone];
                   
                   // Check if the note that just finished was the trigger
+                  // Special case: if trigger position is at or beyond the last note position, trigger when the last note finishes
                   if (currentZone < track.mutationTriggerPositions.length &&
-                      previousNoteIndex === triggerPosition &&
+                      (previousNoteIndex === triggerPosition || 
+                       (triggerPosition >= track.length && previousNoteIndex === track.length - 1)) &&
                       !trackState.lastMutationTriggered) {
                     shouldMutate = true;
                     mutationReason = `track-${trackIndex}-zone-${currentZone}`;
                     trackState.lastMutationTriggered = true; // Prevent rapid re-triggering
                   }
                 }
-                // Check if we just finished the last note of the track and this track has mutation enabled
-                else if (previousNoteIndex === track.length - 1 && track.hasMutation) {
-                  // We just finished the last note, trigger end-of-track mutation
+                // Check for outside group mutations (asterisk after group like (fff)*)
+                else if (track.hasOutsideMutation && previousNoteIndex === track.length - 1 && !trackState.lastMutationTriggered) {
+                  console.log(`🎲 Track ${trackIndex}: Triggering outside-group mutation at end of track (note ${previousNoteIndex} just finished)`);
                   shouldMutate = true;
-                  mutationReason = `track-${trackIndex}-end-of-track`;
+                  mutationReason = `track-${trackIndex}-outside-group`;
+                  trackState.lastMutationTriggered = true; // Prevent rapid re-triggering
+                }
+                // Check if we just finished the last note of the track and this track has mutation enabled (legacy)
+                else if (previousNoteIndex === track.length - 1 && track.hasMutation && !trackState.lastMutationTriggered) {
+                  // We just finished the last note, trigger end-of-track mutation
+                  console.log(`🎲 Track ${trackIndex}: Triggering legacy end-of-track mutation (note ${previousNoteIndex} just finished)`);
+                  shouldMutate = true;
+                  mutationReason = `track-${trackIndex}-legacy-end-of-track`;
+                  trackState.lastMutationTriggered = true; // Prevent rapid re-triggering
                 }
 
+                // Debug: Show what condition was checked
+                console.log(`🎲 Track ${trackIndex}: Mutation check results:`);
+                console.log(`  Should mutate: ${shouldMutate}`);
+                console.log(`  Mutation reason: ${mutationReason}`);
+                console.log(`  Condition 1 (outside-group): ${track.hasOutsideMutation && previousNoteIndex === track.length - 1 && !trackState.lastMutationTriggered}`);
+                console.log(`  Condition 2 (legacy): ${previousNoteIndex === track.length - 1 && track.hasMutation && !trackState.lastMutationTriggered}`);
+                console.log(`  previousNoteIndex === track.length - 1: ${previousNoteIndex === track.length - 1}`);
+
                 if (shouldMutate) {
-                  console.log(`🎲 Triggering track ${trackIndex} mutation during note gap (previous note index ${previousNoteIndex}) - ${mutationReason}`);
-                  
                   // Store the original track before mutation to compare changes
                   const originalTrack = [...track];
                   
@@ -2535,6 +2677,9 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
                   // Update the track in place
                   melodyState.tracks[trackIndex] = mutatedTrack;
+                  
+                  // CRITICAL: Update the track reference in the trackState so audio system sees the changes
+                  trackState.track = mutatedTrack;
 
                   // Preserve mutation metadata
                   melodyState.tracks[trackIndex].hasMutation = true;
