@@ -18,6 +18,7 @@ You are an expert assistant for developing and modifying the **Aesthetic Compute
 ### Key URLs & Endpoints
 - **Local development**: `https://localhost:8888`
 - **Pieces**: `https://localhost:8888/piece-name`
+- **Piece Param Syntax**: `https://localhost:8888/piece-name:colonparam0:colonparam1~param0~param1`
 - **Prompt**: `https://localhost:8888/prompt`
 - **API endpoints**: `https://localhost:8888/api/*`
 - **Docs**: `https://localhost:8888/docs`
@@ -42,6 +43,10 @@ You are an expert assistant for developing and modifying the **Aesthetic Compute
 ## Development Workflows
 
 ### Creating New Pieces
+
+Pieces can be created in either **JavaScript** (`.mjs`) or **KidLisp** (`.lisp`) format.
+
+#### JavaScript Piece Template
 ```javascript
 // Template for a new piece in system/public/aesthetic.computer/disks/
 // Piece Name, YYYY.MM.DD.HH.MM.SS
@@ -79,6 +84,60 @@ function meta() {
 }
 
 export { boot, paint, sim, act, meta };
+```
+
+#### KidLisp Piece Template
+```lisp
+; Template for a new KidLisp piece in system/public/aesthetic.computer/disks/
+; Piece Name, YYYY.MM.DD.HH.MM.SS
+; Description of what this piece does.
+
+; Variables and basic setup
+(def x 10)                      ; Define variable
+(def myColor "blue")           ; Define color variable
+
+; Basic drawing commands
+(wipe "black")                 ; Clear screen with color
+(ink "lime")                   ; Set drawing color
+(line 10 10 50 50)            ; Draw line
+(box 10 10 30 30)             ; Draw rectangle
+
+; Function definitions
+(later cross x y               ; Define custom function
+  (line x-10 y-10 x+10 y+10)
+  (line x-10 y+10 x+10 y-10)
+)
+(cross 16 32)                  ; Call function
+
+; Time-based execution
+(3s (now slide (% slide+1 4))) ; Execute every 3 seconds
+(0.5s (zoom 0.97))             ; Execute every half second
+
+; Creative utilities
+(? white black rainbow)         ; Random choice from options
+(wiggle 32)                    ; Random value ±32
+(repeat 5 i                    ; Repeat with iterator
+  (ink rainbow)
+  (line i*10 0 i*10 height)
+)
+
+; Input handling
+(tap                           ; Handle touch/click events
+  (ink red)
+  (box 10 10 50 50)
+)
+
+(draw                          ; Handle drag/draw events
+  (ink blue)
+  (line)
+)
+
+; Visual effects
+(blur 7)                       ; Blur effect
+(spin 0.28888)                 ; Rotation
+(scroll width/5 0)             ; Scrolling offset
+(mask 0 0 width/2 height)      ; Masking regions
+(unmask)                       ; Remove mask
 ```
 
 ### Testing Changes
@@ -153,6 +212,8 @@ export { boot, paint, sim, act, meta };
 
 - **Hot reload**: The platform supports live code updates
 - **Multiple pieces**: You can work on multiple pieces simultaneously
+- **Language choice**: Use `.mjs` for JavaScript pieces or `.lisp` for KidLisp pieces
+- **KidLisp features**: KidLisp pieces support the same APIs as JavaScript with Lisp syntax
 - **State management**: Use the `store` API for persistent data
 - **Cross-piece communication**: Use the message system for piece-to-piece communication
 - **Mobile testing**: Test responsive behavior on different screen sizes
