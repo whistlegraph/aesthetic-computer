@@ -808,6 +808,12 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
+  } else if (text === "support") {
+    jump(
+      "out:https://calendly.com/aesthetic-computer",
+    );
+    makeFlash($);
+    return true;
   } else if (text.startsWith("edit")) {
     jump(
       "out:https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code",
