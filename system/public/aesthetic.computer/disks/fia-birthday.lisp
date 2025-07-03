@@ -28,7 +28,7 @@
 (write (0.45s... "Karaoke & Dance" "K a r a o k e & D a n c e")
         center (+ height-50 (* 12 amplitude)) (0.5s... black blue gray indigo purple))
 (ink (0.1s.. yellow orange cyan))
-(write (0.45s... "THEME: ???")
+(write (0.45s... "THEME: PeTTing Zoo" "theme: petting ZOO")
         0 (+ height-28) (0.5s... blue purple))
 
 (pan 10 4)
