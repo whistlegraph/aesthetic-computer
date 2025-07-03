@@ -942,27 +942,53 @@ const lessonPaintings = [],
 let color,
   noiseTint = [255, 0, 0];
 
+// Audio playback state
+let playingSfx = null,
+  isPlaying = false,
+  pausedAt = 0,
+  playStartTime = 0,
+  actualDuration = null,
+  preloadedAudio = null, // Store preloaded audio like wipppps
+  progress = 0, // Track playback progress like wipppps
+  waveformData = null; // Store compressed waveform data for progress bar visualization
+
 // 🥾 Boot
-function boot({ api, wipe, params, hud, help, num }) {
+function boot({ api, wipe, params, hud, help, num, sound }) {
   wipe(0);
   noiseTint = num.randIntArr(255, 3);
   lesson = params[0] ? parseInt(params[0]) - 1 : num.randInd(lessons);
   if (lesson > lessons.length - 1 || lesson < 0) lesson = 0;
   console.log("🪄 Prutti:", lesson + 1);
   hud.label("prutti " + (lesson + 1));
-  loadLesson(api);
+  
+  // Reset audio state
+  playingSfx = null;
+  isPlaying = false;
+  pausedAt = 0;
+  actualDuration = null;
+  preloadedAudio = null; // Reset preloaded audio for new lesson
+  progress = 0; // Reset progress for new lesson
+  waveformData = null; // Reset waveform data for new lesson
+  
+  loadLesson(api, sound);
   color = help.choose("white", "cyan", "yellow", "orange", undefined);
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted }) {
+function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, write, sound, box, hud }) {
   let { title, text } = lessons[lesson];
   text = text.trim();
-  const titleBox = txt.box(title, { x: 6, y: 24 + scroll }, screen.width - 8);
+  
+  // Adjust margins for scroll bar - left margin accounts for 4px scroll bar + 6px gap
+  const leftMargin = 10; // 4px scroll bar + 6px gap
+  const rightMargin = 6; // Keep right margin at 6px
+  const contentWidth = screen.width - leftMargin - rightMargin;
+  
+  const titleBox = txt.box(title, { x: leftMargin, y: 24 + scroll }, contentWidth);
   const textBox = txt.box(
     text,
-    { x: 6, y: 24 + scroll + 10 + titleBox.box.height },
-    screen.width - 8,
+    { x: leftMargin, y: 24 + scroll + 10 + titleBox.box.height },
+    contentWidth,
   );
 
   noiseTinted(noiseTint, 0.4, 0.2)
@@ -974,27 +1000,331 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted }) {
       textBox.box.height,
     )
     .ink()
-    .write(title, titleBox.pos, noiseTint, screen.width - 8);
-  ink(color).write(text, textBox.pos, 0, screen.width - 8);
+    .write(title, titleBox.pos, noiseTint, contentWidth);
+  ink(color).write(text, textBox.pos, 0, contentWidth);
 
   let lastHeight = 0;
   lessonPaintings.forEach((painting) => {
     // if (!painting) return;
-    const width = min(picWidth, screen.width - 12);
+    const width = min(picWidth, contentWidth);
     const height = (painting.height / painting.width) * width;
-    paste(painting, 6, 10 + textBox.pos.y + textBox.box.height + lastHeight, {
+    paste(painting, leftMargin, 10 + textBox.pos.y + textBox.box.height + lastHeight, {
       width,
       height,
     });
     lastHeight += height + 10;
   });
 
-  scrollMax = titleBox.box.height + 10 + textBox.box.height + lastHeight;
+  // Progress bar under the corner label - only show if lesson has sounds
+  if (progress !== undefined && lessons[lesson].sounds?.length > 0) {
+    const barHeight = 22; // Increased height to balance with text positioning
+    const cornerLabelY = 12; // Corner label is positioned at top: 12px
+    const barY = 0; // Position progress bar at the very top of the screen with no margin
+    
+    // Calculate the start position after the corner label - align with first number in timecode
+    const glyphWidth = 6; // Each glyph is 6 pixels wide (typeface blockWidth)
+    const promptStartX = 6; // Prompt starts at x=6
+    const cornerLabelText = "prutti"; // The corner label text
+    const cornerLabelWidth = cornerLabelText.length * glyphWidth; // Character width
+    const lessonNumberWidth = lesson.toString().length * glyphWidth; // Width of lesson number
+    const spaceWidth = glyphWidth; // Space character width
+    const timeFirstDigitX = promptStartX + cornerLabelWidth + spaceWidth + lessonNumberWidth + spaceWidth; // Position of first digit of time
+    const progressBarStartX = 0; // Start progress bar at the left edge of the screen
+    const progressBarWidth = screen.width; // Full width of the screen
+
+    // Background bar - use very subtle dark color instead of bright red
+    ink(24, 24, 24, 255).box(progressBarStartX, barY, progressBarWidth, barHeight);
+
+    // Draw waveform efficiently if available
+    if (waveformData && waveformData.length > 0) {
+      const progressPixel = Math.floor(progress * progressBarWidth);
+      const bottomY = barY + barHeight; // Bottom line for bottom-up waveform
+      const topY = barY; // Top line for top-down waveform
+      
+      // Choose colors based on playing state
+      const unplayedColor = isPlaying ? [48, 48, 48, 255] : [32, 32, 64, 255]; // Blue tint when paused
+      const playedColor = isPlaying ? [64, 96, 64, 255] : [64, 64, 96, 255]; // Purple tint when paused
+      
+      // Draw entire waveform with simple data-driven colors
+      for (let x = 0; x < progressBarWidth; x++) {
+        // Sample one point for each pixel for performance
+        const dataIndex = Math.floor((x / progressBarWidth) * waveformData.length);
+        const amplitude = waveformData[dataIndex] || 0;
+        
+        // Simple color mapping based on amplitude and position
+        const positionFactor = x / progressBarWidth; // 0 to 1 across width
+        const amplitudeIntensity = Math.min(1, amplitude / barHeight);
+        
+        // Create simple spectrum: red -> green -> blue based on position
+        let r, g, b;
+        if (positionFactor < 0.5) {
+          // Red to green
+          const t = positionFactor * 2;
+          r = Math.round(255 * (1 - t));
+          g = Math.round(255 * t);
+          b = 0;
+        } else {
+          // Green to blue
+          const t = (positionFactor - 0.5) * 2;
+          r = 0;
+          g = Math.round(255 * (1 - t));
+          b = Math.round(255 * t);
+        }
+        
+        // Modulate brightness based on amplitude
+        const brightness = 0.3 + (amplitudeIntensity * 0.7);
+        r = Math.round(r * brightness);
+        g = Math.round(g * brightness);
+        b = Math.round(b * brightness);
+        
+        // Dim colors if not playing
+        if (!isPlaying) {
+          r = Math.round(r * 0.4);
+          g = Math.round(g * 0.4);
+          b = Math.round(b * 0.4);
+        }
+        
+        ink(r, g, b, 255);
+        
+        // Alternate between bottom-up and top-down per pixel
+        const waveHeight = Math.max(1, amplitude);
+        const barWidth = Math.min(2, progressBarWidth - x);
+        
+        if (x % 2 === 0) {
+          // Even pixels: bottom-up
+          const drawTopY = bottomY - waveHeight;
+          box(progressBarStartX + x, drawTopY, barWidth, waveHeight);
+        } else {
+          // Odd pixels: top-down
+          box(progressBarStartX + x, topY, barWidth, waveHeight);
+        }
+      }
+      
+      // Draw progress portion with enhanced brightness
+      if (progressPixel > 0) {
+        for (let x = 0; x < progressPixel; x++) {
+          const dataIndex = Math.floor((x / progressBarWidth) * waveformData.length);
+          const amplitude = waveformData[dataIndex] || 0;
+          
+          const positionFactor = x / progressBarWidth;
+          const amplitudeIntensity = Math.min(1, amplitude / barHeight);
+          
+          // Same color logic but brighter for played portion
+          let r, g, b;
+          if (positionFactor < 0.5) {
+            const t = positionFactor * 2;
+            r = Math.round(255 * (1 - t));
+            g = Math.round(255 * t);
+            b = 0;
+          } else {
+            const t = (positionFactor - 0.5) * 2;
+            r = 0;
+            g = Math.round(255 * (1 - t));
+            b = Math.round(255 * t);
+          }
+          
+          // Higher brightness for played portion
+          const brightness = 0.6 + (amplitudeIntensity * 0.4);
+          r = Math.round(r * brightness);
+          g = Math.round(g * brightness);
+          b = Math.round(b * brightness);
+          
+          ink(r, g, b, 255);
+          
+          const waveHeight = Math.max(1, amplitude);
+          const barWidth = Math.min(2, progressPixel - x);
+          
+          if (x % 2 === 0) {
+            const drawTopY = bottomY - waveHeight;
+            box(progressBarStartX + x, drawTopY, barWidth, waveHeight);
+          } else {
+            box(progressBarStartX + x, topY, barWidth, waveHeight);
+          }
+        }
+      }
+    } else {
+      // If no waveform data, just show the subtle background - no additional lines needed
+    }
+
+    // Update HUD label with current time and draw total time on right - only if lesson has sounds
+    if (actualDuration && progress !== undefined) {
+      const currentTime = progress * actualDuration;
+
+      // Format time as MM:SS
+      const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+      };
+
+      const currentTimeText = formatTime(currentTime);
+      const totalTimeText = formatTime(actualDuration);
+
+      // Update the HUD label to show "prutti 0 0:01" (keeping lesson number)
+      if (hud && hud.label) {
+        hud.label(`prutti ${lesson} ${currentTimeText}`, undefined, 0);
+      }
+
+      // Measure actual prompt string width for better positioning
+      const promptString = `prutti ${lesson} `;
+      const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
+      const totalTimeX = promptStartX + promptWidth + (currentTimeText.length * glyphWidth) + glyphWidth; // Position after prompt and current time
+      const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
+
+      // Draw shadow (offset by 1px down and right)
+      ink(32, 32, 32, 255); // Dark gray shadow
+      write(`/ ${totalTimeText}`, totalTimeX + 1, totalTimeY + 1);
+
+      // Draw main text in white
+      ink(255, 255, 255, 255);
+      write(`/ ${totalTimeText}`, totalTimeX, totalTimeY);
+    }
+  }
+
+  // Draw pause/play icon in bottom right corner - only if lesson has sounds
+  if (lessons[lesson].sounds?.length > 0) {
+    const iconSize = 20;
+    const iconX = screen.width - iconSize - 8;
+    const iconY = screen.height - iconSize - 8; // Bottom right corner
+    
+    ink(255, 255, 0, 255); // Yellow play/pause button
+    
+    if (isPlaying && playingSfx && !playingSfx.killed) {
+      // Draw pause icon - two vertical bars with shadow
+      const barWidth = 4;
+      const barHeight = 14;
+      const barSpacing = 4;
+      
+      // Draw black shadow (1px right and 1px down)
+      ink(0, 0, 0, 255);
+      ink().box(iconX + 1, iconY + 3 + 1, barWidth, barHeight);
+      ink().box(iconX + barWidth + barSpacing + 1, iconY + 3 + 1, barWidth, barHeight);
+      
+      // Draw yellow pause bars
+      ink(255, 165, 0, 255); // Orange pause bars
+      ink().box(iconX, iconY + 3, barWidth, barHeight);
+      ink().box(iconX + barWidth + barSpacing, iconY + 3, barWidth, barHeight);
+    } else {
+      // Draw play icon - triangle pointing right using shape function
+      const triangleSize = 14;
+      const triangleX = iconX + 10; // Center the triangle in the icon area
+      const triangleY = iconY + 10;
+      
+      // Draw black shadow (1px right and 1px down)
+      ink(0, 0, 0, 255);
+      shape([
+        [triangleX - triangleSize / 2 + 1, triangleY - triangleSize / 2 + 1],
+        [triangleX + triangleSize / 2 + 1, triangleY + 1],
+        [triangleX - triangleSize / 2 + 1, triangleY + triangleSize / 2 + 1],
+      ]);
+      
+      // Draw yellow play triangle using shape function like wipppps
+      ink(255, 255, 0, 255); // Yellow
+      shape([
+        [triangleX - triangleSize / 2, triangleY - triangleSize / 2],
+        [triangleX + triangleSize / 2, triangleY],
+        [triangleX - triangleSize / 2, triangleY + triangleSize / 2],
+      ]);
+    }
+  }
+
+  // Draw vertical scroll bar on the left side (similar to chat.mjs)
+  if (scrollMax > 0) {
+    const scrollBarX = 0; // Flush left
+    const scrollBarWidth = 4; // 4 pixels wide
+    const scrollBarTop = (lessons[lesson].sounds?.length > 0) ? 22 : 0; // Start at bottom of progress bar or top
+    const scrollBarHeight = screen.height - scrollBarTop; // Flush to bottom
+    
+    // Draw scroll bar background
+    ink(24, 24, 24, 255).box(scrollBarX, scrollBarTop, scrollBarWidth, scrollBarHeight);
+    
+    // Calculate scroll indicator position and size
+    const totalScrollRange = scrollMax + 6; // Total scroll range from -scrollMax to +6
+    const viewportRatio = scrollBarHeight / (scrollBarHeight + scrollMax); // Ratio of viewport to total content
+    const indicatorHeight = Math.max(4, Math.floor(scrollBarHeight * viewportRatio));
+    
+    // Calculate position: scroll ranges from -scrollMax (top) to +6 (bottom)
+    // Reverse the logic so indicator is at top when scroll is at top
+    const scrollProgress = (scroll + scrollMax) / totalScrollRange; // 0 = top, 1 = bottom
+    const indicatorY = scrollBarTop + Math.floor((1 - scrollProgress) * (scrollBarHeight - indicatorHeight));
+    
+    // Draw scroll indicator
+    ink(128, 128, 128, 255).box(scrollBarX, indicatorY, scrollBarWidth, indicatorHeight);
+  }
+
+  // Calculate scrollMax accounting for progress bar height and ensuring content isn't cut off
+  const progressBarHeight = (lessons[lesson].sounds?.length > 0) ? 16 : 0;
+  const totalContentHeight = titleBox.box.height + 10 + textBox.box.height + lastHeight;
+  const availableHeight = screen.height - progressBarHeight;
+  scrollMax = Math.max(0, totalContentHeight - availableHeight + 6 + progressBarHeight); // Ensure last image is 6px from bottom
+  
+  // Don't return false when audio is playing so progress bar can update
+  if (isPlaying && playingSfx && !playingSfx.killed) {
+    return true; // Keep repainting for progress bar animation
+  }
+  
   return false;
 }
 
 // 🎪 Act
-function act({ event: e, needsPaint, jump }) {
+function act({ event: e, needsPaint, jump, sound, net }) {
+  // Handle play/pause/resume functionality - simplified like wipppps.mjs
+  if (e.is("touch")) {
+    if (isPlaying && playingSfx && !playingSfx.killed) {
+      // Currently playing - pause the track
+      const currentTime = performance.now();
+      const elapsedSeconds = (currentTime - playStartTime) / 1000;
+      
+      // Use actual duration if available for accurate pause position
+      const trackDuration = actualDuration || 60; // Default fallback
+      
+      // ACCUMULATE pause position like wipppps - don't reset it
+      pausedAt = Math.min(
+        (pausedAt * trackDuration + elapsedSeconds) / trackDuration,
+        1.0,
+      );
+      
+      playingSfx.kill(0.1); // Fade out quickly
+      playingSfx = null;
+      isPlaying = false;
+      needsPaint();
+    } else if (lessons[lesson].sounds?.length > 0) {
+      // Not playing - start or resume audio using preloaded audio (like wipppps)
+      if (!preloadedAudio) {
+        console.error("🎵 PRUTTI: No preloaded audio available!");
+        return;
+      }
+      
+      // Kill any existing audio before starting
+      if (playingSfx && !playingSfx.killed) {
+        playingSfx.kill(0.1);
+      }
+      
+      // Use preloaded audio directly like wipppps - minimal options
+      playingSfx = sound.play(preloadedAudio, { 
+        speed: 1, 
+        from: pausedAt,
+        loop: true
+      });
+      
+      if (playingSfx && !playingSfx.killed) {
+        playStartTime = performance.now();
+        isPlaying = true;
+        
+        // Get duration for accurate progress tracking
+        if (!actualDuration && sound.getDuration) {
+          sound.getDuration(preloadedAudio).then((duration) => {
+            actualDuration = duration;
+          }).catch(() => {
+            actualDuration = 60; // Fallback
+          });
+        }
+        
+        needsPaint();
+      }
+    }
+  }
+
   if (e.is("draw")) {
     scroll += e.delta.y;
     checkScroll();
@@ -1029,9 +1359,23 @@ function act({ event: e, needsPaint, jump }) {
 }
 
 // 🧮 Sim
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
+function sim({ sound }) {
+  sound.speaker?.poll();
+  
+  // Calculate progress when audio is playing
+  if (isPlaying && playingSfx && !playingSfx.killed) {
+    const currentTime = performance.now();
+    const elapsedSeconds = (currentTime - playStartTime) / 1000;
+    
+    // Use actual duration if available for accurate progress calculation (like wipppps)
+    const trackDuration = actualDuration || 60; // Default fallback
+    const totalElapsed = pausedAt * trackDuration + elapsedSeconds;
+    progress = Math.min(totalElapsed / trackDuration, 1.0);
+    
+    // For looping audio, we don't stop at end but let it loop
+    // The audio system should handle looping automatically
+  }
+}
 
 // 🥁 Beat
 // function beat() {
@@ -1039,9 +1383,15 @@ function act({ event: e, needsPaint, jump }) {
 // }
 
 // 👋 Leave
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
+function leave() {
+  // Clean up audio when leaving the piece
+  if (playingSfx && !playingSfx.killed) {
+    playingSfx.kill(0.1);
+  }
+  playingSfx = null;
+  isPlaying = false;
+  pausedAt = 0;
+}
 
 // 📰 Meta
 function meta() {
@@ -1061,12 +1411,15 @@ function meta() {
 // Render an application icon, aka favicon.
 // }
 
-export { boot, paint, act, meta };
+export { boot, paint, act, sim, leave, meta };
 
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-function loadLesson(api) {
+function loadLesson(api, sound) {
+  // Set scroll to 6 immediately when loading a new lesson
+  scroll = 6; // Start at 6 to match the 6px side margin positioning
+  
   const path = api.debug
     ? "/assets/pruttipal/lnl"
     : "https://assets.aesthetic.computer/pruttipal/lnl";
@@ -1083,34 +1436,48 @@ function loadLesson(api) {
     });
   });
 
-  // Load and play sample.
+  // Load and preload audio for instant playback (like wipppps)
   lessons[lesson].sounds?.forEach((name) => {
     const ext = api.platform.Safari ? "m4a" : "ogg";
     const soundUrl = `${path}/${name}.${ext}`;
     
-    if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: Starting preload for:", soundUrl);
-    
+    // Preload and store the audio like wipppps does
     api.net.preload(soundUrl).then((sfx) => {
-      if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: Preload resolved for:", soundUrl, "result:", sfx);
-      
       if (sfx) {
-        const playOptions = { loop: true };
+        preloadedAudio = sfx; // Store for instant playback
         
-        if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: About to call api.sound.play with:", sfx, "instead of:", soundUrl);
-        
-        // Use the sfx result (preloaded identifier) instead of the soundUrl
-        const playResult = api.sound.play(sfx, playOptions);
-        
-        if (api.debug && api.logs.audio) console.log("🎵 PRUTTI: api.sound.play returned:", playResult);
-        
-        // Set volume to maximum
-        if (playResult && typeof playResult.update === 'function') {
-          try {
-            playResult.update({ volume: 1.0 });
-          } catch (e) {
-            console.error("🎵 PRUTTI ERROR: Failed to set initial volume:", e);
-          }
+        // Load waveform data for progress bar visualization
+        if (sound.getSampleData) {
+          sound.getSampleData(sfx).then((data) => {
+            if (data) {
+              // Compress to higher resolution for more detailed waveform
+              const targetWidth = 1024; // Higher resolution for more detail
+              const compressedData = api.num.arrCompress(data, targetWidth);
+              
+              // Normalize the waveform data to fit the progress bar height (24px)
+              const maxValue = Math.max(...compressedData);
+              const minValue = Math.min(...compressedData);
+              const range = maxValue - minValue;
+              
+              if (range > 0) {
+                // Normalize to 0-1 range, then scale to progress bar height
+                const progressBarHeight = 24; // Match the bar height
+                const maxWaveHeight = progressBarHeight / 2; // Use half the bar height for waves
+                
+                waveformData = compressedData.map(value => 
+                  ((value - minValue) / range) * maxWaveHeight
+                );
+              } else {
+                // If all values are the same, create a flat line
+                waveformData = new Array(compressedData.length).fill(1);
+              }
+            }
+          }).catch((error) => {
+            console.error("🎵 PRUTTI: Failed to load waveform data:", error);
+          });
         }
+      } else {
+        console.error("🎵 PRUTTI: Preload returned null/undefined for:", soundUrl);
       }
     }).catch((error) => {
       console.error("🎵 PRUTTI ERROR: Sound preload failed:", error);
@@ -1120,5 +1487,5 @@ function loadLesson(api) {
 
 function checkScroll() {
   if (scroll < -scrollMax) scroll = -scrollMax;
-  if (scroll > 16) scroll = 16;
+  if (scroll > 6) scroll = 6; // Match the 6px side margin
 }
