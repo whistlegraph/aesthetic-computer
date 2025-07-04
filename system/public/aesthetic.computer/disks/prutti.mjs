@@ -954,9 +954,6 @@ let playingSfx = null,
   progress = 0, // Track playback progress like wipppps
   waveformData = null; // Store compressed waveform data for progress bar visualization
 
-// Unifont typeface for titles
-let unifontTypeface = null;
-
 // 🥾 Boot
 async function boot({ api, wipe, params, hud, help, num, sound, net }) {
   wipe(0);
@@ -966,9 +963,8 @@ async function boot({ api, wipe, params, hud, help, num, sound, net }) {
   console.log("🪄 Prutti:", lesson + 1);
   hud.label("prutti " + (lesson + 1));
   
-  // Load unifont typeface for titles
-  unifontTypeface = new Typeface("unifont");
-  await unifontTypeface.load(net.preload);
+  // Preload unifont typeface for titles
+  await net.preloadTypeface("unifont");
   
   // Reset audio state
   playingSfx = null;
@@ -993,7 +989,7 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
   const rightMargin = 6; // Keep right margin at 6px
   const contentWidth = screen.width - leftMargin - rightMargin;
   
-  const titleBox = txt.box(title, { x: leftMargin, y: 24 + scroll }, contentWidth, 1, true, unifontTypeface);
+  const titleBox = txt.box(title, { x: leftMargin, y: 24 + scroll }, contentWidth, 1, true, "unifont");
   const textBox = txt.box(
     text,
     { x: leftMargin, y: 24 + scroll + 10 + titleBox.box.height },
@@ -1009,7 +1005,7 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
       textBox.box.height,
     )
     .ink()
-    .write(title, titleBox.pos, noiseTint, contentWidth, true, unifontTypeface);
+    .write(title, titleBox.pos, noiseTint, contentWidth, true, "unifont");
   ink(color).write(text, textBox.pos, 0, contentWidth);
 
   let lastHeight = 0;
