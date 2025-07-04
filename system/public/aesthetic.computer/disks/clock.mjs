@@ -11,16 +11,16 @@
   Use Up/Down arrow keys to change base octave during playback
   
   🎵 NEW: Parallel Tracks Support!
-  Use parentheses to create parallel melody lines that play simultaneously:
-    (ceg) (dfa) - Two parallel melodies: c→e→g and d→f→a
-                  Plays: c+d, then e+f, then g+a
-    (cd) (ef) - Two short parallel lines: c→d and e→f  
-                Plays: c+e, then d+f
-    (cde) (f) - Different length tracks (longer track cycles)
-                Plays: c+f, then d+f, then e+f
-    (c) (d) (e) - Three single-note parallel tracks
-                  Plays: c+d+e simultaneously
-    x(ceg) (dfa) - Disable first track with x() - only second track plays
+  Use spaces to separate groups for parallel playback:
+    ceg dfa - Two parallel melodies: c→e→g and d→f→a
+              Plays: c+d, then e+f, then g+a
+    cd ef - Two short parallel lines: c→d and e→f  
+            Plays: c+e, then d+f
+    cde f - Different length tracks (longer track cycles)
+            Plays: c+f, then d+f, then e+f
+    c d e - Three single-note parallel tracks
+            Plays: c+d+e simultaneously
+    xceg dfa - First track disabled (x prefix), only second plays
 
   🎵 NEW: Waveform Type & Volume Support!
   Use {type} or {type:volume} or {volume} syntax:
@@ -34,8 +34,8 @@
     {0.5} cdefg - Set volume to 50% (keeps current waveform)
     {square:0.3} cdefg - Square wave at 30% volume
     {0.8} c{0.2}d{1.0}e - Volume changes during melody
-    {square} (ceg) (dfa) - Square wave for both parallel tracks
-    (ceg) ({triangle:0.6} dfa) - Sine for first track, triangle at 60% for second
+    {square} cdefg - Square wave for all tracks
+    ceg {triangle:0.6} dfa - Sine for first track, triangle at 60% for second
   
   🎵 NEW: Sticky Duration Modifiers!
   Use suffix notation for duration that applies to all following notes:
@@ -68,6 +68,7 @@ import {
   extractTones,
   parseSimultaneousMelody,
   mutateMelodyTrack,
+  noteToTone,
 } from "../lib/melody-parser.mjs";
 
 // Utility function for padding numbers with zeros
@@ -102,6 +103,8 @@ let specialCharFlashTime = 0; // Time when special character was processed (for 
 let mutationFlashTime = 0; // Time when a mutation occurred (for asterisk flash)
 let mutatedNotePositions = []; // Positions of notes that were mutated (for rainbow flash)
 let triggeredAsteriskPositions = []; // Positions of asterisks that were just triggered (for white flash)
+let recentlyMutatedNoteIndex = -1; // Index of the most recently mutated note (for rainbow flash)
+let recentlyMutatedTrackIndex = -1; // Track index of the most recently mutated note (for parallel tracks)
 let currentNoteStartTime = 0; // When the current red note started playing
 let currentNoteDuration = 0; // Duration of the current red note
 let hasFirstSynthFired = false; // Flag to track when first synth plays (for syntax coloring)
@@ -220,14 +223,6 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
           melodyState.mutationTriggerPositions = parsedMelody.mutationTriggerPositions;
           melodyState.currentMutationZone = parsedMelody.currentMutationZone || 0;
         }
-      }
-      
-      // Preserve outside group mutation metadata if present
-      if (parsedMelody.hasOutsideMutation) {
-        melodyState.hasMutation = true;
-        melodyState.hasOutsideMutation = true;
-        melodyState.originalContent = parsedMelody.originalContent;
-        melodyState.mutationType = parsedMelody.mutationType || 'outside-group';
       }
     } else {
       // Multiple tracks - create state for parallel playback with independent timing
@@ -658,7 +653,6 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
       let noteCharPositions = [];
       let charIndex = 0;
       let noteIndex = 0;
-      let inGroup = false;
       let inWaveform = false;
       let currentTrackIndex = 0;
       let noteIndexInCurrentTrack = 0;
@@ -686,165 +680,175 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
         // If timing hasn't started, set currentNoteIndex to -1 so no note is highlighted
         currentNoteIndex = -1;
       }
+
+      // Split by spaces to get groups, then process each group
+      const groups = melodyString.trim().split(/\s+/);
+      let globalCharIndex = 0;
+      let groupStartPositions = [];
+      
+      // Calculate the starting position of each group in the original string
+      let searchStart = 0;
+      for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+        const group = groups[groupIdx];
+        const groupStart = melodyString.indexOf(group, searchStart);
+        groupStartPositions.push(groupStart);
+        searchStart = groupStart + group.length;
+      }
+
       // First pass: identify all note character positions and their duration modifiers
-      for (let i = 0; i < melodyString.length; i++) {
-        const char = melodyString[i];
-        if (char === "{") {
-          inWaveform = true;
-          continue;
-        } else if (char === "}") {
-          inWaveform = false;
-          continue;
-        } else if (inWaveform) {
-          continue;
-        } else if (char === "(") {
-          inGroup = true;
-          continue;
-        } else if (char === ")") {
-          inGroup = false;
-          currentTrackIndex++;
-          noteIndexInCurrentTrack = 0;
-          continue;
-        } else if (char === " ") {
-          continue;
-        }
-
-        // Handle octave-first notation (5f, 4c#, etc.) - octave number should be part of the note unit
-        if (
-          /[0-9]/.test(char) &&
-          i + 1 < melodyString.length &&
-          /[a-g]/i.test(melodyString[i + 1])
-        ) {
-          let noteStart = i; // Start with the octave number
-          let noteEnd = i + 1; // Move to the note letter
-
-          // Check for sharp modifiers
-          if (noteEnd + 1 < melodyString.length) {
-            const nextChar = melodyString[noteEnd + 1];
-            if (nextChar === "s" || nextChar === "#") {
-              noteEnd++;
-            }
+      for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+        const group = groups[groupIdx];
+        const groupStartChar = groupStartPositions[groupIdx];
+        noteIndex = 0; // Reset note index for each group
+        
+        for (let i = 0; i < group.length; i++) {
+          const char = group[i];
+          const absoluteCharIndex = groupStartChar + i;
+          
+          if (char === "{") {
+            inWaveform = true;
+            continue;
+          } else if (char === "}") {
+            inWaveform = false;
+            continue;
+          } else if (inWaveform) {
+            continue;
           }
 
-          // Check for duration modifiers
-          while (noteEnd + 1 < melodyString.length) {
-            const nextChar = melodyString[noteEnd + 1];
-            if (
-              nextChar === "." ||
-              nextChar === "-" ||
-              nextChar === "<" ||
-              nextChar === ">" ||
-              nextChar === ","
-            ) {
-              noteEnd++;
-            } else {
-              break;
-            }
-          }
+          // Handle octave-first notation (5f, 4c#, etc.) - octave number should be part of the note unit
+          if (
+            /[0-9]/.test(char) &&
+            i + 1 < group.length &&
+            /[a-g]/i.test(group[i + 1])
+          ) {
+            let noteStart = i; // Start with the octave number
+            let noteEnd = i + 1; // Move to the note letter
 
-          const noteIndexToUse =
-            melodyState && melodyState.type === "parallel"
-              ? noteIndexInCurrentTrack
-              : noteIndex;
-          for (let j = noteStart; j <= noteEnd; j++) {
-            noteCharPositions.push({
-              charIndex: j,
-              noteIndex: noteIndexToUse,
-              trackIndex: currentTrackIndex,
-            });
-          }
-          noteIndex++;
-          noteIndexInCurrentTrack++;
-          i = noteEnd;
-        }
-        // Handle regular note letters (without octave prefix) or relative octave modifiers (+c, -f, etc.)
-        else if (/[a-g#_+-]/i.test(char)) {
-          let noteStart = i;
-          let noteEnd = i;
-
-          // Handle relative octave modifiers (++, --, etc.)
-          if (char === "+" || char === "-") {
-            while (
-              noteEnd + 1 < melodyString.length &&
-              melodyString[noteEnd + 1] === char
-            ) {
-              noteEnd++;
-            }
-            // Now we should have a note letter
-            if (
-              noteEnd + 1 < melodyString.length &&
-              /[a-g]/i.test(melodyString[noteEnd + 1])
-            ) {
-              noteEnd++;
-            } else {
-              // Handle standalone dash as rest (like ---)
-              if (char === "-") {
-                const noteIndexToUse =
-                  melodyState && melodyState.type === "parallel"
-                    ? noteIndexInCurrentTrack
-                    : noteIndex;
-                for (let j = noteStart; j <= noteEnd; j++) {
-                  noteCharPositions.push({
-                    charIndex: j,
-                    noteIndex: noteIndexToUse,
-                    trackIndex: currentTrackIndex,
-                  });
-                }
-                noteIndex++;
-                noteIndexInCurrentTrack++;
-                i = noteEnd;
-                continue;
-              } else {
-                // Invalid + without note, skip
-                continue;
+            // Check for sharp modifiers
+            if (noteEnd + 1 < group.length) {
+              const nextChar = group[noteEnd + 1];
+              if (nextChar === "s" || nextChar === "#") {
+                noteEnd++;
               }
             }
-          }
 
-          // Check for sharp modifiers (for regular notes or after relative modifiers)
-          if (noteEnd + 1 < melodyString.length) {
-            const nextChar = melodyString[noteEnd + 1];
-            if (nextChar === "s" || nextChar === "#") {
-              noteEnd++;
+            // Check for duration modifiers and asterisks
+            while (noteEnd + 1 < group.length) {
+              const nextChar = group[noteEnd + 1];
+              if (
+                nextChar === "." ||
+                nextChar === "-" ||
+                nextChar === "<" ||
+                nextChar === ">" ||
+                nextChar === "," ||
+                nextChar === "*"
+              ) {
+                noteEnd++;
+              } else {
+                break;
+              }
             }
-          }
 
-          // Check for duration modifiers
-          while (noteEnd + 1 < melodyString.length) {
-            const nextChar = melodyString[noteEnd + 1];
-            if (
-              nextChar === "." ||
-              nextChar === "-" ||
-              nextChar === "<" ||
-              nextChar === ">" ||
-              nextChar === ","
-            ) {
-              noteEnd++;
-            } else {
-              break;
+            const noteIndexToUse =
+              melodyState && melodyState.type === "parallel"
+                ? noteIndex
+                : noteIndex;
+            for (let j = noteStart; j <= noteEnd; j++) {
+              noteCharPositions.push({
+                charIndex: groupStartChar + j,
+                noteIndex: noteIndexToUse,
+                trackIndex: groupIdx,
+              });
             }
+            noteIndex++;
+            i = noteEnd;
           }
+          // Handle regular note letters (without octave prefix) or relative octave modifiers (+c, -f, etc.)
+          else if (/[a-g#_+-]/i.test(char)) {
+            let noteStart = i;
+            let noteEnd = i;
 
-          const noteIndexToUse =
-            melodyState && melodyState.type === "parallel"
-              ? noteIndexInCurrentTrack
-              : noteIndex;
-          for (let j = noteStart; j <= noteEnd; j++) {
-            noteCharPositions.push({
-              charIndex: j,
-              noteIndex: noteIndexToUse,
-              trackIndex: currentTrackIndex,
-            });
+            // Handle relative octave modifiers (++, --, etc.)
+            if (char === "+" || char === "-") {
+              while (
+                noteEnd + 1 < group.length &&
+                group[noteEnd + 1] === char
+              ) {
+                noteEnd++;
+              }
+              // Now we should have a note letter
+              if (
+                noteEnd + 1 < group.length &&
+                /[a-g]/i.test(group[noteEnd + 1])
+              ) {
+                noteEnd++;
+              } else {
+                // Handle standalone dash as rest (like ---)
+                if (char === "-") {
+                  const noteIndexToUse =
+                    melodyState && melodyState.type === "parallel"
+                      ? noteIndex
+                      : noteIndex;
+                  for (let j = noteStart; j <= noteEnd; j++) {
+                    noteCharPositions.push({
+                      charIndex: groupStartChar + j,
+                      noteIndex: noteIndexToUse,
+                      trackIndex: groupIdx,
+                    });
+                  }
+                  noteIndex++;
+                  i = noteEnd;
+                  continue;
+                } else {
+                  // Invalid + without note, skip
+                  continue;
+                }
+              }
+            }
+
+            // Check for sharp modifiers (for regular notes or after relative modifiers)
+            if (noteEnd + 1 < group.length) {
+              const nextChar = group[noteEnd + 1];
+              if (nextChar === "s" || nextChar === "#") {
+                noteEnd++;
+              }
+            }
+
+            // Check for duration modifiers and asterisks
+            while (noteEnd + 1 < group.length) {
+              const nextChar = group[noteEnd + 1];
+              if (
+                nextChar === "." ||
+                nextChar === "-" ||
+                nextChar === "<" ||
+                nextChar === ">" ||
+                nextChar === "," ||
+                nextChar === "*"
+              ) {
+                noteEnd++;
+              } else {
+                break;
+              }
+            }
+
+            const noteIndexToUse =
+              melodyState && melodyState.type === "parallel"
+                ? noteIndex
+                : noteIndex;
+            for (let j = noteStart; j <= noteEnd; j++) {
+              noteCharPositions.push({
+                charIndex: groupStartChar + j,
+                noteIndex: noteIndexToUse,
+                trackIndex: groupIdx,
+              });
+            }
+            noteIndex++;
+            i = noteEnd;
           }
-          noteIndex++;
-          noteIndexInCurrentTrack++;
-          i = noteEnd;
         }
       }
       // Color the original melody string character by character
       let inWaveformForColoring = false;
-      let inDisabledGroup = false; // Track if we're inside an x() disabled group
-      let disabledGroupTrackIndex = -1; // Track which disabled group we're in
 
       // For fade logic - red at start, fading to orange as note ends
       function getRedNoteColor() {
@@ -874,9 +878,16 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
       }
 
       // Get color for mutated notes (goldenrod for non-active mutations, red-orange fade for active)
-      function getMutatedNoteColor(isCurrentlyPlaying = false, noteIndex = -1) {
+      function getMutatedNoteColor(isCurrentlyPlaying = false, noteCharData = null) {
+        // Check if this is the specific note that was just mutated (rainbow flash)
+        const isRecentlyMutatedNote = noteCharData && 
+          noteCharData.noteIndex === recentlyMutatedNoteIndex && 
+          noteCharData.trackIndex === recentlyMutatedTrackIndex;
+        
         // Check if this note should flash rainbow during mutation
-        if (shouldFlashMutation && mutatedNotePositions.includes(noteIndex)) {
+        const shouldFlashForThisNote = shouldFlashMutation && isRecentlyMutatedNote;
+        
+        if (shouldFlashForThisNote) {
           // Rainbow flash effect - same as asterisk
           const time = now * 0.005; // Slow down the cycle
           const hue = (time % 1) * 360; // 0-360 degrees
@@ -925,6 +936,12 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
         now -
           (typeof mutationFlashTime !== "undefined" ? mutationFlashTime : 0) <
         mutationFlashDuration;
+      
+      // Reset recently mutated tracking when flash period expires
+      if (!shouldFlashMutation) {
+        recentlyMutatedNoteIndex = -1;
+        recentlyMutatedTrackIndex = -1;
+      }
 
       let currentTrackForColoring = 0; // Track which parallel track we're processing for coloring
 
@@ -932,39 +949,70 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
         const char = melodyString[i];
         let color = "yellow";
 
-        // Handle disabled group detection for x() syntax
-        if (
-          char === "x" &&
-          i + 1 < melodyString.length &&
-          melodyString[i + 1] === "("
-        ) {
-          // This is the start of a disabled group x(...)
-          color = "brown"; // Render 'x' in brown
-          inDisabledGroup = true;
-          disabledGroupTrackIndex = currentTrackForColoring;
-        } else if (char === "(" && !inDisabledGroup) {
-          // Regular group start
+        // Handle disabled group detection for x prefix syntax
+        if (char === " ") {
+          // Space separates groups
+          currentTrackForColoring++;
           color = timingHasStarted ? "yellow" : "gray";
-          currentTrackForColoring++;
-        } else if (char === "(" && inDisabledGroup) {
-          // Opening parenthesis of disabled group
-          color = "gray"; // Render parentheses in gray for disabled groups
-        } else if (char === ")") {
-          if (inDisabledGroup) {
-            // Closing disabled group
-            color = "gray"; // Render closing parenthesis in gray
-            inDisabledGroup = false;
-            disabledGroupTrackIndex = -1;
-          } else {
-            color = timingHasStarted ? "yellow" : "gray";
-          }
-          currentTrackForColoring++;
-        } else if (inDisabledGroup) {
-          // We're inside a disabled x() group - render everything in gray
-          color = "gray";
         }
-        // If we haven't set a special color for disabled groups, continue with normal logic
+        // Check if this character is part of a disabled group (starts with 'x')
+        else if (char === "x") {
+          // Check if this 'x' is at the start of a group
+          let isGroupPrefix = false;
+          if (i === 0) {
+            // First character of the string
+            isGroupPrefix = true;
+          } else {
+            // Check if preceded by space(s)
+            let j = i - 1;
+            while (j >= 0 && melodyString[j] === " ") {
+              j--;
+            }
+            isGroupPrefix = (j < 0 || melodyString[j] === " ");
+          }
+          
+          if (isGroupPrefix) {
+            color = "brown"; // Render 'x' prefix in brown
+          } else {
+            // Regular 'x' character, handle normally
+            const noteCharData = noteCharPositions.find(
+              (ncp) => ncp.charIndex === i,
+            );
+            if (noteCharData) {
+              color = timingHasStarted ? "yellow" : "gray";
+            } else {
+              color = timingHasStarted ? "yellow" : "gray";
+            }
+          }
+        }
+        // Check if we're inside a disabled group (group that starts with 'x')
         else {
+          // Find which group this character belongs to
+          let currentGroupIndex = 0;
+          let charCount = 0;
+          const groups = melodyString.trim().split(/\s+/);
+          let isInDisabledGroup = false;
+          
+          // Find which group contains this character
+          for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+            const group = groups[groupIdx];
+            const groupStart = melodyString.indexOf(group, charCount);
+            const groupEnd = groupStart + group.length;
+            
+            if (i >= groupStart && i < groupEnd) {
+              currentGroupIndex = groupIdx;
+              isInDisabledGroup = group.startsWith('x');
+              break;
+            }
+            charCount = groupEnd;
+          }
+          
+          if (isInDisabledGroup) {
+            // We're inside a disabled group - render everything in gray
+            color = "gray";
+          }
+          // If we're not in a disabled group, continue with normal logic
+          else {
           // Check if this character is part of the currently playing note
           const noteCharData = noteCharPositions.find(
             (ncp) => ncp.charIndex === i,
@@ -1008,80 +1056,37 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
           } else if (inWaveformForColoring) {
             color = timingHasStarted ? "cyan" : "gray";
           } else if (char === "*") {
-            // Check if this asterisk is part of a disabled group - if so, render it gray
-            // We need to check if this asterisk follows a disabled group
-            let isDisabledAsterisk = false;
-            
-            // Look backwards to see if this asterisk immediately follows a disabled group
-            if (i > 0) {
-              let checkIndex = i - 1;
-              // Skip whitespace
-              while (checkIndex >= 0 && melodyString[checkIndex] === " ") {
-                checkIndex--;
+            // Special handling for mutation asterisk - white flash when triggered, rainbow otherwise
+            if (shouldFlashMutation && (triggeredAsteriskPositions.includes(i) || triggeredAsteriskPositions.includes("*"))) {
+              // White flash when asterisk is triggered
+              color = "white";
+            } else {
+              // Create a time-based rainbow that cycles through hues
+              const time = now * 0.005; // Slow down the cycle
+              const hue = (time % 1) * 360; // 0-360 degrees
+              
+              // Convert HSV to RGB for rainbow effect
+              function hsvToRgb(h, s, v) {
+                const c = v * s;
+                const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+                const m = v - c;
+                let r, g, b;
+                
+                if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+                else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+                else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+                else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+                else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+                else { r = c; g = 0; b = x; }
+                
+                return [
+                  Math.round((r + m) * 255),
+                  Math.round((g + m) * 255),
+                  Math.round((b + m) * 255)
+                ];
               }
               
-              if (checkIndex >= 0 && melodyString[checkIndex] === ")") {
-                // This asterisk follows a closing parenthesis, check if it's a disabled group
-                let parenCount = 1;
-                let foundDisabledGroup = false;
-                checkIndex--;
-                
-                while (checkIndex >= 0 && parenCount > 0) {
-                  if (melodyString[checkIndex] === ")") {
-                    parenCount++;
-                  } else if (melodyString[checkIndex] === "(") {
-                    parenCount--;
-                    if (parenCount === 0) {
-                      // Found the opening parenthesis, check if it's preceded by 'x'
-                      if (checkIndex > 0 && melodyString[checkIndex - 1] === "x") {
-                        foundDisabledGroup = true;
-                      }
-                      break;
-                    }
-                  }
-                  checkIndex--;
-                }
-                
-                isDisabledAsterisk = foundDisabledGroup;
-              }
-            }
-            
-            if (isDisabledAsterisk) {
-              // Disabled group asterisk - render in gray
-              color = "gray";
-            } else {
-              // Special handling for mutation asterisk - white flash when triggered, rainbow otherwise
-              if (shouldFlashMutation && (triggeredAsteriskPositions.includes(i) || triggeredAsteriskPositions.includes("*"))) {
-                // White flash when asterisk is triggered
-                color = "white";
-              } else {
-                // Create a time-based rainbow that cycles through hues
-                const time = now * 0.005; // Slow down the cycle
-                const hue = (time % 1) * 360; // 0-360 degrees
-                
-                // Convert HSV to RGB for rainbow effect
-                function hsvToRgb(h, s, v) {
-                  const c = v * s;
-                  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-                  const m = v - c;
-                  let r, g, b;
-                  
-                  if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
-                  else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
-                  else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
-                  else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
-                  else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
-                  else { r = c; g = 0; b = x; }
-                  
-                  return [
-                    Math.round((r + m) * 255),
-                    Math.round((g + m) * 255),
-                    Math.round((b + m) * 255)
-                  ];
-                }
-                
-                color = hsvToRgb(hue, 1, 1); // Full saturation and brightness for vivid rainbow
-              }
+              color = hsvToRgb(hue, 1, 1); // Full saturation and brightness for vivid rainbow
             }
           } else if (melodyState && melodyState.isFallback) {
             if (noteCharData) {
@@ -1092,29 +1097,29 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
                 // Check if this is a duration punctuation character within the current note
                 if (/[.,]/i.test(char)) {
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
                 } else if (/[s]/i.test(char)) {
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Sharp 's' uses same color as note letters
                 } else if (char === "_") {
                   // Rest character - should flash red like regular notes
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Rests use same color as note letters
                 } else if (/[0-9+\-#<>]/i.test(char)) {
                   color = "green"; // Other special characters in current note flash green
                 } else {
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Note letters use mutation or normal fade
                 }
               } else {
                 // Not currently playing - check if it's a mutated note
                 const isMutated = isNoteMutated(noteCharData);
                 if (isMutated) {
-                  color = getMutatedNoteColor(false, noteCharData.noteIndex); // Goldenrod for non-active mutated notes
+                  color = getMutatedNoteColor(false, noteCharData); // Goldenrod for non-active mutated notes
                 } else {
                   // Use gray if timing hasn't started, yellow if it has
                   color = timingHasStarted ? "yellow" : "gray";
@@ -1132,29 +1137,29 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
                 // Check if this is a duration punctuation character within the current note
                 if (/[.,]/i.test(char)) {
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Duration punctuation uses mutation or normal fade
                 } else if (/[s]/i.test(char)) {
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Sharp 's' uses same color as note letters
                 } else if (char === "_") {
                   // Rest character - should flash red like regular notes
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Rests use same color as note letters
                 } else if (/[0-9+\-#<>]/i.test(char)) {
                   color = "green"; // Other special characters in current note flash green
                 } else {
                   color = isMutated
-                    ? getMutatedNoteColor(true, noteCharData.noteIndex)
+                    ? getMutatedNoteColor(true, noteCharData)
                     : getRedNoteColor(); // Note letters use mutation or normal fade
                 }
               } else {
                 // Not currently playing - check if it's a mutated note
                 const isMutated = isNoteMutated(noteCharData);
                 if (isMutated) {
-                  color = getMutatedNoteColor(false, noteCharData.noteIndex); // Goldenrod for non-active mutated notes
+                  color = getMutatedNoteColor(false, noteCharData); // Goldenrod for non-active mutated notes
                 } else {
                   // Use gray if timing hasn't started, yellow if it has
                   color = timingHasStarted ? "yellow" : "gray";
@@ -1164,6 +1169,7 @@ function paint({ wipe, ink, write, clock, screen, sound, api, help, hud, typefac
               // For non-note characters, use gray until timing starts
               color = timingHasStarted ? "yellow" : "gray";
             }
+          }
           }
         }
 
@@ -1331,9 +1337,8 @@ function buildCurrentMelodyString(originalMelodyString, melodyState) {
         continue;
       }
 
-      // Skip parentheses and spaces
-      if (char === "(" || char === ")" || char === " " || char === "*")
-        continue;
+      // Skip asterisks and spaces
+      if (char === "*" || char === " ") continue;
 
       // Check if this is a note letter (main note character) or underscore rest
       if (/[a-g_]/i.test(char)) {
@@ -1362,60 +1367,70 @@ function buildCurrentMelodyString(originalMelodyString, melodyState) {
     });
   }
 
-  // For parallel tracks with mutations
+  // For parallel tracks with mutations (space-based groups)
   if (melodyState.type === "parallel" && melodyState.tracks) {
     const notePositions = [];
-    let currentTrackIndex = 0;
-    let noteIndexInTrack = 0;
-    let inGroup = false;
+    
+    // Split by spaces to get groups, then process each group
+    const groups = originalMelodyString.trim().split(/\s+/);
+    let globalCharIndex = 0;
+    let groupStartPositions = [];
+    
+    // Calculate the starting position of each group in the original string
+    let searchStart = 0;
+    for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+      const group = groups[groupIdx];
+      const groupStart = originalMelodyString.indexOf(group, searchStart);
+      groupStartPositions.push(groupStart);
+      searchStart = groupStart + group.length;
+    }
 
-    for (let i = 0; i < originalMelodyString.length; i++) {
-      const char = originalMelodyString[i];
-
-      // Skip waveform specifiers
-      if (char === "{") {
-        while (
-          i < originalMelodyString.length &&
-          originalMelodyString[i] !== "}"
-        )
-          i++;
-        continue;
-      }
-
-      if (char === "(") {
-        inGroup = true;
-        noteIndexInTrack = 0;
-        continue;
-      } else if (char === ")") {
-        inGroup = false;
-        currentTrackIndex++;
-        continue;
-      } else if (char === " " || char === "*") {
-        continue;
-      }
-
-      // Check if this is a note letter or underscore rest within a group
-      if (inGroup && /[a-g_]/i.test(char)) {
-        const track = melodyState.tracks[currentTrackIndex];
-        if (
-          track &&
-          track[noteIndexInTrack] &&
-          track[noteIndexInTrack].isMutation
-        ) {
-          // This note was mutated, record its position for replacement
-          const displayNote =
-            track[noteIndexInTrack].note === "rest"
-              ? "_"
-              : track[noteIndexInTrack].note.toLowerCase();
-          notePositions.push({
-            stringIndex: i,
-            trackIndex: currentTrackIndex,
-            noteIndex: noteIndexInTrack,
-            originalChar: char,
-            newNote: displayNote,
-          });
+    // Process each group and find mutated notes
+    for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+      const group = groups[groupIdx];
+      const groupStartChar = groupStartPositions[groupIdx];
+      const track = melodyState.tracks[groupIdx];
+      
+      if (!track) continue; // Skip if no corresponding track
+      
+      let noteIndexInTrack = 0;
+      let inWaveform = false;
+      
+      for (let i = 0; i < group.length; i++) {
+        const char = group[i];
+        const absoluteCharIndex = groupStartChar + i;
+        
+        // Skip waveform specifiers
+        if (char === "{") {
+          inWaveform = true;
+          continue;
+        } else if (char === "}") {
+          inWaveform = false;
+          continue;
+        } else if (inWaveform) {
+          continue;
         }
-        noteIndexInTrack++;
+
+        // Skip asterisks and x prefix
+        if (char === "*" || char === "x") continue;
+
+        // Check if this is a note letter or underscore rest
+        if (/[a-g_]/i.test(char)) {
+          const trackNote = track[noteIndexInTrack];
+          if (trackNote && trackNote.isMutation) {
+            // This note was mutated, record its position for replacement
+            const displayNote =
+              trackNote.note === "rest" ? "_" : trackNote.note.toLowerCase();
+            notePositions.push({
+              stringIndex: absoluteCharIndex,
+              trackIndex: groupIdx,
+              noteIndex: noteIndexInTrack,
+              originalChar: char,
+              newNote: displayNote,
+            });
+          }
+          noteIndexInTrack++;
+        }
       }
     }
 
@@ -1892,14 +1907,141 @@ function slideActiveSoundsToNewOctave(oldOctave, newOctave) {
   });
 }
 
+// Preserve mutation state from existing tracks
+function preserveMutationState() {
+  const state = {
+    singleTrack: null,
+    tracks: []
+  };
+  
+  // Preserve single track state
+  if (parsedMelody && parsedMelody.hasMutation) {
+    state.singleTrack = {
+      hasMutation: parsedMelody.hasMutation,
+      mutationCount: parsedMelody.mutationCount,
+      currentMutationZone: parsedMelody.currentMutationZone,
+      mutationType: parsedMelody.mutationType,
+      originalContent: parsedMelody.originalContent,
+      mutationTriggerPositions: parsedMelody.mutationTriggerPositions,
+      mutationTriggerPosition: parsedMelody.mutationTriggerPosition,
+      mutatedNotes: parsedMelody.map(note => ({
+        isMutation: note.isMutation,
+        originalNote: note.originalNote,
+        originalOctave: note.originalOctave,
+        // Preserve the actual current mutated note content
+        currentNote: note.note,
+        currentOctave: note.octave,
+        duration: note.duration,
+        waveType: note.waveType,
+        volume: note.volume,
+        tone: note.tone
+      }))
+    };
+  }
+  
+  // Preserve parallel tracks state
+  if (melodyState && melodyState.tracks) {
+    state.tracks = melodyState.tracks.map(track => {
+      if (!track.hasMutation) return null;
+      
+      return {
+        hasMutation: track.hasMutation,
+        mutationCount: track.mutationCount,
+        currentMutationZone: track.currentMutationZone,
+        mutationType: track.mutationType,
+        originalContent: track.originalContent,
+        mutationTriggerPositions: track.mutationTriggerPositions,
+        mutationTriggerPosition: track.mutationTriggerPosition,
+        mutatedNotes: track.map(note => ({
+          isMutation: note.isMutation,
+          originalNote: note.originalNote,
+          originalOctave: note.originalOctave,
+          // Preserve the actual current mutated note content
+          currentNote: note.note,
+          currentOctave: note.octave,
+          duration: note.duration,
+          waveType: note.waveType,
+          volume: note.volume,
+          tone: note.tone
+        }))
+      };
+    });
+  }
+  
+  return state;
+}
+
+// Restore mutation state to a newly parsed track
+function restoreMutationState(newTrack, oldState) {
+  if (!oldState) return;
+  
+  // Restore track-level mutation metadata
+  newTrack.hasMutation = oldState.hasMutation;
+  newTrack.mutationCount = oldState.mutationCount;
+  newTrack.currentMutationZone = oldState.currentMutationZone;
+  newTrack.mutationType = oldState.mutationType;
+  newTrack.originalContent = oldState.originalContent;
+  newTrack.mutationTriggerPositions = oldState.mutationTriggerPositions;
+  newTrack.mutationTriggerPosition = oldState.mutationTriggerPosition;
+  
+  // Restore note-level mutation data
+  if (oldState.mutatedNotes) {
+    for (let i = 0; i < Math.min(newTrack.length, oldState.mutatedNotes.length); i++) {
+      const oldNoteState = oldState.mutatedNotes[i];
+      if (oldNoteState.isMutation) {
+        // This note was previously mutated, restore the full mutation with octave adjustment
+        newTrack[i].isMutation = true;
+        newTrack[i].originalNote = oldNoteState.originalNote;
+        newTrack[i].originalOctave = oldNoteState.originalOctave;
+        
+        // Restore the actual mutated note content
+        newTrack[i].note = oldNoteState.currentNote;
+        
+        // Apply octave adjustment: if the old octave was different from original, 
+        // maintain the same relative difference in the new octave
+        if (oldNoteState.currentOctave && oldNoteState.originalOctave) {
+          const octaveDifference = oldNoteState.currentOctave - oldNoteState.originalOctave;
+          newTrack[i].octave = newTrack[i].octave + octaveDifference;
+        } else if (oldNoteState.currentOctave) {
+          // Use the preserved current octave adjusted to the new base
+          const oldBaseOctave = oldNoteState.originalOctave || 4;
+          const newBaseOctave = newTrack[i].octave || 4;
+          const octaveShift = newBaseOctave - oldBaseOctave;
+          newTrack[i].octave = oldNoteState.currentOctave + octaveShift;
+        }
+        
+        // Restore other mutation properties
+        if (oldNoteState.duration !== undefined) newTrack[i].duration = oldNoteState.duration;
+        if (oldNoteState.waveType !== undefined) newTrack[i].waveType = oldNoteState.waveType;
+        if (oldNoteState.volume !== undefined) newTrack[i].volume = oldNoteState.volume;
+        
+        // Update tone to match the mutated note and adjusted octave
+        if (newTrack[i].note !== 'rest') {
+          // Use the already imported noteToTone function
+          newTrack[i].tone = noteToTone(newTrack[i].note, newTrack[i].octave);
+        } else {
+          newTrack[i].tone = null;
+        }
+      }
+    }
+  }
+}
+
 function reparseMelodyWithNewOctave(newOctave) {
   if (originalMelodyString) {
+    // Store current mutation state before reparsing
+    const oldMutationState = preserveMutationState();
+    
     // Reparse the melody with the new base octave
     melodyTracks = parseSimultaneousMelody(originalMelodyString, newOctave);
 
     if (melodyTracks.isSingleTrack) {
       // Single track
       parsedMelody = melodyTracks.tracks[0];
+      
+      // Restore mutation state to the newly parsed track
+      restoreMutationState(parsedMelody, oldMutationState.singleTrack);
+      
       sequence = extractTones(parsedMelody, {
         skipRests: false,
         restTone: `${newOctave}G`,
@@ -1934,6 +2076,7 @@ function reparseMelodyWithNewOctave(newOctave) {
               noteIndex: ts.noteIndex,
               startTime: ts.startTime,
               totalElapsedBeats: ts.totalElapsedBeats,
+              nextNoteTargetTime: ts.nextNoteTargetTime, // Preserve target time to prevent timing discontinuity
             }))
           : null;
 
@@ -1942,6 +2085,13 @@ function reparseMelodyWithNewOctave(newOctave) {
         melodyState.type = melodyTracks.type;
         melodyState.maxLength = melodyTracks.maxLength || 0;
         melodyState.isFallback = isFallback; // Preserve fallback status
+
+        // Restore mutation state to each track
+        melodyTracks.tracks.forEach((track, index) => {
+          if (oldMutationState.tracks && oldMutationState.tracks[index]) {
+            restoreMutationState(track, oldMutationState.tracks[index]);
+          }
+        });
 
         // Update or create track states for parallel timing
         if (melodyState.type === "parallel") {
@@ -1954,7 +2104,7 @@ function reparseMelodyWithNewOctave(newOctave) {
                 trackIndex: trackIndex,
                 noteIndex: existingState ? existingState.noteIndex : 0,
                 track: track,
-                nextNoteTargetTime: 0, // Reset target time for new track
+                nextNoteTargetTime: existingState ? existingState.nextNoteTargetTime : 0, // Preserve target time for seamless continuity
                 startTime: existingState ? existingState.startTime : 0, // Preserve start time
                 totalElapsedBeats: existingState
                   ? existingState.totalElapsedBeats
@@ -2281,6 +2431,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
           // Find which notes actually changed (not just marked as mutations)
           const mutationIndices = [];
+          let recentlyMutatedIndex = -1;
           for (let i = 0; i < Math.min(mutatedTrack.length, originalTrack.length); i++) {
             const originalNote = originalTrack[i];
             const mutatedNote = mutatedTrack[i];
@@ -2290,9 +2441,12 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                 (originalNote.note !== mutatedNote.note || 
                  originalNote.octave !== mutatedNote.octave)) {
               mutationIndices.push(i);
+              recentlyMutatedIndex = i; // This is the note that just changed
             }
           }
           mutatedNotePositions = mutationIndices;
+          recentlyMutatedNoteIndex = recentlyMutatedIndex;
+          recentlyMutatedTrackIndex = 0; // Single track is always track 0
 
           // Set mutation flash time for asterisk and note animation
           mutationFlashTime = performance.now();
@@ -2377,6 +2531,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
             // Find which notes actually changed (not just marked as mutations)
             const mutationIndices = [];
+            let recentlyMutatedIndex = -1;
             for (let i = 0; i < Math.min(mutatedTrack.length, originalTrack.length); i++) {
               const originalNote = originalTrack[i];
               const mutatedNote = mutatedTrack[i];
@@ -2386,9 +2541,12 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                   (originalNote.note !== mutatedNote.note || 
                    originalNote.octave !== mutatedNote.octave)) {
                 mutationIndices.push(i);
+                recentlyMutatedIndex = i; // This is the note that just changed
               }
             }
             mutatedNotePositions = mutationIndices;
+            recentlyMutatedNoteIndex = recentlyMutatedIndex;
+            recentlyMutatedTrackIndex = 0; // Single track is always track 0
 
             // Set mutation flash time for asterisk and note animation
             mutationFlashTime = performance.now();
@@ -2490,12 +2648,6 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                   melodyState.lastMutationTriggered = true; // Prevent rapid re-triggering
                 }
               }
-              // Check for outside group mutations (asterisk after group like (fff)*)
-              else if (melodyState.hasOutsideMutation && previousNoteIndex === melodyState.notes.length - 1 && !melodyState.lastMutationTriggered) {
-                shouldMutate = true;
-                isEndOfTrackMutation = true;
-                melodyState.lastMutationTriggered = true; // Prevent rapid re-triggering
-              }
 
               if (shouldMutate) {
                 // Store the original track before mutation to compare changes
@@ -2510,6 +2662,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
 
                 // Find which notes were actually changed (not just marked as mutations)
                 let mutationIndices = [];
+                let recentlyMutatedIndex = -1;
                 
                 if (melodyState.mutationTriggerPositions && melodyState.mutationTriggerPositions.length > 0) {
                   // Multiple zones: find only the newly changed notes in the zone that was just processed
@@ -2533,6 +2686,7 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                         (originalNote.note !== mutatedNote.note || 
                          originalNote.octave !== mutatedNote.octave)) {
                       mutationIndices.push(i);
+                      recentlyMutatedIndex = i; // This is the note that just changed
                     }
                   }
                 } else {
@@ -2546,11 +2700,14 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
                         (originalNote.note !== mutatedNote.note || 
                          originalNote.octave !== mutatedNote.octave)) {
                       mutationIndices.push(i);
+                      recentlyMutatedIndex = i; // This is the note that just changed
                     }
                   }
                 }
                 
                 mutatedNotePositions = mutationIndices;
+                recentlyMutatedNoteIndex = recentlyMutatedIndex;
+                recentlyMutatedTrackIndex = 0; // Single track is always track 0
 
                 // Set mutation flash time for asterisk and note animation
                 mutationFlashTime = performance.now();
@@ -2599,6 +2756,137 @@ function sim({ sound, beep, clock, num, help, params, colon }) {
           }
         }
 
+        if (anyTrackPlayed) {
+          synced = true;
+        }
+      } else if (melodyState.type === "parallel" && melodyState.trackStates) {
+        // Parallel tracks timing - handle each track independently
+        melodyState.trackStates.forEach((trackState, trackIndex) => {
+          if (!trackState.track || trackState.track.length === 0) return;
+          
+          // Initialize timing for this track if not set
+          if (trackState.nextNoteTargetTime === 0) {
+            // Find first audible note in this track
+            let firstAudibleIndex = 0;
+            while (firstAudibleIndex < trackState.track.length && 
+                   trackState.track[firstAudibleIndex].note === "rest") {
+              firstAudibleIndex++;
+            }
+            
+            if (firstAudibleIndex > 0 && firstAudibleIndex < trackState.track.length) {
+              // Skip ahead to first audible note
+              trackState.noteIndex = firstAudibleIndex;
+              trackState.nextNoteTargetTime = currentTimeMs;
+            } else if (firstAudibleIndex >= trackState.track.length) {
+              // All notes are rests - start immediately anyway
+              trackState.noteIndex = 0;
+              trackState.nextNoteTargetTime = currentTimeMs;
+            } else {
+              // First note is audible - use UTC boundary for normal timing
+              trackState.nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
+            }
+          }
+          
+          // Check if it's time to play the next note in this track
+          if (trackState.nextNoteTargetTime > 0 && currentTimeMs >= trackState.nextNoteTargetTime) {
+            const noteData = trackState.track[trackState.noteIndex];
+            if (noteData) {
+              // Play the note
+              const {
+                note,
+                octave: noteOctave,
+                duration,
+                waveType,
+                volume,
+              } = noteData;
+              
+              if (note !== "rest") {
+                let tone = noteOctave
+                  ? `${noteOctave}${note.toUpperCase()}`
+                  : `${octave}${note.toUpperCase()}`;
+                const noteDuration = duration * melodyState.baseTempo;
+                
+                try {
+                  createManagedSound(
+                    sound,
+                    tone,
+                    waveType,
+                    noteDuration,
+                    volume || 0.8,
+                    melodyState.isFallback,
+                  );
+                } catch (error) {
+                  console.error(
+                    `%c✗ Track ${trackIndex + 1} ${tone} - ${error}`,
+                    "color: red; background: black; font-weight: bold; padding: 2px;",
+                  );
+                }
+              }
+              
+              anyTrackPlayed = true;
+              
+              // Advance to next note in this track
+              const oldIndex = trackState.noteIndex;
+              trackState.noteIndex = (trackState.noteIndex + 1) % trackState.track.length;
+              
+              // Check for mutations when this track loops back to beginning
+              if (oldIndex === trackState.track.length - 1 && trackState.noteIndex === 0) {
+                // Check if this track has mutations
+                if (trackState.track.hasMutation) {
+                  // Apply mutation to this specific track
+                  const originalTrack = [...trackState.track];
+                  const mutatedTrack = mutateMelodyTrack(
+                    trackState.track,
+                    trackState.track.originalContent || trackState.track,
+                    octave,
+                  );
+                  
+                  // Find which notes actually changed in this track
+                  const mutationIndices = [];
+                  let recentlyMutatedIndex = -1;
+                  for (let i = 0; i < Math.min(mutatedTrack.length, originalTrack.length); i++) {
+                    const originalNote = originalTrack[i];
+                    const mutatedNote = mutatedTrack[i];
+                    
+                    if (originalNote && mutatedNote && 
+                        (originalNote.note !== mutatedNote.note || 
+                         originalNote.octave !== mutatedNote.octave)) {
+                      mutationIndices.push(i);
+                      recentlyMutatedIndex = i; // This is the note that just changed
+                    }
+                  }
+                  
+                  // Update this track with mutated notes
+                  trackState.track = mutatedTrack;
+                  
+                  // Preserve mutation metadata
+                  trackState.track.hasMutation = true;
+                  trackState.track.originalContent = originalTrack.originalContent || originalTrack;
+                  trackState.track.mutationCount = (trackState.track.mutationCount || 0) + 1;
+                  
+                  // Update the main melody state tracks array
+                  melodyState.tracks[trackIndex] = trackState.track;
+                  
+                  // Set mutation flash time for visual feedback (this should happen for any track mutation)
+                  mutationFlashTime = performance.now();
+                  triggeredAsteriskPositions = ["*"];
+                  
+                  // Store mutated positions for this track (for potential visual feedback)
+                  if (mutationIndices.length > 0) {
+                    mutatedNotePositions = mutationIndices;
+                    recentlyMutatedNoteIndex = recentlyMutatedIndex;
+                    recentlyMutatedTrackIndex = trackIndex; // Make sure we track the correct track index
+                  }
+                }
+              }
+              
+              // Calculate next note target time for this track
+              const noteDuration = noteData.duration * melodyState.baseTempo;
+              trackState.nextNoteTargetTime = currentTimeMs + noteDuration;
+            }
+          }
+        });
+        
         if (anyTrackPlayed) {
           synced = true;
         }
