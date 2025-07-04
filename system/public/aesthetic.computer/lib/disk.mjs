@@ -49,6 +49,23 @@ import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.
 
+// Cache for loaded typefaces to avoid recreating them
+const typefaceCache = new Map();
+
+// Helper function to get or create a typeface
+async function getOrCreateTypeface(name, preload) {
+  if (typefaceCache.has(name)) {
+    return typefaceCache.get(name);
+  }
+  
+  const typeface = new Typeface(name);
+  if (preload) {
+    await typeface.load(preload);
+  }
+  typefaceCache.set(name, typeface);
+  return typeface;
+}
+
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
@@ -1400,11 +1417,19 @@ const $commonApi = {
     // Get the pixel width of a string of characters.
     width: (text, customTypeface = null) => {
       if (Array.isArray(text)) text = text.join(" ");
+      // Handle string typeface names
+      if (typeof customTypeface === "string") {
+        customTypeface = typefaceCache.get(customTypeface) || tf;
+      }
       const activeTypeface = customTypeface || tf;
       return text.length * activeTypeface.blockWidth;
     },
     height: (text, customTypeface = null) => {
       // Get the pixel height of a string of characters.
+      // Handle string typeface names
+      if (typeof customTypeface === "string") {
+        customTypeface = typefaceCache.get(customTypeface) || tf;
+      }
       const activeTypeface = customTypeface || tf;
       return activeTypeface.blockHeight;
     },
@@ -1416,6 +1441,10 @@ const $commonApi = {
       }
       pos = { ...pos };
       let run = 0;
+      // Handle string typeface names
+      if (typeof customTypeface === "string") {
+        customTypeface = typefaceCache.get(customTypeface) || tf;
+      }
       const activeTypeface = customTypeface || tf;
       const blockWidth = activeTypeface.blockWidth * abs(scale);
 
@@ -1711,6 +1740,13 @@ const $commonApi = {
         socket?.kill(outageSeconds); // Diconnect from socket session.
         udp?.kill(outageSeconds); // Disconnect from UDP.
       }, hiccupIn * 1000);
+    },
+    // Preload a typeface for use with string-based font names
+    preloadTypeface: async (name) => {
+      if (typefaceCache.has(name)) {
+        return typefaceCache.get(name);
+      }
+      return await getOrCreateTypeface(name, $commonApi.net.preload);
     },
   },
   needsPaint: () => {
@@ -2016,6 +2052,19 @@ const $paintApi = {
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
       customTypeface = arguments[5];
+    }
+
+    // Convert string font name to Typeface instance if needed
+    if (typeof customTypeface === "string") {
+      // Check if we have a cached typeface first
+      if (typefaceCache.has(customTypeface)) {
+        customTypeface = typefaceCache.get(customTypeface);
+      } else {
+        // Create a new typeface but warn that it may not be fully loaded
+        console.warn(`⚠️ Typeface "${customTypeface}" not preloaded. Consider using preloadTypeface() in boot.`);
+        customTypeface = new Typeface(customTypeface);
+        typefaceCache.set(customTypeface.name, customTypeface);
+      }
     } // 🎨 Color code processing
     // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, etc.
     const colorCodeRegex =
