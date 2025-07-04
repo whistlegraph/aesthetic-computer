@@ -17,6 +17,14 @@
 //   c +d 5e +f  -> 4C 5D 5E 6F (absolute octave resets the base)
 //   ++c --d     -> 6C 2D (multiple modifiers for bigger jumps)
 // 
+// 🎵 NEW: Space-Based Parallel Tracks!
+// Use spaces to separate groups for parallel playback:
+// Examples:
+//   ceg         -> Single track with 3 notes
+//   ceg dfa     -> Two parallel tracks
+//   ceg* dfa    -> First track with mutation, second without
+//   ceg* dfa*   -> Both tracks with mutation
+// 
 // Character savings: 25-43% fewer characters for typical melodies!
 
 /**
@@ -548,94 +556,74 @@ export function extractTones(parsedMelody, options = {}) {
 }
 
 /**
- * Parses a melody string that may contain simultaneous tracks enclosed in parentheses.
+ * Parses a melody string that may contain simultaneous tracks separated by spaces.
  * 
  * Examples:
- * - "(ceg) (dfa)" - Two simultaneous 3-note chords
- * - "(cdefg) (gfedc)" - Two simultaneous melodic lines
- * - "c d (eg) f" - Mix of single notes and simultaneous notes
+ * - "ceg" - Single track with 3 notes
+ * - "ceg dfa" - Two simultaneous tracks (parallel)
+ * - "5cdefg 4gfedc" - Two simultaneous melodic lines
+ * - "ceg* dfa" - First track with mutation, second without
+ * - "ceg* dfa*" - Both tracks with mutation
+ * - "xceg dfa" - First track disabled (x prefix), only second plays
  * 
- * @param {string} melodyString - The melody string with possible parenthesized tracks
+ * @param {string} melodyString - The melody string with space-separated groups
  * @param {number} [startingOctave=4] - The default octave to use if none specified
  * @returns {Object} Object with { tracks: Array[], isSingleTrack: boolean }
  */
 export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
-  // First, extract any global waveform types that appear outside parentheses
+  // Extract any global waveform types that appear at the beginning
   let globalWaveType = "sine"; // Default
-  let processedMelodyString = melodyString;
+  let processedMelodyString = melodyString.trim();
   
-  // Find waveform types outside of parentheses
-  const globalWaveTypePattern = /{(sine|sawtooth|square|triangle)}/g;
-  let match;
-  const waveTypes = [];
+  // Find waveform types at the beginning of the string
+  const globalWaveTypePattern = /^{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/;
+  const waveMatch = globalWaveTypePattern.exec(processedMelodyString);
   
-  while ((match = globalWaveTypePattern.exec(melodyString)) !== null) {
-    const start = match.index;
-    const end = match.index + match[0].length;
-    
-    // Check if this waveform type is inside parentheses
-    const beforeMatch = melodyString.substring(0, start);
-    const afterMatch = melodyString.substring(end);
-    
-    // Count parentheses before and after to see if we're inside a group
-    const openParensBefore = (beforeMatch.match(/\(/g) || []).length;
-    const closeParensBefore = (beforeMatch.match(/\)/g) || []).length;
-    
-    // If open parens == close parens before this position, we're outside any group
-    if (openParensBefore === closeParensBefore) {
-      globalWaveType = match[1].toLowerCase();
-      waveTypes.push({ position: start, length: match[0].length, type: match[1] });
-    }
+  if (waveMatch) {
+    globalWaveType = waveMatch[1].toLowerCase();
+    processedMelodyString = processedMelodyString.substring(waveMatch[0].length).trim();
   }
   
-  // Remove global waveform types from the string (outside parentheses only)
-  waveTypes.reverse().forEach(waveInfo => {
-    // Double-check this is outside parentheses
-    const beforeMatch = processedMelodyString.substring(0, waveInfo.position);
-    const openParensBefore = (beforeMatch.match(/\(/g) || []).length;
-    const closeParensBefore = (beforeMatch.match(/\)/g) || []).length;
-    
-    if (openParensBefore === closeParensBefore) {
-      processedMelodyString = processedMelodyString.substring(0, waveInfo.position) + 
-                             processedMelodyString.substring(waveInfo.position + waveInfo.length);
-    }
-  });
+  // Split the melody string by whitespace to get individual groups
+  const groups = processedMelodyString.split(/\s+/).filter(group => group.length > 0);
   
-  // If no parentheses found, treat as single track
-  if (!processedMelodyString.includes('(') && !processedMelodyString.includes(')')) {
+  // If no groups or only one group, treat as single track
+  if (groups.length <= 1) {
+    const singleGroup = groups[0] || '';
+    
     // Check for * anywhere in the string (support multiple * markers for mutation zones)
     const asteriskIndices = [];
-    for (let i = 0; i < processedMelodyString.length; i++) {
-      if (processedMelodyString[i] === '*') {
+    for (let i = 0; i < singleGroup.length; i++) {
+      if (singleGroup[i] === '*') {
         asteriskIndices.push(i);
       }
     }
     const hasMutation = asteriskIndices.length > 0;
-    let contentForParsing = processedMelodyString;
+    let contentForParsing = singleGroup;
     let mutationTriggerPositions = [];
     
     if (hasMutation) {
       // Remove all * characters from the content to parse
-      contentForParsing = processedMelodyString.replace(/\*/g, '');
+      contentForParsing = singleGroup.replace(/\*/g, '');
       
       // Calculate the positions in the parsed notes where mutations should trigger
       // For each *, count actual note characters before it in the processed string
       mutationTriggerPositions = asteriskIndices.map(asteriskIndex => {
         let noteCount = 0;
         for (let i = 0; i < asteriskIndex; i++) {
-          const char = processedMelodyString[i];
+          const char = singleGroup[i];
           // Count note letters, rests, and skip over waveform/duration modifiers
           if (char === '{') {
             // Skip over entire {waveform} or {duration} block
-            while (i < processedMelodyString.length && processedMelodyString[i] !== '}') {
+            while (i < singleGroup.length && singleGroup[i] !== '}') {
               i++;
             }
-            if (i < processedMelodyString.length && processedMelodyString[i] === '}') {
+            if (i < singleGroup.length && singleGroup[i] === '}') {
               i++; // Skip the closing brace
             }
             i--; // Adjust for the loop increment
           } else if (/[a-g_-]/.test(char) || 
-              (char.match(/[0-9]/) && i + 1 < processedMelodyString.length && /[a-g]/.test(processedMelodyString[i + 1]))) {
+              (char.match(/[0-9]/) && i + 1 < singleGroup.length && /[a-g]/.test(singleGroup[i + 1]))) {
             noteCount++;
           }
         }
@@ -644,7 +632,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Apply global wave type to the single track if one was specified
-    const hasLocalWaveType = /{(sine|sawtooth|square|triangle)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : 
                                    (globalWaveType !== "sine" ? `{${globalWaveType}} ${contentForParsing}` : contentForParsing);
     
@@ -657,6 +645,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
       parsedTrack.mutationCount = 0;
       parsedTrack.mutationTriggerPositions = mutationTriggerPositions; // Array of positions where mutations should trigger
       parsedTrack.currentMutationZone = 0; // Track which mutation zone we're currently in
+      parsedTrack.mutationType = 'within-group'; // Notes to the left of asterisks
       
       // Only set legacy single position for backward compatibility if we have exactly one trigger
       // This prevents conflicts between multiple zones and legacy systems
@@ -672,175 +661,95 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     };
   }
   
-  // Extract all parentheses groups and check for x() disable syntax and * mutation syntax
-  const parenGroups = [];
-  const disabledTracks = []; // Track which tracks are disabled by x()
-  const mutationTracks = []; // Track which tracks have * mutation enabled
-  const outsideGroupMutations = []; // Track asterisks outside groups that affect preceding groups
-  
-  // First, find all asterisks outside of groups
-  const outsideAsterisks = [];
-  let parenDepth = 0;
-  for (let i = 0; i < processedMelodyString.length; i++) {
-    const char = processedMelodyString[i];
-    if (char === '(') {
-      parenDepth++;
-    } else if (char === ')') {
-      parenDepth--;
-    } else if (char === '*' && parenDepth === 0) {
-      outsideAsterisks.push(i);
-    }
-  }
-  
-  const parenPattern = /x?\(([^)]+)\)/g;
-  let groupMatch;
-  let groupIndex = 0;
-  
-  while ((groupMatch = parenPattern.exec(processedMelodyString)) !== null) {
-    const fullMatch = groupMatch[0]; // e.g., "x(ceg)" or "(ceg)"
-    const groupContent = groupMatch[1].trim(); // e.g., "ceg"
-    const isDisabled = fullMatch.startsWith('x(');
-    const groupEndPosition = groupMatch.index + fullMatch.length;
+  // Multiple groups - create parallel tracks
+  const parallelTracks = groups.map((groupContent, index) => {
+    // Check if group starts with 'x' to disable it
+    const isDisabled = groupContent.startsWith('x');
+    let processingContent = isDisabled ? groupContent.slice(1) : groupContent; // Remove 'x' if present
     
-    // Check if there's an asterisk immediately after this group
+    // Handle asterisks within the group content
+    let contentForParsing = processingContent;
+    let mutationTriggerPositions = [];
     let hasMutation = false;
-    let hasOutsideMutation = false;
     
-    // Check for asterisks inside the group content
-    const insideAsterisks = [];
-    for (let i = 0; i < groupContent.length; i++) {
-      if (groupContent[i] === '*') {
-        insideAsterisks.push(i);
+    // Find asterisks within this group and create mutation zones
+    const asteriskIndices = [];
+    for (let i = 0; i < processingContent.length; i++) {
+      if (processingContent[i] === '*') {
+        asteriskIndices.push(i);
       }
     }
     
-    // Check if there's an asterisk immediately outside this group
-    if (groupEndPosition < processedMelodyString.length && 
-        processedMelodyString[groupEndPosition] === '*') {
-      hasOutsideMutation = true;
-    }
-    
-    // If there are asterisks inside the group, enable mutation for this track
-    if (insideAsterisks.length > 0) {
+    if (asteriskIndices.length > 0) {
       hasMutation = true;
-    }
-    
-    // If there's an asterisk outside the group, also enable mutation for this track
-    if (hasOutsideMutation) {
-      hasMutation = true;
-    }
-    
-    parenGroups.push(groupContent);
-    disabledTracks.push(isDisabled);
-    mutationTracks.push(hasMutation);
-    outsideGroupMutations.push(hasOutsideMutation);
-    
-    groupIndex++;
-  }
-  
-  // If we found parentheses groups, create parallel tracks
-  if (parenGroups.length > 0) {
-    const parallelTracks = parenGroups.map((groupContent, index) => {
-      // Prepend the global wave type to each group if it doesn't have its own
-      const hasLocalWaveType = /{(sine|sawtooth|square|triangle)}/.test(groupContent);
+      // Remove asterisks from content for parsing
+      contentForParsing = processingContent.replace(/\*/g, '');
       
-      // Handle asterisks within the group content
-      let contentForParsing = groupContent;
-      let mutationTriggerPositions = [];
-      
-      if (mutationTracks[index]) {
-        // Find asterisks within this group and create mutation zones
-        const asteriskIndices = [];
-        for (let i = 0; i < groupContent.length; i++) {
-          if (groupContent[i] === '*') {
-            asteriskIndices.push(i);
-          }
-        }
-        
-        if (asteriskIndices.length > 0) {
-          // Remove asterisks from content for parsing
-          contentForParsing = groupContent.replace(/\*/g, '');
-          
-          // Calculate mutation trigger positions (notes to the left of each asterisk)
-          mutationTriggerPositions = asteriskIndices.map(asteriskIndex => {
-            let noteCount = 0;
-            for (let i = 0; i < asteriskIndex; i++) {
-              const char = groupContent[i];
-              // Count note letters, rests, and skip over waveform/duration modifiers
-              if (char === '{') {
-                // Skip over entire {waveform} or {duration} block
-                while (i < groupContent.length && groupContent[i] !== '}') {
-                  i++;
-                }
-                if (i < groupContent.length && groupContent[i] === '}') {
-                  i++; // Skip the closing brace
-                }
-                i--; // Adjust for the loop increment
-              } else if (/[a-g_-]/.test(char) || 
-                  (char.match(/[0-9]/) && i + 1 < groupContent.length && /[a-g]/.test(groupContent[i + 1]))) {
-                noteCount++;
-              }
+      // Calculate mutation trigger positions (notes to the left of each asterisk)
+      mutationTriggerPositions = asteriskIndices.map(asteriskIndex => {
+        let noteCount = 0;
+        for (let i = 0; i < asteriskIndex; i++) {
+          const char = processingContent[i];
+          // Count note letters, rests, and skip over waveform/duration modifiers
+          if (char === '{') {
+            // Skip over entire {waveform} or {duration} block
+            while (i < processingContent.length && processingContent[i] !== '}') {
+              i++;
             }
-            return noteCount;
-          });
-        }
-      }
-      
-      const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : `{${globalWaveType}} ${contentForParsing}`;
-      const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);
-      
-      // Add disabled flag to the track
-      parsedTrack.isDisabled = disabledTracks[index];
-      
-      // Add mutation flag to the track
-      parsedTrack.hasMutation = mutationTracks[index];
-      if (parsedTrack.hasMutation) {
-        // Store the original track content for mutation reference
-        parsedTrack.originalContent = contentForParsing;
-        parsedTrack.mutationCount = 0; // Track how many times we've mutated
-        
-        // Set up mutation zones for asterisks within groups
-        if (mutationTriggerPositions.length > 0) {
-          parsedTrack.mutationTriggerPositions = mutationTriggerPositions;
-          parsedTrack.currentMutationZone = 0;
-          parsedTrack.mutationType = 'within-group'; // Notes to the left of asterisks
-          
-          // Legacy compatibility
-          if (mutationTriggerPositions.length === 1) {
-            parsedTrack.mutationTriggerPosition = mutationTriggerPositions[0];
+            if (i < processingContent.length && processingContent[i] === '}') {
+              i++; // Skip the closing brace
+            }
+            i--; // Adjust for the loop increment
+          } else if (/[a-g_-]/.test(char) || 
+              (char.match(/[0-9]/) && i + 1 < processingContent.length && /[a-g]/.test(processingContent[i + 1]))) {
+            noteCount++;
           }
         }
-      }
+        return noteCount;
+      });
+    }
+    
+    // Prepend the global wave type to each group if it doesn't have its own
+    const hasLocalWaveType = /{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/.test(contentForParsing);
+    const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : `{${globalWaveType}} ${contentForParsing}`;
+    
+    const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);
+    
+    // Add disabled flag to the track
+    parsedTrack.isDisabled = isDisabled;
+    
+    // Add mutation flag to the track
+    parsedTrack.hasMutation = hasMutation;
+    if (parsedTrack.hasMutation) {
+      // Store the original track content for mutation reference
+      parsedTrack.originalContent = contentForParsing;
+      parsedTrack.mutationCount = 0; // Track how many times we've mutated
       
-      // Handle asterisks outside groups that affect this track
-      if (outsideGroupMutations[index]) {
-        parsedTrack.hasOutsideMutation = true;
-        // Set originalContent for outside group mutations
-        parsedTrack.originalContent = contentForParsing;
-        // Set mutationType to 'outside-group' if there's no within-group mutation
-        // OR if the only mutation is from outside groups
-        if (!parsedTrack.hasMutation || mutationTriggerPositions.length === 0) {
-          parsedTrack.mutationType = 'outside-group'; // Random note after group finishes
+      // Set up mutation zones for asterisks within groups
+      if (mutationTriggerPositions.length > 0) {
+        parsedTrack.mutationTriggerPositions = mutationTriggerPositions;
+        parsedTrack.currentMutationZone = 0;
+        parsedTrack.mutationType = 'within-group'; // Notes to the left of asterisks
+        
+        // Legacy compatibility
+        if (mutationTriggerPositions.length === 1) {
+          parsedTrack.mutationTriggerPosition = mutationTriggerPositions[0];
         }
       }
-      
-      return parsedTrack;
-    });
+    }
     
-    return {
-      tracks: parallelTracks,
-      isSingleTrack: false,
-      type: 'parallel',
-      trackCount: parallelTracks.length,
-      maxLength: Math.max(...parallelTracks.map(track => track.length))
-    };
-  }
+    return parsedTrack;
+  });
   
-  // Fallback to single track if something went wrong
+  // Filter out disabled tracks (x prefix syntax)
+  const enabledTracks = parallelTracks.filter(track => !track.isDisabled);
+  
   return {
-    tracks: [parseMelody(processedMelodyString, startingOctave)],
-    isSingleTrack: true,
-    type: 'single'
+    tracks: enabledTracks,
+    isSingleTrack: false,
+    type: 'parallel',
+    trackCount: enabledTracks.length,
+    maxLength: Math.max(...enabledTracks.map(track => track.length))
   };
 }
 
@@ -863,60 +772,82 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
     const hasMultipleZones = originalTrack.mutationTriggerPositions && originalTrack.mutationTriggerPositions.length > 0;
     
     if (hasMultipleZones) {
-      const currentZone = originalTrack.currentMutationZone || 0;
+      let currentZone = originalTrack.currentMutationZone || 0;
       const triggerPositions = originalTrack.mutationTriggerPositions;
       
-      if (currentZone < triggerPositions.length) {
-        // For within-group asterisks: mutate any note from the zone start up to (but not including) the current asterisk position
-        const asteriskPosition = triggerPositions[currentZone];
-        
-        // Determine the start of the current zone
-        const zoneStart = currentZone === 0 ? 0 : triggerPositions[currentZone - 1];
-        const zoneEnd = asteriskPosition; // Up to but not including the asterisk position
-        
-        // Find all notes in the range from zoneStart to zoneEnd
-        for (let i = zoneStart; i < Math.min(zoneEnd, originalTrack.length); i++) {
-          const note = originalTrack[i];
-          if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
-            mutatableIndices.push(i);
+      // Loop back to the beginning if we've exhausted all zones
+      if (currentZone >= triggerPositions.length) {
+        currentZone = 0;
+      }
+      
+      // For within-group asterisks: mutate any note from the zone start up to (but not including) the current asterisk position
+      const asteriskPosition = triggerPositions[currentZone];
+      
+      // Determine the start of the current zone
+      const zoneStart = currentZone === 0 ? 0 : triggerPositions[currentZone - 1];
+      const zoneEnd = asteriskPosition; // Up to but not including the asterisk position
+      
+      // Find all notes in the range from zoneStart to zoneEnd
+      // Prioritize unchanged notes, then previously mutated ones
+      const unchangedIndices = [];
+      const mutatedIndices = [];
+      
+      for (let i = zoneStart; i < Math.min(zoneEnd, originalTrack.length); i++) {
+        const note = originalTrack[i];
+        if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
+          if (note.isMutation) {
+            mutatedIndices.push(i);
+          } else {
+            unchangedIndices.push(i);
           }
         }
-      } else {
-        return originalTrack; // No more zones
       }
+      
+      // Prefer unchanged notes first, then fall back to mutated ones
+      mutatableIndices = unchangedIndices.length > 0 ? unchangedIndices : mutatedIndices;
+    } else {
+      // If no zones defined, prioritize unchanged notes in the entire track
+      const unchangedIndices = [];
+      const mutatedIndices = [];
+      
+      originalTrack.forEach((note, index) => {
+        if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate
+          if (note.isMutation) {
+            mutatedIndices.push(index);
+          } else {
+            unchangedIndices.push(index);
+          }
+        }
+      });
+      
+      // Prefer unchanged notes first, then fall back to mutated ones
+      mutatableIndices = unchangedIndices.length > 0 ? unchangedIndices : mutatedIndices;
     }
-  } else if (mutationType === 'outside-group') {
-    // NEW: Asterisks outside groups - mutate a random note in the entire group
-    originalTrack.forEach((note, index) => {
-      if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate
-        mutatableIndices.push(index);
-      }
-    });
   } else {
     // LEGACY: Original behavior for backwards compatibility
     const hasMultipleZones = originalTrack.mutationTriggerPositions && originalTrack.mutationTriggerPositions.length > 0;
     const hasSingleTrigger = originalTrack.mutationTriggerPosition !== undefined;
     
     if (hasMultipleZones) {
-      // Legacy system: Support multiple mutation zones
-      const currentZone = originalTrack.currentMutationZone || 0;
+      // Legacy system: Support multiple mutation zones with looping
+      let currentZone = originalTrack.currentMutationZone || 0;
       const triggerPositions = originalTrack.mutationTriggerPositions;
       
-      if (currentZone < triggerPositions.length) {
-        // Determine the range for the current mutation zone
-        const zoneStart = currentZone === 0 ? 0 : triggerPositions[currentZone - 1];
-        const zoneEnd = triggerPositions[currentZone];
-        
-        // Only mutate notes within the current zone
-        for (let i = zoneStart; i < Math.min(zoneEnd, originalTrack.length); i++) {
-          const note = originalTrack[i];
-          if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
-            mutatableIndices.push(i);
-          }
+      // Loop back to the beginning if we've exhausted all zones
+      if (currentZone >= triggerPositions.length) {
+        currentZone = 0;
+      }
+      
+      // Determine the range for the current mutation zone
+      const zoneStart = currentZone === 0 ? 0 : triggerPositions[currentZone - 1];
+      const zoneEnd = triggerPositions[currentZone];
+      
+      // Only mutate notes within the current zone
+      for (let i = zoneStart; i < Math.min(zoneEnd, originalTrack.length); i++) {
+        const note = originalTrack[i];
+        if (note.note !== '-') { // Allow 'rest', '_', and notes to mutate, but not standalone dashes
+          mutatableIndices.push(i);
         }
-      } else {
-        // If we've reached the end of all zones, don't mutate anything
-        return originalTrack;
       }
     } else if (hasSingleTrigger && originalTrack.mutationTriggerPosition > 0) {
       // Legacy system: Only mutate notes/rests that appear before the trigger position
@@ -941,16 +872,8 @@ export function mutateMelodyTrack(originalTrack, originalContent, startingOctave
   // Create a new track with mutations
   const mutatedTrack = [...originalTrack];
   
-  if (mutationType === 'within-group') {
-    // For within-group asterisks: mutate one random note from the current zone
-    if (mutatableIndices.length > 0) {
-      const randomIndex = mutatableIndices[Math.floor(Math.random() * mutatableIndices.length)];
-      const itemToMutate = originalTrack[randomIndex];
-      const mutatedNote = createMutatedNote(itemToMutate, startingOctave, originalTrack);
-      mutatedTrack[randomIndex] = mutatedNote;
-    }
-  } else {
-    // For outside-group asterisks or legacy: mutate only one random note
+  // Mutate one random note from the available options
+  if (mutatableIndices.length > 0) {
     const randomIndex = mutatableIndices[Math.floor(Math.random() * mutatableIndices.length)];
     const itemToMutate = originalTrack[randomIndex];
     const mutatedNote = createMutatedNote(itemToMutate, startingOctave, originalTrack);
@@ -1006,23 +929,42 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
   }
   
   // Handle note-to-something mutation (existing logic)
-  // Extract the base note (without sharp) from the current note
-  const baseNote = itemToMutate.note.toUpperCase().replace(/[S]/g, '');
-  const hasSharp = itemToMutate.note.includes('s');
+  // Get the current note in a normalized form for comparison
+  const currentNote = itemToMutate.note.toLowerCase();
   
-  const currentNoteIndex = noteNames.indexOf(baseNote);
+  // Create all possible mutations (notes + rest) but exclude the current note
+  const allPossibleMutations = [];
   
-  // Create mutation options that exclude the current note
-  const availableMutations = mutationOptions.filter(option => option !== baseNote);
+  // Add all natural notes and valid sharps (excluding E# and B# which don't exist)
+  noteNames.forEach(noteName => {
+    const natural = noteName.toLowerCase();
+    const sharp = noteName.toLowerCase() + 's';
+    
+    // Only add if different from current note
+    if (natural !== currentNote) {
+      allPossibleMutations.push(natural);
+    }
+    
+    // Only add sharps for notes that have valid sharps (exclude E# and B# which don't exist)
+    if (sharp !== currentNote && noteName !== 'E' && noteName !== 'B') {
+      allPossibleMutations.push(sharp);
+    }
+  });
   
-  if (availableMutations.length === 0) {
+  // Add rest option if current note is not a rest
+  if (currentNote !== 'rest' && currentNote !== '_') {
+    allPossibleMutations.push('_');
+  }
+  
+  if (allPossibleMutations.length === 0) {
     // Fallback: if somehow no options available, return original note
+    // This should never happen in practice
     return itemToMutate;
   }
   
-  // Pick a different mutation (guaranteed to be different from current note)
-  const newMutationIndex = Math.floor(Math.random() * availableMutations.length);
-  const newMutation = availableMutations[newMutationIndex];
+  // Pick a random mutation from available options
+  const randomMutationIndex = Math.floor(Math.random() * allPossibleMutations.length);
+  const newMutation = allPossibleMutations[randomMutationIndex];
   
   // Handle note-to-rest mutation
   if (newMutation === '_') {
@@ -1041,10 +983,7 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
   }
   
   // Handle note-to-note mutation
-  const newBaseNote = newMutation;
-  
-  // Preserve the sharp if the original note had one
-  const newNoteName = hasSharp ? newBaseNote.toLowerCase() + 's' : newBaseNote.toLowerCase();
+  const newNoteName = newMutation;
   
   return {
     note: newNoteName,
@@ -1079,8 +1018,5 @@ function preserveTrackMetadata(mutatedTrack, originalTrack) {
   }
   if (originalTrack.mutationType !== undefined) {
     mutatedTrack.mutationType = originalTrack.mutationType;
-  }
-  if (originalTrack.hasOutsideMutation !== undefined) {
-    mutatedTrack.hasOutsideMutation = originalTrack.hasOutsideMutation;
   }
 }
