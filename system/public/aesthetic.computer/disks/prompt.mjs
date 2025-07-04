@@ -1883,6 +1883,103 @@ function act({
   notice,
   ui,
 }) {
+  // Early lift event handling - prevent TextInput activation if lift happens over interactive elements
+  if (e.is("lift") && !system.prompt.input.canType) {
+    // Check if touch started outside but ended over an interactive element
+    const liftOverInteractive = 
+      (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
+      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
+      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
+
+    if (liftOverInteractive) {
+      // Prevent TextInput activation by setting backdropTouchOff
+      system.prompt.input.backdropTouchOff = true;
+      send({ type: "keyboard:lock" });
+      
+      // Play a deep thud sound when cancelling interaction over a button
+      if (system.prompt.input._touchStartedOutside) {
+        synth({
+          type: "sine",
+          tone: 200,
+          attack: 0.02,
+          decay: 0.3,
+          volume: 0.4,
+          duration: 0.15,
+        });
+      }
+    }
+    
+    // Clean up the tracking flag regardless
+    system.prompt.input._touchStartedOutside = false;
+  }
+
+  // Handle deactivation if TextInput is already active
+  if (e.is("lift") && system.prompt.input.canType) {
+    const liftOverInteractive = 
+      (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
+      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
+      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
+
+    if (liftOverInteractive) {
+      // Force deactivation since TextInput is already active
+      system.prompt.input.canType = false;
+      system.prompt.input.backdropTouchOff = true;
+      send({ type: "keyboard:close" });
+    }
+  }
+
+  // Add clicky sound when prompt is active and user taps background to deactivate
+  if (e.is("touch") && system.prompt.input.canType) {
+    const touchOverInteractive = 
+      (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
+      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
+      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
+
+    // Play distinct, higher-pitched clicky sound when tapping background (not over interactive elements) to deactivate
+    if (!touchOverInteractive) {
+      synth({
+        type: "sine",
+        tone: 1200,
+        attack: 0.02,
+        decay: 0.98,
+        volume: 0.65,
+        duration: 0.08,
+      });
+    }
+  }
+
+  // Also handle touch events to prevent activation from starting
+  if (e.is("touch") && !system.prompt.input.canType) {
+    // Store the touch start position to track if it started outside interactive elements
+    if (
+      !(login?.btn.disabled === false && login?.btn.box.contains(e)) &&
+      !(signup?.btn.disabled === false && signup?.btn.box.contains(e)) &&
+      !(profile?.btn.disabled === false && profile?.btn.box.contains(e)) &&
+      !(chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) &&
+      !(system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) &&
+      !(system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) &&
+      !(system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e))
+    ) {
+      // Touch started outside any interactive element
+      system.prompt.input._touchStartedOutside = true;
+    } else {
+      // Touch started over an interactive element
+      system.prompt.input._touchStartedOutside = false;
+    }
+  }
+
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
@@ -1963,13 +2060,17 @@ function act({
   if (!net.sandboxed) {
     if (login && !login.btn.disabled) {
       login.btn.act(e, {
-        down: () => downSound(),
+        down: () => {
+          downSound();
+        },
         push: () => {
           pushSound();
           net.login();
           // if (net.iframe) jump("login-wait");
         },
-        cancel: () => cancelSound(),
+        cancel: () => {
+          cancelSound();
+        },
       });
     }
   }
@@ -1993,6 +2094,10 @@ function act({
       down: () => {
         // Sound feedback on tap down
         downSound();
+
+        // Lock keyboard and prevent text input focus
+        send({ type: "keyboard:lock" });
+        system.prompt.input.backdropTouchOff = true;
 
         // Stop ticker animation and store initial scrub position
         if (chatTicker) {
@@ -2039,6 +2144,16 @@ function act({
         // Sound feedback on successful action
         if (!chatTickerButton.hasScrubbed) {
           pushSound();
+        } else {
+          // Play soft bump sound when scrubbing ends
+          synth({
+            type: "sine",
+            tone: 200,
+            attack: 0.1,
+            decay: 0.99,
+            volume: 0.35,
+            duration: 0.001,
+          });
         }
 
         // Only jump to chat if we didn't scrub
@@ -2051,15 +2166,35 @@ function act({
             chatTicker.paused = false;
           }
         }
+
+        // Ensure keyboard remains locked and text input unfocused
+        send({ type: "keyboard:lock" });
+        system.prompt.input.backdropTouchOff = true;
       },
       cancel: () => {
-        // Cancel sound
-        cancelSound();
+        // Cancel sound or bump sound if scrubbed
+        if (!chatTickerButton.hasScrubbed) {
+          cancelSound();
+        } else {
+          // Play soft bump sound when scrubbing ends
+          synth({
+            type: "sine",
+            tone: 200,
+            attack: 0.1,
+            decay: 0.99,
+            volume: 0.35,
+            duration: 0.001,
+          });
+        }
 
         // Resume animation on cancel
         if (chatTicker) {
           chatTicker.paused = false;
         }
+
+        // Ensure keyboard remains locked and text input unfocused
+        send({ type: "keyboard:lock" });
+        system.prompt.input.backdropTouchOff = true;
       },
     });
   }
@@ -2070,7 +2205,11 @@ function act({
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
+      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -2082,7 +2221,11 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
-        profileAction === "profile"))
+        profileAction === "profile") ||
+      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
     system.prompt.input.backdropTouchOff = true;
