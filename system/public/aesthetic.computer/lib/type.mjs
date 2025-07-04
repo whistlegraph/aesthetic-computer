@@ -444,6 +444,11 @@ class TextInput {
   #gutterMax;
   #activatingPress = false;
   #edgeCancelled = false;
+  #manuallyDeactivated = false;
+  #manualDeactivationTime = 0;
+  #manuallyActivated = false;
+  #manualActivationTime = 0;
+
 
   typeface;
   pal; // color palette
@@ -1329,10 +1334,22 @@ class TextInput {
 
     // Handle activation / focusing of the input
     // (including os-level software keyboard overlays)
-    if (e.is("keyboard:open") && !this.#lock && !this.#edgeCancelled)
-      activate(this);
+    if (e.is("keyboard:open") && !this.#lock && !this.#edgeCancelled) {
+      // Only activate via keyboard:open if we haven't manually deactivated recently
+      // and there's no active touch interaction
+      const timeSinceManualDeactivation = Date.now() - this.#manualDeactivationTime;
+      const timeSinceManualActivation = Date.now() - this.#manualActivationTime;
+      if (!this.#manuallyDeactivated || this.#activatingPress || timeSinceManualDeactivation > 100) {
+        activate(this);
+      }
+    }
     if (e.is("keyboard:close") && !this.#lock) {
-      deactivate(this);
+      // Only deactivate via keyboard:close if we haven't recently manually activated via touch
+      const timeSinceManualDeactivation = Date.now() - this.#manualDeactivationTime;
+      const timeSinceManualActivation = Date.now() - this.#manualActivationTime;
+      if ((!this.#manuallyDeactivated || timeSinceManualDeactivation > 100) && (!this.#manuallyActivated || timeSinceManualActivation > 100)) {
+        deactivate(this);
+      }
     }
 
     if (
@@ -1346,6 +1363,7 @@ class TextInput {
     ) {
       this.#activatingPress = true;
       this.#edgeCancelled = false; // Reset edge cancellation on new touch
+      // Note: Don't reset #manuallyDeactivated here - let the time-based logic handle it
       $.send({ type: "keyboard:unlock" });
       if (!this.mute) {
         sound.synth({
@@ -1359,20 +1377,6 @@ class TextInput {
       }
     }
 
-    if (e.is("lift") && !this.canType) {
-      // Only process lift if we had an activating press (prevents orphaned lifts)
-      if (this.#activatingPress) {
-        // Check if we should activate BEFORE setting activatingPress to false
-        // But only if edge cancellation didn't happen
-        if (!this.#edgeCancelled) {
-          activate(this);
-        }
-
-        this.#activatingPress = false;
-      }
-      // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
-    }
-
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
       ti.activatedOnce = true;
@@ -1382,6 +1386,8 @@ class TextInput {
         // keyboard open and close events.)
         return;
       }
+
+      // Note: Don't reset #manuallyDeactivated here - let the time-based logic handle it
 
       ti.activated?.($, true);
       ti.#activatingPress = false;
@@ -1400,8 +1406,10 @@ class TextInput {
         if (ti.#lastPrintedText) ti.blank("blink");
 
         // ti.enter.btn.disabled = true;
+        ti.runnable = false; // Explicitly set runnable to false when no text
         ti.paste.btn.disabled = false;
       }
+      
       //ti.inputStarted = true;
       $.act("text-input:editable");
 
@@ -1421,11 +1429,8 @@ class TextInput {
 
     // Leave the prompt input mode.
     function deactivate(ti) {
-      // console.log("🙁 Deactivating TextInput...");
-
       if (ti.canType === false) {
         // Assume we are already deactivated.
-        // if (debug) console.log("❌✍️ TextInput already deactivated.");
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
         return;
@@ -1478,7 +1483,49 @@ class TextInput {
     }
 
     if (e.is("lift")) {
+      // Store the current backdropTouchOff state before resetting it
+      const shouldPreventActivation = this.backdropTouchOff;
       this.backdropTouchOff = false;
+      
+      // Process activation for inactive TextInput
+      if (!this.canType) {
+        // Only process lift if we had an activating press (prevents orphaned lifts)
+        if (this.#activatingPress) {
+          // Check if we should activate BEFORE setting activatingPress to false
+          // But only if edge cancellation didn't happen AND backdrop touch shouldn't be prevented
+          if (!this.#edgeCancelled && !shouldPreventActivation) {
+            this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
+            this.#manualActivationTime = Date.now();
+            activate(this);
+          }
+
+          this.#activatingPress = false;
+        }
+        // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
+      } else {
+        // Handle deactivation for active TextInput
+        
+        // Don't deactivate if lift is over Enter button and button is down (push is about to occur)
+        const isOverEnterButton = (this.enter.btn.disabled === false && this.enter.btn.box.contains(e));
+        const enterButtonIsDown = this.enter.btn.down;
+        
+        if (isOverEnterButton && enterButtonIsDown) {
+          return;
+        }
+        
+        // Check if lift is over any interactive element
+        const isOverInteractive = (
+          (this.copy.btn.disabled === false && this.copy.btn.box.contains(e)) ||
+          (this.paste.btn.disabled === false && this.paste.btn.box.contains(e)) ||
+          isOverEnterButton
+        );
+        
+        if (!isOverInteractive) {
+          this.#manuallyDeactivated = true;
+          this.#manualDeactivationTime = Date.now();
+          deactivate(this);
+        }
+      }
     }
 
     // UI Button Actions
@@ -1514,15 +1561,27 @@ class TextInput {
       // 🔲 Enter
       this.enter.btn.act(e, {
         down: () => {
+          if (!this.mute) {
+            sound.synth({
+              type: "sine",
+              tone: 600,
+              attack: 0.1,
+              decay: 0.99,
+              volume: 0.75,
+              duration: 0.001,
+            });
+          }
           needsPaint();
         },
         scrub: () => {
           // Silent scrubbing
         },
-        cancel: () => {
-          // Silent cancel
-        },
         push: async () => {
+          // Prevent race conditions by checking if we're already processing
+          if (this.#lock) {
+            return;
+          }
+          
           if (this.runnable) {
             if (this.text.trim().length > 0) {
               await this.run(store);
@@ -1530,12 +1589,9 @@ class TextInput {
               $.send({ type: "keyboard:close" });
             }
           } else if (!this.#edgeCancelled) {
+            this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
+            this.#manualActivationTime = Date.now();
             activate(this);
-            if (this.runnable && this.text.trim().length > 0) {
-              await this.run(store);
-            } else if (this.closeOnEmptyEnter) {
-              $.send({ type: "keyboard:close" });
-            }
           }
         },
         cancel: () => {
@@ -1715,7 +1771,7 @@ class TextInput {
 
     if (e.is("lift") && !this.#lock) {
       if (this.shifting) {
-        this.moveDeltaX = 0;
+        this.#moveDeltaX = 0;
         this.shifting = false;
       }
       $.send({ type: "keyboard:unlock" });
