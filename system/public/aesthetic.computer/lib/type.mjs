@@ -1413,6 +1413,10 @@ class TextInput {
       //ti.inputStarted = true;
       $.act("text-input:editable");
 
+      // Ensure keyboard is unlocked and opened for mobile devices
+      $.send({ type: "keyboard:unlock" });
+      $.send({ type: "keyboard:open" }); // Necessary for desktop and mobile.
+
       if (!ti.mute) {
         sound.synth({
           type: "sine",
@@ -1561,6 +1565,7 @@ class TextInput {
       // 🔲 Enter
       this.enter.btn.act(e, {
         down: () => {
+          $.send({ type: "keyboard:unlock" }); // Unlock keyboard for mobile
           if (!this.mute) {
             sound.synth({
               type: "sine",
