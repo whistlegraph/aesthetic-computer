@@ -1,6 +1,8 @@
 // Prutti, 2023.11.09.16.36.06.537
 // Lessons NOT Learnt by pruttipal aka goodiepal
 
+import { Typeface } from "../lib/type.mjs";
+
 /* #region 📚 README
 #endregion */
 
@@ -952,14 +954,21 @@ let playingSfx = null,
   progress = 0, // Track playback progress like wipppps
   waveformData = null; // Store compressed waveform data for progress bar visualization
 
+// Unifont typeface for titles
+let unifontTypeface = null;
+
 // 🥾 Boot
-function boot({ api, wipe, params, hud, help, num, sound }) {
+async function boot({ api, wipe, params, hud, help, num, sound, net }) {
   wipe(0);
   noiseTint = num.randIntArr(255, 3);
   lesson = params[0] ? parseInt(params[0]) - 1 : num.randInd(lessons);
   if (lesson > lessons.length - 1 || lesson < 0) lesson = 0;
   console.log("🪄 Prutti:", lesson + 1);
   hud.label("prutti " + (lesson + 1));
+  
+  // Load unifont typeface for titles
+  unifontTypeface = new Typeface("unifont");
+  await unifontTypeface.load(net.preload);
   
   // Reset audio state
   playingSfx = null;
@@ -984,7 +993,7 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
   const rightMargin = 6; // Keep right margin at 6px
   const contentWidth = screen.width - leftMargin - rightMargin;
   
-  const titleBox = txt.box(title, { x: leftMargin, y: 24 + scroll }, contentWidth);
+  const titleBox = txt.box(title, { x: leftMargin, y: 24 + scroll }, contentWidth, 1, true, unifontTypeface);
   const textBox = txt.box(
     text,
     { x: leftMargin, y: 24 + scroll + 10 + titleBox.box.height },
@@ -1000,7 +1009,7 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
       textBox.box.height,
     )
     .ink()
-    .write(title, titleBox.pos, noiseTint, contentWidth);
+    .write(title, titleBox.pos, noiseTint, contentWidth, true, unifontTypeface);
   ink(color).write(text, textBox.pos, 0, contentWidth);
 
   let lastHeight = 0;
@@ -1160,13 +1169,13 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
       const currentTimeText = formatTime(currentTime);
       const totalTimeText = formatTime(actualDuration);
 
-      // Update the HUD label to show "prutti 0 0:01" (keeping lesson number)
+      // Update the HUD label to show "prutti 1 0:01" (keeping lesson number)
       if (hud && hud.label) {
-        hud.label(`prutti ${lesson} ${currentTimeText}`, undefined, 0);
+        hud.label(`prutti ${lesson + 1} ${currentTimeText}`, undefined, 0);
       }
 
       // Measure actual prompt string width for better positioning
-      const promptString = `prutti ${lesson} `;
+      const promptString = `prutti ${lesson + 1} `;
       const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
       const totalTimeX = promptStartX + promptWidth + (currentTimeText.length * glyphWidth) + glyphWidth; // Position after prompt and current time
       const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px

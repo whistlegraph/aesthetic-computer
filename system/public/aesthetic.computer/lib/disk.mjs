@@ -1398,23 +1398,26 @@ const $commonApi = {
     capitalize: text.capitalize,
     reverse: text.reverse,
     // Get the pixel width of a string of characters.
-    width: (text) => {
+    width: (text, customTypeface = null) => {
       if (Array.isArray(text)) text = text.join(" ");
-      return text.length * 6;
+      const activeTypeface = customTypeface || tf;
+      return text.length * activeTypeface.blockWidth;
     },
-    height: (text) => {
+    height: (text, customTypeface = null) => {
       // Get the pixel height of a string of characters.
-      return 10;
+      const activeTypeface = customTypeface || tf;
+      return activeTypeface.blockHeight;
     },
     // Return a text's bounding box.
-    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
+    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true, customTypeface = null) => {
       if (!text) {
         console.warn("⚠️ No text for `box`.");
         return;
       }
       pos = { ...pos };
       let run = 0;
-      const blockWidth = tf.blockWidth * abs(scale);
+      const activeTypeface = customTypeface || tf;
+      const blockWidth = activeTypeface.blockWidth * abs(scale);
 
       const lines = [[]];
       let line = 0;
@@ -1508,7 +1511,7 @@ const $commonApi = {
       }
 
       const blockMargin = 1;
-      const blockHeight = (tf.blockHeight + blockMargin) * scale;
+      const blockHeight = ((customTypeface || activeTypeface).blockHeight + blockMargin) * scale;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -1983,13 +1986,14 @@ const $paintApi = {
 
   // Parameters:
   // text, x, y, options
-  // text, pos, bg, bounds, wordWrap = true
+  // text, pos, bg, bounds, wordWrap = true, typeface = null
   write: function () {
     let text = arguments[0],
       pos,
       bg,
       bounds,
-      wordWrap = true;
+      wordWrap = true,
+      customTypeface = null;
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
 
@@ -2005,11 +2009,13 @@ const $paintApi = {
       bg = options?.bg;
       bounds = options?.bounds;
       wordWrap = options?.wordWrap === undefined ? wordWrap : options.wordWrap;
+      customTypeface = options?.typeface;
     } else {
       pos = arguments[1];
       bg = arguments[2];
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
+      customTypeface = arguments[5];
     } // 🎨 Color code processing
     // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, etc.
     const colorCodeRegex =
@@ -2100,7 +2106,7 @@ const $paintApi = {
       const scale = pos?.size || 1;
 
       if (bounds) {
-        const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap);
+        const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap, customTypeface);
         if (!tb || !tb.lines) {
           return $activePaintApi; // Exit silently if text.box fails
         }
@@ -2123,7 +2129,7 @@ const $paintApi = {
             cleanTextIndex++;
           }
 
-          tf?.print(
+          (customTypeface || tf)?.print(
             $activePaintApi,
             tb.pos,
             lineIndex,
@@ -2143,12 +2149,12 @@ const $paintApi = {
               charIndex,
               charIndex + line.length,
             );
-            tf?.print(
+            (customTypeface || tf)?.print(
               $activePaintApi,
               {
                 x: pos?.x,
                 y: pos
-                  ? pos.y + index * tf.blockHeight + lineHeightGap
+                  ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
                   : undefined,
               },
               0,
@@ -2159,7 +2165,7 @@ const $paintApi = {
             charIndex += line.length + 1; // +1 for the newline character
           });
         } else {
-          tf?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
+          (customTypeface || tf)?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
         }
       }
 
@@ -2180,11 +2186,11 @@ const $paintApi = {
     const scale = pos?.size || 1;
 
     if (bounds) {
-      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap); // TODO: Get the current ink color, memoize it, and make it static here.
+      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap, customTypeface); // TODO: Get the current ink color, memoize it, and make it static here.
       //       23.10.12.22.04
       tb.lines.forEach((line, index) => {
         // console.log(line, index);
-        tf?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
+        (customTypeface || tf)?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
       });
     } else {
       // Break on `\n` and handle separate lines
@@ -2192,12 +2198,12 @@ const $paintApi = {
         const lines = text.split("\n"); // Split text on new line characters
         const lineHeightGap = 2;
         lines.forEach((line, index) => {
-          tf?.print(
+          (customTypeface || tf)?.print(
             $activePaintApi,
             {
               x: pos?.x,
               y: pos
-                ? pos.y + index * tf.blockHeight + lineHeightGap
+                ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
                 : undefined,
             },
             0,
@@ -2208,7 +2214,7 @@ const $paintApi = {
         });
       } else {
         //if (text === "POW") console.log($activePaintApi.screen); 24.12.10.07.26 - Get write working with deferred rendering and page.
-        tf?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
+        (customTypeface || tf)?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
       }
     }
 
