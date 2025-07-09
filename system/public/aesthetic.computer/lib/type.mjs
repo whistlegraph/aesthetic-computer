@@ -463,6 +463,7 @@ class TextInput {
   //                       (To clear any starting text.)
   #moveThreshold = 6; // Drag threshold.
   #moveDeltaX = 0;
+  #recentlyShifting = false; // Track if we just finished character sliding
 
   runnable = false; // Whether a command can be tried.
   didReset; // Callback for blank reset.
@@ -605,6 +606,10 @@ class TextInput {
 
   get lock() {
     return this.#lock;
+  }
+
+  get recentlyShifting() {
+    return this.#recentlyShifting;
   }
 
   // Adjust the gutter width for text wrapping.
@@ -1437,7 +1442,7 @@ class TextInput {
       $.send({ type: "keyboard:unlock" });
       $.send({ type: "keyboard:open" }); // Necessary for desktop and mobile.
       
-      console.log("🟢 Activation complete", { canType: ti.canType });
+
 
       if (!ti.mute) {
         sound.synth({
@@ -1509,15 +1514,22 @@ class TextInput {
     }
 
     if (e.is("lift")) {
-      console.log("🆙 Lift event", {
-        canType: this.canType,
-        activatingPress: this.#activatingPress,
-        edgeCancelled: this.#edgeCancelled,
-        backdropTouchOff: this.backdropTouchOff,
-        enterButtonDown: this.enter.btn.down,
-        enterButtonDisabled: this.enter.btn.disabled,
-        liftOverEnterButton: this.enter.btn.box.contains(e)
-      });
+      // Handle shifting reset first, before other lift logic
+      if (this.shifting) {
+        this.#moveDeltaX = 0;
+        this.shifting = false;
+        this.#recentlyShifting = true; // Track that we just finished character sliding
+        
+        // Reset the recently shifting flag after a short delay
+        setTimeout(() => {
+          this.#recentlyShifting = false;
+        }, 50);
+      }
+      
+      // Always unlock keyboard on lift (unless locked)
+      if (!this.#lock) {
+        $.send({ type: "keyboard:unlock" });
+      }
       
       // Store the current backdropTouchOff state before resetting it
       const shouldPreventActivation = this.backdropTouchOff;
@@ -1525,44 +1537,24 @@ class TextInput {
       
       // Process activation for inactive TextInput
       if (!this.canType) {
-        console.log("🆙 Processing activation (canType=false)");
         // Only process lift if we had an activating press (prevents orphaned lifts)
         if (this.#activatingPress) {
           // Check if we should activate BEFORE setting activatingPress to false
           // But only if edge cancellation didn't happen AND backdrop touch shouldn't be prevented
           if (!this.#edgeCancelled && !shouldPreventActivation) {
-            console.log("🆙 Activating via lift");
             this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
             this.#manualActivationTime = Date.now();
             activate(this);
-          } else {
-            console.log("🆙 Not activating - edgeCancelled:", this.#edgeCancelled, "shouldPreventActivation:", shouldPreventActivation);
-          }
+          } 
 
           this.#activatingPress = false;
-        } else {
-          console.log("🆙 No activating press, not processing");
         }
         // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
       } else {
-        console.log("🆙 Processing deactivation (canType=true)");
         // Handle deactivation for active TextInput
-        
         // Don't deactivate if lift is over Enter button and button is down (push is about to occur)
         const isOverEnterButton = (this.enter.btn.disabled === false && this.enter.btn.box.contains(e));
         const enterButtonIsDown = this.enter.btn.down;
-        
-        console.log("🆙 Enter button check:", {
-          isOverEnterButton,
-          enterButtonIsDown,
-          shouldReturn: isOverEnterButton && enterButtonIsDown
-        });
-        
-        if (isOverEnterButton && enterButtonIsDown) {
-          console.log("🆙 Lift over active enter button - allowing button to process the lift event");
-          // Don't return early - let the Button process the lift event to trigger push callback
-          // But also don't deactivate the TextInput in this case
-        }
         
         // Check if lift is over any interactive element
         const isOverInteractive = (
@@ -1571,24 +1563,15 @@ class TextInput {
           isOverEnterButton
         );
         
-        console.log("🆙 Interactive check:", {
-          isOverInteractive,
-          shouldDeactivate: !isOverInteractive,
-          isOverEnterButtonAndDown: isOverEnterButton && enterButtonIsDown
-        });
-        
-        // Don't deactivate if over interactive elements OR if over active enter button
+        // Don't deactivate if:
+        // 1. Over interactive elements OR if over active enter button
+        // 2. Just finished character sliding (recentlyShifting)
         if (!isOverInteractive || (isOverEnterButton && enterButtonIsDown)) {
-          if (!isOverInteractive) {
-            console.log("🆙 Deactivating via lift");
+          if (!isOverInteractive && !this.#recentlyShifting) {
             this.#manuallyDeactivated = true;
             this.#manualDeactivationTime = Date.now();
             deactivate(this);
-          } else {
-            console.log("🆙 Not deactivating - over active enter button, letting button handle it");
           }
-        } else {
-          console.log("🆙 Not deactivating - lift over interactive element");
         }
       }
     }
@@ -1762,7 +1745,7 @@ class TextInput {
       const copied = e.is("clipboard:copy:copied");
       if (debug) {
         copied
-          ? console.log("📋 Copy: Copied 🙃")
+          ? "📋 Copy: Copied 🙃"
           : console.warn("📋 Copy: Failed ⚠️");
       }
 
@@ -1785,7 +1768,7 @@ class TextInput {
     if (e.name?.startsWith("clipboard:paste")) {
       let label;
       if (e.is("clipboard:paste:pasted")) {
-        if (debug) console.log("📋 Paste: Pasted 🙃");
+        if (debug) "📋 Paste: Pasted 🙃";
         label = this.scheme.buttons?.paste?.pasted || "Pasted";
       } else if (e.is("clipboard:paste:pasted:empty")) {
         if (debug) console.warn("📋 Paste: Empty 👐️");
@@ -1853,14 +1836,7 @@ class TextInput {
     if (e.is("touch") && !this.#lock) {
       this.#ensureBlink();
       this.blink?.flip(true);
-    }
-
-    if (e.is("lift") && !this.#lock) {
-      if (this.shifting) {
-        this.#moveDeltaX = 0;
-        this.shifting = false;
-      }
-      $.send({ type: "keyboard:unlock" });
+      this.#recentlyShifting = false; // Reset the recently shifting flag on new touch
     }
 
     if (
@@ -1891,6 +1867,18 @@ class TextInput {
         this.#prompt.crawlBackward();
         this.selection = null;
         $.send({ type: "keyboard:cursor", content: -1 });
+        
+        // Play character movement click sound
+        if (!this.mute) {
+          sound.synth({
+            type: "sine",
+            tone: 800,
+            attack: 0.01,
+            decay: 0.95,
+            volume: 0.25,
+            duration: 0.008,
+          });
+        }
       }
 
       while (this.#moveDeltaX >= this.#moveThreshold) {
@@ -1903,6 +1891,18 @@ class TextInput {
           // implementations in pieces that use `TextInput`.
         }
         $.send({ type: "keyboard:cursor", content: 1 });
+        
+        // Play character movement click sound
+        if (!this.mute) {
+          sound.synth({
+            type: "sine",
+            tone: 800,
+            attack: 0.01,
+            decay: 0.95,
+            volume: 0.25,
+            duration: 0.008,
+          });
+        }
       }
 
       this.#ensureBlink();
