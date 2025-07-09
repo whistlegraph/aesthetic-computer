@@ -2388,7 +2388,7 @@ function form(
 
           // Update form state now that we are sending the message.
           // TODO: Put these both under a "gpu" object in form.
-          //console.log(form.gpuReset);
+          // console.log(form.gpuReset);
           form.gpuReset = false;
           form.gpuVerticesSent = form.vertices.length;
           msgCount += 1;
@@ -4231,24 +4231,28 @@ async function load(
     }
   };
 
+  const loadedContent = {
+    path,
+    host,
+    search,
+    params,
+    hash,
+    text: slug,
+    pieceCount: $commonApi.pieceCount,
+    pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
+    // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
+    fromHistory,
+    alias,
+    meta,
+    taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
+    // noBeat: beat === defaults.beat,
+  };
+
+  console.log("💿 Loading:", loadedContent.text);
+
   send({
     type: "disk-loaded",
-    content: {
-      path,
-      host,
-      search,
-      params,
-      hash,
-      text: slug,
-      pieceCount: $commonApi.pieceCount,
-      pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
-      // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
-      fromHistory,
-      alias,
-      meta,
-      taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
-      // noBeat: beat === defaults.beat,
-    },
+    content: loadedContent,
   });
 
   return true; // Loaded successfully.
@@ -4509,9 +4513,20 @@ async function makeFrame({ data: { type, content } }) {
   // return;
   // }
 
-  // Load the source code for a dropped `.mjs` file.
+  // Load the source code for a dropped `.mjs` or `.lisp` file.
   if (type === "dropped:piece") {
-    load(content, false, false, true);
+    // Parse the dropped piece name and attach the source code
+    // Strip the .mjs or .lisp extension from the filename before parsing
+    const pieceName = content.name.replace(/\.(mjs|lisp)$/, '');
+    const isLisp = content.name.endsWith('.lisp');
+    console.log("📁 Dropped piece:", content.name, `(${content.source?.length || 0} chars)`, isLisp ? "- KidLisp" : "- JavaScript");
+    const parsed = parse(pieceName);
+    parsed.source = content.source;
+    // Set parsed.name to the same value as parsed.text for dropped pieces
+    // This is needed because the load function uses parsed.name when source is provided
+    parsed.name = parsed.text;
+    // For .lisp files, force KidLisp interpretation
+    load(parsed, false, false, true, undefined, isLisp);
     return;
   }
 
@@ -5949,7 +5964,6 @@ async function makeFrame({ data: { type, content } }) {
           // Corner prompt button.
           currentHUDButton?.act(e, {
             down: () => {
-              console.log("🔵 DOWN!")
               originalColor = currentHUDTextColor;
               currentHUDScrub = 0;
               currentHUDTextColor = [0, 255, 0];
@@ -5969,7 +5983,6 @@ async function makeFrame({ data: { type, content } }) {
               });
             },
             push: (btn) => {
-              console.log("🟠 PUSH!");
               const shareWidth = tf.blockWidth * "share ".length;
               const caretWidth = tf.blockWidth + 2; // More compact caret threshold
 
@@ -6058,12 +6071,10 @@ async function makeFrame({ data: { type, content } }) {
               }
             },
             cancel: () => {
-              console.log("🔴 CANCEL!");
               currentHUDTextColor = originalColor;
 
               const shareWidth = tf.blockWidth * "share ".length;
               const caretWidth = tf.blockWidth + 2; // More compact caret threshold
-              console.log("scrub:", currentHUDScrub, shareWidth, -caretWidth);
 
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({

@@ -1791,11 +1791,40 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     }
   }
 
-  // Constants for note flow - make drop distance scale with timing for longer trails
-  const baseDropDistance = 100;
-  const timingScaleFactor = Math.max(1, currentTimeDivisor); // Scale with timing divisor
-  const dropDistance = baseDropDistance * timingScaleFactor;
-  const visualSpeed = dropDistance / 1000; // pixels per millisecond
+  // Constants for note flow - ensure gray notes reach bottom and black notes reach top
+  const availableSpaceBelow = screen.height - actualTimingLineY;
+  const availableSpaceAbove = actualTimingLineY;
+  
+  // Calculate average note duration for this track to determine how much time we need
+  let avgNoteDuration = 0;
+  if (tracks.length > 0) {
+    const firstTrack = tracks[0];
+    if (firstTrack && firstTrack.length > 0) {
+      const totalDuration = firstTrack.reduce((sum, note) => sum + (note.duration || 2), 0);
+      avgNoteDuration = (totalDuration / firstTrack.length) * melodyState.baseTempo;
+    }
+  }
+  
+  // Ensure we have a reasonable fallback duration
+  if (avgNoteDuration === 0) {
+    avgNoteDuration = 2 * melodyState.baseTempo; // Default to 2 units * baseTempo
+  }
+  
+  // Calculate required timeSpan to fill screen space with notes
+  // We want enough time so that cumulative note durations reach the screen edges
+  const requiredTimeSpanBelow = availableSpaceBelow / (avgNoteDuration * 0.5); // Ensure we have enough duration to fill space
+  const requiredTimeSpanAbove = availableSpaceAbove / (avgNoteDuration * 0.5);
+  const requiredTimeSpan = Math.max(requiredTimeSpanBelow, requiredTimeSpanAbove) * avgNoteDuration;
+  
+  // Use the larger of our calculated required timeSpan or a minimum based on timing
+  const minTimeSpan = 1000 * Math.max(0.5, currentTimeDivisor); // Minimum 0.5s worth of notes
+  const timeSpan = Math.max(requiredTimeSpan, minTimeSpan);
+  
+  // Calculate visual speed so notes reach exactly to bottom/top of screen
+  const visualSpeed = Math.max(availableSpaceBelow, availableSpaceAbove) / timeSpan; // pixels per millisecond
+  
+  // For backwards compatibility, still calculate dropDistance
+  const dropDistance = availableSpaceBelow;
   const currentTimeMs = performance.now();
 
   // Draw flowing notes for each track
@@ -1842,8 +1871,12 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     }
 
     // Draw notes in a range around current position
-    const notesToShowBehind = 10;
-    const notesToShowAhead = 5;
+    // Calculate how many notes we need to show based on timeSpan and average note duration
+    const notesToShowBehind = Math.max(20, Math.ceil(timeSpan / avgNoteDuration) + 10); // Dynamic based on time span
+    const notesToShowAhead = Math.max(20, Math.ceil(timeSpan / avgNoteDuration) + 10); // Dynamic based on time span
+
+    // Track gray notes for debugging
+    const grayNotes = [];
 
     for (let i = -notesToShowBehind; i <= notesToShowAhead; i++) {
       const noteIndex = (currentNoteIndex + i + track.length) % track.length;
@@ -1868,6 +1901,19 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
         noteY = actualTimingLineY + (cumulativeDuration * visualSpeed);
         boxColor = "gray";
         textColor = "brown";
+        
+        // Track gray note for debugging
+        grayNotes.push({
+          note: note.note,
+          i: i,
+          noteY: noteY,
+          cumulativeDuration: cumulativeDuration,
+          visualSpeed: visualSpeed,
+          actualTimingLineY: actualTimingLineY,
+          screenHeight: screen.height,
+          isVisible: noteY >= -50 && noteY <= screen.height + 50,
+          shouldReachBottom: cumulativeDuration >= timeSpan
+        });
       } else if (i === 0) {
         // Current note (at/near cyan line with envelope)
         // Use the actual note progress and duration for consistent speed
@@ -1923,6 +1969,8 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
         });
       }
     }
+
+    // Removed debug logging for production
   });
 }
 
