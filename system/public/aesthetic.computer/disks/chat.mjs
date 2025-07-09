@@ -150,11 +150,11 @@ async function boot(
         notice("SENT");
       }
 
-      // Clear text, hide cursor block, and close keyboard.
+      // Clear text, hide cursor block, but keep keyboard open for next message.
       input.text = "";
       input.showBlink = false;
       input.mute = true;
-      send({ type: "keyboard:close" });
+      // Note: Don't send keyboard:close here - keep the input active for next message
     },
     {
       // autolock: false,
@@ -742,21 +742,59 @@ function act(
   }
 
   if (input.canType && e.is("lift") && !input.shifting && !input.paste.down) {
-    send({ type: "keyboard:close" });
+    // Don't close if lifting over the Enter button OR if Enter button was just pressed
+    const isOverEnterButton = input.enter && !input.enter.btn.disabled && input.enter.btn.box.contains(e);
+    const enterButtonWasDown = input.enter && input.enter.btn._justProcessed; // Check if Enter was just pressed
+    console.log("🗨️ Chat lift handler", {
+      canType: input.canType,
+      isOverEnterButton,
+      enterButtonWasDown,
+      willSendClose: !isOverEnterButton && !enterButtonWasDown
+    });
+    if (!isOverEnterButton && !enterButtonWasDown) {
+      console.log("🗨️ Chat sending keyboard:close");
+      send({ type: "keyboard:close" });
+    } else {
+      console.log("🗨️ Chat NOT sending keyboard:close - button handling it");
+    }
   }
 
-  if (
+  // Debug: Check the condition for calling input.act
+  const shouldCallInputAct = (
     e.is("keyboard:open") ||
     e.is("keyboard:close") ||
-    (input.canType && !e.is("keyboard:down:escape"))
-  ) {
+    (input.canType && !e.is("keyboard:down:escape")) ||
+    // Also handle touch/lift events when input is not active but user interacts with the input button area
+    (!input.canType && (e.is("touch") || e.is("lift")) && inputBtn && inputBtn.btn.box.contains(e))
+  );
+  
+  if (!input.canType && (e.is("touch") || e.is("lift"))) {
+    const containsInputBtn = inputBtn?.btn?.box?.contains(e);
+    const containsEnterBtn = input.enter?.btn?.box?.contains(e);
+    console.log("🗨️ Chat checking input.act condition", {
+      eventType: e.name,
+      canType: input.canType,
+      containsInputBtn,
+      containsEnterBtn,
+      eventCoords: { x: e.x, y: e.y },
+      inputBtnBox: inputBtn?.btn?.box ? {
+        x: inputBtn.btn.box.x,
+        y: inputBtn.btn.box.y,
+        width: inputBtn.btn.box.width,
+        height: inputBtn.btn.box.height
+      } : null,
+      shouldCall: shouldCallInputAct
+    });
+  }
+
+  if (shouldCallInputAct) {
     input.act(api);
   }
 }
 
 function sim({ api }) {
   input.sim(api); // 💬 Chat
-  ellipsisTicker?.sim();
+  ellipsisTicker?.update(api.clock?.time());
 }
 
 // function leave() {

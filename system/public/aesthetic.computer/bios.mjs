@@ -646,6 +646,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const sfx = {}; // Buffers of sound effects that have been loaded.
   const sfxPlaying = {}; // Sound sources that are currently playing.
   const sfxLoaded = {}; // Sound sources that have been buffered and loaded.
+  const sfxCompletionCallbacks = {}; // Completion callbacks for sound effects.
 
   // const sfX // ...
 
@@ -1012,6 +1013,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         killSound = function (id, fade) {
           // console.log("📢 Kill:", id, "Fade:", fade);
           delete sfxPlaying[id];
+          delete sfxCompletionCallbacks[id]; // Clean up completion callback
           speakerProcessor.port.postMessage({
             type: "kill",
             data: { id, fade },
@@ -1067,6 +1069,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           if (msg.type === "killed") {
+            // Call the completion callback if it exists
+            const completionCallback = sfxCompletionCallbacks[msg.content.id];
+            if (completionCallback) {
+              completionCallback();
+              delete sfxCompletionCallbacks[msg.content.id];
+            }
+            
             send({ type: "sfx:killed", content: msg.content });
             return;
           }
@@ -1161,10 +1170,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
+      // Store the completion callback if provided
+      if (completed) {
+        sfxCompletionCallbacks[id] = completed;
+      }
+
       if (triggerSound) sfxLoaded[soundData] = true;
     } else {
       // Queue the sound effect to be played once audioContext is available
-      pendingSfxQueue.push({ id, soundData, options, queuedAt: Date.now() });
+      pendingSfxQueue.push({ id, soundData, options, completed, queuedAt: Date.now() });
     }
   }
 
