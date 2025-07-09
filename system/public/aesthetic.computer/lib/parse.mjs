@@ -96,6 +96,7 @@ function parse(text, location = self?.location) {
   // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
   // This catches cases like /(wipe_blue) or /wipe_blue_line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
+  // AND NOT piece URLs like share~(wipe_blue) where "share" is the piece name
   const kidlispCheck = isKidlispSource(text);
   const hasSpecialChars = text.includes("§") ||
     text.includes("_") ||
@@ -105,7 +106,14 @@ function parse(text, location = self?.location) {
   // NOTE: Removed text.includes("~") from hasSpecialChars because ~ is used
   // as a parameter separator in regular piece URLs like "line~red"
   
-  if (kidlispCheck && hasSpecialChars) {
+  // Check if this looks like a piece with parameters (piece~params format)
+  const tildeIndex = text.indexOf("~");
+  const hasPiecePrefix = tildeIndex > 0 && tildeIndex < text.length - 1;
+  const firstPart = hasPiecePrefix ? text.substring(0, tildeIndex) : text;
+  
+  // Only treat as standalone kidlisp if it passes kidlisp detection, has special chars,
+  // AND doesn't look like a piece name with parameters
+  if (kidlispCheck && hasSpecialChars && !hasPiecePrefix) {
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
