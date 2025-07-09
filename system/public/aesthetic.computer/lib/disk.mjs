@@ -6081,12 +6081,20 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.1,
                 });
                 // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                $api.jump(
-                  "share~" +
-                    lisp.encodeKidlispForUrl(
-                      currentHUDLogicalTxt || currentHUDTxt,
-                    ),
-                );
+                let contentToShare = currentHUDLogicalTxt || currentHUDTxt;
+                // Strip "share " prefix if it exists to avoid double-encoding
+                if (contentToShare && contentToShare.startsWith("share ")) {
+                  contentToShare = contentToShare.substring(6); // Remove "share " prefix
+                }
+                
+                // Check if the content is already kidlisp source - if so, don't re-encode
+                if (lisp.isKidlispSource(contentToShare)) {
+                  // Content is already kidlisp, encode it properly for sharing
+                  $api.jump("share~" + lisp.encodeKidlispForUrl(contentToShare));
+                } else {
+                  // Content is not kidlisp, share as-is
+                  $api.jump("share~" + contentToShare);
+                }
                 return;
               } else if (currentHUDScrub === -caretWidth) {
                 // Trigger backspace action using the abstracted function
