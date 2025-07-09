@@ -1918,7 +1918,7 @@ function act({
   }
 
   // Handle deactivation if TextInput is already active
-  if (e.is("lift") && system.prompt.input.canType) {
+  if (e.is("lift") && system.prompt.input.canType && !system.prompt.input.shifting && !system.prompt.input.recentlyShifting && !system.prompt.input.paste.down) {
     const liftOverInteractive = 
       (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
@@ -1928,10 +1928,8 @@ function act({
       (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
       (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
 
-    if (liftOverInteractive) {
-      // Force deactivation since TextInput is already active
-      system.prompt.input.canType = false;
-      system.prompt.input.backdropTouchOff = true;
+    // Deactivate when lifting over background (not over interactive elements)
+    if (!liftOverInteractive) {
       send({ type: "keyboard:close" });
     }
   }
