@@ -47,6 +47,7 @@
  * - Multiple swing: << (more early) >>> (much later) - multiples the effect
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
+ * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
  * - Waveform types: {sine} {sawtooth} {square} {triangle} {noise-white} {sample} {custom} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Rests: _ (explicit rest) or standalone - (context dependent)
@@ -58,9 +59,14 @@
  *   c... d. efg  -> c is very short (1/8), d is short (1/2), e,f,g are short (1/2)
  *   c,, defg     -> c is very long (8.0), d,e,f,g are also very long until changed
  * 
+ * Struck mode examples:
+ *   ^cdefg       -> All notes are struck (finite duration with natural decay)
+ *   c^defg       -> c is held, d,e,f,g are struck  
+ *   ^cd^efg      -> c,d are struck, e,f,g are held again
+ * 
  * @param {string} melodyString - The melody string to parse
  * @param {number} [startingOctave=4] - The default octave to use if none specified
- * @returns {Array} Array of note objects with { note, octave, duration, waveType, volume, swing?, swingAmount? } properties
+ * @returns {Array} Array of note objects with { note, octave, duration, waveType, volume, swing?, swingAmount?, struck? } properties
  */
 export function parseMelody(melodyString, startingOctave = 4) {
   const notes = [];
@@ -71,6 +77,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
   let currentWaveType = "sine"; // Default waveform type that persists across notes
   let currentVolume = 0.8; // Default volume that persists across notes
   let globalDurationModifier = null; // Sticky duration modifier (e.g., "..." or "," or null)
+  let isStruck = false; // Sticky struck mode flag (when ^ is used)
 
   // Helper function to apply sticky duration modifier if no local modifier is present
   function applyStickyDurationModifier(baseDuration, hasLocalModifier) {
@@ -133,6 +140,13 @@ export function parseMelody(melodyString, startingOctave = 4) {
         continue; // Skip to next character after processing waveform/volume
       }
       // If not a valid syntax, just skip the character
+      i++;
+      continue;
+    }
+    
+    // Handle struck note toggle (^)
+    if (char === '^') {
+      isStruck = !isStruck; // Toggle struck mode
       i++;
       continue;
     }
@@ -204,7 +218,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             duration = applyStickyDurationModifier(duration, false);
           }
           
-          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume });
+          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck });
         } else {
           // Just an octave change without a note - currentOctave is already updated
           // This allows for patterns like "5defg" or "4c5d6e" where octave persists
@@ -282,7 +296,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             duration = applyGlobalDurationModifier(duration, false);
           }
           
-          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume });
+          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume, struck: isStruck });
         }
       }
     }
@@ -399,7 +413,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyStickyDurationModifier(duration, false);
       }
       
-      notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume });
+      notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck });
     }
     // Handle rests (only _ and explicit standalone -, not spaces which are separators)
     else if (char === '_') {
