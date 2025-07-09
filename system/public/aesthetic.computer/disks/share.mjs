@@ -32,8 +32,12 @@ function boot({ api, hud, params, net, ui, blink }) {
       url = net.lan ? net.lan : `https://${net.host}`;
     }
       // Check if this is kidlisp source code
-    if (isKidlispSource(params[0])) {
-      // For kidlisp, rejoin with spaces and then use centralized URL encoding
+    // But first check if it's already encoded (contains § symbols which indicate encoded newlines)
+    if (params[0] && params[0].includes("§")) {
+      // Already encoded kidlisp content - use as-is
+      slug = params.join("~");
+    } else if (params[0] && isKidlispSource(params[0])) {
+      // For raw kidlisp, rejoin with spaces and then use centralized URL encoding
       const kidlispSource = params.join(" ");
       slug = encodeKidlispForUrl(kidlispSource);
     } else {

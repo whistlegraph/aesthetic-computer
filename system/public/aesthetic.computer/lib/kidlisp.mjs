@@ -327,8 +327,8 @@ class KidLisp {
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
     
-    // Resolution state tracking
-    this.halfResolutionApplied = false; // Track if half resolution has been applied
+    // Once special form state tracking
+    this.onceExecuted = new Set(); // Track which once blocks have been executed
   }
 
   // Check if the AST contains microphone-related functions
@@ -792,9 +792,6 @@ class KidLisp {
 
   // Create global environment (cached for performance)
   getGlobalEnv() {
-    // Force cache refresh for debugging - remove this line later
-    this.globalEnvCache = null;
-    
     if (this.globalEnvCache) {
       return this.globalEnvCache;
     }
@@ -918,6 +915,29 @@ class KidLisp {
         }
         const evaled = this.evaluate(args[0], api, env);
         if (evaled) this.evaluate(args.slice(1), api, env);
+      },
+      once: (api, args, env) => {
+        if (!args || args.length < 1) {
+          console.error("❗ Invalid `once`. Wrong number of arguments.");
+          return;
+        }
+        
+        // Create a unique key for this once block based on its content
+        const onceKey = JSON.stringify(args);
+        
+        // Only execute if this exact once block hasn't been executed before
+        if (!this.onceExecuted.has(onceKey)) {
+          this.onceExecuted.add(onceKey);
+          // Evaluate all the arguments (expressions) in the once block
+          let result;
+          for (const arg of args) {
+            result = this.evaluate(arg, api, env);
+          }
+          return result;
+        }
+        
+        // Return undefined if already executed
+        return undefined;
       },
       not: (api, args, env) => {
         if (!args || args.length < 1) {
@@ -2234,7 +2254,8 @@ class KidLisp {
                   head === "source" ||
                   head === "choose" ||
                   head === "?" ||
-                  head === "repeat"
+                  head === "repeat" ||
+                  head === "once"
                 ) {
                   processedArgs = args;
                 } else {
