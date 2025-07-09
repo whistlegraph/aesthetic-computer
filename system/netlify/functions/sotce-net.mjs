@@ -309,7 +309,7 @@ export const handler = async (event, context) => {
 
             :root {
               -webkit-locale: "en";
-              --background-color: rgb(202, 218, 228);
+              --background-color: #C7FFD8;
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
@@ -320,7 +320,7 @@ export const handler = async (event, context) => {
               /* --line-height: 1.68em; */
               --line-height: 1.76em;
               /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
-              --garden-background: rgb(204, 231, 255); // #bbfbfe;
+              --garden-background: #C7FFD8;
               /*--chat-background: rgb(255, 230, 225);*/ /* rgb(240, 235, 230); */
               --chat-background: /*rgb(202, 218, 228);*/ rgb(240, 235, 230);
               --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
