@@ -150,11 +150,11 @@ async function boot(
         notice("SENT");
       }
 
-      // Clear text, hide cursor block, but keep keyboard open for next message.
+      // Clear text, hide cursor block, and close keyboard after sending message.
       input.text = "";
       input.showBlink = false;
       input.mute = true;
-      // Note: Don't send keyboard:close here - keep the input active for next message
+      send({ type: "keyboard:close" });
     },
     {
       // autolock: false,
