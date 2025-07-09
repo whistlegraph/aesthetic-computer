@@ -569,6 +569,7 @@ class TextInput {
     this.enter = new TB(this.scheme.buttons?.enter || "Enter");
     this.enter.stickyScrubbing = true; // Prevent drag-between-button behavior
     this.enter.btn.stickyScrubbing = true; // Also set on the actual button object
+    this.enter.btn.noEdgeDetection = true; // Prevent cancellation from edge detection
     this.copy = new TB(this.scheme.buttons?.copy.label || "Copy");
     this.paste = new TB(this.scheme.buttons?.paste?.label || "Paste");
     this.copy.btn.disabled = true; // Copy is disabled by default,
@@ -1263,12 +1264,15 @@ class TextInput {
       }
 
       if (e.key !== "Enter" && e.key !== "`") {
-        if (this.text.length > 0) {
-          this.enter.btn.disabled = false;
-          this.runnable = true;
-        } else {
-          this.enter.btn.disabled = true;
-          this.runnable = false;
+        // Only manage Enter button disabled state when TextInput is active
+        if (this.canType) {
+          if (this.text.length > 0) {
+            this.enter.btn.disabled = false;
+            this.runnable = true;
+          } else {
+            this.enter.btn.disabled = true;
+            this.runnable = false;
+          }
         }
       }
 
@@ -1321,6 +1325,8 @@ class TextInput {
               });
             }
             await this.run(store);
+            // Deactivate directly after sending message via keyboard Enter
+            deactivate(this);
           }
         } else if (!this.canType && !this.#edgeCancelled) {
           activate(this);
@@ -1344,10 +1350,22 @@ class TextInput {
       }
     }
     if (e.is("keyboard:close") && !this.#lock) {
+      // Don't process if already deactivated
+      if (!this.canType) {
+        return;
+      }
+      
       // Only deactivate via keyboard:close if we haven't recently manually activated via touch
       const timeSinceManualDeactivation = Date.now() - this.#manualDeactivationTime;
       const timeSinceManualActivation = Date.now() - this.#manualActivationTime;
-      if ((!this.#manuallyDeactivated || timeSinceManualDeactivation > 100) && (!this.#manuallyActivated || timeSinceManualActivation > 100)) {
+      
+      // Don't close if Enter button just activated the TextInput
+      if (this._enterButtonActivation) {
+        return;
+      }
+      
+      // Increase the threshold for manual activation to 500ms to account for command execution time
+      if ((!this.#manuallyDeactivated || timeSinceManualDeactivation > 100) && (!this.#manuallyActivated || timeSinceManualActivation > 500)) {
         deactivate(this);
       }
     }
@@ -1379,11 +1397,14 @@ class TextInput {
 
     // Begin the prompt input mode / leave the splash.
     function activate(ti) {
+      console.log("🟢 Activating TextInput", { canType: ti.canType });
+      
       ti.activatedOnce = true;
 
       if (ti.canType) {
         // (This redundancy check is because this behavior is tied to
         // keyboard open and close events.)
+        console.log("🟢 Already can type, returning");
         return;
       }
 
@@ -1403,7 +1424,9 @@ class TextInput {
         ti.runnable = true;
         ti.paste.btn.disabled = false;
       } else {
-        if (ti.#lastPrintedText) ti.blank("blink");
+        if (ti.#lastPrintedText) {
+          ti.blank("blink");
+        }
 
         // ti.enter.btn.disabled = true;
         ti.runnable = false; // Explicitly set runnable to false when no text
@@ -1416,6 +1439,8 @@ class TextInput {
       // Ensure keyboard is unlocked and opened for mobile devices
       $.send({ type: "keyboard:unlock" });
       $.send({ type: "keyboard:open" }); // Necessary for desktop and mobile.
+      
+      console.log("🟢 Activation complete", { canType: ti.canType });
 
       if (!ti.mute) {
         sound.synth({
@@ -1442,7 +1467,7 @@ class TextInput {
 
       ti.activated?.($, false);
 
-      ti.enter.btn.disabled = false;
+      ti.enter.btn.disabled = false; // Always enable Enter button when deactivated so user can reactivate
       ti.paste.btn.disabled = false;
       ti.canType = false;
       ti.runnable = false;
@@ -1487,34 +1512,59 @@ class TextInput {
     }
 
     if (e.is("lift")) {
+      console.log("🆙 Lift event", {
+        canType: this.canType,
+        activatingPress: this.#activatingPress,
+        edgeCancelled: this.#edgeCancelled,
+        backdropTouchOff: this.backdropTouchOff,
+        enterButtonDown: this.enter.btn.down,
+        enterButtonDisabled: this.enter.btn.disabled,
+        liftOverEnterButton: this.enter.btn.box.contains(e)
+      });
+      
       // Store the current backdropTouchOff state before resetting it
       const shouldPreventActivation = this.backdropTouchOff;
       this.backdropTouchOff = false;
       
       // Process activation for inactive TextInput
       if (!this.canType) {
+        console.log("🆙 Processing activation (canType=false)");
         // Only process lift if we had an activating press (prevents orphaned lifts)
         if (this.#activatingPress) {
           // Check if we should activate BEFORE setting activatingPress to false
           // But only if edge cancellation didn't happen AND backdrop touch shouldn't be prevented
           if (!this.#edgeCancelled && !shouldPreventActivation) {
+            console.log("🆙 Activating via lift");
             this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
             this.#manualActivationTime = Date.now();
             activate(this);
+          } else {
+            console.log("🆙 Not activating - edgeCancelled:", this.#edgeCancelled, "shouldPreventActivation:", shouldPreventActivation);
           }
 
           this.#activatingPress = false;
+        } else {
+          console.log("🆙 No activating press, not processing");
         }
         // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
       } else {
+        console.log("🆙 Processing deactivation (canType=true)");
         // Handle deactivation for active TextInput
         
         // Don't deactivate if lift is over Enter button and button is down (push is about to occur)
         const isOverEnterButton = (this.enter.btn.disabled === false && this.enter.btn.box.contains(e));
         const enterButtonIsDown = this.enter.btn.down;
         
+        console.log("🆙 Enter button check:", {
+          isOverEnterButton,
+          enterButtonIsDown,
+          shouldReturn: isOverEnterButton && enterButtonIsDown
+        });
+        
         if (isOverEnterButton && enterButtonIsDown) {
-          return;
+          console.log("🆙 Lift over active enter button - allowing button to process the lift event");
+          // Don't return early - let the Button process the lift event to trigger push callback
+          // But also don't deactivate the TextInput in this case
         }
         
         // Check if lift is over any interactive element
@@ -1524,10 +1574,24 @@ class TextInput {
           isOverEnterButton
         );
         
-        if (!isOverInteractive) {
-          this.#manuallyDeactivated = true;
-          this.#manualDeactivationTime = Date.now();
-          deactivate(this);
+        console.log("🆙 Interactive check:", {
+          isOverInteractive,
+          shouldDeactivate: !isOverInteractive,
+          isOverEnterButtonAndDown: isOverEnterButton && enterButtonIsDown
+        });
+        
+        // Don't deactivate if over interactive elements OR if over active enter button
+        if (!isOverInteractive || (isOverEnterButton && enterButtonIsDown)) {
+          if (!isOverInteractive) {
+            console.log("🆙 Deactivating via lift");
+            this.#manuallyDeactivated = true;
+            this.#manualDeactivationTime = Date.now();
+            deactivate(this);
+          } else {
+            console.log("🆙 Not deactivating - over active enter button, letting button handle it");
+          }
+        } else {
+          console.log("🆙 Not deactivating - lift over interactive element");
         }
       }
     }
@@ -1587,14 +1651,34 @@ class TextInput {
             return;
           }
           
-          if (this.runnable) {
-            if (this.text.trim().length > 0) {
+          // If the TextInput is not active but has text that should be sent
+          if (!this.canType && this.text.trim().length > 0) {
+            this.#manuallyActivated = true;
+            this.#manualActivationTime = Date.now();
+            activate(this);
+            // Run command immediately after activation
+            if (this.runnable && this.text.trim().length > 0) {
               await this.run(store);
-            } else if (this.closeOnEmptyEnter) {
-              $.send({ type: "keyboard:close" });
+              deactivate(this);
             }
-          } else if (!this.#edgeCancelled) {
-            this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
+          } else if (this.runnable && this.text.trim().length > 0) {
+            this.#manuallyActivated = true;
+            this.#manualActivationTime = Date.now();
+            await this.run(store);
+            // Deactivate directly after sending message
+            this._enterHandledMessage = true; // Flag to prevent redundant keyboard:close
+            deactivate(this);
+            // Clear the flag after a short delay
+            setTimeout(() => {
+              this._enterHandledMessage = false;
+            }, 200);
+          } else if (this.runnable && this.text.trim().length === 0 && this.closeOnEmptyEnter) {
+            deactivate(this);
+          } else {
+            // Reset edge cancellation for Enter button activation
+            this.#edgeCancelled = false;
+            
+            this.#manuallyActivated = true;
             this.#manualActivationTime = Date.now();
             activate(this);
           }
