@@ -123,7 +123,9 @@ class Button {
   // You can optionally pass in an array of `pens` {x, y} for multi-touch support.
   act(e, callbacks = () => {}, pens = []) {
     const btn = this.btn;
-    if (btn.disabled) return;
+    if (btn.disabled) {
+      return;
+    }
 
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
@@ -151,13 +153,20 @@ class Button {
 
     // 1. Down: Enable the button if we touched over it. (Repeatable)
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
+      // Prevent immediate re-activation if this button was just processed
+      if (btn._justProcessed) {
+        return;
+      }
+      
       const downed = callbacks.down?.(btn);
       btn.down = downed || downed === undefined ? true : false;
       if (btn.down && btn.downPointer === undefined)
         btn.downPointer = e.pointer || 0;
       btn.over = btn.down;
       // Add to active buttons set
-      if (btn.down) activeButtons.add(btn);
+      if (btn.down) {
+        activeButtons.add(btn);
+      }
     }
 
     // 3. Push: Trigger the button if we push it.
@@ -168,22 +177,23 @@ class Button {
           btn.down = true;
           btn.over = true;
         } else {
+          btn.down = false;
+          btn.over = false;
           btn.downPointer = undefined;
           activeButtons.delete(btn);
         }
       }
 
-      if (
+      // Check if this is a valid button push or should be cancelled
+      const isValidPush = 
+        // Multi-touch case: all pens are outside box but lift event is inside
         (pens.length > 1 &&
           btn.box.containsNone(pens) &&
           btn.box.contains(e)) ||
-        //(pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
-        ((!pens || pens.length <= 1) && btn.box.contains(e)) // ||
+        // Single touch case: lift event is inside box
+        ((!pens || pens.length <= 1) && btn.box.contains(e));
 
-        // TODO: This may need to be fixed for stample multi touch again...
-        // e.pointer === btn.downPointer // TOOD: Hope this doesn't ruin
-        //  multi-touch / create problems across `bleep` and `stample`. 25.03.05.21.51
-      ) {
+      if (isValidPush) {
         // console.log(
         //   "Button up (push):",
         //   btn,
@@ -199,6 +209,14 @@ class Button {
         btn.over = false;
         activeButtons.delete(btn);
         callbacks.push?.(btn);
+        
+        // Mark as just processed to prevent immediate re-activation
+        btn._justProcessed = true;
+        btn._lastProcessedTime = Date.now();
+        setTimeout(() => {
+          btn._justProcessed = false;
+        }, 250); // Increase to 250ms to ensure lift events are handled
+        
         up();
       } else if (
         btn.box.containsNone(pens) ||
@@ -243,16 +261,23 @@ class Button {
         (activeBtn) => activeBtn.stickyScrubbing,
       );
 
+      // Only prevent rollover activation if:
+      // 1. We're dragging from another button AND
+      // 2. That other button has sticky scrubbing enabled AND
+      // 3. This button doesn't allow rollover activation
+      const shouldPreventRollover = isDraggingFromOtherButton && 
+        hasStickyButton && 
+        btn.noRolloverActivation;
+
       if (
         isDraggingFromOtherButton &&
-        !hasStickyButton &&
-        !btn.noRolloverActivation && // Respect the noRolloverActivation flag
+        !shouldPreventRollover &&
         (btn.box.contains(e) || horizontallyWithin)
       ) {
-        // Only allow rollover activation if no sticky scrubbing buttons are active
-        // Deactivate all other buttons first
+        // Only allow rollover activation if conditions are met
+        // Deactivate all other buttons first (except sticky ones that are actively being used)
         for (const otherBtn of activeButtons) {
-          if (otherBtn !== btn) {
+          if (otherBtn !== btn && !otherBtn.stickyScrubbing) {
             otherBtn.down = false;
             otherBtn.over = false;
             otherBtn.actions?.up?.(otherBtn);
@@ -260,17 +285,18 @@ class Button {
           }
         }
 
-        // Activate this button for dragging
-        btn.down = true;
-        btn.downPointer = e.pointer || 0;
-        activeButtons.add(btn);
-        callbacks.down?.(btn);
+        // Only activate this button if no sticky button conflicts
+        if (!hasStickyButton || btn.stickyScrubbing) {
+          btn.down = true;
+          btn.downPointer = e.pointer || 0;
+          activeButtons.add(btn);
+          callbacks.down?.(btn);
+        }
       }
 
-      // Always allow rollover callbacks, even with sticky scrubbing
+      // Always allow rollover callbacks for visual feedback
       if (
-        !hasStickyButton ||
-        !isDraggingFromOtherButton ||
+        !shouldPreventRollover ||
         horizontallyWithin
       ) {
         if (callbacks.rollover) {
