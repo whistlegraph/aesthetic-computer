@@ -1075,7 +1075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               completionCallback();
               delete sfxCompletionCallbacks[msg.content.id];
             }
-            
+
             send({ type: "sfx:killed", content: msg.content });
             return;
           }
@@ -1131,7 +1131,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!sfx[soundData]) {
         // Queue the sound effect to be played once it's loaded
-        pendingSfxQueue.push({ id, soundData, options, completed, queuedAt: Date.now() });
+        pendingSfxQueue.push({
+          id,
+          soundData,
+          options,
+          completed,
+          queuedAt: Date.now(),
+        });
         return;
       }
 
@@ -1178,7 +1184,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (triggerSound) sfxLoaded[soundData] = true;
     } else {
       // Queue the sound effect to be played once audioContext is available
-      pendingSfxQueue.push({ id, soundData, options, completed, queuedAt: Date.now() });
+      pendingSfxQueue.push({
+        id,
+        soundData,
+        options,
+        completed,
+        queuedAt: Date.now(),
+      });
     }
   }
 
@@ -1492,7 +1504,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "udp:send") {
       UDP.send(content);
       return;
-    }    // Disconect from the UDP server.
+    } // Disconect from the UDP server.
     if (type === "udp:disconnect") {
       UDP.disconnect(content.outageSeconds);
       return;
@@ -2311,7 +2323,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // console.log("Target:", e.target);
               if (MetaBrowser && e.target !== window) {
                 // Skip dragging the finger outside of the Meta Browser.
-              } else input.blur();
+              } else {
+                console.log("blurring / disabling keyboard");
+                input.blur();
+              }
             } else {
               keyboardOpenMethod = "pointer";
               // input.removeAttribute("readonly");
@@ -2361,16 +2376,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.visualViewport.addEventListener("resize", () => {
         const y = window.visualViewport.height;
         window.acDISK_SEND({ type: "viewport-height:changed", content: { y } });
-      });      // 🌒 Detect light or dark mode.
+      }); // 🌒 Detect light or dark mode.
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
       if (window.matchMedia) {
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-          document.documentElement.style.setProperty('color-scheme', 'dark');
+          document.documentElement.style.setProperty("color-scheme", "dark");
           send({ type: "dark-mode", content: { enabled: true } });
         } else {
-          document.documentElement.style.setProperty('color-scheme', 'light');
+          document.documentElement.style.setProperty("color-scheme", "light");
           send({ type: "dark-mode", content: { enabled: false } });
         }
 
@@ -2378,10 +2393,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
             if (event.matches) {
-              document.documentElement.style.setProperty('color-scheme', 'dark');
+              document.documentElement.style.setProperty(
+                "color-scheme",
+                "dark",
+              );
               send({ type: "dark-mode", content: { enabled: true } });
             } else {
-              document.documentElement.style.setProperty('color-scheme', 'light');
+              document.documentElement.style.setProperty(
+                "color-scheme",
+                "light",
+              );
               send({ type: "dark-mode", content: { enabled: false } });
             }
           });
@@ -2440,11 +2461,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
-    if (type === "disk-loaded") {      // Clear any active parameters once the disk has been loaded.
+    if (type === "disk-loaded") {
+      // Clear any active parameters once the disk has been loaded.
       // Special handling for prompt piece with kidlisp content
-      if (content.path === "aesthetic.computer/disks/prompt" && 
-          content.params && content.params.length > 0 && 
-          isKidlispSource(content.params[0])) {
+      if (
+        content.path === "aesthetic.computer/disks/prompt" &&
+        content.params &&
+        content.params.length > 0 &&
+        isKidlispSource(content.params[0])
+      ) {
         // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
         const encodedContent = encodeKidlispForUrl(content.params[0]);
         const encodedPath = "/prompt~" + encodedContent;
@@ -2582,9 +2607,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Clear when events.
       whens = {};
 
-      // Close (defocus) software keyboard if we are NOT on the prompt.
+      // Close (defocus) software keyboard if we are NOT entering the prompt.
       // debugger;
-      if (content.text !== "prompt") {
+      if (content.text.split("~")[0] !== "prompt") {
         document.querySelector("#software-keyboard-input")?.blur();
       }
       // keyboard.events.push({ name: "keyboard:close" });
@@ -2616,9 +2641,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let urlPath;
           if (content.text === "/prompt") {
             urlPath = "/";
-          } else if (content.path === "aesthetic.computer/disks/prompt" && 
-                     content.params && content.params.length > 0 && 
-                     isKidlispSource(content.params[0])) {
+          } else if (
+            content.path === "aesthetic.computer/disks/prompt" &&
+            content.params &&
+            content.params.length > 0 &&
+            isKidlispSource(content.params[0])
+          ) {
             // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
             urlPath = "/prompt~" + encodeKidlispForUrl(content.params[0]);
           } else if (isKidlispSource(content.text)) {
@@ -2640,9 +2668,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               slug: (() => {
                 if (content.text?.startsWith("/")) {
                   return content.text.slice(1);
-                } else if (content.path === "aesthetic.computer/disks/prompt" && 
-                          content.params && content.params.length > 0 && 
-                          isKidlispSource(content.params[0])) {
+                } else if (
+                  content.path === "aesthetic.computer/disks/prompt" &&
+                  content.params &&
+                  content.params.length > 0 &&
+                  isKidlispSource(content.params[0])
+                ) {
                   return "prompt~" + encodeKidlispForUrl(content.params[0]);
                 } else if (isKidlispSource(content.text)) {
                   return encodeKidlispForUrl(content.text);
@@ -2666,9 +2697,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             let urlPath;
             if (content.text === "/prompt") {
               urlPath = "/";
-            } else if (content.path === "aesthetic.computer/disks/prompt" && 
-                       content.params && content.params.length > 0 && 
-                       isKidlispSource(content.params[0])) {
+            } else if (
+              content.path === "aesthetic.computer/disks/prompt" &&
+              content.params &&
+              content.params.length > 0 &&
+              isKidlispSource(content.params[0])
+            ) {
               // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
               urlPath = "/prompt~" + encodeKidlispForUrl(content.params[0]);
             } else if (isKidlispSource(content.text)) {
@@ -2752,7 +2786,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
-      // console.log("⌨️ Keyboard closing...");
       keyboard?.input.blur();
       return;
     }
@@ -3019,7 +3052,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "refresh") {
       // Reconstruct URL with preserved parameters (nogap, nolabel)
       const currentUrl = new URL(window.location);
-      
+
       // Add preserved parameters back to the URL
       if (preservedParams.nogap) {
         currentUrl.searchParams.set("nogap", preservedParams.nogap);
@@ -3027,7 +3060,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (preservedParams.nolabel) {
         currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
       }
-      
+
       // Update the URL and reload
       window.location.href = currentUrl.toString();
       return;
@@ -3040,10 +3073,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           iOSAppSend({ type: "url", body: content.url });
         } else if (window.acVSCODE && window.parent !== window) {
           // In VSCode extension, send message to parent to handle external URL
-          window.parent.postMessage({ 
-            type: "openExternal", 
-            url: content.url 
-          }, "*");
+          window.parent.postMessage(
+            {
+              type: "openExternal",
+              url: content.url,
+            },
+            "*",
+          );
         } else {
           window.open(content.url); // Open URL in a new tab
         }
@@ -3891,8 +3927,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a sound from a url with instant playback support.
     if (type === "sfx:load") {
-      if (debug && logs.audio) console.log("🔈 BIOS received sfx:load request for:", content);
-      
+      if (debug && logs.audio)
+        console.log("🔈 BIOS received sfx:load request for:", content);
+
       let internal = false;
 
       for (let wl of soundWhitelist) {
@@ -3913,59 +3950,81 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else url = content;
 
-      if (debug && logs.audio) console.log("🔈 BIOS loading sound from URL:", url);
+      if (debug && logs.audio)
+        console.log("🔈 BIOS loading sound from URL:", url);
 
       // Enhanced instant playback audio loading strategy
       const audioId = content;
-      
+
       // Strategy 1: Immediate HTML5 Audio for instant playback
       const htmlAudioElement = new Audio();
       htmlAudioElement.crossOrigin = "anonymous";
       htmlAudioElement.preload = "auto";
       htmlAudioElement.src = url;
-      
+
       // Store the HTML5 audio for instant playback
       sfx[audioId + "_html5"] = htmlAudioElement;
-      
-      if (debug && logs.audio) console.log("🔈 BIOS stored HTML5 audio element for:", audioId + "_html5");
-      
+
+      if (debug && logs.audio)
+        console.log(
+          "🔈 BIOS stored HTML5 audio element for:",
+          audioId + "_html5",
+        );
+
       // Strategy 2: Background fetch and decode for high-quality playback
       fetch(url)
         .then((response) => {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
-          if (debug && logs.audio) console.log("🔈 BIOS fetched audio data for:", audioId);
+          if (debug && logs.audio)
+            console.log("🔈 BIOS fetched audio data for:", audioId);
           try {
             if (!audioContext) {
               sfx[audioId] = arrayBuffer;
-              if (debug && logs.audio) console.log("🔈 BIOS stored raw audio buffer (no audioContext):", audioId);
+              if (debug && logs.audio)
+                console.log(
+                  "🔈 BIOS stored raw audio buffer (no audioContext):",
+                  audioId,
+                );
               // Process any queued sounds that might be waiting for this file
               processPendingSfx();
             } else {
               // Background decode the buffer
-              const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+              const audioBuffer =
+                await audioContext.decodeAudioData(arrayBuffer);
               sfx[audioId] = audioBuffer;
-              
-              if (debug && logs.audio) console.log("🔈 BIOS decoded and stored audio buffer:", audioId);
-              
+
+              if (debug && logs.audio)
+                console.log(
+                  "🔈 BIOS decoded and stored audio buffer:",
+                  audioId,
+                );
+
               // Clean up HTML5 audio once high-quality buffer is ready
               if (sfx[audioId + "_html5"]) {
                 delete sfx[audioId + "_html5"];
               }
-              
+
               if (debug && logs.audio)
-                console.log("🔈 Background decoded for high-quality playback:", audioId);
-              
+                console.log(
+                  "🔈 Background decoded for high-quality playback:",
+                  audioId,
+                );
+
               // Process any queued sounds that might be waiting for this file
               processPendingSfx();
             }
-            
+
             send({
               type: "loaded-sfx-success",
               content: { url, sfx: audioId },
             });
-            if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (background):", audioId);
+            if (debug && logs.audio)
+              console.log(
+                "🔈 BIOS sent loaded-sfx-success (background):",
+                audioId,
+              );
           } catch (error) {
             if (debug && logs.audio)
               console.error("Background audio decoding failed:", error);
@@ -3979,7 +4038,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         .catch((error) => {
           // Keep the HTML5 audio as fallback
           send({
-            type: "loaded-sfx-success", 
+            type: "loaded-sfx-success",
             content: { url, sfx: audioId },
           });
         });
@@ -3989,7 +4048,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "loaded-sfx-success",
         content: { url, sfx: audioId, instantPlayback: true },
       });
-      if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (instant):", audioId);
+      if (debug && logs.audio)
+        console.log("🔈 BIOS sent loaded-sfx-success (instant):", audioId);
 
       return;
     }
@@ -4104,8 +4164,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       consumeDiskSends(send);
       return;
-    }    if (type === "back-to-piece") {
-      console.log("🔙 Browser history.back() called from URL:", window.location.href);
+    }
+    if (type === "back-to-piece") {
+      console.log(
+        "🔙 Browser history.back() called from URL:",
+        window.location.href,
+      );
       console.log("🔙 Browser history length:", window.history.length);
       history.back();
       return false;
@@ -5465,14 +5529,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
       // Wait a moment and check again
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
     }
-    
+
     if (sfx[sound] instanceof ArrayBuffer) {
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
-      
+
       let audioBuffer;
       try {
         const buf = sfx[sound];
@@ -5481,10 +5545,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
           sfx[sound] = audioBuffer;
-          
+
           // Process any queued sounds that might be waiting for this file
           processPendingSfx();
-          
+
           return sfx[sound];
         }
       } catch (err) {
@@ -5500,7 +5564,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Queue for sounds that need to be played once audio context is available
   let pendingSfxQueue = [];
-  
+
   // Track sounds that are currently being decoded to prevent multiple decode attempts
   const decodingInProgress = new Set();
 
@@ -5509,22 +5573,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (audioContext && pendingSfxQueue.length > 0) {
       const remaining = [];
       const currentTime = Date.now();
-      
-      pendingSfxQueue.forEach(({ id, soundData, options, completed, queuedAt }) => {
-        // Add timestamp if not present
-        const queueTime = queuedAt || currentTime;
-        const timeInQueue = currentTime - queueTime;
-        
-        // Only play sounds that have been loaded into the sfx cache
-        if (sfx[soundData] && !(sfx[soundData] instanceof ArrayBuffer)) {
-          playSfx(id, soundData, options, completed);
-        } else if (timeInQueue < 5000) { // Only retry for 5 seconds
-          remaining.push({ id, soundData, options, completed, queuedAt: queueTime });
-        }
-      });
-      
+
+      pendingSfxQueue.forEach(
+        ({ id, soundData, options, completed, queuedAt }) => {
+          // Add timestamp if not present
+          const queueTime = queuedAt || currentTime;
+          const timeInQueue = currentTime - queueTime;
+
+          // Only play sounds that have been loaded into the sfx cache
+          if (sfx[soundData] && !(sfx[soundData] instanceof ArrayBuffer)) {
+            playSfx(id, soundData, options, completed);
+          } else if (timeInQueue < 5000) {
+            // Only retry for 5 seconds
+            remaining.push({
+              id,
+              soundData,
+              options,
+              completed,
+              queuedAt: queueTime,
+            });
+          }
+        },
+      );
+
       pendingSfxQueue = remaining;
-      
+
       // If there are still sounds waiting, check again soon
       if (pendingSfxQueue.length > 0) {
         setTimeout(processPendingSfx, 100);
