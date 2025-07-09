@@ -129,7 +129,7 @@ async function boot(
     }
 
     if (extra?.layoutChanged) messagesNeedLayout = true;
-    console.log("🌠 Message received:", id, type, content);
+    // console.log("🌠 Message received:", id, type, content);
   };
 
   // chat.disconnect = () => {}; // This is also part of the API.
@@ -637,7 +637,7 @@ function act(
           if (url.over) {
             beep();
             jump("out:" + url.text);
-            console.log("🟨 Visiting...", url);
+            // console.log("🟨 Visiting...", url);
             url.over = false;
             break;
           }
@@ -745,17 +745,17 @@ function act(
     // Don't close if lifting over the Enter button OR if Enter button was just pressed
     const isOverEnterButton = input.enter && !input.enter.btn.disabled && input.enter.btn.box.contains(e);
     const enterButtonWasDown = input.enter && input.enter.btn._justProcessed; // Check if Enter was just pressed
-    console.log("🗨️ Chat lift handler", {
-      canType: input.canType,
-      isOverEnterButton,
-      enterButtonWasDown,
-      willSendClose: !isOverEnterButton && !enterButtonWasDown
-    });
+    // console.log("🗨️ Chat lift handler", {
+    //   canType: input.canType,
+    //   isOverEnterButton,
+    //   enterButtonWasDown,
+    //   willSendClose: !isOverEnterButton && !enterButtonWasDown
+    // });
     if (!isOverEnterButton && !enterButtonWasDown) {
-      console.log("🗨️ Chat sending keyboard:close");
+      // console.log("🗨️ Chat sending keyboard:close");
       send({ type: "keyboard:close" });
     } else {
-      console.log("🗨️ Chat NOT sending keyboard:close - button handling it");
+      // console.log("🗨️ Chat NOT sending keyboard:close - button handling it");
     }
   }
 
@@ -771,20 +771,20 @@ function act(
   if (!input.canType && (e.is("touch") || e.is("lift"))) {
     const containsInputBtn = inputBtn?.btn?.box?.contains(e);
     const containsEnterBtn = input.enter?.btn?.box?.contains(e);
-    console.log("🗨️ Chat checking input.act condition", {
-      eventType: e.name,
-      canType: input.canType,
-      containsInputBtn,
-      containsEnterBtn,
-      eventCoords: { x: e.x, y: e.y },
-      inputBtnBox: inputBtn?.btn?.box ? {
-        x: inputBtn.btn.box.x,
-        y: inputBtn.btn.box.y,
-        width: inputBtn.btn.box.width,
-        height: inputBtn.btn.box.height
-      } : null,
-      shouldCall: shouldCallInputAct
-    });
+    // console.log("🗨️ Chat checking input.act condition", {
+    //   eventType: e.name,
+    //   canType: input.canType,
+    //   containsInputBtn,
+    //   containsEnterBtn,
+    //   eventCoords: { x: e.x, y: e.y },
+    //   inputBtnBox: inputBtn?.btn?.box ? {
+    //     x: inputBtn.btn.box.x,
+    //     y: inputBtn.btn.box.y,
+    //     width: inputBtn.btn.box.width,
+    //     height: inputBtn.btn.box.height
+    //   } : null,
+    //   shouldCall: shouldCallInputAct
+    // });
   }
 
   if (shouldCallInputAct) {

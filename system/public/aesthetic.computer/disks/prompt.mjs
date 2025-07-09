@@ -354,7 +354,7 @@ async function halt($, text) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
   } else if (slug === "shop") {
-    console.log(slug);
+    // console.log(slug);
     // TODO: Do the mapping here...
 
     // @jeffrey/help
@@ -415,7 +415,7 @@ async function halt($, text) {
     if (!nomic) sound.microphone.connect(); // Connect the mic.
     try {
       if (nomic) {
-        console.log("📼 Taping...");
+        // console.log("📼 Taping...");
         tapePromiseResolve?.();
       }
       await tapePromise;
@@ -449,7 +449,7 @@ async function halt($, text) {
       }
       flashColor = [0, 255, 0];
     } catch (err) {
-      console.log(err);
+      // console.log(err);
       flashColor = [255, 0, 0];
     }
     makeFlash($);
@@ -476,7 +476,7 @@ async function halt($, text) {
     // TODO: How can I hold the cursor here...
     return true;
   } else if (slug === "me" || slug === "profile") {
-    console.log("Logged in?", user);
+    // console.log("Logged in?", user);
     if (user) {
       jump("profile");
       return true;
@@ -529,7 +529,7 @@ async function halt($, text) {
     return true;
   } else if (slug === "painting:start") {
     system.nopaint.startRecord();
-    console.log("🖌️🔴 Now recording:", system.nopaint.record);
+    // console.log("🖌️🔴 Now recording:", system.nopaint.record);
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
@@ -575,7 +575,7 @@ async function halt($, text) {
     let recordingSlug;
 
     if (system.nopaint.recording) {
-      console.log("🖌️ Saving recording:", destination);
+      // console.log("🖌️ Saving recording:", destination);
       const record = system.nopaint.record;
       filename = `painting-${record[record.length - 1].timestamp}.png`;
       // ^ For below, because the record will be cleared.
@@ -589,13 +589,13 @@ async function halt($, text) {
       }
 
       const zipped = await zip({ destination, painting: { record } }, (p) => {
-        console.log("🤐 Zip progress:", p);
+        // console.log("🤐 Zip progress:", p);
         progressBar = p;
       });
 
       progressTrick = null;
 
-      console.log("🤐 Zipped:", zipped);
+      // console.log("🤐 Zipped:", zipped);
       recordingSlug = zipped.slug;
 
       // TODO: Don't delete painting record unless `new` is entered. 23.10.03.01.51
@@ -607,12 +607,12 @@ async function halt($, text) {
     } else {
       filename = `painting-${num.timestamp()}.png`;
       flashColor = [255, 0, 0];
-      console.warn("🖌️ No recording to save!");
+      // console.warn("🖌️ No recording to save!");
     }
 
     // Always upload a PNG.
     if (destination === "upload") {
-      console.log("🖼️ Uploading painting...");
+      // console.log("🖼️ Uploading painting...");
       progressBar = 0; // Trigger progress bar rendering.
       progressTrick = new gizmo.Hourglass(24, {
         completed: () => (progressBar += min(0.5, progressBar + 0.1)),
