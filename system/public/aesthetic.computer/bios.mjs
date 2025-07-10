@@ -2608,8 +2608,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       whens = {};
 
       // Close (defocus) software keyboard if we are NOT entering the prompt.
-      // debugger;
-      if (content.text.split("~")[0] !== "prompt") {
+      if (content.text && content.text.split("~")[0] !== "prompt") {
         document.querySelector("#software-keyboard-input")?.blur();
       }
       // keyboard.events.push({ name: "keyboard:close" });
@@ -5480,13 +5479,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const ext = extension(file.name);
       console.log("💧 Dropped:", file.name, ext);
       // 🗒️ Source code file.
-      if (ext === "mjs") {
+      if (ext === "mjs" || ext === "lisp") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
             type: "dropped:piece",
             content: {
-              name: file.name.replace(".mjs", ""),
+              name: file.name.replace(/\.(mjs|lisp)$/, ""),
               source: e.target.result,
             },
           });
