@@ -1,3 +1,4 @@
+// 📜 TODO: Sometimes it seems like the state in `scroll` breaks. 25.07.09.12.38
 import {
   p2,
   number,
@@ -499,6 +500,8 @@ function pan(x, y) {
 function unpan() {
   panTranslation.x = 0;
   panTranslation.y = 0;
+  savedPanTranslation = null; // Also clear saved pan state
+  // console.log("🔧 unpan() called - cleared current and saved pan state");
 }
 
 let savedPanTranslation;
