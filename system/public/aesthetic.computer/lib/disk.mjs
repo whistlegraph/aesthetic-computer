@@ -4148,6 +4148,14 @@ async function load(
     // soundClear = null;
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
+    
+    // Reset pan translation state for new piece
+    graph.unpan();
+    
+    // Also reset pan state in a delayed manner to handle any timing issues
+    setTimeout(() => {
+      graph.unpan();
+    }, 0);
 
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
@@ -5098,6 +5106,9 @@ async function makeFrame({ data: { type, content } }) {
         volume: 0.15,
       });
 
+      // Immediately reset pan state for backspace navigation
+      graph.unpan();
+
       send({ type: "keyboard:unlock" });
       if (!labelBack) {
         let promptSlug = "prompt";
@@ -5949,7 +5960,6 @@ async function makeFrame({ data: { type, content } }) {
           // Corner prompt button.
           currentHUDButton?.act(e, {
             down: () => {
-              console.log("🔵 DOWN!")
               originalColor = currentHUDTextColor;
               currentHUDScrub = 0;
               currentHUDTextColor = [0, 255, 0];
@@ -5969,9 +5979,26 @@ async function makeFrame({ data: { type, content } }) {
               });
             },
             push: (btn) => {
-              console.log("🟠 PUSH!");
               const shareWidth = tf.blockWidth * "share ".length;
-              const caretWidth = tf.blockWidth + 2; // More compact caret threshold
+              
+              // Dynamic caret width calculation based on prompt length
+              // Short prompts (4 chars or less) get a minimal threshold
+              // Longer prompts get a more stretched out threshold
+              const promptLength = currentHUDTxt.length;
+              const baseCaretWidth = tf.blockWidth + 2;
+              const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
+              
+              let caretWidth;
+              if (promptLength <= 4) {
+                // Very short prompts like "line" get minimal threshold
+                caretWidth = baseCaretWidth;
+              } else if (promptLength <= 8) {
+                // Medium prompts get moderate threshold
+                caretWidth = Math.floor(baseCaretWidth * 1.5);
+              } else {
+                // Long prompts get stretched threshold, capped at max
+                caretWidth = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+              }
 
               // Don't allow normal push behavior if we've been scrubbing
               if (btn.scrubbing) {
@@ -6030,7 +6057,25 @@ async function makeFrame({ data: { type, content } }) {
               }
 
               const shareWidth = tf.blockWidth * "share ".length;
-              const caretWidth = tf.blockWidth + 2; // More compact caret threshold (actual glyph width + small margin)
+              
+              // Dynamic caret width calculation based on prompt length
+              // Short prompts (4 chars or less) get a minimal threshold
+              // Longer prompts get a more stretched out threshold
+              const promptLength = currentHUDTxt.length;
+              const baseCaretWidth = tf.blockWidth + 2;
+              const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
+              
+              let caretWidth;
+              if (promptLength <= 4) {
+                // Very short prompts like "line" get minimal threshold
+                caretWidth = baseCaretWidth;
+              } else if (promptLength <= 8) {
+                // Medium prompts get moderate threshold
+                caretWidth = Math.floor(baseCaretWidth * 1.5);
+              } else {
+                // Long prompts get stretched threshold, capped at max
+                caretWidth = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+              }
 
               // Update button width for positive scrub
               if (currentHUDScrub >= 0) {
@@ -6058,11 +6103,29 @@ async function makeFrame({ data: { type, content } }) {
               }
             },
             cancel: () => {
-              console.log("🔴 CANCEL!");
               currentHUDTextColor = originalColor;
 
               const shareWidth = tf.blockWidth * "share ".length;
-              const caretWidth = tf.blockWidth + 2; // More compact caret threshold
+              
+              // Dynamic caret width calculation based on prompt length
+              // Short prompts (4 chars or less) get a minimal threshold
+              // Longer prompts get a more stretched out threshold
+              const promptLength = currentHUDTxt.length;
+              const baseCaretWidth = tf.blockWidth + 2;
+              const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
+              
+              let caretWidth;
+              if (promptLength <= 4) {
+                // Very short prompts like "line" get minimal threshold
+                caretWidth = baseCaretWidth;
+              } else if (promptLength <= 8) {
+                // Medium prompts get moderate threshold
+                caretWidth = Math.floor(baseCaretWidth * 1.5);
+              } else {
+                // Long prompts get stretched threshold, capped at max
+                caretWidth = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+              }
+              
               console.log("scrub:", currentHUDScrub, shareWidth, -caretWidth);
 
               if (currentHUDScrub === shareWidth) {
@@ -6749,8 +6812,19 @@ async function makeFrame({ data: { type, content } }) {
           // Use stripColorCodes result for consistent rendering (same as shadow)
           const renderText = hasInlineColor ? stripColorCodes(text) : text;
 
-          // Calculate text width for caret positioning
-          const textWidth = renderText.length * tf.blockWidth;
+          // Calculate text width for caret positioning - handle multiline properly
+          let textWidth, animationY;
+          if (labelBounds.lines.length > 1) {
+            // For multiline text, use the width of the last line
+            const lastLineArray = labelBounds.lines[labelBounds.lines.length - 1];
+            const lastLineText = Array.isArray(lastLineArray) ? lastLineArray.join(" ") : lastLineArray;
+            textWidth = lastLineText.length * tf.blockWidth;
+            animationY = (labelBounds.lines.length - 1) * (tf.blockHeight + 1);
+          } else {
+            // For single line text, use total width
+            textWidth = renderText.length * tf.blockWidth;
+            animationY = 0;
+          }
 
           // Build color array by stepping through the original text and mapping colors to cleaned positions
           let cleanIndex = 0;
@@ -6954,16 +7028,34 @@ async function makeFrame({ data: { type, content } }) {
             // Draw shadow for 'share' in black
             $.ink(0).write("share", {
               x: 1 + currentHUDScrub - shareWidth,
-              y: 1,
+              y: animationY + 1,
             });
             // Draw 'share' in the HUD color
             $.ink(currentHUDTextColor || [255, 200, 240]).write("share", {
               x: 0 + currentHUDScrub - shareWidth,
-              y: 0,
+              y: animationY,
             });
           } else if (currentHUDScrub < 0) {
             // Dissolving particle animation: particles fly from far right, assembling into caret
-            const caretThreshold = tf.blockWidth + 2; // Use actual glyph width plus small margin (more compact)
+            // Dynamic caret width calculation based on prompt length
+            // Short prompts (4 chars or less) get a minimal threshold
+            // Longer prompts get a more stretched out threshold
+            const promptLength = currentHUDTxt.length;
+            const baseCaretWidth = tf.blockWidth + 2;
+            const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
+            
+            let caretThreshold;
+            if (promptLength <= 4) {
+              // Very short prompts like "line" get minimal threshold
+              caretThreshold = baseCaretWidth;
+            } else if (promptLength <= 8) {
+              // Medium prompts get moderate threshold
+              caretThreshold = Math.floor(baseCaretWidth * 1.5);
+            } else {
+              // Long prompts get stretched threshold, capped at max
+              caretThreshold = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+            }
+            
             const scrubProgress = Math.abs(currentHUDScrub) / caretThreshold;
             const clampedProgress = Math.min(scrubProgress, 1);
 
@@ -6974,7 +7066,7 @@ async function makeFrame({ data: { type, content } }) {
             // Clear the entire animation area first
             $.ink([0, 0, 0, 0]).box(
               textWidth - 5,
-              -1,
+              animationY - 1,
               caretAreaWidth + particleRange + 20,
               caretAreaHeight + 4,
             );
@@ -6987,13 +7079,13 @@ async function makeFrame({ data: { type, content } }) {
               // Draw complete caret block with shadow
               $.ink([0, 0, 0, 128]).box(
                 textWidth + 1,
-                1,
+                animationY + 1,
                 caretAreaWidth,
                 caretAreaHeight,
               ); // Shadow
               $.ink(blockColor).box(
                 textWidth,
-                0,
+                animationY,
                 caretAreaWidth,
                 caretAreaHeight,
               ); // Block
@@ -7018,7 +7110,7 @@ async function makeFrame({ data: { type, content } }) {
 
                 // Final destination: randomly distributed across caret area
                 const finalX = textWidth + rnd1 * caretAreaWidth;
-                const finalY = rnd2 * caretAreaHeight;
+                const finalY = animationY + rnd2 * caretAreaHeight;
 
                 // Starting position: much further right with more spread
                 const startX =
