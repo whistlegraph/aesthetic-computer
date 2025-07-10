@@ -2538,6 +2538,7 @@ function encodeKidlispForUrl(source) {
   const encoded = source
     .replace(/ /g, "_")
     .replace(/\n/g, "§")
+    .replace(/%/g, "¤") // Encode % symbols to avoid URI malformation
     .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
   
   return encoded;
@@ -2556,6 +2557,7 @@ function decodeKidlispFromUrl(encoded) {
       .replace(/%29/g, ")")
       .replace(/%2E/g, ".")
       .replace(/%22/g, '"')
+      .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
       .replace(/%3B/g, ";") // Decode semicolons
       .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   } else {
@@ -2572,6 +2574,7 @@ function decodeKidlispFromUrl(encoded) {
         .replace(/%29/g, ")")
         .replace(/%2E/g, ".")
         .replace(/%22/g, '"')
+        .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
         .replace(/%3B/g, ";")
         .replace(/S/g, "#");
       // Don't replace underscores or tildes in music notation
@@ -2584,6 +2587,7 @@ function decodeKidlispFromUrl(encoded) {
         .replace(/%29/g, ")")
         .replace(/%2E/g, ".")
         .replace(/%22/g, '"')
+        .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
         .replace(/%3B/g, ";")
         .replace(/S/g, "#");
       
