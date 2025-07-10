@@ -504,6 +504,12 @@ function unpan() {
   // console.log("🔧 unpan() called - cleared current and saved pan state");
 }
 
+// Reset just the current pan state, preserving saved pan state
+function resetpan() {
+  panTranslation.x = 0;
+  panTranslation.y = 0;
+}
+
 let savedPanTranslation;
 
 // Save the local transform.
@@ -4001,6 +4007,7 @@ export {
   colorsMatch,
   pan,
   unpan,
+  resetpan,
   savepan,
   loadpan,
   mask,

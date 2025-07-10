@@ -2649,6 +2649,7 @@ const $paintApiUnwrapped = {
   form,
   pan: graph.pan,
   unpan: graph.unpan,
+  resetpan: graph.resetpan,
   savepan: graph.savepan,
   loadpan: graph.loadpan,
   mask: graph.mask,
@@ -6603,7 +6604,7 @@ async function makeFrame({ data: { type, content } }) {
           // Save kidlisp's accumulated pan state for next frame
           $api.savepan();
           // Reset pan for system UI rendering
-          $api.unpan();
+          $api.resetpan();
         } catch (e) {
           console.warn("🎨 Paint failure...", e);
         }
@@ -6781,7 +6782,7 @@ async function makeFrame({ data: { type, content } }) {
         if (piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
-          $.unpan();
+          $.resetpan();
 
           // Clear the entire label area first to prevent artifacts
           $.ink([0, 0, 0, 0]).box(0, 0, w, h); // Transparent clear
