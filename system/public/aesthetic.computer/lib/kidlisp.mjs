@@ -1283,20 +1283,30 @@ class KidLisp {
       // 🖼️ Image pasting and stamping
       paste: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        const processedArgs = args.map(arg => 
-          typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"') 
-            ? arg.slice(1, -1) 
-            : arg
-        );
+        const processedArgs = args.map(arg => {
+          if (typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"')) {
+            return arg.slice(1, -1);
+          }
+          // Handle special 'painting' keyword to reference system.painting
+          if (typeof arg === 'string' && arg === 'painting') {
+            return api.system?.painting;
+          }
+          return arg;
+        });
         api.paste(...processedArgs);
       },
       stamp: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")  
-        const processedArgs = args.map(arg => 
-          typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"') 
-            ? arg.slice(1, -1) 
-            : arg
-        );
+        const processedArgs = args.map(arg => {
+          if (typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"')) {
+            return arg.slice(1, -1);
+          }
+          // Handle special 'painting' keyword to reference system.painting
+          if (typeof arg === 'string' && arg === 'painting') {
+            return api.system?.painting;
+          }
+          return arg;
+        });
         api.stamp(...processedArgs);
       },
       // Convert args to string and remove surrounding quotes for text commands
