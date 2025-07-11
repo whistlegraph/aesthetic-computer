@@ -1949,11 +1949,11 @@ function act({
     if (!touchOverInteractive) {
       synth({
         type: "sine",
-        tone: 1200,
-        attack: 0.02,
-        decay: 0.98,
-        volume: 0.65,
-        duration: 0.08,
+        tone: 500,
+        attack: 0.005,
+        decay: 0.8,
+        volume: 0.5,
+        duration: 0.01,
       });
     }
   }
