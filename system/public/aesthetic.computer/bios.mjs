@@ -2324,7 +2324,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (MetaBrowser && e.target !== window) {
                 // Skip dragging the finger outside of the Meta Browser.
               } else {
-                console.log("blurring / disabling keyboard");
                 input.blur();
               }
             } else {

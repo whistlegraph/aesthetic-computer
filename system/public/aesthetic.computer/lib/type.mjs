@@ -1019,8 +1019,19 @@ class TextInput {
 
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.#lock === false && !this.enter.btn.down) {
+      // Reset edge cancellation when user actively starts typing
+      if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+        this.#edgeCancelled = false;
+      }
+      
       // 🔡 Inserting an individual character.
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+        // Auto-activate TextInput when user starts typing if not already active
+        if (!this.canType && !this.#edgeCancelled) {
+          this.#manuallyActivated = true;
+          this.#manualActivationTime = Date.now();
+          activate(this);
+        }
         // if (this.text === "" && e.key === " ") {
         //   this.blink.flip(true);
         //   return; // Skip opening spaces.
