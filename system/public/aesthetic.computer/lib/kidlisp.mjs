@@ -1283,20 +1283,30 @@ class KidLisp {
       // 🖼️ Image pasting and stamping
       paste: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        const processedArgs = args.map(arg => 
-          typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"') 
-            ? arg.slice(1, -1) 
-            : arg
-        );
+        const processedArgs = args.map(arg => {
+          if (typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"')) {
+            return arg.slice(1, -1);
+          }
+          // Handle special 'painting' keyword to reference system.painting
+          if (typeof arg === 'string' && arg === 'painting') {
+            return api.system?.painting;
+          }
+          return arg;
+        });
         api.paste(...processedArgs);
       },
       stamp: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")  
-        const processedArgs = args.map(arg => 
-          typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"') 
-            ? arg.slice(1, -1) 
-            : arg
-        );
+        const processedArgs = args.map(arg => {
+          if (typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"')) {
+            return arg.slice(1, -1);
+          }
+          // Handle special 'painting' keyword to reference system.painting
+          if (typeof arg === 'string' && arg === 'painting') {
+            return api.system?.painting;
+          }
+          return arg;
+        });
         api.stamp(...processedArgs);
       },
       // Convert args to string and remove surrounding quotes for text commands
@@ -2528,6 +2538,7 @@ function encodeKidlispForUrl(source) {
   const encoded = source
     .replace(/ /g, "_")
     .replace(/\n/g, "§")
+    .replace(/%/g, "¤") // Encode % symbols to avoid URI malformation
     .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
   
   return encoded;
@@ -2546,6 +2557,7 @@ function decodeKidlispFromUrl(encoded) {
       .replace(/%29/g, ")")
       .replace(/%2E/g, ".")
       .replace(/%22/g, '"')
+      .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
       .replace(/%3B/g, ";") // Decode semicolons
       .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   } else {
@@ -2562,6 +2574,7 @@ function decodeKidlispFromUrl(encoded) {
         .replace(/%29/g, ")")
         .replace(/%2E/g, ".")
         .replace(/%22/g, '"')
+        .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
         .replace(/%3B/g, ";")
         .replace(/S/g, "#");
       // Don't replace underscores or tildes in music notation
@@ -2574,6 +2587,7 @@ function decodeKidlispFromUrl(encoded) {
         .replace(/%29/g, ")")
         .replace(/%2E/g, ".")
         .replace(/%22/g, '"')
+        .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
         .replace(/%3B/g, ";")
         .replace(/S/g, "#");
       
