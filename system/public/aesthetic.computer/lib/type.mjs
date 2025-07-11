@@ -949,8 +949,10 @@ class TextInput {
   async #execute(store) {
     // Make a history stack if one doesn't exist already.
     store[this.key] = store[this.key] || [];
-    // Push input to a history stack, avoiding repeats.
-    if (store[this.key][0] !== this.text) store[this.key].unshift(this.text);
+    // Push input to a history stack, avoiding repeats and prompt-prefixed navigation.
+    if (store[this.key][0] !== this.text && !this.text.startsWith("prompt~")) {
+      store[this.key].unshift(this.text);
+    }
     // console.log("📚 Stored prompt history:", store[key]);
     store.persist(this.key); // Persist the history stack across tabs.
     // 🍎 Process commands for a given context, passing the text input.
