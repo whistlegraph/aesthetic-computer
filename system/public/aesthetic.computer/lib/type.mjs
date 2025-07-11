@@ -1402,7 +1402,7 @@ class TextInput {
       if (!this.mute) {
         sound.synth({
           type: "sine",
-          tone: 400,
+          tone: 300,
           attack: 0.1,
           decay: 0.96,
           volume: 0.5,
@@ -1458,11 +1458,11 @@ class TextInput {
       if (!ti.mute) {
         sound.synth({
           type: "sine",
-          tone: 600,
+          tone: 300,
           attack: 0.1,
           decay: 0.96,
           volume: 0.5,
-          duration: 0.005,
+          duration: 0.01,
         });
       }
     }

@@ -4216,12 +4216,24 @@ async function load(
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
-    if (
-      !fromHistory &&
+    // Also skip kidlisp pieces when navigating back to the prompt.
+    // Add to history unless:
+    // 1. Coming from history navigation (fromHistory=true)
+    // 2. No current text or current text is "prompt"
+    // 3. Current text is already the last item in history
+    // 4. Current text is a kidlisp piece and we're navigating to prompt (backspace scenario)
+    // 5. Current text is a kidlisp piece in general (additional safety)
+    // 6. We're loading prompt with kidlisp parameters (backspace navigation)
+    const isKidlispCurrent = currentText && lisp.isKidlispSource(currentText);
+    const isPromptWithKidlisp = slug.startsWith("prompt~") && slug.includes("(");
+    const shouldAddToHistory = !fromHistory &&
       currentText &&
       currentText !== "prompt" &&
-      currentText !== $commonApi.history[$commonApi.history.length - 1]
-    ) {
+      currentText !== $commonApi.history[$commonApi.history.length - 1] &&
+      !isKidlispCurrent &&
+      !isPromptWithKidlisp;
+
+    if (shouldAddToHistory) {
       $commonApi.history.push(currentText);
     }
 
