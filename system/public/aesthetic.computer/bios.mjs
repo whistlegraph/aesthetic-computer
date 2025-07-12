@@ -1606,6 +1606,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Sync labelBack state between worker and main thread
+    if (type === "labelBack:set") {
+      mainThreadLabelBack = true;
+      sessionStorage.setItem("aesthetic-labelBack", "true");
+      console.log("🔗 Main thread: Set labelBack in sessionStorage");
+      return;
+    }
+
+    if (type === "labelBack:clear") {
+      mainThreadLabelBack = false;
+      sessionStorage.removeItem("aesthetic-labelBack");
+      console.log("🔗 Main thread: Cleared labelBack from sessionStorage");
+      return;
+    }
+
     // Zip up some data and download it.
     if (type === "zip") {
       if (!window.JSZip) await loadJSZip();
@@ -4164,12 +4179,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
     if (type === "back-to-piece") {
-      console.log(
-        "🔙 Browser history.back() called from URL:",
-        window.location.href,
-      );
-      console.log("🔙 Browser history length:", window.history.length);
-      history.back();
+      // Check if we have labelBack state active
+      if (mainThreadLabelBack) {
+        // Clear the labelBack state since we're handling the navigation
+        mainThreadLabelBack = false;
+        sessionStorage.removeItem("aesthetic-labelBack");
+        
+        // Navigate directly to the target piece from worker instead of using history.back()
+        // This avoids the reload cycle for kidlisp pieces
+        const targetPiece = content?.targetPiece || "chat"; // Use target from worker or fallback to chat
+        
+        // Update the URL and load the target piece directly
+        const targetUrl = new URL(window.location);
+        targetUrl.pathname = "/" + targetPiece;
+        window.history.pushState(null, "", targetUrl);
+        
+        const parsed = parse(targetPiece);
+        send({
+          type: "history-load",
+          content: parsed,
+        });
+      } else {
+        history.back();
+      }
       return false;
     }
 
@@ -5397,6 +5429,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // TODO: Eventually add an API so that a disk can list all the history of
   //       a user's session. This could also be used for autocompletion of
   //       pieces / up + down arrow prev-next etc.
+  
+  // Track labelBack state in main thread (persists across worker reloads)
+  let mainThreadLabelBack = sessionStorage.getItem("aesthetic-labelBack") === "true";
+  
   window.onpopstate = function (e) {
     if (
       document.location.hash === "#debug" ||
@@ -5408,9 +5444,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const sluggy = slug(document.location.href);
     if (sluggy === "prompt") keyboard?.input.focus();
 
+    const parsed = parse(sluggy || window.acSTARTING_PIECE);
+    
+    // Restore labelBack state for history navigation
+    if (mainThreadLabelBack) {
+      console.log("🔗 Main thread restoring labelBack for history navigation");
+      parsed.labelBack = true;
+      // Clear the state after using it for navigation
+      mainThreadLabelBack = false;
+      sessionStorage.removeItem("aesthetic-labelBack");
+      console.log("🔗 Main thread: Cleared labelBack after using it for history navigation");
+    }
+
     send({
       type: "history-load",
-      content: parse(sluggy || window.acSTARTING_PIECE),
+      content: parsed,
     });
   };
 
