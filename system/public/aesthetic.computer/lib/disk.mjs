@@ -438,6 +438,7 @@ const store = {
   },
   delete: function (key, method = "local") {
     // Remove the key from the ram store, no matter what the method.
+    console.log("🗑️ Store delete called for key:", key);
     delete store[key];
 
     const promise = new Promise((resolve) => {
@@ -1039,6 +1040,11 @@ const $commonApi = {
     currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
     labelBack: () => {
       labelBack = true;
+      // Persist labelBack state via the store system which works across worker boundaries
+      store["aesthetic-labelBack"] = "true";
+      // Also sync to main thread sessionStorage for browser back navigation
+      send({ type: "labelBack:set", content: true });
+      console.log("🔗 Worker: Setting labelBack and persisting to store + syncing to main thread");
     },
   },
   send,
@@ -3272,6 +3278,12 @@ async function load(
         loadFailure = err;
         $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
         loading = false;
+        
+        // Reset labelBack and leaving when piece load fails completely to ensure proper navigation
+        labelBack = false;
+        // Clear the labelBack from store when load fails
+        delete store["aesthetic-labelBack"];
+        leaving = false;
 
         // Only return a 404 if the error type is correct.
         if (firstLoad && (err.message === "404" || err.message === "403")) {
@@ -3292,6 +3304,12 @@ async function load(
       loadFailure = err;
       $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
       loading = false;
+      
+      // Reset labelBack and leaving when piece load fails completely to ensure proper navigation
+      labelBack = false;
+      // Clear the labelBack from store when load fails
+      delete store["aesthetic-labelBack"];
+      leaving = false;
 
       // Only return a 404 if the error type is correct.
       if (firstLoad && (err.message === "404" || err.message === "403")) {
@@ -3811,7 +3829,7 @@ async function load(
   // Go back to the previous piece, or to the prompt if there is no history.
   $commonApi.back = () => {
     if (pieceHistoryIndex > 0) {
-      send({ type: "back-to-piece" });
+      send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
     } else {
       $commonApi.jump("prompt");
     }
@@ -4150,6 +4168,24 @@ async function load(
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
     
+    // Restore labelBack state from store if it exists
+    if (store["aesthetic-labelBack"] === "true") {
+      labelBack = true;
+      // Only clear labelBack if we're loading the target piece from browser back navigation
+      // AND we're not loading a kidlisp piece (which gets reloaded during back navigation)
+      const isKidlispPiece = (slug && lisp.isKidlispSource(slug)) || slug === "(...)";
+      
+      if (fromHistory && labelBack && !isKidlispPiece) {
+        // Clear labelBack since we've successfully navigated back to a non-kidlisp piece
+        labelBack = false;
+        delete store["aesthetic-labelBack"];
+        send({ type: "labelBack:clear", content: false });
+      }
+    }
+    
+    // Reset pan translation state for new piece
+    graph.unpan();
+    
     // Reset pan translation state for new piece
     graph.unpan();
     
@@ -4222,15 +4258,19 @@ async function load(
     // 2. No current text or current text is "prompt"
     // 3. Current text is already the last item in history
     // 4. Current text is a kidlisp piece and we're navigating to prompt (backspace scenario)
-    // 5. Current text is a kidlisp piece in general (additional safety)
-    // 6. We're loading prompt with kidlisp parameters (backspace navigation)
+    // 5. We're loading prompt with kidlisp parameters (backspace navigation)
     const isKidlispCurrent = currentText && lisp.isKidlispSource(currentText);
     const isPromptWithKidlisp = slug.startsWith("prompt~") && slug.includes("(");
+    const isKidlispTarget = slug && lisp.isKidlispSource(slug);
+    
+    // Special case: Always add chat to history when navigating to kidlisp
+    const shouldAddChatToHistory = currentText === "chat" && isKidlispTarget;
+    
     const shouldAddToHistory = !fromHistory &&
       currentText &&
       currentText !== "prompt" &&
       currentText !== $commonApi.history[$commonApi.history.length - 1] &&
-      !isKidlispCurrent &&
+      (!isKidlispCurrent || shouldAddChatToHistory) &&
       !isPromptWithKidlisp;
 
     if (shouldAddToHistory) {
@@ -5022,6 +5062,11 @@ async function makeFrame({ data: { type, content } }) {
   // 1c. Loading from History
   if (type === "history-load") {
     if (debug && logs.history) console.log("⏳ History:", content);
+    // Restore labelBack state if it was passed from main thread history navigation
+    if (content.labelBack) {
+      labelBack = true;
+      console.log("🔗 Worker: Restored labelBack from history navigation");
+    }
     $commonApi.load(content, true);
     return;
   }
@@ -5138,7 +5183,16 @@ async function makeFrame({ data: { type, content } }) {
       graph.unpan();
 
       send({ type: "keyboard:unlock" });
-      if (!labelBack) {
+      
+      // Enhanced logic for KidLisp pieces: check if we should go back to chat
+      // This handles cases where labelBack state might be lost due to complex loading
+      const isKidlispPiece = (currentCode && currentCode.startsWith("(")) || 
+                             (currentText && currentText.startsWith("("));
+      const shouldGoBackToChat = labelBack || 
+                                (isKidlispPiece && $commonApi.history.length > 0 && 
+                                 $commonApi.history[$commonApi.history.length - 1] === "chat");
+      
+      if (!shouldGoBackToChat) {
         let promptSlug = "prompt";
         // Use currentText which contains the original slug with tildes (e.g., "rect~red")
         const content = currentText;
@@ -5155,9 +5209,9 @@ async function makeFrame({ data: { type, content } }) {
         $commonApi.jump(promptSlug);
         send({ type: "keyboard:open" });
       } else {
-        labelBack = false; // Reset `labelBack` after jumping.
+        // Going back to chat or previous piece
         if ($commonApi.history.length > 0) {
-          send({ type: "back-to-piece" });
+          send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
         } else {
           $commonApi.jump("prompt");
           send({ type: "keyboard:open" });
@@ -5236,12 +5290,8 @@ async function makeFrame({ data: { type, content } }) {
                 send({ type: "keyboard:open" });
               });
             } else {
-              labelBack = false; // Reset `labelBack` after jumping.
               if ($commonApi.history.length > 0) {
-                send({ type: "back-to-piece" });
-                // $commonApi.jump(
-                //   $commonApi.history[$commonApi.history.length - 1],
-                // );
+                send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
               } else {
                 $commonApi.jump("prompt")(() => {
                   send({ type: "keyboard:open" });
@@ -6064,9 +6114,8 @@ async function makeFrame({ data: { type, content } }) {
               if (!labelBack) {
                 jump("prompt");
               } else {
-                labelBack = false; // Reset `labelBack` after jumping.
                 if ($commonApi.history.length > 0) {
-                  send({ type: "back-to-piece" });
+                  send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
                 } else {
                   jump("prompt");
                 }
