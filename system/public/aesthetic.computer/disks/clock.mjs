@@ -98,7 +98,95 @@ let octaveFlashTime = 0; // Track when octave changed for flash effect
 let melodyTracks = null; // Will store parsed simultaneous tracks
 let melodyState = null;
 let baseTempo = 500; // Default 500ms per quarter note (120 BPM)
-let melodyMode = "continuous"; // "continuous" or "sync" - how to time the melody
+
+// History buffer system for visual timeline
+let historyBuffer = []; // Array to store all played notes with timestamps
+const MAX_HISTORY_ITEMS = 1000; // Limit history to prevent memory issues
+
+// History item structure:
+// {
+//   note: "c",
+//   octave: 4,
+//   startTime: timestampMs,
+//   endTime: timestampMs,
+//   trackIndex: 0,
+//   waveType: "sine",
+//   volume: 0.8,
+//   isMutation: false,
+//   struck: false
+// }
+let tempoJustChanged = false; // Flag to track immediate tempo changes for overlapping sounds
+let lastTempoChangeTime = 0; // Track when tempo last changed to add tolerance
+let tempoChangeTolerance = 150; // Milliseconds to wait before allowing another tempo change restart
+let nowLineY = 0; // Y position of the NOW line (draggable, defaults to screen center)
+let isDraggingNowLine = false; // Whether user is currently dragging the NOW line
+
+// Rainbow color mapping for notes (ROYGBIV) using RGB arrays
+const noteColorMap = {
+  c: [255, 0, 0], // Red
+  d: [255, 127, 0], // Orange
+  e: [255, 255, 0], // Yellow
+  f: [0, 255, 0], // Green
+  g: [0, 128, 255], // Blue
+  a: [75, 0, 130], // Indigo
+  b: [148, 0, 211], // Violet
+  // Handle sharps/flats with similar colors
+  "c#": [255, 68, 68],
+  cs: [255, 68, 68],
+  db: [255, 68, 68],
+  "d#": [255, 153, 68],
+  ds: [255, 153, 68],
+  eb: [255, 153, 68],
+  "f#": [68, 255, 68],
+  fs: [68, 255, 68],
+  gb: [68, 255, 68],
+  "g#": [68, 153, 255],
+  gs: [68, 153, 255],
+  ab: [68, 153, 255],
+  "a#": [119, 68, 187],
+  as: [119, 68, 187],
+  bb: [119, 68, 187],
+};
+
+// Helper function to get note color
+function getNoteColor(noteName) {
+  if (!noteName || noteName === "rest") return [102, 102, 102]; // Gray for rests
+  const cleanNote = noteName.toLowerCase().replace(/[0-9]/g, ""); // Remove octave numbers
+  return noteColorMap[cleanNote] || [255, 255, 255]; // Default to white if not found
+}
+
+// Helper function to make a color brighter for active notes
+function getBrighterColor(rgbArray) {
+  const [r, g, b] = rgbArray;
+
+  // Make brighter by adding to each component (max 255)
+  const brighterR = Math.min(255, r + 80);
+  const brighterG = Math.min(255, g + 80);
+  const brighterB = Math.min(255, b + 80);
+
+  return [brighterR, brighterG, brighterB];
+}
+
+// Helper function to make a color darker and more gray for history notes
+function getDarkerColor(rgbArray) {
+  const [r, g, b] = rgbArray;
+
+  // Calculate luminance for grayscale conversion
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+  // Mix with gray (50% saturation reduction) and darken
+  const grayR = Math.round(r * 0.5 + luminance * 0.5);
+  const grayG = Math.round(g * 0.5 + luminance * 0.5);
+  const grayB = Math.round(b * 0.5 + luminance * 0.5);
+
+  // Then darken the desaturated color
+  const darkerR = Math.max(0, Math.round(grayR * 0.6));
+  const darkerG = Math.max(0, Math.round(grayG * 0.6));
+  const darkerB = Math.max(0, Math.round(grayB * 0.6));
+
+  return [darkerR, darkerG, darkerB];
+}
+let melodyMode = "continuous"; // "continuous" or "sync" - how to timing the melody
 let targetTempo = 500; // Target tempo for smooth transitions
 let isLerpingToSync = false; // Whether we're lerping back to sync
 let originalTimeDivisor = 1.0; // Store the original time divisor for reference
@@ -128,24 +216,10 @@ let isLeavingPiece = false; // Flag to prevent new sounds from being created aft
 // UI Buttons for octave control
 let octaveMinusBtn, octavePlusBtn;
 
-// Animation stability for flowing notes during drag operations
-let flowingNotesCache = {
-  lastTimeDivisor: 1.0,
-  cachedVisualSpeed: null,
-  cachedTimeSpan: null,
-  cacheValid: false,
-  isDragging: false
-};
-
-// Smooth animation system for flowing notes
-let flowingNotesAnimation = {
-  targetTimingLineY: null,
-  currentTimingLineY: null,
-  targetVisualSpeed: null,
-  currentVisualSpeed: null,
-  lerpFactor: 0.15, // How fast to lerp (0.05 = slow, 0.3 = fast)
-  isInitialized: false
-};
+// Visual logging throttling
+let lastLogTime = 0;
+let lastLoggedNoteCount = 0;
+const LOG_THROTTLE_MS = 1000; // Only log once per second maximum
 
 // Helper function to get current note index for synchronization
 function getCurrentNoteIndex(melodyState, trackIndex = 0) {
@@ -170,10 +244,10 @@ function getCurrentNoteIndex(melodyState, trackIndex = 0) {
 function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
   // Reset leaving flag when piece starts
   isLeavingPiece = false;
-  
+
   // Reset total notes played counter for fresh start
   totalNotesPlayed = 0;
-  
+
   // Reset completed sequences counter
   completedSequences = 0;
 
@@ -377,62 +451,30 @@ function paint({
   typeface,
 }) {
   const syncedDate = clock.time(); // Get time once at the beginning
-  let bgColor;
-  let currentSeconds; // To store seconds if syncedDate is valid
 
-  if (syncedDate) {
-    currentSeconds = syncedDate.getSeconds(); // Get seconds if time is valid
-  }
-
-  if (synced) {
-    bgColor = "cyan";
-  } else {
-    if (syncedDate) {
-      const lastDigitOfSecond = currentSeconds % 10;
-      // Define colors based on ROYGBIV spectrum plus black, white, and gray
-      const colors = [
-        "red", // Second ends in 0
-        "orange", // Second ends in 1
-        "yellow", // Second ends in 2
-        "green", // Second ends in 3
-        "blue", // Second ends in 4
-        "indigo", // Second ends in 5
-        "violet", // Second ends in 6
-        "black", // Second ends in 7
-        "white", // Second ends in 8
-        "gray", // Second ends in 9
-      ];
-      bgColor = colors[lastDigitOfSecond];
-    } else {
-      bgColor = "purple"; // Fallback if syncedDate is not available
-    }
-  }
-
-  wipe(bgColor);
-
-  if (synced) {
-    synced = false; // Reset synced flag after using it for wipe color.
-  }
+  // Simple gray background instead of rainbow colors
+  wipe("gray");
 
   const availableWidth = screen.width;
   const availableHeight = screen.height;
 
-  sound.paint.bars(
-    api,
-    sound.speaker.amplitudes.left,
-    help.resampleArray(sound.speaker.waveforms.left, 8),
-    0,
-    0,
-    availableWidth,
-    availableHeight,
-    [255, 255, 0, 255],
-    {
-      noamp: true,
-      nobounds: true,
-      primaryColor: [255, 255, 0, 128],
-      secondaryColor: [0, 0, 0, 128],
-    },
-  );
+  // Temporarily disable waveform painting to see timeline clearly
+  // sound.paint.bars(
+  //   api,
+  //   sound.speaker.amplitudes.left,
+  //   help.resampleArray(sound.speaker.waveforms.left, 8),
+  //   0,
+  //   0,
+  //   availableWidth,
+  //   availableHeight,
+  //   [255, 255, 0, 255],
+  //   {
+  //     noamp: true,
+  //     nobounds: true,
+  //     primaryColor: [255, 255, 0, 128],
+  //     secondaryColor: [0, 0, 0, 128],
+  //   },
+  // );
 
   // sound.paint.waveform(
   //   api,
@@ -499,8 +541,8 @@ function paint({
       hours + ":" + minutes + ":" + displaySeconds + ":" + millis + " " + ampm;
     let fontSize = 1;
 
-    // --- Draw the cyan timing line first, then the clock text centered on it ---
-    // Calculate the Y position of the cyan line (same as in drawTimingGraph)
+    // --- Initialize NOW line position based on timing divisor ---
+    // Calculate the Y position of the cyan line based on timing divisor
     const meterStartY = 0;
     const meterEndY = screen.height;
     const meterHeight = meterEndY - meterStartY;
@@ -511,94 +553,12 @@ function paint({
     const currentYPos = Math.round(
       centerY + (currentTimeDivisor - 1.0) * scaleY,
     );
-    // Draw the cyan line first so it appears behind the text
-    ink("cyan").line(0, currentYPos, screen.width, currentYPos);
 
-    // --- Draw the 'now' label on the cyan line ---
-    // The 1s timing is always at centerY
-    const nowLabel = "now";
-    const nowBox =
-      typeof text !== "undefined" && text.box
-        ? text.box(nowLabel, { scale: 1 })
-        : { width: 18, height: 12 };
-    const nowX = 8; // Padding from left edge
-    const nowY = centerY - Math.round(nowBox.height / 2);
-    // Draw a green background for contrast
-    if (typeof text !== "undefined" && text.box && text.box.draw) {
-      text.box.draw(nowLabel, {
-        x: nowX,
-        y: nowY,
-        scale: 1,
-        color: "green",
-      });
-    } else {
-      if (ink("green").fillRect) {
-        ink("green").fillRect(
-          nowX - 4,
-          nowY - 2,
-          nowBox.width + 8,
-          nowBox.height + 4,
-        );
-      }
+    // Initialize NOW line position to match the timing line if not set
+    if (nowLineY === 0) {
+      nowLineY = currentYPos; // Start at timing position, then becomes draggable
     }
-    ink("white").write(
-      nowLabel,
-      {
-        x: nowX,
-        y: nowY,
-        scale: 1,
-      },
-      "green",
-    );
-    // Draw the clock text centered on the line (in front), with white text on a colored background
-    const box =
-      typeof text !== "undefined" && text.box
-        ? text.box(timeString, { scale: fontSize })
-        : { width: timeString.length * 6, height: 12 };
-    const textX = Math.round((screen.width - box.width) / 2);
-    // Center the text vertically on the line
-    const textY = currentYPos - Math.round(box.height / 2);
-    // Determine background color: black if exactly 1s, green if below, red if above
-    let timerBgColor = "black";
-    if (Math.abs(currentTimeDivisor - 1.0) < 0.01) {
-      timerBgColor = "black";
-    } else if (currentTimeDivisor > 1.0) {
-      timerBgColor = "red";
-    } else if (currentTimeDivisor < 1.0) {
-      timerBgColor = "green";
-    }
-    // Draw the background rectangle using text.box if available
-    if (typeof text !== "undefined" && text.box && text.box.draw) {
-      text.box.draw(timeString, {
-        x: textX,
-        y: textY,
-        scale: fontSize,
-        color: timerBgColor,
-      });
-    } else {
-      // Fallback: draw a filled rectangle if possible (legacy or custom ink API)
-      if (ink(timerBgColor).fillRect) {
-        ink(timerBgColor).fillRect(
-          textX - 4,
-          textY - 2,
-          box.width + 8,
-          box.height + 4,
-        );
-      }
-      // If no fillRect, just skip background
-    }
-    // Draw the time string in white, centered on the line
-    // Always use white text for the main clock display to ensure good contrast
-    // against the colored timing backgrounds (red/green/black)
-    ink("white").write(
-      timeString,
-      {
-        x: textX,
-        y: textY,
-        scale: fontSize,
-      },
-      timerBgColor,
-    );
+
     clockDrawn = true;
 
     // Paint octave control buttons
@@ -1301,72 +1261,193 @@ function paint({
     // (Remove any other preview label drawing from the center)
   } else {
     ink("red").write("SYNCING...", { center: "xy", size: 2 });
-    // Paint octave control buttons even when syncing
-    const octaveText = `${octave}`;
-    const glyphWidth = typeface.glyphs["0"].resolution[0];
-    const padding = 4; // Padding on left and right of octave number
-    const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
-    const buttonWidth = 16;
-    const buttonHeight = 16;
-    const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
-    const startX = screen.width - totalWidth;
-    const startY = screen.height - buttonHeight;
-
-    // Paint minus button
-    octaveMinusBtn?.paint((btn) => {
-      const disabled = octave <= 1;
-      const isPressed = btn.down;
-      const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
-      const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
-
-      ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(textColor).write("-", {
-        x: btn.box.x + btn.box.w / 2 - 3,
-        y: btn.box.y + btn.box.h / 2 - 4,
-        scale: 1,
-      });
-    });
-
-    // Paint octave text in the middle with background
-    const flashDuration = 150; // Flash for 150ms (faster)
-    const isFlashing = performance.now() - octaveFlashTime < flashDuration;
-    const octaveBgColor = isFlashing ? "white" : "blue";
-    const octaveTextColor = isFlashing ? "blue" : "white";
-
-    ink(octaveBgColor).box(
-      startX + buttonWidth,
-      startY,
-      octaveTextWidth,
-      buttonHeight,
-    );
-    ink(octaveTextColor).write(octaveText, {
-      x: startX + buttonWidth + padding,
-      y: startY + 3,
-      scale: 1,
-    });
-
-    // Paint plus button
-    octavePlusBtn?.paint((btn) => {
-      const disabled = octave >= 8;
-      const isPressed = btn.down;
-      const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
-      const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
-
-      ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
-      ink(textColor).write("+", {
-        x: btn.box.x + btn.box.w / 2 - 3,
-        y: btn.box.y + btn.box.h / 2 - 4,
-        scale: 1,
-      });
-    });
-    // Note: No longer drawing melody timeline on main screen when syncing
-    // Draw timing graph even when syncing (intentionally omitted)
-    // drawTimingGraph(ink, write, screen);
+    // Note: Octave buttons are now painted after timeline universally
   }
 
   // Draw flowing note visualization last so it appears on top of everything
+  // Always draw timeline - use current time if syncedDate not available
+  const timeForTimeline = syncedDate || new Date();
+  drawFlowingNotes(ink, write, screen, melodyState, timeForTimeline);
+
+  // Paint octave control buttons after timeline so they appear on top
+  const octaveText = `${octave}`;
+  const glyphWidth = typeface.glyphs["0"].resolution[0];
+  const padding = 4; // Padding on left and right of octave number
+  const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
+  const buttonWidth = 16;
+  const buttonHeight = 16;
+  const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
+  const startX = screen.width - totalWidth;
+  const startY = screen.height - buttonHeight;
+
+  // Paint minus button with proper state handling
+  octaveMinusBtn?.paint((btn) => {
+    const disabled = octave <= 1;
+    const isPressed = btn.down;
+    const buttonColor = disabled ? "gray" : isPressed ? "white" : "red";
+    const textColor = disabled ? "darkgray" : isPressed ? "red" : "white";
+
+    ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
+    ink(textColor).write("-", {
+      x: btn.box.x + btn.box.w / 2 - 3,
+      y: btn.box.y + btn.box.h / 2 - 4,
+      scale: 1,
+    });
+  });
+
+  // Paint octave text in the middle with background
+  const flashDuration = 150; // Flash for 150ms (faster)
+  const isFlashing = performance.now() - octaveFlashTime < flashDuration;
+  const octaveBgColor = isFlashing ? "white" : "blue";
+  const octaveTextColor = isFlashing ? "blue" : "white";
+
+  ink(octaveBgColor).box(
+    startX + buttonWidth,
+    startY,
+    octaveTextWidth,
+    buttonHeight,
+  );
+  ink(octaveTextColor).write(octaveText, {
+    x: startX + buttonWidth + padding,
+    y: startY + 3,
+    scale: 1,
+  });
+
+  // Paint plus button with proper state handling
+  octavePlusBtn?.paint((btn) => {
+    const disabled = octave >= 8;
+    const isPressed = btn.down;
+    const buttonColor = disabled ? "gray" : isPressed ? "white" : "green";
+    const textColor = disabled ? "darkgray" : isPressed ? "green" : "white";
+
+    ink(buttonColor).box(btn.box.x, btn.box.y, btn.box.w, btn.box.h);
+    ink(textColor).write("+", {
+      x: btn.box.x + btn.box.w / 2 - 3,
+      y: btn.box.y + btn.box.h / 2 - 4,
+      scale: 1,
+    });
+  });
+
+  // No separate UTC time display - consolidated into main clock
+
+  // Draw the horizontal bar and main clock display on top of everything
   if (syncedDate) {
-    drawFlowingNotes(ink, write, screen, melodyState, syncedDate);
+    // Use the same color logic as the timeline - match the NOW line colors
+    let nowLineColor;
+    if (isDraggingNowLine) {
+      nowLineColor = "yellow"; // Yellow when dragging
+    } else if (currentTimeDivisor < 1.0) {
+      nowLineColor = "lime"; // Green for faster
+    } else if (currentTimeDivisor > 1.0) {
+      nowLineColor = "red"; // Red for slower
+    } else {
+      nowLineColor = "white"; // White for normal
+    }
+
+    // Draw shadow for the line first (1px offset to right and bottom)
+    ink("black").line(1, nowLineY + 1, screen.width + 1, nowLineY + 1);
+    // Draw the main line at the draggable position across the full width
+    ink(nowLineColor).line(0, nowLineY, screen.width, nowLineY);
+
+    // Create current note display above the NOW line
+    let currentNotesText = "";
+    if (hasFirstSynthFired && melodyState) {
+      const currentNotes = [];
+      
+      if (melodyState.type === "single") {
+        const currentNoteIndex = getCurrentNoteIndex(melodyState);
+        if (currentNoteIndex >= 0 && melodyState.notes && melodyState.notes[currentNoteIndex]) {
+          const currentNote = melodyState.notes[currentNoteIndex];
+          currentNotes.push(currentNote.note.toUpperCase());
+        }
+      } else if (melodyState.type === "parallel" && melodyState.trackStates) {
+        melodyState.trackStates.forEach((trackState, trackIndex) => {
+          if (trackState && trackState.track && trackState.track.length > 0) {
+            const currentNoteIndex = getCurrentNoteIndex(melodyState, trackIndex);
+            if (currentNoteIndex >= 0 && currentNoteIndex < trackState.track.length) {
+              const currentNote = trackState.track[currentNoteIndex];
+              if (currentNote && currentNote.note !== "rest") {
+                currentNotes.push(currentNote.note.toUpperCase());
+              }
+            }
+          }
+        });
+      }
+      
+      if (currentNotes.length > 0) {
+        currentNotesText = currentNotes.join(" + ");
+      }
+    }
+
+    // Create main time display with timing prefix
+    const scaledTime = new Date(syncedDate.getTime());
+    const morning = scaledTime.getHours() < 12;
+    let hours = scaledTime.getHours() % 12;
+    hours = hours ? hours : 12;
+    const minutes = pad(scaledTime.getMinutes());
+    const displaySeconds = pad(scaledTime.getSeconds());
+    const millis = pad(scaledTime.getMilliseconds(), 3);
+    const ampm = morning ? "AM" : "PM";
+    
+    // Add timing prefix based on speed
+    let timingPrefix = "";
+    let clockColor = "white";
+    
+    if (currentTimeDivisor < 1.0) {
+      // Faster than real-time - lime text with + prefix
+      timingPrefix = "+";
+      clockColor = "lime";
+    } else if (currentTimeDivisor > 1.0) {
+      // Slower than real-time - red text with - prefix
+      timingPrefix = "-";
+      clockColor = "red";
+    } else {
+      // Normal time (1.0) - white text with space prefix
+      timingPrefix = " ";
+      clockColor = "white";
+    }
+    
+    // Main time string with timing prefix
+    const mainTimeString = timingPrefix + hours + ":" + minutes + ":" + displaySeconds + ":" + millis + " " + ampm;
+    
+    // Responsive font sizing - check if scale 2 fits, otherwise use scale 1
+    let fontSize = 2;
+    const textWidth = mainTimeString.length * 6 * fontSize; // Estimate text width
+    if (textWidth > screen.width - 20) { // Leave 20px margin
+      fontSize = 1;
+    }
+
+
+
+    // Draw the clock text centered below the line with shadow
+    const box =
+      typeof text !== "undefined" && text.box
+        ? text.box(mainTimeString, { scale: fontSize })
+        : { width: mainTimeString.length * 6 * fontSize, height: 12 * fontSize };
+    // Center the clock horizontally on the screen
+    const textX = Math.round((screen.width - box.width) / 2);
+    // Position the text exactly 2 pixels below the draggable line
+    const textY = nowLineY + 2;
+    
+    // Draw shadow first (1px offset to right and bottom)
+    ink("black").write(
+      mainTimeString,
+      {
+        x: textX + 1,
+        y: textY + 1,
+        size: fontSize,
+      },
+    );
+    
+    // Draw the main time string
+    ink(clockColor).write(
+      mainTimeString,
+      {
+        x: textX,
+        y: textY,
+        size: fontSize,
+      },
+    );
   }
 }
 
@@ -1761,265 +1842,713 @@ function drawTimingGraph(ink, write, screen) {
   });
 }
 
-// Draw flowing notes visualization - simple red note drop animation
+// Draw flowing notes visualization - vertical timeline using history buffer
 function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
+
+
   if (!melodyState || !hasMelodyContent(melodyState) || !syncedDate) {
     return;
   }
 
-  // Use smoothly interpolated values from updateFlowingNotesAnimation() for buttery smooth animation
-  let actualTimingLineY, visualSpeed, smoothCurrentTimeDivisor;
-  
-  if (flowingNotesAnimation.isInitialized) {
-    // Use lerped values for smooth animation
-    actualTimingLineY = Math.round(flowingNotesAnimation.currentTimingLineY);
-    visualSpeed = flowingNotesAnimation.currentVisualSpeed;
-    
-    // Calculate a smooth time divisor based on the lerped timing line position
-    // This ensures note duration calculations also use smoothed values
-    const centerY = Math.round(screen.height / 2);
-    const meterHeight = screen.height;
-    const minTiming = 0.05;
-    const maxTiming = 3.0;
-    const scaleY = meterHeight / (maxTiming - minTiming);
-    const normalizedPos = (actualTimingLineY - centerY) / scaleY;
-    smoothCurrentTimeDivisor = Math.max(minTiming, Math.min(maxTiming, 1.0 + normalizedPos));
+  // Initialize NOW line position if not set
+  if (nowLineY === 0) {
+    nowLineY = screen.height / 2;
+  }
+
+  // Get current time for calculations
+  const currentTimeMs = syncedDate.getTime();
+
+  // VERTICAL Timeline configuration - full screen width
+  const timelineWidth = screen.width; // Use full screen width
+  const timelineX = Math.round(screen.width / 2); // Center point
+  const timelineStartX = 0; // Start at left edge of screen
+  const timelineEndX = screen.width; // End at right edge of screen
+
+  // Calculate timeline parameters - extend from top to bottom of screen
+  const zoomFactor = Math.max(0.3, currentTimeDivisor); // Smart zoom based on timing
+  const scaledPixelsPerSecond = Math.round(40 * zoomFactor); // Ensure integer pixels per second
+
+  // Calculate time window to show future notes
+  const futureTimeWindowSeconds = 10; // Show 10 seconds of future notes
+  const futureTimeWindowMs = futureTimeWindowSeconds * 1000;
+
+  // Determine number of tracks for width calculation
+  let trackCount = 1;
+  if (melodyState.type === "parallel" && melodyState.trackStates) {
+    trackCount = melodyState.trackStates.length;
+  }
+
+  // First draw simplified timeline background (background layer)
+  drawTimelineBackground(
+    ink,
+    write,
+    screen,
+    currentTimeMs,
+    scaledPixelsPerSecond,
+    futureTimeWindowSeconds,
+    timelineStartX,
+    timelineEndX,
+    nowLineY,
+  );
+
+  // Draw the "NOW" line BEFORE notes so notes can blink on top of it
+  // Use same color logic as the clock
+  let nowLineColor;
+  if (isDraggingNowLine) {
+    nowLineColor = "yellow"; // Yellow when dragging
+  } else if (currentTimeDivisor < 1.0) {
+    nowLineColor = "lime"; // Green for faster
+  } else if (currentTimeDivisor > 1.0) {
+    nowLineColor = "red"; // Red for slower
   } else {
-    // Fallback to direct calculation if updateFlowingNotesAnimation hasn't run yet
-    const centerY = Math.round(screen.height / 2);
-    const meterStartY = 0;
-    const meterEndY = screen.height;
-    const meterHeight = meterEndY - meterStartY;
-    const minTiming = 0.05;
-    const maxTiming = 3.0;
-    const scaleY = meterHeight / (maxTiming - minTiming);
-    actualTimingLineY = Math.round(
-      centerY + (currentTimeDivisor - 1.0) * scaleY,
-    );
-    smoothCurrentTimeDivisor = currentTimeDivisor;
-    
-    // Quick fallback visual speed calculation
-    const availableSpaceBelow = screen.height - actualTimingLineY;
-    const availableSpaceAbove = actualTimingLineY;
-    const avgNoteDuration = 2 * baseTempo;
-    const minTimeSpan = 1000 * Math.max(0.5, currentTimeDivisor);
-    const requiredTimeSpanBelow = availableSpaceBelow / (avgNoteDuration * 0.5);
-    const requiredTimeSpanAbove = availableSpaceAbove / (avgNoteDuration * 0.5);
-    const requiredTimeSpan = Math.max(requiredTimeSpanBelow, requiredTimeSpanAbove) * avgNoteDuration;
-    const timeSpan = Math.max(requiredTimeSpan, minTimeSpan);
-    visualSpeed = Math.max(availableSpaceBelow, availableSpaceAbove) / timeSpan;
-  }
-
-  // UNIFIED APPROACH: Convert everything to tracks array format
-  let tracks = [];
-
-  if (melodyState.type === "single" && melodyState.notes) {
-    tracks = [melodyState.notes];
-  } else if (melodyState.type === "parallel" && melodyState.tracks) {
-    tracks = melodyState.tracks;
-  } else {
-    return;
-  }
-
-  // Calculate track spacing and positioning
-  let trackSpacing, startX;
-  
-  if (tracks.length === 1) {
-    trackSpacing = 0;
-    startX = screen.width / 4;
-  } else {
-    const availableWidth = screen.width * 0.9;
-    const marginX = screen.width * 0.05;
-    
-    if (tracks.length === 2) {
-      trackSpacing = availableWidth / 2;
-      startX = marginX + (availableWidth / 4);
-    } else {
-      trackSpacing = availableWidth / tracks.length;
-      startX = marginX + (trackSpacing / 2);
-    }
-  }
-
-  // Constants for note flow - ensure gray notes reach bottom and black notes reach top
-  const availableSpaceBelow = screen.height - actualTimingLineY;
-  const availableSpaceAbove = actualTimingLineY;
-  
-  // Calculate timeSpan for note range calculation using smooth values
-  let avgNoteDuration = 0;
-  if (tracks.length > 0) {
-    const firstTrack = tracks[0];
-    if (firstTrack && firstTrack.length > 0) {
-      const totalDuration = firstTrack.reduce((sum, note) => sum + (note.duration || 2), 0);
-      // Use smooth time divisor for consistent animation
-      const smoothBaseTempo = (smoothCurrentTimeDivisor * 1000) / 2;
-      avgNoteDuration = (totalDuration / firstTrack.length) * smoothBaseTempo;
-    }
+    nowLineColor = "white"; // White for normal
   }
   
-  // Ensure we have a reasonable fallback duration using smooth values
-  if (avgNoteDuration === 0) {
-    const smoothBaseTempo = (smoothCurrentTimeDivisor * 1000) / 2;
-    avgNoteDuration = 2 * smoothBaseTempo; // Default to 2 units * smoothBaseTempo
-  }
-  
-  // Calculate timeSpan for determining how many notes to show using smooth divisor
-  const requiredTimeSpanBelow = availableSpaceBelow / (avgNoteDuration * 0.5);
-  const requiredTimeSpanAbove = availableSpaceAbove / (avgNoteDuration * 0.5);
-  const requiredTimeSpan = Math.max(requiredTimeSpanBelow, requiredTimeSpanAbove) * avgNoteDuration;
-  const minTimeSpan = 1000 * Math.max(0.5, smoothCurrentTimeDivisor);
-  const timeSpan = Math.max(requiredTimeSpan, minTimeSpan);
-  
-  // For backwards compatibility, still calculate dropDistance
-  const dropDistance = availableSpaceBelow;
-  const currentTimeMs = performance.now();
+  // Draw shadow first (1px offset to right and bottom)
+  ink("black").line(timelineStartX + 1, nowLineY + 1, timelineEndX + 1, nowLineY + 1);
+  // Draw main line
+  ink(nowLineColor).line(timelineStartX, nowLineY, timelineEndX, nowLineY);
 
-  // Draw flowing notes for each track
-  tracks.forEach((track, trackIndex) => {
-    if (!track || track.length === 0) return;
+  // ENABLED: Get ALL history items that would be visible from top to bottom of screen
+  const extendedHistoryItems = getExtendedHistoryItems(
+    currentTimeMs,
+    futureTimeWindowMs,
+    trackCount,
+    screen.height,
+    scaledPixelsPerSecond,
+  );
 
-    const trackX = tracks.length === 1 ? startX : startX + trackIndex * trackSpacing;
+  // ENABLED: Get future notes that should be precomputed and displayed up to the top of screen
+  const futureNotes = getFutureNotes(currentTimeMs, screen.height, scaledPixelsPerSecond, melodyState, nowLineY);
 
-    // Get current note index
-    let currentNoteIndex = -1;
-    if (hasFirstSynthFired) {
-      if (melodyState.type === "single") {
-        currentNoteIndex = getCurrentNoteIndex(melodyState);
-      } else if (melodyState.type === "parallel" && melodyState.trackStates && melodyState.trackStates[trackIndex]) {
-        currentNoteIndex = getCurrentNoteIndex(melodyState, trackIndex);
-      }
-    }
 
-    if (currentNoteIndex < 0) return;
 
-    // Calculate current note timing
-    let noteStartTime = 0;
-    let noteDuration = 0;
-    let noteProgress = 0;
+  // ENABLED: Combine history, current, and future notes for complete timeline visualization
+  const allTimelineItems = [...extendedHistoryItems, ...futureNotes];
 
+
+
+  // Only show currently active notes - no history or future notes
+  // const allTimelineItems = [];
+  // Add only the currently playing note(s) if timing has started
+  if (hasFirstSynthFired && melodyState) {
+    // Unified logic for both single and parallel tracks
     if (melodyState.type === "single") {
-      noteStartTime = currentNoteStartTime;
-      noteDuration = currentNoteDuration;
-      if (noteStartTime > 0 && noteDuration > 0) {
-        const elapsed = currentTimeMs - noteStartTime;
-        noteProgress = Math.max(0, Math.min(1, elapsed / noteDuration));
-      }
-    } else if (melodyState.type === "parallel" && melodyState.trackStates && melodyState.trackStates[trackIndex]) {
-      const trackState = melodyState.trackStates[trackIndex];
-      if (trackState && trackState.startTime > 0) {
-        const currentNote = track[currentNoteIndex];
-        if (currentNote && currentNote.duration) {
-          noteStartTime = trackState.startTime;
-          noteDuration = currentNote.duration * melodyState.baseTempo;
-          const elapsed = currentTimeMs - noteStartTime;
-          noteProgress = Math.max(0, Math.min(1, elapsed / noteDuration));
+      // Single track - add the currently playing note
+      const currentNoteIndex = getCurrentNoteIndex(melodyState);
+      if (
+        currentNoteIndex >= 0 &&
+        melodyState.notes &&
+        melodyState.notes[currentNoteIndex]
+      ) {
+        const currentNote = melodyState.notes[currentNoteIndex];
+        // Use the tracked timing variables if available, otherwise estimate
+        let noteStartTime, noteEndTime;
+        if (lastNoteStartTime && lastNoteDuration) {
+          noteStartTime = lastNoteStartTime;
+          noteEndTime = lastNoteStartTime + lastNoteDuration;
+        } else if (currentNoteStartTime && currentNoteDuration) {
+          noteStartTime = currentNoteStartTime;
+          noteEndTime = currentNoteStartTime + currentNoteDuration;
+        } else {
+          // Fallback timing estimation
+          noteStartTime = currentTimeMs;
+          noteEndTime = currentTimeMs + baseTempo;
         }
+
+        const activeNoteItem = {
+          note: currentNote.note,
+          octave: currentNote.octave,
+          startTime: noteStartTime,
+          endTime: noteEndTime,
+          trackIndex: 0,
+          waveType: currentNote.waveType || "sine",
+          volume: currentNote.volume || 0.8,
+          isMutation: currentNote.isMutation || false,
+          struck: currentNote.struck || false,
+        };
+        allTimelineItems.push(activeNoteItem);
+      }
+    } else if (melodyState.type === "parallel" && melodyState.trackStates) {
+      // Parallel tracks - add currently playing notes from each track
+      // Use the same robust timing logic as single tracks
+      melodyState.trackStates.forEach((trackState, trackIndex) => {
+        if (trackState && trackState.track && trackState.track.length > 0) {
+          // Get the current note index for this specific track using getCurrentNoteIndex
+          const currentNoteIndex = getCurrentNoteIndex(melodyState, trackIndex);
+          
+          if (currentNoteIndex >= 0 && currentNoteIndex < trackState.track.length) {
+            const currentNote = trackState.track[currentNoteIndex];
+            
+            if (currentNote) {
+              // For parallel tracks, each track may have its own timing
+              // Use the global timing variables as the primary source, but allow track-specific timing
+              let noteStartTime, noteEndTime;
+              
+              if (lastNoteStartTime && lastNoteDuration) {
+                // Use global timing - all parallel tracks should be synchronized
+                noteStartTime = lastNoteStartTime;
+                noteEndTime = lastNoteStartTime + lastNoteDuration;
+              } else if (trackState.lastNoteStartTime && trackState.lastNoteDuration) {
+                // Use track-specific timing if available
+                noteStartTime = trackState.lastNoteStartTime;
+                noteEndTime = trackState.lastNoteStartTime + trackState.lastNoteDuration;
+              } else if (currentNoteStartTime && currentNoteDuration) {
+                // Fallback to legacy timing variables
+                noteStartTime = currentNoteStartTime;
+                noteEndTime = currentNoteStartTime + currentNoteDuration;
+              } else {
+                // Final fallback - estimate based on current time
+                noteStartTime = currentTimeMs;
+                noteEndTime = currentTimeMs + (currentNote.duration * melodyState.baseTempo);
+              }
+
+              const activeNoteItem = {
+                note: currentNote.note,
+                octave: currentNote.octave || octave,
+                startTime: noteStartTime,
+                endTime: noteEndTime,
+                trackIndex: trackIndex,
+                waveType: currentNote.waveType || "sine",
+                volume: currentNote.volume || 0.8,
+                isMutation: currentNote.isMutation || false,
+                struck: currentNote.struck || false,
+              };
+              allTimelineItems.push(activeNoteItem);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // Calculate the musical timing reference once for all notes
+  // Use current time as the reference point for timeline visualization
+  const musicalTimeReference = currentTimeMs;
+
+  // Draw all the note bars from combined history and future notes
+  const trackWidth = timelineWidth / trackCount;
+
+  // Sort timeline items by startTime to ensure proper order
+  const sortedTimelineItems = allTimelineItems.sort((a, b) => a.startTime - b.startTime);
+
+  // Pre-calculate positions for seamless history note flow
+  // History notes should connect end-to-start regardless of individual timing
+  const historyNotes = sortedTimelineItems.filter(item => {
+    // Use more stable criteria for history detection to prevent flickering
+    const isCurrentlyPlaying = (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) ||
+                              (lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < 50);
+    const isHistory = item.endTime < musicalTimeReference && !isCurrentlyPlaying;
+    return isHistory;
+  });
+
+  // Calculate connected positions for history notes (most recent first) - STABLE positioning
+  const historyPositions = new Map();
+  if (historyNotes.length > 0) {
+    // For parallel tracks, we need to calculate positions per track
+    // Group history notes by track index
+    const historyByTrack = new Map();
+    
+    for (let trackIdx = 0; trackIdx < trackCount; trackIdx++) {
+      const trackHistoryNotes = historyNotes.filter(item => item.trackIndex === trackIdx);
+      if (trackHistoryNotes.length > 0) {
+        historyByTrack.set(trackIdx, trackHistoryNotes.sort((a, b) => b.endTime - a.endTime));
+      }
+    }
+    
+    // Calculate positions for each track independently
+    historyByTrack.forEach((trackHistoryNotes, trackIdx) => {
+      // Start from the bottom of the active note for this track, or NOW line if no active note
+      let currentEndY = nowLineY;
+      
+      // Find the active note for this specific track using stable timing detection
+      const activeNoteForTrack = sortedTimelineItems.find(item => {
+        if (item.trackIndex !== trackIdx) return false;
+        // Use consistent timing detection to prevent flickering
+        const timingTolerance = 50; // Consistent with main detection logic
+        const isCurrentlyPlaying = (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) ||
+                                   (lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < timingTolerance);
+        return isCurrentlyPlaying;
+      });
+      
+      if (activeNoteForTrack) {
+        // Calculate where the active note ends for this track using its actual timing
+        const activeNoteDurationMs = activeNoteForTrack.endTime - activeNoteForTrack.startTime;
+        const activeNoteHeightPixels = Math.max(1, Math.round((activeNoteDurationMs / 1000) * scaledPixelsPerSecond));
+        // Use the note's actual timing for progress calculation
+        const noteProgress = (musicalTimeReference - activeNoteForTrack.startTime) / activeNoteDurationMs;
+        const noteProgressClamped = Math.max(0, Math.min(1, noteProgress));
+        const adjustedNoteTopY = nowLineY - activeNoteHeightPixels + noteProgressClamped * activeNoteHeightPixels;
+        const activeNoteStartY = Math.round(adjustedNoteTopY);
+        const activeNoteEndY = activeNoteStartY + activeNoteHeightPixels;
+        currentEndY = activeNoteEndY; // Start history notes from the bottom of the active note
+      }
+      
+      // Position history notes for this track
+      for (const historyNote of trackHistoryNotes) {
+        const noteDurationMs = historyNote.endTime - historyNote.startTime;
+        const noteHeightPixels = Math.max(1, Math.round((noteDurationMs / 1000) * scaledPixelsPerSecond));
+        
+        // Position this note so it starts at currentEndY (seamless connection)
+        // Use consistent integer positioning to prevent pixel jitter
+        const barStartY = Math.round(currentEndY);
+        const barEndY = barStartY + noteHeightPixels;
+        
+        historyPositions.set(historyNote, { barStartY, barEndY });
+        
+        // Next note (older) should start where this note ends
+        currentEndY = barEndY;
+      }
+    });
+  }
+
+  sortedTimelineItems.forEach((historyItem) => {
+    const {
+      note,
+      octave: noteOctave,
+      startTime,
+      endTime,
+      trackIndex,
+      waveType,
+      volume,
+      isMutation,
+      struck,
+    } = historyItem;
+
+    // Skip if note is out of bounds for track count
+    if (trackIndex >= trackCount) return;
+
+    // Calculate track horizontal position
+    const trackX = Math.round(timelineStartX + trackIndex * trackWidth);
+    const trackCenterX = Math.round(trackX + trackWidth / 2);
+
+    // Convert time to VERTICAL screen position using the draggable NOW line
+    // Future notes (startTime > musicalTimeReference) appear above the NOW line (smaller Y values)
+    // Current notes (startTime <= musicalTimeReference <= endTime) cross the NOW line
+    // History notes (endTime < musicalTimeReference) appear below the NOW line (larger Y values)
+    const timeDifferenceStart = (startTime - musicalTimeReference) / 1000; // Convert to seconds
+    const timeDifferenceEnd = (endTime - musicalTimeReference) / 1000;
+
+    // Calculate consistent note height based on duration FIRST
+    const noteDurationMs = endTime - startTime;
+    const noteDurationSeconds = noteDurationMs / 1000;
+    // Use Math.round for consistent sizing, ensure minimum 1px height
+    const noteHeightPixels = Math.max(
+      1,
+      Math.round(noteDurationSeconds * scaledPixelsPerSecond),
+    );
+    
+    // Determine colors and positioning
+    let barColor, textColor, hasBackgroundBlink = false;
+    let isCurrentlyPlaying, isHistory, isFuture;
+    let barStartY, barEndY;
+
+    // Determine note type based on timing - FIXED: For parallel tracks, use note-specific timing
+    // Check if this specific note is currently playing (more robust for parallel tracks)
+    const noteStartTime = startTime;
+    const noteEndTime = endTime;
+    const noteActualDurationMs = noteEndTime - noteStartTime;
+    
+    // For notes with duration modifiers, use note-specific timing for smooth animation
+    // This prevents jank when notes have different durations (like c.e..f.g..e.b...)
+    const timingTolerance = 25; // Tighter tolerance for more precise timing with duration modifiers
+    
+    // Primary timing detection uses the note's actual start/end times
+    const isWithinNoteTiming = (musicalTimeReference >= noteStartTime && musicalTimeReference <= noteEndTime);
+    
+    // Secondary detection for timing synchronization (only when primary fails)
+    const isNearGlobalTiming = lastNoteStartTime > 0 && Math.abs(startTime - lastNoteStartTime) < timingTolerance;
+    
+    isCurrentlyPlaying = isWithinNoteTiming || (isNearGlobalTiming && !isWithinNoteTiming);
+    
+    // More precise history/future detection to prevent state flickering
+    isHistory = endTime < musicalTimeReference && !isCurrentlyPlaying;
+    isFuture = startTime > musicalTimeReference && !isCurrentlyPlaying;
+
+    if (isCurrentlyPlaying) {
+      // Currently playing notes flow through the NOW line during playback
+      // FIXED: Use the actual note's timing for parallel tracks with different durations
+      const actualNoteEndTime = noteEndTime;
+      const noteProgress = (musicalTimeReference - noteStartTime) / (actualNoteEndTime - noteStartTime);
+      const noteProgressClamped = Math.max(0, Math.min(1, noteProgress));
+      
+      // Calculate where the note should be positioned as it flows through the line
+      const adjustedNoteTopY = nowLineY - noteHeightPixels + noteProgressClamped * noteHeightPixels;
+      barStartY = Math.round(adjustedNoteTopY);
+      barEndY = barStartY + noteHeightPixels;
+
+    } else if (isFuture) {
+      // Future notes flow upward toward cyan line - use Math.round for consistency
+      const timeToStart = (startTime - musicalTimeReference) / 1000;
+      const pixelOffset = Math.round(timeToStart * scaledPixelsPerSecond);
+      barStartY = Math.round(nowLineY - pixelOffset - noteHeightPixels);
+      barEndY = barStartY + noteHeightPixels;
+
+    } else if (isHistory) {
+      // Use pre-calculated seamless positions for history notes
+      const preCalculatedPosition = historyPositions.get(historyItem);
+      if (preCalculatedPosition) {
+        barStartY = preCalculatedPosition.barStartY;
+        barEndY = preCalculatedPosition.barEndY;
+      } else {
+        // Fallback to original logic if position not found
+        const timeWhenEnded = (musicalTimeReference - endTime) / 1000;
+        const pixelOffset = Math.round(timeWhenEnded * scaledPixelsPerSecond);
+        barEndY = Math.round(nowLineY + pixelOffset);
+        barStartY = barEndY - noteHeightPixels;
       }
     }
 
-    // Draw notes in a range around current position
-    // Calculate how many notes we need to show based on timeSpan and average note duration
-    const notesToShowBehind = Math.max(20, Math.ceil(timeSpan / avgNoteDuration) + 10); // Dynamic based on time span
-    const notesToShowAhead = Math.max(20, Math.ceil(timeSpan / avgNoteDuration) + 10); // Dynamic based on time span
+    // For smooth transitions, calculate how much the note has moved across the NOW line
+    const crossingProgress = isCurrentlyPlaying
+      ? Math.min(1, (musicalTimeReference - startTime) / (endTime - startTime))
+      : isFuture
+        ? 0
+        : 1;
 
-    // Track gray notes for debugging
-    const grayNotes = [];
-
-    for (let i = -notesToShowBehind; i <= notesToShowAhead; i++) {
-      const noteIndex = (currentNoteIndex + i + track.length) % track.length;
-      const note = track[noteIndex];
-      if (!note || note.note === "rest") continue;
-
-      let noteY, boxColor, textColor;
-
-      if (i < 0) {
-        // Past notes (below cyan line) - calculate cumulative duration from current note backwards
-        let cumulativeDuration = noteProgress * noteDuration; // Time already elapsed in current note
-        
-        // Add durations of notes between current and this past note using smooth tempo
-        for (let j = -1; j >= i; j--) {
-          const pastNoteIndex = (currentNoteIndex + j + track.length) % track.length;
-          const pastNote = track[pastNoteIndex];
-          if (pastNote) {
-            const smoothBaseTempo = (smoothCurrentTimeDivisor * 1000) / 2;
-            cumulativeDuration += (pastNote.duration || 2) * smoothBaseTempo;
-          }
-        }
-        
-        noteY = actualTimingLineY + (cumulativeDuration * visualSpeed);
-        boxColor = "gray";
-        textColor = "brown";
-        
-        // Track gray note for debugging
-        grayNotes.push({
-          note: note.note,
-          i: i,
-          noteY: noteY,
-          cumulativeDuration: cumulativeDuration,
-          visualSpeed: visualSpeed,
-          actualTimingLineY: actualTimingLineY,
-          screenHeight: screen.height,
-          isVisible: noteY >= -50 && noteY <= screen.height + 50,
-          shouldReachBottom: cumulativeDuration >= timeSpan
-        });
-      } else if (i === 0) {
-        // Current note (at/near cyan line with envelope)
-        // Use the actual note progress and duration for consistent speed
-        const currentNoteDistance = noteProgress * (note.duration * melodyState.baseTempo) * visualSpeed;
-        noteY = actualTimingLineY + currentNoteDistance;
-        
-        // Red with envelope fading to gray
-        if (noteProgress < 0.7) {
-          boxColor = "red";
-          textColor = "white";
-        } else {
-          // Fade from red to gray in the last 30% of the note
-          boxColor = "gray";
-          textColor = "brown";
-        }
+    if (note === "rest") {
+      // Rests - gray with different shades for time periods
+      if (isHistory) {
+        barColor = [60, 60, 60]; // Darker gray for history rests
+      } else if (isFuture) {
+        barColor = [140, 140, 140]; // Lighter gray for future rests
       } else {
-        // Future notes (above cyan line) - calculate cumulative duration from current note forwards
-        let cumulativeDuration = (1 - noteProgress) * noteDuration; // Remaining time in current note
-        
-        // Add durations of notes between current and this future note using smooth tempo
-        for (let j = 1; j < i; j++) {
-          const futureNoteIndex = (currentNoteIndex + j) % track.length;
-          const futureNote = track[futureNoteIndex];
-          if (futureNote) {
-            const smoothBaseTempo = (smoothCurrentTimeDivisor * 1000) / 2;
-            cumulativeDuration += (futureNote.duration || 2) * smoothBaseTempo;
-          }
-        }
-        
-        noteY = actualTimingLineY - (cumulativeDuration * visualSpeed);
-        boxColor = "black";
-        textColor = "white";
+        barColor = [102, 102, 102]; // Medium gray for current rests
       }
+      textColor = "white";
+    } else {
+      // Use rainbow colors for notes with smooth transitions
+      const baseNoteColor = getNoteColor(note);
 
-      // Only draw if visible on screen
-      if (noteY >= -50 && noteY <= screen.height + 50) {
-        const noteBoxWidth = 20;
-        const noteBoxHeight = 16;
+      if (isHistory) {
+        // Past/history notes - smoothly fade to much darker as they get older
+        const ageMs = musicalTimeReference - endTime;
+        const fadeAmount = Math.min(1, ageMs / 2000); // Fade over 2 seconds
+        const darkFactor = 0.15 + 0.25 * (1 - fadeAmount); // From 0.4 to 0.15 (much darker)
+        barColor = baseNoteColor.map((c) => Math.round(c * darkFactor));
+        textColor = [200, 200, 200]; // Light gray text for better readability on dark history notes
+      } else if (isCurrentlyPlaying) {
+        // Currently playing note - bright with strong pulsing background blink
+        const brightColor = getBrighterColor(baseNoteColor);
 
-        // Draw note box
-        ink(boxColor).box(
-          trackX - noteBoxWidth/2, 
-          noteY - noteBoxHeight/2, 
-          noteBoxWidth, 
-          noteBoxHeight
+        // Add stronger pulsing background blink effect for active notes
+        const pulseSpeed = 8; // Pulse speed
+        const pulsePhase =
+          (performance.now() / 1000) * pulseSpeed * 2 * Math.PI;
+        const pulseIntensity = (Math.sin(pulsePhase) + 1) / 2; // 0 to 1
+
+        // Blend between bright color and super-bright for strong pulsing effect
+        const superBrightColor = brightColor.map((c) =>
+          Math.min(255, Math.round(c * 1.3)),
+        ); // 30% brighter
+        barColor = brightColor.map((c, i) =>
+          Math.round(c + (superBrightColor[i] - c) * pulseIntensity),
         );
 
-        // Draw note text
-        const noteText = note.note.toUpperCase();
-        ink(textColor).write(noteText, {
-          x: trackX - 3,
-          y: noteY - 4,
-          scale: 1.2,
-        });
+        hasBackgroundBlink = true;
+        textColor = "white";
+      } else if (isFuture) {
+        // Future notes - normal color with slight approach brightening
+        const approachDistance = startTime - currentTimeMs;
+        const approachBrightening = Math.max(0, 1 - approachDistance / 5000); // Brighten as we approach
+        const brightness = 0.85 + 0.15 * approachBrightening;
+        barColor = baseNoteColor.map((c) => Math.round(c * brightness));
+        textColor = "black";
+      } else {
+        // Fallback - normal note color
+        barColor = baseNoteColor;
+        textColor = "black";
       }
     }
 
-    // Removed debug logging for production
+    // Only render notes that are visible - always draw boxes even if 1px high
+    // Note labels are skipped for very small notes to avoid visual clutter
+    if (barEndY >= -noteHeightPixels && barStartY <= screen.height + noteHeightPixels) {
+      // Draw note bar (skip rests visual for now, focus on notes)
+      if (note !== "rest") {
+        const barWidth = Math.round(trackWidth); // Ensure integer width
+        const barX = trackX; // Already rounded above
+
+        // No spacing - notes should flow seamlessly together with consistent positioning
+        let actualBarStartY = barStartY;
+        let actualBarHeight = noteHeightPixels;
+
+        // Allow notes to draw naturally past screen edges for smooth scrolling
+        let renderStartY = actualBarStartY;
+        let renderHeight = actualBarHeight;
+
+        // Ensure we have valid integer coordinates
+        renderHeight = Math.max(1, Math.round(renderHeight));
+        renderStartY = Math.round(renderStartY);
+
+        // Draw notes even if they extend past screen edges - let them scroll off naturally
+        if (renderHeight >= 1) {
+          // Ensure barColor is properly formatted for ink()
+          let inkColor;
+          if (Array.isArray(barColor)) {
+            // Convert RGB array to ink-compatible format - use the RGB array directly
+            inkColor = barColor;
+          } else {
+            inkColor = barColor;
+          }
+
+          // Draw the main note bar - use RGB array directly for ink() with integer coordinates
+          // Notes are drawn with no borders and designed to overlap seamlessly
+          ink(inkColor).box(barX, renderStartY, barWidth, renderHeight);
+
+          // Unified note label rendering logic for all note types (history, active, future)
+          // Show labels when note height >= 15px and track width >= 15px for consistent readability
+          // Show labels on currently playing notes for active feedback
+          if (noteHeightPixels >= 15 && barWidth >= 15) {
+            // Calculate label position based on the ACTUAL note bar position (not clipped renderStartY)
+            const labelY = Math.round(actualBarStartY + actualBarHeight / 2 - 4);
+            const labelX = Math.round(barX + barWidth / 2 - 3);
+
+            // Keep label visible as long as any part of the note is on screen
+            // Only hide when the label itself would be completely off-screen
+            if (labelY >= -4 && labelY <= screen.height + 4) {
+              ink(textColor).write(note.toUpperCase(), {
+                x: labelX,
+                y: labelY,
+                scale: 0.8,
+              });
+            }
+          }
+
+
+        }
+      }
+    } else {
+      // Note completely off-screen - don't render
+    }
   });
+
+  // 📊 VISUAL GEOMETRY LOG - REMOVED for cleaner console output
+}
+
+// Draw simplified timeline background for vertical layout
+function drawTimelineBackground(
+  ink,
+  write,
+  screen,
+  currentTimeMs,
+  pixelsPerSecond,
+  timeWindowSeconds,
+  startX,
+  endX,
+  centerY,
+) {
+  // Draw minimal clean background - no division lines, measure markers, or background color
+  // Completely transparent background - no visual elements drawn
+}
+
+// 📚 Library
+
+// Add a note to the history buffer
+function addNoteToHistory(
+  note,
+  octave,
+  startTime,
+  duration,
+  trackIndex = 0,
+  waveType = "sine",
+  volume = 0.8,
+  isMutation = false,
+  struck = false,
+) {
+  const historyItem = {
+    note: note,
+    octave: octave,
+    startTime: startTime,
+    endTime: startTime + duration,
+    trackIndex: trackIndex,
+    waveType: waveType,
+    volume: volume,
+    isMutation: isMutation,
+    struck: struck,
+  };
+
+  historyBuffer.push(historyItem);
+
+  // Keep history buffer size manageable
+  if (historyBuffer.length > MAX_HISTORY_ITEMS) {
+    historyBuffer.shift(); // Remove oldest item
+  }
+}
+
+// Get history items that should be visible on the timeline
+function getVisibleHistoryItems(currentTimeMs, timeWindowMs, trackCount = 1) {
+  const startTime = currentTimeMs - timeWindowMs;
+  const endTime = currentTimeMs + timeWindowMs;
+
+  return historyBuffer
+    .filter((item) => {
+      // Include items that overlap with the visible time window
+      return item.endTime >= startTime && item.startTime <= endTime;
+    })
+    .sort((a, b) => a.startTime - b.startTime); // Sort by start time
+}
+
+// Get extended history items that fill the entire screen from top to bottom
+function getExtendedHistoryItems(
+  currentTimeMs,
+  timeWindowMs,
+  trackCount = 1,
+  screenHeight,
+  pixelsPerSecond,
+) {
+  // Calculate how far back in time we need to go to fill the screen from top to NOW line
+  const timeToTopOfScreen = (screenHeight / pixelsPerSecond) * 1000; // Convert to milliseconds
+  const extendedStartTime = currentTimeMs - timeToTopOfScreen;
+  const endTime = currentTimeMs + timeWindowMs;
+
+  const filteredItems = historyBuffer
+    .filter((item) => {
+      return (
+        item.endTime >= extendedStartTime &&
+        item.startTime <= endTime &&
+        item.trackIndex < trackCount
+      );
+    })
+    .sort((a, b) => a.startTime - b.startTime); // Sort by start time
+    
+  return filteredItems;
+}
+
+// Get future notes that should be visible extending up from NOW line to top of screen
+function getFutureNotes(
+  currentTimeMs,
+  screenHeight,
+  pixelsPerSecond,
+  melodyState,
+  nowLineY,
+) {
+  const futureNotes = [];
+
+  if (!melodyState || !hasMelodyContent(melodyState)) {
+    return futureNotes;
+  }
+
+  // Calculate how much future time we need to fill from NOW line to top of screen
+  const timeToTopOfScreen = (nowLineY / pixelsPerSecond) * 1000; // Convert to milliseconds
+  const futureEndTime = currentTimeMs + timeToTopOfScreen;
+
+  if (melodyState.type === "single") {
+    // Single track - predict future notes starting from where the current note ends
+    // This ensures seamless visual connection between active note and future notes
+    let predictTime;
+    let noteIndex;
+    
+    if (lastNoteStartTime > 0 && lastNoteDuration > 0) {
+      // Start future notes exactly where current note ends for seamless flow
+      predictTime = lastNoteStartTime + lastNoteDuration;
+      
+      // FIXED: Find the ACTUAL currently playing note by matching with lastNoteStartTime
+      // This ensures we use the correct note index regardless of melodyState.index sync issues
+      let actualCurrentNoteIndex = melodyState.index;
+      
+      // Try to find the actual current note by looking for the note that matches our timing
+      // This helps when melodyState.index gets out of sync with actual playback
+      for (let i = 0; i < melodyState.notes.length; i++) {
+        const testNoteStart = lastNoteStartTime;
+        const testNoteEnd = lastNoteStartTime + lastNoteDuration;
+        // Use a simple approach - just use melodyState.index but validate it
+        // The real issue is that melodyState.index advances before lastNoteStartTime updates
+        // So melodyState.index is likely pointing to the NEXT note, not the current one
+      }
+      
+      // CORRECTED: If melodyState.index is ahead, use the previous note index
+      // When a note starts playing, melodyState.index advances but lastNoteStartTime reflects the current note
+      const possibleCurrentIndex = (melodyState.index - 1 + melodyState.notes.length) % melodyState.notes.length;
+      const currentNote = melodyState.notes[possibleCurrentIndex];
+      const melodyStateNote = melodyState.notes[melodyState.index];
+      
+      // Check if melodyState.index is pointing to the next note (most likely scenario)
+      // If melodyState shows 'g' but we're playing 'e', then melodyState.index is 1 ahead
+      actualCurrentNoteIndex = possibleCurrentIndex;
+      noteIndex = melodyState.index; // Next note is what melodyState.index is pointing to
+      
+      // DEBUG: Enhanced debugging to show the synchronization issue
+      const nextNote = melodyState.notes[noteIndex];
+    } else {
+      // Fallback to nextNoteTargetTime if no current note info
+      predictTime = nextNoteTargetTime || currentTimeMs;
+      noteIndex = melodyState.index;
+    }
+
+    while (predictTime < futureEndTime && futureNotes.length < 100) {
+      // Limit to prevent infinite loops
+      const noteData = melodyState.notes[noteIndex];
+      if (!noteData) break;
+
+      const noteDuration = noteData.duration * melodyState.baseTempo;
+
+      futureNotes.push({
+        note: noteData.note,
+        octave: noteData.octave || octave,
+        startTime: predictTime,
+        endTime: predictTime + noteDuration,
+        trackIndex: 0,
+        waveType: noteData.waveType || "sine",
+        volume: noteData.volume || 0.8,
+        isMutation: false,
+        struck: noteData.struck || false,
+      });
+
+      predictTime += noteDuration;
+      noteIndex = (noteIndex + 1) % melodyState.notes.length;
+    }
+  } else if (melodyState.type === "parallel" && melodyState.trackStates) {
+    // Parallel tracks - predict future notes for each track using precise timing
+    melodyState.trackStates.forEach((trackState, trackIndex) => {
+      if (!trackState.track || trackState.track.length === 0) return;
+
+      // Start future notes exactly where current note ends for seamless visual flow
+      let predictTime;
+      let noteIndex;
+      
+      if (trackState.nextNoteTargetTime > 0) {
+        // For parallel tracks, start future notes from the nextNoteTargetTime
+        // This is when the next note will actually play
+        predictTime = trackState.nextNoteTargetTime;
+        noteIndex = trackState.noteIndex; // This is the next note that will play
+      } else {
+        // Fallback if no timing established yet
+        predictTime = currentTimeMs;
+        noteIndex = trackState.noteIndex || 0;
+      }
+
+      while (predictTime < futureEndTime && futureNotes.length < 500) {
+        // Higher limit for multiple tracks
+        const noteData = trackState.track[noteIndex];
+        if (!noteData) break;
+
+        const noteDuration = noteData.duration * melodyState.baseTempo;
+
+        futureNotes.push({
+          note: noteData.note,
+          octave: noteData.octave || octave,
+          startTime: predictTime,
+          endTime: predictTime + noteDuration,
+          trackIndex: trackIndex,
+          waveType: noteData.waveType || "sine",
+          volume: noteData.volume || 0.8,
+          isMutation: false,
+          struck: noteData.struck || false,
+        });
+
+        predictTime += noteDuration;
+        noteIndex = (noteIndex + 1) % trackState.track.length;
+      }
+    });
+  }
+
+  return futureNotes.sort((a, b) => a.startTime - b.startTime);
+}
+
+// Clear history buffer (useful for reset)
+function clearHistory() {
+  historyBuffer.length = 0;
 }
 
 // 📚 Library
@@ -2031,7 +2560,7 @@ function hasMelodyContent(melodyState) {
   if (melodyState.type === "single") {
     return melodyState.notes && melodyState.notes.length > 0;
   } else if (melodyState.type === "parallel") {
-    return melodyState.tracks && melodyState.tracks.length > 0;
+    return melodyState.trackStates && melodyState.trackStates.length > 0;
   } else if (melodyState.type === "multi") {
     return melodyState.tracks && melodyState.tracks.length > 0;
   }
@@ -2608,72 +3137,33 @@ function realignMelodyTiming(currentSyncedTime) {
   // No-op - we now check UTC time directly
 }
 
-// Smooth animation system - lerps flowing note positions for buttery smoothness
-function updateFlowingNotesAnimation({ screen }) {
-  // Calculate the actual target cyan timing line position
-  const centerY = Math.round(screen.height / 2);
-  const meterStartY = 0;
-  const meterEndY = screen.height;
-  const meterHeight = meterEndY - meterStartY;
-  const minTiming = 0.05;
-  const maxTiming = 3.0;
-  const scaleY = meterHeight / (maxTiming - minTiming);
-  const targetTimingLineY = Math.round(
-    centerY + (currentTimeDivisor - 1.0) * scaleY,
-  );
-
-  // Calculate target visual speed
-  const availableSpaceBelow = screen.height - targetTimingLineY;
-  const availableSpaceAbove = targetTimingLineY;
-  let avgNoteDuration = 2 * baseTempo; // Default fallback duration
-  
-  // Use cached values for stability during drag operations
-  const minTimeSpan = 1000 * Math.max(0.5, currentTimeDivisor);
-  let targetTimeSpan;
-  
-  if (flowingNotesCache.isDragging && flowingNotesCache.cacheValid) {
-    targetTimeSpan = flowingNotesCache.cachedTimeSpan;
-  } else {
-    const requiredTimeSpanBelow = availableSpaceBelow / (avgNoteDuration * 0.5);
-    const requiredTimeSpanAbove = availableSpaceAbove / (avgNoteDuration * 0.5);
-    const requiredTimeSpan = Math.max(requiredTimeSpanBelow, requiredTimeSpanAbove) * avgNoteDuration;
-    targetTimeSpan = Math.max(requiredTimeSpan, minTimeSpan);
-  }
-  
-  const targetVisualSpeed = Math.max(availableSpaceBelow, availableSpaceAbove) / targetTimeSpan;
-
-  // Initialize animation values on first run
-  if (!flowingNotesAnimation.isInitialized) {
-    flowingNotesAnimation.currentTimingLineY = targetTimingLineY;
-    flowingNotesAnimation.currentVisualSpeed = targetVisualSpeed;
-    flowingNotesAnimation.isInitialized = true;
-  }
-
-  // Smooth lerp to target values
-  const lerpFactor = flowingNotesCache.isDragging 
-    ? flowingNotesAnimation.lerpFactor * 0.5  // Slower lerp during dragging for stability
-    : flowingNotesAnimation.lerpFactor;       // Normal lerp speed
-    
-  flowingNotesAnimation.currentTimingLineY = 
-    flowingNotesAnimation.currentTimingLineY + 
-    (targetTimingLineY - flowingNotesAnimation.currentTimingLineY) * lerpFactor;
-    
-  flowingNotesAnimation.currentVisualSpeed = 
-    flowingNotesAnimation.currentVisualSpeed + 
-    (targetVisualSpeed - flowingNotesAnimation.currentVisualSpeed) * lerpFactor;
-
-  // Store lerped values for use in drawFlowingNotes
-  flowingNotesAnimation.targetTimingLineY = targetTimingLineY;
-  flowingNotesAnimation.targetVisualSpeed = targetVisualSpeed;
-}
-
 function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
-  // Handle mouse/touch interaction for timing adjustment
-  if (e.is("draw")) {
-    // Mark that we're dragging for animation stability
-    flowingNotesCache.isDragging = true;
-    
-    // Direct pixel-by-pixel adjustment
+  // Initialize NOW line position if not set
+  if (nowLineY === 0) {
+    nowLineY = screen.height / 2;
+  }
+
+  // Timeline area bounds for NOW line dragging
+  const timelineX = Math.round(screen.width / 4);
+  const timelineWidth = 150;
+  const timelineStartX = timelineX - timelineWidth / 2;
+  const timelineEndX = timelineX + timelineWidth / 2;
+
+  // Handle unified dragging: cyan line position AND timing adjustment in one action
+  if (e.is("touch")) {
+    // Allow dragging from anywhere on screen - no position restrictions
+    // Store initial position for relative dragging
+    isDraggingNowLine = true;
+  }
+
+  if (e.is("draw") && isDraggingNowLine) {
+    // UNIFIED ACTION: Update both NOW line position AND timing simultaneously
+
+    // 1. Update NOW line position RELATIVELY based on drag delta (not absolute position)
+    const newY = nowLineY + e.delta.y;
+    nowLineY = Math.max(50, Math.min(screen.height - 50, newY)); // Keep within bounds
+
+    // 2. ALSO adjust timing based on the same drag movement
     // Negative delta.y (moving up) decreases divisor (faster timing)
     // Positive delta.y (moving down) increases divisor (slower timing)
     const pixelMovement = e.delta.y * 0.01; // More sensitive pixel-to-timing conversion
@@ -2686,7 +3176,12 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
 
     // Update if there's any change (pixel-by-pixel)
     if (Math.abs(clampedDivisor - currentTimeDivisor) > 0.001) {
-      const oldDivisor = currentTimeDivisor;
+      // Only trigger tempo change if enough time has passed since last change
+      const now = performance.now();
+      if (now - lastTempoChangeTime > tempoChangeTolerance) {
+        lastTempoChangeTime = now;
+        tempoJustChanged = true; // Flag for immediate timing adjustment
+      }
 
       // Update the divisor values immediately
       currentTimeDivisor = clampedDivisor;
@@ -2700,53 +3195,16 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
       if (melodyState) {
         melodyState.baseTempo = baseTempo;
       }
-
-      // Recalculate nextNoteTargetTime to maintain flowing notes sync when timing changes
-      if (nextNoteTargetTime > 0 && oldDivisor !== currentTimeDivisor) {
-        const currentTimeMs = clock.time().getTime();
-        const timeSinceLastTarget = currentTimeMs - nextNoteTargetTime;
-        const oldBeatDuration = oldDivisor * 1000;
-        const newBeatDuration = currentTimeDivisor * 1000;
-
-        // Adjust the next note target time based on the new timing
-        const beatProgress = timeSinceLastTarget / oldBeatDuration;
-        nextNoteTargetTime = currentTimeMs - beatProgress * newBeatDuration;
-      }
-
-      // Also update parallel track timing if it exists
-      if (
-        melodyState &&
-        melodyState.type === "parallel" &&
-        melodyState.trackStates
-      ) {
-        melodyState.trackStates.forEach((trackState) => {
-          if (trackState.nextNoteTargetTime > 0) {
-            const currentTimeMs = clock.time().getTime();
-            const timeSinceLastTarget =
-              currentTimeMs - trackState.nextNoteTargetTime;
-            const oldBeatDuration = oldDivisor * 1000;
-            const newBeatDuration = currentTimeDivisor * 1000;
-
-            // Adjust the next note target time based on the new timing
-            const beatProgress = timeSinceLastTarget / oldBeatDuration;
-            trackState.nextNoteTargetTime =
-              currentTimeMs - beatProgress * newBeatDuration;
-          }
-        });
-      }
     }
 
     // Stop any ongoing lerping when actively dragging
     isLerpingToSync = false;
   }
 
-  // Reset any drag state when user stops dragging
+  // Stop dragging when touch ends
   if (e.is("lift")) {
-    // Mark dragging as finished and invalidate cache for smooth transition
-    flowingNotesCache.isDragging = false;
-    flowingNotesCache.cacheValid = false;
+    isDraggingNowLine = false;
   }
-  // Remove the lerp-back behavior - timing stays where user sets it
 
   // Handle screen resize/reframe - rebuild octave buttons
   if (e.is("reframed")) {
@@ -2863,11 +3321,17 @@ let nextNoteTargetTime = 0; // When the next note should play (UTC time)
 let lastResyncTime = 0; // Track when we last resynced
 const RESYNC_INTERVAL = 3000; // Resync every 3 seconds
 
+// Simple musical state - no complex timeline needed
+let musicalState = {
+  lastSyncTime: 0,
+  isInitialized: false,
+};
+
 function sim({ sound, beep, clock, num, help, params, colon, screen }) {
   sound.speaker?.poll();
 
-  // Update smooth animation system for flowing notes
-  updateFlowingNotesAnimation({ screen });
+  // Get current time for timing calculations
+  const now = performance.now();
 
   // Early exit if we're leaving the piece to prevent new sounds
   if (isLeavingPiece) {
@@ -2883,8 +3347,13 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
   // Get the current synced time
   const syncedDate = clock.time();
 
+  // Simple musical state initialization
+  if (!musicalState.isInitialized && syncedDate) {
+    musicalState.lastSyncTime = syncedDate.getTime();
+    musicalState.isInitialized = true;
+  }
+
   // Periodically resync the clock to stay accurate
-  const now = performance.now();
   if (now - lastResyncTime > RESYNC_INTERVAL) {
     try {
       clock.resync();
@@ -2957,7 +3426,20 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             melodyState.isFallback,
             struck, // Pass the struck flag for note timing behavior
           );
-          
+
+          // Add note to history buffer for visual timeline
+          addNoteToHistory(
+            note,
+            noteOctave || octave,
+            currentTime,
+            noteDuration,
+            0, // Track 0 for single track
+            waveType || "sine",
+            volume || 0.8,
+            false, // Not a mutation (mutations are added separately)
+            struck,
+          );
+
           // Increment total notes played for persistent white note history
           totalNotesPlayed++;
         } catch (error) {
@@ -2966,6 +3448,22 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             "color: red; background: black; font-weight: bold; padding: 2px;",
           );
         }
+      } else {
+        // Log rest notes too for complete timing tracking - but less verbosely
+        const restDuration = duration * melodyState.baseTempo;
+
+        // Add rest to history buffer too for complete timeline
+        addNoteToHistory(
+          "rest",
+          noteOctave || octave,
+          currentTime,
+          restDuration,
+          0, // Track 0 for single track
+          waveType || "sine",
+          volume || 0.8,
+          false,
+          struck,
+        );
       }
 
       if (waveType || swing) {
@@ -2988,7 +3486,10 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
       melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
 
       // Track completed sequences for white note history
-      if (oldIndex === melodyState.notes.length - 1 && melodyState.index === 0) {
+      if (
+        oldIndex === melodyState.notes.length - 1 &&
+        melodyState.index === 0
+      ) {
         completedSequences++;
       }
 
@@ -3077,15 +3578,44 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
     }
   }
 
-  // Super simple melody timing - check against target time
-  if (time && !wasInStandby) {
+  // Super simple melody timing - use direct UTC time
+  if (time && !wasInStandby && musicalState.isInitialized) {
     // Skip timing checks on standby frames to prevent rapid-fire
-    const currentTimeMs = time.getTime();
+    const currentTimeMs = time.getTime(); // Use direct UTC time for musical sync
     let anyTrackPlayed = false; // Track whether any track played in this frame
+
+    // Handle immediate tempo changes for overlapping sounds
+    if (tempoJustChanged) {
+      tempoJustChanged = false; // Reset the flag
+
+      // IMMEDIATE TEMPO RESPONSE: Allow overlapping sounds by adjusting timing immediately
+      if (
+        melodyState &&
+        melodyState.type === "single" &&
+        nextNoteTargetTime > 0
+      ) {
+        // Set next note to play very soon, creating overlap instead of waiting
+        nextNoteTargetTime = Math.min(nextNoteTargetTime, currentTimeMs + 50); // Max 50ms delay
+      } else if (
+        melodyState &&
+        melodyState.type === "parallel" &&
+        melodyState.trackStates
+      ) {
+        // Update all parallel tracks for immediate tempo response
+        melodyState.trackStates.forEach((trackState) => {
+          if (trackState.nextNoteTargetTime > 0) {
+            trackState.nextNoteTargetTime = Math.min(
+              trackState.nextNoteTargetTime,
+              currentTimeMs + 50,
+            );
+          }
+        });
+      }
+    }
 
     if (hasMelodyContent(melodyState)) {
       if (melodyState.type === "single") {
-        // Single track timing
+        // Single track timing - use simple direct timing
         if (nextNoteTargetTime === 0) {
           // Check if melody starts with rest notes - if so, skip ahead to first audible note
           let firstAudibleIndex = 0;
@@ -3187,33 +3717,36 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             melodyState.index = 0;
             nextNoteTargetTime = currentTimeMs;
           } else {
-            // First note is audible - use UTC boundary for normal timing
+            // First note is audible - use direct timing for normal timing
             nextNoteTargetTime = Math.ceil(currentTimeMs / 1000) * 1000;
           }
         }
 
-        // Check if it's time to play the next note
+        // Check if it's time to play the next note using direct timing
         if (nextNoteTargetTime > 0 && currentTimeMs >= nextNoteTargetTime) {
+          const timingGap = currentTimeMs - nextNoteTargetTime;
+
           bleep(time);
           anyTrackPlayed = true;
 
-          // Calculate next note target time
+          // Calculate next note target time using direct timing values
           const currentNoteData = melodyState.notes[melodyState.index];
           if (currentNoteData) {
             const noteDuration =
-              currentNoteData.duration * melodyState.baseTempo;
+              currentNoteData.duration * (melodyState.baseTempo || baseTempo); // Use consistent tempo
+            const oldTarget = nextNoteTargetTime;
             nextNoteTargetTime = currentTimeMs + noteDuration;
           }
         }
 
-        // Check for mutations during the gap between notes (after current note finishes, before next note starts)
+        // Check for mutations during the gap between notes (using direct timing)
         if (
           nextNoteTargetTime > 0 &&
           melodyState &&
           melodyState.notes &&
           melodyState.notes.length > 0
         ) {
-          // Calculate when the current note should have finished
+          // Calculate when the current note should have finished using direct timing
           const currentNoteData =
             melodyState.notes[
               (melodyState.index - 1 + melodyState.notes.length) %
@@ -3223,12 +3756,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
           if (currentNoteData && lastNoteStartTime > 0) {
             const currentNoteEndTime =
               lastNoteStartTime +
-              currentNoteData.duration * melodyState.baseTempo;
-
-            // (timing debug log removed)
+              currentNoteData.duration * (melodyState.baseTempo || baseTempo); // Use consistent tempo
 
             // Check if we're in the timing gap: current note has finished but next note hasn't started yet
-            // Also check if we're exactly at the transition point (when noteEndTime === nextTargetTime)
             if (
               (currentTimeMs >= currentNoteEndTime &&
                 currentTimeMs < nextNoteTargetTime) ||
@@ -3251,9 +3781,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                 !melodyState.lastMutationTriggered
               ) {
                 // We just finished the last note, trigger end-of-track mutation
-                console.log(
-                  `🎲 END-OF-TRACK MUTATION: previousNoteIndex=${previousNoteIndex}, lastNote=${melodyState.notes.length - 1}, lastMutationTriggered=${melodyState.lastMutationTriggered}`,
-                );
                 shouldMutate = true;
                 isEndOfTrackMutation = true;
                 melodyState.lastMutationTriggered = true; // Prevent rapid re-triggering
@@ -3431,12 +3958,16 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
           synced = true;
         }
       } else if (melodyState.type === "parallel" && melodyState.trackStates) {
-        // Parallel tracks timing - handle each track independently
+        // PERFECT DIVISIONAL TIMING: Each track maintains mathematical precision
         melodyState.trackStates.forEach((trackState, trackIndex) => {
           if (!trackState.track || trackState.track.length === 0) return;
 
           // Initialize timing for this track if not set
           if (trackState.nextNoteTargetTime === 0) {
+            // All tracks start from the same precise UTC second boundary
+            const utcStartTime = Math.ceil(currentTimeMs / 1000) * 1000;
+            trackState.nextNoteTargetTime = utcStartTime;
+
             // Find first audible note in this track
             let firstAudibleIndex = 0;
             while (
@@ -3450,17 +3981,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
               firstAudibleIndex > 0 &&
               firstAudibleIndex < trackState.track.length
             ) {
-              // Skip ahead to first audible note
               trackState.noteIndex = firstAudibleIndex;
-              trackState.nextNoteTargetTime = currentTimeMs;
             } else if (firstAudibleIndex >= trackState.track.length) {
-              // All notes are rests - start immediately anyway
               trackState.noteIndex = 0;
-              trackState.nextNoteTargetTime = currentTimeMs;
-            } else {
-              // First note is audible - use UTC boundary for normal timing
-              trackState.nextNoteTargetTime =
-                Math.ceil(currentTimeMs / 1000) * 1000;
             }
           }
 
@@ -3495,10 +4018,22 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     noteDuration,
                     volume || 0.8,
                     melodyState.isFallback,
-                    struck, // Pass the struck flag for note timing behavior
+                    struck,
                   );
-                  
-                  // Increment total notes played for persistent white note history
+
+                  // Add note to history buffer for visual timeline
+                  addNoteToHistory(
+                    note,
+                    noteOctave || octave,
+                    currentTimeMs,
+                    noteDuration,
+                    trackIndex,
+                    waveType || "sine",
+                    volume || 0.8,
+                    false, // Not a mutation (mutations are added separately)
+                    struck,
+                  );
+
                   totalNotesPlayed++;
                 } catch (error) {
                   console.error(
@@ -3506,12 +4041,42 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     "color: red; background: black; font-weight: bold; padding: 2px;",
                   );
                 }
+              } else {
+                // Add rest to history buffer for complete timeline
+                const restDuration = duration * melodyState.baseTempo;
+                addNoteToHistory(
+                  "rest",
+                  noteOctave || octave,
+                  currentTimeMs,
+                  restDuration,
+                  trackIndex,
+                  waveType || "sine",
+                  volume || 0.8,
+                  false,
+                  struck,
+                );
               }
 
               anyTrackPlayed = true;
-              
-              // Update timing tracking for this track (for red note drop animation)
+
+              // Update timing tracking for this track
               trackState.startTime = performance.now();
+
+              // Update global timing for flowing note animation AND timeline visualization
+              currentNoteStartTime = performance.now();
+              currentNoteDuration = duration * melodyState.baseTempo;
+              
+              // CRITICAL: For parallel tracks, use a more sophisticated approach to global timing
+              // Instead of overwriting global timing with each track, use the track that started most recently
+              // This prevents animation jitter when tracks have different durations
+              if (!lastNoteStartTime || currentTimeMs >= lastNoteStartTime) {
+                lastNoteStartTime = currentTimeMs; // Use currentTimeMs for consistency with single track
+                lastNoteDuration = duration * melodyState.baseTempo;
+              }
+              
+              // Also store track-specific timing for this track
+              trackState.lastNoteStartTime = currentTimeMs;
+              trackState.lastNoteDuration = duration * melodyState.baseTempo;
 
               // Advance to next note in this track
               const oldIndex = trackState.noteIndex;
@@ -3525,7 +4090,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
               ) {
                 // Check if this track has mutations
                 if (trackState.track.hasMutation) {
-                  // Apply mutation to this specific track
                   const originalTrack = [...trackState.track];
                   const mutatedTrack = mutateMelodyTrack(
                     trackState.track,
@@ -3533,7 +4097,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     octave,
                   );
 
-                  // Find which notes actually changed in this track
                   const mutationIndices = [];
                   let recentlyMutatedIndex = -1;
                   for (
@@ -3551,39 +4114,34 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                         originalNote.octave !== mutatedNote.octave)
                     ) {
                       mutationIndices.push(i);
-                      recentlyMutatedIndex = i; // This is the note that just changed
+                      recentlyMutatedIndex = i;
                     }
                   }
 
-                  // Update this track with mutated notes
                   trackState.track = mutatedTrack;
-
-                  // Preserve mutation metadata
                   trackState.track.hasMutation = true;
                   trackState.track.originalContent =
                     originalTrack.originalContent || originalTrack;
                   trackState.track.mutationCount =
                     (trackState.track.mutationCount || 0) + 1;
 
-                  // Update the main melody state tracks array
                   melodyState.tracks[trackIndex] = trackState.track;
 
-                  // Set mutation flash time for visual feedback (this should happen for any track mutation)
                   mutationFlashTime = performance.now();
                   triggeredAsteriskPositions = ["*"];
 
-                  // Store mutated positions for this track (for potential visual feedback)
                   if (mutationIndices.length > 0) {
                     mutatedNotePositions = mutationIndices;
                     recentlyMutatedNoteIndex = recentlyMutatedIndex;
-                    recentlyMutatedTrackIndex = trackIndex; // Make sure we track the correct track index
+                    recentlyMutatedTrackIndex = trackIndex;
                   }
                 }
               }
 
-              // Calculate next note target time for this track
+              // PERFECT MATHEMATICAL TIMING: Calculate exact next note time with no drift
               const noteDuration = noteData.duration * melodyState.baseTempo;
-              trackState.nextNoteTargetTime = currentTimeMs + noteDuration;
+              trackState.nextNoteTargetTime =
+                trackState.nextNoteTargetTime + noteDuration;
             }
           }
         });
