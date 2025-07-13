@@ -1344,10 +1344,20 @@ function paint({
       nowLineColor = "white"; // White for normal
     }
 
-    // Draw shadow for the line first (1px offset to right and bottom)
-    ink("black").line(1, nowLineY + 1, screen.width + 1, nowLineY + 1);
-    // Draw the main line at the draggable position across the full width
-    ink(nowLineColor).line(0, nowLineY, screen.width, nowLineY);
+    // Draw crosshair style NOW line - left and right segments only
+    const crosshairLength = 30; // Length of each crosshair segment
+    
+    // Draw shadow first (flush left with main line, 1px offset down)
+    // Left crosshair shadow
+    ink("black").line(0, nowLineY + 1, crosshairLength, nowLineY + 1);
+    // Right crosshair shadow
+    ink("black").line(screen.width - crosshairLength, nowLineY + 1, screen.width, nowLineY + 1);
+    
+    // Draw main crosshair lines
+    // Left crosshair
+    ink(nowLineColor).line(0, nowLineY, crosshairLength, nowLineY);
+    // Right crosshair
+    ink(nowLineColor).line(screen.width - crosshairLength, nowLineY, screen.width, nowLineY);
 
     // Create current note display above the NOW line
     let currentNotesText = "";
@@ -1419,35 +1429,8 @@ function paint({
 
 
 
-    // Draw the clock text centered below the line with shadow
-    const box =
-      typeof text !== "undefined" && text.box
-        ? text.box(mainTimeString, { scale: fontSize })
-        : { width: mainTimeString.length * 6 * fontSize, height: 12 * fontSize };
-    // Center the clock horizontally on the screen
-    const textX = Math.round((screen.width - box.width) / 2);
-    // Position the text exactly 2 pixels below the draggable line
-    const textY = nowLineY + 2;
-    
-    // Draw shadow first (1px offset to right and bottom)
-    ink("black").write(
-      mainTimeString,
-      {
-        x: textX + 1,
-        y: textY + 1,
-        size: fontSize,
-      },
-    );
-    
-    // Draw the main time string
-    ink(clockColor).write(
-      mainTimeString,
-      {
-        x: textX,
-        y: textY,
-        size: fontSize,
-      },
-    );
+    // UTC clock time display is now hidden per user request
+    // No clock text drawn below the NOW line
   }
 }
 
@@ -1904,10 +1887,20 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     nowLineColor = "white"; // White for normal
   }
   
-  // Draw shadow first (1px offset to right and bottom)
-  ink("black").line(timelineStartX + 1, nowLineY + 1, timelineEndX + 1, nowLineY + 1);
-  // Draw main line
-  ink(nowLineColor).line(timelineStartX, nowLineY, timelineEndX, nowLineY);
+  // Draw crosshair style - left and right segments only
+  const crosshairLength = 30; // Length of each crosshair segment
+  
+  // Draw shadow first (flush left with main line, 1px offset down)
+  // Left crosshair shadow
+  ink("black").line(timelineStartX, nowLineY + 1, timelineStartX + crosshairLength, nowLineY + 1);
+  // Right crosshair shadow
+  ink("black").line(timelineEndX - crosshairLength, nowLineY + 1, timelineEndX, nowLineY + 1);
+  
+  // Draw main crosshair lines
+  // Left crosshair
+  ink(nowLineColor).line(timelineStartX, nowLineY, timelineStartX + crosshairLength, nowLineY);
+  // Right crosshair
+  ink(nowLineColor).line(timelineEndX - crosshairLength, nowLineY, timelineEndX, nowLineY);
 
   // ENABLED: Get ALL history items that would be visible from top to bottom of screen
   const extendedHistoryItems = getExtendedHistoryItems(
@@ -1981,18 +1974,18 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
             const currentNote = trackState.track[currentNoteIndex];
             
             if (currentNote) {
-              // For parallel tracks, each track may have its own timing
-              // Use the global timing variables as the primary source, but allow track-specific timing
+              // For parallel tracks, each track should use its own timing
+              // Use track-specific timing first, then fall back to global timing
               let noteStartTime, noteEndTime;
               
-              if (lastNoteStartTime && lastNoteDuration) {
-                // Use global timing - all parallel tracks should be synchronized
-                noteStartTime = lastNoteStartTime;
-                noteEndTime = lastNoteStartTime + lastNoteDuration;
-              } else if (trackState.lastNoteStartTime && trackState.lastNoteDuration) {
-                // Use track-specific timing if available
+              if (trackState.lastNoteStartTime && trackState.lastNoteDuration) {
+                // Use track-specific timing - each track maintains its own timing
                 noteStartTime = trackState.lastNoteStartTime;
                 noteEndTime = trackState.lastNoteStartTime + trackState.lastNoteDuration;
+              } else if (lastNoteStartTime && lastNoteDuration) {
+                // Fallback to global timing if track-specific timing not available
+                noteStartTime = lastNoteStartTime;
+                noteEndTime = lastNoteStartTime + lastNoteDuration;
               } else if (currentNoteStartTime && currentNoteDuration) {
                 // Fallback to legacy timing variables
                 noteStartTime = currentNoteStartTime;
@@ -2036,8 +2029,21 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
   // History notes should connect end-to-start regardless of individual timing
   const historyNotes = sortedTimelineItems.filter(item => {
     // Use more stable criteria for history detection to prevent flickering
+    // For parallel tracks, use track-specific timing; for single tracks, use global timing
+    let isCurrentlyPlayingByTiming = false;
+    if (melodyState && melodyState.type === "parallel" && melodyState.trackStates && item.trackIndex < melodyState.trackStates.length) {
+      // For parallel tracks, use track-specific timing
+      const trackState = melodyState.trackStates[item.trackIndex];
+      if (trackState.lastNoteStartTime > 0) {
+        isCurrentlyPlayingByTiming = Math.abs(item.startTime - trackState.lastNoteStartTime) < 50;
+      }
+    } else {
+      // For single tracks, use global timing
+      isCurrentlyPlayingByTiming = lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < 50;
+    }
+    
     const isCurrentlyPlaying = (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) ||
-                              (lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < 50);
+                              isCurrentlyPlayingByTiming;
     const isHistory = item.endTime < musicalTimeReference && !isCurrentlyPlaying;
     return isHistory;
   });
@@ -2064,10 +2070,23 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       // Find the active note for this specific track using stable timing detection
       const activeNoteForTrack = sortedTimelineItems.find(item => {
         if (item.trackIndex !== trackIdx) return false;
-        // Use consistent timing detection to prevent flickering
+        // Use consistent timing detection to prevent flickering - track-specific for parallel tracks
         const timingTolerance = 50; // Consistent with main detection logic
+        
+        let isCurrentlyPlayingByTiming = false;
+        if (melodyState && melodyState.type === "parallel" && melodyState.trackStates && trackIdx < melodyState.trackStates.length) {
+          // For parallel tracks, use track-specific timing
+          const trackState = melodyState.trackStates[trackIdx];
+          if (trackState.lastNoteStartTime > 0) {
+            isCurrentlyPlayingByTiming = Math.abs(item.startTime - trackState.lastNoteStartTime) < timingTolerance;
+          }
+        } else {
+          // For single tracks, use global timing
+          isCurrentlyPlayingByTiming = lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < timingTolerance;
+        }
+        
         const isCurrentlyPlaying = (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) ||
-                                   (lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < timingTolerance);
+                                   isCurrentlyPlayingByTiming;
         return isCurrentlyPlaying;
       });
       
@@ -2090,13 +2109,13 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
         const noteHeightPixels = Math.max(1, Math.round((noteDurationMs / 1000) * scaledPixelsPerSecond));
         
         // Position this note so it starts at currentEndY (seamless connection)
-        // Use consistent integer positioning to prevent pixel jitter
+        // Ensure no gaps by using consistent integer positioning
         const barStartY = Math.round(currentEndY);
-        const barEndY = barStartY + noteHeightPixels;
+        const barEndY = barStartY + noteHeightPixels; // No additional rounding to prevent gaps
         
         historyPositions.set(historyNote, { barStartY, barEndY });
         
-        // Next note (older) should start where this note ends
+        // Next note (older) should start exactly where this note ends (no rounding here)
         currentEndY = barEndY;
       }
     });
@@ -2156,10 +2175,20 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     // Primary timing detection uses the note's actual start/end times
     const isWithinNoteTiming = (musicalTimeReference >= noteStartTime && musicalTimeReference <= noteEndTime);
     
-    // Secondary detection for timing synchronization (only when primary fails)
-    const isNearGlobalTiming = lastNoteStartTime > 0 && Math.abs(startTime - lastNoteStartTime) < timingTolerance;
+    // Secondary detection for timing synchronization - use track-specific timing for parallel tracks
+    let isNearTrackTiming = false;
+    if (melodyState && melodyState.type === "parallel" && melodyState.trackStates && trackIndex < melodyState.trackStates.length) {
+      // For parallel tracks, use track-specific timing
+      const trackState = melodyState.trackStates[trackIndex];
+      if (trackState.lastNoteStartTime > 0) {
+        isNearTrackTiming = Math.abs(startTime - trackState.lastNoteStartTime) < timingTolerance;
+      }
+    } else {
+      // For single tracks, use global timing
+      isNearTrackTiming = lastNoteStartTime > 0 && Math.abs(startTime - lastNoteStartTime) < timingTolerance;
+    }
     
-    isCurrentlyPlaying = isWithinNoteTiming || (isNearGlobalTiming && !isWithinNoteTiming);
+    isCurrentlyPlaying = isWithinNoteTiming || (isNearTrackTiming && !isWithinNoteTiming);
     
     // More precise history/future detection to prevent state flickering
     isHistory = endTime < musicalTimeReference && !isCurrentlyPlaying;
@@ -2178,11 +2207,11 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       barEndY = barStartY + noteHeightPixels;
 
     } else if (isFuture) {
-      // Future notes flow upward toward cyan line - use Math.round for consistency
+      // Future notes flow upward toward cyan line - use consistent positioning to prevent gaps
       const timeToStart = (startTime - musicalTimeReference) / 1000;
       const pixelOffset = Math.round(timeToStart * scaledPixelsPerSecond);
       barStartY = Math.round(nowLineY - pixelOffset - noteHeightPixels);
-      barEndY = barStartY + noteHeightPixels;
+      barEndY = barStartY + noteHeightPixels; // No additional rounding to prevent gaps
 
     } else if (isHistory) {
       // Use pre-calculated seamless positions for history notes
@@ -2298,11 +2327,11 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
 
           // Unified note label rendering logic for all note types (history, active, future)
           // Show labels when note height >= 15px and track width >= 15px for consistent readability
-          // Show labels on currently playing notes for active feedback
           if (noteHeightPixels >= 15 && barWidth >= 15) {
-            // Calculate label position based on the ACTUAL note bar position (not clipped renderStartY)
+            // For all notes (including active notes), center the label within the track
             const labelY = Math.round(actualBarStartY + actualBarHeight / 2 - 4);
-            const labelX = Math.round(barX + barWidth / 2 - 3);
+            // Use trackCenterX to ensure proper centering for parallel tracks
+            const labelX = Math.round(trackCenterX - 3);
 
             // Keep label visible as long as any part of the note is on screen
             // Only hide when the label itself would be completely off-screen
