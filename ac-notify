@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# ac-notify - Send notifications to ac-event-daemon
+# Usage: ac-notify [success|error|info] [message]
+# Set VERBOSE=1 for debug output
+
+NOTIFICATION_TYPE="${1:-success}"
+MESSAGE="${2:-Prompt completed}"
+
+# Determine host address (container vs native)
+if [ -n "$CODESPACES" ] || [ -n "$DEVCONTAINER" ] || [ -f /.dockerenv ]; then
+    # In a container - get the default gateway IP
+    GATEWAY_IP=$(ip route show default | awk '/default/ {print $3}' | head -1)
+    HOST_ADDR="${GATEWAY_IP:-172.17.0.1}"
+    # Only show debug info if verbose mode is requested
+    [ "${VERBOSE:-}" = "1" ] && echo "Container detected, using host address: $HOST_ADDR" >&2
+else
+    HOST_ADDR="127.0.0.1"
+fi
+
+# Send UDP message to ac-event-daemon
+echo "prompt-complete:${NOTIFICATION_TYPE}:${MESSAGE}" | nc -u "$HOST_ADDR" 9999 2>/dev/null || {
+    # If nc fails, try sending directly via filesystem (fallback)
+    echo "Warning: Could not send notification to ac-event-daemon" >&2
+    exit 1
+}
+
+echo "Notification sent: ${NOTIFICATION_TYPE} - ${MESSAGE}"

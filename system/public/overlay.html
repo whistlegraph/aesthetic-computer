@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AC Notification Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            font-family: 'Courier New', 'Monaco', 'Menlo', 'Consolas', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+            cursor: none;
+            user-select: none;
+        }
+        
+        .overlay-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: slideIn 0.4s ease-out;
+        }
+        
+        .notification-word {
+            font-size: 12rem;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+            text-shadow: 
+                0 0 30px currentColor,
+                0 0 60px currentColor,
+                6px 6px 12px rgba(0,0,0,0.9);
+            margin: 0;
+            line-height: 1;
+            animation: glow 2s ease-in-out infinite alternate;
+            min-height: 12rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .notification-icon {
+            font-size: 8rem;
+            margin-bottom: 3rem;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* Success styling */
+        .success {
+            color: #00ff88;
+            background: radial-gradient(circle, rgba(0,255,136,0.2) 0%, rgba(0,0,0,0.9) 60%);
+        }
+        
+        /* Error styling */
+        .error {
+            color: #ff4444;
+            background: radial-gradient(circle, rgba(255,68,68,0.2) 0%, rgba(0,0,0,0.9) 60%);
+        }
+        
+        /* Info styling */
+        .info {
+            color: #44aaff;
+            background: radial-gradient(circle, rgba(68,170,255,0.2) 0%, rgba(0,0,0,0.9) 60%);
+        }
+        
+        /* Warning styling */
+        .warning {
+            color: #ffaa44;
+            background: radial-gradient(circle, rgba(255,170,68,0.2) 0%, rgba(0,0,0,0.9) 60%);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.5) translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        @keyframes glow {
+            0% {
+                text-shadow: 
+                    0 0 20px currentColor,
+                    0 0 40px currentColor,
+                    6px 6px 12px rgba(0,0,0,0.9);
+                transform: scale(1);
+            }
+            100% {
+                text-shadow: 
+                    0 0 40px currentColor,
+                    0 0 80px currentColor,
+                    6px 6px 12px rgba(0,0,0,0.9);
+                transform: scale(1.02);
+            }
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+        
+        /* Responsive scaling */
+        @media (max-width: 1920px) {
+            .notification-word {
+                font-size: 10rem;
+                min-height: 10rem;
+            }
+            .notification-icon {
+                font-size: 6rem;
+            }
+        }
+        
+        @media (max-width: 1366px) {
+            .notification-word {
+                font-size: 8rem;
+                min-height: 8rem;
+            }
+            .notification-icon {
+                font-size: 5rem;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            .notification-word {
+                font-size: 6rem;
+                min-height: 6rem;
+            }
+            .notification-icon {
+                font-size: 4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay-content">
+        <div class="notification-icon" id="icon">🔔</div>
+        <div class="notification-word" id="word">LOADING</div>
+    </div>
+
+    <script>
+        console.log('AC Overlay loading...');
+        
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get('type') || 'info';
+        const word = urlParams.get('word') || 'NOTIFICATION';
+        const duration = parseInt(urlParams.get('duration')) || 2500;
+        
+        console.log('Overlay params:', { type, word, duration });
+        
+        // Icon mapping
+        const icons = {
+            success: '✨',
+            error: '❌',
+            info: 'ℹ️',
+            warning: '⚠️',
+            default: '🔔'
+        };
+        
+        // Update content immediately
+        const wordElement = document.getElementById('word');
+        const iconElement = document.getElementById('icon');
+        
+        wordElement.textContent = word.toUpperCase();
+        iconElement.textContent = icons[type] || icons.default;
+        document.body.className = type;
+        
+        console.log('Updated overlay:', wordElement.textContent, iconElement.textContent);
+        
+        // Auto-close functionality
+        const closeOverlay = () => {
+            console.log('Closing overlay...');
+            document.body.style.transition = 'opacity 0.3s ease-out';
+            document.body.style.opacity = '0';
+            setTimeout(() => {
+                try {
+                    window.close();
+                } catch(e) {
+                    console.log('Could not close window, hiding instead');
+                    document.body.style.display = 'none';
+                    if (window.parent !== window) {
+                        window.parent.postMessage('close-overlay', '*');
+                    }
+                }
+            }, 300);
+        };
+        
+        // Auto-close timer
+        console.log(`Auto-close in ${duration}ms`);
+        setTimeout(closeOverlay, duration);
+        
+        // Close on interaction
+        document.addEventListener('click', closeOverlay);
+        document.addEventListener('keydown', closeOverlay);
+        document.addEventListener('touchstart', closeOverlay);
+        
+        // Prevent context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Handle escape key specifically
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeOverlay();
+            }
+        });
+        
+        // Focus the window to ensure it's on top
+        window.focus();
+        
+        console.log(`AC Overlay ready: ${type.toUpperCase()} - ${word.toUpperCase()}`);
+    </script>
+</body>
+</html>
