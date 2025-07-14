@@ -2364,14 +2364,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         }
 
-        // Force 3x scaling for consistent, fast GIF output
+        // Force 2x scaling for consistent, fast GIF output
         const originalWidth = content.frames[0].width;
         const originalHeight = content.frames[0].height;
         const frameCount = content.frames.length;
         
-        const optimalScale = 3; // Always use 3x scaling for GIFs
+        const optimalScale = 2; // Always use 3x scaling for GIFs
         
-        console.log(`📏 Using fixed 3x scaling for GIF: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`);
+        console.log(`📏 Using fixed 2x scaling for GIF: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`);
         
         // Helper function to upscale pixels with nearest neighbor
         function upscalePixels(imageData, originalWidth, originalHeight, scale) {
@@ -2403,7 +2403,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Create GIF instance with optimized compression settings for smaller files
         const gif = new window.GIF({
           workers: 4, // More workers for faster processing
-          quality: 15, // Ultra-low quality for smallest files (1-30, lower = better compression)
+          quality: 5, // Ultra-low quality for smallest files (1-30, lower = better compression)
           // dither: 'FloydSteinberg-serpentine', // Advanced dithering for better compression
           transparent: null, // No transparency to reduce file size
           width: originalWidth * optimalScale,
