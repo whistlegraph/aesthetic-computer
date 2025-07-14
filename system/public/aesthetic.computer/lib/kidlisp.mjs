@@ -312,21 +312,46 @@ class KidLisp {
     // Performance optimizations
     this.functionCache = new Map(); // Cache function lookups
     this.globalEnvCache = null; // Cache global environment
-    this.fastPathFunctions = new Set(['line', 'ink', 'wipe', 'box', 'repeat', '+', '-', '*', '/', '=', '>', '<', 'mic', 'paste', 'stamp']); // Common functions for fast path
+    this.fastPathFunctions = new Set([
+      "line",
+      "ink",
+      "wipe",
+      "box",
+      "repeat",
+      "+",
+      "-",
+      "*",
+      "/",
+      "=",
+      ">",
+      "<",
+      "mic",
+      "paste",
+      "stamp",
+    ]); // Common functions for fast path
     this.expressionCache = new Map(); // Cache for simple expressions
     this.variableCache = new Map(); // Cache for variable lookups
     this.mathCache = new Map(); // Cache for math expressions
     this.sequenceCounters = new Map(); // Track sequence positions for ... function
-    
+
+    // Syntax highlighting state
+    this.syntaxHighlightSource = null; // Source code for syntax highlighting
+    this.expressionPositions = []; // Positions of expressions in source
+    this.currentlyHighlighted = new Set(); // Currently highlighted expressions
+    this.executionHistory = []; // History of executed expressions for flash effects
+    this.currentExecutingExpression = null; // Currently executing expression
+    this.lastExecutionTime = 0; // Last execution timestamp
+    this.flashDuration = 500; // Duration for flash effects in milliseconds
+
     // Melody state tracking
     this.melodies = new Map(); // Track active melodies
     this.melodyTimers = new Map(); // Track timing for each melody
-    
+
     // Resolution state tracking
     this.halfResolutionApplied = false;
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
-    
+
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
   }
@@ -334,17 +359,17 @@ class KidLisp {
   // Check if the AST contains microphone-related functions
   containsMicrophoneFunctions(ast) {
     if (!ast) return false;
-    
-    if (typeof ast === 'string') {
+
+    if (typeof ast === "string") {
       // Only 'mic' function requires microphone access
       // 'amplitude' is for speaker amplitude, not microphone
-      return ast === 'mic';
+      return ast === "mic";
     }
-    
+
     if (Array.isArray(ast)) {
-      return ast.some(item => this.containsMicrophoneFunctions(item));
+      return ast.some((item) => this.containsMicrophoneFunctions(item));
     }
-    
+
     return false;
   }
 
@@ -421,24 +446,24 @@ class KidLisp {
       );
       if (parenMatch) {
         const [, parenExpr, op, right] = parenMatch;
-        
+
         // Parse the parenthesized expression (strip outer parens and tokenize)
         const innerExpr = parenExpr.slice(1, -1).trim(); // Remove ( and )
-        
+
         // Simple tokenization - split by spaces and convert to appropriate types
-        const tokens = innerExpr.split(/\s+/).map(token => {
+        const tokens = innerExpr.split(/\s+/).map((token) => {
           // Convert numeric tokens to numbers
           if (/^\d+(?:\.\d+)?$/.test(token)) {
             return parseFloat(token);
           }
           return token;
         });
-        
+
         // Convert right operand to number if it's numeric
         const rightValue = /^\d+(?:\.\d+)?$/.test(right)
           ? parseFloat(right)
           : right;
-        
+
         // Return the expanded prefix expression
         return [op, tokens, rightValue];
       }
@@ -479,19 +504,23 @@ class KidLisp {
       for (let i = 0; i < expr.length; i++) {
         const current = expr[i];
         const next = expr[i + 1];
-        
+
         // Check if current is an array/expression and next is a math operation string
         if (Array.isArray(current) && typeof next === "string") {
           const mathMatch = next.match(/^([+\-*/%])(\d+(?:\.\d+)?)$/);
           if (mathMatch) {
             const [, op, num] = mathMatch;
             // Combine them into a proper math expression
-            expanded.push([op, this.expandFastMathMacros(current), parseFloat(num)]);
+            expanded.push([
+              op,
+              this.expandFastMathMacros(current),
+              parseFloat(num),
+            ]);
             i++; // Skip the next element since we consumed it
             continue;
           }
         }
-        
+
         // Otherwise, recursively expand the current element
         expanded.push(this.expandFastMathMacros(current));
       }
@@ -518,6 +547,9 @@ class KidLisp {
     this.ast = this.precompileAST(this.ast);
     perfEnd("precompile");
 
+    // Initialize syntax highlighting
+    this.initializeSyntaxHighlighting(source);
+
     /*if (VERBOSE)*/ // console.log("🐍 Snake:", parsed);
 
     // 🧩 Piece API
@@ -533,19 +565,25 @@ class KidLisp {
         // Initialize microphone reference but don't auto-connect
         if (sound?.microphone) {
           this.microphoneApi = sound.microphone;
-          
+
           // Only auto-connect if the piece actually uses microphone functions
           const usesMicrophone = this.containsMicrophoneFunctions(this.ast);
-          
-          if (usesMicrophone && 
-              this.microphoneApi.permission === "granted" &&
-              sound.enabled?.()) {
-            console.log("🎤 Boot: Auto-connecting microphone (piece uses mic functions)");
+
+          if (
+            usesMicrophone &&
+            this.microphoneApi.permission === "granted" &&
+            sound.enabled?.()
+          ) {
+            console.log(
+              "🎤 Boot: Auto-connecting microphone (piece uses mic functions)",
+            );
             delay(() => {
               this.microphoneApi.connect();
             }, 15);
           } else if (usesMicrophone) {
-            console.log("🎤 Boot: Piece uses microphone but permission not granted or sound disabled");
+            console.log(
+              "🎤 Boot: Piece uses microphone but permission not granted or sound disabled",
+            );
           }
         } else {
           // console.log("🎤 Boot: No microphone API available");
@@ -558,6 +596,9 @@ class KidLisp {
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         this.frameCount++; // Increment frame counter for timing functions
+
+        // Update HUD with syntax highlighting
+        this.updateHUDWithSyntaxHighlighting($);
 
         // Clear caches that might have stale data between frames
         this.variableCache.clear();
@@ -593,7 +634,7 @@ class KidLisp {
       sim: ({ sound }) => {
         // Poll speaker for audio amplitude data (like clock.mjs does)
         sound.speaker?.poll();
-        
+
         // Make sure we have microphone reference (could come from sound parameter)
         if (!this.microphoneApi && sound?.microphone) {
           this.microphoneApi = sound.microphone;
@@ -658,19 +699,23 @@ class KidLisp {
 
       const wrappedLines = lines.map((line, index) => {
         // Check if this line is likely a continuation of a multi-line expression
-        const isContinuation = index > 0 && (
+        const isContinuation =
+          index > 0 &&
           // Line starts with an identifier but not at the beginning of the input
-          (/^[a-zA-Z_]\w*/.test(line) && !line.startsWith("(")) &&
-          (
-            // Previous line ends with an incomplete expression (has opening paren or is incomplete)
-            lines[index - 1].includes("(") && 
-            (lines[index - 1].split("(").length > lines[index - 1].split(")").length)
-          )
-        );
-        
+          /^[a-zA-Z_]\w*/.test(line) &&
+          !line.startsWith("(") &&
+          // Previous line ends with an incomplete expression (has opening paren or is incomplete)
+          lines[index - 1].includes("(") &&
+          lines[index - 1].split("(").length >
+            lines[index - 1].split(")").length;
+
         // If line doesn't start with ( and looks like a function call, wrap it
         // BUT don't wrap if it's likely a continuation line
-        if (!line.startsWith("(") && /^[a-zA-Z_]\w*/.test(line) && !isContinuation) {
+        if (
+          !line.startsWith("(") &&
+          /^[a-zA-Z_]\w*/.test(line) &&
+          !isContinuation
+        ) {
           return `(${line})`;
         }
         return line;
@@ -711,14 +756,15 @@ class KidLisp {
 
     const noteData = melodyState.notes[melodyState.index];
     if (!noteData) return;
-    
+
     const { note, octave, duration } = noteData;
     let noteDuration = duration * melodyState.baseTempo;
-    
+
     // Apply swing/feel adjustments
     if (melodyState.feel === "waltz" && melodyState.timeSignature === "3/4") {
       // In waltz feel, slightly rush beats 2 and 3, emphasize beat 1
-      const beatInMeasure = melodyState.measurePosition % melodyState.beatsPerMeasure;
+      const beatInMeasure =
+        melodyState.measurePosition % melodyState.beatsPerMeasure;
       if (beatInMeasure === 0) {
         // Beat 1: slightly longer (emphasized)
         noteDuration *= 1.05;
@@ -728,33 +774,35 @@ class KidLisp {
       }
     } else if (melodyState.feel === "swing") {
       // Classic jazz swing: off-beats are delayed and shortened
-      const beatInMeasure = melodyState.measurePosition % melodyState.beatsPerMeasure;
-      if (beatInMeasure % 1 !== 0) { // Off-beat
+      const beatInMeasure =
+        melodyState.measurePosition % melodyState.beatsPerMeasure;
+      if (beatInMeasure % 1 !== 0) {
+        // Off-beat
         noteDuration *= 0.9; // Shorter off-beats
       }
     }
-    
-    if (note !== 'rest' && api.sound?.synth) {
+
+    if (note !== "rest" && api.sound?.synth) {
       // Convert note to tone format expected by the synth
       const tone = this.noteToTone(note, octave);
-      
+
       api.sound.synth({
         type: "sine",
         tone: tone,
         duration: (noteDuration / 1000) * 0.98, // 98% of the duration for smoother flow
         attack: 0.01,
         decay: 0.99,
-        volume: 0.8  // Increased volume to make it more audible
+        volume: 0.8, // Increased volume to make it more audible
       });
     }
 
     // Update measure position for swing calculations
     melodyState.measurePosition += duration;
-    
+
     // Schedule next note based on current note's duration
     melodyState.nextNoteTime = performance.now() + noteDuration;
     melodyState.lastPlayTime = performance.now();
-    
+
     // Advance to next note
     melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
   }
@@ -762,7 +810,7 @@ class KidLisp {
   // Update melody playback in simulation loop
   updateMelodies(api) {
     const currentTime = performance.now();
-    
+
     for (const [melodyId, melodyState] of this.melodies) {
       if (currentTime >= melodyState.nextNoteTime) {
         this.playMelodyNote(api, melodyId);
@@ -778,14 +826,14 @@ class KidLisp {
 
   // CORE OPTIMIZATION HELPER: Check if expression contains a variable
   containsVariable(expr, varName) {
-    if (typeof expr === 'string') {
+    if (typeof expr === "string") {
       return expr === varName;
     }
-    if (typeof expr === 'number') {
+    if (typeof expr === "number") {
       return false;
     }
     if (Array.isArray(expr)) {
-      return expr.some(subExpr => this.containsVariable(subExpr, varName));
+      return expr.some((subExpr) => this.containsVariable(subExpr, varName));
     }
     return false;
   }
@@ -921,10 +969,10 @@ class KidLisp {
           console.error("❗ Invalid `once`. Wrong number of arguments.");
           return;
         }
-        
+
         // Create a unique key for this once block based on its content
         const onceKey = JSON.stringify(args);
-        
+
         // Only execute if this exact once block hasn't been executed before
         if (!this.onceExecuted.has(onceKey)) {
           this.onceExecuted.add(onceKey);
@@ -935,7 +983,7 @@ class KidLisp {
           }
           return result;
         }
-        
+
         // Return undefined if already executed
         return undefined;
       },
@@ -1128,7 +1176,7 @@ class KidLisp {
           const fraction = args[0];
           let divisor;
           let trackingFlag;
-          
+
           switch (fraction) {
             case "half":
               divisor = 2;
@@ -1147,27 +1195,31 @@ class KidLisp {
               api.resolution?.(...args);
               return;
           }
-          
+
           // Initialize tracking if not exists
           if (!this[trackingFlag]) {
             this[trackingFlag] = false;
           }
-          
+
           // Only apply fractional resolution once to prevent repeated scaling
           if (!this[trackingFlag]) {
             const currentWidth = api.screen?.width || 256;
             const currentHeight = api.screen?.height || 256;
-            
+
             // Set resolution to the fraction of current dimensions
             const newWidth = Math.floor(currentWidth / divisor);
             const newHeight = Math.floor(currentHeight / divisor);
-            
+
             api.resolution?.(newWidth, newHeight);
             this[trackingFlag] = true;
-            
-            console.log(`🔄 ${fraction} resolution applied: ${currentWidth}x${currentHeight} → ${newWidth}x${newHeight}`);
+
+            console.log(
+              `🔄 ${fraction} resolution applied: ${currentWidth}x${currentHeight} → ${newWidth}x${newHeight}`,
+            );
           } else {
-            console.log(`🔄 ${fraction} resolution already applied, skipping to prevent squashing`);
+            console.log(
+              `🔄 ${fraction} resolution already applied, skipping to prevent squashing`,
+            );
           }
         } else {
           // Regular resolution call with explicit dimensions
@@ -1208,16 +1260,20 @@ class KidLisp {
       shape: (api, args = []) => {
         // Handle shape arguments - can be flat array of coordinates or array of pairs
         if (args.length === 0) return;
-        
+
         // Check if last argument is a string indicating filled/outline
         let filled = true;
         let thickness = 1;
         let points = args;
-        
+
         const lastArg = args[args.length - 1];
         if (typeof lastArg === "string") {
           const fillMode = unquoteString(lastArg);
-          if (fillMode === "outline" || fillMode === "unfilled" || fillMode === "false") {
+          if (
+            fillMode === "outline" ||
+            fillMode === "unfilled" ||
+            fillMode === "false"
+          ) {
             filled = false;
             points = args.slice(0, -1); // Remove the fill mode from points
           }
@@ -1228,7 +1284,7 @@ class KidLisp {
             points = args.slice(0, -1);
           }
         }
-        
+
         // Pass the arguments to the API shape function
         api.shape({ points, filled, thickness });
       },
@@ -1283,12 +1339,16 @@ class KidLisp {
       // 🖼️ Image pasting and stamping
       paste: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        const processedArgs = args.map(arg => {
-          if (typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"')) {
+        const processedArgs = args.map((arg) => {
+          if (
+            typeof arg === "string" &&
+            arg.startsWith('"') &&
+            arg.endsWith('"')
+          ) {
             return arg.slice(1, -1);
           }
           // Handle special 'painting' keyword to reference system.painting
-          if (typeof arg === 'string' && arg === 'painting') {
+          if (typeof arg === "string" && arg === "painting") {
             return api.system?.painting;
           }
           return arg;
@@ -1296,13 +1356,17 @@ class KidLisp {
         api.paste(...processedArgs);
       },
       stamp: (api, args = []) => {
-        // Process string arguments to remove quotes (e.g., "@handle/timestamp")  
-        const processedArgs = args.map(arg => {
-          if (typeof arg === 'string' && arg.startsWith('"') && arg.endsWith('"')) {
+        // Process string arguments to remove quotes (e.g., "@handle/timestamp")
+        const processedArgs = args.map((arg) => {
+          if (
+            typeof arg === "string" &&
+            arg.startsWith('"') &&
+            arg.endsWith('"')
+          ) {
             return arg.slice(1, -1);
           }
           // Handle special 'painting' keyword to reference system.painting
-          if (typeof arg === 'string' && arg === 'painting') {
+          if (typeof arg === "string" && arg === "painting") {
             return api.system?.painting;
           }
           return arg;
@@ -1314,20 +1378,21 @@ class KidLisp {
         const content = unquoteString(args[0]?.toString() || "");
         let x = args[1];
         let y = args[2];
-        
+
         // Process x argument to handle quoted strings
         if (typeof x === "string" && x.startsWith('"') && x.endsWith('"')) {
           x = unquoteString(x);
         }
-        
+
         // Process y argument to handle quoted strings
         if (typeof y === "string" && y.startsWith('"') && y.endsWith('"')) {
           y = unquoteString(y);
         }
-        
+
         // Only process background if it's not undefined - no should pass undefined for transparent bg
-        const bg = args[3] !== undefined ? processArgStringTypes(args[3]) : undefined;
-        
+        const bg =
+          args[3] !== undefined ? processArgStringTypes(args[3]) : undefined;
+
         const size = args[4]; // 5th parameter for scale/size
         const bounds = args[5]; // 6th parameter for text bounds/wrapping
 
@@ -1343,25 +1408,25 @@ class KidLisp {
         // Check for centering keywords
         const centerX = x === "center";
         const centerY = y === "center";
-        
+
         // Build position object
         const pos = {};
-        
+
         // Handle centering
         if (centerX && centerY) {
-          pos.center = "xy";  // Center both x and y
+          pos.center = "xy"; // Center both x and y
         } else if (centerX) {
-          pos.center = "x";   // Center only x
+          pos.center = "x"; // Center only x
           pos.y = y;
         } else if (centerY) {
-          pos.center = "y";   // Center only y
+          pos.center = "y"; // Center only y
           pos.x = x;
         } else {
           // No centering, use explicit coordinates
           if (x !== undefined) pos.x = x;
           if (y !== undefined) pos.y = y;
         }
-        
+
         if (size !== undefined) {
           pos.size = size;
         }
@@ -1450,33 +1515,40 @@ class KidLisp {
 
           // Fast path optimization: Check if this is a simple drawing pattern
           // like: (repeat count i (ink ...) (box ...))
-          if (expressions.length === 2 && 
-              Array.isArray(expressions[0]) && expressions[0][0] === "ink" &&
-              Array.isArray(expressions[1]) && expressions[1][0] === "box") {
-            
+          if (
+            expressions.length === 2 &&
+            Array.isArray(expressions[0]) &&
+            expressions[0][0] === "ink" &&
+            Array.isArray(expressions[1]) &&
+            expressions[1][0] === "box"
+          ) {
             perfStart("fast-draw-loop");
             // Optimized fast path for ink+box patterns
             const inkExpr = expressions[0];
             const boxExpr = expressions[1];
-            
+
             // OPTIMIZATION 1: Pre-resolve color palette to avoid repeated parsing
             let paletteColors = null;
             let sequenceKey = null;
             let resolvedColors = null;
-            
-            if (inkExpr.length === 2 && Array.isArray(inkExpr[1]) && inkExpr[1][0] === "...") {
+
+            if (
+              inkExpr.length === 2 &&
+              Array.isArray(inkExpr[1]) &&
+              inkExpr[1][0] === "..."
+            ) {
               paletteColors = inkExpr[1].slice(1); // Extract palette colors
               sequenceKey = JSON.stringify(paletteColors);
-              
+
               // Pre-resolve colors to RGB values
-              resolvedColors = paletteColors.map(colorName => {
+              resolvedColors = paletteColors.map((colorName) => {
                 // Use the API's color resolution if available
                 if (api.help?.color) {
                   return api.help.color(colorName);
                 }
                 return colorName; // Fallback to string
               });
-              
+
               // Initialize sequence counter if needed
               if (!this.sequenceCounters) {
                 this.sequenceCounters = new Map();
@@ -1485,30 +1557,38 @@ class KidLisp {
                 this.sequenceCounters.set(sequenceKey, 0);
               }
             }
-            
+
             // OPTIMIZATION 2: Pre-analyze box arguments for constant vs variable parts
             const boxArgs = boxExpr.slice(1);
-            const analyzedBoxArgs = boxArgs.map(arg => {
-              if (Array.isArray(arg) && arg.length === 3 && arg[0] === "*" && arg[1] === iteratorVar) {
+            const analyzedBoxArgs = boxArgs.map((arg) => {
+              if (
+                Array.isArray(arg) &&
+                arg.length === 3 &&
+                arg[0] === "*" &&
+                arg[1] === iteratorVar
+              ) {
                 // This is i*multiplier pattern
-                return { type: 'iterator_multiply', multiplier: arg[2] };
+                return { type: "iterator_multiply", multiplier: arg[2] };
               } else if (this.containsVariable(arg, iteratorVar)) {
-                return { type: 'variable', expr: arg };
+                return { type: "variable", expr: arg };
               } else {
                 // Pre-evaluate constant expressions
-                return { type: 'constant', value: this.evaluate(arg, api, { ...this.localEnv, ...env }) };
+                return {
+                  type: "constant",
+                  value: this.evaluate(arg, api, { ...this.localEnv, ...env }),
+                };
               }
             });
-            
+
             const prevLocalEnv = this.localEnv;
-            
+
             // Set up minimal environment
             this.localEnvLevel += 1;
             if (!this.localEnvStore[this.localEnvLevel]) {
               this.localEnvStore[this.localEnvLevel] = Object.create(null);
             }
             const loopEnv = this.localEnvStore[this.localEnvLevel];
-            
+
             // Copy environment efficiently
             for (const key in this.localEnv) {
               loopEnv[key] = this.localEnv[key];
@@ -1521,16 +1601,16 @@ class KidLisp {
             // OPTIMIZATION 3: Ultra-fast hot loop with pre-computed values
             for (let i = 0; i < count; i++) {
               loopEnv[iteratorVar] = i;
-              
+
               // OPTIMIZATION 4: Direct color application without evaluation overhead
               if (resolvedColors) {
                 const currentIndex = this.sequenceCounters.get(sequenceKey);
                 const nextIndex = (currentIndex + 1) % resolvedColors.length;
                 this.sequenceCounters.set(sequenceKey, nextIndex);
                 const color = resolvedColors[currentIndex];
-                
+
                 // Direct color application
-                if (typeof color === 'object' && color.r !== undefined) {
+                if (typeof color === "object" && color.r !== undefined) {
                   // Pre-resolved RGB
                   api.ink(color.r, color.g, color.b, color.a || 255);
                 } else {
@@ -1540,25 +1620,25 @@ class KidLisp {
                 // Fallback to regular evaluation
                 this.evaluate(inkExpr, api, this.localEnv);
               }
-              
+
               // OPTIMIZATION 5: Fast box evaluation with pre-computed args
-              const evaluatedBoxArgs = analyzedBoxArgs.map(arg => {
+              const evaluatedBoxArgs = analyzedBoxArgs.map((arg) => {
                 switch (arg.type) {
-                  case 'iterator_multiply':
+                  case "iterator_multiply":
                     return i * arg.multiplier; // Direct multiplication, no evaluation
-                  case 'constant':
+                  case "constant":
                     return arg.value; // Pre-computed constant
-                  case 'variable':
+                  case "variable":
                     return this.evaluate(arg.expr, api, this.localEnv);
                   default:
                     return 0;
                 }
               });
-              
+
               // Direct API call with minimal overhead
               api.box(...evaluatedBoxArgs);
             }
-            
+
             this.localEnvLevel -= 1;
             this.localEnv = prevLocalEnv;
             perfEnd("fast-draw-loop");
@@ -1571,8 +1651,10 @@ class KidLisp {
           const prevLocalEnv = this.localEnv;
 
           // CORE OPTIMIZATION: Pre-analyze expressions for iterator dependency
-          const expressionAnalysis = expressions.map(expr => {
-            const containsIterator = this.containsVariable ? this.containsVariable(expr, iteratorVar) : true;
+          const expressionAnalysis = expressions.map((expr) => {
+            const containsIterator = this.containsVariable
+              ? this.containsVariable(expr, iteratorVar)
+              : true;
             return { expr, containsIterator };
           });
 
@@ -1580,7 +1662,10 @@ class KidLisp {
           const invariantResults = new Map();
           expressionAnalysis.forEach((analysis, index) => {
             if (!analysis.containsIterator) {
-              invariantResults.set(index, this.evaluate(analysis.expr, api, baseEnv));
+              invariantResults.set(
+                index,
+                this.evaluate(analysis.expr, api, baseEnv),
+              );
             }
           });
 
@@ -1741,13 +1826,18 @@ class KidLisp {
       mic: (api, args = []) => {
         // Lazy connection: try to connect microphone if not already connected
         if (this.microphoneApi && !this.microphoneApi.connected) {
-          if (this.microphoneApi.permission === "granted" && api.sound?.enabled?.()) {
+          if (
+            this.microphoneApi.permission === "granted" &&
+            api.sound?.enabled?.()
+          ) {
             console.log("🎤 Lazy connecting microphone (mic function called)");
             this.microphoneApi.connect();
           } else if (this.microphoneApi.permission !== "granted") {
             // Only log this occasionally to avoid spam
             if (this.frameCount % 120 === 0) {
-              console.log("🎤 Microphone permission not granted, cannot connect");
+              console.log(
+                "🎤 Microphone permission not granted, cannot connect",
+              );
             }
           }
         }
@@ -1773,7 +1863,7 @@ class KidLisp {
       // 🔊 Real-time audio amplitude from speakers/system audio
       amplitude: (api, args = []) => {
         let amplitudeValue = 0;
-        
+
         // Access speaker amplitude from the sound API like clock.mjs does
         if (api.sound?.speaker?.amplitudes?.left !== undefined) {
           amplitudeValue = api.sound.speaker.amplitudes.left;
@@ -1782,23 +1872,23 @@ class KidLisp {
         else if (api.sound?.speaker?.amplitudes?.right !== undefined) {
           amplitudeValue = api.sound.speaker.amplitudes.right;
         }
-        
+
         return amplitudeValue;
       },
       // 🎵 Melody - plays a sequence of notes in a loop
       melody: (api, args = []) => {
         if (args.length === 0) return;
-        
+
         const melodyString = unquoteString(args[0]);
         const bpm = args.length > 1 ? parseFloat(args[1]) : 120; // Default 120 BPM
         const timeSignature = args.length > 2 ? unquoteString(args[2]) : "4/4"; // Default 4/4 time
         const feel = args.length > 3 ? unquoteString(args[3]) : "straight"; // Default straight feel
-        
+
         // Parse time signature
-        const [numerator, denominator] = timeSignature.split('/').map(Number);
+        const [numerator, denominator] = timeSignature.split("/").map(Number);
         const beatsPerMeasure = numerator;
         const beatUnit = denominator; // 4 = quarter note, 8 = eighth note, etc.
-        
+
         // Convert BPM to milliseconds per quarter note
         // Adjust base tempo based on beat unit
         let baseTempo = (60 / bpm) * 1000; // 60 seconds / BPM * 1000ms
@@ -1807,20 +1897,20 @@ class KidLisp {
         } else if (beatUnit === 2) {
           baseTempo = baseTempo * 2; // Half note gets the beat
         }
-        
+
         const melodyId = melodyString + timeSignature + feel; // Include time signature and feel in ID
-        
+
         // Check if this melody is already defined and hasn't changed
         if (this.melodies.has(melodyId)) {
           // Melody already exists, don't redefine (like def behavior)
           return;
         }
-        
+
         // Parse the melody string into notes with durations
         const notes = this.parseMelodyString(melodyString);
-        
+
         if (notes.length === 0) return;
-        
+
         // Store the melody state
         const melodyState = {
           notes: notes,
@@ -1833,14 +1923,14 @@ class KidLisp {
           beatUnit: beatUnit,
           feel: feel,
           measurePosition: 0, // Track position within the measure for swing
-          isPlaying: false
+          isPlaying: false,
         };
-        
+
         this.melodies.set(melodyId, melodyState);
-        
+
         // Start playing immediately
         this.playMelodyNote(api, melodyId);
-        
+
         return melodyString;
       },
       // 🔊 Speaker - returns whether sound is enabled
@@ -1882,7 +1972,7 @@ class KidLisp {
         value = value(api, []); // Pass empty args array for functions called as variables
         return value; // Return the function result directly, even if it's undefined
       }
-      
+
       const result = value !== undefined ? value : expr;
       return result;
     }
@@ -2059,7 +2149,7 @@ class KidLisp {
         } else if (typeof head === "string" && /^\d*\.?\d+s!?$/.test(head)) {
           // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
           // Also handle instant trigger modifier like "0.25s!", "1s!", "2s!"
-          const hasInstantTrigger = head.endsWith('!');
+          const hasInstantTrigger = head.endsWith("!");
           const timeString = hasInstantTrigger ? head.slice(0, -1) : head;
           const seconds = parseFloat(timeString.slice(0, -1)); // Remove 's' and parse as float
 
@@ -2086,11 +2176,14 @@ class KidLisp {
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
               // If has instant trigger (!) and hasn't been executed yet, execute immediately
-              if (hasInstantTrigger && !this.instantTriggersExecuted[timingKey]) {
+              if (
+                hasInstantTrigger &&
+                !this.instantTriggersExecuted[timingKey]
+              ) {
                 this.instantTriggersExecuted[timingKey] = true;
                 // Set baseline time for future intervals
                 this.lastSecondExecutions[timingKey] = currentTime;
-                
+
                 let timingResult;
                 for (const arg of args) {
                   timingResult = this.evaluate([arg], api, env);
@@ -2119,9 +2212,12 @@ class KidLisp {
             }
           }
           continue; // Skip normal function processing
-        } else if (typeof head === "string" && /^\d*\.?\d+s\.\.\.?$/.test(head)) {
+        } else if (
+          typeof head === "string" &&
+          /^\d*\.?\d+s\.\.\.?$/.test(head)
+        ) {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
-          const seconds = parseFloat(head.slice(0, head.indexOf('s'))); // Extract seconds part
+          const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
           const clockResult = this.evaluate("clock", api, env);
           if (clockResult) {
@@ -2149,7 +2245,7 @@ class KidLisp {
             // Check if enough time has passed to advance to next item
             if (diff >= seconds) {
               this.lastSecondExecutions[timingKey] = currentTime;
-              
+
               // Advance the sequence counter
               const currentIndex = this.sequenceCounters.get(timingKey) || 0;
               const nextIndex = (currentIndex + 1) % args.length;
@@ -2389,15 +2485,18 @@ class KidLisp {
     // Check if this is a simple function identifier that can be auto-called
     if (validIdentifierRegex.test(expression)) {
       const globalEnv = this.getGlobalEnv();
-      
+
       // Check if the identifier exists as a function in the global environment
-      if (globalEnv[expression] && typeof globalEnv[expression] === 'function') {
+      if (
+        globalEnv[expression] &&
+        typeof globalEnv[expression] === "function"
+      ) {
         // Auto-call the function with no arguments
         return globalEnv[expression](api, [], env);
       }
-      
+
       // Check if it exists in the API
-      if (api[expression] && typeof api[expression] === 'function') {
+      if (api[expression] && typeof api[expression] === "function") {
         return api[expression]();
       }
     }
@@ -2449,6 +2548,356 @@ class KidLisp {
     });
     return iterable;
   }
+
+  // Syntax highlighting methods for HUD integration
+
+  // Initialize syntax highlighting for a kidlisp source
+  initializeSyntaxHighlighting(source) {
+    this.syntaxHighlightSource = source;
+    this.expressionPositions = this.mapExpressionsToPositions(source);
+    this.executionHistory = [];
+    this.currentlyHighlighted.clear();
+  }
+
+  // Map parsed expressions to their positions in the source code
+  mapExpressionsToPositions(source) {
+    const positions = [];
+    let charIndex = 0;
+
+    // Process the entire source as one string to handle multi-line expressions
+    let i = 0;
+    while (i < source.length) {
+      if (source[i] === "(") {
+        const exprStart = charIndex + i;
+        let depth = 1;
+        let j = i + 1;
+
+        // Find matching closing paren, handling multi-line expressions
+        while (j < source.length && depth > 0) {
+          if (source[j] === "(") depth++;
+          else if (source[j] === ")") depth--;
+          j++;
+        }
+
+        if (depth === 0) {
+          const exprEnd = charIndex + j;
+          const exprText = source.substring(i, j);
+
+          // Only add top-level expressions to avoid overlaps
+          const isNested = positions.some(pos => 
+            exprStart > pos.start && exprStart < pos.end
+          );
+
+          if (!isNested) {
+            positions.push({
+              start: exprStart,
+              end: exprEnd,
+              text: exprText,
+              isExpression: true,
+            });
+          }
+          
+          i = j; // Skip past this expression
+        } else {
+          i++; // Unmatched opening paren, move forward
+        }
+      } else {
+        i++;
+      }
+    }
+
+    return positions;
+  }
+
+  // Mark an expression as currently executing
+  markExpressionExecuting(expr) {
+    const now = performance.now();
+    this.currentExecutingExpression = expr;
+    this.lastExecutionTime = now;
+
+    // Add to execution history for flash effect
+    this.executionHistory.push({
+      expression: expr,
+      timestamp: now,
+      type: "execution",
+    });
+
+    // Keep history limited to recent items
+    if (this.executionHistory.length > 50) {
+      this.executionHistory = this.executionHistory.slice(-25);
+    }
+  }
+
+  // Generate colored syntax highlighting string for HUD
+  buildColoredKidlispString() {
+    if (!this.syntaxHighlightSource) return "";
+
+    // Use the existing tokenizer to properly parse the kidlisp
+    const tokens = tokenize(this.syntaxHighlightSource);
+
+    // Build a map of character positions to their colors
+    const charColors = new Array(this.syntaxHighlightSource.length).fill("white");
+    
+    // More robust token matching - find each token exactly in the source
+    let lastFoundIndex = 0;
+    
+    for (let t = 0; t < tokens.length; t++) {
+      const token = tokens[t];
+      const tokenColor = this.getTokenColor(token, tokens, t);
+      
+      // Find the token starting from where we left off
+      let tokenStart = -1;
+      
+      // For single character tokens like parentheses, be more precise
+      if (token.length === 1) {
+        tokenStart = this.syntaxHighlightSource.indexOf(token, lastFoundIndex);
+      } else {
+        // For multi-character tokens, make sure we match complete tokens
+        let searchIndex = lastFoundIndex;
+        while (searchIndex < this.syntaxHighlightSource.length) {
+          const foundIndex = this.syntaxHighlightSource.indexOf(token, searchIndex);
+          if (foundIndex === -1) break;
+          
+          // Check if this is a complete token (not part of a larger word)
+          const beforeChar = foundIndex > 0 ? this.syntaxHighlightSource[foundIndex - 1] : ' ';
+          const afterChar = foundIndex + token.length < this.syntaxHighlightSource.length 
+            ? this.syntaxHighlightSource[foundIndex + token.length] : ' ';
+          
+          // For function names and identifiers, ensure word boundaries
+          if (/[a-zA-Z]/.test(token)) {
+            if (!/[\s()"]/.test(beforeChar) || !/[\s()"]/.test(afterChar)) {
+              searchIndex = foundIndex + 1;
+              continue;
+            }
+          }
+          
+          tokenStart = foundIndex;
+          break;
+        }
+      }
+      
+      if (tokenStart !== -1) {
+        // Color all characters of this token
+        for (let i = 0; i < token.length; i++) {
+          charColors[tokenStart + i] = tokenColor;
+        }
+        lastFoundIndex = tokenStart + token.length;
+      }
+    }
+
+    // Apply space collapsing ONLY (preserve newlines) and map colors correctly
+    const processedText = this.syntaxHighlightSource.replace(/ +/g, " ");
+    const processedColors = [];
+    
+    // Build a precise mapping between original and processed text
+    let originalIndex = 0;
+    let processedIndex = 0;
+    
+    while (originalIndex < this.syntaxHighlightSource.length) {
+      const originalChar = this.syntaxHighlightSource[originalIndex];
+      
+      if (originalChar === ' ') {
+        // Handle space collapsing: multiple spaces become one space
+        const spaceColor = charColors[originalIndex] || "white";
+        
+        // Only add a space to processed text if we're not already at one
+        if (processedIndex < processedText.length && processedText[processedIndex] === ' ') {
+          processedColors[processedIndex] = spaceColor;
+          processedIndex++;
+        }
+        
+        // Skip all consecutive spaces in original text
+        while (originalIndex < this.syntaxHighlightSource.length && 
+               this.syntaxHighlightSource[originalIndex] === ' ') {
+          originalIndex++;
+        }
+      } else {
+        // Non-space character: map directly
+        const charColor = charColors[originalIndex] || "white";
+        if (processedIndex < processedText.length) {
+          processedColors[processedIndex] = charColor;
+          processedIndex++;
+        }
+        originalIndex++;
+      }
+    }
+    
+    // Fill any remaining processed characters with white
+    while (processedIndex < processedText.length) {
+      processedColors[processedIndex] = "white";
+      processedIndex++;
+    }
+
+    // Build the colored string using escape sequences
+    let coloredString = "";
+    let lastColor = null;
+    
+    for (let i = 0; i < processedText.length; i++) {
+      const char = processedText[i];
+      const color = processedColors[i];
+      
+      // Set initial color at the very beginning
+      if (i === 0) {
+        coloredString += `\\${color}\\`;
+        lastColor = color;
+      }
+      // Only add color escape when the color actually changes
+      else if (color !== lastColor) {
+        coloredString += `\\${color}\\`;
+        lastColor = color;
+      }
+      
+      coloredString += char;
+    }
+
+    return coloredString;
+  }
+
+  // Determine the color for a specific token based on its type and context
+  getTokenColor(token, tokens, index) {
+    // Check for comments
+    if (token.startsWith(";")) {
+      return "gray";
+    }
+
+    // Check for strings (quoted text)
+    if (token.startsWith('"') && token.endsWith('"')) {
+      return "yellow";
+    }
+
+    // Check for numbers
+    if (/^-?\d+(\.\d+)?$/.test(token)) {
+      return "green";
+    }
+
+    // Check for parentheses - all should be the same color
+    if (token === "(" || token === ")") {
+      return "white";
+    }
+
+    // Check if this token is a function name (first token after opening paren)
+    if (index > 0 && tokens[index - 1] === "(") {
+      // Special forms and control flow
+      if (["def", "if", "cond", "repeat", "later", "once", "lambda", "let", "do"].includes(token)) {
+        return "purple";
+      }
+       
+      // All functions should be the same color (blue) - including ink, wipe, line, etc.
+      return "blue";
+    }
+
+    // Check if this token is a valid CSS color name
+    if (cssColors && cssColors[token]) {
+      // Return the actual color value for CSS colors like "red", "blue", etc.
+      const colorValue = cssColors[token];
+      if (Array.isArray(colorValue) && colorValue.length >= 3) {
+        const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
+        // Return as RGB format for the HUD system
+        return rgbColor;
+      }
+    }
+
+    // Check if this is a known function name (even if not directly after parentheses)
+    const knownFunctions = [
+      "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
+      "+", "-", "*", "/", "=", ">", "<", ">=", "<=", "mod", "abs", "sqrt",
+      "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
+      "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
+      "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
+      "tap", "draw", "not", "range", "max", "min", "mul", "log", "no", "yes"
+    ];
+    
+    if (knownFunctions.includes(token)) {
+      return "blue";
+    }
+
+    // Default for variables and other identifiers
+    return "orange";
+  }
+
+  // Check if an expression matches the currently executing one
+  isExpressionMatch(posText, executingExpr) {
+    if (typeof executingExpr === "string") {
+      return posText.includes(executingExpr);
+    } else if (Array.isArray(executingExpr)) {
+      const exprStr = JSON.stringify(executingExpr);
+      return posText.includes(executingExpr[0]); // Match function name
+    }
+    return false;
+  }
+
+  // Determine the type of expression for syntax coloring
+  getExpressionType(exprText) {
+    const trimmed = exprText.trim();
+
+    if (trimmed.startsWith("(")) {
+      // Extract function name
+      const match = trimmed.match(/^\(\s*([^\s)]+)/);
+      if (match) {
+        const funcName = match[1];
+
+        // Special forms and control flow
+        if (
+          ["def", "if", "cond", "repeat", "later", "once", "lambda", "let", "do"].includes(funcName)
+        ) {
+          return "special";
+        }
+
+        // Drawing and graphics functions
+        if (
+          ["ink", "wipe", "line", "box", "circle", "write", "paste", "stamp", "point", "poly"].includes(
+            funcName,
+          )
+        ) {
+          return "function";
+        }
+
+        // Math and comparison functions
+        if (["+", "-", "*", "/", "=", ">", "<", ">=", "<=", "mod", "abs", "sqrt"].includes(funcName)) {
+          return "function";
+        }
+
+        // Other built-in functions
+        if (["print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round"].includes(funcName)) {
+          return "function";
+        }
+
+        return "function";
+      }
+    } else if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      return "number";
+    } else if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return "string";
+    } else if (trimmed.startsWith(";")) {
+      return "comment";
+    } else {
+      return "variable";
+    }
+
+    return "unknown";
+  }
+
+  // Update HUD with syntax highlighted kidlisp
+  updateHUDWithSyntaxHighlighting(api) {
+    if (!api.hud || !api.hud.label || !this.syntaxHighlightSource) return;
+
+    const coloredString = this.buildColoredKidlispString();
+    if (coloredString) {
+      // Set HUD to support inline colors AND disable piece name color override
+      api.hud.supportsInlineColor = true;
+      api.hud.disablePieceNameColoring = true; // Disable automatic piece name coloring
+      
+      // Call HUD label with just the colored string - no plain text parameter needed
+      api.hud.label(coloredString, undefined, 0);
+    }
+  }
+
+  // Helper method to strip color codes (copied from clock.mjs pattern)
+  stripColorCodes(str) {
+    return str.replace(/\\[a-zA-Z0-9]+\\/g, "");
+  }
 }
 
 // Module function that creates and returns a new KidLisp instance
@@ -2478,7 +2927,7 @@ function isKidlispSource(text) {
   // 2. It contains a newline
   // This prevents false positives on commands like "clock (ceg) (dfa)"
   // where parentheses appear later in the string but it's not KidLisp code
-  
+
   // Check if it starts with opening parenthesis (clear KidLisp indicator)
   if (text.startsWith("(")) {
     return true;
@@ -2499,15 +2948,14 @@ function isKidlispSource(text) {
   }
 
   // Check for encoded kidlisp that might have newlines encoded as _
-  // Only check this if it looks like URL-encoded content (multiple underscores in sequence 
+  // Only check this if it looks like URL-encoded content (multiple underscores in sequence
   // or typical KidLisp function patterns), not just any underscore usage
-  if (text.includes("_") && (
-    text.includes("__") || // Multiple consecutive underscores (likely encoded spaces)
-    text.match(/\b(wipe|ink|line|box|def|later)_/) // Known KidLisp functions with underscore
-  )) {
-    const decoded = text
-      .replace(/_/g, " ")
-      .replace(/§/g, "\n");
+  if (
+    text.includes("_") &&
+    (text.includes("__") || // Multiple consecutive underscores (likely encoded spaces)
+      text.match(/\b(wipe|ink|line|box|def|later)_/)) // Known KidLisp functions with underscore
+  ) {
+    const decoded = text.replace(/_/g, " ").replace(/§/g, "\n");
     // If decoded version starts with ( or contains newlines, it's KidLisp
     if (decoded.startsWith("(") || decoded.includes("\n")) {
       return true;
@@ -2519,7 +2967,7 @@ function isKidlispSource(text) {
   // The ~ to newline conversion only happens during decoding if there are
   // other strong indicators that the text is actually kidlisp
 
-  // For all other cases (single line input that doesn't start with '('), 
+  // For all other cases (single line input that doesn't start with '('),
   // don't consider it KidLisp to avoid false positives
   return false;
 }
@@ -2540,7 +2988,7 @@ function encodeKidlispForUrl(source) {
     .replace(/\n/g, "§")
     .replace(/%/g, "¤") // Encode % symbols to avoid URI malformation
     .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
-  
+
   return encoded;
 }
 
@@ -2562,10 +3010,13 @@ function decodeKidlispFromUrl(encoded) {
       .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
   } else {
     // Check if this looks like music notation before doing any replacements
-    const isMusicNotation = /^\([a-g#\d\s\*\.\-\_\<\>]*\)$/i.test(encoded) ||
-                           /\([a-g#\d\s\*\.\-\_\<\>]*\)\s*\([a-g#\d\s\*\.\-\_\<\>]*\)/i.test(encoded) ||
-                           /^[a-g#\d\s\*\.\-\_\<\>]+$/i.test(encoded);
-    
+    const isMusicNotation =
+      /^\([a-g#\d\s\*\.\-\_\<\>]*\)$/i.test(encoded) ||
+      /\([a-g#\d\s\*\.\-\_\<\>]*\)\s*\([a-g#\d\s\*\.\-\_\<\>]*\)/i.test(
+        encoded,
+      ) ||
+      /^[a-g#\d\s\*\.\-\_\<\>]+$/i.test(encoded);
+
     if (isMusicNotation) {
       // For music notation, only decode URL-encoded characters, don't replace underscores or tildes
       decoded = encoded
@@ -2590,18 +3041,26 @@ function decodeKidlispFromUrl(encoded) {
         .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
         .replace(/%3B/g, ";")
         .replace(/S/g, "#");
-      
+
       // Only apply ~ to newline conversion if the text has strong KidLisp indicators
       // beyond just starting with ( or containing newlines (which ~ conversion would create)
       // Note: We need to be careful about function names that are also piece names (like "line")
       // Only consider it a KidLisp function if it's used in a function call context with parentheses
-      const hasKidlispFunctionCalls = /\(\s*(wipe|ink|line|box|def|later|circle|poly|resolution)\b/.test(preliminaryDecoded);
+      const hasKidlispFunctionCalls =
+        /\(\s*(wipe|ink|line|box|def|later|circle|poly|resolution)\b/.test(
+          preliminaryDecoded,
+        );
       const hasMultipleUnderscores = encoded.includes("__");
       const startsWithParen = preliminaryDecoded.startsWith("(");
       const hasExistingNewlines = preliminaryDecoded.includes("\n");
-      
+
       // Apply ~ to newline conversion only if there are strong indicators this is actually KidLisp
-      if (startsWithParen || hasExistingNewlines || hasKidlispFunctionCalls || hasMultipleUnderscores) {
+      if (
+        startsWithParen ||
+        hasExistingNewlines ||
+        hasKidlispFunctionCalls ||
+        hasMultipleUnderscores
+      ) {
         decoded = preliminaryDecoded.replace(/~/g, "\n");
       } else {
         // Don't convert ~ to newlines for commands that don't show clear KidLisp patterns
@@ -2609,10 +3068,10 @@ function decodeKidlispFromUrl(encoded) {
       }
     }
   }
-  
+
   const isValidKidlisp = isKidlispSource(decoded);
   const result = isValidKidlisp ? decoded : encoded;
-  
+
   return result;
 }
 

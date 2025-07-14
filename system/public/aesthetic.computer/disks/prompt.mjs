@@ -241,7 +241,7 @@ async function boot({
   // Handle params, decode kidlisp if needed
   if (params[0]) {
     const rawText = params.join(" ");
-    
+
     // Only decode if it's actually kidlisp, otherwise use as-is
     let text;
     if (isKidlispSource(rawText)) {
@@ -256,12 +256,12 @@ async function boot({
     system.prompt.input.addUserText(text);
     system.prompt.input.snap();
     send({ type: "keyboard:text:replace", content: { text } });
-    
+
     activated({ ...api, params }, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
-    
+
     // Ensure text and cursor position persist after any system initialization
     setTimeout(() => {
       if (system.prompt.input.text !== text) {
@@ -814,9 +814,7 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "support") {
-    jump(
-      "out:https://calendly.com/aesthetic-computer",
-    );
+    jump("out:https://calendly.com/aesthetic-computer");
     makeFlash($);
     return true;
   } else if (text.startsWith("edit")) {
@@ -1622,31 +1620,31 @@ function paint($) {
       // Position midway between login button (screen center) and handles text
       const loginY = screen.height / 2; // Login button is centered vertically
       const handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Handles text position
-      
+
       // Calculate text input area height - typically positioned at bottom with buttons
       // Use a more conservative estimate that scales with screen height
       const inputAreaHeight = Math.min(60, screen.height * 0.15); // 15% of screen or 60px max
       const inputAreaTop = screen.height - inputAreaHeight;
-      
+
       // Position ticker midway between login and handles, but ensure it doesn't overlap input area
       let tickerY = (loginY + handlesY) / 2; // Midway point
-      
+
       // Ensure ticker stays above input area with at least 12px clearance
       const maxTickerY = inputAreaTop - 12;
-      
+
       // Also ensure minimum distance from screen bottom (fallback safety)
       const absoluteMaxY = screen.height - 80;
-      
+
       // Apply constraints but ensure ticker stays below login button
       const minTickerY = loginY + 20; // 20 pixels below login button
-      
+
       if (tickerY > maxTickerY) {
         tickerY = maxTickerY;
       }
       if (tickerY > absoluteMaxY) {
         tickerY = absoluteMaxY;
       }
-      
+
       // If constraints push ticker too high, position it at minimum safe distance from login
       if (tickerY < minTickerY) {
         tickerY = minTickerY;
@@ -1661,7 +1659,7 @@ function paint($) {
       const tickerBelowLogin = tickerY >= loginY + 20;
       const tickerAboveInput = tickerY <= inputAreaTop - 12;
       const screenTallEnough = screen.height >= 130;
-      
+
       const showTicker =
         screenTallEnough &&
         availableSpace >= minSpacingRequired &&
@@ -1731,23 +1729,24 @@ function paint($) {
       if (chatTicker && $.chat.messages.length > 0) {
         // Get the ticker Y position from the ticker logic above
         const loginY = screen.height / 2;
-        const originalHandlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15;
+        const originalHandlesY =
+          screen.height / 2 + screen.height / 3.25 - 11 + 15;
         const inputAreaHeight = Math.min(60, screen.height * 0.15);
         const inputAreaTop = screen.height - inputAreaHeight;
         const maxTickerY = inputAreaTop - 12;
         const absoluteMaxY = screen.height - 80;
         const minTickerY = loginY + 20;
-        
+
         let tickerY = (loginY + originalHandlesY) / 2;
         if (tickerY > maxTickerY) tickerY = maxTickerY;
         if (tickerY > absoluteMaxY) tickerY = absoluteMaxY;
         if (tickerY < minTickerY) tickerY = minTickerY;
-        
+
         handlesY = tickerY + 20; // 20 pixels below ticker
       } else {
         handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Original position
       }
-      
+
       ink(pal.handleColor).write(
         `${handles.toLocaleString()} HANDLES SET`,
         {
@@ -1891,20 +1890,25 @@ function act({
   // Early lift event handling - prevent TextInput activation if lift happens over interactive elements
   if (e.is("lift") && !system.prompt.input.canType) {
     // Check if touch started outside but ended over an interactive element
-    const liftOverInteractive = 
+    const liftOverInteractive =
       (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
+      (chatTickerButton &&
+        !chatTickerButton.disabled &&
+        chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false &&
+        system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false &&
+        system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false &&
+        system.prompt.input.paste.btn.box.contains(e));
 
     if (liftOverInteractive) {
       // Prevent TextInput activation by setting backdropTouchOff
       system.prompt.input.backdropTouchOff = true;
       send({ type: "keyboard:lock" });
-      
+
       // Play a deep thud sound when cancelling interaction over a button
       if (system.prompt.input._touchStartedOutside) {
         synth({
@@ -1917,21 +1921,32 @@ function act({
         });
       }
     }
-    
+
     // Clean up the tracking flag regardless
     system.prompt.input._touchStartedOutside = false;
   }
 
   // Handle deactivation if TextInput is already active
-  if (e.is("lift") && system.prompt.input.canType && !system.prompt.input.shifting && !system.prompt.input.recentlyShifting && !system.prompt.input.paste.down) {
-    const liftOverInteractive = 
+  if (
+    e.is("lift") &&
+    system.prompt.input.canType &&
+    !system.prompt.input.shifting &&
+    !system.prompt.input.recentlyShifting &&
+    !system.prompt.input.paste.down
+  ) {
+    const liftOverInteractive =
       (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
+      (chatTickerButton &&
+        !chatTickerButton.disabled &&
+        chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false &&
+        system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false &&
+        system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false &&
+        system.prompt.input.paste.btn.box.contains(e));
 
     // Deactivate when lifting over background (not over interactive elements)
     if (!liftOverInteractive) {
@@ -1941,14 +1956,19 @@ function act({
 
   // Add clicky sound when prompt is active and user taps background to deactivate
   if (e.is("touch") && system.prompt.input.canType) {
-    const touchOverInteractive = 
+    const touchOverInteractive =
       (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e));
+      (chatTickerButton &&
+        !chatTickerButton.disabled &&
+        chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false &&
+        system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false &&
+        system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false &&
+        system.prompt.input.paste.btn.box.contains(e));
 
     // Play distinct, higher-pitched clicky sound when tapping background (not over interactive elements) to deactivate
     if (!touchOverInteractive) {
@@ -1970,10 +1990,23 @@ function act({
       !(login?.btn.disabled === false && login?.btn.box.contains(e)) &&
       !(signup?.btn.disabled === false && signup?.btn.box.contains(e)) &&
       !(profile?.btn.disabled === false && profile?.btn.box.contains(e)) &&
-      !(chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) &&
-      !(system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) &&
-      !(system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) &&
-      !(system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e))
+      !(
+        chatTickerButton &&
+        !chatTickerButton.disabled &&
+        chatTickerButton.box.contains(e)
+      ) &&
+      !(
+        system.prompt.input.enter.btn.disabled === false &&
+        system.prompt.input.enter.btn.box.contains(e)
+      ) &&
+      !(
+        system.prompt.input.copy.btn.disabled === false &&
+        system.prompt.input.copy.btn.box.contains(e)
+      ) &&
+      !(
+        system.prompt.input.paste.btn.disabled === false &&
+        system.prompt.input.paste.btn.box.contains(e)
+      )
     ) {
       // Touch started outside any interactive element
       system.prompt.input._touchStartedOutside = true;
@@ -2209,10 +2242,15 @@ function act({
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e)))
+      (chatTickerButton &&
+        !chatTickerButton.disabled &&
+        chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false &&
+        system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false &&
+        system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false &&
+        system.prompt.input.paste.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -2225,10 +2263,15 @@ function act({
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
         profileAction === "profile") ||
-      (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false && system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false && system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false && system.prompt.input.paste.btn.box.contains(e)))
+      (chatTickerButton &&
+        !chatTickerButton.disabled &&
+        chatTickerButton.box.contains(e)) ||
+      (system.prompt.input.enter.btn.disabled === false &&
+        system.prompt.input.enter.btn.box.contains(e)) ||
+      (system.prompt.input.copy.btn.disabled === false &&
+        system.prompt.input.copy.btn.box.contains(e)) ||
+      (system.prompt.input.paste.btn.disabled === false &&
+        system.prompt.input.paste.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
     system.prompt.input.backdropTouchOff = true;
@@ -2244,50 +2287,50 @@ function act({
 
   if (profile && !profile.btn.disabled) {
     profile.btn.act(e, {
-    down: () => {
-      downSound();
-      if (profileAction !== "profile") {
-        //send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-        // send({ type: "keyboard:unlock" });
-      }
-    },
-    push: () => {
-      pushSound();
-      if (profileAction === "resend-verification") {
-        // notice("RESEND EMAIL?", ["yellow", "blue"]);
-        const text = "email " + user.email;
-        resendVerificationText = text;
-        system.prompt.input.text = text;
-        system.prompt.input.snap();
-        system.prompt.input.runnable = true;
-        firstActivation = false;
-        send({ type: "keyboard:text:replace", content: { text } });
-        // send({ type: "keyboard:unlock" });
-        // send({ type: "keyboard:open" });
-      } else if (profileAction === "profile") {
-        jump(handle() || "profile");
-      } else if (profileAction === "set-handle") {
-        notice("ENTER HANDLE", ["yellow", "blue"]);
-        const text = "handle ";
-        system.prompt.input.text = text;
-        system.prompt.input.snap();
-        system.prompt.input.runnable = true;
-        firstActivation = false;
-        send({ type: "keyboard:text:replace", content: { text } });
-        // send({ type: "keyboard:unlock" });
-        // send({ type: "keyboard:open" });
-      }
-    },
-    cancel: () => {
-      cancelSound();
+      down: () => {
+        downSound();
+        if (profileAction !== "profile") {
+          //send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+          // send({ type: "keyboard:unlock" });
+        }
+      },
+      push: () => {
+        pushSound();
+        if (profileAction === "resend-verification") {
+          // notice("RESEND EMAIL?", ["yellow", "blue"]);
+          const text = "email " + user.email;
+          resendVerificationText = text;
+          system.prompt.input.text = text;
+          system.prompt.input.snap();
+          system.prompt.input.runnable = true;
+          firstActivation = false;
+          send({ type: "keyboard:text:replace", content: { text } });
+          // send({ type: "keyboard:unlock" });
+          // send({ type: "keyboard:open" });
+        } else if (profileAction === "profile") {
+          jump(handle() || "profile");
+        } else if (profileAction === "set-handle") {
+          notice("ENTER HANDLE", ["yellow", "blue"]);
+          const text = "handle ";
+          system.prompt.input.text = text;
+          system.prompt.input.snap();
+          system.prompt.input.runnable = true;
+          firstActivation = false;
+          send({ type: "keyboard:text:replace", content: { text } });
+          // send({ type: "keyboard:unlock" });
+          // send({ type: "keyboard:open" });
+        }
+      },
+      cancel: () => {
+        cancelSound();
 
-      if (profileAction !== "profile") {
-        // send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-        send({ type: "keyboard:lock" });
-        system.prompt.input.backdropTouchOff = true;
-      }
-    },
-  });
+        if (profileAction !== "profile") {
+          // send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+          send({ type: "keyboard:lock" });
+          system.prompt.input.backdropTouchOff = true;
+        }
+      },
+    });
   }
 
   // 🖥️ Screen
