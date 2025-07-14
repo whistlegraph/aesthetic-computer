@@ -1674,6 +1674,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Draw to canvas and convert to WebP
           ctx.putImageData(imageData, 0, 0);
           
+          // Add sideways AC stamp like in video recordings
+          addAestheticComputerStamp(ctx, frame.width, frame.height);
+          
           // Convert to WebP blob
           const webpBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/webp', 0.8);
@@ -2073,8 +2076,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
           }
           
-          // Apply smart upscaling with pre-calculated safe scale and error handling
-          const upscaleResult = upscalePixels(rgba, frame.width, frame.height, optimalScale);
+          // Add AC stamp to the frame data by rendering through canvas
+          const stampedPixelData = addStampToPixelData(new Uint8ClampedArray(data), frame.width, frame.height, optimalScale);
+          
+          // Convert stamped pixel data back to RGBA Uint32Array
+          rgba = new Uint32Array(frame.width * frame.height * optimalScale * optimalScale);
+          for (let j = 0; j < rgba.length; j++) {
+            const pixelIndex = j * 4;
+            const r = stampedPixelData[pixelIndex];
+            const g = stampedPixelData[pixelIndex + 1];
+            const b = stampedPixelData[pixelIndex + 2];
+            const a = stampedPixelData[pixelIndex + 3];
+            
+            // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
+            rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
+          }
+          
+          // Skip the original upscaling since we already did it with the stamp
+          const upscaleResult = { rgba: rgba, actualScale: optimalScale };
           
           // Update actual scale if upscaling failed
           if (upscaleResult.actualScale !== optimalScale && i === 0) {
@@ -2152,6 +2171,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           
           ctx.putImageData(imageData, 0, 0);
+          
+          // Add sideways AC stamp to fallback WebP as well
+          addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
           
           const webpBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/webp', 0.9);
@@ -2273,9 +2295,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log(`🎞️ Processing APNG frame ${i + 1}/${content.frames.length} (${Math.round((i + 1) / content.frames.length * 100)}%)`);
           }
           
-          // Apply upscaling to frame data
+          // Apply upscaling and add AC stamp to frame data
           const originalData = new Uint8ClampedArray(frame.data);
-          const scaledData = upscalePixels(originalData, frame.width, frame.height, optimalScale);
+          const scaledData = addStampToPixelData(originalData, frame.width, frame.height, optimalScale);
           
           // UPNG expects RGBA data as ArrayBuffer
           const frameData = new Uint8Array(scaledData);
@@ -2325,6 +2347,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           
           ctx.putImageData(imageData, 0, 0);
+          
+          // Add sideways AC stamp to fallback PNG as well
+          addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
           
           const pngBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/png');
@@ -2400,6 +2425,128 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return scaledImageData;
         }
 
+        // Helper function to add the sideways AC stamp (same as video recording)
+        function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight) {
+          // 2. Set up the font.
+          const typeSize = min(32, max(24, floor(canvasHeight / 20)));
+          const gap = typeSize * 0.75;
+
+          ctx.save(); // Save the current state of the canvas
+
+          drawTextAtPosition(0, 90); // Left
+          drawTextAtPosition(canvasWidth, -90); // Right
+
+          ctx.restore();
+          ctx.globalAlpha = 1;
+
+          function drawTextAtPosition(positionX, deg) {
+            ctx.save();
+            ctx.translate(positionX, 0);
+            ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
+            const yDist = 0.05;
+
+            ctx.font = `${typeSize}px YWFTProcessing-Regular`;
+            const text = "aesthetic.computer";
+            const measured = ctx.measureText(text);
+            const textWidth = measured.width;
+
+            ["red", "lime", "blue", "white"].forEach((color) => {
+              let offsetX, offsetY;
+              if (color !== "white") {
+                ctx.globalAlpha = 0.45;
+                offsetX = choose([-2, -4, 0, 2, 4]);
+                offsetY = choose([-2, -4, 0, 2, 4]);
+              } else {
+                ctx.globalAlpha = choose([0.5, 0.4, 0.6]);
+                offsetX = choose([-1, 0, 1]);
+                offsetY = choose([-1, 0, 1]);
+                color = choose([
+                  "white",
+                  "white",
+                  "white",
+                  "magenta",
+                  "yellow",
+                ]);
+              }
+
+              ctx.fillStyle = color;
+
+              if (deg === 90) {
+                ctx.fillText(
+                  text,
+                  floor(
+                    canvasHeight * (1 - yDist) - textWidth + offsetY,
+                  ),
+                  -floor(offsetX + gap),
+                );
+              } else if (deg === -90) {
+                ctx.fillText(
+                  text,
+                  -floor(canvasHeight * yDist + textWidth + offsetY),
+                  floor(offsetX - gap),
+                );
+              }
+            });
+
+            if (HANDLE) {
+              ctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
+              ctx.fillStyle = choose(["yellow", "red", "blue"]);
+              let offsetX, offsetY;
+              const handleWidth =
+                textWidth / 2 + ctx.measureText(HANDLE).width / 2;
+              const handleSpace = typeSize * 1.35;
+              offsetX = choose([-1, 0, 1]);
+              offsetY = choose([-1, 0, 1]);
+
+              if (deg === 90) {
+                // Handle
+                ctx.fillText(
+                  HANDLE,
+                  floor(
+                    canvasHeight * (1 - yDist) - handleWidth + offsetY,
+                  ),
+                  -floor(offsetX + handleSpace + gap),
+                );
+              } else if (deg === -90) {
+                ctx.fillText(
+                  HANDLE,
+                  -floor(canvasHeight * yDist + handleWidth + offsetY),
+                  floor(offsetX - handleSpace - gap),
+                );
+              }
+            }
+
+            ctx.restore();
+          }
+
+          // Helper function for choosing random values (simplified version)
+          function choose(options) {
+            return options[Math.floor(Math.random() * options.length)];
+          }
+        }
+
+        // Helper function to add stamp to pixel data by rendering to a canvas first
+        function addStampToPixelData(pixelData, width, height, scale = 1) {
+          // Create a temporary canvas to render the stamp
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          tempCanvas.width = width * scale;
+          tempCanvas.height = height * scale;
+          
+          // Put the original image data
+          const scaledData = upscalePixels(pixelData, width, height, scale);
+          const imageData = new ImageData(scaledData, width * scale, height * scale);
+          tempCtx.putImageData(imageData, 0, 0);
+          
+          // Add the stamp
+          addAestheticComputerStamp(tempCtx, width * scale, height * scale);
+          
+          // Get the stamped image data back
+          const stampedImageData = tempCtx.getImageData(0, 0, width * scale, height * scale);
+          return stampedImageData.data;
+        }
+
         // Create GIF instance with optimized compression settings for smaller files
         const gif = new window.GIF({
           workers: 4, // More workers for faster processing
@@ -2431,6 +2578,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           
           ctx.putImageData(imageData, 0, 0);
+          
+          // Add sideways AC stamp like in video recordings
+          addAestheticComputerStamp(ctx, originalWidth * optimalScale, originalHeight * optimalScale);
           
           // Add frame with 60fps timing (16ms = 60fps, browser-optimized)
           const fixedDelay = 15; // 16ms = 60fps (1000ms ÷ 60 = 16.67ms)
@@ -2481,6 +2631,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           
           ctx.putImageData(imageData, 0, 0);
+          
+          // Add sideways AC stamp to fallback GIF as well
+          addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
           
           const gifBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/gif');
