@@ -57,7 +57,7 @@ async function getOrCreateTypeface(name, preload) {
   if (typefaceCache.has(name)) {
     return typefaceCache.get(name);
   }
-  
+
   const typeface = new Typeface(name);
   if (preload) {
     await typeface.load(preload);
@@ -1050,7 +1050,9 @@ const $commonApi = {
       store["aesthetic-labelBack"] = "true";
       // Also sync to main thread sessionStorage for browser back navigation
       send({ type: "labelBack:set", content: true });
-      console.log("🔗 Worker: Setting labelBack and persisting to store + syncing to main thread");
+      console.log(
+        "🔗 Worker: Setting labelBack and persisting to store + syncing to main thread",
+      );
     },
   },
   send,
@@ -1446,7 +1448,14 @@ const $commonApi = {
       return activeTypeface.blockHeight;
     },
     // Return a text's bounding box.
-    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true, customTypeface = null) => {
+    box: (
+      text,
+      pos = { x: 0, y: 0 },
+      bounds,
+      scale = 1,
+      wordWrap = true,
+      customTypeface = null,
+    ) => {
       if (!text) {
         console.warn("⚠️ No text for `box`.");
         return;
@@ -1552,7 +1561,8 @@ const $commonApi = {
       }
 
       const blockMargin = 1;
-      const blockHeight = ((customTypeface || activeTypeface).blockHeight + blockMargin) * scale;
+      const blockHeight =
+        ((customTypeface || activeTypeface).blockHeight + blockMargin) * scale;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -2073,7 +2083,9 @@ const $paintApi = {
         customTypeface = typefaceCache.get(customTypeface);
       } else {
         // Create a new typeface but warn that it may not be fully loaded
-        console.warn(`⚠️ Typeface "${customTypeface}" not preloaded. Consider using preloadTypeface() in boot.`);
+        console.warn(
+          `⚠️ Typeface "${customTypeface}" not preloaded. Consider using preloadTypeface() in boot.`,
+        );
         customTypeface = new Typeface(customTypeface);
         typefaceCache.set(customTypeface.name, customTypeface);
       }
@@ -2167,7 +2179,14 @@ const $paintApi = {
       const scale = pos?.size || 1;
 
       if (bounds) {
-        const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap, customTypeface);
+        const tb = $commonApi.text.box(
+          cleanText,
+          pos,
+          bounds,
+          scale,
+          wordWrap,
+          customTypeface,
+        );
         if (!tb || !tb.lines) {
           return $activePaintApi; // Exit silently if text.box fails
         }
@@ -2205,17 +2224,32 @@ const $paintApi = {
           const lines = cleanText.split("\n");
           const lineHeightGap = 2;
           let charIndex = 0;
+          
+          console.log("🎨 NEWLINE DEBUG:");
+          console.log("🎨 cleanText:", JSON.stringify(cleanText));
+          console.log("🎨 cleanText.length:", cleanText.length);
+          console.log("🎨 charColors.length:", charColors.length);
+          console.log("🎨 lines:", lines);
+          
           lines.forEach((line, index) => {
+            console.log(`🎨 Line ${index}: "${line}" (length: ${line.length})`);
+            console.log(`🎨 charIndex before: ${charIndex}`);
+            
             const lineColors = charColors.slice(
               charIndex,
               charIndex + line.length,
             );
+            
+            console.log(`🎨 lineColors for line ${index}:`, lineColors.slice(0, 10), '...');
+            
             (customTypeface || tf)?.print(
               $activePaintApi,
               {
                 x: pos?.x,
                 y: pos
-                  ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
+                  ? pos.y +
+                    index * (customTypeface || tf).blockHeight +
+                    lineHeightGap
                   : undefined,
               },
               0,
@@ -2223,10 +2257,22 @@ const $paintApi = {
               bg,
               lineColors,
             );
-            charIndex += line.length + 1; // +1 for the newline character
+            // Move to next line: skip past current line + the newline character (except for last line)
+            charIndex += line.length;
+            if (index < lines.length - 1) {
+              charIndex += 1; // Skip the newline character for all but the last line
+            }
+            console.log(`🎨 charIndex after: ${charIndex}`);
           });
         } else {
-          (customTypeface || tf)?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
+          (customTypeface || tf)?.print(
+            $activePaintApi,
+            pos,
+            0,
+            cleanText,
+            bg,
+            charColors,
+          );
         }
       }
 
@@ -2247,11 +2293,24 @@ const $paintApi = {
     const scale = pos?.size || 1;
 
     if (bounds) {
-      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap, customTypeface); // TODO: Get the current ink color, memoize it, and make it static here.
+      const tb = $commonApi.text.box(
+        text,
+        pos,
+        bounds,
+        scale,
+        wordWrap,
+        customTypeface,
+      ); // TODO: Get the current ink color, memoize it, and make it static here.
       //       23.10.12.22.04
       tb.lines.forEach((line, index) => {
         // console.log(line, index);
-        (customTypeface || tf)?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
+        (customTypeface || tf)?.print(
+          $activePaintApi,
+          tb.pos,
+          index,
+          line.join(" "),
+          bg,
+        );
       });
     } else {
       // Break on `\n` and handle separate lines
@@ -2264,7 +2323,9 @@ const $paintApi = {
             {
               x: pos?.x,
               y: pos
-                ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
+                ? pos.y +
+                  index * (customTypeface || tf).blockHeight +
+                  lineHeightGap
                 : undefined,
             },
             0,
@@ -3284,7 +3345,7 @@ async function load(
         loadFailure = err;
         $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
         loading = false;
-        
+
         // Reset labelBack and leaving when piece load fails completely to ensure proper navigation
         labelBack = false;
         // Clear the labelBack from store when load fails
@@ -3310,7 +3371,7 @@ async function load(
       loadFailure = err;
       $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
       loading = false;
-      
+
       // Reset labelBack and leaving when piece load fails completely to ensure proper navigation
       labelBack = false;
       // Clear the labelBack from store when load fails
@@ -3835,7 +3896,12 @@ async function load(
   // Go back to the previous piece, or to the prompt if there is no history.
   $commonApi.back = () => {
     if (pieceHistoryIndex > 0) {
-      send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
+      send({
+        type: "back-to-piece",
+        content: {
+          targetPiece: $commonApi.history[$commonApi.history.length - 1],
+        },
+      });
     } else {
       $commonApi.jump("prompt");
     }
@@ -4173,14 +4239,15 @@ async function load(
     // soundClear = null;
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
-    
+
     // Restore labelBack state from store if it exists
     if (store["aesthetic-labelBack"] === "true") {
       labelBack = true;
       // Only clear labelBack if we're loading the target piece from browser back navigation
       // AND we're not loading a kidlisp piece (which gets reloaded during back navigation)
-      const isKidlispPiece = (slug && lisp.isKidlispSource(slug)) || slug === "(...)";
-      
+      const isKidlispPiece =
+        (slug && lisp.isKidlispSource(slug)) || slug === "(...)";
+
       if (fromHistory && labelBack && !isKidlispPiece) {
         // Clear labelBack since we've successfully navigated back to a non-kidlisp piece
         labelBack = false;
@@ -4188,13 +4255,13 @@ async function load(
         send({ type: "labelBack:clear", content: false });
       }
     }
-    
+
     // Reset pan translation state for new piece
     graph.unpan();
-    
+
     // Reset pan translation state for new piece
     graph.unpan();
-    
+
     // Also reset pan state in a delayed manner to handle any timing issues
     setTimeout(() => {
       graph.unpan();
@@ -4266,13 +4333,15 @@ async function load(
     // 4. Current text is a kidlisp piece and we're navigating to prompt (backspace scenario)
     // 5. We're loading prompt with kidlisp parameters (backspace navigation)
     const isKidlispCurrent = currentText && lisp.isKidlispSource(currentText);
-    const isPromptWithKidlisp = slug.startsWith("prompt~") && slug.includes("(");
+    const isPromptWithKidlisp =
+      slug.startsWith("prompt~") && slug.includes("(");
     const isKidlispTarget = slug && lisp.isKidlispSource(slug);
-    
+
     // Special case: Always add chat to history when navigating to kidlisp
     const shouldAddChatToHistory = currentText === "chat" && isKidlispTarget;
-    
-    const shouldAddToHistory = !fromHistory &&
+
+    const shouldAddToHistory =
+      !fromHistory &&
       currentText &&
       currentText !== "prompt" &&
       currentText !== $commonApi.history[$commonApi.history.length - 1] &&
@@ -4584,9 +4653,14 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "dropped:piece") {
     // Parse the dropped piece name and attach the source code
     // Strip the .mjs or .lisp extension from the filename before parsing
-    const pieceName = content.name.replace(/\.(mjs|lisp)$/, '');
-    const isLisp = content.name.endsWith('.lisp');
-    console.log("📁 Dropped piece:", content.name, `(${content.source?.length || 0} chars)`, isLisp ? "- KidLisp" : "- JavaScript");
+    const pieceName = content.name.replace(/\.(mjs|lisp)$/, "");
+    const isLisp = content.name.endsWith(".lisp");
+    console.log(
+      "📁 Dropped piece:",
+      content.name,
+      `(${content.source?.length || 0} chars)`,
+      isLisp ? "- KidLisp" : "- JavaScript",
+    );
     const parsed = parse(pieceName);
     parsed.source = content.source;
     // Set parsed.name to the same value as parsed.text for dropped pieces
@@ -5099,7 +5173,8 @@ async function makeFrame({ data: { type, content } }) {
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
     if (debug && logs.audio) console.log("Sound load success:", content);
-    if (debug && logs.audio) console.log("Resolving preload promise for:", content.sfx);
+    if (debug && logs.audio)
+      console.log("Resolving preload promise for:", content.sfx);
     preloadPromises[content.sfx]?.resolve(content.sfx);
     delete preloadPromises[content];
     return;
@@ -5194,40 +5269,24 @@ async function makeFrame({ data: { type, content } }) {
       graph.unpan();
 
       send({ type: "keyboard:unlock" });
-      
-      // Enhanced logic for KidLisp pieces: check if we should go back to chat
-      // This handles cases where labelBack state might be lost due to complex loading
-      const isKidlispPiece = (currentCode && currentCode.startsWith("(")) || 
-                             (currentText && currentText.startsWith("("));
-      const shouldGoBackToChat = labelBack || 
-                                (isKidlispPiece && $commonApi.history.length > 0 && 
-                                 $commonApi.history[$commonApi.history.length - 1] === "chat");
-      
-      if (!shouldGoBackToChat) {
-        let promptSlug = "prompt";
-        // Use currentText which contains the original slug with tildes (e.g., "rect~red")
-        const content = currentText;
-        if (content) {
-          // Only encode kidlisp content with kidlisp encoder
-          if (lisp.isKidlispSource(content)) {
-            const encodedContent = lisp.encodeKidlispForUrl(content);
-            promptSlug += "~" + encodedContent;
-          } else {
-            // For regular piece names, currentText already has the correct tilde format
-            promptSlug += "~" + content;
-          }
-        }
-        $commonApi.jump(promptSlug);
-        send({ type: "keyboard:open" });
-      } else {
-        // Going back to chat or previous piece
-        if ($commonApi.history.length > 0) {
-          send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
+
+      // Always go to prompt for editing, regardless of labelBack setting
+      // This ensures backspace always returns to editable input
+      let promptSlug = "prompt";
+      // Use currentText which contains the original slug with tildes (e.g., "rect~red")
+      const content = currentText;
+      if (content) {
+        // Only encode kidlisp content with kidlisp encoder
+        if (lisp.isKidlispSource(content)) {
+          const encodedContent = lisp.encodeKidlispForUrl(content);
+          promptSlug += "~" + encodedContent;
         } else {
-          $commonApi.jump("prompt");
-          send({ type: "keyboard:open" });
+          // For regular piece names, currentText already has the correct tilde format
+          promptSlug += "~" + content;
         }
       }
+      $commonApi.jump(promptSlug);
+      send({ type: "keyboard:open" });
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
@@ -5302,7 +5361,13 @@ async function makeFrame({ data: { type, content } }) {
               });
             } else {
               if ($commonApi.history.length > 0) {
-                send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
+                send({
+                  type: "back-to-piece",
+                  content: {
+                    targetPiece:
+                      $commonApi.history[$commonApi.history.length - 1],
+                  },
+                });
               } else {
                 $commonApi.jump("prompt")(() => {
                   send({ type: "keyboard:open" });
@@ -6069,14 +6134,14 @@ async function makeFrame({ data: { type, content } }) {
             },
             push: (btn) => {
               const shareWidth = tf.blockWidth * "share ".length;
-              
+
               // Dynamic caret width calculation based on prompt length
               // Short prompts (4 chars or less) get a minimal threshold
               // Longer prompts get a more stretched out threshold
               const promptLength = currentHUDTxt.length;
               const baseCaretWidth = tf.blockWidth + 2;
               const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-              
+
               let caretWidth;
               if (promptLength <= 4) {
                 // Very short prompts like "line" get minimal threshold
@@ -6086,7 +6151,10 @@ async function makeFrame({ data: { type, content } }) {
                 caretWidth = Math.floor(baseCaretWidth * 1.5);
               } else {
                 // Long prompts get stretched threshold, capped at max
-                caretWidth = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+                caretWidth = Math.min(
+                  maxCaretWidth,
+                  Math.floor(promptLength * tf.blockWidth * 0.25),
+                );
               }
 
               // Don't allow normal push behavior if we've been scrubbing
@@ -6126,7 +6194,13 @@ async function makeFrame({ data: { type, content } }) {
                 jump("prompt");
               } else {
                 if ($commonApi.history.length > 0) {
-                  send({ type: "back-to-piece", content: { targetPiece: $commonApi.history[$commonApi.history.length - 1] } });
+                  send({
+                    type: "back-to-piece",
+                    content: {
+                      targetPiece:
+                        $commonApi.history[$commonApi.history.length - 1],
+                    },
+                  });
                 } else {
                   jump("prompt");
                 }
@@ -6145,14 +6219,14 @@ async function makeFrame({ data: { type, content } }) {
               }
 
               const shareWidth = tf.blockWidth * "share ".length;
-              
+
               // Dynamic caret width calculation based on prompt length
               // Short prompts (4 chars or less) get a minimal threshold
               // Longer prompts get a more stretched out threshold
               const promptLength = currentHUDTxt.length;
               const baseCaretWidth = tf.blockWidth + 2;
               const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-              
+
               let caretWidth;
               if (promptLength <= 4) {
                 // Very short prompts like "line" get minimal threshold
@@ -6162,7 +6236,10 @@ async function makeFrame({ data: { type, content } }) {
                 caretWidth = Math.floor(baseCaretWidth * 1.5);
               } else {
                 // Long prompts get stretched threshold, capped at max
-                caretWidth = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+                caretWidth = Math.min(
+                  maxCaretWidth,
+                  Math.floor(promptLength * tf.blockWidth * 0.25),
+                );
               }
 
               // Update button width for positive scrub
@@ -6194,14 +6271,14 @@ async function makeFrame({ data: { type, content } }) {
               currentHUDTextColor = originalColor;
 
               const shareWidth = tf.blockWidth * "share ".length;
-              
+
               // Dynamic caret width calculation based on prompt length
               // Short prompts (4 chars or less) get a minimal threshold
               // Longer prompts get a more stretched out threshold
               const promptLength = currentHUDTxt.length;
               const baseCaretWidth = tf.blockWidth + 2;
               const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-              
+
               let caretWidth;
               if (promptLength <= 4) {
                 // Very short prompts like "line" get minimal threshold
@@ -6211,9 +6288,12 @@ async function makeFrame({ data: { type, content } }) {
                 caretWidth = Math.floor(baseCaretWidth * 1.5);
               } else {
                 // Long prompts get stretched threshold, capped at max
-                caretWidth = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+                caretWidth = Math.min(
+                  maxCaretWidth,
+                  Math.floor(promptLength * tf.blockWidth * 0.25),
+                );
               }
-              
+
               console.log("scrub:", currentHUDScrub, shareWidth, -caretWidth);
 
               if (currentHUDScrub === shareWidth) {
@@ -6237,11 +6317,13 @@ async function makeFrame({ data: { type, content } }) {
                 if (contentToShare && contentToShare.startsWith("share ")) {
                   contentToShare = contentToShare.substring(6); // Remove "share " prefix
                 }
-                
+
                 // Check if the content is already kidlisp source - if so, don't re-encode
                 if (lisp.isKidlispSource(contentToShare)) {
                   // Content is already kidlisp, encode it properly for sharing
-                  $api.jump("share~" + lisp.encodeKidlispForUrl(contentToShare));
+                  $api.jump(
+                    "share~" + lisp.encodeKidlispForUrl(contentToShare),
+                  );
                 } else {
                   // Content is not kidlisp, share as-is
                   $api.jump("share~" + contentToShare);
@@ -6904,8 +6986,11 @@ async function makeFrame({ data: { type, content } }) {
           let textWidth, animationY;
           if (labelBounds.lines.length > 1) {
             // For multiline text, use the width of the last line
-            const lastLineArray = labelBounds.lines[labelBounds.lines.length - 1];
-            const lastLineText = Array.isArray(lastLineArray) ? lastLineArray.join(" ") : lastLineArray;
+            const lastLineArray =
+              labelBounds.lines[labelBounds.lines.length - 1];
+            const lastLineText = Array.isArray(lastLineArray)
+              ? lastLineArray.join(" ")
+              : lastLineArray;
             textWidth = lastLineText.length * tf.blockWidth;
             animationY = (labelBounds.lines.length - 1) * (tf.blockHeight + 1);
           } else {
@@ -6953,6 +7038,7 @@ async function makeFrame({ data: { type, content } }) {
             return colorMap[colorName.toLowerCase()] || [255, 255, 255];
           }
 
+          // Parse color codes and build character color array
           while (originalIndex < text.length && cleanIndex < cleanText.length) {
             // Check if we're at the start of a color code
             if (text[originalIndex] === "\\") {
@@ -6999,21 +7085,25 @@ async function makeFrame({ data: { type, content } }) {
 
           // Override piece name prefix colors to use currentHUDTextColor
           // Find the piece name (everything before the first space) and force it to use HUD color
+          // Check if piece name coloring should be disabled (for custom syntax highlighting)
           const spaceIndex = renderText.indexOf(" ");
           if (disableSyntaxColoring) {
             // When syntax coloring is disabled, use currentHUDTextColor for all text
             for (let i = 0; i < renderText.length; i++) {
               charColors[i] = currentHUDTextColor || [255, 200, 240];
             }
-          } else if (spaceIndex > 0) {
-            // Override colors for the piece name (0 to spaceIndex) to use HUD color
-            for (let i = 0; i < spaceIndex; i++) {
-              charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
-            }
-          } else if (renderText.length > 0) {
-            // If no space found, the entire text is the piece name
-            for (let i = 0; i < renderText.length; i++) {
-              charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+          } else if (!$commonApi?.hud?.disablePieceNameColoring) {
+            // Only override piece name colors if not explicitly disabled
+            if (spaceIndex > 0) {
+              // Override colors for the piece name (0 to spaceIndex) to use HUD color
+              for (let i = 0; i < spaceIndex; i++) {
+                charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+              }
+            } else if (renderText.length > 0) {
+              // If no space found, the entire text is the piece name
+              for (let i = 0; i < renderText.length; i++) {
+                charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+              }
             }
           }
 
@@ -7029,50 +7119,82 @@ async function makeFrame({ data: { type, content } }) {
             charColors = charColors.slice(0, renderText.length);
           }
 
-          // Handle multi-line rendering by using the renderText for consistent line breaking
+          // Handle multi-line rendering with proper color mapping
           if (hasInlineColor) {
-            // Use the existing labelBounds which was calculated from cleanText/renderText
-            let cleanTextIndex = 0;
-
-            for (
-              let lineIndex = 0;
-              lineIndex < labelBounds.lines.length;
-              lineIndex++
-            ) {
-              const lineArray = labelBounds.lines[lineIndex];
-              // Preserve spaces when joining words on a line, matching the width calculation logic
-              const lineText = Array.isArray(lineArray)
-                ? lineArray.join(" ")
-                : lineArray;
-              const lineY = lineIndex * (tf.blockHeight + 1);
-
-              // Map each character in the line to its color from the original charColors array
-              const lineColors = [];
-              for (
-                let charIndex = 0;
-                charIndex < lineText.length;
-                charIndex++
-              ) {
-                // Use the color from the original mapping, or null if we're past the end
-                if (cleanTextIndex < charColors.length) {
-                  lineColors.push(charColors[cleanTextIndex]);
-                } else {
-                  lineColors.push(null);
+            // Build a comprehensive character-to-color mapping for the cleaned text
+            const textCharColors = new Array(renderText.length);
+            
+            // Parse color codes from the original text and map to renderText positions
+            let renderIndex = 0;
+            let originalIndex = 0;
+            let currentColor = null;
+            
+            while (originalIndex < text.length && renderIndex < renderText.length) {
+              // Check if we're at the start of a color code
+              if (text[originalIndex] === "\\") {
+                const colorMatch = text
+                  .slice(originalIndex)
+                  .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
+                if (colorMatch) {
+                  // Update current color
+                  const colorName = colorMatch[1];
+                  if (colorName.includes(",")) {
+                    const rgbValues = colorName
+                      .split(",")
+                      .map((v) => parseInt(v.trim()));
+                    if (
+                      rgbValues.length === 3 &&
+                      rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+                    ) {
+                      currentColor = rgbValues;
+                    } else {
+                      currentColor = colorNameToRGB(colorName);
+                    }
+                  } else {
+                    currentColor = colorNameToRGB(colorName);
+                  }
+                  // Skip over the color code
+                  originalIndex += colorMatch[0].length;
+                  continue;
                 }
-                cleanTextIndex++;
               }
+              
+              // This is a regular character - assign color and advance both indices
+              textCharColors[renderIndex] = currentColor;
+              renderIndex++;
+              originalIndex++;
+            }
+            
+            // Fill any remaining positions with the current color
+            while (renderIndex < renderText.length) {
+              textCharColors[renderIndex] = currentColor;
+              renderIndex++;
+            }
 
-              // IMPORTANT: Account for spaces between lines that are lost in the word-based line breaking
-              // The text.box line breaking removes spaces at line breaks, but our color mapping includes them
-              // So we need to skip over the space characters in our color mapping
-              if (lineIndex < labelBounds.lines.length - 1) {
-                // Skip the space character that was at the end of this line/start of next line
-                if (
-                  cleanTextIndex < cleanText.length &&
-                  cleanText[cleanTextIndex] === " "
-                ) {
-                  cleanTextIndex++; // Skip the space in our color mapping
+            // Now render each line using the text layout from labelBounds
+            let textPosition = 0;
+            
+            for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
+              const lineArray = labelBounds.lines[lineIndex];
+              const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
+              const lineY = lineIndex * (tf.blockHeight + 1);
+              
+              // Extract colors for this specific line
+              const lineColors = [];
+              for (let i = 0; i < lineText.length; i++) {
+                if (textPosition + i < textCharColors.length) {
+                  lineColors.push(textCharColors[textPosition + i]);
+                } else {
+                  lineColors.push(currentColor); // Fallback to last color
                 }
+              }
+              
+              // Advance position past this line's characters
+              textPosition += lineText.length;
+              
+              // Skip whitespace that was consumed by line breaking
+              while (textPosition < renderText.length && /\s/.test(renderText[textPosition])) {
+                textPosition++;
               }
 
               // Render the line with per-character colors
@@ -7131,7 +7253,7 @@ async function makeFrame({ data: { type, content } }) {
             const promptLength = currentHUDTxt.length;
             const baseCaretWidth = tf.blockWidth + 2;
             const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-            
+
             let caretThreshold;
             if (promptLength <= 4) {
               // Very short prompts like "line" get minimal threshold
@@ -7141,9 +7263,12 @@ async function makeFrame({ data: { type, content } }) {
               caretThreshold = Math.floor(baseCaretWidth * 1.5);
             } else {
               // Long prompts get stretched threshold, capped at max
-              caretThreshold = Math.min(maxCaretWidth, Math.floor(promptLength * tf.blockWidth * 0.25));
+              caretThreshold = Math.min(
+                maxCaretWidth,
+                Math.floor(promptLength * tf.blockWidth * 0.25),
+              );
             }
-            
+
             const scrubProgress = Math.abs(currentHUDScrub) / caretThreshold;
             const clampedProgress = Math.min(scrubProgress, 1);
 
