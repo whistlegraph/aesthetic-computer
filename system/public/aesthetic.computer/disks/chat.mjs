@@ -1150,7 +1150,9 @@ function parseMessageElements(message) {
   }
 
   // Parse @handles
-  const handleRegex = /@[^\s]+/g;
+  // Handles can only contain a-z, 0-9, underscores and periods (not at start/end)
+  // They should stop at quotes, parentheses, and other special characters
+  const handleRegex = /@[a-z0-9]+([._][a-z0-9]+)*/gi;
   while ((match = handleRegex.exec(message)) !== null) {
     elements.push({
       type: "handle",
