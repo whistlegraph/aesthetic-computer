@@ -2003,6 +2003,11 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      "a*": {
+        sig: "a*",
+        desc: "A* pathfinding animation.",
+        done: true,
+      },
       "alex-row": {
         sig: "alex-row",
         desc: "",
