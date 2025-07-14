@@ -57,6 +57,7 @@
     "eventsource-parser": "^3.0.1",
     "express-oauth2-jwt-bearer": "^1.6.1",
     "firebase-admin": "^13.2.0",
+    "gif.js": "^0.2.0",
     "gl-matrix": "^3.4.3",
     "got": "^14.4.6",
     "gotrue-js": "^0.9.29",
@@ -79,7 +80,8 @@
     "sharp": "^0.33.5",
     "stripe": "^17.7.0",
     "three": "^0.175.0",
-    "web3": "^4.16.0"
+    "web3": "^4.16.0",
+    "webpxmux": "^0.0.2"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.777.0",
