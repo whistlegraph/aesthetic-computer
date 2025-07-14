@@ -420,6 +420,9 @@ async function halt($, text) {
       }
       await tapePromise;
       let duration = parseFloat(params[0]);
+      
+      // Check if params[0] is a valid number (not just starts with a number)
+      const isValidDuration = !isNaN(duration) && params[0] === duration.toString();
 
       let jumpTo;
 
@@ -436,13 +439,15 @@ async function halt($, text) {
         ); // Start recording immediately.
       };
 
-      if (isNaN(duration) && params[0]?.length > 0) {
+      if (!isValidDuration && params[0]?.length > 0) {
         duration = defaultDuration; //Infinity;
         jumpTo = params[0];
+        // Handle both regular pieces and kidlisp pieces
         jump(params.join("~"));
         rec.videoOnLeave = true;
       } else if (params[1]) {
         jumpTo = params[1];
+        // Handle both regular pieces and kidlisp pieces
         jump(params.slice(1).join("~"));
       } else {
         jump("prompt");

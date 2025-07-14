@@ -499,6 +499,7 @@ class Recorder {
   playing = false; // "
   cutCallback;
   printCallback;
+  framesCallback;
   loadCallback;
 
   tapeTimerStart;
@@ -572,6 +573,11 @@ class Recorder {
 
   pause() {
     send({ type: "recorder:present:pause" });
+  }
+
+  requestFrames(cb) {
+    $commonApi.rec.framesCallback = cb;
+    send({ type: "recorder:request-frames" });
   }
 }
 
@@ -4820,6 +4826,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "recorder:frames-response") {
+    $commonApi.rec.framesCallback?.(content);
+    return;
+  }
+
   if (type === "recorder:present-progress") {
     $commonApi.rec.presentProgress = content;
     return;
@@ -6840,7 +6851,7 @@ async function makeFrame({ data: { type, content } }) {
         const scale = 1; // HUD label always uses scale 1
         // Match the text.box rendering logic: blockHeight = (tf.blockHeight + 1) * scale
         const h = labelBounds.lines.length * (tf.blockHeight + 1) * scale;
-        if (piece === "video") w = screen.width;
+        if (piece === "video" || $commonApi.piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.resetpan();
@@ -7271,7 +7282,7 @@ async function makeFrame({ data: { type, content } }) {
           }
         });
 
-        if (piece === "video") currentHUDOffset = { x: 0, y: 6 };
+        if (piece === "video" || $commonApi.piece === "video") currentHUDOffset = { x: 0, y: 6 };
         if (!currentHUDOffset) currentHUDOffset = { x: defo, y: defo };
 
         currentHUDButton =

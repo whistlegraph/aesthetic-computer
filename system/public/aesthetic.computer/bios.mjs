@@ -1621,6 +1621,882 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎬 Create animated WebP from frame data
+    if (type === "create-animated-webp") {
+      console.log("📼 Creating animated WebP from", content.frames.length, "frames");
+      
+      try {
+        // Create a canvas for frame processing
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for WebP creation");
+          return;
+        }
+        
+        // Set canvas size based on first frame
+        const firstFrame = content.frames[0];
+        canvas.width = firstFrame.width;
+        canvas.height = firstFrame.height;
+        console.log(`🖼️ Canvas size: ${canvas.width}x${canvas.height}`);
+        
+        // For now, create a zip of WebP frames with timing info
+        // TODO: Implement proper animated WebP encoding when browser support improves
+        if (!window.JSZip) await loadJSZip();
+        const zip = new window.JSZip();
+        
+        // Add timing info
+        const timingInfo = content.frames.map((frame, i) => ({
+          frame: i,
+          duration: frame.duration,
+          timestamp: frame.timestamp
+        }));
+        
+        zip.file('timing.json', JSON.stringify(timingInfo, null, 2));
+        console.log("📋 Added timing.json with", timingInfo.length, "frame entries");
+        
+        // Convert each frame to WebP and add to zip
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+          
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(`🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round((i + 1) / content.frames.length * 100)}%)`);
+          }
+          
+          // Create ImageData from frame data
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height
+          );
+          
+          // Draw to canvas and convert to WebP
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Convert to WebP blob
+          const webpBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/webp', 0.8);
+          });
+          
+          // Add to zip
+          zip.file(`frame_${i.toString().padStart(4, '0')}.webp`, webpBlob);
+        }
+        
+        console.log("📦 Generating ZIP file...");
+        
+        // Generate and download the zip
+        const zipBlob = await zip.generateAsync({type: 'blob'});
+        const filename = `tape-${timestamp()}-webp.zip`;
+        
+        console.log(`💾 ZIP generated: ${filename} (${Math.round(zipBlob.size / 1024 / 1024 * 100) / 100} MB)`);
+        
+        // Use the existing download function
+        receivedDownload({ filename, data: zipBlob });
+        
+        console.log("🎬 WebP frames exported successfully as ZIP");
+        
+      } catch (error) {
+        console.error("Error creating animated WebP:", error);
+      }
+      return;
+    }
+
+    // 🎬 Create single animated WebP file 
+    if (type === "create-single-animated-webp") {
+      console.log("🎞️ Creating animated image from", content.frames.length, "frames");
+      
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for animated image creation");
+          return;
+        }
+        
+        // Try WebP animation first using webpxmux.js
+        console.log("🔄 Creating animated WebP using webpxmux.js library");
+        
+        // Load webpxmux.js if not already loaded
+        if (!window.WebPXMux) {
+          console.log("📦 Loading webpxmux.js library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        
+        console.log(`🖼️ Canvas size: ${content.frames[0].width}x${content.frames[0].height}`);
+        
+        // Initialize WebPXMux
+        const xMux = window.WebPXMux('https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.wasm');
+        await xMux.waitRuntime();
+        
+        // Convert our frame data to WebPXMux format
+        const frames = [];
+        
+        for (let i = 0; i < content.frames.length; i++) {
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(`🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round((i + 1) / content.frames.length * 100)}%)`);
+          }
+          
+          const frame = content.frames[i];
+          
+          // Convert frame data to RGBA Uint32Array format expected by webpxmux
+          const rgba = new Uint32Array(frame.width * frame.height);
+          const data = frame.data;
+          
+          for (let j = 0; j < rgba.length; j++) {
+            const pixelIndex = j * 4;
+            const r = data[pixelIndex];
+            const g = data[pixelIndex + 1];
+            const b = data[pixelIndex + 2];
+            const a = data[pixelIndex + 3];
+            
+            // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
+            rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
+          }
+          
+          frames.push({
+            duration: Math.max(frame.duration || 100, 10),
+            isKeyframe: i === 0, // First frame is keyframe
+            rgba: rgba
+          });
+        }
+        
+        console.log("🔄 Encoding animated WebP...");
+        
+        const webpFrames = {
+          frameCount: frames.length,
+          width: content.frames[0].width,
+          height: content.frames[0].height,
+          loopCount: 0, // Infinite loop
+          bgColor: 0xFFFFFFFF, // White background
+          frames: frames
+        };
+        
+        const webpData = await xMux.encodeFrames(webpFrames);
+        
+        const webpBlob = new Blob([webpData], { type: 'image/webp' });
+        const filename = `tape-${timestamp()}-animated.webp`;
+        
+        console.log(`💾 Animated WebP generated: ${filename} (${Math.round(webpBlob.size / 1024 / 1024 * 100) / 100} MB)`);
+        
+        // Use the existing download function
+        receivedDownload({ filename, data: webpBlob });
+        
+        console.log("🎬 Animated WebP exported successfully!");
+        
+      } catch (error) {
+        console.error("Error creating animated WebP:", error);
+        console.log("🔄 Falling back to animated PNG (APNG)");
+        
+        try {
+          // Fallback to APNG using UPNG.js
+          console.log("🔄 Creating animated PNG (APNG) - fallback option");
+          
+          // Load pako (required for UPNG.js compression) and UPNG.js library
+          if (!window.pako) {
+            console.log("📦 Loading pako compression library...");
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+          
+          if (!window.UPNG) {
+            console.log("📦 Loading UPNG.js library...");
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js';
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+          
+          console.log(`🖼️ Canvas size: ${content.frames[0].width}x${content.frames[0].height}`);
+          
+          // Convert frames to the format UPNG expects
+          const frameBuffers = [];
+          const delays = [];
+          
+          for (let i = 0; i < content.frames.length; i++) {
+            const frame = content.frames[i];
+            
+            if (i % 50 === 0 || i === content.frames.length - 1) {
+              console.log(`🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round((i + 1) / content.frames.length * 100)}%)`);
+            }
+            
+            // UPNG expects RGBA data as ArrayBuffer
+            const frameData = new Uint8Array(frame.data);
+            frameBuffers.push(frameData.buffer);
+            
+            // Convert to milliseconds for APNG delays
+            delays.push(Math.max(frame.duration || 100, 10));
+          }
+          
+          console.log("🔄 Encoding animated PNG...");
+          
+          // Create animated PNG using UPNG
+          const apngBuffer = window.UPNG.encode(
+            frameBuffers,
+            content.frames[0].width,
+            content.frames[0].height,
+            0, // 0 = lossless, or use 256 for lossy
+            delays
+          );
+          
+          const apngBlob = new Blob([apngBuffer], { type: 'image/png' });
+          const filename = `tape-${timestamp()}-animated.png`;
+          
+          console.log(`💾 Animated PNG generated: ${filename} (${Math.round(apngBlob.size / 1024 / 1024 * 100) / 100} MB)`);
+          
+          // Use the existing download function
+          receivedDownload({ filename, data: apngBlob });
+          
+          console.log("🎬 Animated PNG (APNG) exported successfully!");
+          
+        } catch (apngError) {
+          console.error("Error creating animated PNG:", apngError);
+          
+          // Final fallback: create a static WebP of the first frame
+          console.log("🔄 Falling back to static WebP of first frame");
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const firstFrame = content.frames[0];
+            
+            canvas.width = firstFrame.width;
+            canvas.height = firstFrame.height;
+            
+            const imageData = new ImageData(
+              new Uint8ClampedArray(firstFrame.data),
+              firstFrame.width,
+              firstFrame.height
+            );
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            const webpBlob = await new Promise(resolve => {
+              canvas.toBlob(resolve, 'image/webp', 0.9);
+            });
+            
+            const filename = `tape-${timestamp()}-static.webp`;
+            receivedDownload({ filename, data: webpBlob });
+            
+            console.log("📸 Static WebP fallback exported successfully");
+          } catch (fallbackError) {
+            console.error("Error in fallback WebP creation:", fallbackError);
+          }
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create animated WebP only (no fallback to APNG)
+    if (type === "create-animated-webp-only") {
+      console.log("🎞️ Creating animated WebP from", content.frames.length, "frames");
+      
+      // Helper function to upscale pixels with nearest neighbor - with memory safety
+      function upscalePixels(rgba, originalWidth, originalHeight, scale) {
+        if (scale === 1) {
+          return { rgba: rgba, actualScale: 1 };
+        }
+        
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+        const totalPixels = scaledWidth * scaledHeight;
+        
+        // Safety check to prevent array allocation errors
+        const maxSafeArraySize = 100 * 1024 * 1024; // 100M elements max
+        if (totalPixels > maxSafeArraySize) {
+          console.warn(`⚠️ Scaled array too large (${totalPixels} pixels), falling back to 1x scaling`);
+          return { rgba: rgba, actualScale: 1 };
+        }
+        
+        let scaledRgba;
+        try {
+          scaledRgba = new Uint32Array(totalPixels);
+        } catch (error) {
+          console.warn(`⚠️ Failed to allocate scaled array: ${error.message}, falling back to 1x scaling`);
+          return { rgba: rgba, actualScale: 1 };
+        }
+        
+        for (let y = 0; y < scaledHeight; y++) {
+          for (let x = 0; x < scaledWidth; x++) {
+            const sourceX = Math.floor(x / scale);
+            const sourceY = Math.floor(y / scale);
+            const sourceIndex = sourceY * originalWidth + sourceX;
+            const targetIndex = y * scaledWidth + x;
+            scaledRgba[targetIndex] = rgba[sourceIndex];
+          }
+        }
+        
+        return { rgba: scaledRgba, actualScale: scale };
+      }
+      
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for animated WebP creation");
+          return;
+        }
+        
+        console.log("🔄 Creating animated WebP using webpxmux.js library");
+        
+        // Load webpxmux.js using local dep files
+        if (!window.WebPXMux) {
+          console.log("📦 Loading webpxmux.js library...");
+          console.log("📍 Script URL: /aesthetic.computer/dep/webpxmux/webpxmux.min.js");
+          
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/aesthetic.computer/dep/webpxmux/webpxmux.min.js';
+            script.type = 'text/javascript';
+            
+            script.onload = () => {
+              console.log("✅ webpxmux.js script loaded successfully");
+              console.log("🔍 Checking window.WebPXMux:", typeof window.WebPXMux);
+              if (window.WebPXMux) {
+                console.log("✅ WebPXMux constructor found on window");
+              } else {
+                console.error("❌ WebPXMux not found on window after script load");
+              }
+              resolve();
+            };
+            
+            script.onerror = (error) => {
+              console.error("❌ Failed to load webpxmux.js script");
+              console.error("📍 Error event:", error);
+              console.error("📍 Script src:", script.src);
+              console.error("📍 Script type:", script.type);
+              reject(error);
+            };
+            
+            console.log("📎 Appending script to document head");
+            document.head.appendChild(script);
+          });
+        } else {
+          console.log("✅ webpxmux.js already loaded");
+        }
+        
+        console.log(`🖼️ Canvas size: ${content.frames[0].width}x${content.frames[0].height} -> checking memory requirements...`);
+        
+        // Pre-calculate optimal scale to avoid memory issues
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const frameCount = content.frames.length;
+        
+        // Ultra-conservative memory management for WebP animations
+        // Each frame needs significant memory overhead beyond just pixel data
+        const baseMemoryLimit = 5 * 1024 * 1024; // 5M pixels base limit (much smaller)
+        
+        // Much more aggressive scaling penalties for large frame counts
+        let framePenalty = 1;
+        if (frameCount > 500) framePenalty = 16;     // 500+ frames: divide by 16
+        else if (frameCount > 300) framePenalty = 12; // 300+ frames: divide by 12
+        else if (frameCount > 200) framePenalty = 8;  // 200+ frames: divide by 8
+        else if (frameCount > 100) framePenalty = 6;  // 100+ frames: divide by 6
+        else if (frameCount > 50) framePenalty = 4;   // 50+ frames: divide by 4
+        else if (frameCount > 25) framePenalty = 2;   // 25+ frames: divide by 2
+        
+        const adjustedMemoryLimit = Math.max(
+          baseMemoryLimit / framePenalty,
+          256 * 1024 // Minimum 256K pixels (very small for safety)
+        );
+        
+        // Start with smaller default scaling
+        let optimalScale = frameCount > 200 ? 1 : 2; // Default to 1x for large animations
+        let scaledPixels = originalWidth * originalHeight * optimalScale * optimalScale;
+        
+        console.log(`🧮 Conservative memory calculation: ${frameCount} frames, penalty: ${framePenalty}x, ${scaledPixels} pixels per frame (${optimalScale}x), limit: ${Math.round(adjustedMemoryLimit / 1024)}K pixels`);
+        
+        // More aggressive downscaling if needed
+        if (scaledPixels > adjustedMemoryLimit) {
+          optimalScale = 1;
+          scaledPixels = originalWidth * originalHeight;
+          console.warn(`⚠️ Forcing 1x scaling for ${frameCount} frames to prevent memory errors`);
+          
+          // If even 1x is too large, we have a problem
+          if (scaledPixels > adjustedMemoryLimit) {
+            console.error(`❌ Video too large even at 1x scaling: ${Math.round(scaledPixels / 1024)}K pixels > ${Math.round(adjustedMemoryLimit / 1024)}K limit`);
+            throw new Error(`Video dimensions too large for WebP encoding: ${originalWidth}x${originalHeight} with ${frameCount} frames`);
+          }
+        }
+        
+        console.log(`📏 Using ${optimalScale}x scaling: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`);
+        
+        // Initialize WebPXMux
+        console.log("🔧 Initializing WebPXMux...");
+        console.log("📍 WASM URL: /aesthetic.computer/dep/webpxmux/webpxmux.wasm");
+        
+        const xMux = window.WebPXMux('/aesthetic.computer/dep/webpxmux/webpxmux.wasm');
+        console.log("✅ WebPXMux instance created:", xMux);
+        
+        console.log("⏳ Waiting for WebAssembly runtime...");
+        await xMux.waitRuntime();
+        console.log("✅ WebAssembly runtime ready!");
+        
+        // Verify xMux instance methods are available
+        console.log("🔍 Verifying xMux methods:", {
+          hasEncodeFrames: typeof xMux.encodeFrames === 'function',
+          hasWaitRuntime: typeof xMux.waitRuntime === 'function',
+          xMuxKeys: Object.keys(xMux)
+        });
+        
+        // Convert our frame data to WebPXMux format with smart upscaling
+        const frames = [];
+        
+        for (let i = 0; i < content.frames.length; i++) {
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(`🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round((i + 1) / content.frames.length * 100)}%)`);
+          }
+          
+          const frame = content.frames[i];
+          
+          // Convert frame data to RGBA Uint32Array format expected by webpxmux
+          let rgba = new Uint32Array(frame.width * frame.height);
+          const data = frame.data;
+          
+          for (let j = 0; j < rgba.length; j++) {
+            const pixelIndex = j * 4;
+            const r = data[pixelIndex];
+            const g = data[pixelIndex + 1];
+            const b = data[pixelIndex + 2];
+            const a = data[pixelIndex + 3];
+            
+            // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
+            rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
+          }
+          
+          // Apply smart upscaling with pre-calculated safe scale and error handling
+          const upscaleResult = upscalePixels(rgba, frame.width, frame.height, optimalScale);
+          
+          // Update actual scale if upscaling failed
+          if (upscaleResult.actualScale !== optimalScale && i === 0) {
+            console.warn(`⚠️ Upscaling failed, using ${upscaleResult.actualScale}x instead of ${optimalScale}x`);
+            optimalScale = upscaleResult.actualScale; // Update for remaining frames
+          }
+          
+          frames.push({
+            duration: Math.max(frame.duration || 16.67, 10), // Default 60fps (~16.67ms)
+            isKeyframe: i === 0, // First frame is keyframe
+            rgba: upscaleResult.rgba
+          });
+          
+          // Aggressive memory cleanup
+          rgba.fill(0);
+          rgba = null; // Help GC
+        }
+        
+        console.log("🔄 Encoding animated WebP...");
+        
+        // Use the actual scale that was achieved (may be different if upscaling failed)
+        const actualWidth = frames.length > 0 ? Math.sqrt(frames[0].rgba.length / (originalWidth * originalHeight)) * originalWidth : originalWidth;
+        const actualHeight = frames.length > 0 ? Math.sqrt(frames[0].rgba.length / (originalWidth * originalHeight)) * originalHeight : originalHeight;
+        
+        const webpFrames = {
+          frameCount: frames.length,
+          width: Math.round(actualWidth),
+          height: Math.round(actualHeight),
+          loopCount: 0, // Infinite loop
+          bgColor: 0xFFFFFFFF, // White background
+          frames: frames
+        };
+        
+        console.log("� WebP frames data structure:", {
+          frameCount: webpFrames.frameCount,
+          width: webpFrames.width,
+          height: webpFrames.height,
+          loopCount: webpFrames.loopCount,
+          bgColor: webpFrames.bgColor.toString(16),
+          firstFrameDuration: webpFrames.frames[0]?.duration,
+          firstFrameRgbaLength: webpFrames.frames[0]?.rgba?.length,
+          totalFrames: webpFrames.frames.length
+        });
+        
+        console.log("�🔧 Calling xMux.encodeFrames...");
+        const webpData = await xMux.encodeFrames(webpFrames);
+        console.log("✅ WebP encoding complete! Data length:", webpData.length);
+        
+        const webpBlob = new Blob([webpData], { type: 'image/webp' });
+        const filename = `tape-${timestamp()}-animated.webp`;
+        
+        console.log(`💾 Animated WebP generated: ${filename} (${Math.round(webpBlob.size / 1024 / 1024 * 100) / 100} MB)`);
+        
+        // Use the existing download function
+        receivedDownload({ filename, data: webpBlob });
+        
+        console.log("🎬 Animated WebP exported successfully!");
+        
+      } catch (error) {
+        console.error("Error creating animated WebP:", error);
+        console.log("🔄 Falling back to static WebP of first frame");
+        
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const firstFrame = content.frames[0];
+          
+          canvas.width = firstFrame.width;
+          canvas.height = firstFrame.height;
+          
+          const imageData = new ImageData(
+            new Uint8ClampedArray(firstFrame.data),
+            firstFrame.width,
+            firstFrame.height
+          );
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          const webpBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/webp', 0.9);
+          });
+          
+          const filename = `tape-${timestamp()}-static.webp`;
+          receivedDownload({ filename, data: webpBlob });
+          
+          console.log("📸 Static WebP fallback exported successfully");
+        } catch (fallbackError) {
+          console.error("Error in fallback WebP creation:", fallbackError);
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create APNG only
+    if (type === "create-single-animated-apng") {
+      console.log("🎞️ Creating APNG from", content.frames.length, "frames");
+      
+      // Helper function to upscale pixels with nearest neighbor (same as WebP)
+      function upscalePixels(imageData, originalWidth, originalHeight, scale) {
+        if (scale === 1) {
+          return imageData;
+        }
+        
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+        const scaledImageData = new Uint8ClampedArray(scaledWidth * scaledHeight * 4);
+        
+        for (let y = 0; y < scaledHeight; y++) {
+          for (let x = 0; x < scaledWidth; x++) {
+            const sourceX = Math.floor(x / scale);
+            const sourceY = Math.floor(y / scale);
+            const sourceIndex = (sourceY * originalWidth + sourceX) * 4;
+            const targetIndex = (y * scaledWidth + x) * 4;
+            
+            scaledImageData[targetIndex] = imageData[sourceIndex];     // R
+            scaledImageData[targetIndex + 1] = imageData[sourceIndex + 1]; // G
+            scaledImageData[targetIndex + 2] = imageData[sourceIndex + 2]; // B
+            scaledImageData[targetIndex + 3] = imageData[sourceIndex + 3]; // A
+          }
+        }
+        
+        return scaledImageData;
+      }
+      
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for APNG creation");
+          return;
+        }
+        
+        console.log("🔄 Creating animated PNG (APNG)");
+        
+        // Pre-calculate optimal scale for APNG (same logic as WebP)
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const frameCount = content.frames.length;
+        
+        // Be more conservative with memory limits for large frame counts
+        const baseMemoryLimit = 25 * 1024 * 1024; // 25M pixels base limit
+        const adjustedMemoryLimit = Math.max(
+          baseMemoryLimit / Math.max(1, frameCount / 500), // Reduce limit for many frames
+          1024 * 1024 // Minimum 1M pixels
+        );
+        
+        let optimalScale = 4;
+        let scaledPixels = originalWidth * originalHeight * optimalScale * optimalScale;
+        
+        console.log(`🧮 APNG Memory calculation: ${frameCount} frames, ${scaledPixels} pixels per frame (4x), limit: ${Math.round(adjustedMemoryLimit / 1024)}K pixels`);
+        
+        if (scaledPixels > adjustedMemoryLimit) {
+          optimalScale = 2;
+          scaledPixels = originalWidth * originalHeight * optimalScale * optimalScale;
+          console.warn(`⚠️ 4x scaling would exceed memory limit for ${frameCount} frames, using 2x scaling`);
+          
+          if (scaledPixels > adjustedMemoryLimit) {
+            optimalScale = 1;
+            console.warn(`⚠️ Even 2x scaling too large for ${frameCount} frames, using original size (1x)`);
+          }
+        }
+        
+        console.log(`📏 APNG Using ${optimalScale}x scaling: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`);
+        
+        // Load pako (required for UPNG.js compression) and UPNG.js library
+        if (!window.pako) {
+          console.log("📦 Loading pako compression library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        
+        if (!window.UPNG) {
+          console.log("📦 Loading UPNG.js library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        
+        console.log(`🖼️ Canvas size: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`);
+        
+        // Convert frames to the format UPNG expects with upscaling
+        const frameBuffers = [];
+        const delays = [];
+        
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+          
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(`🎞️ Processing APNG frame ${i + 1}/${content.frames.length} (${Math.round((i + 1) / content.frames.length * 100)}%)`);
+          }
+          
+          // Apply upscaling to frame data
+          const originalData = new Uint8ClampedArray(frame.data);
+          const scaledData = upscalePixels(originalData, frame.width, frame.height, optimalScale);
+          
+          // UPNG expects RGBA data as ArrayBuffer
+          const frameData = new Uint8Array(scaledData);
+          frameBuffers.push(frameData.buffer);
+          
+          // Convert to milliseconds for APNG delays with 60fps default
+          delays.push(Math.max(frame.duration || 16.67, 10)); // Default 60fps (~16.67ms)
+        }
+        
+        console.log("🔄 Encoding animated PNG...");
+        
+        // Create animated PNG using UPNG with scaled dimensions
+        const apngBuffer = window.UPNG.encode(
+          frameBuffers,
+          originalWidth * optimalScale,  // Use scaled width
+          originalHeight * optimalScale, // Use scaled height
+          0, // 0 = lossless, or use 256 for lossy
+          delays
+        );
+        
+        const apngBlob = new Blob([apngBuffer], { type: 'image/png' });
+        const filename = `tape-${timestamp()}-animated.png`;
+        
+        console.log(`💾 Animated PNG generated: ${filename} (${Math.round(apngBlob.size / 1024 / 1024 * 100) / 100} MB)`);
+        
+        // Use the existing download function
+        receivedDownload({ filename, data: apngBlob });
+        
+        console.log("🎬 Animated PNG (APNG) exported successfully!");
+        
+      } catch (error) {
+        console.error("Error creating APNG:", error);
+        console.log("🔄 Falling back to static PNG of first frame");
+        
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const firstFrame = content.frames[0];
+          
+          canvas.width = firstFrame.width;
+          canvas.height = firstFrame.height;
+          
+          const imageData = new ImageData(
+            new Uint8ClampedArray(firstFrame.data),
+            firstFrame.width,
+            firstFrame.height
+          );
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          const pngBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/png');
+          });
+          
+          const filename = `tape-${timestamp()}-static.png`;
+          receivedDownload({ filename, data: pngBlob });
+          
+          console.log("📸 Static PNG fallback exported successfully");
+        } catch (fallbackError) {
+          console.error("Error in fallback PNG creation:", fallbackError);
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create animated GIF
+    if (type === "create-animated-gif") {
+      console.log("🎞️ Creating animated GIF from", content.frames.length, "frames");
+      
+      try {
+        // Load GIF.js library if not already loaded
+        if (!window.GIF) {
+          console.log("📦 Loading gif.js library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/aesthetic.computer/dep/gif/gif.js';
+            script.onload = () => {
+              console.log("✅ gif.js library loaded successfully");
+              resolve();
+            };
+            script.onerror = () => {
+              console.error("❌ Failed to load gif.js library");
+              reject(new Error("Failed to load gif.js"));
+            };
+            document.head.appendChild(script);
+          });
+        }
+
+        // Force 3x scaling for consistent, fast GIF output
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const frameCount = content.frames.length;
+        
+        const optimalScale = 3; // Always use 3x scaling for GIFs
+        
+        console.log(`📏 Using fixed 3x scaling for GIF: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`);
+        
+        // Helper function to upscale pixels with nearest neighbor
+        function upscalePixels(imageData, originalWidth, originalHeight, scale) {
+          if (scale === 1) {
+            return imageData;
+          }
+          
+          const scaledWidth = originalWidth * scale;
+          const scaledHeight = originalHeight * scale;
+          const scaledImageData = new Uint8ClampedArray(scaledWidth * scaledHeight * 4);
+          
+          for (let y = 0; y < scaledHeight; y++) {
+            for (let x = 0; x < scaledWidth; x++) {
+              const sourceX = Math.floor(x / scale);
+              const sourceY = Math.floor(y / scale);
+              const sourceIndex = (sourceY * originalWidth + sourceX) * 4;
+              const targetIndex = (y * scaledWidth + x) * 4;
+              
+              scaledImageData[targetIndex] = imageData[sourceIndex];         // R
+              scaledImageData[targetIndex + 1] = imageData[sourceIndex + 1]; // G
+              scaledImageData[targetIndex + 2] = imageData[sourceIndex + 2]; // B
+              scaledImageData[targetIndex + 3] = imageData[sourceIndex + 3]; // A
+            }
+          }
+          
+          return scaledImageData;
+        }
+
+        // Create GIF instance with optimized compression settings for smaller files
+        const gif = new window.GIF({
+          workers: 4, // More workers for faster processing
+          quality: 15, // Ultra-low quality for smallest files (1-30, lower = better compression)
+          // dither: 'FloydSteinberg-serpentine', // Advanced dithering for better compression
+          transparent: null, // No transparency to reduce file size
+          width: originalWidth * optimalScale,
+          height: originalHeight * optimalScale,
+          workerScript: '/aesthetic.computer/dep/gif/gif.worker.js'
+        });
+
+        console.log("🎞️ Processing frames for GIF...");
+        
+        // Process each frame with consistent timing
+        content.frames.forEach((frame, index) => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          canvas.width = originalWidth * optimalScale;
+          canvas.height = originalHeight * optimalScale;
+          
+          const originalImageData = new Uint8ClampedArray(frame.data);
+          const scaledImageData = upscalePixels(originalImageData, originalWidth, originalHeight, optimalScale);
+          
+          const imageData = new ImageData(
+            scaledImageData,
+            originalWidth * optimalScale,
+            originalHeight * optimalScale
+          );
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Add frame with 60fps timing (16ms = 60fps, browser-optimized)
+          const fixedDelay = 15; // 16ms = 60fps (1000ms ÷ 60 = 16.67ms)
+          gif.addFrame(canvas, { copy: true, delay: fixedDelay });
+          
+          if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
+            console.log(`🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round((index + 1) / content.frames.length * 100)}%)`);
+          }
+        });
+
+        console.log("🔄 Rendering GIF...");
+        
+        // Render the GIF
+        await new Promise((resolve, reject) => {
+          gif.on('finished', (blob) => {
+            console.log(`💾 GIF generated: ${Math.round(blob.size / 1024 / 1024 * 100) / 100} MB`);
+            
+            const filename = `tape-${timestamp()}.gif`;
+            receivedDownload({ filename, data: blob });
+            
+            console.log("🎬 Animated GIF exported successfully!");
+            resolve();
+          });
+          
+          gif.on('progress', (progress) => {
+            console.log(`🔄 GIF encoding progress: ${Math.round(progress * 100)}%`);
+          });
+          
+          gif.render();
+        });
+        
+      } catch (error) {
+        console.error("Error creating animated GIF:", error);
+        console.log("🔄 Falling back to static GIF of first frame");
+        
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const firstFrame = content.frames[0];
+          
+          canvas.width = firstFrame.width;
+          canvas.height = firstFrame.height;
+          
+          const imageData = new ImageData(
+            new Uint8ClampedArray(firstFrame.data),
+            firstFrame.width,
+            firstFrame.height
+          );
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          const gifBlob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/gif');
+          });
+          
+          const filename = `tape-${timestamp()}-static.gif`;
+          receivedDownload({ filename, data: gifBlob });
+          
+          console.log("📸 Static GIF fallback exported successfully");
+        } catch (fallbackError) {
+          console.error("Error in fallback GIF creation:", fallbackError);
+        }
+      }
+      return;
+    }
+
     // Zip up some data and download it.
     if (type === "zip") {
       if (!window.JSZip) await loadJSZip();
@@ -3422,17 +4298,65 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
+      
+      // Store the tape data to IndexedDB for persistence across page refreshes
+      const blob = new Blob(mediaRecorderChunks, {
+        type: mediaRecorder.mimeType,
+      });
+      
+      await receivedChange({
+        data: {
+          type: "store:persist",
+          content: {
+            key: "tape",
+            method: "local:db",
+            data: { 
+              blob, 
+              duration: mediaRecorderDuration,
+              frames: recordedFrames, // Include frame data for WebP/Frame exports
+              timestamp: Date.now()
+            },
+          },
+        },
+      });
+      
+      if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB");
+      
       send({ type: "recorder:rolling:ended" });
       return;
     }
 
     if (type === "recorder:present") {
-      if (mediaRecorder && mediaRecorder.state === "paused") {
-        const blob = new Blob(mediaRecorderChunks, {
-          type: mediaRecorder.mimeType,
-        });
-        sfx["tape:audio"] = await blobToArrayBuffer(blob);
-        // console.log("Update tape audio with new blob!");
+      // Check for cached video if no active recording
+      if (!mediaRecorder || mediaRecorder.state !== "paused") {
+        const cachedTape = await Store.get("tape");
+        if (cachedTape && cachedTape.blob) {
+          console.log("📼 Loading cached video for presentation");
+          sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+          
+          // Restore frame data if available
+          if (cachedTape.frames && recordedFrames.length === 0) {
+            recordedFrames.length = 0;
+            recordedFrames.push(...cachedTape.frames);
+            console.log("📼 Restored", recordedFrames.length, "frames from cache");
+          }
+          
+          // Set duration if available
+          if (cachedTape.duration) {
+            mediaRecorderDuration = cachedTape.duration;
+          }
+        }
+      }
+      
+      if ((mediaRecorder && mediaRecorder.state === "paused") || recordedFrames.length > 0) {
+        // Handle live recording or cached video
+        if (mediaRecorder && mediaRecorder.state === "paused") {
+          const blob = new Blob(mediaRecorderChunks, {
+            type: mediaRecorder.mimeType,
+          });
+          sfx["tape:audio"] = await blobToArrayBuffer(blob);
+          // console.log("Update tape audio with new blob!");
+        }
 
         underlayFrame = document.createElement("div");
         underlayFrame.id = "underlay";
@@ -3440,8 +4364,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const frameCan = document.createElement("canvas");
         const fctx = frameCan.getContext("2d");
 
-        frameCan.width = recordedFrames[0][1].width;
-        frameCan.height = recordedFrames[0][1].height;
+        if (recordedFrames.length > 0) {
+          frameCan.width = recordedFrames[0][1].width;
+          frameCan.height = recordedFrames[0][1].height;
+        }
 
         startTapePlayback = (
           transmitProgress = true,
@@ -3469,7 +4395,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             continuePlaying = false;
             pauseStart = performance.now();
             console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
-            sfxPlaying[tapeSoundId]?.pause();
+            // Kill the sound since pause is not available
+            sfxPlaying[tapeSoundId]?.kill();
+            delete sfxPlaying[tapeSoundId]; // Clean up reference
             send({ type: "recorder:present-paused" });
           };
 
@@ -3480,8 +4408,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             continuePlaying = true;
             window.requestAnimationFrame(update);
-            sfxPlaying[tapeSoundId]?.resume();
-            playbackStart += performance.now() - pauseStart;
+            
+            // Calculate audio position when paused
+            const pauseDuration = performance.now() - pauseStart;
+            playbackStart += pauseDuration;
+            
+            // Restart the audio from the correct position if it was killed during pause
+            if (!sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
+              const audioPosition = (performance.now() - playbackStart) / (mediaRecorderDuration * 1000);
+              const clampedPosition = Math.max(0, Math.min(1, audioPosition));
+              
+              tapeSoundId = "tape:audio_" + performance.now();
+              playSfx(tapeSoundId, "tape:audio", { 
+                stream,
+                from: clampedPosition // Start from the paused position
+              });
+            }
+            
             send({ type: "recorder:present-playing" });
           };
 
@@ -3545,7 +4488,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:present-playing" });
       } else {
         if (debug && logs.recorder)
-          console.error("📼 No media recorder to present from!");
+          console.error("📼 No media recorder or cached video to present from!");
         send({ type: "recorder:presented:failure" });
       }
       return;
@@ -3851,13 +4794,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const blob = new Blob(chunks, { type: videoRecorder.mimeType });
         const filename = `tape-${timestamp()}.mp4`;
 
+        // Store video with frame data for complete persistence
         await receivedChange({
           data: {
             type: "store:persist",
             content: {
               key: "tape",
               method: "local:db",
-              data: { blob, duration: mediaRecorderDuration },
+              data: { 
+                blob, 
+                duration: mediaRecorderDuration,
+                frames: recordedFrames, // Include frame data for WebP/Frame exports
+                timestamp: Date.now()
+              },
             },
           },
         });
@@ -3880,6 +4829,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         await Store.del("tape");
       }
       mediaRecorder?.stop();
+      return;
+    }
+
+    // Request recorded frames for export
+    if (type === "recorder:request-frames") {
+      if (recordedFrames.length > 0) {
+        send({ 
+          type: "recorder:frames-response", 
+          content: { frames: recordedFrames } 
+        });
+      } else {
+        send({ 
+          type: "recorder:frames-response", 
+          content: { frames: [] } 
+        });
+      }
       return;
     }
 
@@ -4752,18 +5717,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
       }
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (ext === "png" || ext === "webp") {
+    } else if (ext === "png" || ext === "webp" || ext === "gif") {
       // 🖼️ Images
       MIME = "image/png"; // PNG
 
       if (extension(filename) === "webp") {
         MIME = "image/webp";
+      } else if (extension(filename) === "gif") {
+        MIME = "image/gif";
       }
 
       if (data) {
         // Download locally if data is provided.
-        blob = await bufferToBlob(data, MIME, modifiers);
-        object = URL.createObjectURL(blob, { type: MIME });
+        if (data instanceof Blob) {
+          // If data is already a blob, use it directly
+          blob = data;
+          object = URL.createObjectURL(blob);
+        } else {
+          // Otherwise, convert pixel data to blob
+          blob = await bufferToBlob(data, MIME, modifiers);
+          object = URL.createObjectURL(blob, { type: MIME });
+        }
       } else {
         // Or from the storage network.
         // Check to see if filename has user handle data.
@@ -4776,7 +5750,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // TODO: ⚠️ `webm` could eventually mean audio here...
       // 🎥 Video
       // Use stored data from the global Media Recorder.
-      const tape = data || (await Store.get("tape")).blob;
+      const tapeData = data || (await Store.get("tape"));
+      const tape = tapeData?.blob;
+
+      // Restore frame data if available for WebP/Frame exports
+      if (tapeData?.frames && recordedFrames.length === 0) {
+        recordedFrames.length = 0; // Clear existing
+        recordedFrames.push(...tapeData.frames);
+        console.log("📼 Restored", recordedFrames.length, "frames from cached video");
+      }
 
       // 🫲 Make sure the container matches the extension.
       const tapeMIME = tape.type; // Check the tape's blob's type.
@@ -4798,14 +5780,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else if (ext === "mjs") {
       MIME = "application/javascript; charset=utf-8";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (extension === "zip") {
+    } else if (ext === "zip") {
+      MIME = "application/zip";
       object = URL.createObjectURL(data, { type: MIME });
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we
     // don't already have a blob string.
 
-    if (!object.startsWith("blob:")) {
+    if (object && !object.startsWith("blob:")) {
       try {
         const response = await fetch(`/presigned-download-url?for=${filename}`);
         const json = await response.json();
@@ -4832,8 +5815,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       a.href = object;
       a.target = "_blank";
       a.download = filename.split("/").pop(); // Remove any extra paths.
+      
+      // Add the link to DOM for better browser compatibility with large files
+      document.body.appendChild(a);
+      
+      console.log(`💾 Triggering download: ${filename.split("/").pop()} (${blob ? `${Math.round(blob.size / 1024 / 1024 * 100) / 100} MB` : 'unknown size'})`);
+      
       a.click();
-      if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+      
+      // Clean up after a delay to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(a);
+        if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+      }, 1000);
     }
 
     // Picture in Picture: Image Download UI? 22.11.24.08.51
