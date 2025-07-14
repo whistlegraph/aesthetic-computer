@@ -278,29 +278,6 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
     // Parse the melody string for simultaneous tracks
     melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
-    
-    // DEBUG: Log how the melody is being parsed for timing issue diagnosis
-    console.log(`🔍 PARSE: "${originalMelodyString}" → type="${melodyTracks?.type}", tracks=${melodyTracks?.type === 'parallel' ? melodyTracks.trackStates?.length : 'single'}`);
-    if (melodyTracks?.type === 'single' && melodyTracks.notes) {
-      console.log(`🎵 SINGLE TRACK: ${melodyTracks.notes.length} notes, durations=[${melodyTracks.notes.slice(0,8).map(n => n.duration).join(',')}...]`);
-      // Detailed note-by-note breakdown for debugging sticky durations
-      melodyTracks.notes.slice(0, 6).forEach((note, i) => {
-        console.log(`   Note ${i}: "${note.note}" duration=${note.duration} octave=${note.octave || 'default'}`);
-      });
-      // CRITICAL: Log the parsed durations vs expected for sticky modifier debugging
-      console.log(`🔍 DURATION ANALYSIS for "${originalMelodyString}":`);
-      if (originalMelodyString === 'c.e..') {
-        console.log(`   Expected: c should be ~0.5 (short), e should be ~0.25 (very short)`);
-        console.log(`   Actual: c=${melodyTracks.notes[0]?.duration}, e=${melodyTracks.notes[1]?.duration}`);
-      }
-    } else if (melodyTracks?.type === 'parallel' && melodyTracks.trackStates) {
-      console.log(`🎵 PARALLEL TRACKS: ${melodyTracks.trackStates.length} tracks`);
-      melodyTracks.trackStates.forEach((track, i) => {
-        if (track.track) {
-          console.log(`   Track ${i}: ${track.track.length} notes, durations=[${track.track.slice(0,8).map(n => n.duration).join(',')}...]`);
-        }
-      });
-    }
 
     if (melodyTracks.isSingleTrack) {
       // Single track - use existing logic
@@ -1455,17 +1432,17 @@ function paint({
 
 
 
-    // Draw single white time display centered between crosshair markers
+    // Draw clock display with color matching the NOW line
     const shadowOffset = 1;
     
-    // Simple white time string without timing prefix
-    const whiteHours = syncedDate.getHours() % 12;
-    const whiteDisplayHours = whiteHours ? whiteHours : 12;
-    const whiteMinutes = pad(syncedDate.getMinutes());
-    const whiteDisplaySeconds = pad(syncedDate.getSeconds());
-    const whiteMillis = pad(syncedDate.getMilliseconds(), 3);
-    const whiteAmpm = syncedDate.getHours() < 12 ? "AM" : "PM";
-    const whiteTimeString = whiteDisplayHours + ":" + whiteMinutes + ":" + whiteDisplaySeconds + ":" + whiteMillis + " " + whiteAmpm;
+    // Time string using actual UTC time
+    const displayHours = syncedDate.getHours() % 12;
+    const finalDisplayHours = displayHours ? displayHours : 12;
+    const displayMinutes = pad(syncedDate.getMinutes());
+    const finalDisplaySeconds = pad(syncedDate.getSeconds());
+    const displayMillis = pad(syncedDate.getMilliseconds(), 3);
+    const displayAmpm = syncedDate.getHours() < 12 ? "AM" : "PM";
+    const timeString = finalDisplayHours + ":" + displayMinutes + ":" + finalDisplaySeconds + ":" + displayMillis + " " + displayAmpm;
     
     // Responsive font sizing - prefer size 2 if there's enough space
     let timeDisplayFontSize = 2;
@@ -1473,7 +1450,7 @@ function paint({
     const availableVerticalSpace = nowLineY - shadowOffset;
     
     // Check if we have enough vertical space and horizontal space for size 2
-    if (availableVerticalSpace < minVerticalSpace || screen.width < 400) {
+    if (availableVerticalSpace < minVerticalSpace || screen.width < 250) {
       timeDisplayFontSize = 1;
     }
     
@@ -1482,14 +1459,14 @@ function paint({
     const centerTimeY = nowLineY - (textHeight / 2);
     
     // Draw shadow first using center: "x" for proper horizontal centering
-    ink("black").write(whiteTimeString, {
+    ink("black").write(timeString, {
       center: "x",
       y: centerTimeY + shadowOffset,
       size: timeDisplayFontSize,
     });
     
-    // Draw main white text using center: "x" for proper horizontal centering
-    ink("white").write(whiteTimeString, {
+    // Draw main text using NOW line color for visual consistency
+    ink(nowLineColor).write(timeString, {
       center: "x",
       y: centerTimeY,
       size: timeDisplayFontSize,
@@ -1538,7 +1515,7 @@ function drawMelodyTimeline(
   const infoY = timelineY + 12;
   const timeDivisor = currentTimeDivisor;
   const timingText =
-    screen.width < 300
+    screen.width < 250
       ? `${timeDivisor.toFixed(1)}s`
       : `${timeDivisor.toFixed(1)}s timing`;
   ink("cyan").write(timingText, {
@@ -2601,7 +2578,63 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
             // Keep label visible as long as any part of the note is on screen
             // Only hide when the label itself would be completely off-screen
             if (labelY >= -4 && labelY <= screen.height + 4) {
-              ink(textColor).write(note.toUpperCase(), {
+              // Check if label overlaps with clock display area and reduce opacity if so
+              let labelColor = textColor;
+              
+              // Calculate clock display area bounds (replicate clock sizing logic)
+              const minVerticalSpace = 25;
+              const shadowOffset = 1;
+              const availableVerticalSpace = nowLineY - shadowOffset;
+              const timeDisplayFontSize = (availableVerticalSpace >= minVerticalSpace && screen.width >= 250) ? 2 : 1;
+              
+              const clockTextHeight = 8 * timeDisplayFontSize;
+              const clockCenterY = nowLineY - (clockTextHeight / 2);
+              
+              // Scale padding based on font size - larger fonts need more clearance
+              const basePadding = timeDisplayFontSize === 2 ? 12 : 6; // Double padding for size 2
+              const clockTopY = clockCenterY - basePadding;
+              const clockBottomY = clockCenterY + clockTextHeight + basePadding;
+              
+              // Estimate clock width with scaled padding
+              const timeStringLength = 15; // Approximate length of "12:34:56:789 AM"
+              const clockWidth = timeStringLength * 6 * timeDisplayFontSize;
+              const horizontalPadding = timeDisplayFontSize === 2 ? 20 : 10; // Double horizontal padding for size 2
+              const clockLeftX = (screen.width - clockWidth) / 2 - horizontalPadding;
+              const clockRightX = clockLeftX + clockWidth + (horizontalPadding * 2);
+              
+              // Check if label overlaps with clock area
+              const labelOverlapsClockVertically = labelY >= clockTopY && labelY <= clockBottomY;
+              const labelOverlapsClockHorizontally = labelX >= clockLeftX && labelX <= clockRightX;
+              
+              if (labelOverlapsClockVertically && labelOverlapsClockHorizontally) {
+                // Reduce opacity when overlapping with clock
+                if (Array.isArray(labelColor)) {
+                  // For RGB array colors, reduce alpha
+                  labelColor = [...labelColor, 64]; // 25% opacity
+                } else {
+                  // For named colors, use a dimmed version or convert to RGB with alpha
+                  if (labelColor === "white") {
+                    labelColor = [255, 255, 255, 64];
+                  } else if (labelColor === "red") {
+                    labelColor = [255, 0, 0, 64];
+                  } else if (labelColor === "yellow") {
+                    labelColor = [255, 255, 0, 64];
+                  } else if (labelColor === "green") {
+                    labelColor = [0, 255, 0, 64];
+                  } else if (labelColor === "blue") {
+                    labelColor = [0, 0, 255, 64];
+                  } else if (labelColor === "cyan") {
+                    labelColor = [0, 255, 255, 64];
+                  } else if (labelColor === "magenta") {
+                    labelColor = [255, 0, 255, 64];
+                  } else {
+                    // Default to semi-transparent white for unknown colors
+                    labelColor = [255, 255, 255, 64];
+                  }
+                }
+              }
+              
+              ink(labelColor).write(note.toUpperCase(), {
                 x: labelX,
                 y: labelY,
                 scale: 0.8,
@@ -2904,11 +2937,6 @@ function createManagedSound(
 
   const noteGap = duration * gapRatio;
   const actualDuration = Math.max(50, duration - noteGap); // Ensure minimum 50ms duration
-
-  // DEBUG: Log gap elimination for last notes in sequence
-  if (isLastNoteInSequence && duration > 100) {
-    console.log(`🔄 LOOP GAP ELIMINATED: ${tone} (duration=${duration}ms, would be gap=${duration * 0.01}ms, now gap=0ms)`);
-  }
 
   // Calculate fade time proportional to note duration
   let fadeTime;
@@ -3711,9 +3739,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         struck,
       } = noteData;
 
-      // DEBUG: Log which note is being played in single track
-      console.log(`🎼 BLEEP: index=${melodyState.index}, note="${note}", duration=${duration}, octave=${noteOctave || octave}`);
-
       // Play the note using managed sound system
       if (note !== "rest") {
         let tone = noteOctave
@@ -3794,9 +3819,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
       // Advance to next note
       const oldIndex = melodyState.index;
       melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
-
-      // DEBUG: Log note advancement
-      console.log(`🔄 ADVANCE: ${oldIndex} → ${melodyState.index} (total: ${melodyState.notes.length})`);
 
       // Track completed sequences for white note history
       if (
@@ -4054,9 +4076,6 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             // CRITICAL FIX: Use sequential timing like parallel tracks
             // Each note should start exactly when the previous note ends, not based on current time
             nextNoteTargetTime = nextNoteTargetTime + noteDuration;
-            
-            // DEBUG: Log single track timing calculation
-            console.log(`🕒 SINGLE: ${currentNoteData.note} duration=${currentNoteData.duration}x${melodyState.baseTempo}=${noteDuration}ms, nextTime=${nextNoteTargetTime} (was ${oldTarget})`);
           }
         }
 
