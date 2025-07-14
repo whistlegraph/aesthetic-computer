@@ -442,13 +442,29 @@ async function halt($, text) {
       if (!isValidDuration && params[0]?.length > 0) {
         duration = defaultDuration; //Infinity;
         jumpTo = params[0];
+        
         // Handle both regular pieces and kidlisp pieces
-        jump(params.join("~"));
+        const jumpContent = params.join(" ");
+        if (isKidlispSource(jumpContent)) {
+          // For kidlisp, encode it properly for URL
+          jump(encodeKidlispForUrl(jumpContent));
+        } else {
+          // For regular pieces, use tilde joining
+          jump(params.join("~"));
+        }
         rec.videoOnLeave = true;
       } else if (params[1]) {
         jumpTo = params[1];
+        
         // Handle both regular pieces and kidlisp pieces
-        jump(params.slice(1).join("~"));
+        const jumpContent = params.slice(1).join(" ");
+        if (isKidlispSource(jumpContent)) {
+          // For kidlisp, encode it properly for URL
+          jump(encodeKidlispForUrl(jumpContent));
+        } else {
+          // For regular pieces, use tilde joining
+          jump(params.slice(1).join("~"));
+        }
       } else {
         jump("prompt");
       }
