@@ -1,6 +1,9 @@
 // Clock, 2025.6.27.12.00
 // Just a standard clock with melody support and UTC sync.
 
+// TODO: - [] Reduce code size.
+//       - [] Adjust swipe syncing and check utc syncing. 
+
 /* 🐢 About
   Usage:
     clock melody_string               - Continuous melody playback with 1s timing
@@ -275,6 +278,29 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
     // Parse the melody string for simultaneous tracks
     melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
+    
+    // DEBUG: Log how the melody is being parsed for timing issue diagnosis
+    console.log(`🔍 PARSE: "${originalMelodyString}" → type="${melodyTracks?.type}", tracks=${melodyTracks?.type === 'parallel' ? melodyTracks.trackStates?.length : 'single'}`);
+    if (melodyTracks?.type === 'single' && melodyTracks.notes) {
+      console.log(`🎵 SINGLE TRACK: ${melodyTracks.notes.length} notes, durations=[${melodyTracks.notes.slice(0,8).map(n => n.duration).join(',')}...]`);
+      // Detailed note-by-note breakdown for debugging sticky durations
+      melodyTracks.notes.slice(0, 6).forEach((note, i) => {
+        console.log(`   Note ${i}: "${note.note}" duration=${note.duration} octave=${note.octave || 'default'}`);
+      });
+      // CRITICAL: Log the parsed durations vs expected for sticky modifier debugging
+      console.log(`🔍 DURATION ANALYSIS for "${originalMelodyString}":`);
+      if (originalMelodyString === 'c.e..') {
+        console.log(`   Expected: c should be ~0.5 (short), e should be ~0.25 (very short)`);
+        console.log(`   Actual: c=${melodyTracks.notes[0]?.duration}, e=${melodyTracks.notes[1]?.duration}`);
+      }
+    } else if (melodyTracks?.type === 'parallel' && melodyTracks.trackStates) {
+      console.log(`🎵 PARALLEL TRACKS: ${melodyTracks.trackStates.length} tracks`);
+      melodyTracks.trackStates.forEach((track, i) => {
+        if (track.track) {
+          console.log(`   Track ${i}: ${track.track.length} notes, durations=[${track.track.slice(0,8).map(n => n.duration).join(',')}...]`);
+        }
+      });
+    }
 
     if (melodyTracks.isSingleTrack) {
       // Single track - use existing logic
@@ -1429,8 +1455,45 @@ function paint({
 
 
 
-    // UTC clock time display is now hidden per user request
-    // No clock text drawn below the NOW line
+    // Draw single white time display centered between crosshair markers
+    const shadowOffset = 1;
+    
+    // Simple white time string without timing prefix
+    const whiteHours = syncedDate.getHours() % 12;
+    const whiteDisplayHours = whiteHours ? whiteHours : 12;
+    const whiteMinutes = pad(syncedDate.getMinutes());
+    const whiteDisplaySeconds = pad(syncedDate.getSeconds());
+    const whiteMillis = pad(syncedDate.getMilliseconds(), 3);
+    const whiteAmpm = syncedDate.getHours() < 12 ? "AM" : "PM";
+    const whiteTimeString = whiteDisplayHours + ":" + whiteMinutes + ":" + whiteDisplaySeconds + ":" + whiteMillis + " " + whiteAmpm;
+    
+    // Responsive font sizing - prefer size 2 if there's enough space
+    let timeDisplayFontSize = 2;
+    const minVerticalSpace = 25; // Minimum space needed above NOW line for size 2
+    const availableVerticalSpace = nowLineY - shadowOffset;
+    
+    // Check if we have enough vertical space and horizontal space for size 2
+    if (availableVerticalSpace < minVerticalSpace || screen.width < 400) {
+      timeDisplayFontSize = 1;
+    }
+    
+    // Calculate Y position so text midpoint aligns with NOW line
+    const textHeight = 8 * timeDisplayFontSize; // Approximate text height
+    const centerTimeY = nowLineY - (textHeight / 2);
+    
+    // Draw shadow first using center: "x" for proper horizontal centering
+    ink("black").write(whiteTimeString, {
+      center: "x",
+      y: centerTimeY + shadowOffset,
+      size: timeDisplayFontSize,
+    });
+    
+    // Draw main white text using center: "x" for proper horizontal centering
+    ink("white").write(whiteTimeString, {
+      center: "x",
+      y: centerTimeY,
+      size: timeDisplayFontSize,
+    });
   }
 }
 
@@ -2020,10 +2083,30 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
   const musicalTimeReference = currentTimeMs;
 
   // Draw all the note bars from combined history and future notes
-  const trackWidth = timelineWidth / trackCount;
+  // Calculate track positions to prevent overlapping
+  const trackPositions = [];
+  const trackWidths = [];
+  
+  // Distribute tracks evenly across the timeline width with no gaps or overlaps
+  for (let i = 0; i < trackCount; i++) {
+    const startPos = Math.round((timelineWidth * i) / trackCount);
+    const endPos = Math.round((timelineWidth * (i + 1)) / trackCount);
+    trackPositions.push(timelineStartX + startPos);
+    trackWidths.push(endPos - startPos);
+  }
 
-  // Sort timeline items by startTime to ensure proper order
-  const sortedTimelineItems = allTimelineItems.sort((a, b) => a.startTime - b.startTime);
+  // Sort timeline items by startTime to ensure proper order and remove duplicates
+  const sortedTimelineItems = allTimelineItems
+    .filter((item, index, arr) => {
+      // Remove duplicates based on note, startTime, endTime, and trackIndex
+      return arr.findIndex(other => 
+        other.note === item.note && 
+        Math.abs(other.startTime - item.startTime) < 10 && 
+        Math.abs(other.endTime - item.endTime) < 10 && 
+        other.trackIndex === item.trackIndex
+      ) === index;
+    })
+    .sort((a, b) => a.startTime - b.startTime);
 
   // Pre-calculate positions for seamless history note flow
   // History notes should connect end-to-start regardless of individual timing
@@ -2050,6 +2133,107 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
 
   // Calculate connected positions for history notes (most recent first) - STABLE positioning
   const historyPositions = new Map();
+  
+  // Track positions for seamless rendering of ALL notes (history, current, future)
+  const allPositions = new Map();
+  
+  // Pre-calculate pixel-perfect positions for all notes in each track to eliminate gaps
+  for (let trackIdx = 0; trackIdx < trackCount; trackIdx++) {
+    // Get all notes for this track, sorted chronologically (future → current → history)
+    const trackNotes = sortedTimelineItems
+      .filter(item => item.trackIndex === trackIdx)
+      .sort((a, b) => a.startTime - b.startTime);
+    
+    if (trackNotes.length === 0) continue;
+    
+    // Find the currently playing note for this track as the reference point
+    const currentNoteIndex = trackNotes.findIndex(item => {
+      const timingTolerance = 50;
+      let isCurrentlyPlayingByTiming = false;
+      
+      if (melodyState && melodyState.type === "parallel" && melodyState.trackStates && trackIdx < melodyState.trackStates.length) {
+        const trackState = melodyState.trackStates[trackIdx];
+        if (trackState.lastNoteStartTime > 0) {
+          isCurrentlyPlayingByTiming = Math.abs(item.startTime - trackState.lastNoteStartTime) < timingTolerance;
+        }
+      } else {
+        isCurrentlyPlayingByTiming = lastNoteStartTime > 0 && Math.abs(item.startTime - lastNoteStartTime) < timingTolerance;
+      }
+      
+      return (musicalTimeReference >= item.startTime && musicalTimeReference <= item.endTime) || isCurrentlyPlayingByTiming;
+    });
+    
+    // Calculate position for current note (or use NOW line if no current note)
+    let referenceY = nowLineY;
+    if (currentNoteIndex >= 0) {
+      const currentNote = trackNotes[currentNoteIndex];
+      const noteDurationMs = currentNote.endTime - currentNote.startTime;
+      const noteHeightPixels = Math.max(1, (noteDurationMs / 1000) * scaledPixelsPerSecond);
+      const noteProgress = (musicalTimeReference - currentNote.startTime) / noteDurationMs;
+      const noteProgressClamped = Math.max(0, Math.min(1, noteProgress));
+      
+      // Current note position (smooth movement)
+      const currentNoteTopY = nowLineY - noteHeightPixels + noteProgressClamped * noteHeightPixels;
+      referenceY = Math.round(currentNoteTopY + noteHeightPixels); // End of current note
+      
+      // Store current note position
+      allPositions.set(currentNote, {
+        barStartY: Math.round(currentNoteTopY),
+        barEndY: Math.round(currentNoteTopY + noteHeightPixels)
+      });
+    }
+    
+    // Calculate future notes (above current/NOW line) - working upward
+    if (currentNoteIndex >= 0) {
+      let currentStartY = allPositions.get(trackNotes[currentNoteIndex]).barStartY;
+      for (let i = currentNoteIndex + 1; i < trackNotes.length; i++) {
+        const note = trackNotes[i];
+        const noteDurationMs = note.endTime - note.startTime;
+        const noteHeightPixels = Math.max(1, (noteDurationMs / 1000) * scaledPixelsPerSecond);
+        
+        const barHeight = Math.max(1, Math.round(noteHeightPixels));
+        const barEndY = Math.round(currentStartY);
+        const barStartY = barEndY - barHeight;
+        
+        allPositions.set(note, { barStartY, barEndY });
+        currentStartY = barStartY;
+      }
+    } else {
+      // No current note, start future notes from NOW line going upward
+      let currentStartY = nowLineY;
+      for (let i = 0; i < trackNotes.length; i++) {
+        const note = trackNotes[i];
+        const noteDurationMs = note.endTime - note.startTime;
+        const noteHeightPixels = Math.max(1, (noteDurationMs / 1000) * scaledPixelsPerSecond);
+        
+        const barHeight = Math.max(1, Math.round(noteHeightPixels));
+        const barEndY = Math.round(currentStartY);
+        const barStartY = barEndY - barHeight;
+        
+        allPositions.set(note, { barStartY, barEndY });
+        currentStartY = barStartY;
+      }
+    }
+    
+    // Calculate history notes (below current/NOW line) - working downward
+    if (currentNoteIndex >= 0) {
+      let currentEndY = allPositions.get(trackNotes[currentNoteIndex]).barEndY;
+      for (let i = currentNoteIndex - 1; i >= 0; i--) {
+        const note = trackNotes[i];
+        const noteDurationMs = note.endTime - note.startTime;
+        const noteHeightPixels = Math.max(1, (noteDurationMs / 1000) * scaledPixelsPerSecond);
+        
+        const barStartY = Math.round(currentEndY);
+        const barHeight = Math.max(1, Math.round(noteHeightPixels));
+        const barEndY = barStartY + barHeight;
+        
+        allPositions.set(note, { barStartY, barEndY });
+        currentEndY = barEndY;
+      }
+    }
+  }
+  
+  // Legacy history positioning system (keeping for compatibility)
   if (historyNotes.length > 0) {
     // For parallel tracks, we need to calculate positions per track
     // Group history notes by track index
@@ -2094,11 +2278,12 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
         // Calculate where the active note ends for this track using its actual timing
         const activeNoteDurationMs = activeNoteForTrack.endTime - activeNoteForTrack.startTime;
         const activeNoteHeightPixels = Math.max(1, Math.round((activeNoteDurationMs / 1000) * scaledPixelsPerSecond));
-        // Use the note's actual timing for progress calculation
+        // Use the note's actual timing for progress calculation with smooth positioning
         const noteProgress = (musicalTimeReference - activeNoteForTrack.startTime) / activeNoteDurationMs;
         const noteProgressClamped = Math.max(0, Math.min(1, noteProgress));
+        // For smooth movement, keep as floating point until final render
         const adjustedNoteTopY = nowLineY - activeNoteHeightPixels + noteProgressClamped * activeNoteHeightPixels;
-        const activeNoteStartY = Math.round(adjustedNoteTopY);
+        const activeNoteStartY = adjustedNoteTopY; // Keep as float for smooth positioning
         const activeNoteEndY = activeNoteStartY + activeNoteHeightPixels;
         currentEndY = activeNoteEndY; // Start history notes from the bottom of the active note
       }
@@ -2106,16 +2291,17 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       // Position history notes for this track
       for (const historyNote of trackHistoryNotes) {
         const noteDurationMs = historyNote.endTime - historyNote.startTime;
-        const noteHeightPixels = Math.max(1, Math.round((noteDurationMs / 1000) * scaledPixelsPerSecond));
+        const noteHeightPixels = Math.max(1, (noteDurationMs / 1000) * scaledPixelsPerSecond); // Keep as float
         
         // Position this note so it starts at currentEndY (seamless connection)
-        // Ensure no gaps by using consistent integer positioning
+        // Round the start position to ensure pixel-perfect alignment
         const barStartY = Math.round(currentEndY);
-        const barEndY = barStartY + noteHeightPixels; // No additional rounding to prevent gaps
+        const barHeightRounded = Math.max(1, Math.round(noteHeightPixels));
+        const barEndY = barStartY + barHeightRounded;
         
         historyPositions.set(historyNote, { barStartY, barEndY });
         
-        // Next note (older) should start exactly where this note ends (no rounding here)
+        // Next note (older) should start exactly where this note ends (use rounded end position)
         currentEndY = barEndY;
       }
     });
@@ -2137,8 +2323,9 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     // Skip if note is out of bounds for track count
     if (trackIndex >= trackCount) return;
 
-    // Calculate track horizontal position
-    const trackX = Math.round(timelineStartX + trackIndex * trackWidth);
+    // Calculate track horizontal position using pre-calculated positions
+    const trackX = trackPositions[trackIndex];
+    const trackWidth = trackWidths[trackIndex];
     const trackCenterX = Math.round(trackX + trackWidth / 2);
 
     // Convert time to VERTICAL screen position using the draggable NOW line
@@ -2148,14 +2335,33 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     const timeDifferenceStart = (startTime - musicalTimeReference) / 1000; // Convert to seconds
     const timeDifferenceEnd = (endTime - musicalTimeReference) / 1000;
 
-    // Calculate consistent note height based on duration FIRST
-    const noteDurationMs = endTime - startTime;
-    const noteDurationSeconds = noteDurationMs / 1000;
-    // Use Math.round for consistent sizing, ensure minimum 1px height
-    const noteHeightPixels = Math.max(
-      1,
-      Math.round(noteDurationSeconds * scaledPixelsPerSecond),
-    );
+  // Calculate consistent note height based on duration FIRST
+  const noteDurationMs = endTime - startTime;
+  const noteDurationSeconds = noteDurationMs / 1000;
+  // Keep as floating point for smooth scaling with varying durations
+  const noteHeightPixels = Math.max(1, (noteDurationSeconds * scaledPixelsPerSecond));
+  
+  // DEBUG: Log note duration calculations for varying durations - THROTTLED with sticky duration tracking
+  if (note !== "rest" && trackIndex === 0) {
+    const now = performance.now();
+    if (now - lastLogTime > LOG_THROTTLE_MS || lastLoggedNoteCount !== allTimelineItems.length) {
+      // Calculate what the expected duration should be based on the original melody string
+      let expectedDurationInfo = "";
+      if (originalMelodyString && melodyState && melodyState.notes) {
+        const noteIndex = melodyState.notes.findIndex(n => 
+          Math.abs(n.startTime - startTime) < 50 && n.note === note
+        );
+        if (noteIndex >= 0 && noteIndex < melodyState.notes.length) {
+          const melodyNote = melodyState.notes[noteIndex];
+          expectedDurationInfo = `, expectedDur=${melodyNote.duration}x${melodyState.baseTempo}=${melodyNote.duration * melodyState.baseTempo}ms`;
+        }
+      }
+      
+
+      lastLogTime = now;
+      lastLoggedNoteCount = allTimelineItems.length;
+    }
+  }
     
     // Determine colors and positioning
     let barColor, textColor, hasBackgroundBlink = false;
@@ -2188,33 +2394,82 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       isNearTrackTiming = lastNoteStartTime > 0 && Math.abs(startTime - lastNoteStartTime) < timingTolerance;
     }
     
-    isCurrentlyPlaying = isWithinNoteTiming || (isNearTrackTiming && !isWithinNoteTiming);
-    
-    // More precise history/future detection to prevent state flickering
-    isHistory = endTime < musicalTimeReference && !isCurrentlyPlaying;
-    isFuture = startTime > musicalTimeReference && !isCurrentlyPlaying;
+  isCurrentlyPlaying = isWithinNoteTiming || (isNearTrackTiming && !isWithinNoteTiming);
+  
+  // More precise history/future detection to prevent state flickering
+  isHistory = endTime < musicalTimeReference && !isCurrentlyPlaying;
+  isFuture = startTime > musicalTimeReference && !isCurrentlyPlaying;
 
-    if (isCurrentlyPlaying) {
+  // DEBUG: Log timing state for debugging skipping - THROTTLED with sequence tracking
+  if (note !== "rest" && trackIndex === 0) {
+    const now = performance.now();
+    if (now - lastLogTime > LOG_THROTTLE_MS) {
+      const timeDiff = musicalTimeReference - noteStartTime;
+      
+      // Calculate the time gap from the previous note for sequence analysis
+      let gapInfo = "";
+      if (sortedTimelineItems.length > 1) {
+        const currentIndex = sortedTimelineItems.findIndex(item => 
+          item.startTime === startTime && item.note === note && item.trackIndex === trackIndex
+        );
+        if (currentIndex > 0) {
+          const previousNote = sortedTimelineItems[currentIndex - 1];
+          const gapMs = startTime - previousNote.endTime;
+          gapInfo = `, gap=${gapMs.toFixed(1)}ms from ${previousNote.note}`;
+        }
+      }
+      
+      console.log(`⏰ TIMING ${note}: within=${isWithinNoteTiming}, near=${isNearTrackTiming}, playing=${isCurrentlyPlaying}, history=${isHistory}, future=${isFuture}, timeDiff=${timeDiff.toFixed(1)}ms${gapInfo}`);
+    }
+  }
+
+    // Use pre-calculated pixel-perfect positions for ALL notes to eliminate gaps
+    const preCalculatedPosition = allPositions.get(historyItem);
+    if (preCalculatedPosition) {
+      barStartY = preCalculatedPosition.barStartY;
+      barEndY = preCalculatedPosition.barEndY;
+    } else if (isCurrentlyPlaying) {
       // Currently playing notes flow through the NOW line during playback
-      // FIXED: Use the actual note's timing for parallel tracks with different durations
+      // Use the actual note's timing for smooth animation with varying durations
       const actualNoteEndTime = noteEndTime;
-      const noteProgress = (musicalTimeReference - noteStartTime) / (actualNoteEndTime - noteStartTime);
+      const actualNoteDuration = actualNoteEndTime - noteStartTime;
+      const noteProgress = (musicalTimeReference - noteStartTime) / actualNoteDuration;
       const noteProgressClamped = Math.max(0, Math.min(1, noteProgress));
       
-      // Calculate where the note should be positioned as it flows through the line
-      const adjustedNoteTopY = nowLineY - noteHeightPixels + noteProgressClamped * noteHeightPixels;
-      barStartY = Math.round(adjustedNoteTopY);
+      // For smooth pixel-by-pixel movement, use floating point positioning
+      // The note should start above the NOW line and move down through it
+      const noteTopYWhenStarting = nowLineY - noteHeightPixels;
+      const noteBottomYWhenEnding = nowLineY;
+      
+      // Smooth interpolation based on actual note progress
+      const currentNoteTopY = noteTopYWhenStarting + (noteProgressClamped * noteHeightPixels);
+      
+      // DEBUG: Log current note movement for debugging - THROTTLED
+      if (note !== "rest" && trackIndex === 0) {
+        const now = performance.now();
+        if (now - lastLogTime > LOG_THROTTLE_MS / 4) { // More frequent for current notes
+          console.log(`🎵 CURRENT NOTE ${note}: progress=${noteProgress.toFixed(4)}, topY=${currentNoteTopY.toFixed(2)}, height=${noteHeightPixels.toFixed(2)}, duration=${actualNoteDuration}ms`);
+        }
+      }
+      
+      // Use floating point for smooth movement, only round for final rendering
+      barStartY = currentNoteTopY;
       barEndY = barStartY + noteHeightPixels;
 
     } else if (isFuture) {
-      // Future notes flow upward toward cyan line - use consistent positioning to prevent gaps
+      // Future notes flow upward toward cyan line - use precise floating point positioning
       const timeToStart = (startTime - musicalTimeReference) / 1000;
-      const pixelOffset = Math.round(timeToStart * scaledPixelsPerSecond);
-      barStartY = Math.round(nowLineY - pixelOffset - noteHeightPixels);
-      barEndY = barStartY + noteHeightPixels; // No additional rounding to prevent gaps
+      const pixelOffset = timeToStart * scaledPixelsPerSecond; // Keep as float for smooth movement
+      barStartY = nowLineY - pixelOffset - noteHeightPixels;
+      barEndY = barStartY + noteHeightPixels;
+
+      // DEBUG: Log future note positioning - MINIMAL
+      if (note !== "rest" && trackIndex === 0 && allTimelineItems.length < 3) {
+        console.log(`🔮 FUTURE NOTE ${note}: timeToStart=${timeToStart.toFixed(3)}s, pixelOffset=${pixelOffset.toFixed(2)}, startY=${barStartY.toFixed(2)}, height=${noteHeightPixels.toFixed(2)}`);
+      }
 
     } else if (isHistory) {
-      // Use pre-calculated seamless positions for history notes
+      // Use legacy history positioning as fallback
       const preCalculatedPosition = historyPositions.get(historyItem);
       if (preCalculatedPosition) {
         barStartY = preCalculatedPosition.barStartY;
@@ -2222,8 +2477,8 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
       } else {
         // Fallback to original logic if position not found
         const timeWhenEnded = (musicalTimeReference - endTime) / 1000;
-        const pixelOffset = Math.round(timeWhenEnded * scaledPixelsPerSecond);
-        barEndY = Math.round(nowLineY + pixelOffset);
+        const pixelOffset = timeWhenEnded * scaledPixelsPerSecond; // Keep as float for smooth movement
+        barEndY = nowLineY + pixelOffset;
         barStartY = barEndY - noteHeightPixels;
       }
     }
@@ -2295,8 +2550,8 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
     if (barEndY >= -noteHeightPixels && barStartY <= screen.height + noteHeightPixels) {
       // Draw note bar (skip rests visual for now, focus on notes)
       if (note !== "rest") {
-        const barWidth = Math.round(trackWidth); // Ensure integer width
-        const barX = trackX; // Already rounded above
+        const barWidth = trackWidth; // Use exact track width to prevent overlaps
+        const barX = trackX; // Already calculated above
 
         // No spacing - notes should flow seamlessly together with consistent positioning
         let actualBarStartY = barStartY;
@@ -2306,9 +2561,18 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
         let renderStartY = actualBarStartY;
         let renderHeight = actualBarHeight;
 
-        // Ensure we have valid integer coordinates
+        // Only round coordinates at the final rendering step for smooth sub-pixel movement
+        // Use pixel-perfect positioning to eliminate gaps between consecutive notes
         renderHeight = Math.max(1, Math.round(renderHeight));
         renderStartY = Math.round(renderStartY);
+
+        // DEBUG: Log rendering coordinates for debugging skipping issues - THROTTLED
+        if (note !== "rest" && trackIndex === 0 && isCurrentlyPlaying) {
+          const now = performance.now();
+          if (now - lastLogTime > LOG_THROTTLE_MS / 4) {
+
+          }
+        }
 
         // Draw notes even if they extend past screen edges - let them scroll off naturally
         if (renderHeight >= 1) {
@@ -2329,6 +2593,7 @@ function drawFlowingNotes(ink, write, screen, melodyState, syncedDate) {
           // Show labels when note height >= 15px and track width >= 15px for consistent readability
           if (noteHeightPixels >= 15 && barWidth >= 15) {
             // For all notes (including active notes), center the label within the track
+            // Use floating point position for smooth label movement, round at final step
             const labelY = Math.round(actualBarStartY + actualBarHeight / 2 - 4);
             // Use trackCenterX to ensure proper centering for parallel tracks
             const labelX = Math.round(trackCenterX - 3);
@@ -2606,6 +2871,7 @@ function createManagedSound(
   volume = 0.8,
   isFallback = false,
   struck = false, // New parameter for struck notes
+  isLastNoteInSequence = false, // New parameter to eliminate gap for last note before loop
 ) {
   // Prevent new sounds from being created after leave() is called
   if (isLeavingPiece) {
@@ -2613,28 +2879,36 @@ function createManagedSound(
     return null;
   }
 
-  // Add a proportional gap that scales inversely with duration - shorter notes need much bigger gaps
-  let gapRatio;
+  // Add a proportional gap that scales inversely with duration - MINIMAL gaps for tight timing
+  // EXCEPTION: No gap for the last note in a sequence to prevent loop timing issues
+  let gapRatio = 0;
 
-  if (duration <= 100) {
-    // Very short notes (like c....) need massive gaps to be audible - 90%
-    gapRatio = 0.9;
-  } else if (duration <= 200) {
-    // Short notes (like c...) need huge gaps - 85%
-    gapRatio = 0.85;
-  } else if (duration <= 400) {
-    // Medium-short notes (like c.) need big gaps - 70%
-    gapRatio = 0.7;
-  } else if (duration <= 800) {
-    // Regular notes need moderate gaps - 30%
-    gapRatio = 0.3;
-  } else {
-    // Long notes need minimal gaps - 15%
-    gapRatio = 0.15;
+  if (!isLastNoteInSequence) {
+    if (duration <= 100) {
+      // Very short notes (like c....) need tiny gaps to maintain rhythm - 5%
+      gapRatio = 0.05;
+    } else if (duration <= 200) {
+      // Short notes (like c...) need almost no gaps - 3%
+      gapRatio = 0.03;
+    } else if (duration <= 400) {
+      // Medium-short notes (like c.) need minimal gaps - 2%
+      gapRatio = 0.02;
+    } else if (duration <= 800) {
+      // Regular notes need very small gaps - 1%
+      gapRatio = 0.01;
+    } else {
+      // Long notes need almost no gaps - 0.5%
+      gapRatio = 0.005;
+    }
   }
 
   const noteGap = duration * gapRatio;
   const actualDuration = Math.max(50, duration - noteGap); // Ensure minimum 50ms duration
+
+  // DEBUG: Log gap elimination for last notes in sequence
+  if (isLastNoteInSequence && duration > 100) {
+    console.log(`🔄 LOOP GAP ELIMINATED: ${tone} (duration=${duration}ms, would be gap=${duration * 0.01}ms, now gap=0ms)`);
+  }
 
   // Calculate fade time proportional to note duration
   let fadeTime;
@@ -3437,6 +3711,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         struck,
       } = noteData;
 
+      // DEBUG: Log which note is being played in single track
+      console.log(`🎼 BLEEP: index=${melodyState.index}, note="${note}", duration=${duration}, octave=${noteOctave || octave}`);
+
       // Play the note using managed sound system
       if (note !== "rest") {
         let tone = noteOctave
@@ -3445,6 +3722,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         const noteDuration = duration * melodyState.baseTempo;
 
         try {
+          // Check if this is the last note in the sequence to eliminate loop gap
+          const isLastNote = (melodyState.index === melodyState.notes.length - 1);
+          
           // Create managed sound that will be automatically released
           createManagedSound(
             sound,
@@ -3454,6 +3734,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             volume || 0.8, // Use note volume or default to 0.8
             melodyState.isFallback,
             struck, // Pass the struck flag for note timing behavior
+            isLastNote, // Eliminate gap for last note to prevent loop timing issues
           );
 
           // Add note to history buffer for visual timeline
@@ -3513,6 +3794,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
       // Advance to next note
       const oldIndex = melodyState.index;
       melodyState.index = (melodyState.index + 1) % melodyState.notes.length;
+
+      // DEBUG: Log note advancement
+      console.log(`🔄 ADVANCE: ${oldIndex} → ${melodyState.index} (total: ${melodyState.notes.length})`);
 
       // Track completed sequences for white note history
       if (
@@ -3755,16 +4039,24 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         if (nextNoteTargetTime > 0 && currentTimeMs >= nextNoteTargetTime) {
           const timingGap = currentTimeMs - nextNoteTargetTime;
 
+          // CRITICAL: Get the current note data BEFORE calling bleep (which advances the index)
+          const currentNoteData = melodyState.notes[melodyState.index];
+
           bleep(time);
           anyTrackPlayed = true;
 
-          // Calculate next note target time using direct timing values
-          const currentNoteData = melodyState.notes[melodyState.index];
+          // Calculate next note target time using the note we just played (not the next note)
           if (currentNoteData) {
             const noteDuration =
               currentNoteData.duration * (melodyState.baseTempo || baseTempo); // Use consistent tempo
             const oldTarget = nextNoteTargetTime;
-            nextNoteTargetTime = currentTimeMs + noteDuration;
+            
+            // CRITICAL FIX: Use sequential timing like parallel tracks
+            // Each note should start exactly when the previous note ends, not based on current time
+            nextNoteTargetTime = nextNoteTargetTime + noteDuration;
+            
+            // DEBUG: Log single track timing calculation
+            console.log(`🕒 SINGLE: ${currentNoteData.note} duration=${currentNoteData.duration}x${melodyState.baseTempo}=${noteDuration}ms, nextTime=${nextNoteTargetTime} (was ${oldTarget})`);
           }
         }
 
@@ -4039,7 +4331,15 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                   : `${octave}${note.toUpperCase()}`;
                 const noteDuration = duration * melodyState.baseTempo;
 
+                // DEBUG: Log note playback with duration details for sticky modifier tracking
+                if (trackIndex === 0) {
+
+                }
+
                 try {
+                  // Check if this is the last note in this track's sequence to eliminate loop gap
+                  const isLastNoteInTrack = (trackState.index === trackState.track.length - 1);
+                  
                   createManagedSound(
                     sound,
                     tone,
@@ -4048,6 +4348,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     volume || 0.8,
                     melodyState.isFallback,
                     struck,
+                    isLastNoteInTrack, // Eliminate gap for last note to prevent loop timing issues
                   );
 
                   // Add note to history buffer for visual timeline
@@ -4168,9 +4469,17 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
               }
 
               // PERFECT MATHEMATICAL TIMING: Calculate exact next note time with no drift
+              // For single-track melodies parsed as parallel (like c.defg..ef), ensure proper sequential timing
               const noteDuration = noteData.duration * melodyState.baseTempo;
-              trackState.nextNoteTargetTime =
-                trackState.nextNoteTargetTime + noteDuration;
+              
+              // CRITICAL FIX: For sticky duration inheritance, ensure each note waits for the full duration
+              // of the previous note, respecting inherited duration modifiers like c.defg..ef
+              trackState.nextNoteTargetTime = trackState.nextNoteTargetTime + noteDuration;
+              
+              // DEBUG: Log timing calculation for sticky duration debugging
+              if (trackIndex === 0 && note !== "rest") {
+
+              }
             }
           }
         });
