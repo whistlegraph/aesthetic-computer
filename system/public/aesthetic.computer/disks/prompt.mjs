@@ -423,10 +423,6 @@ async function halt($, text) {
 
       let jumpTo;
 
-      // Check if all parameters joined together form KidLisp code
-      const joinedParams = params.join(" ");
-      const isKidlispCode = joinedParams.length > 0 && isKidlispSource(joinedParams);
-
       // Gets picked up on next piece load automatically.
       rec.loadCallback = () => {
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
@@ -440,13 +436,7 @@ async function halt($, text) {
         ); // Start recording immediately.
       };
 
-      if (isKidlispCode) {
-        // If the parameters form KidLisp code, execute it directly
-        duration = defaultDuration;
-        jumpTo = joinedParams;
-        jump(joinedParams);
-        rec.videoOnLeave = true;
-      } else if (isNaN(duration) && params[0]?.length > 0) {
+      if (isNaN(duration) && params[0]?.length > 0) {
         duration = defaultDuration; //Infinity;
         jumpTo = params[0];
         jump(params.join("~"));
