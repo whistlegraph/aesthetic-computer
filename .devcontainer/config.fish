@@ -162,11 +162,23 @@ alias ac 'cd ~/aesthetic-computer'
 alias watch 'ac; npm run watch' # check for new deployments
 alias ac-watch 'ac; npm run watch'
 alias ac-agent 'ac; fish'
-alias ac-kidlisp 'ac; npm run test:kidlisp'
+# alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
+
+# kidlisp test function - supports watch mode or direct run
+function ac-kidlisp
+    ac
+    if test "$argv[1]" = "watch"
+        echo "🔍 Running kidlisp tests in watch mode..."
+        npm run test:kidlisp
+    else
+        echo "🚀 Running kidlisp tests directly..."
+        npm run test:kidlisp:direct
+    end
+end
 # alias ac-shell 'ac; ac-url; ac-tunnel; fish'
 # alias ac-offline 'ac; cd system/public; npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'

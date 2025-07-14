@@ -2218,11 +2218,24 @@ const $paintApi = {
           const lines = cleanText.split("\n");
           const lineHeightGap = 2;
           let charIndex = 0;
+          
+          console.log("🎨 NEWLINE DEBUG:");
+          console.log("🎨 cleanText:", JSON.stringify(cleanText));
+          console.log("🎨 cleanText.length:", cleanText.length);
+          console.log("🎨 charColors.length:", charColors.length);
+          console.log("🎨 lines:", lines);
+          
           lines.forEach((line, index) => {
+            console.log(`🎨 Line ${index}: "${line}" (length: ${line.length})`);
+            console.log(`🎨 charIndex before: ${charIndex}`);
+            
             const lineColors = charColors.slice(
               charIndex,
               charIndex + line.length,
             );
+            
+            console.log(`🎨 lineColors for line ${index}:`, lineColors.slice(0, 10), '...');
+            
             (customTypeface || tf)?.print(
               $activePaintApi,
               {
@@ -2238,7 +2251,12 @@ const $paintApi = {
               bg,
               lineColors,
             );
-            charIndex += line.length + 1; // +1 for the newline character
+            // Move to next line: skip past current line + the newline character (except for last line)
+            charIndex += line.length;
+            if (index < lines.length - 1) {
+              charIndex += 1; // Skip the newline character for all but the last line
+            }
+            console.log(`🎨 charIndex after: ${charIndex}`);
           });
         } else {
           (customTypeface || tf)?.print(
@@ -7009,6 +7027,7 @@ async function makeFrame({ data: { type, content } }) {
             return colorMap[colorName.toLowerCase()] || [255, 255, 255];
           }
 
+          // Parse color codes and build character color array
           while (originalIndex < text.length && cleanIndex < cleanText.length) {
             // Check if we're at the start of a color code
             if (text[originalIndex] === "\\") {
@@ -7055,21 +7074,25 @@ async function makeFrame({ data: { type, content } }) {
 
           // Override piece name prefix colors to use currentHUDTextColor
           // Find the piece name (everything before the first space) and force it to use HUD color
+          // Check if piece name coloring should be disabled (for custom syntax highlighting)
           const spaceIndex = renderText.indexOf(" ");
           if (disableSyntaxColoring) {
             // When syntax coloring is disabled, use currentHUDTextColor for all text
             for (let i = 0; i < renderText.length; i++) {
               charColors[i] = currentHUDTextColor || [255, 200, 240];
             }
-          } else if (spaceIndex > 0) {
-            // Override colors for the piece name (0 to spaceIndex) to use HUD color
-            for (let i = 0; i < spaceIndex; i++) {
-              charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
-            }
-          } else if (renderText.length > 0) {
-            // If no space found, the entire text is the piece name
-            for (let i = 0; i < renderText.length; i++) {
-              charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+          } else if (!$commonApi?.hud?.disablePieceNameColoring) {
+            // Only override piece name colors if not explicitly disabled
+            if (spaceIndex > 0) {
+              // Override colors for the piece name (0 to spaceIndex) to use HUD color
+              for (let i = 0; i < spaceIndex; i++) {
+                charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+              }
+            } else if (renderText.length > 0) {
+              // If no space found, the entire text is the piece name
+              for (let i = 0; i < renderText.length; i++) {
+                charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
+              }
             }
           }
 
@@ -7085,50 +7108,82 @@ async function makeFrame({ data: { type, content } }) {
             charColors = charColors.slice(0, renderText.length);
           }
 
-          // Handle multi-line rendering by using the renderText for consistent line breaking
+          // Handle multi-line rendering with proper color mapping
           if (hasInlineColor) {
-            // Use the existing labelBounds which was calculated from cleanText/renderText
-            let cleanTextIndex = 0;
-
-            for (
-              let lineIndex = 0;
-              lineIndex < labelBounds.lines.length;
-              lineIndex++
-            ) {
-              const lineArray = labelBounds.lines[lineIndex];
-              // Preserve spaces when joining words on a line, matching the width calculation logic
-              const lineText = Array.isArray(lineArray)
-                ? lineArray.join(" ")
-                : lineArray;
-              const lineY = lineIndex * (tf.blockHeight + 1);
-
-              // Map each character in the line to its color from the original charColors array
-              const lineColors = [];
-              for (
-                let charIndex = 0;
-                charIndex < lineText.length;
-                charIndex++
-              ) {
-                // Use the color from the original mapping, or null if we're past the end
-                if (cleanTextIndex < charColors.length) {
-                  lineColors.push(charColors[cleanTextIndex]);
-                } else {
-                  lineColors.push(null);
+            // Build a comprehensive character-to-color mapping for the cleaned text
+            const textCharColors = new Array(renderText.length);
+            
+            // Parse color codes from the original text and map to renderText positions
+            let renderIndex = 0;
+            let originalIndex = 0;
+            let currentColor = null;
+            
+            while (originalIndex < text.length && renderIndex < renderText.length) {
+              // Check if we're at the start of a color code
+              if (text[originalIndex] === "\\") {
+                const colorMatch = text
+                  .slice(originalIndex)
+                  .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
+                if (colorMatch) {
+                  // Update current color
+                  const colorName = colorMatch[1];
+                  if (colorName.includes(",")) {
+                    const rgbValues = colorName
+                      .split(",")
+                      .map((v) => parseInt(v.trim()));
+                    if (
+                      rgbValues.length === 3 &&
+                      rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+                    ) {
+                      currentColor = rgbValues;
+                    } else {
+                      currentColor = colorNameToRGB(colorName);
+                    }
+                  } else {
+                    currentColor = colorNameToRGB(colorName);
+                  }
+                  // Skip over the color code
+                  originalIndex += colorMatch[0].length;
+                  continue;
                 }
-                cleanTextIndex++;
               }
+              
+              // This is a regular character - assign color and advance both indices
+              textCharColors[renderIndex] = currentColor;
+              renderIndex++;
+              originalIndex++;
+            }
+            
+            // Fill any remaining positions with the current color
+            while (renderIndex < renderText.length) {
+              textCharColors[renderIndex] = currentColor;
+              renderIndex++;
+            }
 
-              // IMPORTANT: Account for spaces between lines that are lost in the word-based line breaking
-              // The text.box line breaking removes spaces at line breaks, but our color mapping includes them
-              // So we need to skip over the space characters in our color mapping
-              if (lineIndex < labelBounds.lines.length - 1) {
-                // Skip the space character that was at the end of this line/start of next line
-                if (
-                  cleanTextIndex < cleanText.length &&
-                  cleanText[cleanTextIndex] === " "
-                ) {
-                  cleanTextIndex++; // Skip the space in our color mapping
+            // Now render each line using the text layout from labelBounds
+            let textPosition = 0;
+            
+            for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
+              const lineArray = labelBounds.lines[lineIndex];
+              const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
+              const lineY = lineIndex * (tf.blockHeight + 1);
+              
+              // Extract colors for this specific line
+              const lineColors = [];
+              for (let i = 0; i < lineText.length; i++) {
+                if (textPosition + i < textCharColors.length) {
+                  lineColors.push(textCharColors[textPosition + i]);
+                } else {
+                  lineColors.push(currentColor); // Fallback to last color
                 }
+              }
+              
+              // Advance position past this line's characters
+              textPosition += lineText.length;
+              
+              // Skip whitespace that was consumed by line breaking
+              while (textPosition < renderText.length && /\s/.test(renderText[textPosition])) {
+                textPosition++;
               }
 
               // Render the line with per-character colors
