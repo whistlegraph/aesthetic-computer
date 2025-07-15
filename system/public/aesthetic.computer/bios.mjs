@@ -5451,6 +5451,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     buildOverlay("label", content.label);
+    buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
 
     function draw() {
@@ -5460,14 +5461,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (db) {
         ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
         if (glaze.on) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+        
+        // Paint overlays for dirtyBox path too, so they appear on reframes
+        paintOverlays["label"]?.(); // label
+        paintOverlays["qrOverlay"]?.(); // QR code overlay for KidLisp pieces
+        paintOverlays["tapeProgressBar"]?.(); // tape progress
       } else if (
         pixelsDidChange ||
         needs$creenshot ||
         mediaRecorder?.state === "recording"
       ) {
         ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
-
-        paintOverlays["label"]?.(); // label
 
         //
         if (
@@ -5490,6 +5494,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           needs$creenshot = null;
         }
 
+        // Paint overlays AFTER frame recording so they don't get baked into recursive effects
+        paintOverlays["label"]?.(); // label
+        paintOverlays["qrOverlay"]?.(); // QR code overlay for KidLisp pieces
         paintOverlays["tapeProgressBar"]?.(); // tape progress
 
         if (glaze.on) {
