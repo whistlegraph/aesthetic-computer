@@ -77,6 +77,7 @@
     "qrcode-terminal": "^0.12.0"
   },
   "dependencies": {
+    "base2048": "^2.0.2",
     "ntp-client": "^0.5.3"
   }
 }

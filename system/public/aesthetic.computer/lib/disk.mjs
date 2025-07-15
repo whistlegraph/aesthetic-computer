@@ -44,7 +44,8 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, encodeKidlispForUrl, compressKidlispForUrl, decompressKidlispFromUrl } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.
@@ -7461,6 +7462,108 @@ async function makeFrame({ data: { type, content } }) {
           ),
         };
 
+      // 🔲 Generate QR code overlay for KidLisp pieces
+      let qrOverlay;
+      // Detect if this is a KidLisp piece
+      const sourceCode = currentHUDLogicalTxt || currentHUDTxt; // Get the source from HUD text
+      
+      // More inclusive KidLisp detection for QR code generation
+      const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath)) || 
+                             currentPath === "(...)" ||
+                             sourceCode?.startsWith("¿") || // Compressed KidLisp marker
+                             (sourceCode && (
+                               sourceCode.startsWith("(") || 
+                               sourceCode.startsWith(";") ||
+                               sourceCode.includes("\n") ||
+                               // Check for common KidLisp commands (even single line)
+                               /^(wipe|ink|line|box|circle|rect|def|later|scroll|resolution|gap|frame|brush|clear|cls|help|reset|dot|pixel|stamp|paste|copy|move|rotate|scale|translate|fill|stroke|point|arc|bezier|noise|random|sin|cos|tan|sqrt|abs|floor|ceil|round|min|max|pow|log|exp|atan2|dist|lerp|map|norm|constrain|hue|sat|bright|alpha|red|green|blue|rgb|hsb|gray|background|foreground|text|font|size|width|height|mouseX|mouseY|keyCode|key|frameCount|time|second|minute|hour|day|month|year|millis|fps|deltaTime)\s/.test(sourceCode)
+                             ));
+      
+      
+      if (isKidlispPiece && sourceCode) {
+        try {
+          // Generate URL like the share piece does
+          let url;
+          // Use same local detection logic as chatDebug
+          const isLocal = location.host === "local.aesthetic.computer" ||
+                         location.host === "localhost:8888" ||
+                         location.host === "aesthetic.local:8888";
+          
+          if (isLocal) {
+            url = "https://local.aesthetic.computer";
+          } else {
+            url = "https://aesthetic.computer";
+          }
+          
+          // Use Base2048 compression for all KidLisp URLs (direct Unicode, no URL encoding)
+          const encodedSource = lisp.compressKidlispForUrl(sourceCode);
+          url += `/${encodedSource}`;
+          
+          // Log QR code generation details
+          console.log(`📱 QR Code URL: ${url}`);
+          console.log(`📏 QR URL Length: ${url.length} characters`);
+          
+          // Generate QR code with minimal error correction for smallest size
+          // QR codes handle Unicode characters directly, no need for URL encoding
+          const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
+          
+          // Calculate size and position for bottom-right corner with 4px margin
+          const margin = 4;
+          const maxSize = 48; // Even smaller size - 48px instead of 64px
+          const cellSize = Math.max(1, Math.floor(maxSize / cells.length));
+          const qrSize = cells.length * cellSize;
+          
+          // Position in bottom-right corner
+          const startX = screen.width - qrSize - margin;
+          const startY = screen.height - qrSize - margin;
+          
+          // Create QR overlay with shadow using painting API
+          qrOverlay = $api.painting(qrSize + 4, qrSize + 4, ($) => {
+            // Clear the entire area first
+            $.ink([0, 0, 0, 0]).box(0, 0, qrSize + 4, qrSize + 4); // Transparent clear
+            
+            // Draw shadow first (offset by 1 pixel down and right)
+            for (let y = 0; y < cells.length; y++) {
+              for (let x = 0; x < cells.length; x++) {
+                const isBlack = cells[y][x];
+                if (isBlack) {
+                  $.ink([0, 0, 0, 128]); // Semi-transparent black shadow
+                  $.box(x * cellSize + 2, y * cellSize + 2, cellSize);
+                }
+              }
+            }
+            
+            // Draw main QR code on top
+            for (let y = 0; y < cells.length; y++) {
+              for (let x = 0; x < cells.length; x++) {
+                const isBlack = cells[y][x];
+                if (isBlack) {
+                  $.ink("black");
+                } else {
+                  $.ink("white");
+                }
+                $.box(x * cellSize + 1, y * cellSize + 1, cellSize);
+              }
+            }
+            
+            // Add a subtle border around the main QR code
+            $.ink("gray").box(0, 0, qrSize + 2, qrSize + 2, "outline");
+          });
+          
+          if (qrOverlay) {
+            sendData.qrOverlay = {
+              x: startX - 2, // Adjusted for larger shadow canvas
+              y: startY - 2,
+              img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+                qrOverlay,
+              ),
+            };
+          }
+        } catch (err) {
+          console.warn("Failed to generate QR overlay:", err);
+        }
+      }
+
       let transferredPixels;
 
       // Check to see if we have a dirtyBox to render from.
@@ -7505,6 +7608,10 @@ async function makeFrame({ data: { type, content } }) {
 
       if (sendData.label) {
         transferredObjects.push(sendData.label?.img.pixels.buffer);
+      }
+
+      if (sendData.qrOverlay) {
+        transferredObjects.push(sendData.qrOverlay?.img.pixels.buffer);
       }
 
       // console.log("TO:", transferredObjects);
