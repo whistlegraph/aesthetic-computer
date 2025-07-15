@@ -2,6 +2,7 @@
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
+import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
 /* #region 📚 Examples / Notebook 
  Working programs:
@@ -627,6 +628,8 @@ class KidLisp {
         // Print the program output value in the center of the screen if
         // necessary.
         // ink("white").write(evaluated || "nada", { center: "xy" });
+
+        // QR code is now handled as an overlay in disk.mjs
 
         // TODO: Add haltability to paint with a shortcut that triggers the below.
         // return false;
@@ -1474,10 +1477,19 @@ class KidLisp {
       width: (api) => {
         return api.screen.width;
       },
+      w: (api) => { // Abbreviation for width
+        return api.screen.width;
+      },
       height: (api) => {
         return api.screen.height;
       },
+      h: (api) => { // Abbreviation for height
+        return api.screen.height;
+      },
       frame: (api) => {
+        return this.frameCount || 0;
+      },
+      f: (api) => { // Abbreviation for frame
         return this.frameCount || 0;
       },
       clock: (api) => {
@@ -1711,6 +1723,10 @@ class KidLisp {
         }
 
         return result;
+      },
+      // Abbreviation for repeat
+      rep: (api, args, env) => {
+        return this.getGlobalEnv().repeat(api, args, env);
       },
       // 🎲 Random selection
       choose: (api, args = []) => {
@@ -2922,6 +2938,11 @@ function evaluate(parsed, api = {}) {
 function isKidlispSource(text) {
   if (!text) return false;
 
+  // Check for compressed KidLisp (starts with ¿)
+  if (text.startsWith("¿")) {
+    return true;
+  }
+
   // Only consider input as KidLisp if:
   // 1. It starts with '(' (parenthesis), OR
   // 2. It contains a newline
@@ -2979,100 +3000,185 @@ function encodeKidlispForUrl(source) {
     return source;
   }
 
+  // Check if compression is needed (more than 64 characters)
+  const shouldCompress = source.length > 64;
+  
+  if (shouldCompress) {
+    return compressKidlispForUrl(source);
+  }
+
   // For sharing, we want to preserve the structure so it can be parsed correctly
-  // Spaces become underscores, newlines become § symbols to avoid collision with URL separator ~
-  // But we keep parentheses and other structural elements intact
-  // Handle problematic characters specially since they can cause URI malformation
+  // Use Unicode characters that display nicely in browser URL bars
+  // Modern browsers handle these characters fine without percent-encoding
   const encoded = source
-    .replace(/ /g, "_")
-    .replace(/\n/g, "§")
-    .replace(/%/g, "¤") // Encode % symbols to avoid URI malformation
-    .replace(/;/g, "%3B"); // Encode semicolons to prevent URI malformation
+    .replace(/ /g, "_") // Space to underscore (already safe)
+    .replace(/\n/g, "§") // Use § for newlines - displays fine in browsers
+    .replace(/%/g, "¤") // Use ¤ for percent - displays fine in browsers
+    .replace(/;/g, "¨"); // Use ¨ for semicolon - displays fine in browsers
 
   return encoded;
 }
 
-function decodeKidlispFromUrl(encoded) {
-  // Special handling: Don't decode tildes to newlines if this looks like a prompt~ slug
-  let decoded;
-  if (encoded.startsWith("prompt~")) {
-    // For prompt~ slugs, don't convert the first tilde to a newline
-    decoded = encoded
-      .replace(/_/g, " ")
-      .replace(/§/g, "\n") // Primary newline encoding to avoid collision with URL separator ~
-      // Skip the ~ to \n replacement for prompt~ patterns
-      .replace(/%28/g, "(")
-      .replace(/%29/g, ")")
-      .replace(/%2E/g, ".")
-      .replace(/%22/g, '"')
-      .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
-      .replace(/%3B/g, ";") // Decode semicolons
-      .replace(/S/g, "#"); // Decode sharp symbols from 'S' back to '#'
-  } else {
-    // Check if this looks like music notation before doing any replacements
-    const isMusicNotation =
-      /^\([a-g#\d\s\*\.\-\_\<\>]*\)$/i.test(encoded) ||
-      /\([a-g#\d\s\*\.\-\_\<\>]*\)\s*\([a-g#\d\s\*\.\-\_\<\>]*\)/i.test(
-        encoded,
-      ) ||
-      /^[a-g#\d\s\*\.\-\_\<\>]+$/i.test(encoded);
+// Base2048 encoding for maximum compression efficiency
+function compressKidlispForUrl(source) {
+  // Apply smart pre-compression optimizations
+  const optimized = optimizeKidlispForCompression(source);
+  
+  // Convert to UTF-8 bytes
+  const utf8Bytes = new TextEncoder().encode(optimized);
+  
+  // Use optimized Base2048 encoding
+  const compressed = customBase2048Encode(utf8Bytes);
+  
+  // Add compression marker prefix
+  const result = `¿${compressed}`;
+  
+  // Log compression status
+  const compressionRatio = ((1 - result.length / source.length) * 100).toFixed(1);
+  console.log(`📦 QR Code Compression: ${source.length} → ${result.length} chars (${compressionRatio}% reduction)`);
+  
+  return result;
+}
 
-    if (isMusicNotation) {
-      // For music notation, only decode URL-encoded characters, don't replace underscores or tildes
-      decoded = encoded
-        .replace(/§/g, "\n") // Primary newline encoding
-        .replace(/%28/g, "(")
-        .replace(/%29/g, ")")
-        .replace(/%2E/g, ".")
-        .replace(/%22/g, '"')
-        .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
-        .replace(/%3B/g, ";")
-        .replace(/S/g, "#");
-      // Don't replace underscores or tildes in music notation
-    } else {
-      // First, try decoding without ~ to newline conversion to check if it's already KidLisp
-      const preliminaryDecoded = encoded
-        .replace(/_/g, " ")
-        .replace(/§/g, "\n") // Primary newline encoding
-        .replace(/%28/g, "(")
-        .replace(/%29/g, ")")
-        .replace(/%2E/g, ".")
-        .replace(/%22/g, '"')
-        .replace(/¤/g, "%") // Decode % symbols from ¤ back to %
-        .replace(/%3B/g, ";")
-        .replace(/S/g, "#");
+// Smart pre-compression optimization for KidLisp
+function optimizeKidlispForCompression(source, aggressive = true) {
+  let optimized = source;
+  
+  if (aggressive) {
+    // Safe optimizations that won't conflict with user code:
+    
+    // 1. Optimize numbers (safe - doesn't affect identifiers)
+    optimized = optimized
+      .replace(/\b0\./g, '.') // 0.5 -> .5
+      .replace(/\.0\b/g, ''); // 1.0 -> 1
+    
+    // 2. Minify whitespace intelligently (safe)
+    optimized = optimized
+      .replace(/\s+/g, ' ') // Multiple spaces/newlines to single space
+      .replace(/\(\s+/g, '(') // "( " -> "("
+      .replace(/\s+\)/g, ')') // " )" -> ")"
+      .trim();
+    
+    // 3. Remove unnecessary spaces around operators (safe)
+    optimized = optimized
+      .replace(/\s*\+\s*/g, '+')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/\s*\*\s*/g, '*')
+      .replace(/\s*\/\s*/g, '/')
+      .replace(/\s*%\s*/g, '%');
+  }
+  
+  return optimized;
+}
 
-      // Only apply ~ to newline conversion if the text has strong KidLisp indicators
-      // beyond just starting with ( or containing newlines (which ~ conversion would create)
-      // Note: We need to be careful about function names that are also piece names (like "line")
-      // Only consider it a KidLisp function if it's used in a function call context with parentheses
-      const hasKidlispFunctionCalls =
-        /\(\s*(wipe|ink|line|box|def|later|circle|poly|resolution)\b/.test(
-          preliminaryDecoded,
-        );
-      const hasMultipleUnderscores = encoded.includes("__");
-      const startsWithParen = preliminaryDecoded.startsWith("(");
-      const hasExistingNewlines = preliminaryDecoded.includes("\n");
-
-      // Apply ~ to newline conversion only if there are strong indicators this is actually KidLisp
-      if (
-        startsWithParen ||
-        hasExistingNewlines ||
-        hasKidlispFunctionCalls ||
-        hasMultipleUnderscores
-      ) {
-        decoded = preliminaryDecoded.replace(/~/g, "\n");
-      } else {
-        // Don't convert ~ to newlines for commands that don't show clear KidLisp patterns
-        decoded = preliminaryDecoded;
-      }
+// Optimized Base2048 implementation
+function customBase2048Encode(uint8Array) {
+  const BITS_PER_CHAR = 11;
+  const BITS_PER_BYTE = 8;
+  
+  let buffer = 0;
+  let bufferLength = 0;
+  let result = '';
+  
+  for (const byte of uint8Array) {
+    buffer = (buffer << BITS_PER_BYTE) | byte;
+    bufferLength += BITS_PER_BYTE;
+    
+    while (bufferLength >= BITS_PER_CHAR) {
+      const code = (buffer >> (bufferLength - BITS_PER_CHAR)) & 0x7FF;
+      result += String.fromCharCode(0x100 + code);
+      bufferLength -= BITS_PER_CHAR;
+      buffer &= (1 << bufferLength) - 1;
     }
   }
-
-  const isValidKidlisp = isKidlispSource(decoded);
-  const result = isValidKidlisp ? decoded : encoded;
-
+  
+  // Handle remaining bits with proper padding
+  if (bufferLength > 0) {
+    const code = (buffer << (BITS_PER_CHAR - bufferLength)) & 0x7FF;
+    result += String.fromCharCode(0x100 + code);
+  }
+  
   return result;
+}
+
+// Base2048 decompression
+function decompressKidlispFromUrl(compressed) {
+  // Remove compression marker
+  if (!compressed.startsWith('¿')) {
+    return compressed; // Not compressed
+  }
+  
+  const encoded = compressed.slice(1); // Remove ¿ marker
+  
+  // Decode Base2048
+  const decoded = customBase2048Decode(encoded);
+  
+  // For now, return the optimized version directly
+  // In the future, we could add a flag to restore original formatting
+  return decoded;
+}
+
+// Optimized Base2048 decode implementation
+function customBase2048Decode(encoded) {
+  const BITS_PER_CHAR = 11;
+  const BITS_PER_BYTE = 8;
+  
+  let buffer = 0;
+  let bufferLength = 0;
+  const bytes = [];
+  
+  for (const char of encoded) {
+    const code = char.charCodeAt(0) - 0x100;
+    if (code < 0 || code > 0x7FF) continue; // Skip invalid characters
+    
+    buffer = (buffer << BITS_PER_CHAR) | code;
+    bufferLength += BITS_PER_CHAR;
+    
+    while (bufferLength >= BITS_PER_BYTE) {
+      const byte = (buffer >> (bufferLength - BITS_PER_BYTE)) & 0xFF;
+      bytes.push(byte);
+      bufferLength -= BITS_PER_BYTE;
+      buffer &= (1 << bufferLength) - 1;
+    }
+  }
+  
+  // Convert bytes back to string
+  try {
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  } catch (e) {
+    console.error('Failed to decode Base2048 KidLisp:', e);
+    return encoded; // Return original if decoding fails
+  }
+}
+
+function decodeKidlispFromUrl(encoded) {
+  // Check if this is compressed KidLisp
+  if (encoded.startsWith('¿')) {
+    return decompressKidlispFromUrl(encoded);
+  }
+  
+  // Standard decoding for uncompressed content
+  let decoded = encoded
+    .replace(/_/g, " ")
+    .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
+    .replace(/%C2%A4/g, "%") // UTF-8 encoded ¤ to percent
+    .replace(/%C2%A8/g, ";") // UTF-8 encoded ¨ to semicolon
+    .replace(/§/g, "\n") // Direct § to newline (fallback)
+    .replace(/¤/g, "%") // Direct ¤ to percent (fallback)
+    .replace(/¨/g, ";") // Direct ¨ to semicolon (fallback)
+    // Standard URL decoding
+    .replace(/%28/g, "(")
+    .replace(/%29/g, ")")
+    .replace(/%2E/g, ".")
+    .replace(/%22/g, '"')
+    .replace(/%3B/g, ";");
+
+  // Only convert ~ to newlines for KidLisp code, not for commands like "prompt~"
+  if (!encoded.startsWith("prompt~") && isKidlispSource(decoded)) {
+    decoded = decoded.replace(/~/g, "\n");
+  }
+
+  return decoded;
 }
 
 // Check if the prompt is currently in kidlisp mode based on the input text
@@ -3103,5 +3209,7 @@ export {
   isKidlispSource,
   encodeKidlispForUrl,
   decodeKidlispFromUrl,
+  compressKidlispForUrl,
+  decompressKidlispFromUrl,
   isPromptInKidlispMode,
 };

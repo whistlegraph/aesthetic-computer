@@ -48,12 +48,18 @@ async function fun(event, context) {
     slug = decodeURIComponent(slug);
   } catch (error) {
     console.log("⚠️ Failed to decode URL slug:", slug, "Error:", error.message);
-    // If decoding fails, fall back to original slug but replace common problematic sequences
+    // If decoding fails, fall back to simple Unicode character decoding
     slug = slug
-      .replace(/%C2%A7/g, "§") // § character
-      .replace(/%28/g, "(") // (
-      .replace(/%29/g, ")") // )
-      .replace(/%20/g, " "); // space
+      .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
+      .replace(/%C2%A4/g, "%") // UTF-8 encoded ¤ to percent
+      .replace(/%C2%A8/g, ";") // UTF-8 encoded ¨ to semicolon
+      .replace(/§/g, "\n") // Direct § to newline (in case not URL-encoded)
+      .replace(/¤/g, "%") // Direct ¤ to percent (in case not URL-encoded)
+      .replace(/¨/g, ";") // Direct ¨ to semicolon (in case not URL-encoded)
+      // Standard URL decoding
+      .replace(/%28/g, "(")
+      .replace(/%29/g, ")")
+      .replace(/%20/g, " ");
   }
 
   // console.log("Path:", event.path, "Host:", event.headers["host"]);
