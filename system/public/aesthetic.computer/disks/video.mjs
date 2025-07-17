@@ -43,6 +43,7 @@ let isExportingWebP = false;
 let isExportingAnimWebP = false;
 let isExportingAPNG = false;
 let isExportingGIF = false;
+let currentExportType = ""; // Track what's being exported
 let ellipsisTicker;
 
 // Request WebP creation from main thread (document not available in worker)
@@ -105,6 +106,16 @@ function boot({ wipe, rec, gizmo, jump, notice, store }) {
   }
   wipe(0);
   
+  // Reset all export states on boot
+  isPrinting = false;
+  isExportingFrames = false;
+  isExportingWebP = false;
+  isExportingAnimWebP = false;
+  isExportingAPNG = false;
+  isExportingGIF = false;
+  currentExportType = "";
+  printed = false;
+  
   // Try to restore cached video from IndexedDB
   store.retrieve("tape", "local:db", (data) => {
     if (data && data.blob) {
@@ -153,10 +164,49 @@ function paint({
 
     if (isPrinting) {
       const h = 16; // Paint a printing / transcoding progress bar.
-      let text = "PROCESSING";
-      text += ellipsisTicker.text(help.repeat);
+      
+      // Dynamic text based on export type and progress
+      let text = "";
+      if (currentExportType === "video") {
+        if (printProgress < 0.5) {
+          text = "ENCODING VIDEO";
+        } else if (printProgress < 0.9) {
+          text = "TRANSCODING MP4";
+        } else {
+          text = "FINALIZING VIDEO";
+        }
+      } else if (currentExportType === "gif") {
+        if (printProgress < 0.8) {
+          text = "PROCESSING FRAMES";
+        } else {
+          text = "ENCODING GIF";
+        }
+      } else if (currentExportType === "webp") {
+        if (printProgress < 0.9) {
+          text = "CONVERTING TO WEBP";
+        } else {
+          text = "CREATING ZIP";
+        }
+      } else if (currentExportType === "frames") {
+        text = "EXPORTING FRAMES";
+      } else if (currentExportType === "animwebp") {
+        text = "CREATING ANIMATED WEBP";
+      } else if (currentExportType === "apng") {
+        text = "CREATING ANIMATED PNG";
+      } else {
+        text = "PROCESSING";
+      }
+      
+      // Add ellipsis animation - ensure help.repeat is available
+      if (ellipsisTicker && help && help.repeat !== undefined) {
+        text += ellipsisTicker.text(help.repeat);
+      } else {
+        // Fallback ellipsis animation if help.repeat is not available
+        const dots = paintCount % 60 < 20 ? "..." : paintCount % 60 < 40 ? ".  " : " . ";
+        text += dots;
+      }
 
-      let barWidth = printProgress * screen.width;
+      let barWidth = Math.max(1, printProgress * screen.width); // Ensure at least 1px width
 
       if (printProgress > 0.98 && screen.width - barWidth >= 1) {
         barWidth = screen.width;
@@ -219,7 +269,7 @@ let printed = false;
 
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, store }) {
-  if (!rec.printing && !isExportingFrames && !isExportingWebP) {
+  if (!rec.printing && !isExportingFrames && !isExportingWebP && !isExportingAnimWebP && !isExportingAPNG && !isExportingGIF) {
     // Download or print (render) a video.
     btn?.act(e, {
       down: () => {
@@ -235,11 +285,13 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       push: () => {
         if (!printed) {
           isPrinting = true;
+          currentExportType = "video"; // Set export type
           btn.disabled = true;
           rec.print(() => {
             printed = true;
             btn.disabled = false;
             isPrinting = false;
+            currentExportType = ""; // Clear export type
           });
         } else {
           download(`tape-${num.timestamp()}.mp4`);
@@ -269,6 +321,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
       push: async () => {
         isExportingFrames = true;
+        isPrinting = true; // Show progress bar
+        currentExportType = "frames"; // Set export type
         framesBtn.disabled = true;
         
         try {
@@ -295,8 +349,14 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               });
               
               console.log("Frames exported successfully:", zipped);
+              // Reset flags on successful completion
+              isPrinting = false;
+              currentExportType = "";
             } else {
               console.warn("No frames available for export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              currentExportType = "";
             }
             
             isExportingFrames = false;
@@ -305,6 +365,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         } catch (error) {
           console.error("Error exporting frames:", error);
           isExportingFrames = false;
+          isPrinting = false;
+          currentExportType = "";
           framesBtn.disabled = false;
         }
         
@@ -333,6 +395,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
       push: async () => {
         isExportingWebP = true;
+        isPrinting = true; // Show progress bar
+        currentExportType = "webp"; // Set export type
         webpBtn.disabled = true;
         
         try {
@@ -346,11 +410,19 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               if (success) {
                 console.log("WebP creation request sent successfully");
+                // Reset flags since WebP creation happens asynchronously in main thread
+                isPrinting = false;
+                currentExportType = "";
               } else {
                 console.warn("Failed to send WebP creation request");
+                isPrinting = false;
+                currentExportType = "";
               }
             } else {
               console.warn("No frames available for export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              currentExportType = "";
             }
             
             isExportingWebP = false;
@@ -359,6 +431,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         } catch (error) {
           console.error("Error exporting WebP:", error);
           isExportingWebP = false;
+          isPrinting = false;
+          currentExportType = "";
           webpBtn.disabled = false;
         }
         
@@ -387,6 +461,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
       push: async () => {
         isExportingAnimWebP = true;
+        isPrinting = true; // Show progress bar
+        currentExportType = "animwebp"; // Set export type
         animWebpBtn.disabled = true;
         
         try {
@@ -420,8 +496,14 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               });
               
               console.log("Animated WebP creation request sent");
+              // Reset flags since animated WebP creation happens asynchronously in main thread
+              isPrinting = false;
+              currentExportType = "";
             } else {
               console.warn("No frames available for animated WebP export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              currentExportType = "";
             }
             
             isExportingAnimWebP = false;
@@ -430,6 +512,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         } catch (error) {
           console.error("Error exporting animated WebP:", error);
           isExportingAnimWebP = false;
+          isPrinting = false;
+          currentExportType = "";
           animWebpBtn.disabled = false;
         }
         
@@ -458,6 +542,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
       push: async () => {
         isExportingAPNG = true;
+        isPrinting = true; // Show progress bar
+        currentExportType = "apng"; // Set export type
         apngBtn.disabled = true;
         
         try {
@@ -491,8 +577,14 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               });
               
               console.log("APNG creation request sent");
+              // Reset flags since APNG creation happens asynchronously in main thread
+              isPrinting = false;
+              currentExportType = "";
             } else {
               console.warn("No frames available for APNG export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              currentExportType = "";
             }
             
             isExportingAPNG = false;
@@ -501,6 +593,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         } catch (error) {
           console.error("Error exporting APNG:", error);
           isExportingAPNG = false;
+          isPrinting = false;
+          currentExportType = "";
           apngBtn.disabled = false;
         }
         
@@ -529,6 +623,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
       push: async () => {
         isExportingGIF = true;
+        isPrinting = true; // Show progress bar
+        currentExportType = "gif"; // Set export type
         gifBtn.disabled = true;
         
         try {
@@ -564,13 +660,16 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               console.log("GIF creation request sent");
             } else {
               console.warn("No frames available for GIF export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              isExportingGIF = false;
+              gifBtn.disabled = false;
             }
-            
-            isExportingGIF = false;
-            gifBtn.disabled = false;
           });
         } catch (error) {
           console.error("Error exporting GIF:", error);
+          // Reset flags on error
+          isPrinting = false;
           isExportingGIF = false;
           gifBtn.disabled = false;
         }
@@ -605,6 +704,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             console.log("📼 Cleared cached video from IndexedDB");
             // Also clear any playback state
             rec.unpresent();
+            // Reset the printed flag so we can generate a new video
+            printed = false;
           }
         });
         
@@ -626,7 +727,25 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
   }
 }
 
-export { boot, paint, sim, act };
+// 🚧 Signal (Handles messages from the system)
+function signal(content) {
+  if (content === "recorder:transcoding-done") {
+    isPrinting = false; // Hide progress bar when transcoding is complete
+    currentExportType = ""; // Clear export type
+    isExportingGIF = false;
+    isExportingFrames = false;
+    isExportingWebP = false;
+    isExportingAnimWebP = false;
+    isExportingAPNG = false;
+    if (gifBtn) gifBtn.disabled = false;
+    if (framesBtn) framesBtn.disabled = false;
+    if (webpBtn) webpBtn.disabled = false;
+    if (animWebpBtn) animWebpBtn.disabled = false;
+    if (apngBtn) apngBtn.disabled = false;
+  }
+}
+
+export { boot, paint, sim, act, signal };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...
