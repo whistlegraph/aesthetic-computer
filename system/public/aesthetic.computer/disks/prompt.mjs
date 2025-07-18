@@ -374,6 +374,31 @@ async function halt($, text) {
     jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
+  } else if (slug.startsWith("$")) {
+    // Handle cached kidlisp lookup: $prefixed codes like $OrqM
+    const code = slug.slice(1); // Remove the $ prefix to get the actual nanoid
+    
+    try {
+      const response = await fetch(`/api/store-kidlisp?code=${encodeURIComponent(code)}`);
+      if (response.ok) {
+        const { source } = await response.json();
+        
+        // Execute the retrieved kidlisp source, but keep the prefixed version for URL display
+        const body = { name: slug, source: source }; // Use $prefixed version as name for URL, source for execution
+        loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
+        flashColor = [0, 255, 0];
+      } else {
+        flashColor = [255, 0, 0];
+        notice("CACHED CODE NOT FOUND", ["yellow", "red"]);
+      }
+    } catch (err) {
+      console.error("Failed to load cached code:", err);
+      flashColor = [255, 0, 0];
+      notice("CACHE LOAD ERROR", ["yellow", "red"]);
+    }
+    
+    makeFlash($);
+    return true;
   } else if (
     slug === "tape" ||
     slug === "tape:add" ||
@@ -1477,6 +1502,24 @@ async function halt($, text) {
   } else if (text.startsWith("hiccup")) {
     // Disconnect from socket server, chat, and udp in 5 seconds...
     net.hiccup();
+    return true;
+  } else if (text === "cache on" || text === "cache enable") {
+    // Enable kidlisp caching
+    store["kidlisp:cache-enabled"] = true;
+    notice("CACHE ENABLED", ["green", "black"]);
+    makeFlash($);
+    return true;
+  } else if (text === "cache off" || text === "cache disable") {
+    // Disable kidlisp caching
+    store["kidlisp:cache-enabled"] = false;
+    notice("CACHE DISABLED", ["red", "black"]);
+    makeFlash($);
+    return true;
+  } else if (text === "cache status" || text === "cache") {
+    // Show cache status
+    const enabled = store["kidlisp:cache-enabled"] !== false; // Default to enabled
+    notice(enabled ? "CACHE ENABLED (3s delay)" : "CACHE DISABLED", [enabled ? "green" : "red", "black"]);
+    makeFlash($);
     return true;
   } else {
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...

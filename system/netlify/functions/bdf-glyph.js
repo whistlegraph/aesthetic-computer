@@ -29,9 +29,10 @@ const s3Assets = dev
       },
     });
 
-// Local cache directory for development
-const localCacheDir =
-  "/workspaces/aesthetic-computer/system/public/assets/type/unifont-16.0.03";
+// Get local cache directory for development based on font
+function getLocalCacheDir(fontName = "unifont-16.0.03") {
+  return `/workspaces/aesthetic-computer/system/public/assets/type/${fontName}`;
+}
 
 // Helper function to display glyph as ASCII art
 function logGlyphAsASCII(
@@ -230,8 +231,9 @@ function optimizePointsToLines(pointCommands) {
 }
 
 // Check if cached JSON exists for a character code
-async function getCachedGlyph(charCode) {
+async function getCachedGlyph(charCode, fontName = "unifont-16.0.03") {
   const key = `${charCode.toString(16).toUpperCase()}.json`;
+  const localCacheDir = getLocalCacheDir(fontName);
 
   if (dev) {
     // Development mode: check local filesystem
@@ -253,7 +255,7 @@ async function getCachedGlyph(charCode) {
   } else {
     // Production mode: check S3
     try {
-      const s3Key = `type/unifont-16.0.03/${key}`;
+      const s3Key = `type/${fontName}/${key}`;
       const getObjectParams = {
         Bucket: "assets-aesthetic-computer",
         Key: s3Key,
@@ -271,7 +273,7 @@ async function getCachedGlyph(charCode) {
 
       return {
         data: JSON.parse(jsonString),
-        source: `S3: https://assets.aesthetic.computer/type/unifont-16.0.03/${key}`,
+        source: `S3: https://assets.aesthetic.computer/type/${fontName}/${key}`,
       };
     } catch (error) {
       // File doesn't exist or other error - will fall back to BDF parsing
@@ -284,8 +286,9 @@ async function getCachedGlyph(charCode) {
 }
 
 // Cache parsed glyph data to S3 or local filesystem
-async function cacheGlyph(charCode, glyphData) {
+async function cacheGlyph(charCode, glyphData, fontName = "unifont-16.0.03") {
   const key = `${charCode.toString(16).toUpperCase()}.json`;
+  const localCacheDir = getLocalCacheDir(fontName);
 
   if (dev) {
     // Development mode: save to local filesystem
@@ -309,7 +312,7 @@ async function cacheGlyph(charCode, glyphData) {
   } else {
     // Production mode: save to S3
     try {
-      const s3Key = `type/unifont-16.0.03/${key}`;
+      const s3Key = `type/${fontName}/${key}`;
       const putObjectParams = {
         Bucket: "assets-aesthetic-computer",
         Key: s3Key,
@@ -332,8 +335,10 @@ async function cacheGlyph(charCode, glyphData) {
   }
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const charParam = event.queryStringParameters.char;
+  const fontParam = event.queryStringParameters.font || "unifont-16.0.03";
+  
   if (!charParam) {
     return {
       statusCode: 400,
@@ -374,7 +379,7 @@ exports.handler = async (event) => {
   }
 
   // Check for cached glyph data first
-  const cachedGlyph = await getCachedGlyph(charCodeToFind);
+  const cachedGlyph = await getCachedGlyph(charCodeToFind, fontParam);
   if (cachedGlyph) {
     // Display ASCII art for cached glyph
     logGlyphAsASCII(
@@ -392,16 +397,24 @@ exports.handler = async (event) => {
   }
 
   shell.log(
-    `No cached glyph found, parsing BDF for character '${charToFind}' (code ${charCodeToFind})`,
+    `No cached glyph found, parsing BDF for character '${charToFind}' (code ${charCodeToFind}) from font '${fontParam}'`,
   );
 
   const assetsBaseUrl = dev
     ? process.env.URL || "http://localhost:8888"
     : "https://assets.aesthetic.computer";
 
+  // Determine BDF file extension and path based on font
+  let bdfFileName;
+  if (fontParam === "unifont-16.0.03") {
+    bdfFileName = "unifont-16.0.03.bdf.gz"; // Compressed
+  } else {
+    bdfFileName = `${fontParam}.bdf`; // Uncompressed for other fonts
+  }
+
   const bdfFileUrl = dev
-    ? `${assetsBaseUrl}/assets/type/unifont-16.0.03.bdf.gz`
-    : `${assetsBaseUrl}/type/unifont-16.0.03.bdf.gz`;
+    ? `${assetsBaseUrl}/assets/type/${bdfFileName}`
+    : `${assetsBaseUrl}/type/${bdfFileName}`;
 
   shell.log(`Attempting to fetch BDF from: ${bdfFileUrl}`);
 
@@ -423,8 +436,16 @@ exports.handler = async (event) => {
         `Failed to fetch BDF file: ${response.statusText} from ${bdfFileUrl}`,
       );
     }
-    const compressedData = await response.buffer();
-    const bdfText = (await gunzip(compressedData)).toString("utf-8");
+    
+    let bdfText;
+    if (bdfFileName.endsWith('.gz')) {
+      // Handle compressed unifont
+      const compressedData = await response.buffer();
+      bdfText = (await gunzip(compressedData)).toString("utf-8");
+    } else {
+      // Handle uncompressed BDF files
+      bdfText = await response.text();
+    }
 
     // console.log(
     //  "BDF File fetched and decompressed. First 200 chars:",
@@ -435,20 +456,41 @@ exports.handler = async (event) => {
     let inChar = false;
     let currentCharCode = -1;
     let bbx = null;
+    let dwidth = null; // Device width (character advance)
     let bitmapLines = [];
     let glyphFound = false;
+    
+    // Capture font-level metrics for proper baseline calculation
+    let fontAscent = 8; // Default for MatrixChunky8
+    let fontDescent = 0; // Default for MatrixChunky8
 
     for (const line of lines) {
-      if (line.startsWith("STARTCHAR")) {
+      if (line.startsWith("FONT_ASCENT")) {
+        fontAscent = parseInt(line.split(" ")[1]);
+        shell.log(`Found FONT_ASCENT: ${fontAscent}`);
+      } else if (line.startsWith("FONT_DESCENT")) {
+        fontDescent = parseInt(line.split(" ")[1]);
+        shell.log(`Found FONT_DESCENT: ${fontDescent}`);
+      } else if (line.startsWith("STARTCHAR")) {
         inChar = true;
         currentCharCode = -1;
         bbx = null;
+        dwidth = null;
         bitmapLines = [];
       } else if (inChar && line.startsWith("ENCODING")) {
         currentCharCode = parseInt(line.split(" ")[1]);
         // console.log(`Found ENCODING: ${currentCharCode}`); // Optional: very verbose
         if (currentCharCode === charCodeToFind) {
           shell.log(`Target ENCODING ${charCodeToFind} found for a character.`);
+        }
+      } else if (inChar && line.startsWith("DWIDTH")) {
+        const parts = line.split(" ");
+        dwidth = {
+          x: parseInt(parts[1]),
+          y: parseInt(parts[2])
+        };
+        if (currentCharCode === charCodeToFind) {
+          shell.log(`Found DWIDTH for target character ${charCodeToFind}: ${dwidth.x}`);
         }
       } else if (inChar && line.startsWith("BBX")) {
         const parts = line.split(" ");
@@ -496,11 +538,8 @@ exports.handler = async (event) => {
               const bitIndex = c % 8;
               if (byteIndex < rowBytes.length) {
                 if ((rowBytes[byteIndex] >> (7 - bitIndex)) & 1) {
-                  // BDF y-coordinates are typically from baseline.
-                  // For pixel art, usually top-left is (0,0).
-                  // The BBX height is the number of rows in the bitmap.
-                  // The yOffset is from the baseline.
-                  // We'll output points relative to the top-left of the bitmap.
+                  // Keep bitmap coordinates as-is (top-left relative)
+                  // The key fix will be in how we interpret the Y offset
                   pointCommands.push({ name: "point", args: [c, r] });
                 }
               }
@@ -529,6 +568,20 @@ exports.handler = async (event) => {
 
           const glyphData = {
             resolution: [bbx.width, bbx.height],
+            offset: [bbx.xOffset, bbx.yOffset], // Keep original offset for debugging
+            baselineOffset: [bbx.xOffset, fontAscent - bbx.height - bbx.yOffset], // Bottom-aligned baseline offset
+            advance: dwidth ? dwidth.x : 4, // Character advance width (DWIDTH)
+            bbx: {
+              width: bbx.width,
+              height: bbx.height, 
+              xOffset: bbx.xOffset,
+              yOffset: bbx.yOffset
+            }, // Full BBX data for detailed positioning
+            dwidth: dwidth, // Device width information
+            fontMetrics: {
+              ascent: fontAscent,
+              descent: fontDescent
+            }, // Font-level metrics
             commands: commands,
           };
 
@@ -536,7 +589,7 @@ exports.handler = async (event) => {
           logGlyphAsASCII(charToFind, charCodeToFind, glyphData, "Generated");
 
           // Cache the parsed glyph data to S3 for future requests
-          await cacheGlyph(charCodeToFind, glyphData);
+          await cacheGlyph(charCodeToFind, glyphData, fontParam);
 
           return {
             statusCode: 200,

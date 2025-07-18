@@ -4,6 +4,33 @@
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
+// Global cache registry for storing cached codes by source hash
+const cacheRegistry = new Map();
+
+// Helper function to generate a hash for source code
+function getSourceHash(source) {
+  // Simple hash function for source code
+  let hash = 0;
+  for (let i = 0; i < source.length; i++) {
+    const char = source.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Function to get cached code for a source
+function getCachedCode(source) {
+  const hash = getSourceHash(source);
+  return cacheRegistry.get(hash);
+}
+
+// Function to store cached code for a source
+function setCachedCode(source, code) {
+  const hash = getSourceHash(source);
+  cacheRegistry.set(hash, code);
+}
+
 /* #region 📚 Examples / Notebook 
  Working programs:
 
@@ -306,6 +333,10 @@ class KidLisp {
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
     this.instantTriggersExecuted = {}; // Track which instant triggers have already fired
 
+    // Cache state (URLs stored per instance)
+    this.shortUrl = null; // Store cached short URL
+    this.cachedCode = null; // Store cached code
+
     // Microphone state tracking
     this.microphoneConnected = false;
     this.microphoneApi = null;
@@ -343,6 +374,10 @@ class KidLisp {
     this.currentExecutingExpression = null; // Currently executing expression
     this.lastExecutionTime = 0; // Last execution timestamp
     this.flashDuration = 500; // Duration for flash effects in milliseconds
+
+    // Handle attribution cache
+    this.cachedOwnerHandle = null; // Cache the resolved handle
+    this.cachedOwnerSub = null; // Track which sub we cached the handle for
 
     // Melody state tracking
     this.melodies = new Map(); // Track active melodies
@@ -532,9 +567,80 @@ class KidLisp {
     return expr;
   }
 
+  // Update browser URL to show the short $prefixed code
+  updateBrowserUrl(shortCode, api) {
+    try {
+      // Only update if we're in a browser environment and not in an iframe
+      if (typeof window !== 'undefined' && window.history && window.location && !api.net?.iframe) {
+        const currentPath = window.location.pathname;
+        const newPath = `/$${shortCode}`; // Add $ prefix for cached codes
+        
+        // Only update if the path is different to avoid unnecessary history entries
+        if (currentPath !== newPath) {
+          // Use replaceState to avoid creating a new history entry
+          window.history.replaceState(null, '', newPath);
+          console.log(`🔗 Updated browser URL to: ${window.location.origin}${newPath}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to update browser URL:', error);
+    }
+  }
+
+  // Cache kidlisp source code for QR generation
+  async cacheKidlispSource(source, api) {
+    // Skip caching for .lisp files since they're already stored as files
+    if (this.isLispFile) {
+      console.log(`⏭️ Skipping cache - piece is already a .lisp file`);
+      return;
+    }
+    
+    console.log(`🔍 Cache attempt - Source: "${source?.substring(0, 50)}${source?.length > 50 ? '...' : ''}"`);
+    
+    // Check if caching is enabled from store (default: true)
+    const cacheEnabled = api.store?.["kidlisp:cache-enabled"] !== false;
+    console.log(`⚙️ Cache enabled: ${cacheEnabled}`);
+    
+    // Skip caching if disabled or no source
+    if (!cacheEnabled || !source || source.trim().length === 0) {
+      console.log(`⏭️ Skipping cache - enabled: ${cacheEnabled}, source length: ${source?.trim()?.length || 0}`);
+      return;
+    }
+    
+    console.log(`🚀 Starting cache request for ${source.trim().length} character source`);
+    
+    try {
+      // Use the new request function that handles both auth and anonymous users
+      const response = await api.net.request('POST', '/api/store-kidlisp', { source });
+      
+      console.log(`📡 Final cache response:`, response);
+      
+      if (response && (response.status === 200 || response.status === 201)) {
+        this.shortUrl = `aesthetic.computer/$${response.code}`;
+        console.log(`📦 Kidlisp ${response.cached ? 'found in cache' : 'cached'}: ${this.shortUrl} (${source.length} chars)`);
+        
+        // Store the short URL for QR generation
+        this.cachedCode = response.code;
+        
+        // Store in global registry for access from disk.mjs
+        setCachedCode(source, response.code);
+        
+        // Update browser URL to show the short code
+        this.updateBrowserUrl(response.code, api);
+      } else {
+        console.warn('Failed to cache kidlisp:', response?.status, response?.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.warn('Failed to cache kidlisp:', error.message || error);
+    }
+  }
+
   // Parse and evaluate a lisp source module
   // into a running aesthetic computer piece.
-  module(source) {
+  module(source, isLispFile = false) {
+    // Store flag to skip caching for .lisp files
+    this.isLispFile = isLispFile;
+    
     perfStart("parse");
     const parsed = this.parse(source);
     perfEnd("parse");
@@ -551,13 +657,22 @@ class KidLisp {
     // Initialize syntax highlighting
     this.initializeSyntaxHighlighting(source);
 
+    // Clear handle attribution cache for new module
+    this.cachedOwnerHandle = null;
+    this.cachedOwnerSub = null;
+
     /*if (VERBOSE)*/ // console.log("🐍 Snake:", parsed);
 
     // 🧩 Piece API
     return {
-      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount }) => {
+      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
+
+        // Preload MatrixChunky8 font for QR code generation in KidLisp pieces
+        net?.preloadTypeface?.("MatrixChunky8");
+
+        // ...existing boot code...
 
         this.globalDef.paramA = params[0];
         this.globalDef.paramB = params[1];
@@ -597,6 +712,15 @@ class KidLisp {
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         this.frameCount++; // Increment frame counter for timing functions
+
+        // Cache kidlisp source for QR code generation instantly
+        // This prevents caching work-in-progress code and saves server space
+        const cacheDelayFrames = 0; // Instant caching
+        
+        if (this.frameCount >= cacheDelayFrames && !this.cachedCode) {
+          console.log(`⏰ Cache delay elapsed (instant), caching KidLisp source...`);
+          this.cacheKidlispSource(source, $);
+        }
 
         // Update HUD with syntax highlighting
         this.updateHUDWithSyntaxHighlighting($);
@@ -1825,6 +1949,43 @@ class KidLisp {
         console.log("📝 LOG:", ...args);
         return args[0];
       },
+      // 💾 Cache function - loads cached KidLisp code using nanoid
+      // Usage: (cache abc123XY) or (cache $abc123XY) loads cached code
+      cache: (api, args = []) => {
+        if (args.length === 0) {
+          console.warn("❗ cache function requires a nanoid argument");
+          return undefined;
+        }
+        
+        let cacheId = unquoteString(args[0].toString());
+        
+        // Strip $ prefix if present (allow both $OrqM and OrqM formats)
+        if (cacheId.startsWith("$")) {
+          cacheId = cacheId.slice(1);
+        }
+        
+        // Simple validation - just check it's not empty and alphanumeric
+        if (!cacheId || !/^[0-9A-Za-z]+$/.test(cacheId)) {
+          console.warn("❗ Invalid cache code:", cacheId);
+          return cacheId; // Return as-is if not valid
+        }
+        
+        // Return a promise that fetches and evaluates the cached code
+        return fetchCachedCode(cacheId).then(source => {
+          if (source) {
+            console.log("🎯 Loading cached KidLisp code:", cacheId);
+            // Parse and evaluate the cached source
+            const parsed = this.parse(source);
+            return this.evaluate(parsed, api, this.localEnv);
+          } else {
+            console.warn("❌ No cached code found for:", cacheId);
+            return undefined;
+          }
+        }).catch(error => {
+          console.error("❌ Error loading cached code:", cacheId, error);
+          return undefined;
+        });
+      },
       // 🚫 Disable wrapper - ignores wrapped expressions
       no: (api, args = []) => {
         // Always return JavaScript undefined, regardless of arguments
@@ -1953,6 +2114,7 @@ class KidLisp {
       speaker: (api) => {
         return api.sound?.enabled?.() || false;
       },
+      
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
         acc[colorName] = () => cssColors[colorName];
@@ -2896,18 +3058,55 @@ class KidLisp {
   }
 
   // Update HUD with syntax highlighted kidlisp
-  updateHUDWithSyntaxHighlighting(api) {
+  async updateHUDWithSyntaxHighlighting(api) {
     if (!api.hud || !api.hud.label || !this.syntaxHighlightSource) return;
 
     const coloredString = this.buildColoredKidlispString();
     if (coloredString) {
+      // Check if we have cached KidLisp owner info for attribution
+      let attributionText = "";
+      if (api.cachedKidlispOwner) {
+        // Use cached handle if we already fetched it for this sub
+        if (this.cachedOwnerSub === api.cachedKidlispOwner && this.cachedOwnerHandle) {
+          attributionText = ` \\gray\\by @${this.cachedOwnerHandle}`;
+        } else {
+          // Fetch handle for new sub (async, will show on next frame)
+          this.getHandleFromSub(api.cachedKidlispOwner);
+        }
+      }
+
       // Set HUD to support inline colors AND disable piece name color override
       api.hud.supportsInlineColor = true;
       api.hud.disablePieceNameColoring = true; // Disable automatic piece name coloring
       
-      // Call HUD label with just the colored string - no plain text parameter needed
-      api.hud.label(coloredString, undefined, 0);
+      // Call HUD label with colored string plus attribution if available
+      api.hud.label(coloredString + attributionText, undefined, 0);
     }
+  }
+
+  // Fetch handle from user sub using the /handle API endpoint (with caching)
+  async getHandleFromSub(userSub) {
+    // Don't re-fetch if we already have this handle cached
+    if (this.cachedOwnerSub === userSub && this.cachedOwnerHandle) {
+      return this.cachedOwnerHandle;
+    }
+
+    try {
+      const response = await fetch(`/handle?for=${userSub}`);
+      if (response.status === 200) {
+        const data = await response.json();
+        this.cachedOwnerHandle = data.handle;
+        this.cachedOwnerSub = userSub;
+        return data.handle;
+      }
+    } catch (error) {
+      console.warn("Error fetching handle:", error);
+    }
+    
+    // Clear cache if fetch failed
+    this.cachedOwnerHandle = null;
+    this.cachedOwnerSub = null;
+    return null;
   }
 
   // Helper method to strip color codes (copied from clock.mjs pattern)
@@ -2917,9 +3116,9 @@ class KidLisp {
 }
 
 // Module function that creates and returns a new KidLisp instance
-function module(source) {
+function module(source, isLispFile = false) {
   const lisp = new KidLisp();
-  return lisp.module(source);
+  return lisp.module(source, isLispFile);
 }
 
 // Standalone parse function (for compatibility)
@@ -3000,12 +3199,13 @@ function encodeKidlispForUrl(source) {
     return source;
   }
 
+  // Disable Base2048 compression - always use simple encoding
   // Check if compression is needed (more than 64 characters)
-  const shouldCompress = source.length > 64;
-  
-  if (shouldCompress) {
-    return compressKidlispForUrl(source);
-  }
+  // const shouldCompress = source.length > 64;
+  // 
+  // if (shouldCompress) {
+  //   return compressKidlispForUrl(source);
+  // }
 
   // For sharing, we want to preserve the structure so it can be parsed correctly
   // Use Unicode characters that display nicely in browser URL bars
@@ -3201,6 +3401,39 @@ function logKidlispDetection(source) {
   return result;
 }
 
+// Utility function to check if a string matches the nanoid pattern used by store-kidlisp
+// Uses customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 4-12)
+// Starts at 4 characters, grows incrementally to 12 as needed
+// Must contain at least one digit AND one letter to distinguish from disk names
+function isNanoidPattern(str) {
+  if (!str || typeof str !== "string") return false;
+  // Check for nanoid lengths from 4 to 12 characters (incremental growth)
+  if (str.length < 4 || str.length > 12) return false;
+  // Must contain only alphanumeric characters
+  if (!/^[0-9A-Za-z]+$/.test(str)) return false;
+  // Must contain at least one digit AND one letter to distinguish from disk names like "prompt"
+  const hasDigit = /[0-9]/.test(str);
+  const hasLetter = /[A-Za-z]/.test(str);
+  return hasDigit && hasLetter;
+}
+
+// Function to fetch cached KidLisp code from nanoid
+async function fetchCachedCode(nanoidCode) {
+  try {
+    const response = await fetch(`/api/store-kidlisp?code=${nanoidCode}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.source;
+    } else {
+      console.warn(`❌ Failed to load cached code: ${nanoidCode}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ Error loading cached code: ${nanoidCode}`, error);
+    return null;
+  }
+}
+
 export {
   module,
   parse,
@@ -3212,4 +3445,7 @@ export {
   compressKidlispForUrl,
   decompressKidlispFromUrl,
   isPromptInKidlispMode,
+  fetchCachedCode,
+  getCachedCode,
+  setCachedCode,
 };
