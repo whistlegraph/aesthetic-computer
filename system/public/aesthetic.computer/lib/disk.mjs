@@ -44,8 +44,9 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, encodeKidlispForUrl, compressKidlispForUrl, decompressKidlispFromUrl } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, encodeKidlispForUrl, compressKidlispForUrl, decompressKidlispFromUrl, getCachedCode, setCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
+import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 let tf; // Active typeface global.
@@ -82,8 +83,9 @@ let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
+let cachedKidlispOwner = null; // Stores the user sub for cached KidLisp pieces to show attribution
 
-const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
+const projectionMode = (typeof location !== 'undefined' && location.search) ? location.search.indexOf("nolabel") > -1 : false; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
@@ -298,7 +300,13 @@ let currentPath,
   currentHUDStatusColor = "red",
   currentHUDButton,
   currentHUDScrub = 0,
-  currentHUDOffset;
+  currentHUDOffset,
+  qrOverlayCache = new Map(); // Cache for QR overlays to prevent regeneration every frame
+
+// Make cache globally accessible for character loading system
+if (typeof window !== 'undefined') {
+  window.qrOverlayCache = qrOverlayCache;
+}
 //currentPromptButton;
 
 function updateHUDStatus() {
@@ -325,6 +333,9 @@ const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
 let formReframing = false; // Just for 3D camera updates.
+let needs3DRendering = false; // Track if any pieces are using 3D rendering
+let needsCPU3D = false; // Track if software 3D rasterizer is needed (depth buffer)
+let depthBufferInitialized = false; // Track if depth buffer is ready
 
 let paintings = {}; // Cached bitmaps from a piece.
 
@@ -350,10 +361,11 @@ let socket, socketStartDelay; // Socket server for each piece.
 
 // TODO: Extract `chat` into an external class.
 
-const chatDebug =
+const chatDebug = (typeof location !== 'undefined' && location.host) && (
   location.host === "local.aesthetic.computer" ||
   location.host === "localhost:8888" ||
-  location.host === "aesthetic.local:8888";
+  location.host === "aesthetic.local:8888"
+);
 const chatClient = new Chat(chatDebug, send);
 
 let udp = {
@@ -1690,7 +1702,9 @@ const $commonApi = {
       // TODO: And probably the session server as well in
       //       the future. 24.05.23.21.27
     },
-    pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
+    pieces: (typeof location !== 'undefined' && location.protocol && location.host) 
+      ? `${location.protocol}//${location.host}/aesthetic.computer/disks`
+      : '/aesthetic.computer/disks',
     parse, // Parse a piece slug.
     // lan: // Set dynamically.
     // host: // Set dynamically.
@@ -1714,7 +1728,9 @@ const $commonApi = {
     },
     userRequest: async (method, endpoint, body) => {
       try {
+        console.log(`🔐 Attempting authorization for ${method} ${endpoint}...`);
         const token = await $commonApi.authorize(); // Get user token.
+        console.log(`🔐 Authorization result: ${token ? 'TOKEN_RECEIVED' : 'NO_TOKEN'}`);
         if (!token) throw new Error("🧖 Not logged in.");
 
         const headers = {
@@ -1724,6 +1740,7 @@ const $commonApi = {
 
         const options = { method, headers };
         if (body) options.body = JSON.stringify(body);
+        console.log(`📡 Making ${method} request to ${endpoint} with auth header`);
         const response = await fetch(endpoint, options);
 
         if (response.status === 500) {
@@ -1747,6 +1764,70 @@ const $commonApi = {
       } catch (error) {
         console.error("🚫 Error:", error);
         return { message: "unauthorized" };
+      }
+    },
+    // Generic request function that can handle both authenticated and anonymous requests
+    request: async (method, endpoint, body, options = {}) => {
+      try {
+        const { requireAuth = false, anonymous = false } = options;
+        
+        const headers = {
+          "Content-Type": "application/json",
+        };
+
+        // Try authentication unless explicitly anonymous
+        if (!anonymous) {
+          try {
+            console.log(`🔐 Attempting authorization for ${method} ${endpoint}...`);
+            const token = await $commonApi.authorize();
+            if (token) {
+              headers.Authorization = `Bearer ${token}`;
+              console.log(`✅ Using authenticated request for ${method} ${endpoint}`);
+            } else if (requireAuth) {
+              throw new Error("🧖 Authentication required but not logged in.");
+            } else {
+              console.log(`🌍 Using anonymous request for ${method} ${endpoint}`);
+            }
+          } catch (authError) {
+            if (requireAuth) {
+              throw authError;
+            } else {
+              const authErrorMsg = authError?.message || authError?.toString() || "Auth failed";
+              console.log(`🔓 Auth failed, proceeding anonymously for ${method} ${endpoint}:`, authErrorMsg);
+            }
+          }
+        } else {
+          console.log(`🌍 Explicitly using anonymous request for ${method} ${endpoint}`);
+        }
+
+        const fetchOptions = { method, headers };
+        if (body) fetchOptions.body = JSON.stringify(body);
+        
+        console.log(`📡 Making ${method} request to ${endpoint}`);
+        const response = await fetch(endpoint, fetchOptions);
+
+        if (response.status === 500) {
+          try {
+            const json = await response.json();
+            return { status: response.status, ...json };
+          } catch (e) {
+            return { status: response.status, message: response.statusText };
+          }
+        } else {
+          const clonedResponse = response.clone();
+          try {
+            return {
+              ...(await clonedResponse.json()),
+              status: response.status,
+            };
+          } catch {
+            return { status: response.status, body: await response.text() };
+          }
+        }
+      } catch (error) {
+        console.error("🚫 Request error:", error);
+        const errorMessage = error?.message || error?.toString() || "Request failed";
+        return { status: 0, message: errorMessage };
       }
     },
     // Loosely connect the UDP receiver.
@@ -2083,12 +2164,22 @@ const $paintApi = {
       if (typefaceCache.has(customTypeface)) {
         customTypeface = typefaceCache.get(customTypeface);
       } else {
-        // Create a new typeface but warn that it may not be fully loaded
-        console.warn(
-          `⚠️ Typeface "${customTypeface}" not preloaded. Consider using preloadTypeface() in boot.`,
-        );
-        customTypeface = new Typeface(customTypeface);
-        typefaceCache.set(customTypeface.name, customTypeface);
+        // Create a new typeface and load it immediately if it's MatrixChunky8 or unifont
+        console.log(`🔄 Creating new typeface: ${customTypeface}`);
+        const newTypeface = new Typeface(customTypeface);
+        
+        // Load the typeface asynchronously for BDF fonts
+        if (newTypeface.data?.bdfFont || customTypeface === "unifont") {
+          newTypeface.load($commonApi.net.preload, () => {
+            // Force repaint when new glyphs are loaded
+            if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
+              window.$activePaintApi.needsPaint();
+            }
+          });
+        }
+        
+        typefaceCache.set(customTypeface, newTypeface);
+        customTypeface = newTypeface;
       }
     } // 🎨 Color code processing
     // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, etc.
@@ -2389,6 +2480,20 @@ function form(
 ) {
   // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
+
+  // Mark that 3D rendering is being used
+  if (!needs3DRendering) {
+    needs3DRendering = true;
+  }
+  
+  // Track if CPU 3D rendering (software rasterizer) is needed for depth buffer
+  if (cpu === true && !needsCPU3D) {
+    needsCPU3D = true;
+    // If depth buffer hasn't been initialized yet, we'll need a reframe
+    if (!depthBufferInitialized) {
+      // The depth buffer will be created on the next frame cycle
+    }
+  }
 
   if (cpu === true) {
     if (formReframing) {
@@ -2938,10 +3043,21 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   screen.width = width;
   screen.height = height;
 
-  // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
-  graph.depthBuffer.length = screen.width * screen.height;
-  graph.depthBuffer.fill(Number.MAX_VALUE);
-  graph.writeBuffer.length = 0; //screen.width * screen.height;
+  // Only initialize depth buffer if CPU 3D rendering is actually being used
+  if (needsCPU3D) {
+    graph.depthBuffer.length = screen.width * screen.height;
+    graph.depthBuffer.fill(Number.MAX_VALUE);
+    depthBufferInitialized = true;
+  } else {
+    // Clear depth buffer if CPU 3D is no longer needed to free memory
+    if (depthBufferInitialized) {
+      graph.depthBuffer.length = 0;
+      depthBufferInitialized = false;
+    }
+  }
+  
+  // Write buffer is rarely used, keep it minimal
+  graph.writeBuffer.length = 0;
   // graph.writeBuffer.fill(Number.MAX_VALUE);
 
   screen.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
@@ -3130,27 +3246,78 @@ async function load(
     if (host === "") host = originalHost;
     loadFailure = undefined;
     host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
+    
+    // 🎯 Auto-detect $prefixed cached codes (e.g., aesthetic.computer/$OrqM)
+    // Check both path and slug for $prefixed patterns
+    if ((path && path.startsWith("$")) || (slug && slug.startsWith("$"))) {
+      const cacheSlug = path && path.startsWith("$") ? path : slug;
+      const cacheId = cacheSlug.slice(1); // Remove the $ prefix to get the actual nanoid
+      console.log("🎯 Auto-detected $prefixed cache code, fetching from cache:", cacheId);
+      
+      // Hit the store-kidlisp endpoint with GET request to retrieve cached source
+      try {
+        const cacheUrl = location.protocol + "//" + host + "/api/store-kidlisp?code=" + cacheId;
+        const response = await fetch(cacheUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to load cached KidLisp: ${response.status}`);
+        }
+        const cacheData = await response.json();
+        
+        if (cacheData.source) {
+          // Set up variables to jump to source loading branch
+          source = cacheData.source;
+          params = parsed.params || [];
+          search = parsed.search;
+          colon = parsed.colon || [];
+          hash = parsed.hash;
+          slug = cacheSlug; // Keep the $prefixed version as the slug for URL display
+          forceKidlisp = true;
+          
+          // Store cached KidLisp owner info for HUD attribution
+          if (cacheData.user) {
+            cachedKidlispOwner = cacheData.user;
+            console.log("👤 Cached KidLisp owner:", cachedKidlispOwner);
+          } else {
+            cachedKidlispOwner = null;
+          }
+          
+          console.log("🎯 Retrieved cached KidLisp source via auto-detection:", source.length, "chars");
+          // Jump directly to source processing - skip URL construction entirely
+        } else {
+          throw new Error("No source found in cached KidLisp response");
+        }
+      } catch (error) {
+        console.error("❌ Failed to load cached KidLisp via auto-detection:", error);
+        loadFailure = error.message;
+        loading = false;
+        return;
+      }
+    }
+    
     //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
     // if (path === firstPiece && params.length === 0) params = firstParams;
 
-    // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
-    if (path.endsWith(".lisp")) {
-      fullUrl = location.protocol + "//" + host + "/" + path + "#" + Date.now();
-    } else {
-      fullUrl =
-        location.protocol +
-        "//" +
-        host +
-        "/" +
-        path +
-        ".mjs" +
-        "#" +
-        Date.now();
+    // Only construct fullUrl if we haven't already extracted source from nanoid pattern
+    if (!source) {
+      // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
+      if (path.endsWith(".lisp")) {
+        fullUrl = location.protocol + "//" + host + "/" + path + "#" + Date.now();
+      } else {
+        fullUrl =
+          location.protocol +
+          "//" +
+          host +
+          "/" +
+          path +
+          ".mjs" +
+          "#" +
+          Date.now();
+      }
+      // The hash `time` parameter busts the cache so that the environment is
+      // reset if a disk is re-entered while the system is running.
+      // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
+      // if (debug) console.log("🕸", fullUrl);
     }
-    // The hash `time` parameter busts the cache so that the environment is
-    // reset if a disk is re-entered while the system is running.
-    // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
-    // if (debug) console.log("🕸", fullUrl);
   } else {
     // 📃 Loading with provided source code.
     // This could either be JavaScript or LISP.
@@ -3204,27 +3371,35 @@ async function load(
     } else {
       let sourceToRun;
       if (fullUrl) {
-        let response;
-        if (logs.loading) console.log("📥 Loading from url:", fullUrl);
-        response = await fetch(fullUrl);
-        if (response.status === 404 || response.status === 403) {
-          const extension = path.endsWith(".lisp") ? ".lisp" : ".mjs";
-          const anonUrl =
-            location.protocol +
-            "//" +
-            "art.aesthetic.computer" +
-            "/" +
-            path.split("/").pop() +
-            extension +
-            "#" +
-            Date.now();
-          if (logs.loading)
-            console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-          response = await fetch(anonUrl);
-          if (response.status === 404 || response.status === 403)
-            throw new Error(response.status);
+        // Check if we have embedded source for this piece
+        if ($commonApi.embeddedSource && $commonApi.embeddedSource.path === path) {
+          if (logs.loading) console.log("📦 Using embedded source for:", path);
+          sourceToRun = $commonApi.embeddedSource.source;
+          // Clear embedded source after use to prevent conflicts
+          $commonApi.embeddedSource = null;
+        } else {
+          let response;
+          if (logs.loading) console.log("📥 Loading from url:", fullUrl);
+          response = await fetch(fullUrl);
+          if (response.status === 404 || response.status === 403) {
+            const extension = path.endsWith(".lisp") ? ".lisp" : ".mjs";
+            const anonUrl =
+              location.protocol +
+              "//" +
+              "art.aesthetic.computer" +
+              "/" +
+              path.split("/").pop() +
+              extension +
+              "#" +
+              Date.now();
+            if (logs.loading)
+              console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+            response = await fetch(anonUrl);
+            if (response.status === 404 || response.status === 403)
+              throw new Error(response.status);
+          }
+          sourceToRun = await response.text();
         }
-        sourceToRun = await response.text();
       } else {
         sourceToRun = source;
       }
@@ -3260,7 +3435,11 @@ async function load(
         );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
-        loadedModule = lisp.module(sourceToRun);
+        // Clear cached owner for non-cached KidLisp
+        cachedKidlispOwner = null;
+        // Don't cache .lisp files since they're already stored as files
+        const isLispFile = path && path.endsWith(".lisp");
+        loadedModule = lisp.module(sourceToRun, isLispFile);
 
         if (devReload) {
           store["publishable-piece"] = {
@@ -3297,7 +3476,7 @@ async function load(
   } catch (err) {
     console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
-    if (!fullUrl.includes(".lisp")) {
+    if (fullUrl && !fullUrl.includes(".lisp")) {
       try {
         fullUrl = fullUrl.replace(".mjs", ".lisp");
         let response;
@@ -3311,7 +3490,7 @@ async function load(
             "//" +
             "art.aesthetic.computer" +
             "/" +
-            path.split("/").pop() +
+            (path ? path.split("/").pop() : "unknown") +
             ".lisp" +
             "#" +
             Date.now();
@@ -3326,7 +3505,11 @@ async function load(
         sourceCode = await response.text();
         // console.log("📓 Source:", sourceCode);
         originalCode = sourceCode;
-        loadedModule = lisp.module(sourceCode);
+        // Clear cached owner for file-loaded KidLisp
+        cachedKidlispOwner = null;
+        // Don't cache .lisp files since they're already stored as files  
+        const isLispFile = (path && path.endsWith(".lisp")) || (fullUrl && fullUrl.includes(".lisp"));
+        loadedModule = lisp.module(sourceCode, isLispFile);
         if (devReload) {
           store["publishable-piece"] = {
             slug,
@@ -3932,6 +4115,15 @@ async function load(
     }
   };
 
+  // Initialize MatrixChunky8 font for QR code text rendering
+  if (!typefaceCache.has("MatrixChunky8")) {
+    console.log("🔤 Initializing MatrixChunky8 font...");
+    const matrixFont = new Typeface("MatrixChunky8");
+    await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
+    typefaceCache.set("MatrixChunky8", matrixFont);
+    console.log("✅ MatrixChunky8 font initialized");
+  }
+
   /**
    * @function video
    * @descrption Make a live video feed. Returns an object that links to current frame.
@@ -4000,6 +4192,10 @@ async function load(
     $commonApi.rec.loadCallback = null;
 
     module = loadedModule;
+
+    // Reset 3D rendering tracking when a new piece loads
+    needs3DRendering = false;
+    needsCPU3D = false;
 
     if (!module.system?.startsWith("world"))
       $commonApi.system.world.teleported = false;
@@ -4313,6 +4509,12 @@ async function load(
       const displaySlug = slug.replace(/~/g, " ");
       currentHUDTxt = displaySlug; // Update hud if this is not an alias.
       currentHUDLogicalTxt = displaySlug; // Set logical text to the same space-separated version
+      
+      // Special handling for cached KidLisp: show $prefixed code in URL but full source in HUD label
+      if (displaySlug.startsWith("$") && sourceCode && forceKidlisp) {
+        currentHUDLogicalTxt = sourceCode; // Show full KidLisp source in HUD label
+        console.log("🎯 Cached KidLisp: URL shows $prefixed code, HUD shows full source");
+      }
     }
     if (module.nohud || system === "prompt") {
       currentHUDTxt = undefined;
@@ -4446,6 +4648,9 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
+
+    // Store embedded source for optimization
+    $commonApi.embeddedSource = content.embeddedSource;
 
     microphone.permission = content.microphonePermission;
 
@@ -5274,13 +5479,24 @@ async function makeFrame({ data: { type, content } }) {
       // Always go to prompt for editing, regardless of labelBack setting
       // This ensures backspace always returns to editable input
       let promptSlug = "prompt";
-      // Use currentText which contains the original slug with tildes (e.g., "rect~red")
-      const content = currentText;
+      
+      // For cached KidLisp pieces (detected by $ prefix), use the actual source code
+      // instead of the short $prefixed code for backspace navigation
+      let content;
+      if (currentText && currentText.startsWith("$") && currentCode && lisp.isKidlispSource(currentCode)) {
+        // This is a cached KidLisp piece - use the full source code for backspace
+        content = currentCode;
+      } else {
+        // Use currentText which contains the original slug with tildes (e.g., "rect~red")
+        content = currentText;
+      }
+      
       if (content) {
-        // Only encode kidlisp content with kidlisp encoder
+        // For backspace navigation, we want to pass KidLisp source directly without encoding
+        // since this is for editing, not URL sharing
         if (lisp.isKidlispSource(content)) {
-          const encodedContent = lisp.encodeKidlispForUrl(content);
-          promptSlug += "~" + encodedContent;
+          // Don't encode for backspace - pass raw source for editing
+          promptSlug += "~" + content;
         } else {
           // For regular piece names, currentText already has the correct tilde format
           promptSlug += "~" + content;
@@ -6487,6 +6703,9 @@ async function makeFrame({ data: { type, content } }) {
       $api.paintCount = Number(paintCount);
 
       $api.inFocus = content.inFocus;
+      
+      // Add cached KidLisp owner info for attribution in HUD
+      $api.cachedKidlispOwner = cachedKidlispOwner;
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
 
@@ -6524,21 +6743,24 @@ async function makeFrame({ data: { type, content } }) {
 
         screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
 
-        // TODO: Add the depth buffer back here.
-        // Reset the depth buffer.
-        // TODO: I feel like this is causing a memory leak...
-        graph.depthBuffer.length = screen.width * screen.height;
-        graph.depthBuffer.fill(Number.MAX_VALUE);
+        // Only initialize depth buffer if CPU 3D rendering is being used
+        if (needsCPU3D) {
+          graph.depthBuffer.length = screen.width * screen.height;
+          graph.depthBuffer.fill(Number.MAX_VALUE);
+          depthBufferInitialized = true;
+        }
 
-        graph.writeBuffer.length = 0; //screen.width * screen.height;
+        // Write buffer is rarely used, keep it minimal
+        graph.writeBuffer.length = 0;
         // graph.writeBuffer.fill(0);
       }
 
-      // TODO: Disable the depth buffer for now... it doesn't need to be
-      //       regenerated on every frame.
-      // TODO: This only needs to run if 'form' is running in a piece. 25.03.20.19.27
-      graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
-      graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
+      // Only clear depth buffer if CPU 3D rendering is active
+      if (needsCPU3D && depthBufferInitialized) {
+        graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
+      }
+      // Write buffer is rarely used, keep it minimal
+      graph.writeBuffer.length = 0;
 
       $api.screen = screen;
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
@@ -7460,9 +7682,7 @@ async function makeFrame({ data: { type, content } }) {
           img: (({ width, height, pixels }) => ({ width, height, pixels }))(
             label,
           ),
-        };
-
-      // 🔲 Generate QR code overlay for KidLisp pieces
+        };      // 🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
       // Detect if this is a KidLisp piece
       const sourceCode = currentHUDLogicalTxt || currentHUDTxt; // Get the source from HUD text
@@ -7482,82 +7702,188 @@ async function makeFrame({ data: { type, content } }) {
       
       if (isKidlispPiece && sourceCode) {
         try {
-          // Generate URL like the share piece does
-          let url;
-          // Use same local detection logic as chatDebug
-          const isLocal = location.host === "local.aesthetic.computer" ||
-                         location.host === "localhost:8888" ||
-                         location.host === "aesthetic.local:8888";
-          
-          if (isLocal) {
-            url = "https://local.aesthetic.computer";
-          } else {
-            url = "https://aesthetic.computer";
-          }
-          
-          // Use Base2048 compression for all KidLisp URLs (direct Unicode, no URL encoding)
-          const encodedSource = lisp.compressKidlispForUrl(sourceCode);
-          url += `/${encodedSource}`;
-          
-          // Log QR code generation details
-          console.log(`📱 QR Code URL: ${url}`);
-          console.log(`📏 QR URL Length: ${url.length} characters`);
-          
-          // Generate QR code with minimal error correction for smallest size
-          // QR codes handle Unicode characters directly, no need for URL encoding
-          const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
-          
-          // Calculate size and position for bottom-right corner with 4px margin
-          const margin = 4;
-          const maxSize = 48; // Even smaller size - 48px instead of 64px
-          const cellSize = Math.max(1, Math.floor(maxSize / cells.length));
-          const qrSize = cells.length * cellSize;
-          
-          // Position in bottom-right corner
-          const startX = screen.width - qrSize - margin;
-          const startY = screen.height - qrSize - margin;
-          
-          // Create QR overlay with shadow using painting API
-          qrOverlay = $api.painting(qrSize + 4, qrSize + 4, ($) => {
-            // Clear the entire area first
-            $.ink([0, 0, 0, 0]).box(0, 0, qrSize + 4, qrSize + 4); // Transparent clear
+          // Check if this source has been cached using the global registry
+          const cachedCode = getCachedCode(sourceCode);
+          if (cachedCode) {
+            // Use cache key based on cached code to avoid regenerating the same QR
+            const cacheKey = `qr_${cachedCode}`;
+            const isLocal = (typeof location !== 'undefined' && location.host) && (
+              location.host === "local.aesthetic.computer" ||
+              location.host === "localhost:8888" ||
+              location.host === "aesthetic.local:8888"
+            );
             
-            // Draw shadow first (offset by 1 pixel down and right)
-            for (let y = 0; y < cells.length; y++) {
-              for (let x = 0; x < cells.length; x++) {
-                const isBlack = cells[y][x];
-                if (isBlack) {
-                  $.ink([0, 0, 0, 128]); // Semi-transparent black shadow
-                  $.box(x * cellSize + 2, y * cellSize + 2, cellSize);
-                }
+            let url;
+            if (isLocal) {
+              url = "https://local.aesthetic.computer";
+            } else {
+              // Use prompt.ac for shorter URLs when host is aesthetic.computer
+              const currentHost = (typeof location !== 'undefined' && location.host) ? location.host : '';
+              if (currentHost === "aesthetic.computer") {
+                url = "https://prompt.ac";
+              } else {
+                url = "https://aesthetic.computer";
               }
             }
             
-            // Draw main QR code on top
-            for (let y = 0; y < cells.length; y++) {
-              for (let x = 0; x < cells.length; x++) {
-                const isBlack = cells[y][x];
-                if (isBlack) {
-                  $.ink("black");
+            // Use the cached nanoid code with $ prefix for a much shorter URL
+            url += `/$${cachedCode}`;
+            
+            // Generate QR code with minimal error correction for smallest size
+            const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
+            
+            // Calculate size and position for bottom-right corner with 4px margin
+            const margin = 4;
+            const maxSize = 48;
+            const cellSize = Math.max(1, Math.floor(maxSize / cells.length));
+            const qrSize = cells.length * cellSize;
+            
+            // Position in bottom-right corner
+            let startX = screen.width - qrSize - margin - 1; // Account for shadow width
+            const textHeight = 12; // Space for MatrixChunky8 8px font with shadow (8px + 4px padding)
+            const totalHeight = qrSize + textHeight;
+            let startY = screen.height - totalHeight - margin - 1; // Account for shadow height
+            
+            // Get the font before we start generating the QR overlay
+            const font = typefaceCache.get("MatrixChunky8");
+            
+            // Create QR overlay using painting API with extra space for shadow
+            const generatedQR = $api.painting(qrSize + 1, totalHeight + 1, ($) => {
+              // Draw QR code directly
+              for (let y = 0; y < cells.length; y++) {
+                for (let x = 0; x < cells.length; x++) {
+                  const isBlack = cells[y][x];
+                  if (isBlack) {
+                    $.ink("black");
+                  } else {
+                    $.ink("white");
+                  }
+                  $.box(x * cellSize, y * cellSize, cellSize);
+                }
+              }
+              
+              // Add 1px gray margin between QR code and text area
+              $.ink("gray");
+              $.box(0, qrSize, qrSize, 1); // 1px gray margin
+              
+              // Add flickering debug backdrop for text area to prevent premature caching
+              const frameFlicker = (Date.now() / 100) % 2 < 1; // Flicker every 100ms
+              const backdropColor = frameFlicker ? "yellow" : "white";
+              $.ink(backdropColor);
+              $.box(0, qrSize + 1, qrSize, 11); // Flickering background for text (increased height)
+              
+              $.ink("black");
+              
+              // Calculate text width for proper centering using advance values
+              let textWidth = 0;
+              if (font && font.glyphs) {
+                // Add width for "$" prefix
+                const dollarGlyph = font.glyphs['$'];
+                if (dollarGlyph && dollarGlyph.advance !== undefined) {
+                  textWidth += dollarGlyph.advance;
                 } else {
-                  $.ink("white");
+                  textWidth += 4; // fallback width for $
                 }
-                $.box(x * cellSize + 1, y * cellSize + 1, cellSize);
+                
+                // Add width for cached code characters
+                for (const char of cachedCode) {
+                  const glyph = font.glyphs[char];
+                  if (glyph && glyph.advance !== undefined) {
+                    textWidth += glyph.advance;
+                  } else {
+                    textWidth += 4; // fallback width
+                  }
+                }
+              } else {
+                textWidth = (cachedCode.length + 1) * 4; // fallback calculation including $ prefix
+              }
+              
+              const textX = Math.floor((qrSize - textWidth) / 2); // Center based on actual text width
+              
+              // The font proxy will automatically load characters as needed
+              $.ink("black");
+              $.write(`$${cachedCode}`, { x: textX, y: qrSize + 3 }, undefined, undefined, false, "MatrixChunky8");
+              
+              // Add drop shadow to entire QR code and stub area (right and bottom edges)
+              $.ink("gray");
+              // Right edge shadow
+              $.box(qrSize, 1, 1, qrSize + 11); // Right edge shadow
+              // Bottom edge shadow  
+              $.box(1, totalHeight, qrSize, 1); // Bottom edge shadow
+            });
+            
+            // Check if all characters are actually loaded in the font
+            let allCharsLoaded = false;
+            if (font && font.glyphs) {
+              allCharsLoaded = true;
+              for (const char of cachedCode) {
+                const glyph = font.glyphs[char];
+                // For BDF fonts like MatrixChunky8, check if glyph has pixels data
+                // For other fonts, check for commands or pixels
+                const isValidGlyph = glyph && (
+                  (glyph.pixels && Array.isArray(glyph.pixels)) ||  // BDF font with pixel data
+                  (glyph.commands && Array.isArray(glyph.commands)) ||  // Vector font with commands
+                  (glyph.resolution && glyph.pixels)  // Alternative BDF format
+                );
+                
+                if (!isValidGlyph) {
+                  allCharsLoaded = false;
+                  break;
+                }
               }
             }
             
-            // Add a subtle border around the main QR code
-            $.ink("gray").box(0, 0, qrSize + 2, qrSize + 2, "outline");
-          });
-          
-          if (qrOverlay) {
-            sendData.qrOverlay = {
-              x: startX - 2, // Adjusted for larger shadow canvas
-              y: startY - 2,
-              img: (({ width, height, pixels }) => ({ width, height, pixels }))(
-                qrOverlay,
-              ),
+            // Only cache QR after all characters are actually loaded
+            if (allCharsLoaded && !qrOverlayCache.has(cacheKey)) {
+              qrOverlayCache.set(cacheKey, {
+                width: generatedQR.width,
+                height: generatedQR.height,
+                pixels: new Uint8ClampedArray(generatedQR.pixels), // Create a copy of pixel data including text
+              });
+            } else if (!allCharsLoaded) {
+              // Characters still loading, will regenerate QR next frame
+            }
+            
+            // Force regeneration if we want to see the flicker (disable caching temporarily)
+            const forceRegeneration = true; // Set to false to enable caching
+            
+            // Use cached QR if available and all characters are loaded, otherwise use the fresh QR
+            const cachedQRData = qrOverlayCache.get(cacheKey);
+            let qrToUse;
+            
+            if (cachedQRData && allCharsLoaded && !forceRegeneration) {
+              // Use cached QR - all characters were loaded when it was cached
+              qrToUse = cachedQRData;
+            } else {
+              // Use fresh QR - either no cache exists or characters are still loading
+              qrToUse = {
+                width: generatedQR.width,
+                height: generatedQR.height,
+                pixels: new Uint8ClampedArray(generatedQR.pixels)
+              };
+            }
+            
+            // Recalculate position for current screen size (handles reframing)
+            const overlayWidth = qrToUse.width;
+            const overlayHeight = qrToUse.height;
+            startX = screen.width - overlayWidth - margin;
+            startY = screen.height - overlayHeight - margin;
+            
+            // Create overlay object for transfer
+            qrOverlay = {
+              width: qrToUse.width,
+              height: qrToUse.height,
+              pixels: new Uint8ClampedArray(qrToUse.pixels) // Fresh copy for transfer
             };
+            
+            // Add QR overlay to sendData with exact position
+            sendData.qrOverlay = {
+              x: startX,
+              y: startY,
+              img: qrOverlay
+            };
+          } else {
+            // No cached code yet - QR will appear once caching is complete
           }
         } catch (err) {
           console.warn("Failed to generate QR overlay:", err);
