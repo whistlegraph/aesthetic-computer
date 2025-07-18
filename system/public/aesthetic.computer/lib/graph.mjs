@@ -2263,7 +2263,28 @@ function draw() {
     thickness = args[4] || thickness;
   }
 
-  if (drawing === undefined) return;
+  if (drawing === undefined) {
+    // Skip undefined glyphs silently
+    return;
+  }
+
+  // Apply BDF offset if present (for proper baseline positioning)
+  if (drawing.offset) {
+    const originalY = y;
+    x += drawing.offset[0] * scale; // xOffset
+    
+    // Use baseline-corrected offset if available, otherwise fall back to original
+    const yOffset = drawing.baselineOffset ? drawing.baselineOffset[1] : drawing.offset[1];
+    y += yOffset * scale; // Use baseline-relative positioning
+    
+    // Log detailed info for specific characters
+    if (drawing.commands && drawing.commands.length > 0) {
+      const offsetType = drawing.baselineOffset ? "baseline" : "original";
+      console.log(`🎯 GRAPH.DRAW: BDF ${offsetType} offset [${drawing.offset[0]}, ${yOffset}] applied at scale ${scale}, Y: ${originalY} → ${y}, resolution: [${drawing.resolution[0]}, ${drawing.resolution[1]}]`);
+    }
+  }
+
+  // Remove verbose draw logging - only log failures now
 
   // TODO: Eventually make this the call: rotatePoint(args[0], args[1], 0, 0);
   angle = radians(angle);
@@ -2349,6 +2370,7 @@ function printLine(
   xOffset = 0,
   thickness = 1,
   rotation = 0,
+  fontMetadata = null,
 ) {
   if (!text) return;
 
@@ -2368,16 +2390,59 @@ function printLine(
     }
   }
 
-  [...text.toString()].forEach((char, i) => {
-    draw(
-      font[char],
-      startX + blockWidth * scale * i + xOffset,
-      startY,
-      scale,
-      rotation,
-      thickness,
-    );
-  });
+  // Check if font supports proportional spacing using passed metadata instead of glyph object
+  // This avoids triggering the BDF proxy when checking font properties
+  const isProportional = fontMetadata?.proportional === true || 
+                         fontMetadata?.bdfFont === "MatrixChunky8" ||
+                         fontMetadata?.name === "MatrixChunky8";
+
+  if (isProportional) {
+    // Extremely tight character advance widths for MatrixChunky8 (characters nearly touching)
+    const matrixChunkyAdvances = {
+      'A': 4, 'B': 4, 'C': 4, 'D': 4, 'E': 4, 'F': 4, 'G': 4, 'H': 5, 'I': 2, 'J': 2, 'K': 4, 'L': 4, 'M': 6, 'N': 4, 'O': 5, 'P': 4, 'Q': 4, 'R': 4, 'S': 4, 'T': 4, 'U': 4, 'V': 4, 'W': 6, 'X': 4, 'Y': 4, 'Z': 4,
+      'a': 4, 'b': 4, 'c': 4, 'd': 4, 'e': 4, 'f': 4, 'g': 4, 'h': 4, 'i': 4, 'j': 2, 'k': 4, 'l': 4, 'm': 6, 'n': 4, 'o': 4, 'p': 4, 'q': 4, 'r': 4, 's': 4, 't': 4, 'u': 4, 'v': 4, 'w': 6, 'x': 4, 'y': 4, 'z': 4,
+      '0': 4, '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4,
+      ' ': 2, '.': 2, ',': 2, '!': 2, '?': 4, ':': 2, ';': 2, '-': 4, '+': 4, '=': 4, '<': 4, '>': 4, '/': 4, '\\': 4, '|': 2, '"': 4, "'": 2, '(': 2, ')': 2, '[': 2, ']': 2, '{': 2, '}': 2, '@': 5, '#': 5, '$': 4, '%': 5, '^': 4, '&': 5, '*': 4, '_': 4, '~': 5
+    };
+
+    // Calculate character positions for proportional spacing
+    let currentX = startX + xOffset;
+    
+    [...text.toString()].forEach((char, i) => {
+      const charX = currentX;
+      let charY = startY;
+      
+      // Get character advance width from custom table, fallback to blockWidth
+      const charAdvance = matrixChunkyAdvances[char] || blockWidth;
+      
+      draw(
+        font[char],
+        charX,
+        charY,
+        scale,
+        rotation,
+        thickness,
+      );
+      
+      // Advance to next character position
+      currentX += charAdvance * scale;
+    });
+  } else {
+    // Use original monospace logic for fonts without proportional flag
+    [...text.toString()].forEach((char, i) => {
+      const charX = startX + blockWidth * i * scale + xOffset;
+      let charY = startY;
+      
+      draw(
+        font[char],
+        charX,
+        charY,
+        scale,
+        rotation,
+        thickness,
+      );
+    });
+  }
 }
 
 function noise16() {
