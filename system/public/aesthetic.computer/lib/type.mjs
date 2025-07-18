@@ -63,10 +63,30 @@ class Typeface {
           });
       }); // Wait for all the promises to resolve before returning
       await Promise.all(promises);
-    } else if (this.name === "unifont") {
-      // 🗺️ UNIFONT Homepage: https://unifoundry.com/unifont.html
+      console.log(`✅ font_1 loaded with ${Object.keys(this.glyphs).length} glyphs`);
+    } else if (this.name === "microtype") {
+      // Load microtype 3x5 font
+      const glyphsToLoad = entries(this.data).filter(
+        ([g, loc]) => !g.startsWith("glyph"),
+      );
+      const promises = glyphsToLoad.map(([glyph, location], i) => {
+        const path = `aesthetic.computer/disks/drawings/${location}.json`;
+        return $preload(path)
+          .then((res) => {
+            this.glyphs[glyph] = res;
+          })
+          .catch((err) => {
+            console.error(`❌ Couldn't load microtype glyph "${glyph}":`, err);
+          });
+      });
+      await Promise.all(promises);
+      console.log(`✅ microtype loaded with ${Object.keys(this.glyphs).length} glyphs`);
+    } else if (this.name === "unifont" || this.data.bdfFont) {
+      // 🗺️ BDF Font support - includes UNIFONT and other BDF fonts
+      // Determine which font to use - for unifont use the name, for others use bdfFont property
+      const fontName = this.data.bdfFont || "unifont";
+      
       // Add a basic placeholder glyph for "?" character
-
       this.glyphs["?"] = {
         resolution: [6, 9],
         pixels: [
@@ -189,12 +209,12 @@ class Typeface {
           const codePointStr = codePoints.join("_");
 
           // Make API call to load the glyph using code points
-          fetch(`/api/bdf-glyph?char=${codePointStr}`)
+          fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`)
             .then((response) => {
               if (!response.ok) {
                 if (response.status === 404) {
                   console.info(
-                    `Glyph "${char}" (${codePointStr}) not available in unifont`,
+                    `Glyph "${char}" (${codePointStr}) not available in ${fontName}`,
                   );
                 } else {
                   console.warn(
@@ -208,6 +228,22 @@ class Typeface {
             .then((glyphData) => {
               // Store the loaded glyph
               target[char] = glyphData;
+              
+              // Trigger a re-render if this is for QR text
+              if (fontName === "MatrixChunky8") {
+                
+                // Invalidate QR cache so it regenerates with new characters
+                if (typeof window !== 'undefined' && window.qrOverlayCache) {
+                  window.qrOverlayCache.clear();
+                }
+                
+                // Force a repaint by calling needsPaint if available
+                if (typeof needsPaint === 'function') {
+                  needsPaint();
+                } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
+                  window.$activePaintApi.needsPaint();
+                }
+              }
               loadingGlyphs.delete(char);
 
               // Trigger a repaint to show the newly loaded glyph
@@ -356,6 +392,13 @@ class Typeface {
     if (bg !== null) $.ink(bg).box(x, y, fullWidth, blockHeight);
 
     // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);    // Check if we have per-character colors
+    // Apply baseline adjustment for fonts that need bottom alignment
+    const baselineAdjustment = this.data.baseline || 0;
+    if (this.data.bdfFont && text === "He") {
+      console.log(`📏 TYPE.MJS: "${text}" baseline adjustment: ${baselineAdjustment} pixels (original y: ${y}, new y: ${y + baselineAdjustment})`);
+    }
+    y += baselineAdjustment;
+
     if (charColors && charColors.length > 0) {
       // Render each character with its own color
       let currentX = x;
@@ -385,6 +428,7 @@ class Typeface {
           0,
           thickness,
           rotation,
+          this.data, // Pass font metadata to avoid BDF proxy issues
         );
 
         // Move to next character position
@@ -402,6 +446,7 @@ class Typeface {
         0,
         thickness,
         rotation,
+        this.data, // Pass font metadata to avoid BDF proxy issues
       ); // Text
     }
   }
