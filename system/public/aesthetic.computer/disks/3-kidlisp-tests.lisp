@@ -4,8 +4,8 @@
 ; todo: Fix sharing on the updated labels.
 ;       Swipe down for source?
 
-(def slide 0) ; 🛝 Slideshow Mechanism
-(10s (now slide (% slide+1 4)))
+(def slide 2) ; 🛝 Slideshow Mechanism
+; (10s (now slide (% slide+1 4)))
 
 ; 🪧 Title Screen
 (if (= slide 0) (label) (ink white) (wipe black)
