@@ -4,10 +4,7 @@
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { customAlphabet } from 'nanoid';
 import crypto from 'crypto';
-
-const nanoid = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 4);
 
 // Ensure indexes exist (reentrant - safe to call multiple times)
 async function ensureIndexes(collection) {
@@ -108,6 +105,7 @@ export async function handler(event, context) {
       }
 
       // Generate unique nanoid with incremental length growth
+      const { customAlphabet } = await import("nanoid");
       let code;
       let attempts = 0;
       let currentLength = 4; // Start with 4 characters
