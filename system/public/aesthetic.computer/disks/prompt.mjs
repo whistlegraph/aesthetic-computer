@@ -2617,6 +2617,14 @@ function makeFlash($, clear = true, beep = false) {
       flashPresent = false;
       flash = undefined;
       firstActivation = false;
+      // Reset TextInput state to allow keyboard reactivation after flash
+      $.system.prompt.input.backdropTouchOff = false;
+      
+      // Reactivate the prompt for keyboard input after the flash
+      $.system.prompt.input.canType = true;
+      $.send({ type: "keyboard:unlock" });
+      $.send({ type: "keyboard:open" });
+      
       $.needsPaint();
     },
     autoFlip: true,
@@ -2626,6 +2634,8 @@ function makeFlash($, clear = true, beep = false) {
   flashShow = true;
   if (clear === true) {
     $.system.prompt.input.blank(); // Clear the prompt.
+    // Reset any state that might prevent keyboard reactivation
+    $.system.prompt.input.backdropTouchOff = false;
   } else if (typeof clear === "string") {
     $.system.prompt.input.text = clear;
     $.system.prompt.input.snap();
