@@ -336,6 +336,7 @@ class KidLisp {
     // Cache state (URLs stored per instance)
     this.shortUrl = null; // Store cached short URL
     this.cachedCode = null; // Store cached code
+    this.cachingInProgress = false; // Flag to prevent multiple cache requests
 
     // Microphone state tracking
     this.microphoneConnected = false;
@@ -594,6 +595,11 @@ class KidLisp {
       return;
     }
     
+    // Skip if already cached or caching is in progress
+    if (this.cachedCode || this.cachingInProgress) {
+      return;
+    }
+    
     // Check if caching is enabled from store (default: true)
     const cacheEnabled = api.store?.["kidlisp:cache-enabled"] !== false;
     
@@ -601,6 +607,9 @@ class KidLisp {
     if (!cacheEnabled || !source || source.trim().length === 0) {
       return;
     }
+    
+    // Set flag to prevent multiple requests
+    this.cachingInProgress = true;
     
     try {
       // Use the new request function that handles both auth and anonymous users
@@ -615,6 +624,12 @@ class KidLisp {
         // Store in global registry for access from disk.mjs
         setCachedCode(source, response.code);
         
+        // Log the generated $code to console with styled formatting
+        console.log(
+          `%c$${response.code}`,
+          'background: yellow; color: black; font-weight: bold; font-family: monospace; padding: 4px 8px; border-radius: 4px; font-size: 12px;'
+        );
+        
         // Update browser URL to show the short code
         this.updateBrowserUrl(response.code, api);
       } else {
@@ -624,6 +639,9 @@ class KidLisp {
     } catch (error) {
       // Silently handle caching failures - auth issues are common and not critical  
       // console.warn('Failed to cache kidlisp:', error.message || error);
+    } finally {
+      // Always clear the flag when done (success or failure)
+      this.cachingInProgress = false;
     }
   }
 
