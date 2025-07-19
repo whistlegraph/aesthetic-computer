@@ -7132,7 +7132,8 @@ async function makeFrame({ data: { type, content } }) {
         const scale = 1; // HUD label always uses scale 1
         // Match the text.box rendering logic: blockHeight = (tf.blockHeight + 1) * scale
         const h = labelBounds.lines.length * (tf.blockHeight + 1) * scale;
-        if (piece === "video" || $commonApi.piece === "video") w = screen.width;
+        // Don't force full width for video piece - let it size naturally for "|" label
+        // if (piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.resetpan();
@@ -7606,7 +7607,9 @@ async function makeFrame({ data: { type, content } }) {
           }
         });
 
-        if (piece === "video" || $commonApi.piece === "video") currentHUDOffset = { x: 0, y: 6 };
+        // Video piece should be flush left (0px) but keep vertical offset
+        // Use $commonApi.piece instead of piece (which comes from HUD text)
+        if ($commonApi.piece === "video") currentHUDOffset = { x: 0, y: 6 };
         if (!currentHUDOffset) currentHUDOffset = { x: defo, y: defo };
 
         currentHUDButton =
