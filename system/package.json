@@ -51,7 +51,6 @@
     "@netlify/edge-functions": "^2.15.6",
     "@netlify/functions": "^4.1.10",
     "@sparticuz/chromium": "^133.0.0",
-    "base2048": "^2.1.2",
     "busboy": "^1.6.0",
     "crypto": "^1.0.1",
     "discord-interactions": "^4.1.1",
