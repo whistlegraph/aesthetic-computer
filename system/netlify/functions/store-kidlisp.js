@@ -104,22 +104,37 @@ export async function handler(event, context) {
         }
       }
 
-      // Generate unique nanoid with incremental length growth
+      // Generate unique nanoid with preference for lowercase characters first
       const { customAlphabet } = await import("nanoid");
       let code;
       let attempts = 0;
-      let currentLength = 4; // Start with 4 characters
-      const maxAttemptsPerLength = 25;
+      let currentLength = 3; // Start with 3 characters (1-2 reserved for system)
+      let useFullAlphabet = false; // Start with lowercase preference
+      const maxAttemptsPerAlphabet = 15;
+      const maxAttemptsPerLength = 30;
       const maxLength = 12;
       
+      // Prefer lowercase + numbers first (more readable/typable)
+      const lowercaseAlphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+      const fullAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+      
       do {
+        // Switch to full alphabet if we've tried enough lowercase attempts
+        if (!useFullAlphabet && attempts >= maxAttemptsPerAlphabet) {
+          useFullAlphabet = true;
+          console.log(`🔄 Switching to full alphabet for length ${currentLength}`);
+        }
+        
+        // Grow length and reset if we've exhausted both alphabets
         if (attempts >= maxAttemptsPerLength && currentLength < maxLength) {
           currentLength++; // Grow by 1 character
           attempts = 0; // Reset attempts for new length
+          useFullAlphabet = false; // Start with lowercase preference again
           console.log(`🔄 Growing nanoid length to ${currentLength} characters`);
         }
         
-        const generator = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', currentLength);
+        const alphabet = useFullAlphabet ? fullAlphabet : lowercaseAlphabet;
+        const generator = customAlphabet(alphabet, currentLength);
         code = generator();
         attempts++;
         
