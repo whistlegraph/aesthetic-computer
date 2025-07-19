@@ -35,6 +35,11 @@ class Typeface {
   }
 
   get blockWidth() {
+    // For proportional fonts like MatrixChunky8, use a default advance width
+    // since they don't have a fixed glyphWidth
+    if (this.data.proportional === true || this.data.bdfFont === "MatrixChunky8" || this.name === "MatrixChunky8") {
+      return 4; // Default character advance for MatrixChunky8
+    }
     return this.data.glyphWidth;
   }
 
@@ -332,7 +337,25 @@ class Typeface {
     // ? $.system.world.size.height
     // : $.screen.height;
 
-    const w = text.length * blockWidth * size;
+    // Calculate width properly for proportional fonts
+    let w;
+    const isProportional = this.data?.proportional === true || 
+                          this.data?.bdfFont === "MatrixChunky8" ||
+                          this.name === "MatrixChunky8";
+    
+    if (isProportional) {
+      // For proportional fonts, use character advance widths from font definition
+      const advances = this.data?.advances || {};
+      
+      w = 0;
+      [...text.toString()].forEach((char) => {
+        const charAdvance = advances[char] || blockWidth;
+        w += charAdvance * size;
+      });
+    } else {
+      // For monospace fonts, use the original calculation
+      w = text.length * blockWidth * size;
+    }
 
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
@@ -431,8 +454,16 @@ class Typeface {
           this.data, // Pass font metadata to avoid BDF proxy issues
         );
 
-        // Move to next character position
-        currentX += blockWidth * size;
+        // Move to next character position using proper advance width
+        if (isProportional) {
+          // Use character-specific advance width for proportional fonts
+          const advances = this.data?.advances || {};
+          const charAdvance = advances[char] || blockWidth;
+          currentX += charAdvance * size;
+        } else {
+          // Use fixed width for monospace fonts
+          currentX += blockWidth * size;
+        }
       }
     } else {
       // Original single-color rendering
