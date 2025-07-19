@@ -7723,8 +7723,11 @@ async function makeFrame({ data: { type, content } }) {
             const font = typefaceCache.get("MatrixChunky8");
             
             // Create QR overlay using painting API with extra space for shadow
-            const generatedQR = $api.painting(qrSize + 1, totalHeight + 1, ($) => {
-              // Draw QR code directly
+            const textAreaHeight = 9;
+            const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
+            const canvasHeight = qrOffsetY + qrSize + 2; // Ensure room for bottom shadow
+            const generatedQR = $api.painting(qrSize + 1, canvasHeight, ($) => {
+              // Draw QR code at offset position to make room for text above
               for (let y = 0; y < cells.length; y++) {
                 for (let x = 0; x < cells.length; x++) {
                   const isBlack = cells[y][x];
@@ -7733,55 +7736,82 @@ async function makeFrame({ data: { type, content } }) {
                   } else {
                     $.ink("white");
                   }
-                  $.box(x * cellSize, y * cellSize, cellSize);
+                  $.box(x * cellSize, (y * cellSize) + qrOffsetY, cellSize); // Add qrOffsetY to move QR down
                 }
               }
               
-              // Add 1px gray margin between QR code and text area
-              $.ink("gray");
-              $.box(0, qrSize, qrSize, 1); // 1px gray margin
+              // QR text style configuration
+              const useBackdrop = true; // Set to true for backdrop style, false for shadow style
               
-              // Add solid yellow background for text area with black bold monospace text
-              $.ink("yellow");
-              $.box(0, qrSize + 1, qrSize, 11); // Solid yellow background for text
+              // Prepare text for rendering
+              const codeToRender = `$${cachedCode}`;
               
-              $.ink("black");
+              // Calculate actual rendered width for mathematical centering
+              // Get character advances from the font definition
+              const advances = font?.data?.advances || typefaceCache.get("MatrixChunky8")?.data?.advances || {};
               
-              // Calculate text width for proper centering using advance values
-              let textWidth = 0;
-              if (font && font.glyphs) {
-                // Add width for "$" prefix
-                const dollarGlyph = font.glyphs['$'];
-                if (dollarGlyph && dollarGlyph.advance !== undefined) {
-                  textWidth += dollarGlyph.advance;
-                } else {
-                  textWidth += 4; // fallback width for $
-                }
+              // Calculate text dimensions and positioning
+              let actualTextWidth = 0;
+              for (const char of codeToRender) {
+                actualTextWidth += advances[char] || 4; // fallback to 4px
+              }
+              
+              // Text area configuration
+              const textPaddingLeft = 1; // Left padding
+              const textPaddingRight = 0; // No right padding for tighter fit
+              const textAreaWidth = actualTextWidth + textPaddingLeft + textPaddingRight;
+              const textAreaHeight = 9; // Height reduced by 1px (was 10)
+              
+              // Position text area above QR code (which is now at qrOffsetY)
+              const textAreaX = qrSize - textAreaWidth; // Still flush right
+              const textAreaY = 0; // At the top of the canvas
+              
+              // Text position within the text area (right-aligned with left padding only)
+              const textX = textAreaX + textPaddingLeft; // Only left padding
+              const textY = textAreaY + 1; // Vertical centering within smaller text area (was 2)
+              
+              // Render text with appropriate style
+              if (useBackdrop) {
+                // Draw gray shadow for text area (independent shadow)
+                $.ink("gray");
+                $.box(textAreaX + 1, textAreaY + 1, textAreaWidth, textAreaHeight); // Text area shadow
                 
-                // Add width for cached code characters
-                for (const char of cachedCode) {
-                  const glyph = font.glyphs[char];
-                  if (glyph && glyph.advance !== undefined) {
-                    textWidth += glyph.advance;
-                  } else {
-                    textWidth += 4; // fallback width
-                  }
+                // Draw black background for text area (sized to fit text)
+                $.ink("black"); // Black background
+                $.box(textAreaX, textAreaY, textAreaWidth, textAreaHeight);
+                
+                // Render white text (no rotation for now)
+                $.ink("white"); // White text on black background
+                try {
+                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                } catch (error) {
+                  console.warn(`🔤 MatrixChunky8 failed, using fallback:`, error);
+                  $.write(codeToRender, { x: textX, y: textY });
                 }
               } else {
-                textWidth = (cachedCode.length + 1) * 4; // fallback calculation including $ prefix
+                // Shadow style: black shadow first, then white text
+                // Draw black shadow (1px offset) - no rotation for now
+                $.ink("black");
+                try {
+                  $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                } catch (error) {
+                  $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                }
+                
+                // Draw white text on top - no rotation for now
+                $.ink("white");
+                try {
+                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                } catch (error) {
+                  $.write(codeToRender, { x: textX, y: textY });
+                }
               }
               
-              // Center text manually within the QR code area using calculated text width
-              const textX = (qrSize - textWidth) / 2;
-              $.ink("black");
-              $.write(`$${cachedCode}`, { x: textX, y: qrSize + 3 }, undefined, undefined, false, "MatrixChunky8");
-              
-              // Add drop shadow to entire QR code and stub area (right and bottom edges)
+              // Add drop shadow to QR code (independent of text area)
               $.ink("gray");
-              // Right edge shadow
-              $.box(qrSize, 1, 1, qrSize + 11); // Right edge shadow
-              // Bottom edge shadow  
-              $.box(1, totalHeight, qrSize, 1); // Bottom edge shadow
+              // QR code shadow (right edge and bottom line)
+              $.box(qrSize, qrOffsetY + 1, 1, qrSize - 1); // Right edge shadow aligned with QR code
+              $.box(1, qrOffsetY + qrSize, qrSize, 1); // Bottom shadow: 1px right, flush with QR bottom
             });
             
             // Check if all characters are actually loaded in the font
@@ -7816,7 +7846,7 @@ async function makeFrame({ data: { type, content } }) {
             const overlayWidth = qrToUse.width;
             const overlayHeight = qrToUse.height;
             startX = screen.width - overlayWidth - margin;
-            startY = screen.height - overlayHeight - margin;
+            startY = screen.height - overlayHeight - margin + 1; // Move down 1px
             
             // Create overlay object for transfer
             qrOverlay = {
