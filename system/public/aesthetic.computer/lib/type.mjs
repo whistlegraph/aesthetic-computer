@@ -59,11 +59,11 @@ class Typeface {
             this.glyphs[glyph] = res;
           })
           .catch((err) => {
-            console.error("Couldn't load typeface:", err);
+            // Silently handle missing glyph files - some glyphs may not exist
+            // console.error("Couldn't load typeface:", err);
           });
       }); // Wait for all the promises to resolve before returning
       await Promise.all(promises);
-      console.log(`✅ font_1 loaded with ${Object.keys(this.glyphs).length} glyphs`);
     } else if (this.name === "microtype") {
       // Load microtype 3x5 font
       const glyphsToLoad = entries(this.data).filter(

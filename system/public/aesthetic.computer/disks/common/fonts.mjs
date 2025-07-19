@@ -108,6 +108,7 @@ export const unifont = {
   glyphHeight: 16,
   glyphWidth: 8,
   proportional: false, // Monospace font - fixed character width
+  bdfFont: "unifont-16.0.03", // Specify the exact BDF file to use
 };
 
 // MatrixChunky8 - LED matrix optimized font via BDF endpoint

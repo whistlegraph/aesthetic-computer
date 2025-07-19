@@ -591,33 +591,23 @@ class KidLisp {
   async cacheKidlispSource(source, api) {
     // Skip caching for .lisp files since they're already stored as files
     if (this.isLispFile) {
-      console.log(`⏭️ Skipping cache - piece is already a .lisp file`);
       return;
     }
-    
-    console.log(`🔍 Cache attempt - Source: "${source?.substring(0, 50)}${source?.length > 50 ? '...' : ''}"`);
     
     // Check if caching is enabled from store (default: true)
     const cacheEnabled = api.store?.["kidlisp:cache-enabled"] !== false;
-    console.log(`⚙️ Cache enabled: ${cacheEnabled}`);
     
     // Skip caching if disabled or no source
     if (!cacheEnabled || !source || source.trim().length === 0) {
-      console.log(`⏭️ Skipping cache - enabled: ${cacheEnabled}, source length: ${source?.trim()?.length || 0}`);
       return;
     }
-    
-    console.log(`🚀 Starting cache request for ${source.trim().length} character source`);
     
     try {
       // Use the new request function that handles both auth and anonymous users
       const response = await api.net.request('POST', '/api/store-kidlisp', { source });
       
-      console.log(`📡 Final cache response:`, response);
-      
       if (response && (response.status === 200 || response.status === 201)) {
         this.shortUrl = `aesthetic.computer/$${response.code}`;
-        console.log(`📦 Kidlisp ${response.cached ? 'found in cache' : 'cached'}: ${this.shortUrl} (${source.length} chars)`);
         
         // Store the short URL for QR generation
         this.cachedCode = response.code;
@@ -628,10 +618,12 @@ class KidLisp {
         // Update browser URL to show the short code
         this.updateBrowserUrl(response.code, api);
       } else {
-        console.warn('Failed to cache kidlisp:', response?.status, response?.message || 'Unknown error');
+        // Silently handle caching failures - auth issues are common and not critical
+        // console.warn('Failed to cache kidlisp:', response?.status, response?.message || 'Unknown error');
       }
     } catch (error) {
-      console.warn('Failed to cache kidlisp:', error.message || error);
+      // Silently handle caching failures - auth issues are common and not critical  
+      // console.warn('Failed to cache kidlisp:', error.message || error);
     }
   }
 
@@ -718,7 +710,6 @@ class KidLisp {
         const cacheDelayFrames = 0; // Instant caching
         
         if (this.frameCount >= cacheDelayFrames && !this.cachedCode) {
-          console.log(`⏰ Cache delay elapsed (instant), caching KidLisp source...`);
           this.cacheKidlispSource(source, $);
         }
 
