@@ -3128,11 +3128,6 @@ function evaluate(parsed, api = {}) {
 function isKidlispSource(text) {
   if (!text) return false;
 
-  // Check for compressed KidLisp (starts with ¿)
-  if (text.startsWith("¿")) {
-    return true;
-  }
-
   // Only consider input as KidLisp if:
   // 1. It starts with '(' (parenthesis), OR
   // 2. It contains a newline
@@ -3190,14 +3185,6 @@ function encodeKidlispForUrl(source) {
     return source;
   }
 
-  // Disable Base2048 compression - always use simple encoding
-  // Check if compression is needed (more than 64 characters)
-  // const shouldCompress = source.length > 64;
-  // 
-  // if (shouldCompress) {
-  //   return compressKidlispForUrl(source);
-  // }
-
   // For sharing, we want to preserve the structure so it can be parsed correctly
   // Use Unicode characters that display nicely in browser URL bars
   // Modern browsers handle these characters fine without percent-encoding
@@ -3210,145 +3197,8 @@ function encodeKidlispForUrl(source) {
   return encoded;
 }
 
-// Base2048 encoding for maximum compression efficiency
-function compressKidlispForUrl(source) {
-  // Apply smart pre-compression optimizations
-  const optimized = optimizeKidlispForCompression(source);
-  
-  // Convert to UTF-8 bytes
-  const utf8Bytes = new TextEncoder().encode(optimized);
-  
-  // Use optimized Base2048 encoding
-  const compressed = customBase2048Encode(utf8Bytes);
-  
-  // Add compression marker prefix
-  const result = `¿${compressed}`;
-  
-  // Log compression status
-  const compressionRatio = ((1 - result.length / source.length) * 100).toFixed(1);
-  console.log(`📦 QR Code Compression: ${source.length} → ${result.length} chars (${compressionRatio}% reduction)`);
-  
-  return result;
-}
-
-// Smart pre-compression optimization for KidLisp
-function optimizeKidlispForCompression(source, aggressive = true) {
-  let optimized = source;
-  
-  if (aggressive) {
-    // Safe optimizations that won't conflict with user code:
-    
-    // 1. Optimize numbers (safe - doesn't affect identifiers)
-    optimized = optimized
-      .replace(/\b0\./g, '.') // 0.5 -> .5
-      .replace(/\.0\b/g, ''); // 1.0 -> 1
-    
-    // 2. Minify whitespace intelligently (safe)
-    optimized = optimized
-      .replace(/\s+/g, ' ') // Multiple spaces/newlines to single space
-      .replace(/\(\s+/g, '(') // "( " -> "("
-      .replace(/\s+\)/g, ')') // " )" -> ")"
-      .trim();
-    
-    // 3. Remove unnecessary spaces around operators (safe)
-    optimized = optimized
-      .replace(/\s*\+\s*/g, '+')
-      .replace(/\s*-\s*/g, '-')
-      .replace(/\s*\*\s*/g, '*')
-      .replace(/\s*\/\s*/g, '/')
-      .replace(/\s*%\s*/g, '%');
-  }
-  
-  return optimized;
-}
-
-// Optimized Base2048 implementation
-function customBase2048Encode(uint8Array) {
-  const BITS_PER_CHAR = 11;
-  const BITS_PER_BYTE = 8;
-  
-  let buffer = 0;
-  let bufferLength = 0;
-  let result = '';
-  
-  for (const byte of uint8Array) {
-    buffer = (buffer << BITS_PER_BYTE) | byte;
-    bufferLength += BITS_PER_BYTE;
-    
-    while (bufferLength >= BITS_PER_CHAR) {
-      const code = (buffer >> (bufferLength - BITS_PER_CHAR)) & 0x7FF;
-      result += String.fromCharCode(0x100 + code);
-      bufferLength -= BITS_PER_CHAR;
-      buffer &= (1 << bufferLength) - 1;
-    }
-  }
-  
-  // Handle remaining bits with proper padding
-  if (bufferLength > 0) {
-    const code = (buffer << (BITS_PER_CHAR - bufferLength)) & 0x7FF;
-    result += String.fromCharCode(0x100 + code);
-  }
-  
-  return result;
-}
-
-// Base2048 decompression
-function decompressKidlispFromUrl(compressed) {
-  // Remove compression marker
-  if (!compressed.startsWith('¿')) {
-    return compressed; // Not compressed
-  }
-  
-  const encoded = compressed.slice(1); // Remove ¿ marker
-  
-  // Decode Base2048
-  const decoded = customBase2048Decode(encoded);
-  
-  // For now, return the optimized version directly
-  // In the future, we could add a flag to restore original formatting
-  return decoded;
-}
-
-// Optimized Base2048 decode implementation
-function customBase2048Decode(encoded) {
-  const BITS_PER_CHAR = 11;
-  const BITS_PER_BYTE = 8;
-  
-  let buffer = 0;
-  let bufferLength = 0;
-  const bytes = [];
-  
-  for (const char of encoded) {
-    const code = char.charCodeAt(0) - 0x100;
-    if (code < 0 || code > 0x7FF) continue; // Skip invalid characters
-    
-    buffer = (buffer << BITS_PER_CHAR) | code;
-    bufferLength += BITS_PER_CHAR;
-    
-    while (bufferLength >= BITS_PER_BYTE) {
-      const byte = (buffer >> (bufferLength - BITS_PER_BYTE)) & 0xFF;
-      bytes.push(byte);
-      bufferLength -= BITS_PER_BYTE;
-      buffer &= (1 << bufferLength) - 1;
-    }
-  }
-  
-  // Convert bytes back to string
-  try {
-    return new TextDecoder().decode(new Uint8Array(bytes));
-  } catch (e) {
-    console.error('Failed to decode Base2048 KidLisp:', e);
-    return encoded; // Return original if decoding fails
-  }
-}
-
 function decodeKidlispFromUrl(encoded) {
-  // Check if this is compressed KidLisp
-  if (encoded.startsWith('¿')) {
-    return decompressKidlispFromUrl(encoded);
-  }
-  
-  // Standard decoding for uncompressed content
+  // Standard decoding for content
   let decoded = encoded
     .replace(/_/g, " ")
     .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
@@ -3433,8 +3283,6 @@ export {
   isKidlispSource,
   encodeKidlispForUrl,
   decodeKidlispFromUrl,
-  compressKidlispForUrl,
-  decompressKidlispFromUrl,
   isPromptInKidlispMode,
   fetchCachedCode,
   getCachedCode,
