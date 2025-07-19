@@ -4514,6 +4514,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorderStartTime = undefined;
         mediaRecorderDuration = null;
         mediaRecorderChunks.length = 0;
+        // Clear cached tape data when stopping to start a new recording
+        Store.del("tape").catch(() => {}); // Clear cache, ignore errors
       }
 
       let mimeType;
@@ -4698,6 +4700,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
       //} else {
       // console.log("Start audio recording...");
+      
+      // Clear any cached tape data and audio before starting new recording
+      Store.del("tape").catch(() => {}); // Clear cache, ignore errors
+      delete sfx["tape:audio"]; // Clear any cached audio data
+      mediaRecorderDuration = 0; // Reset duration for new recording
+      
       mediaRecorder.start(100);
       //}
       return;
@@ -4738,15 +4746,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present") {
-      // Check for cached video if no active recording
-      if (!mediaRecorder || mediaRecorder.state !== "paused") {
+      // Check for cached video if no active recording AND no recorded frames
+      if ((!mediaRecorder || mediaRecorder.state !== "paused") && recordedFrames.length === 0) {
         const cachedTape = await Store.get("tape");
         if (cachedTape && cachedTape.blob) {
           console.log("📼 Loading cached video for presentation");
           sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
 
           // Restore frame data if available
-          if (cachedTape.frames && recordedFrames.length === 0) {
+          if (cachedTape.frames) {
             recordedFrames.length = 0;
             recordedFrames.push(...cachedTape.frames);
             console.log(
@@ -5247,9 +5255,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:slate") {
-      if (mediaRecorder?.mimeType.indexOf("video") !== -1) {
-        await Store.del("tape");
-      }
+      // Always clear cached tape data when slating, regardless of media type
+      await Store.del("tape");
       mediaRecorder?.stop();
       return;
     }
@@ -5869,22 +5876,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        // 📸 Capture clean frame data BEFORE overlays are painted (only when actually needed)
-        let cleanFrameData = null;
-        const isRecording =
-          // typeof paintToStreamCanvas === "function" &&
-          mediaRecorder?.state === "recording" &&
-          mediaRecorderStartTime !== undefined;
-        if (isRecording) {
-          // Capture the clean graphics data before overlays
-          cleanFrameData = ctx.getImageData(
-            0,
-            0,
-            ctx.canvas.width,
-            ctx.canvas.height,
-          );
-        }
-
         // Store clean pixel data for worker communication (before overlays)
         if (
           imageData &&
@@ -5910,7 +5901,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
         }
 
-        // Paint overlays AFTER frame recording so they don't get baked into recursive effects
+        // Check if we need to record frames (before painting overlays)
+        const isRecording =
+          // typeof paintToStreamCanvas === "function" &&
+          mediaRecorder?.state === "recording" &&
+          mediaRecorderStartTime !== undefined;
+
+        // Paint overlays 
         if (content.reframe) {
           console.log(`🖼️ REFRAME: About to paint overlays`);
         }
@@ -5931,11 +5928,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         paintOverlays["tapeProgressBar"]?.(); // tape progress
 
-        // 📼 Store clean frame data for recording (without overlays)
-        if (cleanFrameData) {
+        // 📼 Capture frame data AFTER overlays are painted (with overlays included)
+        if (isRecording) {
+          const frameDataWithOverlays = ctx.getImageData(
+            0,
+            0,
+            ctx.canvas.width,
+            ctx.canvas.height,
+          );
           recordedFrames.push([
             performance.now() - mediaRecorderStartTime,
-            cleanFrameData,
+            frameDataWithOverlays,
           ]);
         }
 
