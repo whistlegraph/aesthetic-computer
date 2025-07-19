@@ -44,7 +44,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, encodeKidlispForUrl, compressKidlispForUrl, decompressKidlispFromUrl, getCachedCode, setCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, encodeKidlispForUrl, getCachedCode, setCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
@@ -7666,7 +7666,6 @@ async function makeFrame({ data: { type, content } }) {
       // More inclusive KidLisp detection for QR code generation
       const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath)) || 
                              currentPath === "(...)" ||
-                             sourceCode?.startsWith("¿") || // Compressed KidLisp marker
                              (sourceCode && (
                                sourceCode.startsWith("(") || 
                                sourceCode.startsWith(";") ||
@@ -7742,12 +7741,9 @@ async function makeFrame({ data: { type, content } }) {
               $.ink("gray");
               $.box(0, qrSize, qrSize, 1); // 1px gray margin
               
-              // Add flickering debug backdrop for text area to prevent premature caching
-              // Use a simpler flicker that changes every 500ms for better visibility
-              const frameFlicker = Math.floor(Date.now() / 500) % 2 === 0;
-              const backdropColor = frameFlicker ? "yellow" : "white";
-              $.ink(backdropColor);
-              $.box(0, qrSize + 1, qrSize, 11); // Flickering background for text (increased height)
+              // Add solid yellow background for text area with black bold monospace text
+              $.ink("yellow");
+              $.box(0, qrSize + 1, qrSize, 11); // Solid yellow background for text
               
               $.ink("black");
               
