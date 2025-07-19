@@ -1701,6 +1701,212 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Helper function to ensure fonts are loaded before use
+    let fontsLoaded = false;
+    async function ensureFontsLoaded() {
+      if (fontsLoaded) {
+        return; // Fonts already loaded
+      }
+      
+      if ("fonts" in document) {
+        try {
+          // Force font loading with multiple strategies
+          const fontPromises = [
+            document.fonts.load("1em YWFTProcessing-Regular"),
+            document.fonts.load("1em YWFTProcessing-Light"),
+            document.fonts.load("bold 1em YWFTProcessing-Regular"),
+            document.fonts.load("normal 1em YWFTProcessing-Light")
+          ];
+          
+          await Promise.all(fontPromises);
+          console.log("✅ Fonts loaded for tape overlay");
+          
+          // Additional verification: check if fonts are actually available
+          const fontFaces = Array.from(document.fonts);
+          const hasRegular = fontFaces.some(font => font.family.includes('YWFTProcessing-Regular'));
+          const hasLight = fontFaces.some(font => font.family.includes('YWFTProcessing-Light'));
+          
+          if (!hasRegular || !hasLight) {
+            console.warn("⚠️ Font verification failed - fonts may not be fully loaded");
+            // Wait a bit more and try again
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await Promise.all(fontPromises);
+          }
+          
+          fontsLoaded = true; // Mark fonts as loaded
+          
+        } catch (error) {
+          console.warn("⚠️ Failed to load fonts for tape overlay:", error);
+          // Fallback: wait for document.fonts.ready
+          await document.fonts.ready;
+          fontsLoaded = true; // Mark as loaded even if fallback was used
+        }
+      }
+    }
+
+    // Helper function to add the sideways AC stamp (same as video recording)
+    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight) {
+      // Ensure fonts are loaded before drawing
+      await ensureFontsLoaded();
+      
+      // 2. Set up the font.
+      const typeSize = Math.min(32, Math.max(24, Math.floor(canvasHeight / 20)));
+      const gap = typeSize * 0.75;
+
+      ctx.save(); // Save the current state of the canvas
+
+      drawTextAtPosition(0, 90); // Left
+      drawTextAtPosition(canvasWidth, -90); // Right
+
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      function drawTextAtPosition(positionX, deg) {
+        ctx.save();
+        ctx.translate(positionX, 0);
+        ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
+        const yDist = 0.05;
+
+        ctx.font = `${typeSize}px YWFTProcessing-Regular`;
+        const text = "aesthetic.computer";
+        const measured = ctx.measureText(text);
+        const textWidth = measured.width;
+
+        ["red", "lime", "blue", "white"].forEach((color) => {
+          let offsetX, offsetY;
+          if (color !== "white") {
+            ctx.globalAlpha = 0.45;
+            offsetX = choose([-2, -4, 0, 2, 4]);
+            offsetY = choose([-2, -4, 0, 2, 4]);
+          } else {
+            ctx.globalAlpha = choose([0.5, 0.4, 0.6]);
+            offsetX = choose([-1, 0, 1]);
+            offsetY = choose([-1, 0, 1]);
+            color = choose([
+              "white",
+              "white",
+              "white",
+              "magenta",
+              "yellow",
+            ]);
+          }
+
+          ctx.fillStyle = color;
+
+          if (deg === 90) {
+            ctx.fillText(
+              text,
+              floor(
+                canvasHeight * (1 - yDist) - textWidth + offsetY,
+              ),
+              -floor(offsetX + gap),
+            );
+          } else if (deg === -90) {
+            ctx.fillText(
+              text,
+              -Math.floor(canvasHeight * yDist + textWidth + offsetY),
+              Math.floor(offsetX - gap),
+            );
+          }
+        });
+
+        if (HANDLE) {
+          ctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
+          ctx.fillStyle = choose(["yellow", "red", "blue"]);
+          let offsetX, offsetY;
+          const handleWidth =
+            textWidth / 2 + ctx.measureText(HANDLE).width / 2;
+          const handleSpace = typeSize * 1.35;
+          offsetX = choose([-1, 0, 1]);
+          offsetY = choose([-1, 0, 1]);
+
+          if (deg === 90) {
+            // Handle
+            ctx.fillText(
+              HANDLE,
+              floor(
+                canvasHeight * (1 - yDist) - handleWidth + offsetY,
+              ),
+              -floor(offsetX + handleSpace + gap),
+            );
+          } else if (deg === -90) {
+            ctx.fillText(
+              HANDLE,
+              -Math.floor(canvasHeight * yDist + handleWidth + offsetY),
+              Math.floor(offsetX - handleSpace - gap),
+            );
+          }
+        }
+
+        ctx.restore();
+      }
+
+      // Helper function for choosing random values (simplified version)
+      function choose(options) {
+        return options[Math.floor(Math.random() * options.length)];
+      }
+    }
+
+    // Helper function to upscale pixels with nearest neighbor
+    function upscalePixels(imageData, originalWidth, originalHeight, scale) {
+      if (scale === 1) {
+        return imageData;
+      }
+
+      const scaledWidth = originalWidth * scale;
+      const scaledHeight = originalHeight * scale;
+      const scaledImageData = new Uint8ClampedArray(
+        scaledWidth * scaledHeight * 4,
+      );
+
+      for (let y = 0; y < scaledHeight; y++) {
+        for (let x = 0; x < scaledWidth; x++) {
+          const sourceX = Math.floor(x / scale);
+          const sourceY = Math.floor(y / scale);
+          const sourceIndex = (sourceY * originalWidth + sourceX) * 4;
+          const targetIndex = (y * scaledWidth + x) * 4;
+
+          scaledImageData[targetIndex] = imageData[sourceIndex]; // R
+          scaledImageData[targetIndex + 1] = imageData[sourceIndex + 1]; // G
+          scaledImageData[targetIndex + 2] = imageData[sourceIndex + 2]; // B
+          scaledImageData[targetIndex + 3] = imageData[sourceIndex + 3]; // A
+        }
+      }
+
+      return scaledImageData;
+    }
+
+    // Helper function to add stamp to pixel data by rendering to a canvas first
+    async function addStampToPixelData(pixelData, width, height, scale = 1) {
+      // Create a temporary canvas to render the stamp
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+
+      tempCanvas.width = width * scale;
+      tempCanvas.height = height * scale;
+
+      // Put the original image data
+      const scaledData = upscalePixels(pixelData, width, height, scale);
+      const imageData = new ImageData(
+        scaledData,
+        width * scale,
+        height * scale,
+      );
+      tempCtx.putImageData(imageData, 0, 0);
+
+      // Add the stamp (await to ensure fonts are loaded)
+      await addAestheticComputerStamp(tempCtx, width * scale, height * scale);
+      
+      // Get the stamped image data back
+      const stampedImageData = tempCtx.getImageData(
+        0,
+        0,
+        width * scale,
+        height * scale,
+      );
+      return stampedImageData.data;
+    }
+
     // 🎬 Create animated WebP from frame data
     if (type === "create-animated-webp") {
       console.log("📼 Creating animated WebP from", content.frames.length, "frames");
@@ -1766,8 +1972,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Draw to canvas and convert to WebP
           ctx.putImageData(imageData, 0, 0);
 
-          // Add sideways AC stamp like in video recordings
-          addAestheticComputerStamp(ctx, frame.width, frame.height);
+          // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(ctx, frame.width, frame.height);
           
           // Convert to WebP blob
           const webpBlob = await new Promise((resolve) => {
@@ -1838,6 +2044,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Convert our frame data to WebPXMux format
         const frames = [];
+        
+        // Create a canvas for rendering stamps
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = content.frames[0].width;
+        tempCanvas.height = content.frames[0].height;
 
         for (let i = 0; i < content.frames.length; i++) {
           if (i % 50 === 0 || i === content.frames.length - 1) {
@@ -1848,16 +2060,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           const frame = content.frames[i];
 
+          // Create ImageData from frame data and draw to canvas
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+          tempCtx.putImageData(imageData, 0, 0);
+
+          // Add sideways AC stamp like in other video recordings
+          await addAestheticComputerStamp(tempCtx, frame.width, frame.height);
+
+          // Get the stamped image data back
+          const stampedImageData = tempCtx.getImageData(0, 0, frame.width, frame.height);
+          const stampedData = stampedImageData.data;
+
           // Convert frame data to RGBA Uint32Array format expected by webpxmux
           const rgba = new Uint32Array(frame.width * frame.height);
-          const data = frame.data;
 
           for (let j = 0; j < rgba.length; j++) {
             const pixelIndex = j * 4;
-            const r = data[pixelIndex];
-            const g = data[pixelIndex + 1];
-            const b = data[pixelIndex + 2];
-            const a = data[pixelIndex + 3];
+            const r = stampedData[pixelIndex];
+            const g = stampedData[pixelIndex + 1];
+            const b = stampedData[pixelIndex + 2];
+            const a = stampedData[pixelIndex + 3];
 
             // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
             rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
@@ -2335,8 +2561,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           ctx.putImageData(imageData, 0, 0);
 
-          // Add sideways AC stamp to fallback WebP as well
-          addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
+          // Add sideways AC stamp to fallback WebP as well (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
           
           const webpBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/webp', 0.9);
@@ -2534,8 +2760,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           ctx.putImageData(imageData, 0, 0);
 
-          // Add sideways AC stamp to fallback PNG as well
-          addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
+          // Add sideways AC stamp to fallback PNG as well (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
           
           const pngBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/png');
@@ -2620,183 +2846,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return scaledImageData;
         }
 
-        // Helper function to ensure fonts are loaded before use
-        let fontsLoadedForGif = false;
-        async function ensureFontsLoaded() {
-          if (fontsLoadedForGif) {
-            return; // Fonts already loaded for this GIF generation
-          }
-          
-          if ("fonts" in document) {
-            try {
-              // Force font loading with multiple strategies
-              const fontPromises = [
-                document.fonts.load("1em YWFTProcessing-Regular"),
-                document.fonts.load("1em YWFTProcessing-Light"),
-                document.fonts.load("bold 1em YWFTProcessing-Regular"),
-                document.fonts.load("normal 1em YWFTProcessing-Light")
-              ];
-              
-              await Promise.all(fontPromises);
-              console.log("✅ Fonts loaded for tape overlay");
-              
-              // Additional verification: check if fonts are actually available
-              const fontFaces = Array.from(document.fonts);
-              const hasRegular = fontFaces.some(font => font.family.includes('YWFTProcessing-Regular'));
-              const hasLight = fontFaces.some(font => font.family.includes('YWFTProcessing-Light'));
-              
-              if (!hasRegular || !hasLight) {
-                console.warn("⚠️ Font verification failed - fonts may not be fully loaded");
-                // Wait a bit more and try again
-                await new Promise(resolve => setTimeout(resolve, 500));
-                await Promise.all(fontPromises);
-              }
-              
-              fontsLoadedForGif = true; // Mark fonts as loaded for this GIF
-              
-            } catch (error) {
-              console.warn("⚠️ Failed to load fonts for tape overlay:", error);
-              // Fallback: wait for document.fonts.ready
-              await document.fonts.ready;
-              fontsLoadedForGif = true; // Mark as loaded even if fallback was used
-            }
-          }
-        }
-
-        // Helper function to add the sideways AC stamp (same as video recording)
-        async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight) {
-          // Ensure fonts are loaded before drawing
-          await ensureFontsLoaded();
-          
-          // 2. Set up the font.
-          const typeSize = Math.min(32, Math.max(24, Math.floor(canvasHeight / 20)));
-          const gap = typeSize * 0.75;
-
-          ctx.save(); // Save the current state of the canvas
-
-          drawTextAtPosition(0, 90); // Left
-          drawTextAtPosition(canvasWidth, -90); // Right
-
-          ctx.restore();
-          ctx.globalAlpha = 1;
-
-          function drawTextAtPosition(positionX, deg) {
-            ctx.save();
-            ctx.translate(positionX, 0);
-            ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
-            const yDist = 0.05;
-
-            ctx.font = `${typeSize}px YWFTProcessing-Regular`;
-            const text = "aesthetic.computer";
-            const measured = ctx.measureText(text);
-            const textWidth = measured.width;
-
-            ["red", "lime", "blue", "white"].forEach((color) => {
-              let offsetX, offsetY;
-              if (color !== "white") {
-                ctx.globalAlpha = 0.45;
-                offsetX = choose([-2, -4, 0, 2, 4]);
-                offsetY = choose([-2, -4, 0, 2, 4]);
-              } else {
-                ctx.globalAlpha = choose([0.5, 0.4, 0.6]);
-                offsetX = choose([-1, 0, 1]);
-                offsetY = choose([-1, 0, 1]);
-                color = choose([
-                  "white",
-                  "white",
-                  "white",
-                  "magenta",
-                  "yellow",
-                ]);
-              }
-
-              ctx.fillStyle = color;
-
-              if (deg === 90) {
-                ctx.fillText(
-                  text,
-                  floor(
-                    canvasHeight * (1 - yDist) - textWidth + offsetY,
-                  ),
-                  -floor(offsetX + gap),
-                );
-              } else if (deg === -90) {
-                ctx.fillText(
-                  text,
-                  -Math.floor(canvasHeight * yDist + textWidth + offsetY),
-                  Math.floor(offsetX - gap),
-                );
-              }
-            });
-
-            if (HANDLE) {
-              ctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
-              ctx.fillStyle = choose(["yellow", "red", "blue"]);
-              let offsetX, offsetY;
-              const handleWidth =
-                textWidth / 2 + ctx.measureText(HANDLE).width / 2;
-              const handleSpace = typeSize * 1.35;
-              offsetX = choose([-1, 0, 1]);
-              offsetY = choose([-1, 0, 1]);
-
-              if (deg === 90) {
-                // Handle
-                ctx.fillText(
-                  HANDLE,
-                  floor(
-                    canvasHeight * (1 - yDist) - handleWidth + offsetY,
-                  ),
-                  -floor(offsetX + handleSpace + gap),
-                );
-              } else if (deg === -90) {
-                ctx.fillText(
-                  HANDLE,
-                  -Math.floor(canvasHeight * yDist + handleWidth + offsetY),
-                  Math.floor(offsetX - handleSpace - gap),
-                );
-              }
-            }
-
-            ctx.restore();
-          }
-
-          // Helper function for choosing random values (simplified version)
-          function choose(options) {
-            return options[Math.floor(Math.random() * options.length)];
-          }
-        }
-
-        // Helper function to add stamp to pixel data by rendering to a canvas first
-        async function addStampToPixelData(pixelData, width, height, scale = 1) {
-          // Create a temporary canvas to render the stamp
-          const tempCanvas = document.createElement("canvas");
-          const tempCtx = tempCanvas.getContext("2d");
-
-          tempCanvas.width = width * scale;
-          tempCanvas.height = height * scale;
-
-          // Put the original image data
-          const scaledData = upscalePixels(pixelData, width, height, scale);
-          const imageData = new ImageData(
-            scaledData,
-            width * scale,
-            height * scale,
-          );
-          tempCtx.putImageData(imageData, 0, 0);
-
-          // Add the stamp
-          addAestheticComputerStamp(tempCtx, width * scale, height * scale);
-          
-          // Get the stamped image data back
-          const stampedImageData = tempCtx.getImageData(
-            0,
-            0,
-            width * scale,
-            height * scale,
-          );
-          return stampedImageData.data;
-        }
-
         // Create GIF instance with optimized compression settings for smaller files
         const gif = new window.GIF({
           workers: 4, // More workers for faster processing
@@ -2811,7 +2860,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🎞️ Processing frames for GIF...");
 
         // Process each frame with consistent timing
-        content.frames.forEach((frame, index) => {
+        for (let index = 0; index < content.frames.length; index++) {
+          const frame = content.frames[index];
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           
@@ -2834,8 +2884,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           ctx.putImageData(imageData, 0, 0);
 
-          // Add sideways AC stamp like in video recordings
-          addAestheticComputerStamp(ctx, originalWidth * optimalScale, originalHeight * optimalScale);
+          // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(ctx, originalWidth * optimalScale, originalHeight * optimalScale);
           
           // Add frame with 60fps timing (16ms = 60fps, browser-optimized)
           const fixedDelay = 15; // 16ms = 60fps (1000ms ÷ 60 = 16.67ms)
@@ -2844,7 +2894,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
             console.log(`🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round((index + 1) / content.frames.length * 100)}%)`);
           }
-        });
+        }
 
         console.log("🔄 Rendering GIF...");
 
@@ -2890,8 +2940,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           ctx.putImageData(imageData, 0, 0);
 
-          // Add sideways AC stamp to fallback GIF as well
-          addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
+          // Add sideways AC stamp to fallback GIF as well (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
           
           const gifBlob = await new Promise(resolve => {
             canvas.toBlob(resolve, 'image/gif');
