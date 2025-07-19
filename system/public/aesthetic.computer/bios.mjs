@@ -470,7 +470,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               document.fonts.load("normal 1em YWFTProcessing-Light")
             ]);
             
-            console.log("✅ Fonts loaded during boot");
           } catch (error) {
             console.warn("⚠️ Font loading during boot failed:", error);
             // Fallback to fonts.ready
@@ -2845,7 +2844,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
             console.log(`🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round((index + 1) / content.frames.length * 100)}%)`);
           }
-        }
+        });
 
         console.log("🔄 Rendering GIF...");
 
@@ -5738,61 +5737,92 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // This currently paints corner labels and tape progress bars only.
     // (So they can be skipped for recordings?)
     let paintOverlays = {};
+    
+    // Frame-persistent overlay cache that survives reframes
+    if (!window.framePersisentOverlayCache) {
+      window.framePersisentOverlayCache = {};
+    }
+    
+    // Per-overlay canvas cache to prevent canvas thrashing
+    if (!window.overlayCanvasCache) {
+      window.overlayCanvasCache = {};
+    }
+    
     function buildOverlay(name, o) {
-      if (!o) return;
+      // Only log reframe operations to debug flicker
+      const isHudOverlay = name === "label" || name === "qrOverlay";
+      
+      if (isHudOverlay && content.reframe) {
+        console.log(`🔍 REFRAME ${name}: hasData=${!!o}, hasCache=${!!window.framePersisentOverlayCache[name]}`);
+      }
+      
+      if (!o) {
+        // During reframes, if overlay data is missing but we have a cached version, use it
+        if (content.reframe && window.framePersisentOverlayCache[name]) {
+          if (isHudOverlay) console.log(`  └─ Using cached painter for ${name}`);
+          paintOverlays[name] = window.framePersisentOverlayCache[name];
+          return;
+        }
+        return;
+      }
+
+      // Create or reuse dedicated canvas for this overlay
+      if (!window.overlayCanvasCache[name]) {
+        window.overlayCanvasCache[name] = {
+          canvas: document.createElement('canvas'),
+          lastKey: null
+        };
+        window.overlayCanvasCache[name].ctx = window.overlayCanvasCache[name].canvas.getContext('2d');
+      }
+      
+      const overlayCache = window.overlayCanvasCache[name];
+      const currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
+      
+      // For QR overlay, disable canvas caching to allow animation
+      if (name === "qrOverlay") {
+        overlayCache.lastKey = null; // Force regeneration
+      }
+      
+      // Only rebuild if overlay actually changed
+      if (overlayCache.lastKey === currentKey && window.framePersisentOverlayCache[name] && name !== "qrOverlay") {
+        paintOverlays[name] = window.framePersisentOverlayCache[name];
+        return;
+      }
+      
+      overlayCache.lastKey = currentKey;
 
       paintOverlays[name] = () => {
-        if (name === "qrOverlay") {
-          console.log(`🖼️ QR overlay painting:`, {
-            name,
-            width: o.img.width,
-            height: o.img.height,
-            position: [o.x, o.y],
-            pixelsLength: o.img.pixels.length,
-            pixelsSample: Array.from(o.img.pixels.slice(0, 20)),
-            expectedLength: o.img.width * o.img.height * 4
-          });
-        }
+        const canvas = overlayCache.canvas;
+        const overlayCtx = overlayCache.ctx;
         
-        octx.imageSmoothingEnabled = false;
+        overlayCtx.imageSmoothingEnabled = false;
 
-        // Only resize overlay canvas when dimensions actually change
-        if (
-          overlayCanvasWidth !== o.img.width ||
-          overlayCanvasHeight !== o.img.height
-        ) {
-          overlayCan.width = o.img.width;
-          overlayCan.height = o.img.height;
-          overlayCanvasWidth = o.img.width;
-          overlayCanvasHeight = o.img.height;
-          
-          if (name === "qrOverlay") {
-            console.log(`🖼️ QR overlay canvas resized to: ${o.img.width}x${o.img.height}`);
-          }
+        // Resize this overlay's dedicated canvas if needed
+        if (canvas.width !== o.img.width || canvas.height !== o.img.height) {
+          canvas.width = o.img.width;
+          canvas.height = o.img.height;
         }
 
         try {
           const imageData = new ImageData(o.img.pixels, o.img.width, o.img.height);
-          octx.putImageData(imageData, 0, 0);
-          
-          if (name === "qrOverlay") {
-            console.log(`🖼️ QR overlay ImageData created and put to overlay canvas`);
-          }
+          overlayCtx.putImageData(imageData, 0, 0);
         } catch (error) {
           console.error(`❌ Error creating ImageData for ${name}:`, error);
           return;
         }
 
-        // Paint overlays back to main canvas (original behavior)
-        ctx.drawImage(overlayCan, o.x, o.y);
-        
-        if (name === "qrOverlay") {
-          console.log(`🖼️ QR overlay drawn to main canvas at (${o.x}, ${o.y})`);
-        }
+        // Paint overlay to main canvas (ctx is the main canvas context)
+        ctx.drawImage(canvas, o.x, o.y);
       };
+      
+      // Don't cache QR overlay painters to allow animation
+      if (isHudOverlay && name !== "qrOverlay") {
+        window.framePersisentOverlayCache[name] = paintOverlays[name];
+      }
     }
 
     buildOverlay("label", content.label);
+    buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
 
     function draw() {
@@ -5807,10 +5837,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         needs$creenshot ||
         mediaRecorder?.state === "recording"
       ) {
-        ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
-
-        //
+        // Safety check for imageData before putImageData
         if (
+          imageData &&
+          imageData.data &&
+          imageData.data.buffer &&
+          imageData.data.buffer.byteLength > 0 &&
+          imageData.width === ctx.canvas.width &&
+          imageData.height === ctx.canvas.height
+        ) {
+          ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
+        } else {
+          // If imageData buffer is detached after reframe or dimensions don't match, get fresh data from canvas
+          if (
+            imageData &&
+            imageData.data &&
+            imageData.data.buffer &&
+            (imageData.data.buffer.byteLength === 0 ||
+             imageData.width !== ctx.canvas.width ||
+             imageData.height !== ctx.canvas.height)
+          ) {
+            imageData = ctx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+            if (imageData.data.buffer.byteLength > 0) {
+              ctx.putImageData(imageData, 0, 0);
+            }
+          }
+        }
+
+        // 📸 Capture clean frame data BEFORE overlays are painted (only when actually needed)
+        let cleanFrameData = null;
+        const isRecording =
           // typeof paintToStreamCanvas === "function" &&
           mediaRecorder?.state === "recording" &&
           mediaRecorderStartTime !== undefined;
@@ -5850,8 +5911,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Paint overlays AFTER frame recording so they don't get baked into recursive effects
-        paintOverlays["label"]?.(); // label
-        paintOverlays["qrOverlay"]?.(); // QR code overlay for KidLisp pieces
+        if (content.reframe) {
+          console.log(`🖼️ REFRAME: About to paint overlays`);
+        }
+        
+        if (paintOverlays["label"]) {
+          if (content.reframe) console.log(`  └─ Painting label overlay`);
+          paintOverlays["label"]();
+        } else if (content.reframe) {
+          console.log(`  └─ No label overlay painter available`);
+        }
+        
+        if (paintOverlays["qrOverlay"]) {
+          if (content.reframe) console.log(`  └─ Painting QR overlay`);
+          paintOverlays["qrOverlay"]();
+        } else if (content.reframe) {
+          console.log(`  └─ No QR overlay painter available`);
+        }
+        
         paintOverlays["tapeProgressBar"]?.(); // tape progress
 
         // 📼 Store clean frame data for recording (without overlays)
