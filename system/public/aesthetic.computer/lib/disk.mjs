@@ -1728,9 +1728,7 @@ const $commonApi = {
     },
     userRequest: async (method, endpoint, body) => {
       try {
-        console.log(`🔐 Attempting authorization for ${method} ${endpoint}...`);
         const token = await $commonApi.authorize(); // Get user token.
-        console.log(`🔐 Authorization result: ${token ? 'TOKEN_RECEIVED' : 'NO_TOKEN'}`);
         if (!token) throw new Error("🧖 Not logged in.");
 
         const headers = {
@@ -1740,7 +1738,6 @@ const $commonApi = {
 
         const options = { method, headers };
         if (body) options.body = JSON.stringify(body);
-        console.log(`📡 Making ${method} request to ${endpoint} with auth header`);
         const response = await fetch(endpoint, options);
 
         if (response.status === 500) {
@@ -1778,32 +1775,23 @@ const $commonApi = {
         // Try authentication unless explicitly anonymous
         if (!anonymous) {
           try {
-            console.log(`🔐 Attempting authorization for ${method} ${endpoint}...`);
             const token = await $commonApi.authorize();
             if (token) {
               headers.Authorization = `Bearer ${token}`;
-              console.log(`✅ Using authenticated request for ${method} ${endpoint}`);
             } else if (requireAuth) {
               throw new Error("🧖 Authentication required but not logged in.");
-            } else {
-              console.log(`🌍 Using anonymous request for ${method} ${endpoint}`);
             }
           } catch (authError) {
             if (requireAuth) {
               throw authError;
-            } else {
-              const authErrorMsg = authError?.message || authError?.toString() || "Auth failed";
-              console.log(`🔓 Auth failed, proceeding anonymously for ${method} ${endpoint}:`, authErrorMsg);
             }
+            // Continue with anonymous request if auth fails and not required
           }
-        } else {
-          console.log(`🌍 Explicitly using anonymous request for ${method} ${endpoint}`);
         }
 
         const fetchOptions = { method, headers };
         if (body) fetchOptions.body = JSON.stringify(body);
         
-        console.log(`📡 Making ${method} request to ${endpoint}`);
         const response = await fetch(endpoint, fetchOptions);
 
         if (response.status === 500) {
@@ -3424,15 +3412,6 @@ async function load(
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
-        console.log(
-          "🐍 Lisp piece detected (slug:",
-          slug,
-          "path:",
-          path,
-          "forceKidlisp:",
-          forceKidlisp,
-          ")",
-        );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         // Clear cached owner for non-cached KidLisp
@@ -4117,11 +4096,9 @@ async function load(
 
   // Initialize MatrixChunky8 font for QR code text rendering
   if (!typefaceCache.has("MatrixChunky8")) {
-    console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
     typefaceCache.set("MatrixChunky8", matrixFont);
-    console.log("✅ MatrixChunky8 font initialized");
   }
 
   /**
@@ -5320,7 +5297,6 @@ async function makeFrame({ data: { type, content } }) {
     if (content.result === "success") {
       authorizationRequest?.resolve(content.data);
     } else if (content.result === "error") {
-      console.warn("Failed to authenticate.", content);
       authorizationRequest?.reject(content.data);
     }
     authorizationRequest = undefined;
@@ -7767,7 +7743,8 @@ async function makeFrame({ data: { type, content } }) {
               $.box(0, qrSize, qrSize, 1); // 1px gray margin
               
               // Add flickering debug backdrop for text area to prevent premature caching
-              const frameFlicker = (Date.now() / 100) % 2 < 1; // Flicker every 100ms
+              // Use a simpler flicker that changes every 500ms for better visibility
+              const frameFlicker = Math.floor(Date.now() / 500) % 2 === 0;
               const backdropColor = frameFlicker ? "yellow" : "white";
               $.ink(backdropColor);
               $.box(0, qrSize + 1, qrSize, 11); // Flickering background for text (increased height)
@@ -7798,9 +7775,8 @@ async function makeFrame({ data: { type, content } }) {
                 textWidth = (cachedCode.length + 1) * 4; // fallback calculation including $ prefix
               }
               
-              const textX = Math.floor((qrSize - textWidth) / 2); // Center based on actual text width
-              
-              // The font proxy will automatically load characters as needed
+              // Center text manually within the QR code area using calculated text width
+              const textX = (qrSize - textWidth) / 2;
               $.ink("black");
               $.write(`$${cachedCode}`, { x: textX, y: qrSize + 3 }, undefined, undefined, false, "MatrixChunky8");
               
@@ -7833,35 +7809,12 @@ async function makeFrame({ data: { type, content } }) {
               }
             }
             
-            // Only cache QR after all characters are actually loaded
-            if (allCharsLoaded && !qrOverlayCache.has(cacheKey)) {
-              qrOverlayCache.set(cacheKey, {
-                width: generatedQR.width,
-                height: generatedQR.height,
-                pixels: new Uint8ClampedArray(generatedQR.pixels), // Create a copy of pixel data including text
-              });
-            } else if (!allCharsLoaded) {
-              // Characters still loading, will regenerate QR next frame
-            }
-            
-            // Force regeneration if we want to see the flicker (disable caching temporarily)
-            const forceRegeneration = true; // Set to false to enable caching
-            
-            // Use cached QR if available and all characters are loaded, otherwise use the fresh QR
-            const cachedQRData = qrOverlayCache.get(cacheKey);
-            let qrToUse;
-            
-            if (cachedQRData && allCharsLoaded && !forceRegeneration) {
-              // Use cached QR - all characters were loaded when it was cached
-              qrToUse = cachedQRData;
-            } else {
-              // Use fresh QR - either no cache exists or characters are still loading
-              qrToUse = {
-                width: generatedQR.width,
-                height: generatedQR.height,
-                pixels: new Uint8ClampedArray(generatedQR.pixels)
-              };
-            }
+            // Always use fresh QR - no caching to ensure flicker and text work properly
+            const qrToUse = {
+              width: generatedQR.width,
+              height: generatedQR.height,
+              pixels: new Uint8ClampedArray(generatedQR.pixels)
+            };
             
             // Recalculate position for current screen size (handles reframing)
             const overlayWidth = qrToUse.width;

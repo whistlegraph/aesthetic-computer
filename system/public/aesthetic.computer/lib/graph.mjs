@@ -2276,12 +2276,6 @@ function draw() {
     // Use baseline-corrected offset if available, otherwise fall back to original
     const yOffset = drawing.baselineOffset ? drawing.baselineOffset[1] : drawing.offset[1];
     y += yOffset * scale; // Use baseline-relative positioning
-    
-    // Log detailed info for specific characters
-    if (drawing.commands && drawing.commands.length > 0) {
-      const offsetType = drawing.baselineOffset ? "baseline" : "original";
-      console.log(`🎯 GRAPH.DRAW: BDF ${offsetType} offset [${drawing.offset[0]}, ${yOffset}] applied at scale ${scale}, Y: ${originalY} → ${y}, resolution: [${drawing.resolution[0]}, ${drawing.resolution[1]}]`);
-    }
   }
 
   // Remove verbose draw logging - only log failures now

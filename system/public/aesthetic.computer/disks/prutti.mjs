@@ -935,6 +935,8 @@ let lesson = 0,
   scroll = 0,
   scrollMax;
 const lessonPaintings = [],
+  lessonPaintingsCache = new Map(), // Cache for scaled dimensions and draw info
+  preRenderedPaintings = new Map(), // Cache for pre-rendered scaled paintings
   picWidth = 320;
 let color,
   noiseTint = [255, 0, 0];
@@ -959,15 +961,7 @@ let playingSfx = null,
 
 // Parse time string like "1:53" into seconds
 function parseTimeString(timeStr) {
-  console.log(
-    "🐛 parseTimeString DEBUG: Input:",
-    timeStr,
-    "Type:",
-    typeof timeStr,
-  );
-
   if (!timeStr || typeof timeStr !== "string") {
-    console.log("🐛 parseTimeString DEBUG: Invalid input, returning null");
     return null;
   }
 
@@ -975,33 +969,19 @@ function parseTimeString(timeStr) {
   const timePattern = /^(\d+):(\d+)$/;
   const match = timeStr.match(timePattern);
 
-  console.log("🐛 parseTimeString DEBUG: Regex match:", match);
-
   if (!match) {
-    console.log("🐛 parseTimeString DEBUG: No regex match, returning null");
     return null;
   }
 
   const minutes = parseInt(match[1], 10);
   const seconds = parseInt(match[2], 10);
 
-  console.log(
-    "🐛 parseTimeString DEBUG: Parsed minutes:",
-    minutes,
-    "seconds:",
-    seconds,
-  );
-
   // Validate seconds (should be 0-59)
   if (seconds >= 60) {
-    console.log(
-      "🐛 parseTimeString DEBUG: Invalid seconds (>=60), returning null",
-    );
     return null;
   }
 
   const totalSeconds = minutes * 60 + seconds;
-  console.log("🐛 parseTimeString DEBUG: Total seconds:", totalSeconds);
 
   return totalSeconds;
 }
@@ -1044,24 +1024,9 @@ function parseTimeString(timeStr) {
     console.log("🟣 BUTTON CREATED: No button created - lesson has no sounds");
   }
 
-  // Debug: Log all parameters to see what we're getting
-  console.log("🐛 Prutti DEBUG: All params:", params);
-  console.log(
-    "🐛 Prutti DEBUG: params[0]:",
-    params[0],
-    "params[1]:",
-    params[1],
-  );
-
   // Parse start time from params[1] if provided (e.g., "1:53")
   startTimeSeconds = parseTimeString(params[1]);
   requestedTimeString = params[1]; // Store the original string for immediate display
-
-  console.log("🐛 Prutti DEBUG: Parsed startTimeSeconds:", startTimeSeconds);
-  console.log(
-    "🐛 Prutti DEBUG: Original requestedTimeString:",
-    requestedTimeString,
-  );
 
   if (startTimeSeconds !== null) {
     console.log(
@@ -1115,6 +1080,8 @@ function paint({
   box,
   hud,
   ui,
+  api,
+  painting,
 }) {
   let { title, text } = lessons[lesson];
   text = text.trim();
@@ -1150,21 +1117,109 @@ function paint({
     .write(title, titleBox.pos, noiseTint, contentWidth, true, "unifont");
   ink(color).write(text, textBox.pos, 0, contentWidth);
 
+  // Debug: Display image loading status
+  const imageStatus = `Images: ${lessonPaintings.length}/${lessons[lesson].pictures?.length || 0} loaded`;
+  ink("cyan").write(imageStatus, { x: leftMargin, y: screen.height - 20 });
+
   let lastHeight = 0;
-  lessonPaintings.forEach((painting) => {
-    // if (!painting) return;
-    const width = min(picWidth, contentWidth);
-    const height = (painting.height / painting.width) * width;
-    paste(
-      painting,
-      leftMargin,
-      10 + textBox.pos.y + textBox.box.height + lastHeight,
-      {
-        width,
-        height,
-      },
-    );
-    lastHeight += height + 10;
+  
+  // Pre-calculate the target width to avoid recalculating it every frame
+  const targetWidth = Math.min(picWidth, contentWidth);
+  
+  lessonPaintings.forEach((painting, index) => {
+    if (!painting) {
+      console.log("⚠️ PRUTTI: Painting", index + 1, "is", painting, "- skipping");
+      return;
+    }
+    
+    // Check for pre-rendered painting first (fastest path)
+    const preRenderKey = `${index}-${targetWidth}`;
+    const preRendered = preRenderedPaintings.get(preRenderKey);
+    
+    if (preRendered) {
+      // Use pre-rendered painting - fastest possible rendering
+      try {
+        paste(
+          preRendered.painting,
+          leftMargin,
+          10 + textBox.pos.y + textBox.box.height + lastHeight
+        );
+        lastHeight += preRendered.height + 10;
+        return;
+      } catch (error) {
+        console.error("❌ PRUTTI: Failed to paste pre-rendered painting", index + 1, ":", error);
+        // Fall through to regular rendering
+      }
+    }
+    
+    // Fall back to cached scaling info if no pre-rendered version
+    const cacheKey = `${index}-${targetWidth}`;
+    let cachedInfo = lessonPaintingsCache.get(cacheKey);
+    
+    if (!cachedInfo) {
+      // Handle different image object types - check for img property first
+      let imageObj = painting;
+      if (painting.img) {
+        imageObj = painting.img; // Use the actual image element if available
+      }
+      
+      // Check if painting has valid dimensions - handle different image object types
+      const paintingWidth = imageObj.width || imageObj.naturalWidth || imageObj.videoWidth || painting.width;
+      const paintingHeight = imageObj.height || imageObj.naturalHeight || imageObj.videoHeight || painting.height;
+      
+      if (!paintingWidth || !paintingHeight) {
+        console.error("❌ PRUTTI: Painting", index + 1, "has invalid dimensions - width:", paintingWidth, "height:", paintingHeight);
+        return;
+      }
+      
+      // Calculate scale factor for more efficient scaling
+      const scaleX = targetWidth / paintingWidth;
+      const scaleFactor = scaleX; // Use uniform scaling
+      const scaledHeight = paintingHeight * scaleFactor;
+      
+      // Cache the calculated info
+      cachedInfo = {
+        imageObj,
+        scaleFactor,
+        scaledHeight,
+        paintingWidth,
+        paintingHeight
+      };
+      lessonPaintingsCache.set(cacheKey, cachedInfo);
+      
+      // Trigger pre-rendering for next frame (async)
+      setTimeout(() => {
+        createPreRenderedPainting(index, targetWidth, cachedInfo, api, painting);
+      }, 0);
+    }
+    
+    try {
+      // Check if we can use a simple integer scale for performance
+      if (cachedInfo.scaleFactor > 0 && cachedInfo.scaleFactor <= 8 && Number.isInteger(cachedInfo.scaleFactor)) {
+        // Use integer scale factor for fast path in paste function
+        paste(
+          cachedInfo.imageObj,
+          leftMargin,
+          10 + textBox.pos.y + textBox.box.height + lastHeight,
+          cachedInfo.scaleFactor
+        );
+      } else {
+        // Use width/height object for complex scaling
+        paste(
+          cachedInfo.imageObj,
+          leftMargin,
+          10 + textBox.pos.y + textBox.box.height + lastHeight,
+          {
+            width: targetWidth,
+            height: cachedInfo.scaledHeight,
+          }
+        );
+      }
+    } catch (error) {
+      console.error("❌ PRUTTI: Failed to paste painting", index + 1, ":", error);
+    }
+    
+    lastHeight += cachedInfo.scaledHeight + 10;
   });
 
   // Progress bar under the corner label - only show if lesson has sounds
@@ -1594,17 +1649,13 @@ function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
       
       // Button push (tap) - handle play/pause toggle
       push: (btn) => {
-        console.log("🟣 BUTTON EVENT: PUSH (TAP) - HANDLING PLAY/PAUSE TOGGLE");
-        
         // If scrubbing occurred, don't handle push - scrubbing should not trigger play/pause
         if (isScrubbing || scrubOccurred) {
-          console.log("🟣 BUTTON EVENT: PUSH - Scrubbing occurred, skipping play/pause toggle");
           return true;
         }
         
         // Prevent any action when buffering is active
         if (isBuffering) {
-          console.log("🟣 BUTTON EVENT: PUSH - Ignoring tap because isBuffering=" + isBuffering);
           return true;
         }
 
@@ -1623,7 +1674,6 @@ function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
           needsPaint();
         } else if (lessons[lesson].sounds?.length > 0) {
           // Not playing - start normal playback
-          console.log("🟣 BUTTON EVENT: PUSH - Starting playback");
           
           // Mark that user has attempted playback
           playbackAttempted = true;
@@ -1742,18 +1792,13 @@ function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
           // Update progress position
           progress = newProgress;
           
-          console.log("🎯 SMOOTH SEEK: X:", e.x, "touchProgress:", touchProgress.toFixed(4), "offset:", scrubOffset.toFixed(4), "finalProgress:", progress.toFixed(4));
           needsPaint(); // Trigger visual update
         }
       },
       
       // Button up - restart audio from seeked position
       up: (btn) => {
-        console.log("🟣 BUTTON EVENT: UP - Button released");
-        
         if (playingSfx && !playingSfx.killed && isPlaying && isScrubbing) {
-          console.log("🎯 PLAIN SEEK: Restarting audio from seeked position:", progress.toFixed(4));
-          
           // Kill and restart audio from exact seeked position
           playingSfx.kill(0.01); // Quick fade to avoid click
           
@@ -1768,7 +1813,6 @@ function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
           if (playingSfx && !playingSfx.killed) {
             playStartTime = performance.now();
             pausedAt = progress;
-            console.log("🎯 Audio restarted from:", progress.toFixed(4));
           }
         }
         
@@ -1779,11 +1823,7 @@ function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
       
       // Button cancel - restart audio from seeked position
       cancel: (btn) => {
-        console.log("🟣 BUTTON EVENT: CANCEL - Button interaction cancelled");
-        
         if (playingSfx && !playingSfx.killed && isScrubbing) {
-          console.log("🎯 CANCEL: Restarting audio from seeked position:", progress.toFixed(4));
-          
           playingSfx.kill(0.01);
           playingSfx = sound.play(preloadedAudio, {
             speed: 1.0,
@@ -1913,11 +1953,6 @@ function sim({ sound }) {
       pausedAt = 0;
       progress = 0;
       playStartTime = performance.now();
-    }
-
-    // Debug (only log occasionally)
-    if (Math.floor(elapsedSeconds * 10) % 5000 === 0) {
-      console.log("🐛 Normal playback: position:", newPosition.toFixed(4));
     }
   }
 }
@@ -2156,18 +2191,77 @@ function loadLesson(api, sound) {
     ? "/assets/pruttipal/lnl"
     : "https://assets.aesthetic.computer/pruttipal/lnl";
 
+  lessonPaintings.length = 0; // Clear previous paintings
+  lessonPaintingsCache.clear(); // Clear cached dimensions for new lesson
+  preRenderedPaintings.clear(); // Clear pre-rendered paintings for new lesson
+  
   lessons[lesson].pictures?.forEach((pic, index) => {
     const picUrl = `${path}/${pic}.jpeg`;
+    
     api.net.preload(picUrl).then((img) => {
       if (img) {
         lessonPaintings[index] = img;
         api.needsPaint();
+      } else {
+        console.error("❌ PRUTTI: Image", index + 1, "failed to load (returned null/undefined)");
       }
+    }).catch((error) => {
+      console.error("❌ PRUTTI: Image", index + 1, "loading error:", error);
     });
   });
 
   // Calculate scroll limits
   scrollMax = lessonPaintings.length * (picWidth + 10) + 100; // Approximate
+}
+
+// Function to create pre-rendered paintings for faster rendering
+function createPreRenderedPainting(index, targetWidth, cachedInfo, api, painting) {
+  try {
+    const preRenderKey = `${index}-${targetWidth}`;
+    
+    // Don't re-create if already exists
+    if (preRenderedPaintings.has(preRenderKey)) {
+      return;
+    }
+    
+    // Try different ways to access the painting function
+    let paintingFunction = null;
+    if (typeof painting === 'function') {
+      paintingFunction = painting;
+    } else if (api && typeof api.painting === 'function') {
+      paintingFunction = api.painting;
+    } else {
+      console.error("❌ PRUTTI: Could not find painting function");
+      return;
+    }
+    
+    // Create a new painting with the scaled dimensions
+    const preRenderedPainting = paintingFunction(targetWidth, Math.floor(cachedInfo.scaledHeight), (p) => {
+      // Render the scaled image to the new painting using the callback pattern
+      p.paste(cachedInfo.imageObj, 0, 0, {
+        width: targetWidth,
+        height: cachedInfo.scaledHeight,
+      });
+    });
+    
+    if (!preRenderedPainting) {
+      console.error("❌ PRUTTI: Failed to create painting object");
+      return;
+    }
+    
+    // Cache the pre-rendered painting
+    preRenderedPaintings.set(preRenderKey, {
+      painting: preRenderedPainting,
+      width: targetWidth,
+      height: Math.floor(cachedInfo.scaledHeight)
+    });
+    
+    // Trigger a repaint to use the new pre-rendered version
+    api.needsPaint();
+    
+  } catch (error) {
+    console.error("❌ PRUTTI: Failed to pre-render painting", index + 1, ":", error);
+  }
 }
 
 // Check scroll boundaries

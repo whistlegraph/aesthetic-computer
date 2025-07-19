@@ -337,7 +337,12 @@ async function cacheGlyph(charCode, glyphData, fontName = "unifont-16.0.03") {
 
 export const handler = async (event) => {
   const charParam = event.queryStringParameters.char;
-  const fontParam = event.queryStringParameters.font || "unifont-16.0.03";
+  let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
+  
+  // Normalize font name for unifont
+  if (fontParam === "unifont") {
+    fontParam = "unifont-16.0.03";
+  }
   
   if (!charParam) {
     return {
@@ -406,8 +411,8 @@ export const handler = async (event) => {
 
   // Determine BDF file extension and path based on font
   let bdfFileName;
-  if (fontParam === "unifont-16.0.03") {
-    bdfFileName = "unifont-16.0.03.bdf.gz"; // Compressed
+  if (fontParam === "unifont-16.0.03" || fontParam === "unifont") {
+    bdfFileName = "unifont-16.0.03.bdf.gz"; // Compressed unifont
   } else {
     bdfFileName = `${fontParam}.bdf`; // Uncompressed for other fonts
   }
