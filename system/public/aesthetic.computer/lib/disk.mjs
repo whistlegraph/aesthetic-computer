@@ -7087,6 +7087,26 @@ async function makeFrame({ data: { type, content } }) {
 
       // System info label (addressability).
       let label;
+      
+      // Cache invalidation: track state that affects HUD label appearance
+      const currentHUDState = {
+        text: currentHUDTxt,
+        scrub: currentHUDScrub,
+        textColor: JSON.stringify(currentHUDTextColor),
+        supportsInlineColor: $commonApi?.hud?.supportsInlineColor,
+        disablePieceNameColoring: $commonApi?.hud?.disablePieceNameColoring,
+        // Track frame-based changes for animation/timing-sensitive content
+        frameHash: $commonApi?.hud?.frameHash || 0
+      };
+      
+      // Invalidate label cache if any visual state has changed
+      if (!label || 
+          !label.lastHUDState || 
+          JSON.stringify(currentHUDState) !== JSON.stringify(label.lastHUDState)) {
+        
+        label = null; // Clear cached label to force regeneration
+      }
+      
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
 
@@ -7145,13 +7165,13 @@ async function makeFrame({ data: { type, content } }) {
           let text = currentHUDTxt;
 
           // Check if scrub has reached max threshold (share width) to disable syntax coloring
-          const shareWidth = tf.blockWidth * "share ".length;
-          const disableSyntaxColoring = currentHUDScrub >= shareWidth;
-
+    const shareWidth = tf.blockWidth * "share ".length;
+    const disableSyntaxColoring = currentHUDScrub >= shareWidth;
+    
           // Detect inline color codes (e.g., \\yellow\\c\\red\\d\\rgb(255,20,147)\\e), but disable if at max scrub
+          const colorRegexTest = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g.test(text);
           const hasInlineColor =
-            !disableSyntaxColoring &&
-            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g.test(text);
+            !disableSyntaxColoring && colorRegexTest;
 
           // Draw a visible background box for debugging the label bounds
           // $.ink([0,0,0,64]).box(0, 0, w, h); // semi-transparent black - commented out to remove backdrop
@@ -7329,7 +7349,7 @@ async function makeFrame({ data: { type, content } }) {
             let originalIndex = 0;
             let currentColor = null;
             
-            while (originalIndex < text.length && renderIndex < renderText.length) {
+            while (originalIndex < text.length) {
               // Check if we're at the start of a color code
               if (text[originalIndex] === "\\") {
                 const colorMatch = text
@@ -7359,9 +7379,11 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
-              // This is a regular character - assign color and advance both indices
-              textCharColors[renderIndex] = currentColor;
-              renderIndex++;
+              // This is a regular character - assign color and advance render index only if within bounds
+              if (renderIndex < renderText.length) {
+                textCharColors[renderIndex] = currentColor;
+                renderIndex++;
+              }
               originalIndex++;
             }
             
@@ -7409,6 +7431,9 @@ async function makeFrame({ data: { type, content } }) {
                 );
               } else {
                 // Fallback if tf.print doesn't exist
+                if (debugColorParsing) {
+                  console.log("🎨 Fallback rendering (no tf.print)");
+                }
                 $.ink(currentHUDTextColor || [255, 200, 240]).write(lineText, {
                   x: currentHUDScrub >= 0 ? currentHUDScrub : 0,
                   y: lineY,
@@ -7606,6 +7631,11 @@ async function makeFrame({ data: { type, content } }) {
             }
           }
         });
+
+        // Store current state in the label object for cache invalidation
+        if (label) {
+          label.lastHUDState = currentHUDState;
+        }
 
         // Video piece should be flush left (0px) but keep vertical offset
         // Use $commonApi.piece instead of piece (which comes from HUD text)
