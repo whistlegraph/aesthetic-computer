@@ -491,6 +491,11 @@ class KidLisp {
     }
   }
 
+  // Get the background fill color for reframe operations
+  getBackgroundFillColor() {
+    return this.firstLineColor;
+  }
+
   // Check if the AST contains microphone-related functions
   containsMicrophoneFunctions(ast) {
     if (!ast) return false;
@@ -779,7 +784,7 @@ class KidLisp {
 
     // 🧩 Piece API
     return {
-      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net }) => {
+      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill }) => {
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
@@ -825,6 +830,11 @@ class KidLisp {
         // Detect first-line color from AST if not already set (e.g., during resize)
         if (!this.firstLineColor && this.ast) {
           this.detectFirstLineColor();
+        }
+        
+        // Set background fill color for reframe operations
+        if (this.firstLineColor && backgroundFill) {
+          backgroundFill(this.firstLineColor);
         }
         
         // Use first-line color as default background if available, otherwise erase
@@ -2486,6 +2496,11 @@ class KidLisp {
             // Store the color name as the default background for this KidLisp piece
             if (!this.firstLineColor) {
               this.firstLineColor = colorName;
+              
+              // Set the background fill color for reframe operations
+              if (api.backgroundFill) {
+                api.backgroundFill(colorName);
+              }
               
               // Apply wipe once using the once mechanism
               const backdropKey = "first_line_backdrop_" + colorName;

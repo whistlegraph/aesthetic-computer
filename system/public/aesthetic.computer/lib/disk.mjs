@@ -84,6 +84,7 @@ let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 let cachedKidlispOwner = null; // Stores the user sub for cached KidLisp pieces to show attribution
+let backgroundFillColor = null; // Stores the background color for filling new pixels during reframe
 
 const projectionMode = (typeof location !== 'undefined' && location.search) ? location.search.indexOf("nolabel") > -1 : false; // Skip loading noise.
 
@@ -818,6 +819,14 @@ const $commonApi = {
     hourGlasses.push(
       new gizmo.Hourglass(time, { completed: () => fun(), autoFlip: true }),
     );
+  },
+  // 🎨 Set the background fill color used during reframe operations
+  backgroundFill: (color) => {
+    if (color === null || color === undefined) {
+      backgroundFillColor = null;
+    } else {
+      backgroundFillColor = color;
+    }
   },
   // 🎟️ Open a ticketed paywall on the page.
   ticket: (name) => {
@@ -3011,8 +3020,12 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   }
 
   // Don't do anything if there is no change and no gap update.
-  if (screen.width === width && screen.height === height && gap === lastGap)
+  if (screen.width === width && screen.height === height && gap === lastGap) {
+    console.log("🖼 Resolution: No change needed, returning early");
     return;
+  }
+  
+  console.log("🖼 Resolution: Changing from", { oldWidth: screen.width, oldHeight: screen.height }, "to", { width, height });
 
   lastGap = gap;
 
@@ -3075,7 +3088,33 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   // graph.writeBuffer.fill(Number.MAX_VALUE);
 
   screen.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
-  screen.pixels.fill(255);
+  
+  // Fill screen buffer with background color if available, otherwise use white
+  if (backgroundFillColor) {
+    // Resolve the color to RGBA values
+    let fillColor;
+    try {
+      // Use graph.findColor to resolve the color to RGBA
+      fillColor = graph.findColor(backgroundFillColor);
+      // Ensure we have 4 components (RGBA), defaulting alpha to 255 if missing
+      if (fillColor.length === 3) {
+        fillColor = [fillColor[0], fillColor[1], fillColor[2], 255];
+      }
+    } catch (e) {
+      fillColor = [255, 255, 255, 255];
+    }
+    
+    // Fill the buffer with the resolved color
+    for (let i = 0; i < screen.pixels.length; i += 4) {
+      screen.pixels[i] = fillColor[0];     // Red
+      screen.pixels[i + 1] = fillColor[1]; // Green  
+      screen.pixels[i + 2] = fillColor[2]; // Blue
+      screen.pixels[i + 3] = fillColor[3]; // Alpha
+    }
+  } else {
+    // Default behavior: fill with white
+    screen.pixels.fill(255);
+  }
 
   graph.setBuffer(screen);
   graph.paste({
@@ -5463,7 +5502,34 @@ async function makeFrame({ data: { type, content } }) {
     let pixels;
     if (content.pixels) {
       pixels = new Uint8ClampedArray(content.pixels);
-      if (screen) screen.pixels = pixels;
+      if (screen) {
+        // Check if we need to apply background fill to the incoming pixels
+        if (backgroundFillColor && pixels.length > 0) {
+          try {
+            // Use graph.findColor to resolve the color to RGBA
+            let fillColor = graph.findColor(backgroundFillColor);
+            // Ensure we have 4 components (RGBA), defaulting alpha to 255 if missing
+            if (fillColor.length === 3) {
+              fillColor = [fillColor[0], fillColor[1], fillColor[2], 255];
+            }
+            
+            // Check if pixels are currently transparent (all zeros) and fill only those
+            for (let i = 0; i < pixels.length; i += 4) {
+              // Check if pixel is transparent (alpha = 0)
+              if (pixels[i + 3] === 0) {
+                pixels[i] = fillColor[0];     // Red
+                pixels[i + 1] = fillColor[1]; // Green  
+                pixels[i + 2] = fillColor[2]; // Blue
+                pixels[i + 3] = fillColor[3]; // Alpha
+              }
+            }
+          } catch (e) {
+            // Silently continue if color resolution fails
+          }
+        }
+        
+        screen.pixels = pixels;
+      }
     }
 
     // 🔙 Abstracted backspace logic for reuse between keyboard and touch-scrub
@@ -6756,11 +6822,38 @@ async function makeFrame({ data: { type, content } }) {
         screen.width !== content.width ||
         screen.height !== content.height
       ) {
-        const hasScreen = screen !== undefined;
+        // Create the pixel buffer
+        let newPixels;
+        if (pixels) {
+          newPixels = pixels;
+        } else {
+          newPixels = new Uint8ClampedArray(content.width * content.height * 4);
+          
+          // Fill with background color if available, otherwise leave as transparent (zeros)
+          if (backgroundFillColor) {
+            try {
+              // Use graph.findColor to resolve the color to RGBA
+              let fillColor = graph.findColor(backgroundFillColor);
+              // Ensure we have 4 components (RGBA), defaulting alpha to 255 if missing
+              if (fillColor.length === 3) {
+                fillColor = [fillColor[0], fillColor[1], fillColor[2], 255];
+              }
+              
+              // Fill the buffer with the resolved color
+              for (let i = 0; i < newPixels.length; i += 4) {
+                newPixels[i] = fillColor[0];     // Red
+                newPixels[i + 1] = fillColor[1]; // Green  
+                newPixels[i + 2] = fillColor[2]; // Blue
+                newPixels[i + 3] = fillColor[3]; // Alpha
+              }
+            } catch (e) {
+              // Silently continue if color resolution fails
+            }
+          }
+        }
 
         screen = {
-          pixels:
-            pixels || new Uint8ClampedArray(content.width * content.height * 4),
+          pixels: newPixels,
           width: content.width,
           height: content.height,
           load: function load(name) {
@@ -6783,7 +6876,7 @@ async function makeFrame({ data: { type, content } }) {
           },
         };
 
-        screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
+        screen["resized"] = true; // Screen change type.
 
         // Only initialize depth buffer if CPU 3D rendering is being used
         if (needsCPU3D) {
