@@ -3239,20 +3239,25 @@ class KidLisp {
       return "green";
     }
 
-    // Check for parentheses - all should be the same color
+    // Check for parentheses - use rainbow nesting colors
     if (token === "(" || token === ")") {
-      return "white";
+      return this.getParenthesesColor(tokens, index);
     }
 
     // Check if this token is a function name (first token after opening paren)
     if (index > 0 && tokens[index - 1] === "(") {
+      // Math operators get special green color
+      if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
+        return "lime";
+      }
+      
       // Special forms and control flow
       if (["def", "if", "cond", "repeat", "later", "once", "lambda", "let", "do"].includes(token)) {
         return "purple";
       }
        
-      // All functions should be the same color (blue) - including ink, wipe, line, etc.
-      return "blue";
+      // All other functions should be teal instead of blue
+      return "cyan";
     }
 
     // Check if this token is a valid CSS color name
@@ -3269,21 +3274,58 @@ class KidLisp {
     // Check if this is a known function name (even if not directly after parentheses)
     const knownFunctions = [
       "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
-      "+", "-", "*", "/", "=", ">", "<", ">=", "<=", "mod", "abs", "sqrt",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "max", "min", "mul", "log", "no", "yes"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes"
     ];
     
+    // Math operators get special green color
+    if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
+      return "lime";
+    }
+    
     if (knownFunctions.includes(token)) {
-      return "blue";
+      return "cyan"; // Changed from blue to cyan (teal)
     }
 
     // Default for variables and other identifiers
     return "orange";
+  }
+
+  // Get color for parentheses based on nesting depth (rainbow pattern)
+  getParenthesesColor(tokens, index) {
+    // Calculate nesting depth at this position
+    let depth = 0;
+    for (let i = 0; i < index; i++) {
+      if (tokens[i] === "(") {
+        depth++;
+      } else if (tokens[i] === ")") {
+        depth--;
+      }
+    }
+    
+    // Adjust depth for closing parentheses
+    if (tokens[index] === ")") {
+      depth--;
+    }
+    
+    // Rainbow colors for different nesting depths
+    const parenColors = [
+      "192,192,192", // Light gray (depth 0)
+      "255,215,0",   // Gold (depth 1) 
+      "255,165,0",   // Orange (depth 2)
+      "255,105,180", // Hot pink (depth 3)
+      "138,43,226",  // Blue violet (depth 4)
+      "0,191,255",   // Deep sky blue (depth 5)
+      "50,205,50"    // Lime green (depth 6)
+    ];
+    
+    // Cycle through colors for deeper nesting
+    const colorIndex = depth % parenColors.length;
+    return parenColors[colorIndex];
   }
 
   // Check if an expression matches the currently executing one

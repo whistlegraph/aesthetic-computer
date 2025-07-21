@@ -1544,12 +1544,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       // Handle special cases
       if (baseName === "$code") {
-        // For kidlisp source code, try to extract a $code from the original command
-        const codeMatch = options.originalCommand.match(/\$([a-zA-Z0-9]+)/);
-        if (codeMatch) {
-          baseName = `$${codeMatch[1]}`;
+        // For kidlisp source code, use the cached code if available
+        if (options.cachedCode) {
+          console.log(`🎬 Using cached code for filename: $${options.cachedCode}`);
+          baseName = `$${options.cachedCode}`;
         } else {
-          baseName = "$code";
+          // Try to extract a $code from the original command as fallback
+          const codeMatch = options.originalCommand.match(/\$([a-zA-Z0-9]+)/);
+          if (codeMatch) {
+            console.log(`🎬 Using extracted code for filename: $${codeMatch[1]}`);
+            baseName = `$${codeMatch[1]}`;
+          } else {
+            // No $code available, use "kidlisp" instead of literal "$code"
+            console.log(`🎬 No code available, using "kidlisp" for filename`);
+            baseName = "kidlisp";
+          }
         }
       }
       
@@ -1719,6 +1728,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "kidlisp:cached-code") {
+      // Update recording options with the newly cached code
+      if (window.currentRecordingOptions) {
+        window.currentRecordingOptions.cachedCode = content;
+      }
+      return;
+    }
+
     // Sync labelBack state between worker and main thread
     if (type === "labelBack:set") {
       mainThreadLabelBack = true;
@@ -1812,7 +1829,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const yDist = 0.25; // Move towards center (was 0.05)
 
         // Make the stamps larger
-        ctx.font = `${typeSize * 1.2}px YWFTProcessing-Regular`;
+        ctx.font = `${typeSize * 1.3}px YWFTProcessing-Regular`; // Increased from 1.2 to 1.3
         const text = "aesthetic.computer";
         const measured = ctx.measureText(text);
         const textWidth = measured.width;
@@ -1839,6 +1856,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               -floor(offsetX + gap),
             );
           } else if (deg === -90) {
+            // Right side pushed higher up
+            // const rightSideYOffset = typeSize * 0.8; // Push higher up the side
             ctx.fillText(
               text,
               -Math.floor(canvasHeight * yDist + textWidth + offsetY),
@@ -1848,28 +1867,43 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         if (HANDLE) {
-          ctx.font = `${typeSize * 1.5}px YWFTProcessing-Light`; // Larger handle
-          ctx.fillStyle = choose(["yellow", "red", "blue"]);
-          let offsetX, offsetY;
+          ctx.font = `${typeSize * 1.6}px YWFTProcessing-Light`; // Even larger handle text
           const handleWidth = textWidth / 2 + ctx.measureText(HANDLE).width / 2;
           const handleSpace = typeSize * 1.35;
-          offsetX = choose([-1, 0, 1]);
-          offsetY = choose([-1, 0, 1]);
+          
+          // Restore original 4-layer system with warmer color palette
+          ["red", "lime", "blue", "white"].forEach((color) => {
+            let offsetX, offsetY;
+            if (color !== "white") {
+              ctx.globalAlpha = 0.6;
+              offsetX = choose([-2, -4, 0, 2, 4]);
+              offsetY = choose([-2, -4, 0, 2, 4]);
+            } else {
+              ctx.globalAlpha = choose([0.7, 0.8, 0.9]);
+              offsetX = choose([-1, 0, 1]);
+              offsetY = choose([-1, 0, 1]);
+              color = choose(["white", "white", "white", "magenta", "yellow"]); // Original warmer palette
+            }
 
-          if (deg === 90) {
-            // Handle
-            ctx.fillText(
-              HANDLE,
-              floor(canvasHeight * (1 - yDist) - handleWidth + offsetY),
-              -floor(offsetX + handleSpace + gap),
-            );
-          } else if (deg === -90) {
-            ctx.fillText(
-              HANDLE,
-              -Math.floor(canvasHeight * yDist + handleWidth + offsetY),
-              Math.floor(offsetX - handleSpace - gap),
-            );
-          }
+            ctx.fillStyle = color;
+
+            if (deg === 90) {
+              // Handle - left side positioning unchanged
+              ctx.fillText(
+                HANDLE,
+                floor(canvasHeight * (1 - yDist) - handleWidth + offsetY),
+                -floor(offsetX + handleSpace + gap),
+              );
+            } else if (deg === -90) {
+              // Handle - right side pushed higher up
+              // const rightSideYOffset = typeSize * 0.8; // Push higher up the side
+              ctx.fillText(
+                HANDLE,
+                -Math.floor(canvasHeight * yDist + handleWidth + offsetY),
+                Math.floor(offsetX - handleSpace - gap),
+              );
+            }
+          });
         }
 
         // Remove the old timestamp code from here since it's now in addFilmTimestamp
@@ -1879,6 +1913,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Film camera style timestamp at bottom-left corner
       function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null) {
+        // Define progress bar height consistently across all contexts
+        const progressBarHeight = 3;
+        
+        // Define timestamp margin for consistent spacing
+        const timestampMargin = Math.max(8, Math.floor(canvasHeight / 50)); // Responsive margin
+        
         const now = new Date();
         const year = now.getUTCFullYear();
         const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
@@ -1892,116 +1932,86 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
 
         ctx.save();
-        // Make timestamp same size as aesthetic.computer text, more visible, with white/yellow/red blinking
-        ctx.font = `bold ${typeSize * 1.2}px YWFTProcessing-Regular`;
-        ctx.globalAlpha = 0.85; // More opaque for better visibility
-        ctx.fillStyle = choose(["white", "yellow", "red"]); // White/yellow/red blinking
-
-        const timestampMargin = typeSize * 0.5; // Small margin from edges
-
+        
         // Remove shake/jitter effect - keep timestamp steady
         const shakeX = 0; // No more shaking
         const shakeY = 0; // No more shaking
+        
+        // Position timestamp above the progress bar with proper margin, more flush left and larger
+        const timestampY = canvasHeight - progressBarHeight - timestampMargin; // Above progress bar
+        const timestampX = timestampMargin * 0.5; // More flush left (was timestampMargin * 2)
+        
+        // Make timestamp much larger and more watermark-like, similar to aesthetic.computer stamps
+        const watermarkSize = Math.min(
+          32,
+          Math.max(18, Math.floor(canvasHeight / 25)), // Much larger base size
+        );
+        
+        // Draw multiple layered versions for that vibey aesthetic.computer stamp effect
+        ["red", "lime", "blue", "white"].forEach((color) => {
+          let offsetX, offsetY;
+          if (color !== "white") {
+            ctx.globalAlpha = 0.45; // Semi-transparent colored layers
+            offsetX = choose([-3, -5, 0, 3, 5]); // Larger offsets for bigger text
+            offsetY = choose([-3, -5, 0, 3, 5]);
+          } else {
+            ctx.globalAlpha = choose([0.6, 0.5, 0.7]); // Main white layer with some variation
+            offsetX = choose([-1, 0, 1]);
+            offsetY = choose([-1, 0, 1]);
+            color = choose(["white", "white", "white", "magenta", "yellow"]); // Occasional color pops
+          }
 
-        // 🔴 Enhanced progress bar with frame-based colors
-        const progressBarHeight = 3; // Make it shorter (was 4)
+          ctx.fillStyle = color;
+          ctx.font = `bold ${watermarkSize}px YWFTProcessing-Regular`;
+          
+          ctx.fillText(
+            timestamp,
+            timestampX + offsetX + shakeX,
+            timestampY + offsetY + shakeY,
+          );
+        });
+
+        // 🔴 Subtle light grey progress bar with hint of red and gentle glow
         const progressBarY = canvasHeight - progressBarHeight; // No gap - fully at bottom
         
-        // Reset context and draw gray background for full progress bar (more opaque)
+        // Reset context and draw dark grey background for full progress bar
         ctx.globalAlpha = 1.0; // Full opacity for background
-        ctx.fillStyle = "rgba(128, 128, 128, 0.9)"; // More opaque gray background (was 0.6)
+        ctx.fillStyle = "rgba(48, 48, 48, 1.0)"; // Darker grey background
         ctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
         
-        // Dynamic progress bar with frame-based colors and additive stacking
+        // More prominent red progress bar with subtle variations
         const progressBarWidth = Math.floor(progress * canvasWidth);
         if (progressBarWidth > 0) {
-          // Create or get the progress bar canvas for additive painting
-          if (!ctx.progressBarCanvas) {
-            ctx.progressBarCanvas = document.createElement('canvas');
-            ctx.progressBarCanvas.width = canvasWidth;
-            ctx.progressBarCanvas.height = progressBarHeight;
-            ctx.progressBarCtx = ctx.progressBarCanvas.getContext('2d');
-            ctx.lastProgressWidth = 0;
-          }
-          
-          const pCtx = ctx.progressBarCtx;
-          
-          // Only paint new pixels that have been added since last frame
-          const newPixelsStart = ctx.lastProgressWidth || 0;
-          const newPixelsWidth = progressBarWidth - newPixelsStart;
-          
-          if (newPixelsWidth > 0 && frameData) {
-            // Sample colors from current frame data for the new pixels
-            const currentFrameColors = sampleFrameColors(frameData, canvasWidth, canvasHeight, 5);
-            
-            // Make colors more saturated
-            const saturatedColors = currentFrameColors.map(color => {
-              const r = parseInt(color.slice(1, 3), 16);
-              const g = parseInt(color.slice(3, 5), 16);
-              const b = parseInt(color.slice(5, 7), 16);
+          // Draw the main red progress bar with subtle variations
+          for (let x = 0; x < progressBarWidth; x++) {
+            for (let y = 0; y < progressBarHeight; y++) {
+              // Deterministic subtle flickering based on position
+              const seed = x * 7.919 + y * 13.537 + Math.floor(progress * 100) * 0.1;
+              const rnd1 = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
               
-              // Increase saturation by pushing colors away from gray
-              const avg = (r + g + b) / 3;
-              const saturationBoost = 1.5;
-              const newR = Math.min(255, Math.max(0, avg + (r - avg) * saturationBoost));
-              const newG = Math.min(255, Math.max(0, avg + (g - avg) * saturationBoost));
-              const newB = Math.min(255, Math.max(0, avg + (b - avg) * saturationBoost));
+              // More prominent red color (200-240 red range)
+              const baseRed = 200 + Math.floor(rnd1 * 40); // Strong red base
+              const baseGreen = Math.floor(rnd1 * 60 + 20); // Keep green lower (20-80)
+              const baseBlue = Math.floor(rnd1 * 40 + 10); // Keep blue lower (10-50)
               
-              return `#${Math.floor(newR).toString(16).padStart(2, '0')}${Math.floor(newG).toString(16).padStart(2, '0')}${Math.floor(newB).toString(16).padStart(2, '0')}`;
-            });
-            
-            // Paint the new pixels with static vertical stripes (no animation)
-            for (let x = newPixelsStart; x < progressBarWidth; x++) {
-              const colorIndex = x % saturatedColors.length;
-              const color = saturatedColors[colorIndex];
-              
-              // Convert hex to RGB
-              const r = parseInt(color.slice(1, 3), 16);
-              const g = parseInt(color.slice(3, 5), 16);
-              const b = parseInt(color.slice(5, 7), 16);
-              
-              pCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-              
-              // Draw vertical stripe for this x position
-              for (let y = 0; y < progressBarHeight; y++) {
-                pCtx.fillRect(x, y, 1, 1);
+              // Subtle glow effect - slightly brighter at edges and with random flicker
+              let glowMultiplier = 1.0;
+              if (y === 0 || y === progressBarHeight - 1) {
+                glowMultiplier = 1.15; // Slightly more edge glow for red
               }
-            }
-          } else if (newPixelsWidth > 0) {
-            // Fallback colors if no frame data
-            const fallbackColors = ["#FF5555", "#FF7777", "#FFBB55", "#FF9999", "#FFDDDD"];
-            
-            for (let x = newPixelsStart; x < progressBarWidth; x++) {
-              const colorIndex = x % fallbackColors.length;
-              const color = fallbackColors[colorIndex];
-              
-              const r = parseInt(color.slice(1, 3), 16);
-              const g = parseInt(color.slice(3, 5), 16);
-              const b = parseInt(color.slice(5, 7), 16);
-              
-              pCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-              
-              for (let y = 0; y < progressBarHeight; y++) {
-                pCtx.fillRect(x, y, 1, 1);
+              if (rnd1 > 0.85) {
+                glowMultiplier *= 1.15; // More noticeable flicker for red
               }
+              
+              const finalRed = Math.min(255, Math.floor(baseRed * glowMultiplier));
+              const finalGreen = Math.min(255, Math.floor(baseGreen * glowMultiplier));
+              const finalBlue = Math.min(255, Math.floor(baseBlue * glowMultiplier));
+              
+              ctx.fillStyle = `rgb(${finalRed}, ${finalGreen}, ${finalBlue})`;
+              ctx.fillRect(x, progressBarY + y, 1, 1);
             }
           }
-          
-          // Update the last progress width
-          ctx.lastProgressWidth = progressBarWidth;
-          
-          // Draw the accumulated progress bar canvas onto the main canvas
-          ctx.drawImage(ctx.progressBarCanvas, 0, progressBarY);
         }
-
-        // Position timestamp above the progress bar with proper margin, moved left for even spacing
-        const timestampY = canvasHeight - progressBarHeight - timestampMargin; // Above progress bar
-        const timestampX = timestampMargin * 2; // Move further left for better spacing
-        ctx.fillText(
-          timestamp,
-          timestampX + shakeX,
-          timestampY + shakeY,
-        );
 
         ctx.restore();
       }
@@ -3105,6 +3115,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return scaledImageData;
         }
 
+        // Add space for progress bar at bottom - but don't extend canvas, progress bar is built into stamp
+        const progressBarHeight = 3;
+
         // Create GIF instance with optimized compression settings for smaller files
         const gif = new window.GIF({
           workers: 4, // More workers for faster processing
@@ -3112,7 +3125,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // dither: 'FloydSteinberg-serpentine', // Advanced dithering for better compression
           transparent: null, // No transparency to reduce file size
           width: originalWidth * optimalScale,
-          height: originalHeight * optimalScale,
+          height: originalHeight * optimalScale, // Use original height, progress bar is part of stamp
           workerScript: "/aesthetic.computer/dep/gif/gif.worker.js",
         });
 
@@ -3125,7 +3138,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const ctx = canvas.getContext("2d");
 
           canvas.width = originalWidth * optimalScale;
-          canvas.height = originalHeight * optimalScale;
+          canvas.height = originalHeight * optimalScale; // Use original height, progress bar is part of stamp
 
           const originalImageData = new Uint8ClampedArray(frame.data);
           const scaledImageData = upscalePixels(
@@ -3148,7 +3161,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           await addAestheticComputerStamp(
             ctx,
             originalWidth * optimalScale,
-            originalHeight * optimalScale,
+            originalHeight * optimalScale, // Use original height, progress bar is part of stamp
             progress,
           );
 
@@ -3208,12 +3221,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🔄 Falling back to static GIF of first frame");
 
         try {
+          const progressBarHeight = 3; // Define progress bar height for fallback
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d");
           const firstFrame = content.frames[0];
 
           canvas.width = firstFrame.width;
-          canvas.height = firstFrame.height;
+          canvas.height = firstFrame.height + progressBarHeight;
 
           const imageData = new ImageData(
             new Uint8ClampedArray(firstFrame.data),
@@ -3227,7 +3241,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           await addAestheticComputerStamp(
             ctx,
             firstFrame.width,
-            firstFrame.height,
+            firstFrame.height + progressBarHeight,
           );
 
           const gifBlob = await new Promise((resolve) => {
@@ -5369,8 +5383,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         newHeight = originalHeight * 2;
         newWidth = newHeight * aspectRatio;
       }
+      
+      // Add progress bar height to the final export canvas
+      const progressBarHeight = 3;
+      
       sctx.canvas.width = newWidth;
-      sctx.canvas.height = newHeight;
+      sctx.canvas.height = newHeight + progressBarHeight;
       //}
 
       sctx.imageSmoothingEnabled = false; // Must be set after resize.
@@ -5409,12 +5427,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
           function renderTape(can, progress) {
+            const progressBarHeight = 20;
             const frameWidth = sctx.canvas.width;
-            const frameHeight = sctx.canvas.height;
-            const frameAspectRatio = frameHeight / frameWidth;
+            const totalFrameHeight = sctx.canvas.height;
+            const contentFrameHeight = totalFrameHeight - progressBarHeight; // Height for content area
+            const frameAspectRatio = contentFrameHeight / frameWidth;
             const aspectRatio = can.height / can.width;
 
-            sctx.clearRect(0, 0, frameWidth, frameHeight);
+            sctx.clearRect(0, 0, frameWidth, totalFrameHeight);
 
             // if (glaze.on) can = Glaze.getCan();
 
@@ -5425,12 +5445,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             if (frameAspectRatio > aspectRatio) {
               height = sctx.canvas.width * aspectRatio;
-              y = floor(frameHeight / 2 - height / 2);
+              y = floor(contentFrameHeight / 2 - height / 2);
               width = sctx.canvas.width;
             } else {
-              width = sctx.canvas.height / aspectRatio;
+              width = contentFrameHeight / aspectRatio;
               x = floor(frameWidth / 2 - width / 2);
-              height = sctx.canvas.height;
+              height = contentFrameHeight; // Use content frame height
             }
 
             if (ThreeD)
@@ -5496,6 +5516,74 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // const textHeight = typeSize;
             const gap = typeSize * 0.75;
 
+            // Film camera style timestamp at bottom-left corner
+            function addFilmTimestamp(
+              sctx,
+              canvasWidth,
+              canvasHeight,
+              typeSize,
+              progress, // Export progress for the progress bar
+            ) {
+              // Progress bar height (should match what's set above)
+              const progressBarHeight = 20;
+              
+              // Calculate the content area height (canvas height minus progress bar)
+              const contentHeight = sctx.canvas.height - progressBarHeight;
+              
+              const now = new Date();
+              const year = now.getUTCFullYear();
+              const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
+              const day = now.getUTCDate();
+              const hour = now.getUTCHours();
+              const minute = now.getUTCMinutes();
+              const second = now.getUTCSeconds();
+              const millisecond = now.getUTCMilliseconds();
+
+              // Include milliseconds for frame-by-frame uniqueness
+              const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+
+              sctx.save();
+              // Make timestamp more opaque and clearer
+              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
+              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
+              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
+
+              const timestampMargin = typeSize * 0.5; // Small margin from edges
+
+              // Smoother, gentler shake effect
+              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
+              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
+              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+
+              // Position timestamp in the content area (not in the progress bar area)
+              const timestampY = contentHeight - timestampMargin - typeSize * 0.5;
+
+              sctx.fillText(
+                timestamp,
+                timestampMargin + shakeX,
+                timestampY + shakeY,
+              );
+
+              // Draw progress bar in the extended area at the bottom
+              const progressBarY = contentHeight; // Start right after content
+              const progressBarWidth = Math.floor(progress * canvasWidth);
+              
+              // Fill the entire progress bar area with a dark background
+              sctx.fillStyle = "#000000";
+              sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+              
+              // Draw the actual progress bar
+              sctx.fillStyle = "#FF0000"; // Red progress bar
+              sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+              
+              // Add a subtle border
+              sctx.strokeStyle = "#333333";
+              sctx.lineWidth = 1;
+              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+
+              sctx.restore();
+            }
+
             sctx.save(); // Save the current state of the canvas
 
             // Add film camera style timestamp at bottom-left corner
@@ -5504,10 +5592,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.canvas.width,
               sctx.canvas.height,
               typeSize,
+              progress, // Pass progress to the timestamp function
             );
 
-            drawTextAtPosition(0, 90); // Left
-            drawTextAtPosition(sctx.canvas.width, -90); // Right
+            drawTextAtPosition(0, 90); // Left side stamp (rotated 90 degrees)
+            drawTextAtPosition(sctx.canvas.width, -90); // Right side stamp (rotated -90 degrees)
 
             sctx.restore();
             sctx.globalAlpha = 1;
@@ -5546,6 +5635,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 sctx.fillStyle = color;
 
                 if (deg === 90) {
+                  // LEFT SIDE: Main text positioning
                   sctx.fillText(
                     text,
                     floor(
@@ -5554,10 +5644,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     -floor(offsetX + gap),
                   );
                 } else if (deg === -90) {
+                  // RIGHT SIDE: Main text positioning
                   sctx.fillText(
                     text,
-                    -floor(sctx.canvas.height * yDist + textWidth + offsetY),
-                    floor(offsetX - gap),
+                    -floor(sctx.canvas.height * 0.05 + offsetY),
+                    floor(offsetX + gap * 3),
                   );
                 }
               });
@@ -5573,7 +5664,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 offsetY = choose(-1, 0, 1);
 
                 if (deg === 90) {
-                  // Handle
+                  // LEFT SIDE: Handle positioning
                   sctx.fillText(
                     HANDLE,
                     floor(
@@ -5582,10 +5673,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     -floor(offsetX + handleSpace + gap),
                   );
                 } else if (deg === -90) {
+                  // RIGHT SIDE: Handle positioning
                   sctx.fillText(
                     HANDLE,
-                    -floor(sctx.canvas.height * yDist + handleWidth + offsetY),
-                    floor(offsetX - handleSpace - gap),
+                    -floor(sctx.canvas.height * 0.05 + handleWidth + offsetY),
+                    floor(offsetX + handleSpace + gap * 3),
                   );
                 }
               }
@@ -5601,7 +5693,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               canvasWidth,
               canvasHeight,
               typeSize,
+              progress, // Export progress for the progress bar
             ) {
+              // Progress bar height (should match what's set in renderTape)
+              const progressBarHeight = 20;
+              
+              // Calculate the original content area height
+              const originalCanvasHeight = sctx.canvas.height - progressBarHeight;
+              
               const now = new Date();
               const year = now.getUTCFullYear();
               const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
@@ -5627,13 +5726,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
               const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
 
-              // Position above YouTube bar (add extra margin for the 1px bar)
-              const progressBarHeight = 1;
-              const timestampY =
-                canvasHeight -
-                timestampMargin -
-                progressBarHeight -
-                typeSize * 0.5;
+              // Position timestamp in the main content area (not in the progress bar area)
+              const timestampY = originalCanvasHeight - timestampMargin - typeSize * 0.5;
 
               sctx.fillText(
                 timestamp,
@@ -5641,27 +5735,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 timestampY + shakeY,
               );
 
-              // 🔴 Add red progress bar at bottom of exported video
-              console.log("🔴 Drawing progress bar in timestamp function:", { progress, width: canvasWidth, progressBarWidth: Math.floor(progress * canvasWidth) });
-              
-              // Make progress bar MUCH more prominent for debugging
-              sctx.fillStyle = "#FF0000"; // Bright red
+              // Draw progress bar in the extended area at the bottom of the scaled content
+              const progressBarY = originalCanvasHeight; // Start right after original content
               const progressBarWidth = Math.floor(progress * canvasWidth);
-              const redProgressBarHeight = 20; // Much bigger - 20 pixels high
-              const redProgressBarY = canvasHeight - redProgressBarHeight;
-              sctx.fillRect(0, redProgressBarY, progressBarWidth, redProgressBarHeight);
-
-              // Add a white outline to make it super visible
-              sctx.strokeStyle = "#FFFFFF";
-              sctx.lineWidth = 2;
-              sctx.strokeRect(0, redProgressBarY, progressBarWidth, redProgressBarHeight);
               
-              // Draw a test rectangle at the top too to verify our drawing is working
-              sctx.fillStyle = "#00FF00"; // Bright green
-              sctx.fillRect(10, 10, 100, 50);
-              sctx.fillStyle = "#FFFFFF";
-              sctx.font = "16px Arial";
-              sctx.fillText("TEST BAR IN TIMESTAMP", 15, 35);
+              // Fill the entire progress bar area with a dark background
+              sctx.fillStyle = "#000000";
+              sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+              
+              // Draw the actual progress bar
+              sctx.fillStyle = "#FF0000"; // Red progress bar
+              sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+              
+              // Add a subtle border
+              sctx.strokeStyle = "#333333";
+              sctx.lineWidth = 1;
+              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
 
               sctx.restore();
             }
@@ -6219,17 +6308,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Only log reframe operations to debug flicker
       const isHudOverlay = name === "label" || name === "qrOverlay";
 
-      if (isHudOverlay && content.reframe && debug) {
-        console.log(
-          `🔍 REFRAME ${name}: hasData=${!!o}, hasCache=${!!window.framePersistentOverlayCache[name]}`,
-        );
-      }
-
       if (!o) {
         // During reframes, if overlay data is missing but we have a cached version, use it
         if (content.reframe && window.framePersistentOverlayCache[name]) {
-          if (isHudOverlay && debug)
-            console.log(`  └─ Using cached painter for ${name}`);
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -6406,23 +6487,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Paint overlays (but exclude tape progress from recordings)
-        if (content.reframe && debug) {
-          console.log(`🖼️ REFRAME: About to paint overlays`);
-        }
 
         if (paintOverlays["label"]) {
-          if (content.reframe && debug)
-            console.log(`  └─ Painting label overlay`);
           paintOverlays["label"]();
-        } else if (content.reframe && debug) {
-          console.log(`  └─ No label overlay painter available`);
         }
 
         if (paintOverlays["qrOverlay"]) {
-          if (content.reframe && debug) console.log(`  └─ Painting QR overlay`);
           paintOverlays["qrOverlay"]();
-        } else if (content.reframe && debug) {
-          console.log(`  └─ No QR overlay painter available`);
         }
 
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
@@ -6439,6 +6510,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ]);
         }
 
+        // Original behavior - paint progress bar as overlay
         paintOverlays["tapeProgressBar"]?.(); // tape progress (excluded from recording)
 
         //  Return clean screenshot data (without overlays)
