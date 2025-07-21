@@ -393,6 +393,10 @@ class KidLisp {
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
     
+    // Timing blink state tracking
+    this.timingBlinks = new Map(); // Track timing expressions that should blink
+    this.blinkDuration = 200; // Duration for timing blinks in milliseconds
+    
     // Ink state management
     this.inkState = undefined; // Track KidLisp ink color (starts undefined)
     this.inkStateSet = false; // Track if ink has been explicitly set
@@ -458,9 +462,41 @@ class KidLisp {
     // Reset once execution tracking
     this.onceExecuted.clear();
     
+    // Reset timing blink tracking
+    this.timingBlinks.clear();
+    
     // Don't reset ink state during reset - preserve across frame transitions
     // this.inkState = undefined;
     // this.inkStateSet = false;
+  }
+
+  // Mark a timing expression as triggered for blinking
+  markTimingTriggered(timingToken) {
+    const now = performance.now();
+    this.timingBlinks.set(timingToken, {
+      triggerTime: now,
+      duration: this.blinkDuration
+    });
+  }
+
+  // Check if a timing token should be blinking
+  isTimingBlinking(timingToken) {
+    if (!this.timingBlinks.has(timingToken)) {
+      return false;
+    }
+    
+    const blinkInfo = this.timingBlinks.get(timingToken);
+    const now = performance.now();
+    const elapsed = now - blinkInfo.triggerTime;
+    
+    if (elapsed > blinkInfo.duration) {
+      // Blink has expired, remove it
+      this.timingBlinks.delete(timingToken);
+      return false;
+    }
+    
+    // Return true if we're in the first half of the blink duration (creates flash effect)
+    return elapsed < (blinkInfo.duration / 2);
   }
 
   // Detect first-line color from AST without executing code
@@ -2607,6 +2643,7 @@ class KidLisp {
         if (typeof head === "number" && Number.isInteger(head)) {
           const frameDivisor = head + 1; // 0 = every frame, 1 = every 2nd frame, etc.
           if (this.frameCount % frameDivisor === 0) {
+            this.markTimingTriggered(head.toString()); // Trigger blink for integer timing
             // Execute the timing arguments with proper context
             let timingResult;
             for (const arg of args) {
@@ -2624,11 +2661,38 @@ class KidLisp {
 
           if (seconds === 0) {
             // 0s = every frame (no timing restriction)
+            this.markTimingTriggered(head); // Trigger blink
             let timingResult;
             for (const arg of args) {
               timingResult = this.evaluate([arg], api, env);
             }
             result = timingResult;
+          } else if (seconds < 0.016) {
+            // For very small intervals (less than ~60fps), limit to 60fps max to prevent excessive triggering
+            const minInterval = 0.016; // ~16ms, roughly 60fps
+            const clockResult = api.clock.time();
+            if (!clockResult) continue;
+
+            const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
+            const currentTime = currentTimeMs / 1000;
+            const timingKey = `${head}_${JSON.stringify(args)}`;
+
+            if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
+              this.lastSecondExecutions[timingKey] = currentTime;
+            } else {
+              const lastExecution = this.lastSecondExecutions[timingKey];
+              const diff = currentTime - lastExecution;
+
+              if (diff >= minInterval) {
+                this.lastSecondExecutions[timingKey] = currentTime;
+                this.markTimingTriggered(head);
+                let timingResult;
+                for (const arg of args) {
+                  timingResult = this.evaluate([arg], api, env);
+                }
+                result = timingResult;
+              }
+            }
           } else {
             const clockResult = api.clock.time(); // Get time (Date object)
             if (!clockResult) continue;
@@ -2653,6 +2717,7 @@ class KidLisp {
                 // Set baseline time for future intervals
                 this.lastSecondExecutions[timingKey] = currentTime;
 
+                this.markTimingTriggered(head); // Trigger blink
                 let timingResult;
                 for (const arg of args) {
                   timingResult = this.evaluate([arg], api, env);
@@ -2667,10 +2732,16 @@ class KidLisp {
               const lastExecution = this.lastSecondExecutions[timingKey];
               const diff = currentTime - lastExecution;
 
+              // Add small tolerance for floating-point precision issues
+              // Use a 5ms tolerance to prevent rapid fire due to precision errors
+              const tolerance = 0.005; // 5 milliseconds in seconds
+              const adjustedSeconds = Math.max(seconds, tolerance);
+
               // Check if enough time has passed since last execution
-              if (diff >= seconds) {
+              if (diff >= adjustedSeconds) {
                 this.lastSecondExecutions[timingKey] = currentTime;
 
+                this.markTimingTriggered(head); // Trigger blink
                 // Execute the timing arguments with proper context
                 let timingResult;
                 for (const arg of args) {
@@ -3224,6 +3295,20 @@ class KidLisp {
 
   // Determine the color for a specific token based on its type and context
   getTokenColor(token, tokens, index) {
+    // Check for timing patterns that should blink when triggered
+    if (/^\d*\.?\d+s!?$/.test(token) || /^\d+$/.test(token)) {
+      // Check if this timing token is currently blinking
+      if (this.isTimingBlinking(token)) {
+        return "red"; // Bright red flash when timing triggers
+      }
+      // Otherwise return normal timing color
+      if (/^\d*\.?\d+s!?$/.test(token)) {
+        return "yellow"; // Yellow for second-based timing like "1s", "0.5s", "0.1s"
+      } else if (/^\d+$/.test(token)) {
+        return "lime"; // Lime for integer timing like "0", "1", "2"
+      }
+    }
+
     // Check for comments
     if (token.startsWith(";")) {
       return "gray";
@@ -3252,8 +3337,13 @@ class KidLisp {
       }
       
       // Special forms and control flow
-      if (["def", "if", "cond", "repeat", "later", "once", "lambda", "let", "do"].includes(token)) {
+      if (["def", "if", "cond", "later", "once", "lambda", "let", "do"].includes(token)) {
         return "purple";
+      }
+      
+      // Repeat gets its own lighter color for better readability
+      if (token === "repeat") {
+        return "magenta"; // Lighter than purple, more readable
       }
        
       // All other functions should be teal instead of blue
