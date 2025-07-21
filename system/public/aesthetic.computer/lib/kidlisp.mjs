@@ -349,6 +349,7 @@ class KidLisp {
       "line",
       "ink",
       "wipe",
+      "backdrop",
       "box",
       "repeat",
       "+",
@@ -391,6 +392,103 @@ class KidLisp {
 
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
+  }
+
+  // Reset all state for a fresh KidLisp instance
+  reset() {
+    // Reset core state
+    this.ast = null;
+    this.globalDef = {};
+    this.localEnvStore = [{}];
+    this.localEnv = this.localEnvStore[0];
+    this.localEnvLevel = 0;
+    this.tapper = null;
+    this.drawer = null;
+    this.frameCount = 0;
+    
+    // Keep first-line color state during reset (preserve for resize/reframe)
+    // this.firstLineColor = null; // Don't reset - keep for background persistence
+    
+    // Reset timing state
+    this.lastSecondExecutions = {};
+    this.instantTriggersExecuted = {};
+    
+    // Reset cache state
+    this.cachedCode = null;
+    this.cachingInProgress = false;
+    this.shortUrl = null;
+    
+    // Reset microphone state
+    this.microphoneConnected = false;
+    this.microphoneApi = null;
+    
+    // Reset performance caches
+    this.functionCache.clear();
+    this.globalEnvCache = null;
+    this.expressionCache.clear();
+    this.variableCache.clear();
+    this.mathCache.clear();
+    this.sequenceCounters.clear();
+    
+    // Reset syntax highlighting state
+    this.syntaxHighlightSource = null;
+    this.expressionPositions = [];
+    this.currentlyHighlighted.clear();
+    this.executionHistory = [];
+    this.currentExecutingExpression = null;
+    this.lastExecutionTime = 0;
+    
+    // Reset handle attribution cache
+    this.cachedOwnerHandle = null;
+    this.cachedOwnerSub = null;
+    
+    // Reset melody state
+    this.melodies.clear();
+    this.melodyTimers.clear();
+    
+    // Reset resolution state
+    this.halfResolutionApplied = false;
+    this.thirdResolutionApplied = false;
+    this.fourthResolutionApplied = false;
+    
+    // Reset once execution tracking
+    this.onceExecuted.clear();
+  }
+
+  // Detect first-line color from AST without executing code
+  detectFirstLineColor() {
+    if (!this.ast) return;
+    
+    // Get the first item from the AST
+    const firstItem = Array.isArray(this.ast) && this.ast.length > 0 ? this.ast[0] : this.ast;
+    let colorName = null;
+    
+    // Check if it's a bare string color name
+    if (typeof firstItem === "string") {
+      colorName = firstItem;
+    }
+    // Check if it's a single-argument function call like ["red"]
+    else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
+      colorName = firstItem[0];
+    }
+    
+    if (colorName) {
+      const globalEnv = this.getGlobalEnv();
+      
+      // Check if it's a color name in the global environment
+      if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+        try {
+          // Test if this is a color function by calling it
+          globalEnv[colorName]();
+          
+          // If we get here without error, it's a color function
+          this.firstLineColor = colorName;
+          console.log("🎨 Re-detected first-line color:", colorName);
+        } catch (e) {
+          // Not a color function, ignore
+        }
+      }
+    }
   }
 
   // Check if the AST contains microphone-related functions
@@ -648,6 +746,12 @@ class KidLisp {
   // Parse and evaluate a lisp source module
   // into a running aesthetic computer piece.
   module(source, isLispFile = false) {
+    // Reset all state for fresh instance when loading a new module
+    this.reset();
+    
+    // Clear first-line color when loading new code
+    this.firstLineColor = null;
+    
     // Store flag to skip caching for .lisp files
     this.isLispFile = isLispFile;
     
@@ -717,7 +821,18 @@ class KidLisp {
 
         // Just set up initial state, don't execute program here
         // console.log(pieceCount);
-        wipe("erase");
+        
+        // Detect first-line color from AST if not already set (e.g., during resize)
+        if (!this.firstLineColor && this.ast) {
+          this.detectFirstLineColor();
+        }
+        
+        // Use first-line color as default background if available, otherwise erase
+        if (this.firstLineColor) {
+          wipe(this.firstLineColor);
+        } else {
+          wipe("erase");
+        }
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
@@ -2124,6 +2239,46 @@ class KidLisp {
         return api.sound?.enabled?.() || false;
       },
       
+      // 🎨 Backdrop - shorthand for (once (wipe color)) to set background once
+      backdrop: (api, args = []) => {
+        if (args.length === 0) {
+          console.error("❗ Invalid `backdrop`. Requires at least one color argument.");
+          return;
+        }
+
+        // Create a unique key for this backdrop call based on its arguments
+        const backdropKey = "backdrop_" + JSON.stringify(args);
+
+        // Only execute if this exact backdrop hasn't been executed before
+        if (!this.onceExecuted.has(backdropKey)) {
+          this.onceExecuted.add(backdropKey);
+          
+          // Call wipe with the provided arguments
+          if (api.wipe) {
+            if (args.length === 1) {
+              return api.wipe(this.evaluate(args[0], api, this.localEnv));
+            } else if (args.length === 3) {
+              // RGB values
+              return api.wipe(
+                this.evaluate(args[0], api, this.localEnv),
+                this.evaluate(args[1], api, this.localEnv),
+                this.evaluate(args[2], api, this.localEnv)
+              );
+            } else if (args.length === 4) {
+              // RGBA values
+              return api.wipe(
+                this.evaluate(args[0], api, this.localEnv),
+                this.evaluate(args[1], api, this.localEnv),
+                this.evaluate(args[2], api, this.localEnv),
+                this.evaluate(args[3], api, this.localEnv)
+              );
+            }
+          }
+        }
+
+        return undefined;
+      },
+      
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
         acc[colorName] = () => cssColors[colorName];
@@ -2302,6 +2457,67 @@ class KidLisp {
     }
 
     if (VERBOSE) console.log("🏃 Body:", body);
+
+    // 🎨 First-line color shorthand: If the first item is just a color name, 
+    // treat it as (once (wipe <color>)) for easy backdrop setting
+    if (body.length > 0 && !parsed.body) {
+      const firstItem = body[0];
+      let colorName = null;
+      
+      // Check if it's a bare string color name
+      if (typeof firstItem === "string") {
+        colorName = firstItem;
+      }
+      // Check if it's a single-argument function call like ["red"]
+      else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
+        colorName = firstItem[0];
+      }
+      
+      if (colorName) {
+        const globalEnv = this.getGlobalEnv();
+        
+        // Check if it's a color name in the global environment
+        if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+          try {
+            // Test if this is a color function by calling it
+            globalEnv[colorName]();
+            
+            // If we get here without error, it's a color function
+            // Store the color name as the default background for this KidLisp piece
+            if (!this.firstLineColor) {
+              this.firstLineColor = colorName;
+              
+              // Apply wipe once using the once mechanism
+              const backdropKey = "first_line_backdrop_" + colorName;
+              if (!this.onceExecuted.has(backdropKey)) {
+                this.onceExecuted.add(backdropKey);
+                if (api.wipe) {
+                  api.wipe(colorName);
+                }
+                
+                // Show visual feedback only once
+                console.log("🎨 First-line color backdrop:", colorName);
+                
+                // Add visual indicator to HUD showing backdrop was applied
+                if (api.hud?.label) {
+                  api.hud.label(`🎨 ${colorName} backdrop`, undefined, undefined);
+                  // Set a timer to clear the label after a few seconds
+                  setTimeout(() => {
+                    if (api.hud?.label) {
+                      api.hud.label(undefined);
+                    }
+                  }, 3000);
+                }
+              }
+            }
+            // Remove the first item so it doesn't get evaluated again
+            body = body.slice(1);
+          } catch (e) {
+            // Not a color function, proceed normally
+          }
+        }
+      }
+    }
 
     let result;
 

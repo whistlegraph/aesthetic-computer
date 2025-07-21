@@ -247,7 +247,8 @@ async function boot({
     if (isKidlispSource(rawText)) {
       text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
     } else {
-      text = rawText.replace(/~/g, " "); // Convert tildes to spaces for display
+      // Handle space escaping from backspace navigation, then convert tildes to spaces
+      text = rawText.replace(/_SPACE_/g, " ").replace(/~/g, " ");
     }
 
     // Set the text and user text first before activating
@@ -377,6 +378,7 @@ async function halt($, text) {
   } else if (slug.startsWith("$")) {
     // Handle cached kidlisp lookup: $prefixed codes like $OrqM
     const code = slug.slice(1); // Remove the $ prefix to get the actual nanoid
+    let loaded; // Declare the loaded variable
     
     try {
       const response = await fetch(`/api/store-kidlisp?code=${encodeURIComponent(code)}`);
@@ -407,6 +409,8 @@ async function halt($, text) {
     slug === "tape:mic" ||
     slug === "tapem"
   ) {
+    console.log("🎬 Tape command detected:", slug, "params:", params);
+    
     // 📼 Start taping.
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
@@ -416,6 +420,17 @@ async function halt($, text) {
     // Each of these clips can be stored in indexedDB more easily and played
     // back or be rearranged.
     // 23.09.16.18.01
+
+    // 🎬 Store original tape command for backspace navigation
+    // This preserves the full tape command so backspace from video can return to it
+    // Clear any previous tape command first to avoid conflicts
+    store.delete("tape:originalCommand");
+    store["tape:originalCommand"] = text;
+    console.log("🎬 Stored original tape command for backspace:", text);
+    console.log("🎬 Debug - slug:", slug, "params:", params);
+    console.log("🎬 Debug - original text tokens:", tokens);
+    console.log("🎬 Debug - isKidlispSource(text):", isKidlispSource(text));
+
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 7;
     const tapePromise = new Promise((resolve, reject) => {
@@ -453,12 +468,15 @@ async function halt($, text) {
 
       // Gets picked up on next piece load automatically.
       rec.loadCallback = () => {
+        console.log("🎬 loadCallback triggered, setting up recording with duration:", duration || defaultDuration);
+        
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
         rec.rolling(
           "video" +
             (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
           (time) => {
+            console.log("🎬 rolling callback received time:", time);
             rec.tapeTimerSet(duration || defaultDuration, time);
           },
         ); // Start recording immediately.
@@ -491,7 +509,9 @@ async function halt($, text) {
           jump(params.slice(1).join("~"));
         }
       } else {
-        jump("prompt");
+        // Default to paint piece for recording when no specific piece is provided
+        console.log("🎬 No piece specified, taping the prompt."); 
+        // jump("paint");
       }
       flashColor = [0, 255, 0];
     } catch (err) {
@@ -502,6 +522,12 @@ async function halt($, text) {
     return true;
     // 📼 Cut a tape early.
   } else if (slug === "tape:cut" || slug === "cut") {
+    // 🎬 Store cut command for backspace navigation (only if no original tape command exists)
+    if (!store["tape:originalCommand"]) {
+      store["tape:originalCommand"] = text;
+      console.log("🎬 Stored tape cut command for backspace:", text);
+    }
+    
     let cutRes, cutRej;
     const cutPromise = new Promise((res, rej) => {
       cutRes = res;
