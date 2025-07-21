@@ -3070,15 +3070,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         }
 
-        // Force 2x scaling for consistent, fast GIF output
+        // Force 3x scaling for consistent, fast GIF output
         const originalWidth = content.frames[0].width;
         const originalHeight = content.frames[0].height;
         const frameCount = content.frames.length;
 
-        const optimalScale = 2; // Always use 3x scaling for GIFs
+        const optimalScale = 3; // Always use 3x scaling for GIFs
 
         console.log(
-          `📏 Using fixed 2x scaling for GIF: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+          `📏 Using fixed 3x scaling for GIF: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
         );
 
         // Helper function to upscale pixels with nearest neighbor
