@@ -135,28 +135,59 @@ function flood(x, y, fillColor = c) {
   }
 
   let count = 0;
+  // Use a more efficient visited tracking with numeric keys
   const visited = new Set();
-  const stack = [[x, y]];
-
+  const stack = [x, y]; // Flat array: [x1, y1, x2, y2, ...]
+  
   color(...findColor(fillColor));
   const oldColor = c;
+  
+  // Cache target color values for faster comparison
+  const tr = targetColor[0], tg = targetColor[1], tb = targetColor[2], ta = targetColor[3];
+  const fillR = c[0], fillG = c[1], fillB = c[2], fillA = c[3];
+  
+  // Pre-calculate bounds
+  const maxX = width - 1;
+  const maxY = height - 1;
+  
   while (stack.length) {
-    const [cx, cy] = stack.pop();
-    const key = `${cx},${cy}`;
-
+    // Pop coordinates (working backwards through the stack)
+    const cy = stack.pop();
+    const cx = stack.pop();
+    
+    // Bounds check
+    if (cx < 0 || cx > maxX || cy < 0 || cy > maxY) continue;
+    
+    // Use numeric key for visited check (more efficient than string)
+    const key = cy * width + cx;
     if (visited.has(key)) continue;
     visited.add(key);
 
-    const currentColor = pixel(cx, cy);
-    if (colorsMatch(currentColor, targetColor)) {
+    // Inline pixel color check for better performance
+    const i = (cx + cy * width) * 4;
+    if (i < 0 || i >= pixels.length - 3) continue;
+    
+    // Direct color comparison (faster than function call)
+    if (pixels[i] === tr && pixels[i + 1] === tg && 
+        pixels[i + 2] === tb && pixels[i + 3] === ta) {
       count++;
 
-      plot(cx, cy);
+      // Direct pixel write (bypass plot function overhead)
+      if (fillA === 255) {
+        pixels[i] = fillR;
+        pixels[i + 1] = fillG;
+        pixels[i + 2] = fillB;
+        pixels[i + 3] = fillA;
+      } else {
+        // For alpha blending, fall back to plot
+        plot(cx, cy);
+      }
 
-      stack.push([cx + 1, cy]); // Push neighbors to stack.
-      stack.push([cx - 1, cy]);
-      stack.push([cx, cy + 1]);
-      stack.push([cx, cy - 1]);
+      // Push neighbors (x, y pairs)
+      stack.push(cx + 1, cy);
+      stack.push(cx - 1, cy);
+      stack.push(cx, cy + 1);
+      stack.push(cx, cy - 1);
     }
   }
 

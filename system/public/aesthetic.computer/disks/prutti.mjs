@@ -7,6 +7,9 @@ import { Typeface } from "../lib/type.mjs";
 #endregion */
 
 /* #region 🏁 TODO
+  Bugs, 25.07.20.10.16
+  - []  The timecode in the player doees not update when the audio is playing.
+  - [] The scrubber is weird - please just simplify it / make it work, using 'stample' as a reference interface.
   (Released)
   - [] Better scroll limiting related to the bottom of the screen.
   + Done
