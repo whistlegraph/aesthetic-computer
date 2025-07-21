@@ -1532,6 +1532,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Helper function to generate appropriate filenames for tape recordings
+    function generateTapeFilename(extension, suffix = "") {
+      const options = window.currentRecordingOptions || {
+        pieceName: "tape",
+        pieceParams: "",
+        originalCommand: ""
+      };
+      
+      let baseName = options.pieceName || "tape";
+      
+      // Handle special cases
+      if (baseName === "$code") {
+        // For kidlisp source code, try to extract a $code from the original command
+        const codeMatch = options.originalCommand.match(/\$([a-zA-Z0-9]+)/);
+        if (codeMatch) {
+          baseName = `$${codeMatch[1]}`;
+        } else {
+          baseName = "$code";
+        }
+      }
+      
+      // Add parameters if they exist
+      const params = options.pieceParams || "";
+      const paramsStr = params ? params.replace(/~/g, "-") : "";
+      
+      // Build filename: pieceName[params]-timestamp[suffix].extension
+      const parts = [
+        baseName + paramsStr,
+        timestamp() + suffix
+      ].filter(Boolean);
+      
+      return parts.join("-") + "." + extension;
+    }
+
     if (type === "pen:lock") {
       console.log("🖋️ Request pen lock...");
       wrapper.requestPointerLock();
@@ -2184,7 +2218,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Generate and download the zip
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        const filename = `tape-${timestamp()}-webp.zip`;
+        const filename = generateTapeFilename("zip", "-webp");
 
         console.log(
           `💾 ZIP generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
@@ -2314,7 +2348,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const webpData = await xMux.encodeFrames(webpFrames);
 
         const webpBlob = new Blob([webpData], { type: "image/webp" });
-        const filename = `tape-${timestamp()}-animated.webp`;
+        const filename = generateTapeFilename("webp", "-animated");
 
         console.log(
           `💾 Animated WebP generated: ${filename} (${Math.round((webpBlob.size / 1024 / 1024) * 100) / 100} MB)`,
@@ -2393,7 +2427,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
 
           const apngBlob = new Blob([apngBuffer], { type: "image/png" });
-          const filename = `tape-${timestamp()}-animated.png`;
+          const filename = generateTapeFilename("png", "-animated");
 
           console.log(
             `💾 Animated PNG generated: ${filename} (${Math.round((apngBlob.size / 1024 / 1024) * 100) / 100} MB)`,
@@ -2428,7 +2462,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               canvas.toBlob(resolve, "image/webp", 0.9);
             });
 
-            const filename = `tape-${timestamp()}-static.webp`;
+            const filename = generateTapeFilename("webp", "-static");
             receivedDownload({ filename, data: webpBlob });
 
             console.log("📸 Static WebP fallback exported successfully");
@@ -2742,7 +2776,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("✅ WebP encoding complete! Data length:", webpData.length);
 
         const webpBlob = new Blob([webpData], { type: "image/webp" });
-        const filename = `tape-${timestamp()}-animated.webp`;
+        const filename = generateTapeFilename("webp", "-animated");
 
         console.log(
           `💾 Animated WebP generated: ${filename} (${Math.round((webpBlob.size / 1024 / 1024) * 100) / 100} MB)`,
@@ -2783,7 +2817,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             canvas.toBlob(resolve, "image/webp", 0.9);
           });
 
-          const filename = `tape-${timestamp()}-static.webp`;
+          const filename = generateTapeFilename("webp", "-static");
           receivedDownload({ filename, data: webpBlob });
 
           console.log("📸 Static WebP fallback exported successfully");
@@ -2947,7 +2981,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         const apngBlob = new Blob([apngBuffer], { type: "image/png" });
-        const filename = `tape-${timestamp()}-animated.png`;
+        const filename = generateTapeFilename("png", "-animated");
 
         console.log(
           `💾 Animated PNG generated: ${filename} (${Math.round((apngBlob.size / 1024 / 1024) * 100) / 100} MB)`,
@@ -2988,7 +3022,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             canvas.toBlob(resolve, "image/png");
           });
 
-          const filename = `tape-${timestamp()}-static.png`;
+          const filename = generateTapeFilename("png", "-static");
           receivedDownload({ filename, data: pngBlob });
 
           console.log("📸 Static PNG fallback exported successfully");
@@ -3138,7 +3172,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               `💾 GIF generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
             );
 
-            const filename = `tape-${timestamp()}.gif`;
+            const filename = generateTapeFilename("gif");
             receivedDownload({ filename, data: blob });
 
             console.log("🎬 Animated GIF exported successfully!");
@@ -3200,7 +3234,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             canvas.toBlob(resolve, "image/gif");
           });
 
-          const filename = `tape-${timestamp()}-static.gif`;
+          const filename = generateTapeFilename("gif", "-static");
           receivedDownload({ filename, data: gifBlob });
 
           console.log("📸 Static GIF fallback exported successfully");
@@ -4783,15 +4817,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Audio-visual recording of the main audio track and microphone.
-    if (type === "recorder:rolling") {
-      // mediaRecorderBlob = null; // Clear the current blob when we start recording.
+  // Audio-visual recording of the main audio track and microphone.
+  if (type === "recorder:rolling") {
+    // mediaRecorderBlob = null; // Clear the current blob when we start recording.
 
-      const colonSplit = content.split(":");
-      // tiktokVideo = colonSplit[1] === "tiktok";
-      content = colonSplit[0];
+    // Store recording metadata for filename generation
+    let recordingOptions = {};
+    let actualContent = content;
+    
+    if (typeof content === "object") {
+      // New format with piece metadata
+      recordingOptions = {
+        pieceName: content.pieceName || "tape",
+        pieceParams: content.pieceParams || "",
+        originalCommand: content.originalCommand || ""
+      };
+      actualContent = content.type || "video";
+    } else {
+      // Legacy string format - default to "tape"
+      recordingOptions = {
+        pieceName: "tape",
+        pieceParams: "",
+        originalCommand: ""
+      };
+      actualContent = content;
+    }
+    
+    // Store for use during export
+    window.currentRecordingOptions = recordingOptions;
 
-      if (mediaRecorder && mediaRecorder.state === "paused") {
+    const colonSplit = actualContent.split(":");
+    // tiktokVideo = colonSplit[1] === "tiktok";
+    actualContent = colonSplit[0];
+
+    if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
         mediaRecorderStartTime = performance.now();
         send({
@@ -4802,7 +4861,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
         });
         if (debug && logs.recorder)
-          console.log("🔴 Recorder: Resumed", content);
+          console.log("🔴 Recorder: Resumed", actualContent);
         return;
       }
 
@@ -4850,33 +4909,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let options = { mimeType };
 
-      if (content === "video") {
+      if (actualContent === "video") {
         // Start recording audio.
-        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+        console.log("🎬 Debug - Creating MediaRecorder with audioStreamDest.stream:", audioStreamDest?.stream);
+        console.log("🎬 Debug - MediaRecorder options:", options);
+        try {
+          mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+          console.log("🎬 Debug - MediaRecorder created successfully:", mediaRecorder);
+        } catch (error) {
+          console.error("🎬 Debug - MediaRecorder creation failed:", error);
+          return;
+        }
       }
 
       // 🗺️ mediaRecorder:Start
-      mediaRecorder.onstart = function () {
-        // mediaRecorderResized = false;
-        mediaRecorderStartTime = performance.now();
-        send({
-          type: "recorder:rolling:started",
-          content: {
-            mime: mediaRecorder.mimeType,
-            time: audioContext?.currentTime,
-          },
-        });
-        if (debug && logs.recorder)
-          console.log("🔴 Recorder: Rolling", content);
+      if (mediaRecorder) {
+        mediaRecorder.onstart = function () {
+          // mediaRecorderResized = false;
+          mediaRecorderStartTime = performance.now();
+          send({
+            type: "recorder:rolling:started",
+            content: {
+              mime: mediaRecorder.mimeType,
+              time: audioContext?.currentTime,
+            },
+          });
+          if (debug && logs.recorder)
+            console.log("🔴 Recorder: Rolling", actualContent);
 
-        // window.addEventListener("resize", () => (mediaRecorderResized = true), {
-        // once: true,
-        // });
-      };
+          // window.addEventListener("resize", () => (mediaRecorderResized = true), {
+          // once: true,
+          // });
+        };
+      }
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
-      mediaRecorder.onstop = async function (evt) {
-        stop();
+      if (mediaRecorder) {
+        mediaRecorder.onstop = async function (evt) {
+          stop();
         // recordingDuration = (performance.now() - recordingStartTime) / 1000;
 
         // Reset global streamCanvas state.
@@ -4979,20 +5049,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // }
 
         // send({ type: "recorder:rolling:ended" });
-      };
+        };
 
-      mediaRecorder.ondataavailable = function (e) {
-        if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
-      };
+        mediaRecorder.ondataavailable = function (e) {
+          if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
+        };
 
-      // Always cut off mediaRecorders on unload.
-      window.addEventListener("unload", function () {
-        mediaRecorder?.stop();
-      });
+        // Always cut off mediaRecorders on unload.
+        window.addEventListener("unload", function () {
+          mediaRecorder?.stop();
+        });
 
-      window.addEventListener("beforeunload", function () {
-        mediaRecorder?.stop();
-      });
+        window.addEventListener("beforeunload", function () {
+          mediaRecorder?.stop();
+        });
+      }
 
       //if (content === "video") {
       // Start media recorder once svg loads.
@@ -5610,7 +5681,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Video rendered, now download...
       videoRecorder.onstop = async function (e) {
         const blob = new Blob(chunks, { type: videoRecorder.mimeType });
-        const filename = `tape-${timestamp()}.mp4`;
+        const filename = generateTapeFilename("mp4");
 
         // Store video with frame data for complete persistence
         await receivedChange({
@@ -5624,6 +5695,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 duration: mediaRecorderDuration,
                 frames: recordedFrames, // Include frame data for WebP/Frame exports
                 timestamp: Date.now(),
+                filename, // Store the generated filename
               },
             },
           },
@@ -6805,12 +6877,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
       }
 
-      // 🫲 Make sure the container matches the extension.
-      const tapeMIME = tape.type; // Check the tape's blob's type.
-      if (tapeMIME.indexOf("webm") > -1) {
-        filename = filename.replace(".mp4", ".webm"); // Replaces ".mp4" set from `video`.
+      // Use stored filename if available, otherwise fall back to provided filename
+      if (tapeData?.filename) {
+        filename = tapeData.filename;
       } else {
-        filename = filename.replace(".webm", ".mp4");
+        // 🫲 Make sure the container matches the extension.
+        const tapeMIME = tape?.type; // Check the tape's blob's type.
+        if (tapeMIME?.indexOf("webm") > -1) {
+          filename = filename.replace(".mp4", ".webm"); // Replaces ".mp4" set from `video`.
+        } else {
+          filename = filename.replace(".webm", ".mp4");
+        }
       }
 
       if (tape) {

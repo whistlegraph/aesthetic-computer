@@ -440,7 +440,7 @@ export function timestamp() {
   const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
   return `
     ${d.getFullYear()}.
-    ${d.getMonth() + 1}.
+    ${pad(d.getMonth() + 1)}.
     ${pad(d.getDate())}.
     ${pad(d.getHours())}.
     ${pad(d.getMinutes())}.
