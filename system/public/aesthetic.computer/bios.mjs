@@ -3166,7 +3166,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
 
           // Add frame with 60fps timing (16ms = 60fps, browser-optimized)
-          const fixedDelay = 15; // 16ms = 60fps (1000ms ÷ 60 = 16.67ms)
+          const fixedDelay = 20; // 16ms = 60fps (1000ms ÷ 60 = 16.67ms)
           gif.addFrame(canvas, { copy: true, delay: fixedDelay });
 
           if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
