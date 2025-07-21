@@ -76,6 +76,7 @@ import {
   decodeKidlispFromUrl,
   encodeKidlispForUrl,
   isKidlispSource,
+  getCachedCode,
 } from "../lib/kidlisp.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
@@ -483,8 +484,10 @@ async function halt($, text) {
         console.log("🎬 Debug loadCallback - isKidlispSource(fullKidlispContent):", isKidlispSource(fullKidlispContent));
         
         if (fullKidlispContent && isKidlispSource(fullKidlispContent)) {
-          // For kidlisp source code, use a special piece name
-          pieceName = "$code";
+          // For kidlisp source code, try to get the cached code
+          const cachedCode = getCachedCode(fullKidlispContent);
+          console.log("🎬 Debug - Cached code for KidLisp:", cachedCode);
+          pieceName = cachedCode ? cachedCode : "$code";
         } else if (jumpTo) {
           pieceName = jumpTo;
           // Get additional parameters beyond the piece name
@@ -495,8 +498,10 @@ async function halt($, text) {
             pieceParams = "~" + additionalParams.join("~");
           }
         } else if (isKidlispSource(text)) {
-          // For kidlisp source code without params, use a special piece name
-          pieceName = "$code";
+          // For kidlisp source code without params, try to get the cached code
+          const cachedCode = getCachedCode(text);
+          console.log("🎬 Debug - Cached code for KidLisp (text):", cachedCode);
+          pieceName = cachedCode ? cachedCode : "$code";
         }
         
         console.log("🎬 Tape recording piece info:", { pieceName, pieceParams, jumpTo, text });

@@ -7875,6 +7875,9 @@ async function makeFrame({ data: { type, content } }) {
           // Check if this source has been cached using the global registry
           const cachedCode = getCachedCode(sourceCode);
           if (cachedCode) {
+            // Send the cached code to main thread for tape naming
+            send({ type: "kidlisp:cached-code", content: cachedCode });
+            
             // Use cache key based on cached code to avoid regenerating the same QR
             const cacheKey = `qr_${cachedCode}`;
             const isLocal = (typeof location !== 'undefined' && location.host) && (
@@ -7967,10 +7970,6 @@ async function makeFrame({ data: { type, content } }) {
               
               // Render text with appropriate style
               if (useBackdrop) {
-                // Draw gray shadow for text area (independent shadow)
-                $.ink("gray");
-                $.box(textAreaX + 1, textAreaY + 1, textAreaWidth, textAreaHeight); // Text area shadow
-                
                 // Draw black background for text area (sized to fit text)
                 $.ink("black"); // Black background
                 $.box(textAreaX, textAreaY, textAreaWidth, textAreaHeight);
@@ -8002,11 +8001,12 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
-              // Add drop shadow to QR code (independent of text area)
-              $.ink("gray");
-              // QR code shadow (right edge and bottom line)
-              $.box(qrSize, qrOffsetY + 1, 1, qrSize - 1); // Right edge shadow aligned with QR code
-              $.box(1, qrOffsetY + qrSize, qrSize, 1); // Bottom shadow: 1px right, flush with QR bottom
+              // Draw gray shadow along the right side and bottom of the entire overlay
+              $.ink("gray", 128);
+              // Right shadow - offset 1px down from top like a drop shadow
+              $.box(qrSize, 1, 1, qrOffsetY + qrSize);
+              // Bottom shadow - offset 1px from left edge like a drop shadow
+              $.box(1, qrOffsetY + qrSize, qrSize, 1);
             });
             
             // Check if all characters are actually loaded in the font
@@ -8041,7 +8041,7 @@ async function makeFrame({ data: { type, content } }) {
             const overlayWidth = qrToUse.width;
             const overlayHeight = qrToUse.height;
             startX = screen.width - overlayWidth - margin;
-            startY = screen.height - overlayHeight - margin + 1; // Move down 1px
+            startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
             
             // Create overlay object for transfer
             qrOverlay = {
