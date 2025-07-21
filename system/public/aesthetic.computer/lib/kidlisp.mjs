@@ -392,6 +392,10 @@ class KidLisp {
 
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
+    
+    // Ink state management
+    this.inkState = undefined; // Track KidLisp ink color (starts undefined)
+    this.inkStateSet = false; // Track if ink has been explicitly set
   }
 
   // Reset all state for a fresh KidLisp instance
@@ -453,6 +457,10 @@ class KidLisp {
     
     // Reset once execution tracking
     this.onceExecuted.clear();
+    
+    // Don't reset ink state during reset - preserve across frame transitions
+    // this.inkState = undefined;
+    // this.inkStateSet = false;
   }
 
   // Detect first-line color from AST without executing code
@@ -494,6 +502,17 @@ class KidLisp {
   // Get the background fill color for reframe operations
   getBackgroundFillColor() {
     return this.firstLineColor;
+  }
+
+  // Clear KidLisp ink state (reset to undefined)
+  clearInkState() {
+    this.inkState = undefined;
+    this.inkStateSet = false;
+  }
+
+  // Get current KidLisp ink state
+  getInkState() {
+    return this.inkStateSet ? this.inkState : undefined;
   }
 
   // Check if the AST contains microphone-related functions
@@ -843,6 +862,14 @@ class KidLisp {
         } else {
           wipe("erase");
         }
+        
+        // Set initial ink color to undefined for KidLisp pieces
+        // This ensures a clean slate for each piece instead of inheriting system colors
+        if (!this.inkStateSet) {
+          // Don't call ink() as that would set the state - just mark as unset
+          this.inkState = undefined;
+          this.inkStateSet = false;
+        }
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
@@ -862,6 +889,17 @@ class KidLisp {
         // Clear caches that might have stale data between frames
         this.variableCache.clear();
         this.expressionCache.clear();
+
+        // Restore KidLisp ink state at the beginning of each paint frame
+        // This ensures ink color persists despite modifications by HUD, QR codes, etc.
+        if (this.inkStateSet && this.inkState !== undefined) {
+          $.ink?.(this.inkState);
+        } else {
+          // If no ink has been explicitly set in KidLisp, set ink to undefined
+          // This prevents inheriting colors from HUD, QR codes, etc. and allows
+          // the underlying system to handle the undefined ink state properly
+          $.ink?.(undefined);
+        }
 
         perfStart("frame-evaluation");
         try {
@@ -1495,7 +1533,20 @@ class KidLisp {
         api.wipe?.(processArgStringTypes(args));
       },
       ink: (api, args) => {
-        api.ink?.(processArgStringTypes(args));
+        // Handle different ink invocation patterns
+        if (args.length === 0) {
+          // Called with no arguments - return current ink state
+          return this.inkState;
+        } else if (args.length === 1 && (args[0] === null || args[0] === undefined)) {
+          // Called with null/undefined - clear the ink state  
+          this.clearInkState();
+          return undefined;
+        } else {
+          // Called with color arguments - store and apply the new ink state
+          this.inkState = processArgStringTypes(args);
+          this.inkStateSet = true;
+          api.ink?.(processArgStringTypes(args));
+        }
       },
       line: (api, args = []) => {
         api.line(...args);
