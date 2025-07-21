@@ -449,7 +449,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         (async () => {
           try {
             // Wait for stylesheet to load first
-            await new Promise(resolve => {
+            await new Promise((resolve) => {
               const checkFonts = () => {
                 // Check if at least one font face is available
                 const fontFaces = Array.from(document.fonts);
@@ -461,15 +461,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               };
               checkFonts();
             });
-            
+
             // Now load the fonts explicitly
             await Promise.all([
               document.fonts.load("1em YWFTProcessing-Light"),
               document.fonts.load("1em YWFTProcessing-Regular"),
               document.fonts.load("bold 1em YWFTProcessing-Regular"),
-              document.fonts.load("normal 1em YWFTProcessing-Light")
+              document.fonts.load("normal 1em YWFTProcessing-Light"),
             ]);
-            
           } catch (error) {
             console.warn("⚠️ Font loading during boot failed:", error);
             // Fallback to fonts.ready
@@ -1707,7 +1706,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (fontsLoaded) {
         return; // Fonts already loaded
       }
-      
+
       if ("fonts" in document) {
         try {
           // Force font loading with multiple strategies
@@ -1715,26 +1714,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             document.fonts.load("1em YWFTProcessing-Regular"),
             document.fonts.load("1em YWFTProcessing-Light"),
             document.fonts.load("bold 1em YWFTProcessing-Regular"),
-            document.fonts.load("normal 1em YWFTProcessing-Light")
+            document.fonts.load("normal 1em YWFTProcessing-Light"),
           ];
-          
+
           await Promise.all(fontPromises);
           console.log("✅ Fonts loaded for tape overlay");
-          
+
           // Additional verification: check if fonts are actually available
           const fontFaces = Array.from(document.fonts);
-          const hasRegular = fontFaces.some(font => font.family.includes('YWFTProcessing-Regular'));
-          const hasLight = fontFaces.some(font => font.family.includes('YWFTProcessing-Light'));
-          
+          const hasRegular = fontFaces.some((font) =>
+            font.family.includes("YWFTProcessing-Regular"),
+          );
+          const hasLight = fontFaces.some((font) =>
+            font.family.includes("YWFTProcessing-Light"),
+          );
+
           if (!hasRegular || !hasLight) {
-            console.warn("⚠️ Font verification failed - fonts may not be fully loaded");
+            console.warn(
+              "⚠️ Font verification failed - fonts may not be fully loaded",
+            );
             // Wait a bit more and try again
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
             await Promise.all(fontPromises);
           }
-          
+
           fontsLoaded = true; // Mark fonts as loaded
-          
         } catch (error) {
           console.warn("⚠️ Failed to load fonts for tape overlay:", error);
           // Fallback: wait for document.fonts.ready
@@ -1745,15 +1749,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add the sideways AC stamp (same as video recording)
-    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight) {
+    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null) {
       // Ensure fonts are loaded before drawing
       await ensureFontsLoaded();
-      
+
       // 2. Set up the font.
-      const typeSize = Math.min(32, Math.max(24, Math.floor(canvasHeight / 20)));
+      const typeSize = Math.min(
+        16,
+        Math.max(12, Math.floor(canvasHeight / 40)),
+      );
       const gap = typeSize * 0.75;
 
       ctx.save(); // Save the current state of the canvas
+
+      // Add film camera style timestamp at bottom-left corner
+      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData);
 
       drawTextAtPosition(0, 90); // Left
       drawTextAtPosition(canvasWidth, -90); // Right
@@ -1765,9 +1775,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ctx.save();
         ctx.translate(positionX, 0);
         ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
-        const yDist = 0.05;
+        const yDist = 0.25; // Move towards center (was 0.05)
 
-        ctx.font = `${typeSize}px YWFTProcessing-Regular`;
+        // Make the stamps larger
+        ctx.font = `${typeSize * 1.2}px YWFTProcessing-Regular`;
         const text = "aesthetic.computer";
         const measured = ctx.measureText(text);
         const textWidth = measured.width;
@@ -1782,13 +1793,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.globalAlpha = choose([0.5, 0.4, 0.6]);
             offsetX = choose([-1, 0, 1]);
             offsetY = choose([-1, 0, 1]);
-            color = choose([
-              "white",
-              "white",
-              "white",
-              "magenta",
-              "yellow",
-            ]);
+            color = choose(["white", "white", "white", "magenta", "yellow"]);
           }
 
           ctx.fillStyle = color;
@@ -1796,9 +1801,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (deg === 90) {
             ctx.fillText(
               text,
-              floor(
-                canvasHeight * (1 - yDist) - textWidth + offsetY,
-              ),
+              floor(canvasHeight * (1 - yDist) - textWidth + offsetY),
               -floor(offsetX + gap),
             );
           } else if (deg === -90) {
@@ -1811,11 +1814,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         if (HANDLE) {
-          ctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
+          ctx.font = `${typeSize * 1.5}px YWFTProcessing-Light`; // Larger handle
           ctx.fillStyle = choose(["yellow", "red", "blue"]);
           let offsetX, offsetY;
-          const handleWidth =
-            textWidth / 2 + ctx.measureText(HANDLE).width / 2;
+          const handleWidth = textWidth / 2 + ctx.measureText(HANDLE).width / 2;
           const handleSpace = typeSize * 1.35;
           offsetX = choose([-1, 0, 1]);
           offsetY = choose([-1, 0, 1]);
@@ -1824,9 +1826,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Handle
             ctx.fillText(
               HANDLE,
-              floor(
-                canvasHeight * (1 - yDist) - handleWidth + offsetY,
-              ),
+              floor(canvasHeight * (1 - yDist) - handleWidth + offsetY),
               -floor(offsetX + handleSpace + gap),
             );
           } else if (deg === -90) {
@@ -1838,7 +1838,198 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
+        // Remove the old timestamp code from here since it's now in addFilmTimestamp
+
         ctx.restore();
+      }
+
+      // Film camera style timestamp at bottom-left corner
+      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null) {
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
+        const day = now.getUTCDate();
+        const hour = now.getUTCHours();
+        const minute = now.getUTCMinutes();
+        const second = now.getUTCSeconds();
+        const millisecond = now.getUTCMilliseconds();
+
+        // Include milliseconds for frame-by-frame uniqueness
+        const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+
+        ctx.save();
+        // Make timestamp same size as aesthetic.computer text, more visible, with white/yellow/red blinking
+        ctx.font = `bold ${typeSize * 1.2}px YWFTProcessing-Regular`;
+        ctx.globalAlpha = 0.85; // More opaque for better visibility
+        ctx.fillStyle = choose(["white", "yellow", "red"]); // White/yellow/red blinking
+
+        const timestampMargin = typeSize * 0.5; // Small margin from edges
+
+        // Remove shake/jitter effect - keep timestamp steady
+        const shakeX = 0; // No more shaking
+        const shakeY = 0; // No more shaking
+
+        // 🔴 Enhanced progress bar with frame-based colors
+        const progressBarHeight = 3; // Make it shorter (was 4)
+        const progressBarY = canvasHeight - progressBarHeight; // No gap - fully at bottom
+        
+        // Reset context and draw gray background for full progress bar (more opaque)
+        ctx.globalAlpha = 1.0; // Full opacity for background
+        ctx.fillStyle = "rgba(128, 128, 128, 0.9)"; // More opaque gray background (was 0.6)
+        ctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+        
+        // Dynamic progress bar with frame-based colors and additive stacking
+        const progressBarWidth = Math.floor(progress * canvasWidth);
+        if (progressBarWidth > 0) {
+          // Create or get the progress bar canvas for additive painting
+          if (!ctx.progressBarCanvas) {
+            ctx.progressBarCanvas = document.createElement('canvas');
+            ctx.progressBarCanvas.width = canvasWidth;
+            ctx.progressBarCanvas.height = progressBarHeight;
+            ctx.progressBarCtx = ctx.progressBarCanvas.getContext('2d');
+            ctx.lastProgressWidth = 0;
+          }
+          
+          const pCtx = ctx.progressBarCtx;
+          
+          // Only paint new pixels that have been added since last frame
+          const newPixelsStart = ctx.lastProgressWidth || 0;
+          const newPixelsWidth = progressBarWidth - newPixelsStart;
+          
+          if (newPixelsWidth > 0 && frameData) {
+            // Sample colors from current frame data for the new pixels
+            const currentFrameColors = sampleFrameColors(frameData, canvasWidth, canvasHeight, 5);
+            
+            // Make colors more saturated
+            const saturatedColors = currentFrameColors.map(color => {
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+              
+              // Increase saturation by pushing colors away from gray
+              const avg = (r + g + b) / 3;
+              const saturationBoost = 1.5;
+              const newR = Math.min(255, Math.max(0, avg + (r - avg) * saturationBoost));
+              const newG = Math.min(255, Math.max(0, avg + (g - avg) * saturationBoost));
+              const newB = Math.min(255, Math.max(0, avg + (b - avg) * saturationBoost));
+              
+              return `#${Math.floor(newR).toString(16).padStart(2, '0')}${Math.floor(newG).toString(16).padStart(2, '0')}${Math.floor(newB).toString(16).padStart(2, '0')}`;
+            });
+            
+            // Paint the new pixels with static vertical stripes (no animation)
+            for (let x = newPixelsStart; x < progressBarWidth; x++) {
+              const colorIndex = x % saturatedColors.length;
+              const color = saturatedColors[colorIndex];
+              
+              // Convert hex to RGB
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+              
+              pCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+              
+              // Draw vertical stripe for this x position
+              for (let y = 0; y < progressBarHeight; y++) {
+                pCtx.fillRect(x, y, 1, 1);
+              }
+            }
+          } else if (newPixelsWidth > 0) {
+            // Fallback colors if no frame data
+            const fallbackColors = ["#FF5555", "#FF7777", "#FFBB55", "#FF9999", "#FFDDDD"];
+            
+            for (let x = newPixelsStart; x < progressBarWidth; x++) {
+              const colorIndex = x % fallbackColors.length;
+              const color = fallbackColors[colorIndex];
+              
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+              
+              pCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+              
+              for (let y = 0; y < progressBarHeight; y++) {
+                pCtx.fillRect(x, y, 1, 1);
+              }
+            }
+          }
+          
+          // Update the last progress width
+          ctx.lastProgressWidth = progressBarWidth;
+          
+          // Draw the accumulated progress bar canvas onto the main canvas
+          ctx.drawImage(ctx.progressBarCanvas, 0, progressBarY);
+        }
+
+        // Position timestamp above the progress bar with proper margin, moved left for even spacing
+        const timestampY = canvasHeight - progressBarHeight - timestampMargin; // Above progress bar
+        const timestampX = timestampMargin * 2; // Move further left for better spacing
+        ctx.fillText(
+          timestamp,
+          timestampX + shakeX,
+          timestampY + shakeY,
+        );
+
+        ctx.restore();
+      }
+
+      // Helper function to sample representative colors from frame data
+      function sampleFrameColors(frameData, canvasWidth, canvasHeight, numColors = 5) {
+        if (!frameData || frameData.length < 4) {
+          // Fallback to original colors if no frame data
+          return ["#FF4444", "#FF6666", "#FFAA44", "#FF8888", "#FFCCCC"];
+        }
+
+        const sampledColors = [];
+        const totalPixels = canvasWidth * canvasHeight;
+        
+        // Sample colors from different regions of the frame
+        let samplePositions;
+        if (numColors <= 5) {
+          samplePositions = [0.1, 0.3, 0.5, 0.7, 0.9]; // Original 5 positions
+        } else {
+          // Generate more evenly distributed positions for higher numColors
+          samplePositions = [];
+          for (let i = 0; i < numColors; i++) {
+            samplePositions.push((i + 1) / (numColors + 1)); // Evenly distributed from ~0.1 to ~0.9
+          }
+        }
+
+        for (let i = 0; i < numColors; i++) {
+          const samplePos = Math.floor(samplePositions[i % samplePositions.length] * totalPixels);
+          const pixelIndex = Math.min(samplePos * 4, frameData.length - 4);
+          
+          const r = frameData[pixelIndex];
+          const g = frameData[pixelIndex + 1];
+          const b = frameData[pixelIndex + 2];
+          
+          // Enhance the colors to make them more vibrant for the progress bar
+          const enhancedR = Math.min(255, Math.floor(r * 1.2));
+          const enhancedG = Math.min(255, Math.floor(g * 1.2));
+          const enhancedB = Math.min(255, Math.floor(b * 1.2));
+          
+          const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+          sampledColors.push(hexColor);
+        }
+
+        // If all sampled colors are too dark, add some brightness
+        const avgBrightness = sampledColors.reduce((sum, color) => {
+          const r = parseInt(color.slice(1, 3), 16);
+          const g = parseInt(color.slice(3, 5), 16);
+          const b = parseInt(color.slice(5, 7), 16);
+          return sum + (r + g + b) / 3;
+        }, 0) / sampledColors.length;
+
+        if (avgBrightness < 60) {
+          // Mix in some brighter colors if the frame is too dark
+          return sampledColors.map((color, i) => {
+            if (i % 2 === 0) {
+              return choose(["#FF6666", "#FFAA44", "#FF8888", "#FFCCCC", "#66FF66", "#6666FF"]);
+            }
+            return color;
+          });
+        }
+
+        return sampledColors;
       }
 
       // Helper function for choosing random values (simplified version)
@@ -1877,7 +2068,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add stamp to pixel data by rendering to a canvas first
-    async function addStampToPixelData(pixelData, width, height, scale = 1) {
+    async function addStampToPixelData(pixelData, width, height, scale = 1, progress = 0) {
       // Create a temporary canvas to render the stamp
       const tempCanvas = document.createElement("canvas");
       const tempCtx = tempCanvas.getContext("2d");
@@ -1895,8 +2086,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       tempCtx.putImageData(imageData, 0, 0);
 
       // Add the stamp (await to ensure fonts are loaded)
-      await addAestheticComputerStamp(tempCtx, width * scale, height * scale);
-      
+      await addAestheticComputerStamp(tempCtx, width * scale, height * scale, progress, pixelData);
+
       // Get the stamped image data back
       const stampedImageData = tempCtx.getImageData(
         0,
@@ -1909,14 +2100,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎬 Create animated WebP from frame data
     if (type === "create-animated-webp") {
-      console.log("📼 Creating animated WebP from", content.frames.length, "frames");
-      
+      console.log(
+        "📼 Creating animated WebP from",
+        content.frames.length,
+        "frames",
+      );
+
       // Send initial progress to show the progress bar immediately
       send({
         type: "recorder:transcode-progress",
         content: 0.01, // 1% to start
       });
-      
+
       try {
         // Create a canvas for frame processing
         const canvas = document.createElement("canvas");
@@ -1955,7 +2150,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Convert each frame to WebP and add to zip
         for (let i = 0; i < content.frames.length; i++) {
           const frame = content.frames[i];
-          
+
           if (i % 50 === 0 || i === content.frames.length - 1) {
             console.log(
               `🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(((i + 1) / content.frames.length) * 100)}%)`,
@@ -1973,25 +2168,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.putImageData(imageData, 0, 0);
 
           // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
-          await addAestheticComputerStamp(ctx, frame.width, frame.height);
-          
+          const currentProgress = (i + 1) / content.frames.length;
+          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data);
+
           // Convert to WebP blob
           const webpBlob = await new Promise((resolve) => {
             canvas.toBlob(resolve, "image/webp", 0.8);
           });
 
           // Add to zip
-          zip.file(`frame_${i.toString().padStart(4, '0')}.webp`, webpBlob);
+          zip.file(`frame_${i.toString().padStart(4, "0")}.webp`, webpBlob);
         }
 
         console.log("📦 Generating ZIP file...");
-        
+
         // Generate and download the zip
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const filename = `tape-${timestamp()}-webp.zip`;
-        
-        console.log(`💾 ZIP generated: ${filename} (${Math.round(zipBlob.size / 1024 / 1024 * 100) / 100} MB)`);
-        
+
+        console.log(
+          `💾 ZIP generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
         // Use the existing download function
         receivedDownload({ filename, data: zipBlob });
 
@@ -2044,7 +2242,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Convert our frame data to WebPXMux format
         const frames = [];
-        
+
         // Create a canvas for rendering stamps
         const tempCanvas = document.createElement("canvas");
         const tempCtx = tempCanvas.getContext("2d");
@@ -2069,10 +2267,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tempCtx.putImageData(imageData, 0, 0);
 
           // Add sideways AC stamp like in other video recordings
-          await addAestheticComputerStamp(tempCtx, frame.width, frame.height);
+          const currentProgress = (i + 1) / content.frames.length;
+          await addAestheticComputerStamp(tempCtx, frame.width, frame.height, currentProgress, frame.data);
 
           // Get the stamped image data back
-          const stampedImageData = tempCtx.getImageData(0, 0, frame.width, frame.height);
+          const stampedImageData = tempCtx.getImageData(
+            0,
+            0,
+            frame.width,
+            frame.height,
+          );
           const stampedData = stampedImageData.data;
 
           // Convert frame data to RGBA Uint32Array format expected by webpxmux
@@ -2451,8 +2655,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           // Add AC stamp to the frame data by rendering through canvas
-          const stampedPixelData = addStampToPixelData(new Uint8ClampedArray(data), frame.width, frame.height, optimalScale);
-          
+          const currentProgress = (i + 1) / content.frames.length;
+          const stampedPixelData = await addStampToPixelData(
+            new Uint8ClampedArray(data),
+            frame.width,
+            frame.height,
+            optimalScale,
+            currentProgress,
+          );
+
           // Convert stamped pixel data back to RGBA Uint32Array
           rgba = new Uint32Array(
             frame.width * frame.height * optimalScale * optimalScale,
@@ -2562,10 +2773,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.putImageData(imageData, 0, 0);
 
           // Add sideways AC stamp to fallback WebP as well (await to ensure fonts are loaded)
-          await addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
-          
-          const webpBlob = await new Promise(resolve => {
-            canvas.toBlob(resolve, 'image/webp', 0.9);
+          await addAestheticComputerStamp(
+            ctx,
+            firstFrame.width,
+            firstFrame.height,
+          );
+
+          const webpBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/webp", 0.9);
           });
 
           const filename = `tape-${timestamp()}-static.webp`;
@@ -2703,11 +2918,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Apply upscaling and add AC stamp to frame data
           const originalData = new Uint8ClampedArray(frame.data);
-          const scaledData = addStampToPixelData(
+          const currentProgress = (i + 1) / content.frames.length;
+          const scaledData = await addStampToPixelData(
             originalData,
             frame.width,
             frame.height,
             optimalScale,
+            currentProgress,
           );
 
           // UPNG expects RGBA data as ArrayBuffer
@@ -2761,10 +2978,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.putImageData(imageData, 0, 0);
 
           // Add sideways AC stamp to fallback PNG as well (await to ensure fonts are loaded)
-          await addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
-          
-          const pngBlob = await new Promise(resolve => {
-            canvas.toBlob(resolve, 'image/png');
+          await addAestheticComputerStamp(
+            ctx,
+            firstFrame.width,
+            firstFrame.height,
+          );
+
+          const pngBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/png");
           });
 
           const filename = `tape-${timestamp()}-static.png`;
@@ -2780,8 +3001,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎬 Create animated GIF
     if (type === "create-animated-gif") {
-      console.log("🎞️ Creating animated GIF from", content.frames.length, "frames");
-      
+      console.log(
+        "🎞️ Creating animated GIF from",
+        content.frames.length,
+        "frames",
+      );
+
       try {
         // Load GIF.js library if not already loaded
         if (!window.GIF) {
@@ -2862,9 +3087,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Process each frame with consistent timing
         for (let index = 0; index < content.frames.length; index++) {
           const frame = content.frames[index];
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
           canvas.width = originalWidth * optimalScale;
           canvas.height = originalHeight * optimalScale;
 
@@ -2885,14 +3110,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.putImageData(imageData, 0, 0);
 
           // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
-          await addAestheticComputerStamp(ctx, originalWidth * optimalScale, originalHeight * optimalScale);
-          
+          const progress = (index + 1) / content.frames.length;
+          await addAestheticComputerStamp(
+            ctx,
+            originalWidth * optimalScale,
+            originalHeight * optimalScale,
+            progress,
+          );
+
           // Add frame with 60fps timing (16ms = 60fps, browser-optimized)
           const fixedDelay = 15; // 16ms = 60fps (1000ms ÷ 60 = 16.67ms)
           gif.addFrame(canvas, { copy: true, delay: fixedDelay });
-          
+
           if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
-            console.log(`🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round((index + 1) / content.frames.length * 100)}%)`);
+            console.log(
+              `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(((index + 1) / content.frames.length) * 100)}%)`,
+            );
           }
         }
 
@@ -2900,22 +3133,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Render the GIF
         await new Promise((resolve, reject) => {
-          gif.on('finished', (blob) => {
-            console.log(`💾 GIF generated: ${Math.round(blob.size / 1024 / 1024 * 100) / 100} MB`);
-            
+          gif.on("finished", (blob) => {
+            console.log(
+              `💾 GIF generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
+            );
+
             const filename = `tape-${timestamp()}.gif`;
             receivedDownload({ filename, data: blob });
 
             console.log("🎬 Animated GIF exported successfully!");
-            
+
+            // Send completion message to video piece
+            send({
+              type: "recorder:export-complete",
+              content: { type: "gif", filename }
+            });
+
             // Add a small delay to ensure UI processes the completion signal
             setTimeout(() => {
               resolve();
             }, 100);
           });
-          
-          gif.on('progress', (progress) => {
-            console.log(`🔄 GIF encoding progress: ${Math.round(progress * 100)}%`);
+
+          gif.on("progress", (progress) => {
+            console.log(
+              `🔄 GIF encoding progress: ${Math.round(progress * 100)}%`,
+            );
+            
+            // Send progress updates to video piece
+            send({
+              type: "recorder:export-progress", 
+              content: { progress, type: "gif" }
+            });
           });
 
           gif.render();
@@ -2941,10 +3190,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.putImageData(imageData, 0, 0);
 
           // Add sideways AC stamp to fallback GIF as well (await to ensure fonts are loaded)
-          await addAestheticComputerStamp(ctx, firstFrame.width, firstFrame.height);
-          
-          const gifBlob = await new Promise(resolve => {
-            canvas.toBlob(resolve, 'image/gif');
+          await addAestheticComputerStamp(
+            ctx,
+            firstFrame.width,
+            firstFrame.height,
+          );
+
+          const gifBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/gif");
           });
 
           const filename = `tape-${timestamp()}-static.gif`;
@@ -4750,12 +5003,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
       //} else {
       // console.log("Start audio recording...");
-      
+
       // Clear any cached tape data and audio before starting new recording
       Store.del("tape").catch(() => {}); // Clear cache, ignore errors
       delete sfx["tape:audio"]; // Clear any cached audio data
       mediaRecorderDuration = 0; // Reset duration for new recording
-      
+
       mediaRecorder.start(100);
       //}
       return;
@@ -4797,7 +5050,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "recorder:present") {
       // Check for cached video if no active recording AND no recorded frames
-      if ((!mediaRecorder || mediaRecorder.state !== "paused") && recordedFrames.length === 0) {
+      if (
+        (!mediaRecorder || mediaRecorder.state !== "paused") &&
+        recordedFrames.length === 0
+      ) {
         const cachedTape = await Store.get("tape");
         if (cachedTape && cachedTape.blob) {
           console.log("📼 Loading cached video for presentation");
@@ -5165,11 +5421,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // }
 
             // 2. Set up the font.
-            const typeSize = min(32, max(24, floor(sctx.canvas.height / 20)));
+            const typeSize = min(16, max(12, floor(sctx.canvas.height / 40)));
             // const textHeight = typeSize;
             const gap = typeSize * 0.75;
 
             sctx.save(); // Save the current state of the canvas
+
+            // Add film camera style timestamp at bottom-left corner
+            addFilmTimestamp(
+              sctx,
+              sctx.canvas.width,
+              sctx.canvas.height,
+              typeSize,
+            );
 
             drawTextAtPosition(0, 90); // Left
             drawTextAtPosition(sctx.canvas.width, -90); // Right
@@ -5181,9 +5445,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.save();
               sctx.translate(positionX, 0);
               sctx.rotate(radians(deg));
-              const yDist = 0.05;
+              const yDist = 0.25; // Move towards center (was 0.05)
 
-              sctx.font = `${typeSize}px YWFTProcessing-Regular`;
+              // Make the stamps larger
+              sctx.font = `${typeSize * 1.2}px YWFTProcessing-Regular`;
               const text = "aesthetic.computer";
               const measured = sctx.measureText(text);
               const textWidth = measured.width;
@@ -5227,7 +5492,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
 
               if (HANDLE) {
-                sctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
+                sctx.font = `${typeSize * 1.5}px YWFTProcessing-Light`; // Larger handle
                 sctx.fillStyle = choose("yellow", "red", "blue");
                 let offsetX, offsetY;
                 const handleWidth =
@@ -5253,6 +5518,79 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   );
                 }
               }
+
+              // Remove the old timestamp code from here since it's now in addFilmTimestamp
+
+              sctx.restore();
+            }
+
+            // Film camera style timestamp at bottom-left corner
+            function addFilmTimestamp(
+              sctx,
+              canvasWidth,
+              canvasHeight,
+              typeSize,
+            ) {
+              const now = new Date();
+              const year = now.getUTCFullYear();
+              const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
+              const day = now.getUTCDate();
+              const hour = now.getUTCHours();
+              const minute = now.getUTCMinutes();
+              const second = now.getUTCSeconds();
+              const millisecond = now.getUTCMilliseconds();
+
+              // Include milliseconds for frame-by-frame uniqueness
+              const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+
+              sctx.save();
+              // Make timestamp more opaque and clearer
+              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
+              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
+              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
+
+              const timestampMargin = typeSize * 0.5; // Small margin from edges
+
+              // Smoother, gentler shake effect
+              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
+              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
+              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+
+              // Position above YouTube bar (add extra margin for the 1px bar)
+              const progressBarHeight = 1;
+              const timestampY =
+                canvasHeight -
+                timestampMargin -
+                progressBarHeight -
+                typeSize * 0.5;
+
+              sctx.fillText(
+                timestamp,
+                timestampMargin + shakeX,
+                timestampY + shakeY,
+              );
+
+              // 🔴 Add red progress bar at bottom of exported video
+              console.log("🔴 Drawing progress bar in timestamp function:", { progress, width: canvasWidth, progressBarWidth: Math.floor(progress * canvasWidth) });
+              
+              // Make progress bar MUCH more prominent for debugging
+              sctx.fillStyle = "#FF0000"; // Bright red
+              const progressBarWidth = Math.floor(progress * canvasWidth);
+              const redProgressBarHeight = 20; // Much bigger - 20 pixels high
+              const redProgressBarY = canvasHeight - redProgressBarHeight;
+              sctx.fillRect(0, redProgressBarY, progressBarWidth, redProgressBarHeight);
+
+              // Add a white outline to make it super visible
+              sctx.strokeStyle = "#FFFFFF";
+              sctx.lineWidth = 2;
+              sctx.strokeRect(0, redProgressBarY, progressBarWidth, redProgressBarHeight);
+              
+              // Draw a test rectangle at the top too to verify our drawing is working
+              sctx.fillStyle = "#00FF00"; // Bright green
+              sctx.fillRect(10, 10, 100, 50);
+              sctx.fillStyle = "#FFFFFF";
+              sctx.font = "16px Arial";
+              sctx.fillText("TEST BAR IN TIMESTAMP", 15, 35);
 
               sctx.restore();
             }
@@ -5794,30 +6132,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // This currently paints corner labels and tape progress bars only.
     // (So they can be skipped for recordings?)
     let paintOverlays = {};
-    
+
     // Frame-persistent overlay cache that survives reframes
-    if (!window.framePersisentOverlayCache) {
-      window.framePersisentOverlayCache = {};
+    if (!window.framePersistentOverlayCache) {
+      window.framePersistentOverlayCache = {};
     }
-    
+
     // Per-overlay canvas cache to prevent canvas thrashing
     if (!window.overlayCanvasCache) {
       window.overlayCanvasCache = {};
     }
-    
+
     function buildOverlay(name, o) {
       // Only log reframe operations to debug flicker
       const isHudOverlay = name === "label" || name === "qrOverlay";
-      
-      if (isHudOverlay && content.reframe) {
-        console.log(`🔍 REFRAME ${name}: hasData=${!!o}, hasCache=${!!window.framePersisentOverlayCache[name]}`);
+
+      if (isHudOverlay && content.reframe && debug) {
+        console.log(
+          `🔍 REFRAME ${name}: hasData=${!!o}, hasCache=${!!window.framePersistentOverlayCache[name]}`,
+        );
       }
-      
+
       if (!o) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        if (content.reframe && window.framePersisentOverlayCache[name]) {
-          if (isHudOverlay) console.log(`  └─ Using cached painter for ${name}`);
-          paintOverlays[name] = window.framePersisentOverlayCache[name];
+        if (content.reframe && window.framePersistentOverlayCache[name]) {
+          if (isHudOverlay && debug)
+            console.log(`  └─ Using cached painter for ${name}`);
+          paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
         return;
@@ -5826,32 +6167,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Create or reuse dedicated canvas for this overlay
       if (!window.overlayCanvasCache[name]) {
         window.overlayCanvasCache[name] = {
-          canvas: document.createElement('canvas'),
-          lastKey: null
+          canvas: document.createElement("canvas"),
+          lastKey: null,
         };
-        window.overlayCanvasCache[name].ctx = window.overlayCanvasCache[name].canvas.getContext('2d');
+        window.overlayCanvasCache[name].ctx =
+          window.overlayCanvasCache[name].canvas.getContext("2d");
       }
-      
+
       const overlayCache = window.overlayCanvasCache[name];
       const currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
-      
+
       // For QR overlay, disable canvas caching to allow animation
       if (name === "qrOverlay") {
         overlayCache.lastKey = null; // Force regeneration
       }
-      
+
       // Only rebuild if overlay actually changed
-      if (overlayCache.lastKey === currentKey && window.framePersisentOverlayCache[name] && name !== "qrOverlay") {
-        paintOverlays[name] = window.framePersisentOverlayCache[name];
+      if (
+        overlayCache.lastKey === currentKey &&
+        window.framePersistentOverlayCache[name] &&
+        name !== "qrOverlay"
+      ) {
+        paintOverlays[name] = window.framePersistentOverlayCache[name];
         return;
       }
-      
+
       overlayCache.lastKey = currentKey;
 
       paintOverlays[name] = () => {
         const canvas = overlayCache.canvas;
         const overlayCtx = overlayCache.ctx;
-        
+
         overlayCtx.imageSmoothingEnabled = false;
 
         // Resize this overlay's dedicated canvas if needed
@@ -5861,7 +6207,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         try {
-          const imageData = new ImageData(o.img.pixels, o.img.width, o.img.height);
+          const imageData = new ImageData(
+            o.img.pixels,
+            o.img.width,
+            o.img.height,
+          );
           overlayCtx.putImageData(imageData, 0, 0);
         } catch (error) {
           console.error(`❌ Error creating ImageData for ${name}:`, error);
@@ -5871,10 +6221,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Paint overlay to main canvas (ctx is the main canvas context)
         ctx.drawImage(canvas, o.x, o.y);
       };
-      
+
       // Don't cache QR overlay painters to allow animation
       if (isHudOverlay && name !== "qrOverlay") {
-        window.framePersisentOverlayCache[name] = paintOverlays[name];
+        window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
 
@@ -5911,8 +6261,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             imageData.data &&
             imageData.data.buffer &&
             (imageData.data.buffer.byteLength === 0 ||
-             imageData.width !== ctx.canvas.width ||
-             imageData.height !== ctx.canvas.height)
+              imageData.width !== ctx.canvas.width ||
+              imageData.height !== ctx.canvas.height)
           ) {
             imageData = ctx.getImageData(
               0,
@@ -5940,6 +6290,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
         }
 
+        // Check if we need to record frames (before painting overlays)
+        const isRecording =
+          // typeof paintToStreamCanvas === "function" &&
+          mediaRecorder?.state === "recording" &&
+          mediaRecorderStartTime !== undefined;
+
         // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
         let cleanScreenshotData = null;
         if (needs$creenshot) {
@@ -5951,36 +6307,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
         }
 
-        // Check if we need to record frames (before painting overlays)
-        const isRecording =
-          // typeof paintToStreamCanvas === "function" &&
-          mediaRecorder?.state === "recording" &&
-          mediaRecorderStartTime !== undefined;
-
-        // Paint overlays 
-        if (content.reframe) {
+        // Paint overlays (but exclude tape progress from recordings)
+        if (content.reframe && debug) {
           console.log(`🖼️ REFRAME: About to paint overlays`);
         }
-        
+
         if (paintOverlays["label"]) {
-          if (content.reframe) console.log(`  └─ Painting label overlay`);
+          if (content.reframe && debug)
+            console.log(`  └─ Painting label overlay`);
           paintOverlays["label"]();
-        } else if (content.reframe) {
+        } else if (content.reframe && debug) {
           console.log(`  └─ No label overlay painter available`);
         }
-        
+
         if (paintOverlays["qrOverlay"]) {
-          if (content.reframe) console.log(`  └─ Painting QR overlay`);
+          if (content.reframe && debug) console.log(`  └─ Painting QR overlay`);
           paintOverlays["qrOverlay"]();
-        } else if (content.reframe) {
+        } else if (content.reframe && debug) {
           console.log(`  └─ No QR overlay painter available`);
         }
-        
-        paintOverlays["tapeProgressBar"]?.(); // tape progress
 
-        // 📼 Capture frame data AFTER overlays are painted (with overlays included)
+        // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
         if (isRecording) {
-          const frameDataWithOverlays = ctx.getImageData(
+          const frameDataWithHUD = ctx.getImageData(
             0,
             0,
             ctx.canvas.width,
@@ -5988,11 +6337,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           recordedFrames.push([
             performance.now() - mediaRecorderStartTime,
-            frameDataWithOverlays,
+            frameDataWithHUD,
           ]);
         }
 
-        // 📸 Return clean screenshot data (without overlays)
+        paintOverlays["tapeProgressBar"]?.(); // tape progress (excluded from recording)
+
+        //  Return clean screenshot data (without overlays)
         if (needs$creenshot) {
           needs$creenshot(cleanScreenshotData);
           needs$creenshot = null;

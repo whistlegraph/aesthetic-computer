@@ -47,6 +47,7 @@ let currentExportType = ""; // Track what's being exported
 let ellipsisTicker;
 
 // Request WebP creation from main thread (document not available in worker)
+// Note: Optimized to handle large frame counts without memory issues
 async function createAnimatedWebP(frames, send) {
   try {
     console.log("Requesting animated WebP creation from main thread for", frames.length, "frames");
@@ -71,7 +72,7 @@ async function createAnimatedWebP(frames, send) {
         duration: Math.max(10, duration), // Minimum 10ms duration
         width: imageData.width,
         height: imageData.height,
-        data: Array.from(imageData.data) // Convert Uint8ClampedArray to regular array for transfer
+        data: imageData.data // Keep as Uint8ClampedArray for transfer efficiency
       });
     }
     
@@ -269,6 +270,11 @@ let printed = false;
 
 // ✒ Act (Runs once per user interaction)
 function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, store }) {
+  // Handle system messages first
+  if (handleSystemMessage({ event: e, rec })) {
+    return; // Exit early if a system message was handled
+  }
+
   if (!rec.printing && !isExportingFrames && !isExportingWebP && !isExportingAnimWebP && !isExportingAPNG && !isExportingGIF) {
     // Download or print (render) a video.
     btn?.act(e, {
@@ -471,16 +477,30 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             if (frameData.frames && frameData.frames.length > 0) {
               console.log("Creating animated WebP from", frameData.frames.length, "frames");
               
+              // Apply frame reduction for very long recordings
+              let framesToProcess = frameData.frames;
+              const MAX_FRAMES_FOR_WEBP = 800; // Higher limit for WebP as it's more efficient
+              
+              if (frameData.frames.length > MAX_FRAMES_FOR_WEBP) {
+                console.log(`Reducing frames from ${frameData.frames.length} to ${MAX_FRAMES_FOR_WEBP} for WebP optimization`);
+                const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_WEBP;
+                framesToProcess = [];
+                for (let i = 0; i < frameData.frames.length; i += skipRatio) {
+                  framesToProcess.push(frameData.frames[Math.floor(i)]);
+                }
+                framesToProcess = framesToProcess.slice(0, MAX_FRAMES_FOR_WEBP);
+              }
+              
               // Send request to main thread for animated WebP creation only
               send({
                 type: "create-animated-webp-only",
                 content: {
-                  frames: frameData.frames.map((frame, index) => {
+                  frames: framesToProcess.map((frame, index) => {
                     const [timestamp, imageData] = frame;
                     let duration = 100; // Default 100ms
                     
-                    if (index < frameData.frames.length - 1) {
-                      const nextTimestamp = frameData.frames[index + 1][0];
+                    if (index < framesToProcess.length - 1) {
+                      const nextTimestamp = framesToProcess[index + 1][0];
                       duration = Math.max(10, nextTimestamp - timestamp);
                     }
                     
@@ -489,7 +509,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                       duration: duration,
                       width: imageData.width,
                       height: imageData.height,
-                      data: Array.from(imageData.data)
+                      data: imageData.data // Keep as Uint8ClampedArray
                     };
                   })
                 }
@@ -552,16 +572,30 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             if (frameData.frames && frameData.frames.length > 0) {
               console.log("Creating APNG from", frameData.frames.length, "frames");
               
+              // Apply frame reduction for very long recordings
+              let framesToProcess = frameData.frames;
+              const MAX_FRAMES_FOR_APNG = 600; // Reasonable limit for APNG
+              
+              if (frameData.frames.length > MAX_FRAMES_FOR_APNG) {
+                console.log(`Reducing frames from ${frameData.frames.length} to ${MAX_FRAMES_FOR_APNG} for APNG optimization`);
+                const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_APNG;
+                framesToProcess = [];
+                for (let i = 0; i < frameData.frames.length; i += skipRatio) {
+                  framesToProcess.push(frameData.frames[Math.floor(i)]);
+                }
+                framesToProcess = framesToProcess.slice(0, MAX_FRAMES_FOR_APNG);
+              }
+              
               // Send request to main thread for APNG creation
               send({
                 type: "create-single-animated-apng",
                 content: {
-                  frames: frameData.frames.map((frame, index) => {
+                  frames: framesToProcess.map((frame, index) => {
                     const [timestamp, imageData] = frame;
                     let duration = 100; // Default 100ms
                     
-                    if (index < frameData.frames.length - 1) {
-                      const nextTimestamp = frameData.frames[index + 1][0];
+                    if (index < framesToProcess.length - 1) {
+                      const nextTimestamp = framesToProcess[index + 1][0];
                       duration = Math.max(10, nextTimestamp - timestamp);
                     }
                     
@@ -570,7 +604,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                       duration: duration,
                       width: imageData.width,
                       height: imageData.height,
-                      data: Array.from(imageData.data)
+                      data: imageData.data // Keep as Uint8ClampedArray
                     };
                   })
                 }
@@ -633,31 +667,52 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             if (frameData.frames && frameData.frames.length > 0) {
               console.log("Creating GIF from", frameData.frames.length, "frames");
               
-              // Send request to main thread for GIF creation
+              // Apply frame reduction for very long recordings to prevent memory issues
+              let framesToProcess = frameData.frames;
+              const MAX_FRAMES_FOR_GIF = 500; // Reasonable limit for GIFs
+              
+              if (frameData.frames.length > MAX_FRAMES_FOR_GIF) {
+                console.log(`Reducing frames from ${frameData.frames.length} to ${MAX_FRAMES_FOR_GIF} for GIF optimization`);
+                const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_GIF;
+                framesToProcess = [];
+                for (let i = 0; i < frameData.frames.length; i += skipRatio) {
+                  framesToProcess.push(frameData.frames[Math.floor(i)]);
+                }
+                framesToProcess = framesToProcess.slice(0, MAX_FRAMES_FOR_GIF);
+              }
+              
+              // Prepare all frames for single GIF creation request
+              const processedFrames = framesToProcess.map((frame, index) => {
+                const [timestamp, imageData] = frame;
+                let duration = 100; // Default 100ms
+                
+                if (index < framesToProcess.length - 1) {
+                  const nextTimestamp = framesToProcess[index + 1][0];
+                  duration = Math.max(10, nextTimestamp - timestamp);
+                }
+                
+                return {
+                  timestamp: timestamp,
+                  duration: duration,
+                  width: imageData.width,
+                  height: imageData.height,
+                  // Use the original Uint8ClampedArray instead of converting to Array
+                  data: imageData.data // Keep as Uint8ClampedArray for transfer efficiency
+                };
+              });
+              
+              // Send single request to main thread for GIF creation
               send({
                 type: "create-animated-gif",
                 content: {
-                  frames: frameData.frames.map((frame, index) => {
-                    const [timestamp, imageData] = frame;
-                    let duration = 100; // Default 100ms
-                    
-                    if (index < frameData.frames.length - 1) {
-                      const nextTimestamp = frameData.frames[index + 1][0];
-                      duration = Math.max(10, nextTimestamp - timestamp);
-                    }
-                    
-                    return {
-                      timestamp: timestamp,
-                      duration: duration,
-                      width: imageData.width,
-                      height: imageData.height,
-                      data: Array.from(imageData.data)
-                    };
-                  })
+                  frames: processedFrames
                 }
               });
               
-              console.log("GIF creation request sent");
+              console.log("All GIF batches sent");
+              // DON'T reset flags here - wait for completion message
+              // The flags will be reset when the GIF is actually finished downloading
+              // via the handleSystemMessage function
             } else {
               console.warn("No frames available for GIF export");
               // Reset flags if no frames available
@@ -743,6 +798,36 @@ function signal(content) {
     if (animWebpBtn) animWebpBtn.disabled = false;
     if (apngBtn) apngBtn.disabled = false;
   }
+}
+
+// 🎯 act (also handles system messages via event.is)
+function handleSystemMessage({ event: e, rec }) {
+  // Handle GIF export progress updates
+  if (e.is("recorder:export-progress")) {
+    if (e.progress !== undefined && e.type === "gif" && isExportingGIF) {
+      printProgress = e.progress;
+      // Don't call needsPaint here as it's handled by the main paint loop
+    }
+    return true;
+  }
+
+  // Handle GIF export completion
+  if (e.is("recorder:export-complete")) {
+    if (e.type === "gif" && isExportingGIF) {
+      // Reset UI flags when export actually completes
+      isPrinting = false;
+      isExportingGIF = false;
+      currentExportType = "";
+      gifBtn.disabled = false;
+      printProgress = 0;
+      
+      // Present the completed video
+      rec.present();
+    }
+    return true;
+  }
+
+  return false;
 }
 
 export { boot, paint, sim, act, signal };

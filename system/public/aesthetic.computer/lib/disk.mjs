@@ -524,22 +524,41 @@ class Recorder {
   constructor() {}
 
   tapeTimerSet(seconds, time) {
+    console.log("🎬 tapeTimerSet called with:", { seconds, time });
     this.tapeTimerStart = time;
     this.tapeTimerDuration = seconds;
   }
 
   tapeTimerStep({ needsPaint, sound: { time } }) {
     if (!this.tapeTimerDuration) return;
-    this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
+    const timeElapsed = time - this.tapeTimerStart;
+    const rawProgress = timeElapsed / this.tapeTimerDuration;
+    // Clamp progress between 0 and 1 to prevent negative bar widths
+    this.tapeProgress = Math.max(0, Math.min(1, rawProgress));
     needsPaint();
-    const secondsOver =
-      this.tapeProgress * this.tapeTimerDuration - this.tapeTimerDuration;
+    const secondsOver = timeElapsed - this.tapeTimerDuration;
+    
+    // Debug logging when we're at or near completion
+    if (this.tapeProgress >= 0.95) {
+      console.log("🎬 Tape near completion:", {
+        progress: this.tapeProgress,
+        timeElapsed: timeElapsed,
+        duration: this.tapeTimerDuration,
+        secondsOver: secondsOver,
+        shouldComplete: this.tapeProgress >= 1 && secondsOver > 0.15
+      });
+    }
+    
     // Run for an extra 150 milliseconds.
     if (this.tapeProgress >= 1 && secondsOver > 0.15) {
+      console.log("🎬 Tape timer complete! Cutting and jumping to video...");
       this.tapeProgress = 0;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
-      this.cut(() => $commonApi.jump("video"));
+      this.cut(() => {
+        console.log("🎬 Cut complete, jumping to video...");
+        $commonApi.jump("video");
+      });
     }
   }
 
@@ -548,12 +567,19 @@ class Recorder {
     // TODO: Should printing and playing also be set to false?
     //$commonApi.rec.printing = false; // "
     $commonApi.rec.recording = false; // Reset this singleton.
+    $commonApi.rec.recordingStartTime = undefined; // Clear animation start time
+    $commonApi.rec.animationFrame = undefined; // Clear animation frame counter
     $commonApi.rec.recorded = false; //
     $commonApi.rec.printed = false; // "
     $commonApi.rec.printProgress = 0; // "
   }
 
   rolling(opts, cb) {
+    console.log("🎬 rolling called with:", { opts, cb: cb ? "callback provided" : "no callback" });
+    $commonApi.rec.recording = true; // Set recording state immediately for progress bar
+    $commonApi.rec.recordingStartTime = performance.now(); // Set animation start time
+    $commonApi.rec.animationFrame = 0; // Reset animation frame counter
+    
     send({ type: "recorder:rolling", content: opts });
     this.rollingCallback = cb;
   }
@@ -5051,6 +5077,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:rolling:started" ||
     type === "recorder:rolling:resumed"
   ) {
+    console.log("🎬 Rolling started/resumed, invoking callback with time:", content.time);
     $commonApi.rec.recording = true;
     $commonApi.rec.rollingCallback?.(content.time);
     return;
@@ -5058,6 +5085,8 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
+    $commonApi.rec.recordingStartTime = undefined; // Clear animation start time
+    $commonApi.rec.animationFrame = undefined; // Clear animation frame counter
     $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
     $commonApi.rec.cutCallback?.();
     return;
@@ -5438,7 +5467,17 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     // 🔙 Abstracted backspace logic for reuse between keyboard and touch-scrub
+    // Debounce mechanism to prevent double backspace triggers
+    let lastBackspaceTime = 0;
+    
     function triggerBackspaceAction() {
+      const now = Date.now();
+      if (now - lastBackspaceTime < 300) { // 300ms debounce
+        console.log("🎬 Backspace debounced - ignoring rapid fire");
+        return;
+      }
+      lastBackspaceTime = now;
+      
       $commonApi.sound.synth({
         tone: 800,
         beats: 0.1,
@@ -5456,10 +5495,17 @@ async function makeFrame({ data: { type, content } }) {
       // This ensures backspace always returns to editable input
       let promptSlug = "prompt";
       
-      // For cached KidLisp pieces (detected by $ prefix), use the actual source code
-      // instead of the short $prefixed code for backspace navigation
+      // 🎬 Special case: If coming from video piece after a tape command,
+      // return to the original tape command instead of "video"
+      // Check both currentText and currentPath to catch all ways of getting to video
       let content;
-      if (currentText && currentText.startsWith("$") && currentCode && lisp.isKidlispSource(currentCode)) {
+      if ((currentText === "video" || currentPath === "aesthetic.computer/disks/video") && store["tape:originalCommand"]) {
+        console.log("🎬 Backspace from video piece - using original tape command:", store["tape:originalCommand"]);
+        console.log("🎬 Debug - isKidlispSource(originalCommand):", lisp.isKidlispSource(store["tape:originalCommand"]));
+        content = store["tape:originalCommand"];
+        // Don't clear the stored command yet - wait until we successfully navigate away
+        // store.delete("tape:originalCommand");
+      } else if (currentText && currentText.startsWith("$") && currentCode && lisp.isKidlispSource(currentCode)) {
         // This is a cached KidLisp piece - use the full source code for backspace
         content = currentCode;
       } else {
@@ -5470,14 +5516,34 @@ async function makeFrame({ data: { type, content } }) {
       if (content) {
         // For backspace navigation, we want to pass KidLisp source directly without encoding
         // since this is for editing, not URL sharing
+        console.log("🎬 Processing content for jump:", JSON.stringify(content));
+        console.log("🎬 isKidlispSource check:", lisp.isKidlispSource(content));
+        
         if (lisp.isKidlispSource(content)) {
           // Don't encode for backspace - pass raw source for editing
           promptSlug += "~" + content;
+          console.log("🎬 Using kidlisp path - no encoding");
         } else {
-          // For regular piece names, currentText already has the correct tilde format
-          promptSlug += "~" + content;
+          // For regular piece names, replace spaces with underscores temporarily
+          // This is simpler and safer than URL encoding for internal navigation
+          const escapedContent = content.replace(/ /g, "_SPACE_");
+          promptSlug += "~" + escapedContent;
+          console.log("🎬 Using space escape:", content, "->", escapedContent);
         }
       }
+      console.log("🎬 About to jump to:", promptSlug);
+      console.log("🎬 Debug - promptSlug breakdown:");
+      console.log("  - base: 'prompt'");
+      console.log("  - separator: '~'");
+      console.log("  - content:", JSON.stringify(content));
+      console.log("  - combined:", JSON.stringify(promptSlug));
+      
+      // Clear the stored tape command after successful navigation setup
+      if (content === store["tape:originalCommand"]) {
+        console.log("🎬 Clearing stored tape command after successful backspace navigation");
+        store.delete("tape:originalCommand");
+      }
+      
       $commonApi.jump(promptSlug);
       send({ type: "keyboard:open" });
     }
@@ -7632,19 +7698,22 @@ async function makeFrame({ data: { type, content } }) {
 
       // Tack on the tape progress bar pixel buffer if necessary.
       if ($api.rec.tapeProgress) {
+        const progressWidth = Math.floor($api.screen.width * $api.rec.tapeProgress);
         const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
-          $.ink(0).box(0, 0, $api.screen.width, 1);
-          $.ink("red").box(
-            0,
-            0,
-            $api.screen.width * (1 - $api.rec.tapeProgress),
-            1,
-          );
+          // Draw red progress bar that grows from left to right
+          if (progressWidth > 0) {
+            $.ink("red").box(0, 0, progressWidth, 1);
+          }
+          // Draw black section for the remaining width
+          const blackWidth = $api.screen.width - progressWidth;
+          if (blackWidth > 0) {
+            $.ink("black").box(progressWidth, 0, blackWidth, 1);
+          }
         });
 
         if (tapeProgressBar) {
           const { api, ...img } = tapeProgressBar;
-          sendData.tapeProgressBar = { x: 0, y: 0, img };
+          sendData.tapeProgressBar = { x: 0, y: $api.screen.height - 1, img }; // Position at very bottom
         }
       }
 
