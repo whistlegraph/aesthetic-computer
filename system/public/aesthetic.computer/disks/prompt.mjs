@@ -429,7 +429,6 @@ async function halt($, text) {
     console.log("🎬 Stored original tape command for backspace:", text);
     console.log("🎬 Debug - slug:", slug, "params:", params);
     console.log("🎬 Debug - original text tokens:", tokens);
-    console.log("🎬 Debug - isKidlispSource(text):", isKidlispSource(text));
 
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 7;
@@ -470,11 +469,47 @@ async function halt($, text) {
       rec.loadCallback = () => {
         console.log("🎬 loadCallback triggered, setting up recording with duration:", duration || defaultDuration);
         
+        // Extract piece name and parameters for filename generation
+        let pieceName = "tape";
+        let pieceParams = "";
+        
+        // Check if we have KidLisp code in the command
+        const fullKidlispContent = isValidDuration && params.length > 1 ? 
+          params.slice(1).join(" ") : 
+          (!isValidDuration && params.length > 0 ? params.join(" ") : "");
+        
+        console.log("🎬 Debug loadCallback - isValidDuration:", isValidDuration);
+        console.log("🎬 Debug loadCallback - fullKidlispContent:", fullKidlispContent);
+        console.log("🎬 Debug loadCallback - isKidlispSource(fullKidlispContent):", isKidlispSource(fullKidlispContent));
+        
+        if (fullKidlispContent && isKidlispSource(fullKidlispContent)) {
+          // For kidlisp source code, use a special piece name
+          pieceName = "$code";
+        } else if (jumpTo) {
+          pieceName = jumpTo;
+          // Get additional parameters beyond the piece name
+          const additionalParams = !isValidDuration && params.length > 1 ? 
+            params.slice(1) : 
+            (isValidDuration && params.length > 2 ? params.slice(2) : []);
+          if (additionalParams.length > 0) {
+            pieceParams = "~" + additionalParams.join("~");
+          }
+        } else if (isKidlispSource(text)) {
+          // For kidlisp source code without params, use a special piece name
+          pieceName = "$code";
+        }
+        
+        console.log("🎬 Tape recording piece info:", { pieceName, pieceParams, jumpTo, text });
+        
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
         rec.rolling(
-          "video" +
-            (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
+          {
+            type: "video" + (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
+            pieceName,
+            pieceParams,
+            originalCommand: text
+          },
           (time) => {
             console.log("🎬 rolling callback received time:", time);
             rec.tapeTimerSet(duration || defaultDuration, time);
@@ -483,29 +518,36 @@ async function halt($, text) {
       };
 
       if (!isValidDuration && params[0]?.length > 0) {
+        console.log("🎬 Debug - Taking !isValidDuration path");
         duration = defaultDuration; //Infinity;
-        jumpTo = params[0];
         
         // Handle both regular pieces and kidlisp pieces
         const jumpContent = params.join(" ");
+        console.log("🎬 Debug - jumpContent (!isValidDuration):", jumpContent);
         if (isKidlispSource(jumpContent)) {
+          console.log("🎬 Debug - Detected KidLisp in !isValidDuration path");
           // For kidlisp, encode it properly for URL
           jump(encodeKidlispForUrl(jumpContent));
         } else {
-          // For regular pieces, use tilde joining
+          console.log("🎬 Debug - Not KidLisp in !isValidDuration path");
+          // For regular pieces, set jumpTo and use tilde joining
+          jumpTo = params[0];
           jump(params.join("~"));
         }
         rec.videoOnLeave = true;
       } else if (params[1]) {
-        jumpTo = params[1];
-        
+        console.log("🎬 Debug - Taking params[1] path");
         // Handle both regular pieces and kidlisp pieces
         const jumpContent = params.slice(1).join(" ");
+        console.log("🎬 Debug - jumpContent (params[1]):", jumpContent);
         if (isKidlispSource(jumpContent)) {
+          console.log("🎬 Debug - Detected KidLisp in params[1] path");
           // For kidlisp, encode it properly for URL
           jump(encodeKidlispForUrl(jumpContent));
         } else {
-          // For regular pieces, use tilde joining
+          console.log("🎬 Debug - Not KidLisp in params[1] path");
+          // For regular pieces, use first param as jumpTo and join rest with tildes
+          jumpTo = params[1];
           jump(params.slice(1).join("~"));
         }
       } else {
