@@ -6175,21 +6175,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       const overlayCache = window.overlayCanvasCache[name];
-      const currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
-
+      
+      // Create a content-aware cache key that includes pixel data hash for HUD overlays
+      let currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
+      
+      // For HUD overlays (like labels), include content hash to detect text/color changes
+      if (isHudOverlay && name === "label") {
+        // Create a simple hash from a sampling of pixel data to detect content changes
+        const pixels = o.img.pixels;
+        let contentHash = 0;
+        // Sample every 100th pixel to create a lightweight content signature
+        for (let i = 0; i < pixels.length; i += 400) { // Every 100 pixels (4 bytes each)
+          contentHash = (contentHash << 5) - contentHash + pixels[i];
+          contentHash = contentHash & contentHash; // Convert to 32-bit integer
+        }
+        currentKey += `_${contentHash}`;
+      }
+      
       // For QR overlay, disable canvas caching to allow animation
       if (name === "qrOverlay") {
         overlayCache.lastKey = null; // Force regeneration
       }
 
       // Only rebuild if overlay actually changed
-      if (
-        overlayCache.lastKey === currentKey &&
-        window.framePersistentOverlayCache[name] &&
-        name !== "qrOverlay"
-      ) {
-        paintOverlays[name] = window.framePersistentOverlayCache[name];
-        return;
+      // DISABLED: Force rebuild every frame for debugging HUD label animation
+      // if (
+      //   overlayCache.lastKey === currentKey &&
+      //   window.framePersistentOverlayCache[name] &&
+      //   name !== "qrOverlay"
+      // ) {
+      //   paintOverlays[name] = window.framePersistentOverlayCache[name];
+      //   return;
+      // }
+      
+      // DEBUG: Log cache invalidation for HUD overlays
+      if (isHudOverlay && overlayCache.lastKey && overlayCache.lastKey !== currentKey) {
+        console.log(`🔄 ${name} overlay cache invalidated:`, {
+          oldKey: overlayCache.lastKey,
+          newKey: currentKey,
+          reason: overlayCache.lastKey.split('_').slice(0, -1).join('_') !== currentKey.split('_').slice(0, -1).join('_') ? 'dimensions_or_position' : 'content_changed'
+        });
       }
 
       overlayCache.lastKey = currentKey;
@@ -6223,9 +6248,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
 
       // Don't cache QR overlay painters to allow animation
-      if (isHudOverlay && name !== "qrOverlay") {
-        window.framePersistentOverlayCache[name] = paintOverlays[name];
-      }
+      // DISABLED: Force regeneration every frame for debugging HUD label animation  
+      // if (isHudOverlay && name !== "qrOverlay") {
+      //   window.framePersisentOverlayCache[name] = paintOverlays[name];
+      // }
     }
 
     buildOverlay("label", content.label);
