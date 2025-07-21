@@ -672,6 +672,9 @@ function paint({
         // Let disk.mjs handle all HUD coloring automatically - no explicit color override
         hud.label(shadowString, undefined, 0, previewStringPlain); // shadow
         hud.supportsInlineColor = true;
+        hud.disablePieceNameColoring = true; // Let our custom colors override piece name coloring
+        // Force cache invalidation for animated color changes by updating frame hash
+        hud.frameHash = performance.now(); 
         hud.label(previewStringDecorative, undefined, 0, previewStringPlain); // colored
       }
       // If the HUD system supports setting the actual prompt content, set it to the plain string (no color codes)
