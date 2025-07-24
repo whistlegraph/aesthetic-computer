@@ -49,6 +49,23 @@ import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
+// Helper functions to safely access window flags in both main thread and worker contexts
+function isQROverlayCacheDisabled() {
+  try {
+    return typeof window !== 'undefined' && window.acDISABLE_QR_OVERLAY_CACHE;
+  } catch (e) {
+    return false; // Default to enabled if we can't check
+  }
+}
+
+function isHUDLabelCacheDisabled() {
+  try {
+    return typeof window !== 'undefined' && window.acDISABLE_HUD_LABEL_CACHE;
+  } catch (e) {
+    return false; // Default to enabled if we can't check
+  }
+}
+
 let tf; // Active typeface global.
 
 // Cache for loaded typefaces to avoid recreating them
@@ -303,11 +320,22 @@ let currentPath,
   currentHUDButton,
   currentHUDScrub = 0,
   currentHUDOffset,
-  qrOverlayCache = new Map(); // Cache for QR overlays to prevent regeneration every frame
+  qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
+  hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
 
 // Make cache globally accessible for character loading system
 if (typeof window !== 'undefined') {
   window.qrOverlayCache = qrOverlayCache;
+  
+  // Clear caches if they are disabled from BIOS
+  if (isQROverlayCacheDisabled()) {
+    qrOverlayCache.clear();
+    console.log("🚫 QR overlay cache disabled and cleared from BIOS");
+  }
+  
+  if (isHUDLabelCacheDisabled()) {
+    console.log("🚫 HUD label cache disabled from BIOS");
+  }
 }
 //currentPromptButton;
 
@@ -1146,7 +1174,7 @@ const $commonApi = {
         logical ||
         (typeof text === "string"
           ? text.replace(
-              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g,
+              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g,
               "",
             )
           : text);
@@ -2273,9 +2301,9 @@ const $paintApi = {
         customTypeface = newTypeface;
       }
     } // 🎨 Color code processing
-    // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, etc.
+    // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, \\255,20,147,128\\ etc.
     const colorCodeRegex =
-      /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
+      /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g;
     const hasColorCodes = text.includes("\\");
 
     // Check if inline color processing is disabled via options
@@ -2333,15 +2361,15 @@ const $paintApi = {
           // GC OPTIMIZATION: Check for comma once, reuse array when possible
           hasComma = colorName.includes(",");
           if (hasComma) {
-            // Reuse array if it exists, otherwise create new one
-            if (!rgbValues) rgbValues = [0, 0, 0];
+            // Reuse array if it exists, otherwise create new one (support RGBA)
+            if (!rgbValues) rgbValues = [0, 0, 0, 255];
             
             let idx = 0;
             let num = 0;
             let valid = true;
             
-            // Parse RGB values manually to avoid split/map allocation
-            for (let k = 0; k < colorName.length && idx < 3; k++) {
+            // Parse RGB/RGBA values manually to avoid split/map allocation
+            for (let k = 0; k < colorName.length && idx < 4; k++) {
               const char = colorName[k];
               if (char >= '0' && char <= '9') {
                 num = num * 10 + (char.charCodeAt(0) - 48);
@@ -2358,12 +2386,15 @@ const $paintApi = {
               }
             }
             
-            if (valid && idx === 3) {
-              currentColor = rgbValues;
-              // console.log("🎨 RGB Debug: Successfully set RGB array:", rgbValues);
+            if (valid && (idx === 3 || idx === 4)) {
+              // Default alpha to 255 if only RGB provided
+              if (idx === 3) rgbValues[3] = 255;
+              // Always slice to 4 components to include alpha
+              currentColor = rgbValues.slice(0, 4);
+              // console.log("🎨 RGB/RGBA Debug: Successfully set color array:", currentColor);
             } else {
               currentColor = colorName; // Fallback to string if parsing fails
-              // console.log("🎨 RGB Debug: Parsing failed, using string:", colorName);
+              // console.log("🎨 RGB/RGBA Debug: Parsing failed, using string:", colorName);
             }
           } else {
             currentColor = colorName;
@@ -4662,7 +4693,7 @@ async function load(
       // Special handling for cached KidLisp: show $prefixed code in URL but full source in HUD label
       if (displaySlug.startsWith("$") && sourceCode && forceKidlisp) {
         currentHUDLogicalTxt = sourceCode; // Show full KidLisp source in HUD label
-        console.log("🎯 Cached KidLisp: URL shows $prefixed code, HUD shows full source");
+        // console.log("🎯 Cached KidLisp: URL shows $prefixed code, HUD shows full source");
       }
     }
     if (module.nohud || system === "prompt") {
@@ -5831,31 +5862,19 @@ async function makeFrame({ data: { type, content } }) {
       if (content) {
         // For backspace navigation, we want to pass KidLisp source directly without encoding
         // since this is for editing, not URL sharing
-        console.log("🎬 Processing content for jump:", JSON.stringify(content));
-        console.log("🎬 isKidlispSource check:", lisp.isKidlispSource(content));
-        
         if (lisp.isKidlispSource(content)) {
           // Don't encode for backspace - pass raw source for editing
           promptSlug += "~" + content;
-          console.log("🎬 Using kidlisp path - no encoding");
         } else {
           // For regular piece names, replace spaces with underscores temporarily
           // This is simpler and safer than URL encoding for internal navigation
           const escapedContent = content.replace(/ /g, "_SPACE_");
           promptSlug += "~" + escapedContent;
-          console.log("🎬 Using space escape:", content, "->", escapedContent);
         }
       }
-      console.log("🎬 About to jump to:", promptSlug);
-      console.log("🎬 Debug - promptSlug breakdown:");
-      console.log("  - base: 'prompt'");
-      console.log("  - separator: '~'");
-      console.log("  - content:", JSON.stringify(content));
-      console.log("  - combined:", JSON.stringify(promptSlug));
       
       // Clear the stored tape command after successful navigation setup
       if (content === store["tape:originalCommand"]) {
-        console.log("🎬 Clearing stored tape command after successful backspace navigation");
         store.delete("tape:originalCommand");
       }
       
@@ -7546,9 +7565,11 @@ async function makeFrame({ data: { type, content } }) {
       //       Also... where do I put a scream?
 
       // System info label (addressability).
-      let label;
+      // Use persistent module-level cache instead of local variable
+      let label = hudLabelCache;
       
       // Cache invalidation: track state that affects HUD label appearance
+      const cacheDisabled = isHUDLabelCacheDisabled();
       const currentHUDState = {
         text: currentHUDTxt,
         scrub: currentHUDScrub,
@@ -7556,19 +7577,33 @@ async function makeFrame({ data: { type, content } }) {
         supportsInlineColor: $commonApi?.hud?.supportsInlineColor,
         disablePieceNameColoring: $commonApi?.hud?.disablePieceNameColoring,
         // Track frame-based changes for animation/timing-sensitive content
-        frameHash: $commonApi?.hud?.frameHash || 0
+        frameHash: $commonApi?.hud?.frameHash || 0,
+        // Add timestamp to force invalidation when caching is disabled
+        timestamp: cacheDisabled ? performance.now() : 0
       };
       
       // Invalidate label cache if any visual state has changed
+      // Or if caching is globally disabled from BIOS
+      const stateChanged = label && label.lastHUDState && 
+                          JSON.stringify(currentHUDState) !== JSON.stringify(label.lastHUDState);
+      
+      // Enhanced debug logging for cache invalidation with detailed comparison
+      // Removed debug logs since HUD syntax highlighting is now working correctly
+      
       if (!label || 
           !label.lastHUDState || 
-          JSON.stringify(currentHUDState) !== JSON.stringify(label.lastHUDState)) {
+          cacheDisabled ||
+          stateChanged) {
         
+        // Removed debug logs since HUD caching is working correctly
         label = null; // Clear cached label to force regeneration
+        hudLabelCache = null; // Clear module-level cache too
       }
       
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
+
+      // Removed debug logs since HUD generation is working correctly
 
       if (
         !previewMode &&
@@ -7577,17 +7612,25 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        // Use the actual rendered width and height from text.box, not a naive estimate
-        // For label sizing, use the color-code-stripped text to avoid false wrapping
-        let cleanText = currentHUDTxt.replace(
-          /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g,
-          "",
-        );
-        const labelBounds = $api.text.box(
-          cleanText,
-          undefined,
-          $api.screen.width - $api.typeface.blockWidth,
-        );
+        try {
+          // Removed debug logs since HUD generation is working correctly
+          
+          // Use the actual rendered width and height from text.box, not a naive estimate
+          // For label sizing, use the color-code-stripped text to avoid false wrapping
+          let cleanText = currentHUDTxt.replace(
+            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g,
+            "",
+          );
+          
+          // Removed debug logs since text processing is working correctly
+          
+          const labelBounds = $api.text.box(
+            cleanText,
+            undefined,
+            $api.screen.width - $api.typeface.blockWidth,
+          );
+          
+          // Removed debug logs since label bounds calculation is working correctly
         // Use the actual width of the longest rendered line
         let w = Math.max(
           ...labelBounds.lines.map((lineArr) => {
@@ -7629,7 +7672,7 @@ async function makeFrame({ data: { type, content } }) {
     const disableSyntaxColoring = currentHUDScrub >= shareWidth;
     
           // Detect inline color codes (e.g., \\yellow\\c\\red\\d\\rgb(255,20,147)\\e), but disable if at max scrub
-          const colorRegexTest = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g.test(text);
+          const colorRegexTest = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g.test(text);
           const hasInlineColor =
             !disableSyntaxColoring && colorRegexTest;
 
@@ -7638,7 +7681,7 @@ async function makeFrame({ data: { type, content } }) {
           // Draw shadow/outline in black, but always strip color codes for the shadow
           function stripColorCodes(str) {
             return str.replace(
-              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g,
+              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g,
               "",
             );
           }
@@ -7655,7 +7698,7 @@ async function makeFrame({ data: { type, content } }) {
           );
           // For the foreground, parse color codes and render per-character colors
           const colorCodeRegex =
-            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/g;
+            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g;
           let charColors = [];
           let currentColor = null;
 
@@ -7725,20 +7768,20 @@ async function makeFrame({ data: { type, content } }) {
               // Find the end of the color code
               const colorMatch = text
                 .slice(originalIndex)
-                .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
+                .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/);
               if (colorMatch) {
                 // Update current color (convert to RGB)
                 const colorName = colorMatch[1];
-                // Check if it's an RGB value like "255,20,147"
+                // Check if it's an RGB/RGBA value like "255,20,147" or "128,128,128,64"
                 if (colorName.includes(",")) {
-                  const rgbValues = colorName
+                  const rgbaValues = colorName
                     .split(",")
                     .map((v) => parseInt(v.trim()));
                   if (
-                    rgbValues.length === 3 &&
-                    rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+                    (rgbaValues.length === 3 || rgbaValues.length === 4) &&
+                    rgbaValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
                   ) {
-                    currentColor = rgbValues;
+                    currentColor = rgbaValues;
                   } else {
                     currentColor = colorNameToRGB(colorName);
                   }
@@ -8093,8 +8136,10 @@ async function makeFrame({ data: { type, content } }) {
         });
 
         // Store current state in the label object for cache invalidation
+        // Always store state for comparison logic, even when caching is disabled
         if (label) {
           label.lastHUDState = currentHUDState;
+          hudLabelCache = label; // Persist to module-level cache
         }
 
         // Video piece should be flush left (0px) but keep vertical offset
@@ -8115,6 +8160,10 @@ async function makeFrame({ data: { type, content } }) {
         //   text: currentHUDTxt,
         //   btn: currentHUDButton,
         // };
+        } catch (error) {
+          console.error('🏷️ HUD Generation: EXCEPTION occurred:', error);
+          label = null; // Ensure label is null on error
+        }
       }
 
       // Return frame data back to the main thread.
@@ -8130,12 +8179,29 @@ async function makeFrame({ data: { type, content } }) {
       // Skip progress bar during tape playback to avoid overlay conflicts
       if (!skipPixelsDuringTapePlayback && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
         const progress = $api.rec.tapeProgress || 0;
-        // Create tape progress bar with proper structure (1px tall, black background, red progress)
+        // Create tape progress bar with VHS flickering effect
         const tapeProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
-          // Draw black background
-          $.ink(0).box(0, 0, $api.screen.width, 1);
-          // Draw the progress bar in red
-          $.ink("red").box(0, 0, $api.screen.width * progress, 1);
+          // Draw flickering dark background (dark gray with occasional flickers)
+          const bgColors = ["black", "black", "black", "#111", "#222", "#333"];
+          const bgColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+          $.ink(bgColor).box(0, 0, $api.screen.width, 1);
+          
+          // Draw VHS-style flickering progress bar with no position shaking
+          const progressWidth = Math.floor($api.screen.width * progress);
+          if (progressWidth > 0) {
+            // Create VHS flickering effect with color variations only (no position offset)
+            ["red", "lime", "blue", "white"].forEach((color, index) => {
+              if (color !== "white") {
+                // Just use the base color with slight variations
+                $.ink(color).box(0, 0, progressWidth, 1);
+              } else {
+                // Add extra VHS color variations for the white layer
+                const vhsColors = ["white", "white", "white", "magenta", "yellow", "cyan"];
+                color = vhsColors[Math.floor(Math.random() * vhsColors.length)];
+                $.ink(color).box(0, 0, progressWidth, 1);
+              }
+            });
+          }
         });
         
         // Ensure the painting was created successfully before adding to sendData
@@ -8182,6 +8248,12 @@ async function makeFrame({ data: { type, content } }) {
         }
       }      // 🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
+      
+      // Clear QR cache if caching is disabled to prevent memory buildup
+      if (isQROverlayCacheDisabled() && qrOverlayCache.size > 0) {
+        qrOverlayCache.clear();
+      }
+      
       // Detect if this is a KidLisp piece
       const sourceCode = currentHUDLogicalTxt || currentHUDTxt; // Get the source from HUD text
       
@@ -8208,28 +8280,81 @@ async function makeFrame({ data: { type, content } }) {
             // Use cache key based on cached code to avoid regenerating the same QR
             const cacheKey = `qr_${cachedCode}`;
             
-            // Always use prompt.ac for QR codes (even in dev/local)
-            let url = "https://prompt.ac";
+            // Get the font before checking cache to ensure text will render properly
+            const font = typefaceCache.get("MatrixChunky8");
             
-            // Use the cached nanoid code with $ prefix for a much shorter URL
-            url += `/$${cachedCode}`;
+            // Check if all characters are loaded in the font
+            let allCharsLoaded = false;
+            if (font && font.glyphs) {
+              allCharsLoaded = true;
+              for (const char of cachedCode) {
+                const glyph = font.glyphs[char];
+                // For BDF fonts like MatrixChunky8, check if glyph has pixels data
+                // For other fonts, check for commands or pixels
+                const isValidGlyph = glyph && (
+                  (glyph.pixels && Array.isArray(glyph.pixels)) ||  // BDF font with pixel data
+                  (glyph.commands && Array.isArray(glyph.commands)) ||  // Vector font with commands
+                  (glyph.resolution && glyph.pixels)  // Alternative BDF format
+                );
+                
+                if (!isValidGlyph) {
+                  allCharsLoaded = false;
+                  break;
+                }
+              }
+            }
             
-            // Generate QR code with medium error correction for better scannability
-            const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
+            // Check if this QR overlay is already cached (unless caching is disabled or font not loaded)
+            const isQRCacheDisabled = isQROverlayCacheDisabled();
+            const hasQRCache = qrOverlayCache.has(cacheKey);
             
-            // Calculate size and position for bottom-right corner with 4px margin
-            const margin = 4;
-            const cellSize = 1; // 1 pixel per cell for smallest possible size
-            const qrSize = cells.length * cellSize;
+            // ALWAYS generate fresh QR overlay to match HUD label live update behavior
+            // Force cache bypass to ensure QR text updates live like HUD labels
+            const forceCacheBypass = true;
+            
+            if (!isQRCacheDisabled && allCharsLoaded && hasQRCache && !forceCacheBypass) {
+              const cachedQrData = qrOverlayCache.get(cacheKey);
+              
+              // Recalculate position for current screen size (handles reframing)
+              const overlayWidth = cachedQrData.width;
+              const overlayHeight = cachedQrData.height;
+              const margin = 4;
+              const startX = screen.width - overlayWidth - margin;
+              const startY = screen.height - overlayHeight - margin;
+              
+              // Create fresh overlay for transfer from cached data
+              qrOverlay = {
+                width: cachedQrData.width,
+                height: cachedQrData.height,
+                pixels: new Uint8ClampedArray(cachedQrData.basePixels) // Fresh copy for transfer
+              };
+              
+              // Add QR overlay to sendData
+              sendData.qrOverlay = {
+                x: startX,
+                y: startY,
+                img: qrOverlay
+              };
+            } else {
+              // Always use prompt.ac for QR codes (even in dev/local)
+              let url = "https://prompt.ac";
+              
+              // Use the cached nanoid code with $ prefix for a much shorter URL
+              url += `/$${cachedCode}`;
+              
+              // Generate QR code with medium error correction for better scannability
+              const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
+              
+              // Calculate size and position for bottom-right corner with 4px margin
+              const margin = 4;
+              const cellSize = 1; // 1 pixel per cell for smallest possible size
+              const qrSize = cells.length * cellSize;
             
             // Position in bottom-right corner
             let startX = screen.width - qrSize - margin - 1; // Account for shadow width
             const textHeight = 12; // Space for MatrixChunky8 8px font with shadow (8px + 4px padding)
             const totalHeight = qrSize + textHeight;
             let startY = screen.height - totalHeight - margin; // Move 1px closer to bottom for balanced margins
-            
-            // Get the font before we start generating the QR overlay
-            const font = typefaceCache.get("MatrixChunky8");
             
             // Create QR overlay using painting API with extra space for shadow
             const textAreaHeight = 9;
@@ -8320,45 +8445,31 @@ async function makeFrame({ data: { type, content } }) {
               $.box(1, qrOffsetY + qrSize, qrSize, 1);
             });
             
-            // Check if all characters are actually loaded in the font
-            let allCharsLoaded = false;
-            if (font && font.glyphs) {
-              allCharsLoaded = true;
-              for (const char of cachedCode) {
-                const glyph = font.glyphs[char];
-                // For BDF fonts like MatrixChunky8, check if glyph has pixels data
-                // For other fonts, check for commands or pixels
-                const isValidGlyph = glyph && (
-                  (glyph.pixels && Array.isArray(glyph.pixels)) ||  // BDF font with pixel data
-                  (glyph.commands && Array.isArray(glyph.commands)) ||  // Vector font with commands
-                  (glyph.resolution && glyph.pixels)  // Alternative BDF format
-                );
-                
-                if (!isValidGlyph) {
-                  allCharsLoaded = false;
-                  break;
-                }
-              }
-            }
-            
-            // Always use fresh QR - no caching to ensure flicker and text work properly
-            const qrToUse = {
+            // Don't cache QR overlay if font isn't fully loaded yet (text label needs to re-render)
+            // Cache the base QR data (not the transferable pixels)
+            const qrData = {
               width: generatedQR.width,
               height: generatedQR.height,
-              pixels: new Uint8ClampedArray(generatedQR.pixels)
+              basePixels: new Uint8ClampedArray(generatedQR.pixels) // Keep a safe copy for caching
             };
             
             // Recalculate position for current screen size (handles reframing)
-            const overlayWidth = qrToUse.width;
-            const overlayHeight = qrToUse.height;
+            const overlayWidth = qrData.width;
+            const overlayHeight = qrData.height;
             startX = screen.width - overlayWidth - margin;
             startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
             
-            // Create overlay object for transfer
+            // Cache the QR data for this piece (not the transferable version)
+            // Only cache if caching is not disabled AND font is fully loaded
+            if (!isQRCacheDisabled && allCharsLoaded) {
+              qrOverlayCache.set(cacheKey, qrData);
+            }
+            
+            // Create fresh overlay for transfer each time
             qrOverlay = {
-              width: qrToUse.width,
-              height: qrToUse.height,
-              pixels: new Uint8ClampedArray(qrToUse.pixels) // Fresh copy for transfer
+              width: qrData.width,
+              height: qrData.height,
+              pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
             };
             
             // Add QR overlay to sendData with exact position
@@ -8367,6 +8478,7 @@ async function makeFrame({ data: { type, content } }) {
               y: startY,
               img: qrOverlay
             };
+            }
           } else {
             // No cached code yet - QR will appear once caching is complete
           }
@@ -8422,33 +8534,40 @@ async function makeFrame({ data: { type, content } }) {
       }
 
       let transferredObjects = [];
+      const transferredBufferSet = new Set(); // Track unique buffers to avoid duplicates
       
       // Only add pixels to transfer if we actually have valid pixel data
       if (sendData.pixels && sendData.pixels instanceof ArrayBuffer && sendData.pixels.byteLength > 0) {
-        transferredObjects.push(sendData.pixels);
+        if (!transferredBufferSet.has(sendData.pixels)) {
+          transferredObjects.push(sendData.pixels);
+          transferredBufferSet.add(sendData.pixels);
+        }
       }
 
       // Safely add label buffer to transfer array
       if (sendData.label?.img?.pixels?.buffer) {
         const labelBuffer = sendData.label.img.pixels.buffer;
-        if (labelBuffer instanceof ArrayBuffer && labelBuffer.byteLength > 0) {
+        if (labelBuffer instanceof ArrayBuffer && labelBuffer.byteLength > 0 && !transferredBufferSet.has(labelBuffer)) {
           transferredObjects.push(labelBuffer);
+          transferredBufferSet.add(labelBuffer);
         }
       }
 
       // Safely add QR overlay buffer to transfer array
       if (sendData.qrOverlay?.img?.pixels?.buffer) {
         const qrBuffer = sendData.qrOverlay.img.pixels.buffer;
-        if (qrBuffer instanceof ArrayBuffer && qrBuffer.byteLength > 0) {
+        if (qrBuffer instanceof ArrayBuffer && qrBuffer.byteLength > 0 && !transferredBufferSet.has(qrBuffer)) {
           transferredObjects.push(qrBuffer);
+          transferredBufferSet.add(qrBuffer);
         }
       }
 
       // Safely add tape progress bar buffer to transfer array
       if (sendData.tapeProgressBar?.img?.pixels?.buffer) {
         const tapeBuffer = sendData.tapeProgressBar.img.pixels.buffer;
-        if (tapeBuffer instanceof ArrayBuffer && tapeBuffer.byteLength > 0) {
+        if (tapeBuffer instanceof ArrayBuffer && tapeBuffer.byteLength > 0 && !transferredBufferSet.has(tapeBuffer)) {
           transferredObjects.push(tapeBuffer);
+          transferredBufferSet.add(tapeBuffer);
         }
       }
 
@@ -8459,7 +8578,22 @@ async function makeFrame({ data: { type, content } }) {
 
       // Safely send the render message with comprehensive error handling
       try {
-        send({ type: "render", content: sendData }, transferredObjects);
+        // Final validation: ensure no buffers are detached before sending
+        const validTransferredObjects = transferredObjects.filter(buffer => {
+          if (buffer instanceof ArrayBuffer && buffer.byteLength > 0) {
+            try {
+              // Try to create a view to test if buffer is detached
+              new Uint8Array(buffer, 0, 1);
+              return true;
+            } catch (e) {
+              console.warn("🟡 Skipping detached buffer from transfer list");
+              return false;
+            }
+          }
+          return false;
+        });
+        
+        send({ type: "render", content: sendData }, validTransferredObjects);
       } catch (error) {
         console.warn("🚨 Failed to send render message:", error);
         // Attempt to send without transferred objects as fallback
