@@ -154,7 +154,7 @@ export async function handler(event, context) {
       const fullAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
       
       // 🧠 Smart inference: Try to generate meaningful codes from source content
-      function generateInferredCodes(source) {
+      async function generateInferredCodes(source) {
         const codes = [];
         const cleanSource = source.trim().toLowerCase();
         
@@ -623,7 +623,7 @@ export async function handler(event, context) {
       }
       
       // Try inferred codes first, then fall back to random generation
-      const inferredCodes = generateInferredCodes(source);
+      const inferredCodes = await generateInferredCodes(source);
       console.log(`🧠 Generated ${inferredCodes.length} inferred codes: [${inferredCodes.join(', ')}]`);
       
       // First, try all inferred codes
