@@ -10,6 +10,10 @@ export async function handler(event, context) {
     };
   }
 
+  // 🔧 Environment detection
+  const dev = process.env.NETLIFY_DEV || process.env.CONTEXT === "dev";
+  const baseUrl = dev ? "https://local.aesthetic.computer" : "https://prompt.ac";
+
   // 🗞️ FF DP-1: https://docs.google.com/document/d/1fEB44JTP2_M7ZiP5MR03FKcjNnnH4vTJ5_y-0foE08Q/edit?usp=sharing
   //   📦 Top-Level (3.1): dpVersion, id, created, defaults?, signature?
   //   🎮 Display (4): scaling, background, margin, autoplay?, loop?, interaction?
@@ -26,7 +30,7 @@ export async function handler(event, context) {
     "created": "2025-06-27T12:00:00Z", // ⏰ Created
     "defaults": { // 📦 Inherited
       "display": { // 🎮 Display
-        "scaling": "fit", // 📏 fit|fill|stretch
+        "scaling": "fit", // 📏 fit|fill|stretchapi/playlist
         "background": "#000000", // 🎨 Hex or "transparent"
         "margin": "5%" // 📐 Even margin
       },
@@ -36,63 +40,21 @@ export async function handler(event, context) {
     // 🖼️ Media
     "items": [
       {
-        "id": "starfield-001", // 🆔 Unique ID
-        "title": "Starfield", // 📝 Item name
-        "source": "https://prompt.ac/starfield", // 🌐 Artwork URL
+        "id": "$bels", // 🆔 Unique ID
+        "title": "$bels", // 📝 Item name
+        "source": `${baseUrl}/$bels?density=10`, // 🌐 Artwork URL
         "duration": 30, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
-        // "ref": "ipfs://bafybeigd…/manifest.json", // 📄 External (opt)
-        // "override": { "duration": 180 }, // 🔄 Override (opt)
-        // "display": { // 🖥️ Display (opt)
-        //   "scaling": "fill",
-        //   "autoplay": true,
-        //   "loop": false
-        // },
-        // "repro": { // 🔄 Repro (opt)
-        //   "engineVersion": { "chromium": "123.0.6312.58" },
-        //   "seed": "0x84a39ef5…",
-        //   "assetsSHA256": ["473…", "9be…"]
-        // },
-        // "provenance": { // 📚 Provenance (opt)
-        //   "type": "onChain",
-        //   "contract": {
-        //     "chain": "evm",
-        //     "standard": "erc721",
-        //     "address": "0x61d45475fe81ef46bdd8093b5c73efee03167e0",
-        //     "tokenId": "42"
-        //   }
-        // }
       },
       {
-        "id": "wipe-red-002",
-        "title": "Wipe Red",
-        "source": "https://prompt.ac/(wipe_red)",
-        "duration": 5,
-        "license": "open"
-      },
-      {
-        "id": "wipe-rainbow-003",
-        "title": "Wipe Rainbow",
-        "source": "https://prompt.ac/(0.25s_wipe_rainbow)",
-        "duration": 1,
-        "license": "open"
-      },
-      {
-        "id": "noise-004",
-        "title": "Noise",
-        "source": "https://prompt.ac/(noise)",
-        "duration": 10,
-        "license": "open"
-      },
-      {
-        "id": "repeat-line-005",
-        "title": "Repeat Line",
-        "source": "https://prompt.ac/(1s_(ink_(..._red_blue))_(repeat_2_line))",
-        "duration": 15,
-        "license": "open"
+        "id": "starfield-001", // 🆔 Unique ID
+        "title": "Starfield", // 📝 Item name
+        "source": `${baseUrl}/3-kidlisp-tests?density=10`, // 🌐 Artwork URL
+        "duration": 30, // ⏱️ Duration sec
+        "license": "open", // ⚖️ License mode
       }
     ],
-    "signature": "ed25519:0x…" // ✍️ Signature (opt)
+    "signature": "aesthetic.computer-25.07.24.22.13" // ✍️ Signature (opt)
   };
 
   return {

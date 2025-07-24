@@ -121,6 +121,37 @@ const params = new URLSearchParams(location.search);
 const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 
+// Check for density parameter with localStorage persistence
+const densityParam = params.get("density");
+let density;
+
+if (densityParam) {
+  // URL parameter provided - use it and save to localStorage
+  density = parseFloat(densityParam);
+  localStorage.setItem("ac-density", density.toString());
+} else {
+  // No URL parameter - check localStorage for saved density
+  const savedDensity = localStorage.getItem("ac-density");
+  density = savedDensity ? parseFloat(savedDensity) : undefined;
+}
+
+// Check for zoom parameter (device/navigator zoom level) with localStorage persistence
+const zoomParam = params.get("zoom");
+let zoom;
+
+if (zoomParam) {
+  // URL parameter provided - use it and save to localStorage
+  zoom = parseFloat(zoomParam);
+  localStorage.setItem("ac-zoom", zoom.toString());
+} else {
+  // No URL parameter - check localStorage for saved zoom
+  const savedZoom = localStorage.getItem("ac-zoom");
+  zoom = savedZoom ? parseFloat(savedZoom) : undefined;
+}
+
+// Note: zoom parameter is available but not automatically applied to avoid text rendering issues
+// It's passed to the boot function for selective use
+
 // Apply nogap class immediately to prevent flash
 if (nogap) {
   document.body.classList.add("nogap");
@@ -132,7 +163,7 @@ if (window.acVSCODE) {
 }
 
 // Pass the parameters directly without stripping them
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom }, debug);
 
 let sandboxed = window.origin === "null" && !window.acVSCODE;
 // console.log("🏜️ Sandboxed:", sandboxed, window.acVSCODE);
