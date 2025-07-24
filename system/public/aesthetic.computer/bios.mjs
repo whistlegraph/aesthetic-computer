@@ -7713,13 +7713,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     e.stopPropagation();
     e.preventDefault();
     const files = e.dataTransfer.files; // Get the file(s).
-    // Check if a file was dropped and process only the first one.
+    
+    // Process multiple files if dropped together
     if (files.length > 0) {
-      const file = files[0];
-      const ext = extension(file.name);
-      console.log("💧 Dropped:", file.name, ext);
-      // 🗒️ Source code file.
-      if (ext === "mjs" || ext === "lisp") {
+      console.log(`💧 Dropped ${files.length} file(s)`);
+      
+      // Check for ALS + WAV combination
+      let alsFile = null;
+      let wavFile = null;
+      
+      // Scan all files to identify types
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = extension(file.name);
+        console.log(`💧 File ${i + 1}: ${file.name} (${ext})`);
+        
+        if (ext === "als" && !alsFile) {
+          alsFile = file;
+        } else if (ext === "wav" && !wavFile) {
+          wavFile = file;
+        }
+      }
+      
+      // If we have both ALS and WAV, process them as a pair
+      if (alsFile && wavFile) {
+        console.log("🎵🔊 Processing ALS + WAV combination:", alsFile.name, "+", wavFile.name);
+        
+        // Process ALS file first
+        await processDroppedFile(alsFile);
+        
+        // Then process WAV file
+        await processDroppedFile(wavFile);
+        
+        return; // Exit early - we've handled the multi-file drop
+      }
+      
+      // Otherwise, process files individually (existing behavior)
+      for (let i = 0; i < files.length; i++) {
+        await processDroppedFile(files[i]);
+      }
+    }
+  });
+
+  // Extract file processing logic into reusable function
+  async function processDroppedFile(file) {
+    const ext = extension(file.name);
+    console.log("💧 Processing:", file.name, ext);
+    
+    // 🗒️ Source code file.
+    if (ext === "mjs" || ext === "lisp") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
@@ -7759,9 +7801,406 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "painting:record:dropped", content: record });
         };
         reader.readAsArrayBuffer(file);
-      }
+      // 🔊 Audio file (.wav)
+      } else if (ext === "wav") {
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            console.log("🔊 Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
+            
+            // Create a unique ID for this WAV file
+            const wavId = "dropped-wav-" + file.name.replace(/\.wav$/, "") + "-" + performance.now();
+            const arrayBuffer = e.target.result;
+            const fileSize = arrayBuffer.byteLength; // Capture size before storing
+            
+            // Store the WAV data in the sfx cache for decoding and playback
+            sfx[wavId] = arrayBuffer;
+            
+            // Trigger immediate decoding
+            await decodeSfx(wavId);
+            
+            send({
+              type: "dropped:wav",
+              content: {
+                name: file.name.replace(/\.wav$/, ""),
+                originalName: file.name,
+                size: fileSize,
+                id: wavId // Include the audio ID for playback
+              },
+            });
+          } catch (error) {
+            console.error("❌ Failed to process WAV file:", error);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      // 🎵 Ableton Live Set file (ZIP archive containing XML)
+      } else if (ext === "als") {
+        
+        // Parse XML and extract key project structure using robust regex patterns
+        function parseAbletonProject(xmlString) {
+          try {
+            console.log("🎵 BIOS parsing ALS XML data:", xmlString.length, "characters");
+            
+            const structure = {
+              version: "Unknown",
+              creator: "Unknown", 
+              tracks: [],
+              tempo: "Unknown",
+              sceneCount: 0,
+              sampleRate: "Unknown",
+              lastModDate: "Unknown"
+            };
+            
+            // Extract Ableton version info
+            const abletonMatch = xmlString.match(/<Ableton[^>]*MajorVersion="([^"]*)"[^>]*MinorVersion="([^"]*)"[^>]*Creator="([^"]*)"/);
+            if (abletonMatch) {
+              structure.version = `${abletonMatch[1]}.${abletonMatch[2]}`;
+              structure.creator = abletonMatch[3];
+            }
+            
+            // Extract sample rate for accurate timing calculations
+            const sampleRateMatch = xmlString.match(/<SampleRate[^>]*Value="([^"]*)"/);
+            if (sampleRateMatch) {
+              structure.sampleRate = parseFloat(sampleRateMatch[1]) || 44100;
+            }
+            
+            // Extract last modified date
+            const lastModMatch = xmlString.match(/<LastModDate[^>]*Value="([^"]*)"/);
+            if (lastModMatch) {
+              structure.lastModDate = lastModMatch[1];
+            }
+            
+            // Extract tempo - Enhanced with multiple strategies
+            let tempo = "Unknown";
+            
+            // Strategy 1: Look for global tempo in LiveSet
+            const globalTempoMatch = xmlString.match(/<LiveSet[^>]*>[\s\S]*?<MasterTrack[^>]*>[\s\S]*?<DeviceChain[^>]*>[\s\S]*?<Tempo[^>]*>[\s\S]*?<Manual[^>]*Value="([^"]*)"[\s\S]*?<\/Tempo>/);
+            if (globalTempoMatch) {
+              tempo = parseFloat(globalTempoMatch[1]) || "Unknown";
+              console.log(`🎵 BIOS found global tempo: ${tempo} BPM`);
+            }
+            
+            // Strategy 2: Manual tempo value (enhanced pattern)
+            if (tempo === "Unknown") {
+              const tempoMatch = xmlString.match(/<Manual[^>]*Value="([^"]*)"/);
+              if (tempoMatch) {
+                const tempoValue = parseFloat(tempoMatch[1]);
+                // Only accept reasonable tempo values (between 60-300 BPM)
+                if (tempoValue && tempoValue >= 60 && tempoValue <= 300) {
+                  tempo = tempoValue;
+                  console.log(`🎵 BIOS found manual tempo: ${tempo} BPM`);
+                }
+              }
+            }
+            
+            // Strategy 3: MasterTrack tempo (enhanced)
+            if (tempo === "Unknown") {
+              const masterTempoMatch = xmlString.match(/<MasterTrack[^>]*>[\s\S]*?<Tempo[^>]*>[\s\S]*?<Manual[^>]*Value="([^"]*)"[\s\S]*?<\/Tempo>/);
+              if (masterTempoMatch) {
+                tempo = parseFloat(masterTempoMatch[1]) || "Unknown";
+                console.log(`🎵 BIOS found MasterTrack tempo: ${tempo} BPM`);
+              }
+            }
+            
+            structure.tempo = tempo;
+            
+            // Count scenes
+            const sceneMatches = xmlString.match(/<Scene[^>]*>/g);
+            structure.sceneCount = sceneMatches ? sceneMatches.length : 0;
+            
+            // Extract tracks - simplified for now to avoid complexity
+            const trackTypes = ['GroupTrack', 'MidiTrack', 'AudioTrack', 'ReturnTrack'];
+            console.log("🎵 BIOS starting track detection...");
+            
+            trackTypes.forEach(trackType => {
+              const trackRegex = new RegExp(`<${trackType}[^>]*>([\\s\\S]*?)</${trackType}>`, 'g');
+              let match;
+              
+              while ((match = trackRegex.exec(xmlString)) !== null) {
+                const trackContent = match[1];
+                
+                // Extract track name
+                const nameMatch = trackContent.match(/<(?:EffectiveName|UserName)[^>]*Value="([^"]*)"/);
+                const trackName = nameMatch ? nameMatch[1] : `${trackType} ${structure.tracks.length + 1}`;
+                
+                console.log(`🎵 BIOS found track: "${trackName}" (${trackType})`);
+                
+                // Extract MIDI notes for MIDI tracks
+                let midiNotes = [];
+                let clips = [];
+                
+                if (trackType === "MidiTrack") {
+                  // Look for MIDI notes in clips
+                  const clipMatches = trackContent.match(/<MidiClip[^>]*>[\s\S]*?<\/MidiClip>/g);
+                  if (clipMatches) {
+                    clipMatches.forEach((clipContent, clipIndex) => {
+                      // Extract notes from this clip
+                      const noteMatches = clipContent.match(/<KeyTrack[^>]*>[\s\S]*?<Notes>[\s\S]*?<\/Notes>/g);
+                      if (noteMatches) {
+                        noteMatches.forEach(noteSection => {
+                          const individualNotes = noteSection.match(/<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*>/g);
+                          if (individualNotes) {
+                            individualNotes.forEach(noteEvent => {
+                              const timeMatch = noteEvent.match(/Time="([^"]*)"/);
+                              const durationMatch = noteEvent.match(/Duration="([^"]*)"/);
+                              const velocityMatch = noteEvent.match(/Velocity="([^"]*)"/);
+                              
+                              if (timeMatch && durationMatch && velocityMatch) {
+                                midiNotes.push({
+                                  time: parseFloat(timeMatch[1]) || 0,
+                                  duration: parseFloat(durationMatch[1]) || 0,
+                                  velocity: parseFloat(velocityMatch[1]) || 0,
+                                  clip: clipIndex
+                                });
+                              }
+                            });
+                          }
+                        });
+                      }
+                      
+                      // Extract clip info
+                      const clipNameMatch = clipContent.match(/<Name[^>]*Value="([^"]*)"/);
+                      const clipTimeMatch = clipContent.match(/<CurrentStart[^>]*Value="([^"]*)"/);
+                      const clipLengthMatch = clipContent.match(/<Length[^>]*Value="([^"]*)"/);
+                      
+                      clips.push({
+                        name: clipNameMatch ? clipNameMatch[1] : `Clip ${clipIndex + 1}`,
+                        start: clipTimeMatch ? parseFloat(clipTimeMatch[1]) : 0,
+                        length: clipLengthMatch ? parseFloat(clipLengthMatch[1]) : 0
+                      });
+                    });
+                  }
+                } else if (trackType === "AudioTrack") {
+                  // Look for audio clips
+                  const audioClipMatches = trackContent.match(/<AudioClip[^>]*>[\s\S]*?<\/AudioClip>/g);
+                  if (audioClipMatches) {
+                    audioClipMatches.forEach((clipContent, clipIndex) => {
+                      const clipNameMatch = clipContent.match(/<Name[^>]*Value="([^"]*)"/);
+                      const clipTimeMatch = clipContent.match(/<CurrentStart[^>]*Value="([^"]*)"/);
+                      const clipLengthMatch = clipContent.match(/<Length[^>]*Value="([^"]*)"/);
+                      
+                      clips.push({
+                        name: clipNameMatch ? clipNameMatch[1] : `Audio Clip ${clipIndex + 1}`,
+                        start: clipTimeMatch ? parseFloat(clipTimeMatch[1]) : 0,
+                        length: clipLengthMatch ? parseFloat(clipLengthMatch[1]) : 0
+                      });
+                    });
+                  }
+                }
+                
+                structure.tracks.push({
+                  name: trackName.replace(/^[#\s]*/, ''), // Remove leading # and spaces
+                  type: trackType,
+                  clipCount: clips.length,
+                  clips: clips,
+                  midiNotes: midiNotes,
+                  noteCount: midiNotes.length
+                });
+              }
+            });
+            
+            console.log(`🎵 BIOS ✅ Parsing complete: ${structure.tracks.length} tracks found`);
+            return structure;
+          } catch (e) {
+            console.warn("🎵 BIOS Failed to parse XML:", e);
+            return null;
+          }
+        }
+        
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            const data = e.target.result;
+            const uint8Data = new Uint8Array(data);
+            
+            console.log("🔍 ALS file signature:", Array.from(uint8Data.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+            
+            // Check if it's a ZIP file (signature: 50 4b 03 04)
+            if (uint8Data[0] === 0x50 && uint8Data[1] === 0x4b && uint8Data[2] === 0x03 && uint8Data[3] === 0x04) {
+              console.log("📦 ALS file is a ZIP archive, loading JSZip...");
+              
+              // Load JSZip if not already loaded
+              if (!window.JSZip) await loadJSZip();
+              
+              const zip = new window.JSZip();
+              const zipData = await zip.loadAsync(data);
+              
+              console.log("📂 ZIP contents:", Object.keys(zipData.files));
+              
+              // Look for the main ALS XML file (usually named after the project)
+              let xmlContent = null;
+              let xmlFileName = null;
+              
+              // Try to find XML files in the ZIP
+              for (const fileName of Object.keys(zipData.files)) {
+                const file = zipData.files[fileName];
+                if (!file.dir && (fileName.endsWith('.xml') || fileName.endsWith('.als') || fileName === 'Project.xml')) {
+                  console.log(`📄 Found XML file: ${fileName}`);
+                  try {
+                    // Try different extraction methods
+                    console.log("🔍 Trying string extraction...");
+                    xmlContent = await file.async("string");
+                    console.log(`🔍 String extraction result (first 200 chars): ${xmlContent.substring(0, 200)}`);
+                    
+                    // If the content looks binary/garbled, try extracting as uint8array and decompress
+                    if (xmlContent.charCodeAt(0) > 127 || !xmlContent.includes('<')) {
+                      console.log("🔍 Content appears binary, trying binary extraction and decompression...");
+                      const binaryData = await file.async("uint8array");
+                      console.log(`🔍 Binary data length: ${binaryData.length}`);
+                      
+                      try {
+                        // Try gzip decompression with pako
+                        console.log("🔍 Trying gzip decompression...");
+                        const decompressed = pako.inflate(binaryData, { to: 'string' });
+                        console.log(`🔍 Gzip decompression result (first 200 chars): ${decompressed.substring(0, 200)}`);
+                        if (decompressed.includes('<')) {
+                          xmlContent = decompressed;
+                        }
+                      } catch (e) {
+                        console.log("🔍 Gzip failed, trying deflate...");
+                        try {
+                          const decompressed = pako.inflateRaw(binaryData, { to: 'string' });
+                          console.log(`🔍 Deflate decompression result (first 200 chars): ${decompressed.substring(0, 200)}`);
+                          if (decompressed.includes('<')) {
+                            xmlContent = decompressed;
+                          }
+                        } catch (e2) {
+                          console.warn("❌ Both gzip and deflate decompression failed:", e2);
+                        }
+                      }
+                    }
+                    
+                    xmlFileName = fileName;
+                    break;
+                  } catch (e) {
+                    console.warn(`❌ Failed to extract ${fileName}:`, e);
+                  }
+                }
+              }
+              
+              // If no XML found, try the first non-directory file
+              if (!xmlContent) {
+                for (const fileName of Object.keys(zipData.files)) {
+                  const file = zipData.files[fileName];
+                  if (!file.dir) {
+                    console.log(`📄 Trying file: ${fileName}`);
+                    const content = await file.async("string");
+                    if (content.includes('<?xml') || content.includes('<Ableton')) {
+                      xmlContent = content;
+                      xmlFileName = fileName;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              if (xmlContent) {
+                console.log(`✅ Successfully extracted XML from ${xmlFileName} (${xmlContent.length} chars)`);
+                console.log("🎵 🚀 BIOS sending dropped:als event with content:", {
+                  name: file.name.replace(/\.als$/, ""),
+                  xmlData: xmlContent.length + " chars"
+                });
+                send({
+                  type: "dropped:als",
+                  content: {
+                    name: file.name.replace(/\.als$/, ""),
+                    xmlData: xmlContent,
+                  },
+                });
+              } else {
+                console.error("❌ No XML content found in ALS ZIP file");
+              }
+            } else {
+              // Fall back to compression methods for non-ZIP ALS files
+              // Load pako if not already loaded
+              if (!window.pako) {
+                console.log("📦 Loading pako compression library for ALS file...");
+                await new Promise((resolve, reject) => {
+                  const script = document.createElement("script");
+                  script.src =
+                    "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+                  script.onload = resolve;
+                  script.onerror = reject;
+                  document.head.appendChild(script);
+                });
+              }
+              
+              let decompressedData = null;
+              
+              // Try different decompression methods
+              const methods = [
+                { name: 'zlib (inflate)', fn: () => pako.inflate(uint8Data, { to: 'string' }) },
+                { name: 'gzip (ungzip)', fn: () => pako.ungzip(uint8Data, { to: 'string' }) },
+                { name: 'raw deflate (inflateRaw)', fn: () => pako.inflateRaw(uint8Data, { to: 'string' }) }
+              ];
+              
+              for (const method of methods) {
+                try {
+                  console.log(`🧪 Trying ${method.name}...`);
+                  decompressedData = method.fn();
+                  console.log(`✅ Successfully decompressed using ${method.name}`);
+                  break;
+                } catch (err) {
+                  console.log(`❌ ${method.name} failed:`, err.message);
+                }
+              }
+              
+              if (decompressedData) {
+                // Parse the XML data into a structured object
+                const parsedProject = parseAbletonProject(decompressedData);
+                
+                console.log("🎵 🚀 BIOS sending dropped:als event with parsed content:", {
+                  name: file.name.replace(/\.als$/, ""),
+                  project: parsedProject ? `${parsedProject.tracks.length} tracks, ${parsedProject.tempo} BPM` : "parsing failed"
+                });
+                
+                send({
+                  type: "dropped:als",
+                  content: {
+                    name: file.name.replace(/\.als$/, ""),
+                    xmlData: decompressedData,
+                    project: parsedProject, // Send parsed structure
+                  },
+                });
+              } else {
+                console.error("❌ All decompression methods failed for ALS file");
+                // Try to read as plain text in case it's not compressed
+                try {
+                  const textData = new TextDecoder().decode(uint8Data);
+                  if (textData.includes('<?xml') || textData.includes('<Ableton')) {
+                    console.log("📄 File appears to be uncompressed XML");
+                    
+                    // Parse the XML data into a structured object
+                    const parsedProject = parseAbletonProject(textData);
+                    
+                    console.log("🎵 🚀 BIOS sending dropped:als event with uncompressed parsed content:", {
+                      name: file.name.replace(/\.als$/, ""),
+                      project: parsedProject ? `${parsedProject.tracks.length} tracks, ${parsedProject.tempo} BPM` : "parsing failed"
+                    });
+                    
+                    send({
+                      type: "dropped:als",
+                      content: {
+                        name: file.name.replace(/\.als$/, ""),
+                        xmlData: textData,
+                        project: parsedProject, // Send parsed structure
+                      },
+                    });
+                  } else {
+                    console.error("File doesn't appear to be XML either");
+                  }
+                } catch (textErr) {
+                  console.error("Failed to read as text:", textErr);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Failed to process ALS file:", error);
+          }
+        };
+        reader.readAsArrayBuffer(file);
     }
-  });
+  }
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
@@ -7776,11 +8215,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
 
+      // Ensure audioContext is initialized before trying to decode
+      if (!audioContext) {
+        console.log("🔊 Initializing audio context for WAV decoding...");
+        if (activateSound) {
+          activateSound();
+          // Wait a moment for audio context to initialize
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
       let audioBuffer;
       try {
         const buf = sfx[sound];
         sfx[sound] = null;
-        if (buf) {
+        if (buf && audioContext) {
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
           sfx[sound] = audioBuffer;
