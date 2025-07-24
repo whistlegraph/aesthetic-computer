@@ -3366,8 +3366,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             offset += frame.data.length;
           }
           
-          // Quantize to 256 colors for better quality - use rgba444 for better color fidelity
-          const palette = quantize(allPixels, 256, { format: "rgba444" });
+          // Quantize to 256 colors for better quality - use rgb565 for better color fidelity
+          const palette = quantize(allPixels, 256, { format: "rgb565" });
           
           // Send encoding status
           send({
@@ -3384,9 +3384,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const frame = finalFrames[i];
             const index = applyPalette(frame.data, palette);
             
+            // Use the actual frame duration from the content, converted to centiseconds (gif timing unit)
+            // Default to 2 centiseconds (20ms = ~50fps) if no duration provided
+            let delayInCentiseconds = 2; // Default to 20ms
+            if (content.frames[i] && content.frames[i].duration) {
+              delayInCentiseconds = Math.max(1, Math.round(content.frames[i].duration / 10));
+            }
+            
             gif.writeFrame(index, frame.width, frame.height, {
               palette: i === 0 ? palette : undefined, // Only include palette for first frame
-              delay: 20, // 20ms = ~50fps for smoother playback
+              delay: delayInCentiseconds, // Use actual frame timing
               repeat: 0  // Loop forever
             });
             
@@ -3451,11 +3458,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Add space for progress bar at bottom - but don't extend canvas, progress bar is built into stamp
           const progressBarHeight = 6;
 
-          // Create GIF instance with optimized compression settings for smaller files
+          // Create GIF instance with optimized quality settings for better color fidelity
           const gif = new window.GIF({
             workers: 4, // More workers for faster processing
-            quality: 30, // Ultra-low quality for smallest files (1-30, lower = better compression)
-            dither: 'Atkinson-serpentine', // Advanced dithering for better compression
+            quality: 5, // Higher quality for better colors (1-30, lower = better quality)
+            dither: 'FloydSteinberg', // Better dithering for color accuracy
             transparent: null, // No transparency to reduce file size
             width: originalWidth * optimalScale,
             height: originalHeight * optimalScale, // Use original height, progress bar is part of stamp
