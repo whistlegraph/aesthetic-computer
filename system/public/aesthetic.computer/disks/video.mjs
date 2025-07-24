@@ -778,7 +778,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               // Prepare all frames for single GIF creation request
               const processedFrames = framesToProcess.map((frame, index) => {
                 const [timestamp, imageData] = frame;
-                let duration = 100; // Default 100ms
+                let duration = 16.67; // Default 16.67ms for 60fps (same as WebP export)
                 
                 if (index < framesToProcess.length - 1) {
                   const nextTimestamp = framesToProcess[index + 1][0];
