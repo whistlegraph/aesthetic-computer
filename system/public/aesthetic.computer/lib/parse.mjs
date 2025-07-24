@@ -71,17 +71,14 @@ function parse(text, location = self?.location) {
   // This prevents prompt~(wipe blue) from being treated as kidlisp function call
   if (text.startsWith("prompt~")) {
     const promptContent = text.slice(7); // Remove "prompt~" prefix
-    console.log("🔍 PARSE: Handling prompt~ slug. Original text:", text, "Prompt content:", promptContent);
     
     // Check if this is actually kidlisp vs music notation or other content
     let decodedContent;
     if (isKidlispSource(promptContent) && isActualKidlisp(promptContent)) {
       decodedContent = decodeKidlispFromUrl(promptContent);
-      console.log("🔍 PARSE: Decoded as kidlisp:", decodedContent);
     } else {
       // For music notation like (ccc*___) or regular piece names, use as-is
       decodedContent = promptContent;
-      console.log("🔍 PARSE: Using as-is (not kidlisp):", decodedContent);
     }
     
     const result = {
@@ -94,7 +91,6 @@ function parse(text, location = self?.location) {
       hash: undefined,
       text: text,
     };
-    console.log("🔍 PARSE: Returning prompt result:", result);
     return result;
   }
   

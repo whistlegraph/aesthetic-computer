@@ -24,7 +24,7 @@
 
 ; 🚋 Train, 25.06.20.07.29
 (if (= slide 2)
-  (label "'train', 25.06.20.07.29")
+  ; (label "'train', 25.06.20.07.29")
   (0.5s (zoom 0.5))
   (mask 0 frame%height (? 1 10) height/4)
   (blur 7)
