@@ -123,6 +123,45 @@ export async function handler(event, context) {
         const codes = [];
         const cleanSource = source.trim().toLowerCase();
         
+        // Phonemic helpers for better human readability
+        const vowels = 'aeiou';
+        const consonants = 'bcdfghjklmnpqrstvwxyz';
+        
+        // Check if a string has good vowel-consonant balance for pronunciation
+        function hasGoodPhonetics(str) {
+          const hasVowel = /[aeiou]/.test(str);
+          const hasConsonant = /[bcdfghjklmnpqrstvwxyz]/.test(str);
+          return hasVowel && hasConsonant;
+        }
+        
+        // Create pronounceable combinations by inserting vowels
+        function makePronounceable(consonantString, targetLength = 3) {
+          if (consonantString.length === 0) return '';
+          if (consonantString.length >= targetLength && hasGoodPhonetics(consonantString)) {
+            return consonantString.substring(0, targetLength);
+          }
+          
+          let result = consonantString.charAt(0);
+          const vowelChoices = ['a', 'e', 'i', 'o', 'u'];
+          
+          for (let i = 1; i < consonantString.length && result.length < targetLength; i++) {
+            // Add vowel between consonants for better pronunciation
+            if (result.length < targetLength - 1) {
+              result += vowelChoices[i % vowelChoices.length];
+            }
+            if (result.length < targetLength) {
+              result += consonantString.charAt(i);
+            }
+          }
+          
+          // Ensure we hit target length
+          while (result.length < targetLength) {
+            result += vowelChoices[result.length % vowelChoices.length];
+          }
+          
+          return result.substring(0, targetLength);
+        }
+        
         // Extract KidLisp function names and create abbreviations
         const kidlispFunctions = ['wipe', 'ink', 'line', 'box', 'circle', 'rect', 'def', 'later', 'scroll', 'resolution', 'gap', 'frame', 'brush', 'clear', 'cls', 'help', 'reset', 'dot', 'pixel', 'stamp', 'paste', 'copy', 'move', 'rotate', 'scale', 'translate', 'fill', 'stroke', 'point', 'arc', 'bezier', 'noise', 'random', 'sin', 'cos', 'tan', 'sqrt', 'abs', 'floor', 'ceil', 'round', 'min', 'max', 'pow', 'log', 'exp', 'atan2', 'dist', 'lerp', 'map', 'norm', 'constrain', 'hue', 'sat', 'bright', 'alpha', 'red', 'green', 'blue', 'rgb', 'hsb', 'gray', 'background', 'foreground', 'text', 'font', 'repeat', 'rep', 'choose', 'overtone', 'rainbow', 'mic', 'amplitude'];
         
@@ -131,151 +170,187 @@ export async function handler(event, context) {
           cleanSource.includes(`(${fn}`) || cleanSource.includes(` ${fn} `) || cleanSource.startsWith(fn)
         );
         
+        // Extract words from each line for more granular analysis
+        const lines = cleanSource.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        const wordsPerLine = lines.map(line => (line.match(/[a-z]+/g) || []).filter(word => kidlispFunctions.includes(word) || ['red', 'green', 'blue', 'yellow', 'white', 'black', 'gray', 'purple', 'orange'].includes(word)));
+        
         if (foundFunctions.length > 0) {
           const primaryFunction = foundFunctions[0];
           
-          // Strategy 1: Try smaller codes first (1-2 chars) for super short URLs, then pad to 3+ chars
-          // Single letter codes for primary functions - pad to 3 chars
-          const singleChar = primaryFunction.charAt(0);
-          codes.push(singleChar + singleChar + '1'); // e.g., 'l' -> 'll1'
-          codes.push(singleChar + '11'); // e.g., 'l' -> 'l11'
-          codes.push(singleChar + primaryFunction.charAt(1) + '1'); // e.g., 'line' -> 'li1'
-          
-          // Two-letter combinations with numbers for common patterns - ensure 3+ chars
-          if (cleanSource.includes('red')) codes.push(primaryFunction.charAt(0) + '1r'); // e.g., 'l1r'
-          if (cleanSource.includes('blue')) codes.push(primaryFunction.charAt(0) + '2b'); // e.g., 'l2b'
-          if (cleanSource.includes('green')) codes.push(primaryFunction.charAt(0) + '3g'); // e.g., 'l3g'
-          if (cleanSource.includes('yellow')) codes.push(primaryFunction.charAt(0) + '4y'); // e.g., 'l4y'
-          if (cleanSource.includes('white')) codes.push(primaryFunction.charAt(0) + '5w'); // e.g., 'l5w'
-          if (cleanSource.includes('black')) codes.push(primaryFunction.charAt(0) + '6k'); // e.g., 'l6k'
-          if (cleanSource.includes('purple')) codes.push(primaryFunction.charAt(0) + '7p'); // e.g., 'l7p'
-          if (cleanSource.includes('orange')) codes.push(primaryFunction.charAt(0) + '8o'); // e.g., 'l8o'
-          if (cleanSource.includes('gray')) codes.push(primaryFunction.charAt(0) + '9g'); // e.g., 'l9g'
-          
-          // Strategy 2: 1337 speak transformations for shorter, memorable codes (already 3+ chars mostly)
-          const leetMap = {
-            'line': 'l1n3', 'ink': '1nk3', 'box': 'b0x3', 'circle': 'c1rc', 'red': 'r3d1',
-            'blue': 'blu3', 'green': 'gr33n', 'white': 'wh1t3', 'black': 'bl4ck',
-            'repeat': 'r3p3', 'random': 'r4nd', 'noise': 'n01s3', 'rainbow': 'r41nb0'
-          };
-          
-          foundFunctions.forEach(fn => {
-            if (leetMap[fn]) {
-              const leetCode = leetMap[fn];
-              if (leetCode.length >= 3) codes.push(leetCode);
-              // If leet code is too short, pad it
-              else if (leetCode.length === 2) codes.push(leetCode + '1');
-              else if (leetCode.length === 1) codes.push(leetCode + '11');
-            }
-          });
-          
-          // Strategy 3: First letters of each function used (e.g., "line ink red" -> "lir")
-          if (foundFunctions.length >= 2 && foundFunctions.length <= 4) {
+          // 🎵 STRATEGY 1: Phonemic First Letters with Vowel Insertion
+          // For "wipe blue line ink red" -> extract first letters "wblir" -> make pronounceable "walir", "welir", "wilir" etc.
+          if (foundFunctions.length >= 2) {
             const firstLetters = foundFunctions.map(fn => fn.charAt(0)).join('');
-            if (firstLetters.length >= 3 && firstLetters.length <= 4) {
-              codes.push(firstLetters);
+            const phoneticCodes = [];
+            
+            // Try different vowel patterns for the consonant string
+            if (firstLetters.length >= 3) {
+              phoneticCodes.push(makePronounceable(firstLetters, 3));
+              phoneticCodes.push(makePronounceable(firstLetters, 4));
+              
+              // Alternative patterns: consonant-vowel-consonant (CVC)
+              if (firstLetters.length >= 2) {
+                phoneticCodes.push(firstLetters.charAt(0) + 'a' + firstLetters.charAt(1)); // wa + next consonant
+                phoneticCodes.push(firstLetters.charAt(0) + 'i' + firstLetters.charAt(1)); // wi + next consonant  
+                phoneticCodes.push(firstLetters.charAt(0) + 'o' + firstLetters.charAt(1)); // wo + next consonant
+              }
             } else if (firstLetters.length === 2) {
-              // Pad 2-char combinations to 3 chars
-              codes.push(firstLetters + '1');
-              codes.push(firstLetters + primaryFunction.charAt(1)); // e.g., 'li' -> 'lin'
-            } else if (firstLetters.length === 1) {
-              // Pad single chars to 3 chars
-              codes.push(firstLetters + '11');
-              codes.push(firstLetters + firstLetters + '1');
+              // Two functions: make CVC or CVCV patterns
+              phoneticCodes.push(firstLetters.charAt(0) + 'a' + firstLetters.charAt(1)); // "wl" -> "wal"
+              phoneticCodes.push(firstLetters.charAt(0) + 'i' + firstLetters.charAt(1)); // "wl" -> "wil"
+              phoneticCodes.push(firstLetters.charAt(0) + 'o' + firstLetters.charAt(1)); // "wl" -> "wol"
+              phoneticCodes.push(firstLetters + 'a'); // "wl" -> "wla"
+              phoneticCodes.push(firstLetters + 'i'); // "wl" -> "wli"
+            }
+            
+            codes.push(...phoneticCodes.filter(code => code.length >= 3));
+          }
+          
+          // 🎵 STRATEGY 2: Line-by-line First Letters (preserving structure)
+          // For multiline code, try first letter of first word per line
+          if (lines.length >= 2 && lines.length <= 4) {
+            const lineStarters = [];
+            for (const wordList of wordsPerLine) {
+              if (wordList.length > 0) {
+                lineStarters.push(wordList[0].charAt(0));
+              }
+            }
+            
+            if (lineStarters.length >= 2) {
+              const lineCode = lineStarters.join('');
+              if (lineCode.length >= 3) {
+                codes.push(lineCode);
+                codes.push(makePronounceable(lineCode, 3));
+              } else if (lineCode.length === 2) {
+                codes.push(makePronounceable(lineCode, 3));
+                codes.push(lineCode + 'a');
+                codes.push(lineCode + 'i');
+              }
             }
           }
           
-          // Strategy 4: Primary function + descriptive suffix (traditional approach) - ensure 3+ chars
-          if (cleanSource.includes('red')) codes.push(primaryFunction.charAt(0) + 'r3d');
-          if (cleanSource.includes('blue')) codes.push(primaryFunction.charAt(0) + 'blu');
-          if (cleanSource.includes('green')) codes.push(primaryFunction.charAt(0) + 'grn');
-          if (cleanSource.includes('yellow')) codes.push(primaryFunction.charAt(0) + 'ylw');
-          if (cleanSource.includes('white')) codes.push(primaryFunction.charAt(0) + 'wht');
-          if (cleanSource.includes('black')) codes.push(primaryFunction.charAt(0) + 'blk');
-          
-          // Strategy 5: Function abbreviations (e.g., "line" -> "ln", "circle" -> "cir") - ensure 3+ chars
-          const abbreviations = {
-            'line': 'ln3', 'circle': 'cir', 'rectangle': 'rect', 'repeat': 'rep3',
-            'background': 'bg3', 'foreground': 'fg3', 'resolution': 'res3',
-            'random': 'rnd', 'rainbow': 'rnb', 'amplitude': 'amp3'
+          // 🎵 STRATEGY 3: Syllable-based abbreviations with vowel harmony
+          const syllableMap = {
+            'wipe': 'wi', 'line': 'li', 'circle': 'cir', 'rectangle': 'rec',
+            'background': 'bak', 'foreground': 'for', 'repeat': 'rep',
+            'random': 'ran', 'rainbow': 'rai', 'amplitude': 'amp'
           };
           
           foundFunctions.forEach(fn => {
-            if (abbreviations[fn]) {
-              const abbrev = abbreviations[fn];
-              if (abbrev.length >= 3) {
-                codes.push(abbrev);
+            if (syllableMap[fn]) {
+              const syl = syllableMap[fn];
+              if (syl.length >= 3) {
+                codes.push(syl);
               } else {
-                // Pad short abbreviations
-                codes.push(abbrev + '1');
+                // Create 3-char versions with vowel endings
+                codes.push(syl + 'a');
+                codes.push(syl + 'i');
+                codes.push(syl + 'o');
               }
             }
           });
-        }
-        
-        // Strategy 6: Extract meaningful sequences from simple expressions - ensure 3+ chars
-        // Look for patterns like "line; ink red" -> "lir"
-        const words = cleanSource.match(/[a-z]+/g) || [];
-        if (words.length === 2 || words.length === 3) {
-          const wordAbbrev = words.map(w => w.charAt(0)).join('');
-          if (wordAbbrev.length >= 3 && wordAbbrev.length <= 4) {
-            codes.push(wordAbbrev);
-          } else if (wordAbbrev.length === 2) {
-            // Pad to 3 chars
-            codes.push(wordAbbrev + '1');
-            codes.push(wordAbbrev + words[0].charAt(1)); // e.g., 'li' -> 'lin'
-          } else if (wordAbbrev.length === 1) {
-            // Pad to 3 chars
-            codes.push(wordAbbrev + '11');
+          
+          // 🎵 STRATEGY 4: Color-aware phonemic combinations
+          const colors = ['red', 'blue', 'green', 'yellow', 'white', 'black', 'gray', 'purple', 'orange'];
+          const foundColors = colors.filter(color => cleanSource.includes(color));
+          
+          if (foundColors.length > 0) {
+            const primaryColor = foundColors[0];
+            const colorCode = primaryColor.charAt(0);
+            const functionCode = primaryFunction.charAt(0);
+            
+            // Create pronounceable function+color combinations
+            codes.push(functionCode + 'a' + colorCode); // "w" + "a" + "b" = "wab" for wipe blue
+            codes.push(functionCode + 'i' + colorCode); // "w" + "i" + "b" = "wib" for wipe blue
+            codes.push(functionCode + 'o' + colorCode); // "w" + "o" + "b" = "wob" for wipe blue
+            
+            // Reverse order too
+            codes.push(colorCode + 'a' + functionCode); // "b" + "a" + "w" = "baw" for blue wipe
+            codes.push(colorCode + 'i' + functionCode); // "b" + "i" + "w" = "biw" for blue wipe
           }
-        }
-        
-        // Strategy 7: For very short expressions, use direct mapping - ensure 3+ chars
-        if (cleanSource.length <= 20) {
-          // Simple color mappings with numbers - always 3+ chars
-          const colorMap = {
-            'red': 'red', 'blue': 'blu', 'green': 'grn', 'yellow': 'ylw',
-            'white': 'wht', 'black': 'blk', 'gray': 'gry', 'purple': 'pur'
+          
+          // 🎵 STRATEGY 5: Memorable word-like patterns
+          // Create word-like codes that are easy to remember and pronounce
+          const wordPatterns = {
+            'wipe': ['wop', 'wap', 'wip'],
+            'line': ['lin', 'lon', 'lan'],
+            'ink': ['ink', 'unk', 'onk'],
+            'box': ['bax', 'bix', 'bux'],
+            'circle': ['cir', 'cur', 'cor'],
+            'red': ['rad', 'rid', 'rod'],
+            'blue': ['blu', 'bla', 'ble'],
+            'green': ['grn', 'gra', 'gre']
           };
           
-          let simpleCode = '';
-          Object.entries(colorMap).forEach(([color, abbrev]) => {
-            if (cleanSource.includes(color) && simpleCode.length === 0) {
-              simpleCode = foundFunctions[0]?.charAt(0) + abbrev; // e.g., 'lred', 'lblu'
+          foundFunctions.forEach(fn => {
+            if (wordPatterns[fn]) {
+              codes.push(...wordPatterns[fn]);
             }
           });
           
-          if (simpleCode.length >= 3) {
-            codes.push(simpleCode);
-          }
-        }
-        
-        // Strategy 8: Super compact codes with numbers for ultra-short URLs - ensure 3+ chars
-        if (foundFunctions.length > 0) {
-          // Generate 3-char codes: letter + number + letter based on function count and colors
-          const fnChar = foundFunctions[0].charAt(0);
-          const colorCount = ['red', 'blue', 'green', 'yellow', 'white', 'black'].filter(c => cleanSource.includes(c)).length;
-          if (colorCount > 0) {
-            codes.push(fnChar + colorCount + 'c'); // e.g., 'l2c' for line with 2 colors
-          }
+          foundColors.forEach(color => {
+            if (wordPatterns[color]) {
+              codes.push(...wordPatterns[color]);
+            }
+          });
           
-          // Generate meaningful 3-char codes for common combinations
-          if (cleanSource.includes('ink') && cleanSource.includes('red')) codes.push('ir1');
-          if (cleanSource.includes('ink') && cleanSource.includes('blue')) codes.push('ib1');
-          if (cleanSource.includes('line') && cleanSource.includes('red')) codes.push('lr1');
-          if (cleanSource.includes('box') && cleanSource.includes('red')) codes.push('br1');
+          // 🎵 STRATEGY 6: Context-aware combinations
+          // Look for common KidLisp patterns and create memorable codes
+          if (cleanSource.includes('wipe') && cleanSource.includes('blue')) codes.push('wub', 'wib', 'wab');
+          if (cleanSource.includes('line') && cleanSource.includes('red')) codes.push('lir', 'lar', 'lor');
+          if (cleanSource.includes('ink') && cleanSource.includes('red')) codes.push('ira', 'ire', 'iro');
+          if (cleanSource.includes('ink') && cleanSource.includes('blue')) codes.push('iba', 'ibe', 'ibo');
+          if (cleanSource.includes('box') && cleanSource.includes('red')) codes.push('bra', 'bre', 'bro');
+          
+          // Multi-color combinations
+          if (foundColors.length >= 2) {
+            const colorInitials = foundColors.slice(0, 2).map(c => c.charAt(0)).join('');
+            codes.push(primaryFunction.charAt(0) + colorInitials); // e.g., "lbr" for line blue red
+            codes.push(makePronounceable(primaryFunction.charAt(0) + colorInitials, 3));
+          }
         }
         
-        // Ensure all generated codes are valid, prioritizing shorter codes but minimum 3 chars
+        // 🎵 STRATEGY 7: Fallback pronounceable patterns
+        // If we have any words at all, create pronounceable patterns
+        const allWords = cleanSource.match(/[a-z]+/g) || [];
+        if (allWords.length >= 2) {
+          const initials = allWords.slice(0, 4).map(w => w.charAt(0)).join('');
+          codes.push(makePronounceable(initials, 3));
+          codes.push(makePronounceable(initials, 4));
+          
+          // Try different vowel insertions for first 3 letters
+          if (initials.length >= 3) {
+            const base = initials.substring(0, 3);
+            codes.push(base);
+            if (!hasGoodPhonetics(base)) {
+              // Insert vowels to improve pronunciation
+              codes.push(base.charAt(0) + 'a' + base.substring(1));
+              codes.push(base.charAt(0) + 'i' + base.substring(1));
+              codes.push(base.charAt(0) + 'o' + base.substring(1));
+            }
+          }
+        }
+        
+        // Filter for valid, pronounceable codes
         const validCodes = codes.filter(code => 
           /^[a-z0-9]+$/.test(code) && 
           code.length >= 3 && 
-          code.length <= 12 && // Allow growth up to maxLength for uniqueness
-          /[a-z]/.test(code) // Must contain at least one letter
+          code.length <= 12 && 
+          /[a-z]/.test(code)
         );
         
-        // Sort by length (shortest first) for better user experience, but all will be 3+ chars
-        return [...new Set(validCodes)].sort((a, b) => a.length - b.length);
+        // Sort by phonemic quality (vowel-consonant balance) and length
+        const scorePhonetics = (code) => {
+          let score = 0;
+          if (hasGoodPhonetics(code)) score += 10;
+          if (/^[bcdfghjklmnpqrstvwxyz][aeiou]/.test(code)) score += 5; // Starts with consonant-vowel
+          if (!/\d/.test(code)) score += 3; // Prefer letters over numbers
+          if (code.length === 3) score += 2; // Prefer 3-char codes
+          return score;
+        };
+        
+        return [...new Set(validCodes)]
+          .sort((a, b) => scorePhonetics(b) - scorePhonetics(a) || a.length - b.length);
       }
       
       // Try inferred codes first, then fall back to random generation
