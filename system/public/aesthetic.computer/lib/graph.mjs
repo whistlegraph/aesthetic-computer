@@ -2877,10 +2877,11 @@ function scroll(dx = 0, dy = 0) {
   
   // 🕐 Log performance if scroll took longer than expected
   const scrollDuration = performance.now() - scrollStartTime;
-  const threshold = isRecording ? 3 : 5; // Stricter threshold during recording
+  const isCurrentlyRecording = window.mediaRecorder?.state === "recording"; // Check global recording state
+  const threshold = isCurrentlyRecording ? 3 : 5; // Stricter threshold during recording
   
   if (scrollDuration > threshold) {
-    console.warn(`🐌 Slow scroll detected: ${scrollDuration.toFixed(2)}ms for dx=${dx}, dy=${dy}${isRecording ? ' (RECORDING)' : ''}`);
+    console.warn(`🐌 Slow scroll detected: ${scrollDuration.toFixed(2)}ms for dx=${dx}, dy=${dy}${isCurrentlyRecording ? ' (RECORDING)' : ''}`);
   }
 }
 
