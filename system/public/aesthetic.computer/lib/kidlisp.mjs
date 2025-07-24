@@ -1,6 +1,9 @@
 // Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
+// ❤️‍🔥 TODO: Add UTC Support to s... timers. etc. to be compatible with 'clock.mjs'.
+
+
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
@@ -397,6 +400,14 @@ class KidLisp {
     this.timingBlinks = new Map(); // Track timing expressions that should blink
     this.blinkDuration = 200; // Duration for timing blinks in milliseconds
     
+    // Active timing expressions tracking for syntax highlighting
+    this.activeTimingExpressions = new Map(); // Track which timing expressions are currently active
+    
+    // Syntax highlighting signals from execution
+    this.syntaxSignals = new Map(); // Direct signals from evaluation: expressionId -> color
+    this.expressionRegistry = new Map(); // Map AST expressions to unique IDs
+    this.nextExpressionId = 0; // Counter for expression IDs
+    
     // Ink state management
     this.inkState = undefined; // Track KidLisp ink color (starts undefined)
     this.inkStateSet = false; // Track if ink has been explicitly set
@@ -463,9 +474,38 @@ class KidLisp {
     // Reset timing blink tracking
     this.timingBlinks.clear();
     
+    // Reset active timing expressions tracking
+    this.activeTimingExpressions.clear();
+    
     // Don't reset ink state during reset - preserve across frame transitions
     // this.inkState = undefined;
     // this.inkStateSet = false;
+  }
+
+  // Register an expression and get its unique ID
+  registerExpression(expr) {
+    // Create a stable key for the expression
+    const key = JSON.stringify(expr);
+    if (!this.expressionRegistry.has(key)) {
+      this.expressionRegistry.set(key, this.nextExpressionId++);
+    }
+    return this.expressionRegistry.get(key);
+  }
+
+  // Signal syntax highlighting for an expression
+  signalSyntaxHighlight(expr, color) {
+    const id = this.registerExpression(expr);
+    this.syntaxSignals.set(id, color);
+    
+    // Debug logging
+    if (this.frameCount % 60 === 0) {
+      console.log(`📡 SYNTAX SIGNAL: expr ${id} -> ${color}`, expr);
+    }
+  }
+
+  // Clear all syntax signals (called each frame)
+  clearSyntaxSignals() {
+    this.syntaxSignals.clear();
   }
 
   // Mark a timing expression as triggered for blinking
@@ -497,6 +537,44 @@ class KidLisp {
     return elapsed < (blinkInfo.duration / 2);
   }
 
+  // Format an expression for HUD display (convert to readable text)
+  formatExpressionForHUD(expr) {
+    if (typeof expr === "string") {
+      return expr;
+    }
+    if (typeof expr === "number") {
+      return expr.toString();
+    }
+    if (Array.isArray(expr)) {
+      // Convert array expressions to readable format like "(ink white)" or "(line)"
+      if (expr.length === 0) return "()";
+      if (expr.length === 1) return `(${expr[0]})`;
+      
+      // Format common patterns nicely
+      const head = expr[0];
+      const args = expr.slice(1);
+      
+      if (head === "ink" && args.length === 1) {
+        return `(ink ${args[0]})`;
+      }
+      if (head === "line" && args.length === 0) {
+        return "(line)";
+      }
+      if (head === "line" && args.length > 0) {
+        return `(line ${args.join(" ")})`;
+      }
+      
+      // Generic formatting: show first few items to keep it concise
+      const displayArgs = args.slice(0, 3);
+      const argsText = displayArgs.join(" ");
+      const ellipsis = args.length > 3 ? "..." : "";
+      return `(${head} ${argsText}${ellipsis})`;
+    }
+    
+    // Fallback for other types
+    return String(expr);
+  }
+
   // Detect first-line color from AST without executing code
   detectFirstLineColor() {
     if (!this.ast) return;
@@ -525,7 +603,6 @@ class KidLisp {
           
           // If we get here without error, it's a color function
           this.firstLineColor = colorName;
-          console.log("🎨 Re-detected first-line color:", colorName);
         } catch (e) {
           // Not a color function, ignore
         }
@@ -783,7 +860,7 @@ class KidLisp {
         // Log the generated $code to console with styled formatting
         console.log(
           `%c$${response.code}`,
-          'background: yellow; color: black; font-weight: bold; font-family: monospace; padding: 4px 8px; border-radius: 4px; font-size: 12px;'
+          'background: yellow; color: black; font-weight: bold; font-family: monospace; padding: 2px 4px; font-size: 12px;'
         );
         
         // Update browser URL to show the short code
@@ -804,6 +881,12 @@ class KidLisp {
   // Parse and evaluate a lisp source module
   // into a running aesthetic computer piece.
   module(source, isLispFile = false) {
+    // Console log the interpreted KidLisp code with styled formatting and dogs
+    console.log(
+      `%c🐕 ${source} 🐶`,
+      'display: inline-block; background: #000; color: #FFEB3B; font-family: monospace; font-weight: bold; font-size: 12px; line-height: 1.4; white-space: pre-wrap; padding: 2px 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); text-shadow: 0 0 2px rgba(255, 235, 59, 0.3);'
+    );
+    
     // Reset all state for fresh instance when loading a new module
     this.reset();
     
@@ -916,6 +999,9 @@ class KidLisp {
         if (this.frameCount >= cacheDelayFrames && !this.cachedCode) {
           this.cacheKidlispSource(source, $);
         }
+
+        // Clear syntax signals from previous frame
+        this.clearSyntaxSignals();
 
         // Update HUD with syntax highlighting
         this.updateHUDWithSyntaxHighlighting($);
@@ -2758,44 +2844,69 @@ class KidLisp {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
           const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
-          const clockResult = this.evaluate("clock", api, env);
-          if (clockResult) {
-            const currentTimeMs = clockResult.getTime
-              ? clockResult.getTime()
-              : Date.now();
-            const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
+          // Get current time directly using Date.now() instead of evaluating clock function
+          const currentTimeMs = Date.now();
+          const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
 
-            // Create a unique key for this timed iteration expression - use simpler key generation
-            const timingKey = head + "_" + args.length;
+          // Create a unique key for this timed iteration expression - use simpler key generation
+          const timingKey = head + "_" + args.length;
 
-            // Initialize timing tracking if not set
-            if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-              this.lastSecondExecutions[timingKey] = currentTime;
-              // Initialize sequence counter for this timed iteration
-              if (!this.sequenceCounters) {
-                this.sequenceCounters = new Map();
-              }
-              this.sequenceCounters.set(timingKey, 0);
+          // Initialize timing tracking if not set
+          if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
+            this.lastSecondExecutions[timingKey] = currentTime;
+            // Initialize sequence counter for this timed iteration
+            if (!this.sequenceCounters) {
+              this.sequenceCounters = new Map();
             }
+            this.sequenceCounters.set(timingKey, 0);
+          }
 
-            const lastExecution = this.lastSecondExecutions[timingKey];
-            const diff = currentTime - lastExecution;
+          const lastExecution = this.lastSecondExecutions[timingKey];
+          const diff = currentTime - lastExecution;
 
-            // Check if enough time has passed to advance to next item
-            if (diff >= seconds) {
-              this.lastSecondExecutions[timingKey] = currentTime;
+          // Check if enough time has passed to advance to next item
+          if (diff >= seconds) {
+            this.lastSecondExecutions[timingKey] = currentTime;
+            
+            // Mark timing as triggered for red blink effect
+            this.markTimingTriggered(head);
 
-              // Advance the sequence counter
-              const currentIndex = this.sequenceCounters.get(timingKey) || 0;
-              const nextIndex = (currentIndex + 1) % args.length;
-              this.sequenceCounters.set(timingKey, nextIndex);
+            // Advance the sequence counter
+            const currentIndex = this.sequenceCounters.get(timingKey) || 0;
+            const nextIndex = (currentIndex + 1) % args.length;
+            this.sequenceCounters.set(timingKey, nextIndex);
+            
+            // Debug timing switches for "2s..." expressions
+            if (head === "2s...") {
+              console.log(`⏰ TIMING SWITCH: ${timingKey} - ${currentIndex} → ${nextIndex}, args.length: ${args.length}, diff: ${diff.toFixed(2)}s`);
             }
+          }
 
-            // Always return the current item (not just when advancing)
-            if (args.length > 0) {
-              const currentIndex = this.sequenceCounters.get(timingKey) || 0;
-              result = args[currentIndex];
+          // Always return the current item (not just when advancing)
+          if (args.length > 0) {
+            const currentIndex = this.sequenceCounters.get(timingKey) || 0;
+            
+            // Debug timing state for "2s..." expressions (commented out - too frequent)
+            // if (head === "2s...") {
+            //   console.log(`⏰ TIMING DEBUG: ${timingKey} - currentIndex: ${currentIndex}, args.length: ${args.length}, diff: ${diff.toFixed(2)}s, threshold: ${seconds}s`);
+            // }
+            
+            // Track the active timing expression for syntax highlighting
+            this.activeTimingExpressions.set(timingKey, {
+              currentIndex,
+              totalArgs: args.length,
+              timingToken: head,
+              args: args
+            });
+            
+            // Signal syntax highlighting for timing expressions
+            for (let i = 0; i < args.length; i++) {
+              const color = i === currentIndex ? "olive" : "255,255,255,0"; // Active: olive, Inactive: transparent
+              this.signalSyntaxHighlight(args[i], color);
             }
+            
+            // Evaluate the selected argument instead of just returning it
+            result = this.evaluate(args[currentIndex], api, env);
           }
           continue; // Skip normal function processing
         }
@@ -3167,133 +3278,520 @@ class KidLisp {
     }
   }
 
-  // Generate colored syntax highlighting string for HUD
+  // Generate colored syntax highlighting string for HUD using proper tokenization
   buildColoredKidlispString() {
     if (!this.syntaxHighlightSource) return "";
 
-    // Use the existing tokenizer to properly parse the kidlisp
-    const tokens = tokenize(this.syntaxHighlightSource);
+    try {
+      // Tokenize the source code for proper syntax highlighting
+      const tokens = tokenize(this.syntaxHighlightSource);
+      
+      if (tokens.length === 0) {
+        return `\\white\\${this.syntaxHighlightSource}`;
+      }
 
-    // Build a map of character positions to their colors
-    const charColors = new Array(this.syntaxHighlightSource.length).fill("white");
-    
-    // More robust token matching - find each token exactly in the source
-    let lastFoundIndex = 0;
-    
-    for (let t = 0; t < tokens.length; t++) {
-      const token = tokens[t];
-      const tokenColor = this.getTokenColor(token, tokens, t);
+      // Build colored string by finding each token in the original source and preserving whitespace
+      let result = "";
+      let sourceIndex = 0;
+      let lastColor = null;
       
-      // Find the token starting from where we left off
-      let tokenStart = -1;
-      
-      // For single character tokens like parentheses, be more precise
-      if (token.length === 1) {
-        tokenStart = this.syntaxHighlightSource.indexOf(token, lastFoundIndex);
-      } else {
-        // For multi-character tokens, make sure we match complete tokens
-        let searchIndex = lastFoundIndex;
-        while (searchIndex < this.syntaxHighlightSource.length) {
-          const foundIndex = this.syntaxHighlightSource.indexOf(token, searchIndex);
-          if (foundIndex === -1) break;
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        const color = this.getTokenColor(token, tokens, i);
+        
+        // Find the token in the original source starting from our current position
+        const tokenIndex = this.syntaxHighlightSource.indexOf(token, sourceIndex);
+        
+        if (tokenIndex !== -1) {
+          // Add any whitespace/formatting between the last token and this one
+          const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
+          result += whitespace;
           
-          // Check if this is a complete token (not part of a larger word)
-          const beforeChar = foundIndex > 0 ? this.syntaxHighlightSource[foundIndex - 1] : ' ';
-          const afterChar = foundIndex + token.length < this.syntaxHighlightSource.length 
-            ? this.syntaxHighlightSource[foundIndex + token.length] : ' ';
-          
-          // For function names and identifiers, ensure word boundaries
-          if (/[a-zA-Z]/.test(token)) {
-            if (!/[\s()"]/.test(beforeChar) || !/[\s()"]/.test(afterChar)) {
-              searchIndex = foundIndex + 1;
-              continue;
-            }
+          // Add color escape sequence when color changes
+          if (color !== lastColor) {
+            result += `\\${color}\\`;
+            lastColor = color;
           }
           
-          tokenStart = foundIndex;
+          // Add the token itself
+          result += token;
+          
+          // Update our position in the source
+          sourceIndex = tokenIndex + token.length;
+        }
+      }
+      
+      // Add any remaining whitespace at the end
+      if (sourceIndex < this.syntaxHighlightSource.length) {
+        result += this.syntaxHighlightSource.substring(sourceIndex);
+      }
+      
+      return result;
+    } catch (error) {
+      console.warn("Error building colored kidlisp string:", error);
+      // Fallback to plain white text
+      return `\\white\\${this.syntaxHighlightSource}`;
+    }
+  }
+
+  // Check if a token is part of a timing expression and get its state
+  getTimingTokenState(token, tokens, index) {
+    // First, check if the current token itself is a timing token
+    if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
+      // Try to find this timing key in our active tracking
+      // We need to check all possible timing keys since we don't know the exact arg count here
+      for (const [timingKey, data] of this.activeTimingExpressions) {
+        if (timingKey.startsWith(token + "_")) {
+          return {
+            timingKey,
+            currentIndex: data.currentIndex,
+            totalArgs: data.totalArgs,
+            isBlinking: this.isTimingBlinking(token),
+            isInActiveArg: true // The timing token itself is always "active"
+          };
+        }
+      }
+      
+      // Fallback to sequence counters if not in active expressions
+      for (const [timingKey, currentIndex] of this.sequenceCounters) {
+        if (timingKey.startsWith(token + "_")) {
+          const argCount = parseInt(timingKey.split("_")[1]) || 0;
+          return {
+            timingKey,
+            currentIndex,
+            totalArgs: argCount,
+            isBlinking: this.isTimingBlinking(token),
+            isInActiveArg: true
+          };
+        }
+      }
+    }
+
+    // Check if this token is inside a timing expression's arguments
+    for (let i = 0; i < index; i++) {
+      const prevToken = tokens[i];
+      if (/^\d*\.?\d+s\.\.\.?$/.test(prevToken)) {
+        if (token === "line" || token === "box") {
+          console.log(`🔍 Found timing token "${prevToken}" at index ${i} while processing "${token}" at index ${index}`);
+        }
+        // Try to find this timing key in our active tracking
+        for (const [timingKey, data] of this.activeTimingExpressions) {
+          if (timingKey.startsWith(prevToken + "_")) {
+            if (token === "line" || token === "box") {
+              console.log(`🔍 Checking timing key "${timingKey}" for token "${token}"`);
+            }
+            
+            // Check if current token is within one of the timing arguments
+            const argInfo = this.getTokenArgPosition(tokens, i, index);
+            if (token === "line" || token === "box") {
+              console.log(`🔍 getTokenArgPosition(${i}, ${index}) returned:`, argInfo);
+            }
+            
+            if (argInfo && argInfo.argIndex < data.totalArgs) {
+              const isActive = argInfo.argIndex === data.currentIndex;
+              // Debug: Log which argument this token belongs to
+              if (token === "line" || token === "box") {
+                console.log(`🔍 Token "${token}" -> arg ${argInfo.argIndex}, current active: ${data.currentIndex}, is active: ${isActive}`);
+              }
+              return {
+                timingKey,
+                currentIndex: data.currentIndex,
+                totalArgs: data.totalArgs,
+                isBlinking: this.isTimingBlinking(prevToken),
+                isInActiveArg: isActive
+              };
+            } else {
+              console.log(`🔍 Token "${token}" not in valid argument range or argInfo is null`);
+            }
+          }
+        }
+        
+        // Fallback to sequence counters
+        for (const [timingKey, currentIndex] of this.sequenceCounters) {
+          if (timingKey.startsWith(prevToken + "_")) {
+            const argCount = parseInt(timingKey.split("_")[1]) || 0;
+            const argInfo = this.getTokenArgPosition(tokens, i, index);
+            if (argInfo && argInfo.argIndex < argCount) {
+              return {
+                timingKey,
+                currentIndex,
+                totalArgs: argCount,
+                isBlinking: this.isTimingBlinking(prevToken),
+                isInActiveArg: argInfo.argIndex === currentIndex
+              };
+            }
+          }
+        }
+      }
+    }
+
+    return null; // Not part of any timing expression
+  }
+
+  // Get which argument position a token is in relative to a timing token
+  getTokenArgPosition(tokens, timingIndex, tokenIndex) {
+    let argIndex = -1; // Start at -1, will increment to 0 for first argument
+    let parenDepth = 0;
+    let currentTokenPos = timingIndex + 1;
+    
+    // Only debug for tokens we care about
+    const isDebugToken = tokens[tokenIndex] === "line" || tokens[tokenIndex] === "box";
+    
+    if (isDebugToken) {
+      console.log(`🔍 getTokenArgPosition: Analyzing "${tokens[tokenIndex]}" (index ${tokenIndex}) relative to timing at ${timingIndex}`);
+      console.log(`🔍 Token range: ${timingIndex + 1} to ${tokenIndex}`);
+    }
+    
+    while (currentTokenPos < tokens.length && currentTokenPos <= tokenIndex) {
+      const token = tokens[currentTokenPos];
+      
+      if (token === "(") {
+        parenDepth++;
+        if (parenDepth === 1) {
+          // Start of a new top-level argument
+          argIndex++;
+          if (isDebugToken) {
+            console.log(`🔍 Starting arg ${argIndex} at token "${token}" (pos ${currentTokenPos})`);
+          }
+        }
+      } else if (token === ")") {
+        parenDepth--;
+        if (isDebugToken) {
+          console.log(`🔍 Closing paren at pos ${currentTokenPos}, parenDepth now ${parenDepth}`);
+        }
+        if (parenDepth < 0) {
+          // We've exited the timing expression
+          if (isDebugToken) {
+            console.log(`🔍 Exited timing expression at pos ${currentTokenPos}`);
+          }
           break;
         }
       }
       
-      if (tokenStart !== -1) {
-        // Color all characters of this token
-        for (let i = 0; i < token.length; i++) {
-          charColors[tokenStart + i] = tokenColor;
+      if (currentTokenPos === tokenIndex) {
+        if (isDebugToken) {
+          console.log(`🔍 Found "${tokens[tokenIndex]}" inside arg ${argIndex} at depth ${parenDepth}`);
         }
-        lastFoundIndex = tokenStart + token.length;
+        return { argIndex, tokenDepth: parenDepth };
+      }
+      
+      currentTokenPos++;
+    }
+    
+    if (isDebugToken) {
+      console.log(`🔍 Token "${tokens[tokenIndex]}" not found in timing arguments`);
+    }
+    return null; // Token not found in timing arguments
+  }
+
+  // Get the arguments count for a timing expression (for key generation)
+  getTimingArgsCount(tokens, timingIndex) {
+    let argCount = 0;
+    let parenDepth = 0;
+    
+    for (let i = timingIndex + 1; i < tokens.length; i++) {
+      const token = tokens[i];
+      
+      if (token === "(") {
+        parenDepth++;
+        if (parenDepth === 1) {
+          // This is the start of a new top-level argument
+          argCount++;
+        }
+      } else if (token === ")") {
+        parenDepth--;
+        if (parenDepth < 0) {
+          // We've exited the timing expression
+          break;
+        }
       }
     }
+    
+    return argCount;
+  }
 
-    // Apply space collapsing ONLY (preserve newlines) and map colors correctly
-    const processedText = this.syntaxHighlightSource.replace(/ +/g, " ");
-    const processedColors = [];
+  // Get the arguments for a timing expression
+  getTimingArgs(tokens, timingIndex) {
+    const args = [];
+    let parenDepth = 0;
+    let currentArg = [];
+    let foundArgs = false;
     
-    // Build a precise mapping between original and processed text
-    let originalIndex = 0;
-    let processedIndex = 0;
-    
-    while (originalIndex < this.syntaxHighlightSource.length) {
-      const originalChar = this.syntaxHighlightSource[originalIndex];
+    for (let i = timingIndex + 1; i < tokens.length; i++) {
+      const token = tokens[i];
       
-      if (originalChar === ' ') {
-        // Handle space collapsing: multiple spaces become one space
-        const spaceColor = charColors[originalIndex] || "white";
+      if (token === "(") {
+        parenDepth++;
+        currentArg.push(token);
+        if (!foundArgs) {
+          foundArgs = true;
+        }
+      } else if (token === ")") {
+        parenDepth--;
+        currentArg.push(token);
         
-        // Only add a space to processed text if we're not already at one
-        if (processedIndex < processedText.length && processedText[processedIndex] === ' ') {
-          processedColors[processedIndex] = spaceColor;
-          processedIndex++;
+        if (parenDepth === 0) {
+          if (foundArgs && currentArg.length > 0) {
+            args.push(currentArg);
+            currentArg = [];
+          }
+          if (foundArgs) break; // End of timing arguments
+        }
+      } else if (parenDepth === 0 && foundArgs) {
+        // We're at the same level as the timing token, end of arguments
+        break;
+      } else if (parenDepth > 0) {
+        currentArg.push(token);
+      }
+    }
+    
+    return args;
+  }
+
+  // Check if a token is inside an active timing expression argument
+  getTimingExpressionState(token, tokens, index) {
+    // Debug: log active timing expressions periodically
+    if ((token === "box" || token === "line") && this.frameCount % 60 === 0) {
+      console.log(`🕐 DEBUG: Active timing expressions:`, Array.from(this.activeTimingExpressions.entries()));
+    }
+    
+    // Check if we're inside any active timing expression
+    for (const [timingKey, timingData] of this.activeTimingExpressions) {
+      // For each active timing expression, check if this token is part of it
+      const tokenPosition = this.findTokenInTimingArgs(token, index, tokens, timingData);
+      
+      if (tokenPosition.found) {
+        const isInActiveArg = tokenPosition.argIndex === timingData.currentIndex;
+        
+        // Debug: Log timing state for tokens we care about (only when frame count is divisible by 30 to reduce spam)
+        if ((token === "line" || token === "box" || token === "(" || token === ")") && this.frameCount % 30 === 0) {
+          console.log(`🕐 Token "${token}" timing state: argIndex=${tokenPosition.argIndex}, currentIndex=${timingData.currentIndex}, isInActiveArg=${isInActiveArg}`);
         }
         
-        // Skip all consecutive spaces in original text
-        while (originalIndex < this.syntaxHighlightSource.length && 
-               this.syntaxHighlightSource[originalIndex] === ' ') {
-          originalIndex++;
-        }
-      } else {
-        // Non-space character: map directly
-        const charColor = charColors[originalIndex] || "white";
-        if (processedIndex < processedText.length) {
-          processedColors[processedIndex] = charColor;
-          processedIndex++;
-        }
-        originalIndex++;
+        return {
+          isInActiveArg: isInActiveArg,
+          currentArgIndex: tokenPosition.argIndex,
+          currentIndex: timingData.currentIndex,
+          timingKey,
+          timingData
+        };
       }
     }
     
-    // Fill any remaining processed characters with white
-    while (processedIndex < processedText.length) {
-      processedColors[processedIndex] = "white";
-      processedIndex++;
-    }
+    return null; // Not in any timing expression
+  }
 
-    // Build the colored string using escape sequences
-    let coloredString = "";
-    let lastColor = null;
+  findTokenInTimingArgs(token, tokenIndex, tokens, timingData) {
+    // Instead of manually parsing tokens, let's use the fact that we already have
+    // the parsed AST structure. Find the timing expression in the AST and check
+    // which argument contains our token.
     
-    for (let i = 0; i < processedText.length; i++) {
-      const char = processedText[i];
-      const color = processedColors[i];
-      
-      // Set initial color at the very beginning
-      if (i === 0) {
-        coloredString += `\\${color}\\`;
-        lastColor = color;
+    // Debug: log what we're looking for (commented out - too frequent)
+    // if (token === "box") {
+    //   console.log(`🔍🔍 findTokenInTimingArgs for "${token}" at index ${tokenIndex}`);
+    //   console.log(`🔍🔍 Looking for timingData.timingToken:`, timingData.timingToken);
+    //   console.log(`🔍🔍 Available tokens:`, tokens);
+    // }
+    
+    // Find the timing expression AST node that corresponds to this timing token
+    const timingExpressions = this.findTimingExpressionsInAST(this.ast, timingData.timingToken);
+    
+    // if (token === "box") {
+    //   console.log(`🔍🔍 Found timing expressions in AST:`, timingExpressions);
+    // }
+    
+    // For each timing expression, check if our token is part of its arguments
+    for (const timingExpr of timingExpressions) {
+      // First check if the token is directly inside an argument
+      const argIndex = this.findTokenInTimingExpressionArgs(token, tokenIndex, tokens, timingExpr);
+      if (argIndex !== -1) {
+        // if (token === "box") {
+        //   console.log(`🔍🔍 TOKEN FOUND in arg ${argIndex}!`);
+        // }
+        return { found: true, argIndex };
       }
-      // Only add color escape when the color actually changes
-      else if (color !== lastColor) {
-        coloredString += `\\${color}\\`;
-        lastColor = color;
-      }
       
-      coloredString += char;
+      // For parentheses, we need to check if they bound a timing argument s-expression
+      if (token === "(" || token === ")") {
+        const parenArgIndex = this.findParenthesesInTimingArgs(tokenIndex, tokens, timingExpr);
+        if (parenArgIndex !== -1) {
+          return { found: true, argIndex: parenArgIndex };
+        }
+      }
     }
+    
+    return { found: false };
+  }
 
-    return coloredString;
+  // Find timing expressions in the AST that match the given timing token
+  findTimingExpressionsInAST(ast, timingToken) {
+    const results = [];
+    
+    if (Array.isArray(ast)) {
+      // Check if this array is a timing expression
+      if (ast.length > 1 && ast[0] === timingToken) {
+        results.push(ast);
+      }
+      
+      // Recursively search sub-expressions
+      for (const item of ast) {
+        results.push(...this.findTimingExpressionsInAST(item, timingToken));
+      }
+    }
+    
+    return results;
+  }
+
+  // Find which timing argument a parenthesis belongs to by analyzing token positions
+  findParenthesesInTimingArgs(parenIndex, tokens, timingExpr) {
+    // Find the position range of the timing expression in the token stream
+    const timingToken = timingExpr[0]; // e.g., "2s..."
+    const timingStartIndex = tokens.indexOf(timingToken);
+    
+    if (timingStartIndex === -1) return -1;
+    
+    // Find the matching closing parenthesis for the timing expression
+    let parenCount = 0;
+    let timingEndIndex = -1;
+    for (let i = timingStartIndex - 1; i < tokens.length; i++) { // Start before timing token to catch opening paren
+      if (tokens[i] === "(") {
+        parenCount++;
+        if (parenCount === 1 && i < timingStartIndex) {
+          // This is the opening paren of the timing expression
+          continue;
+        }
+      } else if (tokens[i] === ")") {
+        parenCount--;
+        if (parenCount === 0) {
+          timingEndIndex = i;
+          break;
+        }
+      }
+    }
+    
+    if (timingEndIndex === -1) return -1;
+    
+    // Check if our parenthesis is within the timing expression range
+    if (parenIndex <= timingStartIndex || parenIndex >= timingEndIndex) {
+      return -1; // Parenthesis is outside the timing expression
+    }
+    
+    // Now we need to figure out which argument this parenthesis belongs to
+    // by analyzing the structure between timingStartIndex and timingEndIndex
+    const args = timingExpr.slice(1); // Skip the timing token
+    let currentArgIndex = 0;
+    let currentTokenPos = timingStartIndex + 1; // Start after timing token
+    
+    for (let argIndex = 0; argIndex < args.length; argIndex++) {
+      const arg = args[argIndex];
+      
+      // Calculate how many tokens this argument should consume
+      const argTokenCount = this.countTokensInExpression(arg);
+      const argEndPos = currentTokenPos + argTokenCount - 1;
+      
+      // Check if our parenthesis falls within this argument's range
+      if (parenIndex >= currentTokenPos && parenIndex <= argEndPos) {
+        return argIndex;
+      }
+      
+      currentTokenPos = argEndPos + 1;
+    }
+    
+    return -1; // Parenthesis not found in any argument
+  }
+
+  // Count how many tokens an AST expression would consume in the token stream
+  countTokensInExpression(expr) {
+    if (typeof expr === "string" || typeof expr === "number") {
+      return 1;
+    }
+    if (Array.isArray(expr)) {
+      // Array expressions have opening paren + contents + closing paren
+      let count = 2; // ( and )
+      for (const item of expr) {
+        count += this.countTokensInExpression(item);
+      }
+      return count;
+    }
+    return 1;
+  }
+
+  // Find which argument of a timing expression contains a specific token
+  findTokenInTimingExpressionArgs(token, tokenIndex, tokens, timingExpr) {
+    // timingExpr is like ["2s...", [["line"], ["line"]], ["box", 0, 0, 25, 25]]
+    // We need to find which argument (index 1, 2, etc.) contains our token
+    
+    // Debug: log the structure for tokens we care about
+    if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
+      console.log(`🔍 findTokenInTimingExpressionArgs for "${token}":`, JSON.stringify(timingExpr, null, 2));
+    }
+    
+    const args = timingExpr.slice(1); // Skip the timing token itself
+    
+    for (let argIndex = 0; argIndex < args.length; argIndex++) {
+      if (this.doesExpressionContainToken(args[argIndex], token)) {
+        if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
+          console.log(`🔍 Token "${token}" found in arg ${argIndex}:`, JSON.stringify(args[argIndex], null, 2));
+        }
+        return argIndex;
+      }
+    }
+    
+    return -1; // Token not found in any argument
+  }
+
+  // Check if an AST expression contains a specific token
+  doesExpressionContainToken(expr, token) {
+    if (typeof expr === "string") {
+      return expr === token;
+    }
+    if (typeof expr === "number") {
+      // Handle numeric tokens - convert both to string for comparison
+      return expr.toString() === token;
+    }
+    if (Array.isArray(expr)) {
+      return expr.some(item => this.doesExpressionContainToken(item, token));
+    }
+    return false;
   }
 
   // Determine the color for a specific token based on its type and context
   getTokenColor(token, tokens, index) {
+    // First check if this token is affected by timing expressions
+    const timingExprState = this.getTimingExpressionState(token, tokens, index);
+    
+    // Check for timing patterns that should blink when triggered
+    if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
+      const timingState = this.getTimingTokenState(token, tokens, index);
+      if (timingState && timingState.isBlinking) {
+        return "red"; // Bright red flash when timing triggers
+      }
+      return "yellow"; // Yellow for timing tokens like "1s...", "2s..."
+    }
+    
+    // If this token is inside a timing expression, color it based on active state
+    if (timingExprState) {
+      if (timingExprState.isInActiveArg) {
+        // Check if the timing token for this expression is currently blinking
+        const isTimingBlinking = this.isTimingBlinking(timingExprState.timingData.timingToken);
+        if (isTimingBlinking) {
+          // Make the entire active timing expression blink red when timing triggers
+          return "red";
+        }
+        // This token is in the currently active timing argument - use olive color
+        return "olive";
+      } else {
+        // This token is in an inactive timing argument - use transparent
+        return "255,255,255,0"; // White with 0 alpha (transparent)
+      }
+    }
+    
+    // For all other tokens, use normal coloring
+    return this.getNormalTokenColor(token, tokens, index);
+  }
+
+  // Get the normal color for a token (the original getTokenColor logic)
+  getNormalTokenColor(token, tokens, index) {
     // Check for timing patterns that should blink when triggered
     if (/^\d*\.?\d+s!?$/.test(token) || /^\d+$/.test(token)) {
       // Check if this timing token is currently blinking
@@ -3481,6 +3979,11 @@ class KidLisp {
 
   // Update HUD with syntax highlighted kidlisp
   async updateHUDWithSyntaxHighlighting(api) {
+    // console.log("🔥 updateHUDWithSyntaxHighlighting called!", {
+    //   hasHud: !!api.hud,
+    //   hasLabel: !!api.hud?.label,
+    //   hasSyntaxHighlightSource: !!this.syntaxHighlightSource
+    // });
     if (!api.hud || !api.hud.label || !this.syntaxHighlightSource) return;
 
     const coloredString = this.buildColoredKidlispString();
@@ -3497,12 +4000,27 @@ class KidLisp {
         }
       }
 
-      // Set HUD to support inline colors AND disable piece name color override
-      api.hud.supportsInlineColor = true;
-      api.hud.disablePieceNameColoring = true; // Disable automatic piece name coloring
-      
-      // Call HUD label with colored string plus attribution if available
-      api.hud.label(coloredString + attributionText, undefined, 0);
+      // Only enable syntax highlighting for inline kidlisp pieces from source,
+      // not for .lisp files which should show plain piece names
+      if (!this.isLispFile) {
+        // Set HUD to support inline colors AND disable piece name color override
+        api.hud.supportsInlineColor = true;
+        api.hud.disablePieceNameColoring = true; // Disable automatic piece name coloring
+        
+        // Always force cache invalidation for syntax highlighting by updating frame hash
+        // This ensures that color changes in KidLisp syntax highlighting are detected
+        api.hud.frameHash = performance.now();
+        
+        // Call HUD label with colored string plus attribution if available
+        api.hud.label(coloredString + attributionText, undefined, 0);
+      } else {
+        // For .lisp files, use default HUD behavior without syntax highlighting
+        // This will show the plain piece name with normal coloring
+        api.hud.supportsInlineColor = false;
+        api.hud.disablePieceNameColoring = false;
+        
+        // Don't call hud.label() for .lisp files - let the normal HUD system handle it
+      }
     }
   }
 
