@@ -6,6 +6,41 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import crypto from 'crypto';
 
+// Dynamically extract KidLisp function names from kidlisp.mjs
+async function getKidLispFunctionNames() {
+  try {
+    // Import the kidlisp module
+    const kidlispModule = await import('../../public/aesthetic.computer/lib/kidlisp.mjs');
+    
+    // Create a temporary KidLisp instance to access the global environment
+    const { KidLisp } = kidlispModule;
+    if (!KidLisp) {
+      throw new Error('KidLisp class not found in kidlisp.mjs');
+    }
+    
+    const tempLisp = new KidLisp();
+    const globalEnv = tempLisp.getGlobalEnv();
+    
+    // Extract all function names from the global environment
+    const functionNames = Object.keys(globalEnv).filter(key => {
+      const value = globalEnv[key];
+      return typeof value === 'function' || 
+             (typeof value === 'object' && value !== null);
+    });
+    
+    // Add common colors that might appear in KidLisp code
+    const commonColors = ['red', 'green', 'blue', 'yellow', 'white', 'black', 'gray', 'purple', 'orange', 'pink', 'brown', 'cyan', 'magenta'];
+    
+    return [...new Set([...functionNames, ...commonColors])];
+    
+  } catch (error) {
+    console.warn('Failed to dynamically load KidLisp functions, using fallback list:', error.message);
+    
+    // Fallback to a basic list if dynamic loading fails
+    return ['wipe', 'ink', 'line', 'box', 'circle', 'rect', 'def', 'later', 'scroll', 'resolution', 'gap', 'frame', 'brush', 'clear', 'cls', 'help', 'reset', 'dot', 'pixel', 'stamp', 'paste', 'copy', 'move', 'rotate', 'scale', 'translate', 'fill', 'stroke', 'point', 'arc', 'bezier', 'noise', 'random', 'sin', 'cos', 'tan', 'sqrt', 'abs', 'floor', 'ceil', 'round', 'min', 'max', 'pow', 'log', 'exp', 'atan2', 'dist', 'lerp', 'map', 'norm', 'constrain', 'hue', 'sat', 'bright', 'alpha', 'red', 'green', 'blue', 'rgb', 'hsb', 'gray', 'background', 'foreground', 'text', 'font', 'repeat', 'rep', 'choose', 'overtone', 'rainbow', 'mic', 'amplitude'];
+  }
+}
+
 // Ensure indexes exist (reentrant - safe to call multiple times)
 async function ensureIndexes(collection) {
   try {
@@ -162,17 +197,35 @@ export async function handler(event, context) {
           return result.substring(0, targetLength);
         }
         
-        // Extract KidLisp function names and create abbreviations
-        const kidlispFunctions = ['wipe', 'ink', 'line', 'box', 'circle', 'rect', 'def', 'later', 'scroll', 'resolution', 'gap', 'frame', 'brush', 'clear', 'cls', 'help', 'reset', 'dot', 'pixel', 'stamp', 'paste', 'copy', 'move', 'rotate', 'scale', 'translate', 'fill', 'stroke', 'point', 'arc', 'bezier', 'noise', 'random', 'sin', 'cos', 'tan', 'sqrt', 'abs', 'floor', 'ceil', 'round', 'min', 'max', 'pow', 'log', 'exp', 'atan2', 'dist', 'lerp', 'map', 'norm', 'constrain', 'hue', 'sat', 'bright', 'alpha', 'red', 'green', 'blue', 'rgb', 'hsb', 'gray', 'background', 'foreground', 'text', 'font', 'repeat', 'rep', 'choose', 'overtone', 'rainbow', 'mic', 'amplitude'];
+        // Extract KidLisp function names dynamically from kidlisp.mjs
+        const kidlispFunctions = await getKidLispFunctionNames();
         
         // Find functions used in source and create smart abbreviations
         const foundFunctions = kidlispFunctions.filter(fn => 
           cleanSource.includes(`(${fn}`) || cleanSource.includes(` ${fn} `) || cleanSource.startsWith(fn)
         );
         
+        // Extract numbers from source for informed seeding
+        const numbers = cleanSource.match(/\d+/g) || [];
+        const singleDigits = numbers.map(n => n.charAt(0)).filter(d => d !== '0'); // Avoid leading zeros
+        const doubleDigits = numbers.filter(n => n.length >= 2).map(n => n.substring(0, 2));
+        
         // Extract words from each line for more granular analysis
         const lines = cleanSource.split('\n').map(line => line.trim()).filter(line => line.length > 0);
         const wordsPerLine = lines.map(line => (line.match(/[a-z]+/g) || []).filter(word => kidlispFunctions.includes(word) || ['red', 'green', 'blue', 'yellow', 'white', 'black', 'gray', 'purple', 'orange'].includes(word)));
+        
+        // Extract ALL words (not just kidlisp functions) for broader seeding
+        const allWordsPerLine = lines.map(line => line.match(/[a-z]+/g) || []);
+        
+        // Helper function to get second characters from word arrays
+        function getSecondChars(wordArrays) {
+          return wordArrays.flat().map(word => word.length >= 2 ? word.charAt(1) : null).filter(c => c !== null);
+        }
+        
+        // Helper function to get nth character from words
+        function getNthChars(wordArrays, n) {
+          return wordArrays.flat().map(word => word.length > n ? word.charAt(n) : null).filter(c => c !== null);
+        }
         
         if (foundFunctions.length > 0) {
           const primaryFunction = foundFunctions[0];
@@ -206,25 +259,153 @@ export async function handler(event, context) {
             codes.push(...phoneticCodes.filter(code => code.length >= 3));
           }
           
-          // 🎵 STRATEGY 2: Line-by-line First Letters (preserving structure)
-          // For multiline code, try first letter of first word per line
-          if (lines.length >= 2 && lines.length <= 4) {
+          // 🎵 STRATEGY 1B: Second Character Extraction (NEW!)
+          // Extract second characters from functions for variation
+          if (foundFunctions.length >= 2) {
+            const secondLetters = foundFunctions.map(fn => fn.length >= 2 ? fn.charAt(1) : '').filter(c => c !== '').join('');
+            
+            if (secondLetters.length >= 2) {
+              // Mix first and second characters
+              const firstChar = foundFunctions[0].charAt(0);
+              const secondChar = foundFunctions[0].length >= 2 ? foundFunctions[0].charAt(1) : '';
+              const thirdChar = foundFunctions[1].charAt(0);
+              
+              if (secondChar) {
+                codes.push(firstChar + secondChar + thirdChar); // "wip" for wipe+line
+                codes.push(makePronounceable(firstChar + secondChar + thirdChar, 3));
+              }
+              
+              // Pure second character combinations  
+              codes.push(makePronounceable(secondLetters, 3));
+              codes.push(makePronounceable(secondLetters, 4));
+            }
+          }
+          
+          // 🎵 STRATEGY 1C: Number Integration (NEW!)
+          // Incorporate numbers from the source as meaningful elements
+          if (singleDigits.length > 0 && foundFunctions.length > 0) {
+            const primaryFunc = foundFunctions[0].charAt(0);
+            const primarySecond = foundFunctions[0].length >= 2 ? foundFunctions[0].charAt(1) : '';
+            const digit = singleDigits[0];
+            
+            // Create number-enhanced codes
+            codes.push(primaryFunc + digit + (foundFunctions[1] ? foundFunctions[1].charAt(0) : 'a')); // "w5l" for wipe 5 line
+            codes.push(primaryFunc + primarySecond + digit); // "wi5" for wipe 5
+            codes.push(digit + primaryFunc + (primarySecond || 'a')); // "5wi" for 5 wipe
+            
+            // Try with double digits for more specific seeding
+            if (doubleDigits.length > 0) {
+              const doubleDigit = doubleDigits[0];
+              codes.push(primaryFunc + doubleDigit); // "w25" 
+              codes.push(doubleDigit + primaryFunc); // "25w"
+            }
+          }
+          
+          // 🎵 STRATEGY 2: Enhanced Line-by-line Analysis (ENHANCED!)
+          // For multiline code, try multiple character extraction patterns
+          if (lines.length >= 2 && lines.length <= 6) {
             const lineStarters = [];
-            for (const wordList of wordsPerLine) {
-              if (wordList.length > 0) {
-                lineStarters.push(wordList[0].charAt(0));
+            const lineSeconds = [];
+            const lineNumbers = [];
+            
+            // Extract first chars, second chars, and numbers from each line
+            for (let i = 0; i < allWordsPerLine.length; i++) {
+              const words = allWordsPerLine[i];
+              if (words.length > 0) {
+                lineStarters.push(words[0].charAt(0));
+                if (words[0].length >= 2) {
+                  lineSeconds.push(words[0].charAt(1));
+                }
+                
+                // Extract numbers from this line
+                const lineNumberMatches = lines[i].match(/\d+/g);
+                if (lineNumberMatches && lineNumberMatches.length > 0) {
+                  lineNumbers.push(lineNumberMatches[0].charAt(0));
+                }
               }
             }
             
+            // PATTERN A: Traditional first characters (enhanced)
             if (lineStarters.length >= 2) {
               const lineCode = lineStarters.join('');
+              
+              // For your example: "wipe blue" -> "w", "line" -> "l", "ink red" -> "i", "iine" -> "i" = "wlii"
+              // Create multiple phonemic variations
               if (lineCode.length >= 3) {
-                codes.push(lineCode);
+                // Direct concatenation if already pronounceable
+                if (hasGoodPhonetics(lineCode.substring(0, 3))) {
+                  codes.push(lineCode.substring(0, 3));
+                }
+                
+                // Create consonant-vowel-consonant patterns
                 codes.push(makePronounceable(lineCode, 3));
+                codes.push(makePronounceable(lineCode, 4));
+                
+                // Manual vowel insertion patterns for better pronunciation
+                if (lineCode.length >= 3) {
+                  const c1 = lineCode.charAt(0), c2 = lineCode.charAt(1), c3 = lineCode.charAt(2);
+                  codes.push(c1 + 'a' + c2 + c3); // "wlii" -> "wali"
+                  codes.push(c1 + 'i' + c2 + c3); // "wlii" -> "wili" 
+                  codes.push(c1 + 'o' + c2 + c3); // "wlii" -> "woli"
+                  codes.push(c1 + c2 + 'a' + c3); // "wlii" -> "wlai"
+                  codes.push(c1 + c2 + 'i' + c3); // "wlii" -> "wlii" (same but good pattern)
+                  codes.push(c1 + c2 + 'o' + c3); // "wlii" -> "wloi"
+                }
+                
+                // Alternative: Take first 2 consonants and add vowel ending
+                if (lineCode.length >= 2) {
+                  const first2 = lineCode.substring(0, 2);
+                  codes.push(first2 + 'a'); // "wl" -> "wla"
+                  codes.push(first2 + 'i'); // "wl" -> "wli" 
+                  codes.push(first2 + 'o'); // "wl" -> "wlo"
+                  codes.push(first2 + 'e'); // "wl" -> "wle"
+                  codes.push(first2 + 'u'); // "wl" -> "wlu"
+                }
+                
               } else if (lineCode.length === 2) {
                 codes.push(makePronounceable(lineCode, 3));
                 codes.push(lineCode + 'a');
                 codes.push(lineCode + 'i');
+                codes.push(lineCode + 'o');
+                codes.push(lineCode + 'e');
+              }
+              
+              // Try reverse order for variety
+              if (lineCode.length >= 3) {
+                const reversed = lineCode.split('').reverse().join('');
+                codes.push(makePronounceable(reversed, 3));
+              }
+            }
+            
+            // PATTERN B: Second character extraction (NEW!)
+            if (lineSeconds.length >= 2) {
+              const secondsCode = lineSeconds.join('');
+              codes.push(makePronounceable(secondsCode, 3));
+              codes.push(makePronounceable(secondsCode, 4));
+              
+              // Mix first and second characters for variety
+              if (lineStarters.length >= 2 && lineSeconds.length >= 1) {
+                const mixed = lineStarters[0] + lineSeconds[0] + lineStarters[1];
+                codes.push(mixed); // "wil" for wipe(w) + wipe(i) + line(l)
+                codes.push(makePronounceable(mixed, 3));
+              }
+            }
+            
+            // PATTERN C: Number integration (NEW!)
+            if (lineNumbers.length > 0 && lineStarters.length >= 1) {
+              const numCode = lineNumbers[0];
+              const firstChar = lineStarters[0];
+              const secondChar = lineStarters.length >= 2 ? lineStarters[1] : 'a';
+              
+              // Create number-informed codes
+              codes.push(firstChar + numCode + secondChar); // "w5l" 
+              codes.push(numCode + firstChar + secondChar); // "5wl"
+              codes.push(firstChar + secondChar + numCode); // "wl5"
+              
+              // If we have multiple numbers, create rich combinations
+              if (lineNumbers.length >= 2) {
+                codes.push(firstChar + lineNumbers[0] + lineNumbers[1]); // "w52"
+                codes.push(lineNumbers[0] + lineNumbers[1] + firstChar); // "52w"
               }
             }
           }
@@ -310,28 +491,91 @@ export async function handler(event, context) {
           }
         }
         
-        // 🎵 STRATEGY 7: Fallback pronounceable patterns
-        // If we have any words at all, create pronounceable patterns
-        const allWords = cleanSource.match(/[a-z]+/g) || [];
-        if (allWords.length >= 2) {
-          const initials = allWords.slice(0, 4).map(w => w.charAt(0)).join('');
-          codes.push(makePronounceable(initials, 3));
-          codes.push(makePronounceable(initials, 4));
+          // 🎵 STRATEGY 7: Variable Names and Custom Identifiers (NEW!)
+          // Extract user-defined variables and custom names that appear in def/later statements
+          const defMatches = cleanSource.match(/\(def\s+([a-z][a-z0-9]*)/g) || [];
+          const laterMatches = cleanSource.match(/\(later\s+([a-z][a-z0-9]*)/g) || [];
+          const customNames = [
+            ...defMatches.map(m => m.split(/\s+/)[1]),
+            ...laterMatches.map(m => m.split(/\s+/)[1])
+          ].filter(name => name && name.length >= 2);
           
-          // Try different vowel insertions for first 3 letters
-          if (initials.length >= 3) {
-            const base = initials.substring(0, 3);
-            codes.push(base);
-            if (!hasGoodPhonetics(base)) {
-              // Insert vowels to improve pronunciation
-              codes.push(base.charAt(0) + 'a' + base.substring(1));
-              codes.push(base.charAt(0) + 'i' + base.substring(1));
-              codes.push(base.charAt(0) + 'o' + base.substring(1));
+          customNames.forEach(name => {
+            if (name.length >= 3) {
+              codes.push(name.substring(0, 3)); // Use first 3 chars of custom name
+              codes.push(makePronounceable(name, 3));
+            }
+            // Mix custom name with function
+            if (foundFunctions.length > 0) {
+              const funcChar = foundFunctions[0].charAt(0);
+              codes.push(funcChar + name.substring(0, 2)); // "w" + "my" = "wmy"
+              codes.push(name.charAt(0) + funcChar + name.charAt(1)); // "m" + "w" + "y" = "mwy"
+            }
+          });
+          
+          // 🎵 STRATEGY 8: Enhanced Fallback with Informed Seeding (ENHANCED!)
+          // If we have any words at all, create pronounceable patterns with numbers
+          const allWords = cleanSource.match(/[a-z]+/g) || [];
+          if (allWords.length >= 2) {
+            const initials = allWords.slice(0, 4).map(w => w.charAt(0)).join('');
+            const seconds = allWords.slice(0, 4).map(w => w.length >= 2 ? w.charAt(1) : '').filter(c => c !== '').join('');
+            
+            codes.push(makePronounceable(initials, 3));
+            codes.push(makePronounceable(initials, 4));
+            
+            // Try second character combinations
+            if (seconds.length >= 2) {
+              codes.push(makePronounceable(seconds, 3));
+            }
+            
+            // Mix initials with numbers
+            if (singleDigits.length > 0) {
+              const digit = singleDigits[0];
+              if (initials.length >= 2) {
+                codes.push(initials.charAt(0) + digit + initials.charAt(1)); // "w5l"
+                codes.push(digit + initials.substring(0, 2)); // "5wl"
+                codes.push(initials.substring(0, 2) + digit); // "wl5"
+              }
+            }
+            
+            // Try different vowel insertions for first 3 letters
+            if (initials.length >= 3) {
+              const base = initials.substring(0, 3);
+              codes.push(base);
+              if (!hasGoodPhonetics(base)) {
+                // Insert vowels to improve pronunciation
+                codes.push(base.charAt(0) + 'a' + base.substring(1));
+                codes.push(base.charAt(0) + 'i' + base.substring(1));
+                codes.push(base.charAt(0) + 'o' + base.substring(1));
+              }
             }
           }
-        }
-        
-        // Filter for valid, pronounceable codes
+          
+          // 🎵 STRATEGY 9: Contextual Number Patterns (NEW!)
+          // Create meaningful patterns based on common number contexts
+          if (numbers.length > 0) {
+            // Common KidLisp number contexts
+            const repeatMatch = cleanSource.match(/repeat\s+(\d+)/);
+            const sizeMatch = cleanSource.match(/(\d+)\s+(\d+)/); // width height patterns
+            
+            if (repeatMatch) {
+              const count = repeatMatch[1];
+              const digit = count.charAt(0);
+              if (foundFunctions.length > 0) {
+                const func = foundFunctions[0].charAt(0);
+                codes.push('r' + digit + func); // "r5w" for repeat 5 wipe
+                codes.push(func + 'r' + digit); // "wr5"
+              }
+            }
+            
+            if (sizeMatch && foundFunctions.length > 0) {
+              const w = sizeMatch[1].charAt(0);
+              const h = sizeMatch[2].charAt(0);
+              const func = foundFunctions[0].charAt(0);
+              codes.push(func + w + h); // "w32" for wipe 320 240
+              codes.push(w + h + func); // "32w"
+            }
+          }        // Filter for valid, pronounceable codes
         const validCodes = codes.filter(code => 
           /^[a-z0-9]+$/.test(code) && 
           code.length >= 3 && 
@@ -343,9 +587,34 @@ export async function handler(event, context) {
         const scorePhonetics = (code) => {
           let score = 0;
           if (hasGoodPhonetics(code)) score += 10;
-          if (/^[bcdfghjklmnpqrstvwxyz][aeiou]/.test(code)) score += 5; // Starts with consonant-vowel
-          if (!/\d/.test(code)) score += 3; // Prefer letters over numbers
+          if (/^[bcdfghjklmnpqrstvwxyz][aeiou]/.test(code)) score += 5; // Starts with consonant-vowel (good pronunciation)
+          if (/[aeiou][bcdfghjklmnpqrstvwxyz]$/.test(code)) score += 3; // Ends with vowel-consonant
+          if (/^[bcdfghjklmnpqrstvwxyz][aeiou][bcdfghjklmnpqrstvwxyz]$/.test(code)) score += 8; // Perfect CVC pattern
+          if (!/\d/.test(code)) score += 3; // Prefer letters over numbers, but don't exclude numbers
           if (code.length === 3) score += 2; // Prefer 3-char codes
+          
+          // Bonus for common phonemic patterns
+          if (/^(wa|wi|wo|we|wu|ba|bi|bo|be|bu|ka|ki|ko|ke|ku|la|li|lo|le|lu|ma|mi|mo|me|mu|na|ni|no|ne|nu|ra|ri|ro|re|ru|sa|si|so|se|su|ta|ti|to|te|tu)/.test(code)) score += 4;
+          
+          // Penalty for difficult consonant clusters
+          if (/[bcdfghjklmnpqrstvwxyz]{3,}/.test(code)) score -= 5;
+          
+          // Bonus for balanced vowel distribution
+          const vowelCount = (code.match(/[aeiou]/g) || []).length;
+          const consonantCount = (code.match(/[bcdfghjklmnpqrstvwxyz]/g) || []).length;
+          if (vowelCount > 0 && consonantCount > 0 && Math.abs(vowelCount - consonantCount) <= 1) score += 3;
+          
+          // NEW: Bonus for meaningful number integration
+          const numberCount = (code.match(/\d/g) || []).length;
+          if (numberCount === 1 && code.length === 3) score += 2; // Single digit in 3-char code is good
+          if (numberCount >= 2) score -= 2; // Too many numbers reduce readability
+          
+          // NEW: Bonus for source-derived patterns (numbers from actual source)
+          if (numberCount > 0 && singleDigits.includes(code.match(/\d/g)?.[0])) score += 3;
+          
+          // NEW: Penalty for starting with numbers (less readable)
+          if (/^\d/.test(code)) score -= 1;
+          
           return score;
         };
         
