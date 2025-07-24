@@ -39,6 +39,16 @@
     {0.8} c{0.2}d{1.0}e - Volume changes during melody
     {square} cdefg - Square wave for all tracks
     ceg {triangle:0.6} dfa - Sine for first track, triangle at 60% for second
+
+  🎵 NEW: Hz Pitch Shift Support!
+  Use {hz} syntax for micro pitch adjustments:
+    {100hz} cdefg - Shift all notes up by 100 Hz
+    {-50hz} cdefg - Shift all notes down by 50 Hz
+    c{100hz}d{-25hz}e{0hz}f - Individual note shifts
+    {50hz} ceg {-30hz} dfa - Different shifts per track
+    {50hz&} cdefg - Cumulative shift: +50Hz each cycle (+50, +100, +150...)
+    The Hz shift is sticky and persists until changed
+    Use & modifier for animated cumulative effects that build over time
   
   🎵 NEW: Sticky Duration Modifiers!
   Use suffix notation for duration that applies to all following notes:
@@ -69,6 +79,7 @@
     clock c... defg           - Very short staccato notes (sticky duration)
     clock c,, defg            - Long sustained notes (sticky duration)
     clock ^cdefg              - Struck notes with natural decay (piano-like)
+    clock {100hz}ceg{50hz}abag{0hz}bab - Hz pitch shift example
     clock (ceg) (dfa)         - Parallel melodies: c+d, e+f, g+a
     clock {triangle} (cd) (ef) (ga)  - Three parallel tracks with triangle wave
     clock {square} (ceg) ({sawtooth} dfa)  - Mixed waveforms
@@ -123,6 +134,64 @@ let lastTempoChangeTime = 0; // Track when tempo last changed to add tolerance
 let tempoChangeTolerance = 150; // Milliseconds to wait before allowing another tempo change restart
 let nowLineY = 0; // Y position of the NOW line (draggable, defaults to screen center)
 let isDraggingNowLine = false; // Whether user is currently dragging the NOW line
+
+// Cumulative Hz shift tracking for animated notation
+// Support for multiple cumulative states (per track)
+let cumulativeHzStates = new Map(); // trackId -> cumulativeState
+let globalCumulativeInterval = 0; // Shared timing interval for all cumulative effects
+
+// Helper function to calculate final frequency with Hz shift and apply lower bound
+function calculateFrequencyWithLowerBound(tone, hzShift = 0, sound, trackId = null) {
+  try {
+    // Get the base frequency for the note using the freq function
+    const baseFrequency = sound.freq(tone);
+    if (!baseFrequency) {
+      console.warn(`🎵 Could not calculate frequency for tone: ${tone}`);
+      return { frequency: null, wasReset: false, toneShift: hzShift };
+    }
+    
+    // Debug logging for frequency calculation
+    console.log(`🎵 FREQ DEBUG: tone="${tone}" baseFreq=${baseFrequency.toFixed(2)}Hz hzShift=${hzShift}Hz`);
+    
+    // Apply Hz shift
+    const shiftedFrequency = baseFrequency + hzShift;
+    
+    console.log(`🎵 FREQ DEBUG: shiftedFreq=${shiftedFrequency.toFixed(2)}Hz`);
+    
+    // Check lower bound (20 Hz minimum)
+    const minFrequency = 20;
+    if (shiftedFrequency < minFrequency) {
+      console.log(`🎵 Frequency ${shiftedFrequency.toFixed(2)}Hz below minimum (${minFrequency}Hz) for ${tone}, resetting to base frequency (${baseFrequency.toFixed(2)}Hz)`);
+      
+      // If this was caused by cumulative Hz shift, reset the cumulative state
+      if (trackId !== null && hzShift !== 0) {
+        const state = getCumulativeState(trackId);
+        if (state.enabled && state.current === hzShift) {
+          console.log(`🎵 Track ${trackId + 1}: Resetting cumulative Hz state due to frequency lower bound`);
+          state.current = 0;
+          state.cycles = 0;
+          state.enabled = false;
+        }
+      }
+      
+      return { 
+        frequency: baseFrequency, 
+        wasReset: true, 
+        toneShift: 0, // Reset the shift to 0 when frequency is reset
+        originalShift: hzShift 
+      };
+    }
+    
+    return { 
+      frequency: shiftedFrequency, 
+      wasReset: false, 
+      toneShift: hzShift 
+    };
+  } catch (error) {
+    console.warn(`🎵 Error calculating frequency for ${tone}:`, error);
+    return { frequency: null, wasReset: false, toneShift: hzShift };
+  }
+}
 
 // Rainbow color mapping for notes (ROYGBIV) using RGB arrays
 const noteColorMap = {
@@ -189,6 +258,56 @@ function getDarkerColor(rgbArray) {
 
   return [darkerR, darkerG, darkerB];
 }
+
+// Helper functions for managing per-track cumulative Hz states
+function getCumulativeState(trackId) {
+  if (!cumulativeHzStates.has(trackId)) {
+    cumulativeHzStates.set(trackId, {
+      step: 0,
+      current: 0,
+      cycles: 0,
+      enabled: false,
+      lastIncrementTime: 0
+    });
+  }
+  return cumulativeHzStates.get(trackId);
+}
+
+function initializeCumulativeState(trackId, step, intervalMs) {
+  const state = getCumulativeState(trackId);
+  state.step = step;
+  state.current = step; // Start with the first increment
+  state.cycles = 1;
+  state.enabled = true;
+  state.lastIncrementTime = performance.now();
+  globalCumulativeInterval = intervalMs; // All tracks share the same interval
+  console.log(`🎵 Track ${trackId + 1}: Starting cumulative Hz mode: ${step}Hz& (interval: ${intervalMs}ms)`);
+}
+
+function updateCumulativeState(trackId, currentTime) {
+  const state = getCumulativeState(trackId);
+  if (!state.enabled || globalCumulativeInterval <= 0) return state.current;
+  
+  const timeSinceLastIncrement = currentTime - state.lastIncrementTime;
+  if (timeSinceLastIncrement >= globalCumulativeInterval) {
+    state.cycles++;
+    state.current = state.step * state.cycles;
+    
+    // Lower bound check: if Hz goes below 0, reset to default (0)
+    if (state.current < 0) {
+      console.log(`🎵 Track ${trackId + 1}: Hz shift went below 0 (${state.current}Hz), resetting to default (0Hz)`);
+      state.current = 0;
+      state.cycles = 0;
+      state.enabled = false; // Disable cumulative mode after reset
+    }
+    
+    state.lastIncrementTime = currentTime;
+    console.log(`🎵 Track ${trackId + 1} Cycle ${state.cycles}: Hz shift now ${state.current >= 0 ? '+' : ''}${state.current}Hz`);
+  }
+  
+  return state.current;
+}
+
 let melodyMode = "continuous"; // "continuous" or "sync" - how to timing the melody
 let targetTempo = 500; // Target tempo for smooth transitions
 let isLerpingToSync = false; // Whether we're lerping back to sync
@@ -224,6 +343,12 @@ let lastLogTime = 0;
 let lastLoggedNoteCount = 0;
 const LOG_THROTTLE_MS = 1000; // Only log once per second maximum
 
+// Floating Hz display system
+let floatingHzDisplays = []; // Array of floating frequency displays
+const FLOATING_HZ_DURATION = 2000; // How long each display lasts (2 seconds)
+const FLOATING_HZ_SPEED = 30; // How fast they float up (pixels per second)
+const FLOATING_HZ_FADE_START = 0.7; // When to start fading (70% through duration)
+
 // Helper function to get current note index for synchronization
 function getCurrentNoteIndex(melodyState, trackIndex = 0) {
   if (!hasFirstSynthFired || !melodyState) {
@@ -244,6 +369,104 @@ function getCurrentNoteIndex(melodyState, trackIndex = 0) {
   return -1;
 }
 
+// Function to add a floating Hz display
+function addFloatingHzDisplay(frequency, noteString, trackIndex = 0, screen) {
+  const now = performance.now();
+  
+  // Calculate starting position - offset based on track index to avoid overlap
+  const baseX = 10; // Start near left edge
+  const offsetX = trackIndex * 80; // Spread tracks horizontally
+  const startX = Math.min(baseX + offsetX, screen.width - 100); // Keep within screen bounds
+  const startY = 30; // Start below HUD area
+  
+  const display = {
+    frequency: Math.round(frequency * 10) / 10, // Round to 1 decimal place
+    noteString: noteString,
+    trackIndex: trackIndex,
+    startTime: now,
+    x: startX,
+    y: startY,
+    startY: startY,
+    alpha: 1.0
+  };
+  
+  floatingHzDisplays.push(display);
+  
+  // Limit number of concurrent displays to prevent overflow
+  if (floatingHzDisplays.length > 20) {
+    floatingHzDisplays.splice(0, floatingHzDisplays.length - 20);
+  }
+}
+
+// Function to draw and update floating Hz displays
+function drawFloatingHzDisplays(ink, write, screen) {
+  const now = performance.now();
+  
+  // Update and render each floating display
+  for (let i = floatingHzDisplays.length - 1; i >= 0; i--) {
+    const display = floatingHzDisplays[i];
+    const elapsed = now - display.startTime;
+    const progress = elapsed / FLOATING_HZ_DURATION;
+    
+    // Remove expired displays
+    if (progress >= 1.0) {
+      floatingHzDisplays.splice(i, 1);
+      continue;
+    }
+    
+    // Calculate position (float upward)
+    const floatDistance = elapsed * (FLOATING_HZ_SPEED / 1000); // Convert to pixels per ms
+    display.y = display.startY - floatDistance;
+    
+    // Calculate alpha (fade out near the end)
+    if (progress > FLOATING_HZ_FADE_START) {
+      const fadeProgress = (progress - FLOATING_HZ_FADE_START) / (1.0 - FLOATING_HZ_FADE_START);
+      display.alpha = 1.0 - fadeProgress;
+    } else {
+      display.alpha = 1.0;
+    }
+    
+    // Create text string
+    const hzText = `${display.noteString}: ${display.frequency}Hz`;
+    
+    // Calculate color based on track index
+    const trackColors = [
+      [255, 100, 100], // Red for track 1
+      [100, 255, 100], // Green for track 2  
+      [100, 100, 255], // Blue for track 3
+      [255, 255, 100], // Yellow for track 4
+      [255, 100, 255], // Magenta for track 5
+      [100, 255, 255], // Cyan for track 6
+    ];
+    
+    const baseColor = trackColors[display.trackIndex % trackColors.length];
+    const alpha = Math.round(display.alpha * 255);
+    const color = [
+      Math.round(baseColor[0] * display.alpha),
+      Math.round(baseColor[1] * display.alpha),
+      Math.round(baseColor[2] * display.alpha),
+      alpha
+    ];
+    
+    // Skip rendering if too transparent
+    if (display.alpha < 0.1) continue;
+    
+    // Draw shadow first (slightly offset, in black)
+    ink([0, 0, 0, Math.round(alpha * 0.7)]).write(hzText, {
+      x: display.x + 1,
+      y: display.y + 1,
+      scale: 1,
+    });
+    
+    // Draw main text
+    ink(color).write(hzText, {
+      x: display.x,
+      y: display.y,
+      scale: 1,
+    });
+  }
+}
+
 function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
   // Reset leaving flag when piece starts
   isLeavingPiece = false;
@@ -253,6 +476,9 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
   // Reset completed sequences counter
   completedSequences = 0;
+
+  // Reset floating Hz displays
+  floatingHzDisplays = [];
 
   // Get the UTC offset from /api/clock and use that to set the clock.
   clock.resync();
@@ -270,6 +496,9 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
   baseTempo = (timeDivisor * 1000) / 2; // Divide by 2 because default duration is 2
   targetTempo = baseTempo; // Set target tempo to initial value
   isLerpingToSync = false; // Reset lerping state
+
+  // Reset cumulative Hz states when starting a new melody
+  cumulativeHzStates.clear();
 
   if (params[0]) {
     // Concatenate all params to handle cases like clock/(ceg) (dfa) where
@@ -399,6 +628,9 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
     // No melody provided - set up fallback notes early in boot
     // Use a simple pentatonic scale pattern that sounds pleasant
     originalMelodyString = "cdefgab";
+
+    // Reset cumulative Hz states for fallback melody too
+    cumulativeHzStates.clear();
 
     // Parse the fallback melody using the same system as regular melodies
     melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
@@ -642,8 +874,24 @@ function paint({
             coloredMelodyStringForTimeline ||
             buildColoredMelodyStringUnified(currentMelodyString, melodyState);
 
+          // Add cumulative Hz display for all active tracks
+          let hzDisplay = "";
+          if (cumulativeHzStates.size > 0) {
+            const displays = [];
+            for (const [trackIndex, state] of cumulativeHzStates) {
+              if (state.enabled) {
+                const hzColor = state.current >= 0 ? "green" : "red";
+                const hzSign = state.current >= 0 ? "+" : "";
+                displays.push(`\\${hzColor}\\[${hzSign}${state.current}Hz]`);
+              }
+            }
+            if (displays.length > 0) {
+              hzDisplay = ` ${displays.join(" ")}`;
+            }
+          }
+
           // Ensure the space after "clock" doesn't get colored by the melody colors
-          previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody;
+          previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody + hzDisplay;
         } else {
           // Melody timing hasn't started yet - show plain uncolored text
 
@@ -1274,6 +1522,9 @@ function paint({
   // Always draw timeline - use current time if syncedDate not available
   const timeForTimeline = syncedDate || new Date();
   drawFlowingNotes(ink, write, screen, melodyState, timeForTimeline);
+
+  // Draw floating Hz displays
+  drawFloatingHzDisplays(ink, write, screen);
 
   // Paint octave control buttons after timeline so they appear on top
   const octaveText = `${octave}`;
@@ -2908,6 +3159,9 @@ function createManagedSound(
   isFallback = false,
   struck = false, // New parameter for struck notes
   isLastNoteInSequence = false, // New parameter to eliminate gap for last note before loop
+  toneShift = 0, // New parameter for Hz pitch shift
+  screen = null, // Screen object for floating displays
+  trackIndex = 0, // Track index for floating display positioning
 ) {
   // Prevent new sounds from being created after leave() is called
   if (isLeavingPiece) {
@@ -2977,10 +3231,33 @@ function createManagedSound(
     attack: struck ? 0.0 : 0.01, // Very short attack for struck notes
     decay: struck ? 1 : 0.1, // Fast decay for struck notes - will fade over the full duration
     volume: volume,
+    toneShift: toneShift, // Pass through the Hz pitch shift
   });
+
+  // Debug: Log toneShift being passed to synth
+  if (toneShift !== 0) {
+    console.log(`🎵 CLOCK DEBUG: Creating sound for ${tone} with toneShift: ${toneShift}Hz`);
+  }
 
   // Set flag to indicate first synth has fired (for syntax coloring)
   hasFirstSynthFired = true;
+
+  // Calculate and display the actual frequency being played
+  if (screen && sound && sound.freq) {
+    try {
+      // Calculate the actual frequency including Hz shift
+      const baseFreq = sound.freq(tone);
+      const finalFreq = baseFreq + toneShift;
+      
+      // Create floating display showing the frequency
+      const noteDisplayString = tone.replace(/[0-9]/g, '').toUpperCase(); // Remove octave numbers for display
+      addFloatingHzDisplay(finalFreq, noteDisplayString, trackIndex, screen);
+      
+      console.log(`🎵 FLOATING: ${noteDisplayString} at ${Math.round(finalFreq * 10) / 10}Hz (track ${trackIndex + 1})`);
+    } catch (error) {
+      console.warn(`❌ Could not calculate frequency for floating display: ${tone}`, error);
+    }
+  }
 
   // Calculate when this note should be released (using the shorter duration)
   const releaseTime = performance.now() + actualDuration;
@@ -3740,7 +4017,25 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         waveType,
         volume,
         struck,
+        toneShift,
       } = noteData;
+
+      // Debug: Log toneShift value and handle cumulative Hz shifts
+      let actualToneShift = toneShift;
+      
+      // Handle cumulative Hz shifts
+      if (typeof toneShift === 'object' && toneShift.cumulative) {
+        const trackId = 0; // Single track uses track ID 0
+        const state = getCumulativeState(trackId);
+        
+        // Initialize cumulative state if this is the first time we see it
+        if (!state.enabled) {
+          // Calculate interval based on melody length and tempo for consistent timing
+          const totalMelodyDuration = melodyState.notes.reduce((sum, note) => sum + note.duration, 0) * melodyState.baseTempo;
+          initializeCumulativeState(trackId, toneShift.step, totalMelodyDuration);
+        }
+        actualToneShift = state.current;
+      }
 
       // Play the note using managed sound system
       if (note !== "rest") {
@@ -3753,6 +4048,15 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
           // Check if this is the last note in the sequence to eliminate loop gap
           const isLastNote = (melodyState.index === melodyState.notes.length - 1);
           
+          // Calculate frequency with lower bound checking
+          const frequencyResult = calculateFrequencyWithLowerBound(tone, actualToneShift || 0, sound, 0); // Track ID 0 for single track
+          const finalToneShift = frequencyResult.toneShift;
+          
+          // Log if frequency was reset due to lower bound
+          if (frequencyResult.wasReset) {
+            console.log(`🎵 Note ${tone}: Frequency reset from ${(frequencyResult.frequency - frequencyResult.originalShift).toFixed(2)}Hz to ${frequencyResult.frequency.toFixed(2)}Hz (Hz shift: ${frequencyResult.originalShift} → 0)`);
+          }
+          
           // Create managed sound that will be automatically released
           createManagedSound(
             sound,
@@ -3763,6 +4067,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             melodyState.isFallback,
             struck, // Pass the struck flag for note timing behavior
             isLastNote, // Eliminate gap for last note to prevent loop timing issues
+            finalToneShift, // Use the frequency-bounded Hz shift
+            screen, // Pass screen for floating displays
+            0, // Track index 0 for single track
           );
 
           // Add note to history buffer for visual timeline
@@ -3829,6 +4136,24 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         melodyState.index === 0
       ) {
         completedSequences++;
+        
+        // Handle cumulative Hz shift increment when looping for single track
+        const trackId = 0; // Single track uses track ID 0
+        const state = getCumulativeState(trackId);
+        if (state.enabled) {
+          state.cycles++;
+          state.current = state.step * state.cycles;
+          
+          // Lower bound check: if Hz goes below 0, reset to default (0)
+          if (state.current < 0) {
+            console.log(`🎵 Track ${trackId + 1}: Hz shift went below 0 (${state.current}Hz), resetting to default (0Hz)`);
+            state.current = 0;
+            state.cycles = 0;
+            state.enabled = false; // Disable cumulative mode after reset
+          }
+          
+          console.log(`🎵 Cycle ${state.cycles}: Hz shift now ${state.current >= 0 ? '+' : ''}${state.current}Hz`);
+        }
       }
 
       // Reset mutation zones when melody loops back to beginning
@@ -3921,6 +4246,15 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
     // Skip timing checks on standby frames to prevent rapid-fire
     const currentTimeMs = time.getTime(); // Use direct UTC time for musical sync
     let anyTrackPlayed = false; // Track whether any track played in this frame
+
+    // Handle time-based cumulative Hz increments for all tracks
+    if (cumulativeHzStates.size > 0 && globalCumulativeInterval > 0) {
+      for (const [trackId, state] of cumulativeHzStates) {
+        if (state.enabled) {
+          updateCumulativeState(trackId, currentTimeMs);
+        }
+      }
+    }
 
     // Handle immediate tempo changes for overlapping sounds
     if (tempoJustChanged) {
@@ -4345,7 +4679,29 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                 waveType,
                 volume,
                 struck,
+                toneShift,
               } = noteData;
+
+              // Handle cumulative Hz shifts for parallel tracks
+              let actualToneShift = toneShift;
+              if (typeof toneShift === 'object' && toneShift.cumulative) {
+                const state = getCumulativeState(trackIndex);
+                
+                // Initialize cumulative state if this is the first time we see it for this track
+                if (!state.enabled) {
+                  // For parallel tracks: calculate interval based on shortest track duration
+                  let shortestTrackDuration = Infinity;
+                  melodyState.trackStates.forEach(trackState => {
+                    if (trackState.track && trackState.track.length > 0) {
+                      const trackDuration = trackState.track.reduce((sum, note) => sum + note.duration, 0) * melodyState.baseTempo;
+                      shortestTrackDuration = Math.min(shortestTrackDuration, trackDuration);
+                    }
+                  });
+                  initializeCumulativeState(trackIndex, toneShift.step, shortestTrackDuration);
+                }
+                // Use the current cumulative state for this specific track
+                actualToneShift = state.current;
+              }
 
               if (note !== "rest") {
                 let tone = noteOctave
@@ -4362,6 +4718,15 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                   // Check if this is the last note in this track's sequence to eliminate loop gap
                   const isLastNoteInTrack = (trackState.index === trackState.track.length - 1);
                   
+                  // Calculate frequency with lower bound checking
+                  const frequencyResult = calculateFrequencyWithLowerBound(tone, actualToneShift || 0, sound, trackIndex);
+                  const finalToneShift = frequencyResult.toneShift;
+                  
+                  // Log if frequency was reset due to lower bound
+                  if (frequencyResult.wasReset) {
+                    console.log(`🎵 Track ${trackIndex + 1} Note ${tone}: Frequency reset from ${(frequencyResult.frequency - frequencyResult.originalShift).toFixed(2)}Hz to ${frequencyResult.frequency.toFixed(2)}Hz (Hz shift: ${frequencyResult.originalShift} → 0)`);
+                  }
+                  
                   createManagedSound(
                     sound,
                     tone,
@@ -4371,6 +4736,9 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     melodyState.isFallback,
                     struck,
                     isLastNoteInTrack, // Eliminate gap for last note to prevent loop timing issues
+                    finalToneShift, // Use the frequency-bounded Hz shift
+                    screen, // Pass screen for floating displays
+                    trackIndex, // Pass actual track index for positioning
                   );
 
                   // Add note to history buffer for visual timeline
