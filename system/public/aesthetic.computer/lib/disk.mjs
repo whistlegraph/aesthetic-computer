@@ -85,6 +85,7 @@ let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 let cachedKidlispOwner = null; // Stores the user sub for cached KidLisp pieces to show attribution
 let backgroundFillColor = null; // Stores the background color for filling new pixels during reframe
+let pendingAlsData = null; // Stores ALS data to be sent when ableton piece loads
 
 const projectionMode = (typeof location !== 'undefined' && location.search) ? location.search.indexOf("nolabel") > -1 : false; // Skip loading noise.
 
@@ -4916,6 +4917,146 @@ async function makeFrame({ data: { type, content } }) {
     parsed.name = parsed.text;
     // For .lisp files, force KidLisp interpretation
     load(parsed, false, false, true, undefined, isLisp);
+    return;
+  }
+
+  // Handle dropped Ableton Live Set (.als) files.
+  if (type === "dropped:als") {
+    console.log(
+      "🎵 Dropped ALS file:",
+      content.name,
+      `(${content.xmlData?.length || 0} chars XML)`,
+    );
+    
+    // Send the XML data to the current piece if it's the ableton piece
+    if ($commonApi.piece === "ableton" && cachedAPI) {
+      // First send a loading event
+      const $api = cachedAPI;
+      let data = {};
+      Object.assign(data, {
+        device: "none",
+        is: (e) => e === "ableton:als:loading",
+      });
+      $api.event = data;
+      try {
+        act($api);
+      } catch (e) {
+        console.warn("️ ✒ ALS Loading Act failure...", e);
+      }
+      
+      // Then send the actual data
+      data = { 
+        type: "ableton:als:loaded",
+        xmlData: content.xmlData,
+        name: content.name,
+        project: content.project // 🎵 Forward the parsed project data!
+      };
+      Object.assign(data, {
+        device: "none",
+        is: (e) => e === "ableton:als:loaded",
+      });
+      $api.event = data;
+      try {
+        act($api);
+      } catch (e) {
+        console.warn("️ ✒ ALS Act failure...", e);
+      }
+    } else {
+      // Load the ableton piece and send the data as an act event once loaded
+      const parsed = parse("ableton");
+      load(parsed, false, false, false, () => {
+        // This callback runs after the piece is loaded
+        const $api = cachedAPI;
+        if ($api) {
+          const data = { 
+            type: "ableton:als:loaded",
+            xmlData: content.xmlData,
+            name: content.name,
+            project: content.project // 🎵 Forward the parsed project data!
+          };
+          Object.assign(data, {
+            device: "none",
+            is: (e) => e === "ableton:als:loaded",
+          });
+          $api.event = data;
+          try {
+            act($api);
+          } catch (e) {
+            console.warn("️ ✒ ALS Load Act failure...", e);
+          }
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle dropped WAV audio files.
+  if (type === "dropped:wav") {
+    console.log(
+      "🔊 Dropped WAV file:",
+      content.name,
+      `(${content.size || 0} bytes)`,
+    );
+    
+    // Send the WAV data to the current piece if it's the ableton piece
+    if ($commonApi.piece === "ableton" && cachedAPI) {
+      // First send a loading event
+      const $api = cachedAPI;
+      let data = {};
+      Object.assign(data, {
+        device: "none",
+        is: (e) => e === "ableton:wav:loading",
+      });
+      $api.event = data;
+      try {
+        act($api);
+      } catch (e) {
+        console.warn("️ ✒ WAV Loading Act failure...", e);
+      }
+      
+      // Then send the actual data
+      data = { 
+        name: content.name,
+        originalName: content.originalName,
+        size: content.size,
+        id: content.id // Pass the audio ID for playback
+      };
+      Object.assign(data, {
+        device: "none",
+        is: (e) => e === "ableton:wav:loaded",
+      });
+      $api.event = data;
+      try {
+        act($api);
+      } catch (e) {
+        console.warn("️ ✒ WAV Act failure...", e);
+      }
+    } else {
+      // Load the ableton piece and send the data as an act event once loaded
+      const parsed = parse("ableton");
+      load(parsed, false, false, false, () => {
+        // This callback runs after the piece is loaded
+        const $api = cachedAPI;
+        if ($api) {
+          const data = { 
+            wavData: content.data,
+            name: content.name,
+            originalName: content.originalName,
+            audioId: content.audioId // Pass the audio ID for playback
+          };
+          Object.assign(data, {
+            device: "none",
+            is: (e) => e === "ableton:wav:loaded",
+          });
+          $api.event = data;
+          try {
+            act($api);
+          } catch (e) {
+            console.warn("️ ✒ WAV Load Act failure...", e);
+          }
+        }
+      });
+    }
     return;
   }
 

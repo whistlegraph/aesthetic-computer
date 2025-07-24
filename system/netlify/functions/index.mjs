@@ -43,6 +43,15 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  // Prevent loading of .json, font, or other non-code files as Lisp/JS pieces
+  const forbiddenExtensions = [".json", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico"];
+  for (const ext of forbiddenExtensions) {
+    if (slug.endsWith(ext)) {
+      console.log(`⛔ Blocked attempt to load forbidden file type: ${slug}`);
+      return respond(404, `File type not allowed: ${ext}`);
+    }
+  }
+
   // Safely decode URL-encoded characters in the slug
   try {
     slug = decodeURIComponent(slug);
