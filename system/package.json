@@ -58,6 +58,7 @@
     "express-oauth2-jwt-bearer": "^1.6.1",
     "firebase-admin": "^13.2.0",
     "gif.js": "^0.2.0",
+    "gifenc": "^1.0.3",
     "gl-matrix": "^3.4.3",
     "got": "^14.4.6",
     "gotrue-js": "^0.9.29",

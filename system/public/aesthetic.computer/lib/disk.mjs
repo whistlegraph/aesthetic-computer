@@ -403,6 +403,17 @@ const fairies = []; // Render cursor points of other active users,
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
+// Check if a pixel buffer has any non-transparent pixels
+function checkForVisiblePixels(pixelBuffer) {
+  // Check every 4th byte (alpha channel) to see if any pixels are visible
+  for (let i = 3; i < pixelBuffer.length; i += 4) {
+    if (pixelBuffer[i] > 0) { // Alpha > 0 means visible
+      return true;
+    }
+  }
+  return false;
+}
+
 // *** Dark Mode ***
 // (By @tarighian)
 // Pass `true` or `false` to override or `default` to the system setting.
@@ -532,13 +543,32 @@ class Recorder {
   }
 
   tapeTimerStep({ needsPaint, sound: { time } }) {
-    if (!this.tapeTimerDuration) return;
+    if (!this.tapeTimerDuration) {
+      // Debug: Only log occasionally to avoid spam
+      if (this.recording && Math.random() < 0.01) {
+        console.log("🎬 tapeTimerStep: No duration set but recording is active:", {
+          recording: this.recording,
+          tapeTimerStart: this.tapeTimerStart,
+          tapeTimerDuration: this.tapeTimerDuration
+        });
+      }
+      return;
+    }
     const timeElapsed = time - this.tapeTimerStart;
     const rawProgress = timeElapsed / this.tapeTimerDuration;
     // Clamp progress between 0 and 1 to prevent negative bar widths
     this.tapeProgress = Math.max(0, Math.min(1, rawProgress));
     needsPaint();
     const secondsOver = timeElapsed - this.tapeTimerDuration;
+    
+    // Debug logging for early progress to see if timer is working
+    if (this.tapeProgress > 0 && this.tapeProgress < 0.1 && Math.random() < 0.1) {
+      console.log("🎬 Tape progress early:", {
+        progress: this.tapeProgress,
+        timeElapsed: timeElapsed,
+        duration: this.tapeTimerDuration
+      });
+    }
     
     // Debug logging when we're at or near completion
     if (this.tapeProgress >= 0.95) {
@@ -623,6 +653,43 @@ class Recorder {
 }
 
 let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
+
+// GC OPTIMIZATION: Function to invalidate cached API objects when needed
+function invalidateAPICache() {
+  if (cachedAPI) cachedAPI._frameInvalid = true;
+}
+
+// GC OPTIMIZATION: Object pools for frequently allocated objects
+const objectPools = {
+  // Pool for small arrays (up to 10 elements)
+  smallArrayPool: [],
+  getSmallArray() {
+    return this.smallArrayPool.pop() || [];
+  },
+  releaseSmallArray(arr) {
+    if (arr.length <= 10) {
+      arr.length = 0;
+      this.smallArrayPool.push(arr);
+    }
+  },
+  
+  // Pool for reusable objects with common properties
+  eventDataPool: [],
+  getEventData() {
+    const obj = this.eventDataPool.pop();
+    if (obj) {
+      // Clear previous properties
+      Object.keys(obj).forEach(key => delete obj[key]);
+      return obj;
+    }
+    return {};
+  },
+  releaseEventData(obj) {
+    if (this.eventDataPool.length < 5) {
+      this.eventDataPool.push(obj);
+    }
+  }
+};
 
 const hourGlasses = [];
 
@@ -2240,6 +2307,10 @@ const $paintApi = {
       let charColors = [];
       let currentColor = null;
 
+      // GC OPTIMIZATION: Avoid repeated string operations where possible
+      let hasComma = false;
+      let rgbValues = null;
+
       // Split text by color codes and process each segment
       const segments = text.split(colorCodeRegex);
       // console.log("🎨 Split segments:", segments);
@@ -2259,16 +2330,35 @@ const $paintApi = {
 
           // console.log("🎨 Color Debug: Processing color:", colorName);
 
-          // Check if it's an RGB color like "255,20,147"
-          if (colorName.includes(",")) {
-            const rgbValues = colorName
-              .split(",")
-              .map((v) => parseInt(v.trim()));
-            // console.log("🎨 RGB Debug: Parsed values:", rgbValues);
-            if (
-              rgbValues.length === 3 &&
-              rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
-            ) {
+          // GC OPTIMIZATION: Check for comma once, reuse array when possible
+          hasComma = colorName.includes(",");
+          if (hasComma) {
+            // Reuse array if it exists, otherwise create new one
+            if (!rgbValues) rgbValues = [0, 0, 0];
+            
+            let idx = 0;
+            let num = 0;
+            let valid = true;
+            
+            // Parse RGB values manually to avoid split/map allocation
+            for (let k = 0; k < colorName.length && idx < 3; k++) {
+              const char = colorName[k];
+              if (char >= '0' && char <= '9') {
+                num = num * 10 + (char.charCodeAt(0) - 48);
+              } else if (char === ',' || k === colorName.length - 1) {
+                if (num < 0 || num > 255) {
+                  valid = false;
+                  break;
+                }
+                rgbValues[idx++] = num;
+                num = 0;
+              } else if (char !== ' ') {
+                valid = false;
+                break;
+              }
+            }
+            
+            if (valid && idx === 3) {
               currentColor = rgbValues;
               // console.log("🎨 RGB Debug: Successfully set RGB array:", rgbValues);
             } else {
@@ -2524,21 +2614,32 @@ function form(
       cam.resize();
       formReframing = false;
     }
-    if (Array.isArray(forms))
-      forms.filter(Boolean).forEach((form) => form.graph(cam));
-    else forms.graph(cam);
+    // GC OPTIMIZATION: Use for loop instead of filter + forEach
+    if (Array.isArray(forms)) {
+      for (let i = 0; i < forms.length; i++) {
+        const form = forms[i];
+        if (form) form.graph(cam);
+      }
+    } else {
+      forms.graph(cam);
+    }
   } else {
     // GPU forms.
     if (!Array.isArray(forms)) forms = [forms];
 
-    // Clear out any forms that need deleting.
-    formsToClear.forEach((id) => delete formsSent[id]);
+    // GC OPTIMIZATION: Use for loop instead of forEach
+    for (let i = 0; i < formsToClear.length; i++) {
+      delete formsSent[formsToClear[i]];
+    }
     formsToClear.length = 0;
 
     // Build a list of forms to send, ignoring already sent ones by UID.
     const formsToSend = [];
 
-    forms.filter(Boolean).forEach((form) => {
+    // GC OPTIMIZATION: Use for loop instead of filter + forEach
+    for (let i = 0; i < forms.length; i++) {
+      const form = forms[i];
+      if (!form) continue;
       // Clear out any trash in `formsSent` that do not have IDs left in forms.
       //if (formsSent[forms.uid])
 
@@ -2606,7 +2707,7 @@ function form(
           });
         }
       }
-    });
+    }
 
     if (formsToSend.length === 0) return;
 
@@ -4457,6 +4558,11 @@ async function load(
     paintingAPIid = 0n;
     simCount = 0n;
     booted = false;
+    
+    // Reset tape playback state to prevent stale state across piece transitions
+    $commonApi.rec.playing = false;
+    $commonApi.rec.presenting = false;
+    
     // initialSim = true;
     activeVideo = null;
     videoSwitching = false;
@@ -4629,8 +4735,6 @@ async function load(
     taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
     // noBeat: beat === defaults.beat,
   };
-
-  console.log("💿 Loading:", loadedContent.text);
 
   send({
     type: "disk-loaded",
@@ -4864,6 +4968,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "loading-complete") {
     leaving = false;
+    invalidateAPICache(); // Invalidate cached APIs when piece changes
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
     return;
@@ -5308,12 +5413,15 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "recorder:present-paused") {
+    console.log("🎬 Tape playback paused - resuming pixel transfer");
     $commonApi.rec.playing = false;
     return;
   }
 
   if (type === "recorder:unpresented") {
+    console.log("🎬 Tape playback ended - resuming pixel transfer");
     $commonApi.rec.presenting = false;
+    $commonApi.rec.playing = false;
     return;
   }
 
@@ -5756,8 +5864,10 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
-    content.keyboard.forEach((data) => {
-      if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
+    // GC OPTIMIZATION: Use for loop instead of forEach
+    for (let i = 0; i < content.keyboard.length; i++) {
+      const data = content.keyboard[i];
+      if (currentText && currentText.indexOf("botce") > -1) continue; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
@@ -5849,7 +5959,7 @@ async function makeFrame({ data: { type, content } }) {
           send({ type: "fullscreen-enable" });
         }
       }
-    });
+    }
 
     // Add 'loading' status to $commonApi.
     $commonApi.loading = loading; // Let the piece know if we are already
@@ -5881,15 +5991,18 @@ async function makeFrame({ data: { type, content } }) {
       const pointers = content.pen.pointers;
       const pointersValues = Object.values(pointers);
 
-      // Make all available dragBoxes into `Box` instances.
-      pointersValues.forEach((p) => {
+      // GC OPTIMIZATION: Use for loop instead of forEach for dragBox processing
+      for (let i = 0; i < pointersValues.length; i++) {
+        const p = pointersValues[i];
         if (p.dragBox) p.dragBox = geo.Box.from(p.dragBox);
-      });
+      }
 
-      const pens = pointersValues.reduce((arr, value) => {
-        arr[value.pointerNumber] = value;
-        return arr;
-      }, []);
+      // GC OPTIMIZATION: Use manual loop instead of reduce
+      const pens = [];
+      for (let i = 0; i < pointersValues.length; i++) {
+        const value = pointersValues[i];
+        pens[value.pointerNumber] = value;
+      }
 
       // if (pens.length > 0 && debug)
       //   console.log("Pens:", pens, content.pen.events);
@@ -6302,7 +6415,13 @@ async function makeFrame({ data: { type, content } }) {
       volume,
       pan = 0,
       generator = null, // Custom waveform generator function for type "custom"
+      toneShift = 0, // Hz shift to add to the tone frequency
     } = {}) {
+      // Debug: Log synth function call with toneShift
+      if (toneShift !== 0) {
+        console.log(`🎵 DISK DEBUG: synth() called with toneShift: ${toneShift}Hz, tone: ${tone}`);
+      }
+      
       const id = soundId;
       if (volume === undefined) volume = 1;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
@@ -6310,6 +6429,12 @@ async function makeFrame({ data: { type, content } }) {
         beats = (duration * sound.bpm) / 60;
 
       tone = $sound.freq(tone);
+      // Apply toneShift to the final frequency
+      if (toneShift !== 0) {
+        const originalTone = tone;
+        tone += toneShift;
+        console.log(`🎵 DISK DEBUG: Applied toneShift ${toneShift}Hz: ${originalTone}Hz -> ${tone}Hz`);
+      }
       // console.log("⛈️ Tone:", tone);
       // Add generator to sound data for custom type
       const soundData = { id, type, tone, beats, attack, decay, volume, pan };
@@ -6391,11 +6516,16 @@ async function makeFrame({ data: { type, content } }) {
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
     if (booted && paintCount > 0n /*&& !leaving*/) {
-      const $api = {};
-      keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
-      keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
-      keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
-      $api.api = $api; // Add a reference to the whole API.
+      // GC OPTIMIZATION: Reuse cached API object instead of recreating every frame
+      let $api = cachedAPI;
+      if (!$api || $api._frameInvalid) {
+        $api = {};
+        keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
+        keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
+        keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
+        $api.api = $api; // Add a reference to the whole API.
+        $api._frameInvalid = false;
+      }
 
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
@@ -6531,22 +6661,25 @@ async function makeFrame({ data: { type, content } }) {
       // Ingest all pen input events by running act for each event.
       // TODO: I could also be transforming pen coordinates here...
       // TODO: Keep track of lastPen to see if it changed.
-      content.pen?.events.forEach((data) => {
-        Object.assign(data, {
-          device: data.device,
-          is: (e) => {
-            let [name, pointer] = e.split(":");
-            if (pointer) {
-              if (pointer === "any") {
-                return name === data.name;
+      // GC OPTIMIZATION: Use for loop instead of forEach
+      if (content.pen?.events) {
+        for (let i = 0; i < content.pen.events.length; i++) {
+          const data = content.pen.events[i];
+          Object.assign(data, {
+            device: data.device,
+            is: (e) => {
+              let [name, pointer] = e.split(":");
+              if (pointer) {
+                if (pointer === "any") {
+                  return name === data.name;
+                } else {
+                  return name === data.name && data.index === parseInt(pointer);
+                }
               } else {
-                return name === data.name && data.index === parseInt(pointer);
+                return name === data.name && data.isPrimary === true;
               }
-            } else {
-              return name === data.name && data.isPrimary === true;
-            }
-          },
-        });
+            },
+          });
         //console.log(data)
         $api.event = data;
         // 🌐🖋️️ Global pen events.
@@ -6843,69 +6976,84 @@ async function makeFrame({ data: { type, content } }) {
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
-      });
+      }
+    }
 
       // *** 3D Pen Events ***
-      content.pen3d?.events?.forEach((data) => {
-        Object.assign(data, {
-          is: (e) => {
-            let [prefix, event, pointer] = e.split(":");
-            if (
-              prefix === "3d" &&
-              event === data.name &&
-              (pointer === undefined || parseInt(pointer) === data.pointer)
-            )
-              return true;
-          },
-        });
-        $api.event = data;
-        try {
-          act($api);
-        } catch (e) {
-          console.warn("️ ✒ Act failure...", e);
+      // GC OPTIMIZATION: Use for loop instead of forEach
+      if (content.pen3d?.events) {
+        for (let i = 0; i < content.pen3d.events.length; i++) {
+          const data = content.pen3d.events[i];
+          Object.assign(data, {
+            is: (e) => {
+              let [prefix, event, pointer] = e.split(":");
+              if (
+                prefix === "3d" &&
+                event === data.name &&
+                (pointer === undefined || parseInt(pointer) === data.pointer)
+              )
+                return true;
+            },
+          });
+          $api.event = data;
+          try {
+            act($api);
+          } catch (e) {
+            console.warn("️ ✒ Act failure...", e);
+          }
         }
-      });
+      }
 
       // Ingest all keyboard input events by running act for each event.
-      content.keyboard?.forEach((data) => {
-        Object.assign(data, {
-          device: "keyboard",
-          is: (e) => {
-            const parts = e.split(":");
-            if (parts.length > 2) {
-              // Check for an exact match if `keyboard:action:?`
-              return data.name === e;
-            } else {
-              // Or a subtring match if `keyboard:action`
-              return data.name.indexOf(e) === 0;
-            }
-          },
-        });
-        $api.event = data;
-        try {
-          act($api); // Execute piece shortcut.
-        } catch (e) {
-          console.warn("️ ✒ Act failure...", e);
+      // GC OPTIMIZATION: Use for loop instead of forEach
+      if (content.keyboard) {
+        for (let i = 0; i < content.keyboard.length; i++) {
+          const data = content.keyboard[i];
+          Object.assign(data, {
+            device: "keyboard",
+            is: (e) => {
+              const parts = e.split(":");
+              if (parts.length > 2) {
+                // Check for an exact match if `keyboard:action:?`
+                return data.name === e;
+              } else {
+                // Or a subtring match if `keyboard:action`
+                return data.name.indexOf(e) === 0;
+              }
+            },
+          });
+          $api.event = data;
+          try {
+            act($api); // Execute piece shortcut.
+          } catch (e) {
+            console.warn("️ ✒ Act failure...", e);
+          }
         }
-      });
+      }
 
       // Ingest all gamepad input events by running act for each event.
-      content.gamepad?.forEach((data) => {
-        Object.assign(data, {
-          device: "gamepad",
-          is: (e) => data.name.indexOf(e) === 0,
-        });
-        $api.event = data;
-        try {
-          act($api); // Execute piece shortcut.
-        } catch (e) {
-          console.warn("️ ✒ Act failure...", e);
+      // GC OPTIMIZATION: Use for loop instead of forEach  
+      if (content.gamepad) {
+        for (let i = 0; i < content.gamepad.length; i++) {
+          const data = content.gamepad[i];
+          Object.assign(data, {
+            device: "gamepad",
+            is: (e) => data.name.indexOf(e) === 0,
+          });
+          $api.event = data;
+          try {
+            act($api); // Execute piece shortcut.
+          } catch (e) {
+            console.warn("️ ✒ Act failure...", e);
+          }
         }
-      });
+      }
 
       // *** Act Alerts *** (Custom events defined in here.)
       // These do not run in the initial loader / preview piece.
-      actAlerts.forEach((action) => {
+      // GC OPTIMIZATION: Use for loop instead of forEach
+      for (let i = 0; i < actAlerts.length; i++) {
+        const action = actAlerts[i];
         // Check if `name`'s not a string, and if not, attach arbitrary data.
         let name,
           extra = {};
@@ -6916,28 +7064,40 @@ async function makeFrame({ data: { type, content } }) {
           name = action;
         }
 
-        const data = {
-          name,
-          is: (e) => e === name,
-          of: (e) => name.startsWith(e),
-          ...extra,
-        };
+        // GC OPTIMIZATION: Reuse event data object when possible
+        if (!$api._eventData) {
+          $api._eventData = {
+            name: null,
+            is: null,
+            of: null,
+          };
+        }
+        
+        $api._eventData.name = name;
+        $api._eventData.is = (e) => e === name;
+        $api._eventData.of = (e) => name.startsWith(e);
+        
+        // Add extra properties directly
+        const extraKeys = Object.keys(extra);
+        for (let j = 0; j < extraKeys.length; j++) {
+          const key = extraKeys[j];
+          $api._eventData[key] = extra[key];
+        }
 
-        // TODO: All all fields from 'extra' into 'data'.
-
-        $api.event = data;
+        $api.event = $api._eventData;
         try {
           act($api);
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
-      });
+      }
       //if (actAlerts.length > 0) console.log(actAlerts, booted);
       actAlerts.length = 0; // Clear act alerts.
     }
 
     // 🖼 Paint
     if (content.needsRender) {
+      // NOTE: Using fresh API object for paint to ensure HUD/overlay updates work properly
       const $api = {};
       keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
@@ -7960,24 +8120,46 @@ async function makeFrame({ data: { type, content } }) {
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
 
-      // Tack on the tape progress bar pixel buffer if necessary.
-      if ($api.rec.tapeProgress) {
-        const progressWidth = Math.floor($api.screen.width * $api.rec.tapeProgress);
-        const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
-          // Draw red progress bar that grows from left to right
-          if (progressWidth > 0) {
-            $.ink("red").box(0, 0, progressWidth, 1);
-          }
-          // Draw black section for the remaining width
-          const blackWidth = $api.screen.width - progressWidth;
-          if (blackWidth > 0) {
-            $.ink("black").box(progressWidth, 0, blackWidth, 1);
-          }
-        });
+      // CRITICAL: Skip pixel transfer during tape playback to prevent overlay on video
+      // BUT: Allow video piece to continue rendering its UI during tape playback
+      // Also check for presenting state to handle cached tapes and multiple runs
+      const isVideoPiece = currentPath === "video" || currentPath === "aesthetic.computer/disks/video";
+      const skipPixelsDuringTapePlayback = !isVideoPiece && ($commonApi.rec.playing || $commonApi.rec.presenting);
 
-        if (tapeProgressBar) {
-          const { api, ...img } = tapeProgressBar;
-          sendData.tapeProgressBar = { x: 0, y: $api.screen.height - 1, img }; // Position at very bottom
+      // Tack on the tape progress bar pixel buffer if necessary.
+      // Skip progress bar during tape playback to avoid overlay conflicts
+      if (!skipPixelsDuringTapePlayback && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
+        const progress = $api.rec.tapeProgress || 0;
+        // Create tape progress bar with proper structure (1px tall, black background, red progress)
+        const tapeProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
+          // Draw black background
+          $.ink(0).box(0, 0, $api.screen.width, 1);
+          // Draw the progress bar in red
+          $.ink("red").box(0, 0, $api.screen.width * progress, 1);
+        });
+        
+        // Ensure the painting was created successfully before adding to sendData
+        if (tapeProgressBarPainting && tapeProgressBarPainting.pixels && tapeProgressBarPainting.pixels.length > 0) {
+          // Structure the data to match what bios.mjs expects (same as label format)
+          sendData.tapeProgressBar = {
+            x: 0,
+            y: $api.screen.height - 1, // Position at bottom of screen (1px tall)
+            img: {
+              width: tapeProgressBarPainting.width,
+              height: tapeProgressBarPainting.height,
+              pixels: tapeProgressBarPainting.pixels
+            }
+          };
+        }
+      } else {
+        // Debug: Log when tape progress is 0 or undefined during recording
+        if ($api.rec.recording && false) { // Disabled verbose logging
+          console.log("🎬 Recording active but no tapeProgress:", {
+            recording: $api.rec.recording,
+            tapeProgress: $api.rec.tapeProgress,
+            tapeTimerStart: $api.rec.tapeTimerStart,
+            tapeTimerDuration: $api.rec.tapeTimerDuration
+          });
         }
       }
 
@@ -7987,14 +8169,18 @@ async function makeFrame({ data: { type, content } }) {
       sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
-      if (label)
-        sendData.label = {
-          x: currentHUDOffset.x,
-          y: currentHUDOffset.y,
-          img: (({ width, height, pixels }) => ({ width, height, pixels }))(
-            label,
-          ),
-        };      // 🔲 Generate QR code overlay for KidLisp pieces
+      if (label) {
+        const hasVisiblePixels = checkForVisiblePixels(label.pixels);
+        if (hasVisiblePixels) {
+          sendData.label = {
+            x: currentHUDOffset.x,
+            y: currentHUDOffset.y,
+            img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+              label,
+            ),
+          };
+        }
+      }      // 🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
       // Detect if this is a KidLisp piece
       const sourceCode = currentHUDLogicalTxt || currentHUDTxt; // Get the source from HUD text
@@ -8021,42 +8207,26 @@ async function makeFrame({ data: { type, content } }) {
             
             // Use cache key based on cached code to avoid regenerating the same QR
             const cacheKey = `qr_${cachedCode}`;
-            const isLocal = (typeof location !== 'undefined' && location.host) && (
-              location.host === "local.aesthetic.computer" ||
-              location.host === "localhost:8888" ||
-              location.host === "aesthetic.local:8888"
-            );
             
-            let url;
-            if (isLocal) {
-              url = "https://local.aesthetic.computer";
-            } else {
-              // Use prompt.ac for shorter URLs when host is aesthetic.computer
-              const currentHost = (typeof location !== 'undefined' && location.host) ? location.host : '';
-              if (currentHost === "aesthetic.computer") {
-                url = "https://prompt.ac";
-              } else {
-                url = "https://aesthetic.computer";
-              }
-            }
+            // Always use prompt.ac for QR codes (even in dev/local)
+            let url = "https://prompt.ac";
             
             // Use the cached nanoid code with $ prefix for a much shorter URL
             url += `/$${cachedCode}`;
             
-            // Generate QR code with minimal error correction for smallest size
-            const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
+            // Generate QR code with medium error correction for better scannability
+            const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
             
             // Calculate size and position for bottom-right corner with 4px margin
             const margin = 4;
-            const maxSize = 48;
-            const cellSize = Math.max(1, Math.floor(maxSize / cells.length));
+            const cellSize = 1; // 1 pixel per cell for smallest possible size
             const qrSize = cells.length * cellSize;
             
             // Position in bottom-right corner
             let startX = screen.width - qrSize - margin - 1; // Account for shadow width
             const textHeight = 12; // Space for MatrixChunky8 8px font with shadow (8px + 4px padding)
             const totalHeight = qrSize + textHeight;
-            let startY = screen.height - totalHeight - margin - 1; // Account for shadow height
+            let startY = screen.height - totalHeight - margin; // Move 1px closer to bottom for balanced margins
             
             // Get the font before we start generating the QR overlay
             const font = typefaceCache.get("MatrixChunky8");
@@ -8210,11 +8380,11 @@ async function makeFrame({ data: { type, content } }) {
       // Check to see if we have a dirtyBox to render from.
       const croppedBox = dirtyBox?.croppedBox?.(screen);
 
-      if (croppedBox?.w > 0 && croppedBox?.h > 0) {
+      if (!skipPixelsDuringTapePlayback && croppedBox?.w > 0 && croppedBox?.h > 0) {
         transferredPixels = dirtyBox.crop(screen);
         sendData.pixels = transferredPixels;
         sendData.dirtyBox = croppedBox;
-      } else if (painted === true) {
+      } else if (!skipPixelsDuringTapePlayback && painted === true) {
         // TODO: Toggling this causes a flicker in `line`... but helps prompt. 2022.01.29.13.21
         // Otherwise render everything if we drew anything!
         transferredPixels = screen.pixels;
@@ -8236,23 +8406,50 @@ async function makeFrame({ data: { type, content } }) {
 
       if (cursorCode) sendData.cursorCode = cursorCode;
 
-      // Note: transferredPixels will be undefined when sendData === {}.
+      // Safely handle pixel buffer conversion and transfer
       if (sendData.pixels) {
-        sendData.pixels = sendData.pixels.buffer;
-      } else {
+        // Convert TypedArray to ArrayBuffer if needed
+        if (sendData.pixels.buffer) {
+          sendData.pixels = sendData.pixels.buffer;
+        }
+        // Validate the ArrayBuffer is not detached
+        if (!sendData.pixels || sendData.pixels.byteLength === 0) {
+          sendData.pixels = undefined;
+        }
+      } else if (!skipPixelsDuringTapePlayback && content.pixels) {
+        // Only use content.pixels if not during tape playback to avoid stale overlay
         sendData.pixels = content.pixels;
       }
 
-      if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
-
-      let transferredObjects = [sendData.pixels];
-
-      if (sendData.label) {
-        transferredObjects.push(sendData.label?.img.pixels.buffer);
+      let transferredObjects = [];
+      
+      // Only add pixels to transfer if we actually have valid pixel data
+      if (sendData.pixels && sendData.pixels instanceof ArrayBuffer && sendData.pixels.byteLength > 0) {
+        transferredObjects.push(sendData.pixels);
       }
 
-      if (sendData.qrOverlay) {
-        transferredObjects.push(sendData.qrOverlay?.img.pixels.buffer);
+      // Safely add label buffer to transfer array
+      if (sendData.label?.img?.pixels?.buffer) {
+        const labelBuffer = sendData.label.img.pixels.buffer;
+        if (labelBuffer instanceof ArrayBuffer && labelBuffer.byteLength > 0) {
+          transferredObjects.push(labelBuffer);
+        }
+      }
+
+      // Safely add QR overlay buffer to transfer array
+      if (sendData.qrOverlay?.img?.pixels?.buffer) {
+        const qrBuffer = sendData.qrOverlay.img.pixels.buffer;
+        if (qrBuffer instanceof ArrayBuffer && qrBuffer.byteLength > 0) {
+          transferredObjects.push(qrBuffer);
+        }
+      }
+
+      // Safely add tape progress bar buffer to transfer array
+      if (sendData.tapeProgressBar?.img?.pixels?.buffer) {
+        const tapeBuffer = sendData.tapeProgressBar.img.pixels.buffer;
+        if (tapeBuffer instanceof ArrayBuffer && tapeBuffer.byteLength > 0) {
+          transferredObjects.push(tapeBuffer);
+        }
       }
 
       // console.log("TO:", transferredObjects);
@@ -8260,7 +8457,18 @@ async function makeFrame({ data: { type, content } }) {
 
       sendData.sound = sound;
 
-      send({ type: "render", content: sendData }, transferredObjects);
+      // Safely send the render message with comprehensive error handling
+      try {
+        send({ type: "render", content: sendData }, transferredObjects);
+      } catch (error) {
+        console.warn("🚨 Failed to send render message:", error);
+        // Attempt to send without transferred objects as fallback
+        try {
+          send({ type: "render", content: sendData }, []);
+        } catch (fallbackError) {
+          console.error("🚨 Critical: Failed to send render message even without transfers:", fallbackError);
+        }
+      }
 
       sound.sounds.length = 0; // Empty the sound command buffer.
       sound.bubbles.length = 0;
@@ -8278,20 +8486,50 @@ async function makeFrame({ data: { type, content } }) {
       //       get sent? 23.01.06.16.02
 
       // console.log(pixels);
-      send(
-        {
-          type: "update",
-          content: {
-            didntRender: true,
-            loading,
-            pixels: pixels?.buffer,
-            width: content.width,
-            height: content.height,
-            sound,
+      
+      // Safely handle pixels buffer for update message
+      let updatePixelsBuffer = null;
+      if (pixels?.buffer && pixels.buffer instanceof ArrayBuffer && pixels.buffer.byteLength > 0) {
+        updatePixelsBuffer = pixels.buffer;
+      }
+      
+      try {
+        send(
+          {
+            type: "update",
+            content: {
+              didntRender: true,
+              loading,
+              pixels: updatePixelsBuffer,
+              width: content.width,
+              height: content.height,
+              sound,
+            },
           },
-        },
-        [pixels?.buffer],
-      );
+          updatePixelsBuffer ? [updatePixelsBuffer] : [],
+        );
+      } catch (error) {
+        console.warn("🚨 Failed to send update message:", error);
+        // Attempt to send without transferred objects as fallback
+        try {
+          send(
+            {
+              type: "update",
+              content: {
+                didntRender: true,
+                loading,
+                pixels: null, // Don't include pixels in fallback
+                width: content.width,
+                height: content.height,
+                sound,
+              },
+            },
+            [],
+          );
+        } catch (fallbackError) {
+          console.error("🚨 Critical: Failed to send update message even without transfers:", fallbackError);
+        }
+      }
     }
 
     // Wait 8 frames of the default piece before loading the initial piece.
