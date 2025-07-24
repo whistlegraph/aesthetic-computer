@@ -50,6 +50,7 @@
  * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
  * - Waveform types: {sine} {sawtooth} {square} {triangle} {noise-white} {sample} {custom} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
+ * - Hz shift: {100hz} {-50hz} {50hz&} (frequency shift in Hz, & for cumulative) - persists until changed
  * - Rests: _ (explicit rest) or standalone - (context dependent)
  * - Separators: spaces (ignored), | (measure bars, ignored)
  * - Measure separators: | (ignored, visual only)
@@ -66,7 +67,7 @@
  * 
  * @param {string} melodyString - The melody string to parse
  * @param {number} [startingOctave=4] - The default octave to use if none specified
- * @returns {Array} Array of note objects with { note, octave, duration, waveType, volume, swing?, swingAmount?, struck? } properties
+ * @returns {Array} Array of note objects with { note, octave, duration, waveType, volume, swing?, swingAmount?, struck?, toneShift? } properties
  */
 export function parseMelody(melodyString, startingOctave = 4) {
   const notes = [];
@@ -76,6 +77,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
   let relativeOffset = 0; // Current relative offset from base octave
   let currentWaveType = "sine"; // Default waveform type that persists across notes
   let currentVolume = 0.8; // Default volume that persists across notes
+  let currentToneShift = 0; // Default Hz shift that persists across notes
   let globalDurationModifier = null; // Sticky duration modifier (e.g., "..." or "," or null)
   let isStruck = false; // Sticky struck mode flag (when ^ is used)
 
@@ -106,15 +108,34 @@ export function parseMelody(melodyString, startingOctave = 4) {
   while (i < melodyString.length) {
     let char = melodyString[i];
     
-    // Handle waveform type and volume syntax {sine}, {sawtooth}, {square:0.5}, {0.3}
+    // Handle waveform type, volume, and Hz shift syntax {sine}, {sawtooth}, {square:0.5}, {0.3}, {100hz}, {-50hz}
     if (char === '{') {
       const endBrace = melodyString.indexOf('}', i);
       if (endBrace !== -1) {
         const content = melodyString.substring(i + 1, endBrace);
         const contentLower = content.toLowerCase();
         
+        // Check for Hz shift syntax like {100hz} or {-50hz} or {50hz&} for cumulative
+        if (contentLower.endsWith('hz&') || contentLower.endsWith('hz')) {
+          const isCumulative = contentLower.endsWith('hz&');
+          const hzPart = isCumulative ? contentLower.slice(0, -3) : contentLower.slice(0, -2);
+          const hzValue = parseFloat(hzPart);
+          
+          if (!isNaN(hzValue)) {
+            if (isCumulative) {
+              // Store the cumulative step value for later use in the clock
+              currentToneShift = { value: hzValue, cumulative: true, step: hzValue };
+              console.log(`🎵 Parsed cumulative Hz shift: ${hzValue}Hz&`);
+            } else {
+              currentToneShift = hzValue;
+              console.log(`🎵 Parsed Hz shift: ${hzValue}Hz`);
+            }
+          } else {
+            console.log(`🎵 PARSER ERROR: Failed to parse Hz value: {${content}}`);
+          }
+        }
         // Check for type:volume syntax like {square:0.5}
-        if (contentLower.includes(':')) {
+        else if (contentLower.includes(':')) {
           const [waveType, volumeStr] = contentLower.split(':');
           if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(waveType)) {
             currentWaveType = waveType;
@@ -137,7 +158,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         }
         
         i = endBrace + 1;
-        continue; // Skip to next character after processing waveform/volume
+        continue; // Skip to next character after processing waveform/volume/toneShift
       }
       // If not a valid syntax, just skip the character
       i++;
@@ -218,7 +239,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             duration = applyStickyDurationModifier(duration, false);
           }
           
-          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck });
+          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
         } else {
           // Just an octave change without a note - currentOctave is already updated
           // This allows for patterns like "5defg" or "4c5d6e" where octave persists
@@ -296,7 +317,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             duration = applyGlobalDurationModifier(duration, false);
           }
           
-          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume, struck: isStruck });
+          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
         }
       }
     }
@@ -413,7 +434,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyStickyDurationModifier(duration, false);
       }
       
-      notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck });
+      notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
     }
     // Handle rests (only _ and explicit standalone -, not spaces which are separators)
     else if (char === '_') {
