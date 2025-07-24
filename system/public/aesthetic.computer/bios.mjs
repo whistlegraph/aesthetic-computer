@@ -2033,7 +2033,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Film camera style timestamp at bottom-left corner
       function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null) {
         // Define progress bar height consistently across all contexts
-        const progressBarHeight = 6;
+        const progressBarHeight = 1;
         
         // Define timestamp margin for consistent spacing
         const timestampMargin = Math.max(8, Math.floor(canvasHeight / 50)); // Responsive margin
