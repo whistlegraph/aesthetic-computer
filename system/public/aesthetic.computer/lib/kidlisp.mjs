@@ -363,8 +363,8 @@ class KidLisp {
       "paste",
       "stamp",
     ]); // Common functions for fast path
-    this.expressionCache = new Map(); // Cache for simple expressions
-    this.variableCache = new Map(); // Cache for variable lookups
+    // Reduce map allocations - reuse simple objects
+    this.reusableTimingKey = ""; // Reuse string for timing keys  
     this.mathCache = new Map(); // Cache for math expressions
     this.sequenceCounters = new Map(); // Track sequence positions for ... function
 
@@ -433,8 +433,6 @@ class KidLisp {
     // Reset performance caches
     this.functionCache.clear();
     this.globalEnvCache = null;
-    this.expressionCache.clear();
-    this.variableCache.clear();
     this.mathCache.clear();
     this.sequenceCounters.clear();
     
@@ -922,10 +920,6 @@ class KidLisp {
         // Update HUD with syntax highlighting
         this.updateHUDWithSyntaxHighlighting($);
 
-        // Clear caches that might have stale data between frames
-        this.variableCache.clear();
-        this.expressionCache.clear();
-
         // Restore KidLisp ink state at the beginning of each paint frame
         // This ensures ink color persists despite modifications by HUD, QR codes, etc.
         if (this.inkStateSet && this.inkState !== undefined) {
@@ -1305,8 +1299,8 @@ class KidLisp {
           return;
         }
 
-        // Create a unique key for this once block based on its content
-        const onceKey = JSON.stringify(args);
+        // Create a unique key for this once block based on its content - avoid JSON.stringify
+        const onceKey = typeof args[0] === 'string' ? args[0] : `once_${args.length}_${this.frameCount}`;
 
         // Only execute if this exact once block hasn't been executed before
         if (!this.onceExecuted.has(onceKey)) {
@@ -2034,6 +2028,11 @@ class KidLisp {
 
           // CORE OPTIMIZATION: Reuse environment object, direct property assignment
           const loopEnv = this.localEnvStore[this.localEnvLevel];
+          // Clear previous properties more efficiently
+          for (const key in loopEnv) {
+            delete loopEnv[key];
+          }
+          // Copy base environment properties directly
           for (const key in baseEnv) {
             loopEnv[key] = baseEnv[key];
           }
@@ -2675,7 +2674,7 @@ class KidLisp {
 
             const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
             const currentTime = currentTimeMs / 1000;
-            const timingKey = `${head}_${JSON.stringify(args)}`;
+            const timingKey = head + "_" + args.length;
 
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
               this.lastSecondExecutions[timingKey] = currentTime;
@@ -2703,8 +2702,8 @@ class KidLisp {
               : Date.now();
             const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
 
-            // Create a unique key for this timing expression
-            const timingKey = `${head}_${JSON.stringify(args)}`;
+            // Create a unique key for this timing expression - use simpler key generation
+            const timingKey = head + "_" + args.length;
 
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
@@ -2766,8 +2765,8 @@ class KidLisp {
               : Date.now();
             const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
 
-            // Create a unique key for this timed iteration expression
-            const timingKey = `${head}_${JSON.stringify(args)}`;
+            // Create a unique key for this timed iteration expression - use simpler key generation
+            const timingKey = head + "_" + args.length;
 
             // Initialize timing tracking if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
@@ -3707,6 +3706,99 @@ async function fetchCachedCode(nanoidCode) {
   }
 }
 
+// Export function to get syntax highlighting colors for progress bars
+function getSyntaxHighlightingColors(source) {
+  if (!source) {
+    return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
+  }
+  
+  // Use existing tokenizer
+  const tokens = tokenize(source);
+  if (tokens.length === 0) {
+    return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
+  }
+  
+  // Create a temporary KidLisp instance to access color methods
+  const tempInstance = new KidLisp();
+  
+  // Map tokens to colors using existing syntax highlighting system
+  const colors = tokens.map(token => {
+    const weight = Math.max(0.01, token.length / source.length);
+    const colorStr = tempInstance.getTokenColor(token, tokens, tokens.indexOf(token));
+    
+    // Convert color string to RGB values
+    let r, g, b;
+    
+    // Handle RGB format colors (like "192,192,192")
+    if (colorStr.includes(',')) {
+      const parts = colorStr.split(',').map(p => parseInt(p.trim()));
+      r = parts[0] || 220;
+      g = parts[1] || 60;
+      b = parts[2] || 60;
+    } else {
+      // Handle named colors
+      switch (colorStr) {
+        case "cyan":
+        case "teal":
+          r = 64; g = 224; b = 208;
+          break;
+        case "lime":
+          r = 50; g = 205; b = 50;
+          break;
+        case "green":
+          r = 34; g = 139; b = 34;
+          break;
+        case "yellow":
+          r = 255; g = 255; b = 0;
+          break;
+        case "orange":
+          r = 255; g = 165; b = 0;
+          break;
+        case "purple":
+          r = 128; g = 0; b = 128;
+          break;
+        case "magenta":
+          r = 255; g = 0; b = 255;
+          break;
+        case "red":
+          r = 255; g = 0; b = 0;
+          break;
+        case "gray":
+        case "grey":
+          r = 128; g = 128; b = 128;
+          break;
+        case "white":
+          r = 255; g = 255; b = 255;
+          break;
+        default:
+          r = 220; g = 80; b = 80; // Fallback red
+      }
+    }
+    
+    // Classify token type for semantic information
+    let type = "default";
+    if (token === "(" || token === ")") {
+      type = "parenthesis";
+    } else if (/^-?\d+(\.\d+)?$/.test(token)) {
+      type = "number";
+    } else if (token.startsWith('"') && token.endsWith('"')) {
+      type = "string";
+    } else if (token.startsWith(";")) {
+      type = "comment";
+    } else if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
+      type = "operator";
+    } else if (["def", "if", "cond", "later", "once", "lambda", "let", "do", "repeat"].includes(token)) {
+      type = "special";
+    } else {
+      type = "function";
+    }
+    
+    return { type, r, g, b, weight, token };
+  });
+  
+  return colors;
+}
+
 export {
   module,
   parse,
@@ -3719,4 +3811,5 @@ export {
   fetchCachedCode,
   getCachedCode,
   setCachedCode,
+  getSyntaxHighlightingColors,
 };

@@ -1,6 +1,8 @@
 // wipppps, 2025.6.04.01.26.48.500
 // High-performance audio-reactive fractal visualizations.
 
+// TODO: Fix wippppps.world noise static not loading.
+
 let sfx,
   progress,
   playingSfx,
