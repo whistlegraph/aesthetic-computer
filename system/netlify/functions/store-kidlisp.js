@@ -200,10 +200,23 @@ export async function handler(event, context) {
         // Extract KidLisp function names dynamically from kidlisp.mjs
         const kidlispFunctions = await getKidLispFunctionNames();
         
-        // Find functions used in source and create smart abbreviations
+        // 🎯 HOLISTIC ANALYSIS: Find functions used throughout entire source (not just beginning)
         const foundFunctions = kidlispFunctions.filter(fn => 
           cleanSource.includes(`(${fn}`) || cleanSource.includes(` ${fn} `) || cleanSource.startsWith(fn)
         );
+        
+        // 🌍 WHOLE-SOURCE SAMPLING: Extract functions from different sections
+        const sourceThirds = [
+          cleanSource.substring(0, Math.floor(cleanSource.length / 3)),
+          cleanSource.substring(Math.floor(cleanSource.length / 3), Math.floor(2 * cleanSource.length / 3)),
+          cleanSource.substring(Math.floor(2 * cleanSource.length / 3))
+        ];
+        
+        const functionsFromBeginning = kidlispFunctions.filter(fn => sourceThirds[0].includes(`(${fn}`) || sourceThirds[0].includes(` ${fn} `));
+        const functionsFromMiddle = kidlispFunctions.filter(fn => sourceThirds[1].includes(`(${fn}`) || sourceThirds[1].includes(` ${fn} `));
+        const functionsFromEnd = kidlispFunctions.filter(fn => sourceThirds[2].includes(`(${fn}`) || sourceThirds[2].includes(` ${fn} `));
+        
+        console.log(`🔍 Functions by section: Start[${functionsFromBeginning.join(',')}] Mid[${functionsFromMiddle.join(',')}] End[${functionsFromEnd.join(',')}]`);
         
         // Extract numbers from source for informed seeding
         const numbers = cleanSource.match(/\d+/g) || [];
@@ -216,6 +229,16 @@ export async function handler(event, context) {
         
         // Extract ALL words (not just kidlisp functions) for broader seeding
         const allWordsPerLine = lines.map(line => line.match(/[a-z]+/g) || []);
+        
+        // 🌊 WAVE SAMPLING: Extract from beginning, middle, and end lines
+        const totalLines = lines.length;
+        const beginningLines = lines.slice(0, Math.ceil(totalLines / 3));
+        const middleLines = lines.slice(Math.ceil(totalLines / 3), Math.ceil(2 * totalLines / 3));
+        const endLines = lines.slice(Math.ceil(2 * totalLines / 3));
+        
+        const beginningWords = beginningLines.flatMap(line => line.match(/[a-z]+/g) || []);
+        const middleWords = middleLines.flatMap(line => line.match(/[a-z]+/g) || []);
+        const endWords = endLines.flatMap(line => line.match(/[a-z]+/g) || []);
         
         // Helper function to get second characters from word arrays
         function getSecondChars(wordArrays) {
@@ -574,6 +597,127 @@ export async function handler(event, context) {
               const func = foundFunctions[0].charAt(0);
               codes.push(func + w + h); // "w32" for wipe 320 240
               codes.push(w + h + func); // "32w"
+            }
+          }
+          
+          // 🌍 STRATEGY 10: HOLISTIC SAMPLING - Beginning/Middle/End Combinations (NEW!)
+          // Sample from different sections of the source to capture the full scope
+          if (functionsFromBeginning.length > 0 && functionsFromEnd.length > 0) {
+            const startChar = functionsFromBeginning[0].charAt(0);
+            const endChar = functionsFromEnd[0].charAt(0);
+            
+            // Create beginning-end bridges
+            codes.push(startChar + 'to' + endChar); // "wtor" for wipe...to...red
+            codes.push(startChar + 'n' + endChar); // "wnr" 
+            codes.push(startChar + 'x' + endChar); // "wxr"
+            codes.push(makePronounceable(startChar + endChar, 3)); // "war", "wer", etc.
+            
+            // Add middle if available
+            if (functionsFromMiddle.length > 0) {
+              const midChar = functionsFromMiddle[0].charAt(0);
+              codes.push(startChar + midChar + endChar); // "wlr" for wipe...line...red
+              codes.push(makePronounceable(startChar + midChar + endChar, 3));
+              
+              // Alternative patterns
+              codes.push(endChar + midChar + startChar); // "rlw" (reverse)
+              codes.push(midChar + startChar + endChar); // "lwr" (middle-first)
+            }
+          }
+          
+          // 🌊 STRATEGY 11: WAVE PATTERN - Distributed Word Sampling (NEW!)
+          // Instead of just first words, sample from throughout the source
+          const distributedWords = [];
+          if (beginningWords.length > 0) distributedWords.push(beginningWords[0]);
+          if (middleWords.length > 0) distributedWords.push(middleWords[0]);
+          if (endWords.length > 0) distributedWords.push(endWords[0]);
+          
+          if (distributedWords.length >= 2) {
+            const distributedInitials = distributedWords.map(w => w.charAt(0)).join('');
+            codes.push(makePronounceable(distributedInitials, 3));
+            codes.push(makePronounceable(distributedInitials, 4));
+            
+            // Mix with second characters from distributed words
+            const distributedSeconds = distributedWords.map(w => w.length >= 2 ? w.charAt(1) : '').filter(c => c !== '').join('');
+            if (distributedSeconds.length >= 2) {
+              codes.push(makePronounceable(distributedSeconds, 3));
+              // Interleave first and second chars
+              if (distributedInitials.length >= 2 && distributedSeconds.length >= 1) {
+                const interleaved = distributedInitials.charAt(0) + distributedSeconds.charAt(0) + distributedInitials.charAt(1);
+                codes.push(interleaved);
+                codes.push(makePronounceable(interleaved, 3));
+              }
+            }
+          }
+          
+          // 🔄 STRATEGY 12: REVERSE AND INSIDE-OUT SAMPLING (NEW!)
+          // Analyze from end-to-beginning and center-outward
+          const reversedLines = [...lines].reverse();
+          const reversedWordsPerLine = reversedLines.map(line => line.match(/[a-z]+/g) || []);
+          const reverseFirstChars = reversedWordsPerLine.slice(0, 3).map(words => words.length > 0 ? words[0].charAt(0) : '').filter(c => c !== '').join('');
+          
+          if (reverseFirstChars.length >= 2) {
+            codes.push(makePronounceable(reverseFirstChars, 3));
+            codes.push('rev' + reverseFirstChars.charAt(0)); // "revw" for reverse-wipe
+            
+            // Mix forward and backward patterns
+            const forwardFirstChars = allWordsPerLine.slice(0, 3).map(words => words.length > 0 ? words[0].charAt(0) : '').filter(c => c !== '').join('');
+            if (forwardFirstChars.length >= 2 && reverseFirstChars.length >= 1) {
+              codes.push(forwardFirstChars.charAt(0) + reverseFirstChars.charAt(0) + (forwardFirstChars.charAt(1) || 'a'));
+              codes.push(reverseFirstChars.charAt(0) + forwardFirstChars.charAt(0) + (reverseFirstChars.charAt(1) || 'a'));
+            }
+          }
+          
+          // 🎯 STRATEGY 13: CENTER-OUT EXPANSION (NEW!)
+          // Start from middle of source and work outward
+          const centerLineIndex = Math.floor(lines.length / 2);
+          const centerWords = lines[centerLineIndex] ? (lines[centerLineIndex].match(/[a-z]+/g) || []) : [];
+          
+          if (centerWords.length > 0) {
+            const centerChar = centerWords[0].charAt(0);
+            
+            // Find words that come before and after center
+            const beforeCenterWords = lines.slice(0, centerLineIndex).flatMap(line => line.match(/[a-z]+/g) || []);
+            const afterCenterWords = lines.slice(centerLineIndex + 1).flatMap(line => line.match(/[a-z]+/g) || []);
+            
+            if (beforeCenterWords.length > 0 && afterCenterWords.length > 0) {
+              const beforeChar = beforeCenterWords[beforeCenterWords.length - 1].charAt(0); // Last before center
+              const afterChar = afterCenterWords[0].charAt(0); // First after center
+              
+              codes.push(beforeChar + centerChar + afterChar); // "wcr" for wipe-center-red
+              codes.push(makePronounceable(beforeChar + centerChar + afterChar, 3));
+              codes.push(centerChar + beforeChar + afterChar); // "cwr" (center-first)
+            }
+          }
+          
+          // 🔀 STRATEGY 14: RANDOM SAMPLING FROM WHOLE SOURCE (NEW!)
+          // Pick random words from throughout the source instead of sequential
+          const allSourceWords = cleanSource.match(/[a-z]+/g) || [];
+          if (allSourceWords.length >= 3) {
+            const randomIndices = [];
+            const step = Math.max(1, Math.floor(allSourceWords.length / 3));
+            randomIndices.push(0); // Still include beginning
+            randomIndices.push(Math.floor(allSourceWords.length / 2)); // Middle
+            randomIndices.push(allSourceWords.length - 1); // End
+            
+            // Add a truly random sample
+            if (allSourceWords.length > 3) {
+              const randomIndex = Math.floor(Math.random() * allSourceWords.length);
+              randomIndices.push(randomIndex);
+            }
+            
+            const randomSample = randomIndices.map(i => allSourceWords[i]).filter(w => w).slice(0, 3);
+            const randomInitials = randomSample.map(w => w.charAt(0)).join('');
+            
+            if (randomInitials.length >= 2) {
+              codes.push(makePronounceable(randomInitials, 3));
+              codes.push(makePronounceable(randomInitials, 4));
+              
+              // Mix random sampling with numbers from source
+              if (singleDigits.length > 0) {
+                const digit = singleDigits[Math.floor(Math.random() * singleDigits.length)];
+                codes.push(randomInitials.charAt(0) + digit + (randomInitials.charAt(1) || 'a'));
+                codes.push(digit + randomInitials.substring(0, 2));
+              }
             }
           }        // Filter for valid, pronounceable codes
         const validCodes = codes.filter(code => 

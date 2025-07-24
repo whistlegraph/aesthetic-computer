@@ -53,8 +53,8 @@ let ellipsisTicker;
 
 // Progress bar mode configuration
 // true = Use native extended progress bar (old mode)
-// false = Use red overlay progress bar (new tape-style mode)
-const useExtendedProgressBar = true;
+// false = Use baked-in VHS progress bar (new tape-style mode with disk.mjs rendering)
+const useExtendedProgressBar = false;
 
 // Request WebP creation from main thread (document not available in worker)
 // Note: Optimized to handle large frame counts without memory issues
@@ -274,10 +274,10 @@ function paint({
       ink(255, 200)
         .write(text, { center: "xy" });
     } else {
-      // Red overlay progress bar mode (tape-style)
-      // Progress bar will be rendered by the tape progress system in disk.mjs
+      // Baked-in VHS progress bar mode (rendered in disk.mjs during recording)
+      // Progress bar will be rendered by the VHS tape progress system in disk.mjs
       // We just need to send the progress to the recording system
-      // The progress bar overlay is handled automatically by the tapeProgress system
+      // The VHS flickering progress bar overlay is handled automatically by the tapeProgress system
     }
   }
 

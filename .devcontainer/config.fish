@@ -183,6 +183,33 @@ end
 # alias ac-offline 'ac; cd system/public; npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'
 alias ac-udp 'ssh root@157.245.134.225' # ac monolith udp server management
+
+# Send aesthetic.computer playlist to TV cast coordination
+function ac-ff-playlist
+    clear
+    cd ~/aesthetic-computer
+    echo "🎬 Sending playlist to TV cast..."
+    
+    # Create temp file with payload
+    set playlist_data (curl -s https://local.aesthetic.computer/api/playlist)
+    echo $playlist_data | jq '{"dp1_call": ., "intent": {"action": "now_display"}}' > /tmp/ff-payload.json
+    
+    # Check if API key is set
+    if test -n "$FF1_CAST_API_KEY"
+        echo "🔑 API Key found, sending request..."
+        curl -X POST "https://tv-cast-coordination.autonomy-system.workers.dev/api/cast?topicID=2Ps0iMbsZUvrXOFavFhrFwVmRmrzJD0rZ" \
+             -H "content-type: application/json" \
+             -H "API-KEY: $FF1_CAST_API_KEY" \
+             -d @/tmp/ff-payload.json
+    else
+        echo "❌ FF1_CAST_API_KEY environment variable not set"
+        echo "Available FF1 variables:"
+        env | grep -i ff1
+    end
+    
+    echo ""
+    echo "✅ Playlist command completed!"
+end
 alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'

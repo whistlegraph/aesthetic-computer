@@ -2596,15 +2596,11 @@ let spinAccumulator = 0;
 // Accumulated fractional zoom for smooth zooming
 let zoomAccumulator = 1.0;
 
-// Accumulated fractional scroll for smooth scrolling
-let scrollAccumulatorX = 0;
-let scrollAccumulatorY = 0;
-
 // 🚀 PERFORMANCE: Pre-allocated memory pools for scroll operations
 let scrollRowBuffer = null;
 let scrollColumnBuffer = null;
 let scrollWorkingBuffer = null;
-const MAX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB max working buffer (increased for HUD)
+const MAX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB max working buffer
 
 // 🚀 GC REDUCTION: Object pooling for frequent operations
 const tempPixelPool = [];
@@ -2615,17 +2611,6 @@ let poolIndex = 0;
 const reusableRect = { x: 0, y: 0, width: 0, height: 0 };
 const reusablePoint = { x: 0, y: 0 };
 
-// 🚀 PERFORMANCE: Scroll throttling for recording scenarios
-let lastScrollTime = 0;
-let scrollCallCount = 0;
-const SCROLL_THROTTLE_MS = 8; // Skip scrolls if called too frequently (>120fps)
-
-// 🚀 PERFORMANCE: Batch small scroll operations
-let pendingScrollX = 0;
-let pendingScrollY = 0;
-let lastScrollBatch = 0;
-const SCROLL_BATCH_INTERVAL = 16; // Batch scrolls every 16ms (~60fps)
-
 // Accumulated fractional shear for smooth shearing
 let shearAccumulatorX = 0;
 let shearAccumulatorY = 0;
@@ -2635,40 +2620,12 @@ let pixelShearAccumX = null;
 let pixelShearAccumY = null;
 
 // Scroll the entire pixel buffer by x and/or y pixels with wrapping
-// 🚀 OPTIMIZED: Reduced memory allocations and improved algorithm
 function scroll(dx = 0, dy = 0) {
-  // 🚀 GC REDUCTION: Early exit for zero movement
+  // Early exit for zero movement
   if (dx === 0 && dy === 0) return;
   
-  // 🕐 Performance monitoring
+  // Performance monitoring
   const scrollStartTime = performance.now();
-  
-  // 🚀 GC REDUCTION: Only skip very tiny movements that won't be visible
-  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
-  
-  // 🚀 PERFORMANCE: Basic throttle for extremely high frequency calls
-  if (scrollStartTime - lastScrollTime < 1) { // 1ms minimum gap
-    scrollCallCount++;
-    if (scrollCallCount > 10) return; // Allow more calls
-  } else {
-    scrollCallCount = 0;
-  }
-  lastScrollTime = scrollStartTime;
-
-  // Accumulate fractional scroll amounts
-  scrollAccumulatorX += dx;
-  scrollAccumulatorY += dy;
-
-  // Extract integer parts for actual scrolling
-  const integerDx = Math.floor(scrollAccumulatorX);
-  const integerDy = Math.floor(scrollAccumulatorY);
-
-  // Keep fractional remainders
-  scrollAccumulatorX -= integerDx;
-  scrollAccumulatorY -= integerDy;
-
-  // Only proceed if we have integer pixels to scroll
-  if (integerDx === 0 && integerDy === 0) return;
 
   // Determine the area to scroll (mask or full screen)
   let minX = 0,
@@ -2695,9 +2652,9 @@ function scroll(dx = 0, dy = 0) {
   // Early exit if bounds are invalid
   if (boundsWidth <= 0 || boundsHeight <= 0) return;
 
-  // Use integer scroll amounts
-  let finalDx = ((integerDx % boundsWidth) + boundsWidth) % boundsWidth;
-  let finalDy = ((integerDy % boundsHeight) + boundsHeight) % boundsHeight;
+  // Use direct scroll amounts with proper wrapping
+  let finalDx = ((Math.round(dx) % boundsWidth) + boundsWidth) % boundsWidth;
+  let finalDy = ((Math.round(dy) % boundsHeight) + boundsHeight) % boundsHeight;
 
   if (finalDx === 0 && finalDy === 0) return; // No effective shift after normalization
 
@@ -2877,12 +2834,11 @@ function scroll(dx = 0, dy = 0) {
   
   // 🕐 Log performance if scroll took longer than expected
   const scrollDuration = performance.now() - scrollStartTime;
-  const isCurrentlyRecording = window.mediaRecorder?.state === "recording"; // Check global recording state
-  const threshold = isCurrentlyRecording ? 3 : 5; // Stricter threshold during recording
+  const threshold = 5; // Log if scroll takes longer than 5ms
   
-  if (scrollDuration > threshold) {
-    console.warn(`🐌 Slow scroll detected: ${scrollDuration.toFixed(2)}ms for dx=${dx}, dy=${dy}${isCurrentlyRecording ? ' (RECORDING)' : ''}`);
-  }
+  // if (scrollDuration > threshold) {
+    // console.warn(`🐌 Slow scroll detected: ${scrollDuration.toFixed(2)}ms for dx=${dx}, dy=${dy}`);
+  // }
 }
 
 // Rotates pixels in concentric rings around a specified anchor point

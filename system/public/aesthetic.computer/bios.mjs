@@ -43,6 +43,11 @@ const { isFinite } = Number;
 // Set to true to use gifenc by default, false for gif.js
 const DEFAULT_USE_GIFENC = false;
 
+// 🚫 Cache Control Flags
+// Set these to true to disable caching for dynamic content updates
+window.acDISABLE_HUD_LABEL_CACHE = true; // Disable HUD label caching for dynamic coloring
+window.acDISABLE_QR_OVERLAY_CACHE = true; // Disable QR overlay caching for dynamic updates
+
 const diskSends = [];
 let diskSendsConsumed = false;
 
@@ -71,6 +76,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   preservedParams = {};
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
+  
+  // Only preserve density/zoom if they were actually in the URL (not from localStorage)
+  const currentParams = new URLSearchParams(location.search);
+  if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
+  if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
 
   if (debug) {
     if (window.isSecureContext) {
@@ -205,7 +215,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  let density = 2; // 1.333333; // window.acVSCODE ? 1.3333 : 2; // added to window.devicePixelRatio
+  let density = resolution.density !== undefined ? resolution.density : 2; // Use URL parameter or default to 2
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
@@ -1615,9 +1625,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const paramsStr = params ? params.replace(/~/g, "-") : "";
       
       // Build filename: pieceName[params]-timestamp[suffix].extension
+      // Use recording start timestamp if available (for tape recordings),
+      // otherwise fall back to current timestamp
+      let fileTimestamp;
+      if (window.recordingStartTimestamp && extension === "gif") {
+        // For GIF recordings, use the same timestamp as shown in the overlay
+        const d = new Date(window.recordingStartTimestamp);
+        const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
+        fileTimestamp = `
+          ${d.getFullYear()}.
+          ${pad(d.getMonth() + 1)}.
+          ${pad(d.getDate())}.
+          ${pad(d.getHours())}.
+          ${pad(d.getMinutes())}.
+          ${pad(d.getSeconds())}.
+          ${pad(d.getMilliseconds(), 3)}`.replace(/\s/g, "");
+      } else {
+        // For other files or when no recording timestamp is available
+        fileTimestamp = timestamp();
+      }
+      
       const parts = [
         baseName + paramsStr,
-        timestamp() + suffix
+        fileTimestamp + suffix
       ].filter(Boolean);
       
       return parts.join("-") + "." + extension;
@@ -1879,7 +1909,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ctx.save();
         ctx.translate(positionX, 0);
         ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
-        const yDist = 0.25; // Move towards center (was 0.05)
+        
+        // Separate positioning for left and right sides for better spacing
+        const leftYDist = 0.45; // Move left side closer to bottom (increased from 0.25)
+        const rightYDist = 0.15; // Move right side closer to top (decreased from 0.25)
 
         // Use same size as timestamp for consistency and sharpness
         const stampSize = Math.min(
@@ -1907,17 +1940,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.fillStyle = color;
 
           if (deg === 90) {
+            // Left side - move lower (closer to bottom)
             ctx.fillText(
               text,
-              floor(canvasHeight * (1 - yDist) - textWidth + offsetY),
+              floor(canvasHeight * (1 - leftYDist) - textWidth + offsetY),
               -floor(offsetX + gap),
             );
           } else if (deg === -90) {
-            // Right side pushed higher up
-            // const rightSideYOffset = typeSize * 0.8; // Push higher up the side
+            // Right side - move higher (closer to top)
             ctx.fillText(
               text,
-              -Math.floor(canvasHeight * yDist + textWidth + offsetY),
+              -Math.floor(canvasHeight * rightYDist + textWidth + offsetY),
               Math.floor(offsetX - gap),
             );
           }
@@ -1926,7 +1959,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (HANDLE) {
           ctx.font = `${typeSize * 1.6}px YWFTProcessing-Light`; // Even larger handle text
           const handleWidth = textWidth / 2 + ctx.measureText(HANDLE).width / 2;
-          const handleSpace = typeSize * 1.35;
+          const handleSpace = typeSize * 2.2; // Increased spacing by another 0.2
           
           // Restore original 4-layer system with warmer color palette
           ["red", "lime", "blue", "white"].forEach((color) => {
@@ -1945,18 +1978,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.fillStyle = color;
 
             if (deg === 90) {
-              // Handle - left side positioning unchanged
+              // Handle - left side positioning (lower)
               ctx.fillText(
                 HANDLE,
-                floor(canvasHeight * (1 - yDist) - handleWidth + offsetY),
+                floor(canvasHeight * (1 - leftYDist) - handleWidth + offsetY),
                 -floor(offsetX + handleSpace + gap),
               );
             } else if (deg === -90) {
-              // Handle - right side pushed higher up
-              // const rightSideYOffset = typeSize * 0.8; // Push higher up the side
+              // Handle - right side positioning (higher)
               ctx.fillText(
                 HANDLE,
-                -Math.floor(canvasHeight * yDist + handleWidth + offsetY),
+                -Math.floor(canvasHeight * rightYDist + handleWidth + offsetY),
                 Math.floor(offsetX - handleSpace - gap),
               );
             }
@@ -2038,14 +2070,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Define timestamp margin for consistent spacing
         const timestampMargin = Math.max(8, Math.floor(canvasHeight / 50)); // Responsive margin
         
-        const now = new Date();
-        const year = now.getUTCFullYear();
-        const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-        const day = now.getUTCDate();
-        const hour = now.getUTCHours();
-        const minute = now.getUTCMinutes();
-        const second = now.getUTCSeconds();
-        const millisecond = now.getUTCMilliseconds();
+        // Calculate timestamp based on recording progress for real-time GIF playback
+        let timestampDate;
+        if (mediaRecorderStartTime !== undefined) {
+          // During recording: show time progressing from when recording started
+          const elapsedMs = performance.now() - mediaRecorderStartTime;
+          // Use a fixed start time and add elapsed recording time for consistent progression
+          if (!window.recordingStartTimestamp) {
+            window.recordingStartTimestamp = Date.now() - elapsedMs;
+          }
+          timestampDate = new Date(window.recordingStartTimestamp + elapsedMs);
+        } else {
+          // Fallback: use current time (for non-recording contexts)
+          timestampDate = new Date();
+        }
+        
+        const year = timestampDate.getUTCFullYear();
+        const month = timestampDate.getUTCMonth() + 1; // getUTCMonth() returns 0-11
+        const day = timestampDate.getUTCDate();
+        const hour = timestampDate.getUTCHours();
+        const minute = timestampDate.getUTCMinutes();
+        const second = timestampDate.getUTCSeconds();
+        const millisecond = timestampDate.getUTCMilliseconds();
 
         // Include milliseconds for frame-by-frame uniqueness
         const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
@@ -2100,33 +2146,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             timestampY + offsetY + shakeY,
           );
         });
-
-        // 🔴 Simple reddish flickering animated progress bar
-        const progressBarY = canvasHeight - progressBarHeight; // No gap - fully at bottom
-        
-        // Reset context and draw dark grey background for full progress bar
-        ctx.globalAlpha = 1.0; // Full opacity for background
-        ctx.fillStyle = "rgba(48, 48, 48, 1.0)"; // Darker grey background
-        ctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
-        
-        // Simple reddish progress bar with subtle flicker
-        const progressBarWidth = Math.floor(progress * canvasWidth);
-        if (progressBarWidth > 0) {
-          // YouTube red color with subtle flicker
-          const flicker = Math.random() * 0.3 + 0.7; // Random between 0.7 and 1.0
-          const red = Math.floor(255 * flicker); // Pure red channel
-          const green = 0; // No green for pure YouTube red
-          const blue = 0; // No blue for pure YouTube red
-          
-          ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, 0.9)`;
-          ctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
-          
-          // Add a subtle bright edge for more flicker effect
-          if (progressBarWidth > 2) {
-            ctx.fillStyle = `rgba(255, 80, 80, ${0.7 * flicker})`; // Slightly lighter red edge
-            ctx.fillRect(progressBarWidth - 2, progressBarY, 2, progressBarHeight);
-          }
-        }
 
         ctx.restore();
       }
@@ -3259,7 +3278,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
           
           const { GIFEncoder, quantize, applyPalette } = window.gifenc;
-          const gif = GIFEncoder();
+          
+          // Calculate a better initial capacity based on frame count and size
+          const estimatedFrameSize = content.frames[0].width * content.frames[0].height * optimalScale * optimalScale;
+          const estimatedSize = content.frames.length * estimatedFrameSize * 0.5; // Rough estimate
+          const initialCapacity = Math.max(4096, Math.min(estimatedSize, 1024 * 1024)); // Between 4KB and 1MB
+          
+          const gif = GIFEncoder({
+            auto: true, // Auto mode for simpler usage
+            initialCapacity: initialCapacity // Pre-allocate buffer for better performance
+          });
           
           const finalFrames = [];
           
@@ -3355,7 +3383,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          console.log("🔄 Encoding GIF with gifenc...");
+          console.log("🔄 Encoding GIF with gifenc (optimized for file size)...");
           
           // Use global palette for all frames for consistency and better compression
           const allPixels = new Uint8ClampedArray(finalFrames.length * finalFrames[0].width * finalFrames[0].height * 4);
@@ -3366,8 +3394,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             offset += frame.data.length;
           }
           
-          // Quantize to 256 colors for better quality - use rgb565 for better color fidelity
-          const palette = quantize(allPixels, 256, { format: "rgb565" });
+          // Quantize to 256 colors with optimized settings for file size
+          const palette = quantize(allPixels, 256, { 
+            format: "rgb565", // Good balance of quality and speed
+            clearAlpha: false, // Disable alpha processing since we don't need transparency
+            oneBitAlpha: false // Disable alpha quantization for smaller files
+          });
           
           // Send encoding status
           send({
@@ -3379,22 +3411,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Encode frames
+          // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
             const frame = finalFrames[i];
-            const index = applyPalette(frame.data, palette);
+            const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
             
-            // Use the actual frame duration from the content, converted to centiseconds (gif timing unit)
-            // Default to 2 centiseconds (20ms = ~50fps) if no duration provided
-            let delayInCentiseconds = 2; // Default to 20ms
-            if (content.frames[i] && content.frames[i].duration) {
-              delayInCentiseconds = Math.max(1, Math.round(content.frames[i].duration / 10));
-            }
+            // Use 50fps timing (20ms delay) - safe minimum for all browsers including Chrome/Safari accessibility limits
+            const delayInMilliseconds = Math.max(Math.round(1000 / 50), 20); // 1000ms / 50fps = 20ms minimum for browser compatibility
             
             gif.writeFrame(index, frame.width, frame.height, {
-              palette: i === 0 ? palette : undefined, // Only include palette for first frame
-              delay: delayInCentiseconds, // Use actual frame timing
-              repeat: 0  // Loop forever
+              palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
+              delay: delayInMilliseconds, // Fixed 50fps timing for reliable cross-browser playback (gifenc uses milliseconds)
+              repeat: i === 0 ? 0 : undefined, // Set infinite loop only on first frame
+              transparent: false, // Disable transparency for smaller file size
+              dispose: -1 // Use default dispose method for better compression
             });
             
             // Progress updates for encoding (40% to 90% of total progress)
@@ -3561,8 +3591,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 frameDelay = Math.round(rawDelay);
               }
               
-              // Clamp to reasonable GIF delay bounds (10ms to 200ms)
-              frameDelay = Math.max(10, Math.min(200, frameDelay));
+              // Clamp to much faster GIF timing for real-time feel (10ms to 30ms)
+              frameDelay = Math.max(10, Math.min(30, frameDelay));
             } else {
               // Last frame - use average delay or loop back to first frame timing
               if (content.frames.length > 1) {
@@ -3570,9 +3600,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 const lastTimestamp = content.frames[content.frames.length - 1][0];
                 const totalDuration = lastTimestamp - firstTimestamp;
                 const averageDelay = Math.round(totalDuration / (content.frames.length - 1));
-                frameDelay = Math.max(10, Math.min(200, averageDelay));
+                frameDelay = Math.max(10, Math.min(30, averageDelay)); // Cap to 30ms for faster playback
               } else {
-                frameDelay = 100; // Default 100ms for single frame
+                frameDelay = 20; // Default 20ms for single frame (faster than 100ms)
               }
             }
 
@@ -5300,6 +5330,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorderStartTime = undefined;
         mediaRecorderDuration = null;
         mediaRecorderChunks.length = 0;
+        // Clear recording timestamp for next recording
+        if (window.recordingStartTimestamp) {
+          delete window.recordingStartTimestamp;
+        }
         // Clear cached tape data when stopping to start a new recording
         Store.del("tape").catch(() => {}); // Clear cache, ignore errors
       }
@@ -6928,8 +6962,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        // EXCEPT for tapeProgressBar which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar") {
+        // EXCEPT for tapeProgressBar and qrOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "qrOverlay") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -6951,17 +6985,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Create a content-aware cache key that includes pixel data hash for HUD overlays
       let currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
       
-      // For HUD overlays (like labels), include content hash to detect text/color changes
+      // For HUD overlays (like labels), disable caching to ensure real-time updates for KidLisp syntax highlighting
       if (isHudOverlay && name === "label") {
-        // Create a simple hash from a sampling of pixel data to detect content changes
-        const pixels = o.img.pixels;
-        let contentHash = 0;
-        // Sample every 100th pixel to create a lightweight content signature
-        for (let i = 0; i < pixels.length; i += 400) { // Every 100 pixels (4 bytes each)
-          contentHash = (contentHash << 5) - contentHash + pixels[i];
-          contentHash = contentHash & contentHash; // Convert to 32-bit integer
-        }
-        currentKey += `_${contentHash}`;
+        overlayCache.lastKey = null; // Force regeneration every frame like QR overlay
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
       }
       
       // For tape progress bar, completely disable ALL caching to ensure every frame is painted
@@ -6971,13 +6999,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         currentKey += `_${performance.now()}`; // Force unique key every time
       }
       
-      // For QR overlay, disable canvas caching to allow animation
+      // For QR overlay, completely disable ALL caching to allow text label font loading
       if (name === "qrOverlay") {
-        overlayCache.lastKey = null; // Force regeneration
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
       }
 
       // Only rebuild if overlay actually changed
-      // Force rebuild every frame for tape progress bar (like QR overlay)
+      // Force rebuild every frame for tape progress bar and QR overlay (no caching)
       if (
         name !== "tapeProgressBar" &&
         name !== "qrOverlay" &&
@@ -7235,24 +7265,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
         if (isRecording) {
-          // 🚀 Performance optimization: Only capture every 2nd frame to reduce getImageData calls
-          // This maintains smooth 30fps playback while halving the expensive GPU->CPU transfers
+          // ⚡ Capture every frame for full 60fps recording (no optimization to maintain quality)
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
-          if (mediaRecorderFrameCount % 2 === 0) {
-            const frameTimestamp = performance.now() - mediaRecorderStartTime;
-            const frameDataWithHUD = ctx.getImageData(
-              0,
-              0,
-              ctx.canvas.width,
-              ctx.canvas.height,
-            );
-            recordedFrames.push([frameTimestamp, frameDataWithHUD]);
-            
-            // Log timing info every 60 frames (2 seconds at 30fps)
-            if (recordedFrames.length % 60 === 0) {
-              const timeSinceStart = frameTimestamp / 1000;
-              console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s`);
-            }
+          const frameTimestamp = performance.now() - mediaRecorderStartTime;
+          const frameDataWithHUD = ctx.getImageData(
+            0,
+            0,
+            ctx.canvas.width,
+            ctx.canvas.height,
+          );
+          recordedFrames.push([frameTimestamp, frameDataWithHUD]);
+          
+          // Log timing info every 120 frames (2 seconds at 60fps)
+          if (recordedFrames.length % 120 === 0) {
+            const timeSinceStart = frameTimestamp / 1000;
+            console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s (60fps)`);
           }
         }
 
