@@ -487,7 +487,7 @@ async function halt($, text) {
           // For kidlisp source code, try to get the cached code
           const cachedCode = getCachedCode(fullKidlispContent);
           console.log("🎬 Debug - Cached code for KidLisp:", cachedCode);
-          pieceName = cachedCode ? cachedCode : "$code";
+          pieceName = cachedCode ? `$${cachedCode}` : "$code";
         } else if (jumpTo) {
           pieceName = jumpTo;
           // Get additional parameters beyond the piece name
@@ -501,7 +501,7 @@ async function halt($, text) {
           // For kidlisp source code without params, try to get the cached code
           const cachedCode = getCachedCode(text);
           console.log("🎬 Debug - Cached code for KidLisp (text):", cachedCode);
-          pieceName = cachedCode ? cachedCode : "$code";
+          pieceName = cachedCode ? `$${cachedCode}` : "$code";
         }
         
         console.log("🎬 Tape recording piece info:", { pieceName, pieceParams, jumpTo, text });
