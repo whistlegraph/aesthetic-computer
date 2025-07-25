@@ -117,6 +117,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     mediaRecorderFrameCount = 0; // Frame counter for performance optimization
   let needs$creenshot = false; // Flag when a capture is requested.
 
+  // Duration Progress Bar (for timed pieces from query parameter)
+  let durationProgressStartTime = undefined;
+  let durationProgressDuration = resolution.duration; // Duration in seconds from query parameter
+  let durationProgressCompleted = false;
+
   // Events
   let whens = {};
 
@@ -6962,8 +6967,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        // EXCEPT for tapeProgressBar and qrOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "qrOverlay") {
+        // EXCEPT for tapeProgressBar, durationProgressBar and qrOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "qrOverlay") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -7007,9 +7012,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Only rebuild if overlay actually changed
-      // Force rebuild every frame for tape progress bar and QR overlay (no caching)
+      // Force rebuild every frame for tape progress bar, duration progress bar and QR overlay (no caching)
       if (
         name !== "tapeProgressBar" &&
+        name !== "durationProgressBar" &&
         name !== "qrOverlay" &&
         overlayCache.lastKey === currentKey &&
         window.framePersistentOverlayCache[name]
@@ -7078,8 +7084,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Don't cache QR overlay painters to allow animation
-      // Don't cache tapeProgressBar painters either - force regeneration every frame
-      if (isHudOverlay && name !== "qrOverlay" && name !== "tapeProgressBar") {
+      // Don't cache tapeProgressBar or durationProgressBar painters either - force regeneration every frame
+      if (isHudOverlay && name !== "qrOverlay" && name !== "tapeProgressBar" && name !== "durationProgressBar") {
         window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
@@ -7087,6 +7093,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("label", content.label);
     buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
+    buildOverlay("durationProgressBar", content.durationProgressBar);
     // console.log("🖼️ Received overlay data:", {
     //   hasLabel: !!content.label,
     //   hasQR: !!content.qrOverlay,
@@ -7147,6 +7154,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["label"]) paintOverlays["label"]();
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                 if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
               }).catch(err => {
                 console.warn('🟡 Async rendering failed, falling back to sync:', err);
               });
@@ -7187,6 +7195,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     if (paintOverlays["label"]) paintOverlays["label"]();
                     if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                     if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                    if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                   }).catch(err => {
                     console.warn('🟡 Fallback async rendering failed:', err);
                   });
@@ -7260,6 +7269,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           buildOverlay("tapeProgressBar", content.tapeProgressBar);
           if (paintOverlays["tapeProgressBar"]) {
             paintOverlays["tapeProgressBar"]();
+          }
+        }
+
+        // Paint duration progress bar immediately (not affected by async skip)
+        if (paintOverlays["durationProgressBar"]) {
+          paintOverlays["durationProgressBar"]();
+        } else if (content.durationProgressBar) {
+          buildOverlay("durationProgressBar", content.durationProgressBar);
+          if (paintOverlays["durationProgressBar"]) {
+            paintOverlays["durationProgressBar"]();
           }
         }
 

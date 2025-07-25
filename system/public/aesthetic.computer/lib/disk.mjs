@@ -381,6 +381,13 @@ let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
+// Duration tracking for playlist progress bar (similar to tape system)
+let durationStartTime = null;  // When the piece started (null if no duration) - using performance.now()
+let durationTotal = null;      // Total duration in seconds (null if no duration)
+let durationProgress = 0;      // Current progress (0-1)
+let durationCompleted = false; // Whether duration has completed
+let durationBlinkState = false; // For blinking the completed bar
+
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
 
@@ -559,6 +566,12 @@ class Recorder {
   tapeTimerStart;
   tapeProgress = 0;
   tapeTimerDuration;
+
+  // Duration progress for timed pieces (from query parameter)
+  durationTimerStart;
+  durationProgress = 0;
+  durationTimerDuration;
+  durationProgressCompleted = false;
 
   videoOnLeave = false;
 
@@ -4227,6 +4240,19 @@ async function load(
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
 
+  // Initialize duration tracking from query parameters
+  if ($commonApi.query.duration) {
+    const duration = parseFloat($commonApi.query.duration);
+    if (!isNaN(duration) && duration > 0) {
+      durationTotal = duration;
+      durationStartTime = null; // Will be set when the piece starts
+      durationProgress = 0;
+      durationCompleted = false;
+      durationBlinkState = false;
+      console.log("⏱️ Duration parameter detected:", duration, "seconds");
+    }
+  }
+
   $commonApi.load = async function () {
     // Load a piece, wrapping it in a leave function so a final frame
     // plays back.
@@ -6374,6 +6400,25 @@ async function makeFrame({ data: { type, content } }) {
 
     soundTime = content.audioTime;
 
+    // Update duration progress if tracking is active - use performance.now() for consistent timing
+    if (durationTotal && durationStartTime !== null) {
+      const currentTime = performance.now();
+      const elapsed = (currentTime - durationStartTime) / 1000; // Convert to seconds
+      durationProgress = Math.max(0, Math.min(1, elapsed / durationTotal));
+      
+      // Check if duration is complete
+      if (!durationCompleted && durationProgress >= 1) {
+        durationCompleted = true;
+        console.log("⏱️ Duration completed after", elapsed.toFixed(1), "seconds!");
+      }
+      
+      // Handle blinking when completed - use performance.now() for smooth timing
+      if (durationCompleted) {
+        // Blink every 0.5 seconds
+        durationBlinkState = Math.floor(currentTime / 500) % 2 === 0;
+      }
+    }
+
     $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
       $sampleCount += 1n;
@@ -7300,6 +7345,12 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") nopaint_boot($api);
           await boot($api);
           booted = true;
+          
+          // Start duration tracking after boot completes - use performance.now() for immediate start
+          if (durationTotal && !durationStartTime) {
+            durationStartTime = performance.now();
+            console.log("⏱️ Duration tracking started automatically at:", durationStartTime);
+          }
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
@@ -8226,6 +8277,45 @@ async function makeFrame({ data: { type, content } }) {
             tapeTimerStart: $api.rec.tapeTimerStart,
             tapeTimerDuration: $api.rec.tapeTimerDuration
           });
+        }
+      }
+
+      // Add the duration progress bar if duration tracking is active
+      // This shows a 1px bar at the bottom similar to tape, but for timed pieces
+      if (durationTotal && durationStartTime !== null && !skipPixelsDuringTapePlayback) {
+        const progress = durationCompleted ? (durationBlinkState ? 1 : 0.8) : durationProgress;
+        
+        // Create duration progress bar (simpler than tape VHS effect)
+        const durationProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
+          // Background (dark)
+          $.ink("black").box(0, 0, $api.screen.width, 1);
+          
+          // Progress bar
+          const progressWidth = Math.floor($api.screen.width * progress);
+          if (progressWidth > 0) {
+            if (durationCompleted) {
+              // Blink between white and dim white when completed
+              const color = durationBlinkState ? "white" : "#888";
+              $.ink(color).box(0, 0, $api.screen.width, 1); // Full width when complete
+            } else {
+              // Normal progress - blue to indicate it's different from tape (red/VHS)
+              $.ink("#00ff88").box(0, 0, progressWidth, 1);
+            }
+          }
+        });
+        
+        // Ensure the painting was created successfully before adding to sendData
+        if (durationProgressBarPainting && durationProgressBarPainting.pixels && durationProgressBarPainting.pixels.length > 0) {
+          // Structure the data to match what bios.mjs expects
+          sendData.durationProgressBar = {
+            x: 0,
+            y: $api.screen.height - 1, // Position at bottom of screen (1px tall)
+            img: {
+              width: durationProgressBarPainting.width,
+              height: durationProgressBarPainting.height,
+              pixels: durationProgressBarPainting.pixels
+            }
+          };
         }
       }
 
