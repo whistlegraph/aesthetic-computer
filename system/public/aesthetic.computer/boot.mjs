@@ -119,7 +119,20 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Parse the query string to detect both ?nogap and ?nolabel parameters
 const params = new URLSearchParams(location.search);
 const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
-const nolabel = params.has("nolabel") || location.search.includes("nolabel");
+
+// Check for nolabel parameter with localStorage persistence
+const nolabelParam = params.has("nolabel") || location.search.includes("nolabel");
+let nolabel;
+
+if (nolabelParam) {
+  // URL parameter provided - use it and save to localStorage
+  nolabel = true;
+  localStorage.setItem("ac-nolabel", "true");
+} else {
+  // No URL parameter - check localStorage for saved nolabel
+  const savedNolabel = localStorage.getItem("ac-nolabel");
+  nolabel = savedNolabel === "true";
+}
 
 // Check for density parameter with localStorage persistence
 const densityParam = params.get("density");
@@ -149,19 +162,33 @@ if (zoomParam) {
   zoom = savedZoom ? parseFloat(savedZoom) : undefined;
 }
 
-// Check for duration parameter (for timed pieces with progress bars)
+// Check for duration parameter (for timed pieces with progress bars) with localStorage persistence
 const durationParam = params.get("duration");
 let duration;
 
 if (durationParam) {
+  // URL parameter provided - use it and save to localStorage
   duration = parseFloat(durationParam);
   // Duration is in seconds, validate it's a positive number
   if (isNaN(duration) || duration <= 0) {
     duration = undefined;
+    localStorage.removeItem("ac-duration"); // Remove invalid duration
   } else {
+    localStorage.setItem("ac-duration", duration.toString());
     // Optional: Remove duration from URL after consumption (uncomment next 2 lines)
     // params.delete("duration");
     // cleanUrlParams(url, params);
+  }
+} else {
+  // No URL parameter - check localStorage for saved duration
+  const savedDuration = localStorage.getItem("ac-duration");
+  if (savedDuration) {
+    duration = parseFloat(savedDuration);
+    // Validate saved duration
+    if (isNaN(duration) || duration <= 0) {
+      duration = undefined;
+      localStorage.removeItem("ac-duration");
+    }
   }
 }
 

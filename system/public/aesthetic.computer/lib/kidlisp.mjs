@@ -2,6 +2,7 @@
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
 
 // ❤️‍🔥 TODO: Add UTC Support to s... timers. etc. to be compatible with 'clock.mjs'.
+//        - Selectabe values via game controller.
 
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";

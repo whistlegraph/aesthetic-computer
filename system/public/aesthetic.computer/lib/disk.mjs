@@ -120,7 +120,7 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net, painting, api }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("botce") > -1) {
@@ -134,6 +134,65 @@ const defaults = {
             [64, 64],
             screen.width - 6,
           );
+        }
+      }
+    }
+    
+    // Add duration progress bar to default noise if duration tracking is active
+    // This ensures the progress bar is rendered regardless of nolabel parameter
+    if (durationTotal && durationStartTime !== null) {
+      const currentTime = performance.now();
+      const elapsed = (currentTime - durationStartTime) / 1000; // Convert to seconds
+      const progress = Math.min(elapsed / durationTotal, 1);
+      
+      // Check if duration is completed
+      const completed = progress >= 1;
+      
+      if (completed && !durationCompleted) {
+        durationCompleted = true;
+        console.log("⏱️ Duration completed!");
+      }
+      
+      // Update global progress for other systems to use
+      durationProgress = progress;
+      
+      // Update blink state for completed duration
+      durationBlinkState = Math.floor(currentTime / 500) % 2 === 0;
+      
+      // Render the progress bar directly using ink
+      const progressWidth = Math.floor(screen.width * progress);
+      
+      if (progressWidth > 0) {
+        if (completed) {
+          // Blink between white and dim when completed - use global blink state for consistency
+          const blinkColor = durationBlinkState ? "white" : "#888";
+          ink(blinkColor).line(0, screen.height - 1, screen.width - 1, screen.height - 1);
+        } else {
+          // Sample pixels from screen buffer above for individual progress pixels
+          const screenY = screen.height - 2; // Sample from line above progress bar
+          
+          for (let x = 0; x < progressWidth; x++) {
+            // Sample pixel from screen buffer at position (x, screenY)
+            if (screenY >= 0 && screenY < screen.height && x < screen.width && screen.pixels) {
+              const pixelIndex = (screenY * screen.width + x) * 4; // RGBA format
+              
+              if (pixelIndex + 3 < screen.pixels.length) {
+                const r = screen.pixels[pixelIndex];
+                const g = screen.pixels[pixelIndex + 1]; 
+                const b = screen.pixels[pixelIndex + 2];
+                const a = screen.pixels[pixelIndex + 3];
+                
+                // Use the sampled color for this pixel of the progress bar
+                ink(r, g, b, a).plot(x, screen.height - 1);
+              } else {
+                // Fallback to red if sampling fails
+                ink("red").plot(x, screen.height - 1);
+              }
+            } else {
+              // Fallback to red if coordinates are out of bounds
+              ink("red").plot(x, screen.height - 1);
+            }
+          }
         }
       }
     }
@@ -387,6 +446,112 @@ let durationTotal = null;      // Total duration in seconds (null if no duration
 let durationProgress = 0;      // Current progress (0-1)
 let durationCompleted = false; // Whether duration has completed
 let durationBlinkState = false; // For blinking the completed bar
+let pageLoadTime = performance.now(); // Time when the page first loaded - using performance.now()
+
+// Unified function to render duration progress bar
+function renderDurationProgressBar($api) {
+  if (!durationTotal || durationStartTime === null) return null;
+  
+  const currentTime = performance.now();
+  const elapsed = (currentTime - durationStartTime) / 1000; // Convert to seconds
+  const progress = Math.min(elapsed / durationTotal, 1);
+  
+  // Check if duration is completed
+  const completed = progress >= 1;
+  
+  if (completed && !durationCompleted) {
+    durationCompleted = true;
+    console.log("⏱️ Duration completed!");
+  }
+  
+  // Update global progress for other systems to use
+  durationProgress = progress;
+  
+  // Update blink state for completed duration
+  durationBlinkState = Math.floor(currentTime / 500) % 2 === 0;
+  
+  // Debug log to check screen pixels availability
+  console.log("🎨 Duration progress bar render check:", {
+    hasScreenPixels: !!$api.screen.pixels,
+    screenWidth: $api.screen.width,
+    screenHeight: $api.screen.height,
+    pixelsLength: $api.screen.pixels ? $api.screen.pixels.length : 'undefined',
+    progress: progress,
+    progressWidth: Math.floor($api.screen.width * progress)
+  });
+  
+  // Create duration progress bar with pixel sampling from screen buffer above
+  const durationProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
+    // Background (dark)
+    $.ink("black").box(0, 0, $api.screen.width, 1);
+    
+    // Progress bar - sample individual pixels from screen buffer above
+    const progressWidth = Math.floor($api.screen.width * progress);
+    if (progressWidth > 0) {
+      if (completed) {
+        // Blink between red and dim red when completed - same as timecode
+        const color = durationBlinkState ? [255, 0, 0] : [128, 0, 0];
+        $.ink(color).box(0, 0, $api.screen.width, 1); // Full width when complete
+      } else {
+        // Normal progress - sample pixels from different screen buffer lines over time for color map effect
+        for (let x = 0; x < progressWidth; x++) {
+          // Calculate which screen line to sample from based on progress and x position
+          // This creates a color map effect where each pixel samples from a different time/position
+          const timeOffset = (progress * $api.screen.height); // How far through the screen based on time
+          const pixelOffset = (x / $api.screen.width) * $api.screen.height; // Position offset for this pixel
+          const screenY = Math.floor((timeOffset + pixelOffset) % $api.screen.height); // Wrap around screen height
+          
+          // Sample pixel from screen buffer at position (x, screenY)
+          if (screenY >= 0 && screenY < $api.screen.height && x < $api.screen.width) {
+            const pixelIndex = (screenY * $api.screen.width + x) * 4; // RGBA format
+            
+            if ($api.screen.pixels && pixelIndex + 3 < $api.screen.pixels.length) {
+              const r = $api.screen.pixels[pixelIndex];
+              const g = $api.screen.pixels[pixelIndex + 1]; 
+              const b = $api.screen.pixels[pixelIndex + 2];
+              const a = $api.screen.pixels[pixelIndex + 3];
+              
+              // Debug logging for first few pixels
+              if (x < 3) {
+                console.log(`🎨 Pixel sampling x=${x}, screenY=${screenY}, pixelIndex=${pixelIndex}, rgba=(${r},${g},${b},${a}), screenSize=${$api.screen.width}x${$api.screen.height}, bufferLength=${$api.screen.pixels.length}`);
+              }
+              
+              // Use the sampled color for this pixel of the progress bar
+              $.ink(r, g, b, a).plot(x, 0);
+            } else {
+              // Fallback to blue if sampling fails
+              if (x < 3) {
+                console.log(`🔵 Blue fallback x=${x}, screenY=${screenY}, pixelIndex=${pixelIndex}, hasPixels=${!!$api.screen.pixels}, bufferLength=${$api.screen.pixels ? $api.screen.pixels.length : 'undefined'}`);
+              }
+              $.ink("blue").plot(x, 0);
+            }
+          } else {
+            // Fallback to green if coordinates are out of bounds
+            if (x < 3) {
+              console.log(`🟢 Green fallback x=${x}, screenY=${screenY}, screenSize=${$api.screen.width}x${$api.screen.height}`);
+            }
+            $.ink("green").plot(x, 0);
+          }
+        }
+      }
+    }
+  });
+  
+  // Return the painting if created successfully
+  if (durationProgressBarPainting && durationProgressBarPainting.pixels && durationProgressBarPainting.pixels.length > 0) {
+    return {
+      x: 0,
+      y: $api.screen.height - 1, // Position at bottom of screen (1px tall)
+      img: {
+        width: durationProgressBarPainting.width,
+        height: durationProgressBarPainting.height,
+        pixels: durationProgressBarPainting.pixels
+      }
+    };
+  }
+  
+  return null;
+}
 
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
@@ -4245,11 +4410,11 @@ async function load(
     const duration = parseFloat($commonApi.query.duration);
     if (!isNaN(duration) && duration > 0) {
       durationTotal = duration;
-      durationStartTime = null; // Will be set when the piece starts
+      durationStartTime = pageLoadTime; // Start from page load time immediately
       durationProgress = 0;
       durationCompleted = false;
       durationBlinkState = false;
-      console.log("⏱️ Duration parameter detected:", duration, "seconds");
+      console.log("⏱️ Duration parameter detected:", duration, "seconds - starting from page load time:", pageLoadTime);
     }
   }
 
@@ -4633,7 +4798,7 @@ async function load(
     currentSearch = search;
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    hideLabel = parsed.search?.startsWith("nolabel") || false;
+    hideLabel = parsed.search?.includes("nolabel") || false;
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -4722,7 +4887,7 @@ async function load(
         // console.log("🎯 Cached KidLisp: URL shows $prefixed code, HUD shows full source");
       }
     }
-    if (module.nohud || system === "prompt") {
+    if (module.nohud || system === "prompt" || parsed.search?.includes("nohud")) {
       currentHUDTxt = undefined;
       currentHUDLogicalTxt = undefined;
     }
@@ -6400,25 +6565,6 @@ async function makeFrame({ data: { type, content } }) {
 
     soundTime = content.audioTime;
 
-    // Update duration progress if tracking is active - use performance.now() for consistent timing
-    if (durationTotal && durationStartTime !== null) {
-      const currentTime = performance.now();
-      const elapsed = (currentTime - durationStartTime) / 1000; // Convert to seconds
-      durationProgress = Math.max(0, Math.min(1, elapsed / durationTotal));
-      
-      // Check if duration is complete
-      if (!durationCompleted && durationProgress >= 1) {
-        durationCompleted = true;
-        console.log("⏱️ Duration completed after", elapsed.toFixed(1), "seconds!");
-      }
-      
-      // Handle blinking when completed - use performance.now() for smooth timing
-      if (durationCompleted) {
-        // Blink every 0.5 seconds
-        durationBlinkState = Math.floor(currentTime / 500) % 2 === 0;
-      }
-    }
-
     $sound.play = function play(sfx, options, callbacks) {
       const id = sfx + "_" + $sampleCount; // A *unique id for this sample.
       $sampleCount += 1n;
@@ -7345,12 +7491,6 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") nopaint_boot($api);
           await boot($api);
           booted = true;
-          
-          // Start duration tracking after boot completes - use performance.now() for immediate start
-          if (durationTotal && !durationStartTime) {
-            durationStartTime = performance.now();
-            console.log("⏱️ Duration tracking started automatically at:", durationStartTime);
-          }
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
@@ -8282,42 +8422,11 @@ async function makeFrame({ data: { type, content } }) {
 
       // Add the duration progress bar if duration tracking is active
       // This shows a 1px bar at the bottom similar to tape, but for timed pieces
-      if (durationTotal && durationStartTime !== null && !skipPixelsDuringTapePlayback) {
-        const progress = durationCompleted ? (durationBlinkState ? 1 : 0.8) : durationProgress;
-        
-        // Create duration progress bar (simpler than tape VHS effect)
-        const durationProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
-          // Background (dark)
-          $.ink("black").box(0, 0, $api.screen.width, 1);
-          
-          // Progress bar
-          const progressWidth = Math.floor($api.screen.width * progress);
-          if (progressWidth > 0) {
-            if (durationCompleted) {
-              // Blink between white and dim white when completed
-              const color = durationBlinkState ? "white" : "#888";
-              $.ink(color).box(0, 0, $api.screen.width, 1); // Full width when complete
-            } else {
-              // Normal progress - blue to indicate it's different from tape (red/VHS)
-              $.ink("#00ff88").box(0, 0, progressWidth, 1);
-            }
-          }
-        });
-        
-        // Ensure the painting was created successfully before adding to sendData
-        if (durationProgressBarPainting && durationProgressBarPainting.pixels && durationProgressBarPainting.pixels.length > 0) {
-          // Structure the data to match what bios.mjs expects
-          sendData.durationProgressBar = {
-            x: 0,
-            y: $api.screen.height - 1, // Position at bottom of screen (1px tall)
-            img: {
-              width: durationProgressBarPainting.width,
-              height: durationProgressBarPainting.height,
-              pixels: durationProgressBarPainting.pixels
-            }
-          };
-        }
-      }
+      // NOTE: Moved this after screen.pixels is ready for proper pixel sampling
+      // const durationProgressBarData = renderDurationProgressBar($api);
+      // if (durationProgressBarData && !skipPixelsDuringTapePlayback) {
+      //   sendData.durationProgressBar = durationProgressBarData;
+      // }
 
       maybeLeave();
 
@@ -8593,6 +8702,189 @@ async function makeFrame({ data: { type, content } }) {
         sendData.pixels = transferredPixels;
       }
 
+      // Add the duration progress bar if duration tracking is active
+      // This shows a 1px bar at the bottom similar to tape, but for timed pieces
+      // NOW the screen buffer is ready for proper pixel sampling
+      const durationProgressBarData = renderDurationProgressBar($api);
+      if (durationProgressBarData && !skipPixelsDuringTapePlayback) {
+        sendData.durationProgressBar = durationProgressBarData;
+      }
+
+      // Add timecode display (00:00 / 1:20) on bottom left - shows regardless of nohud/progress bar
+      if (durationTotal && durationStartTime !== null && !skipPixelsDuringTapePlayback) {
+        console.log("🕐 Starting timecode generation...", {
+          durationTotal,
+          durationStartTime,
+          skipPixelsDuringTapePlayback,
+          tf: !!tf,
+          tfBlockWidth: tf?.blockWidth,
+          tfBlockHeight: tf?.blockHeight
+        });
+        
+        const currentTime = performance.now();
+        const elapsed = Math.max(0, (currentTime - durationStartTime) / 1000); // Convert to seconds, clamp to 0
+        
+        // Clamp elapsed to duration when completed to hold at end time
+        const clampedElapsed = Math.min(elapsed, durationTotal);
+        
+        const elapsedMins = Math.floor(clampedElapsed / 60);
+        const elapsedSecs = Math.floor(clampedElapsed % 60);
+        const totalMins = Math.floor(durationTotal / 60);
+        const totalSecs = Math.floor(durationTotal % 60);
+        
+        const timecodeText = `${elapsedMins.toString().padStart(2, '0')}:${elapsedSecs.toString().padStart(2, '0')} / ${totalMins.toString().padStart(2, '0')}:${totalSecs.toString().padStart(2, '0')}`;
+        
+        console.log("🕐 Timecode details:", {
+          durationTotal,
+          clampedElapsed,
+          elapsed,
+          elapsedMins,
+          elapsedSecs,
+          totalMins,
+          totalSecs,
+          timecodeText,
+          textLength: timecodeText.length
+        });
+        
+        // Check if duration is complete for blinking
+        const progress = Math.min(elapsed / durationTotal, 1);
+        const completed = progress >= 1;
+        
+        // Debug completion state
+        if (completed) {
+          console.log("🕐 Duration completed! Blinking red timecode");
+        }
+        
+        // Use the current default typeface (tf) for consistency
+        if (tf) {
+          // Calculate text dimensions for positioning - ensure enough width for timecode
+          const textWidth = Math.max(timecodeText.length * tf.blockWidth, 100); // Minimum 100px width
+          const textHeight = tf.blockHeight;
+          
+          // Minimal padding, no background box
+          const padding = 1; // Reduced padding
+          const shadowOffset = 1;
+          const timecodeWidth = textWidth + padding * 2 + shadowOffset;
+          const timecodeHeight = textHeight + padding * 2 + shadowOffset;
+          
+          console.log("🕐 Timecode painting dimensions:", {
+            textWidth,
+            textHeight,
+            padding,
+            shadowOffset,
+            timecodeWidth,
+            timecodeHeight,
+            timecodeText,
+            textLength: timecodeText.length,
+            tfBlockWidth: tf.blockWidth,
+            tfBlockHeight: tf.blockHeight,
+            completed
+          });
+
+          const timecodePainting = $api.painting(timecodeWidth, timecodeHeight, ($) => {
+            console.log("🕐 Inside timecode painting function");
+            
+            // No background box - just transparent
+            
+            // Draw shadow first (offset by 1px down and right) - using same pattern as HUD
+            $.ink(0).write(
+              timecodeText,
+              {
+                x: padding + shadowOffset,
+                y: padding + shadowOffset,
+                noInlineColor: true,
+              },
+              undefined,
+              timecodeWidth, // Wrap width
+            );
+            
+            // Draw main text - blink red when completed, white when normal
+            if (completed) {
+              // Use global blink state to sync with progress bar
+              const textColor = durationBlinkState ? [255, 0, 0] : [128, 0, 0]; // Bright red to dim red
+              console.log("🕐 Drawing completed timecode:", {
+                text: timecodeText,
+                color: textColor,
+                blinkState: durationBlinkState,
+                completed
+              });
+              $.ink(textColor[0], textColor[1], textColor[2]).write(
+                timecodeText,
+                {
+                  x: padding,
+                  y: padding,
+                },
+                undefined,
+                timecodeWidth, // Wrap width
+              );
+            } else {
+              // Normal white text
+              console.log("🕐 Drawing normal timecode:", {
+                text: timecodeText,
+                color: [255, 255, 255],
+                completed
+              });
+              $.ink(255, 255, 255).write(
+                timecodeText,
+                {
+                  x: padding,
+                  y: padding,
+                },
+                undefined,
+                timecodeWidth, // Wrap width
+              );
+            }
+            
+            console.log("🕐 Finished drawing text in timecode painting");
+          });
+          
+          console.log("🕐 Timecode painting created:", {
+            painting: !!timecodePainting,
+            pixels: !!timecodePainting?.pixels,
+            pixelsLength: timecodePainting?.pixels?.length,
+            width: timecodePainting?.width,
+            height: timecodePainting?.height
+          });          // Add timecode to sendData if created successfully
+          if (timecodePainting && timecodePainting.pixels && timecodePainting.pixels.length > 0) {
+            const timecodeData = {
+              x: 3, // 3px margin from left edge (1px left from previous 4px)
+              y: $api.screen.height - timecodeHeight - 2, // Position 1px down (was -3, now -2)
+              img: {
+                width: timecodePainting.width,
+                height: timecodePainting.height,
+                pixels: timecodePainting.pixels
+              }
+            };
+            
+            sendData.durationTimecode = timecodeData;
+            
+            console.log("🕐 Timecode added to sendData:", {
+              x: timecodeData.x,
+              y: timecodeData.y,
+              width: timecodeData.img.width,
+              height: timecodeData.img.height,
+              pixelsLength: timecodeData.img.pixels.length,
+              screenHeight: $api.screen.height,
+              calculatedY: timecodeData.y
+            });
+          } else {
+            console.warn("🕐 Timecode painting failed:", {
+              painting: !!timecodePainting,
+              pixels: !!timecodePainting?.pixels,
+              pixelsLength: timecodePainting?.pixels?.length
+            });
+          }
+        } else {
+          console.warn("🕐 No typeface (tf) available for timecode rendering");
+        }
+      } else {
+        console.log("🕐 Timecode conditions not met:", {
+          durationTotal: !!durationTotal,
+          durationStartTime: durationStartTime !== null,
+          skipPixelsDuringTapePlayback
+        });
+      }
+
       // Optional messages to send.
       if (painted === true) sendData.paintChanged = true;
       if (loading === true) sendData.loading = true;
@@ -8658,6 +8950,15 @@ async function makeFrame({ data: { type, content } }) {
         if (tapeBuffer instanceof ArrayBuffer && tapeBuffer.byteLength > 0 && !transferredBufferSet.has(tapeBuffer)) {
           transferredObjects.push(tapeBuffer);
           transferredBufferSet.add(tapeBuffer);
+        }
+      }
+
+      // Safely add duration timecode buffer to transfer array
+      if (sendData.durationTimecode?.img?.pixels?.buffer) {
+        const timecodeBuffer = sendData.durationTimecode.img.pixels.buffer;
+        if (timecodeBuffer instanceof ArrayBuffer && timecodeBuffer.byteLength > 0 && !transferredBufferSet.has(timecodeBuffer)) {
+          transferredObjects.push(timecodeBuffer);
+          transferredBufferSet.add(timecodeBuffer);
         }
       }
 
