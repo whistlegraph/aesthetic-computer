@@ -589,6 +589,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                     
                     return {
                       timestamp: timestamp,
+                      originalTimestamp: timestamp, // Add this field for timestamp display in WebP overlay
                       duration: duration,
                       width: imageData.width,
                       height: imageData.height,
@@ -686,6 +687,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                     
                     return {
                       timestamp: timestamp,
+                      originalTimestamp: timestamp, // Add this field for timestamp display in APNG overlay
                       duration: duration,
                       width: imageData.width,
                       height: imageData.height,
@@ -776,6 +778,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                 
                 return {
                   timestamp: timestamp,
+                  originalTimestamp: timestamp, // Add this field for timestamp display in GIF overlay
                   duration: duration,
                   width: imageData.width,
                   height: imageData.height,

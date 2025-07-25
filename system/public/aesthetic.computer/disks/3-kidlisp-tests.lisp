@@ -42,7 +42,7 @@
   (repeat 3 (line))
   (0.5s (zoom (? 0.9 1.2)))
   (scroll width/5.67666*0.828)
-  (5s... () (scroll 0 1) () (scroll 0 -1))
+  ; (5s... () (scroll 0 1) () (scroll 0 -1))
   (8s (mask 0 height/2 width height/2) (sort) (unmask))
   ;; (spin frame)
   ;; (3s (blur 8))
