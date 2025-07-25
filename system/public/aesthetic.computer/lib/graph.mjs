@@ -638,13 +638,14 @@ function resize(bitmap, width, height) {
   return { pixels, width, height };
 }
 
-// Apply a blur effect to the current pixel buffer using smooth weighted blur
+// 🚀 OPTIMIZED: Apply a blur effect using fast box blur approximation for constant time performance
 // radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
+// Uses multiple passes of fixed-size box blurs to approximate Gaussian blur in O(1) time per pixel
 function blur(radius = 1) {
   if (radius <= 0) return;
 
   // Clamp radius to reasonable values for performance
-  radius = Math.min(radius, 20);
+  radius = Math.min(radius, 50); // Increased limit since we're now O(1) per pixel
 
   // Determine the area to blur (mask or full screen)
   let minX = 0,
@@ -665,36 +666,197 @@ function blur(radius = 1) {
   // Early exit if bounds are invalid
   if (workingWidth <= 0 || workingHeight <= 0) return;
 
+  // 🚀 OPTIMIZATION: Use fast box blur algorithm with multiple passes
+  // This achieves near-Gaussian quality in constant time per pixel regardless of radius
+  
+  // For small radii, use traditional method for better quality
+  if (radius < 2) {
+    applySmallBlur(radius, minX, minY, maxX, maxY);
+    return;
+  }
+
+  // For larger radii, use fast multi-pass box blur
+  // Calculate optimal box sizes for 3-pass approximation of Gaussian
+  const boxSizes = calculateBoxSizes(radius);
+  
+  // Apply 3 box blur passes for good Gaussian approximation
+  for (let pass = 0; pass < 3; pass++) {
+    applyBoxBlur(boxSizes[pass], minX, minY, maxX, maxY);
+  }
+}
+
+// 🚀 PERFORMANCE: Pre-allocated working buffers to avoid GC pressure
+let blurWorkingBuffer1 = null;
+let blurWorkingBuffer2 = null;
+
+// Calculate optimal box filter sizes for Gaussian approximation
+// Using the method from "Fast Almost-Gaussian Filtering" by Peter Kovesi
+function calculateBoxSizes(sigma) {
+  // Convert radius to sigma for box filter calculation
+  const actualSigma = sigma / 3.0; // Approximate conversion
+  
+  // Calculate ideal filter width
+  const wIdeal = Math.sqrt((12 * actualSigma * actualSigma / 3) + 1);
+  const wl = Math.floor(wIdeal);
+  const wu = wl + 1;
+  
+  const mIdeal = (12 * actualSigma * actualSigma - 3 * wl * wl - 12 * wl - 9) / (-4 * wl - 4);
+  const m = Math.round(mIdeal);
+  
+  const sizes = [];
+  for (let i = 0; i < 3; i++) {
+    sizes.push(i < m ? wl : wu);
+  }
+  
+  return sizes;
+}
+
+// Fast box blur implementation - O(1) per pixel regardless of radius
+function applyBoxBlur(boxSize, minX, minY, maxX, maxY) {
+  if (boxSize <= 1) return;
+  
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+  const bufferSize = workingWidth * workingHeight * 4;
+  
+  // 🚀 GC REDUCTION: Reuse working buffers
+  if (!blurWorkingBuffer1 || blurWorkingBuffer1.length < bufferSize) {
+    blurWorkingBuffer1 = new Uint8ClampedArray(bufferSize);
+  }
+  if (!blurWorkingBuffer2 || blurWorkingBuffer2.length < bufferSize) {
+    blurWorkingBuffer2 = new Uint8ClampedArray(bufferSize);
+  }
+  
+  const radius = Math.floor(boxSize / 2);
+  const kernelSize = radius * 2 + 1;
+  const invKernelSize = 1.0 / kernelSize;
+  
+  // Horizontal pass with sliding window
+  for (let y = 0; y < workingHeight; y++) {
+    let r = 0, g = 0, b = 0, a = 0;
+    
+    // Initialize sliding window
+    for (let x = -radius; x <= radius; x++) {
+      const srcX = Math.max(0, Math.min(workingWidth - 1, x));
+      const srcIdx = ((minY + y) * width + (minX + srcX)) * 4;
+      
+      r += pixels[srcIdx];
+      g += pixels[srcIdx + 1];
+      b += pixels[srcIdx + 2];
+      a += pixels[srcIdx + 3];
+    }
+    
+    // Process row with sliding window
+    for (let x = 0; x < workingWidth; x++) {
+      // Write current average
+      const destIdx = (y * workingWidth + x) * 4;
+      blurWorkingBuffer1[destIdx] = r * invKernelSize;
+      blurWorkingBuffer1[destIdx + 1] = g * invKernelSize;
+      blurWorkingBuffer1[destIdx + 2] = b * invKernelSize;
+      blurWorkingBuffer1[destIdx + 3] = a * invKernelSize;
+      
+      // Update sliding window for next pixel
+      if (x < workingWidth - 1) {
+        // Remove leftmost pixel
+        const removeX = Math.max(0, Math.min(workingWidth - 1, x - radius));
+        const removeIdx = ((minY + y) * width + (minX + removeX)) * 4;
+        r -= pixels[removeIdx];
+        g -= pixels[removeIdx + 1];
+        b -= pixels[removeIdx + 2];
+        a -= pixels[removeIdx + 3];
+        
+        // Add rightmost pixel
+        const addX = Math.max(0, Math.min(workingWidth - 1, x + radius + 1));
+        const addIdx = ((minY + y) * width + (minX + addX)) * 4;
+        r += pixels[addIdx];
+        g += pixels[addIdx + 1];
+        b += pixels[addIdx + 2];
+        a += pixels[addIdx + 3];
+      }
+    }
+  }
+  
+  // Vertical pass with sliding window
+  for (let x = 0; x < workingWidth; x++) {
+    let r = 0, g = 0, b = 0, a = 0;
+    
+    // Initialize sliding window
+    for (let y = -radius; y <= radius; y++) {
+      const srcY = Math.max(0, Math.min(workingHeight - 1, y));
+      const srcIdx = (srcY * workingWidth + x) * 4;
+      
+      r += blurWorkingBuffer1[srcIdx];
+      g += blurWorkingBuffer1[srcIdx + 1];
+      b += blurWorkingBuffer1[srcIdx + 2];
+      a += blurWorkingBuffer1[srcIdx + 3];
+    }
+    
+    // Process column with sliding window
+    for (let y = 0; y < workingHeight; y++) {
+      // Write current average back to main buffer
+      const destIdx = ((minY + y) * width + (minX + x)) * 4;
+      pixels[destIdx] = r * invKernelSize;
+      pixels[destIdx + 1] = g * invKernelSize;
+      pixels[destIdx + 2] = b * invKernelSize;
+      pixels[destIdx + 3] = a * invKernelSize;
+      
+      // Update sliding window for next pixel
+      if (y < workingHeight - 1) {
+        // Remove topmost pixel
+        const removeY = Math.max(0, Math.min(workingHeight - 1, y - radius));
+        const removeIdx = (removeY * workingWidth + x) * 4;
+        r -= blurWorkingBuffer1[removeIdx];
+        g -= blurWorkingBuffer1[removeIdx + 1];
+        b -= blurWorkingBuffer1[removeIdx + 2];
+        a -= blurWorkingBuffer1[removeIdx + 3];
+        
+        // Add bottommost pixel
+        const addY = Math.max(0, Math.min(workingHeight - 1, y + radius + 1));
+        const addIdx = (addY * workingWidth + x) * 4;
+        r += blurWorkingBuffer1[addIdx];
+        g += blurWorkingBuffer1[addIdx + 1];
+        b += blurWorkingBuffer1[addIdx + 2];
+        a += blurWorkingBuffer1[addIdx + 3];
+      }
+    }
+  }
+}
+
+// Traditional blur for small radii where quality is more important than speed
+function applySmallBlur(radius, minX, minY, maxX, maxY) {
   // Create a copy of the current pixels to read from
   const sourcePixels = new Uint8ClampedArray(pixels);
 
-  // Apply horizontal blur pass (only within mask bounds)
+  // Pre-calculate weights for performance
+  const sampleRadius = Math.max(1, Math.ceil(radius));
+  const weights = new Float32Array(sampleRadius * 2 + 1);
+  let totalWeight = 0;
+  
+  for (let i = -sampleRadius; i <= sampleRadius; i++) {
+    const distance = Math.abs(i);
+    let weight;
+    if (distance === 0) {
+      weight = 1.0;
+    } else {
+      weight = Math.max(0, radius - distance + 1) * radius;
+    }
+    weights[i + sampleRadius] = weight;
+    totalWeight += weight;
+  }
+  
+  // Normalize weights
+  const invTotalWeight = 1.0 / totalWeight;
+  for (let i = 0; i < weights.length; i++) {
+    weights[i] *= invTotalWeight;
+  }
+
+  // Apply horizontal blur pass
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
-        a = 0;
-      let totalWeight = 0;
-
-      // Always sample at least immediate neighbors for visible blur effect
-      const sampleRadius = Math.max(1, Math.ceil(radius));
+      let r = 0, g = 0, b = 0, a = 0;
 
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const distance = Math.abs(i);
-        // Calculate weight using a smoother function that works well for fractional values
-        let weight;
-        if (distance === 0) {
-          // Center pixel gets base weight
-          weight = 1.0;
-        } else {
-          // Neighbors get weight based on radius
-          // For radius < 1, this gives fractional weights to immediate neighbors
-          // For radius >= 1, this gives decreasing weights with distance
-          weight = Math.max(0, radius - distance + 1) * radius;
-        }
-
-        // Clamp sampling to mask bounds for proper edge handling
+        const weight = weights[i + sampleRadius];
         const sampleX = Math.max(minX, Math.min(maxX - 1, x + i));
         const index = (y * width + sampleX) * 4;
 
@@ -702,21 +864,17 @@ function blur(radius = 1) {
         g += sourcePixels[index + 1] * weight;
         b += sourcePixels[index + 2] * weight;
         a += sourcePixels[index + 3] * weight;
-        totalWeight += weight;
       }
 
-      // Write weighted average back to main buffer
       const index = (y * width + x) * 4;
-      if (totalWeight > 0) {
-        pixels[index] = r / totalWeight;
-        pixels[index + 1] = g / totalWeight;
-        pixels[index + 2] = b / totalWeight;
-        pixels[index + 3] = a / totalWeight;
-      }
+      pixels[index] = r;
+      pixels[index + 1] = g;
+      pixels[index + 2] = b;
+      pixels[index + 3] = a;
     }
   }
 
-  // Copy result for vertical pass (only the working area)
+  // Copy result for vertical pass
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
       const index = (y * width + x) * 4;
@@ -727,33 +885,13 @@ function blur(radius = 1) {
     }
   }
 
-  // Apply vertical blur pass (only within mask bounds)
+  // Apply vertical blur pass
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
-        a = 0;
-      let totalWeight = 0;
-
-      // Always sample at least immediate neighbors for visible blur effect
-      const sampleRadius = Math.max(1, Math.ceil(radius));
+      let r = 0, g = 0, b = 0, a = 0;
 
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const distance = Math.abs(i);
-        // Calculate weight using a smoother function that works well for fractional values
-        let weight;
-        if (distance === 0) {
-          // Center pixel gets base weight
-          weight = 1.0;
-        } else {
-          // Neighbors get weight based on radius
-          // For radius < 1, this gives fractional weights to immediate neighbors
-          // For radius >= 1, this gives decreasing weights with distance
-          weight = Math.max(0, radius - distance + 1) * radius;
-        }
-
-        // Clamp sampling to mask bounds for proper edge handling
+        const weight = weights[i + sampleRadius];
         const sampleY = Math.max(minY, Math.min(maxY - 1, y + i));
         const index = (sampleY * width + x) * 4;
 
@@ -761,17 +899,13 @@ function blur(radius = 1) {
         g += sourcePixels[index + 1] * weight;
         b += sourcePixels[index + 2] * weight;
         a += sourcePixels[index + 3] * weight;
-        totalWeight += weight;
       }
 
-      // Write weighted average back to main buffer
       const index = (y * width + x) * 4;
-      if (totalWeight > 0) {
-        pixels[index] = r / totalWeight;
-        pixels[index + 1] = g / totalWeight;
-        pixels[index + 2] = b / totalWeight;
-        pixels[index + 3] = a / totalWeight;
-      }
+      pixels[index] = r;
+      pixels[index + 1] = g;
+      pixels[index + 2] = b;
+      pixels[index + 3] = a;
     }
   }
 }

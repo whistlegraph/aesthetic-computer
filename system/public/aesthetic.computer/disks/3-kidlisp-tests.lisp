@@ -39,7 +39,10 @@
   (repeat 3 (line))
   (0.5s (zoom (? 0.9 1.2)))
   (scroll width/5.67666*0.828)
+  (10s... () (scroll 0 1) () (scroll 0 -1))
   (8s (mask 0 height/2 width height/2) (sort) (unmask))
+  ;; (spin frame)
+  (10s... () (blur 8))
 )
 
 ; 🌪️ Spin cycle, 25.06.20.08.34
