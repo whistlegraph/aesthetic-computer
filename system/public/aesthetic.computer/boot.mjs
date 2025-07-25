@@ -149,6 +149,22 @@ if (zoomParam) {
   zoom = savedZoom ? parseFloat(savedZoom) : undefined;
 }
 
+// Check for duration parameter (for timed pieces with progress bars)
+const durationParam = params.get("duration");
+let duration;
+
+if (durationParam) {
+  duration = parseFloat(durationParam);
+  // Duration is in seconds, validate it's a positive number
+  if (isNaN(duration) || duration <= 0) {
+    duration = undefined;
+  } else {
+    // Optional: Remove duration from URL after consumption (uncomment next 2 lines)
+    // params.delete("duration");
+    // cleanUrlParams(url, params);
+  }
+}
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -163,7 +179,7 @@ if (window.acVSCODE) {
 }
 
 // Pass the parameters directly without stripping them
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration }, debug);
 
 let sandboxed = window.origin === "null" && !window.acVSCODE;
 // console.log("🏜️ Sandboxed:", sandboxed, window.acVSCODE);
