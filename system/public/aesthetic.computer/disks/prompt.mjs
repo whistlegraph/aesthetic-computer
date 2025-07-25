@@ -408,9 +408,10 @@ async function halt($, text) {
     slug === "tape:tt" ||
     slug === "tape:nomic" ||
     slug === "tape:mic" ||
+    slug === "tape:mystery" ||
     slug === "tapem"
   ) {
-    console.log("🎬 Tape command detected:", slug, "params:", params);
+    // console.log("🎬 Tape command detected:", slug, "params:", params);
     
     // 📼 Start taping.
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
@@ -427,9 +428,9 @@ async function halt($, text) {
     // Clear any previous tape command first to avoid conflicts
     store.delete("tape:originalCommand");
     store["tape:originalCommand"] = text;
-    console.log("🎬 Stored original tape command for backspace:", text);
-    console.log("🎬 Debug - slug:", slug, "params:", params);
-    console.log("🎬 Debug - original text tokens:", tokens);
+    // console.log("🎬 Stored original tape command for backspace:", text);
+    // console.log("🎬 Debug - slug:", slug, "params:", params);
+    // console.log("🎬 Debug - original text tokens:", tokens);
 
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 7;
@@ -439,7 +440,7 @@ async function halt($, text) {
     });
 
     let nomic;
-    if (slug === "tape" || slug === "tape:tt") {
+    if (slug === "tape" || slug === "tape:tt" || slug === "tape:mystery") {
       nomic = iOS || Android ? false : true;
       if (params[0] === "baktok" || params[1] == "baktok") {
         nomic = false;
@@ -468,7 +469,7 @@ async function halt($, text) {
 
       // Gets picked up on next piece load automatically.
       rec.loadCallback = () => {
-        console.log("🎬 loadCallback triggered, setting up recording with duration:", duration || defaultDuration);
+        // console.log("🎬 loadCallback triggered, setting up recording with duration:", duration || defaultDuration);
         
         // Extract piece name and parameters for filename generation
         let pieceName = "tape";
@@ -479,9 +480,9 @@ async function halt($, text) {
           params.slice(1).join(" ") : 
           (!isValidDuration && params.length > 0 ? params.join(" ") : "");
         
-        console.log("🎬 Debug loadCallback - isValidDuration:", isValidDuration);
-        console.log("🎬 Debug loadCallback - fullKidlispContent:", fullKidlispContent);
-        console.log("🎬 Debug loadCallback - isKidlispSource(fullKidlispContent):", isKidlispSource(fullKidlispContent));
+        // console.log("🎬 Debug loadCallback - isValidDuration:", isValidDuration);
+        // console.log("🎬 Debug loadCallback - fullKidlispContent:", fullKidlispContent);
+        // console.log("🎬 Debug loadCallback - isKidlispSource(fullKidlispContent):", isKidlispSource(fullKidlispContent));
         
         if (fullKidlispContent && isKidlispSource(fullKidlispContent)) {
           // For kidlisp source code, try to get the cached code
@@ -504,7 +505,7 @@ async function halt($, text) {
           pieceName = cachedCode ? `$${cachedCode}` : "$code";
         }
         
-        console.log("🎬 Tape recording piece info:", { pieceName, pieceParams, jumpTo, text });
+        // console.log("🎬 Tape recording piece info:", { pieceName, pieceParams, jumpTo, text });
         
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
@@ -513,44 +514,46 @@ async function halt($, text) {
             type: "video" + (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
             pieceName,
             pieceParams,
-            originalCommand: text
+            originalCommand: text,
+            intendedDuration: duration || defaultDuration, // Pass the intended duration for filename
+            mystery: slug === "tape:mystery" // Pass mystery flag to hide command in filename
           },
           (time) => {
-            console.log("🎬 rolling callback received time:", time);
+            // console.log("🎬 rolling callback received time:", time);
             rec.tapeTimerSet(duration || defaultDuration, time);
           },
         ); // Start recording immediately.
       };
 
       if (!isValidDuration && params[0]?.length > 0) {
-        console.log("🎬 Debug - Taking !isValidDuration path");
+        // console.log("🎬 Debug - Taking !isValidDuration path");
         duration = defaultDuration; //Infinity;
         
         // Handle both regular pieces and kidlisp pieces
         const jumpContent = params.join(" ");
-        console.log("🎬 Debug - jumpContent (!isValidDuration):", jumpContent);
+        // console.log("🎬 Debug - jumpContent (!isValidDuration):", jumpContent);
         if (isKidlispSource(jumpContent)) {
-          console.log("🎬 Debug - Detected KidLisp in !isValidDuration path");
+          // console.log("🎬 Debug - Detected KidLisp in !isValidDuration path");
           // For kidlisp, encode it properly for URL
           jump(encodeKidlispForUrl(jumpContent));
         } else {
-          console.log("🎬 Debug - Not KidLisp in !isValidDuration path");
+          // console.log("🎬 Debug - Not KidLisp in !isValidDuration path");
           // For regular pieces, set jumpTo and use tilde joining
           jumpTo = params[0];
           jump(params.join("~"));
         }
         rec.videoOnLeave = true;
       } else if (params[1]) {
-        console.log("🎬 Debug - Taking params[1] path");
+        // console.log("🎬 Debug - Taking params[1] path");
         // Handle both regular pieces and kidlisp pieces
         const jumpContent = params.slice(1).join(" ");
-        console.log("🎬 Debug - jumpContent (params[1]):", jumpContent);
+        // console.log("🎬 Debug - jumpContent (params[1]):", jumpContent);
         if (isKidlispSource(jumpContent)) {
           console.log("🎬 Debug - Detected KidLisp in params[1] path");
           // For kidlisp, encode it properly for URL
           jump(encodeKidlispForUrl(jumpContent));
         } else {
-          console.log("🎬 Debug - Not KidLisp in params[1] path");
+          // console.log("🎬 Debug - Not KidLisp in params[1] path");
           // For regular pieces, use first param as jumpTo and join rest with tildes
           jumpTo = params[1];
           jump(params.slice(1).join("~"));

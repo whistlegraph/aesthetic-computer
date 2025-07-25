@@ -1630,33 +1630,83 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const params = options.pieceParams || "";
       const paramsStr = params ? params.replace(/~/g, "-") : "";
       
-      // Build filename: pieceName[params]-timestamp[suffix].extension
-      // Use recording start timestamp if available (for tape recordings),
-      // otherwise fall back to current timestamp
+      // Build filename: [@handle-]pieceName[params]-timestamp-duration[suffix].extension
+      // Include user handle if available for personalized filenames
+      // Use cached computed timestamp for perfect filename/visual synchronization,
+      // otherwise fall back to recording start timestamp or current timestamp
       let fileTimestamp;
-      if (window.recordingStartTimestamp && extension === "gif") {
-        // For GIF recordings, use the same timestamp as shown in the overlay
+      let durationPart = "";
+      
+      if (window.firstFrameComputedTimestamp && extension === "gif") {
+        // For GIF recordings, use the exact same computed timestamp as shown in the first frame
+        // Use the same formatting as the visual timestamp (no zero-padding except milliseconds)
+        const d = new Date(window.firstFrameComputedTimestamp);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1; // getMonth() returns 0-11
+        const day = d.getDate();
+        const hour = d.getHours();
+        const minute = d.getMinutes();
+        const second = d.getSeconds();
+        const millisecond = d.getMilliseconds();
+        
+        // Match visual timestamp format exactly: no zero-padding except for milliseconds
+        fileTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        
+        // Add duration if available from window.gifDurationMs (set during GIF creation)
+        if (window.gifDurationMs) {
+          const totalSeconds = Math.round(window.gifDurationMs / 1000 * 10) / 10; // Round to 1 decimal place
+          durationPart = `-${totalSeconds}s`;
+        }
+        
+        console.log(`🎬 Using cached computed timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
+      } else if (window.recordingStartTimestamp && extension === "gif") {
+        // Fallback to recording start timestamp if no cached computed timestamp
+        // Use the same formatting as the visual timestamp (no zero-padding except milliseconds)
         const d = new Date(window.recordingStartTimestamp);
-        const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
-        fileTimestamp = `
-          ${d.getFullYear()}.
-          ${pad(d.getMonth() + 1)}.
-          ${pad(d.getDate())}.
-          ${pad(d.getHours())}.
-          ${pad(d.getMinutes())}.
-          ${pad(d.getSeconds())}.
-          ${pad(d.getMilliseconds(), 3)}`.replace(/\s/g, "");
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        const hour = d.getHours();
+        const minute = d.getMinutes();
+        const second = d.getSeconds();
+        const millisecond = d.getMilliseconds();
+        
+        // Match visual timestamp format exactly: no zero-padding except for milliseconds
+        fileTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        
+        // Add duration if available from window.gifDurationMs
+        if (window.gifDurationMs) {
+          const totalSeconds = Math.round(window.gifDurationMs / 1000 * 10) / 10; // Round to 1 decimal place
+          durationPart = `-${totalSeconds}s`;
+        }
+        
+        console.log(`🎬 Using recording start timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
       } else {
         // For other files or when no recording timestamp is available
         fileTimestamp = timestamp();
       }
       
-      const parts = [
-        baseName + paramsStr,
-        fileTimestamp + suffix
-      ].filter(Boolean);
+      // Assemble filename parts: [@handle-][pieceName[params]-]timestamp-duration[suffix].extension
+      // Skip command entirely in mystery mode
+      const parts = [];
       
-      return parts.join("-") + "." + extension;
+      // Add handle prefix if user has one
+      if (HANDLE) {
+        console.log(`🎬 Adding handle to filename: "${HANDLE}"`);
+        // Ensure handle doesn't already have @ prefix to avoid @@
+        const handlePrefix = HANDLE.startsWith('@') ? HANDLE : `@${HANDLE}`;
+        parts.push(handlePrefix);
+      }
+      
+      // Add piece name with parameters (skip entirely if mystery mode)
+      if (!options.mystery) {
+        parts.push(baseName + paramsStr);
+      }
+      
+      // Add timestamp with duration
+      parts.push(fileTimestamp + durationPart + suffix);
+      
+      return parts.filter(Boolean).join("-") + "." + extension;
     }
 
     if (type === "pen:lock") {
@@ -1889,7 +1939,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add the sideways AC stamp (same as video recording)
-    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null) {
+    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null, frameMetadata = null) {
       // Ensure fonts are loaded before drawing
       await ensureFontsLoaded();
 
@@ -1903,7 +1953,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ctx.save(); // Save the current state of the canvas
 
       // Add film camera style timestamp at bottom-left corner
-      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData);
+      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata);
 
       drawTextAtPosition(0, 90); // Left
       drawTextAtPosition(canvasWidth, -90); // Right
@@ -1912,13 +1962,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ctx.globalAlpha = 1;
 
       function drawTextAtPosition(positionX, deg) {
+        // 5-phase pattern stretched across GIF duration: both off, both on, both off, left only, right only
+        // Use progress (0-1) to determine cycle position - allows multiple loops per GIF
+        const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
+        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+        
+        let showLeftStamp = false;
+        let showRightStamp = false;
+        
+        if (cyclePosition < 0.2) {
+          // Phase 1 (0-20%): Both off
+          showLeftStamp = false;
+          showRightStamp = false;
+        } else if (cyclePosition < 0.4) {
+          // Phase 2 (20-40%): Both on
+          showLeftStamp = true;
+          showRightStamp = true;
+        } else if (cyclePosition < 0.6) {
+          // Phase 3 (40-60%): Both off
+          showLeftStamp = false;
+          showRightStamp = false;
+        } else if (cyclePosition < 0.8) {
+          // Phase 4 (60-80%): Left only
+          showLeftStamp = true;
+          showRightStamp = false;
+        } else {
+          // Phase 5 (80-100%): Right only
+          showLeftStamp = false;
+          showRightStamp = true;
+        }
+        
+        // Determine if this specific stamp should show
+        let showStamp = false;
+        if (deg === 90) {
+          // Left side
+          showStamp = showLeftStamp;
+        } else if (deg === -90) {
+          // Right side
+          showStamp = showRightStamp;
+        }
+        
+        if (!showStamp) {
+          return; // Skip drawing this stamp
+        }
+
         ctx.save();
         ctx.translate(positionX, 0);
         ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
         
         // Separate positioning for left and right sides for better spacing
-        const leftYDist = 0.45; // Move left side closer to bottom (increased from 0.25)
-        const rightYDist = 0.15; // Move right side closer to top (decreased from 0.25)
+        const leftYDist = 0.12; // Move left side up a bit (higher than timestamp)
+        const rightYDist = 0.08; // Move right side down a bit
 
         // Use same size as timestamp for consistency and sharpness
         const stampSize = Math.min(
@@ -2069,7 +2163,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Film camera style timestamp at bottom-left corner
-      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null) {
+      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null) {
         // Define progress bar height consistently across all contexts
         const progressBarHeight = 1;
         
@@ -2086,18 +2180,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             window.recordingStartTimestamp = Date.now() - elapsedMs;
           }
           timestampDate = new Date(window.recordingStartTimestamp + elapsedMs);
+        } else if (frameMetadata && frameMetadata.timestamp) {
+          // During GIF creation: use the actual frame timestamp for perfect accuracy
+          // But validate it first - reject invalid timestamps (like 1969)
+          const minValidTimestamp = new Date('2020-01-01').getTime();
+          if (frameMetadata.timestamp > minValidTimestamp && frameMetadata.timestamp <= Date.now()) {
+            timestampDate = new Date(frameMetadata.timestamp);
+          } else {
+            // Invalid timestamp, fall back to current time
+            timestampDate = new Date();
+          }
+        } else if (window.recordingStartTimestamp && progress >= 0) {
+          // During GIF creation: use progress to show time progressing from recording start
+          // Assume the GIF represents some duration, estimate based on typical frame rates
+          const estimatedGifDurationMs = 5000; // Assume 5 seconds total duration
+          const elapsedMs = progress * estimatedGifDurationMs;
+          timestampDate = new Date(window.recordingStartTimestamp + elapsedMs);
         } else {
           // Fallback: use current time (for non-recording contexts)
           timestampDate = new Date();
         }
         
-        const year = timestampDate.getUTCFullYear();
-        const month = timestampDate.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-        const day = timestampDate.getUTCDate();
-        const hour = timestampDate.getUTCHours();
-        const minute = timestampDate.getUTCMinutes();
-        const second = timestampDate.getUTCSeconds();
-        const millisecond = timestampDate.getUTCMilliseconds();
+        // Cache the first frame's computed timestamp for filename consistency
+        // This ensures the filename uses the exact same timestamp value displayed visually
+        if (window.firstFrameComputedTimestamp === null) {
+          window.firstFrameComputedTimestamp = timestampDate.getTime();
+          console.log(`🎬 Cached first frame computed timestamp for filename: ${timestampDate.toISOString()}`);
+        }
+        
+        const year = timestampDate.getFullYear();
+        const month = timestampDate.getMonth() + 1; // getMonth() returns 0-11
+        const day = timestampDate.getDate();
+        const hour = timestampDate.getHours();
+        const minute = timestampDate.getMinutes();
+        const second = timestampDate.getSeconds();
+        const millisecond = timestampDate.getMilliseconds();
 
         // Include milliseconds for frame-by-frame uniqueness
         const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
@@ -2252,7 +2369,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add stamp to pixel data by rendering to a canvas first
-    async function addStampToPixelData(pixelData, width, height, scale = 1, progress = 0) {
+    async function addStampToPixelData(pixelData, width, height, scale = 1, progress = 0, frameMetadata = null) {
       // Create a temporary canvas to render the stamp
       const tempCanvas = document.createElement("canvas");
       const tempCtx = tempCanvas.getContext("2d");
@@ -2270,7 +2387,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       tempCtx.putImageData(imageData, 0, 0);
 
       // Add the stamp (await to ensure fonts are loaded)
-      await addAestheticComputerStamp(tempCtx, width * scale, height * scale, progress, pixelData);
+      await addAestheticComputerStamp(tempCtx, width * scale, height * scale, progress, pixelData, frameMetadata);
 
       // Get the stamped image data back
       const stampedImageData = tempCtx.getImageData(
@@ -2353,7 +2470,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
           const currentProgress = (i + 1) / content.frames.length;
-          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data);
+          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data, frame);
 
           // Convert to WebP blob
           const webpBlob = await new Promise((resolve) => {
@@ -2452,7 +2569,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Add sideways AC stamp like in other video recordings
           const currentProgress = (i + 1) / content.frames.length;
-          await addAestheticComputerStamp(tempCtx, frame.width, frame.height, currentProgress, frame.data);
+          await addAestheticComputerStamp(tempCtx, frame.width, frame.height, currentProgress, frame.data, frame);
 
           // Get the stamped image data back
           const stampedImageData = tempCtx.getImageData(
@@ -2846,6 +2963,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frame.height,
             optimalScale,
             currentProgress,
+            frame,
           );
 
           // Convert stamped pixel data back to RGBA Uint32Array
@@ -2961,6 +3079,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx,
             firstFrame.width,
             firstFrame.height,
+            0,
+            firstFrame.data,
+            firstFrame,
           );
 
           const webpBlob = await new Promise((resolve) => {
@@ -3109,6 +3230,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frame.height,
             optimalScale,
             currentProgress,
+            frame,
           );
 
           // UPNG expects RGBA data as ArrayBuffer
@@ -3166,6 +3288,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx,
             firstFrame.width,
             firstFrame.height,
+            0,
+            firstFrame.data,
+            firstFrame,
           );
 
           const pngBlob = await new Promise((resolve) => {
@@ -3190,6 +3315,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         content.frames.length,
         "frames",
       );
+
+      // Calculate GIF duration for filename - prioritize intended duration from tape command
+      // Use the intended duration that user specified rather than actual recorded duration
+      let totalDurationMs = 0;
+      if (window.currentRecordingOptions?.intendedDuration) {
+        // Use the exact duration specified in the tape command (e.g., "tape 8 command" = 8 seconds)
+        totalDurationMs = window.currentRecordingOptions.intendedDuration * 1000; // Convert to milliseconds
+        console.log(`🎬 GIF duration from intended tape command duration: ${window.currentRecordingOptions.intendedDuration}s (${totalDurationMs}ms)`);
+      } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+        // Fallback to actual recording duration if no intended duration available
+        totalDurationMs = mediaRecorderDuration; // mediaRecorderDuration is already in milliseconds
+        console.log(`🎬 GIF duration from actual recording duration: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+      } else if (content.frames && content.frames.length > 0) {
+        // Final fallback: sum frame durations if no recording duration available
+        totalDurationMs = content.frames.reduce((sum, frame) => {
+          return sum + (frame.duration || 100); // Default to 100ms if no duration
+        }, 0);
+        console.log(`🎬 GIF duration from frame durations: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+      }
+      window.gifDurationMs = totalDurationMs;
+
+      // Set the recording start timestamp to match the first frame's visual timestamp
+      // so the filename matches the first frame timestamp exactly
+      // We'll cache the actual computed timestamp from the first frame
+      window.firstFrameComputedTimestamp = null; // Reset cache
+      
+      if (content.frames.length > 0) {
+        const firstFrame = content.frames[0];
+        console.log(`🎬 Will use computed timestamp from first frame processing for GIF filename`);
+      } else {
+        console.warn(`⚠️ No frames available, using current time for filename`);
+        window.recordingStartTimestamp = Date.now();
+      }
 
       // GIF encoder selection flag - set to true to use gifenc, false for gif.js
       const useGifenc = content.useGifenc !== false; // Default to gifenc (true), unless explicitly set to false
@@ -3229,7 +3387,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const originalHeight = content.frames[0].height;
         const frameCount = content.frames.length;
 
-        const optimalScale = 3; // Always use 3x scaling for GIFs
+        const optimalScale = 1; // Always use 3x scaling for GIFs
 
         console.log(
           `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
@@ -3339,6 +3497,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               originalWidth * optimalScale,
               originalHeight * optimalScale,
               progress,
+              frame.data,
+              frame,
             );
 
             // Get RGBA data for gifenc
@@ -3562,6 +3722,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               originalWidth * optimalScale,
               originalHeight * optimalScale, // Use original height, progress bar is part of stamp
               progress,
+              frame.data,
+              frame,
             );
 
             // Calculate real-time delay between this frame and the next with GC pause smoothing
@@ -3688,6 +3850,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx,
             firstFrame.width,
             firstFrame.height + progressBarHeight,
+            0,
+            firstFrame.data,
+            firstFrame,
           );
 
           const gifBlob = await new Promise((resolve) => {
@@ -5293,7 +5458,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       recordingOptions = {
         pieceName: content.pieceName || "tape",
         pieceParams: content.pieceParams || "",
-        originalCommand: content.originalCommand || ""
+        originalCommand: content.originalCommand || "",
+        intendedDuration: content.intendedDuration || null, // Store intended duration from tape command
+        mystery: content.mystery || false // Store mystery flag to hide command in filename
       };
       actualContent = content.type || "video";
     } else {
@@ -5301,7 +5468,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       recordingOptions = {
         pieceName: "tape",
         pieceParams: "",
-        originalCommand: ""
+        originalCommand: "",
+        intendedDuration: null,
+        mystery: false
       };
       actualContent = content;
     }
@@ -5656,7 +5825,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
-            console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
+            // console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
             // Kill the sound since pause is not available
             sfxPlaying[tapeSoundId]?.kill();
             delete sfxPlaying[tapeSoundId]; // Clean up reference
@@ -6729,7 +6898,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (screen.pixels.length === expectedLength) {
               imageData = new ImageData(screen.pixels, width, height);
               if (underlayFrame) {
-                console.log("🎬 Fallback ImageData created during tape playback");
+                // console.log("🎬 Fallback ImageData created during tape playback");
               }
             }
             if (reframeJustCompleted) {
@@ -7147,8 +7316,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         pixelsLength: content.durationTimecode.img?.pixels?.length,
         hasPixels: !!content.durationTimecode.img?.pixels
       });
-    } else {
-      console.log("🕐 BIOS: No durationTimecode received");
     }
     // console.log("🖼️ Received overlay data:", {
     //   hasLabel: !!content.label,
@@ -7318,10 +7485,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Paint tape progress bar immediately (not affected by async skip)
         if (paintOverlays["tapeProgressBar"]) {
-          console.log("📼 Painting tape progress bar overlay (immediate)");
+          // console.log("📼 Painting tape progress bar overlay (immediate)");
           paintOverlays["tapeProgressBar"]();
         } else if (content.tapeProgressBar) {
-          console.log("📼 Rebuilding tape progress bar overlay due to timing issue");
+          // console.log("📼 Rebuilding tape progress bar overlay due to timing issue");
           buildOverlay("tapeProgressBar", content.tapeProgressBar);
           if (paintOverlays["tapeProgressBar"]) {
             paintOverlays["tapeProgressBar"]();
@@ -7362,10 +7529,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           recordedFrames.push([frameTimestamp, frameDataWithHUD]);
           
           // Log timing info every 120 frames (2 seconds at 60fps)
-          if (recordedFrames.length % 120 === 0) {
-            const timeSinceStart = frameTimestamp / 1000;
-            console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s (60fps)`);
-          }
+          // if (recordedFrames.length % 120 === 0) {
+          //   const timeSinceStart = frameTimestamp / 1000;
+          //   console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s (60fps)`);
+          // }
         }
 
         //  Return clean screenshot data (without overlays)
