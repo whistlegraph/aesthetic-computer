@@ -39,20 +39,48 @@ export async function handler(event, context) {
     },
     // 🖼️ Media
     "items": [
+      // {
+      //   "id": "zzzwap", // 🆔 Unique ID
+      //   "title": "zzzwap", // 📝 Item name
+      //   "source": `${baseUrl}/zzzwap?density=10&duration=512&nolabel`, // 🌐 Artwork URL
+      //   "duration": 512, // ⏱️ Duration sec
+      //   "license": "open", // ⚖️ License mode
+      // },
       {
-        "id": "$bels", // 🆔 Unique ID
-        "title": "$bels", // 📝 Item name
-        "source": `${baseUrl}/$bels?density=10&duration=15`, // 🌐 Artwork URL
-        "duration": 15, // ⏱️ Duration sec
+        "id": "(wipe_purple)", // 🆔 Unique ID
+        "title": "(wipe purple)", // 📝 Item name
+        "source": `${baseUrl}/(wipe_brown)?density=10&duration=18&nolabel`, // 🌐 Artwork URL
+        "duration": 18, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
       },
       {
-        "id": "$wes", // 🆔 Unique ID
-        "title": "$bels", // 📝 Item name
-        "source": `${baseUrl}/$wes?density=10&duration=15`, // 🌐 Artwork URL
-        "duration": 15, // ⏱️ Duration sec
+        "id": "(wipe_purple)", // 🆔 Unique ID
+        "title": "(wipe purple)", // 📝 Item name
+        "source": `${baseUrl}/(wipe_purple)?density=10&duration=18&nolabel`, // 🌐 Artwork URL
+        "duration": 18, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
       },
+      // {
+      //   "id": "$bels", // 🆔 Unique ID
+      //   "title": "$bels", // 📝 Item name
+      //   "source": `${baseUrl}/$bels?density=10&duration=15`, // 🌐 Artwork URL
+      //   "duration": 15, // ⏱️ Duration sec
+      //   "license": "open", // ⚖️ License mode
+      // },
+      // {
+      //   "id": "$wes", // 🆔 Unique ID
+      //   "title": "$wes", // 📝 Item name
+      //   "source": `${baseUrl}/$wes?density=10&duration=15`, // 🌐 Artwork URL
+      //   "duration": 15, // ⏱️ Duration sec
+      //   "license": "open", // ⚖️ License mode
+      // },
+      // {
+      //   "id": "$bial", // 🆔 Unique ID
+      //   "title": "$bial", // 📝 Item name
+      //   "source": `${baseUrl}/$bial?density=10&duration=15`, // 🌐 Artwork URL
+      //   "duration": 15, // ⏱️ Duration sec
+      //   "license": "open", // ⚖️ License mode
+      // },
       // {
       //   "id": "starfield-001", // 🆔 Unique ID
       //   "title": "Starfield", // 📝 Item name
