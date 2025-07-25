@@ -42,17 +42,24 @@ export async function handler(event, context) {
       {
         "id": "$bels", // 🆔 Unique ID
         "title": "$bels", // 📝 Item name
-        "source": `${baseUrl}/$bels?density=10`, // 🌐 Artwork URL
-        "duration": 30, // ⏱️ Duration sec
+        "source": `${baseUrl}/$bels?density=10&duration=15`, // 🌐 Artwork URL
+        "duration": 15, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
       },
       {
-        "id": "starfield-001", // 🆔 Unique ID
-        "title": "Starfield", // 📝 Item name
-        "source": `${baseUrl}/3-kidlisp-tests?density=10`, // 🌐 Artwork URL
-        "duration": 30, // ⏱️ Duration sec
+        "id": "$wes", // 🆔 Unique ID
+        "title": "$bels", // 📝 Item name
+        "source": `${baseUrl}/$wes?density=10&duration=15`, // 🌐 Artwork URL
+        "duration": 15, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
-      }
+      },
+      // {
+      //   "id": "starfield-001", // 🆔 Unique ID
+      //   "title": "Starfield", // 📝 Item name
+      //   "source": `${baseUrl}/3-kidlisp-tests?density=10`, // 🌐 Artwork URL
+      //   "duration": 30, // ⏱️ Duration sec
+      //   "license": "open", // ⚖️ License mode
+      // }
     ],
     "signature": "aesthetic.computer-25.07.24.22.13" // ✍️ Signature (opt)
   };

@@ -3828,23 +3828,7 @@ class KidLisp {
 
     // Check if this token is a function name (first token after opening paren)
     if (index > 0 && tokens[index - 1] === "(") {
-      // Math operators get special green color
-      if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
-        return "lime";
-      }
-      
-      // Special forms and control flow
-      if (["def", "if", "cond", "later", "once", "lambda", "let", "do"].includes(token)) {
-        return "purple";
-      }
-      
-      // Repeat gets its own lighter color for better readability
-      if (token === "repeat") {
-        return "magenta"; // Lighter than purple, more readable
-      }
-       
-      // All other functions should be teal instead of blue
-      return "cyan";
+      return this.getFunctionColor(token);
     }
 
     // Check if this token is a valid CSS color name
@@ -3856,6 +3840,12 @@ class KidLisp {
         // Return as RGB format for the HUD system
         return rgbColor;
       }
+    }
+
+    // Check if this is a bare function call (likely at start of line or after newline)
+    // This handles KidLisp's auto-wrapping of non-parenthetical expressions
+    if (this.isBareFunction(token, tokens, index)) {
+      return this.getFunctionColor(token);
     }
 
     // Check if this is a known function name (even if not directly after parentheses)
@@ -3880,6 +3870,61 @@ class KidLisp {
 
     // Default for variables and other identifiers
     return "orange";
+  }
+
+  // Helper method to determine if a token is a bare function call
+  isBareFunction(token, tokens, index) {
+    // Don't treat tokens that are clearly arguments as bare functions
+    if (index > 0) {
+      const prevToken = tokens[index - 1];
+      // If previous token is an opening paren, this is already handled as a function
+      if (prevToken === "(") {
+        return false;
+      }
+      // If previous token is not a closing paren or start of expression, this is likely an argument
+      if (prevToken !== ")") {
+        return false;
+      }
+    }
+
+    // Check if this looks like a function name
+    if (!/^[a-zA-Z_]\w*$/.test(token)) {
+      return false;
+    }
+
+    // Check against known functions and CSS colors
+    const knownFunctions = [
+      "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
+      "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
+      "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
+      "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes"
+    ];
+
+    return knownFunctions.includes(token) || (cssColors && cssColors[token]);
+  }
+
+  // Helper method to get the appropriate color for a function
+  getFunctionColor(token) {
+    // Math operators get special green color
+    if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
+      return "lime";
+    }
+    
+    // Special forms and control flow
+    if (["def", "if", "cond", "later", "once", "lambda", "let", "do"].includes(token)) {
+      return "purple";
+    }
+    
+    // Repeat gets its own lighter color for better readability
+    if (token === "repeat") {
+      return "magenta"; // Lighter than purple, more readable
+    }
+     
+    // All other functions should be teal instead of blue
+    return "cyan";
   }
 
   // Get color for parentheses based on nesting depth (rainbow pattern)
