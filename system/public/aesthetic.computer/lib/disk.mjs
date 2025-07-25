@@ -664,7 +664,7 @@ const store = {
   },
   delete: function (key, method = "local") {
     // Remove the key from the ram store, no matter what the method.
-    console.log("🗑️ Store delete called for key:", key);
+    // console.log("🗑️ Store delete called for key:", key);
     delete store[key];
 
     const promise = new Promise((resolve) => {
@@ -743,7 +743,7 @@ class Recorder {
   constructor() {}
 
   tapeTimerSet(seconds, time) {
-    console.log("🎬 tapeTimerSet called with:", { seconds, time });
+    // console.log("🎬 tapeTimerSet called with:", { seconds, time });
     this.tapeTimerStart = time;
     this.tapeTimerDuration = seconds;
   }
@@ -751,13 +751,13 @@ class Recorder {
   tapeTimerStep({ needsPaint, sound: { time } }) {
     if (!this.tapeTimerDuration) {
       // Debug: Only log occasionally to avoid spam
-      if (this.recording && Math.random() < 0.01) {
-        console.log("🎬 tapeTimerStep: No duration set but recording is active:", {
-          recording: this.recording,
-          tapeTimerStart: this.tapeTimerStart,
-          tapeTimerDuration: this.tapeTimerDuration
-        });
-      }
+      // if (this.recording && Math.random() < 0.01) {
+      //   console.log("🎬 tapeTimerStep: No duration set but recording is active:", {
+      //     recording: this.recording,
+      //     tapeTimerStart: this.tapeTimerStart,
+      //     tapeTimerDuration: this.tapeTimerDuration
+      //   });
+      // }
       return;
     }
     const timeElapsed = time - this.tapeTimerStart;
@@ -768,33 +768,33 @@ class Recorder {
     const secondsOver = timeElapsed - this.tapeTimerDuration;
     
     // Debug logging for early progress to see if timer is working
-    if (this.tapeProgress > 0 && this.tapeProgress < 0.1 && Math.random() < 0.1) {
-      console.log("🎬 Tape progress early:", {
-        progress: this.tapeProgress,
-        timeElapsed: timeElapsed,
-        duration: this.tapeTimerDuration
-      });
-    }
+    // if (this.tapeProgress > 0 && this.tapeProgress < 0.1 && Math.random() < 0.1) {
+    //   console.log("🎬 Tape progress early:", {
+    //     progress: this.tapeProgress,
+    //     timeElapsed: timeElapsed,
+    //     duration: this.tapeTimerDuration
+    //   });
+    // }
     
     // Debug logging when we're at or near completion
-    if (this.tapeProgress >= 0.95) {
-      console.log("🎬 Tape near completion:", {
-        progress: this.tapeProgress,
-        timeElapsed: timeElapsed,
-        duration: this.tapeTimerDuration,
-        secondsOver: secondsOver,
-        shouldComplete: this.tapeProgress >= 1 && secondsOver > 0.15
-      });
-    }
+    // if (this.tapeProgress >= 0.95) {
+    //   console.log("🎬 Tape near completion:", {
+    //     progress: this.tapeProgress,
+    //     timeElapsed: timeElapsed,
+    //     duration: this.tapeTimerDuration,
+    //     secondsOver: secondsOver,
+    //     shouldComplete: this.tapeProgress >= 1 && secondsOver > 0.15
+    //   });
+    // }
     
     // Run for an extra 150 milliseconds.
     if (this.tapeProgress >= 1 && secondsOver > 0.15) {
-      console.log("🎬 Tape timer complete! Cutting and jumping to video...");
+      // console.log("🎬 Tape timer complete! Cutting and jumping to video...");
       this.tapeProgress = 0;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
       this.cut(() => {
-        console.log("🎬 Cut complete, jumping to video...");
+        // console.log("🎬 Cut complete, jumping to video...");
         $commonApi.jump("video");
       });
     }
@@ -813,7 +813,7 @@ class Recorder {
   }
 
   rolling(opts, cb) {
-    console.log("🎬 rolling called with:", { opts, cb: cb ? "callback provided" : "no callback" });
+    // console.log("🎬 rolling called with:", { opts, cb: cb ? "callback provided" : "no callback" });
     $commonApi.rec.recording = true; // Set recording state immediately for progress bar
     $commonApi.rec.recordingStartTime = performance.now(); // Set animation start time
     $commonApi.rec.animationFrame = 0; // Reset animation frame counter
@@ -3616,7 +3616,6 @@ async function load(
     if ((path && path.startsWith("$")) || (slug && slug.startsWith("$"))) {
       const cacheSlug = path && path.startsWith("$") ? path : slug;
       const cacheId = cacheSlug.slice(1); // Remove the $ prefix to get the actual nanoid
-      console.log("🎯 Auto-detected $prefixed cache code, fetching from cache:", cacheId);
       
       // Hit the store-kidlisp endpoint with GET request to retrieve cached source
       try {
@@ -3640,12 +3639,10 @@ async function load(
           // Store cached KidLisp owner info for HUD attribution
           if (cacheData.user) {
             cachedKidlispOwner = cacheData.user;
-            console.log("👤 Cached KidLisp owner:", cachedKidlispOwner);
           } else {
             cachedKidlispOwner = null;
           }
           
-          console.log("🎯 Retrieved cached KidLisp source via auto-detection:", source.length, "chars");
           // Jump directly to source processing - skip URL construction entirely
         } else {
           throw new Error("No source found in cached KidLisp response");
@@ -5584,7 +5581,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:rolling:started" ||
     type === "recorder:rolling:resumed"
   ) {
-    console.log("🎬 Rolling started/resumed, invoking callback with time:", content.time);
+    // console.log("🎬 Rolling started/resumed, invoking callback with time:", content.time);
     $commonApi.rec.recording = true;
     $commonApi.rec.rollingCallback?.(content.time);
     return;
@@ -5635,13 +5632,13 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "recorder:present-paused") {
-    console.log("🎬 Tape playback paused - resuming pixel transfer");
+    // console.log("🎬 Tape playback paused - resuming pixel transfer");
     $commonApi.rec.playing = false;
     return;
   }
 
   if (type === "recorder:unpresented") {
-    console.log("🎬 Tape playback ended - resuming pixel transfer");
+    // console.log("🎬 Tape playback ended - resuming pixel transfer");
     $commonApi.rec.presenting = false;
     $commonApi.rec.playing = false;
     return;
@@ -6010,7 +6007,7 @@ async function makeFrame({ data: { type, content } }) {
     function triggerBackspaceAction() {
       const now = Date.now();
       if (now - lastBackspaceTime < 300) { // 300ms debounce
-        console.log("🎬 Backspace debounced - ignoring rapid fire");
+        // console.log("🎬 Backspace debounced - ignoring rapid fire");
         return;
       }
       lastBackspaceTime = now;
@@ -6037,8 +6034,8 @@ async function makeFrame({ data: { type, content } }) {
       // Check both currentText and currentPath to catch all ways of getting to video
       let content;
       if ((currentText === "video" || currentPath === "aesthetic.computer/disks/video") && store["tape:originalCommand"]) {
-        console.log("🎬 Backspace from video piece - using original tape command:", store["tape:originalCommand"]);
-        console.log("🎬 Debug - isKidlispSource(originalCommand):", lisp.isKidlispSource(store["tape:originalCommand"]));
+        // console.log("🎬 Backspace from video piece - using original tape command:", store["tape:originalCommand"]);
+        // console.log("🎬 Debug - isKidlispSource(originalCommand):", lisp.isKidlispSource(store["tape:originalCommand"]));
         content = store["tape:originalCommand"];
         // Don't clear the stored command yet - wait until we successfully navigate away
         // store.delete("tape:originalCommand");
@@ -8411,12 +8408,12 @@ async function makeFrame({ data: { type, content } }) {
       } else {
         // Debug: Log when tape progress is 0 or undefined during recording
         if ($api.rec.recording && false) { // Disabled verbose logging
-          console.log("🎬 Recording active but no tapeProgress:", {
-            recording: $api.rec.recording,
-            tapeProgress: $api.rec.tapeProgress,
-            tapeTimerStart: $api.rec.tapeTimerStart,
-            tapeTimerDuration: $api.rec.tapeTimerDuration
-          });
+          // console.log("🎬 Recording active but no tapeProgress:", {
+          //   recording: $api.rec.recording,
+          //   tapeProgress: $api.rec.tapeProgress,
+          //   tapeTimerStart: $api.rec.tapeTimerStart,
+          //   tapeTimerDuration: $api.rec.tapeTimerDuration
+          // });
         }
       }
 
@@ -8877,12 +8874,6 @@ async function makeFrame({ data: { type, content } }) {
         } else {
           console.warn("🕐 No typeface (tf) available for timecode rendering");
         }
-      } else {
-        console.log("🕐 Timecode conditions not met:", {
-          durationTotal: !!durationTotal,
-          durationStartTime: durationStartTime !== null,
-          skipPixelsDuringTapePlayback
-        });
       }
 
       // Optional messages to send.
