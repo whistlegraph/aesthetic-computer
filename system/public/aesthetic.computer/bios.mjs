@@ -2127,38 +2127,47 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (syntaxColors.length === 0) {
           return { r: 220, g: 60, b: 60 }; // Red fallback
         }
-        
+
         if (syntaxColors.length === 1) {
           return syntaxColors[0];
         }
-        
+
         // Calculate which color segment we're in based on cumulative weights
-        let totalWeight = syntaxColors.reduce((sum, color) => sum + color.weight, 0);
+        let totalWeight = syntaxColors.reduce(
+          (sum, color) => sum + color.weight,
+          0,
+        );
         let currentWeight = 0;
-        
+
         for (let i = 0; i < syntaxColors.length; i++) {
           const color = syntaxColors[i];
           const segmentStart = currentWeight / totalWeight;
           const segmentEnd = (currentWeight + color.weight) / totalWeight;
-          
+
           if (position >= segmentStart && position <= segmentEnd) {
             // Optionally blend with adjacent colors for smoother transitions
             if (i < syntaxColors.length - 1 && position > segmentEnd - 0.1) {
               const nextColor = syntaxColors[i + 1];
               const blendFactor = (position - (segmentEnd - 0.1)) / 0.1;
               return {
-                r: Math.floor(color.r * (1 - blendFactor) + nextColor.r * blendFactor),
-                g: Math.floor(color.g * (1 - blendFactor) + nextColor.g * blendFactor),
-                b: Math.floor(color.b * (1 - blendFactor) + nextColor.b * blendFactor)
+                r: Math.floor(
+                  color.r * (1 - blendFactor) + nextColor.r * blendFactor,
+                ),
+                g: Math.floor(
+                  color.g * (1 - blendFactor) + nextColor.g * blendFactor,
+                ),
+                b: Math.floor(
+                  color.b * (1 - blendFactor) + nextColor.b * blendFactor,
+                ),
               };
             }
             return color;
           }
-          
+
           currentWeight += color.weight;
         }
-        
-        // Fallback to last color if position is beyond the end
+
+        // Fallback to last color if position >is beyond the end
         return syntaxColors[syntaxColors.length - 1];
       }
 
@@ -2170,54 +2179,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Define timestamp margin for consistent spacing
         const timestampMargin = Math.max(8, Math.floor(canvasHeight / 50)); // Responsive margin
         
-        // Calculate timestamp based on recording progress for real-time GIF playback
-        let timestampDate;
-        if (mediaRecorderStartTime !== undefined) {
-          // During recording: show time progressing from when recording started
+        // NEW: Use actual real-world timestamp when this frame was originally captured
+        let timestamp;
+        if (frameMetadata && frameMetadata.originalTimestamp) {
+          // Display the actual time when this frame was captured
+          const frameDate = new Date(frameMetadata.originalTimestamp);
+          const year = frameDate.getFullYear();
+          const month = frameDate.getMonth() + 1; // getMonth() returns 0-11
+          const day = frameDate.getDate();
+          const hour = frameDate.getHours();
+          const minute = frameDate.getMinutes();
+          const second = frameDate.getSeconds();
+          const millisecond = frameDate.getMilliseconds();
+          
+          // Format as: year.month.day.hour.minute.second.milliseconds (no zero-padding except milliseconds)
+          timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        } else if (mediaRecorderStartTime !== undefined) {
+          // During recording: show seconds elapsed since recording started
           const elapsedMs = performance.now() - mediaRecorderStartTime;
-          // Use a fixed start time and add elapsed recording time for consistent progression
-          if (!window.recordingStartTimestamp) {
-            window.recordingStartTimestamp = Date.now() - elapsedMs;
-          }
-          timestampDate = new Date(window.recordingStartTimestamp + elapsedMs);
-        } else if (frameMetadata && frameMetadata.timestamp) {
-          // During GIF creation: use the actual frame timestamp for perfect accuracy
-          // But validate it first - reject invalid timestamps (like 1969)
-          const minValidTimestamp = new Date('2020-01-01').getTime();
-          if (frameMetadata.timestamp > minValidTimestamp && frameMetadata.timestamp <= Date.now()) {
-            timestampDate = new Date(frameMetadata.timestamp);
-          } else {
-            // Invalid timestamp, fall back to current time
-            timestampDate = new Date();
-          }
+          const elapsedSeconds = elapsedMs / 1000;
+          timestamp = `${elapsedSeconds.toFixed(1)}s`;
         } else if (window.recordingStartTimestamp && progress >= 0) {
-          // During GIF creation: use progress to show time progressing from recording start
-          // Assume the GIF represents some duration, estimate based on typical frame rates
-          const estimatedGifDurationMs = 5000; // Assume 5 seconds total duration
-          const elapsedMs = progress * estimatedGifDurationMs;
-          timestampDate = new Date(window.recordingStartTimestamp + elapsedMs);
+          // Use progress to map to intended recording duration
+          let actualRecordingDurationMs = 5000; // Default fallback
+          
+          // Prioritize intended duration for accurate real-time mapping
+          if (window.currentRecordingOptions?.intendedDuration) {
+            actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+          } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+            actualRecordingDurationMs = mediaRecorderDuration;
+          } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+            actualRecordingDurationMs = window.gifDurationMs;
+          }
+          
+          // Calculate elapsed seconds
+          const elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+          timestamp = `${elapsedSeconds.toFixed(1)}s`;
         } else {
-          // Fallback: use current time (for non-recording contexts)
-          timestampDate = new Date();
+          // Fallback: show current time
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          const day = now.getDate();
+          const hour = now.getHours();
+          const minute = now.getMinutes();
+          const second = now.getSeconds();
+          const millisecond = now.getMilliseconds();
+          
+          timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
         }
-        
-        // Cache the first frame's computed timestamp for filename consistency
-        // This ensures the filename uses the exact same timestamp value displayed visually
-        if (window.firstFrameComputedTimestamp === null) {
-          window.firstFrameComputedTimestamp = timestampDate.getTime();
-          console.log(`🎬 Cached first frame computed timestamp for filename: ${timestampDate.toISOString()}`);
-        }
-        
-        const year = timestampDate.getFullYear();
-        const month = timestampDate.getMonth() + 1; // getMonth() returns 0-11
-        const day = timestampDate.getDate();
-        const hour = timestampDate.getHours();
-        const minute = timestampDate.getMinutes();
-        const second = timestampDate.getSeconds();
-        const millisecond = timestampDate.getMilliseconds();
-
-        // Include milliseconds for frame-by-frame uniqueness
-        const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
 
         ctx.save();
         
@@ -3316,17 +3326,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "frames",
       );
 
-      // Calculate GIF duration for filename - prioritize intended duration from tape command
-      // Use the intended duration that user specified rather than actual recorded duration
+      // Calculate GIF duration for filename - ALWAYS prioritize intended duration for real-time accuracy
+      // When user says "tape 15" they expect exactly 15 seconds of real wall-clock time
       let totalDurationMs = 0;
       if (window.currentRecordingOptions?.intendedDuration) {
-        // Use the exact duration specified in the tape command (e.g., "tape 8 command" = 8 seconds)
+        // Use the EXACT duration specified in the tape command for perfect real-time mapping
         totalDurationMs = window.currentRecordingOptions.intendedDuration * 1000; // Convert to milliseconds
-        console.log(`🎬 GIF duration from intended tape command duration: ${window.currentRecordingOptions.intendedDuration}s (${totalDurationMs}ms)`);
+        console.log(`🎬 GIF duration from EXACT intended tape duration: ${window.currentRecordingOptions.intendedDuration}s (${totalDurationMs}ms) for real-time accuracy`);
       } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
         // Fallback to actual recording duration if no intended duration available
         totalDurationMs = mediaRecorderDuration; // mediaRecorderDuration is already in milliseconds
-        console.log(`🎬 GIF duration from actual recording duration: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+        console.log(`🎬 GIF duration from measured recording duration: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
       } else if (content.frames && content.frames.length > 0) {
         // Final fallback: sum frame durations if no recording duration available
         totalDurationMs = content.frames.reduce((sum, frame) => {
@@ -3344,6 +3354,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.frames.length > 0) {
         const firstFrame = content.frames[0];
         console.log(`🎬 Will use computed timestamp from first frame processing for GIF filename`);
+        // Don't modify recordingStartTimestamp here - it's needed for proper video playback timing
+        // The filename timestamp will be calculated during frame processing instead
       } else {
         console.warn(`⚠️ No frames available, using current time for filename`);
         window.recordingStartTimestamp = Date.now();
@@ -3590,8 +3602,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const frame = finalFrames[i];
             const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
             
-            // Always use 50fps timing for gifenc - every frame gets exactly 20ms
-            const delayInMilliseconds = 20; // Fixed 20ms = 50fps
+            // Always use 40fps timing for gifenc - every frame gets exactly 25ms (30fps recording → 40fps playback = 1.33x speed)
+            const delayInMilliseconds = 33; // Fixed 25ms = 40fps (1000ms ÷ 40 = 25ms)
             
             gif.writeFrame(index, frame.width, frame.height, {
               palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
@@ -3707,11 +3719,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             consistentDelay = Math.round(totalIntendedMs / content.frames.length);
             consistentDelay = Math.max(consistentDelay, 20); // Minimum 20ms for browser compatibility
           } else {
-            // Fallback to consistent 50fps timing - every frame gets 20ms
-            consistentDelay = 20; // Fixed 20ms = 50fps
+            // Use faster GIF playback speed - 40fps instead of real-time recording speed
+            consistentDelay = 25; // 40fps (1000ms ÷ 40 = 25ms)
+            console.log(`🎞️ Using faster GIF playback: ${consistentDelay}ms delay (40fps) for ${content.frames.length} frames`);
           }
           
           console.log(`🎞️ Using consistent ${consistentDelay}ms delay for all ${content.frames.length} frames`);
+          
+          // Store frame count for timestamp mapping
+          window.lastGIFFrameCount = content.frames.length;
 
           for (let index = 0; index < content.frames.length; index++) {
             const frame = content.frames[index];
@@ -5460,6 +5476,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
         mediaRecorderStartTime = performance.now();
+        // Initialize recording start timestamp for frame recording if not already set
+        if (!window.recordingStartTimestamp) {
+          window.recordingStartTimestamp = Date.now();
+        }
         send({
           type: "recorder:rolling:resumed",
           content: {
@@ -5535,6 +5555,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorder.onstart = function () {
           // mediaRecorderResized = false;
           mediaRecorderStartTime = performance.now();
+          // Initialize recording start timestamp for frame recording
+          window.recordingStartTimestamp = Date.now();
           send({
             type: "recorder:rolling:started",
             content: {
@@ -5729,12 +5751,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present") {
+      console.log(`🎬 recorder:present triggered`);
+      console.log(`🎬 Initial state: mediaRecorder=${!!mediaRecorder}, mediaRecorder.state=${mediaRecorder?.state}, recordedFrames.length=${recordedFrames.length}`);
+      
       // Check for cached video if no active recording AND no recorded frames
       if (
         (!mediaRecorder || mediaRecorder.state !== "paused") &&
         recordedFrames.length === 0
       ) {
+        console.log(`🎬 Checking for cached tape data...`);
         const cachedTape = await Store.get("tape");
+        console.log(`🎬 Cached tape found:`, {
+          hasCachedTape: !!cachedTape,
+          hasBlob: !!cachedTape?.blob,
+          hasFrames: !!cachedTape?.frames,
+          frameCount: cachedTape?.frames?.length || 0,
+          hasDuration: !!cachedTape?.duration,
+          duration: cachedTape?.duration
+        });
+        
         if (cachedTape && cachedTape.blob) {
           sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
 
@@ -5742,19 +5777,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (cachedTape.frames) {
             recordedFrames.length = 0;
             recordedFrames.push(...cachedTape.frames);
+            console.log(`🎬 Restored ${cachedTape.frames.length} frames from cache`);
           }
 
           // Set duration if available
           if (cachedTape.duration) {
             mediaRecorderDuration = cachedTape.duration;
+            console.log(`🎬 Restored duration: ${cachedTape.duration}ms`);
           }
         }
       }
+
+      console.log(`🎬 After cache check: mediaRecorder=${!!mediaRecorder}, mediaRecorder.state=${mediaRecorder?.state}, recordedFrames.length=${recordedFrames.length}`);
+      console.log(`🎬 Condition check: (mediaRecorder && mediaRecorder.state === "paused")=${mediaRecorder && mediaRecorder.state === "paused"} || recordedFrames.length > 0=${recordedFrames.length > 0}`);
 
       if (
         (mediaRecorder && mediaRecorder.state === "paused") ||
         recordedFrames.length > 0
       ) {
+        console.log(`🎬 ✅ Condition met - starting video playback setup`);
         // Handle live recording or cached video
         if (mediaRecorder && mediaRecorder.state === "paused") {
           const blob = new Blob(mediaRecorderChunks, {
@@ -5781,6 +5822,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           stream,
           render,
         ) => {
+          console.log(`🎬 Starting tape playback with ${recordedFrames.length} frames`);
+          console.log(`🎬 Parameters: transmitProgress=${transmitProgress}, doneCb=${!!doneCb}, stream=${!!stream}, render=${!!render}`);
+          console.log(`🎬 mediaRecorderDuration=${mediaRecorderDuration}ms`);
+          
+          if (recordedFrames.length === 0) {
+            console.error("🎬 ❌ No recorded frames to play back!");
+            return;
+          }
+          
+          // Log first few frame timestamps to verify data structure
+          console.log(`🎬 First frame timestamp: ${recordedFrames[0][0]}`);
+          if (recordedFrames.length > 1) {
+            console.log(`🎬 Second frame timestamp: ${recordedFrames[1][0]}`);
+            console.log(`🎬 Time between first two frames: ${recordedFrames[1][0] - recordedFrames[0][0]}ms`);
+          }
+          
+          // Log frame structure to understand data format
+          console.log(`🎬 Frame 0 structure:`, {
+            timestamp: recordedFrames[0][0],
+            hasImageData: !!recordedFrames[0][1],
+            imageDataType: recordedFrames[0][1]?.constructor?.name,
+            imageDataWidth: recordedFrames[0][1]?.width,
+            imageDataHeight: recordedFrames[0][1]?.height
+          });
+          
           let f = 0;
           let playbackStart;
           let playbackProgress = 0;
@@ -5837,14 +5903,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           };
 
           async function update() {
-            if (!continuePlaying || !underlayFrame) return;
+            console.log(`🎬 Update called: continuePlaying=${continuePlaying}, underlayFrame=${!!underlayFrame}, f=${f}`);
+            
+            if (!continuePlaying || !underlayFrame) {
+              console.log(`🎬 Update stopped: continuePlaying=${continuePlaying}, underlayFrame=${!!underlayFrame}`);
+              return;
+            }
 
             if (f === 0) {
+              console.log(`🎬 Starting playback: mediaRecorderDuration=${mediaRecorderDuration}ms, audio available=${!!sfx["tape:audio"]}`);
               tapeSoundId = "tape:audio_" + performance.now();
               await playSfx(tapeSoundId, "tape:audio", { stream });
               // Will be silent if stream is here. ^
               playbackStart = performance.now();
               playbackProgress = 0;
+              console.log(`🎬 Playback start time set: ${playbackStart}`);
             }
 
             // Resize fctx here if the width and
@@ -5860,19 +5933,68 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
 
-            render?.(frameCan, playbackProgress / mediaRecorderDuration); // Render a video as needed, using this canvas.
+            render?.(frameCan, playbackProgress / mediaRecorderDuration, f); // Render a video as needed, using this canvas and current frame index.
 
             playbackProgress = performance.now() - playbackStart;
 
             // Advance frames.
-            if (f === 0) f += 1;
-            while (playbackProgress > recordedFrames[f][0] && f !== 0) {
-              f = (f + 1) % recordedFrames.length;
-            } // Skip any necessary frames to better match the audio.
+            if (f === 0) {
+              f += 1;
+              console.log(`🎬 Advanced from frame 0 to frame ${f}`);
+            }
+            
+            // Convert absolute timestamps back to relative timestamps for playback timing
+            const firstFrameTimestamp = recordedFrames[0][0];
+            
+            // Calculate how long we should wait for the current frame using original recorded timing
+            let targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+            
+            console.log(`🎬 Frame ${f}/${recordedFrames.length}: playbackProgress=${playbackProgress.toFixed(1)}ms, targetFrameTime=${targetFrameTime.toFixed(1)}ms, firstFrameTimestamp=${firstFrameTimestamp}, currentFrameTimestamp=${recordedFrames[f][0]}`);
+            
+            // Additional debug to check if timestamps look reasonable
+            if (f === 1) {
+              const frameDiff = recordedFrames[1][0] - recordedFrames[0][0];
+              console.log(`🎬 First frame time difference: ${frameDiff}ms (should be ~16-33ms for 30-60fps)`);
+              if (frameDiff > 10000) {
+                console.warn(`🎬 ⚠️ Frame timestamps seem to be absolute timestamps (${frameDiff}ms gap), this will cause playback issues!`);
+              }
+            }
+            
+            // Advance frames while playback has progressed past the current frame's time
+            console.log(`🎬 Before frame advancement: f=${f}, playbackProgress=${playbackProgress.toFixed(1)}, targetFrameTime=${targetFrameTime.toFixed(1)}`);
+            
+            // Check if we've reached the end and need to loop
+            if (f >= recordedFrames.length - 1) {
+              console.log(`🎬 Reached end of frames (${f}/${recordedFrames.length}), looping back to start`);
+              f = 0;
+              // Reset playback timing for the loop
+              playbackStart = performance.now();
+              playbackProgress = 0;
+              
+              // Restart audio for the loop
+              if (tapeSoundId) {
+                sfxPlaying[tapeSoundId]?.kill();
+                delete sfxPlaying[tapeSoundId];
+              }
+              tapeSoundId = "tape:audio_" + performance.now();
+              await playSfx(tapeSoundId, "tape:audio", { stream });
+            } else {
+              // Normal frame advancement logic
+              while (playbackProgress > targetFrameTime && f < recordedFrames.length - 1) {
+                f = f + 1;
+                // Recalculate target time for the new frame
+                targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+                console.log(`🎬 Advanced to frame ${f}, new targetFrameTime=${targetFrameTime.toFixed(1)}`);
+              }
+            }
+            
+            console.log(`🎬 After frame advancement: f=${f}, checking loop condition: f === 0 && doneCb && render = ${f === 0} && ${!!doneCb} && ${!!render}`);
 
-            if (f === 0 && doneCb) {
+            // Only call doneCb for video export rendering, not for regular tape playback
+            if (f === 0 && doneCb && render) {
+              console.log(`🎬 Calling doneCb for video export completion`);
               send({ type: "recorder:present-progress", content: 1 });
-              return doneCb(); // Completed a cycle.
+              return doneCb(); // Completed a cycle for video export.
             }
 
             if (transmitProgress) {
@@ -5903,6 +6025,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
+        console.log(`🎬 ❌ Condition NOT met - cannot start video playback`);
+        console.log(`🎬 mediaRecorder=${!!mediaRecorder}, state=${mediaRecorder?.state}, recordedFrames.length=${recordedFrames.length}`);
+        console.log(`🎬 mediaRecorderChunks.length=${mediaRecorderChunks?.length || 0}`);
+        
         if (debug && logs.recorder)
           console.error(
             "📼 No media recorder or cached video to present from!",
@@ -6048,7 +6174,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
-          function renderTape(can, progress) {
+          function renderTape(can, progress, frameIndex) {
             framesRendered++; // Increment frame counter
             
             const progressBarHeight = 20;
@@ -6154,17 +6280,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Calculate the content area height (canvas height minus progress bar)
               const contentHeight = sctx.canvas.height - progressBarHeight;
               
-              const now = new Date();
-              const year = now.getUTCFullYear();
-              const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-              const day = now.getUTCDate();
-              const hour = now.getUTCHours();
-              const minute = now.getUTCMinutes();
-              const second = now.getUTCSeconds();
-              const millisecond = now.getUTCMilliseconds();
+              // Calculate simple second count starting from 0
+              let elapsedSeconds = 0;
+              
+              if (mediaRecorderStartTime !== undefined) {
+                // During recording: show seconds elapsed since recording started
+                const elapsedMs = performance.now() - mediaRecorderStartTime;
+                elapsedSeconds = elapsedMs / 1000;
+              } else if (window.recordingStartTimestamp && progress >= 0) {
+                // Use progress to map to intended recording duration
+                let actualRecordingDurationMs = 5000; // Default fallback
+                
+                // Prioritize intended duration for accurate real-time mapping
+                if (window.currentRecordingOptions?.intendedDuration) {
+                  actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+                } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+                  actualRecordingDurationMs = mediaRecorderDuration;
+                } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+                  actualRecordingDurationMs = window.gifDurationMs;
+                }
+                
+                // Calculate elapsed seconds
+                elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+              } else {
+                // Fallback: show 0 seconds (for non-recording contexts)
+                elapsedSeconds = 0;
+              }
 
-              // Include milliseconds for frame-by-frame uniqueness
-              const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+              // Format as simple seconds with one decimal place
+              const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
               // Make timestamp more opaque and clearer
@@ -6325,17 +6469,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Calculate the original content area height
               const originalCanvasHeight = sctx.canvas.height - progressBarHeight;
               
-              const now = new Date();
-              const year = now.getUTCFullYear();
-              const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-              const day = now.getUTCDate();
-              const hour = now.getUTCHours();
-              const minute = now.getUTCMinutes();
-              const second = now.getUTCSeconds();
-              const millisecond = now.getUTCMilliseconds();
+              // Calculate simple second count starting from 0
+              let elapsedSeconds = 0;
+              
+              if (mediaRecorderStartTime !== undefined) {
+                // During recording: show seconds elapsed since recording started
+                const elapsedMs = performance.now() - mediaRecorderStartTime;
+                elapsedSeconds = elapsedMs / 1000;
+              } else if (window.recordingStartTimestamp && progress >= 0) {
+                // Use progress to map to intended recording duration
+                let actualRecordingDurationMs = 5000; // Default fallback
+                
+                // Prioritize intended duration for accurate real-time mapping
+                if (window.currentRecordingOptions?.intendedDuration) {
+                  actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+                } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+                  actualRecordingDurationMs = mediaRecorderDuration;
+                } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+                  actualRecordingDurationMs = window.gifDurationMs;
+                }
+                
+                // Calculate elapsed seconds
+                elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+              } else {
+                // Fallback: show 0 seconds (for non-recording contexts)
+                elapsedSeconds = 0;
+              }
 
-              // Include milliseconds for frame-by-frame uniqueness
-              const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+              // Format as simple seconds with one decimal place
+              const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
               // Make timestamp more opaque and clearer
@@ -6427,19 +6589,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const filename = generateTapeFilename("mp4");
 
         // Store video with frame data for complete persistence
+        const storeData = {
+          blob,
+          duration: mediaRecorderDuration,
+          frames: recordedFrames, // Include frame data for WebP/Frame exports
+          timestamp: Date.now(),
+          filename, // Store the generated filename
+        };
+        
+        // Debug: Check frame data before storage
+        if (recordedFrames.length > 0) {
+          const firstFrame = recordedFrames[0];
+          console.log("💾 Storing tape with frames:", {
+            frameCount: recordedFrames.length,
+            firstFrameTimestamp: firstFrame[0],
+            firstFrameTimestampType: typeof firstFrame[0],
+            firstFrameStructure: Array.isArray(firstFrame) ? `Array(${firstFrame.length})` : typeof firstFrame
+          });
+        }
+        
         await receivedChange({
           data: {
             type: "store:persist",
             content: {
               key: "tape",
               method: "local:db",
-              data: {
-                blob,
-                duration: mediaRecorderDuration,
-                frames: recordedFrames, // Include frame data for WebP/Frame exports
-                timestamp: Date.now(),
-                filename, // Store the generated filename
-              },
+              data: storeData,
             },
           },
         });
@@ -7492,24 +7667,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
         if (isRecording) {
-          // ⚡ Capture every frame for full 60fps recording (no optimization to maintain quality)
-          mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
-          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
-          const relativeTimestamp = performance.now() - mediaRecorderStartTime;
-          const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
-          const frameDataWithHUD = ctx.getImageData(
-            0,
-            0,
-            ctx.canvas.width,
-            ctx.canvas.height,
-          );
-          recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
+          // ⚡ Frame skipping for different recording frame rates
+          // Target 30fps recording (skip frames to achieve this from ~60fps main loop)
+          const targetRecordingFPS = 30;
+          const mainLoopFPS = 60; // Approximate main loop FPS
+          const frameSkipRatio = mainLoopFPS / targetRecordingFPS; // ~2.0 for 30fps
           
-          // Log timing info every 120 frames (2 seconds at 60fps)
-          // if (recordedFrames.length % 120 === 0) {
-          //   const timeSinceStart = relativeTimestamp / 1000;
-          //   console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s (60fps)`);
-          // }
+          mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
+          
+          // Only record frames at the target interval
+          const shouldRecordFrame = (mediaRecorderFrameCount - 1) % frameSkipRatio < 1;
+          
+          if (shouldRecordFrame) {
+            // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
+            const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+            const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
+            const frameDataWithHUD = ctx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+            recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
+          }
         }
 
         //  Return clean screenshot data (without overlays)
@@ -7972,6 +8152,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           recordedFrames.length,
           "frames from cached video",
         );
+        // Debug: Check what the loaded frames look like
+        if (recordedFrames.length > 0) {
+          const firstFrame = recordedFrames[0];
+          console.log("🔍 First loaded frame:", {
+            structure: Array.isArray(firstFrame) ? `Array(${firstFrame.length})` : typeof firstFrame,
+            timestamp: Array.isArray(firstFrame) ? firstFrame[0] : 'N/A',
+            timestampType: Array.isArray(firstFrame) ? typeof firstFrame[0] : 'N/A',
+            hasImageData: Array.isArray(firstFrame) && firstFrame[1] && typeof firstFrame[1] === 'object'
+          });
+        }
       }
 
       // Use stored filename if available, otherwise fall back to provided filename
