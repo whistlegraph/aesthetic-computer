@@ -563,7 +563,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               // Apply frame reduction for very long recordings
               let framesToProcess = frameData.frames;
-              const MAX_FRAMES_FOR_WEBP = 800; // Higher limit for WebP as it's more efficient
+              const MAX_FRAMES_FOR_WEBP = 1500; // Increased limit - WebP is more efficient than GIF
               
               if (frameData.frames.length > MAX_FRAMES_FOR_WEBP) {
                 const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_WEBP;
@@ -660,7 +660,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               // Apply frame reduction for very long recordings
               let framesToProcess = frameData.frames;
-              const MAX_FRAMES_FOR_APNG = 600; // Reasonable limit for APNG
+              const MAX_FRAMES_FOR_APNG = 1000; // Increased limit for APNG
               
               if (frameData.frames.length > MAX_FRAMES_FOR_APNG) {
                 const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_APNG;
@@ -761,19 +761,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             if (frameData.frames && frameData.frames.length > 0) {
               console.log("Creating GIF from", frameData.frames.length, "frames");
               
-              // Apply frame reduction for very long recordings to prevent memory issues
+              // Process all frames - no frame limit restrictions
               let framesToProcess = frameData.frames;
-              const MAX_FRAMES_FOR_GIF = 500; // Reasonable limit for GIFs
-              
-              if (frameData.frames.length > MAX_FRAMES_FOR_GIF) {
-                console.log(`Reducing frames from ${frameData.frames.length} to ${MAX_FRAMES_FOR_GIF} for GIF optimization`);
-                const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_GIF;
-                framesToProcess = [];
-                for (let i = 0; i < frameData.frames.length; i += skipRatio) {
-                  framesToProcess.push(frameData.frames[Math.floor(i)]);
-                }
-                framesToProcess = framesToProcess.slice(0, MAX_FRAMES_FOR_GIF);
-              }
               
               // Prepare all frames for single GIF creation request
               const processedFrames = framesToProcess.map((frame, index) => {

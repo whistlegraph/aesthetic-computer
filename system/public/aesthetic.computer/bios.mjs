@@ -3387,7 +3387,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const originalHeight = content.frames[0].height;
         const frameCount = content.frames.length;
 
-        const optimalScale = 1; // Always use 3x scaling for GIFs
+        const optimalScale = 3; // Always use 3x scaling for GIFs
 
         console.log(
           `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
@@ -3551,17 +3551,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           console.log("🔄 Encoding GIF with gifenc (optimized for file size)...");
           
-          // Use global palette for all frames for consistency and better compression
-          const allPixels = new Uint8ClampedArray(finalFrames.length * finalFrames[0].width * finalFrames[0].height * 4);
-          let offset = 0;
+          // Use sampled palette instead of loading all pixels into memory at once
+          // Sample pixels from every Nth frame to avoid memory allocation errors
+          const maxSampleFrames = Math.min(50, finalFrames.length); // Sample max 50 frames
+          const sampleInterval = Math.max(1, Math.floor(finalFrames.length / maxSampleFrames));
+          const sampleSize = finalFrames[0].width * finalFrames[0].height * 4; // Single frame size
+          const sampledPixels = new Uint8ClampedArray(maxSampleFrames * sampleSize);
+          let sampleOffset = 0;
           
-          for (const frame of finalFrames) {
-            allPixels.set(frame.data, offset);
-            offset += frame.data.length;
+          console.log(`🎨 Sampling ${maxSampleFrames} frames (every ${sampleInterval}) for palette generation`);
+          
+          for (let i = 0; i < finalFrames.length; i += sampleInterval) {
+            if (sampleOffset + sampleSize <= sampledPixels.length) {
+              sampledPixels.set(finalFrames[i].data, sampleOffset);
+              sampleOffset += sampleSize;
+            }
           }
           
-          // Quantize to 256 colors with optimized settings for file size
-          const palette = quantize(allPixels, 256, { 
+          // Quantize sampled pixels to 256 colors with optimized settings for file size
+          const palette = quantize(sampledPixels, 256, { 
             format: "rgb565", // Good balance of quality and speed
             clearAlpha: false, // Disable alpha processing since we don't need transparency
             oneBitAlpha: false // Disable alpha quantization for smaller files
@@ -3582,12 +3590,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const frame = finalFrames[i];
             const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
             
-            // Use 50fps timing (20ms delay) - safe minimum for all browsers including Chrome/Safari accessibility limits
-            const delayInMilliseconds = Math.max(Math.round(1000 / 50), 20); // 1000ms / 50fps = 20ms minimum for browser compatibility
+            // Always use 50fps timing for gifenc - every frame gets exactly 20ms
+            const delayInMilliseconds = 20; // Fixed 20ms = 50fps
             
             gif.writeFrame(index, frame.width, frame.height, {
               palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
-              delay: delayInMilliseconds, // Fixed 50fps timing for reliable cross-browser playback (gifenc uses milliseconds)
+              delay: delayInMilliseconds, // Timing based on intended duration or fallback to 50fps
               repeat: i === 0 ? 0 : undefined, // Set infinite loop only on first frame
               transparent: false, // Disable transparency for smaller file size
               dispose: -1 // Use default dispose method for better compression
@@ -3690,7 +3698,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
 
-          // Process each frame with real-time timing
+          // Process each frame with consistent timing - every frame gets the same duration
+          // Calculate consistent delay for all frames
+          let consistentDelay;
+          if (window.currentRecordingOptions?.intendedDuration && content.frames.length > 0) {
+            // Distribute intended duration evenly - every frame gets same timing
+            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
+            consistentDelay = Math.round(totalIntendedMs / content.frames.length);
+            consistentDelay = Math.max(consistentDelay, 20); // Minimum 20ms for browser compatibility
+          } else {
+            // Fallback to consistent 50fps timing - every frame gets 20ms
+            consistentDelay = 20; // Fixed 20ms = 50fps
+          }
+          
+          console.log(`🎞️ Using consistent ${consistentDelay}ms delay for all ${content.frames.length} frames`);
+
           for (let index = 0; index < content.frames.length; index++) {
             const frame = content.frames[index];
             const canvas = document.createElement("canvas");
@@ -3726,59 +3748,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               frame,
             );
 
-            // Calculate real-time delay between this frame and the next with GC pause smoothing
-            let frameDelay;
-            if (index < content.frames.length - 1) {
-              // Calculate actual time difference to next frame in milliseconds
-              const currentTimestamp = content.frames[index][0];
-              const nextTimestamp = content.frames[index + 1][0];
-              const rawDelay = nextTimestamp - currentTimestamp;
-              
-              // Calculate average timing for GC pause detection
-              let avgTiming = 33; // Default ~30fps fallback
-              if (content.frames.length > 5) {
-                const sampleSize = Math.min(10, content.frames.length - 1);
-                const recentTimings = [];
-                for (let i = Math.max(0, index - sampleSize); i < Math.min(content.frames.length - 1, index + sampleSize); i++) {
-                  if (i !== index) { // Skip current frame
-                    recentTimings.push(content.frames[i + 1][0] - content.frames[i][0]);
-                  }
-                }
-                if (recentTimings.length > 0) {
-                  avgTiming = recentTimings.reduce((a, b) => a + b, 0) / recentTimings.length;
-                }
-              }
-              
-              // Detect and smooth GC pauses (delays >3x average)
-              const gcPauseThreshold = avgTiming * 3;
-              if (rawDelay > gcPauseThreshold) {
-                // This looks like a GC pause - use average timing instead
-                frameDelay = Math.round(avgTiming);
-                console.log(`🗑️ Smoothed GC pause: ${rawDelay.toFixed(1)}ms → ${frameDelay}ms (frame ${index})`);
-              } else {
-                frameDelay = Math.round(rawDelay);
-              }
-              
-              // Clamp to much faster GIF timing for real-time feel (10ms to 30ms)
-              frameDelay = Math.max(10, Math.min(30, frameDelay));
-            } else {
-              // Last frame - use average delay or loop back to first frame timing
-              if (content.frames.length > 1) {
-                const firstTimestamp = content.frames[0][0];
-                const lastTimestamp = content.frames[content.frames.length - 1][0];
-                const totalDuration = lastTimestamp - firstTimestamp;
-                const averageDelay = Math.round(totalDuration / (content.frames.length - 1));
-                frameDelay = Math.max(10, Math.min(30, averageDelay)); // Cap to 30ms for faster playback
-              } else {
-                frameDelay = 20; // Default 20ms for single frame (faster than 100ms)
-              }
-            }
-
-            gif.addFrame(canvas, { copy: true, delay: frameDelay });
+            // Every frame gets the same consistent delay - no variation
+            gif.addFrame(canvas, { copy: true, delay: consistentDelay });
 
             if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
               console.log(
-                `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(((index + 1) / content.frames.length) * 100)}%) - delay: ${frameDelay}ms`,
+                `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(((index + 1) / content.frames.length) * 100)}%) - consistent delay: ${consistentDelay}ms`,
               );
             }
           }
@@ -7519,18 +7494,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (isRecording) {
           // ⚡ Capture every frame for full 60fps recording (no optimization to maintain quality)
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
-          const frameTimestamp = performance.now() - mediaRecorderStartTime;
+          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
+          const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+          const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
           const frameDataWithHUD = ctx.getImageData(
             0,
             0,
             ctx.canvas.width,
             ctx.canvas.height,
           );
-          recordedFrames.push([frameTimestamp, frameDataWithHUD]);
+          recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
           
           // Log timing info every 120 frames (2 seconds at 60fps)
           // if (recordedFrames.length % 120 === 0) {
-          //   const timeSinceStart = frameTimestamp / 1000;
+          //   const timeSinceStart = relativeTimestamp / 1000;
           //   console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s (60fps)`);
           // }
         }
