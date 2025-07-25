@@ -77,10 +77,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
   
-  // Only preserve density/zoom if they were actually in the URL (not from localStorage)
+  // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
   const currentParams = new URLSearchParams(location.search);
   if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
   if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
+  if (currentParams.has("duration")) preservedParams.duration = currentParams.get("duration");
 
   if (debug) {
     if (window.isSecureContext) {
@@ -5146,7 +5147,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      // Reconstruct URL with preserved parameters (nogap, nolabel)
+      // Reconstruct URL with preserved parameters (nogap, nolabel, duration)
       const currentUrl = new URL(window.location);
 
       // Add preserved parameters back to the URL
@@ -5155,6 +5156,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       if (preservedParams.nolabel) {
         currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
+      }
+      if (preservedParams.duration) {
+        currentUrl.searchParams.set("duration", preservedParams.duration);
       }
 
       // Update the URL and reload
@@ -6967,8 +6971,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        // EXCEPT for tapeProgressBar, durationProgressBar and qrOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "qrOverlay") {
+        // EXCEPT for tapeProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -7004,6 +7008,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         currentKey += `_${performance.now()}`; // Force unique key every time
       }
       
+      // For duration progress bar, completely disable ALL caching to ensure every frame is painted
+      if (name === "durationProgressBar") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For duration timecode, completely disable ALL caching to ensure every frame is painted
+      if (name === "durationTimecode") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
       // For QR overlay, completely disable ALL caching to allow text label font loading
       if (name === "qrOverlay") {
         overlayCache.lastKey = null; // Force regeneration every frame
@@ -7012,10 +7030,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Only rebuild if overlay actually changed
-      // Force rebuild every frame for tape progress bar, duration progress bar and QR overlay (no caching)
+      // Force rebuild every frame for tape progress bar, duration progress bar, duration timecode and QR overlay (no caching)
       if (
         name !== "tapeProgressBar" &&
         name !== "durationProgressBar" &&
+        name !== "durationTimecode" &&
         name !== "qrOverlay" &&
         overlayCache.lastKey === currentKey &&
         window.framePersistentOverlayCache[name]
@@ -7045,6 +7064,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         try {
           let imageData;
+          // Add debug logging for durationTimecode
+          if (name === "durationTimecode") {
+            console.log(`🕐 Creating ImageData for timecode:`, {
+              pixelsType: typeof o.img.pixels,
+              pixelsLength: o.img.pixels.length,
+              width: o.img.width,
+              height: o.img.height,
+              expectedLength: o.img.width * o.img.height * 4
+            });
+          }
+          
           // Use graphics optimizer if available, fallback to traditional method
           if (window.pixelOptimizer) {
             imageData = window.pixelOptimizer.createImageDataZeroCopy(
@@ -7060,6 +7090,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             );
           }
           overlayCtx.putImageData(imageData, 0, 0);
+          
+          if (name === "durationTimecode") {
+            console.log(`🕐 Successfully created and painted ImageData for timecode`);
+          }
         } catch (error) {
           console.error(`❌ Error creating ImageData for ${name}:`, error);
           return;
@@ -7071,7 +7105,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.drawImage(canvas, o.x, o.y);
           // console.log(`📼 Finished drawing tape progress bar`);
         } else {
+          // Add debug logging for durationTimecode
+          if (name === "durationTimecode") {
+            console.log(`🕐 Drawing durationTimecode to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
+          }
           ctx.drawImage(canvas, o.x, o.y);
+          if (name === "durationTimecode") {
+            console.log(`🕐 Finished drawing durationTimecode`);
+          }
         }
       };
 
@@ -7094,6 +7135,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
     buildOverlay("durationProgressBar", content.durationProgressBar);
+    buildOverlay("durationTimecode", content.durationTimecode);
+    
+    // Debug: Log overlay data reception
+    if (content.durationTimecode) {
+      console.log("🕐 BIOS received durationTimecode:", {
+        x: content.durationTimecode.x,
+        y: content.durationTimecode.y,
+        width: content.durationTimecode.img?.width,
+        height: content.durationTimecode.img?.height,
+        pixelsLength: content.durationTimecode.img?.pixels?.length,
+        hasPixels: !!content.durationTimecode.img?.pixels
+      });
+    } else {
+      console.log("🕐 BIOS: No durationTimecode received");
+    }
     // console.log("🖼️ Received overlay data:", {
     //   hasLabel: !!content.label,
     //   hasQR: !!content.qrOverlay,
@@ -7279,6 +7335,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           buildOverlay("durationProgressBar", content.durationProgressBar);
           if (paintOverlays["durationProgressBar"]) {
             paintOverlays["durationProgressBar"]();
+          }
+        }
+
+        // Paint duration timecode immediately (not affected by async skip)
+        if (paintOverlays["durationTimecode"]) {
+          paintOverlays["durationTimecode"]();
+        } else if (content.durationTimecode) {
+          buildOverlay("durationTimecode", content.durationTimecode);
+          if (paintOverlays["durationTimecode"]) {
+            paintOverlays["durationTimecode"]();
           }
         }
 
