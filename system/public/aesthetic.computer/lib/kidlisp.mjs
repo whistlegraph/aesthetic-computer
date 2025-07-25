@@ -500,7 +500,7 @@ class KidLisp {
     
     // Debug logging
     if (this.frameCount % 60 === 0) {
-      console.log(`📡 SYNTAX SIGNAL: expr ${id} -> ${color}`, expr);
+      // console.log(`📡 SYNTAX SIGNAL: expr ${id} -> ${color}`, expr);
     }
   }
 
@@ -3552,9 +3552,9 @@ class KidLisp {
   // Check if a token is inside an active timing expression argument
   getTimingExpressionState(token, tokens, index) {
     // Debug: log active timing expressions periodically
-    if ((token === "box" || token === "line") && this.frameCount % 60 === 0) {
-      console.log(`🕐 DEBUG: Active timing expressions:`, Array.from(this.activeTimingExpressions.entries()));
-    }
+    // if ((token === "box" || token === "line") && this.frameCount % 60 === 0) {
+    //   console.log(`🕐 DEBUG: Active timing expressions:`, Array.from(this.activeTimingExpressions.entries()));
+    // }
     
     // Check if we're inside any active timing expression
     for (const [timingKey, timingData] of this.activeTimingExpressions) {
@@ -3566,7 +3566,7 @@ class KidLisp {
         
         // Debug: Log timing state for tokens we care about (only when frame count is divisible by 30 to reduce spam)
         if ((token === "line" || token === "box" || token === "(" || token === ")") && this.frameCount % 30 === 0) {
-          console.log(`🕐 Token "${token}" timing state: argIndex=${tokenPosition.argIndex}, currentIndex=${timingData.currentIndex}, isInActiveArg=${isInActiveArg}`);
+          // console.log(`🕐 Token "${token}" timing state: argIndex=${tokenPosition.argIndex}, currentIndex=${timingData.currentIndex}, isInActiveArg=${isInActiveArg}`);
         }
         
         return {
@@ -3723,16 +3723,16 @@ class KidLisp {
     // We need to find which argument (index 1, 2, etc.) contains our token
     
     // Debug: log the structure for tokens we care about
-    if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
-      console.log(`🔍 findTokenInTimingExpressionArgs for "${token}":`, JSON.stringify(timingExpr, null, 2));
-    }
+    // if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
+      // console.log(`🔍 findTokenInTimingExpressionArgs for "${token}":`, JSON.stringify(timingExpr, null, 2));
+    // }
     
     const args = timingExpr.slice(1); // Skip the timing token itself
     
     for (let argIndex = 0; argIndex < args.length; argIndex++) {
       if (this.doesExpressionContainToken(args[argIndex], token)) {
         if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
-          console.log(`🔍 Token "${token}" found in arg ${argIndex}:`, JSON.stringify(args[argIndex], null, 2));
+          // console.log(`🔍 Token "${token}" found in arg ${argIndex}:`, JSON.stringify(args[argIndex], null, 2));
         }
         return argIndex;
       }
@@ -3793,21 +3793,7 @@ class KidLisp {
 
   // Get the normal color for a token (the original getTokenColor logic)
   getNormalTokenColor(token, tokens, index) {
-    // Check for timing patterns that should blink when triggered
-    if (/^\d*\.?\d+s!?$/.test(token) || /^\d+$/.test(token)) {
-      // Check if this timing token is currently blinking
-      if (this.isTimingBlinking(token)) {
-        return "red"; // Bright red flash when timing triggers
-      }
-      // Otherwise return normal timing color
-      if (/^\d*\.?\d+s!?$/.test(token)) {
-        return "yellow"; // Yellow for second-based timing like "1s", "0.5s", "0.1s"
-      } else if (/^\d+$/.test(token)) {
-        return "lime"; // Lime for integer timing like "0", "1", "2"
-      }
-    }
-
-    // Check for comments
+    // Check for comments first
     if (token.startsWith(";")) {
       return "gray";
     }
@@ -3817,9 +3803,19 @@ class KidLisp {
       return "yellow";
     }
 
-    // Check for numbers
+    // Check for all numbers (integers, floats, positive, negative) BEFORE timing patterns
+    // This ensures consistent coloring for all literal numeric values
     if (/^-?\d+(\.\d+)?$/.test(token)) {
       return "green";
+    }
+
+    // Check for timing patterns (but exclude pure numbers which were handled above)
+    if (/^\d*\.?\d+s!?$/.test(token)) {
+      // Check if this timing token is currently blinking
+      if (this.isTimingBlinking(token)) {
+        return "red"; // Bright red flash when timing triggers
+      }
+      return "yellow"; // Yellow for second-based timing like "1s", "0.5s", "0.1s"
     }
 
     // Check for parentheses - use rainbow nesting colors

@@ -200,8 +200,6 @@ alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
 
-
-
 # set up an ngrok tunnel
 
 function ac-tunnel
