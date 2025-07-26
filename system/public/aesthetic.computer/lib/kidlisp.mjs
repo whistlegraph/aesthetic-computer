@@ -469,8 +469,9 @@ class KidLisp {
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
     
-    // Reset once execution tracking
-    this.onceExecuted.clear();
+    // NOTE: onceExecuted is NOT cleared to preserve 'once' state across module loads
+    // This allows once blocks to work consistently between inline and .lisp file execution
+    // this.onceExecuted.clear(); // <-- REMOVED
     
     // Reset timing blink tracking
     this.timingBlinks.clear();
@@ -1386,8 +1387,8 @@ class KidLisp {
           return;
         }
 
-        // Create a unique key for this once block based on its content - avoid JSON.stringify
-        const onceKey = typeof args[0] === 'string' ? args[0] : `once_${args.length}_${this.frameCount}`;
+        // Create a unique key for this once block based on its entire content
+        const onceKey = JSON.stringify(args);
 
         // Only execute if this exact once block hasn't been executed before
         if (!this.onceExecuted.has(onceKey)) {
@@ -4097,10 +4098,15 @@ class KidLisp {
   }
 }
 
-// Module function that creates and returns a new KidLisp instance
+// Singleton KidLisp instance to preserve state across inline and .lisp file executions
+let globalKidLispInstance = null;
+
+// Module function that reuses a singleton KidLisp instance to preserve `once` state
 function module(source, isLispFile = false) {
-  const lisp = new KidLisp();
-  return lisp.module(source, isLispFile);
+  if (!globalKidLispInstance) {
+    globalKidLispInstance = new KidLisp();
+  }
+  return globalKidLispInstance.module(source, isLispFile);
 }
 
 // Standalone parse function (for compatibility)
