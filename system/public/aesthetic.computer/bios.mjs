@@ -117,6 +117,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     mediaRecorderStartTime,
     mediaRecorderFrameCount = 0; // Frame counter for performance optimization
   let needs$creenshot = false; // Flag when a capture is requested.
+  
+  // Dynamic FPS detection for display-rate independent recording
+  let detectedDisplayFPS = 60; // Default fallback
+  let lastFrameTime = 0;
+  let frameTimes = [];
+  const FPS_SAMPLE_SIZE = 30; // Number of frames to sample for FPS detection
+  
+  // Time-based recording for precise 30fps capture (independent of display refresh rate)
+  let lastRecordedFrameTime = 0;
+  const TARGET_FRAME_INTERVAL_MS = 1000 / 30; // 33.33ms for 30fps (time-based approach)
 
   // Duration Progress Bar (for timed pieces from query parameter)
   let durationProgressStartTime = undefined;
@@ -1939,7 +1949,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add the sideways AC stamp (same as video recording)
-    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null, frameMetadata = null) {
+    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
       // Ensure fonts are loaded before drawing
       await ensureFontsLoaded();
 
@@ -1953,7 +1963,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ctx.save(); // Save the current state of the canvas
 
       // Add film camera style timestamp at bottom-left corner
-      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata);
+      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata, frameIndex, totalFrames);
 
       drawTextAtPosition(0, 90); // Left
       drawTextAtPosition(canvasWidth, -90); // Right
@@ -2172,7 +2182,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Film camera style timestamp at bottom-left corner
-      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null) {
+      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
+        // Calculate smooth alpha fade aligned with progress bar (20%-30% fade out, 30%-70% hidden, 70%-80% fade in)
+        let timestampAlpha = 1.0; // Default to fully visible
+        
+        if (progress >= 0.20 && progress <= 0.30) {
+          // Fade out from 20% to 30% (10% fade-out period)
+          timestampAlpha = 1.0 - ((progress - 0.20) / 0.10);
+        } else if (progress > 0.30 && progress < 0.70) {
+          // Fully hidden from 30% to 70% (40% hidden period)
+          timestampAlpha = 0.0;
+        } else if (progress >= 0.70 && progress <= 0.80) {
+          // Fade in from 70% to 80% (10% fade-in period)
+          timestampAlpha = (progress - 0.70) / 0.10;
+        }
+        
+        // Skip drawing timecode if it's completely transparent
+        if (timestampAlpha <= 0.0) {
+          return;
+        }
+        
         // Define progress bar height consistently across all contexts
         const progressBarHeight = 1;
         
@@ -2247,30 +2276,52 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         // Draw multiple layered versions for that vibey aesthetic.computer stamp effect
         ["red", "lime", "blue", "white"].forEach((color, index) => {
-          // Calculate fade alpha for bouncy looping effect
-          // Fade out in last 10% and fade in during first 10%
-          let timestampAlpha = 1.0;
-          if (progress <= 0.1) {
-            // Fade in during first 10%
-            timestampAlpha = progress / 0.1;
-          } else if (progress >= 0.9) {
-            // Fade out during last 10%
-            timestampAlpha = (1.0 - progress) / 0.1;
+          // Special looping blink effect - bright flashes only on first and last frame
+          let specialTimestampAlpha = 1.0;
+          let useSpecialColor = false;
+          let specialColor = color;
+          
+          // Use frame-based detection for 1-frame flashes when frame info is available
+          if (frameIndex !== null && totalFrames !== null) {
+            if (frameIndex === 0) {
+              // First frame - bright lime green blink for loop start
+              useSpecialColor = true;
+              specialColor = "lime";
+              specialTimestampAlpha = 1.0; // Full brightness
+            } else if (frameIndex === totalFrames - 1) {
+              // Last frame - bright red blink for loop end
+              useSpecialColor = true;
+              specialColor = "red";
+              specialTimestampAlpha = 1.0; // Full brightness
+            }
+          } else {
+            // Fallback to percentage-based for compatibility (very small ranges for 1-frame effect)
+            if (progress <= 0.005) {
+              // First ~0.5% of loop - bright lime green blink for loop start
+              useSpecialColor = true;
+              specialColor = "lime";
+              specialTimestampAlpha = 1.0; // Full brightness
+            } else if (progress >= 0.995) {
+              // Last ~0.5% of loop - bright red blink for loop end
+              useSpecialColor = true;
+              specialColor = "red";
+              specialTimestampAlpha = 1.0; // Full brightness
+            }
           }
 
           let offsetX, offsetY;
           if (color !== "white") {
-            ctx.globalAlpha = 0.45 * timestampAlpha; // Semi-transparent colored layers with fade
+            ctx.globalAlpha = (useSpecialColor ? 0.8 * specialTimestampAlpha : 0.45 * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
             offsetX = choose([-3, -5, 0, 3, 5]); // Larger offsets for bigger text
             offsetY = choose([-3, -5, 0, 3, 5]);
           } else {
-            ctx.globalAlpha = choose([0.6, 0.5, 0.7]) * timestampAlpha; // Main white layer with fade
+            ctx.globalAlpha = (useSpecialColor ? 1.0 * specialTimestampAlpha : choose([0.6, 0.5, 0.7]) * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
             offsetX = choose([-1, 0, 1]);
             offsetY = choose([-1, 0, 1]);
-            color = choose(["white", "white", "white", "magenta", "yellow"]); // Occasional color pops
+            specialColor = useSpecialColor ? specialColor : choose(["white", "white", "white", "magenta", "yellow"]); // Use special color or normal variety
           }
 
-          ctx.fillStyle = color;
+          ctx.fillStyle = useSpecialColor ? specialColor : color;
           ctx.font = `bold ${watermarkSize}px YWFTProcessing-Regular`;
           
           ctx.fillText(
@@ -2480,7 +2531,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
           const currentProgress = (i + 1) / content.frames.length;
-          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data, frame);
+          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data, frame, i, content.frames.length);
 
           // Convert to WebP blob
           const webpBlob = await new Promise((resolve) => {
@@ -5710,6 +5761,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       delete sfx["tape:audio"]; // Clear any cached audio data
       mediaRecorderDuration = 0; // Reset duration for new recording
       mediaRecorderFrameCount = 0; // Reset frame capture counter for optimization
+      lastRecordedFrameTime = 0; // Reset time-based recording timer
 
       mediaRecorder.start(100);
       //}
@@ -5751,24 +5803,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present") {
-      console.log(`🎬 recorder:present triggered`);
-      console.log(`🎬 Initial state: mediaRecorder=${!!mediaRecorder}, mediaRecorder.state=${mediaRecorder?.state}, recordedFrames.length=${recordedFrames.length}`);
-      
       // Check for cached video if no active recording AND no recorded frames
       if (
         (!mediaRecorder || mediaRecorder.state !== "paused") &&
         recordedFrames.length === 0
       ) {
-        console.log(`🎬 Checking for cached tape data...`);
         const cachedTape = await Store.get("tape");
-        console.log(`🎬 Cached tape found:`, {
-          hasCachedTape: !!cachedTape,
-          hasBlob: !!cachedTape?.blob,
-          hasFrames: !!cachedTape?.frames,
-          frameCount: cachedTape?.frames?.length || 0,
-          hasDuration: !!cachedTape?.duration,
-          duration: cachedTape?.duration
-        });
         
         if (cachedTape && cachedTape.blob) {
           sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
@@ -5777,25 +5817,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (cachedTape.frames) {
             recordedFrames.length = 0;
             recordedFrames.push(...cachedTape.frames);
-            console.log(`🎬 Restored ${cachedTape.frames.length} frames from cache`);
           }
 
           // Set duration if available
           if (cachedTape.duration) {
             mediaRecorderDuration = cachedTape.duration;
-            console.log(`🎬 Restored duration: ${cachedTape.duration}ms`);
           }
         }
       }
-
-      console.log(`🎬 After cache check: mediaRecorder=${!!mediaRecorder}, mediaRecorder.state=${mediaRecorder?.state}, recordedFrames.length=${recordedFrames.length}`);
-      console.log(`🎬 Condition check: (mediaRecorder && mediaRecorder.state === "paused")=${mediaRecorder && mediaRecorder.state === "paused"} || recordedFrames.length > 0=${recordedFrames.length > 0}`);
 
       if (
         (mediaRecorder && mediaRecorder.state === "paused") ||
         recordedFrames.length > 0
       ) {
-        console.log(`🎬 ✅ Condition met - starting video playback setup`);
         // Handle live recording or cached video
         if (mediaRecorder && mediaRecorder.state === "paused") {
           const blob = new Blob(mediaRecorderChunks, {
@@ -5822,30 +5856,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           stream,
           render,
         ) => {
-          console.log(`🎬 Starting tape playback with ${recordedFrames.length} frames`);
-          console.log(`🎬 Parameters: transmitProgress=${transmitProgress}, doneCb=${!!doneCb}, stream=${!!stream}, render=${!!render}`);
-          console.log(`🎬 mediaRecorderDuration=${mediaRecorderDuration}ms`);
-          
           if (recordedFrames.length === 0) {
             console.error("🎬 ❌ No recorded frames to play back!");
             return;
           }
-          
-          // Log first few frame timestamps to verify data structure
-          console.log(`🎬 First frame timestamp: ${recordedFrames[0][0]}`);
-          if (recordedFrames.length > 1) {
-            console.log(`🎬 Second frame timestamp: ${recordedFrames[1][0]}`);
-            console.log(`🎬 Time between first two frames: ${recordedFrames[1][0] - recordedFrames[0][0]}ms`);
-          }
-          
-          // Log frame structure to understand data format
-          console.log(`🎬 Frame 0 structure:`, {
-            timestamp: recordedFrames[0][0],
-            hasImageData: !!recordedFrames[0][1],
-            imageDataType: recordedFrames[0][1]?.constructor?.name,
-            imageDataWidth: recordedFrames[0][1]?.width,
-            imageDataHeight: recordedFrames[0][1]?.height
-          });
           
           let f = 0;
           let playbackStart;
@@ -5903,21 +5917,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           };
 
           async function update() {
-            console.log(`🎬 Update called: continuePlaying=${continuePlaying}, underlayFrame=${!!underlayFrame}, f=${f}`);
-            
             if (!continuePlaying || !underlayFrame) {
-              console.log(`🎬 Update stopped: continuePlaying=${continuePlaying}, underlayFrame=${!!underlayFrame}`);
               return;
             }
 
             if (f === 0) {
-              console.log(`🎬 Starting playback: mediaRecorderDuration=${mediaRecorderDuration}ms, audio available=${!!sfx["tape:audio"]}`);
               tapeSoundId = "tape:audio_" + performance.now();
               await playSfx(tapeSoundId, "tape:audio", { stream });
               // Will be silent if stream is here. ^
               playbackStart = performance.now();
               playbackProgress = 0;
-              console.log(`🎬 Playback start time set: ${playbackStart}`);
             }
 
             // Resize fctx here if the width and
@@ -5940,7 +5949,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Advance frames.
             if (f === 0) {
               f += 1;
-              console.log(`🎬 Advanced from frame 0 to frame ${f}`);
             }
             
             // Convert absolute timestamps back to relative timestamps for playback timing
@@ -5949,23 +5957,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Calculate how long we should wait for the current frame using original recorded timing
             let targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
             
-            console.log(`🎬 Frame ${f}/${recordedFrames.length}: playbackProgress=${playbackProgress.toFixed(1)}ms, targetFrameTime=${targetFrameTime.toFixed(1)}ms, firstFrameTimestamp=${firstFrameTimestamp}, currentFrameTimestamp=${recordedFrames[f][0]}`);
-            
             // Additional debug to check if timestamps look reasonable
             if (f === 1) {
               const frameDiff = recordedFrames[1][0] - recordedFrames[0][0];
-              console.log(`🎬 First frame time difference: ${frameDiff}ms (should be ~16-33ms for 30-60fps)`);
               if (frameDiff > 10000) {
                 console.warn(`🎬 ⚠️ Frame timestamps seem to be absolute timestamps (${frameDiff}ms gap), this will cause playback issues!`);
               }
             }
             
             // Advance frames while playback has progressed past the current frame's time
-            console.log(`🎬 Before frame advancement: f=${f}, playbackProgress=${playbackProgress.toFixed(1)}, targetFrameTime=${targetFrameTime.toFixed(1)}`);
-            
-            // Check if we've reached the end and need to loop
             if (f >= recordedFrames.length - 1) {
-              console.log(`🎬 Reached end of frames (${f}/${recordedFrames.length}), looping back to start`);
               f = 0;
               // Reset playback timing for the loop
               playbackStart = performance.now();
@@ -5984,23 +5985,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 f = f + 1;
                 // Recalculate target time for the new frame
                 targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
-                console.log(`🎬 Advanced to frame ${f}, new targetFrameTime=${targetFrameTime.toFixed(1)}`);
               }
             }
-            
-            console.log(`🎬 After frame advancement: f=${f}, checking loop condition: f === 0 && doneCb && render = ${f === 0} && ${!!doneCb} && ${!!render}`);
 
             // Only call doneCb for video export rendering, not for regular tape playback
             if (f === 0 && doneCb && render) {
-              console.log(`🎬 Calling doneCb for video export completion`);
               send({ type: "recorder:present-progress", content: 1 });
               return doneCb(); // Completed a cycle for video export.
             }
 
             if (transmitProgress) {
+              const currentProgress = playbackProgress / mediaRecorderDuration;
+              // Store global progress for overlay breathing pattern
+              window.currentTapeProgress = currentProgress;
+              
               send({
                 type: "recorder:present-progress",
-                content: playbackProgress / mediaRecorderDuration,
+                content: currentProgress,
               });
             }
 
@@ -6025,10 +6026,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
-        console.log(`🎬 ❌ Condition NOT met - cannot start video playback`);
-        console.log(`🎬 mediaRecorder=${!!mediaRecorder}, state=${mediaRecorder?.state}, recordedFrames.length=${recordedFrames.length}`);
-        console.log(`🎬 mediaRecorderChunks.length=${mediaRecorderChunks?.length || 0}`);
-        
         if (debug && logs.recorder)
           console.error(
             "📼 No media recorder or cached video to present from!",
@@ -6175,6 +6172,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
           function renderTape(can, progress, frameIndex) {
+            // Helper function for choosing random values
+            function choose(options) {
+              return options[Math.floor(Math.random() * options.length)];
+            }
+            
             framesRendered++; // Increment frame counter
             
             const progressBarHeight = 20;
@@ -6274,6 +6276,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               typeSize,
               progress, // Export progress for the progress bar
             ) {
+              // Always show timestamp and progress bar for the full duration of the work (no breathing pattern)
+              let showTimecodeAndProgressBar = true; // Always visible throughout the entire duration
+              
               // Progress bar height (should match what's set above)
               const progressBarHeight = 20;
               
@@ -6311,43 +6316,122 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
-              // Make timestamp more opaque and clearer
-              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
-              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
-              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
 
-              const timestampMargin = typeSize * 0.5; // Small margin from edges
+              // Only draw timecode and progress bar if they should be visible (breathing pattern)
+              if (showTimecodeAndProgressBar) {
+                // Make timestamp more opaque and clearer
+                sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
+                
+                // Special looping blink effect - always visible but with special colors at loop boundaries
+                let timestampAlpha = 0.8; // Default opacity
+                let timestampColor = choose("white", "yellow", "red"); // Default blinking colors
+                
+                // Since we don't have frame info here, use very small percentage for 1-frame approximation
+                if (progress <= 0.001) {
+                  // Very start of loop - bright lime green blink for loop start (approximates 1 frame)
+                  timestampColor = "lime";
+                  timestampAlpha = 1.0; // Full brightness
+                } else if (progress >= 0.999) {
+                  // Very end of loop - bright red blink for loop end (approximates 1 frame)
+                  timestampColor = "red";
+                  timestampAlpha = 1.0; // Full brightness
+                }
+                
+                sctx.globalAlpha = timestampAlpha;
+                sctx.fillStyle = timestampColor;
 
-              // Smoother, gentler shake effect
-              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
-              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
-              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+                const timestampMargin = typeSize * 0.5; // Small margin from edges
 
-              // Position timestamp in the content area (not in the progress bar area)
-              const timestampY = contentHeight - timestampMargin - typeSize * 0.5;
+                // Smoother, gentler shake effect
+                const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
+                const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
+                const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
 
-              sctx.fillText(
-                timestamp,
-                timestampMargin + shakeX,
-                timestampY + shakeY,
-              );
+                // Position timestamp in the content area (not in the progress bar area)
+                const timestampY = contentHeight - timestampMargin - typeSize * 0.5;
 
-              // Draw progress bar in the extended area at the bottom
-              const progressBarY = contentHeight; // Start right after content
-              const progressBarWidth = Math.floor(progress * canvasWidth);
-              
-              // Fill the entire progress bar area with a dark background
-              sctx.fillStyle = "#000000";
-              sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
-              
-              // Draw the actual progress bar
-              sctx.fillStyle = "#FF0000"; // Red progress bar
-              sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
-              
-              // Add a subtle border
-              sctx.strokeStyle = "#333333";
-              sctx.lineWidth = 1;
-              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+                sctx.fillText(
+                  timestamp,
+                  timestampMargin + shakeX,
+                  timestampY + shakeY,
+                );
+
+                // Draw progress bar in the extended area at the bottom
+                const progressBarY = contentHeight; // Start right after content
+                const progressBarWidth = Math.floor(progress * canvasWidth);
+                
+                // Fill the entire progress bar area with a dark background
+                sctx.fillStyle = "#000000";
+                sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+                
+                // Sample colors from the source frame for the progress bar
+                let frameColors = []; // Start empty, no fallback yet
+                try {
+                  // Get frame data from the source canvas ('can' parameter)
+                  const tempCtx = can.getContext('2d');
+                  const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
+                  
+                  // Sample colors across the width of the progress bar for pixel-by-pixel variety
+                  const numSamples = Math.min(progressBarWidth, 50); // Cap at 50 samples for performance
+                  
+                  if (numSamples > 0 && frameImageData.data.length > 0) {
+                    for (let i = 0; i < numSamples; i++) {
+                      const xPos = Math.floor((i / Math.max(numSamples - 1, 1)) * (can.width - 1));
+                      const yPos = Math.floor(can.height * 0.5); // Sample from middle row
+                      const pixelIndex = (yPos * can.width + xPos) * 4;
+                      
+                      if (pixelIndex >= 0 && pixelIndex < frameImageData.data.length - 3) {
+                        const r = frameImageData.data[pixelIndex];
+                        const g = frameImageData.data[pixelIndex + 1];
+                        const b = frameImageData.data[pixelIndex + 2];
+                        
+                        // Very subtle enhancement - just barely brighten for visibility
+                        const subtleBoost = 1.05; // Very minimal boost (5% instead of 10-40%)
+                        const enhancedR = Math.min(255, Math.floor(r * subtleBoost));
+                        const enhancedG = Math.min(255, Math.floor(g * subtleBoost));
+                        const enhancedB = Math.min(255, Math.floor(b * subtleBoost));
+                        
+                        const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+                        frameColors.push(hexColor);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.warn("Failed to sample frame colors:", error);
+                }
+                
+                // Fallback to subtle natural colors if sampling failed or produced no colors
+                if (frameColors.length === 0) {
+                  // Use more natural, muted colors as fallback
+                  const naturalColors = ["#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"];
+                  const numFallbackSegments = Math.min(progressBarWidth, 20);
+                  for (let i = 0; i < numFallbackSegments; i++) {
+                    frameColors.push(choose(naturalColors));
+                  }
+                }
+                
+                // Draw the progress bar with frame-sampled colors
+                if (frameColors.length === 1) {
+                  // Single color fallback
+                  sctx.fillStyle = frameColors[0];
+                  sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+                } else {
+                  // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                  const segmentWidth = progressBarWidth / frameColors.length;
+                  for (let i = 0; i < frameColors.length; i++) {
+                    const segmentX = i * segmentWidth;
+                    const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                    
+                    sctx.fillStyle = frameColors[i];
+                    sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                  }
+                }
+                
+                // Add a subtle border
+                sctx.strokeStyle = "#333333";
+                sctx.lineWidth = 1;
+                sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+              }
 
               sctx.restore();
             }
@@ -6529,9 +6613,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.fillStyle = "#000000";
               sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
               
-              // Draw the actual progress bar
-              sctx.fillStyle = "#FF0000"; // Red progress bar
-              sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+              // Sample colors from the source frame for the progress bar
+              let frameColors = ["#FF0000"]; // Red fallback
+              try {
+                // Get frame data from the source canvas ('can' parameter)
+                const tempCtx = can.getContext('2d');
+                const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
+                
+                // Sample colors across the width of the progress bar for pixel-by-pixel variety
+                const numSamples = Math.min(progressBarWidth, 100); // Cap at 100 samples for performance
+                frameColors = [];
+                
+                for (let i = 0; i < numSamples; i++) {
+                  const xPos = Math.floor((i / numSamples) * can.width);
+                  const yPos = Math.floor(can.height * 0.5); // Sample from middle row
+                  const pixelIndex = (yPos * can.width + xPos) * 4;
+                  
+                  if (pixelIndex < frameImageData.data.length - 4) {
+                    const r = frameImageData.data[pixelIndex];
+                    const g = frameImageData.data[pixelIndex + 1];
+                    const b = frameImageData.data[pixelIndex + 2];
+                    
+                    // Enhance colors for visibility
+                    const enhancedR = Math.min(255, Math.floor(r * 1.3));
+                    const enhancedG = Math.min(255, Math.floor(g * 1.3));
+                    const enhancedB = Math.min(255, Math.floor(b * 1.3));
+                    
+                    const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+                    frameColors.push(hexColor);
+                  } else {
+                    frameColors.push("#FF0000"); // Red fallback
+                  }
+                }
+              } catch (error) {
+                console.warn("Failed to sample frame colors:", error);
+                frameColors = ["#FF0000"]; // Red fallback
+              }
+              
+              // Draw the progress bar with frame-sampled colors
+              if (frameColors.length === 1) {
+                // Single color fallback
+                sctx.fillStyle = frameColors[0];
+                sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+              } else {
+                // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                const segmentWidth = progressBarWidth / frameColors.length;
+                for (let i = 0; i < frameColors.length; i++) {
+                  const segmentX = i * segmentWidth;
+                  const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                  
+                  sctx.fillStyle = frameColors[i];
+                  sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                }
+              }
               
               // Add a subtle border
               sctx.strokeStyle = "#333333";
@@ -7288,6 +7422,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Only log reframe operations to debug flicker
       const isHudOverlay = name === "label" || name === "qrOverlay";
 
+      // Apply breathing pattern to tapeProgressBar - hide it when both stamps are off
+      if (name === "tapeProgressBar" && window.currentTapeProgress !== undefined) {
+        const progress = window.currentTapeProgress;
+        const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
+        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+        
+        let showProgressBar = true; // Default to showing
+        
+        if (cyclePosition < 0.2) {
+          // Phase 1 (0-20%): Both stamps off - hide progress bar for breathing
+          showProgressBar = false;
+        } else if (cyclePosition < 0.4) {
+          // Phase 2 (20-40%): Both stamps on - show progress bar
+          showProgressBar = true;
+        } else if (cyclePosition < 0.6) {
+          // Phase 3 (40-60%): Both stamps off - hide progress bar for breathing
+          showProgressBar = false;
+        } else if (cyclePosition < 0.8) {
+          // Phase 4 (60-80%): Left stamp only - show progress bar
+          showProgressBar = true;
+        } else {
+          // Phase 5 (80-100%): Right stamp only - show progress bar
+          showProgressBar = true;
+        }
+        
+        // Skip building the overlay if it should be hidden
+        if (!showProgressBar) {
+          return;
+        }
+      }
+
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
         // EXCEPT for tapeProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
@@ -7482,6 +7647,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // });
 
     function draw() {
+      // 🎯 Dynamic FPS Detection for display-rate independent recording
+      const currentTime = performance.now();
+      if (lastFrameTime > 0) {
+        const frameTime = currentTime - lastFrameTime;
+        frameTimes.push(frameTime);
+        
+        // Keep only recent frame timings for accurate FPS detection
+        if (frameTimes.length > FPS_SAMPLE_SIZE) {
+          frameTimes.shift();
+        }
+        
+        // Calculate actual display FPS after we have enough samples
+        if (frameTimes.length >= FPS_SAMPLE_SIZE) {
+          const averageFrameTime = frameTimes.reduce((sum, time) => sum + time, 0) / frameTimes.length;
+          detectedDisplayFPS = Math.round(1000 / averageFrameTime);
+          // console.log(`🎯 Detected display FPS: ${detectedDisplayFPS}`);
+        }
+      }
+      lastFrameTime = currentTime;
+      
       // During tape playback, render main canvas but make it semi-transparent so video shows through
       if (underlayFrame) {
         // Set canvas to be semi-transparent so the video shows underneath but UI is still visible
@@ -7667,16 +7852,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
         if (isRecording) {
-          // ⚡ Frame skipping for different recording frame rates
-          // Target 30fps recording (skip frames to achieve this from ~60fps main loop)
+          // ⚡ Time-based approach for precise 30fps recording regardless of display rate
           const targetRecordingFPS = 30;
-          const mainLoopFPS = 60; // Approximate main loop FPS
-          const frameSkipRatio = mainLoopFPS / targetRecordingFPS; // ~2.0 for 30fps
+          const actualDisplayFPS = detectedDisplayFPS; // Use dynamically detected FPS
           
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
           
-          // Only record frames at the target interval
-          const shouldRecordFrame = (mediaRecorderFrameCount - 1) % frameSkipRatio < 1;
+          // Always use time-based recording for consistent 30fps regardless of display rate
+          const currentRecordTime = performance.now();
+          const timeSinceLastRecord = currentRecordTime - lastRecordedFrameTime;
+          const shouldRecordFrame = timeSinceLastRecord >= TARGET_FRAME_INTERVAL_MS || lastRecordedFrameTime === 0;
           
           if (shouldRecordFrame) {
             // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
@@ -7689,6 +7874,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               ctx.canvas.height,
             );
             recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
+            
+            // Update last recorded frame time for time-based approach
+            lastRecordedFrameTime = currentRecordTime;
           }
         }
 

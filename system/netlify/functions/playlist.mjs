@@ -39,24 +39,38 @@ export async function handler(event, context) {
     },
     // 🖼️ Media
     "items": [
-      // {
-      //   "id": "zzzwap", // 🆔 Unique ID
-      //   "title": "zzzwap", // 📝 Item name
-      //   "source": `${baseUrl}/zzzwap?density=10&duration=512&nolabel`, // 🌐 Artwork URL
-      //   "duration": 512, // ⏱️ Duration sec
-      //   "license": "open", // ⚖️ License mode
-      // },
+      {
+        "id": "clock", // 🆔 Unique ID
+        "title": "clock", // 📝 Item name
+        "source": `${baseUrl}/(wipe_blue) (line 0 0 width height)?nohud&nolabel`, // 🌐 Artwork URL
+        "duration": 512, // ⏱️ Duration sec
+        "license": "open", // ⚖️ License mode
+      },
+      {
+        "id": "clock", // 🆔 Unique ID
+        "title": "clock", // 📝 Item name
+        "source": `${baseUrl}/wipppps?density=10&duration=32`, // 🌐 Artwork URL
+        "duration": 32, // ⏱️ Duration sec
+        "license": "open", // ⚖️ License mode
+      },
+      {
+        "id": "zzzwap", // 🆔 Unique ID
+        "title": "zzzwap", // 📝 Item name
+        "source": `${baseUrl}/zzzwap?density=10&duration=512`, // 🌐 Artwork URL
+        "duration": 512, // ⏱️ Duration sec
+        "license": "open", // ⚖️ License mode
+      },
       {
         "id": "(wipe_purple)", // 🆔 Unique ID
         "title": "(wipe purple)", // 📝 Item name
-        "source": `${baseUrl}/(wipe_brown)?density=10&duration=18&nolabel`, // 🌐 Artwork URL
+        "source": `${baseUrl}/(wipe_brown)?density=10&duration=18`, // 🌐 Artwork URL
         "duration": 18, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
       },
       {
         "id": "(wipe_purple)", // 🆔 Unique ID
         "title": "(wipe purple)", // 📝 Item name
-        "source": `${baseUrl}/(wipe_purple)?density=10&duration=18&nolabel`, // 🌐 Artwork URL
+        "source": `${baseUrl}/(wipe_purple)?density=10&duration=18`, // 🌐 Artwork URL
         "duration": 18, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
       },
