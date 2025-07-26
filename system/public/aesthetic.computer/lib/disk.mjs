@@ -35,7 +35,7 @@ const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
-import { headers } from "./headers.mjs";
+// import { headers } from "./headers.mjs"; // Removed - headers only printed during boot
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
@@ -810,6 +810,11 @@ class Recorder {
     $commonApi.rec.recorded = false; //
     $commonApi.rec.printed = false; // "
     $commonApi.rec.printProgress = 0; // "
+    
+    // Reset tape progress state for re-entrant recordings
+    this.tapeProgress = 0;
+    this.tapeTimerStart = null;
+    this.tapeTimerDuration = null;
   }
 
   rolling(opts, cb) {
@@ -3939,7 +3944,7 @@ async function load(
 
   if (!debug && !firstLoad) {
     // console.clear();
-    headers(); // Clear console and re-print headers if we are in production.
+    // headers(); // Headers already printed during boot - no need to print again
   }
 
   // console.log("🧩", path, "🌐", host);
@@ -8367,28 +8372,175 @@ async function makeFrame({ data: { type, content } }) {
       // Skip progress bar during tape playback to avoid overlay conflicts
       if (!skipPixelsDuringTapePlayback && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
         const progress = $api.rec.tapeProgress || 0;
-        // Create tape progress bar with VHS flickering effect
-        const tapeProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
-          // Draw flickering dark background (dark gray with occasional flickers)
-          const bgColors = ["black", "black", "black", "#111", "#222", "#333"];
-          const bgColor = bgColors[Math.floor(Math.random() * bgColors.length)];
-          $.ink(bgColor).box(0, 0, $api.screen.width, 1);
+        
+        // IMPORTANT: Access the main screen buffer OUTSIDE the painting context
+        // because inside painting(), $api.screen refers to the painting's own buffer, not the main screen
+        const mainScreenPixels = screen.pixels; // This is the actual frame content
+        const mainScreenWidth = screen.width;
+        const mainScreenHeight = screen.height;
+        
+        const currentProgressWidth = Math.floor(mainScreenWidth * progress);
+        
+        // Create tape progress bar painting with VHS-style red glow
+        const tapeProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
+          // Animation frame for VHS effects - increased speed for more vibes
+          const animFrame = Number($api.paintCount || 0n);
           
-          // Draw VHS-style flickering progress bar with no position shaking
-          const progressWidth = Math.floor($api.screen.width * progress);
-          if (progressWidth > 0) {
-            // Create VHS flickering effect with color variations only (no position offset)
-            ["red", "lime", "blue", "white"].forEach((color, index) => {
-              if (color !== "white") {
-                // Just use the base color with slight variations
-                $.ink(color).box(0, 0, progressWidth, 1);
+          // Special color override for first and last frames
+          const isFirstFrame = progress <= 0.01; // First 1% of progress
+          const isLastFrame = progress >= 0.99;  // Last 1% of progress
+          
+          // Calculate smooth alpha fade - progress bar fades from 25% to 75% for longer clean content viewing
+          let progressBarAlpha = 1.0; // Default to fully visible
+          
+          if (progress >= 0.20 && progress <= 0.30) {
+            // Fade out from 20% to 30% (10% fade-out period)
+            progressBarAlpha = 1.0 - ((progress - 0.20) / 0.10);
+          } else if (progress > 0.30 && progress < 0.70) {
+            // Fully hidden from 30% to 70% (40% hidden period)
+            progressBarAlpha = 0.0;
+          } else if (progress >= 0.70 && progress <= 0.80) {
+            // Fade in from 70% to 80% (10% fade-in period)
+            progressBarAlpha = (progress - 0.70) / 0.10;
+          }
+          
+          // Draw VHS-style progress bar pixel by pixel
+          for (let x = 0; x < mainScreenWidth; x++) {
+            let baseR, baseG, baseB;
+            
+            if (x < currentProgressWidth) {
+              // FILLED AREA - VHS red with analog glow and scan lines
+              
+              if (isFirstFrame) {
+                // FIRST FRAME - Fully green across entire bar
+                baseR = 0;
+                baseG = 255;
+                baseB = 0;
+              } else if (isLastFrame) {
+                // LAST FRAME - Fully red across entire bar
+                baseR = 255;
+                baseG = 0;
+                baseB = 0;
               } else {
-                // Add extra VHS color variations for the white layer
-                const vhsColors = ["white", "white", "white", "magenta", "yellow", "cyan"];
-                color = vhsColors[Math.floor(Math.random() * vhsColors.length)];
-                $.ink(color).box(0, 0, progressWidth, 1);
+                // NORMAL FRAMES - VHS red with effects
+                // Base VHS red intensity - brighter and more consistent
+                let redIntensity = 255;
+                
+                // Enhanced VHS scan line effect with more movement
+                const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
+                
+                // Intensified analog glow effect - more pronounced waves
+                const glowPhase = (animFrame * 0.15 + x * 0.12) % (Math.PI * 2);
+                const analogGlow = Math.sin(glowPhase) * 0.2 + 0.8;
+                
+                // Enhanced VHS tracking distortion with more character
+                const tracking = Math.sin(animFrame * 0.08 + x * 0.03) * 0.1 + 0.9;
+                
+                // Secondary glow wave for more complexity
+                const secondaryGlow = Math.sin(animFrame * 0.25 + x * 0.2) * 0.1 + 0.9;
+                
+                // Combine all VHS effects with brighter base
+                redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
+                
+                // Bright VHS red color - keep it pure red, no orange bleeding
+                baseR = Math.max(200, Math.min(255, redIntensity));
+                
+                // Pure red - minimal green and blue for clean bright red
+                baseG = Math.floor(baseR * 0.05); // Very minimal green
+                baseB = Math.floor(baseR * 0.02); // Almost no blue
+                
+                // Enhanced VHS bloom effect - pure red blooms only
+                if (Math.random() < 0.025) { // 2.5% chance of bloom
+                  const bloomIntensity = 0.8 + Math.random() * 0.2;
+                  baseR = Math.floor(255 * bloomIntensity);
+                  baseG = Math.floor(20 * bloomIntensity); // Keep bloom red too
+                  baseB = Math.floor(10 * bloomIntensity);
+                }
               }
-            });
+              
+            } else {
+              // EMPTY AREA - Enhanced VHS static/noise background
+              
+              // More pronounced VHS static with additional frequency layers
+              const staticNoise = Math.sin(animFrame * 1.2 + x * 0.2) * 0.04 + 0.06;
+              const staticNoise2 = Math.sin(animFrame * 0.7 + x * 0.3) * 0.02 + 0.03;
+              
+              // More frequent static sparkles for increased vibes
+              if (Math.random() < 0.002) { // 0.2% chance of static
+                baseR = Math.floor(50 * Math.random());
+                baseG = Math.floor(25 * Math.random());
+                baseB = Math.floor(15 * Math.random());
+              } else {
+                // Enhanced static background with more character
+                baseR = Math.floor(25 * (staticNoise + staticNoise2));
+                baseG = Math.floor(12 * (staticNoise + staticNoise2));
+                baseB = Math.floor(8 * (staticNoise + staticNoise2));
+              }
+            }
+            
+            // SINGLE bright leading pixel - allow it to go beyond the edge when progress is at 100%
+            // Check if this should be the leader pixel (current progress position, even if beyond screen)
+            const leaderPixelPosition = Math.floor(mainScreenWidth * progress);
+            const isLeaderPixel = x === leaderPixelPosition || (leaderPixelPosition >= mainScreenWidth && x === mainScreenWidth - 1);
+            
+            if (isLeaderPixel) {
+              if (isFirstFrame) {
+                // First frame - bright green leader
+                baseR = 0;
+                baseG = 255;
+                baseB = 0;
+              } else if (isLastFrame) {
+                // Last frame - bright red leader  
+                baseR = 255;
+                baseG = 0;
+                baseB = 0;
+              } else {
+                // Check if we're in the fade period (20%-80%) to enable special blinking
+                const isInFadePeriod = progress >= 0.20 && progress <= 0.80;
+                
+                if (isInFadePeriod) {
+                  // During fade period - cycle through yellow, lime, and other colors for visibility
+                  const colorCycle = Math.floor(animFrame * 0.3) % 4; // Slower color cycling
+                  
+                  switch (colorCycle) {
+                    case 0:
+                      baseR = 255; baseG = 255; baseB = 0; // Yellow
+                      break;
+                    case 1:
+                      baseR = 0; baseG = 255; baseB = 0; // Lime
+                      break;
+                    case 2:
+                      baseR = 255; baseG = 128; baseB = 0; // Orange
+                      break;
+                    case 3:
+                      baseR = 0; baseG = 255; baseB = 255; // Cyan
+                      break;
+                  }
+                } else {
+                  // Normal behavior outside fade period - super bright white-hot leader with pulsing
+                  const leaderPulse = Math.sin(animFrame * 0.6) * 0.2 + 0.8;
+                  
+                  baseR = 255;
+                  baseG = Math.floor(255 * leaderPulse); // Bright white-hot leader
+                  baseB = Math.floor(255 * leaderPulse);
+                }
+              }
+            }
+            
+            // Apply alpha fade to final colors, with beacon-like leader pixel
+            let finalAlpha = progressBarAlpha;
+            if (isLeaderPixel) {
+              if (progress >= 0.20 && progress <= 0.80) {
+                // During fade period - beacon-like signal marker (strong but not full opacity)
+                finalAlpha = 0.8; // Bright beacon for progress indication
+              } else {
+                // Outside fade period - still visible beacon
+                finalAlpha = Math.min(progressBarAlpha, 0.9); // Strong beacon at 90% opacity
+              }
+            }
+            
+            // Use proper alpha blending
+            $.ink(baseR, baseG, baseB, Math.floor(finalAlpha * 255)).box(x, 0, 1, 1);
           }
         });
         
@@ -8404,6 +8556,12 @@ async function makeFrame({ data: { type, content } }) {
               pixels: tapeProgressBarPainting.pixels
             }
           };
+        } else {
+          console.warn("🎬 Tape progress bar painting FAILED to create:", {
+            painting: !!tapeProgressBarPainting,
+            pixels: !!tapeProgressBarPainting?.pixels,
+            pixelsLength: tapeProgressBarPainting?.pixels?.length
+          });
         }
       } else {
         // Debug: Log when tape progress is 0 or undefined during recording
@@ -8708,31 +8866,37 @@ async function makeFrame({ data: { type, content } }) {
       }
 
       // Add timecode display (00:00 / 1:20) on bottom left - shows regardless of nohud/progress bar
-      if (durationTotal && durationStartTime !== null && !skipPixelsDuringTapePlayback) {
+      // Show timecode for duration tracking but NOT during tape recording
+      if ((durationTotal && durationStartTime !== null) && !$api.rec.recording) {
+        // Use duration tracking only (exclude tape recording)
+        const recordingDuration = durationTotal;
+        const recordingStartTime = durationStartTime;
+        
         console.log("🕐 Starting timecode generation...", {
-          durationTotal,
-          durationStartTime,
+          recordingDuration,
+          recordingStartTime,
           skipPixelsDuringTapePlayback,
           tf: !!tf,
           tfBlockWidth: tf?.blockWidth,
-          tfBlockHeight: tf?.blockHeight
+          tfBlockHeight: tf?.blockHeight,
+          isRecording: $api.rec.recording
         });
         
         const currentTime = performance.now();
-        const elapsed = Math.max(0, (currentTime - durationStartTime) / 1000); // Convert to seconds, clamp to 0
+        const elapsed = recordingStartTime ? Math.max(0, (currentTime - recordingStartTime) / 1000) : 0; // Convert to seconds, clamp to 0
         
         // Clamp elapsed to duration when completed to hold at end time
-        const clampedElapsed = Math.min(elapsed, durationTotal);
+        const clampedElapsed = Math.min(elapsed, recordingDuration);
         
         const elapsedMins = Math.floor(clampedElapsed / 60);
         const elapsedSecs = Math.floor(clampedElapsed % 60);
-        const totalMins = Math.floor(durationTotal / 60);
-        const totalSecs = Math.floor(durationTotal % 60);
+        const totalMins = Math.floor(recordingDuration / 60);
+        const totalSecs = Math.floor(recordingDuration % 60);
         
         const timecodeText = `${elapsedMins.toString().padStart(2, '0')}:${elapsedSecs.toString().padStart(2, '0')} / ${totalMins.toString().padStart(2, '0')}:${totalSecs.toString().padStart(2, '0')}`;
         
         console.log("🕐 Timecode details:", {
-          durationTotal,
+          recordingDuration,
           clampedElapsed,
           elapsed,
           elapsedMins,
@@ -8744,7 +8908,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         
         // Check if duration is complete for blinking
-        const progress = Math.min(elapsed / durationTotal, 1);
+        const progress = Math.min(elapsed / recordingDuration, 1);
         const completed = progress >= 1;
         
         // Debug completion state
@@ -8844,8 +9008,8 @@ async function makeFrame({ data: { type, content } }) {
           });          // Add timecode to sendData if created successfully
           if (timecodePainting && timecodePainting.pixels && timecodePainting.pixels.length > 0) {
             const timecodeData = {
-              x: 3, // 3px margin from left edge (1px left from previous 4px)
-              y: $api.screen.height - timecodeHeight - 2, // Position 1px down (was -3, now -2)
+              x: 3, // 3px margin from left edge
+              y: $api.screen.height - timecodeHeight - 4, // Position above progress bar (2px margin + progress bar height)
               img: {
                 width: timecodePainting.width,
                 height: timecodePainting.height,

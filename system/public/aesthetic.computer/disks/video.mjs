@@ -159,15 +159,16 @@ function paint({
       ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
 
-    if (presentProgress) {
-      ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
-      ink(playing ? "red" : 64).box(
-        0,
-        screen.height - 1,
-        screen.width * presentProgress,
-        screen.height - 1,
-      ); // Present a progress bar.
-    }
+    // Commented out plain progress bar - now using VHS-style progress bar from disk.mjs
+    // if (presentProgress) {
+    //   ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
+    //   ink(playing ? "red" : 64).box(
+    //     0,
+    //     screen.height - 1,
+    //     screen.width * presentProgress,
+    //     screen.height - 1,
+    //   ); // Present a progress bar.
+    // }
   }
 
   // Export progress display (outside of presenting block so it shows during exports)
