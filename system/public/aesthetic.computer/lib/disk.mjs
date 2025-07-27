@@ -7001,7 +7001,33 @@ async function makeFrame({ data: { type, content } }) {
                 decay: 0.5,
                 volume: 0.15,
               });
-              if (!labelBack) {
+              
+              // 🎨 Special case: For inline kidlisp pieces, behave like backspace
+              // (preserve content and open keyboard) instead of blanking the prompt
+              // Only for pieces created from prompt input (not .mjs files or cached $codes)
+              const isInlineKidlisp = currentCode && 
+                lisp.isKidlispSource(currentCode) && 
+                !currentText.startsWith("$") &&
+                !currentCode.includes('export') && 
+                !currentCode.includes('function ') &&
+                currentCode.length < 10000 && // Inline pieces are typically small
+                (currentCode.includes('wipe') || currentCode.includes('ink') || currentCode.includes('line') || currentCode.includes('box'));
+              
+              if (isInlineKidlisp) {
+                // For inline kidlisp, preserve the content and open keyboard like backspace does
+                send({ type: "keyboard:unlock" });
+                
+                let promptSlug = "prompt";
+                let content = currentCode; // Use the full source code
+                
+                if (content) {
+                  // Don't encode for editing - pass raw source
+                  promptSlug += "~" + content;
+                }
+                
+                jump(promptSlug);
+                send({ type: "keyboard:open" });
+              } else if (!labelBack) {
                 jump("prompt");
               } else {
                 if ($commonApi.history.length > 0) {

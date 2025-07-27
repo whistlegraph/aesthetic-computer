@@ -42,6 +42,13 @@ export async function handler(event, context) {
       {
         "id": "clock", // 🆔 Unique ID
         "title": "clock", // 📝 Item name
+        "source": `${baseUrl}/3-kidlisp-tests`, // 🌐 Artwork URL
+        "duration": 512, // ⏱️ Duration sec
+        "license": "open", // ⚖️ License mode
+      },
+      {
+        "id": "clock", // 🆔 Unique ID
+        "title": "clock", // 📝 Item name
         "source": `${baseUrl}/(wipe_blue) (line 0 0 width height)?nohud&nolabel`, // 🌐 Artwork URL
         "duration": 512, // ⏱️ Duration sec
         "license": "open", // ⚖️ License mode
