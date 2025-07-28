@@ -33,14 +33,14 @@
 #endregion */
 
 let btn;
-// let framesBtn;     // Hidden export button
+let framesBtn;     // ZIP/Frames export button
 // let webpBtn;       // Hidden export button  
 // let animWebpBtn;   // Hidden export button
 // let apngBtn;       // Hidden export button
 let gifBtn;
 // let clearBtn;      // Hidden clear button
 let isPrinting = false;
-// let isExportingFrames = false;  // Hidden export type
+let isExportingFrames = false;  // ZIP/Frames export type
 // let isExportingWebP = false;    // Hidden export type
 // let isExportingAnimWebP = false; // Hidden export type
 // let isExportingAPNG = false;    // Hidden export type
@@ -116,7 +116,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store }) {
   
   // Reset all export states on boot
   isPrinting = false;
-  // isExportingFrames = false;  // Hidden export type
+  isExportingFrames = false;  // ZIP/Frames export type
   // isExportingWebP = false;    // Hidden export type
   // isExportingAnimWebP = false; // Hidden export type
   // isExportingAPNG = false;    // Hidden export type
@@ -150,12 +150,13 @@ function paint({
   if (presenting) {
     // Always wipe to prevent UI elements from accumulating
     // During playback, use transparent wipe so tape video shows through
-    if (playing) {
-      wipe(0, 0, 0, 0); // Transparent wipe during playback
+    // BUT prevent video playback during exports to improve performance
+    if (playing && !isPrinting) {
+      wipe(0, 0, 0, 0); // Transparent wipe during playback (only when not exporting)
       // Override corner label to show "|" when playing video
       hud.label("|");
     } else {
-      wipe(0, 100).ink(255, 200).write("||", { center: "xy " });
+      wipe(0, 100).ink(255, 200).write(isPrinting ? "EXPORTING" : "||", { center: "xy " });
       ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
 
@@ -295,11 +296,13 @@ function paint({
     gifBtn.reposition({ right: 40, bottom: 6, screen });
     gifBtn.paint(api);
     
-    // Hidden export options (framesBtn, webpBtn, animWebpBtn, apngBtn, clearBtn) - keeping for future use
-    // if (!framesBtn)
-    //   framesBtn = new ui.TextButton("Frames", { right: 6, bottom: 40, screen });
-    // framesBtn.reposition({ right: 6, bottom: 40, screen });
-    // framesBtn.paint(api);
+    // ZIP/Frames export option for high-resolution frames
+    if (!framesBtn)
+      framesBtn = new ui.TextButton("ZIP", { right: 6, bottom: 40, screen });
+    framesBtn.reposition({ right: 6, bottom: 40, screen });
+    framesBtn.paint(api);
+    
+    // Hidden export options (webpBtn, animWebpBtn, apngBtn, clearBtn) - keeping for future use
     
     // if (!webpBtn)
     //   webpBtn = new ui.TextButton("WebP", { right: 6, bottom: 74, screen });
@@ -351,31 +354,78 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
           duration: 0.001,
         });
       },
-      push: () => {
-        if (!printed) {
-          isPrinting = true;
-          currentExportType = "video"; // Set export type
-          btn.disabled = true;
-          
-          // Immediately set initial progress and status for instant feedback
-          printProgress = 0.01; // Start with minimal progress to trigger display
-          exportStatusMessage = "STARTING VIDEO EXPORT";
-          currentExportPhase = "preparing";
-          
-          // Initialize tape progress for red overlay mode
-          if (!useExtendedProgressBar) {
-            rec.tapeProgress = 0.01; // Start with minimal progress
-          }
-          
-          rec.print(() => {
-            printed = true;
-            btn.disabled = false;
-            isPrinting = false;
-            currentExportType = ""; // Clear export type
-          });
-        } else {
-          download(`tape-${num.timestamp()}.mp4`);
+      push: async () => {
+        isPrinting = true; // Show progress bar
+        currentExportType = "video"; // Set export type
+        btn.disabled = true;
+        
+        // Immediately set initial progress and status for instant feedback
+        printProgress = 0.01; // Start with minimal progress to trigger display
+        exportStatusMessage = "STARTING MP4 EXPORT";
+        currentExportPhase = "preparing";
+        
+        // Initialize tape progress for red overlay mode
+        if (!useExtendedProgressBar) {
+          rec.tapeProgress = 0.01; // Start with minimal progress
         }
+        
+        try {
+          // Request frames from the recording system (same as GIF)
+          rec.requestFrames(async (frameData) => {
+            if (frameData.frames && frameData.frames.length > 0) {
+              console.log("Creating MP4 from", frameData.frames.length, "frames");
+              
+              // Process all frames - no frame limit restrictions (same as GIF)
+              let framesToProcess = frameData.frames;
+              
+              // Prepare all frames for single MP4 creation request (same format as GIF)
+              const processedFrames = framesToProcess.map((frame, index) => {
+                const [timestamp, imageData] = frame;
+                
+                // Use actual recorded frame duration for perfect timing
+                let duration = frame.duration || 16.67; // Use captured duration, fallback to 60fps
+                
+                // Only calculate from timestamps if no duration was recorded
+                if (!frame.duration && index < framesToProcess.length - 1) {
+                  const nextTimestamp = framesToProcess[index + 1][0];
+                  duration = Math.max(8.33, Math.min(50, nextTimestamp - timestamp)); // Clamp between 120fps and 20fps
+                }
+                
+                return {
+                  timestamp: timestamp,
+                  originalTimestamp: timestamp,
+                  duration: duration,
+                  width: imageData.width,
+                  height: imageData.height,
+                  // Use the original Uint8ClampedArray (same as GIF)
+                  data: imageData.data
+                };
+              });
+              
+              // Send single request to main thread for MP4 creation (same pattern as GIF)
+              send({
+                type: "create-animated-mp4",
+                content: {
+                  frames: processedFrames
+                }
+              });
+              
+              console.log("MP4 creation request sent");
+              // DON'T reset flags here - wait for completion message (same as GIF)
+            } else {
+              console.warn("No frames available for MP4 export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              btn.disabled = false;
+            }
+          });
+        } catch (error) {
+          console.error("Error exporting MP4:", error);
+          // Reset flags on error
+          isPrinting = false;
+          btn.disabled = false;
+        }
+        
         synth({
           type: "sine",
           tone: 800,
@@ -387,9 +437,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
     });
 
-    // Hidden export options - keeping action handlers for future use
-    /*
-    // Export frames as ZIP
+    // Export ZIP of high-resolution frames
     framesBtn?.act(e, {
       down: () => {
         synth({
@@ -413,28 +461,39 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         }
         
         try {
-          // Request frames from the recording system
+          // Request frames from the recording system for ZIP export
           rec.requestFrames(async (frameData) => {
             if (frameData.frames && frameData.frames.length > 0) {
-              // Create frame content for zip
+              // Convert frames to format expected by create-animated-frames-zip
               const frameRecord = [];
               
               frameData.frames.forEach((frame, index) => {
                 const [timestamp, imageData] = frame;
-                // Create a record entry for each frame
+                
+                // Calculate duration until next frame (or default to 16.67ms for 60fps if last frame)
+                let duration = 16.67; // Default ~60fps
+                if (index < frameData.frames.length - 1) {
+                  duration = frameData.frames[index + 1][0] - timestamp;
+                }
+                
                 frameRecord.push({
                   timestamp: timestamp,
-                  label: `frame-${index.toString().padStart(6, '0')}`,
-                  painting: imageData
+                  duration: Math.max(10, duration), // Minimum 10ms duration
+                  width: imageData.width,
+                  height: imageData.height,
+                  data: imageData.data // Keep as Uint8ClampedArray
                 });
               });
               
-              // Use the zip function to create a download
-              const zipped = await zip({ destination: "download", painting: { record: frameRecord } }, (p) => {
-                // Progress callback if needed
+              // Send to main thread for ZIP creation with 6x scaling
+              send({
+                type: "create-animated-frames-zip",
+                content: {
+                  frames: frameRecord
+                }
               });
               
-              // Reset flags on successful completion
+              // Reset flags - download happens asynchronously via main thread
               isPrinting = false;
               currentExportType = "";
             } else {
@@ -447,7 +506,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             framesBtn.disabled = false;
           });
         } catch (error) {
-          console.error("Error exporting frames:", error);
+          console.error("Error exporting ZIP frames:", error);
           isExportingFrames = false;
           isPrinting = false;
           currentExportType = "";
@@ -465,6 +524,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
     });
 
+    // Hidden export options - keeping action handlers for future use
+    /*
     // Export WebP animation
     webpBtn?.act(e, {
       down: () => {
@@ -864,7 +925,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
     });
     */
 
-    if (!btn?.down && !btn?.disabled && !gifBtn?.down && !gifBtn?.disabled) {
+    if (!btn?.down && !btn?.disabled && !gifBtn?.down && !gifBtn?.disabled && !isPrinting) {
       if (e.is("touch:1") && !rec.playing) rec.play();
       if (e.is("touch:1") && rec.playing) rec.pause();
     }

@@ -123,10 +123,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let lastFrameTime = 0;
   let frameTimes = [];
   const FPS_SAMPLE_SIZE = 30; // Number of frames to sample for FPS detection
-  
-  // Time-based recording for precise 30fps capture (independent of display refresh rate)
-  let lastRecordedFrameTime = 0;
-  const TARGET_FRAME_INTERVAL_MS = 1000 / 30; // 33.33ms for 30fps (time-based approach)
 
   // Duration Progress Bar (for timed pieces from query parameter)
   let durationProgressStartTime = undefined;
@@ -3369,6 +3365,158 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎬 Create ZIP of high-resolution frames
+    if (type === "create-animated-frames-zip") {
+      console.log(
+        "📦 Creating ZIP of high-resolution frames from",
+        content.frames.length,
+        "frames",
+      );
+
+      // Send initial progress to show the progress bar immediately
+      send({
+        type: "recorder:transcode-progress",
+        content: 0.01, // 1% to start
+      });
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for ZIP creation");
+          return;
+        }
+
+        // Load JSZip if not already loaded
+        if (!window.JSZip) await loadJSZip();
+        const zip = new window.JSZip();
+
+        // Use 6x scaling for ultra-high resolution frames
+        const scale = 6;
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+
+        console.log(
+          `📏 Using ${scale}x scaling: ${originalWidth}x${originalHeight} -> ${scaledWidth}x${scaledHeight}`,
+        );
+
+        // Create a canvas for frame processing
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = scaledWidth;
+        canvas.height = scaledHeight;
+
+        // Process each frame and add to ZIP
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+
+          // Update progress
+          const progress = (i / content.frames.length) * 0.9 + 0.1; // 10-100%
+          send({
+            type: "recorder:transcode-progress",
+            content: progress,
+          });
+
+          if (i % 10 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🖼️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(progress * 100)}%)`,
+            );
+          }
+
+          // Create ImageData from frame data
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+
+          // Clear canvas and draw scaled frame
+          ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+          
+          // Create a temporary canvas for the original frame
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCanvas.width = frame.width;
+          tempCanvas.height = frame.height;
+          
+          // Put original image data on temp canvas
+          tempCtx.putImageData(imageData, 0, 0);
+          
+          // Add stamp to the original frame with correct frame metadata for timestamp
+          await addAestheticComputerStamp(
+            tempCtx,
+            frame.width,
+            frame.height,
+            0, // Progress is not used for individual frame timestamps
+            frame.data,
+            frame, // Frame metadata with timestamp
+            i, // Frame index for timestamp calculation
+            content.frames.length, // Total frames for timestamp calculation
+          );
+          
+          // Scale up the stamped frame using nearest neighbor
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(tempCanvas, 0, 0, scaledWidth, scaledHeight);
+
+          // Convert to PNG blob
+          const pngBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/png");
+          });
+
+          // Add to ZIP with zero-padded filename
+          const frameNumber = String(i).padStart(4, "0");
+          const filename = `frame_${frameNumber}.png`;
+          zip.file(filename, pngBlob);
+        }
+
+        // Add timing information as JSON
+        const timingInfo = content.frames.map((frame, i) => ({
+          frame: i,
+          filename: `frame_${String(i).padStart(4, "0")}.png`,
+          duration: frame.duration,
+          timestamp: frame.timestamp,
+        }));
+        
+        zip.file("timing.json", JSON.stringify(timingInfo, null, 2));
+        
+        // Add metadata
+        const metadata = {
+          originalSize: { width: originalWidth, height: originalHeight },
+          scaledSize: { width: scaledWidth, height: scaledHeight },
+          scale: scale,
+          frameCount: content.frames.length,
+          totalDuration: content.frames.reduce((sum, f) => sum + (f.duration || 100), 0),
+          exportedAt: new Date().toISOString(),
+        };
+        
+        zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+        console.log("🗜️ Generating ZIP file...");
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        
+        const filename = generateTapeFilename("zip", "-frames");
+        
+        console.log(
+          `💾 ZIP file generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: zipBlob });
+
+        console.log("📦 High-resolution frames ZIP exported successfully!");
+        
+        // Send completion
+        send({
+          type: "recorder:transcode-progress",
+          content: 1.0,
+        });
+        
+      } catch (error) {
+        console.error("Error creating frames ZIP:", error);
+      }
+      return;
+    }
+
     // 🎬 Create animated GIF
     if (type === "create-animated-gif") {
       console.log(
@@ -3456,6 +3604,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
         );
 
+        // 🎯 Downsample frames to 30fps for GIF (drop frames if captured at higher rate)
+        let processedFrames = content.frames;
+        if (content.frames.length > 0) {
+          const totalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+          const actualFrameRate = Math.round((content.frames.length / totalDuration) * 1000);
+          const targetGifFPS = 30;
+          
+          if (actualFrameRate > targetGifFPS) {
+            // Calculate downsampling ratio
+            const downsampleRatio = actualFrameRate / targetGifFPS;
+            processedFrames = [];
+            
+            console.log(`🎬 Downsampling GIF from ${actualFrameRate}fps to ${targetGifFPS}fps (ratio: ${downsampleRatio.toFixed(2)})`);
+            
+            // Select frames at regular intervals to achieve 30fps
+            for (let i = 0; i < content.frames.length; i++) {
+              const targetIndex = Math.round(i / downsampleRatio);
+              if (targetIndex < content.frames.length && (processedFrames.length === 0 || processedFrames[processedFrames.length - 1] !== content.frames[targetIndex])) {
+                processedFrames.push(content.frames[targetIndex]);
+              }
+            }
+            
+            console.log(`🎬 GIF frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
+          } else {
+            console.log(`🎬 No downsampling needed for GIF: ${actualFrameRate}fps <= ${targetGifFPS}fps`);
+          }
+        }
+
         // Helper function to upscale pixels with nearest neighbor
         function upscalePixels(
           imageData,
@@ -3529,8 +3705,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
           
           // Process each frame
-          for (let index = 0; index < content.frames.length; index++) {
-            const frame = content.frames[index];
+          for (let index = 0; index < processedFrames.length; index++) {
+            const frame = processedFrames[index];
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
 
@@ -3554,7 +3730,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.putImageData(imageData, 0, 0);
 
             // Add sideways AC stamp like in video recordings
-            const progress = (index + 1) / content.frames.length;
+            const progress = (index + 1) / processedFrames.length;
             await addAestheticComputerStamp(
               ctx,
               originalWidth * optimalScale,
@@ -3574,12 +3750,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
 
             // Send detailed progress for frame processing (first 40% of total progress)
-            const frameProgress = (index + 1) / content.frames.length;
+            const frameProgress = (index + 1) / processedFrames.length;
             const totalProgress = frameProgress * 0.4; // Frames take up 40% of total progress
             
-            if ((index + 1) % 10 === 0 || index === content.frames.length - 1) {
+            if ((index + 1) % 10 === 0 || index === processedFrames.length - 1) {
               console.log(
-                `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(frameProgress * 100)}%)`,
+                `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(frameProgress * 100)}%)`,
               );
               
               send({
@@ -3587,7 +3763,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 content: { 
                   progress: totalProgress, 
                   type: "gif",
-                  message: `Processing frame ${index + 1}/${content.frames.length}`
+                  message: `Processing frame ${index + 1}/${processedFrames.length}`
                 }
               });
             }
@@ -3648,13 +3824,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
+          // Calculate proper timing for gifenc (same logic as gif.js)
+          let gifencDelay;
+          if (window.currentRecordingOptions?.intendedDuration && finalFrames.length > 0) {
+            // Distribute intended duration evenly
+            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
+            gifencDelay = Math.round(totalIntendedMs / finalFrames.length);
+            gifencDelay = Math.max(gifencDelay, 20); // Minimum 20ms for browser compatibility
+          } else if (processedFrames.length > 1) {
+            // Calculate average frame timing from original recording and make it faster
+            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
+            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
+            // Speed up GIF by 25% (multiply delay by 0.75)
+            const speedMultiplier = 0.75;
+            gifencDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
+            console.log(`🎞️ Using sped-up timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
+          } else {
+            // Fallback for single frame or no timing data - also faster
+            gifencDelay = 67; // 15fps default (faster than 10fps)
+          }
+          
+          console.log(`🎞️ Using ${gifencDelay}ms delay for gifenc (${(1000/gifencDelay).toFixed(1)}fps)`);
+          
           // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
             const frame = finalFrames[i];
             const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
             
-            // Always use 40fps timing for gifenc - every frame gets exactly 25ms (30fps recording → 40fps playback = 1.33x speed)
-            const delayInMilliseconds = 33; // Fixed 25ms = 40fps (1000ms ÷ 40 = 25ms)
+            // Use calculated delay based on original timing
+            const delayInMilliseconds = gifencDelay;
             
             gif.writeFrame(index, frame.width, frame.height, {
               palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
@@ -3764,24 +3962,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Process each frame with consistent timing - every frame gets the same duration
           // Calculate consistent delay for all frames
           let consistentDelay;
-          if (window.currentRecordingOptions?.intendedDuration && content.frames.length > 0) {
+          if (window.currentRecordingOptions?.intendedDuration && processedFrames.length > 0) {
             // Distribute intended duration evenly - every frame gets same timing
             const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
-            consistentDelay = Math.round(totalIntendedMs / content.frames.length);
+            consistentDelay = Math.round(totalIntendedMs / processedFrames.length);
             consistentDelay = Math.max(consistentDelay, 20); // Minimum 20ms for browser compatibility
+          } else if (processedFrames.length > 1) {
+            // Calculate average frame timing from original recording and make it faster
+            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
+            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
+            // Speed up GIF by 25% (multiply delay by 0.75)
+            const speedMultiplier = 0.75;
+            consistentDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
+            console.log(`🎞️ Using sped-up timing: ${consistentDelay}ms delay (${(1000/consistentDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
           } else {
-            // Use faster GIF playback speed - 40fps instead of real-time recording speed
-            consistentDelay = 25; // 40fps (1000ms ÷ 40 = 25ms)
-            console.log(`🎞️ Using faster GIF playback: ${consistentDelay}ms delay (40fps) for ${content.frames.length} frames`);
+            // Fallback for single frame or no timing data - also faster
+            consistentDelay = 67; // 15fps default (faster than 10fps)
+            console.log(`🎞️ Using fallback timing: ${consistentDelay}ms delay (10fps) for ${processedFrames.length} frames`);
           }
           
-          console.log(`🎞️ Using consistent ${consistentDelay}ms delay for all ${content.frames.length} frames`);
+          console.log(`🎞️ Using consistent ${consistentDelay}ms delay for all ${processedFrames.length} frames`);
           
           // Store frame count for timestamp mapping
-          window.lastGIFFrameCount = content.frames.length;
+          window.lastGIFFrameCount = processedFrames.length;
 
-          for (let index = 0; index < content.frames.length; index++) {
-            const frame = content.frames[index];
+          for (let index = 0; index < processedFrames.length; index++) {
+            const frame = processedFrames[index];
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
 
@@ -3805,7 +4011,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.putImageData(imageData, 0, 0);
 
             // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
-            const progress = (index + 1) / content.frames.length;
+            const progress = (index + 1) / processedFrames.length;
             await addAestheticComputerStamp(
               ctx,
               originalWidth * optimalScale,
@@ -3818,9 +4024,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Every frame gets the same consistent delay - no variation
             gif.addFrame(canvas, { copy: true, delay: consistentDelay });
 
-            if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
+            if ((index + 1) % 50 === 0 || index === processedFrames.length - 1) {
               console.log(
-                `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(((index + 1) / content.frames.length) * 100)}%) - consistent delay: ${consistentDelay}ms`,
+                `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(((index + 1) / processedFrames.length) * 100)}%) - consistent delay: ${consistentDelay}ms`,
               );
             }
           }
@@ -3908,6 +4114,308 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         } catch (fallbackError) {
           console.error("Error in fallback GIF creation:", fallbackError);
         }
+      }
+      return;
+    }
+
+    // 🎬 Create animated MP4 from frame data (same pipeline as GIF)
+    if (type === "create-animated-mp4") {
+      console.log(
+        "🎞️ Creating animated MP4 from",
+        content.frames.length,
+        "frames",
+      );
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for MP4 creation");
+          return;
+        }
+
+        console.log("🔄 Creating MP4 with MediaRecorder API");
+
+        // Send initial progress to show the progress bar immediately
+        send({
+          type: "recorder:transcode-progress",
+          content: 0.01, // 1% to start
+        });
+
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "preparing", 
+            message: "Preparing MP4 export" 
+          }
+        });
+
+        // Use 3x scaling for crisp MP4 (same as GIF for consistent performance)
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const optimalScale = 3; // 3x scale for stamps and crisp output
+
+        console.log(
+          `📏 Using 3x scaling for crisp MP4: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // Create canvas for frame processing (same as GIF)
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = originalWidth * optimalScale;
+        canvas.height = originalHeight * optimalScale;
+        ctx.imageSmoothingEnabled = false;
+
+        // Use fixed 60fps for MP4 files to avoid timing issues
+        const targetFrameRate = 60;
+        const targetFrameInterval = 1000 / targetFrameRate; // 16.67ms per frame
+        
+        // Calculate original recording timing for proper playback speed
+        let totalOriginalDuration = 0;
+        if (content.frames.length > 1) {
+          totalOriginalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+        } else if (content.frames.length === 1) {
+          totalOriginalDuration = 100; // Default 100ms for single frame
+        }
+        
+        // Calculate frame intervals based on original timing
+        const frameIntervals = [];
+        for (let i = 0; i < content.frames.length; i++) {
+          if (i < content.frames.length - 1) {
+            // Use actual time difference between frames
+            const interval = content.frames[i + 1].timestamp - content.frames[i].timestamp;
+            frameIntervals.push(Math.max(interval, 16.67)); // Minimum 16.67ms for 60fps max
+          } else {
+            // Last frame: use average interval or default
+            const avgInterval = frameIntervals.length > 0 
+              ? frameIntervals.reduce((a, b) => a + b, 0) / frameIntervals.length 
+              : 33.33; // Default to 30fps
+            frameIntervals.push(avgInterval);
+          }
+        }
+        
+        console.log(
+          `🎬 Using original timing for MP4 export: ${totalOriginalDuration.toFixed(1)}ms total, avg ${(totalOriginalDuration / content.frames.length).toFixed(1)}ms per frame`
+        );
+
+        // Pre-render all scaled frames with stamps before encoding
+        console.log("🎨 Pre-rendering all frames with stamps...");
+        
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "rendering", 
+            message: "Pre-rendering frames" 
+          }
+        });
+
+        const preRenderedFrames = [];
+        
+        // Create temporary canvas for pre-rendering
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = originalWidth * optimalScale;
+        tempCanvas.height = originalHeight * optimalScale;
+        tempCtx.imageSmoothingEnabled = false;
+        
+        // Pre-render all frames
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+          const progress = (i + 1) / content.frames.length;
+          
+          // Update progress for rendering phase
+          if (i % 10 === 0 || i === content.frames.length - 1) {
+            send({
+              type: "recorder:transcode-progress",
+              content: 0.01 + (i / content.frames.length) * 0.4, // 1% to 41%
+            });
+          }
+          
+          // Step 1: Create 3x scaled canvas with stamps (same as GIF)
+          const gifScaleCanvas = document.createElement("canvas");
+          const gifScaleCtx = gifScaleCanvas.getContext("2d");
+          const gifScale = 3; // Same scaling as GIF for proper stamp sizing
+          gifScaleCanvas.width = frame.width * gifScale;
+          gifScaleCanvas.height = frame.height * gifScale;
+          gifScaleCtx.imageSmoothingEnabled = false;
+          
+          // Scale up frame data to 3x first
+          const frameCanvas = document.createElement("canvas");
+          const frameCtx = frameCanvas.getContext("2d");
+          frameCanvas.width = frame.width;
+          frameCanvas.height = frame.height;
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+          frameCtx.putImageData(imageData, 0, 0);
+          
+          // Draw scaled to 3x
+          gifScaleCtx.drawImage(frameCanvas, 0, 0, gifScaleCanvas.width, gifScaleCanvas.height);
+
+          // Add AC stamp at 3x scale (same sizing as GIF) - await for proper rendering
+          await addAestheticComputerStamp(
+            gifScaleCtx,
+            gifScaleCanvas.width,
+            gifScaleCanvas.height,
+            progress,
+            frame.data,
+            frame,
+            i,
+            content.frames.length
+          );
+          
+          // Step 2: Final scaling is already at 3x (same as GIF)
+          tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.drawImage(gifScaleCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Capture the pre-rendered frame as ImageData
+          const preRenderedImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          preRenderedFrames.push(preRenderedImageData);
+        }
+        
+        console.log(`✅ Pre-rendered ${preRenderedFrames.length} frames`);
+
+        // Send encoding status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Encoding MP4" 
+          }
+        });
+
+        // Create MediaRecorder for MP4 export with H.264 codec
+        const canvasStream = canvas.captureStream(targetFrameRate);
+        
+        let mimeType;
+        // Try H.264 MP4 first (most compatible)
+        if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1.42E01E")) {
+          mimeType = "video/mp4; codecs=avc1.42E01E"; // H.264 Baseline Profile
+          console.log("✅ Using H.264 MP4 (Baseline Profile)");
+        } else if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1.4D401E")) {
+          mimeType = "video/mp4; codecs=avc1.4D401E"; // H.264 Main Profile
+          console.log("✅ Using H.264 MP4 (Main Profile)");
+        } else if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1")) {
+          mimeType = "video/mp4; codecs=avc1"; // H.264 generic
+          console.log("✅ Using H.264 MP4 (generic)");
+        } else if (MediaRecorder.isTypeSupported("video/mp4")) {
+          mimeType = "video/mp4"; // Fallback to generic MP4
+          console.log("⚠️ Using generic MP4 (codec unknown)");
+        } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8")) {
+          mimeType = "video/webm; codecs=vp8"; // VP8 fallback (avoid VP9)
+          console.log("⚠️ Falling back to WebM VP8");
+        } else if (MediaRecorder.isTypeSupported("video/webm")) {
+          mimeType = "video/webm"; // Generic WebM fallback
+          console.log("⚠️ Falling back to generic WebM");
+        } else {
+          console.error("🔴 No supported video mimetypes found");
+          return;
+        }
+
+        const videoRecorder = new MediaRecorder(canvasStream, {
+          mimeType,
+          videoBitsPerSecond: 100000000, // 100 Mbps for absolute maximum quality
+        });
+
+        const chunks = [];
+        videoRecorder.ondataavailable = function (e) {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        // Send encoding status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Encoding MP4" 
+          }
+        });
+
+        // Start recording
+        videoRecorder.start(100);
+
+        // Fast playback of pre-rendered frames (no real-time rendering)
+        let frameIndex = 0;
+        
+        function renderNextFrame() {
+          if (frameIndex >= preRenderedFrames.length) {
+            // All frames processed, stop recording
+            videoRecorder.stop();
+            return;
+          }
+
+          // Simply draw the pre-rendered frame to canvas - no processing needed!
+          ctx.putImageData(preRenderedFrames[frameIndex], 0, 0);
+          
+          // Send progress update
+          if (frameIndex % 30 === 0 || frameIndex === preRenderedFrames.length - 1) {
+            const progress = (frameIndex + 1) / preRenderedFrames.length;
+            console.log(`🎬 📹 Encoding frame ${frameIndex + 1}/${preRenderedFrames.length} (${(progress * 100).toFixed(1)}%)`);
+            
+            send({
+              type: "recorder:transcode-progress",
+              content: 0.41 + (progress * 0.54), // 41% to 95%
+            });
+          }
+
+          frameIndex++;
+          
+          // Use original frame timing for accurate playback speed
+          const nextFrameDelay = frameIntervals[frameIndex - 1] || targetFrameInterval;
+          
+          setTimeout(renderNextFrame, nextFrameDelay);
+        }
+
+        // Handle recording completion
+        videoRecorder.onstop = async function () {
+          console.log("🎬 📹 MP4 recording completed");
+          
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "video", 
+              phase: "finalizing", 
+              message: "Finalizing MP4" 
+            }
+          });
+
+          const blob = new Blob(chunks, { type: mimeType });
+          
+          console.log(
+            `💾 MP4 generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
+          );
+
+          const filename = generateTapeFilename("mp4");
+          receivedDownload({ filename, data: blob });
+
+          console.log("🎬 Animated MP4 exported successfully!");
+
+          // Send completion message to video piece
+          send({
+            type: "recorder:export-complete",
+            content: { type: "video", filename }
+          });
+        };
+
+        // Start frame processing
+        renderNextFrame();
+
+      } catch (error) {
+        console.error("Error creating animated MP4:", error);
+        
+        // Send error status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "error", 
+            message: "MP4 export failed" 
+          }
+        });
       }
       return;
     }
@@ -5608,6 +6116,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           mediaRecorderStartTime = performance.now();
           // Initialize recording start timestamp for frame recording
           window.recordingStartTimestamp = Date.now();
+          
+          console.log(`🎬 🔴 Recording STARTED at ${mediaRecorderStartTime}, frame capture enabled, recordedFrames: ${recordedFrames.length}`);
+          
           send({
             type: "recorder:rolling:started",
             content: {
@@ -5761,7 +6272,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       delete sfx["tape:audio"]; // Clear any cached audio data
       mediaRecorderDuration = 0; // Reset duration for new recording
       mediaRecorderFrameCount = 0; // Reset frame capture counter for optimization
-      lastRecordedFrameTime = 0; // Reset time-based recording timer
 
       mediaRecorder.start(100);
       //}
@@ -5772,6 +6282,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!mediaRecorder) return;
       if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
       mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      
+      console.log(`🎬 ✂️ Recording CUT: captured ${recordedFrames.length} frames over ${mediaRecorderDuration}ms`);
+      
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
 
@@ -5810,6 +6323,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ) {
         const cachedTape = await Store.get("tape");
         
+        console.log(`🎬 📼 Checking cached tape:`, cachedTape ? `found with ${cachedTape.frames?.length || 0} frames, ${cachedTape.blob?.size || 0} bytes audio` : 'not found');
+        
         if (cachedTape && cachedTape.blob) {
           sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
 
@@ -5817,6 +6332,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (cachedTape.frames) {
             recordedFrames.length = 0;
             recordedFrames.push(...cachedTape.frames);
+            console.log(`🎬 📼 Restored ${recordedFrames.length} frames from cache`);
           }
 
           // Set duration if available
@@ -5855,17 +6371,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           doneCb,
           stream,
           render,
+          overrideDurationMs = null, // Optional duration override for MP4 export
         ) => {
           if (recordedFrames.length === 0) {
             console.error("🎬 ❌ No recorded frames to play back!");
             return;
           }
           
+          // Use overrideDurationMs if provided (for MP4 export), otherwise use mediaRecorderDuration
+          const playbackDurationMs = overrideDurationMs || mediaRecorderDuration;
+          console.log(`🎬 Tape playback using duration: ${playbackDurationMs}ms (${overrideDurationMs ? 'override' : 'default'})`);
+          
           let f = 0;
           let playbackStart;
           let playbackProgress = 0;
           let continuePlaying = true;
           let stopped = false;
+          
+          // Track total recording time for video export duration control
+          let totalRecordingStart = null;
 
           let tapeSoundId;
 
@@ -5942,7 +6466,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
 
-            render?.(frameCan, playbackProgress / mediaRecorderDuration, f); // Render a video as needed, using this canvas and current frame index.
+            render?.(frameCan, playbackProgress / playbackDurationMs, f); // Render a video as needed, using this canvas and current frame index.
 
             playbackProgress = performance.now() - playbackStart;
 
@@ -5967,6 +6491,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Advance frames while playback has progressed past the current frame's time
             if (f >= recordedFrames.length - 1) {
+              // For video export, don't loop - complete when all frames are processed
+              if (doneCb && render) {
+                send({ type: "recorder:present-progress", content: 1 });
+                return doneCb(); // Completed video export.
+              }
+              
+              // For normal playback, loop
               f = 0;
               // Reset playback timing for the loop
               playbackStart = performance.now();
@@ -5988,14 +6519,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             }
 
-            // Only call doneCb for video export rendering, not for regular tape playback
-            if (f === 0 && doneCb && render) {
-              send({ type: "recorder:present-progress", content: 1 });
-              return doneCb(); // Completed a cycle for video export.
-            }
-
             if (transmitProgress) {
-              const currentProgress = playbackProgress / mediaRecorderDuration;
+              // Use frame-based progress for video export, time-based for normal playback
+              const currentProgress = render ? (f / (recordedFrames.length - 1)) : (playbackProgress / playbackDurationMs);
               // Store global progress for overlay breathing pattern
               window.currentTapeProgress = currentProgress;
               
@@ -6124,7 +6650,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       sctx.imageSmoothingEnabled = false; // Must be set after resize.
 
-      const canvasStream = sctx.canvas.captureStream();
+      // Draw initial black frame to ensure canvas stream has content
+      sctx.fillStyle = 'black';
+      sctx.fillRect(0, 0, sctx.canvas.width, sctx.canvas.height);
+
+      const canvasStream = sctx.canvas.captureStream(30); // Specify framerate
       const tapeRenderStreamDest = audioContext.createMediaStreamDestination();
 
       tapeRenderStreamDest.stream.getAudioTracks().forEach((track) => {
@@ -6142,14 +6672,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const chunks = [];
 
       videoRecorder.ondataavailable = function (e) {
+        console.log("📹 Video data available:", e.data.size, "bytes");
         if (e.data && e.data.size > 0) chunks.push(e.data);
       };
 
       function startRendering() {
         stopTapePlayback?.();
         
-        // Initialize frame counter for detailed progress reporting
-        let framesRendered = 0;
+        console.log(`🎬 📹 Starting video export with ${recordedFrames.length} recorded frames`);
         
         // Send encoding start status
         send({
@@ -6165,9 +6695,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         startTapePlayback(
           true,
           () => {
-            setTimeout(function () {
-              videoRecorder.stop();
-            }, 500); // Seems like this is necessary or recordings get cut-off.
+            console.log(`🎬 📹 Video export completed, stopping recorder`);
+            // Stop video recorder immediately when all frames are processed
+            videoRecorder.stop();
           },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
@@ -6177,9 +6707,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               return options[Math.floor(Math.random() * options.length)];
             }
             
-            framesRendered++; // Increment frame counter
+            // Use the actual frame index from playback instead of separate counter
+            const currentFrameIndex = frameIndex !== undefined ? frameIndex : f;
             
-            const progressBarHeight = 20;
+            // Log progress every 60 frames to reduce console spam
+            if (currentFrameIndex % 60 === 0 || currentFrameIndex <= 5) {
+              console.log(`🎬 📹 Rendering frame ${currentFrameIndex + 1}/${recordedFrames.length} (${(progress * 100).toFixed(1)}%)`);
+            }
+            
+            const progressBarHeight = 3;
             const frameWidth = sctx.canvas.width;
             const totalFrameHeight = sctx.canvas.height;
             const contentFrameHeight = totalFrameHeight - progressBarHeight; // Height for content area
@@ -6681,10 +7217,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             if (progress < 0.3) {
               phase = "preparing";
-              message = `Preparing frame ${framesRendered + 1}`;
+              message = `Preparing frame ${currentFrameIndex + 1}`;
             } else if (progress < 0.7) {
               phase = "encoding";
-              message = `Encoding frame ${framesRendered + 1}`;
+              message = `Encoding frame ${currentFrameIndex + 1}`;
             } else if (progress < 0.95) {
               phase = "transcoding";
               message = "Transcoding MP4";
@@ -6699,7 +7235,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
             
             // Send detailed status every few frames to avoid spam
-            if (framesRendered % 5 === 0 || progress >= 0.95) {
+            if (currentFrameIndex % 5 === 0 || progress >= 0.95) {
               send({
                 type: "recorder:export-status",
                 content: { 
@@ -6719,7 +7255,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Video rendered, now download...
       videoRecorder.onstop = async function (e) {
+        console.log("📹 Video recording stopped. Chunks collected:", chunks.length);
+        console.log("📹 Total video data size:", chunks.reduce((total, chunk) => total + chunk.size, 0), "bytes");
+        
         const blob = new Blob(chunks, { type: videoRecorder.mimeType });
+        console.log("📹 Final video blob size:", blob.size, "bytes, type:", blob.type);
+        
         const filename = generateTapeFilename("mp4");
 
         // Store video with frame data for complete persistence
@@ -7852,32 +8393,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
         if (isRecording) {
-          // ⚡ Time-based approach for precise 30fps recording regardless of display rate
-          const targetRecordingFPS = 30;
-          const actualDisplayFPS = detectedDisplayFPS; // Use dynamically detected FPS
-          
+          // 🎯 Capture EVERY frame - no time-based throttling for maximum quality
+          // GIF export will downsample to 30fps, MP4 will use all frames
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
           
-          // Always use time-based recording for consistent 30fps regardless of display rate
-          const currentRecordTime = performance.now();
-          const timeSinceLastRecord = currentRecordTime - lastRecordedFrameTime;
-          const shouldRecordFrame = timeSinceLastRecord >= TARGET_FRAME_INTERVAL_MS || lastRecordedFrameTime === 0;
-          
-          if (shouldRecordFrame) {
-            // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
-            const relativeTimestamp = performance.now() - mediaRecorderStartTime;
-            const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
-            const frameDataWithHUD = ctx.getImageData(
-              0,
-              0,
-              ctx.canvas.width,
-              ctx.canvas.height,
-            );
-            recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
-            
-            // Update last recorded frame time for time-based approach
-            lastRecordedFrameTime = currentRecordTime;
-          }
+          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
+          const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+          const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
+          const frameDataWithHUD = ctx.getImageData(
+            0,
+            0,
+            ctx.canvas.width,
+            ctx.canvas.height,
+          );
+          recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
         }
 
         //  Return clean screenshot data (without overlays)
@@ -8328,8 +8857,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // TODO: ⚠️ `webm` could eventually mean audio here...
       // 🎥 Video
       // Use stored data from the global Media Recorder.
-      const tapeData = data || (await Store.get("tape"));
-      const tape = tapeData?.blob;
+      let tape;
+      let tapeData;
+      
+      if (data instanceof Blob) {
+        // If data is already a blob (from video export), use it directly
+        tape = data;
+        tapeData = null;
+      } else {
+        // Otherwise get from storage
+        tapeData = data || (await Store.get("tape"));
+        tape = tapeData?.blob;
+      }
 
       // Restore frame data if available for WebP/Frame exports
       if (tapeData?.frames && recordedFrames.length === 0) {
