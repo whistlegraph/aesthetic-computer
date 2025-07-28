@@ -51,6 +51,7 @@
  * - Waveform types: {sine} {sawtooth} {square} {triangle} {noise-white} {sample} {custom} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Hz shift: {100hz} {-50hz} {50hz&} (frequency shift in Hz, & for cumulative) - persists until changed
+ * - Speech synthesis: "text" (quoted text for speech synthesis with random voice selection)
  * - Rests: _ (explicit rest) or standalone - (context dependent)
  * - Separators: spaces (ignored), | (measure bars, ignored)
  * - Measure separators: | (ignored, visual only)
@@ -64,6 +65,11 @@
  *   ^cdefg       -> All notes are struck (finite duration with natural decay)
  *   c^defg       -> c is held, d,e,f,g are struck  
  *   ^cd^efg      -> c,d are struck, e,f,g are held again
+ * 
+ * Speech synthesis examples:
+ *   cde"hi"gab   -> Plays c, d, e, speaks "hi", then plays g, a, b
+ *   "hello"defg  -> Speaks "hello", then plays d, e, f, g
+ *   c"one"d"two" -> Plays c, speaks "one", plays d, speaks "two"
  * 
  * @param {string} melodyString - The melody string to parse
  * @param {number} [startingOctave=4] - The default octave to use if none specified
@@ -107,6 +113,41 @@ export function parseMelody(melodyString, startingOctave = 4) {
   
   while (i < melodyString.length) {
     let char = melodyString[i];
+    
+    // Handle quoted text for speech synthesis
+    if (char === '"') {
+      // Find the closing quote
+      let quotedText = '';
+      let quoteStartIndex = i;
+      i++; // Move past opening quote
+      
+      while (i < melodyString.length && melodyString[i] !== '"') {
+        quotedText += melodyString[i];
+        i++;
+      }
+      
+      if (i < melodyString.length && melodyString[i] === '"') {
+        // Found closing quote, create a speech note
+        const speechNote = {
+          note: "speech",
+          text: quotedText,
+          octave: currentOctave,
+          duration: 2, // Default duration for speech
+          waveType: currentWaveType,
+          volume: currentVolume,
+          struck: isStruck,
+          toneShift: currentToneShift,
+          isSpeech: true
+        };
+        
+        notes.push(speechNote);
+        i++; // Move past closing quote
+        continue;
+      } else {
+        // No closing quote found, treat as regular character
+        i = quoteStartIndex; // Reset position
+      }
+    }
     
     // Handle waveform type, volume, and Hz shift syntax {sine}, {sawtooth}, {square:0.5}, {0.3}, {100hz}, {-50hz}
     if (char === '{') {
