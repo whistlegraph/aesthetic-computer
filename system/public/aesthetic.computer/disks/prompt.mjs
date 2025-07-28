@@ -376,6 +376,14 @@ async function halt($, text) {
     jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
+  } else if (slug.startsWith("kidlisp:") && slug.length > 8) {
+    // Handle kidlisp:code format - extract code and redirect to $code format
+    const code = slug.slice(8); // Remove "kidlisp:" prefix to get the actual nanoid
+    
+    // Update URL to use $code format immediately
+    const newUrl = `$${code}`;
+    jump("/" + newUrl);
+    return true;
   } else if (slug.startsWith("$")) {
     // Handle cached kidlisp lookup: $prefixed codes like $OrqM
     const code = slug.slice(1); // Remove the $ prefix to get the actual nanoid

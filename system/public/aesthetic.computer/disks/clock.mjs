@@ -69,6 +69,14 @@
     ^cd^efg - cd are struck, efg are held
     The ^ character is sticky and persists until changed, similar to + and - octave
 
+  🎵 NEW: Speech Synthesis Support!
+  Use quoted text for speech synthesis with random voice selection:
+    cde"hi"gab - Plays c, d, e, speaks "hi", then plays g, a, b
+    "hello world"defg - Speaks "hello world", then plays d, e, f, g
+    c"one"d"two"e - Plays c, speaks "one", plays d, speaks "two", plays e
+    {square} c"beep"d - Square wave notes with speech in between
+    Uses random male/female voices with prosody variation like textfence
+
   Examples:
     clock cdefg               - Play in octave 4 with 1s timing
     clock 5cdefg              - Play in octave 5 (determined by first note)
@@ -223,6 +231,7 @@ const noteColorMap = {
 // Helper function to get note color
 function getNoteColor(noteName) {
   if (!noteName || noteName === "rest") return [102, 102, 102]; // Gray for rests
+  if (noteName === "speech") return [255, 200, 100]; // Orange for speech notes
   const cleanNote = noteName.toLowerCase().replace(/[0-9]/g, ""); // Remove octave numbers
   return noteColorMap[cleanNote] || [255, 255, 255]; // Default to white if not found
 }
@@ -257,6 +266,104 @@ function getDarkerColor(rgbArray) {
   const darkerB = Math.max(0, Math.round(grayB * 0.6));
 
   return [darkerR, darkerG, darkerB];
+}
+
+// Helper function to create speech utterance with SSML prosody (similar to textfence)
+function createSpeechUtterance(text, voiceType = "female", num) {
+  let rate, pitch;
+  if (voiceType === "female") {
+    rate = `${num.randIntRange(90, 105)}%`;
+    pitch = `+${num.randIntRange(10, 35)}%`;
+  } else {
+    rate = `${num.randIntRange(80, 105)}%`;
+    pitch = `${num.randIntRange(-15, 0)}%`;
+  }
+  return `
+  <speak>
+    <prosody rate="${rate}" pitch="${pitch}">${text}</prosody>
+  </speak>
+  `;
+}
+
+// Speak text with SFX system for instant playback (cached speech)
+function speakText(text, voice = "female:18", options = {}, num, speak) {
+  const speechLabel = `speech:${voice} - ${text}`;
+  
+  // Always use the speak function which handles caching internally
+  // The speech system will use cached audio if available
+  console.log(`🗣️ Playing speech: "${text}" with ${voice} voice`);
+  
+  const utterance = createSpeechUtterance(text, voice.split(":")[0], num);
+  speak(utterance, voice, "cloud", {
+    volume: options.volume || 1,
+    pan: options.pan || 0,
+    skipCompleted: true,
+    ...options
+  });
+}
+
+// Helper function to preload all speech in a melody for instant playback
+function preloadMelodySpeech(melodyState, speak, num, help) {
+  if (!melodyState || !speak) return;
+  
+  speechEnabled = false;
+  speechCache.clear(); // Clear previous cache entries
+  const speechToCache = [];
+  
+  // Collect all speech notes from all tracks
+  if (melodyState.type === "single" && melodyState.notes) {
+    melodyState.notes.forEach(note => {
+      if (note.isSpeech && note.text) {
+        speechToCache.push(note.text);
+      }
+    });
+  } else if (melodyState.tracks) {
+    melodyState.tracks.forEach(track => {
+      if (track && track.length > 0) {
+        track.forEach(note => {
+          if (note.isSpeech && note.text) {
+            speechToCache.push(note.text);
+          }
+        });
+      }
+    });
+  }
+  
+  // Remove duplicates
+  const uniqueSpeechTexts = [...new Set(speechToCache)];
+  
+  if (uniqueSpeechTexts.length === 0) {
+    speechEnabled = false;
+    return;
+  }
+  
+  console.log(`🗣️ Preloading ${uniqueSpeechTexts.length} speech samples for instant playback...`);
+  
+  // Generate speech for both male and female voices for variety
+  uniqueSpeechTexts.forEach(text => {
+    ['female', 'male'].forEach(voiceType => {
+      const voiceNumber = voiceType === "female" ? 18 : 22;
+      const voiceString = `${voiceType}:${voiceNumber}`;
+      const speechLabel = `speech:${voiceString} - ${text}`;
+      
+      // Pre-generate speech with silent playback to populate the cache
+      console.log(`🗣️ Pre-generating speech: "${text}" (${voiceString})`);
+      
+      const utterance = createSpeechUtterance(text, voiceType, num);
+      speak(utterance, voiceString, "cloud", {
+        volume: 0, // Silent generation for caching only
+        pan: 0,
+        skipCompleted: true // Don't send completion events during caching
+      });
+      
+      // Mark as cached in our tracking (the actual caching is handled by speech system)
+      speechCache.add(speechLabel);
+    });
+  });
+  
+  // Enable speech immediately since we've requested all samples
+  speechEnabled = true;
+  console.log(`🗣️ Speech enabled! Requested ${uniqueSpeechTexts.length * 2} speech samples for caching.`);
 }
 
 // Helper functions for managing per-track cumulative Hz states
@@ -348,6 +455,10 @@ let floatingHzDisplays = []; // Array of floating frequency displays
 const FLOATING_HZ_DURATION = 2000; // How long each display lasts (2 seconds)
 const FLOATING_HZ_SPEED = 30; // How fast they float up (pixels per second)
 const FLOATING_HZ_FADE_START = 0.7; // When to start fading (70% through duration)
+
+// Speech caching system for instant playback
+let speechEnabled = false; // Flag to indicate if speech is available in the melody
+let speechCache = new Set(); // Track which speech samples are cached as SFX
 
 // Helper function to get current note index for synchronization
 function getCurrentNoteIndex(melodyState, trackIndex = 0) {
@@ -467,7 +578,7 @@ function drawFloatingHzDisplays(ink, write, screen) {
   }
 }
 
-function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
+function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
   // Reset leaving flag when piece starts
   isLeavingPiece = false;
 
@@ -499,6 +610,9 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
   // Reset cumulative Hz states when starting a new melody
   cumulativeHzStates.clear();
+  
+  // Clear speech preloading state for new melody
+  speechEnabled = false;
 
   if (params[0]) {
     // Concatenate all params to handle cases like clock/(ceg) (dfa) where
@@ -671,6 +785,11 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
   // Build octave control buttons
   buildOctaveButtons(api);
+  
+  // Preload speech for instant playback if speak function is available
+  if (speak && melodyState) {
+    preloadMelodySpeech(melodyState, speak, num, help);
+  }
 }
 
 function paint({
@@ -1777,6 +1896,23 @@ function drawMelodyTimeline(
     y: infoY,
     scale: 1,
   });
+  
+  // Show speech caching status if speech notes are present
+  const hasSpeechNotes = (melodyState && 
+    ((melodyState.type === "single" && melodyState.notes && melodyState.notes.some(note => note.isSpeech)) ||
+     (melodyState.tracks && melodyState.tracks.some(track => track.some && track.some(note => note.isSpeech)))));
+  
+  if (hasSpeechNotes) {
+    const speechStatusText = speechEnabled ? "🗣️ ready" : "🗣️ loading...";
+    const speechStatusColor = speechEnabled ? "green" : "yellow";
+    const speechStatusX = timelineStartX + timingText.length * 6 + 12; // Position after timing text
+    
+    ink(speechStatusColor).write(speechStatusText, {
+      x: speechStatusX,
+      y: infoY,
+      scale: 1,
+    });
+  }
 }
 
 // Build the current melody string showing actual mutated notes
@@ -3938,7 +4074,7 @@ let musicalState = {
   isInitialized: false,
 };
 
-function sim({ sound, beep, clock, num, help, params, colon, screen }) {
+function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
   sound.speaker?.poll();
 
   // Get current time for timing calculations
@@ -4037,8 +4173,38 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         actualToneShift = state.current;
       }
 
+      // Handle speech synthesis for quoted text
+      if (noteData.isSpeech && noteData.text) {
+        const voiceType = help.flip() ? "female" : "male"; // Random voice selection
+        const voiceNumber = voiceType === "female" ? 18 : 22;
+        const voiceString = `${voiceType}:${voiceNumber}`;
+        
+        console.log(`🗣️ Playing speech: "${noteData.text}" with ${voiceType} voice`);
+        
+        // Use speakText function for cached speech playback
+        speakText(noteData.text, voiceString, { 
+          pan: 0, 
+          volume: volume || 0.8 
+        }, num, speak);
+        
+        // Add speech note to history buffer for visual timeline
+        addNoteToHistory(
+          "speech",
+          noteOctave || octave,
+          currentTime,
+          duration * melodyState.baseTempo,
+          0, // Track 0 for single track
+          "speech", // Special waveType for speech
+          volume || 0.8,
+          false, // Not a mutation
+          struck,
+        );
+        
+        // Flash green for special character (speech)
+        specialCharFlashTime = performance.now();
+      }
       // Play the note using managed sound system
-      if (note !== "rest") {
+      else if (note !== "rest") {
         let tone = noteOctave
           ? `${noteOctave}${note.toUpperCase()}`
           : `${octave}${note.toUpperCase()}`;
@@ -4703,7 +4869,37 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                 actualToneShift = state.current;
               }
 
-              if (note !== "rest") {
+              // Handle speech synthesis for quoted text in parallel tracks
+              if (noteData.isSpeech && noteData.text) {
+                const voiceType = help.flip() ? "female" : "male"; // Random voice selection
+                const voiceNumber = voiceType === "female" ? 18 : 22;
+                const voiceString = `${voiceType}:${voiceNumber}`;
+                
+                console.log(`🗣️ Track ${trackIndex + 1} Playing speech: "${noteData.text}" with ${voiceType} voice`);
+                
+                // Use speakText function for cached speech playback
+                speakText(noteData.text, voiceString, { 
+                  pan: 0, 
+                  volume: volume || 0.8 
+                }, num, speak);
+                
+                // Add speech note to history buffer for visual timeline
+                addNoteToHistory(
+                  "speech",
+                  noteOctave || octave,
+                  currentTimeMs,
+                  duration * melodyState.baseTempo,
+                  trackIndex,
+                  "speech", // Special waveType for speech
+                  volume || 0.8,
+                  false, // Not a mutation
+                  struck,
+                );
+                
+                // Flash green for special character (speech)
+                specialCharFlashTime = performance.now();
+              }
+              else if (note !== "rest") {
                 let tone = noteOctave
                   ? `${noteOctave}${note.toUpperCase()}`
                   : `${octave}${note.toUpperCase()}`;

@@ -87,6 +87,24 @@ async function fun(event, context) {
     slug = "wg~m2w2";
   }
 
+  // Handle kidlisp:code URL pattern and convert to $code format
+  const originalPath = event.path.slice(1) || "prompt"; // Store original for redirect check
+  if (slug.startsWith("kidlisp:") && slug.length > 8) {
+    const code = slug.slice(8); // Remove "kidlisp:" prefix
+    const newSlug = `$${code}`; // Convert to $code format
+    console.log(`🔄 Converting kidlisp:${code} to $${code} and redirecting`);
+    
+    // Redirect to the $code format to update the URL bar
+    return respond(
+      302,
+      `<a href="/${newSlug}">Redirecting to /${newSlug}</a>`,
+      {
+        "Content-Type": "text/html",
+        Location: `/${newSlug}`,
+      },
+    );
+  }
+
   const parsed = parse(slug, { hostname: event.headers["host"] });
 
   // Get local IP.
