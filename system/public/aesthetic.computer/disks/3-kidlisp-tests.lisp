@@ -18,12 +18,12 @@
 ; 🏡 Stripes, 25.06.20.08.33
 ;(if (= slide 1)
 ;  (label "'stripes', 25.06.20.08.33")
-;  (ink rainbow (? 45 128 20))
-;  (0.028s 
-;    (scroll width/8)
-;    (box 0 0 width/16 height)
-;  )
-;  (shear 0.00400 (? 0.03 0.1 -1 10))
+(ink rainbow (? 45 128 20))
+(0.028s 
+  (scroll width/8)
+  (box 0 0 width/16 height)
+)
+(shear 0.00400 (? 0.03 0.1 -1 10))
 ;)
 
 ; 🚋 Train, 25.06.20.07.29
