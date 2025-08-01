@@ -380,7 +380,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               // Prepare all frames for single MP4 creation request (same format as GIF)
               const processedFrames = framesToProcess.map((frame, index) => {
-                const [timestamp, imageData] = frame;
+                const [timestamp, imageData, penData] = frame; // Extract pen data for future use
                 
                 // Use actual recorded frame duration for perfect timing
                 let duration = frame.duration || 16.67; // Use captured duration, fallback to 60fps
@@ -468,7 +468,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               const frameRecord = [];
               
               frameData.frames.forEach((frame, index) => {
-                const [timestamp, imageData] = frame;
+                const [timestamp, imageData, penData] = frame; // Extract pen data for future use
                 
                 // Calculate duration until next frame (or default to 16.67ms for 60fps if last frame)
                 let duration = 16.67; // Default ~60fps
@@ -641,7 +641,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                 type: "create-animated-webp-only",
                 content: {
                   frames: framesToProcess.map((frame, index) => {
-                    const [timestamp, imageData] = frame;
+                    const [timestamp, imageData, penData] = frame; // Extract pen data for future use
                     let duration = 100; // Default 100ms
                     
                     if (index < framesToProcess.length - 1) {
@@ -739,7 +739,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                 type: "create-single-animated-apng",
                 content: {
                   frames: framesToProcess.map((frame, index) => {
-                    const [timestamp, imageData] = frame;
+                    const [timestamp, imageData, penData] = frame; // Extract pen data for future use
                     let duration = 100; // Default 100ms
                     
                     if (index < framesToProcess.length - 1) {
@@ -830,12 +830,19 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               // Prepare all frames for single GIF creation request
               const processedFrames = framesToProcess.map((frame, index) => {
-                const [timestamp, imageData] = frame;
+                const [timestamp, imageData, penData] = frame; // Extract pen data too
                 let duration = 16.67; // Default 16.67ms for 60fps (same as WebP export)
                 
                 if (index < framesToProcess.length - 1) {
                   const nextTimestamp = framesToProcess[index + 1][0];
                   duration = Math.max(10, nextTimestamp - timestamp);
+                }
+                
+                // Debug: Log pen data for first few frames and last few frames
+                if (index < 5 || index >= framesToProcess.length - 5) {
+                  console.log(`🖱️ Frame ${index}: pen data =`, penData ? 
+                    `{x: ${penData.x}, y: ${penData.y}, device: ${penData.device}}` : 
+                    'null');
                 }
                 
                 return {
@@ -845,7 +852,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                   width: imageData.width,
                   height: imageData.height,
                   // Use the original Uint8ClampedArray instead of converting to Array
-                  data: imageData.data // Keep as Uint8ClampedArray for transfer efficiency
+                  data: imageData.data, // Keep as Uint8ClampedArray for transfer efficiency
+                  penData: penData // Preserve pen data for crosshair rendering
                 };
               });
               
@@ -972,17 +980,17 @@ function handleSystemMessage({ event: e, rec }) {
     console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
     if (e.progress !== undefined || (e.is("recorder:transcode-progress") && typeof e.content === "number")) {
       // Handle both message formats: {progress, type} and direct number content
-      const progress = e.progress !== undefined ? e.progress : e.content;
-      const exportType = e.type || "video"; // Default to video for transcode progress
+      const progress = e.progress !== undefined ? e.progress : (typeof e.content === "object" ? e.content.progress : e.content);
+      const exportType = e.is("recorder:export-progress") ? (e.content?.type || "gif") : "video"; // For export-progress, get type from content
       
       console.log("🎯 Processing progress update:", progress, "for type:", exportType);
       
       // Update status message if provided
-      if (e.message) {
-        exportStatusMessage = e.message;
+      if (e.message || e.content?.message) {
+        exportStatusMessage = e.message || e.content.message;
       }
-      if (e.phase) {
-        currentExportPhase = e.phase;
+      if (e.phase || e.content?.phase) {
+        currentExportPhase = e.phase || e.content.phase;
       }
       
       const isValidExport = 
@@ -998,11 +1006,12 @@ function handleSystemMessage({ event: e, rec }) {
       if (isValidExport) {
         printProgress = progress;
         
-        // If using tape-style progress bar, also update the tape progress system
-        if (!useExtendedProgressBar) {
-          // Feed export progress into the tape progress system for overlay display
-          rec.tapeProgress = progress;
-        }
+        // Don't update tape progress during exports - it's only for live recording
+        // The export progress is for the UI progress bar, not the burned-in recording progress bar
+        // if (!useExtendedProgressBar) {
+        //   // Feed export progress into the tape progress system for overlay display
+        //   rec.tapeProgress = progress;
+        // }
         
         // Don't call needsPaint here as it's handled by the main paint loop
       }
