@@ -2128,6 +2128,60 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return colors;
       }
       
+      // Helper function to draw cyan crosshair cursor overlay
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // Cyan crosshair settings
+        const crosshairColor = "rgba(0, 255, 255, 0.8)"; // Bright cyan with slight transparency
+        const shadowColor = "rgba(0, 0, 0, 0.5)"; // Black shadow for visibility
+        const lineWidth = 2;
+        const shadowOffset = 1;
+        const crossSize = Math.max(8, Math.floor(Math.min(canvasWidth, canvasHeight) / 60)); // Responsive size
+        
+        // Draw shadow first
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = lineWidth + shadowOffset;
+        ctx.lineCap = "round";
+        
+        ctx.beginPath();
+        // Horizontal line shadow
+        ctx.moveTo(x - crossSize + shadowOffset, y + shadowOffset);
+        ctx.lineTo(x + crossSize + shadowOffset, y + shadowOffset);
+        // Vertical line shadow
+        ctx.moveTo(x + shadowOffset, y - crossSize + shadowOffset);
+        ctx.lineTo(x + shadowOffset, y + crossSize + shadowOffset);
+        ctx.stroke();
+        
+        // Draw main crosshair
+        ctx.strokeStyle = crosshairColor;
+        ctx.lineWidth = lineWidth;
+        
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        // Vertical line
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+
       // Helper function to get syntax color at a specific position in the progress bar
       function getSyntaxColorAtPosition(syntaxColors, position) {
         if (syntaxColors.length === 0) {
@@ -2175,6 +2229,60 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Fallback to last color if position >is beyond the end
         return syntaxColors[syntaxColors.length - 1];
+      }
+      
+      // Helper function to draw cyan crosshair cursor overlay
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // Cyan crosshair settings
+        const crosshairColor = "rgba(0, 255, 255, 0.8)"; // Bright cyan with slight transparency
+        const shadowColor = "rgba(0, 0, 0, 0.5)"; // Black shadow for visibility
+        const lineWidth = 2;
+        const shadowOffset = 1;
+        const crossSize = Math.max(8, Math.floor(Math.min(canvasWidth, canvasHeight) / 60)); // Responsive size
+        
+        // Draw shadow first
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = lineWidth + shadowOffset;
+        ctx.lineCap = "round";
+        
+        ctx.beginPath();
+        // Horizontal line shadow
+        ctx.moveTo(x - crossSize + shadowOffset, y + shadowOffset);
+        ctx.lineTo(x + crossSize + shadowOffset, y + shadowOffset);
+        // Vertical line shadow
+        ctx.moveTo(x + shadowOffset, y - crossSize + shadowOffset);
+        ctx.lineTo(x + shadowOffset, y + crossSize + shadowOffset);
+        ctx.stroke();
+        
+        // Draw main crosshair
+        ctx.strokeStyle = crosshairColor;
+        ctx.lineWidth = lineWidth;
+        
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        // Vertical line
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+        
+        ctx.restore();
       }
 
       // Film camera style timestamp at bottom-left corner
@@ -3593,6 +3701,91 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
+        // Helper function to draw exact AC cursor overlay (matches pen.mjs "precise" cursor)
+        function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+          if (!penData || penData.x === undefined || penData.y === undefined) {
+            return; // No pen data available
+          }
+          
+          // Scale pen coordinates to match canvas size
+          const x = Math.round(penData.x * scale);
+          const y = Math.round(penData.y * scale);
+          
+          // Skip drawing if cursor is outside canvas bounds
+          if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+            return;
+          }
+          
+          ctx.save();
+          
+          // AC cursor settings at 1.5x scale for good visibility without being too large
+          const cursorScale = 1.25; // Moderate scale for optimal visibility in GIFs
+          const radius = 2 * cursorScale;     // White center circle radius
+          const gap = 7.5 * cursorScale;      // Gap from center to crosshair start
+          const to = 10 * cursorScale;        // Length of crosshair lines
+          const lineWidth = 4 * cursorScale;  // Crosshair line width
+          
+          // Shadow offset for visibility
+          const offsetX = 2 * cursorScale;
+          const offsetY = 2 * cursorScale;
+          
+          ctx.lineCap = "round";
+          
+          // Draw shadow graphics first
+          ctx.save();
+          ctx.translate(x + offsetX, y + offsetY);
+          
+          // Shadow circle in center
+          ctx.beginPath();
+          ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+          ctx.fill();
+          
+          // Shadow crosshair lines
+          ctx.beginPath();
+          ctx.moveTo(0, -gap);
+          ctx.lineTo(0, -to);
+          ctx.moveTo(0, gap);
+          ctx.lineTo(0, to);
+          ctx.moveTo(-gap, 0);
+          ctx.lineTo(-to, 0);
+          ctx.moveTo(gap, 0);
+          ctx.lineTo(to, 0);
+          
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+          ctx.lineWidth = lineWidth;
+          ctx.stroke();
+          ctx.restore();
+          
+          // Draw main cursor graphics
+          ctx.save();
+          ctx.translate(x, y);
+          
+          // White center circle
+          ctx.beginPath();
+          ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+          ctx.fillStyle = "white";
+          ctx.fill();
+          
+          // Cyan crosshair lines (exact AC color)
+          ctx.beginPath();
+          ctx.moveTo(0, -gap); // Top
+          ctx.lineTo(0, -to);
+          ctx.moveTo(0, gap);  // Bottom
+          ctx.lineTo(0, to);
+          ctx.moveTo(-gap, 0); // Left
+          ctx.lineTo(-to, 0);
+          ctx.moveTo(gap, 0);  // Right
+          ctx.lineTo(to, 0);
+          
+          ctx.strokeStyle = "rgb(0, 255, 255)"; // Exact AC cyan color
+          ctx.lineWidth = lineWidth;
+          ctx.stroke();
+          ctx.restore();
+          
+          ctx.restore();
+        }
+
         // Force 3x scaling for consistent, fast GIF output
         const originalWidth = content.frames[0].width;
         const originalHeight = content.frames[0].height;
@@ -3604,31 +3797,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
         );
 
-        // 🎯 Downsample frames to 30fps for GIF (drop frames if captured at higher rate)
+        // 🎯 Properly resample frames to 30fps for optimal GIF size/quality balance
         let processedFrames = content.frames;
+        const targetGifFPS = 30;
+        
         if (content.frames.length > 0) {
           const totalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
           const actualFrameRate = Math.round((content.frames.length / totalDuration) * 1000);
-          const targetGifFPS = 30;
           
-          if (actualFrameRate > targetGifFPS) {
-            // Calculate downsampling ratio
-            const downsampleRatio = actualFrameRate / targetGifFPS;
+          if (actualFrameRate > targetGifFPS && totalDuration > 0) {
+            // Calculate how many frames we need for 30fps
+            const targetFrameCount = Math.round((totalDuration / 1000) * targetGifFPS);
             processedFrames = [];
             
-            console.log(`🎬 Downsampling GIF from ${actualFrameRate}fps to ${targetGifFPS}fps (ratio: ${downsampleRatio.toFixed(2)})`);
+            console.log(`🎬 Resampling GIF from ${actualFrameRate}fps to ${targetGifFPS}fps (${content.frames.length} -> ${targetFrameCount} frames)`);
             
-            // Select frames at regular intervals to achieve 30fps
-            for (let i = 0; i < content.frames.length; i++) {
-              const targetIndex = Math.round(i / downsampleRatio);
-              if (targetIndex < content.frames.length && (processedFrames.length === 0 || processedFrames[processedFrames.length - 1] !== content.frames[targetIndex])) {
-                processedFrames.push(content.frames[targetIndex]);
+            // Properly resample frames evenly across the entire duration
+            for (let i = 0; i < targetFrameCount; i++) {
+              // Calculate the exact timestamp we want for this frame
+              const targetTimestamp = content.frames[0].timestamp + (i / (targetFrameCount - 1)) * totalDuration;
+              
+              // Find the closest source frame to this timestamp
+              let closestIndex = 0;
+              let minDistance = Math.abs(content.frames[0].timestamp - targetTimestamp);
+              
+              for (let j = 1; j < content.frames.length; j++) {
+                const distance = Math.abs(content.frames[j].timestamp - targetTimestamp);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestIndex = j;
+                }
               }
+              
+              processedFrames.push(content.frames[closestIndex]);
             }
             
             console.log(`🎬 GIF frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
           } else {
-            console.log(`🎬 No downsampling needed for GIF: ${actualFrameRate}fps <= ${targetGifFPS}fps`);
+            console.log(`🎬 No resampling needed: ${actualFrameRate}fps <= ${targetGifFPS}fps target`);
           }
         }
 
@@ -3729,6 +3935,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             ctx.putImageData(imageData, 0, 0);
 
+            // Add cyan crosshair cursor overlay if pen data is available
+            if (frame.penData) {
+              addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
+            }
+
             // Add sideways AC stamp like in video recordings
             const progress = (index + 1) / processedFrames.length;
             await addAestheticComputerStamp(
@@ -3824,27 +4035,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Calculate proper timing for gifenc (same logic as gif.js)
-          let gifencDelay;
-          if (window.currentRecordingOptions?.intendedDuration && finalFrames.length > 0) {
-            // Distribute intended duration evenly
-            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
-            gifencDelay = Math.round(totalIntendedMs / finalFrames.length);
-            gifencDelay = Math.max(gifencDelay, 20); // Minimum 20ms for browser compatibility
-          } else if (processedFrames.length > 1) {
-            // Calculate average frame timing from original recording and make it faster
-            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
-            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
-            // Speed up GIF by 25% (multiply delay by 0.75)
-            const speedMultiplier = 0.75;
-            gifencDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
-            console.log(`🎞️ Using sped-up timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
-          } else {
-            // Fallback for single frame or no timing data - also faster
-            gifencDelay = 67; // 15fps default (faster than 10fps)
-          }
+          // Calculate proper timing for gifenc - use 30fps for optimal GIF playback
+          let gifencDelay = 33; // 30fps = 33.33ms, rounded to 33ms for GIF compatibility
           
-          console.log(`🎞️ Using ${gifencDelay}ms delay for gifenc (${(1000/gifencDelay).toFixed(1)}fps)`);
+          console.log(`🎞️ Using fixed 30fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for optimal GIF playback`);
           
           // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
@@ -3899,6 +4093,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
           
           gif.finish();
+          
+          // Send 100% completion progress before generating the blob
+          send({
+            type: "recorder:export-progress",
+            content: { 
+              progress: 1.0, 
+              type: "gif",
+              message: "GIF complete"
+            }
+          });
           
           const gifBytes = gif.bytes();
           const blob = new Blob([gifBytes], { type: "image/gif" });
@@ -4010,6 +4214,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             ctx.putImageData(imageData, 0, 0);
 
+            // Add cyan crosshair cursor overlay if pen data is available
+            if (frame.penData) {
+              addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
+            }
+
             // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
             const progress = (index + 1) / processedFrames.length;
             await addAestheticComputerStamp(
@@ -4092,6 +4301,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
 
           ctx.putImageData(imageData, 0, 0);
+
+          // Add cyan crosshair cursor overlay if pen data is available
+          if (firstFrame.penData) {
+            addCyanCrosshair(ctx, canvas.width, canvas.height, firstFrame.penData, 1); // No scaling for fallback
+          }
 
           // Add sideways AC stamp to fallback GIF as well (await to ensure fonts are loaded)
           await addAestheticComputerStamp(
@@ -6767,25 +6981,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   svgCursor.naturalHeight,
                 );
               } else {
-                // Draw a soft tap.
-                // const circleRadius = 16; // example value, adjust as needed
-                // shuffleInPlace(["magenta", "lime", "white"]).forEach((color) => {
-                //   const ox = choose(-4, -2, 0, 2, 4);
-                //   const oy = choose(-4, -2, 0, 2, 4);
-                //   sctx.globalAlpha = 0.15 + Math.random() * 0.25;
-                //   sctx.beginPath();
-                //   sctx.arc(
-                //     scaledX + ox,
-                //     scaledY + oy,
-                //     circleRadius,
-                //     0,
-                //     2 * Math.PI,
-                //   );
-                //   sctx.fillStyle = color; // or any desired color
-                //   sctx.fill();
-                //   sctx.closePath();
-                // });
-                // sctx.globalAlpha = 1;
+                // Draw cyan crosshair for touch devices
+                const crosshairSize = 16;
+                const crosshairThickness = 2;
+                
+                sctx.globalAlpha = 0.8;
+                sctx.strokeStyle = "cyan";
+                sctx.lineWidth = crosshairThickness;
+                sctx.lineCap = "round";
+                
+                // Draw crosshair lines
+                sctx.beginPath();
+                // Horizontal line
+                sctx.moveTo(scaledX - crosshairSize, scaledY);
+                sctx.lineTo(scaledX + crosshairSize, scaledY);
+                // Vertical line
+                sctx.moveTo(scaledX, scaledY - crosshairSize);
+                sctx.lineTo(scaledX, scaledY + crosshairSize);
+                sctx.stroke();
+                
+                // Draw center dot
+                sctx.fillStyle = "cyan";
+                sctx.beginPath();
+                sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
+                sctx.fill();
+                
+                sctx.globalAlpha = 1;
               }
             }
 
@@ -8406,7 +8627,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx.canvas.width,
             ctx.canvas.height,
           );
-          recordedFrames.push([absoluteTimestamp, frameDataWithHUD]);
+          
+          // Capture pen position data for crosshair rendering during export
+          const penData = pen?.pointers[1] ? {
+            x: pen.pointers[1].x,
+            y: pen.pointers[1].y,
+            device: pen.pointers[1].device
+          } : null;
+          
+          recordedFrames.push([absoluteTimestamp, frameDataWithHUD, penData]);
         }
 
         //  Return clean screenshot data (without overlays)

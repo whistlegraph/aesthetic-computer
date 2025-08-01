@@ -106,21 +106,48 @@ end
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
-    clear
-    set -l config_count 0
-    while not test -f /home/me/.waiter
-        set -l message
-        if test (math $config_count % 2) -eq 0
-            set message "Configuring..."
-        else
-            set message "Configuring. . ."
-        end
-        toilet $message -f future | lolcat -x -r
-        sleep 0.25
+    # Check if --no-wait flag is passed
+    if test "$argv[1]" = "--no-wait"
+        echo "Skipping wait for .waiter file..."
+    else
         clear
-        set config_count (math $config_count + 1)
+        set -l config_count 0
+        while not test -f /home/me/.waiter
+            set -l message
+            if test (math $config_count % 2) -eq 0
+                set message "Configuring..."
+            else
+                set message "Configuring. . ."
+            end
+            toilet $message -f future | lolcat -x -r
+            sleep 0.25
+            clear
+            set config_count (math $config_count + 1)
+        end
+        sudo rm /home/me/.waiter
     end
-    sudo rm /home/me/.waiter
+    
+    # Start emacs daemon if not running
+    if not pgrep -f "emacs.*daemon" >/dev/null
+        echo "Starting emacs daemon..."
+        emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el
+        while not emacsclient -e t >/dev/null 2>&1
+            sleep 1
+        end
+    end
+    
+    # Connect to emacs with aesthetic-backend
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
+end
+
+# Convenience alias for skipping the wait
+function aesthetic-now
+    aesthetic --no-wait
+end
+
+# Direct aesthetic function that skips waiting entirely
+function aesthetic-direct
+    echo "🚀 Starting aesthetic directly (no wait)..."
     
     # Start emacs daemon if not running
     if not pgrep -f "emacs.*daemon" >/dev/null
