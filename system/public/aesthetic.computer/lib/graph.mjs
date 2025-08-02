@@ -932,17 +932,30 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     let angle = 0;
     let anchor;
     let width, height;
+    let scaleObj;
 
     if (typeof scale === "object") {
       angle = scale.angle;
       width = scale.width;
       height = scale.height;
       anchor = scale.anchor;
-      // ^ Pull properties out of the scale object.
-      scale = scale.scale; // And then redefine scale.
+      
+      // Handle different scale object formats
+      if (scale.scale !== undefined) {
+        // New format: { scale: number, angle: number, etc. }
+        scaleObj = scale.scale;
+      } else if (scale.x !== undefined || scale.y !== undefined) {
+        // Old format: { x: number, y: number } for flip/flop
+        scaleObj = scale;
+      } else {
+        // Default to treating the object as having a scale of 1
+        scaleObj = 1;
+      }
+      
+      scale = scaleObj; // Redefine scale for further processing
     }
 
-    // Fast path for simple integer scaling (no rotation, no custom dimensions)
+    // Fast path for simple integer scaling (no rotation, no custom dimensions, no negative scales)
     if (
       !angle &&
       !width &&
@@ -953,7 +966,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       scale === ~~scale &&
       scale <= 8
     ) {
-      // Integer scale up to 8x for safety
+      // Integer scale up to 8x for safety (positive scales only)
 
       // Ultra-fast nearest-neighbor scaling using direct pixel manipulation
       const srcWidth = from.width;
@@ -1010,7 +1023,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     grid(
       {
         box: { x: destX, y: destY, w: from.width, h: from.height },
-        transform: { scale, angle, width, height, anchor },
+        transform: { scale: scaleObj || scale, angle, width, height, anchor },
       },
       from,
     );
@@ -1268,12 +1281,61 @@ function lineh(x0, x1, y) {
   }
 }
 
+// Wu's antialiased line algorithm for smooth lines
+function drawAntialiasedLine(x0, y0, x1, y1) {
+  const dx = Math.abs(x1 - x0);
+  const dy = Math.abs(y1 - y0);
+  const steep = dy > dx;
+  
+  if (steep) {
+    [x0, y0] = [y0, x0];
+    [x1, y1] = [y1, x1];
+  }
+  
+  if (x0 > x1) {
+    [x0, x1] = [x1, x0];
+    [y0, y1] = [y1, y0];
+  }
+  
+  const deltaX = x1 - x0;
+  const deltaY = y1 - y0;
+  const gradient = deltaY / deltaX;
+  let y = y0 + gradient;
+  
+  // Store original color
+  const [r, g, b, a] = c;
+  
+  for (let x = x0 + 1; x < x1; x++) {
+    const yInt = Math.floor(y);
+    const yFrac = y - yInt;
+    
+    // Plot two pixels with different alphas for antialiasing
+    if (steep) {
+      color(r, g, b, Math.round(a * (1 - yFrac)));
+      plot(yInt, x);
+      color(r, g, b, Math.round(a * yFrac));
+      plot(yInt + 1, x);
+    } else {
+      color(r, g, b, Math.round(a * (1 - yFrac)));
+      plot(x, yInt);
+      color(r, g, b, Math.round(a * yFrac));
+      plot(x, yInt + 1);
+    }
+    
+    y += gradient;
+  }
+  
+  // Restore original color
+  color(r, g, b, a);
+}
+
 // Draws a line
 // (2) p1, p2: pairs of {x, y} or [x, y]
 // (4) x0, y0, x1, y1
+// (5) x0, y0, x1, y1, antialias (boolean)
 // TODO: Automatically use lineh if possible. 22.10.05.18.27
 function line() {
-  let x0, y0, x1, y1;
+  let x0, y0, x1, y1, antialias = false;
   if (arguments.length === 1) {
     // Safely access properties on the first argument
     const arg0 = arguments[0];
@@ -1282,12 +1344,19 @@ function line() {
       y0 = arg0.y0;
       x1 = arg0.x1;
       y1 = arg0.y1;
+      antialias = arg0.antialias || false;
     }
   } else if (arguments.length === 4) {
     x0 = arguments[0]; // Set all `undefined` or `null` values to 0.
     y0 = arguments[1];
     x1 = arguments[2];
     y1 = arguments[3];
+  } else if (arguments.length === 5) {
+    x0 = arguments[0];
+    y0 = arguments[1];
+    x1 = arguments[2];
+    y1 = arguments[3];
+    antialias = arguments[4];
   } else if (arguments.length === 2) {
     const arg0 = arguments[0];
     const arg1 = arguments[1];
@@ -1336,6 +1405,14 @@ function line() {
   y0 += panTranslation.y;
   x1 += panTranslation.x;
   y1 += panTranslation.y;
+
+  // Use antialiased line if requested
+  if (antialias) {
+    drawAntialiasedLine(x0, y0, x1, y1);
+    const out = [x0, y0, x1, y1];
+    twoDCommands?.push(["line", ...out]);
+    return out;
+  }
 
   // Lerp from primary to secondary color as needed.
   const cachedInk = c.slice(0);
@@ -1579,142 +1656,325 @@ function poly(coords) {
   }
 }
 
-// Rasterize an Npx thick poly line with rounded end-caps.
-/* TODO
- - [😇] Clip coords to inside of the screen.
- + Later
- - [] Perhaps if thickness === 1 then this can be combined with
-     `pixelPerfectPolyline` ?
- - [] Render a third triangle from mid point to last point to next quad
-      point?
- - [] Rounded half-circle endcaps.
- - [] Filled circle if coords.length === 1.
- - [] Texture / special FX.
- + Done
- - [x] Triangle rasterization of segment.
- - [x] Optimize performance.
-   - [x] Run the profiler.
-*/
-function pline(coords, thickness, shader) {
-  // 1️⃣ Generate geometry.
-  if (coords.length < 2) return; // Require at least two coordinates.
-
-  let points = [], // Raster grids.
-    lines = [],
-    tris = [];
-
-  // 🎴 Draw everything from front to back!
-
-  let last = coords[coords.length - 1]; // Keep the last drawn element.
-
-  let lpar, ldir; // Store last parallel points / prepopulate if supplied.
-
-  for (let i = coords.length - 2; i >= 0; i -= 1) {
-    const cur = coords[i];
-
-    // 1. Two points on both sides of last and cur via line dir.
-    const lp = [last.x || last[0], last.y || last[1]],
-      cp = [cur.x || cur[0], cur.y || cur[1]]; // Convert last and cur to vec2.
-
-    const dir = vec2.normalize([], vec2.subtract([], cp, lp)); // Line direction.
-    if (!ldir) ldir = dir;
-
-    const rot = vec2.rotate([], dir, [0, 0], PI / 2); // Rotated by 90d
-
-    const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
-    const offset2 = vec2.scale([], rot, -thickness / 2);
-
-    let c1, c2;
-    if (!lpar) {
-      c1 = vec2.add([], lp, offset1); // Compute both sets of points.
-      c2 = vec2.add([], lp, offset2);
-      lpar = [c1, c2];
-    } else {
-      [c1, c2] = lpar;
-    }
-
-    [c1, c2, lp, cp].forEach((v) => vec2.floor(v, v)); // Floor everything.
-
-    // 2. Plotting
-
-    const dot = vec2.dot(dir, ldir); // Get the dot product of cur and last dir.
-
-    let trig; // Triangle geometry.
-
-    if (dot > 0) {
-      // Vertex order for forward direction.
-      trig = [
-        [c1, c2, lp],
-        [c2, lp, cp],
-      ];
-      lines.push(...bresenham(...c1, ...lp)); // Par line 1
-      lines.push(...bresenham(...c2, ...cp)); // Par line 2
-    } else {
-      // Vertex order for backward direction.
-      trig = [
-        [c2, lp, c1],
-        [c1, cp, lp],
-      ];
-      lines.push(...bresenham(...c2, ...lp)); // Par line 1
-      lines.push(...bresenham(...c1, ...cp)); // Par line 2
-    }
-
-    // Partial outside clipping.
-    // const clippedTris = trig.filter((triangle) =>
-    //   triangle.every(
-    //     (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
-    //   )
-    // );
-
-    // Full outside clipping.
-    // Clip triangles that are *fully* offscreen.
-    // Take into account panning here...
-    const clippedTris = trig.filter((triangle) =>
-      triangle.some((v) => {
-        const tv = v.slice();
-        tv[0] += panTranslation.x;
-        tv[1] += panTranslation.y;
-        return tv[0] >= 0 && tv[0] < width && tv[1] >= 0 && tv[1] < height;
-      }),
-    );
-
-    clippedTris.forEach((tri) => fillTri(tri, tris)); // Fill quad.
-    //trig.forEach((t) => fillTri(t, tris)); // Fill quad.
-
-    ldir = dir;
-    lines.push(...bresenham(...lp, ...cp));
-
-    if (i === coords.length - 2)
-      points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] });
-
-    points.push({ x: lp[0], y: lp[1] }, { x: cp[0], y: cp[1] }); // Add points.
-
-    // Paint each triangle.
-    if (cur.color === "rainbow") color(...rainbow());
-    else if (cur.color) color(...cur.color);
-
-    if (shader) {
-      const progress = 1 - i / (coords.length - 2);
-      shadePixels(tris, shader, [progress]);
-    } else {
-      tris.forEach((p) => point(p));
-    }
-
-    tris.length = 0;
-
-    last = cur; // Update the last point.
-    lpar = [c1, c2]; // ... and last parallel points.
+// Draws a thick line between points with optional rounded end-caps.
+// Optimized version with better thick line support and pixel-perfect rendering.
+// Fast scanline-based "spinal growth" rendering for smooth airbrush-like lines
+function pline(coords, thickness = 1, shader) {
+  if (coords.length < 2) return; // Need at least 2 points
+  
+  // For thickness 1, use the faster pixel-perfect algorithm
+  if (thickness === 1) {
+    return pixelPerfectPolyline(coords, shader);
   }
+  
+  // Convert coords to standard format
+  const normalizedCoords = coords.map(coord => ({
+    x: Math.round(coord.x || coord[0] || coord),
+    y: Math.round(coord.y || coord[1] || coord),
+    color: coord.color
+  }));
+  
+  // Fast spinal growth rendering using direct pixel buffer access
+  const radius = thickness / 2;
+  const radiusSquared = radius * radius;
+  
+  // Pre-calculate color values
+  let colorR = c[0], colorG = c[1], colorB = c[2], colorA = c[3];
+  
+  // Use scanline algorithm to render each segment
+  for (let i = 0; i < normalizedCoords.length - 1; i++) {
+    const p1 = normalizedCoords[i];
+    const p2 = normalizedCoords[i + 1];
+    
+    // Skip identical points
+    if (p1.x === p2.x && p1.y === p2.y) continue;
+    
+    // Update color if needed
+    if (p1.color === "rainbow") {
+      const rainbowColor = rainbow();
+      colorR = rainbowColor[0];
+      colorG = rainbowColor[1]; 
+      colorB = rainbowColor[2];
+    } else if (p1.color) {
+      colorR = p1.color[0] || colorR;
+      colorG = p1.color[1] || colorG;
+      colorB = p1.color[2] || colorB;
+      colorA = p1.color[3] !== undefined ? p1.color[3] : colorA;
+    }
+    
+    // Fast scanline rendering along the spine
+    renderSpinalSegment(p1.x, p1.y, p2.x, p2.y, radius, radiusSquared, 
+                       colorR, colorG, colorB, colorA);
+  }
+  
+  // Render end caps using direct pixel access
+  if (normalizedCoords.length > 0) {
+    const first = normalizedCoords[0];
+    const last = normalizedCoords[normalizedCoords.length - 1];
+    
+    renderCircleCap(first.x, first.y, radius, radiusSquared, colorR, colorG, colorB, colorA);
+    renderCircleCap(last.x, last.y, radius, radiusSquared, colorR, colorG, colorB, colorA);
+  }
+}
 
-  // 3️⃣ Painting
+// Ultra-fast spinal segment rendering using scanlines
+function renderSpinalSegment(x0, y0, x1, y1, radius, radiusSquared, r, g, b, a) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  if (distance === 0) return;
+  
+  // Calculate bounding box for the entire segment
+  const minX = Math.max(0, Math.min(x0, x1) - radius);
+  const maxX = Math.min(width - 1, Math.max(x0, x1) + radius);
+  const minY = Math.max(0, Math.min(y0, y1) - radius);
+  const maxY = Math.min(height - 1, Math.max(y0, y1) + radius);
+  
+  // Scanline rendering - process each row
+  for (let y = minY; y <= maxY; y++) {
+    let rowMinX = maxX + 1;
+    let rowMaxX = minX - 1;
+    
+    // Find the horizontal span for this scanline
+    for (let x = minX; x <= maxX; x++) {
+      // Calculate distance from point to line segment
+      const t = Math.max(0, Math.min(1, 
+        ((x - x0) * dx + (y - y0) * dy) / (distance * distance)
+      ));
+      
+      const closestX = x0 + t * dx;
+      const closestY = y0 + t * dy;
+      const distSquared = (x - closestX) * (x - closestX) + (y - closestY) * (y - closestY);
+      
+      if (distSquared <= radiusSquared) {
+        if (x < rowMinX) rowMinX = x;
+        if (x > rowMaxX) rowMaxX = x;
+      }
+    }
+    
+    // Fill the horizontal span directly in pixel buffer
+    if (rowMinX <= rowMaxX) {
+      const rowStart = (y * width + rowMinX) * 4;
+      const spanWidth = rowMaxX - rowMinX + 1;
+      
+      // Fast horizontal line fill
+      for (let i = 0; i < spanWidth; i++) {
+        const pixelIndex = rowStart + i * 4;
+        if (pixelIndex >= 0 && pixelIndex < pixels.length - 3) {
+          if (a === 255) {
+            // No blending needed
+            pixels[pixelIndex] = r;
+            pixels[pixelIndex + 1] = g;
+            pixels[pixelIndex + 2] = b;
+            pixels[pixelIndex + 3] = a;
+          } else if (a > 0) {
+            // Alpha blending
+            const alpha = a / 255;
+            const invAlpha = 1 - alpha;
+            pixels[pixelIndex] = pixels[pixelIndex] * invAlpha + r * alpha;
+            pixels[pixelIndex + 1] = pixels[pixelIndex + 1] * invAlpha + g * alpha;
+            pixels[pixelIndex + 2] = pixels[pixelIndex + 2] * invAlpha + b * alpha;
+          }
+        }
+      }
+    }
+  }
+}
 
-  // color(0, 255, 0); // Paint vertex points.
-  // points.forEach((p) => point(p));
+// Fast circular cap rendering using scanlines
+function renderCircleCap(centerX, centerY, radius, radiusSquared, r, g, b, a) {
+  const minX = Math.max(0, centerX - radius);
+  const maxX = Math.min(width - 1, centerX + radius);
+  const minY = Math.max(0, centerY - radius);
+  const maxY = Math.min(height - 1, centerY + radius);
+  
+  // Scanline circle rendering
+  for (let y = minY; y <= maxY; y++) {
+    const dy = y - centerY;
+    const dySquared = dy * dy;
+    
+    // Calculate horizontal span for this row
+    const remaining = radiusSquared - dySquared;
+    if (remaining >= 0) {
+      const halfWidth = Math.sqrt(remaining);
+      const rowMinX = Math.max(minX, Math.floor(centerX - halfWidth));
+      const rowMaxX = Math.min(maxX, Math.ceil(centerX + halfWidth));
+      
+      // Fill the horizontal span
+      const rowStart = (y * width + rowMinX) * 4;
+      const spanWidth = rowMaxX - rowMinX + 1;
+      
+      for (let i = 0; i < spanWidth; i++) {
+        const pixelIndex = rowStart + i * 4;
+        if (pixelIndex >= 0 && pixelIndex < pixels.length - 3) {
+          if (a === 255) {
+            pixels[pixelIndex] = r;
+            pixels[pixelIndex + 1] = g;
+            pixels[pixelIndex + 2] = b;
+            pixels[pixelIndex + 3] = a;
+          } else if (a > 0) {
+            const alpha = a / 255;
+            const invAlpha = 1 - alpha;
+            pixels[pixelIndex] = pixels[pixelIndex] * invAlpha + r * alpha;
+            pixels[pixelIndex + 1] = pixels[pixelIndex + 1] * invAlpha + g * alpha;
+            pixels[pixelIndex + 2] = pixels[pixelIndex + 2] * invAlpha + b * alpha;
+          }
+        }
+      }
+    }
+  }
+}
 
-  // color(0, 0, 255); // Paint wireframe lines.
-  // lines.forEach((p) => point(p));
+// Improved thick line rendering with better quality
+function plineSmooth(coords, thickness = 1, shader) {
+  if (coords.length < 2) return;
+  
+  if (thickness === 1) {
+    return pixelPerfectPolyline(coords, shader);
+  }
+  
+  const radius = thickness / 2;
+  const points = [];
+  
+  // Convert coords to standard format
+  const normalizedCoords = coords.map(coord => ({
+    x: coord.x || coord[0] || coord,
+    y: coord.y || coord[1] || coord,
+    color: coord.color
+  }));
+  
+  // Use line segments with proper end caps for crisp rendering
+  for (let i = 0; i < normalizedCoords.length - 1; i++) {
+    const p1 = normalizedCoords[i];
+    const p2 = normalizedCoords[i + 1];
+    
+    if (p1.x === p2.x && p1.y === p2.y) continue;
+    
+    // Set color if specified
+    if (p1.color === "rainbow") color(...rainbow());
+    else if (p1.color) color(...p1.color);
+    
+    // Draw thick line segment using rectangles for better quality
+    drawCrispLineSegment(p1, p2, radius, points);
+  }
+  
+  // Draw rounded end caps
+  if (normalizedCoords.length > 0) {
+    const first = normalizedCoords[0];
+    const last = normalizedCoords[normalizedCoords.length - 1];
+    
+    drawFilledCircle(first.x, first.y, radius, points);
+    drawFilledCircle(last.x, last.y, radius, points);
+  }
+  
+  // Render all points
+  if (shader) {
+    shadePixels(points, shader);
+  } else {
+    points.forEach(p => point(p));
+  }
+}
 
-  return lpar;
+// Draw a crisp line segment using Bresenham-like approach
+function drawCrispLineSegment(p1, p2, radius, points) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  if (distance === 0) return;
+  
+  // Normalize direction vector
+  const unitX = dx / distance;
+  const unitY = dy / distance;
+  
+  // Perpendicular vector for width
+  const perpX = -unitY;
+  const perpY = unitX;
+  
+  // Calculate the four corners of the line rectangle
+  const halfRadius = radius;
+  const x1 = p1.x + perpX * halfRadius;
+  const y1 = p1.y + perpY * halfRadius;
+  const x2 = p1.x - perpX * halfRadius;
+  const y2 = p1.y - perpY * halfRadius;
+  const x3 = p2.x - perpX * halfRadius;
+  const y3 = p2.y - perpY * halfRadius;
+  const x4 = p2.x + perpX * halfRadius;
+  const y4 = p2.y + perpY * halfRadius;
+  
+  // Fill the quadrilateral
+  fillQuad([
+    { x: Math.round(x1), y: Math.round(y1) },
+    { x: Math.round(x2), y: Math.round(y2) },
+    { x: Math.round(x3), y: Math.round(y3) },
+    { x: Math.round(x4), y: Math.round(y4) }
+  ], points);
+}
+
+// Simple quad filling using scanlines
+function fillQuad(corners, points) {
+  // Find bounding box
+  let minX = corners[0].x, maxX = corners[0].x;
+  let minY = corners[0].y, maxY = corners[0].y;
+  
+  for (const corner of corners) {
+    minX = Math.min(minX, corner.x);
+    maxX = Math.max(maxX, corner.x);
+    minY = Math.min(minY, corner.y);
+    maxY = Math.max(maxY, corner.y);
+  }
+  
+  // Simple scanline fill
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (isPointInQuad(x, y, corners)) {
+        points.push({ x, y });
+      }
+    }
+  }
+}
+
+// Point-in-quad test
+function isPointInQuad(px, py, corners) {
+  let sign = null;
+  
+  for (let i = 0; i < corners.length; i++) {
+    const j = (i + 1) % corners.length;
+    const cross = (corners[j].x - corners[i].x) * (py - corners[i].y) - 
+                  (corners[j].y - corners[i].y) * (px - corners[i].x);
+    
+    if (cross !== 0) {
+      const currentSign = cross > 0;
+      if (sign === null) {
+        sign = currentSign;
+      } else if (sign !== currentSign) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
+// Optimized filled circle drawing
+function drawFilledCircle(centerX, centerY, radius, points) {
+  const r = Math.floor(radius);
+  const centerXFloor = Math.floor(centerX);
+  const centerYFloor = Math.floor(centerY);
+  const radiusSquared = radius * radius;
+  
+  // Use efficient circle filling algorithm
+  for (let x = -r; x <= r; x++) {
+    for (let y = -r; y <= r; y++) {
+      if (x * x + y * y <= radiusSquared) {
+        points.push({
+          x: centerXFloor + x,
+          y: centerYFloor + y
+        });
+      }
+    }
+  }
 }
 
 // 🔺 Rasterizes a tri. See also: https://www.youtube.com/watch?v=SbB5taqJsS4
@@ -4389,6 +4649,7 @@ export {
   putback,
   line,
   pline,
+  plineSmooth,
   pixelPerfectPolyline,
   lineAngle,
   circle,

@@ -362,6 +362,20 @@ let iconMode = false; // Detects ?icon on a piece and yields its
 //                          icon function if it exists.
 let previewOrIconMode;
 let hideLabel = false;
+let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
+let hudAnimationState = {
+  visible: true,
+  animating: false,
+  startTime: 0,
+  duration: 500, // 500ms animation
+  opacity: 1.0,
+  slideOffset: { x: 0, y: 0 },     // HUD label offset (slides to top-left)
+  qrSlideOffset: { x: 0, y: 0 },   // QR overlay offset (slides to bottom-right)
+  labelWidth: 120,                 // HUD label width for bounding box animations
+  labelHeight: 40,                 // HUD label height for bounding box animations
+  qrSize: 80,                      // QR overlay size for bounding box animations
+  lastTabTime: 0                   // Track last tab press for double-tap detection
+};
 
 let module, loadedModule; // Currently loaded piece module code with an extra reference for `hotSwap`.
 let currentPath,
@@ -3155,6 +3169,7 @@ const $paintApiUnwrapped = {
   line: graph.line,
   lineAngle: graph.lineAngle,
   pline: graph.pline,
+  plineSmooth: graph.plineSmooth,
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
@@ -6165,6 +6180,59 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
 
+        // [Tab] Toggle HUD label and QR overlay visibility with smooth animation
+        if (data.key === "Tab") {
+          const currentTime = performance.now();
+          const timeSinceLastTab = currentTime - (hudAnimationState.lastTabTime || 0);
+          const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
+          
+          hudAnimationState.lastTabTime = currentTime;
+          
+          if (hudAnimationState.animating) {
+            // Animation in progress: reverse direction and continue from current position
+            const elapsed = currentTime - hudAnimationState.startTime;
+            const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
+            
+            // Flip the target state
+            hudAnimationState.visible = !hudAnimationState.visible;
+            
+            // Restart animation from current position by adjusting the start time
+            // If we were 30% through a hide animation, start the show animation at 70% progress
+            const remainingProgress = 1.0 - progress;
+            hudAnimationState.startTime = currentTime - (remainingProgress * hudAnimationState.duration);
+            
+            // Special double-tap: immediately show HUD if hiding
+            if (isDoubleTap && !hudAnimationState.visible) {
+              hudAnimationState.animating = false;
+              hudAnimationState.visible = true;
+              hudAnimationState.opacity = 1.0;
+              hudAnimationState.slideOffset = { x: 0, y: 0 };
+              hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
+            }
+            
+            $commonApi.sound.synth({
+              tone: hudAnimationState.visible ? 1200 : 800,
+              duration: 0.15,
+              attack: 0.01,
+              decay: 0.3,
+              volume: 0.2,
+            });
+          } else {
+            // No animation in progress: start new animation
+            hudAnimationState.animating = true;
+            hudAnimationState.startTime = currentTime;
+            hudAnimationState.visible = !hudAnimationState.visible;
+            
+            $commonApi.sound.synth({
+              tone: hudAnimationState.visible ? 1200 : 800,
+              duration: 0.15,
+              attack: 0.01,
+              decay: 0.3,
+              volume: 0.2,
+            });
+          }
+        }
+
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
         if (data.key === "x" && data.ctrl && currentText !== "notepat") {
@@ -7783,6 +7851,74 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
+      // 🎬 Update HUD animation state
+      if (hudAnimationState.animating) {
+        const currentTime = performance.now();
+        const elapsed = currentTime - hudAnimationState.startTime;
+        const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
+        
+        // Easing function for smooth macOS-style animation (ease-out)
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        
+        // Use dynamic offsets based on content size, with reasonable minimums
+        // Store dimensions from the current animation state or use defaults
+        const hudWidth = hudAnimationState.labelWidth || 120;
+        const hudHeight = hudAnimationState.labelHeight || 40;
+        const qrSize = hudAnimationState.qrSize || 80;
+        
+        // Calculate slide distances: ensure full content slides off-screen
+        // Add extra padding (20px) to guarantee complete disappearance
+        const hudSlideX = -(hudWidth + 20);  // Slide left by full width + padding
+        const hudSlideY = -(hudHeight + 20); // Slide up by full height + padding
+        const qrSlideX = qrSize + 20;         // Slide right by full size + padding
+        const qrSlideY = qrSize + 20;         // Slide down by full size + padding
+        
+        if (hudAnimationState.visible) {
+          // Animating IN: fade from 0 to 1, slide from respective corners to position
+          hudAnimationState.opacity = easeOut;
+          // HUD slides in from top-left corner
+          hudAnimationState.slideOffset = {
+            x: (1 - easeOut) * hudSlideX, // Slide in from left using actual width
+            y: (1 - easeOut) * hudSlideY  // Slide in from top using actual height
+          };
+          // QR slides in from bottom-right corner
+          hudAnimationState.qrSlideOffset = {
+            x: (1 - easeOut) * qrSlideX,  // Slide in from right using actual size
+            y: (1 - easeOut) * qrSlideY   // Slide in from bottom using actual size
+          };
+        } else {
+          // Animating OUT: fade from 1 to 0, slide to respective corners
+          hudAnimationState.opacity = 1 - easeOut;
+          // HUD slides out to top-left corner
+          hudAnimationState.slideOffset = {
+            x: easeOut * hudSlideX, // Slide out to left using actual width
+            y: easeOut * hudSlideY  // Slide out to top using actual height
+          };
+          // QR slides out to bottom-right corner
+          hudAnimationState.qrSlideOffset = {
+            x: easeOut * qrSlideX,  // Slide out to right using actual size
+            y: easeOut * qrSlideY   // Slide out to bottom using actual size
+          };
+        }
+        
+        // Animation complete
+        if (progress >= 1.0) {
+          hudAnimationState.animating = false;
+          if (!hudAnimationState.visible) {
+            hudAnimationState.opacity = 0;
+            hudAnimationState.slideOffset = { x: hudSlideX, y: hudSlideY };
+            hudAnimationState.qrSlideOffset = { x: qrSlideX, y: qrSlideY };
+          } else {
+            hudAnimationState.opacity = 1;
+            hudAnimationState.slideOffset = { x: 0, y: 0 };
+            hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
+          }
+        }
+      }
+
+      // Update hideLabelViaTab based on animation state
+      hideLabelViaTab = !hudAnimationState.visible && !hudAnimationState.animating;
+
       // System info label (addressability).
       // Use persistent module-level cache instead of local variable
       let label = hudLabelCache;
@@ -7828,6 +7964,7 @@ async function makeFrame({ data: { type, content } }) {
         !previewMode &&
         !iconMode &&
         !hideLabel &&
+        (hudAnimationState.visible || hudAnimationState.animating) &&
         piece !== undefined &&
         piece.length > 0
       ) {
@@ -7876,6 +8013,11 @@ async function makeFrame({ data: { type, content } }) {
         const h = labelBounds.lines.length * (tf.blockHeight + 1) * scale;
         // Don't force full width for video piece - let it size naturally for "|" label
         // if (piece === "video") w = screen.width;
+        
+        // Store label dimensions in animation state for proper bounding box animations
+        hudAnimationState.labelWidth = w;
+        hudAnimationState.labelHeight = h;
+        
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.resetpan();
@@ -8618,9 +8760,16 @@ async function makeFrame({ data: { type, content } }) {
       if (label) {
         const hasVisiblePixels = checkForVisiblePixels(label.pixels);
         if (hasVisiblePixels) {
+          // Apply animation effects to label positioning and opacity
+          const animatedOffset = {
+            x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
+            y: currentHUDOffset.y + hudAnimationState.slideOffset.y
+          };
+          
           sendData.label = {
-            x: currentHUDOffset.x,
-            y: currentHUDOffset.y,
+            x: animatedOffset.x,
+            y: animatedOffset.y,
+            opacity: hudAnimationState.opacity, // Add opacity for fade effect
             img: (({ width, height, pixels }) => ({ width, height, pixels }))(
               label,
             ),
@@ -8649,7 +8798,7 @@ async function makeFrame({ data: { type, content } }) {
                              ));
       
       
-      if (isKidlispPiece && sourceCode) {
+      if (isKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating)) {
         try {
           // Check if this source has been cached using the global registry
           const cachedCode = getCachedCode(sourceCode);
@@ -8695,6 +8844,9 @@ async function makeFrame({ data: { type, content } }) {
             if (!isQRCacheDisabled && allCharsLoaded && hasQRCache && !forceCacheBypass) {
               const cachedQrData = qrOverlayCache.get(cacheKey);
               
+              // Store QR dimensions in animation state for proper bounding box animations
+              hudAnimationState.qrSize = Math.max(cachedQrData.width, cachedQrData.height);
+              
               // Recalculate position for current screen size (handles reframing)
               const overlayWidth = cachedQrData.width;
               const overlayHeight = cachedQrData.height;
@@ -8709,10 +8861,11 @@ async function makeFrame({ data: { type, content } }) {
                 pixels: new Uint8ClampedArray(cachedQrData.basePixels) // Fresh copy for transfer
               };
               
-              // Add QR overlay to sendData
+              // Add QR overlay to sendData with animation effects
               sendData.qrOverlay = {
-                x: startX,
-                y: startY,
+                x: startX + hudAnimationState.qrSlideOffset.x,
+                y: startY + hudAnimationState.qrSlideOffset.y,
+                opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
             } else {
@@ -8729,6 +8882,9 @@ async function makeFrame({ data: { type, content } }) {
               const margin = 4;
               const cellSize = 1; // 1 pixel per cell for smallest possible size
               const qrSize = cells.length * cellSize;
+              
+              // Store QR dimensions in animation state for proper bounding box animations
+              hudAnimationState.qrSize = qrSize;
             
             // Position in bottom-right corner
             let startX = screen.width - qrSize - margin - 1; // Account for shadow width
@@ -8833,6 +8989,9 @@ async function makeFrame({ data: { type, content } }) {
               basePixels: new Uint8ClampedArray(generatedQR.pixels) // Keep a safe copy for caching
             };
             
+            // Store QR dimensions in animation state for proper bounding box animations
+            hudAnimationState.qrSize = Math.max(qrData.width, qrData.height);
+            
             // Recalculate position for current screen size (handles reframing)
             const overlayWidth = qrData.width;
             const overlayHeight = qrData.height;
@@ -8852,10 +9011,11 @@ async function makeFrame({ data: { type, content } }) {
               pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
             };
             
-            // Add QR overlay to sendData with exact position
+            // Add QR overlay to sendData with exact position and animation effects
             sendData.qrOverlay = {
-              x: startX,
-              y: startY,
+              x: startX + hudAnimationState.qrSlideOffset.x,
+              y: startY + hudAnimationState.qrSlideOffset.y,
+              opacity: hudAnimationState.opacity,
               img: qrOverlay
             };
             }
