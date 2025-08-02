@@ -1200,11 +1200,22 @@ async function halt($, text) {
     const vertical = slug === "flip"; // `flop` is lateral
     const w = system.painting.width,
       h = system.painting.height;
+    
+    // Store the original painting before creating a new one
+    const originalPainting = system.painting;
+    
     // Invert the scale of the painting, pasting it into a new one of the
     // same size.
     const scale = vertical ? { x: 1, y: -1 } : { x: -1, y: 1 };
+    
+    // Calculate position offset to counteract grid function's automatic adjustment
+    const offsetX = scale.x < 0 ? w + 1 : 0;
+    const offsetY = scale.y < 0 ? h + 1 : 0;
+    
     system.painting = painting(w, h, (p) => {
-      p.wipe(64).paste(system.painting, 0, 0, { scale });
+      // First clear to the same background as the original
+      p.wipe(255, 0); // Clear to transparent
+      p.paste(originalPainting, offsetX, offsetY, scale);
     });
 
     // Persis the painting.

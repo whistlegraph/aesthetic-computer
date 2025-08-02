@@ -8629,11 +8629,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           );
           
           // Capture pen position data for crosshair rendering during export
-          const penData = pen?.pointers[1] ? {
-            x: pen.pointers[1].x,
-            y: pen.pointers[1].y,
-            device: pen.pointers[1].device
-          } : null;
+          // Only capture pen data if cursor is within canvas bounds
+          const penData = pen?.pointers[1] ? (() => {
+            const pointer = pen.pointers[1];
+            const x = pointer.x;
+            const y = pointer.y;
+            const canvasWidth = ctx.canvas.width;
+            const canvasHeight = ctx.canvas.height;
+            
+            // Check if pen is within canvas bounds
+            if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+              return null; // Don't capture pen data when cursor is off-screen
+            }
+            
+            return {
+              x: x,
+              y: y,
+              device: pointer.device
+            };
+          })() : null;
           
           recordedFrames.push([absoluteTimestamp, frameDataWithHUD, penData]);
         }
