@@ -1254,6 +1254,38 @@ class KidLisp {
     return false;
   }
 
+  // Helper function to create a deep copy of a form
+  createFormCopy(templateForm, api) {
+    // Create a new Form using the same geometry data (like CUBEL) but fresh transform state
+    // Determine the geometry type from the template form
+    let geometryData = api.CUBEL; // Default to CUBEL
+    
+    // If we want to support other geometry types in the future, we could check templateForm.type
+    // For now, all cube:N instances use CUBEL geometry
+    
+    const copy = new api.Form(
+      geometryData,  // Use the appropriate geometry data
+      {
+        color: templateForm.color ? [...templateForm.color] : undefined,
+        alpha: templateForm.alpha
+      },
+      {
+        pos: [0, 0, 0],  // Start with clean transform state
+        rot: [0, 0, 0],
+        scale: [1, 1, 1]
+      }
+    );
+    
+    // Copy other properties that might be needed
+    copy.primitive = templateForm.primitive;
+    copy.type = templateForm.type;
+    copy.texture = templateForm.texture;
+    copy.colorModifier = templateForm.colorModifier;
+    copy.gradients = templateForm.gradients;
+    
+    return copy;
+  }
+
   // Create global environment (cached for performance)
   getGlobalEnv() {
     if (this.globalEnvCache) {
@@ -1660,10 +1692,37 @@ class KidLisp {
           return undefined;
         } else {
           // Called with color arguments - store and apply the new ink state
-          this.inkState = processArgStringTypes(args);
+          const processedArgs = processArgStringTypes(args);
+          this.inkState = processedArgs;
           this.inkStateSet = true;
-          api.ink?.(processArgStringTypes(args));
+          api.ink?.(processedArgs);
         }
+      },
+      // Dynamic timing helpers with intuitive names
+      hop: (api, args, env) => {
+        // Creates repeating timing expressions like "0.3s..." for color hopping
+        if (args.length >= 3) {
+          const seconds = this.evaluate(args[0], api, env);
+          const color1 = args[1];
+          const color2 = args[2];
+          
+          // Construct repeating timing expression and evaluate it directly
+          const timingStr = `${seconds}s...`;
+          return this.evaluate([timingStr, color1, color2], api, env);
+        }
+        console.error("❗ Invalid `hop`. Expected (hop seconds color1 color2).");
+      },
+      delay: (api, args, env) => {
+        // Creates one-time timing expressions like "1s" for delayed actions
+        if (args.length >= 2) {
+          const seconds = this.evaluate(args[0], api, env);
+          const action = args[1];
+          
+          // Construct one-time timing expression and evaluate it directly
+          const timingStr = `${seconds}s`;
+          return this.evaluate([timingStr, action], api, env);
+        }
+        console.error("❗ Invalid `delay`. Expected (delay seconds action).");
       },
       line: (api, args = []) => {
         api.line(...args);
@@ -1867,7 +1926,221 @@ class KidLisp {
           api.write(content, pos);
         }
       },
-      // 🏷️ HUD label
+      // � 3D Form functions
+      // 3D Objects - simple global forms
+      cube: (api, args, env, colon) => {
+        // Handle cubic address space: cube:0, cube:1, cube:2, etc.
+        // Also support (cube 0), (cube 1), etc. when no colon syntax is used
+        let cubeId;
+        if (colon) {
+          cubeId = colon; // From colon syntax like cube:0
+        } else if (args.length > 0) {
+          cubeId = String(this.evaluate(args[0], api, env)); // From argument like (cube 0)
+        } else {
+          cubeId = "0"; // Default to cube:0
+        }
+        
+        const templateKey = `cubeTemplate_${cubeId}`;
+        
+        // Create a template cube for this ID if it doesn't exist (immutable reference)
+        if (!api.system[templateKey]) {
+          api.system[templateKey] = new api.Form(api.CUBEL, { pos: [0, 0, 2], rot: [0, 0, 0], scale: 1 });
+        }
+        return api.system[templateKey];
+      },
+      quad: (api) => {
+        // Create a template quad if it doesn't exist (immutable reference)
+        if (!api.system.quadTemplate) {
+          api.system.quadTemplate = new api.Form(api.QUAD, { pos: [0, 0, -4], rot: [0, 0, 0], scale: 1 });
+        }
+        return api.system.quadTemplate;
+      },
+      // 🎭 Trans function - creates working copies and applies transformations
+      // Usage: (trans cube (move 1 2 3) (scale 2) (spin 0.1 0 0) (rotate 45 0 0))
+      trans: (api, args, env) => {
+        if (args.length < 2) {
+          console.error("❗ trans requires at least 2 arguments: form and transformation(s)");
+          return;
+        }
+
+        // Get the template form (first argument)
+        const templateForm = this.evaluate(args[0], api, env);
+        if (!templateForm || !templateForm.vertices) {
+          console.error("❗ trans: first argument must be a valid form, got:", templateForm);
+          return;
+        }
+
+        // Create a working copy of the form for this frame
+        const workingForm = this.createFormCopy(templateForm, api);
+
+        // Process transformation commands with special evaluation
+        for (let i = 1; i < args.length; i++) {
+          const transformCmd = args[i];
+          if (Array.isArray(transformCmd) && transformCmd.length > 0) {
+            const [cmd, ...params] = transformCmd;
+            
+            // Evaluate ONLY the parameters, not the command itself
+            const evaluatedParams = params.map(param => this.evaluate(param, api, env));
+            
+            switch (cmd) {
+              case "move":
+              case "pos":
+                if (evaluatedParams.length >= 3) {
+                  workingForm.position[0] = evaluatedParams[0] || 0;
+                  workingForm.position[1] = evaluatedParams[1] || 0;
+                  workingForm.position[2] = evaluatedParams[2] || 0;
+                }
+                break;
+                
+              case "scale":
+                if (evaluatedParams.length === 1) {
+                  const s = evaluatedParams[0] || 1;
+                  workingForm.scale[0] = s;
+                  workingForm.scale[1] = s;
+                  workingForm.scale[2] = s;
+                } else if (evaluatedParams.length >= 3) {
+                  workingForm.scale[0] = evaluatedParams[0] || 1;
+                  workingForm.scale[1] = evaluatedParams[1] || 1;
+                  workingForm.scale[2] = evaluatedParams[2] || 1;
+                }
+                break;
+                
+              case "rotate":
+                if (evaluatedParams.length >= 3) {
+                  workingForm.rotation[0] = evaluatedParams[0] || 0;
+                  workingForm.rotation[1] = evaluatedParams[1] || 0;
+                  workingForm.rotation[2] = evaluatedParams[2] || 0;
+                }
+                break;
+                
+              case "spin":
+                // Frame-based rotation for animation (accumulates over time)
+                if (evaluatedParams.length >= 3) {
+                  const frameCount = this.frameCount || 0;
+                  workingForm.rotation[0] = (evaluatedParams[0] || 0) * frameCount;
+                  workingForm.rotation[1] = (evaluatedParams[1] || 0) * frameCount;
+                  workingForm.rotation[2] = (evaluatedParams[2] || 0) * frameCount;
+                }
+                break;
+                
+              default:
+                console.warn(`❗ Unknown transform command: ${cmd}`);
+                break;
+            }
+          }
+        }
+
+        // Mark as transformed for GPU
+        workingForm.gpuTransformed = true;
+        
+        return workingForm;
+      },
+      // Render a form
+      form: (api, args = []) => {
+        const forms = args.filter(f => f !== undefined);
+        if (forms.length > 0) {
+          api.form(forms);
+        }
+      },
+      // Simple transform function for cube
+      cubespin: (api, args = []) => {
+        const xSpeed = args[0] || 0;
+        const ySpeed = args[1] || 0;
+        const zSpeed = args[2] || 0;
+        
+        const cube = api.system.cube;
+        if (cube) {
+          // Just increment rotation - let the graphics system handle the rest
+          cube.rotation[0] += xSpeed;
+          cube.rotation[1] += ySpeed;
+          cube.rotation[2] += zSpeed;
+          cube.gpuTransformed = true;
+        }
+        return cube;
+      },
+      // Alternative center-spinning cube function
+      cubespin2: (api, args = []) => {
+        const xSpeed = args[0] || 0;
+        const ySpeed = args[1] || 0;
+        const zSpeed = args[2] || 0;
+        
+        const cube = api.system.cube;
+        if (cube && cube.vertices) {
+          // Manually rotate vertices around cube center
+          const centerX = cube.position[0];
+          const centerY = cube.position[1]; 
+          const centerZ = cube.position[2];
+          
+          // Simple Y-axis rotation for now
+          const rotY = ySpeed;
+          const cos = Math.cos(rotY);
+          const sin = Math.sin(rotY);
+          
+          cube.vertices.forEach(vertex => {
+            // Translate to origin relative to cube center
+            const x = vertex.pos[0] - centerX;
+            const z = vertex.pos[2] - centerZ;
+            
+            // Rotate around Y-axis
+            const newX = x * cos - z * sin;
+            const newZ = x * sin + z * cos;
+            
+            // Translate back
+            vertex.pos[0] = newX + centerX;
+            vertex.pos[2] = newZ + centerZ;
+          });
+          
+          cube.gpuTransformed = true;
+        }
+        return cube;
+      },
+      // Move cube to position
+      cubepos: (api, args = []) => {
+        const x = args[0] || 0;
+        const y = args[1] || 0;
+        const z = args[2] || -4;
+        
+        const cube = api.system.cube;
+        if (cube) {
+          cube.position[0] = x;
+          cube.position[1] = y;
+          cube.position[2] = z;
+          cube.gpuTransformed = true;
+        }
+        return cube;
+      },
+      // Scale cube
+      cubescale: (api, args = []) => {
+        const scale = args[0] || 1;
+        
+        const cube = api.system.cube;
+        if (cube) {
+          cube.scale[0] = scale;
+          cube.scale[1] = scale;
+          cube.scale[2] = scale;
+          cube.gpuTransformed = true;
+        }
+        return cube;
+      },
+      // Set cube rotation
+      cuberot: (api, args = []) => {
+        const x = args[0] || 0;
+        const y = args[1] || 0;
+        const z = args[2] || 0;
+        
+        const cube = api.system.cube;
+        if (cube) {
+          cube.rotation[0] = x;
+          cube.rotation[1] = y;
+          cube.rotation[2] = z;
+          cube.gpuTransformed = true;
+        }
+        return cube;
+      },
+      // Global 3D objects work directly
+      // Manipulate cube.position, cube.rotation, cube.scale directly from KidLisp
+
+      // �🏷️ HUD label
       label: (api, args = []) => {
         const text = args[0] ? unquoteString(args[0].toString()) : undefined;
         const color = args[1];
@@ -2876,11 +3149,6 @@ class KidLisp {
             const currentIndex = this.sequenceCounters.get(timingKey) || 0;
             const nextIndex = (currentIndex + 1) % args.length;
             this.sequenceCounters.set(timingKey, nextIndex);
-            
-            // Debug timing switches for "2s..." expressions
-            if (head === "2s...") {
-              console.log(`⏰ TIMING SWITCH: ${timingKey} - ${currentIndex} → ${nextIndex}, args.length: ${args.length}, diff: ${diff.toFixed(2)}s`);
-            }
           }
 
           // Always return the current item (not just when advancing)
@@ -2907,7 +3175,36 @@ class KidLisp {
             }
             
             // Evaluate the selected argument instead of just returning it
-            result = this.evaluate(args[currentIndex], api, env);
+            const selectedArg = args[currentIndex];
+            
+            // For timing expressions, handle bare strings as potential function calls
+            let result;
+            if (typeof selectedArg === "string") {
+              // Try to evaluate as a function call first (for CSS colors)
+              const globalEnv = this.getGlobalEnv();
+              if (globalEnv[selectedArg] && typeof globalEnv[selectedArg] === "function") {
+                result = globalEnv[selectedArg](api, []);
+              } else {
+                result = this.evaluate(selectedArg, api, env);
+              }
+            } else {
+              result = this.evaluate(selectedArg, api, env);
+            }
+            
+            // Debug what we're getting from timing evaluation
+            // if (head === "2s...") {
+            //   console.log(`⏰ TIMING EVAL: selectedArg=${selectedArg}, result=${result}, type=${typeof result}`);
+            //   
+            //   // If the result is still a string that might be a CSS color, try to resolve it
+            //   if (typeof result === "string" && cssColors && cssColors[result]) {
+            //     const colorValue = cssColors[result];
+            //     console.log(`⏰ TIMING COLOR: Resolved "${result}" to`, colorValue);
+            //     result = colorValue;
+            //   }
+            // }
+            
+            // IMPORTANT: Return the result so it can be used by parent expressions
+            return result;
           }
           continue; // Skip normal function processing
         }
@@ -3012,7 +3309,10 @@ class KidLisp {
                   head === "choose" ||
                   head === "?" ||
                   head === "repeat" ||
-                  head === "once"
+                  head === "once" ||
+                  head === "hop" ||
+                  head === "delay" ||
+                  head === "trans"
                 ) {
                   processedArgs = args;
                 } else {
@@ -3022,8 +3322,16 @@ class KidLisp {
                       Array.isArray(arg) ||
                       (typeof arg === "string" && !/^".*"$/.test(arg))
                     ) {
-                      const result = this.fastEval(arg, api, this.localEnv);
-                      return result;
+                      // Check if this is a timing expression that needs full evaluation
+                      if (Array.isArray(arg) && arg.length > 0 && 
+                          typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
+                        // Use full evaluation for timing expressions
+                        const result = this.evaluate([arg], api, this.localEnv);
+                        return result;
+                      } else {
+                        const result = this.fastEval(arg, api, this.localEnv);
+                        return result;
+                      }
                     } else {
                       return arg;
                     }
@@ -3101,6 +3409,19 @@ class KidLisp {
           if (result === item) {
             if (Array.isArray(item)) {
               result = this.evaluate(item, api, env);
+            } else if (typeof item === "string" && item.includes(":")) {
+              // Handle colon syntax for bare strings like "cube:0"
+              const colonSplit = item.split(":");
+              const head = colonSplit[0];
+              const colon = colonSplit[1];
+              
+              // Look up the function and call it with the colon parameter
+              const globalEnv = this.getGlobalEnv();
+              if (globalEnv[head] && typeof globalEnv[head] === "function") {
+                result = globalEnv[head](api, [], env, colon);
+              } else {
+                result = this.evalNotFound(item, api, env);
+              }
             } else {
               result = this.evalNotFound(item, api, env);
             }
