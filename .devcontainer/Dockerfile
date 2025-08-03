@@ -16,12 +16,11 @@ RUN dnf install -y lolcat toilet
 RUN dnf install -y iproute
 RUN dnf install -y xclip
 RUN dnf install -y nmap-ncat
-# RUN dnf install -y inotify-tools
+RUN dnf install -y inotify-tools
 
 # Install PowerShell
 # Use Fedora 40 repo instead of Fedora 42
 # RUN dnf install -y https://packages.microsoft.com/config/fedora/40/packages-microsoft-prod.rpm \
-
 
 #  && dnf install -y powershell
 
