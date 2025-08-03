@@ -188,7 +188,270 @@ end
 alias ac 'cd ~/aesthetic-computer'
 alias watch 'ac; npm run watch' # check for new deployments
 alias ac-watch 'ac; npm run watch'
-alias ac-agent 'ac; fish'
+
+# 📱 Dev log monitoring function with dynamic file detection
+function ac-dev-log
+    set log_dir "/tmp/dev-logs"
+    
+    if not test -d $log_dir
+        echo "🔍 No dev logs directory found at $log_dir"
+        echo "💡 Try touching/drawing on your iPhone to generate logs"
+        return 1
+    end
+    
+    echo "📱 Monitoring ALL device logs in real-time..."
+    echo "🎨 Touch/draw on any device to see live logs..."
+    echo "🔄 Watching for new files in: $log_dir"
+    echo "----------------------------------------"
+    
+    # Kill any existing tail/inotify processes for clean start
+    pkill -f "tail.*$log_dir" 2>/dev/null
+    pkill -f "inotifywait.*$log_dir" 2>/dev/null
+    
+    # Function to start monitoring a single log file
+    function monitor_log_file
+        set logfile $argv[1]
+        set log_name (basename "$logfile" .log)
+        
+        tail -f "$logfile" 2>/dev/null | while read line
+            # Extract JSON part (everything after first '{')
+            set json_start (string match -r '\{.*' "$line")
+            if test -n "$json_start"
+                # Try to format with jq for colors
+                set formatted (echo "$json_start" | jq -C . 2>/dev/null)
+                if test $status -eq 0
+                    # Extract timestamp/prefix part
+                    set prefix (string replace -r '\{.*' '' "$line")
+                    echo "📱 $log_name: $prefix$formatted"
+                else
+                    echo "📱 $log_name: $line"  
+                end
+            else
+                echo "📱 $log_name: $line"
+            end
+        end &
+    end
+    
+    # Monitor existing log files
+    for logfile in $log_dir/*.log
+        if test -f "$logfile"
+            echo "🔍 Found existing log: "(basename "$logfile")
+            monitor_log_file "$logfile"
+        end
+    end
+    
+    # Monitor for new log files being created (fallback if inotify not available)
+    if command -v inotifywait >/dev/null 2>&1
+        echo "�️  Using inotifywait for new file detection"
+        inotifywait -m -e create -e moved_to --format '%w%f' "$log_dir" 2>/dev/null | while read new_file
+            if string match -q "*.log" "$new_file"
+                echo "🆕 New log file detected: "(basename "$new_file")
+                monitor_log_file "$new_file"
+            end
+        end &
+    else
+        echo "⏰ Using polling for new file detection (inotify not available)"
+        # Fallback: poll for new files every 2 seconds
+        while true
+            for logfile in $log_dir/*.log
+                if test -f "$logfile"
+                    set log_name (basename "$logfile" .log)
+                    # Check if we're already monitoring this file
+                    if not pgrep -f "tail.*$logfile" >/dev/null
+                        echo "🆕 New log file detected: $log_name"
+                        monitor_log_file "$logfile"
+                    end
+                end
+            end
+            sleep 2
+        end &
+    end
+    
+    # Keep the function running with proper interrupt handling
+    echo "✅ Monitoring started. Press Ctrl+C to stop."
+    
+    # Use read to wait for interrupt (Ctrl+C) - this is more reliable in Fish
+    # The read command will be interrupted by Ctrl+C and return control
+    echo "Press any key to stop monitoring, or Ctrl+C..."
+    read -s
+    
+    # Cleanup on exit
+    echo "🛑 Stopping all monitoring processes..."
+    pkill -f "tail.*$log_dir" 2>/dev/null
+    pkill -f "inotifywait.*$log_dir" 2>/dev/null
+    echo "✅ Monitoring stopped"
+end
+
+# 📱 List all available device logs
+function ac-dev-logs
+    set log_dir "/tmp/dev-logs"
+    
+    if not test -d $log_dir
+        echo "🔍 No dev logs directory found"
+        return 1
+    end
+    
+    echo "📱 Available device logs:"
+    ls -la $log_dir/*.log 2>/dev/null | while read line
+        echo "  $line"
+    end
+end
+
+# 📱 Clean old device logs
+function ac-dev-log-clean
+    set log_dir "/tmp/dev-logs"
+    
+    if test -d $log_dir
+        echo "🧹 Cleaning old device logs..."
+        rm -f $log_dir/*.log
+        echo "✨ Done!"
+    else
+        echo "🔍 No dev logs directory found"
+    end
+end
+
+# 📱 Improved dev log monitoring with proper Ctrl+C support (test version)
+function ac-dev-log-new
+    set log_dir "/tmp/dev-logs"
+    
+    if not test -d $log_dir
+        echo "🔍 No dev logs directory found at $log_dir"
+        echo "💡 Try touching/drawing on your iPhone to generate logs"
+        return 1
+    end
+    
+    echo "📱 Monitoring ALL device logs in real-time..."
+    echo "🎨 Touch/draw on any device to see live logs..."
+    echo "🔄 Watching for new files in: $log_dir"
+    echo "✅ Press Ctrl+C to stop monitoring"
+    echo "----------------------------------------"
+    
+    # Kill any existing monitoring processes for clean start
+    pkill -f "tail.*$log_dir" 2>/dev/null
+    pkill -f "inotifywait.*$log_dir" 2>/dev/null
+    
+    # Trap Ctrl+C to clean up properly
+    function cleanup_logs --on-signal INT
+        echo ""
+        echo "🛑 Stopping log monitoring..."
+        pkill -f "tail.*$log_dir" 2>/dev/null
+        pkill -f "inotifywait.*$log_dir" 2>/dev/null
+        echo "✨ Monitoring stopped!"
+        return 0
+    end
+    
+    # Function to start monitoring a single log file
+    function start_monitor
+        set logfile $argv[1]
+        set log_name (basename "$logfile" .log)
+        
+        tail -f "$logfile" 2>/dev/null | while read line
+            # Extract JSON part (everything after first '{')
+            set json_start (string match -r '\{.*' "$line")
+            if test -n "$json_start"
+                # Try to format with jq for colors
+                set formatted (echo "$json_start" | jq -C . 2>/dev/null)
+                if test $status -eq 0
+                    # Extract timestamp/prefix part
+                    set prefix (string replace -r '\{.*' '' "$line")
+                    echo "📱 $log_name: $prefix$formatted"
+                else
+                    echo "📱 $log_name: $line"  
+                end
+            else
+                echo "📱 $log_name: $line"
+            end
+        end &
+    end
+    
+    # Start monitoring existing files
+    set -l monitored_files
+    for logfile in $log_dir/*.log
+        if test -f "$logfile"
+            echo "🔍 Found existing log: "(basename "$logfile")
+            start_monitor "$logfile"
+            set -a monitored_files "$logfile"
+        end
+    end
+    
+    # Simple loop that responds quickly to Ctrl+C
+    if command -v inotifywait >/dev/null 2>&1
+        echo "👁️  Using inotifywait for new file detection"
+        
+        # Watch for new files
+        inotifywait -m -e create -e moved_to --format '%w%f' "$log_dir" 2>/dev/null &
+        set inotify_pid $last_pid
+        
+        while true
+            # Read from inotify if available
+            if jobs -q %$inotify_pid
+                # Process new files...
+                # (simplified for testing)
+            end
+            
+            # Check for new files manually as backup
+            for logfile in $log_dir/*.log
+                if test -f "$logfile"; and not contains "$logfile" $monitored_files
+                    set log_name (basename "$logfile" .log)
+                    echo "🆕 New log file detected: $log_name"
+                    start_monitor "$logfile"
+                    set -a monitored_files "$logfile"
+                end
+            end
+            
+            sleep 1
+        end
+    else
+        echo "⏰ Using polling for file detection"
+        
+        while true
+            # Check for new files
+            for logfile in $log_dir/*.log
+                if test -f "$logfile"; and not contains "$logfile" $monitored_files
+                    set log_name (basename "$logfile" .log)
+                    echo "🆕 New log file detected: $log_name"
+                    start_monitor "$logfile"
+                    set -a monitored_files "$logfile"
+                end
+            end
+            
+            sleep 2
+        end
+    end
+end
+# 📱 Simple improved dev log monitoring (test version)
+function ac-dev-log-simple
+    set log_dir "/tmp/dev-logs"
+    
+    if not test -d $log_dir
+        echo "🔍 No dev logs directory found at $log_dir"
+        return 1
+    end
+    
+    echo "📱 Monitoring device logs..."
+    echo "✅ Press Ctrl+C to stop"
+    echo "----------------------------------------"
+    
+    # Kill existing processes
+    pkill -f "tail.*$log_dir" 2>/dev/null
+    
+    # Simple approach - just monitor all existing files
+    for logfile in $log_dir/*.log
+        if test -f "$logfile"
+            set log_name (basename "$logfile" .log)
+            echo "🔍 Monitoring: $log_name"
+            tail -f "$logfile" | while read line
+                echo "📱 $log_name: $line"
+            end &
+        end
+    end
+    
+    # Simple loop that can be interrupted
+    echo "🔄 Running... (Ctrl+C to stop)"
+    while true
+        sleep 1
+    end
+end
 # alias ac-kidlisp 'ac; npm run test:kidlisp'
 alias ac-session 'ac; npm run server:session'
 alias ac-stripe-print 'ac; npm run stripe-print-micro'

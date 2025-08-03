@@ -16,7 +16,8 @@
 
 let colorParams, // Processed color parameters
   thickness, // Line thickness
-  antialias = false; // Antialiasing flag
+  antialias = false, // Antialiasing flag
+  wasPainting = false; // Track previous painting state to detect transitions
 
 const points = []; // Current gesture stroke points
 const smoothedPoints = []; // Smoothed points for rendering
@@ -53,6 +54,9 @@ function boot({ params, num, colon }) {
   
   // Ensure thickness is within reasonable bounds
   thickness = Math.max(1, Math.min(thickness, 50));
+  
+  // Initialize state tracking
+  wasPainting = false;
 }
 
 // 🧮 Sim - No simulation needed for the streamlined version
@@ -61,14 +65,35 @@ function sim() {
 }
 
 // 🎨 Paint - Render the current stroke
-function paint({ pen, ink, page, paste, screen, system: { nopaint } }) {
-  // Only render if we're actively painting
-  if (nopaint.is("painting") && points.length > 0) {
+function paint({ pen, ink, page, paste, screen, num, system: { nopaint } }) {
+  // Track state changes to detect new strokes
+  const isPainting = nopaint.is("painting");
+  
+  // If we just started painting (transition from not-painting to painting), start new stroke
+  if (isPainting && !wasPainting) {
+    points.length = 0;
+    smoothedPoints.length = 0;
+  }
+  
+  // Update state tracking
+  wasPainting = isPainting;
+  
+  // Add current brush position if we're actively painting
+  if (isPainting) {
+    // Use transformed brush coordinates
+    addPoint(num, nopaint.brush.x, nopaint.brush.y);
+  }
+
+  // Only render if we have points
+  if (points.length > 0) {
+    let currentStroke = points;
     
-    // Create current stroke with pen position
-    const currentStroke = [...points, pen];
+    // Add current brush position for preview if still painting
+    if (isPainting) {
+      currentStroke = [...points, { x: nopaint.brush.x, y: nopaint.brush.y }];
+    }
     
-    // Paint preview to the buffer
+    // Paint to the buffer
     page(nopaint.buffer).wipe(255, 0);
     
     if (thickness === 1) {
@@ -107,20 +132,6 @@ function bake() {
 }
 
 // ✒ Act - Handle user input
-function act({ event: e, pen, num }) {
-  // Start a new stroke
-  if (e.is("touch:1")) {
-    points.length = 0; // Clear any existing stroke
-    smoothedPoints.length = 0; // Clear smoothed points
-    addPoint(num, pen.x, pen.y);
-  }
-
-  // Continue the stroke
-  if (e.is("draw:1")) {
-    addPoint(num, pen.x, pen.y);
-  }
-}
-
 // 🔍 Preview - Show what the brush looks like
 function preview({ ink, wipe }) {
   wipe("red").ink("blue").write("line", { center: "xy" });
@@ -128,7 +139,7 @@ function preview({ ink, wipe }) {
 
 const system = "nopaint";
 
-export { about, boot, paint, sim, act, bake, system, preview };
+export { about, boot, paint, sim, bake, system, preview };
 
 // 📚 Library (Helper functions)
 

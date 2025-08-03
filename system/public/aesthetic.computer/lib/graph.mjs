@@ -41,6 +41,12 @@ let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
 
+// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
+// Gradient state - used by ink() function for "gradient:color1-color2" syntax
+let gradientMode = false;
+let gradientColors = [];
+let gradientDirection = "horizontal"; // horizontal, vertical, diagonal
+
 let debug = false;
 export function setDebug(newDebug) {
   debug = newDebug;
@@ -200,7 +206,62 @@ function flood(x, y, fillColor = c) {
   };
 }
 
-// Parse a color from a variety of inputs..
+// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md for complete guide
+// Parse a gradient string like "gradient:blue-white" or "gradient:red-yellow-blue"
+// Used by findColor() which is called from ink() in disk.mjs
+// Returns array of RGBA color arrays or null if invalid
+function parseGradient(gradientString) {
+  const parts = gradientString.split(":");
+  if (parts.length !== 2 || parts[0] !== "gradient") {
+    return null;
+  }
+  
+  const colorParts = parts[1].split("-");
+  const colors = [];
+  
+  for (const colorStr of colorParts) {
+    const color = cssColors[colorStr.trim()] || hexToRgb(colorStr.trim());
+    if (color) {
+      colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+    }
+  }
+  
+  return colors.length >= 2 ? colors : null;
+}
+
+// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
+// Get interpolated color from gradient based on position (0-1)
+// Called during line/box drawing when gradientMode is active
+// Supports multi-color gradients with linear interpolation
+function getGradientColor(t) {
+  if (!gradientMode || gradientColors.length < 2) {
+    return c.slice();
+  }
+  
+  // Clamp t to 0-1 range
+  t = Math.max(0, Math.min(1, t));
+  
+  // Find which segment of the gradient we're in
+  const segmentCount = gradientColors.length - 1;
+  const segmentIndex = Math.floor(t * segmentCount);
+  const segmentT = (t * segmentCount) - segmentIndex;
+  
+  const startColor = gradientColors[Math.min(segmentIndex, gradientColors.length - 1)];
+  const endColor = gradientColors[Math.min(segmentIndex + 1, gradientColors.length - 1)];
+  
+  // Linear interpolation between colors
+  return [
+    Math.round(lerp(startColor[0], endColor[0], segmentT)),
+    Math.round(lerp(startColor[1], endColor[1], segmentT)),
+    Math.round(lerp(startColor[2], endColor[2], segmentT)),
+    Math.round(lerp(startColor[3], endColor[3], segmentT))
+  ];
+}
+
+// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
+// Parse a color from a variety of inputs including gradient strings.
+// Called by ink() function in disk.mjs. Handles gradient syntax "gradient:color1-color2"
+// Returns: RGBA array for normal colors, or {color: RGBA, isGradient: true} for gradients
 function findColor() {
   let args = [...arguments];
 
@@ -234,27 +295,43 @@ function findColor() {
       // args = args[0];
       return findColor(...args[0]);
     } else if (isString()) {
-      // See if it's a hex.
-      const cleanedHex = args[0]
-        .replace("#", "")
-        .replace("0x", "")
-        .toUpperCase();
-      if (isHexString(cleanedHex) === true) {
-        args = hexToRgb(cleanedHex);
-      } else if (args[0] === "erase") {
-        // TODO: Add better alpha support here... 23.09.11.22.10
-        //       ^ See `parseColor` in `num`.
-        // let alpha = 255;
-        // if (args[1]) alpha = parseFloat(args[1]);
-        args = [-1, -1, -1];
-        if (args[1]) args.push(computeAlpha(args[1]));
-      } else if (args[0] === "rainbow") {
-        args = rainbow(); // Cycle through roygbiv in a linear sequence.
-      } else {
-        args = cssColors[args[0]]; // Try to match it to a table.
-        if (!args) {
+      // Check for gradient first
+      if (args[0].startsWith("gradient:")) {
+        const parsedGradientColors = parseGradient(args[0]);
+        if (parsedGradientColors) {
+          // Enable gradient mode and store colors
+          gradientMode = true;
+          gradientColors = parsedGradientColors;
+          // Return the first color as the base with gradient flag
+          return { color: gradientColors[0], isGradient: true };
+        } else {
+          // Invalid gradient, fall back to random color
           args = randIntArr(255, 3);
           args.push(255);
+        }
+      } else {
+        // See if it's a hex.
+        const cleanedHex = args[0]
+          .replace("#", "")
+          .replace("0x", "")
+          .toUpperCase();
+        if (isHexString(cleanedHex) === true) {
+          args = hexToRgb(cleanedHex);
+        } else if (args[0] === "erase") {
+          // TODO: Add better alpha support here... 23.09.11.22.10
+          //       ^ See `parseColor` in `num`.
+          // let alpha = 255;
+          // if (args[1]) alpha = parseFloat(args[1]);
+          args = [-1, -1, -1];
+          if (args[1]) args.push(computeAlpha(args[1]));
+        } else if (args[0] === "rainbow") {
+          args = rainbow(); // Cycle through roygbiv in a linear sequence.
+        } else {
+          args = cssColors[args[0]]; // Try to match it to a table.
+          if (!args) {
+            args = randIntArr(255, 3);
+            args.push(255);
+          }
         }
       }
       // TODO: Add an error message here. 22.08.29.13.03
@@ -286,6 +363,11 @@ function findColor() {
     if (isNaN(args[i])) args[i] = randInt(255);
   });
 
+  // Reset gradient mode for non-gradient colors
+  if (gradientMode && (!arguments[0] || typeof arguments[0] !== 'string' || !arguments[0].startsWith('gradient:'))) {
+    resetGradient();
+  }
+
   return args;
 }
 
@@ -304,8 +386,13 @@ function computeAlpha(alpha) {
 
 // Set global color.
 // Send 0 arguements to retrieve the current one.
-function color(r, g, b, a = 255) {
+// preventGradientReset: internal flag to prevent resetting gradient mode
+function color(r, g, b, a = 255, preventGradientReset = false) {
   if (arguments.length === 0) return c.slice();
+  // Only reset gradient mode when setting a solid color manually (not from gradient system)
+  if (!preventGradientReset) {
+    resetGradient();
+  }
   c[0] = floor(r);
   c[1] = floor(g);
   c[2] = floor(b);
@@ -329,6 +416,14 @@ function color2(r, g, b, a = 255) {
   return c2.slice();
 }
 
+// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
+// Reset gradient mode (useful when switching back to solid colors)
+// Called automatically by findColor() when non-gradient colors are used
+function resetGradient() {
+  gradientMode = false;
+  gradientColors = [];
+}
+
 export {
   makeBuffer,
   cloneBuffer,
@@ -340,6 +435,9 @@ export {
   color,
   color2,
   findColor,
+  parseGradient,
+  getGradientColor,
+  resetGradient,
   c, // currentColor
   pixel,
 };
@@ -1418,11 +1516,36 @@ function line() {
   const cachedInk = c.slice(0);
 
   // Check if line is perfectly horizontal and no gradient is present, otherwise run bresenham.
-  if (y0 === y1 && !c2) {
+  if (y0 === y1 && !c2 && !gradientMode) {
     lineh(x0, x1, y0);
   } else {
     bresenham(x0, y0, x1, y1).forEach((p) => {
-      if (c2) {
+      if (gradientMode) {
+        let t;
+        if (activeMask) {
+          // Calculate gradient position based on mask geometry
+          const maskWidth = activeMask.width;
+          const maskHeight = activeMask.height;
+          const relativeX = p.x - activeMask.x;
+          const relativeY = p.y - activeMask.y;
+          
+          // Choose gradient direction based on mask dimensions
+          if (gradientDirection === "horizontal" || maskWidth >= maskHeight) {
+            t = maskWidth > 0 ? relativeX / maskWidth : 0;
+          } else {
+            t = maskHeight > 0 ? relativeY / maskHeight : 0;
+          }
+        } else {
+          // Calculate gradient position based on line direction (original behavior)
+          const totalLength = sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+          const currentLength = sqrt((p.x - x0) * (p.x - x0) + (p.y - y0) * (p.y - y0));
+          t = totalLength > 0 ? currentLength / totalLength : 0;
+        }
+        
+        const gradientColor = getGradientColor(t);
+        color(...gradientColor, true); // Use preventGradientReset flag
+        plot(p.x, p.y);
+      } else if (c2) {
         const step = sqrt(p.x * p.x + p.y * p.y) / 255; // Gradient step.
         color(...shiftRGB(c, c2, step));
         plot(p.x, p.y);
@@ -1430,7 +1553,7 @@ function line() {
         plot(p.x, p.y);
       }
     });
-    if (c2) color(...cachedInk);
+    if (c2 || gradientMode) color(...cachedInk);
   }
 
   const out = [x0, y0, x1, y1];
@@ -1658,7 +1781,6 @@ function poly(coords) {
 
 // Draws a thick line between points with optional rounded end-caps.
 // Optimized version with better thick line support and pixel-perfect rendering.
-// Fast scanline-based "spinal growth" rendering for smooth airbrush-like lines
 function pline(coords, thickness = 1, shader) {
   if (coords.length < 2) return; // Need at least 2 points
   
@@ -1667,21 +1789,19 @@ function pline(coords, thickness = 1, shader) {
     return pixelPerfectPolyline(coords, shader);
   }
   
+  // TEMPORARY FIX: Fall back to the old polygon-based approach for thick lines
+  // to avoid issues with direct pixel manipulation
+  const radius = thickness / 2;
+  const points = [];
+  
   // Convert coords to standard format
   const normalizedCoords = coords.map(coord => ({
-    x: Math.round(coord.x || coord[0] || coord),
-    y: Math.round(coord.y || coord[1] || coord),
+    x: coord.x || coord[0] || coord,
+    y: coord.y || coord[1] || coord,
     color: coord.color
   }));
   
-  // Fast spinal growth rendering using direct pixel buffer access
-  const radius = thickness / 2;
-  const radiusSquared = radius * radius;
-  
-  // Pre-calculate color values
-  let colorR = c[0], colorG = c[1], colorB = c[2], colorA = c[3];
-  
-  // Use scanline algorithm to render each segment
+  // Draw thick lines using overlapping circles (simple but reliable)
   for (let i = 0; i < normalizedCoords.length - 1; i++) {
     const p1 = normalizedCoords[i];
     const p2 = normalizedCoords[i + 1];
@@ -1689,31 +1809,34 @@ function pline(coords, thickness = 1, shader) {
     // Skip identical points
     if (p1.x === p2.x && p1.y === p2.y) continue;
     
-    // Update color if needed
+    // Set color if specified
     if (p1.color === "rainbow") {
-      const rainbowColor = rainbow();
-      colorR = rainbowColor[0];
-      colorG = rainbowColor[1]; 
-      colorB = rainbowColor[2];
+      color(...rainbow());
     } else if (p1.color) {
-      colorR = p1.color[0] || colorR;
-      colorG = p1.color[1] || colorG;
-      colorB = p1.color[2] || colorB;
-      colorA = p1.color[3] !== undefined ? p1.color[3] : colorA;
+      color(...p1.color);
     }
     
-    // Fast scanline rendering along the spine
-    renderSpinalSegment(p1.x, p1.y, p2.x, p2.y, radius, radiusSquared, 
-                       colorR, colorG, colorB, colorA);
+    // Draw line segment using multiple circles for thickness
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.max(1, Math.ceil(distance));
+    
+    for (let step = 0; step <= steps; step++) {
+      const t = step / steps;
+      const x = p1.x + dx * t;
+      const y = p1.y + dy * t;
+      circle(x, y, radius, true); // Filled circle
+    }
   }
   
-  // Render end caps using direct pixel access
+  // Draw end caps
   if (normalizedCoords.length > 0) {
     const first = normalizedCoords[0];
     const last = normalizedCoords[normalizedCoords.length - 1];
     
-    renderCircleCap(first.x, first.y, radius, radiusSquared, colorR, colorG, colorB, colorA);
-    renderCircleCap(last.x, last.y, radius, radiusSquared, colorR, colorG, colorB, colorA);
+    circle(first.x, first.y, radius, true);
+    circle(last.x, last.y, radius, true);
   }
 }
 
@@ -1725,7 +1848,7 @@ function renderSpinalSegment(x0, y0, x1, y1, radius, radiusSquared, r, g, b, a) 
   
   if (distance === 0) return;
   
-  // Calculate bounding box for the entire segment
+  // Calculate bounding box for the entire segment using current canvas dimensions
   const minX = Math.max(0, Math.min(x0, x1) - radius);
   const maxX = Math.min(width - 1, Math.max(x0, x1) + radius);
   const minY = Math.max(0, Math.min(y0, y1) - radius);
@@ -2229,10 +2352,48 @@ function box() {
   } else if (mode === "fill" || mode === "") {
     // TODO: The boxes could be cropped to always fit inside the screen here.
     w -= 1;
-    if (sign(height) === 1) {
-      for (let row = 0; row < h; row += 1) line(x, y + row, x + w, y + row);
+    if (gradientMode) {
+      // For filled boxes with gradients, calculate gradient for each pixel
+      for (let row = 0; row < h; row += 1) {
+        for (let col = 0; col <= w; col += 1) {
+          const pixelX = x + col + panTranslation.x;
+          const pixelY = y + row + panTranslation.y;
+          
+          let t;
+          if (activeMask) {
+            // Calculate gradient position based on mask geometry
+            const maskWidth = activeMask.width;
+            const maskHeight = activeMask.height;
+            const relativeX = pixelX - activeMask.x;
+            const relativeY = pixelY - activeMask.y;
+            
+            // Choose gradient direction based on mask dimensions
+            if (gradientDirection === "horizontal" || maskWidth >= maskHeight) {
+              t = maskWidth > 0 ? relativeX / maskWidth : 0;
+            } else {
+              t = maskHeight > 0 ? relativeY / maskHeight : 0;
+            }
+          } else {
+            // Calculate gradient position based on box dimensions
+            if (gradientDirection === "horizontal" || w >= h) {
+              t = w > 0 ? col / w : 0;
+            } else {
+              t = h > 0 ? row / h : 0;
+            }
+          }
+          
+          const gradientColor = getGradientColor(t);
+          color(...gradientColor, true); // Use preventGradientReset flag
+          plot(x + col, y + row);
+        }
+      }
     } else {
-      for (let row = 0; row > h; row -= 1) line(x, y + row, x + w, y + row);
+      // Original non-gradient filled box
+      if (sign(height) === 1) {
+        for (let row = 0; row < h; row += 1) line(x, y + row, x + w, y + row);
+      } else {
+        for (let row = 0; row > h; row -= 1) line(x, y + row, x + w, y + row);
+      }
     }
   }
 }
@@ -4260,22 +4421,31 @@ class Form {
   }
   graph({ matrix: cameraMatrix }) {
     // Build a matrix to represent this form's position, rotation and scale.
-    const panned = mat4.fromTranslation(mat4.create(), [
+    // Apply transforms in correct order: Scale → Rotation → Translation
+    
+    // Start with identity matrix
+    let transform = mat4.create();
+    
+    // 1. Apply scale first
+    transform = mat4.scale(mat4.create(), transform, this.scale);
+    
+    // 2. Apply rotations (around object center)
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
+    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
+    
+    transform = mat4.multiply(mat4.create(), rotX, transform);
+    transform = mat4.multiply(mat4.create(), rotY, transform);
+    transform = mat4.multiply(mat4.create(), rotZ, transform);
+    
+    // 3. Apply translation last (move to final position)
+    const translation = mat4.fromTranslation(mat4.create(), [
       this.position[X] * -1,
       this.position[Y],
       this.position[Z] * -1,
     ]);
-
-    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
-    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
-    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
-
-    const rotatedX = mat4.multiply(mat4.create(), rotX, panned);
-    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
-
-    // Scale
-    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale); // Render wireframe lines for line type forms using untransformed vertices
+    
+    const scaled = mat4.multiply(mat4.create(), translation, transform); // Render wireframe lines for line type forms using untransformed vertices
     if (this.type === "line" && this.vertices.length > 0) {
       const lineColor = this.color || [255, 0, 0, 255]; // Default to red
 
