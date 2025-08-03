@@ -32,7 +32,7 @@ import {
 } from "./helpers.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
-import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
 // import { headers } from "./headers.mjs"; // Removed - headers only printed during boot
@@ -1606,8 +1606,24 @@ const $commonApi = {
         // TODO: Use `pointToPainting` above. 23.10.11.08.49
         // let { x, y } = system.nopaint.pointToPainting({ system });
         const zoom = system.nopaint.zoomLevel;
-        const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
-        const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
+        const rawX = pen?.x || 0;
+        const rawY = pen?.y || 0;
+        const translationX = system.nopaint.translation.x;
+        const translationY = system.nopaint.translation.y;
+        
+        const x = floor((rawX - translationX) / zoom);
+        const y = floor((rawY - translationY) / zoom);
+
+        // 🔍 DEBUG: Console log coordinate transformation
+        if (act === "touch" || act === "draw") {
+          console.log(`🔍 updateBrush[${act}]:`, {
+            rawPen: { x: rawX, y: rawY },
+            translation: { x: translationX, y: translationY },
+            zoom: zoom,
+            transformed: { x, y },
+            pressure: pen?.pressure
+          });
+        }
 
         if (act === "touch") system.nopaint.startDrag = { x, y };
 
@@ -2419,9 +2435,18 @@ const LINE = {
 // TODO: Add `erase` anc all css color alpha support. 23.07.20.14.45
 // TODO: Add transparency and short hex to hex support.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
+// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md for comprehensive
+//     usage guide including gradient syntax: ink("gradient:color1-color2-color3")
+//     This function connects to graph.findColor() and graph.color() for gradient support.
 
 function ink() {
-  return graph.color(...graph.findColor(...arguments));
+  const result = graph.findColor(...arguments);
+  if (result && result.isGradient) {
+    // Special handling for gradients - prevent gradient mode reset
+    return graph.color(...result.color, true); // preventGradientReset = true
+  } else {
+    return graph.color(...result);
+  }
 }
 
 function ink2() {
@@ -2813,13 +2838,26 @@ let formsSent = {}; // TODO: This should be cleared more often...
 // `cpu: true` enabled software rendering
 function form(
   forms,
-  cam = $commonApi.system.fps.doll.cam,
+  cam,
   { cpu, background } = {
     cpu: true,
     keep: true,
     background: backgroundColor3D,
   },
 ) {
+  // Create a default camera if none provided and FPS system isn't available
+  if (!cam) {
+    if ($commonApi.system.fps?.doll?.cam) {
+      cam = $commonApi.system.fps.doll.cam;
+    } else {
+      // Create a default camera for KidLisp 3D
+      if (!$commonApi.system.defaultCam) {
+        $commonApi.system.defaultCam = new graph.Camera(80, { z: 0, y: 0, scale: [1, 1, 1] });
+      }
+      cam = $commonApi.system.defaultCam;
+    }
+  }
+  
   // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
 
@@ -4233,6 +4271,47 @@ async function load(
     send({ type: "preload-ready", content: true });
   };
 
+  // Remote debugging: Send log messages to session server for debugging on any device
+  $commonApi.net.log = function(level, ...args) {
+    // Serialize objects and create single-line message
+    const serializedArgs = args.map(arg => {
+      if (typeof arg === 'object' && arg !== null) {
+        try {
+          return JSON.stringify(arg);
+        } catch (e) {
+          return String(arg);
+        }
+      }
+      return String(arg);
+    });
+    
+    const message = serializedArgs.join(" ");
+    
+    // Always log locally first
+    if (level === "warn") {
+      console.warn(...args);
+    } else if (level === "error") {
+      console.error(...args);
+    } else {
+      console.log(...args);
+    }
+    
+    // Forward to session server if socket is available and in debug mode
+    if (socket?.send && debug) {
+      socket.send("dev-log", {
+        level: level.toUpperCase(),
+        message: message,
+        device: navigator.userAgent || "unknown",
+        timestamp: Date.now()
+      });
+    }
+  };
+
+  // Convenience methods for different log levels
+  $commonApi.net.log.info = (...args) => $commonApi.net.log("info", ...args);
+  $commonApi.net.log.warn = (...args) => $commonApi.net.log("warn", ...args);
+  $commonApi.net.log.error = (...args) => $commonApi.net.log("error", ...args);
+
   $commonApi.content = new Content();
 
   $commonApi.dom = {};
@@ -4612,6 +4691,9 @@ async function load(
         if (module.paint) {
           const painted = module.paint($);
           $.system.nopaint.needsPresent = true;
+
+          // Add debug overlay on top of everything
+          nopaint_paint($);
 
           // TODO: Pass in extra arguments here that flag the wipe.
           if (chatEnabled) chat.paint($, { embedded: true }); // Render any chat interface necessary.
