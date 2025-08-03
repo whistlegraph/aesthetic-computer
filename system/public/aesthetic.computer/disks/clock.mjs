@@ -4148,6 +4148,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
         note,
         octave: noteOctave,
         duration,
+        sonicDuration,
         swing,
         swingAmount,
         waveType,
@@ -4209,6 +4210,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
           ? `${noteOctave}${note.toUpperCase()}`
           : `${octave}${note.toUpperCase()}`;
         const noteDuration = duration * melodyState.baseTempo;
+        const synthDuration = (sonicDuration || duration) * melodyState.baseTempo;
 
         try {
           // Check if this is the last note in the sequence to eliminate loop gap
@@ -4228,7 +4230,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             sound,
             tone,
             waveType,
-            noteDuration,
+            synthDuration,
             volume || 0.8, // Use note volume or default to 0.8
             melodyState.isFallback,
             struck, // Pass the struck flag for note timing behavior
@@ -4243,7 +4245,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
             note,
             noteOctave || octave,
             currentTime,
-            noteDuration,
+            synthDuration,
             0, // Track 0 for single track
             waveType || "sine",
             volume || 0.8,
@@ -4842,6 +4844,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                 note,
                 octave: noteOctave,
                 duration,
+                sonicDuration,
                 waveType,
                 volume,
                 struck,
@@ -4904,6 +4907,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                   ? `${noteOctave}${note.toUpperCase()}`
                   : `${octave}${note.toUpperCase()}`;
                 const noteDuration = duration * melodyState.baseTempo;
+                const synthDuration = (sonicDuration || duration) * melodyState.baseTempo;
 
                 // DEBUG: Log note playback with duration details for sticky modifier tracking
                 if (trackIndex === 0) {
@@ -4927,7 +4931,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     sound,
                     tone,
                     waveType,
-                    noteDuration,
+                    synthDuration,
                     volume || 0.8,
                     melodyState.isFallback,
                     struck,
@@ -4942,7 +4946,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
                     note,
                     noteOctave || octave,
                     currentTimeMs,
-                    noteDuration,
+                    synthDuration,
                     trackIndex,
                     waveType || "sine",
                     volume || 0.8,

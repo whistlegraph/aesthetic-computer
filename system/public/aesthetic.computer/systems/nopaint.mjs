@@ -5,12 +5,56 @@
 let state = "idle";
 const cursor = { x: 0, y: 0 };
 
+// Enhanced logging system for debugging touch behavior
+let sessionId = null;
+let logBuffer = [];
+const LOG_BUFFER_SIZE = 100;
+let currentStrokePointCount = 0; // Track points in current stroke only
+
+// Initialize session logging
+function initSessionLogging(api) {
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    log(api, 'SESSION_START', { sessionId, timestamp: Date.now(), userAgent: navigator.userAgent });
+  }
+}
+
+// Enhanced logging function with device-specific file handling
+function log(api, event, data = {}) {
+  const timestamp = Date.now();
+  const logEntry = {
+    timestamp,
+    sessionId,
+    event,
+    data: { ...data }
+  };
+  
+  // Add to buffer
+  logBuffer.push(logEntry);
+  if (logBuffer.length > LOG_BUFFER_SIZE) {
+    logBuffer.shift(); // Remove oldest entry
+  }
+  
+  // Send to server with device-specific filename
+  const device = data.device || 'unknown';
+  const filename = `${device}_touch_debug.log`;
+  
+  try {
+    api.net.log(`/tmp/dev-logs/${filename}`, JSON.stringify(logEntry));
+  } catch (error) {
+    console.error('Failed to send log:', error);
+  }
+}
+
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
 function nopaint_boot({ api, screen, system, painting, store }) {
   cursor.x = screen.width / 2;
   cursor.y = screen.height / 2;
   nopaint_adjust(api);
+
+  // Initialize session logging
+  initSessionLogging(api);
 
   system.nopaint.buffer = painting(
     system.painting.width,
@@ -42,6 +86,21 @@ function nopaint_act({
   jump,
   debug,
 }) {
+  // Debug logging: Log ALL events with device info to see what's actually happening
+  if (e.device && (e.device === "touch" || e.device === "pen" || e.device !== "mouse")) {
+    log(api, 'RAW_EVENT', {
+      device: e.device,
+      eventType: e.type || 'unknown',
+      touchState: e.is ? `touch:${e.is("touch:1") ? "1" : e.is("touch:2") ? "2" : "none"}` : 'no-is-method',
+      liftState: e.is ? `lift:${e.is("lift:1") ? "1" : e.is("lift:2") ? "2" : "none"}` : 'no-is-method',
+      drawState: e.is ? `draw:${e.is("draw:1") ? "1" : "none"}` : 'no-is-method',
+      rawX: e.x,
+      rawY: e.y,
+      currentPaintingState: nopaint_is("painting"),
+      timestamp: num.timestamp()
+    });
+  }
+
   // if (e.is("keyboard:down:enter")) {
   //   download(`painting-${num.timestamp()}.png`, system.painting, {
   //     scale: 6,
@@ -62,6 +121,21 @@ function nopaint_act({
   if (e.is("touch:1")) {
     state = "painting";
     system.nopaint.updateBrush(api, "touch");
+    
+    // Reset stroke point count for new stroke
+    currentStrokePointCount = 0;
+    
+    // Enhanced logging for touch events
+    log(api, 'TOUCH_START', {
+      device: e.device,
+      rawX: e.x,
+      rawY: e.y,
+      brushX: system.nopaint.brush.x,
+      brushY: system.nopaint.brush.y,
+      state: state,
+      timestamp: num.timestamp()
+    });
+    
     // if (debug) console.log("🖌️ Painting!");
 
     // TODO:
@@ -86,6 +160,21 @@ function nopaint_act({
       system.nopaint.brush.x !== rec[rec.length - 1][2] ||
       system.nopaint.brush.y !== rec[rec.length - 1][3]
     ) {
+      // Increment stroke-specific point count
+      currentStrokePointCount++;
+      
+      // Enhanced logging for draw events
+      log(api, 'DRAW_POINT', {
+        device: e.device,
+        rawX: e.x,
+        rawY: e.y,
+        brushX: system.nopaint.brush.x,
+        brushY: system.nopaint.brush.y,
+        state: state,
+        pointCount: currentStrokePointCount,
+        timestamp: num.timestamp()
+      });
+      
       rec.push([
         num.timestamp(),
         "draw:1",
@@ -99,10 +188,24 @@ function nopaint_act({
   if (
     nopaint_is("painting") &&
     e.is("lift:1") &&
-    (e.device === "mouse" || pens().length === 0 || e.device === "pen")
+    (e.device === "mouse" || e.device === "pen" || e.device === "touch")
   ) {
     state = "idle";
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
+    
+    // Enhanced logging for lift events
+    log(api, 'TOUCH_END', {
+      device: e.device,
+      rawX: e.x,
+      rawY: e.y,
+      brushX: system.nopaint.brush.x,
+      brushY: system.nopaint.brush.y,
+      previousState: 'painting',
+      newState: state,
+      gestureLength: currentStrokePointCount + 1, // +1 to include the final point
+      timestamp: num.timestamp()
+    });
+    
     // if (debug) console.log("🖌️ Not painting...");
     system.nopaint.gestureRecord.push([
       num.timestamp(),
@@ -291,4 +394,17 @@ function nopaint_adjust(
   return true;
 }
 
-export { nopaint_boot, nopaint_act, nopaint_is, nopaint_adjust };
+// 🔍 Debug overlay function to be called during paint phase
+function nopaint_paint({
+  screen,
+  ink,
+  write,
+  line,
+  circle,
+  box,
+}) {
+  // This function can be used by brushes to add debug overlays
+  // Currently empty but available for debugging coordinate issues
+}
+
+export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_adjust };
