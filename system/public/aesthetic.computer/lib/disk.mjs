@@ -809,6 +809,11 @@ class Recorder {
       this.tapeTimerDuration = null;
       this.cut(() => {
         // console.log("🎬 Cut complete, jumping to video...");
+        // Clear labelBack since this is an automatic transition after tape recording
+        // This ensures escape key from video goes directly to prompt instead of back navigation
+        labelBack = false;
+        delete store["aesthetic-labelBack"];
+        send({ type: "labelBack:clear", content: false });
         $commonApi.jump("video");
       });
     }
@@ -836,6 +841,12 @@ class Recorder {
     $commonApi.rec.recording = true; // Set recording state immediately for progress bar
     $commonApi.rec.recordingStartTime = performance.now(); // Set animation start time
     $commonApi.rec.animationFrame = 0; // Reset animation frame counter
+    
+    // Set tape timer duration immediately if available in opts for progress bar display
+    if (opts && opts.intendedDuration) {
+      this.tapeTimerDuration = opts.intendedDuration;
+      // Don't set tapeTimerStart here - that should still come from the callback with actual start time
+    }
     
     send({ type: "recorder:rolling", content: opts });
     this.rollingCallback = cb;
@@ -1074,7 +1085,10 @@ const $commonApi = {
     }
 
     function loadLine() {
-      load(parse(to), ahistorical, alias, false, callback);
+      console.log("🔧 loadLine called - about to parse:", to);
+      const parsedResult = parse(to);
+      console.log("🔧 parse result:", parsedResult);
+      load(parsedResult, ahistorical, alias, false, callback);
     }
 
     let callback;
@@ -3232,6 +3246,7 @@ const $paintApiUnwrapped = {
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
+  contrast: graph.contrast,
   blur: graph.blur,
   shear: graph.shear,
   noise16: graph.noise16,
@@ -3639,6 +3654,11 @@ async function load(
     store["publishable-piece"] &&
     parsed.piece === store["publishable-piece"].slug
   ) {
+    console.log("🔄 Loading from publishable-piece store:", { 
+      pieceSlug: parsed.piece, 
+      storeSlug: store["publishable-piece"].slug,
+      hasSource: !!store["publishable-piece"].source 
+    });
     parsed.source = store["publishable-piece"].source;
     parsed.name = store["publishable-piece"].slug;
   }
@@ -3671,7 +3691,10 @@ async function load(
     
     // 🎯 Auto-detect $prefixed cached codes (e.g., aesthetic.computer/$OrqM)
     // Check both path and slug for $prefixed patterns
+    console.log("🔍 Checking for cached KidLisp:", { path, slug, pathStartsWithDollar: path && path.startsWith("$"), slugStartsWithDollar: slug && slug.startsWith("$") });
+    console.log("🔍 Additional debug - parsed.text:", JSON.stringify(parsed.text));
     if ((path && path.startsWith("$")) || (slug && slug.startsWith("$"))) {
+      console.log("🎯 Entering cached KidLisp branch!");
       const cacheSlug = path && path.startsWith("$") ? path : slug;
       const cacheId = cacheSlug.slice(1); // Remove the $ prefix to get the actual nanoid
       
@@ -3778,10 +3801,14 @@ async function load(
     // blobURL off the old source.
     // TODO: Cache piece code locally / in an intelligent way,
     //       and then receive socket updates when it changes on the server?
+    // 🎯 Exclude cached KidLisp codes from JavaScript blob reuse to prevent
+    // KidLisp->JavaScript misinterpretation on second load
+    const isCachedKidlispCode = slug && slug.startsWith("$");
     if (
       slug?.split("~")[0] === currentText?.split("~")[0] &&
       sourceCode == currentCode &&
-      !devReload
+      !devReload &&
+      !isCachedKidlispCode
     ) {
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
@@ -3831,6 +3858,18 @@ async function load(
       // Note: This may not be the most reliable way to detect `kidlisp`?
       // 🚗 Needs to know if the source was from a prompt with a lisp module.
       // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
+      
+      // Debug logging for cached KidLisp issues
+      if (slug && slug.startsWith("$")) {
+        console.log("🔍 Debug cached KidLisp:", {
+          slug,
+          sourceToRun: sourceToRun ? sourceToRun.substring(0, 100) + "..." : "undefined",
+          forceKidlisp,
+          startsWithParen: sourceToRun ? sourceToRun.startsWith("(") : false,
+          startsWithSemicolon: sourceToRun ? sourceToRun.startsWith(";") : false
+        });
+      }
+      
       if (
         sourceToRun.startsWith("(") ||
         sourceToRun.startsWith(";") ||
@@ -3861,6 +3900,15 @@ async function load(
             console.log("💌 Publishable:", store["publishable-piece"]);
         }
       } else {
+        // Debug logging for JavaScript path
+        if (slug && slug.startsWith("$")) {
+          console.log("🚨 UNEXPECTED: Cached KidLisp code taking JavaScript path!", {
+            slug,
+            sourceToRun: sourceToRun ? sourceToRun.substring(0, 100) + "..." : "undefined",
+            forceKidlisp
+          });
+        }
+        
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
           if (logs.loading)
@@ -6240,7 +6288,19 @@ async function makeFrame({ data: { type, content } }) {
             });
 
             send({ type: "keyboard:unlock" });
-            if (!labelBack) {
+            
+            // Special case: If we're in video piece and have a tape recording, 
+            // always go directly to prompt (ignore labelBack)
+            const isVideoAfterTape = (currentText === "video" || currentPath === "aesthetic.computer/disks/video") && 
+                                    (store["tape:originalCommand"] || $commonApi.rec.recorded);
+            
+            if (!labelBack || isVideoAfterTape) {
+              // Clear labelBack if we detected video after tape context
+              if (isVideoAfterTape && labelBack) {
+                labelBack = false;
+                delete store["aesthetic-labelBack"];
+                send({ type: "labelBack:clear", content: false });
+              }
               $commonApi.jump("prompt")(() => {
                 send({ type: "keyboard:open" });
               });
@@ -8128,17 +8188,185 @@ async function makeFrame({ data: { type, content } }) {
               "",
             );
           }
-          // For the shadow, always strip color codes and disable inline color processing
-          $.ink(0).write(
-            stripColorCodes(text), // Always strip color codes for shadow
-            {
-              x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
-              y: 1,
-              noInlineColor: true,
-            }, // Add flag to disable inline color processing
-            undefined,
-            $api.screen.width - $api.typeface.blockWidth,
-          );
+          // Helper function to calculate color brightness using relative luminance
+          function getColorBrightness(color) {
+            if (!color || !Array.isArray(color) || color.length < 3) return 128; // Default to medium brightness
+            const [r, g, b] = color;
+            // Use relative luminance formula (sRGB)
+            return 0.299 * r + 0.587 * g + 0.114 * b;
+          }
+
+          // Helper function to determine if a color is dark (brightness < 128)
+          function isColorDark(color) {
+            return getColorBrightness(color) < 128;
+          }
+
+          // For the shadow, analyze the text to determine appropriate shadow strategy
+          if (hasInlineColor) {
+            // For multi-colored text, we need to determine the predominant color approach
+            // Check if any colors in the text are dark - if so, use smart shadowing
+            let hasDarkColors = false;
+            let tempCurrentColor = null;
+            let tempIndex = 0;
+            
+            // Quick scan to detect if there are any dark colors in the text
+            while (tempIndex < text.length) {
+              if (text[tempIndex] === "\\") {
+                const colorMatch = text
+                  .slice(tempIndex)
+                  .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/);
+                if (colorMatch) {
+                  const colorName = colorMatch[1];
+                  let testColor;
+                  if (colorName.includes(",")) {
+                    const rgbaValues = colorName
+                      .split(",")
+                      .map((v) => parseInt(v.trim()));
+                    if (
+                      (rgbaValues.length === 3 || rgbaValues.length === 4) &&
+                      rgbaValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+                    ) {
+                      testColor = rgbaValues;
+                    }
+                  } else {
+                    // Use a quick lookup for common dark colors
+                    const commonDarkColors = ['black', 'red', 'blue', 'purple', 'brown', 'green'];
+                    if (commonDarkColors.includes(colorName.toLowerCase())) {
+                      hasDarkColors = true;
+                      break;
+                    }
+                  }
+                  if (testColor && isColorDark(testColor)) {
+                    hasDarkColors = true;
+                    break;
+                  }
+                  tempIndex += colorMatch[0].length;
+                  continue;
+                }
+              }
+              tempIndex++;
+            }
+
+            if (hasDarkColors) {
+              // Use character-by-character shadow rendering for mixed dark/light text
+              const shadowText = stripColorCodes(text);
+              let charColors = [];
+              let currentColor = null;
+              let cleanIndex = 0;
+              let originalIndex = 0;
+
+              // Parse colors to build character color array
+              while (originalIndex < text.length && cleanIndex < shadowText.length) {
+                if (text[originalIndex] === "\\") {
+                  const colorMatch = text
+                    .slice(originalIndex)
+                    .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/);
+                  if (colorMatch) {
+                    const colorName = colorMatch[1];
+                    if (colorName.includes(",")) {
+                      const rgbaValues = colorName
+                        .split(",")
+                        .map((v) => parseInt(v.trim()));
+                      if (
+                        (rgbaValues.length === 3 || rgbaValues.length === 4) &&
+                        rgbaValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
+                      ) {
+                        currentColor = rgbaValues;
+                      } else {
+                        currentColor = [255, 255, 255]; // fallback to white
+                      }
+                    } else {
+                      // Quick color mapping for common colors
+                      const colorMap = {
+                        black: [0, 0, 0], white: [255, 255, 255], red: [255, 0, 0],
+                        green: [0, 255, 0], blue: [0, 0, 255], yellow: [255, 255, 0],
+                        cyan: [0, 255, 255], magenta: [255, 0, 255], orange: [255, 165, 0],
+                        purple: [128, 0, 128], brown: [165, 42, 42], gray: [128, 128, 128]
+                      };
+                      currentColor = colorMap[colorName.toLowerCase()] || [255, 255, 255];
+                    }
+                    originalIndex += colorMatch[0].length;
+                    continue;
+                  }
+                }
+                charColors[cleanIndex] = currentColor || [255, 255, 255];
+                cleanIndex++;
+                originalIndex++;
+              }
+
+              // Render shadow line-by-line with per-character shadow colors
+              if (tf?.print) {
+                // Parse shadow colors similar to main text, using softer white
+                let shadowTextPosition = 0;
+                
+                for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
+                  const lineArray = labelBounds.lines[lineIndex];
+                  const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
+                  const lineY = 1 + lineIndex * (tf.blockHeight + 1); // Shadow offset
+                  
+                  // Extract shadow colors for this specific line
+                  const lineShadowColors = [];
+                  for (let i = 0; i < lineText.length; i++) {
+                    if (shadowTextPosition + i < charColors.length) {
+                      const color = charColors[shadowTextPosition + i];
+                      // Use softer white (192 instead of 255) for better readability
+                      lineShadowColors.push(isColorDark(color) ? [192, 192, 192] : [0, 0, 0]);
+                    } else {
+                      lineShadowColors.push([0, 0, 0]); // Fallback to black
+                    }
+                  }
+                  
+                  // Advance position past this line's characters
+                  shadowTextPosition += lineText.length;
+                  
+                  // Skip whitespace that was consumed by line breaking
+                  while (shadowTextPosition < shadowText.length && /\s/.test(shadowText[shadowTextPosition])) {
+                    shadowTextPosition++;
+                  }
+
+                  // Render the shadow line
+                  tf.print(
+                    $,
+                    { x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0), y: lineY },
+                    0,
+                    lineText,
+                    undefined,
+                    lineShadowColors,
+                  );
+                }
+              } else {
+                // Fallback: use uniform black shadow with proper line breaks
+                $.ink(0).write(shadowText, {
+                  x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
+                  y: 1,
+                  noInlineColor: true,
+                }, undefined, $api.screen.width - $api.typeface.blockWidth);
+              }
+            } else {
+              // All colors are light, use uniform black shadow
+              $.ink(0).write(stripColorCodes(text), {
+                x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
+                y: 1,
+                noInlineColor: true,
+              });
+            }
+          } else {
+            // For text without inline colors, check HUD text color
+            const hudColor = currentHUDTextColor || [255, 200, 240];
+            // Use softer white (192 instead of 255) for better readability
+            const shadowColor = isColorDark(hudColor) ? [192, 192, 192] : [0, 0, 0];
+            
+            $.ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(
+              stripColorCodes(text),
+              {
+                x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
+                y: 1,
+                noInlineColor: true,
+              },
+              undefined,
+              $api.screen.width - $api.typeface.blockWidth,
+            );
+          }
           // For the foreground, parse color codes and render per-character colors
           const colorCodeRegex =
             /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g;
