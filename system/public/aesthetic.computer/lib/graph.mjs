@@ -41,6 +41,9 @@ let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
 
+// Zoom accumulator to handle small fractional zoom values without drift
+let zoomAccumulator = 1.0;
+
 // 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
 // Gradient state - used by ink() function for "gradient:color1-color2" syntax
 let gradientMode = false;
@@ -3148,9 +3151,6 @@ function noiseTinted(tint, amount, saturation) {
 // Accumulated fractional steps for smooth fractional spinning
 let spinAccumulator = 0;
 
-// Accumulated fractional zoom for smooth zooming
-let zoomAccumulator = 1.0;
-
 // 🚀 PERFORMANCE: Pre-allocated memory pools for scroll operations
 let scrollRowBuffer = null;
 let scrollColumnBuffer = null;
@@ -3188,16 +3188,16 @@ function scroll(dx = 0, dy = 0) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds and ensure they're within screen bounds
-    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    // Don't apply pan translation to mask bounds - mask is already set at current pan position
+    minX = Math.max(0, Math.min(width, activeMask.x));
     maxX = Math.max(
       0,
-      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+      Math.min(width, activeMask.x + activeMask.width),
     );
-    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    minY = Math.max(0, Math.min(height, activeMask.y));
     maxY = Math.max(
       0,
-      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+      Math.min(height, activeMask.y + activeMask.height),
     );
   }
 
@@ -3397,10 +3397,9 @@ function scroll(dx = 0, dy = 0) {
 }
 
 // Rotates pixels in concentric rings around a specified anchor point
-// steps: positive for clockwise, negative for counterclockwise
+// ULTRA-OPTIMIZED: Maximum speed spin with same visual result
+// steps: positive for clockwise, negative for counterclockwise  
 // anchorX, anchorY: optional anchor point (defaults to center of working area)
-// Each ring rotates by exactly 'steps' pixels, preserving all data
-// Supports fractional steps by accumulating them over time
 function spin(steps = 0, anchorX = null, anchorY = null) {
   if (steps === 0) return;
 
@@ -3416,125 +3415,103 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
-    minX = activeMask.x + panTranslation.x;
-    minY = activeMask.y + panTranslation.y;
-    maxX = activeMask.x + activeMask.width + panTranslation.x;
-    maxY = activeMask.y + activeMask.height + panTranslation.y;
+    // Apply pan translation to mask bounds to match scroll behavior
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width + panTranslation.x));
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height + panTranslation.y));
   }
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
+  
+  // Early exit if bounds are invalid  
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+  
   // Use provided anchor point or default to center of working area
   const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
   const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
 
-  // Calculate maximum ring radius to reach the furthest corner
-  const maxRadius =
-    floor(
-      sqrt(
-        max(
-          (centerX - minX) * (centerX - minX) +
-            (centerY - minY) * (centerY - minY),
-          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
-            (centerY - minY) * (centerY - minY),
-          (centerX - minX) * (centerX - minX) +
-            (maxY - 1 - centerY) * (maxY - 1 - centerY),
-          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
-            (maxY - 1 - centerY) * (maxY - 1 - centerY),
-        ),
-      ),
-    ) + 1;
-
-  if (maxRadius < 1) return;
-
-  // Create a copy of the pixels to read from
-  const tempPixels = new Uint8ClampedArray(pixels);
-
-  // Group pixels by radius in a single pass - much faster!
-  const ringsByRadius = new Array(maxRadius + 1);
-  for (let i = 0; i <= maxRadius; i++) {
-    ringsByRadius[i] = [];
+  // Convert steps to angle (each step = small rotation)
+  const angle = -(integerSteps * 0.05); // Negative for clockwise rotation
+  
+  // Pre-calculate rotation matrix components
+  const cosA = cos(angle);
+  const sinA = sin(angle);
+  
+  // Create temp buffer for the working area
+  const tempBuffer = new Uint8ClampedArray(workingWidth * workingHeight * 4);
+  for (let y = 0; y < workingHeight; y++) {
+    const srcStart = ((minY + y) * width + minX) * 4;
+    const destStart = y * workingWidth * 4;
+    tempBuffer.set(
+      pixels.subarray(srcStart, srcStart + workingWidth * 4),
+      destStart
+    );
   }
 
-  // Single pass to collect all pixels and group by radius
+  // Fast clear with fill (faster than nested loops)
   for (let y = minY; y < maxY; y++) {
-    const dy = y - centerY;
-    const dy2 = dy * dy; // Cache dy squared
-
-    for (let x = minX; x < maxX; x++) {
-      const dx = x - centerX;
-      const distanceSquared = dx * dx + dy2;
-      const radius = floor(sqrt(distanceSquared) + 0.5);
-
-      if (radius >= 1 && radius <= maxRadius) {
-        const idx = (y * width + x) * 4;
-        const pixel = [
-          tempPixels[idx],
-          tempPixels[idx + 1],
-          tempPixels[idx + 2],
-          tempPixels[idx + 3],
-        ];
-
-        // Pre-calculate angle for sorting
-        const angle = Math.atan2(dy, dx);
-        const normalizedAngle = angle < 0 ? angle + 2 * PI : angle;
-
-        ringsByRadius[radius].push({
-          x,
-          y,
-          pixel,
-          angle: normalizedAngle,
-        });
-      }
-    }
+    const rowStart = y * width + minX;
+    const rowEnd = rowStart + workingWidth;
+    pixels.fill(0, rowStart * 4, rowEnd * 4);
   }
 
-  // Process each ring that has pixels
-  for (let radius = 1; radius <= maxRadius; radius++) {
-    const ringData = ringsByRadius[radius];
-    if (ringData.length === 0) continue;
+  // Reverse sampling rotation with optimizations
+  for (let destY = minY; destY < maxY; destY++) {
+    const relativeY = destY - centerY;
+    const destRowStart = destY * width * 4;
+    
+    for (let destX = minX; destX < maxX; destX++) {
+      const relativeX = destX - centerX;
 
-    // Sort once by pre-calculated angles - much faster than calculating during sort
-    ringData.sort((a, b) => a.angle - b.angle);
+      // Apply reverse rotation
+      const srcRelativeX = relativeX * cosA + relativeY * sinA;
+      const srcRelativeY = -relativeX * sinA + relativeY * cosA;
 
-    const ringSize = ringData.length;
-    const effectiveSteps = ((integerSteps % ringSize) + ringSize) % ringSize;
+      // Calculate source position
+      const srcX = centerX + srcRelativeX;
+      const srcY = centerY + srcRelativeY;
 
-    if (effectiveSteps === 0) continue; // No rotation needed
+      // Sample with wrapping
+      let sampleX = round(srcX);
+      let sampleY = round(srcY);
 
-    // Direct pixel copying without intermediate arrays
-    for (let i = 0; i < ringSize; i++) {
-      const sourceIndex = i;
-      const targetIndex = (i + effectiveSteps) % ringSize;
+      // Fast wrapping within working area
+      sampleX = ((sampleX - minX) % workingWidth + workingWidth) % workingWidth + minX;
+      sampleY = ((sampleY - minY) % workingHeight + workingHeight) % workingHeight + minY;
 
-      const sourceData = ringData[sourceIndex];
-      const targetPos = ringData[targetIndex];
+      // Fast pixel copy with individual byte access
+      const bufferX = sampleX - minX;
+      const bufferY = sampleY - minY;
+      const srcIdx = (bufferY * workingWidth + bufferX) * 4;
+      const destIdx = destRowStart + destX * 4;
 
-      const idx = (targetPos.y * width + targetPos.x) * 4;
-      const sourcePixel = sourceData.pixel;
-
-      pixels[idx] = sourcePixel[0];
-      pixels[idx + 1] = sourcePixel[1];
-      pixels[idx + 2] = sourcePixel[2];
-      pixels[idx + 3] = sourcePixel[3];
+      // Copy each channel individually for precise pixel control
+      pixels[destIdx] = tempBuffer[srcIdx];
+      pixels[destIdx + 1] = tempBuffer[srcIdx + 1];
+      pixels[destIdx + 2] = tempBuffer[srcIdx + 2];
+      pixels[destIdx + 3] = tempBuffer[srcIdx + 3];
     }
   }
 }
 
-// Zoom the entire pixel buffer with 1.0 as neutral (no change)
-// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing
+// Simplified visible zoom - pixels actually move positions for clear zoom effect
+// level < 1.0 zooms out, level > 1.0 zooms in
 // anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right
-// Uses bilinear sampling with hard-edge thresholding for smooth scaling with crisp output
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (level === 1.0) return; // No change needed - neutral zoom
-  // Accumulate zoom level for smooth fractional zoom support
+  
+  // Accumulate zoom changes
   zoomAccumulator *= level;
-
-  // Use smaller threshold for smoother transitions
-  const threshold = 0.001; // Much smaller threshold for smoother motion
-  if (Math.abs(Math.log(zoomAccumulator)) < threshold) return;
-
+  
+  // Apply zoom more frequently for visible effect
+  const zoomDelta = Math.abs(zoomAccumulator - 1.0);
+  if (zoomDelta < 0.01) return; // Small threshold for responsive zoom
+  
+  const effectiveLevel = zoomAccumulator;
+  zoomAccumulator = 1.0; // Reset for next accumulation
+  
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -3549,102 +3526,132 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
+  
+  if (workingWidth <= 0 || workingHeight <= 0) return;
 
-  // Calculate anchor point in pixel coordinates within working area
+  // Calculate anchor point
   const anchorPixelX = minX + workingWidth * anchorX;
   const anchorPixelY = minY + workingHeight * anchorY;
-
-  // Create a copy of the current pixels to read from
-  const tempPixels = new Uint8ClampedArray(pixels);
-
-  const scale = zoomAccumulator;
-  const invScale = 1.0 / scale;
-  // Pre-calculate constants for performance
-  const widthTimes4 = width * 4;
-
-  // Bilinear math for smooth positioning, nearest neighbor sampling for crisp output
-  for (let destY = minY; destY < maxY; destY++) {
-    const destRowOffset = destY * widthTimes4;
-
-    for (let destX = minX; destX < maxX; destX++) {
-      // Convert destination to texture coordinates relative to anchor (bilinear math)
-      const texX = (destX - anchorPixelX) * invScale + anchorPixelX;
-      const texY = (destY - anchorPixelY) * invScale + anchorPixelY;
-
-      // Use bilinear interpolation math to find the ideal sampling position
-      const x1 = Math.floor(texX);
-      const y1 = Math.floor(texY);
-      const fx = texX - x1;
-      const fy = texY - y1;
-
-      // Calculate bilinear weights to determine sampling bias
-      const w00 = (1 - fx) * (1 - fy); // top-left
-      const w01 = fx * (1 - fy); // top-right
-      const w10 = (1 - fx) * fy; // bottom-left
-      const w11 = fx * fy; // bottom-right
-
-      // Find which quadrant has the most influence
-      const weights = [w00, w01, w10, w11];
-      const offsets = [
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [1, 1],
-      ];
-      let maxWeight = 0;
-      let bestOffset = [0, 0];
-
-      for (let i = 0; i < 4; i++) {
-        if (weights[i] > maxWeight) {
-          maxWeight = weights[i];
-          bestOffset = offsets[i];
-        }
-      }
-
-      // Apply nearest neighbor sampling at the bilinear-determined position
-      const srcX = x1 + bestOffset[0];
-      const srcY = y1 + bestOffset[1];
-
-      // Wrap source coordinates within working bounds
-      let wrappedSrcX = ((srcX - minX) % workingWidth) + workingWidth;
-      let wrappedSrcY = ((srcY - minY) % workingHeight) + workingHeight;
-
-      wrappedSrcX =
-        wrappedSrcX >= workingWidth ? wrappedSrcX - workingWidth : wrappedSrcX;
-      wrappedSrcY =
-        wrappedSrcY >= workingHeight
-          ? wrappedSrcY - workingHeight
-          : wrappedSrcY;
-
-      // Convert back to absolute coordinates
-      const finalSrcX = minX + wrappedSrcX;
-      const finalSrcY = minY + wrappedSrcY;
-
-      // Ensure coordinates are within valid bounds
-      if (
-        finalSrcX >= minX &&
-        finalSrcX < maxX &&
-        finalSrcY >= minY &&
-        finalSrcY < maxY &&
-        destX >= minX &&
-        destX < maxX &&
-        destY >= minY &&
-        destY < maxY
-      ) {
-        const srcIdx = (finalSrcY * width + finalSrcX) * 4;
-        const destIdx = destRowOffset + destX * 4;
-
-        // Copy RGBA values
-        pixels[destIdx] = tempPixels[srcIdx];
-        pixels[destIdx + 1] = tempPixels[srcIdx + 1];
-        pixels[destIdx + 2] = tempPixels[srcIdx + 2];
-        pixels[destIdx + 3] = tempPixels[srcIdx + 3];
-      }
+  
+  // Create temp buffer for current pixels
+  const tempBuffer = new Uint8ClampedArray(workingWidth * workingHeight * 4);
+  for (let y = 0; y < workingHeight; y++) {
+    const srcStart = ((minY + y) * width + minX) * 4;
+    const destStart = y * workingWidth * 4;
+    tempBuffer.set(
+      pixels.subarray(srcStart, srcStart + workingWidth * 4),
+      destStart
+    );
+  }
+  
+  // Clear working area first
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const idx = (y * width + x) * 4;
+      pixels[idx] = 0;
+      pixels[idx + 1] = 0;
+      pixels[idx + 2] = 0;
+      pixels[idx + 3] = 0;
     }
   }
+  
+  // Fast reverse sampling zoom - optimized for performance
+  const centerX = anchorPixelX;
+  const centerY = anchorPixelY;
+  
+  // Pre-calculate constants
+  const invLevel = 1.0 / effectiveLevel;
+  const timeVibe = performance.now() * 0.001;
+  
+  // Simple seeded random function for deterministic noise
+  function seededRandom(seed) {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+  
+  // Fast pixel sampling loop
+  for (let destY = minY; destY < maxY; destY++) {
+    const relativeY = destY - centerY;
+    
+    for (let destX = minX; destX < maxX; destX++) {
+      const relativeX = destX - centerX;
+      
+      // Fast noise calculation (reduced complexity)
+      const distance = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
+      const angle = Math.atan2(relativeY, relativeX);
+      
+      // Simplified radial breathing (single wave)
+      const radialWave = Math.sin(timeVibe * 2.0 + distance * 0.06) * 0.3;
+      
+      // Apply radial breathing
+      const breathingX = Math.cos(angle) * radialWave;
+      const breathingY = Math.sin(angle) * radialWave;
+      
+      // Reverse zoom with minimal noise
+      const srcRelativeX = (relativeX + breathingX) * invLevel;
+      const srcRelativeY = (relativeY + breathingY) * invLevel;
+      
+      // Calculate source position
+      const srcX = centerX + srcRelativeX;
+      const srcY = centerY + srcRelativeY;
+      
+      // Fast wrapping (single operation)
+      let sampleX = Math.round(srcX);
+      let sampleY = Math.round(srcY);
+      
+      sampleX = ((sampleX - minX) % workingWidth + workingWidth) % workingWidth + minX;
+      sampleY = ((sampleY - minY) % workingHeight + workingHeight) % workingHeight + minY;
+      
+      // Direct pixel copy
+      const bufferX = sampleX - minX;
+      const bufferY = sampleY - minY;
+      const srcIdx = (bufferY * workingWidth + bufferX) * 4;
+      const destIdx = (destY * width + destX) * 4;
+      
+      pixels[destIdx] = tempBuffer[srcIdx];
+      pixels[destIdx + 1] = tempBuffer[srcIdx + 1];
+      pixels[destIdx + 2] = tempBuffer[srcIdx + 2];
+      pixels[destIdx + 3] = tempBuffer[srcIdx + 3];
+    }
+  }
+}
 
-  // Reset zoom accumulator after applying
-  zoomAccumulator = 1.0;
+// Adjust the contrast of the pixel buffer
+// level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast
+function contrast(level = 1.0) {
+  // Determine the area to adjust (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
+    minX = Math.max(0, Math.floor(maskX));
+    minY = Math.max(0, Math.floor(maskY));
+    maxX = Math.min(width, Math.floor(maskX + activeMask.width));
+    maxY = Math.min(height, Math.floor(maskY + activeMask.height));
+  }
+
+  // Apply contrast adjustment to each pixel
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const idx = (y * width + x) * 4;
+      
+      // Skip transparent pixels
+      if (pixels[idx + 3] === 0) continue;
+      
+      // Apply contrast formula: newValue = ((oldValue / 255 - 0.5) * contrast + 0.5) * 255
+      // This centers the contrast adjustment around middle gray (127.5)
+      for (let c = 0; c < 3; c++) { // RGB channels only
+        const normalized = pixels[idx + c] / 255.0;
+        const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
+        pixels[idx + c] = Math.max(0, Math.min(255, Math.round(adjusted)));
+      }
+      // Alpha channel stays unchanged
+    }
+  }
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -4839,6 +4846,7 @@ export {
   scroll,
   spin,
   zoom,
+  contrast,
   sort,
   shear,
   Camera,

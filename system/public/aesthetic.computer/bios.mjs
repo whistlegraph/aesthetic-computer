@@ -3900,6 +3900,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           const finalFrames = [];
           
+          // Check if cursor actually moved during recording to avoid static cursor overlay
+          let showCursor = false;
+          if (processedFrames.length > 1) {
+            const firstFrame = processedFrames[0];
+            const movementThreshold = 5; // pixels - minimum movement to show cursor
+            
+            if (firstFrame.penData && firstFrame.penData.x !== undefined && firstFrame.penData.y !== undefined) {
+              const startX = firstFrame.penData.x;
+              const startY = firstFrame.penData.y;
+              
+              // Check if cursor moved significantly from starting position in any frame
+              for (let i = 1; i < processedFrames.length; i++) {
+                const frame = processedFrames[i];
+                if (frame.penData && frame.penData.x !== undefined && frame.penData.y !== undefined) {
+                  const deltaX = Math.abs(frame.penData.x - startX);
+                  const deltaY = Math.abs(frame.penData.y - startY);
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  
+                  if (distance > movementThreshold) {
+                    showCursor = true;
+                    console.log(`🎯 Cursor moved ${distance.toFixed(1)}px from start - will show cursor overlay`);
+                    break;
+                  }
+                }
+              }
+              
+              if (!showCursor) {
+                console.log(`🎯 Cursor stayed within ${movementThreshold}px of start position - hiding cursor overlay`);
+              }
+            }
+          }
+          
           // Send frame processing status
           send({
             type: "recorder:export-status",
@@ -3935,8 +3967,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             ctx.putImageData(imageData, 0, 0);
 
-            // Add cyan crosshair cursor overlay if pen data is available
-            if (frame.penData) {
+            // Add cyan crosshair cursor overlay if pen data is available AND cursor moved during recording
+            if (showCursor && frame.penData) {
               addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
             }
 
@@ -4035,10 +4067,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Calculate proper timing for gifenc - use 30fps for optimal GIF playback
-          let gifencDelay = 33; // 30fps = 33.33ms, rounded to 33ms for GIF compatibility
+          // Calculate proper timing for gifenc - use 60fps for high quality GIF playback
+          let gifencDelay = 17; // 60fps = 16.67ms, rounded to 17ms for GIF compatibility
           
-          console.log(`🎞️ Using fixed 30fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for optimal GIF playback`);
+          console.log(`🎞️ Using fixed 60fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for high quality GIF playback`);
           
           // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
@@ -4140,6 +4172,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           console.log("🎞️ Processing frames for GIF...");
 
+          // Check if cursor actually moved during recording to avoid static cursor overlay
+          let showCursor = false;
+          if (processedFrames.length > 1) {
+            const firstFrame = processedFrames[0];
+            const movementThreshold = 5; // pixels - minimum movement to show cursor
+            
+            if (firstFrame.penData && firstFrame.penData.x !== undefined && firstFrame.penData.y !== undefined) {
+              const startX = firstFrame.penData.x;
+              const startY = firstFrame.penData.y;
+              
+              // Check if cursor moved significantly from starting position in any frame
+              for (let i = 1; i < processedFrames.length; i++) {
+                const frame = processedFrames[i];
+                if (frame.penData && frame.penData.x !== undefined && frame.penData.y !== undefined) {
+                  const deltaX = Math.abs(frame.penData.x - startX);
+                  const deltaY = Math.abs(frame.penData.y - startY);
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  
+                  if (distance > movementThreshold) {
+                    showCursor = true;
+                    console.log(`🎯 Cursor moved ${distance.toFixed(1)}px from start - will show cursor overlay`);
+                    break;
+                  }
+                }
+              }
+              
+              if (!showCursor) {
+                console.log(`🎯 Cursor stayed within ${movementThreshold}px of start position - hiding cursor overlay`);
+              }
+            }
+          }
+
           // Calculate timing statistics from recorded frames
           if (content.frames.length > 1) {
             const timings = [];
@@ -4214,8 +4278,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             ctx.putImageData(imageData, 0, 0);
 
-            // Add cyan crosshair cursor overlay if pen data is available
-            if (frame.penData) {
+            // Add cyan crosshair cursor overlay if pen data is available AND cursor moved during recording
+            if (showCursor && frame.penData) {
               addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
             }
 
@@ -6272,9 +6336,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       function stop() {
         recordedFrames.length = 0;
         startTapePlayback = undefined;
+        // Properly stop and clean up MediaRecorder before trashing it
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
         mediaRecorder = undefined; // ❌ Trash the recorder.
         mediaRecorderStartTime = undefined;
-        mediaRecorderDuration = null;
+        mediaRecorderDuration = undefined; // Reset to undefined for clean initialization
         mediaRecorderChunks.length = 0;
         // Clear recording timestamp for next recording
         if (window.recordingStartTimestamp) {
@@ -6317,6 +6385,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Start recording audio.
         try {
           mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+          console.log("🎬 MediaRecorder created successfully:", mediaRecorder.state);
         } catch (error) {
           console.error("MediaRecorder creation failed:", error);
           return;
@@ -6325,6 +6394,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // 🗺️ mediaRecorder:Start
       if (mediaRecorder) {
+        console.log("🎬 Setting up MediaRecorder callbacks");
         mediaRecorder.onstart = function () {
           // mediaRecorderResized = false;
           mediaRecorderStartTime = performance.now();
@@ -6487,7 +6557,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       mediaRecorderDuration = 0; // Reset duration for new recording
       mediaRecorderFrameCount = 0; // Reset frame capture counter for optimization
 
+      console.log("🎬 Starting MediaRecorder, state before start:", mediaRecorder.state);
       mediaRecorder.start(100);
+      console.log("🎬 MediaRecorder.start() called, state after start:", mediaRecorder.state);
       //}
       return;
     }
@@ -6495,7 +6567,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
       if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
-      mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      
+      // Safety check to prevent NaN duration
+      if (mediaRecorderStartTime !== undefined) {
+        mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      } else {
+        console.warn("🎬 Warning: mediaRecorderStartTime is undefined during cut, cannot calculate duration");
+        // Set a minimal duration to prevent NaN
+        if (mediaRecorderDuration === undefined || isNaN(mediaRecorderDuration)) {
+          mediaRecorderDuration = 100; // Fallback to 100ms
+        }
+      }
       
       console.log(`🎬 ✂️ Recording CUT: captured ${recordedFrames.length} frames over ${mediaRecorderDuration}ms`);
       
@@ -8549,6 +8631,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // typeof paintToStreamCanvas === "function" &&
           mediaRecorder?.state === "recording" &&
           mediaRecorderStartTime !== undefined;
+
+        // Debug logging for frame capture issues (only first few frames to avoid spam)
+        if (mediaRecorder && mediaRecorderFrameCount < 5) {
+          console.log("🎬 Frame capture check:", {
+            frameCount: mediaRecorderFrameCount,
+            mediaRecorderState: mediaRecorder?.state,
+            mediaRecorderStartTime: mediaRecorderStartTime,
+            isRecording: isRecording,
+            recordedFramesLength: recordedFrames.length
+          });
+        }
 
         // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
         let cleanScreenshotData = null;
