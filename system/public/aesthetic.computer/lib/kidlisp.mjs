@@ -1794,6 +1794,9 @@ class KidLisp {
       zoom: (api, args = []) => {
         api.zoom(...args);
       },
+      contrast: (api, args = []) => {
+        api.contrast(...args);
+      },
       blur: (api, args = []) => {
         api.blur(...args);
       },
@@ -1802,6 +1805,67 @@ class KidLisp {
       },
       unpan: (api, args = []) => {
         api.unpan();
+      },
+      // 📷 Camera rotation functions
+      camrotx: (api, args = []) => {
+        const rotation = args[0] || 0;
+        if (api.system.defaultCam) {
+          api.system.defaultCam.rotX = rotation;
+        }
+      },
+      camroty: (api, args = []) => {
+        const rotation = args[0] || 0;
+        if (api.system.defaultCam) {
+          api.system.defaultCam.rotY = rotation;
+        }
+      },
+      camrotz: (api, args = []) => {
+        const rotation = args[0] || 0;
+        if (api.system.defaultCam) {
+          api.system.defaultCam.rotZ = rotation;
+        }
+      },
+      camrot: (api, args = []) => {
+        const x = args[0] || 0;
+        const y = args[1] || 0;
+        const z = args[2] || 0;
+        if (api.system.defaultCam) {
+          api.system.defaultCam.rotX = x;
+          api.system.defaultCam.rotY = y;
+          api.system.defaultCam.rotZ = z;
+        }
+      },
+      camspinx: (api, args = []) => {
+        const speed = args[0] || 0;
+        if (api.system.defaultCam) {
+          const frameCount = this.frameCount || 0;
+          api.system.defaultCam.rotX = speed * frameCount;
+        }
+      },
+      camspiny: (api, args = []) => {
+        const speed = args[0] || 0;
+        if (api.system.defaultCam) {
+          const frameCount = this.frameCount || 0;
+          api.system.defaultCam.rotY = speed * frameCount;
+        }
+      },
+      camspinz: (api, args = []) => {
+        const speed = args[0] || 0;
+        if (api.system.defaultCam) {
+          const frameCount = this.frameCount || 0;
+          api.system.defaultCam.rotZ = speed * frameCount;
+        }
+      },
+      camspin: (api, args = []) => {
+        const xSpeed = args[0] || 0;
+        const ySpeed = args[1] || 0;
+        const zSpeed = args[2] || 0;
+        if (api.system.defaultCam) {
+          const frameCount = this.frameCount || 0;
+          api.system.defaultCam.rotX = xSpeed * frameCount;
+          api.system.defaultCam.rotY = ySpeed * frameCount;
+          api.system.defaultCam.rotZ = zSpeed * frameCount;
+        }
       },
       mask: (api, args = []) => {
         // Convert individual args to a box object that mask() expects
@@ -4444,6 +4508,22 @@ function evaluate(parsed, api = {}) {
 // URL encoding/decoding utilities for kidlisp pieces
 function isKidlispSource(text) {
   if (!text) return false;
+
+  // Check for $-prefixed cached kidlisp codes (e.g., $abc123XY)
+  if (text.startsWith("$") && text.length > 1) {
+    // More strict validation - check if it looks like a nanoid pattern
+    const cacheId = text.slice(1);
+    // Must be alphanumeric and reasonable length (4-12 chars based on nanoid config)
+    // AND must contain at least one digit OR mixed case to distinguish from common words
+    if (/^[0-9A-Za-z]{4,12}$/.test(cacheId)) {
+      // Additional check: must contain at least one digit OR mixed case
+      const hasDigit = /\d/.test(cacheId);
+      const hasMixedCase = /[a-z]/.test(cacheId) && /[A-Z]/.test(cacheId);
+      if (hasDigit || hasMixedCase) {
+        return true; // Assume $-prefixed valid codes are kidlisp
+      }
+    }
+  }
 
   // Only consider input as KidLisp if:
   // 1. It starts with '(' (parenthesis), OR
