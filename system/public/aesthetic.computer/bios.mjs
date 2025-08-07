@@ -2327,6 +2327,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           // Format as: year.month.day.hour.minute.second.milliseconds (no zero-padding except milliseconds)
           timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        } else if (frameMetadata && frameMetadata.gifElapsedSeconds !== undefined) {
+          // For GIF playback: use actual GIF elapsed time
+          timestamp = `${frameMetadata.gifElapsedSeconds.toFixed(1)}s`;
         } else if (mediaRecorderStartTime !== undefined) {
           // During recording: show seconds elapsed since recording started
           const elapsedMs = performance.now() - mediaRecorderStartTime;
@@ -3671,6 +3674,91 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // GIF encoder selection flag - set to true to use gifenc, false for gif.js
       const useGifenc = content.useGifenc !== false; // Default to gifenc (true), unless explicitly set to false
 
+      // Helper function to draw exact AC cursor overlay (matches pen.mjs "precise" cursor)
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // AC cursor settings at 1.5x scale for good visibility without being too large
+        const cursorScale = 1.25; // Moderate scale for optimal visibility in GIFs
+        const radius = 2 * cursorScale;     // White center circle radius
+        const gap = 7.5 * cursorScale;      // Gap from center to crosshair start
+        const to = 10 * cursorScale;        // Length of crosshair lines
+        const lineWidth = 4 * cursorScale;  // Crosshair line width
+        
+        // Shadow offset for visibility
+        const offsetX = 2 * cursorScale;
+        const offsetY = 2 * cursorScale;
+        
+        ctx.lineCap = "round";
+        
+        // Draw shadow graphics first
+        ctx.save();
+        ctx.translate(x + offsetX, y + offsetY);
+        
+        // Shadow circle in center
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+        ctx.fill();
+        
+        // Shadow crosshair lines
+        ctx.beginPath();
+        ctx.moveTo(0, -gap);
+        ctx.lineTo(0, -to);
+        ctx.moveTo(0, gap);
+        ctx.lineTo(0, to);
+        ctx.moveTo(-gap, 0);
+        ctx.lineTo(-to, 0);
+        ctx.moveTo(gap, 0);
+        ctx.lineTo(to, 0);
+        
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        // Draw main cursor graphics
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // White center circle
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        
+        // Cyan crosshair lines (exact AC color)
+        ctx.beginPath();
+        ctx.moveTo(0, -gap); // Top
+        ctx.lineTo(0, -to);
+        ctx.moveTo(0, gap);  // Bottom
+        ctx.lineTo(0, to);
+        ctx.moveTo(-gap, 0); // Left
+        ctx.lineTo(-to, 0);
+        ctx.moveTo(gap, 0);  // Right
+        ctx.lineTo(to, 0);
+        
+        ctx.strokeStyle = "rgb(0, 255, 255)"; // Exact AC cyan color
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        ctx.restore();
+      }
+
       try {
         // Load appropriate GIF library if not already loaded
         if (useGifenc) {
@@ -3699,91 +3787,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               document.head.appendChild(script);
             });
           }
-        }
-
-        // Helper function to draw exact AC cursor overlay (matches pen.mjs "precise" cursor)
-        function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
-          if (!penData || penData.x === undefined || penData.y === undefined) {
-            return; // No pen data available
-          }
-          
-          // Scale pen coordinates to match canvas size
-          const x = Math.round(penData.x * scale);
-          const y = Math.round(penData.y * scale);
-          
-          // Skip drawing if cursor is outside canvas bounds
-          if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
-            return;
-          }
-          
-          ctx.save();
-          
-          // AC cursor settings at 1.5x scale for good visibility without being too large
-          const cursorScale = 1.25; // Moderate scale for optimal visibility in GIFs
-          const radius = 2 * cursorScale;     // White center circle radius
-          const gap = 7.5 * cursorScale;      // Gap from center to crosshair start
-          const to = 10 * cursorScale;        // Length of crosshair lines
-          const lineWidth = 4 * cursorScale;  // Crosshair line width
-          
-          // Shadow offset for visibility
-          const offsetX = 2 * cursorScale;
-          const offsetY = 2 * cursorScale;
-          
-          ctx.lineCap = "round";
-          
-          // Draw shadow graphics first
-          ctx.save();
-          ctx.translate(x + offsetX, y + offsetY);
-          
-          // Shadow circle in center
-          ctx.beginPath();
-          ctx.arc(0, 0, radius, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
-          ctx.fill();
-          
-          // Shadow crosshair lines
-          ctx.beginPath();
-          ctx.moveTo(0, -gap);
-          ctx.lineTo(0, -to);
-          ctx.moveTo(0, gap);
-          ctx.lineTo(0, to);
-          ctx.moveTo(-gap, 0);
-          ctx.lineTo(-to, 0);
-          ctx.moveTo(gap, 0);
-          ctx.lineTo(to, 0);
-          
-          ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
-          ctx.lineWidth = lineWidth;
-          ctx.stroke();
-          ctx.restore();
-          
-          // Draw main cursor graphics
-          ctx.save();
-          ctx.translate(x, y);
-          
-          // White center circle
-          ctx.beginPath();
-          ctx.arc(0, 0, radius, 0, 2 * Math.PI);
-          ctx.fillStyle = "white";
-          ctx.fill();
-          
-          // Cyan crosshair lines (exact AC color)
-          ctx.beginPath();
-          ctx.moveTo(0, -gap); // Top
-          ctx.lineTo(0, -to);
-          ctx.moveTo(0, gap);  // Bottom
-          ctx.lineTo(0, to);
-          ctx.moveTo(-gap, 0); // Left
-          ctx.lineTo(-to, 0);
-          ctx.moveTo(gap, 0);  // Right
-          ctx.lineTo(to, 0);
-          
-          ctx.strokeStyle = "rgb(0, 255, 255)"; // Exact AC cyan color
-          ctx.lineWidth = lineWidth;
-          ctx.stroke();
-          ctx.restore();
-          
-          ctx.restore();
         }
 
         // Force 3x scaling for consistent, fast GIF output
@@ -3974,13 +3977,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             // Add sideways AC stamp like in video recordings
             const progress = (index + 1) / processedFrames.length;
+            
+            // For GIF: calculate elapsed time based on actual GIF playback timing
+            // Use fixed 60fps delay (17ms) for gifenc timing calculation
+            const gifElapsedMs = (index + 1) * 17; // Actual elapsed time in GIF playback (60fps = 17ms)
+            const gifElapsedSeconds = gifElapsedMs / 1000;
+            const gifFrameMetadata = {
+              ...frame,
+              gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
+            };
+            
             await addAestheticComputerStamp(
               ctx,
               originalWidth * optimalScale,
               originalHeight * optimalScale,
               progress,
               frame.data,
-              frame,
+              gifFrameMetadata, // Use enhanced metadata with GIF timing
             );
 
             // Get RGBA data for gifenc
@@ -4004,7 +4017,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               send({
                 type: "recorder:export-progress",
                 content: { 
-                  progress: totalProgress, 
+                  progress: totalProgress,
                   type: "gif",
                   message: `Processing frame ${index + 1}/${processedFrames.length}`
                 }
@@ -4285,13 +4298,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
             const progress = (index + 1) / processedFrames.length;
+            
+            // For GIF: calculate elapsed time based on actual GIF playback timing
+            const gifElapsedMs = (index + 1) * consistentDelay; // Actual elapsed time in GIF playback
+            const gifElapsedSeconds = gifElapsedMs / 1000;
+            const gifFrameMetadata = {
+              ...frame,
+              gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
+            };
+            
             await addAestheticComputerStamp(
               ctx,
               originalWidth * optimalScale,
               originalHeight * optimalScale, // Use original height, progress bar is part of stamp
               progress,
               frame.data,
-              frame,
+              gifFrameMetadata, // Use enhanced metadata with GIF timing
             );
 
             // Every frame gets the same consistent delay - no variation
