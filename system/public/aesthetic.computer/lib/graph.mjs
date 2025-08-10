@@ -1,5 +1,3 @@
-// 📜 TODO: Sometimes it seems like the state in `scroll` breaks. 25.07.09.12.38
-// Fixed syntax error in zeroLineClip function - 2025.07.22
 import {
   p2,
   number,
@@ -40,15 +38,6 @@ const panTranslation = { x: 0, y: 0 }; // For 2d shifting using `pan` and `unpan
 let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
-
-// Zoom accumulator to handle small fractional zoom values without drift
-let zoomAccumulator = 1.0;
-
-// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
-// Gradient state - used by ink() function for "gradient:color1-color2" syntax
-let gradientMode = false;
-let gradientColors = [];
-let gradientDirection = "horizontal"; // horizontal, vertical, diagonal
 
 let debug = false;
 export function setDebug(newDebug) {
@@ -145,59 +134,28 @@ function flood(x, y, fillColor = c) {
   }
 
   let count = 0;
-  // Use a more efficient visited tracking with numeric keys
   const visited = new Set();
-  const stack = [x, y]; // Flat array: [x1, y1, x2, y2, ...]
-  
+  const stack = [[x, y]];
+
   color(...findColor(fillColor));
   const oldColor = c;
-  
-  // Cache target color values for faster comparison
-  const tr = targetColor[0], tg = targetColor[1], tb = targetColor[2], ta = targetColor[3];
-  const fillR = c[0], fillG = c[1], fillB = c[2], fillA = c[3];
-  
-  // Pre-calculate bounds
-  const maxX = width - 1;
-  const maxY = height - 1;
-  
   while (stack.length) {
-    // Pop coordinates (working backwards through the stack)
-    const cy = stack.pop();
-    const cx = stack.pop();
-    
-    // Bounds check
-    if (cx < 0 || cx > maxX || cy < 0 || cy > maxY) continue;
-    
-    // Use numeric key for visited check (more efficient than string)
-    const key = cy * width + cx;
+    const [cx, cy] = stack.pop();
+    const key = `${cx},${cy}`;
+
     if (visited.has(key)) continue;
     visited.add(key);
 
-    // Inline pixel color check for better performance
-    const i = (cx + cy * width) * 4;
-    if (i < 0 || i >= pixels.length - 3) continue;
-    
-    // Direct color comparison (faster than function call)
-    if (pixels[i] === tr && pixels[i + 1] === tg && 
-        pixels[i + 2] === tb && pixels[i + 3] === ta) {
+    const currentColor = pixel(cx, cy);
+    if (colorsMatch(currentColor, targetColor)) {
       count++;
 
-      // Direct pixel write (bypass plot function overhead)
-      if (fillA === 255) {
-        pixels[i] = fillR;
-        pixels[i + 1] = fillG;
-        pixels[i + 2] = fillB;
-        pixels[i + 3] = fillA;
-      } else {
-        // For alpha blending, fall back to plot
-        plot(cx, cy);
-      }
+      plot(cx, cy);
 
-      // Push neighbors (x, y pairs)
-      stack.push(cx + 1, cy);
-      stack.push(cx - 1, cy);
-      stack.push(cx, cy + 1);
-      stack.push(cx, cy - 1);
+      stack.push([cx + 1, cy]); // Push neighbors to stack.
+      stack.push([cx - 1, cy]);
+      stack.push([cx, cy + 1]);
+      stack.push([cx, cy - 1]);
     }
   }
 
@@ -209,62 +167,7 @@ function flood(x, y, fillColor = c) {
   };
 }
 
-// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md for complete guide
-// Parse a gradient string like "gradient:blue-white" or "gradient:red-yellow-blue"
-// Used by findColor() which is called from ink() in disk.mjs
-// Returns array of RGBA color arrays or null if invalid
-function parseGradient(gradientString) {
-  const parts = gradientString.split(":");
-  if (parts.length !== 2 || parts[0] !== "gradient") {
-    return null;
-  }
-  
-  const colorParts = parts[1].split("-");
-  const colors = [];
-  
-  for (const colorStr of colorParts) {
-    const color = cssColors[colorStr.trim()] || hexToRgb(colorStr.trim());
-    if (color) {
-      colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
-    }
-  }
-  
-  return colors.length >= 2 ? colors : null;
-}
-
-// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
-// Get interpolated color from gradient based on position (0-1)
-// Called during line/box drawing when gradientMode is active
-// Supports multi-color gradients with linear interpolation
-function getGradientColor(t) {
-  if (!gradientMode || gradientColors.length < 2) {
-    return c.slice();
-  }
-  
-  // Clamp t to 0-1 range
-  t = Math.max(0, Math.min(1, t));
-  
-  // Find which segment of the gradient we're in
-  const segmentCount = gradientColors.length - 1;
-  const segmentIndex = Math.floor(t * segmentCount);
-  const segmentT = (t * segmentCount) - segmentIndex;
-  
-  const startColor = gradientColors[Math.min(segmentIndex, gradientColors.length - 1)];
-  const endColor = gradientColors[Math.min(segmentIndex + 1, gradientColors.length - 1)];
-  
-  // Linear interpolation between colors
-  return [
-    Math.round(lerp(startColor[0], endColor[0], segmentT)),
-    Math.round(lerp(startColor[1], endColor[1], segmentT)),
-    Math.round(lerp(startColor[2], endColor[2], segmentT)),
-    Math.round(lerp(startColor[3], endColor[3], segmentT))
-  ];
-}
-
-// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
-// Parse a color from a variety of inputs including gradient strings.
-// Called by ink() function in disk.mjs. Handles gradient syntax "gradient:color1-color2"
-// Returns: RGBA array for normal colors, or {color: RGBA, isGradient: true} for gradients
+// Parse a color from a variety of inputs..
 function findColor() {
   let args = [...arguments];
 
@@ -298,43 +201,27 @@ function findColor() {
       // args = args[0];
       return findColor(...args[0]);
     } else if (isString()) {
-      // Check for gradient first
-      if (args[0].startsWith("gradient:")) {
-        const parsedGradientColors = parseGradient(args[0]);
-        if (parsedGradientColors) {
-          // Enable gradient mode and store colors
-          gradientMode = true;
-          gradientColors = parsedGradientColors;
-          // Return the first color as the base with gradient flag
-          return { color: gradientColors[0], isGradient: true };
-        } else {
-          // Invalid gradient, fall back to random color
+      // See if it's a hex.
+      const cleanedHex = args[0]
+        .replace("#", "")
+        .replace("0x", "")
+        .toUpperCase();
+      if (isHexString(cleanedHex) === true) {
+        args = hexToRgb(cleanedHex);
+      } else if (args[0] === "erase") {
+        // TODO: Add better alpha support here... 23.09.11.22.10
+        //       ^ See `parseColor` in `num`.
+        // let alpha = 255;
+        // if (args[1]) alpha = parseFloat(args[1]);
+        args = [-1, -1, -1];
+        if (args[1]) args.push(computeAlpha(args[1]));
+      } else if (args[0] === "rainbow") {
+        args = rainbow(); // Cycle through roygbiv in a linear sequence.
+      } else {
+        args = cssColors[args[0]]; // Try to match it to a table.
+        if (!args) {
           args = randIntArr(255, 3);
           args.push(255);
-        }
-      } else {
-        // See if it's a hex.
-        const cleanedHex = args[0]
-          .replace("#", "")
-          .replace("0x", "")
-          .toUpperCase();
-        if (isHexString(cleanedHex) === true) {
-          args = hexToRgb(cleanedHex);
-        } else if (args[0] === "erase") {
-          // TODO: Add better alpha support here... 23.09.11.22.10
-          //       ^ See `parseColor` in `num`.
-          // let alpha = 255;
-          // if (args[1]) alpha = parseFloat(args[1]);
-          args = [-1, -1, -1];
-          if (args[1]) args.push(computeAlpha(args[1]));
-        } else if (args[0] === "rainbow") {
-          args = rainbow(); // Cycle through roygbiv in a linear sequence.
-        } else {
-          args = cssColors[args[0]]; // Try to match it to a table.
-          if (!args) {
-            args = randIntArr(255, 3);
-            args.push(255);
-          }
         }
       }
       // TODO: Add an error message here. 22.08.29.13.03
@@ -366,11 +253,6 @@ function findColor() {
     if (isNaN(args[i])) args[i] = randInt(255);
   });
 
-  // Reset gradient mode for non-gradient colors
-  if (gradientMode && (!arguments[0] || typeof arguments[0] !== 'string' || !arguments[0].startsWith('gradient:'))) {
-    resetGradient();
-  }
-
   return args;
 }
 
@@ -389,13 +271,8 @@ function computeAlpha(alpha) {
 
 // Set global color.
 // Send 0 arguements to retrieve the current one.
-// preventGradientReset: internal flag to prevent resetting gradient mode
-function color(r, g, b, a = 255, preventGradientReset = false) {
+function color(r, g, b, a = 255) {
   if (arguments.length === 0) return c.slice();
-  // Only reset gradient mode when setting a solid color manually (not from gradient system)
-  if (!preventGradientReset) {
-    resetGradient();
-  }
   c[0] = floor(r);
   c[1] = floor(g);
   c[2] = floor(b);
@@ -419,14 +296,6 @@ function color2(r, g, b, a = 255) {
   return c2.slice();
 }
 
-// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md
-// Reset gradient mode (useful when switching back to solid colors)
-// Called automatically by findColor() when non-gradient colors are used
-function resetGradient() {
-  gradientMode = false;
-  gradientColors = [];
-}
-
 export {
   makeBuffer,
   cloneBuffer,
@@ -438,9 +307,6 @@ export {
   color,
   color2,
   findColor,
-  parseGradient,
-  getGradientColor,
-  resetGradient,
   c, // currentColor
   pixel,
 };
@@ -633,14 +499,6 @@ function pan(x, y) {
 function unpan() {
   panTranslation.x = 0;
   panTranslation.y = 0;
-  savedPanTranslation = null; // Also clear saved pan state
-  // console.log("🔧 unpan() called - cleared current and saved pan state");
-}
-
-// Reset just the current pan state, preserving saved pan state
-function resetpan() {
-  panTranslation.x = 0;
-  panTranslation.y = 0;
 }
 
 let savedPanTranslation;
@@ -739,14 +597,13 @@ function resize(bitmap, width, height) {
   return { pixels, width, height };
 }
 
-// 🚀 OPTIMIZED: Apply a blur effect using fast box blur approximation for constant time performance
+// Apply a blur effect to the current pixel buffer using smooth weighted blur
 // radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
-// Uses multiple passes of fixed-size box blurs to approximate Gaussian blur in O(1) time per pixel
 function blur(radius = 1) {
   if (radius <= 0) return;
 
   // Clamp radius to reasonable values for performance
-  radius = Math.min(radius, 50); // Increased limit since we're now O(1) per pixel
+  radius = Math.min(radius, 20);
 
   // Determine the area to blur (mask or full screen)
   let minX = 0,
@@ -767,197 +624,36 @@ function blur(radius = 1) {
   // Early exit if bounds are invalid
   if (workingWidth <= 0 || workingHeight <= 0) return;
 
-  // 🚀 OPTIMIZATION: Use fast box blur algorithm with multiple passes
-  // This achieves near-Gaussian quality in constant time per pixel regardless of radius
-  
-  // For small radii, use traditional method for better quality
-  if (radius < 2) {
-    applySmallBlur(radius, minX, minY, maxX, maxY);
-    return;
-  }
-
-  // For larger radii, use fast multi-pass box blur
-  // Calculate optimal box sizes for 3-pass approximation of Gaussian
-  const boxSizes = calculateBoxSizes(radius);
-  
-  // Apply 3 box blur passes for good Gaussian approximation
-  for (let pass = 0; pass < 3; pass++) {
-    applyBoxBlur(boxSizes[pass], minX, minY, maxX, maxY);
-  }
-}
-
-// 🚀 PERFORMANCE: Pre-allocated working buffers to avoid GC pressure
-let blurWorkingBuffer1 = null;
-let blurWorkingBuffer2 = null;
-
-// Calculate optimal box filter sizes for Gaussian approximation
-// Using the method from "Fast Almost-Gaussian Filtering" by Peter Kovesi
-function calculateBoxSizes(sigma) {
-  // Convert radius to sigma for box filter calculation
-  const actualSigma = sigma / 3.0; // Approximate conversion
-  
-  // Calculate ideal filter width
-  const wIdeal = Math.sqrt((12 * actualSigma * actualSigma / 3) + 1);
-  const wl = Math.floor(wIdeal);
-  const wu = wl + 1;
-  
-  const mIdeal = (12 * actualSigma * actualSigma - 3 * wl * wl - 12 * wl - 9) / (-4 * wl - 4);
-  const m = Math.round(mIdeal);
-  
-  const sizes = [];
-  for (let i = 0; i < 3; i++) {
-    sizes.push(i < m ? wl : wu);
-  }
-  
-  return sizes;
-}
-
-// Fast box blur implementation - O(1) per pixel regardless of radius
-function applyBoxBlur(boxSize, minX, minY, maxX, maxY) {
-  if (boxSize <= 1) return;
-  
-  const workingWidth = maxX - minX;
-  const workingHeight = maxY - minY;
-  const bufferSize = workingWidth * workingHeight * 4;
-  
-  // 🚀 GC REDUCTION: Reuse working buffers
-  if (!blurWorkingBuffer1 || blurWorkingBuffer1.length < bufferSize) {
-    blurWorkingBuffer1 = new Uint8ClampedArray(bufferSize);
-  }
-  if (!blurWorkingBuffer2 || blurWorkingBuffer2.length < bufferSize) {
-    blurWorkingBuffer2 = new Uint8ClampedArray(bufferSize);
-  }
-  
-  const radius = Math.floor(boxSize / 2);
-  const kernelSize = radius * 2 + 1;
-  const invKernelSize = 1.0 / kernelSize;
-  
-  // Horizontal pass with sliding window
-  for (let y = 0; y < workingHeight; y++) {
-    let r = 0, g = 0, b = 0, a = 0;
-    
-    // Initialize sliding window
-    for (let x = -radius; x <= radius; x++) {
-      const srcX = Math.max(0, Math.min(workingWidth - 1, x));
-      const srcIdx = ((minY + y) * width + (minX + srcX)) * 4;
-      
-      r += pixels[srcIdx];
-      g += pixels[srcIdx + 1];
-      b += pixels[srcIdx + 2];
-      a += pixels[srcIdx + 3];
-    }
-    
-    // Process row with sliding window
-    for (let x = 0; x < workingWidth; x++) {
-      // Write current average
-      const destIdx = (y * workingWidth + x) * 4;
-      blurWorkingBuffer1[destIdx] = r * invKernelSize;
-      blurWorkingBuffer1[destIdx + 1] = g * invKernelSize;
-      blurWorkingBuffer1[destIdx + 2] = b * invKernelSize;
-      blurWorkingBuffer1[destIdx + 3] = a * invKernelSize;
-      
-      // Update sliding window for next pixel
-      if (x < workingWidth - 1) {
-        // Remove leftmost pixel
-        const removeX = Math.max(0, Math.min(workingWidth - 1, x - radius));
-        const removeIdx = ((minY + y) * width + (minX + removeX)) * 4;
-        r -= pixels[removeIdx];
-        g -= pixels[removeIdx + 1];
-        b -= pixels[removeIdx + 2];
-        a -= pixels[removeIdx + 3];
-        
-        // Add rightmost pixel
-        const addX = Math.max(0, Math.min(workingWidth - 1, x + radius + 1));
-        const addIdx = ((minY + y) * width + (minX + addX)) * 4;
-        r += pixels[addIdx];
-        g += pixels[addIdx + 1];
-        b += pixels[addIdx + 2];
-        a += pixels[addIdx + 3];
-      }
-    }
-  }
-  
-  // Vertical pass with sliding window
-  for (let x = 0; x < workingWidth; x++) {
-    let r = 0, g = 0, b = 0, a = 0;
-    
-    // Initialize sliding window
-    for (let y = -radius; y <= radius; y++) {
-      const srcY = Math.max(0, Math.min(workingHeight - 1, y));
-      const srcIdx = (srcY * workingWidth + x) * 4;
-      
-      r += blurWorkingBuffer1[srcIdx];
-      g += blurWorkingBuffer1[srcIdx + 1];
-      b += blurWorkingBuffer1[srcIdx + 2];
-      a += blurWorkingBuffer1[srcIdx + 3];
-    }
-    
-    // Process column with sliding window
-    for (let y = 0; y < workingHeight; y++) {
-      // Write current average back to main buffer
-      const destIdx = ((minY + y) * width + (minX + x)) * 4;
-      pixels[destIdx] = r * invKernelSize;
-      pixels[destIdx + 1] = g * invKernelSize;
-      pixels[destIdx + 2] = b * invKernelSize;
-      pixels[destIdx + 3] = a * invKernelSize;
-      
-      // Update sliding window for next pixel
-      if (y < workingHeight - 1) {
-        // Remove topmost pixel
-        const removeY = Math.max(0, Math.min(workingHeight - 1, y - radius));
-        const removeIdx = (removeY * workingWidth + x) * 4;
-        r -= blurWorkingBuffer1[removeIdx];
-        g -= blurWorkingBuffer1[removeIdx + 1];
-        b -= blurWorkingBuffer1[removeIdx + 2];
-        a -= blurWorkingBuffer1[removeIdx + 3];
-        
-        // Add bottommost pixel
-        const addY = Math.max(0, Math.min(workingHeight - 1, y + radius + 1));
-        const addIdx = (addY * workingWidth + x) * 4;
-        r += blurWorkingBuffer1[addIdx];
-        g += blurWorkingBuffer1[addIdx + 1];
-        b += blurWorkingBuffer1[addIdx + 2];
-        a += blurWorkingBuffer1[addIdx + 3];
-      }
-    }
-  }
-}
-
-// Traditional blur for small radii where quality is more important than speed
-function applySmallBlur(radius, minX, minY, maxX, maxY) {
   // Create a copy of the current pixels to read from
   const sourcePixels = new Uint8ClampedArray(pixels);
 
-  // Pre-calculate weights for performance
-  const sampleRadius = Math.max(1, Math.ceil(radius));
-  const weights = new Float32Array(sampleRadius * 2 + 1);
-  let totalWeight = 0;
-  
-  for (let i = -sampleRadius; i <= sampleRadius; i++) {
-    const distance = Math.abs(i);
-    let weight;
-    if (distance === 0) {
-      weight = 1.0;
-    } else {
-      weight = Math.max(0, radius - distance + 1) * radius;
-    }
-    weights[i + sampleRadius] = weight;
-    totalWeight += weight;
-  }
-  
-  // Normalize weights
-  const invTotalWeight = 1.0 / totalWeight;
-  for (let i = 0; i < weights.length; i++) {
-    weights[i] *= invTotalWeight;
-  }
-
-  // Apply horizontal blur pass
+  // Apply horizontal blur pass (only within mask bounds)
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0;
+      let totalWeight = 0;
+
+      // Always sample at least immediate neighbors for visible blur effect
+      const sampleRadius = Math.max(1, Math.ceil(radius));
 
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const weight = weights[i + sampleRadius];
+        const distance = Math.abs(i);
+        // Calculate weight using a smoother function that works well for fractional values
+        let weight;
+        if (distance === 0) {
+          // Center pixel gets base weight
+          weight = 1.0;
+        } else {
+          // Neighbors get weight based on radius
+          // For radius < 1, this gives fractional weights to immediate neighbors
+          // For radius >= 1, this gives decreasing weights with distance
+          weight = Math.max(0, radius - distance + 1) * radius;
+        }
+
+        // Clamp sampling to mask bounds for proper edge handling
         const sampleX = Math.max(minX, Math.min(maxX - 1, x + i));
         const index = (y * width + sampleX) * 4;
 
@@ -965,17 +661,21 @@ function applySmallBlur(radius, minX, minY, maxX, maxY) {
         g += sourcePixels[index + 1] * weight;
         b += sourcePixels[index + 2] * weight;
         a += sourcePixels[index + 3] * weight;
+        totalWeight += weight;
       }
 
+      // Write weighted average back to main buffer
       const index = (y * width + x) * 4;
-      pixels[index] = r;
-      pixels[index + 1] = g;
-      pixels[index + 2] = b;
-      pixels[index + 3] = a;
+      if (totalWeight > 0) {
+        pixels[index] = r / totalWeight;
+        pixels[index + 1] = g / totalWeight;
+        pixels[index + 2] = b / totalWeight;
+        pixels[index + 3] = a / totalWeight;
+      }
     }
   }
 
-  // Copy result for vertical pass
+  // Copy result for vertical pass (only the working area)
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
       const index = (y * width + x) * 4;
@@ -986,13 +686,33 @@ function applySmallBlur(radius, minX, minY, maxX, maxY) {
     }
   }
 
-  // Apply vertical blur pass
+  // Apply vertical blur pass (only within mask bounds)
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
+      let r = 0,
+        g = 0,
+        b = 0,
+        a = 0;
+      let totalWeight = 0;
+
+      // Always sample at least immediate neighbors for visible blur effect
+      const sampleRadius = Math.max(1, Math.ceil(radius));
 
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const weight = weights[i + sampleRadius];
+        const distance = Math.abs(i);
+        // Calculate weight using a smoother function that works well for fractional values
+        let weight;
+        if (distance === 0) {
+          // Center pixel gets base weight
+          weight = 1.0;
+        } else {
+          // Neighbors get weight based on radius
+          // For radius < 1, this gives fractional weights to immediate neighbors
+          // For radius >= 1, this gives decreasing weights with distance
+          weight = Math.max(0, radius - distance + 1) * radius;
+        }
+
+        // Clamp sampling to mask bounds for proper edge handling
         const sampleY = Math.max(minY, Math.min(maxY - 1, y + i));
         const index = (sampleY * width + x) * 4;
 
@@ -1000,13 +720,55 @@ function applySmallBlur(radius, minX, minY, maxX, maxY) {
         g += sourcePixels[index + 1] * weight;
         b += sourcePixels[index + 2] * weight;
         a += sourcePixels[index + 3] * weight;
+        totalWeight += weight;
       }
 
+      // Write weighted average back to main buffer
       const index = (y * width + x) * 4;
-      pixels[index] = r;
-      pixels[index + 1] = g;
-      pixels[index + 2] = b;
-      pixels[index + 3] = a;
+      if (totalWeight > 0) {
+        pixels[index] = r / totalWeight;
+        pixels[index + 1] = g / totalWeight;
+        pixels[index + 2] = b / totalWeight;
+        pixels[index + 3] = a / totalWeight;
+      }
+    }
+  }
+}
+
+// Adjust the contrast of the pixel buffer
+// level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast
+function contrast(level = 1.0) {
+  // Determine the area to adjust (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
+    minX = Math.max(0, Math.floor(maskX));
+    minY = Math.max(0, Math.floor(maskY));
+    maxX = Math.min(width, Math.floor(maskX + activeMask.width));
+    maxY = Math.min(height, Math.floor(maskY + activeMask.height));
+  }
+
+  // Apply contrast adjustment to each pixel
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const idx = (y * width + x) * 4;
+      
+      // Skip transparent pixels
+      if (pixels[idx + 3] === 0) continue;
+      
+      // Apply contrast formula: newValue = ((oldValue / 255 - 0.5) * contrast + 0.5) * 255
+      // This centers the contrast adjustment around middle gray (127.5)
+      for (let c = 0; c < 3; c++) { // RGB channels only
+        const normalized = pixels[idx + c] / 255.0;
+        const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
+        pixels[idx + c] = Math.max(0, Math.min(255, Math.round(adjusted)));
+      }
+      // Alpha channel stays unchanged
     }
   }
 }
@@ -1033,30 +795,17 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     let angle = 0;
     let anchor;
     let width, height;
-    let scaleObj;
 
     if (typeof scale === "object") {
       angle = scale.angle;
       width = scale.width;
       height = scale.height;
       anchor = scale.anchor;
-      
-      // Handle different scale object formats
-      if (scale.scale !== undefined) {
-        // New format: { scale: number, angle: number, etc. }
-        scaleObj = scale.scale;
-      } else if (scale.x !== undefined || scale.y !== undefined) {
-        // Old format: { x: number, y: number } for flip/flop
-        scaleObj = scale;
-      } else {
-        // Default to treating the object as having a scale of 1
-        scaleObj = 1;
-      }
-      
-      scale = scaleObj; // Redefine scale for further processing
+      // ^ Pull properties out of the scale object.
+      scale = scale.scale; // And then redefine scale.
     }
 
-    // Fast path for simple integer scaling (no rotation, no custom dimensions, no negative scales)
+    // Fast path for simple integer scaling (no rotation, no custom dimensions)
     if (
       !angle &&
       !width &&
@@ -1067,7 +816,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       scale === ~~scale &&
       scale <= 8
     ) {
-      // Integer scale up to 8x for safety (positive scales only)
+      // Integer scale up to 8x for safety
 
       // Ultra-fast nearest-neighbor scaling using direct pixel manipulation
       const srcWidth = from.width;
@@ -1124,7 +873,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     grid(
       {
         box: { x: destX, y: destY, w: from.width, h: from.height },
-        transform: { scale: scaleObj || scale, angle, width, height, anchor },
+        transform: { scale, angle, width, height, anchor },
       },
       from,
     );
@@ -1210,42 +959,8 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 }
 
 // Similar to `paste` but always centered.
-function stamp(from, x, y, scale = 1, angle = 0) {
-  if (!from) return;
-  
-  // Handle transform object for scale/angle  
-  let transform = scale;
-  if (typeof scale !== "object") {
-    transform = { scale, angle };
-  }
-  
-  // The issue is that when paste uses grid for scaling, the center calculation
-  // gets messed up. We need to manually calculate the correct position.
-  
-  if (transform.scale === 1 && (transform.angle === 0 || transform.angle === undefined)) {
-    // Simple case - no transformation
-    paste(from, x - from.width / 2, y - from.height / 2);
-  } else {
-    // Complex case - use grid directly with proper setup
-    // We want the center of the ORIGINAL image to end up at x,y
-    const scaleValue = typeof transform.scale === 'number' ? transform.scale : 1;
-    
-    // Calculate the top-left position of the scaled image such that 
-    // its center aligns with x,y
-    const scaledWidth = from.width * scaleValue;
-    const scaledHeight = from.height * scaleValue;
-    
-    const topLeftX = x - scaledWidth / 2;
-    const topLeftY = y - scaledHeight / 2;
-    
-    grid(
-      {
-        box: { x: topLeftX, y: topLeftY, w: from.width, h: from.height },
-        transform: transform,
-      },
-      from,
-    );
-  }
+function stamp(from, x, y) {
+  paste(from, x - from.width / 2, y - from.height / 2);
 }
 
 let blendingMode = "blend";
@@ -1382,61 +1097,12 @@ function lineh(x0, x1, y) {
   }
 }
 
-// Wu's antialiased line algorithm for smooth lines
-function drawAntialiasedLine(x0, y0, x1, y1) {
-  const dx = Math.abs(x1 - x0);
-  const dy = Math.abs(y1 - y0);
-  const steep = dy > dx;
-  
-  if (steep) {
-    [x0, y0] = [y0, x0];
-    [x1, y1] = [y1, x1];
-  }
-  
-  if (x0 > x1) {
-    [x0, x1] = [x1, x0];
-    [y0, y1] = [y1, y0];
-  }
-  
-  const deltaX = x1 - x0;
-  const deltaY = y1 - y0;
-  const gradient = deltaY / deltaX;
-  let y = y0 + gradient;
-  
-  // Store original color
-  const [r, g, b, a] = c;
-  
-  for (let x = x0 + 1; x < x1; x++) {
-    const yInt = Math.floor(y);
-    const yFrac = y - yInt;
-    
-    // Plot two pixels with different alphas for antialiasing
-    if (steep) {
-      color(r, g, b, Math.round(a * (1 - yFrac)));
-      plot(yInt, x);
-      color(r, g, b, Math.round(a * yFrac));
-      plot(yInt + 1, x);
-    } else {
-      color(r, g, b, Math.round(a * (1 - yFrac)));
-      plot(x, yInt);
-      color(r, g, b, Math.round(a * yFrac));
-      plot(x, yInt + 1);
-    }
-    
-    y += gradient;
-  }
-  
-  // Restore original color
-  color(r, g, b, a);
-}
-
 // Draws a line
 // (2) p1, p2: pairs of {x, y} or [x, y]
 // (4) x0, y0, x1, y1
-// (5) x0, y0, x1, y1, antialias (boolean)
 // TODO: Automatically use lineh if possible. 22.10.05.18.27
 function line() {
-  let x0, y0, x1, y1, antialias = false;
+  let x0, y0, x1, y1;
   if (arguments.length === 1) {
     // Safely access properties on the first argument
     const arg0 = arguments[0];
@@ -1445,19 +1111,12 @@ function line() {
       y0 = arg0.y0;
       x1 = arg0.x1;
       y1 = arg0.y1;
-      antialias = arg0.antialias || false;
     }
   } else if (arguments.length === 4) {
     x0 = arguments[0]; // Set all `undefined` or `null` values to 0.
     y0 = arguments[1];
     x1 = arguments[2];
     y1 = arguments[3];
-  } else if (arguments.length === 5) {
-    x0 = arguments[0];
-    y0 = arguments[1];
-    x1 = arguments[2];
-    y1 = arguments[3];
-    antialias = arguments[4];
   } else if (arguments.length === 2) {
     const arg0 = arguments[0];
     const arg1 = arguments[1];
@@ -1507,48 +1166,15 @@ function line() {
   x1 += panTranslation.x;
   y1 += panTranslation.y;
 
-  // Use antialiased line if requested
-  if (antialias) {
-    drawAntialiasedLine(x0, y0, x1, y1);
-    const out = [x0, y0, x1, y1];
-    twoDCommands?.push(["line", ...out]);
-    return out;
-  }
-
   // Lerp from primary to secondary color as needed.
   const cachedInk = c.slice(0);
 
   // Check if line is perfectly horizontal and no gradient is present, otherwise run bresenham.
-  if (y0 === y1 && !c2 && !gradientMode) {
+  if (y0 === y1 && !c2) {
     lineh(x0, x1, y0);
   } else {
     bresenham(x0, y0, x1, y1).forEach((p) => {
-      if (gradientMode) {
-        let t;
-        if (activeMask) {
-          // Calculate gradient position based on mask geometry
-          const maskWidth = activeMask.width;
-          const maskHeight = activeMask.height;
-          const relativeX = p.x - activeMask.x;
-          const relativeY = p.y - activeMask.y;
-          
-          // Choose gradient direction based on mask dimensions
-          if (gradientDirection === "horizontal" || maskWidth >= maskHeight) {
-            t = maskWidth > 0 ? relativeX / maskWidth : 0;
-          } else {
-            t = maskHeight > 0 ? relativeY / maskHeight : 0;
-          }
-        } else {
-          // Calculate gradient position based on line direction (original behavior)
-          const totalLength = sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-          const currentLength = sqrt((p.x - x0) * (p.x - x0) + (p.y - y0) * (p.y - y0));
-          t = totalLength > 0 ? currentLength / totalLength : 0;
-        }
-        
-        const gradientColor = getGradientColor(t);
-        color(...gradientColor, true); // Use preventGradientReset flag
-        plot(p.x, p.y);
-      } else if (c2) {
+      if (c2) {
         const step = sqrt(p.x * p.x + p.y * p.y) / 255; // Gradient step.
         color(...shiftRGB(c, c2, step));
         plot(p.x, p.y);
@@ -1556,7 +1182,7 @@ function line() {
         plot(p.x, p.y);
       }
     });
-    if (c2 || gradientMode) color(...cachedInk);
+    if (c2) color(...cachedInk);
   }
 
   const out = [x0, y0, x1, y1];
@@ -1782,325 +1408,142 @@ function poly(coords) {
   }
 }
 
-// Draws a thick line between points with optional rounded end-caps.
-// Optimized version with better thick line support and pixel-perfect rendering.
-function pline(coords, thickness = 1, shader) {
-  if (coords.length < 2) return; // Need at least 2 points
-  
-  // For thickness 1, use the faster pixel-perfect algorithm
-  if (thickness === 1) {
-    return pixelPerfectPolyline(coords, shader);
-  }
-  
-  // TEMPORARY FIX: Fall back to the old polygon-based approach for thick lines
-  // to avoid issues with direct pixel manipulation
-  const radius = thickness / 2;
-  const points = [];
-  
-  // Convert coords to standard format
-  const normalizedCoords = coords.map(coord => ({
-    x: coord.x || coord[0] || coord,
-    y: coord.y || coord[1] || coord,
-    color: coord.color
-  }));
-  
-  // Draw thick lines using overlapping circles (simple but reliable)
-  for (let i = 0; i < normalizedCoords.length - 1; i++) {
-    const p1 = normalizedCoords[i];
-    const p2 = normalizedCoords[i + 1];
-    
-    // Skip identical points
-    if (p1.x === p2.x && p1.y === p2.y) continue;
-    
-    // Set color if specified
-    if (p1.color === "rainbow") {
-      color(...rainbow());
-    } else if (p1.color) {
-      color(...p1.color);
-    }
-    
-    // Draw line segment using multiple circles for thickness
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.max(1, Math.ceil(distance));
-    
-    for (let step = 0; step <= steps; step++) {
-      const t = step / steps;
-      const x = p1.x + dx * t;
-      const y = p1.y + dy * t;
-      circle(x, y, radius, true); // Filled circle
-    }
-  }
-  
-  // Draw end caps
-  if (normalizedCoords.length > 0) {
-    const first = normalizedCoords[0];
-    const last = normalizedCoords[normalizedCoords.length - 1];
-    
-    circle(first.x, first.y, radius, true);
-    circle(last.x, last.y, radius, true);
-  }
-}
+// Rasterize an Npx thick poly line with rounded end-caps.
+/* TODO
+ - [😇] Clip coords to inside of the screen.
+ + Later
+ - [] Perhaps if thickness === 1 then this can be combined with
+     `pixelPerfectPolyline` ?
+ - [] Render a third triangle from mid point to last point to next quad
+      point?
+ - [] Rounded half-circle endcaps.
+ - [] Filled circle if coords.length === 1.
+ - [] Texture / special FX.
+ + Done
+ - [x] Triangle rasterization of segment.
+ - [x] Optimize performance.
+   - [x] Run the profiler.
+*/
+function pline(coords, thickness, shader) {
+  // 1️⃣ Generate geometry.
+  if (coords.length < 2) return; // Require at least two coordinates.
 
-// Ultra-fast spinal segment rendering using scanlines
-function renderSpinalSegment(x0, y0, x1, y1, radius, radiusSquared, r, g, b, a) {
-  const dx = x1 - x0;
-  const dy = y1 - y0;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  
-  if (distance === 0) return;
-  
-  // Calculate bounding box for the entire segment using current canvas dimensions
-  const minX = Math.max(0, Math.min(x0, x1) - radius);
-  const maxX = Math.min(width - 1, Math.max(x0, x1) + radius);
-  const minY = Math.max(0, Math.min(y0, y1) - radius);
-  const maxY = Math.min(height - 1, Math.max(y0, y1) + radius);
-  
-  // Scanline rendering - process each row
-  for (let y = minY; y <= maxY; y++) {
-    let rowMinX = maxX + 1;
-    let rowMaxX = minX - 1;
-    
-    // Find the horizontal span for this scanline
-    for (let x = minX; x <= maxX; x++) {
-      // Calculate distance from point to line segment
-      const t = Math.max(0, Math.min(1, 
-        ((x - x0) * dx + (y - y0) * dy) / (distance * distance)
-      ));
-      
-      const closestX = x0 + t * dx;
-      const closestY = y0 + t * dy;
-      const distSquared = (x - closestX) * (x - closestX) + (y - closestY) * (y - closestY);
-      
-      if (distSquared <= radiusSquared) {
-        if (x < rowMinX) rowMinX = x;
-        if (x > rowMaxX) rowMaxX = x;
-      }
-    }
-    
-    // Fill the horizontal span directly in pixel buffer
-    if (rowMinX <= rowMaxX) {
-      const rowStart = (y * width + rowMinX) * 4;
-      const spanWidth = rowMaxX - rowMinX + 1;
-      
-      // Fast horizontal line fill
-      for (let i = 0; i < spanWidth; i++) {
-        const pixelIndex = rowStart + i * 4;
-        if (pixelIndex >= 0 && pixelIndex < pixels.length - 3) {
-          if (a === 255) {
-            // No blending needed
-            pixels[pixelIndex] = r;
-            pixels[pixelIndex + 1] = g;
-            pixels[pixelIndex + 2] = b;
-            pixels[pixelIndex + 3] = a;
-          } else if (a > 0) {
-            // Alpha blending
-            const alpha = a / 255;
-            const invAlpha = 1 - alpha;
-            pixels[pixelIndex] = pixels[pixelIndex] * invAlpha + r * alpha;
-            pixels[pixelIndex + 1] = pixels[pixelIndex + 1] * invAlpha + g * alpha;
-            pixels[pixelIndex + 2] = pixels[pixelIndex + 2] * invAlpha + b * alpha;
-          }
-        }
-      }
-    }
-  }
-}
+  let points = [], // Raster grids.
+    lines = [],
+    tris = [];
 
-// Fast circular cap rendering using scanlines
-function renderCircleCap(centerX, centerY, radius, radiusSquared, r, g, b, a) {
-  const minX = Math.max(0, centerX - radius);
-  const maxX = Math.min(width - 1, centerX + radius);
-  const minY = Math.max(0, centerY - radius);
-  const maxY = Math.min(height - 1, centerY + radius);
-  
-  // Scanline circle rendering
-  for (let y = minY; y <= maxY; y++) {
-    const dy = y - centerY;
-    const dySquared = dy * dy;
-    
-    // Calculate horizontal span for this row
-    const remaining = radiusSquared - dySquared;
-    if (remaining >= 0) {
-      const halfWidth = Math.sqrt(remaining);
-      const rowMinX = Math.max(minX, Math.floor(centerX - halfWidth));
-      const rowMaxX = Math.min(maxX, Math.ceil(centerX + halfWidth));
-      
-      // Fill the horizontal span
-      const rowStart = (y * width + rowMinX) * 4;
-      const spanWidth = rowMaxX - rowMinX + 1;
-      
-      for (let i = 0; i < spanWidth; i++) {
-        const pixelIndex = rowStart + i * 4;
-        if (pixelIndex >= 0 && pixelIndex < pixels.length - 3) {
-          if (a === 255) {
-            pixels[pixelIndex] = r;
-            pixels[pixelIndex + 1] = g;
-            pixels[pixelIndex + 2] = b;
-            pixels[pixelIndex + 3] = a;
-          } else if (a > 0) {
-            const alpha = a / 255;
-            const invAlpha = 1 - alpha;
-            pixels[pixelIndex] = pixels[pixelIndex] * invAlpha + r * alpha;
-            pixels[pixelIndex + 1] = pixels[pixelIndex + 1] * invAlpha + g * alpha;
-            pixels[pixelIndex + 2] = pixels[pixelIndex + 2] * invAlpha + b * alpha;
-          }
-        }
-      }
+  // 🎴 Draw everything from front to back!
+
+  let last = coords[coords.length - 1]; // Keep the last drawn element.
+
+  let lpar, ldir; // Store last parallel points / prepopulate if supplied.
+
+  for (let i = coords.length - 2; i >= 0; i -= 1) {
+    const cur = coords[i];
+
+    // 1. Two points on both sides of last and cur via line dir.
+    const lp = [last.x || last[0], last.y || last[1]],
+      cp = [cur.x || cur[0], cur.y || cur[1]]; // Convert last and cur to vec2.
+
+    const dir = vec2.normalize([], vec2.subtract([], cp, lp)); // Line direction.
+    if (!ldir) ldir = dir;
+
+    const rot = vec2.rotate([], dir, [0, 0], PI / 2); // Rotated by 90d
+
+    const offset1 = vec2.scale([], rot, thickness / 2); // Parallel offsets.
+    const offset2 = vec2.scale([], rot, -thickness / 2);
+
+    let c1, c2;
+    if (!lpar) {
+      c1 = vec2.add([], lp, offset1); // Compute both sets of points.
+      c2 = vec2.add([], lp, offset2);
+      lpar = [c1, c2];
+    } else {
+      [c1, c2] = lpar;
     }
-  }
-}
 
-// Improved thick line rendering with better quality
-function plineSmooth(coords, thickness = 1, shader) {
-  if (coords.length < 2) return;
-  
-  if (thickness === 1) {
-    return pixelPerfectPolyline(coords, shader);
-  }
-  
-  const radius = thickness / 2;
-  const points = [];
-  
-  // Convert coords to standard format
-  const normalizedCoords = coords.map(coord => ({
-    x: coord.x || coord[0] || coord,
-    y: coord.y || coord[1] || coord,
-    color: coord.color
-  }));
-  
-  // Use line segments with proper end caps for crisp rendering
-  for (let i = 0; i < normalizedCoords.length - 1; i++) {
-    const p1 = normalizedCoords[i];
-    const p2 = normalizedCoords[i + 1];
-    
-    if (p1.x === p2.x && p1.y === p2.y) continue;
-    
-    // Set color if specified
-    if (p1.color === "rainbow") color(...rainbow());
-    else if (p1.color) color(...p1.color);
-    
-    // Draw thick line segment using rectangles for better quality
-    drawCrispLineSegment(p1, p2, radius, points);
-  }
-  
-  // Draw rounded end caps
-  if (normalizedCoords.length > 0) {
-    const first = normalizedCoords[0];
-    const last = normalizedCoords[normalizedCoords.length - 1];
-    
-    drawFilledCircle(first.x, first.y, radius, points);
-    drawFilledCircle(last.x, last.y, radius, points);
-  }
-  
-  // Render all points
-  if (shader) {
-    shadePixels(points, shader);
-  } else {
-    points.forEach(p => point(p));
-  }
-}
+    [c1, c2, lp, cp].forEach((v) => vec2.floor(v, v)); // Floor everything.
 
-// Draw a crisp line segment using Bresenham-like approach
-function drawCrispLineSegment(p1, p2, radius, points) {
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  
-  if (distance === 0) return;
-  
-  // Normalize direction vector
-  const unitX = dx / distance;
-  const unitY = dy / distance;
-  
-  // Perpendicular vector for width
-  const perpX = -unitY;
-  const perpY = unitX;
-  
-  // Calculate the four corners of the line rectangle
-  const halfRadius = radius;
-  const x1 = p1.x + perpX * halfRadius;
-  const y1 = p1.y + perpY * halfRadius;
-  const x2 = p1.x - perpX * halfRadius;
-  const y2 = p1.y - perpY * halfRadius;
-  const x3 = p2.x - perpX * halfRadius;
-  const y3 = p2.y - perpY * halfRadius;
-  const x4 = p2.x + perpX * halfRadius;
-  const y4 = p2.y + perpY * halfRadius;
-  
-  // Fill the quadrilateral
-  fillQuad([
-    { x: Math.round(x1), y: Math.round(y1) },
-    { x: Math.round(x2), y: Math.round(y2) },
-    { x: Math.round(x3), y: Math.round(y3) },
-    { x: Math.round(x4), y: Math.round(y4) }
-  ], points);
-}
+    // 2. Plotting
 
-// Simple quad filling using scanlines
-function fillQuad(corners, points) {
-  // Find bounding box
-  let minX = corners[0].x, maxX = corners[0].x;
-  let minY = corners[0].y, maxY = corners[0].y;
-  
-  for (const corner of corners) {
-    minX = Math.min(minX, corner.x);
-    maxX = Math.max(maxX, corner.x);
-    minY = Math.min(minY, corner.y);
-    maxY = Math.max(maxY, corner.y);
-  }
-  
-  // Simple scanline fill
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      if (isPointInQuad(x, y, corners)) {
-        points.push({ x, y });
-      }
+    const dot = vec2.dot(dir, ldir); // Get the dot product of cur and last dir.
+
+    let trig; // Triangle geometry.
+
+    if (dot > 0) {
+      // Vertex order for forward direction.
+      trig = [
+        [c1, c2, lp],
+        [c2, lp, cp],
+      ];
+      lines.push(...bresenham(...c1, ...lp)); // Par line 1
+      lines.push(...bresenham(...c2, ...cp)); // Par line 2
+    } else {
+      // Vertex order for backward direction.
+      trig = [
+        [c2, lp, c1],
+        [c1, cp, lp],
+      ];
+      lines.push(...bresenham(...c2, ...lp)); // Par line 1
+      lines.push(...bresenham(...c1, ...cp)); // Par line 2
     }
-  }
-}
 
-// Point-in-quad test
-function isPointInQuad(px, py, corners) {
-  let sign = null;
-  
-  for (let i = 0; i < corners.length; i++) {
-    const j = (i + 1) % corners.length;
-    const cross = (corners[j].x - corners[i].x) * (py - corners[i].y) - 
-                  (corners[j].y - corners[i].y) * (px - corners[i].x);
-    
-    if (cross !== 0) {
-      const currentSign = cross > 0;
-      if (sign === null) {
-        sign = currentSign;
-      } else if (sign !== currentSign) {
-        return false;
-      }
-    }
-  }
-  
-  return true;
-}
+    // Partial outside clipping.
+    // const clippedTris = trig.filter((triangle) =>
+    //   triangle.every(
+    //     (v) => v[0] >= 0 && v[0] < width && v[1] >= 0 && v[1] < height
+    //   )
+    // );
 
-// Optimized filled circle drawing
-function drawFilledCircle(centerX, centerY, radius, points) {
-  const r = Math.floor(radius);
-  const centerXFloor = Math.floor(centerX);
-  const centerYFloor = Math.floor(centerY);
-  const radiusSquared = radius * radius;
-  
-  // Use efficient circle filling algorithm
-  for (let x = -r; x <= r; x++) {
-    for (let y = -r; y <= r; y++) {
-      if (x * x + y * y <= radiusSquared) {
-        points.push({
-          x: centerXFloor + x,
-          y: centerYFloor + y
-        });
-      }
+    // Full outside clipping.
+    // Clip triangles that are *fully* offscreen.
+    // Take into account panning here...
+    const clippedTris = trig.filter((triangle) =>
+      triangle.some((v) => {
+        const tv = v.slice();
+        tv[0] += panTranslation.x;
+        tv[1] += panTranslation.y;
+        return tv[0] >= 0 && tv[0] < width && tv[1] >= 0 && tv[1] < height;
+      }),
+    );
+
+    clippedTris.forEach((tri) => fillTri(tri, tris)); // Fill quad.
+    //trig.forEach((t) => fillTri(t, tris)); // Fill quad.
+
+    ldir = dir;
+    lines.push(...bresenham(...lp, ...cp));
+
+    if (i === coords.length - 2)
+      points.push({ x: c1[0], y: c1[1] }, { x: c2[0], y: c2[1] });
+
+    points.push({ x: lp[0], y: lp[1] }, { x: cp[0], y: cp[1] }); // Add points.
+
+    // Paint each triangle.
+    if (cur.color === "rainbow") color(...rainbow());
+    else if (cur.color) color(...cur.color);
+
+    if (shader) {
+      const progress = 1 - i / (coords.length - 2);
+      shadePixels(tris, shader, [progress]);
+    } else {
+      tris.forEach((p) => point(p));
     }
+
+    tris.length = 0;
+
+    last = cur; // Update the last point.
+    lpar = [c1, c2]; // ... and last parallel points.
   }
+
+  // 3️⃣ Painting
+
+  // color(0, 255, 0); // Paint vertex points.
+  // points.forEach((p) => point(p));
+
+  // color(0, 0, 255); // Paint wireframe lines.
+  // lines.forEach((p) => point(p));
+
+  return lpar;
 }
 
 // 🔺 Rasterizes a tri. See also: https://www.youtube.com/watch?v=SbB5taqJsS4
@@ -2355,48 +1798,10 @@ function box() {
   } else if (mode === "fill" || mode === "") {
     // TODO: The boxes could be cropped to always fit inside the screen here.
     w -= 1;
-    if (gradientMode) {
-      // For filled boxes with gradients, calculate gradient for each pixel
-      for (let row = 0; row < h; row += 1) {
-        for (let col = 0; col <= w; col += 1) {
-          const pixelX = x + col + panTranslation.x;
-          const pixelY = y + row + panTranslation.y;
-          
-          let t;
-          if (activeMask) {
-            // Calculate gradient position based on mask geometry
-            const maskWidth = activeMask.width;
-            const maskHeight = activeMask.height;
-            const relativeX = pixelX - activeMask.x;
-            const relativeY = pixelY - activeMask.y;
-            
-            // Choose gradient direction based on mask dimensions
-            if (gradientDirection === "horizontal" || maskWidth >= maskHeight) {
-              t = maskWidth > 0 ? relativeX / maskWidth : 0;
-            } else {
-              t = maskHeight > 0 ? relativeY / maskHeight : 0;
-            }
-          } else {
-            // Calculate gradient position based on box dimensions
-            if (gradientDirection === "horizontal" || w >= h) {
-              t = w > 0 ? col / w : 0;
-            } else {
-              t = h > 0 ? row / h : 0;
-            }
-          }
-          
-          const gradientColor = getGradientColor(t);
-          color(...gradientColor, true); // Use preventGradientReset flag
-          plot(x + col, y + row);
-        }
-      }
+    if (sign(height) === 1) {
+      for (let row = 0; row < h; row += 1) line(x, y + row, x + w, y + row);
     } else {
-      // Original non-gradient filled box
-      if (sign(height) === 1) {
-        for (let row = 0; row < h; row += 1) line(x, y + row, x + w, y + row);
-      } else {
-        for (let row = 0; row > h; row -= 1) line(x, y + row, x + w, y + row);
-      }
+      for (let row = 0; row > h; row -= 1) line(x, y + row, x + w, y + row);
     }
   }
 }
@@ -2853,22 +2258,16 @@ function draw() {
     thickness = args[4] || thickness;
   }
 
-  if (drawing === undefined) {
-    // Skip undefined glyphs silently
-    return;
-  }
+  if (drawing === undefined) return;
 
   // Apply BDF offset if present (for proper baseline positioning)
   if (drawing.offset) {
-    const originalY = y;
     x += drawing.offset[0] * scale; // xOffset
     
     // Use baseline-corrected offset if available, otherwise fall back to original
     const yOffset = drawing.baselineOffset ? drawing.baselineOffset[1] : drawing.offset[1];
     y += yOffset * scale; // Use baseline-relative positioning
   }
-
-  // Remove verbose draw logging - only log failures now
 
   // TODO: Eventually make this the call: rotatePoint(args[0], args[1], 0, 0);
   angle = radians(angle);
@@ -3009,13 +2408,10 @@ function printLine(
   } else {
     // Use original monospace logic for fonts without proportional flag
     [...text.toString()].forEach((char, i) => {
-      const charX = startX + blockWidth * i * scale + xOffset;
-      let charY = startY;
-      
       draw(
         font[char],
-        charX,
-        charY,
+        startX + blockWidth * scale * i + xOffset,
+        startY,
         scale,
         rotation,
         thickness,
@@ -3151,20 +2547,12 @@ function noiseTinted(tint, amount, saturation) {
 // Accumulated fractional steps for smooth fractional spinning
 let spinAccumulator = 0;
 
-// 🚀 PERFORMANCE: Pre-allocated memory pools for scroll operations
-let scrollRowBuffer = null;
-let scrollColumnBuffer = null;
-let scrollWorkingBuffer = null;
-const MAX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB max working buffer
+// Accumulated fractional zoom for smooth zooming
+let zoomAccumulator = 1.0;
 
-// 🚀 GC REDUCTION: Object pooling for frequent operations
-const tempPixelPool = [];
-const tempArrayPool = [];
-let poolIndex = 0;
-
-// 🚀 GC REDUCTION: Reusable objects to avoid allocation
-const reusableRect = { x: 0, y: 0, width: 0, height: 0 };
-const reusablePoint = { x: 0, y: 0 };
+// Accumulated fractional scroll for smooth scrolling
+let scrollAccumulatorX = 0;
+let scrollAccumulatorY = 0;
 
 // Accumulated fractional shear for smooth shearing
 let shearAccumulatorX = 0;
@@ -3176,11 +2564,22 @@ let pixelShearAccumY = null;
 
 // Scroll the entire pixel buffer by x and/or y pixels with wrapping
 function scroll(dx = 0, dy = 0) {
-  // Early exit for zero movement
-  if (dx === 0 && dy === 0) return;
-  
-  // Performance monitoring
-  const scrollStartTime = performance.now();
+  if (dx === 0 && dy === 0) return; // No change needed
+
+  // Accumulate fractional scroll amounts
+  scrollAccumulatorX += dx;
+  scrollAccumulatorY += dy;
+
+  // Extract integer parts for actual scrolling
+  const integerDx = Math.floor(scrollAccumulatorX);
+  const integerDy = Math.floor(scrollAccumulatorY);
+
+  // Keep fractional remainders
+  scrollAccumulatorX -= integerDx;
+  scrollAccumulatorY -= integerDy;
+
+  // Only proceed if we have integer pixels to scroll
+  if (integerDx === 0 && integerDy === 0) return;
 
   // Determine the area to scroll (mask or full screen)
   let minX = 0,
@@ -3188,16 +2587,16 @@ function scroll(dx = 0, dy = 0) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Don't apply pan translation to mask bounds - mask is already set at current pan position
-    minX = Math.max(0, Math.min(width, activeMask.x));
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
     maxX = Math.max(
       0,
-      Math.min(width, activeMask.x + activeMask.width),
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
     );
-    minY = Math.max(0, Math.min(height, activeMask.y));
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
     maxY = Math.max(
       0,
-      Math.min(height, activeMask.y + activeMask.height),
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
     );
   }
 
@@ -3207,199 +2606,55 @@ function scroll(dx = 0, dy = 0) {
   // Early exit if bounds are invalid
   if (boundsWidth <= 0 || boundsHeight <= 0) return;
 
-  // Use direct scroll amounts with proper wrapping
-  let finalDx = ((Math.round(dx) % boundsWidth) + boundsWidth) % boundsWidth;
-  let finalDy = ((Math.round(dy) % boundsHeight) + boundsHeight) % boundsHeight;
+  // Use integer scroll amounts
+  let finalDx = ((integerDx % boundsWidth) + boundsWidth) % boundsWidth;
+  let finalDy = ((integerDy % boundsHeight) + boundsHeight) % boundsHeight;
 
   if (finalDx === 0 && finalDy === 0) return; // No effective shift after normalization
 
-  // 🚀 OPTIMIZATION 1: Use efficient block copying instead of pixel-by-pixel
-  
-  // Handle simple horizontal-only scrolling with row copying
-  if (finalDy === 0 && finalDx !== 0) {
-    // Horizontal scroll only - use efficient row copying
-    const rowBytes = boundsWidth * 4;
-    const shiftBytes = finalDx * 4;
-    
-    // 🚀 GC REDUCTION: Reuse pre-allocated buffer with size limits
-    const maxRowBytes = Math.min(rowBytes, MAX_BUFFER_SIZE / 2); // Less restrictive for HUD
-    if (!scrollRowBuffer || scrollRowBuffer.length < maxRowBytes) {
-      scrollRowBuffer = new Uint8ClampedArray(maxRowBytes);
-    }
-    
-    // Process in chunks if row is too large
-    const chunkSize = Math.min(rowBytes, maxRowBytes);
-    
-    for (let y = minY; y < maxY; y++) {
-      const rowStart = (y * width + minX) * 4;
-      
-      for (let chunkStart = 0; chunkStart < rowBytes; chunkStart += chunkSize) {
-        const actualChunkSize = Math.min(chunkSize, rowBytes - chunkStart);
-        
-        // Copy chunk to buffer
-        scrollRowBuffer.set(pixels.subarray(rowStart + chunkStart, rowStart + chunkStart + actualChunkSize));
-        
-        // Copy shifted data back efficiently
-        for (let i = 0; i < actualChunkSize; i += 4) {
-          const srcIdx = (i + shiftBytes) % actualChunkSize;
-          pixels[rowStart + chunkStart + i] = scrollRowBuffer[srcIdx];
-          pixels[rowStart + chunkStart + i + 1] = scrollRowBuffer[srcIdx + 1];
-          pixels[rowStart + chunkStart + i + 2] = scrollRowBuffer[srcIdx + 2];
-          pixels[rowStart + chunkStart + i + 3] = scrollRowBuffer[srcIdx + 3];
-        }
-      }
-    }
-    return;
-  }
-  
-  // Handle simple vertical-only scrolling with column copying
-  if (finalDx === 0 && finalDy !== 0) {
-    // Vertical scroll only - use efficient column copying
-    const maxBufferSize = Math.min(boundsHeight * 4, MAX_BUFFER_SIZE / 4); // Less restrictive for HUD
-    
-    // 🚀 GC REDUCTION: Reuse pre-allocated buffer with size limits
-    if (!scrollColumnBuffer || scrollColumnBuffer.length < maxBufferSize) {
-      scrollColumnBuffer = new Uint8ClampedArray(maxBufferSize);
-    }
-    
-    // Process columns in chunks if needed
-    const maxColumns = Math.floor(maxBufferSize / (boundsHeight * 4));
-    
-    for (let xChunk = minX; xChunk < maxX; xChunk += maxColumns) {
-      const chunkWidth = Math.min(maxColumns, maxX - xChunk);
-      
-      for (let xOffset = 0; xOffset < chunkWidth; xOffset++) {
-        const x = xChunk + xOffset;
-        
-        // Extract column to temp buffer (reuse same buffer section)
-        for (let y = 0; y < boundsHeight; y++) {
-          const srcIdx = ((minY + y) * width + x) * 4;
-          const tempIdx = (xOffset * boundsHeight + y) * 4;
-          scrollColumnBuffer[tempIdx] = pixels[srcIdx];
-          scrollColumnBuffer[tempIdx + 1] = pixels[srcIdx + 1];
-          scrollColumnBuffer[tempIdx + 2] = pixels[srcIdx + 2];
-          scrollColumnBuffer[tempIdx + 3] = pixels[srcIdx + 3];
-        }
-        
-        // Copy shifted column back
-        for (let y = 0; y < boundsHeight; y++) {
-          const srcTempIdx = (xOffset * boundsHeight + ((y + finalDy) % boundsHeight)) * 4;
-          const destIdx = ((minY + y) * width + x) * 4;
-          pixels[destIdx] = scrollColumnBuffer[srcTempIdx];
-          pixels[destIdx + 1] = scrollColumnBuffer[srcTempIdx + 1];
-          pixels[destIdx + 2] = scrollColumnBuffer[srcTempIdx + 2];
-          pixels[destIdx + 3] = scrollColumnBuffer[srcTempIdx + 3];
-        }
-      }
-    }
-    return;
-  }
+  // Create a complete copy of the working area for safe reading
+  const tempPixels = new Uint8ClampedArray(pixels);
 
-  // 🚀 OPTIMIZATION 2: For 2D scrolling, use row-based copying where possible
-  
-  // 🚀 GC REDUCTION: Cap working buffer size to prevent massive allocations
-  const maxWorkingSize = Math.min(boundsWidth * boundsHeight * 4, MAX_BUFFER_SIZE);
-  const workingBufferSize = maxWorkingSize;
-  
-  if (boundsWidth * boundsHeight * 4 <= workingBufferSize) {
-    // Small enough to copy entire working area
-    const bufferSize = boundsWidth * boundsHeight * 4;
-    
-    // 🚀 GC REDUCTION: Reuse pre-allocated buffer with strict size limits
-    if (!scrollWorkingBuffer || scrollWorkingBuffer.length < bufferSize) {
-      // Only allocate if we actually need more space
-      if (bufferSize <= MAX_BUFFER_SIZE) {
-        scrollWorkingBuffer = new Uint8ClampedArray(bufferSize);
-      } else {
-        // Fall back to chunked processing for huge buffers
-        console.warn(`🚨 Buffer too large (${bufferSize} bytes), using chunked processing`);
-        scrollWorkingBuffer = new Uint8ClampedArray(MAX_BUFFER_SIZE);
-      }
-    }
-    
-    // Copy working area to temp buffer
-    for (let y = 0; y < boundsHeight; y++) {
-      const srcStart = ((minY + y) * width + minX) * 4;
-      const destStart = y * boundsWidth * 4;
-      scrollWorkingBuffer.set(
-        pixels.subarray(srcStart, srcStart + boundsWidth * 4),
-        destStart
-      );
-    }
-    
-    // Copy back with offset
-    for (let y = 0; y < boundsHeight; y++) {
-      for (let x = 0; x < boundsWidth; x++) {
-        const srcX = (x + boundsWidth - finalDx) % boundsWidth;
-        const srcY = (y + boundsHeight - finalDy) % boundsHeight;
-        
-        const srcIdx = (srcY * boundsWidth + srcX) * 4;
-        const destIdx = ((minY + y) * width + (minX + x)) * 4;
-        
-        pixels[destIdx] = scrollWorkingBuffer[srcIdx];
-        pixels[destIdx + 1] = scrollWorkingBuffer[srcIdx + 1];
-        pixels[destIdx + 2] = scrollWorkingBuffer[srcIdx + 2];
-        pixels[destIdx + 3] = scrollWorkingBuffer[srcIdx + 3];
-      }
-    }
-  } else {
-    // 🚀 OPTIMIZATION 3: Process in chunks to limit memory usage
-    const chunkHeight = Math.floor(workingBufferSize / (boundsWidth * 4));
-    
-    for (let yChunk = 0; yChunk < boundsHeight; yChunk += chunkHeight) {
-      const actualChunkHeight = Math.min(chunkHeight, boundsHeight - yChunk);
-      const chunkSize = boundsWidth * actualChunkHeight * 4;
-      
-      // 🚀 PERFORMANCE: Reuse pre-allocated buffer for chunks
-      if (!scrollWorkingBuffer || scrollWorkingBuffer.length < chunkSize) {
-        scrollWorkingBuffer = new Uint8ClampedArray(chunkSize);
-      }
-      
-      // Copy chunk to temp buffer
-      for (let y = 0; y < actualChunkHeight; y++) {
-        const srcStart = ((minY + yChunk + y) * width + minX) * 4;
-        const destStart = y * boundsWidth * 4;
-        scrollWorkingBuffer.set(
-          pixels.subarray(srcStart, srcStart + boundsWidth * 4),
-          destStart
-        );
-      }
-      
-      // Copy chunk back with offset
-      for (let y = 0; y < actualChunkHeight; y++) {
-        for (let x = 0; x < boundsWidth; x++) {
-          const srcX = (x + boundsWidth - finalDx) % boundsWidth;
-          const globalY = yChunk + y;
-          const srcY = (globalY + boundsHeight - finalDy) % boundsHeight;
-          
-          // Only process if source is within current chunk
-          if (srcY >= yChunk && srcY < yChunk + actualChunkHeight) {
-            const srcIdx = ((srcY - yChunk) * boundsWidth + srcX) * 4;
-            const destIdx = ((minY + globalY) * width + (minX + x)) * 4;
-            
-            pixels[destIdx] = scrollWorkingBuffer[srcIdx];
-            pixels[destIdx + 1] = scrollWorkingBuffer[srcIdx + 1];
-            pixels[destIdx + 2] = scrollWorkingBuffer[srcIdx + 2];
-            pixels[destIdx + 3] = scrollWorkingBuffer[srcIdx + 3];
-          }
-        }
+  // General case: pixel-by-pixel with proper bounds checking
+  for (let y = 0; y < boundsHeight; y++) {
+    for (let x = 0; x < boundsWidth; x++) {
+      // Calculate source coordinates with wrapping within bounds
+      const srcX = minX + ((x + boundsWidth - finalDx) % boundsWidth);
+      const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
+
+      // Calculate destination coordinates
+      const destX = minX + x;
+      const destY = minY + y;
+
+      // Ensure coordinates are within valid bounds
+      if (
+        srcX >= minX &&
+        srcX < maxX &&
+        srcY >= minY &&
+        srcY < maxY &&
+        destX >= minX &&
+        destX < maxX &&
+        destY >= minY &&
+        destY < maxY
+      ) {
+        const srcOffset = (srcY * width + srcX) * 4;
+        const destOffset = (destY * width + destX) * 4;
+
+        // Copy RGBA values
+        pixels[destOffset] = tempPixels[srcOffset];
+        pixels[destOffset + 1] = tempPixels[srcOffset + 1];
+        pixels[destOffset + 2] = tempPixels[srcOffset + 2];
+        pixels[destOffset + 3] = tempPixels[srcOffset + 3];
       }
     }
   }
-  
-  // 🕐 Log performance if scroll took longer than expected
-  const scrollDuration = performance.now() - scrollStartTime;
-  const threshold = 5; // Log if scroll takes longer than 5ms
-  
-  // if (scrollDuration > threshold) {
-    // console.warn(`🐌 Slow scroll detected: ${scrollDuration.toFixed(2)}ms for dx=${dx}, dy=${dy}`);
-  // }
 }
 
 // Rotates pixels in concentric rings around a specified anchor point
-// ULTRA-OPTIMIZED: Maximum speed spin with same visual result
-// steps: positive for clockwise, negative for counterclockwise  
+// steps: positive for clockwise, negative for counterclockwise
 // anchorX, anchorY: optional anchor point (defaults to center of working area)
+// Each ring rotates by exactly 'steps' pixels, preserving all data
+// Supports fractional steps by accumulating them over time
 function spin(steps = 0, anchorX = null, anchorY = null) {
   if (steps === 0) return;
 
@@ -3415,103 +2670,125 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds to match scroll behavior
-    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width + panTranslation.x));
-    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height + panTranslation.y));
+    // Apply pan translation to mask bounds
+    minX = activeMask.x + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
   }
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  
-  // Early exit if bounds are invalid  
-  if (workingWidth <= 0 || workingHeight <= 0) return;
-  
   // Use provided anchor point or default to center of working area
   const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
   const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
 
-  // Convert steps to angle (each step = small rotation)
-  const angle = -(integerSteps * 0.05); // Negative for clockwise rotation
-  
-  // Pre-calculate rotation matrix components
-  const cosA = cos(angle);
-  const sinA = sin(angle);
-  
-  // Create temp buffer for the working area
-  const tempBuffer = new Uint8ClampedArray(workingWidth * workingHeight * 4);
-  for (let y = 0; y < workingHeight; y++) {
-    const srcStart = ((minY + y) * width + minX) * 4;
-    const destStart = y * workingWidth * 4;
-    tempBuffer.set(
-      pixels.subarray(srcStart, srcStart + workingWidth * 4),
-      destStart
-    );
+  // Calculate maximum ring radius to reach the furthest corner
+  const maxRadius =
+    floor(
+      sqrt(
+        max(
+          (centerX - minX) * (centerX - minX) +
+            (centerY - minY) * (centerY - minY),
+          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
+            (centerY - minY) * (centerY - minY),
+          (centerX - minX) * (centerX - minX) +
+            (maxY - 1 - centerY) * (maxY - 1 - centerY),
+          (maxX - 1 - centerX) * (maxX - 1 - centerX) +
+            (maxY - 1 - centerY) * (maxY - 1 - centerY),
+        ),
+      ),
+    ) + 1;
+
+  if (maxRadius < 1) return;
+
+  // Create a copy of the pixels to read from
+  const tempPixels = new Uint8ClampedArray(pixels);
+
+  // Group pixels by radius in a single pass - much faster!
+  const ringsByRadius = new Array(maxRadius + 1);
+  for (let i = 0; i <= maxRadius; i++) {
+    ringsByRadius[i] = [];
   }
 
-  // Fast clear with fill (faster than nested loops)
+  // Single pass to collect all pixels and group by radius
   for (let y = minY; y < maxY; y++) {
-    const rowStart = y * width + minX;
-    const rowEnd = rowStart + workingWidth;
-    pixels.fill(0, rowStart * 4, rowEnd * 4);
+    const dy = y - centerY;
+    const dy2 = dy * dy; // Cache dy squared
+
+    for (let x = minX; x < maxX; x++) {
+      const dx = x - centerX;
+      const distanceSquared = dx * dx + dy2;
+      const radius = floor(sqrt(distanceSquared) + 0.5);
+
+      if (radius >= 1 && radius <= maxRadius) {
+        const idx = (y * width + x) * 4;
+        const pixel = [
+          tempPixels[idx],
+          tempPixels[idx + 1],
+          tempPixels[idx + 2],
+          tempPixels[idx + 3],
+        ];
+
+        // Pre-calculate angle for sorting
+        const angle = Math.atan2(dy, dx);
+        const normalizedAngle = angle < 0 ? angle + 2 * PI : angle;
+
+        ringsByRadius[radius].push({
+          x,
+          y,
+          pixel,
+          angle: normalizedAngle,
+        });
+      }
+    }
   }
 
-  // Reverse sampling rotation with optimizations
-  for (let destY = minY; destY < maxY; destY++) {
-    const relativeY = destY - centerY;
-    const destRowStart = destY * width * 4;
-    
-    for (let destX = minX; destX < maxX; destX++) {
-      const relativeX = destX - centerX;
+  // Process each ring that has pixels
+  for (let radius = 1; radius <= maxRadius; radius++) {
+    const ringData = ringsByRadius[radius];
+    if (ringData.length === 0) continue;
 
-      // Apply reverse rotation
-      const srcRelativeX = relativeX * cosA + relativeY * sinA;
-      const srcRelativeY = -relativeX * sinA + relativeY * cosA;
+    // Sort once by pre-calculated angles - much faster than calculating during sort
+    ringData.sort((a, b) => a.angle - b.angle);
 
-      // Calculate source position
-      const srcX = centerX + srcRelativeX;
-      const srcY = centerY + srcRelativeY;
+    const ringSize = ringData.length;
+    const effectiveSteps = ((integerSteps % ringSize) + ringSize) % ringSize;
 
-      // Sample with wrapping
-      let sampleX = round(srcX);
-      let sampleY = round(srcY);
+    if (effectiveSteps === 0) continue; // No rotation needed
 
-      // Fast wrapping within working area
-      sampleX = ((sampleX - minX) % workingWidth + workingWidth) % workingWidth + minX;
-      sampleY = ((sampleY - minY) % workingHeight + workingHeight) % workingHeight + minY;
+    // Direct pixel copying without intermediate arrays
+    for (let i = 0; i < ringSize; i++) {
+      const sourceIndex = i;
+      const targetIndex = (i + effectiveSteps) % ringSize;
 
-      // Fast pixel copy with individual byte access
-      const bufferX = sampleX - minX;
-      const bufferY = sampleY - minY;
-      const srcIdx = (bufferY * workingWidth + bufferX) * 4;
-      const destIdx = destRowStart + destX * 4;
+      const sourceData = ringData[sourceIndex];
+      const targetPos = ringData[targetIndex];
 
-      // Copy each channel individually for precise pixel control
-      pixels[destIdx] = tempBuffer[srcIdx];
-      pixels[destIdx + 1] = tempBuffer[srcIdx + 1];
-      pixels[destIdx + 2] = tempBuffer[srcIdx + 2];
-      pixels[destIdx + 3] = tempBuffer[srcIdx + 3];
+      const idx = (targetPos.y * width + targetPos.x) * 4;
+      const sourcePixel = sourceData.pixel;
+
+      pixels[idx] = sourcePixel[0];
+      pixels[idx + 1] = sourcePixel[1];
+      pixels[idx + 2] = sourcePixel[2];
+      pixels[idx + 3] = sourcePixel[3];
     }
   }
 }
 
-// Simplified visible zoom - pixels actually move positions for clear zoom effect
-// level < 1.0 zooms out, level > 1.0 zooms in
+// Zoom the entire pixel buffer with 1.0 as neutral (no change)
+// level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing
 // anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right
+// Uses bilinear sampling with hard-edge thresholding for smooth scaling with crisp output
 function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (level === 1.0) return; // No change needed - neutral zoom
-  
-  // Accumulate zoom changes
+  // Accumulate zoom level for smooth fractional zoom support
   zoomAccumulator *= level;
-  
-  // Apply zoom more frequently for visible effect
-  const zoomDelta = Math.abs(zoomAccumulator - 1.0);
-  if (zoomDelta < 0.01) return; // Small threshold for responsive zoom
-  
-  const effectiveLevel = zoomAccumulator;
-  zoomAccumulator = 1.0; // Reset for next accumulation
-  
+
+  // Use smaller threshold for smoother transitions
+  const threshold = 0.001; // Much smaller threshold for smoother motion
+  if (Math.abs(Math.log(zoomAccumulator)) < threshold) return;
+
   // Determine the area to process (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -3526,132 +2803,102 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  
-  if (workingWidth <= 0 || workingHeight <= 0) return;
 
-  // Calculate anchor point
+  // Calculate anchor point in pixel coordinates within working area
   const anchorPixelX = minX + workingWidth * anchorX;
   const anchorPixelY = minY + workingHeight * anchorY;
-  
-  // Create temp buffer for current pixels
-  const tempBuffer = new Uint8ClampedArray(workingWidth * workingHeight * 4);
-  for (let y = 0; y < workingHeight; y++) {
-    const srcStart = ((minY + y) * width + minX) * 4;
-    const destStart = y * workingWidth * 4;
-    tempBuffer.set(
-      pixels.subarray(srcStart, srcStart + workingWidth * 4),
-      destStart
-    );
-  }
-  
-  // Clear working area first
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const idx = (y * width + x) * 4;
-      pixels[idx] = 0;
-      pixels[idx + 1] = 0;
-      pixels[idx + 2] = 0;
-      pixels[idx + 3] = 0;
-    }
-  }
-  
-  // Fast reverse sampling zoom - optimized for performance
-  const centerX = anchorPixelX;
-  const centerY = anchorPixelY;
-  
-  // Pre-calculate constants
-  const invLevel = 1.0 / effectiveLevel;
-  const timeVibe = performance.now() * 0.001;
-  
-  // Simple seeded random function for deterministic noise
-  function seededRandom(seed) {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  }
-  
-  // Fast pixel sampling loop
+
+  // Create a copy of the current pixels to read from
+  const tempPixels = new Uint8ClampedArray(pixels);
+
+  const scale = zoomAccumulator;
+  const invScale = 1.0 / scale;
+  // Pre-calculate constants for performance
+  const widthTimes4 = width * 4;
+
+  // Bilinear math for smooth positioning, nearest neighbor sampling for crisp output
   for (let destY = minY; destY < maxY; destY++) {
-    const relativeY = destY - centerY;
-    
+    const destRowOffset = destY * widthTimes4;
+
     for (let destX = minX; destX < maxX; destX++) {
-      const relativeX = destX - centerX;
-      
-      // Fast noise calculation (reduced complexity)
-      const distance = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
-      const angle = Math.atan2(relativeY, relativeX);
-      
-      // Simplified radial breathing (single wave)
-      const radialWave = Math.sin(timeVibe * 2.0 + distance * 0.06) * 0.3;
-      
-      // Apply radial breathing
-      const breathingX = Math.cos(angle) * radialWave;
-      const breathingY = Math.sin(angle) * radialWave;
-      
-      // Reverse zoom with minimal noise
-      const srcRelativeX = (relativeX + breathingX) * invLevel;
-      const srcRelativeY = (relativeY + breathingY) * invLevel;
-      
-      // Calculate source position
-      const srcX = centerX + srcRelativeX;
-      const srcY = centerY + srcRelativeY;
-      
-      // Fast wrapping (single operation)
-      let sampleX = Math.round(srcX);
-      let sampleY = Math.round(srcY);
-      
-      sampleX = ((sampleX - minX) % workingWidth + workingWidth) % workingWidth + minX;
-      sampleY = ((sampleY - minY) % workingHeight + workingHeight) % workingHeight + minY;
-      
-      // Direct pixel copy
-      const bufferX = sampleX - minX;
-      const bufferY = sampleY - minY;
-      const srcIdx = (bufferY * workingWidth + bufferX) * 4;
-      const destIdx = (destY * width + destX) * 4;
-      
-      pixels[destIdx] = tempBuffer[srcIdx];
-      pixels[destIdx + 1] = tempBuffer[srcIdx + 1];
-      pixels[destIdx + 2] = tempBuffer[srcIdx + 2];
-      pixels[destIdx + 3] = tempBuffer[srcIdx + 3];
-    }
-  }
-}
+      // Convert destination to texture coordinates relative to anchor (bilinear math)
+      const texX = (destX - anchorPixelX) * invScale + anchorPixelX;
+      const texY = (destY - anchorPixelY) * invScale + anchorPixelY;
 
-// Adjust the contrast of the pixel buffer
-// level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast
-function contrast(level = 1.0) {
-  // Determine the area to adjust (mask or full screen)
-  let minX = 0,
-    minY = 0,
-    maxX = width,
-    maxY = height;
-  if (activeMask) {
-    // Apply pan translation to mask bounds
-    const maskX = activeMask.x + panTranslation.x;
-    const maskY = activeMask.y + panTranslation.y;
-    minX = Math.max(0, Math.floor(maskX));
-    minY = Math.max(0, Math.floor(maskY));
-    maxX = Math.min(width, Math.floor(maskX + activeMask.width));
-    maxY = Math.min(height, Math.floor(maskY + activeMask.height));
-  }
+      // Use bilinear interpolation math to find the ideal sampling position
+      const x1 = Math.floor(texX);
+      const y1 = Math.floor(texY);
+      const fx = texX - x1;
+      const fy = texY - y1;
 
-  // Apply contrast adjustment to each pixel
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const idx = (y * width + x) * 4;
-      
-      // Skip transparent pixels
-      if (pixels[idx + 3] === 0) continue;
-      
-      // Apply contrast formula: newValue = ((oldValue / 255 - 0.5) * contrast + 0.5) * 255
-      // This centers the contrast adjustment around middle gray (127.5)
-      for (let c = 0; c < 3; c++) { // RGB channels only
-        const normalized = pixels[idx + c] / 255.0;
-        const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
-        pixels[idx + c] = Math.max(0, Math.min(255, Math.round(adjusted)));
+      // Calculate bilinear weights to determine sampling bias
+      const w00 = (1 - fx) * (1 - fy); // top-left
+      const w01 = fx * (1 - fy); // top-right
+      const w10 = (1 - fx) * fy; // bottom-left
+      const w11 = fx * fy; // bottom-right
+
+      // Find which quadrant has the most influence
+      const weights = [w00, w01, w10, w11];
+      const offsets = [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ];
+      let maxWeight = 0;
+      let bestOffset = [0, 0];
+
+      for (let i = 0; i < 4; i++) {
+        if (weights[i] > maxWeight) {
+          maxWeight = weights[i];
+          bestOffset = offsets[i];
+        }
       }
-      // Alpha channel stays unchanged
+
+      // Apply nearest neighbor sampling at the bilinear-determined position
+      const srcX = x1 + bestOffset[0];
+      const srcY = y1 + bestOffset[1];
+
+      // Wrap source coordinates within working bounds
+      let wrappedSrcX = ((srcX - minX) % workingWidth) + workingWidth;
+      let wrappedSrcY = ((srcY - minY) % workingHeight) + workingHeight;
+
+      wrappedSrcX =
+        wrappedSrcX >= workingWidth ? wrappedSrcX - workingWidth : wrappedSrcX;
+      wrappedSrcY =
+        wrappedSrcY >= workingHeight
+          ? wrappedSrcY - workingHeight
+          : wrappedSrcY;
+
+      // Convert back to absolute coordinates
+      const finalSrcX = minX + wrappedSrcX;
+      const finalSrcY = minY + wrappedSrcY;
+
+      // Ensure coordinates are within valid bounds
+      if (
+        finalSrcX >= minX &&
+        finalSrcX < maxX &&
+        finalSrcY >= minY &&
+        finalSrcY < maxY &&
+        destX >= minX &&
+        destX < maxX &&
+        destY >= minY &&
+        destY < maxY
+      ) {
+        const srcIdx = (finalSrcY * width + finalSrcX) * 4;
+        const destIdx = destRowOffset + destX * 4;
+
+        // Copy RGBA values
+        pixels[destIdx] = tempPixels[srcIdx];
+        pixels[destIdx + 1] = tempPixels[srcIdx + 1];
+        pixels[destIdx + 2] = tempPixels[srcIdx + 2];
+        pixels[destIdx + 3] = tempPixels[srcIdx + 3];
+      }
     }
   }
+
+  // Reset zoom accumulator after applying
+  zoomAccumulator = 1.0;
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -4428,31 +3675,22 @@ class Form {
   }
   graph({ matrix: cameraMatrix }) {
     // Build a matrix to represent this form's position, rotation and scale.
-    // Apply transforms in correct order: Scale → Rotation → Translation
-    
-    // Start with identity matrix
-    let transform = mat4.create();
-    
-    // 1. Apply scale first
-    transform = mat4.scale(mat4.create(), transform, this.scale);
-    
-    // 2. Apply rotations (around object center)
-    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
-    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
-    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
-    
-    transform = mat4.multiply(mat4.create(), rotX, transform);
-    transform = mat4.multiply(mat4.create(), rotY, transform);
-    transform = mat4.multiply(mat4.create(), rotZ, transform);
-    
-    // 3. Apply translation last (move to final position)
-    const translation = mat4.fromTranslation(mat4.create(), [
+    const panned = mat4.fromTranslation(mat4.create(), [
       this.position[X] * -1,
       this.position[Y],
       this.position[Z] * -1,
     ]);
-    
-    const scaled = mat4.multiply(mat4.create(), translation, transform); // Render wireframe lines for line type forms using untransformed vertices
+
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
+    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
+
+    const rotatedX = mat4.multiply(mat4.create(), rotX, panned);
+    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
+
+    // Scale
+    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale); // Render wireframe lines for line type forms using untransformed vertices
     if (this.type === "line" && this.vertices.length > 0) {
       const lineColor = this.color || [255, 0, 0, 255]; // Default to red
 
@@ -4799,8 +4037,6 @@ function zeroLineClip(vertices) {
     prevComponent = curComponent;
     prevInside = curInside;
   }
-  
-  return clipped;
 }
 
 export {
@@ -4811,7 +4047,6 @@ export {
   colorsMatch,
   pan,
   unpan,
-  resetpan,
   savepan,
   loadpan,
   mask,
@@ -4820,13 +4055,13 @@ export {
   copy,
   resize,
   blur,
+  contrast,
   paste,
   stamp,
   steal,
   putback,
   line,
   pline,
-  plineSmooth,
   pixelPerfectPolyline,
   lineAngle,
   circle,
@@ -4846,11 +4081,9 @@ export {
   scroll,
   spin,
   zoom,
-  contrast,
   sort,
   shear,
   Camera,
   Form,
   Dolly,
 };
-// Force refresh

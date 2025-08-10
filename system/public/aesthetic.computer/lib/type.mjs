@@ -417,9 +417,6 @@ class Typeface {
     // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);    // Check if we have per-character colors
     // Apply baseline adjustment for fonts that need bottom alignment
     const baselineAdjustment = this.data.baseline || 0;
-    if (this.data.bdfFont && text === "He") {
-      console.log(`📏 TYPE.MJS: "${text}" baseline adjustment: ${baselineAdjustment} pixels (original y: ${y}, new y: ${y + baselineAdjustment})`);
-    }
     y += baselineAdjustment;
 
     if (charColors && charColors.length > 0) {
@@ -431,7 +428,32 @@ class Typeface {
 
         // Set color for this character
         if (charColor) {
-          if (Array.isArray(charColor)) {
+          // Handle background color syntax (object with foreground and background)
+          if (typeof charColor === 'object' && charColor.foreground !== undefined && charColor.background !== undefined) {
+            // Draw background first
+            if (charColor.background) {
+              const charWidth = isProportional ? 
+                (this.data?.advances?.[char] || blockWidth) * size : 
+                blockWidth * size;
+              if (Array.isArray(charColor.background)) {
+                $.ink(...charColor.background);
+              } else {
+                $.ink(charColor.background);
+              }
+              $.box(currentX, y, charWidth, blockHeight);
+            }
+            
+            // Set foreground color
+            if (charColor.foreground) {
+              if (Array.isArray(charColor.foreground)) {
+                $.ink(...charColor.foreground);
+              } else {
+                $.ink(charColor.foreground);
+              }
+            } else {
+              $.ink(...rn); // Use original color if no foreground specified
+            }
+          } else if (Array.isArray(charColor)) {
             $.ink(...charColor);
           } else {
             $.ink(charColor);
