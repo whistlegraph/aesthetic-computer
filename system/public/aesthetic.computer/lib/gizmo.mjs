@@ -1,6 +1,8 @@
 // ⚙️ Gizmos
 // These are designed to work well with 'sim' and run off of ticks.
 
+import { Ticker } from "./ticker.mjs";
+
 // A repeatable timer with callbacks.
 export class Hourglass {
   ticks = 0;
@@ -95,3 +97,6 @@ export class EllipsisTicker {
     // Keeping it for backward compatibility to avoid breaking existing code
   }
 }
+
+// Re-export Ticker for convenience
+export { Ticker };

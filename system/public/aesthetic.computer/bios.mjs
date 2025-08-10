@@ -1194,11 +1194,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     function enableAudioPlayback(skip = false) {
-      if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
-        backgroundMusicEl.play();
-      }
-      if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
-        audioContext.resume();
+      try {
+        if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
+          backgroundMusicEl.play().catch(error => {
+            // Audio playback failed, probably due to browser policy
+            console.log("Background music play failed (user gesture required):", error.message);
+          });
+        }
+        if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
+          audioContext.resume().catch(error => {
+            // AudioContext resume failed, probably due to browser policy  
+            console.log("AudioContext resume failed (user gesture required):", error.message);
+          });
+        }
+      } catch (error) {
+        console.log("Audio playback initialization failed:", error.message);
       }
     }
 
