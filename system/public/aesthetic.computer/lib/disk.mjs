@@ -3171,15 +3171,15 @@ async function load(
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
-        console.log(
-          "🐍 Lisp piece detected (slug:",
-          slug,
-          "path:",
-          path,
-          "forceKidlisp:",
-          forceKidlisp,
-          ")",
-        );
+        // console.log(
+        //   "🐍 Lisp piece detected (slug:",
+        //   slug,
+        //   "path:",
+        //   path,
+        //   "forceKidlisp:",
+        //   forceKidlisp,
+        //   ")",
+        // );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         loadedModule = lisp.module(sourceToRun);
@@ -3817,13 +3817,13 @@ async function load(
 
   // Initialize MatrixChunky8 font for QR code text rendering
   if (!typefaceCache.has("MatrixChunky8")) {
-    console.log("🔤 Initializing MatrixChunky8 font...");
+    // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
     
     // Pre-load common QR code characters to avoid fallback during rendering
     const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
-    console.log("🔤 Pre-loading MatrixChunky8 glyphs for QR codes...");
+    // console.log("🔤 Pre-loading MatrixChunky8 glyphs for QR codes...");
     
     // Access each character to trigger the Proxy loading mechanism
     for (const char of commonQRChars) {
@@ -3833,13 +3833,13 @@ async function load(
     }
     
     typefaceCache.set("MatrixChunky8", matrixFont);
-    console.log("🔤 MatrixChunky8 font loaded:", {
-      name: matrixFont.name,
-      hasData: !!matrixFont.data,
-      hasPrint: typeof matrixFont.print,
-      bdfFont: !!matrixFont.data?.bdfFont,
-      preloadedChars: commonQRChars.length
-    });
+    // console.log("🔤 MatrixChunky8 font loaded:", {
+    //   name: matrixFont.name,
+    //   hasData: !!matrixFont.data,
+    //   hasPrint: typeof matrixFont.print,
+    //   bdfFont: !!matrixFont.data?.bdfFont,
+    //   preloadedChars: commonQRChars.length
+    // });
   }
 
   /**
