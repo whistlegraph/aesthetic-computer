@@ -1,7 +1,7 @@
 // KidLisp: Spec 24.05.03.22.45
 // A test runner for `kidlisp`. 
 
-const tests = ["addition", "subtraction"];
+const tests = ["addition", "subtraction", "timing-highlight", "complex-timing"];
 
 import fs from "fs/promises";
 import {
@@ -12,6 +12,79 @@ import {
   encodeKidlispForUrl,
   decodeKidlispFromUrl,
 } from "../system/public/aesthetic.computer/lib/kidlisp.mjs";
+
+// ANSI color codes for terminal output
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  orange: '\x1b[38;5;208m',
+  lime: '\x1b[38;5;10m',
+  purple: '\x1b[38;5;93m',
+  olive: '\x1b[38;5;58m',
+  gray: '\x1b[90m'
+};
+
+// Function to convert kidlisp color codes to ANSI terminal colors
+function printColoredOutput(coloredText) {
+  if (!coloredText) {
+    console.log("(no colored output)");
+    return;
+  }
+  
+  let output = "";
+  let currentPos = 0;
+  
+  // Parse color escape sequences like \red\, \green\, etc.
+  const colorRegex = /\\([^\\]+)\\/g;
+  let match;
+  
+  while ((match = colorRegex.exec(coloredText)) !== null) {
+    // Add any text before this color code
+    output += coloredText.substring(currentPos, match.index);
+    
+    // Add the ANSI color code
+    const colorName = match[1];
+    if (colors[colorName]) {
+      output += colors[colorName];
+    } else if (colorName.includes(',')) {
+      // Handle RGB colors like "255,255,255,0" (transparent)
+      const [r, g, b, a] = colorName.split(',').map(Number);
+      if (a === 0) {
+        // Transparent - use dark gray
+        output += colors.gray;
+      } else {
+        // Other RGB - try to map to closest ANSI color
+        if (r > 200 && g < 100 && b < 100) output += colors.red;
+        else if (r < 100 && g > 200 && b < 100) output += colors.green;
+        else if (r < 100 && g < 100 && b > 200) output += colors.blue;
+        else if (r > 200 && g > 200 && b < 100) output += colors.yellow;
+        else if (r > 200 && g < 100 && b > 200) output += colors.magenta;
+        else if (r < 100 && g > 200 && b > 200) output += colors.cyan;
+        else output += colors.white;
+      }
+    } else {
+      // Unknown color, use default
+      output += colors.white;
+    }
+    
+    currentPos = match.index + match[0].length;
+  }
+  
+  // Add any remaining text
+  output += coloredText.substring(currentPos);
+  
+  // Reset color at the end
+  output += colors.reset;
+  
+  console.log(output);
+}
 
 describe("🤖 Kid Lisp", () => {
   let pieces = {};
@@ -173,6 +246,98 @@ box 5 5 10 10`;
     console.log(`🔓 Decoded:\n${decoded}`);
     
     expect(decoded).toEqual(testSource);
+  });
+
+  it("Test timing expression syntax highlighting", () => {
+    console.log("🎨 Running timing expression syntax highlighting test...");
+    console.log(`📄 Test source: ${pieces["timing-highlight"].src}`);
+    
+    const lisp = new KidLisp();
+    
+    // Initialize syntax highlighting
+    lisp.initializeSyntaxHighlighting(pieces["timing-highlight"].src);
+    
+    // Mock API for evaluation
+    const mockApi = {
+      write: (...args) => console.log('Write:', args.join(' '))
+    };
+    
+    // Parse and evaluate to trigger AST tagging
+    const parsed = lisp.parse(pieces["timing-highlight"].src);
+    console.log("📊 AST structure:", JSON.stringify(parsed, null, 2));
+    
+    // Test initial highlighting (before evaluation)
+    const initialHighlight = lisp.buildColoredKidlispString();
+    console.log("🎨 Initial highlighting:", initialHighlight);
+    
+    // Evaluate to trigger timing logic
+    const result = lisp.evaluate(parsed, mockApi);
+    console.log("⚡ Evaluation result:", result);
+    
+    // Test highlighting after evaluation
+    const finalHighlight = lisp.buildColoredKidlispString();
+    console.log("🎨 Final highlighting:", finalHighlight);
+    
+    // Test AST-based highlighting specifically
+    const astHighlight = lisp.buildASTBasedHighlighting();
+    console.log("🧠 AST-based highlighting:", astHighlight);
+    
+    // Test with colored terminal output
+    console.log("\n🌈 COLORED TERMINAL OUTPUT:");
+    printColoredOutput(finalHighlight);
+    
+    expect(finalHighlight).toBeDefined();
+    expect(finalHighlight.length).toBeGreaterThan(0);
+  });
+
+  it("Test complex timing expression highlighting", () => {
+    console.log("🎨 Running complex timing expression highlighting test...");
+    console.log(`📄 Test source: ${pieces["complex-timing"].src}`);
+    
+    const lisp = new KidLisp();
+    
+    // Initialize syntax highlighting for multi-line source
+    lisp.initializeSyntaxHighlighting(pieces["complex-timing"].src);
+    
+    // Mock API for evaluation
+    const mockApi = {
+      beige: () => console.log('Beige called'),
+      ink: (...args) => console.log('Ink:', args.join(' ')),
+      write: (...args) => console.log('Write:', args.join(' ')),
+      scroll: (...args) => console.log('Scroll:', args.join(' ')),
+      blur: (...args) => console.log('Blur:', args.join(' ')),
+      zoom: (...args) => console.log('Zoom:', args.join(' ')),
+      rainbow: () => [255, 0, 0],
+      '?': (...args) => args[Math.floor(Math.random() * args.length)],
+      clock: {
+        time: () => new Date() // Provide the missing clock API
+      }
+    };
+    
+    // Parse and evaluate
+    const parsed = lisp.parse(pieces["complex-timing"].src);
+    console.log("📊 Complex AST structure (first 3 expressions):", 
+                JSON.stringify(parsed.slice(0, 3), null, 2));
+    
+    // Test highlighting before evaluation
+    const beforeHighlight = lisp.buildColoredKidlispString();
+    console.log("🎨 Before evaluation:", beforeHighlight);
+    
+    // Evaluate to trigger timing logic
+    const result = lisp.evaluate(parsed, mockApi);
+    console.log("⚡ Complex evaluation result:", result);
+    
+    // Test highlighting after evaluation
+    const afterHighlight = lisp.buildColoredKidlispString();
+    console.log("🎨 After evaluation:", afterHighlight);
+    
+    // Test with colored terminal output
+    console.log("\n🌈 COMPLEX COLORED TERMINAL OUTPUT:");
+    printColoredOutput(afterHighlight);
+    
+    expect(afterHighlight).toBeDefined();
+    expect(afterHighlight.length).toBeGreaterThan(0);
+    expect(afterHighlight).toContain('\\'); // Should contain color codes
   });
 
   it("Auto-close incomplete expressions", () => {
