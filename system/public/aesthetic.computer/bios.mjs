@@ -1620,6 +1620,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
       
       let baseName = options.pieceName || "tape";
+      console.log(`🎬 DEBUG: Initial baseName: "${baseName}", cachedCode: "${options.cachedCode}"`);
       
       // Handle special cases for kidlisp codes
       if (baseName === "$code") {
@@ -1639,12 +1640,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             baseName = "kidlisp";
           }
         }
+      } else if (baseName.startsWith("$") && options.cachedCode) {
+        // If baseName is already a $code (like $erl) and we have cached code,
+        // don't apply the cached code again to avoid duplication
+        console.log(`🎬 Using existing piece name as-is: ${baseName} (ignoring cached code to prevent duplication)`);
       }
       // Note: If pieceName already has $ prefix (from cached code), use it as-is
+      console.log(`🎬 DEBUG: Final baseName after special case handling: "${baseName}"`);
       
       // Add parameters if they exist
       const params = options.pieceParams || "";
       const paramsStr = params ? params.replace(/~/g, "-") : "";
+      console.log(`🎬 DEBUG: paramsStr: "${paramsStr}"`);
       
       // Build filename: [@handle-]pieceName[params]-timestamp-duration[suffix].extension
       // Include user handle if available for personalized filenames

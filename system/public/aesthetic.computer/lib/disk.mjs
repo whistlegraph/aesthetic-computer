@@ -277,8 +277,8 @@ let hudAnimationState = {
   opacity: 1.0,
   slideOffset: { x: 0, y: 0 },     // HUD label offset (slides to top-left)
   qrSlideOffset: { x: 0, y: 0 },   // QR overlay offset (slides to bottom-right)
-  labelWidth: 120,                 // HUD label width for bounding box animations
-  labelHeight: 40,                 // HUD label height for bounding box animations
+  labelWidth: 120,                 // HUD label width - updated when HUD is drawn
+  labelHeight: 40,                 // HUD label height - updated when HUD is drawn
   qrSize: 80,                      // QR overlay size for bounding box animations
   lastTabTime: 0                   // Track last tab press for double-tap detection
 };
@@ -364,7 +364,8 @@ let reframe;
 
 const sfxProgressReceivers = {},
   sfxSampleReceivers = {},
-  sfxKillReceivers = {};
+  sfxKillReceivers = {},
+  sfxDurationReceivers = {};
 let $sampleCount = 0n;
 
 const signals = []; // Easy messages from embedded DOM content.
@@ -522,6 +523,14 @@ let preloadPromises = {};
 let inFocus;
 let loadFailure;
 
+// Duration tracking for playlist progress bar (similar to tape system)
+let durationStartTime = null;  // When the piece started (null if no duration) - using performance.now()
+let durationTotal = null;      // Total duration in seconds (null if no duration)
+let durationProgress = 0;      // Current progress (0-1)
+let durationCompleted = false; // Whether duration has completed
+let durationBlinkState = false; // For blinking the completed bar
+let pageLoadTime = performance.now(); // Time when the page first loaded - using performance.now()
+
 // 1. ✔ API
 
 // TODO: Eventually add a wiggle bank so all wiggles are indexed
@@ -546,6 +555,7 @@ class Recorder {
   playing = false; // "
   cutCallback;
   printCallback;
+  framesCallback;
   loadCallback;
 
   tapeTimerStart;
@@ -619,6 +629,11 @@ class Recorder {
 
   pause() {
     send({ type: "recorder:present:pause" });
+  }
+
+  requestFrames(cb) {
+    $commonApi.rec.framesCallback = cb;
+    send({ type: "recorder:request-frames" });
   }
 }
 
@@ -1075,6 +1090,25 @@ const $commonApi = {
         currentHUDTextColor = graph.findColor(color);
       }
       currentHUDOffset = offset;
+      
+      // Calculate and store dimensions for animation when directly called
+      // (This ensures kidlisp pieces have proper animation geometry)
+      if (currentHUDTxt && currentHUDTxt.length > 0) {
+        // Use plain text (without color codes) for dimension calculations
+        const textForMeasurement = currentHUDPlainTxt || currentHUDTxt;
+        const labelBounds = cachedAPI.text.box(
+          textForMeasurement,
+          undefined,
+          cachedAPI.screen.width - cachedAPI.typeface.blockWidth,
+        );
+        
+        let w = textForMeasurement.length * cachedAPI.typeface.blockWidth + currentHUDScrub;
+        const h = labelBounds.box.height + cachedAPI.typeface.blockHeight;
+        
+        // Store dimensions for animation calculations
+        hudAnimationState.labelWidth = w;
+        hudAnimationState.labelHeight = h;
+      }
     },
     currentStatusColor: () => currentHUDStatusColor,
     currentLabel: () => ({ 
@@ -1766,6 +1800,64 @@ const $commonApi = {
         udp?.kill(outageSeconds); // Disconnect from UDP.
       }, hiccupIn * 1000);
     },
+    // Remote debugging: Send log messages to session server for debugging on any device
+    log: function(levelOrFilename, ...args) {
+      // Handle both old API (filename, content) and new API (level, ...args)
+      if (levelOrFilename.startsWith('/tmp/') || levelOrFilename.includes('.log')) {
+        // Old API: filename, content
+        const filename = levelOrFilename;
+        const content = args[0];
+        
+        // Always log locally first
+        console.log(`📝 File log ${filename}:`, content);
+        
+        // Send to session server if socket is available
+        if (socket && socket.send) {
+          socket.send("dev-log", {
+            level: "INFO",
+            message: `${filename}: ${content}`,
+            device: navigator.userAgent || "unknown",
+            timestamp: Date.now()
+          });
+        }
+      } else {
+        // New API: level, ...args
+        const level = levelOrFilename;
+        
+        // Serialize objects and create single-line message
+        const serializedArgs = args.map(arg => {
+          if (typeof arg === 'object' && arg !== null) {
+            try {
+              return JSON.stringify(arg);
+            } catch (e) {
+              return String(arg);
+            }
+          }
+          return String(arg);
+        });
+        
+        const message = serializedArgs.join(" ");
+        
+        // Always log locally first
+        if (level === "warn") {
+          console.warn(...args);
+        } else if (level === "error") {
+          console.error(...args);
+        } else {
+          console.log(...args);
+        }
+        
+        // Send to session server if socket is available
+        if (socket && socket.send) {
+          socket.send("dev-log", {
+            level: level.toUpperCase(),
+            message: message,
+            device: navigator.userAgent || "unknown",
+            timestamp: Date.now()
+          });
+        }
+      }
+    },
   },
   needsPaint: () => {
     noPaint = false;
@@ -1776,6 +1868,11 @@ const $commonApi = {
   //                 Increments by 1 each time a new piece loads.
   debug,
 };
+
+// Convenience methods for different log levels
+$commonApi.net.log.info = (...args) => $commonApi.net.log("info", ...args);
+$commonApi.net.log.warn = (...args) => $commonApi.net.log("warn", ...args);
+$commonApi.net.log.error = (...args) => $commonApi.net.log("error", ...args);
 
 chatClient.$commonApi = $commonApi; // Add a reference to the `Chat` module.
 
@@ -3791,6 +3888,19 @@ async function load(
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
 
+  // Initialize duration tracking from query parameters
+  if ($commonApi.query.duration) {
+    const duration = parseFloat($commonApi.query.duration);
+    if (!isNaN(duration) && duration > 0) {
+      durationTotal = duration;
+      durationStartTime = pageLoadTime; // Start from page load time immediately
+      durationProgress = 0;
+      durationCompleted = false;
+      durationBlinkState = false;
+      console.log("⏱️ Duration parameter detected:", duration, "seconds - starting from page load time:", pageLoadTime);
+    }
+  }
+
   $commonApi.load = async function () {
     // Load a piece, wrapping it in a leave function so a final frame
     // plays back.
@@ -4763,6 +4873,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "recorder:frames-response") {
+    $commonApi.rec.framesCallback?.(content);
+    return;
+  }
+
   if (type === "recorder:present-progress") {
     $commonApi.rec.presentProgress = content;
     return;
@@ -4823,6 +4938,11 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "sfx:progress:report") {
     sfxProgressReceivers[content.id]?.(content); // Resolve the progress report.
+    return;
+  }
+
+  if (type === "sfx:got-duration") {
+    sfxDurationReceivers[content.id]?.(content.duration);
     return;
   }
 
@@ -5179,9 +5299,8 @@ async function makeFrame({ data: { type, content } }) {
                 promptSlug += "~" + spaceContent;
               }
             }
-            $commonApi.jump(promptSlug)(() => {
-              send({ type: "keyboard:open" });
-            });
+            $commonApi.jump(promptSlug);
+            send({ type: "keyboard:open" });
           } else {
             if ($commonApi.history.length > 0) {
               send({ type: "back-to-piece" });
@@ -5189,9 +5308,8 @@ async function makeFrame({ data: { type, content } }) {
               //   $commonApi.history[$commonApi.history.length - 1],
               // );
             } else {
-              $commonApi.jump(promptSlug)(() => {
-                send({ type: "keyboard:open" });
-              });
+              $commonApi.jump(promptSlug);
+              send({ type: "keyboard:open" });
             }
           }
         }
@@ -5660,6 +5778,16 @@ async function makeFrame({ data: { type, content } }) {
       // timeToRun;
       // content.audioTime;
     };
+
+    $sound.getDuration = async function getDuration(id) {
+      const prom = new Promise((resolve, reject) => {
+        sfxDurationReceivers[id] = resolve;
+        return { resolve, reject };
+      });
+      send({ type: "sfx:get-duration", content: { id } });
+      return prom;
+    };
+
     $sound.synth = function synth({
       tone = 440, // hz, or musical note
       type = "square", // "sine", "triangle", "square", "sawtooth", "custom"
@@ -6624,6 +6752,11 @@ async function makeFrame({ data: { type, content } }) {
 
         const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
+        
+        // Store actual dimensions for animation calculations
+        hudAnimationState.labelWidth = w;
+        hudAnimationState.labelHeight = h;
+        
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
@@ -6689,16 +6822,17 @@ async function makeFrame({ data: { type, content } }) {
           // Easing function for smooth macOS-style animation (ease-out)
           const easeOut = 1 - Math.pow(1 - progress, 3);
           
-          // Use dynamic offsets based on content size, with reasonable minimums
-          // Store dimensions from the current animation state or use defaults
-          const hudWidth = hudAnimationState.labelWidth || 120;
-          const hudHeight = hudAnimationState.labelHeight || 40;
+          // Use actual calculated dimensions from when HUD was last drawn
+          const hudWidth = hudAnimationState.labelWidth || 120;  // fallback to default
+          const hudHeight = hudAnimationState.labelHeight || 40; // fallback to default
           const qrSize = hudAnimationState.qrSize || 80;
           
           // Calculate slide distances: ensure full content slides off-screen
           // Add extra padding (20px) to guarantee complete disappearance
-          const hudSlideX = -(hudWidth + 20);  // Slide left by full width + padding
-          const hudSlideY = -(hudHeight + 20); // Slide up by full height + padding
+          // For very large labels, cap the slide distance to keep animation smooth
+          const maxSlideDistance = 400; // Maximum distance to slide for smooth animation
+          const hudSlideX = Math.max(-(hudWidth + 20), -maxSlideDistance);  // Cap slide distance
+          const hudSlideY = Math.max(-(hudHeight + 20), -maxSlideDistance); // Cap slide distance
           const qrSlideX = qrSize + 20;         // Slide right by full size + padding
           const qrSlideY = qrSize + 20;         // Slide down by full size + padding
           
@@ -6753,7 +6887,7 @@ async function makeFrame({ data: { type, content } }) {
             x: 0,
             y: 0,
             w: w + currentHUDOffset.x,
-            h: h + currentHUDOffset.y,
+            h: h, // Use just the calculated height without extra y-offset
           });
 
         // $commonApi.hud.currentLabel = {
@@ -6766,20 +6900,176 @@ async function makeFrame({ data: { type, content } }) {
       let sendData = { width: screen.width, height: screen.height };
 
       // Tack on the tape progress bar pixel buffer if necessary.
-      if ($api.rec.tapeProgress) {
-        const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
-          $.ink(0).box(0, 0, $api.screen.width, 1);
-          $.ink("red").box(
-            0,
-            0,
-            $api.screen.width * (1 - $api.rec.tapeProgress),
-            1,
-          );
+      if ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration)) {
+        const progress = $api.rec.tapeProgress || 0;
+        
+        // IMPORTANT: Access the main screen buffer OUTSIDE the painting context
+        // because inside painting(), $api.screen refers to the painting's own buffer, not the main screen
+        const mainScreenPixels = screen.pixels; // This is the actual frame content
+        const mainScreenWidth = screen.width;
+        const mainScreenHeight = screen.height;
+        
+        const currentProgressWidth = Math.floor(mainScreenWidth * progress);
+        
+        // Create tape progress bar painting with VHS-style red glow
+        const tapeProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
+          // Animation frame for VHS effects - increased speed for more vibes
+          const animFrame = Number($api.paintCount || 0n);
+          
+          // Special color override for first and last frames
+          const isFirstFrame = progress <= 0.01; // First 1% of progress
+          const isLastFrame = progress >= 0.99;  // Last 1% of progress
+          
+          // Calculate smooth alpha fade - progress bar fades from 25% to 75% for longer clean content viewing
+          let progressBarAlpha = 1.0; // Default to fully visible
+          
+          if (progress >= 0.20 && progress <= 0.30) {
+            // Fade out from 20% to 30% (10% fade-out period)
+            progressBarAlpha = 1.0 - ((progress - 0.20) / 0.10);
+          } else if (progress > 0.30 && progress < 0.70) {
+            // Fully hidden from 30% to 70% (40% hidden period)
+            progressBarAlpha = 0.0;
+          } else if (progress >= 0.70 && progress <= 0.80) {
+            // Fade in from 70% to 80% (10% fade-in period)
+            progressBarAlpha = (progress - 0.70) / 0.10;
+          }
+          
+          // Fill entire bar with black backdrop using fade alpha
+          $.ink(0, 0, 0, Math.floor(progressBarAlpha * 255)).box(0, 0, mainScreenWidth, 1);
+          
+          // Draw VHS-style progress bar pixel by pixel
+          for (let x = 0; x < mainScreenWidth; x++) {
+            let baseR, baseG, baseB;
+            
+            // Leading edge pixel - bright glowing leader
+            const isLeaderPixel = x === currentProgressWidth - 1 && currentProgressWidth > 0;
+            
+            if (x < currentProgressWidth) {
+              // FILLED AREA - VHS red with analog glow and scan lines
+              
+              if (isFirstFrame) {
+                // FIRST FRAME - Fully green across entire bar
+                baseR = 0;
+                baseG = 255;
+                baseB = 0;
+              } else if (isLastFrame) {
+                // LAST FRAME - Fully red across entire bar
+                baseR = 255;
+                baseG = 0;
+                baseB = 0;
+              } else {
+                // NORMAL FRAMES - VHS red with effects
+                // Base VHS red intensity - brighter and more consistent
+                let redIntensity = 255;
+                
+                // Enhanced VHS scan line effect with more movement
+                const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
+                
+                // Intensified analog glow effect - more pronounced waves
+                const glowPhase = (animFrame * 0.15 + x * 0.12) % (Math.PI * 2);
+                const analogGlow = Math.sin(glowPhase) * 0.2 + 0.8;
+                
+                // Enhanced VHS tracking distortion with more character
+                const tracking = Math.sin(animFrame * 0.08 + x * 0.03) * 0.1 + 0.9;
+                
+                // Secondary glow wave for more complexity
+                const secondaryGlow = Math.sin(animFrame * 0.25 + x * 0.2) * 0.1 + 0.9;
+                
+                // Combine all VHS effects with brighter base
+                redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
+                
+                // Bright VHS red color - keep it pure red, no orange bleeding
+                baseR = Math.max(200, Math.min(255, redIntensity));
+                
+                // Pure red - minimal green and blue for clean bright red
+                baseG = Math.floor(baseR * 0.05); // Very minimal green
+                baseB = Math.floor(baseR * 0.02); // Very minimal blue
+              }
+              
+              // Special leader pixel treatment
+              if (isLeaderPixel) {
+                if (isFirstFrame) {
+                  // First frame - bright green leader
+                  baseR = 0;
+                  baseG = 255;
+                  baseB = 0;
+                } else if (isLastFrame) {
+                  // Last frame - bright red leader  
+                  baseR = 255;
+                  baseG = 0;
+                  baseB = 0;
+                } else {
+                  // Check if we're in the fade period (20%-80%) to enable special blinking
+                  const isInFadePeriod = progress >= 0.20 && progress <= 0.80;
+                  
+                  if (isInFadePeriod) {
+                    // During fade period - cycle through yellow, lime, and other colors for visibility
+                    const colorCycle = Math.floor(animFrame * 0.3) % 4; // Slower color cycling
+                    
+                    switch (colorCycle) {
+                      case 0:
+                        baseR = 255; baseG = 255; baseB = 0; // Yellow
+                        break;
+                      case 1:
+                        baseR = 0; baseG = 255; baseB = 0; // Lime
+                        break;
+                      case 2:
+                        baseR = 255; baseG = 128; baseB = 0; // Orange
+                        break;
+                      case 3:
+                        baseR = 0; baseG = 255; baseB = 255; // Cyan
+                        break;
+                    }
+                  } else {
+                    // Normal behavior outside fade period - super bright white-hot leader with pulsing
+                    const leaderPulse = Math.sin(animFrame * 0.6) * 0.2 + 0.8;
+                    
+                    baseR = 255;
+                    baseG = Math.floor(255 * leaderPulse); // Bright white-hot leader
+                    baseB = Math.floor(255 * leaderPulse);
+                  }
+                }
+              }
+              
+              // Apply alpha fade to final colors, with beacon-like leader pixel
+              let finalAlpha = progressBarAlpha;
+              if (isLeaderPixel) {
+                if (progress >= 0.20 && progress <= 0.80) {
+                  // During fade period - beacon-like signal marker (strong but not full opacity)
+                  finalAlpha = 0.8; // Bright beacon for progress indication
+                } else {
+                  // Outside fade period - still visible beacon
+                  finalAlpha = Math.min(progressBarAlpha, 0.9); // Strong beacon at 90% opacity
+                }
+              }
+              
+              // Use proper alpha blending for filled area
+              $.ink(baseR, baseG, baseB, Math.floor(finalAlpha * 255)).box(x, 0, 1, 1);
+            } else {
+              // UNFILLED AREA - Keep black background (already filled above)
+              // No need to redraw black pixels, they're already set
+            }
+          }
         });
-
-        if (tapeProgressBar) {
-          const { api, ...img } = tapeProgressBar;
-          sendData.tapeProgressBar = { x: 0, y: 0, img };
+        
+        // Ensure the painting was created successfully before adding to sendData
+        if (tapeProgressBarPainting && tapeProgressBarPainting.pixels && tapeProgressBarPainting.pixels.length > 0) {
+          // Structure the data to match what bios.mjs expects (same as label format)
+          sendData.tapeProgressBar = {
+            x: 0,
+            y: screen.height - 1, // Position at bottom of screen (1px tall)
+            img: {
+              width: tapeProgressBarPainting.width,
+              height: tapeProgressBarPainting.height,
+              pixels: tapeProgressBarPainting.pixels
+            }
+          };
+        } else {
+          console.warn("🎬 Tape progress bar painting FAILED to create:", {
+            painting: !!tapeProgressBarPainting,
+            pixels: !!tapeProgressBarPainting?.pixels,
+            pixelsLength: tapeProgressBarPainting?.pixels?.length
+          });
         }
       }
 
@@ -7100,6 +7390,10 @@ async function makeFrame({ data: { type, content } }) {
 
       if (sendData.qrOverlay) {
         transferredObjects.push(sendData.qrOverlay?.img.pixels.buffer);
+      }
+
+      if (sendData.tapeProgressBar) {
+        transferredObjects.push(sendData.tapeProgressBar?.img.pixels.buffer);
       }
 
       // console.log("TO:", transferredObjects);
