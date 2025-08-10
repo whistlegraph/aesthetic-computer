@@ -293,6 +293,7 @@ let currentPath,
   currentText,
   currentCode,
   currentHUDTxt,
+  currentHUDPlainTxt,  // Plain text version without color codes
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
@@ -334,6 +335,19 @@ if (typeof window !== 'undefined') {
   }
 }
 //currentPromptButton;
+
+// Utility function to strip color codes from text
+function stripColorCodes(str) {
+  if (!str) return str;
+  // Remove all \\color\\ sequences including:
+  // - Named colors: \\red\\, \\blue\\, \\cyan\\
+  // - RGB values: \\255,20,147\\, \\192,192,192\\
+  // - Complex patterns: \\color(args)\\
+  return str.replace(
+    /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+(?:,[0-9]+)*)\\/g,
+    "",
+  );
+}
 
 function updateHUDStatus() {
   if (udp.connected && socket?.connected) {
@@ -1053,6 +1067,8 @@ const $commonApi = {
   hud: {
     label: (text, color, offset) => {
       currentHUDTxt = text;
+      currentHUDPlainTxt = stripColorCodes(text);  // Store plain text version
+      
       if (!color) {
         currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
       } else {
@@ -1061,7 +1077,11 @@ const $commonApi = {
       currentHUDOffset = offset;
     },
     currentStatusColor: () => currentHUDStatusColor,
-    currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
+    currentLabel: () => ({ 
+      text: currentHUDTxt, 
+      plainText: currentHUDPlainTxt,  // Include plain text version
+      btn: currentHUDButton 
+    }),
     labelBack: () => {
       labelBack = true;
     },
@@ -4190,8 +4210,14 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     }
 
-    if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
-    if (module.nohud || system === "prompt") currentHUDTxt = undefined;
+    if (!alias) {
+      currentHUDTxt = slug; // Update hud if this is not an alias.
+      currentHUDPlainTxt = stripColorCodes(slug);
+    }
+    if (module.nohud || system === "prompt") {
+      currentHUDTxt = undefined;
+      currentHUDPlainTxt = undefined;
+    }
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
@@ -5142,7 +5168,7 @@ async function makeFrame({ data: { type, content } }) {
           if (!labelBack || data.key === "Backspace") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
-              const content = currentHUDTxt || currentText;
+              const content = currentHUDPlainTxt || currentHUDTxt || currentText;
               // Only encode kidlisp content with kidlisp encoder
               if (lisp.isKidlispSource(content)) {
                 const encodedContent = lisp.encodeKidlispForUrl(content);
@@ -5956,7 +5982,18 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.15,
               });
               if (!labelBack) {
-                jump("prompt");
+                // Preserve kidlisp source when tapping HUD button to return to prompt
+                const content = currentHUDPlainTxt || currentHUDTxt;
+                let promptSlug = "prompt";
+                if (content && lisp.isKidlispSource(content)) {
+                  const encodedContent = lisp.encodeKidlispForUrl(content);
+                  promptSlug += "~" + encodedContent;
+                } else if (content) {
+                  // For regular piece names, convert tildes to spaces for display
+                  const spaceContent = content.replace(/~/g, " ");
+                  promptSlug += "~" + spaceContent;
+                }
+                jump(promptSlug);
               } else {
                 labelBack = false; // Reset `labelBack` after jumping.
                 if ($commonApi.history.length > 0) {
