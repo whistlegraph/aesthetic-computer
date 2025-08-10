@@ -4,33 +4,6 @@
 
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
 
-// Helper function to distinguish actual kidlisp from music notation
-function isActualKidlisp(text) {
-  // Music notation typically contains note letters (a-g), octave numbers, and musical symbols
-  // Kidlisp typically contains function names like wipe, ink, line, etc.
-  
-  // If it contains clear kidlisp function names, it's kidlisp
-  if (/\b(wipe|ink|line|box|def|later|circle|poly|resolution|width|height|\+|\*|-|\/)\b/.test(text)) {
-    return true;
-  }
-  
-  // If it starts with parentheses and looks like music notation, it's probably not kidlisp
-  // Music notation patterns: (abc), (cdefg), (c*d), (eee*ggg), etc.
-  const musicPattern = /^\([a-g#\d\s\*\.\-\_\<\>]*\)$/i;
-  if (musicPattern.test(text.trim())) {
-    return false;
-  }
-  
-  // If it contains multiple music-like groups in parentheses, probably music
-  const multiMusicPattern = /\([a-g#\d\s\*\.\-\_\<\>]*\)\s*\([a-g#\d\s\*\.\-\_\<\>]*\)/i;
-  if (multiMusicPattern.test(text)) {
-    return false;
-  }
-  
-  // Default to treating it as kidlisp if we can't determine
-  return true;
-}
-
 // TODO:
 // [] This should eventually have tests that run?
 
@@ -72,16 +45,16 @@ function parse(text, location = self?.location) {
   if (text.startsWith("prompt~")) {
     const promptContent = text.slice(7); // Remove "prompt~" prefix
     
-    // Check if this is actually kidlisp vs music notation or other content
+    // Only decode if it's actually kidlisp, otherwise use as-is
     let decodedContent;
-    if (isKidlispSource(promptContent) && isActualKidlisp(promptContent)) {
+    if (isKidlispSource(promptContent)) {
       decodedContent = decodeKidlispFromUrl(promptContent);
     } else {
-      // For music notation like (ccc*___) or regular piece names, use as-is
+      // For regular piece names, use as-is (tildes already converted to spaces)
       decodedContent = promptContent;
     }
     
-    const result = {
+    return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
       path: "aesthetic.computer/disks/prompt",
       piece: "prompt",
@@ -91,30 +64,20 @@ function parse(text, location = self?.location) {
       hash: undefined,
       text: text,
     };
-    return result;
   }
   
   // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
-  // This catches cases like /(wipe_blue) or /wipe_blue_line from URL refresh
+  // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
-  // AND NOT piece URLs like share~(wipe_blue) where "share" is the piece name
   const kidlispCheck = isKidlispSource(text);
   const hasSpecialChars = text.includes("§") ||
+    text.includes("~") ||
     text.includes("_") ||
     text.includes("\n") ||
     text.startsWith("(") ||
     text.startsWith(";");
-  // NOTE: Removed text.includes("~") from hasSpecialChars because ~ is used
-  // as a parameter separator in regular piece URLs like "line~red"
   
-  // Check if this looks like a piece with parameters (piece~params format)
-  const tildeIndex = text.indexOf("~");
-  const hasPiecePrefix = tildeIndex > 0 && tildeIndex < text.length - 1;
-  const firstPart = hasPiecePrefix ? text.substring(0, tildeIndex) : text;
-  
-  // Only treat as standalone kidlisp if it passes kidlisp detection, has special chars,
-  // AND doesn't look like a piece name with parameters
-  if (kidlispCheck && hasSpecialChars && !hasPiecePrefix) {
+  if (kidlispCheck && hasSpecialChars) {
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
