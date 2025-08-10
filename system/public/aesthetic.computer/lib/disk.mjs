@@ -19,7 +19,6 @@ import * as gizmo from "./gizmo.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
-import { Ticker, ticker } from "./ticker.mjs";
 import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -32,10 +31,10 @@ import {
 } from "./helpers.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
-import { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
-// import { headers } from "./headers.mjs"; // Removed - headers only printed during boot
+import { headers } from "./headers.mjs";
 import { logs } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
@@ -44,46 +43,15 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, encodeKidlispForUrl, getCachedCode, setCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, getCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
-
-// Helper functions to safely access window flags in both main thread and worker contexts
-function isQROverlayCacheDisabled() {
-  try {
-    return typeof window !== 'undefined' && window.acDISABLE_QR_OVERLAY_CACHE;
-  } catch (e) {
-    return false; // Default to enabled if we can't check
-  }
-}
-
-function isHUDLabelCacheDisabled() {
-  try {
-    return typeof window !== 'undefined' && window.acDISABLE_HUD_LABEL_CACHE;
-  } catch (e) {
-    return false; // Default to enabled if we can't check
-  }
-}
 
 let tf; // Active typeface global.
 
 // Cache for loaded typefaces to avoid recreating them
 const typefaceCache = new Map();
-
-// Helper function to get or create a typeface
-async function getOrCreateTypeface(name, preload) {
-  if (typefaceCache.has(name)) {
-    return typefaceCache.get(name);
-  }
-
-  const typeface = new Typeface(name);
-  if (preload) {
-    await typeface.load(preload);
-  }
-  typefaceCache.set(name, typeface);
-  return typeface;
-}
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
@@ -100,11 +68,8 @@ let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
-let cachedKidlispOwner = null; // Stores the user sub for cached KidLisp pieces to show attribution
-let backgroundFillColor = null; // Stores the background color for filling new pixels during reframe
-let pendingAlsData = null; // Stores ALS data to be sent when ableton piece loads
 
-const projectionMode = (typeof location !== 'undefined' && location.search) ? location.search.indexOf("nolabel") > -1 : false; // Skip loading noise.
+const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
@@ -120,7 +85,7 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net, painting, api }) => {
+  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
       if (slug?.indexOf("botce") > -1) {
@@ -134,65 +99,6 @@ const defaults = {
             [64, 64],
             screen.width - 6,
           );
-        }
-      }
-    }
-    
-    // Add duration progress bar to default noise if duration tracking is active
-    // This ensures the progress bar is rendered regardless of nolabel parameter
-    if (durationTotal && durationStartTime !== null) {
-      const currentTime = performance.now();
-      const elapsed = (currentTime - durationStartTime) / 1000; // Convert to seconds
-      const progress = Math.min(elapsed / durationTotal, 1);
-      
-      // Check if duration is completed
-      const completed = progress >= 1;
-      
-      if (completed && !durationCompleted) {
-        durationCompleted = true;
-        console.log("⏱️ Duration completed!");
-      }
-      
-      // Update global progress for other systems to use
-      durationProgress = progress;
-      
-      // Update blink state for completed duration
-      durationBlinkState = Math.floor(currentTime / 500) % 2 === 0;
-      
-      // Render the progress bar directly using ink
-      const progressWidth = Math.floor(screen.width * progress);
-      
-      if (progressWidth > 0) {
-        if (completed) {
-          // Blink between white and dim when completed - use global blink state for consistency
-          const blinkColor = durationBlinkState ? "white" : "#888";
-          ink(blinkColor).line(0, screen.height - 1, screen.width - 1, screen.height - 1);
-        } else {
-          // Sample pixels from screen buffer above for individual progress pixels
-          const screenY = screen.height - 2; // Sample from line above progress bar
-          
-          for (let x = 0; x < progressWidth; x++) {
-            // Sample pixel from screen buffer at position (x, screenY)
-            if (screenY >= 0 && screenY < screen.height && x < screen.width && screen.pixels) {
-              const pixelIndex = (screenY * screen.width + x) * 4; // RGBA format
-              
-              if (pixelIndex + 3 < screen.pixels.length) {
-                const r = screen.pixels[pixelIndex];
-                const g = screen.pixels[pixelIndex + 1]; 
-                const b = screen.pixels[pixelIndex + 2];
-                const a = screen.pixels[pixelIndex + 3];
-                
-                // Use the sampled color for this pixel of the progress bar
-                ink(r, g, b, a).plot(x, screen.height - 1);
-              } else {
-                // Fallback to red if sampling fails
-                ink("red").plot(x, screen.height - 1);
-              }
-            } else {
-              // Fallback to red if coordinates are out of bounds
-              ink("red").plot(x, screen.height - 1);
-            }
-          }
         }
       }
     }
@@ -387,7 +293,6 @@ let currentPath,
   currentText,
   currentCode,
   currentHUDTxt,
-  currentHUDLogicalTxt,
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
@@ -395,6 +300,24 @@ let currentPath,
   currentHUDOffset,
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
+
+// Helper functions to safely access window flags in both main thread and worker contexts
+function isQROverlayCacheDisabled() {
+  try {
+    return true; // TEMP: Disable QR cache to test new font system
+    // return typeof window !== 'undefined' && window.acDISABLE_QR_OVERLAY_CACHE;
+  } catch (e) {
+    return true; // Default to disabled for testing
+  }
+}
+
+function isHUDLabelCacheDisabled() {
+  try {
+    return typeof window !== 'undefined' && window.acDISABLE_HUD_LABEL_CACHE;
+  } catch (e) {
+    return false; // Default to enabled if we can't check
+  }
+}
 
 // Make cache globally accessible for character loading system
 if (typeof window !== 'undefined') {
@@ -427,7 +350,6 @@ let reframe;
 
 const sfxProgressReceivers = {},
   sfxSampleReceivers = {},
-  sfxDurationReceivers = {},
   sfxKillReceivers = {};
 let $sampleCount = 0n;
 
@@ -436,9 +358,6 @@ const actAlerts = []; // Messages that get put into act and cleared after
 // every frame.
 let reframed = false;
 let formReframing = false; // Just for 3D camera updates.
-let needs3DRendering = false; // Track if any pieces are using 3D rendering
-let needsCPU3D = false; // Track if software 3D rasterizer is needed (depth buffer)
-let depthBufferInitialized = false; // Track if depth buffer is ready
 
 let paintings = {}; // Cached bitmaps from a piece.
 
@@ -454,119 +373,6 @@ let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
-// Duration tracking for playlist progress bar (similar to tape system)
-let durationStartTime = null;  // When the piece started (null if no duration) - using performance.now()
-let durationTotal = null;      // Total duration in seconds (null if no duration)
-let durationProgress = 0;      // Current progress (0-1)
-let durationCompleted = false; // Whether duration has completed
-let durationBlinkState = false; // For blinking the completed bar
-let pageLoadTime = performance.now(); // Time when the page first loaded - using performance.now()
-
-// Unified function to render duration progress bar
-function renderDurationProgressBar($api) {
-  if (!durationTotal || durationStartTime === null) return null;
-  
-  const currentTime = performance.now();
-  const elapsed = (currentTime - durationStartTime) / 1000; // Convert to seconds
-  const progress = Math.min(elapsed / durationTotal, 1);
-  
-  // Check if duration is completed
-  const completed = progress >= 1;
-  
-  if (completed && !durationCompleted) {
-    durationCompleted = true;
-    console.log("⏱️ Duration completed!");
-  }
-  
-  // Update global progress for other systems to use
-  durationProgress = progress;
-  
-  // Update blink state for completed duration
-  durationBlinkState = Math.floor(currentTime / 500) % 2 === 0;
-  
-  // Debug log to check screen pixels availability
-  console.log("🎨 Duration progress bar render check:", {
-    hasScreenPixels: !!$api.screen.pixels,
-    screenWidth: $api.screen.width,
-    screenHeight: $api.screen.height,
-    pixelsLength: $api.screen.pixels ? $api.screen.pixels.length : 'undefined',
-    progress: progress,
-    progressWidth: Math.floor($api.screen.width * progress)
-  });
-  
-  // Create duration progress bar with pixel sampling from screen buffer above
-  const durationProgressBarPainting = $api.painting($api.screen.width, 1, ($) => {
-    // Background (dark)
-    $.ink("black").box(0, 0, $api.screen.width, 1);
-    
-    // Progress bar - sample individual pixels from screen buffer above
-    const progressWidth = Math.floor($api.screen.width * progress);
-    if (progressWidth > 0) {
-      if (completed) {
-        // Blink between red and dim red when completed - same as timecode
-        const color = durationBlinkState ? [255, 0, 0] : [128, 0, 0];
-        $.ink(color).box(0, 0, $api.screen.width, 1); // Full width when complete
-      } else {
-        // Normal progress - sample pixels from different screen buffer lines over time for color map effect
-        for (let x = 0; x < progressWidth; x++) {
-          // Calculate which screen line to sample from based on progress and x position
-          // This creates a color map effect where each pixel samples from a different time/position
-          const timeOffset = (progress * $api.screen.height); // How far through the screen based on time
-          const pixelOffset = (x / $api.screen.width) * $api.screen.height; // Position offset for this pixel
-          const screenY = Math.floor((timeOffset + pixelOffset) % $api.screen.height); // Wrap around screen height
-          
-          // Sample pixel from screen buffer at position (x, screenY)
-          if (screenY >= 0 && screenY < $api.screen.height && x < $api.screen.width) {
-            const pixelIndex = (screenY * $api.screen.width + x) * 4; // RGBA format
-            
-            if ($api.screen.pixels && pixelIndex + 3 < $api.screen.pixels.length) {
-              const r = $api.screen.pixels[pixelIndex];
-              const g = $api.screen.pixels[pixelIndex + 1]; 
-              const b = $api.screen.pixels[pixelIndex + 2];
-              const a = $api.screen.pixels[pixelIndex + 3];
-              
-              // Debug logging for first few pixels
-              if (x < 3) {
-                console.log(`🎨 Pixel sampling x=${x}, screenY=${screenY}, pixelIndex=${pixelIndex}, rgba=(${r},${g},${b},${a}), screenSize=${$api.screen.width}x${$api.screen.height}, bufferLength=${$api.screen.pixels.length}`);
-              }
-              
-              // Use the sampled color for this pixel of the progress bar
-              $.ink(r, g, b, a).plot(x, 0);
-            } else {
-              // Fallback to blue if sampling fails
-              if (x < 3) {
-                console.log(`🔵 Blue fallback x=${x}, screenY=${screenY}, pixelIndex=${pixelIndex}, hasPixels=${!!$api.screen.pixels}, bufferLength=${$api.screen.pixels ? $api.screen.pixels.length : 'undefined'}`);
-              }
-              $.ink("blue").plot(x, 0);
-            }
-          } else {
-            // Fallback to green if coordinates are out of bounds
-            if (x < 3) {
-              console.log(`🟢 Green fallback x=${x}, screenY=${screenY}, screenSize=${$api.screen.width}x${$api.screen.height}`);
-            }
-            $.ink("green").plot(x, 0);
-          }
-        }
-      }
-    }
-  });
-  
-  // Return the painting if created successfully
-  if (durationProgressBarPainting && durationProgressBarPainting.pixels && durationProgressBarPainting.pixels.length > 0) {
-    return {
-      x: 0,
-      y: $api.screen.height - 1, // Position at bottom of screen (1px tall)
-      img: {
-        width: durationProgressBarPainting.width,
-        height: durationProgressBarPainting.height,
-        pixels: durationProgressBarPainting.pixels
-      }
-    };
-  }
-  
-  return null;
-}
-
 let storeRetrievalResolutions = {},
   storeDeletionResolutions = {};
 
@@ -577,11 +383,10 @@ let socket, socketStartDelay; // Socket server for each piece.
 
 // TODO: Extract `chat` into an external class.
 
-const chatDebug = (typeof location !== 'undefined' && location.host) && (
+const chatDebug =
   location.host === "local.aesthetic.computer" ||
   location.host === "localhost:8888" ||
-  location.host === "aesthetic.local:8888"
-);
+  location.host === "aesthetic.local:8888";
 const chatClient = new Chat(chatDebug, send);
 
 let udp = {
@@ -616,17 +421,6 @@ const fairies = []; // Render cursor points of other active users,
 //                              dumped each frame.
 
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
-
-// Check if a pixel buffer has any non-transparent pixels
-function checkForVisiblePixels(pixelBuffer) {
-  // Check every 4th byte (alpha channel) to see if any pixels are visible
-  for (let i = 3; i < pixelBuffer.length; i += 4) {
-    if (pixelBuffer[i] > 0) { // Alpha > 0 means visible
-      return true;
-    }
-  }
-  return false;
-}
 
 // *** Dark Mode ***
 // (By @tarighian)
@@ -678,7 +472,6 @@ const store = {
   },
   delete: function (key, method = "local") {
     // Remove the key from the ram store, no matter what the method.
-    // console.log("🗑️ Store delete called for key:", key);
     delete store[key];
 
     const promise = new Promise((resolve) => {
@@ -739,83 +532,33 @@ class Recorder {
   playing = false; // "
   cutCallback;
   printCallback;
-  framesCallback;
   loadCallback;
 
   tapeTimerStart;
   tapeProgress = 0;
   tapeTimerDuration;
 
-  // Duration progress for timed pieces (from query parameter)
-  durationTimerStart;
-  durationProgress = 0;
-  durationTimerDuration;
-  durationProgressCompleted = false;
-
   videoOnLeave = false;
 
   constructor() {}
 
   tapeTimerSet(seconds, time) {
-    // console.log("🎬 tapeTimerSet called with:", { seconds, time });
     this.tapeTimerStart = time;
     this.tapeTimerDuration = seconds;
   }
 
   tapeTimerStep({ needsPaint, sound: { time } }) {
-    if (!this.tapeTimerDuration) {
-      // Debug: Only log occasionally to avoid spam
-      // if (this.recording && Math.random() < 0.01) {
-      //   console.log("🎬 tapeTimerStep: No duration set but recording is active:", {
-      //     recording: this.recording,
-      //     tapeTimerStart: this.tapeTimerStart,
-      //     tapeTimerDuration: this.tapeTimerDuration
-      //   });
-      // }
-      return;
-    }
-    const timeElapsed = time - this.tapeTimerStart;
-    const rawProgress = timeElapsed / this.tapeTimerDuration;
-    // Clamp progress between 0 and 1 to prevent negative bar widths
-    this.tapeProgress = Math.max(0, Math.min(1, rawProgress));
+    if (!this.tapeTimerDuration) return;
+    this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
     needsPaint();
-    const secondsOver = timeElapsed - this.tapeTimerDuration;
-    
-    // Debug logging for early progress to see if timer is working
-    // if (this.tapeProgress > 0 && this.tapeProgress < 0.1 && Math.random() < 0.1) {
-    //   console.log("🎬 Tape progress early:", {
-    //     progress: this.tapeProgress,
-    //     timeElapsed: timeElapsed,
-    //     duration: this.tapeTimerDuration
-    //   });
-    // }
-    
-    // Debug logging when we're at or near completion
-    // if (this.tapeProgress >= 0.95) {
-    //   console.log("🎬 Tape near completion:", {
-    //     progress: this.tapeProgress,
-    //     timeElapsed: timeElapsed,
-    //     duration: this.tapeTimerDuration,
-    //     secondsOver: secondsOver,
-    //     shouldComplete: this.tapeProgress >= 1 && secondsOver > 0.15
-    //   });
-    // }
-    
+    const secondsOver =
+      this.tapeProgress * this.tapeTimerDuration - this.tapeTimerDuration;
     // Run for an extra 150 milliseconds.
     if (this.tapeProgress >= 1 && secondsOver > 0.15) {
-      // console.log("🎬 Tape timer complete! Cutting and jumping to video...");
       this.tapeProgress = 0;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
-      this.cut(() => {
-        // console.log("🎬 Cut complete, jumping to video...");
-        // Clear labelBack since this is an automatic transition after tape recording
-        // This ensures escape key from video goes directly to prompt instead of back navigation
-        labelBack = false;
-        delete store["aesthetic-labelBack"];
-        send({ type: "labelBack:clear", content: false });
-        $commonApi.jump("video");
-      });
+      this.cut(() => $commonApi.jump("video"));
     }
   }
 
@@ -824,30 +567,12 @@ class Recorder {
     // TODO: Should printing and playing also be set to false?
     //$commonApi.rec.printing = false; // "
     $commonApi.rec.recording = false; // Reset this singleton.
-    $commonApi.rec.recordingStartTime = undefined; // Clear animation start time
-    $commonApi.rec.animationFrame = undefined; // Clear animation frame counter
     $commonApi.rec.recorded = false; //
     $commonApi.rec.printed = false; // "
     $commonApi.rec.printProgress = 0; // "
-    
-    // Reset tape progress state for re-entrant recordings
-    this.tapeProgress = 0;
-    this.tapeTimerStart = null;
-    this.tapeTimerDuration = null;
   }
 
   rolling(opts, cb) {
-    // console.log("🎬 rolling called with:", { opts, cb: cb ? "callback provided" : "no callback" });
-    $commonApi.rec.recording = true; // Set recording state immediately for progress bar
-    $commonApi.rec.recordingStartTime = performance.now(); // Set animation start time
-    $commonApi.rec.animationFrame = 0; // Reset animation frame counter
-    
-    // Set tape timer duration immediately if available in opts for progress bar display
-    if (opts && opts.intendedDuration) {
-      this.tapeTimerDuration = opts.intendedDuration;
-      // Don't set tapeTimerStart here - that should still come from the callback with actual start time
-    }
-    
     send({ type: "recorder:rolling", content: opts });
     this.rollingCallback = cb;
   }
@@ -881,51 +606,9 @@ class Recorder {
   pause() {
     send({ type: "recorder:present:pause" });
   }
-
-  requestFrames(cb) {
-    $commonApi.rec.framesCallback = cb;
-    send({ type: "recorder:request-frames" });
-  }
 }
 
 let cachedAPI; // 🪢 This is a bit hacky. 23.04.21.14.59
-
-// GC OPTIMIZATION: Function to invalidate cached API objects when needed
-function invalidateAPICache() {
-  if (cachedAPI) cachedAPI._frameInvalid = true;
-}
-
-// GC OPTIMIZATION: Object pools for frequently allocated objects
-const objectPools = {
-  // Pool for small arrays (up to 10 elements)
-  smallArrayPool: [],
-  getSmallArray() {
-    return this.smallArrayPool.pop() || [];
-  },
-  releaseSmallArray(arr) {
-    if (arr.length <= 10) {
-      arr.length = 0;
-      this.smallArrayPool.push(arr);
-    }
-  },
-  
-  // Pool for reusable objects with common properties
-  eventDataPool: [],
-  getEventData() {
-    const obj = this.eventDataPool.pop();
-    if (obj) {
-      // Clear previous properties
-      Object.keys(obj).forEach(key => delete obj[key]);
-      return obj;
-    }
-    return {};
-  },
-  releaseEventData(obj) {
-    if (this.eventDataPool.length < 5) {
-      this.eventDataPool.push(obj);
-    }
-  }
-};
 
 const hourGlasses = [];
 
@@ -1056,7 +739,7 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
-    console.log("🐎 Jump:", to);
+    console.log("🐎 Jumping to:", to);
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
       return;
@@ -1085,10 +768,7 @@ const $commonApi = {
     }
 
     function loadLine() {
-      console.log("🔧 loadLine called - about to parse:", to);
-      const parsedResult = parse(to);
-      console.log("🔧 parse result:", parsedResult);
-      load(parsedResult, ahistorical, alias, false, callback);
+      load(parse(to), ahistorical, alias, false, callback);
     }
 
     let callback;
@@ -1126,14 +806,6 @@ const $commonApi = {
     hourGlasses.push(
       new gizmo.Hourglass(time, { completed: () => fun(), autoFlip: true }),
     );
-  },
-  // 🎨 Set the background fill color used during reframe operations
-  backgroundFill: (color) => {
-    if (color === null || color === undefined) {
-      backgroundFillColor = null;
-    } else {
-      backgroundFillColor = color;
-    }
   },
   // 🎟️ Open a ticketed paywall on the page.
   ticket: (name) => {
@@ -1379,21 +1051,12 @@ const $commonApi = {
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
-    label: (text, color, offset, logical) => {
+    label: (text, color, offset) => {
       currentHUDTxt = text;
-      currentHUDLogicalTxt =
-        logical ||
-        (typeof text === "string"
-          ? text.replace(
-              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g,
-              "",
-            )
-          : text);
-      if (color) {
-        currentHUDTextColor = graph.findColor(color);
+      if (!color) {
+        currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
       } else {
-        // Use default white color when no color is specified
-        currentHUDTextColor = currentHUDTextColor || [255, 200, 240];
+        currentHUDTextColor = graph.findColor(color);
       }
       currentHUDOffset = offset;
     },
@@ -1401,13 +1064,6 @@ const $commonApi = {
     currentLabel: () => ({ text: currentHUDTxt, btn: currentHUDButton }),
     labelBack: () => {
       labelBack = true;
-      // Persist labelBack state via the store system which works across worker boundaries
-      store["aesthetic-labelBack"] = "true";
-      // Also sync to main thread sessionStorage for browser back navigation
-      send({ type: "labelBack:set", content: true });
-      console.log(
-        "🔗 Worker: Setting labelBack and persisting to store + syncing to main thread",
-      );
     },
   },
   send,
@@ -1620,24 +1276,8 @@ const $commonApi = {
         // TODO: Use `pointToPainting` above. 23.10.11.08.49
         // let { x, y } = system.nopaint.pointToPainting({ system });
         const zoom = system.nopaint.zoomLevel;
-        const rawX = pen?.x || 0;
-        const rawY = pen?.y || 0;
-        const translationX = system.nopaint.translation.x;
-        const translationY = system.nopaint.translation.y;
-        
-        const x = floor((rawX - translationX) / zoom);
-        const y = floor((rawY - translationY) / zoom);
-
-        // 🔍 DEBUG: Console log coordinate transformation
-        if (act === "touch" || act === "draw") {
-          console.log(`🔍 updateBrush[${act}]:`, {
-            rawPen: { x: rawX, y: rawY },
-            translation: { x: translationX, y: translationY },
-            zoom: zoom,
-            transformed: { x, y },
-            pressure: pen?.pressure
-          });
-        }
+        const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
+        const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
 
         if (act === "touch") system.nopaint.startDrag = { x, y };
 
@@ -1800,45 +1440,23 @@ const $commonApi = {
     capitalize: text.capitalize,
     reverse: text.reverse,
     // Get the pixel width of a string of characters.
-    width: (text, customTypeface = null) => {
+    width: (text) => {
       if (Array.isArray(text)) text = text.join(" ");
-      // Handle string typeface names
-      if (typeof customTypeface === "string") {
-        customTypeface = typefaceCache.get(customTypeface) || tf;
-      }
-      const activeTypeface = customTypeface || tf;
-      return text.length * activeTypeface.blockWidth;
+      return text.length * 6;
     },
-    height: (text, customTypeface = null) => {
+    height: (text) => {
       // Get the pixel height of a string of characters.
-      // Handle string typeface names
-      if (typeof customTypeface === "string") {
-        customTypeface = typefaceCache.get(customTypeface) || tf;
-      }
-      const activeTypeface = customTypeface || tf;
-      return activeTypeface.blockHeight;
+      return 10;
     },
     // Return a text's bounding box.
-    box: (
-      text,
-      pos = { x: 0, y: 0 },
-      bounds,
-      scale = 1,
-      wordWrap = true,
-      customTypeface = null,
-    ) => {
+    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
       if (!text) {
         console.warn("⚠️ No text for `box`.");
         return;
       }
       pos = { ...pos };
       let run = 0;
-      // Handle string typeface names
-      if (typeof customTypeface === "string") {
-        customTypeface = typefaceCache.get(customTypeface) || tf;
-      }
-      const activeTypeface = customTypeface || tf;
-      const blockWidth = activeTypeface.blockWidth * abs(scale);
+      const blockWidth = tf.blockWidth * abs(scale);
 
       const lines = [[]];
       let line = 0;
@@ -1932,8 +1550,7 @@ const $commonApi = {
       }
 
       const blockMargin = 1;
-      const blockHeight =
-        ((customTypeface || activeTypeface).blockHeight + blockMargin) * scale;
+      const blockHeight = (tf.blockHeight + blockMargin) * scale;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -2035,12 +1652,7 @@ const $commonApi = {
       return { width: painting.width, height: painting.height, pixels };
     },
   },
-  gizmo: {
-    Hourglass: gizmo.Hourglass,
-    EllipsisTicker: gizmo.EllipsisTicker,
-    Ticker: Ticker,
-    ticker: ticker,
-  },
+  gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker, Ticker: gizmo.Ticker },
   rec: new Recorder(),
   net: {
     signup: () => {
@@ -2060,9 +1672,7 @@ const $commonApi = {
       // TODO: And probably the session server as well in
       //       the future. 24.05.23.21.27
     },
-    pieces: (typeof location !== 'undefined' && location.protocol && location.host) 
-      ? `${location.protocol}//${location.host}/aesthetic.computer/disks`
-      : '/aesthetic.computer/disks',
+    pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
     parse, // Parse a piece slug.
     // lan: // Set dynamically.
     // host: // Set dynamically.
@@ -2121,61 +1731,6 @@ const $commonApi = {
         return { message: "unauthorized" };
       }
     },
-    // Generic request function that can handle both authenticated and anonymous requests
-    request: async (method, endpoint, body, options = {}) => {
-      try {
-        const { requireAuth = false, anonymous = false } = options;
-        
-        const headers = {
-          "Content-Type": "application/json",
-        };
-
-        // Try authentication unless explicitly anonymous
-        if (!anonymous) {
-          try {
-            const token = await $commonApi.authorize();
-            if (token) {
-              headers.Authorization = `Bearer ${token}`;
-            } else if (requireAuth) {
-              throw new Error("🧖 Authentication required but not logged in.");
-            }
-          } catch (authError) {
-            if (requireAuth) {
-              throw authError;
-            }
-            // Continue with anonymous request if auth fails and not required
-          }
-        }
-
-        const fetchOptions = { method, headers };
-        if (body) fetchOptions.body = JSON.stringify(body);
-        
-        const response = await fetch(endpoint, fetchOptions);
-
-        if (response.status === 500) {
-          try {
-            const json = await response.json();
-            return { status: response.status, ...json };
-          } catch (e) {
-            return { status: response.status, message: response.statusText };
-          }
-        } else {
-          const clonedResponse = response.clone();
-          try {
-            return {
-              ...(await clonedResponse.json()),
-              status: response.status,
-            };
-          } catch {
-            return { status: response.status, body: await response.text() };
-          }
-        }
-      } catch (error) {
-        console.error("🚫 Request error:", error);
-        const errorMessage = error?.message || error?.toString() || "Request failed";
-        return { status: 0, message: errorMessage };
-      }
-    },
     // Loosely connect the UDP receiver.
     udp: (receive) => {
       udpReceive = receive;
@@ -2191,13 +1746,6 @@ const $commonApi = {
         udp?.kill(outageSeconds); // Disconnect from UDP.
       }, hiccupIn * 1000);
     },
-    // Preload a typeface for use with string-based font names
-    preloadTypeface: async (name) => {
-      if (typefaceCache.has(name)) {
-        return typefaceCache.get(name);
-      }
-      return await getOrCreateTypeface(name, $commonApi.net.preload);
-    },
   },
   needsPaint: () => {
     noPaint = false;
@@ -2207,7 +1755,6 @@ const $commonApi = {
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
   debug,
-  logs,
 };
 
 chatClient.$commonApi = $commonApi; // Add a reference to the `Chat` module.
@@ -2449,18 +1996,9 @@ const LINE = {
 // TODO: Add `erase` anc all css color alpha support. 23.07.20.14.45
 // TODO: Add transparency and short hex to hex support.
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
-// 📚 DOCUMENTATION: See /reports/ink-function-gradient-documentation.md for comprehensive
-//     usage guide including gradient syntax: ink("gradient:color1-color2-color3")
-//     This function connects to graph.findColor() and graph.color() for gradient support.
 
 function ink() {
-  const result = graph.findColor(...arguments);
-  if (result && result.isGradient) {
-    // Special handling for gradients - prevent gradient mode reset
-    return graph.color(...result.color, true); // preventGradientReset = true
-  } else {
-    return graph.color(...result);
-  }
+  return graph.color(...graph.findColor(...arguments));
 }
 
 function ink2() {
@@ -2480,8 +2018,8 @@ const $paintApi = {
   // text, pos: {x, y, center}, bg (optional)
 
   // Parameters:
-  // text, x, y, options
-  // text, pos, bg, bounds, wordWrap = true, typeface = null
+  // text, x, y, options, wordWrap, customTypeface
+  // text, pos, bg, bounds, wordWrap = true, customTypeface
   write: function () {
     let text = arguments[0],
       pos,
@@ -2489,6 +2027,7 @@ const $paintApi = {
       bounds,
       wordWrap = true,
       customTypeface = null;
+    
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
 
@@ -2497,7 +2036,7 @@ const $paintApi = {
         ? JSON.stringify(text)
         : text.toString();
 
-    // Assume: text, x, y, options
+    // Assume: text, x, y, options, wordWrap, customTypeface
     if (typeof arguments[1] === "number") {
       pos = { x: arguments[1], y: arguments[2] };
       const options = arguments[3];
@@ -2520,7 +2059,6 @@ const $paintApi = {
         customTypeface = typefaceCache.get(customTypeface);
       } else {
         // Create a new typeface and load it immediately if it's MatrixChunky8 or unifont
-        console.log(`🔄 Creating new typeface: ${customTypeface}`);
         const newTypeface = new Typeface(customTypeface);
         
         // Load the typeface asynchronously for BDF fonts
@@ -2537,32 +2075,11 @@ const $paintApi = {
         customTypeface = newTypeface;
       }
     } // 🎨 Color code processing
-    // Check for color codes like \\blue\\, \\red\\, \\255,20,147\\, \\255,20,147,128\\ etc.
-    const colorCodeRegex =
-      /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g;
+    // Check for color codes like \\blue\\, \\red\\, \\255,0,0\\, etc.
+    const colorCodeRegex = /\\([a-zA-Z0-9,]+)\\/g;
     const hasColorCodes = text.includes("\\");
 
-    // Check if inline color processing is disabled via options
-    const noInlineColor =
-      (typeof arguments[1] === "object" && arguments[1]?.noInlineColor) ||
-      (typeof arguments[3] === "object" && arguments[3]?.noInlineColor);
-
-    // console.log("🎨🎨🎨 DISK.MJS WRITE DEBUG:", {
-    //   textLength: text.length,
-    //   hasColorCodes,
-    //   noInlineColor,
-    //   textPreview: text.slice(0, 100),
-    //   containsRgb: text.includes("rgb("),
-    //   stackTrace: noInlineColor ? new Error().stack.split('\n')[1].trim() : null
-    // });
-
-    if (hasColorCodes && !noInlineColor) {
-      // console.log("🎨 Color Processing Debug: Starting color code processing");
-      // console.log("🎨 Original text:", text);
-      // console.log("🎨 Color regex:", colorCodeRegex);
-      // console.log("🎨 Text length:", text.length);
-      // console.log("🎨 Last 20 chars:", text.slice(-20));
-
+    if (hasColorCodes) {
       // Remember the current ink color to restore it later
       const originalColor = $activePaintApi.inkrn();
 
@@ -2571,77 +2088,35 @@ const $paintApi = {
       let charColors = [];
       let currentColor = null;
 
-      // GC OPTIMIZATION: Avoid repeated string operations where possible
-      let hasComma = false;
-      let rgbValues = null;
-
       // Split text by color codes and process each segment
       const segments = text.split(colorCodeRegex);
-      // console.log("🎨 Split segments:", segments);
 
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
           // This is regular text
           const segment = segments[i];
-          // console.log(`🎨 Processing text segment ${i}: "${segment}"`);
           for (let j = 0; j < segment.length; j++) {
             cleanText += segment[j];
             charColors.push(currentColor);
           }
         } else {
-          // This is a color name (from the captured group)
-          const colorName = segments[i];
-
-          // console.log("🎨 Color Debug: Processing color:", colorName);
-
-          // GC OPTIMIZATION: Check for comma once, reuse array when possible
-          hasComma = colorName.includes(",");
-          if (hasComma) {
-            // Reuse array if it exists, otherwise create new one (support RGBA)
-            if (!rgbValues) rgbValues = [0, 0, 0, 255];
-            
-            let idx = 0;
-            let num = 0;
-            let valid = true;
-            
-            // Parse RGB/RGBA values manually to avoid split/map allocation
-            for (let k = 0; k < colorName.length && idx < 4; k++) {
-              const char = colorName[k];
-              if (char >= '0' && char <= '9') {
-                num = num * 10 + (char.charCodeAt(0) - 48);
-              } else if (char === ',' || k === colorName.length - 1) {
-                if (num < 0 || num > 255) {
-                  valid = false;
-                  break;
-                }
-                rgbValues[idx++] = num;
-                num = 0;
-              } else if (char !== ' ') {
-                valid = false;
-                break;
-              }
-            }
-            
-            if (valid && (idx === 3 || idx === 4)) {
-              // Default alpha to 255 if only RGB provided
-              if (idx === 3) rgbValues[3] = 255;
-              // Always slice to 4 components to include alpha
-              currentColor = rgbValues.slice(0, 4);
-              // console.log("🎨 RGB/RGBA Debug: Successfully set color array:", currentColor);
-            } else {
-              currentColor = colorName; // Fallback to string if parsing fails
-              // console.log("🎨 RGB/RGBA Debug: Parsing failed, using string:", colorName);
-            }
+          // This is a color name or RGB value (from the captured group)
+          const colorStr = segments[i];
+          
+          // Handle different color formats
+          if (colorStr.includes(',')) {
+            // RGB/RGBA format like "255,0,0" or "255,0,0,128"
+            const parts = colorStr.split(',').map(n => parseInt(n.trim()));
+            currentColor = parts;
+          } else if (colorStr === 'transparent') {
+            // Handle transparent color
+            currentColor = null;
           } else {
-            currentColor = colorName;
-            // console.log("🎨 Color Debug: Using string color:", colorName);
+            // Named color like "red", "blue", etc.
+            currentColor = colorStr;
           }
         }
       }
-
-      // console.log("🎨 Final processing results:");
-      // console.log("🎨 Clean text:", cleanText);
-      // console.log("🎨 Character colors:", charColors);
 
       // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {
@@ -2650,45 +2125,62 @@ const $paintApi = {
 
       // Now use the original text processing logic but with per-character colors
       const scale = pos?.size || 1;
+      
+      // Debug what activeTypeface is being used
+      if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
+        console.log("🔤 activeTypeface determined:", {
+          customTypeface: customTypeface?.name || String(customTypeface),
+          tf: tf?.name || String(tf),
+          activeTypeface: activeTypeface?.name || String(activeTypeface),
+          isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
+          customTypefaceType: typeof customTypeface
+        });
+      }
+      
+      // Debug logging for QR text rendering - broader condition
+      if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
+        console.log("🔤 QR Font Debug:", {
+          text: text,
+          textLength: text.length,
+          requestedFont: arguments[5],
+          customTypeface: customTypeface?.name || String(customTypeface),
+          customTypefaceType: typeof customTypeface,
+          tfName: tf?.name || String(tf),
+          activeTypeface: activeTypeface?.name || String(activeTypeface),
+          activeTypefaceData: activeTypeface?.data?.bdfFont || "no-bdf",
+          hasCustomTypeface: !!customTypeface,
+          hasTf: !!tf,
+          activetypefacePrint: typeof activeTypeface?.print,
+          typefaceCacheSize: typefaceCache.size,
+          typefaceCacheKeys: Array.from(typefaceCache.keys()),
+          isMatrixChunky8: activeTypeface?.name === "MatrixChunky8",
+          firstCharGlyph: activeTypeface?.glyphs?.[text[0]] ? "loaded" : "missing"
+        });
+      }
 
       if (bounds) {
-        const tb = $commonApi.text.box(
-          cleanText,
-          pos,
-          bounds,
-          scale,
-          wordWrap,
-          customTypeface,
-        );
+        const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap, customTypeface);
         if (!tb || !tb.lines) {
           return $activePaintApi; // Exit silently if text.box fails
         }
-
-        // Simple character-by-character mapping for wrapped lines
-        let cleanTextIndex = 0;
-
-        tb.lines.forEach((line, lineIndex) => {
-          const joinedLine = line.join(" ");
-          const lineColors = [];
-
-          // Map each character in the line to its color from the original charColors array
-          for (let charIndex = 0; charIndex < joinedLine.length; charIndex++) {
-            // Use the color from the original mapping, or null if we're past the end
-            if (cleanTextIndex < charColors.length) {
-              lineColors.push(charColors[cleanTextIndex]);
-            } else {
-              lineColors.push(null);
-            }
-            cleanTextIndex++;
+        tb.lines.forEach((line, index) => {
+          // Calculate the starting character index for this line
+          let lineStartIndex = 0;
+          for (let i = 0; i < index; i++) {
+            lineStartIndex += tb.lines[i].join(" ").length;
+            if (i < tb.lines.length - 1) lineStartIndex++; // Add 1 for space between lines
           }
 
           (customTypeface || tf)?.print(
             $activePaintApi,
             tb.pos,
-            lineIndex,
-            joinedLine,
+            index,
+            line.join(" "),
             bg,
-            lineColors,
+            charColors.slice(
+              lineStartIndex,
+              lineStartIndex + line.join(" ").length,
+            ),
           );
         });
       } else {
@@ -2697,32 +2189,17 @@ const $paintApi = {
           const lines = cleanText.split("\n");
           const lineHeightGap = 2;
           let charIndex = 0;
-          
-          console.log("🎨 NEWLINE DEBUG:");
-          console.log("🎨 cleanText:", JSON.stringify(cleanText));
-          console.log("🎨 cleanText.length:", cleanText.length);
-          console.log("🎨 charColors.length:", charColors.length);
-          console.log("🎨 lines:", lines);
-          
           lines.forEach((line, index) => {
-            console.log(`🎨 Line ${index}: "${line}" (length: ${line.length})`);
-            console.log(`🎨 charIndex before: ${charIndex}`);
-            
             const lineColors = charColors.slice(
               charIndex,
               charIndex + line.length,
             );
-            
-            console.log(`🎨 lineColors for line ${index}:`, lineColors.slice(0, 10), '...');
-            
             (customTypeface || tf)?.print(
               $activePaintApi,
               {
                 x: pos?.x,
                 y: pos
-                  ? pos.y +
-                    index * (customTypeface || tf).blockHeight +
-                    lineHeightGap
+                  ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
                   : undefined,
               },
               0,
@@ -2730,22 +2207,10 @@ const $paintApi = {
               bg,
               lineColors,
             );
-            // Move to next line: skip past current line + the newline character (except for last line)
-            charIndex += line.length;
-            if (index < lines.length - 1) {
-              charIndex += 1; // Skip the newline character for all but the last line
-            }
-            console.log(`🎨 charIndex after: ${charIndex}`);
+            charIndex += line.length + 1; // +1 for the newline character
           });
         } else {
-          (customTypeface || tf)?.print(
-            $activePaintApi,
-            pos,
-            0,
-            cleanText,
-            bg,
-            charColors,
-          );
+          (customTypeface || tf)?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
         }
       }
 
@@ -2756,34 +2221,16 @@ const $paintApi = {
     }
 
     // 🎁 Original code for text without color codes
-    // If noInlineColor is true, strip color codes from the text first
-    if (noInlineColor && hasColorCodes) {
-      text = text.replace(/\\[a-zA-Z]+\\/g, "");
-    }
-
     // See if the text length is greater than the bounds, and if it is then
     // print on a new line.
     const scale = pos?.size || 1;
 
     if (bounds) {
-      const tb = $commonApi.text.box(
-        text,
-        pos,
-        bounds,
-        scale,
-        wordWrap,
-        customTypeface,
-      ); // TODO: Get the current ink color, memoize it, and make it static here.
+      const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap, customTypeface); // TODO: Get the current ink color, memoize it, and make it static here.
       //       23.10.12.22.04
       tb.lines.forEach((line, index) => {
         // console.log(line, index);
-        (customTypeface || tf)?.print(
-          $activePaintApi,
-          tb.pos,
-          index,
-          line.join(" "),
-          bg,
-        );
+        (customTypeface || tf)?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
       });
     } else {
       // Break on `\n` and handle separate lines
@@ -2796,9 +2243,7 @@ const $paintApi = {
             {
               x: pos?.x,
               y: pos
-                ? pos.y +
-                  index * (customTypeface || tf).blockHeight +
-                  lineHeightGap
+                ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
                 : undefined,
             },
             0,
@@ -2852,74 +2297,35 @@ let formsSent = {}; // TODO: This should be cleared more often...
 // `cpu: true` enabled software rendering
 function form(
   forms,
-  cam,
+  cam = $commonApi.system.fps.doll.cam,
   { cpu, background } = {
     cpu: true,
     keep: true,
     background: backgroundColor3D,
   },
-) {
-  // Create a default camera if none provided and FPS system isn't available
-  if (!cam) {
-    if ($commonApi.system.fps?.doll?.cam) {
-      cam = $commonApi.system.fps.doll.cam;
-    } else {
-      // Create a default camera for KidLisp 3D
-      if (!$commonApi.system.defaultCam) {
-        $commonApi.system.defaultCam = new graph.Camera(80, { z: 0, y: 0, scale: [1, 1, 1] });
-      }
-      cam = $commonApi.system.defaultCam;
-    }
-  }
-  
-  // Exit silently if no forms are present.
+) {  // Exit silently if no forms are present.
   if (forms === undefined || forms?.length === 0) return;
-
-  // Mark that 3D rendering is being used
-  if (!needs3DRendering) {
-    needs3DRendering = true;
-  }
-  
-  // Track if CPU 3D rendering (software rasterizer) is needed for depth buffer
-  if (cpu === true && !needsCPU3D) {
-    needsCPU3D = true;
-    // If depth buffer hasn't been initialized yet, we'll need a reframe
-    if (!depthBufferInitialized) {
-      // The depth buffer will be created on the next frame cycle
-    }
-  }
 
   if (cpu === true) {
     if (formReframing) {
       cam.resize();
       formReframing = false;
     }
-    // GC OPTIMIZATION: Use for loop instead of filter + forEach
-    if (Array.isArray(forms)) {
-      for (let i = 0; i < forms.length; i++) {
-        const form = forms[i];
-        if (form) form.graph(cam);
-      }
-    } else {
-      forms.graph(cam);
-    }
+    if (Array.isArray(forms))
+      forms.filter(Boolean).forEach((form) => form.graph(cam));
+    else forms.graph(cam);
   } else {
     // GPU forms.
     if (!Array.isArray(forms)) forms = [forms];
 
-    // GC OPTIMIZATION: Use for loop instead of forEach
-    for (let i = 0; i < formsToClear.length; i++) {
-      delete formsSent[formsToClear[i]];
-    }
+    // Clear out any forms that need deleting.
+    formsToClear.forEach((id) => delete formsSent[id]);
     formsToClear.length = 0;
 
     // Build a list of forms to send, ignoring already sent ones by UID.
     const formsToSend = [];
 
-    // GC OPTIMIZATION: Use for loop instead of filter + forEach
-    for (let i = 0; i < forms.length; i++) {
-      const form = forms[i];
-      if (!form) continue;
+    forms.filter(Boolean).forEach((form) => {
       // Clear out any trash in `formsSent` that do not have IDs left in forms.
       //if (formsSent[forms.uid])
 
@@ -2972,7 +2378,7 @@ function form(
 
           // Update form state now that we are sending the message.
           // TODO: Put these both under a "gpu" object in form.
-          // console.log(form.gpuReset);
+          //console.log(form.gpuReset);
           form.gpuReset = false;
           form.gpuVerticesSent = form.vertices.length;
           msgCount += 1;
@@ -2987,7 +2393,7 @@ function form(
           });
         }
       }
-    }
+    });
 
     if (formsToSend.length === 0) return;
 
@@ -3033,6 +2439,7 @@ function form(
 function prefetchPicture(code) {
   if (paintings[code] === "fetching") return;
 
+  console.log("🖼️ Prefetching...", code);
   paintings[code] = "fetching";
 
   if (code.startsWith("http")) {
@@ -3221,7 +2628,6 @@ const $paintApiUnwrapped = {
   line: graph.line,
   lineAngle: graph.lineAngle,
   pline: graph.pline,
-  plineSmooth: graph.plineSmooth,
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
@@ -3234,19 +2640,16 @@ const $paintApiUnwrapped = {
   form,
   pan: graph.pan,
   unpan: graph.unpan,
-  resetpan: graph.resetpan,
   savepan: graph.savepan,
   loadpan: graph.loadpan,
   mask: graph.mask,
   unmask: graph.unmask,
   steal: graph.steal,
-  putback: graph.putback,
-  skip: graph.skip,
+  putback: graph.putback,  skip: graph.skip,
   scroll: graph.scroll,
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
-  contrast: graph.contrast,
   blur: graph.blur,
   shear: graph.shear,
   noise16: graph.noise16,
@@ -3404,12 +2807,8 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   }
 
   // Don't do anything if there is no change and no gap update.
-  if (screen.width === width && screen.height === height && gap === lastGap) {
-    console.log("🖼 Resolution: No change needed, returning early");
+  if (screen.width === width && screen.height === height && gap === lastGap)
     return;
-  }
-  
-  console.log("🖼 Resolution: Changing from", { oldWidth: screen.width, oldHeight: screen.height }, "to", { width, height });
 
   lastGap = gap;
 
@@ -3454,51 +2853,14 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   screen.width = width;
   screen.height = height;
 
-  // Only initialize depth buffer if CPU 3D rendering is actually being used
-  if (needsCPU3D) {
-    graph.depthBuffer.length = screen.width * screen.height;
-    graph.depthBuffer.fill(Number.MAX_VALUE);
-    depthBufferInitialized = true;
-  } else {
-    // Clear depth buffer if CPU 3D is no longer needed to free memory
-    if (depthBufferInitialized) {
-      graph.depthBuffer.length = 0;
-      depthBufferInitialized = false;
-    }
-  }
-  
-  // Write buffer is rarely used, keep it minimal
-  graph.writeBuffer.length = 0;
+  // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
+  graph.depthBuffer.length = screen.width * screen.height;
+  graph.depthBuffer.fill(Number.MAX_VALUE);
+  graph.writeBuffer.length = 0; //screen.width * screen.height;
   // graph.writeBuffer.fill(Number.MAX_VALUE);
 
   screen.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
-  
-  // Fill screen buffer with background color if available, otherwise use white
-  if (backgroundFillColor) {
-    // Resolve the color to RGBA values
-    let fillColor;
-    try {
-      // Use graph.findColor to resolve the color to RGBA
-      fillColor = graph.findColor(backgroundFillColor);
-      // Ensure we have 4 components (RGBA), defaulting alpha to 255 if missing
-      if (fillColor.length === 3) {
-        fillColor = [fillColor[0], fillColor[1], fillColor[2], 255];
-      }
-    } catch (e) {
-      fillColor = [255, 255, 255, 255];
-    }
-    
-    // Fill the buffer with the resolved color
-    for (let i = 0; i < screen.pixels.length; i += 4) {
-      screen.pixels[i] = fillColor[0];     // Red
-      screen.pixels[i + 1] = fillColor[1]; // Green  
-      screen.pixels[i + 2] = fillColor[2]; // Blue
-      screen.pixels[i + 3] = fillColor[3]; // Alpha
-    }
-  } else {
-    // Default behavior: fill with white
-    screen.pixels.fill(255);
-  }
+  screen.pixels.fill(255);
 
   graph.setBuffer(screen);
   graph.paste({
@@ -3654,11 +3016,6 @@ async function load(
     store["publishable-piece"] &&
     parsed.piece === store["publishable-piece"].slug
   ) {
-    console.log("🔄 Loading from publishable-piece store:", { 
-      pieceSlug: parsed.piece, 
-      storeSlug: store["publishable-piece"].slug,
-      hasSource: !!store["publishable-piece"].source 
-    });
     parsed.source = store["publishable-piece"].source;
     parsed.name = store["publishable-piece"].slug;
   }
@@ -3688,78 +3045,19 @@ async function load(
     if (host === "") host = originalHost;
     loadFailure = undefined;
     host = host.replace(/\/$/, ""); // Remove any trailing slash from host.
-    
-    // 🎯 Auto-detect $prefixed cached codes (e.g., aesthetic.computer/$OrqM)
-    // Check both path and slug for $prefixed patterns
-    console.log("🔍 Checking for cached KidLisp:", { path, slug, pathStartsWithDollar: path && path.startsWith("$"), slugStartsWithDollar: slug && slug.startsWith("$") });
-    console.log("🔍 Additional debug - parsed.text:", JSON.stringify(parsed.text));
-    if ((path && path.startsWith("$")) || (slug && slug.startsWith("$"))) {
-      console.log("🎯 Entering cached KidLisp branch!");
-      const cacheSlug = path && path.startsWith("$") ? path : slug;
-      const cacheId = cacheSlug.slice(1); // Remove the $ prefix to get the actual nanoid
-      
-      // Hit the store-kidlisp endpoint with GET request to retrieve cached source
-      try {
-        const cacheUrl = location.protocol + "//" + host + "/api/store-kidlisp?code=" + cacheId;
-        const response = await fetch(cacheUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to load cached KidLisp: ${response.status}`);
-        }
-        const cacheData = await response.json();
-        
-        if (cacheData.source) {
-          // Set up variables to jump to source loading branch
-          source = cacheData.source;
-          params = parsed.params || [];
-          search = parsed.search;
-          colon = parsed.colon || [];
-          hash = parsed.hash;
-          slug = cacheSlug; // Keep the $prefixed version as the slug for URL display
-          forceKidlisp = true;
-          
-          // Store cached KidLisp owner info for HUD attribution
-          if (cacheData.user) {
-            cachedKidlispOwner = cacheData.user;
-          } else {
-            cachedKidlispOwner = null;
-          }
-          
-          // Jump directly to source processing - skip URL construction entirely
-        } else {
-          throw new Error("No source found in cached KidLisp response");
-        }
-      } catch (error) {
-        console.error("❌ Failed to load cached KidLisp via auto-detection:", error);
-        loadFailure = error.message;
-        loading = false;
-        return;
-      }
-    }
-    
     //                                 Note: This fixes a preview bug on teia.art. 2022.04.07.03.00    if (path === "") path = ROOT_PIECE; // Set bare path to what "/" maps to.
     // if (path === firstPiece && params.length === 0) params = firstParams;
 
-    // Only construct fullUrl if we haven't already extracted source from nanoid pattern
-    if (!source) {
-      // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
-      if (path.endsWith(".lisp")) {
-        fullUrl = location.protocol + "//" + host + "/" + path + "#" + Date.now();
-      } else {
-        fullUrl =
-          location.protocol +
-          "//" +
-          host +
-          "/" +
-          path +
-          ".mjs" +
-          "#" +
-          Date.now();
-      }
-      // The hash `time` parameter busts the cache so that the environment is
-      // reset if a disk is re-entered while the system is running.
-      // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
-      // if (debug) console.log("🕸", fullUrl);
+    // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
+    if (path.endsWith('.lisp')) {
+      fullUrl = location.protocol + "//" + host + "/" + path + "#" + Date.now();
+    } else {
+      fullUrl = location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
     }
+    // The hash `time` parameter busts the cache so that the environment is
+    // reset if a disk is re-entered while the system is running.
+    // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
+    // if (debug) console.log("🕸", fullUrl);
   } else {
     // 📃 Loading with provided source code.
     // This could either be JavaScript or LISP.
@@ -3801,14 +3099,10 @@ async function load(
     // blobURL off the old source.
     // TODO: Cache piece code locally / in an intelligent way,
     //       and then receive socket updates when it changes on the server?
-    // 🎯 Exclude cached KidLisp codes from JavaScript blob reuse to prevent
-    // KidLisp->JavaScript misinterpretation on second load
-    const isCachedKidlispCode = slug && slug.startsWith("$");
     if (
       slug?.split("~")[0] === currentText?.split("~")[0] &&
       sourceCode == currentCode &&
-      !devReload &&
-      !isCachedKidlispCode
+      !devReload
     ) {
       const blob = new Blob([currentCode], { type: "application/javascript" });
       blobUrl = URL.createObjectURL(blob);
@@ -3816,36 +3110,42 @@ async function load(
       originalCode = sourceCode;
     } else {
       let sourceToRun;
-      if (fullUrl) {
-        // Check if we have embedded source for this piece
-        if ($commonApi.embeddedSource && $commonApi.embeddedSource.path === path) {
-          if (logs.loading) console.log("📦 Using embedded source for:", path);
-          sourceToRun = $commonApi.embeddedSource.source;
-          // Clear embedded source after use to prevent conflicts
-          $commonApi.embeddedSource = null;
-        } else {
-          let response;
-          if (logs.loading) console.log("📥 Loading from url:", fullUrl);
-          response = await fetch(fullUrl);
-          if (response.status === 404 || response.status === 403) {
-            const extension = path.endsWith(".lisp") ? ".lisp" : ".mjs";
-            const anonUrl =
-              location.protocol +
-              "//" +
-              "art.aesthetic.computer" +
-              "/" +
-              path.split("/").pop() +
-              extension +
-              "#" +
-              Date.now();
-            if (logs.loading)
-              console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-            response = await fetch(anonUrl);
-            if (response.status === 404 || response.status === 403)
-              throw new Error(response.status);
+      
+      // 💾 Check if this is a cached kidlisp code (starts with $)
+      if (slug && slug.startsWith("$")) {
+        const cacheId = slug.slice(1); // Remove $ prefix
+        if (logs.loading) console.log("💾 Loading cached kidlisp code:", cacheId);
+        try {
+          sourceToRun = await fetchCachedCode(cacheId);
+          if (!sourceToRun) {
+            throw new Error(`Cached code not found: ${cacheId}`);
           }
-          sourceToRun = await response.text();
+          if (logs.loading) console.log("✅ Successfully loaded cached code:", cacheId);
+        } catch (error) {
+          console.error("❌ Failed to load cached code:", cacheId, error);
+          throw new Error(`Failed to load cached code: ${cacheId}`);
         }
+      } else if (fullUrl) {
+        let response;
+        if (logs.loading) console.log("📥 Loading from url:", fullUrl);
+        response = await fetch(fullUrl);        if (response.status === 404 || response.status === 403) {
+          const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
+          const anonUrl =
+            location.protocol +
+            "//" +
+            "art.aesthetic.computer" +
+            "/" +
+            path.split("/").pop() +
+            extension +
+            "#" +
+            Date.now();
+          if (logs.loading)
+            console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+          response = await fetch(anonUrl);
+          if (response.status === 404 || response.status === 403)
+            throw new Error(response.status);
+        }
+        sourceToRun = await response.text();
       } else {
         sourceToRun = source;
       }
@@ -3858,37 +3158,31 @@ async function load(
       // Note: This may not be the most reliable way to detect `kidlisp`?
       // 🚗 Needs to know if the source was from a prompt with a lisp module.
       // console.log("🔍 Checking if kidlisp source:", JSON.stringify(sourceToRun));
-      
-      // Debug logging for cached KidLisp issues
-      if (slug && slug.startsWith("$")) {
-        console.log("🔍 Debug cached KidLisp:", {
-          slug,
-          sourceToRun: sourceToRun ? sourceToRun.substring(0, 100) + "..." : "undefined",
-          forceKidlisp,
-          startsWithParen: sourceToRun ? sourceToRun.startsWith("(") : false,
-          startsWithSemicolon: sourceToRun ? sourceToRun.startsWith(";") : false
-        });
-      }
-      
       if (
         sourceToRun.startsWith("(") ||
         sourceToRun.startsWith(";") ||
         forceKidlisp ||
         slug === "(...)" ||
         path === "(...)" ||
-        path.endsWith(".lisp")
+        path.endsWith(".lisp") ||
+        (slug && slug.startsWith("$")) // Cached codes are always kidlisp
       ) {
         // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
         // or this came from parse function as kidlisp (slug/path === "(...)")
         // Assume lisp.
+        console.log(
+          "🐍 Lisp piece detected (slug:",
+          slug,
+          "path:",
+          path,
+          "forceKidlisp:",
+          forceKidlisp,
+          ")",
+        );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
-        // Clear cached owner for non-cached KidLisp
-        cachedKidlispOwner = null;
-        // Don't cache .lisp files since they're already stored as files
-        const isLispFile = path && path.endsWith(".lisp");
-        loadedModule = lisp.module(sourceToRun, isLispFile);
+        loadedModule = lisp.module(sourceToRun);
 
         if (devReload) {
           store["publishable-piece"] = {
@@ -3900,15 +3194,6 @@ async function load(
             console.log("💌 Publishable:", store["publishable-piece"]);
         }
       } else {
-        // Debug logging for JavaScript path
-        if (slug && slug.startsWith("$")) {
-          console.log("🚨 UNEXPECTED: Cached KidLisp code taking JavaScript path!", {
-            slug,
-            sourceToRun: sourceToRun ? sourceToRun.substring(0, 100) + "..." : "undefined",
-            forceKidlisp
-          });
-        }
-        
         if (devReload) {
           store["publishable-piece"] = { slug, source: sourceToRun };
           if (logs.loading)
@@ -3926,15 +3211,14 @@ async function load(
           type: "application/javascript",
         });
 
-        blobUrl = URL.createObjectURL(blob);
-        sourceCode = updatedCode;
+        blobUrl = URL.createObjectURL(blob);        sourceCode = updatedCode;
         loadedModule = await import(blobUrl);
       }
     }
   } catch (err) {
     console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
-    if (fullUrl && !fullUrl.includes(".lisp")) {
+    if (!fullUrl.includes('.lisp')) {
       try {
         fullUrl = fullUrl.replace(".mjs", ".lisp");
         let response;
@@ -3942,40 +3226,31 @@ async function load(
         response = await fetch(fullUrl);
         console.log("🤖 Response:", response);
 
-        if (response.status === 404 || response.status === 403) {
-          const anonUrl =
-            location.protocol +
-            "//" +
-            "art.aesthetic.computer" +
-            "/" +
-            (path ? path.split("/").pop() : "unknown") +
-            ".lisp" +
-            "#" +
-            Date.now();
-          console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-          response = await fetch(anonUrl);
+      if (response.status === 404 || response.status === 403) {
+        const anonUrl =
+          location.protocol +
+          "//" +
+          "art.aesthetic.computer" +
+          "/" +
+          path.split("/").pop() +
+          ".lisp" +
+          "#" +
+          Date.now();
+        console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
+        response = await fetch(anonUrl);
 
-          console.log("🚏 Response:", response);
+        console.log("🚏 Response:", response);
 
-          if (response.status === 404 || response.status === 403)
-            throw new Error(response.status);
-        }
-        sourceCode = await response.text();
-        // console.log("📓 Source:", sourceCode);
-        originalCode = sourceCode;
-        // Clear cached owner for file-loaded KidLisp
-        cachedKidlispOwner = null;
-        // Don't cache .lisp files since they're already stored as files  
-        const isLispFile = (path && path.endsWith(".lisp")) || (fullUrl && fullUrl.includes(".lisp"));
-        loadedModule = lisp.module(sourceCode, isLispFile);
-        if (devReload) {
-          store["publishable-piece"] = {
-            slug,
-            source: sourceCode,
-            ext: "lisp",
-          };
-          // console.log("💌 Publishable:", store["publishable-piece"]);
-        }
+        if (response.status === 404 || response.status === 403)
+          throw new Error(response.status);
+      }
+      sourceCode = await response.text();
+      // console.log("📓 Source:", sourceCode);
+      originalCode = sourceCode;
+      loadedModule = lisp.module(sourceCode);      if (devReload) {
+        store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
+        // console.log("💌 Publishable:", store["publishable-piece"]);
+      }
       } catch (err) {
         // 🧨 Continue with current module if one has already loaded.
         console.error(
@@ -3987,12 +3262,6 @@ async function load(
         loadFailure = err;
         $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
         loading = false;
-
-        // Reset labelBack and leaving when piece load fails completely to ensure proper navigation
-        labelBack = false;
-        // Clear the labelBack from store when load fails
-        delete store["aesthetic-labelBack"];
-        leaving = false;
 
         // Only return a 404 if the error type is correct.
         if (firstLoad && (err.message === "404" || err.message === "403")) {
@@ -4013,12 +3282,6 @@ async function load(
       loadFailure = err;
       $commonApi.net.loadFailureText = err.message + "\n" + sourceCode;
       loading = false;
-
-      // Reset labelBack and leaving when piece load fails completely to ensure proper navigation
-      labelBack = false;
-      // Clear the labelBack from store when load fails
-      delete store["aesthetic-labelBack"];
-      leaving = false;
 
       // Only return a 404 if the error type is correct.
       if (firstLoad && (err.message === "404" || err.message === "403")) {
@@ -4045,7 +3308,7 @@ async function load(
 
   if (!debug && !firstLoad) {
     // console.clear();
-    // headers(); // Headers already printed during boot - no need to print again
+    headers(); // Clear console and re-print headers if we are in production.
   }
 
   // console.log("🧩", path, "🌐", host);
@@ -4319,47 +3582,6 @@ async function load(
     send({ type: "preload-ready", content: true });
   };
 
-  // Remote debugging: Send log messages to session server for debugging on any device
-  $commonApi.net.log = function(level, ...args) {
-    // Serialize objects and create single-line message
-    const serializedArgs = args.map(arg => {
-      if (typeof arg === 'object' && arg !== null) {
-        try {
-          return JSON.stringify(arg);
-        } catch (e) {
-          return String(arg);
-        }
-      }
-      return String(arg);
-    });
-    
-    const message = serializedArgs.join(" ");
-    
-    // Always log locally first
-    if (level === "warn") {
-      console.warn(...args);
-    } else if (level === "error") {
-      console.error(...args);
-    } else {
-      console.log(...args);
-    }
-    
-    // Forward to session server if socket is available and in debug mode
-    if (socket?.send && debug) {
-      socket.send("dev-log", {
-        level: level.toUpperCase(),
-        message: message,
-        device: navigator.userAgent || "unknown",
-        timestamp: Date.now()
-      });
-    }
-  };
-
-  // Convenience methods for different log levels
-  $commonApi.net.log.info = (...args) => $commonApi.net.log("info", ...args);
-  $commonApi.net.log.warn = (...args) => $commonApi.net.log("warn", ...args);
-  $commonApi.net.log.error = (...args) => $commonApi.net.log("error", ...args);
-
   $commonApi.content = new Content();
 
   $commonApi.dom = {};
@@ -4549,19 +3771,6 @@ async function load(
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
 
-  // Initialize duration tracking from query parameters
-  if ($commonApi.query.duration) {
-    const duration = parseFloat($commonApi.query.duration);
-    if (!isNaN(duration) && duration > 0) {
-      durationTotal = duration;
-      durationStartTime = pageLoadTime; // Start from page load time immediately
-      durationProgress = 0;
-      durationCompleted = false;
-      durationBlinkState = false;
-      console.log("⏱️ Duration parameter detected:", duration, "seconds - starting from page load time:", pageLoadTime);
-    }
-  }
-
   $commonApi.load = async function () {
     // Load a piece, wrapping it in a leave function so a final frame
     // plays back.
@@ -4592,12 +3801,7 @@ async function load(
   // Go back to the previous piece, or to the prompt if there is no history.
   $commonApi.back = () => {
     if (pieceHistoryIndex > 0) {
-      send({
-        type: "back-to-piece",
-        content: {
-          targetPiece: $commonApi.history[$commonApi.history.length - 1],
-        },
-      });
+      send({ type: "back-to-piece" });
     } else {
       $commonApi.jump("prompt");
     }
@@ -4607,31 +3811,35 @@ async function load(
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  if (!tf) {
-    tf = await new Typeface().load($commonApi.net.preload);
-  } else {
-    // 🔤 Reset typeface to default font for each piece load
-    if (tf.name !== "font_1") {
-      tf = await new Typeface("font_1").load($commonApi.net.preload);
-    }
-  }
+  if (!tf) tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
-  // Add API to allow pieces to switch typefaces
-  $commonApi.setTypeface = async function (typefaceName) {
-    if (typefaceName && typefaceName !== tf.name) {
-      tf = await new Typeface(typefaceName).load($commonApi.net.preload);
-      $commonApi.typeface = tf; // Update the global reference
-      ui.setTypeface(tf); // Update UI typeface
-    }
-  };
-
   // Initialize MatrixChunky8 font for QR code text rendering
   if (!typefaceCache.has("MatrixChunky8")) {
+    console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
+    
+    // Pre-load common QR code characters to avoid fallback during rendering
+    const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
+    console.log("🔤 Pre-loading MatrixChunky8 glyphs for QR codes...");
+    
+    // Access each character to trigger the Proxy loading mechanism
+    for (const char of commonQRChars) {
+      // Accessing the glyph triggers the Proxy to start loading it
+      const glyph = matrixFont.glyphs[char];
+      // We don't need to wait for these to load, just trigger the requests
+    }
+    
     typefaceCache.set("MatrixChunky8", matrixFont);
+    console.log("🔤 MatrixChunky8 font loaded:", {
+      name: matrixFont.name,
+      hasData: !!matrixFont.data,
+      hasPrint: typeof matrixFont.print,
+      bdfFont: !!matrixFont.data?.bdfFont,
+      preloadedChars: commonQRChars.length
+    });
   }
 
   /**
@@ -4703,10 +3911,6 @@ async function load(
 
     module = loadedModule;
 
-    // Reset 3D rendering tracking when a new piece loads
-    needs3DRendering = false;
-    needsCPU3D = false;
-
     if (!module.system?.startsWith("world"))
       $commonApi.system.world.teleported = false;
 
@@ -4739,9 +3943,6 @@ async function load(
         if (module.paint) {
           const painted = module.paint($);
           $.system.nopaint.needsPresent = true;
-
-          // Add debug overlay on top of everything
-          nopaint_paint($);
 
           // TODO: Pass in extra arguments here that flag the wipe.
           if (chatEnabled) chat.paint($, { embedded: true }); // Render any chat interface necessary.
@@ -4927,11 +4128,6 @@ async function load(
     paintingAPIid = 0n;
     simCount = 0n;
     booted = false;
-    
-    // Reset tape playback state to prevent stale state across piece transitions
-    $commonApi.rec.playing = false;
-    $commonApi.rec.presenting = false;
-    
     // initialSim = true;
     activeVideo = null;
     videoSwitching = false;
@@ -4945,7 +4141,7 @@ async function load(
     currentSearch = search;
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    hideLabel = parsed.search?.includes("nolabel") || false;
+    hideLabel = parsed.search?.startsWith("nolabel") || false;
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -4954,33 +4150,6 @@ async function load(
     // soundClear = null;
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
-
-    // Restore labelBack state from store if it exists
-    if (store["aesthetic-labelBack"] === "true") {
-      labelBack = true;
-      // Only clear labelBack if we're loading the target piece from browser back navigation
-      // AND we're not loading a kidlisp piece (which gets reloaded during back navigation)
-      const isKidlispPiece =
-        (slug && lisp.isKidlispSource(slug)) || slug === "(...)";
-
-      if (fromHistory && labelBack && !isKidlispPiece) {
-        // Clear labelBack since we've successfully navigated back to a non-kidlisp piece
-        labelBack = false;
-        delete store["aesthetic-labelBack"];
-        send({ type: "labelBack:clear", content: false });
-      }
-    }
-
-    // Reset pan translation state for new piece
-    graph.unpan();
-
-    // Reset pan translation state for new piece
-    graph.unpan();
-
-    // Also reset pan state in a delayed manner to handle any timing issues
-    setTimeout(() => {
-      graph.unpan();
-    }, 0);
 
     previewMode = parsed.search?.startsWith("preview") || false;
     iconMode = parsed.search?.startsWith("icon") || false;
@@ -4993,8 +4162,7 @@ async function load(
     paintings = {}; // Reset painting cache.
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
-
-    //  Reset turtle state.
+    // 🐢 Reset turtle state.
     turtleAngle = 270;
     turtleDown = false;
     turtlePosition = { x: screen.width / 2, y: screen.height / 2 };
@@ -5022,22 +4190,8 @@ async function load(
       noticeBell(cachedAPI, { tone: 300 });
     }
 
-    if (!alias) {
-      // Convert tildes to spaces for display in the corner label
-      const displaySlug = slug.replace(/~/g, " ");
-      currentHUDTxt = displaySlug; // Update hud if this is not an alias.
-      currentHUDLogicalTxt = displaySlug; // Set logical text to the same space-separated version
-      
-      // Special handling for cached KidLisp: show $prefixed code in URL but full source in HUD label
-      if (displaySlug.startsWith("$") && sourceCode && forceKidlisp) {
-        currentHUDLogicalTxt = sourceCode; // Show full KidLisp source in HUD label
-        // console.log("🎯 Cached KidLisp: URL shows $prefixed code, HUD shows full source");
-      }
-    }
-    if (module.nohud || system === "prompt" || parsed.search?.includes("nohud")) {
-      currentHUDTxt = undefined;
-      currentHUDLogicalTxt = undefined;
-    }
+    if (!alias) currentHUDTxt = slug; // Update hud if this is not an alias.
+    if (module.nohud || system === "prompt") currentHUDTxt = undefined;
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
@@ -5046,34 +4200,16 @@ async function load(
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
-    // Also skip kidlisp pieces when navigating back to the prompt.
-    // Add to history unless:
-    // 1. Coming from history navigation (fromHistory=true)
-    // 2. No current text or current text is "prompt"
-    // 3. Current text is already the last item in history
-    // 4. Current text is a kidlisp piece and we're navigating to prompt (backspace scenario)
-    // 5. We're loading prompt with kidlisp parameters (backspace navigation)
-    const isKidlispCurrent = currentText && lisp.isKidlispSource(currentText);
-    const isPromptWithKidlisp =
-      slug.startsWith("prompt~") && slug.includes("(");
-    const isKidlispTarget = slug && lisp.isKidlispSource(slug);
-
-    // Special case: Always add chat to history when navigating to kidlisp
-    const shouldAddChatToHistory = currentText === "chat" && isKidlispTarget;
-
-    const shouldAddToHistory =
+    if (
       !fromHistory &&
       currentText &&
       currentText !== "prompt" &&
-      currentText !== $commonApi.history[$commonApi.history.length - 1] &&
-      (!isKidlispCurrent || shouldAddChatToHistory) &&
-      !isPromptWithKidlisp;
-
-    if (shouldAddToHistory) {
+      currentText !== $commonApi.history[$commonApi.history.length - 1]
+    ) {
       $commonApi.history.push(currentText);
     }
 
-    currentText = slug; // Keep original slug with tildes for URL navigation
+    currentText = slug;
     currentCode = sourceCode;
 
     if (screen) screen.created = true; // Reset screen to created if it exists.
@@ -5088,26 +4224,24 @@ async function load(
     }
   };
 
-  const loadedContent = {
-    path,
-    host,
-    search,
-    params,
-    hash,
-    text: slug,
-    pieceCount: $commonApi.pieceCount,
-    pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
-    // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
-    fromHistory,
-    alias,
-    meta,
-    taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
-    // noBeat: beat === defaults.beat,
-  };
-
   send({
     type: "disk-loaded",
-    content: loadedContent,
+    content: {
+      path,
+      host,
+      search,
+      params,
+      hash,
+      text: slug,
+      pieceCount: $commonApi.pieceCount,
+      pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
+      // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
+      fromHistory,
+      alias,
+      meta,
+      taping: $commonApi.rec.loadCallback !== null || $commonApi.rec.recording, // 🎏 Hacky flag. 23.09.17.05.09
+      // noBeat: beat === defaults.beat,
+    },
   });
 
   return true; // Loaded successfully.
@@ -5164,9 +4298,6 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
-
-    // Store embedded source for optimization
-    $commonApi.embeddedSource = content.embeddedSource;
 
     microphone.permission = content.microphonePermission;
 
@@ -5337,7 +4468,6 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "loading-complete") {
     leaving = false;
-    invalidateAPICache(); // Invalidate cached APIs when piece changes
     hotSwap?.(); // Actually swap out the piece functions and reset the state.
     loading = false;
     return;
@@ -5372,165 +4502,9 @@ async function makeFrame({ data: { type, content } }) {
   // return;
   // }
 
-  // Load the source code for a dropped `.mjs` or `.lisp` file.
+  // Load the source code for a dropped `.mjs` file.
   if (type === "dropped:piece") {
-    // Parse the dropped piece name and attach the source code
-    // Strip the .mjs or .lisp extension from the filename before parsing
-    const pieceName = content.name.replace(/\.(mjs|lisp)$/, "");
-    const isLisp = content.name.endsWith(".lisp");
-    console.log(
-      "📁 Dropped piece:",
-      content.name,
-      `(${content.source?.length || 0} chars)`,
-      isLisp ? "- KidLisp" : "- JavaScript",
-    );
-    const parsed = parse(pieceName);
-    parsed.source = content.source;
-    // Set parsed.name to the same value as parsed.text for dropped pieces
-    // This is needed because the load function uses parsed.name when source is provided
-    parsed.name = parsed.text;
-    // For .lisp files, force KidLisp interpretation
-    load(parsed, false, false, true, undefined, isLisp);
-    return;
-  }
-
-  // Handle dropped Ableton Live Set (.als) files.
-  if (type === "dropped:als") {
-    console.log(
-      "🎵 Dropped ALS file:",
-      content.name,
-      `(${content.xmlData?.length || 0} chars XML)`,
-    );
-    
-    // Send the XML data to the current piece if it's the ableton piece
-    if ($commonApi.piece === "ableton" && cachedAPI) {
-      // First send a loading event
-      const $api = cachedAPI;
-      let data = {};
-      Object.assign(data, {
-        device: "none",
-        is: (e) => e === "ableton:als:loading",
-      });
-      $api.event = data;
-      try {
-        act($api);
-      } catch (e) {
-        console.warn("️ ✒ ALS Loading Act failure...", e);
-      }
-      
-      // Then send the actual data
-      data = { 
-        type: "ableton:als:loaded",
-        xmlData: content.xmlData,
-        name: content.name,
-        project: content.project // 🎵 Forward the parsed project data!
-      };
-      Object.assign(data, {
-        device: "none",
-        is: (e) => e === "ableton:als:loaded",
-      });
-      $api.event = data;
-      try {
-        act($api);
-      } catch (e) {
-        console.warn("️ ✒ ALS Act failure...", e);
-      }
-    } else {
-      // Load the ableton piece and send the data as an act event once loaded
-      const parsed = parse("ableton");
-      load(parsed, false, false, false, () => {
-        // This callback runs after the piece is loaded
-        const $api = cachedAPI;
-        if ($api) {
-          const data = { 
-            type: "ableton:als:loaded",
-            xmlData: content.xmlData,
-            name: content.name,
-            project: content.project // 🎵 Forward the parsed project data!
-          };
-          Object.assign(data, {
-            device: "none",
-            is: (e) => e === "ableton:als:loaded",
-          });
-          $api.event = data;
-          try {
-            act($api);
-          } catch (e) {
-            console.warn("️ ✒ ALS Load Act failure...", e);
-          }
-        }
-      });
-    }
-    return;
-  }
-
-  // Handle dropped WAV audio files.
-  if (type === "dropped:wav") {
-    console.log(
-      "🔊 Dropped WAV file:",
-      content.name,
-      `(${content.size || 0} bytes)`,
-    );
-    
-    // Send the WAV data to the current piece if it's the ableton piece
-    if ($commonApi.piece === "ableton" && cachedAPI) {
-      // First send a loading event
-      const $api = cachedAPI;
-      let data = {};
-      Object.assign(data, {
-        device: "none",
-        is: (e) => e === "ableton:wav:loading",
-      });
-      $api.event = data;
-      try {
-        act($api);
-      } catch (e) {
-        console.warn("️ ✒ WAV Loading Act failure...", e);
-      }
-      
-      // Then send the actual data
-      data = { 
-        name: content.name,
-        originalName: content.originalName,
-        size: content.size,
-        id: content.id // Pass the audio ID for playback
-      };
-      Object.assign(data, {
-        device: "none",
-        is: (e) => e === "ableton:wav:loaded",
-      });
-      $api.event = data;
-      try {
-        act($api);
-      } catch (e) {
-        console.warn("️ ✒ WAV Act failure...", e);
-      }
-    } else {
-      // Load the ableton piece and send the data as an act event once loaded
-      const parsed = parse("ableton");
-      load(parsed, false, false, false, () => {
-        // This callback runs after the piece is loaded
-        const $api = cachedAPI;
-        if ($api) {
-          const data = { 
-            wavData: content.data,
-            name: content.name,
-            originalName: content.originalName,
-            audioId: content.audioId // Pass the audio ID for playback
-          };
-          Object.assign(data, {
-            device: "none",
-            is: (e) => e === "ableton:wav:loaded",
-          });
-          $api.event = data;
-          try {
-            act($api);
-          } catch (e) {
-            console.warn("️ ✒ WAV Load Act failure...", e);
-          }
-        }
-      });
-    }
+    load(content, false, false, true);
     return;
   }
 
@@ -5731,7 +4705,6 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:rolling:started" ||
     type === "recorder:rolling:resumed"
   ) {
-    // console.log("🎬 Rolling started/resumed, invoking callback with time:", content.time);
     $commonApi.rec.recording = true;
     $commonApi.rec.rollingCallback?.(content.time);
     return;
@@ -5739,8 +4712,6 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
-    $commonApi.rec.recordingStartTime = undefined; // Clear animation start time
-    $commonApi.rec.animationFrame = undefined; // Clear animation frame counter
     $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
     $commonApi.rec.cutCallback?.();
     return;
@@ -5766,11 +4737,6 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  if (type === "recorder:frames-response") {
-    $commonApi.rec.framesCallback?.(content);
-    return;
-  }
-
   if (type === "recorder:present-progress") {
     $commonApi.rec.presentProgress = content;
     return;
@@ -5782,15 +4748,12 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "recorder:present-paused") {
-    // console.log("🎬 Tape playback paused - resuming pixel transfer");
     $commonApi.rec.playing = false;
     return;
   }
 
   if (type === "recorder:unpresented") {
-    // console.log("🎬 Tape playback ended - resuming pixel transfer");
     $commonApi.rec.presenting = false;
-    $commonApi.rec.playing = false;
     return;
   }
 
@@ -5829,11 +4792,6 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "sfx:got-sample-data") {
     sfxSampleReceivers[content.id]?.(content.data);
-    return;
-  }
-
-  if (type === "sfx:got-duration") {
-    sfxDurationReceivers[content.id]?.(content.duration);
     return;
   }
 
@@ -5983,6 +4941,7 @@ async function makeFrame({ data: { type, content } }) {
     if (content.result === "success") {
       authorizationRequest?.resolve(content.data);
     } else if (content.result === "error") {
+      console.warn("Failed to authenticate.", content);
       authorizationRequest?.reject(content.data);
     }
     authorizationRequest = undefined;
@@ -6015,17 +4974,13 @@ async function makeFrame({ data: { type, content } }) {
   // 1c. Loading from History
   if (type === "history-load") {
     if (debug && logs.history) console.log("⏳ History:", content);
-    // Restore labelBack state if it was passed from main thread history navigation
-    if (content.labelBack) {
-      labelBack = true;
-      console.log("🔗 Worker: Restored labelBack from history navigation");
-    }
     $commonApi.load(content, true);
     return;
   }
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
+    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
@@ -6041,8 +4996,6 @@ async function makeFrame({ data: { type, content } }) {
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
     if (debug && logs.audio) console.log("Sound load success:", content);
-    if (debug && logs.audio)
-      console.log("Resolving preload promise for:", content.sfx);
     preloadPromises[content.sfx]?.resolve(content.sfx);
     delete preloadPromises[content];
     return;
@@ -6120,111 +5073,12 @@ async function makeFrame({ data: { type, content } }) {
     let pixels;
     if (content.pixels) {
       pixels = new Uint8ClampedArray(content.pixels);
-      if (screen) {
-        // Check if we need to apply background fill to the incoming pixels
-        if (backgroundFillColor && pixels.length > 0) {
-          try {
-            // Use graph.findColor to resolve the color to RGBA
-            let fillColor = graph.findColor(backgroundFillColor);
-            // Ensure we have 4 components (RGBA), defaulting alpha to 255 if missing
-            if (fillColor.length === 3) {
-              fillColor = [fillColor[0], fillColor[1], fillColor[2], 255];
-            }
-            
-            // Check if pixels are currently transparent (all zeros) and fill only those
-            for (let i = 0; i < pixels.length; i += 4) {
-              // Check if pixel is transparent (alpha = 0)
-              if (pixels[i + 3] === 0) {
-                pixels[i] = fillColor[0];     // Red
-                pixels[i + 1] = fillColor[1]; // Green  
-                pixels[i + 2] = fillColor[2]; // Blue
-                pixels[i + 3] = fillColor[3]; // Alpha
-              }
-            }
-          } catch (e) {
-            // Silently continue if color resolution fails
-          }
-        }
-        
-        screen.pixels = pixels;
-      }
-    }
-
-    // 🔙 Abstracted backspace logic for reuse between keyboard and touch-scrub
-    // Debounce mechanism to prevent double backspace triggers
-    let lastBackspaceTime = 0;
-    
-    function triggerBackspaceAction() {
-      const now = Date.now();
-      if (now - lastBackspaceTime < 300) { // 300ms debounce
-        // console.log("🎬 Backspace debounced - ignoring rapid fire");
-        return;
-      }
-      lastBackspaceTime = now;
-      
-      $commonApi.sound.synth({
-        tone: 800,
-        beats: 0.1,
-        attack: 0.01,
-        decay: 0.5,
-        volume: 0.15,
-      });
-
-      // Immediately reset pan state for backspace navigation
-      graph.unpan();
-
-      send({ type: "keyboard:unlock" });
-
-      // Always go to prompt for editing, regardless of labelBack setting
-      // This ensures backspace always returns to editable input
-      let promptSlug = "prompt";
-      
-      // 🎬 Special case: If coming from video piece after a tape command,
-      // return to the original tape command instead of "video"
-      // Check both currentText and currentPath to catch all ways of getting to video
-      let content;
-      if ((currentText === "video" || currentPath === "aesthetic.computer/disks/video") && store["tape:originalCommand"]) {
-        // console.log("🎬 Backspace from video piece - using original tape command:", store["tape:originalCommand"]);
-        // console.log("🎬 Debug - isKidlispSource(originalCommand):", lisp.isKidlispSource(store["tape:originalCommand"]));
-        content = store["tape:originalCommand"];
-        // Don't clear the stored command yet - wait until we successfully navigate away
-        // store.delete("tape:originalCommand");
-      } else if (currentText && currentText.startsWith("$") && currentCode && lisp.isKidlispSource(currentCode)) {
-        // This is a cached KidLisp piece - use the full source code for backspace
-        content = currentCode;
-      } else {
-        // Use currentText which contains the original slug with tildes (e.g., "rect~red")
-        content = currentText;
-      }
-      
-      if (content) {
-        // For backspace navigation, we want to pass KidLisp source directly without encoding
-        // since this is for editing, not URL sharing
-        if (lisp.isKidlispSource(content)) {
-          // Don't encode for backspace - pass raw source for editing
-          promptSlug += "~" + content;
-        } else {
-          // For regular piece names, replace spaces with underscores temporarily
-          // This is simpler and safer than URL encoding for internal navigation
-          const escapedContent = content.replace(/ /g, "_SPACE_");
-          promptSlug += "~" + escapedContent;
-        }
-      }
-      
-      // Clear the stored tape command after successful navigation setup
-      if (content === store["tape:originalCommand"]) {
-        store.delete("tape:originalCommand");
-      }
-      
-      $commonApi.jump(promptSlug);
-      send({ type: "keyboard:open" });
+      if (screen) screen.pixels = pixels;
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
-    // GC OPTIMIZATION: Use for loop instead of forEach
-    for (let i = 0; i < content.keyboard.length; i++) {
-      const data = content.keyboard[i];
-      if (currentText && currentText.indexOf("botce") > -1) continue; // No global keys on `botce`. 23.11.12.23.38
+    content.keyboard.forEach((data) => {
+      if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
@@ -6276,48 +5130,42 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
-          if (data.key === "Backspace") {
-            triggerBackspaceAction();
-          } else {
-            $commonApi.sound.synth({
-              tone: 1200,
-              beats: 0.1,
-              attack: 0.01,
-              decay: 0.5,
-              volume: 0.15,
-            });
+          $commonApi.sound.synth({
+            tone: data.key === "Backspace" ? 800 : 1200,
+            beats: 0.1,
+            attack: 0.01,
+            decay: 0.5,
+            volume: 0.15,
+          });
 
-            send({ type: "keyboard:unlock" });
-            
-            // Special case: If we're in video piece and have a tape recording, 
-            // always go directly to prompt (ignore labelBack)
-            const isVideoAfterTape = (currentText === "video" || currentPath === "aesthetic.computer/disks/video") && 
-                                    (store["tape:originalCommand"] || $commonApi.rec.recorded);
-            
-            if (!labelBack || isVideoAfterTape) {
-              // Clear labelBack if we detected video after tape context
-              if (isVideoAfterTape && labelBack) {
-                labelBack = false;
-                delete store["aesthetic-labelBack"];
-                send({ type: "labelBack:clear", content: false });
+          send({ type: "keyboard:unlock" });
+          if (!labelBack || data.key === "Backspace") {
+            let promptSlug = "prompt";
+            if (data.key === "Backspace") {
+              const content = currentHUDTxt || currentText;
+              // Only encode kidlisp content with kidlisp encoder
+              if (lisp.isKidlispSource(content)) {
+                const encodedContent = lisp.encodeKidlispForUrl(content);
+                promptSlug += "~" + encodedContent;
+              } else {
+                // For regular piece names, convert tildes to spaces for display
+                const spaceContent = content.replace(/~/g, " ");
+                promptSlug += "~" + spaceContent;
               }
-              $commonApi.jump("prompt")(() => {
+            }
+            $commonApi.jump(promptSlug)(() => {
+              send({ type: "keyboard:open" });
+            });
+          } else {
+            if ($commonApi.history.length > 0) {
+              send({ type: "back-to-piece" });
+              // $commonApi.jump(
+              //   $commonApi.history[$commonApi.history.length - 1],
+              // );
+            } else {
+              $commonApi.jump(promptSlug)(() => {
                 send({ type: "keyboard:open" });
               });
-            } else {
-              if ($commonApi.history.length > 0) {
-                send({
-                  type: "back-to-piece",
-                  content: {
-                    targetPiece:
-                      $commonApi.history[$commonApi.history.length - 1],
-                  },
-                });
-              } else {
-                $commonApi.jump("prompt")(() => {
-                  send({ type: "keyboard:open" });
-                });
-              }
             }
           }
         }
@@ -6381,7 +5229,7 @@ async function makeFrame({ data: { type, content } }) {
           send({ type: "fullscreen-enable" });
         }
       }
-    }
+    });
 
     // Add 'loading' status to $commonApi.
     $commonApi.loading = loading; // Let the piece know if we are already
@@ -6413,18 +5261,15 @@ async function makeFrame({ data: { type, content } }) {
       const pointers = content.pen.pointers;
       const pointersValues = Object.values(pointers);
 
-      // GC OPTIMIZATION: Use for loop instead of forEach for dragBox processing
-      for (let i = 0; i < pointersValues.length; i++) {
-        const p = pointersValues[i];
+      // Make all available dragBoxes into `Box` instances.
+      pointersValues.forEach((p) => {
         if (p.dragBox) p.dragBox = geo.Box.from(p.dragBox);
-      }
+      });
 
-      // GC OPTIMIZATION: Use manual loop instead of reduce
-      const pens = [];
-      for (let i = 0; i < pointersValues.length; i++) {
-        const value = pointersValues[i];
-        pens[value.pointerNumber] = value;
-      }
+      const pens = pointersValues.reduce((arr, value) => {
+        arr[value.pointerNumber] = value;
+        return arr;
+      }, []);
 
       // if (pens.length > 0 && debug)
       //   console.log("Pens:", pens, content.pen.events);
@@ -6539,38 +5384,10 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         const frequency = noteFrequencies[note]; // Look up freq for the note.
-        if (!frequency) {
-          console.error("🎵 Note lookup failed:", {
-            originalInput: input,
-            parsedNote: note,
-            parsedOctave: octave,
-            availableNotes: Object.keys(noteFrequencies),
-          });
-          throw new Error(
-            `Note not found in the list: "${note}" (from input: "${input}")`,
-          );
-        }
+        if (!frequency) throw new Error("Note not found in the list");
 
         // Calculate the frequency for the given octave
-        // Limit octave to reasonable audio range (0-9)
-        if (octave < 0) {
-          console.warn(`🎵 Octave too low: ${octave}, clamping to 0`);
-          octave = 0;
-        }
-        if (octave > 9) {
-          console.warn(`🎵 Octave too high: ${octave}, clamping to 9`);
-          octave = 9;
-        }
-
         const finalFreq = frequency * Math.pow(2, octave);
-
-        // Final sanity check on frequency range (20 Hz to 20000 Hz)
-        if (finalFreq < 20 || finalFreq > 20000) {
-          console.warn(
-            `🎵 Frequency out of audible range: ${finalFreq.toFixed(2)} Hz for ${input}`,
-          );
-        }
-
         return finalFreq;
       },
       // Calculate a musical note from a frequency.
@@ -6766,15 +5583,6 @@ async function makeFrame({ data: { type, content } }) {
       return prom;
     };
 
-    $sound.getDuration = async function getDuration(id) {
-      const prom = new Promise((resolve, reject) => {
-        sfxDurationReceivers[id] = resolve;
-        return { resolve, reject };
-      });
-      send({ type: "sfx:get-duration", content: { id } });
-      return prom;
-    };
-
     soundTime = content.audioTime;
 
     $sound.play = function play(sfx, options, callbacks) {
@@ -6837,13 +5645,7 @@ async function makeFrame({ data: { type, content } }) {
       volume,
       pan = 0,
       generator = null, // Custom waveform generator function for type "custom"
-      toneShift = 0, // Hz shift to add to the tone frequency
     } = {}) {
-      // Debug: Log synth function call with toneShift
-      if (toneShift !== 0) {
-        console.log(`🎵 DISK DEBUG: synth() called with toneShift: ${toneShift}Hz, tone: ${tone}`);
-      }
-      
       const id = soundId;
       if (volume === undefined) volume = 1;
       if (duration === "🔁") duration = Infinity; // First emoji in the API. 24.07.03.02.26
@@ -6851,12 +5653,6 @@ async function makeFrame({ data: { type, content } }) {
         beats = (duration * sound.bpm) / 60;
 
       tone = $sound.freq(tone);
-      // Apply toneShift to the final frequency
-      if (toneShift !== 0) {
-        const originalTone = tone;
-        tone += toneShift;
-        console.log(`🎵 DISK DEBUG: Applied toneShift ${toneShift}Hz: ${originalTone}Hz -> ${tone}Hz`);
-      }
       // console.log("⛈️ Tone:", tone);
       // Add generator to sound data for custom type
       const soundData = { id, type, tone, beats, attack, decay, volume, pan };
@@ -6938,16 +5734,11 @@ async function makeFrame({ data: { type, content } }) {
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
     if (booted && paintCount > 0n /*&& !leaving*/) {
-      // GC OPTIMIZATION: Reuse cached API object instead of recreating every frame
-      let $api = cachedAPI;
-      if (!$api || $api._frameInvalid) {
-        $api = {};
-        keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
-        keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
-        keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
-        $api.api = $api; // Add a reference to the whole API.
-        $api._frameInvalid = false;
-      }
+      const $api = {};
+      keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
+      keys($updateApi).forEach((key) => ($api[key] = $updateApi[key]));
+      keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
+      $api.api = $api; // Add a reference to the whole API.
 
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
@@ -7083,25 +5874,22 @@ async function makeFrame({ data: { type, content } }) {
       // Ingest all pen input events by running act for each event.
       // TODO: I could also be transforming pen coordinates here...
       // TODO: Keep track of lastPen to see if it changed.
-      // GC OPTIMIZATION: Use for loop instead of forEach
-      if (content.pen?.events) {
-        for (let i = 0; i < content.pen.events.length; i++) {
-          const data = content.pen.events[i];
-          Object.assign(data, {
-            device: data.device,
-            is: (e) => {
-              let [name, pointer] = e.split(":");
-              if (pointer) {
-                if (pointer === "any") {
-                  return name === data.name;
-                } else {
-                  return name === data.name && data.index === parseInt(pointer);
-                }
+      content.pen?.events.forEach((data) => {
+        Object.assign(data, {
+          device: data.device,
+          is: (e) => {
+            let [name, pointer] = e.split(":");
+            if (pointer) {
+              if (pointer === "any") {
+                return name === data.name;
               } else {
-                return name === data.name && data.isPrimary === true;
+                return name === data.name && data.index === parseInt(pointer);
               }
-            },
-          });
+            } else {
+              return name === data.name && data.isPrimary === true;
+            }
+          },
+        });
         //console.log(data)
         $api.event = data;
         // 🌐🖋️️ Global pen events.
@@ -7155,51 +5943,7 @@ async function makeFrame({ data: { type, content } }) {
             },
             push: (btn) => {
               const shareWidth = tf.blockWidth * "share ".length;
-
-              // Dynamic caret width calculation based on prompt length
-              // Short prompts (4 chars or less) get a minimal threshold
-              // Longer prompts get a more stretched out threshold
-              const promptLength = currentHUDTxt.length;
-              const baseCaretWidth = tf.blockWidth + 2;
-              const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-
-              let caretWidth;
-              if (promptLength <= 4) {
-                // Very short prompts like "line" get minimal threshold
-                caretWidth = baseCaretWidth;
-              } else if (promptLength <= 8) {
-                // Medium prompts get moderate threshold
-                caretWidth = Math.floor(baseCaretWidth * 1.5);
-              } else {
-                // Long prompts get stretched threshold, capped at max
-                caretWidth = Math.min(
-                  maxCaretWidth,
-                  Math.floor(promptLength * tf.blockWidth * 0.25),
-                );
-              }
-
-              // Don't allow normal push behavior if we've been scrubbing
-              if (btn.scrubbing) {
-                btn.actions.cancel?.();
-                return;
-              }
-
-              // Handle left threshold (backspace) case
-              if (currentHUDScrub === -caretWidth) {
-                // Trigger backspace action using the abstracted function
-                triggerBackspaceAction();
-                $api.needsPaint();
-                masked = true;
-                currentHUDScrub = 0;
-                return;
-              }
-
-              // Check if we're releasing during scrub but not at a threshold
-              if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
-                btn.actions.cancel?.();
-                return;
-              }
-              if (currentHUDScrub < 0 && currentHUDScrub > -caretWidth) {
+              if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
                 btn.actions.cancel?.();
                 return;
               }
@@ -7211,43 +5955,12 @@ async function makeFrame({ data: { type, content } }) {
                 decay: 0.5,
                 volume: 0.15,
               });
-              
-              // 🎨 Special case: For inline kidlisp pieces, behave like backspace
-              // (preserve content and open keyboard) instead of blanking the prompt
-              // Only for pieces created from prompt input (not .mjs files or cached $codes)
-              const isInlineKidlisp = currentCode && 
-                lisp.isKidlispSource(currentCode) && 
-                !currentText.startsWith("$") &&
-                !currentCode.includes('export') && 
-                !currentCode.includes('function ') &&
-                currentCode.length < 10000 && // Inline pieces are typically small
-                (currentCode.includes('wipe') || currentCode.includes('ink') || currentCode.includes('line') || currentCode.includes('box'));
-              
-              if (isInlineKidlisp) {
-                // For inline kidlisp, preserve the content and open keyboard like backspace does
-                send({ type: "keyboard:unlock" });
-                
-                let promptSlug = "prompt";
-                let content = currentCode; // Use the full source code
-                
-                if (content) {
-                  // Don't encode for editing - pass raw source
-                  promptSlug += "~" + content;
-                }
-                
-                jump(promptSlug);
-                send({ type: "keyboard:open" });
-              } else if (!labelBack) {
+              if (!labelBack) {
                 jump("prompt");
               } else {
+                labelBack = false; // Reset `labelBack` after jumping.
                 if ($commonApi.history.length > 0) {
-                  send({
-                    type: "back-to-piece",
-                    content: {
-                      targetPiece:
-                        $commonApi.history[$commonApi.history.length - 1],
-                    },
-                  });
+                  send({ type: "back-to-piece" });
                 } else {
                   jump("prompt");
                 }
@@ -7259,58 +5972,30 @@ async function makeFrame({ data: { type, content } }) {
             scrub: (btn) => {
               if (piece === "share") return; // No need to share scrub while in share.
 
-              if (btn.over || currentHUDScrub !== 0) {
+              if (btn.over || currentHUDScrub > 0) {
                 currentHUDScrub += e.delta.x;
-                // Mark that we're actively scrubbing
-                btn.scrubbing = true;
               }
 
               const shareWidth = tf.blockWidth * "share ".length;
 
-              // Dynamic caret width calculation based on prompt length
-              // Short prompts (4 chars or less) get a minimal threshold
-              // Longer prompts get a more stretched out threshold
-              const promptLength = currentHUDTxt.length;
-              const baseCaretWidth = tf.blockWidth + 2;
-              const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-
-              let caretWidth;
-              if (promptLength <= 4) {
-                // Very short prompts like "line" get minimal threshold
-                caretWidth = baseCaretWidth;
-              } else if (promptLength <= 8) {
-                // Medium prompts get moderate threshold
-                caretWidth = Math.floor(baseCaretWidth * 1.5);
-              } else {
-                // Long prompts get stretched threshold, capped at max
-                caretWidth = Math.min(
-                  maxCaretWidth,
-                  Math.floor(promptLength * tf.blockWidth * 0.25),
-                );
-              }
-
-              // Update button width for positive scrub
               if (currentHUDScrub >= 0) {
                 btn.box.w =
                   tf.blockWidth * currentHUDTxt.length + currentHUDScrub;
                 // console.log(btn.b);
               }
 
-              // Clamp scrub values within bounds
+              if (currentHUDScrub < 0) currentHUDScrub = 0;
+
               if (currentHUDScrub >= shareWidth) {
                 currentHUDScrub = shareWidth;
-                currentHUDTextColor = [255, 255, 0]; // Yellow for share threshold
-              } else if (currentHUDScrub <= -caretWidth) {
-                currentHUDScrub = -caretWidth;
-                currentHUDTextColor = [255, 255, 0]; // Yellow for backspace threshold
-              } else if (btn.scrubbing) {
-                // Once scrubbing has started, stay red until threshold is reached
-                currentHUDTextColor = [255, 0, 0]; // Red for scrubbing (not at threshold yet)
+                currentHUDTextColor = [255, 255, 0];
+              } else if (currentHUDScrub > 0) {
+                currentHUDTextColor = [255, 0, 0];
               } else if (currentHUDScrub === 0) {
                 if (btn.over) {
-                  currentHUDTextColor = [0, 255, 0]; // Green when hovering (only when not scrubbing)
+                  currentHUDTextColor = [0, 255, 0];
                 } else {
-                  currentHUDTextColor = [255, 0, 0]; // Default red
+                  currentHUDTextColor = [255, 0, 0];
                 }
               }
             },
@@ -7318,30 +6003,7 @@ async function makeFrame({ data: { type, content } }) {
               currentHUDTextColor = originalColor;
 
               const shareWidth = tf.blockWidth * "share ".length;
-
-              // Dynamic caret width calculation based on prompt length
-              // Short prompts (4 chars or less) get a minimal threshold
-              // Longer prompts get a more stretched out threshold
-              const promptLength = currentHUDTxt.length;
-              const baseCaretWidth = tf.blockWidth + 2;
-              const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-
-              let caretWidth;
-              if (promptLength <= 4) {
-                // Very short prompts like "line" get minimal threshold
-                caretWidth = baseCaretWidth;
-              } else if (promptLength <= 8) {
-                // Medium prompts get moderate threshold
-                caretWidth = Math.floor(baseCaretWidth * 1.5);
-              } else {
-                // Long prompts get stretched threshold, capped at max
-                caretWidth = Math.min(
-                  maxCaretWidth,
-                  Math.floor(promptLength * tf.blockWidth * 0.25),
-                );
-              }
-
-              console.log("scrub:", currentHUDScrub, shareWidth, -caretWidth);
+              console.log("scrub:", currentHUDScrub, shareWidth);
 
               if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
@@ -7359,39 +6021,15 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.1,
                 });
                 // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                let contentToShare = currentHUDLogicalTxt || currentHUDTxt;
-                // Strip "share " prefix if it exists to avoid double-encoding
-                if (contentToShare && contentToShare.startsWith("share ")) {
-                  contentToShare = contentToShare.substring(6); // Remove "share " prefix
-                }
-
-                // Check if the content is already kidlisp source - if so, don't re-encode
-                if (lisp.isKidlispSource(contentToShare)) {
-                  // Content is already kidlisp, encode it properly for sharing
-                  $api.jump(
-                    "share~" + lisp.encodeKidlispForUrl(contentToShare),
-                  );
-                } else {
-                  // Content is not kidlisp, share as-is
-                  $api.jump("share~" + contentToShare);
-                }
-                return;
-              } else if (currentHUDScrub === -caretWidth) {
-                // Trigger backspace action using the abstracted function
-                triggerBackspaceAction();
+                $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
                 return;
               }
 
-              // Only cancel and play cancel sound if we haven't reached a threshold
               currentHUDScrub = 0;
-              // Reset scrubbing flag on any button
-              if (currentHUDButton) currentHUDButton.scrubbing = false;
-
-              // Disable/lock keyboard for normal cancel (not threshold actions)
-              // Threshold actions (share/backspace) handle their own keyboard state
+              // TODO: This might break on pieces where the keyboard is already
+              //       open.
               send({ type: "keyboard:disabled" }); // Disable keyboard flag.
               send({ type: "keyboard:lock" });
-
               $api.needsPaint();
               $api.sound.synth({
                 tone: 200,
@@ -7409,13 +6047,9 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
             },
-            rollout: (btn) => {
+            rollout: () => {
               // console.log("rolled out...");
-              // Only change color if the button was actually pressed/down
-              if (btn && btn.down) {
-                currentHUDTextColor = [200, 80, 80];
-              }
-              // Don't lock keyboard if we just triggered backspace
+              currentHUDTextColor = [200, 80, 80];
               send({ type: "keyboard:lock" });
             },
           });
@@ -7424,84 +6058,69 @@ async function makeFrame({ data: { type, content } }) {
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
-      }
-    }
+      });
 
       // *** 3D Pen Events ***
-      // GC OPTIMIZATION: Use for loop instead of forEach
-      if (content.pen3d?.events) {
-        for (let i = 0; i < content.pen3d.events.length; i++) {
-          const data = content.pen3d.events[i];
-          Object.assign(data, {
-            is: (e) => {
-              let [prefix, event, pointer] = e.split(":");
-              if (
-                prefix === "3d" &&
-                event === data.name &&
-                (pointer === undefined || parseInt(pointer) === data.pointer)
-              )
-                return true;
-            },
-          });
-          $api.event = data;
-          try {
-            act($api);
-          } catch (e) {
-            console.warn("️ ✒ Act failure...", e);
-          }
+      content.pen3d?.events?.forEach((data) => {
+        Object.assign(data, {
+          is: (e) => {
+            let [prefix, event, pointer] = e.split(":");
+            if (
+              prefix === "3d" &&
+              event === data.name &&
+              (pointer === undefined || parseInt(pointer) === data.pointer)
+            )
+              return true;
+          },
+        });
+        $api.event = data;
+        try {
+          act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
         }
-      }
+      });
 
       // Ingest all keyboard input events by running act for each event.
-      // GC OPTIMIZATION: Use for loop instead of forEach
-      if (content.keyboard) {
-        for (let i = 0; i < content.keyboard.length; i++) {
-          const data = content.keyboard[i];
-          Object.assign(data, {
-            device: "keyboard",
-            is: (e) => {
-              const parts = e.split(":");
-              if (parts.length > 2) {
-                // Check for an exact match if `keyboard:action:?`
-                return data.name === e;
-              } else {
-                // Or a subtring match if `keyboard:action`
-                return data.name.indexOf(e) === 0;
-              }
-            },
-          });
-          $api.event = data;
-          try {
-            act($api); // Execute piece shortcut.
-          } catch (e) {
-            console.warn("️ ✒ Act failure...", e);
-          }
+      content.keyboard?.forEach((data) => {
+        Object.assign(data, {
+          device: "keyboard",
+          is: (e) => {
+            const parts = e.split(":");
+            if (parts.length > 2) {
+              // Check for an exact match if `keyboard:action:?`
+              return data.name === e;
+            } else {
+              // Or a subtring match if `keyboard:action`
+              return data.name.indexOf(e) === 0;
+            }
+          },
+        });
+        $api.event = data;
+        try {
+          act($api); // Execute piece shortcut.
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
         }
-      }
+      });
 
       // Ingest all gamepad input events by running act for each event.
-      // GC OPTIMIZATION: Use for loop instead of forEach  
-      if (content.gamepad) {
-        for (let i = 0; i < content.gamepad.length; i++) {
-          const data = content.gamepad[i];
-          Object.assign(data, {
-            device: "gamepad",
-            is: (e) => data.name.indexOf(e) === 0,
-          });
-          $api.event = data;
-          try {
-            act($api); // Execute piece shortcut.
-          } catch (e) {
-            console.warn("️ ✒ Act failure...", e);
-          }
+      content.gamepad?.forEach((data) => {
+        Object.assign(data, {
+          device: "gamepad",
+          is: (e) => data.name.indexOf(e) === 0,
+        });
+        $api.event = data;
+        try {
+          act($api); // Execute piece shortcut.
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
         }
-      }
+      });
 
       // *** Act Alerts *** (Custom events defined in here.)
       // These do not run in the initial loader / preview piece.
-      // GC OPTIMIZATION: Use for loop instead of forEach
-      for (let i = 0; i < actAlerts.length; i++) {
-        const action = actAlerts[i];
+      actAlerts.forEach((action) => {
         // Check if `name`'s not a string, and if not, attach arbitrary data.
         let name,
           extra = {};
@@ -7512,40 +6131,28 @@ async function makeFrame({ data: { type, content } }) {
           name = action;
         }
 
-        // GC OPTIMIZATION: Reuse event data object when possible
-        if (!$api._eventData) {
-          $api._eventData = {
-            name: null,
-            is: null,
-            of: null,
-          };
-        }
-        
-        $api._eventData.name = name;
-        $api._eventData.is = (e) => e === name;
-        $api._eventData.of = (e) => name.startsWith(e);
-        
-        // Add extra properties directly
-        const extraKeys = Object.keys(extra);
-        for (let j = 0; j < extraKeys.length; j++) {
-          const key = extraKeys[j];
-          $api._eventData[key] = extra[key];
-        }
+        const data = {
+          name,
+          is: (e) => e === name,
+          of: (e) => name.startsWith(e),
+          ...extra,
+        };
 
-        $api.event = $api._eventData;
+        // TODO: All all fields from 'extra' into 'data'.
+
+        $api.event = data;
         try {
           act($api);
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
-      }
+      });
       //if (actAlerts.length > 0) console.log(actAlerts, booted);
       actAlerts.length = 0; // Clear act alerts.
     }
 
     // 🖼 Paint
     if (content.needsRender) {
-      // NOTE: Using fresh API object for paint to ensure HUD/overlay updates work properly
       const $api = {};
       keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
       keys(painting.api).forEach((key) => ($api[key] = painting.api[key]));
@@ -7560,9 +6167,6 @@ async function makeFrame({ data: { type, content } }) {
       $api.paintCount = Number(paintCount);
 
       $api.inFocus = content.inFocus;
-      
-      // Add cached KidLisp owner info for attribution in HUD
-      $api.cachedKidlispOwner = cachedKidlispOwner;
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
 
@@ -7571,38 +6175,11 @@ async function makeFrame({ data: { type, content } }) {
         screen.width !== content.width ||
         screen.height !== content.height
       ) {
-        // Create the pixel buffer
-        let newPixels;
-        if (pixels) {
-          newPixels = pixels;
-        } else {
-          newPixels = new Uint8ClampedArray(content.width * content.height * 4);
-          
-          // Fill with background color if available, otherwise leave as transparent (zeros)
-          if (backgroundFillColor) {
-            try {
-              // Use graph.findColor to resolve the color to RGBA
-              let fillColor = graph.findColor(backgroundFillColor);
-              // Ensure we have 4 components (RGBA), defaulting alpha to 255 if missing
-              if (fillColor.length === 3) {
-                fillColor = [fillColor[0], fillColor[1], fillColor[2], 255];
-              }
-              
-              // Fill the buffer with the resolved color
-              for (let i = 0; i < newPixels.length; i += 4) {
-                newPixels[i] = fillColor[0];     // Red
-                newPixels[i + 1] = fillColor[1]; // Green  
-                newPixels[i + 2] = fillColor[2]; // Blue
-                newPixels[i + 3] = fillColor[3]; // Alpha
-              }
-            } catch (e) {
-              // Silently continue if color resolution fails
-            }
-          }
-        }
+        const hasScreen = screen !== undefined;
 
         screen = {
-          pixels: newPixels,
+          pixels:
+            pixels || new Uint8ClampedArray(content.width * content.height * 4),
           width: content.width,
           height: content.height,
           load: function load(name) {
@@ -7625,26 +6202,23 @@ async function makeFrame({ data: { type, content } }) {
           },
         };
 
-        screen["resized"] = true; // Screen change type.
+        screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
 
-        // Only initialize depth buffer if CPU 3D rendering is being used
-        if (needsCPU3D) {
-          graph.depthBuffer.length = screen.width * screen.height;
-          graph.depthBuffer.fill(Number.MAX_VALUE);
-          depthBufferInitialized = true;
-        }
+        // TODO: Add the depth buffer back here.
+        // Reset the depth buffer.
+        // TODO: I feel like this is causing a memory leak...
+        graph.depthBuffer.length = screen.width * screen.height;
+        graph.depthBuffer.fill(Number.MAX_VALUE);
 
-        // Write buffer is rarely used, keep it minimal
-        graph.writeBuffer.length = 0;
+        graph.writeBuffer.length = 0; //screen.width * screen.height;
         // graph.writeBuffer.fill(0);
       }
 
-      // Only clear depth buffer if CPU 3D rendering is active
-      if (needsCPU3D && depthBufferInitialized) {
-        graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
-      }
-      // Write buffer is rarely used, keep it minimal
-      graph.writeBuffer.length = 0;
+      // TODO: Disable the depth buffer for now... it doesn't need to be
+      //       regenerated on every frame.
+      // TODO: This only needs to run if 'form' is running in a piece. 25.03.20.19.27
+      graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
+      graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
 
       $api.screen = screen;
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
@@ -7865,7 +6439,7 @@ async function makeFrame({ data: { type, content } }) {
           // Save kidlisp's accumulated pan state for next frame
           $api.savepan();
           // Reset pan for system UI rendering
-          $api.resetpan();
+          $api.unpan();
         } catch (e) {
           console.warn("🎨 Paint failure...", e);
         }
@@ -7957,20 +6531,19 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // Show a notice if necessary.
-        // Commented out - prompt character preview in HUD label replaces center preview
-        // if (notice) {
-        //   ink(noticeColor[0])
-        //     //.pan(help.choose(-1, 0, 1), help.choose(-1, 0, 1))
-        //     .write(
-        //       notice,
-        //       { center: "xy", size: 2 },
-        //       // { center: "x", y: 32, size: 2 },
-        //       noticeColor[1],
-        //       $api.screen.width - 8,
-        //       noticeOpts?.wrap === "char" ? false : true,
-        //     );
-        //   //.unpan();
-        // }
+        if (notice) {
+          ink(noticeColor[0])
+            //.pan(help.choose(-1, 0, 1), help.choose(-1, 0, 1))
+            .write(
+              notice,
+              { center: "xy", size: 2 },
+              // { center: "x", y: 32, size: 2 },
+              noticeColor[1],
+              $api.screen.width - 8,
+              noticeOpts?.wrap === "char" ? false : true,
+            );
+          //.unpan();
+        }
 
         layer(0);
 
@@ -7993,830 +6566,149 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
 
-      // 🎬 Update HUD animation state
-      if (hudAnimationState.animating) {
-        const currentTime = performance.now();
-        const elapsed = currentTime - hudAnimationState.startTime;
-        const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
-        
-        // Easing function for smooth macOS-style animation (ease-out)
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        
-        // Use dynamic offsets based on content size, with reasonable minimums
-        // Store dimensions from the current animation state or use defaults
-        const hudWidth = hudAnimationState.labelWidth || 120;
-        const hudHeight = hudAnimationState.labelHeight || 40;
-        const qrSize = hudAnimationState.qrSize || 80;
-        
-        // Calculate slide distances: ensure full content slides off-screen
-        // Add extra padding (20px) to guarantee complete disappearance
-        const hudSlideX = -(hudWidth + 20);  // Slide left by full width + padding
-        const hudSlideY = -(hudHeight + 20); // Slide up by full height + padding
-        const qrSlideX = qrSize + 20;         // Slide right by full size + padding
-        const qrSlideY = qrSize + 20;         // Slide down by full size + padding
-        
-        if (hudAnimationState.visible) {
-          // Animating IN: fade from 0 to 1, slide from respective corners to position
-          hudAnimationState.opacity = easeOut;
-          // HUD slides in from top-left corner
-          hudAnimationState.slideOffset = {
-            x: (1 - easeOut) * hudSlideX, // Slide in from left using actual width
-            y: (1 - easeOut) * hudSlideY  // Slide in from top using actual height
-          };
-          // QR slides in from bottom-right corner
-          hudAnimationState.qrSlideOffset = {
-            x: (1 - easeOut) * qrSlideX,  // Slide in from right using actual size
-            y: (1 - easeOut) * qrSlideY   // Slide in from bottom using actual size
-          };
-        } else {
-          // Animating OUT: fade from 1 to 0, slide to respective corners
-          hudAnimationState.opacity = 1 - easeOut;
-          // HUD slides out to top-left corner
-          hudAnimationState.slideOffset = {
-            x: easeOut * hudSlideX, // Slide out to left using actual width
-            y: easeOut * hudSlideY  // Slide out to top using actual height
-          };
-          // QR slides out to bottom-right corner
-          hudAnimationState.qrSlideOffset = {
-            x: easeOut * qrSlideX,  // Slide out to right using actual size
-            y: easeOut * qrSlideY   // Slide out to bottom using actual size
-          };
-        }
-        
-        // Animation complete
-        if (progress >= 1.0) {
-          hudAnimationState.animating = false;
-          if (!hudAnimationState.visible) {
-            hudAnimationState.opacity = 0;
-            hudAnimationState.slideOffset = { x: hudSlideX, y: hudSlideY };
-            hudAnimationState.qrSlideOffset = { x: qrSlideX, y: qrSlideY };
-          } else {
-            hudAnimationState.opacity = 1;
-            hudAnimationState.slideOffset = { x: 0, y: 0 };
-            hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
-          }
-        }
-      }
-
-      // Update hideLabelViaTab based on animation state
-      hideLabelViaTab = !hudAnimationState.visible && !hudAnimationState.animating;
-
       // System info label (addressability).
-      // Use persistent module-level cache instead of local variable
-      let label = hudLabelCache;
-      
-      // Cache invalidation: track state that affects HUD label appearance
-      const cacheDisabled = isHUDLabelCacheDisabled();
-      const currentHUDState = {
-        text: currentHUDTxt,
-        scrub: currentHUDScrub,
-        textColor: JSON.stringify(currentHUDTextColor),
-        supportsInlineColor: $commonApi?.hud?.supportsInlineColor,
-        disablePieceNameColoring: $commonApi?.hud?.disablePieceNameColoring,
-        // Track frame-based changes for animation/timing-sensitive content
-        frameHash: $commonApi?.hud?.frameHash || 0,
-        // Add timestamp to force invalidation when caching is disabled
-        timestamp: cacheDisabled ? performance.now() : 0
-      };
-      
-      // Invalidate label cache if any visual state has changed
-      // Or if caching is globally disabled from BIOS
-      const stateChanged = label && label.lastHUDState && 
-                          JSON.stringify(currentHUDState) !== JSON.stringify(label.lastHUDState);
-      
-      // Enhanced debug logging for cache invalidation with detailed comparison
-      // Removed debug logs since HUD syntax highlighting is now working correctly
-      
-      if (!label || 
-          !label.lastHUDState || 
-          cacheDisabled ||
-          stateChanged) {
-        
-        // Removed debug logs since HUD caching is working correctly
-        label = null; // Clear cached label to force regeneration
-        hudLabelCache = null; // Clear module-level cache too
-      }
-      
+      let label;
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
-
-      // Removed debug logs since HUD generation is working correctly
 
       if (
         !previewMode &&
         !iconMode &&
         !hideLabel &&
-        (hudAnimationState.visible || hudAnimationState.animating) &&
         piece !== undefined &&
         piece.length > 0
       ) {
-        try {
-          // Removed debug logs since HUD generation is working correctly
-          
-          // Use the actual rendered width and height from text.box, not a naive estimate
-          // For label sizing, use the color-code-stripped text to avoid false wrapping
-          let cleanText = currentHUDTxt.replace(
-            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g,
-            "",
-          );
-          
-          // Removed debug logs since text processing is working correctly
-          
-          const labelBounds = $api.text.box(
-            cleanText,
-            undefined,
-            $api.screen.width - $api.typeface.blockWidth,
-          );
-          
-          // Removed debug logs since label bounds calculation is working correctly
-        // Use the actual width of the longest rendered line
-        let w = Math.max(
-          ...labelBounds.lines.map((lineArr) => {
-            // Preserve spaces when joining words on a line, matching the rendering logic
-            return (
-              (Array.isArray(lineArr) ? lineArr.join(" ") : lineArr).length *
-              tf.blockWidth
-            );
-          }),
+        let w = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
+        const labelBounds = $api.text.box(
+          currentHUDTxt,
+          undefined,
+          $api.screen.width - $api.typeface.blockWidth,
         );
 
-        // Adjust width based on scrub direction
-        if (currentHUDScrub >= 0) {
-          w += currentHUDScrub; // Positive scrub extends to the right
-        } else {
-          // Negative scrub: add space for sliding caret animation
-          // Reduce the extra space to prevent clipping and make caret start closer
-          w += tf.blockWidth * 3; // Add space for the caret box and sliding range (reduced from 6 to 3)
-        }
-        // Use the actual number of rendered lines for height
-        // Use only the actual text height for a tighter fit (no extra margin)
-        const scale = 1; // HUD label always uses scale 1
-        // Match the text.box rendering logic: blockHeight = (tf.blockHeight + 1) * scale
-        const h = labelBounds.lines.length * (tf.blockHeight + 1) * scale;
-        // Don't force full width for video piece - let it size naturally for "|" label
-        // if (piece === "video") w = screen.width;
-        
-        // Store label dimensions in animation state for proper bounding box animations
-        hudAnimationState.labelWidth = w;
-        hudAnimationState.labelHeight = h;
-        
+        const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
+        if (piece === "video") w = screen.width;
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
-          $.resetpan();
+          $.unpan();
 
-          // Clear the entire label area first to prevent artifacts
-          $.ink([0, 0, 0, 0]).box(0, 0, w, h); // Transparent clear
-
-          // Always use the original currentHUDTxt for the HUD label, preserving all color codes and user content
-          let text = currentHUDTxt;
-
-          // Check if scrub has reached max threshold (share width) to disable syntax coloring
-    const shareWidth = tf.blockWidth * "share ".length;
-    const disableSyntaxColoring = currentHUDScrub >= shareWidth;
-    
-          // Detect inline color codes (e.g., \\yellow\\c\\red\\d\\rgb(255,20,147)\\e), but disable if at max scrub
-          const colorRegexTest = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g.test(text);
-          const hasInlineColor =
-            !disableSyntaxColoring && colorRegexTest;
-
-          // Draw a visible background box for debugging the label bounds
-          // $.ink([0,0,0,64]).box(0, 0, w, h); // semi-transparent black - commented out to remove backdrop
-          // Draw shadow/outline in black, but always strip color codes for the shadow
-          function stripColorCodes(str) {
-            return str.replace(
-              /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g,
-              "",
-            );
+          let c;
+          if (currentHUDTextColor) {
+            c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
+          } else if (currentHUDStatusColor) {
+            c = currentHUDStatusColor;
+          } else {
+            c = [255, 200, 240];
           }
-          // Helper function to calculate color brightness using relative luminance
-          function getColorBrightness(color) {
-            if (!color || !Array.isArray(color) || color.length < 3) return 128; // Default to medium brightness
-            const [r, g, b] = color;
-            // Use relative luminance formula (sRGB)
-            return 0.299 * r + 0.587 * g + 0.114 * b;
-          }
-
-          // Helper function to determine if a color is dark (brightness < 128)
-          function isColorDark(color) {
-            return getColorBrightness(color) < 128;
-          }
-
-          // For the shadow, analyze the text to determine appropriate shadow strategy
-          if (hasInlineColor) {
-            // For multi-colored text, we need to determine the predominant color approach
-            // Check if any colors in the text are dark - if so, use smart shadowing
-            let hasDarkColors = false;
-            let tempCurrentColor = null;
-            let tempIndex = 0;
-            
-            // Quick scan to detect if there are any dark colors in the text
-            while (tempIndex < text.length) {
-              if (text[tempIndex] === "\\") {
-                const colorMatch = text
-                  .slice(tempIndex)
-                  .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/);
-                if (colorMatch) {
-                  const colorName = colorMatch[1];
-                  let testColor;
-                  if (colorName.includes(",")) {
-                    const rgbaValues = colorName
-                      .split(",")
-                      .map((v) => parseInt(v.trim()));
-                    if (
-                      (rgbaValues.length === 3 || rgbaValues.length === 4) &&
-                      rgbaValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
-                    ) {
-                      testColor = rgbaValues;
-                    }
-                  } else {
-                    // Use a quick lookup for common dark colors
-                    const commonDarkColors = ['black', 'red', 'blue', 'purple', 'brown', 'green'];
-                    if (commonDarkColors.includes(colorName.toLowerCase())) {
-                      hasDarkColors = true;
-                      break;
-                    }
-                  }
-                  if (testColor && isColorDark(testColor)) {
-                    hasDarkColors = true;
-                    break;
-                  }
-                  tempIndex += colorMatch[0].length;
-                  continue;
-                }
-              }
-              tempIndex++;
+          if (piece !== "video") {
+            let text = currentHUDTxt;
+            if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
+              text = currentHUDTxt?.replaceAll("~", " ");
             }
+            
+            // Strip color codes for shadow to ensure it's always black/grey
+            const colorCodeRegex = /\\([a-zA-Z0-9,]+)\\/g;
+            const shadowText = text.replace(colorCodeRegex, '');
+            
+            $.ink(0).write(
+              shadowText,
+              { x: 1 + currentHUDScrub, y: 1 },
+              undefined,
+              $api.screen.width - $api.typeface.blockWidth,
+            );
+            $.ink(c).write(
+              text,
+              { x: 0 + currentHUDScrub, y: 0 },
+              undefined,
+              $api.screen.width - $api.typeface.blockWidth,
+            );
 
-            if (hasDarkColors) {
-              // Use character-by-character shadow rendering for mixed dark/light text
-              const shadowText = stripColorCodes(text);
-              let charColors = [];
-              let currentColor = null;
-              let cleanIndex = 0;
-              let originalIndex = 0;
-
-              // Parse colors to build character color array
-              while (originalIndex < text.length && cleanIndex < shadowText.length) {
-                if (text[originalIndex] === "\\") {
-                  const colorMatch = text
-                    .slice(originalIndex)
-                    .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/);
-                  if (colorMatch) {
-                    const colorName = colorMatch[1];
-                    if (colorName.includes(",")) {
-                      const rgbaValues = colorName
-                        .split(",")
-                        .map((v) => parseInt(v.trim()));
-                      if (
-                        (rgbaValues.length === 3 || rgbaValues.length === 4) &&
-                        rgbaValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
-                      ) {
-                        currentColor = rgbaValues;
-                      } else {
-                        currentColor = [255, 255, 255]; // fallback to white
-                      }
-                    } else {
-                      // Quick color mapping for common colors
-                      const colorMap = {
-                        black: [0, 0, 0], white: [255, 255, 255], red: [255, 0, 0],
-                        green: [0, 255, 0], blue: [0, 0, 255], yellow: [255, 255, 0],
-                        cyan: [0, 255, 255], magenta: [255, 0, 255], orange: [255, 165, 0],
-                        purple: [128, 0, 128], brown: [165, 42, 42], gray: [128, 128, 128]
-                      };
-                      currentColor = colorMap[colorName.toLowerCase()] || [255, 255, 255];
-                    }
-                    originalIndex += colorMatch[0].length;
-                    continue;
-                  }
-                }
-                charColors[cleanIndex] = currentColor || [255, 255, 255];
-                cleanIndex++;
-                originalIndex++;
-              }
-
-              // Render shadow line-by-line with per-character shadow colors
-              if (tf?.print) {
-                // Parse shadow colors similar to main text, using softer white
-                let shadowTextPosition = 0;
-                
-                for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
-                  const lineArray = labelBounds.lines[lineIndex];
-                  const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
-                  const lineY = 1 + lineIndex * (tf.blockHeight + 1); // Shadow offset
-                  
-                  // Extract shadow colors for this specific line
-                  const lineShadowColors = [];
-                  for (let i = 0; i < lineText.length; i++) {
-                    if (shadowTextPosition + i < charColors.length) {
-                      const color = charColors[shadowTextPosition + i];
-                      // Use softer white (192 instead of 255) for better readability
-                      lineShadowColors.push(isColorDark(color) ? [192, 192, 192] : [0, 0, 0]);
-                    } else {
-                      lineShadowColors.push([0, 0, 0]); // Fallback to black
-                    }
-                  }
-                  
-                  // Advance position past this line's characters
-                  shadowTextPosition += lineText.length;
-                  
-                  // Skip whitespace that was consumed by line breaking
-                  while (shadowTextPosition < shadowText.length && /\s/.test(shadowText[shadowTextPosition])) {
-                    shadowTextPosition++;
-                  }
-
-                  // Render the shadow line
-                  tf.print(
-                    $,
-                    { x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0), y: lineY },
-                    0,
-                    lineText,
-                    undefined,
-                    lineShadowColors,
-                  );
-                }
-              } else {
-                // Fallback: use uniform black shadow with proper line breaks
-                $.ink(0).write(shadowText, {
-                  x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
-                  y: 1,
-                  noInlineColor: true,
-                }, undefined, $api.screen.width - $api.typeface.blockWidth);
-              }
-            } else {
-              // All colors are light, use uniform black shadow
-              $.ink(0).write(stripColorCodes(text), {
-                x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
+            if (currentHUDScrub > 0) {
+              const shareWidth = tf.blockWidth * "share ".length;
+              const shadowShareText = "share"; // No color codes in "share"
+              $.ink(0).write(shadowShareText, {
+                x: 1 + currentHUDScrub - shareWidth,
                 y: 1,
-                noInlineColor: true,
+              });
+              $.ink(c).write("share", {
+                x: 0 + currentHUDScrub - shareWidth,
+                y: 0,
               });
             }
           } else {
-            // For text without inline colors, check HUD text color
-            const hudColor = currentHUDTextColor || [255, 200, 240];
-            // Use softer white (192 instead of 255) for better readability
-            const shadowColor = isColorDark(hudColor) ? [192, 192, 192] : [0, 0, 0];
-            
-            $.ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(
-              stripColorCodes(text),
-              {
-                x: 1 + (currentHUDScrub >= 0 ? currentHUDScrub : 0),
-                y: 1,
-                noInlineColor: true,
-              },
-              undefined,
-              $api.screen.width - $api.typeface.blockWidth,
-            );
-          }
-          // For the foreground, parse color codes and render per-character colors
-          const colorCodeRegex =
-            /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/g;
-          let charColors = [];
-          let currentColor = null;
-
-          // Use stripColorCodes result for consistent rendering (same as shadow)
-          const renderText = hasInlineColor ? stripColorCodes(text) : text;
-
-          // Calculate text width for caret positioning - handle multiline properly
-          let textWidth, animationY;
-          if (labelBounds.lines.length > 1) {
-            // For multiline text, use the width of the last line
-            const lastLineArray =
-              labelBounds.lines[labelBounds.lines.length - 1];
-            const lastLineText = Array.isArray(lastLineArray)
-              ? lastLineArray.join(" ")
-              : lastLineArray;
-            textWidth = lastLineText.length * tf.blockWidth;
-            animationY = (labelBounds.lines.length - 1) * (tf.blockHeight + 1);
-          } else {
-            // For single line text, use total width
-            textWidth = renderText.length * tf.blockWidth;
-            animationY = 0;
-          }
-
-          // Build color array by stepping through the original text and mapping colors to cleaned positions
-          let cleanIndex = 0;
-          let originalIndex = 0;
-
-          // Helper function to convert color names to RGB arrays
-          function colorNameToRGB(colorName) {
-            if (!colorName) return null;
-            // Use the graph's parseColor if available
-            if ($api.graph && $api.graph.parseColor) {
-              try {
-                const rgb = $api.graph.parseColor([colorName]);
-                if (rgb && Array.isArray(rgb) && rgb.length >= 3) {
-                  return [rgb[0], rgb[1], rgb[2]]; // Return just RGB without alpha
-                }
-              } catch (e) {
-                // Fall through to fallback if parseColor fails
-              }
-            }
-            // Fallback color mappings
-            const colorMap = {
-              white: [255, 255, 255],
-              black: [0, 0, 0],
-              red: [255, 0, 0],
-              green: [0, 255, 0],
-              blue: [0, 0, 255],
-              yellow: [255, 255, 0],
-              cyan: [0, 255, 255],
-              magenta: [255, 0, 255],
-              orange: [255, 165, 0],
-              purple: [128, 0, 128],
-              pink: [255, 192, 203],
-              brown: [165, 42, 42],
-              gray: [128, 128, 128],
-              grey: [128, 128, 128],
-              goldenrod: [218, 165, 32],
-            };
-            return colorMap[colorName.toLowerCase()] || [255, 255, 255];
-          }
-
-          // Parse color codes and build character color array
-          while (originalIndex < text.length && cleanIndex < cleanText.length) {
-            // Check if we're at the start of a color code
-            if (text[originalIndex] === "\\") {
-              // Find the end of the color code
-              const colorMatch = text
-                .slice(originalIndex)
-                .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?)\\/);
-              if (colorMatch) {
-                // Update current color (convert to RGB)
-                const colorName = colorMatch[1];
-                // Check if it's an RGB/RGBA value like "255,20,147" or "128,128,128,64"
-                if (colorName.includes(",")) {
-                  const rgbaValues = colorName
-                    .split(",")
-                    .map((v) => parseInt(v.trim()));
-                  if (
-                    (rgbaValues.length === 3 || rgbaValues.length === 4) &&
-                    rgbaValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
-                  ) {
-                    currentColor = rgbaValues;
-                  } else {
-                    currentColor = colorNameToRGB(colorName);
-                  }
-                } else {
-                  currentColor = colorNameToRGB(colorName);
-                }
-                // Skip over the color code
-                originalIndex += colorMatch[0].length;
-                continue;
-              }
-            }
-
-            // This is a regular character, assign the current color
-            charColors[cleanIndex] = currentColor;
-            cleanIndex++;
-            originalIndex++;
-          }
-
-          // Fill any remaining positions with the current color
-          while (cleanIndex < cleanText.length) {
-            charColors[cleanIndex] = currentColor;
-            cleanIndex++;
-          }
-
-          // Override piece name prefix colors to use currentHUDTextColor
-          // Find the piece name (everything before the first space) and force it to use HUD color
-          // Check if piece name coloring should be disabled (for custom syntax highlighting)
-          const spaceIndex = renderText.indexOf(" ");
-          if (disableSyntaxColoring) {
-            // When syntax coloring is disabled, use currentHUDTextColor for all text
-            for (let i = 0; i < renderText.length; i++) {
-              charColors[i] = currentHUDTextColor || [255, 200, 240];
-            }
-          } else if (!$commonApi?.hud?.disablePieceNameColoring) {
-            // Only override piece name colors if not explicitly disabled
-            if (spaceIndex > 0) {
-              // Override colors for the piece name (0 to spaceIndex) to use HUD color
-              for (let i = 0; i < spaceIndex; i++) {
-                charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
-              }
-            } else if (renderText.length > 0) {
-              // If no space found, the entire text is the piece name
-              for (let i = 0; i < renderText.length; i++) {
-                charColors[i] = currentHUDTextColor || [255, 200, 240]; // Use actual HUD color
-              }
-            }
-          }
-
-          // Patch: ensure charColors matches renderText length
-          if (charColors.length < renderText.length) {
-            // Pad with last color
-            const padColor =
-              charColors.length > 0 ? charColors[charColors.length - 1] : null;
-            while (charColors.length < renderText.length)
-              charColors.push(padColor);
-          } else if (charColors.length > renderText.length) {
-            // Truncate if too long (should not happen)
-            charColors = charColors.slice(0, renderText.length);
-          }
-
-          // Handle multi-line rendering with proper color mapping
-          if (hasInlineColor) {
-            // Build a comprehensive character-to-color mapping for the cleaned text
-            const textCharColors = new Array(renderText.length);
-            
-            // Parse color codes from the original text and map to renderText positions
-            let renderIndex = 0;
-            let originalIndex = 0;
-            let currentColor = null;
-            
-            while (originalIndex < text.length) {
-              // Check if we're at the start of a color code
-              if (text[originalIndex] === "\\") {
-                const colorMatch = text
-                  .slice(originalIndex)
-                  .match(/^\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+,[0-9]+,[0-9]+)\\/);
-                if (colorMatch) {
-                  // Update current color
-                  const colorName = colorMatch[1];
-                  if (colorName.includes(",")) {
-                    const rgbValues = colorName
-                      .split(",")
-                      .map((v) => parseInt(v.trim()));
-                    if (
-                      rgbValues.length === 3 &&
-                      rgbValues.every((v) => !isNaN(v) && v >= 0 && v <= 255)
-                    ) {
-                      currentColor = rgbValues;
-                    } else {
-                      currentColor = colorNameToRGB(colorName);
-                    }
-                  } else {
-                    currentColor = colorNameToRGB(colorName);
-                  }
-                  // Skip over the color code
-                  originalIndex += colorMatch[0].length;
-                  continue;
-                }
-              }
-              
-              // This is a regular character - assign color and advance render index only if within bounds
-              if (renderIndex < renderText.length) {
-                textCharColors[renderIndex] = currentColor;
-                renderIndex++;
-              }
-              originalIndex++;
-            }
-            
-            // Fill any remaining positions with the current color
-            while (renderIndex < renderText.length) {
-              textCharColors[renderIndex] = currentColor;
-              renderIndex++;
-            }
-
-            // Now render each line using the text layout from labelBounds
-            let textPosition = 0;
-            
-            for (let lineIndex = 0; lineIndex < labelBounds.lines.length; lineIndex++) {
-              const lineArray = labelBounds.lines[lineIndex];
-              const lineText = Array.isArray(lineArray) ? lineArray.join(" ") : lineArray;
-              const lineY = lineIndex * (tf.blockHeight + 1);
-              
-              // Extract colors for this specific line
-              const lineColors = [];
-              for (let i = 0; i < lineText.length; i++) {
-                if (textPosition + i < textCharColors.length) {
-                  lineColors.push(textCharColors[textPosition + i]);
-                } else {
-                  lineColors.push(currentColor); // Fallback to last color
-                }
-              }
-              
-              // Advance position past this line's characters
-              textPosition += lineText.length;
-              
-              // Skip whitespace that was consumed by line breaking
-              while (textPosition < renderText.length && /\s/.test(renderText[textPosition])) {
-                textPosition++;
-              }
-
-              // Render the line with per-character colors
-              if (tf?.print) {
-                tf.print(
-                  $,
-                  { x: currentHUDScrub >= 0 ? currentHUDScrub : 0, y: lineY },
-                  0,
-                  lineText,
-                  undefined,
-                  lineColors,
-                );
-              } else {
-                // Fallback if tf.print doesn't exist
-                if (debugColorParsing) {
-                  console.log("🎨 Fallback rendering (no tf.print)");
-                }
-                $.ink(currentHUDTextColor || [255, 200, 240]).write(lineText, {
-                  x: currentHUDScrub >= 0 ? currentHUDScrub : 0,
-                  y: lineY,
-                });
-              }
-            }
-          } else {
-            // Fallback to regular rendering without color codes
-            const writeOptions = {
-              x: currentHUDScrub >= 0 ? currentHUDScrub : 0,
-              y: 0,
-            };
-            // Disable inline color processing when syntax coloring is disabled
-            if (disableSyntaxColoring) {
-              writeOptions.noInlineColor = true;
-            }
-            $.ink(currentHUDTextColor || [255, 200, 240]).write(
-              disableSyntaxColoring ? stripColorCodes(text) : text,
-              writeOptions,
-              undefined,
-              $api.screen.width - $api.typeface.blockWidth,
-            );
-          }
-
-          if (currentHUDScrub > 0) {
-            const shareWidth = tf.blockWidth * "share ".length;
-            // Draw shadow for 'share' in black
-            $.ink(0).write("share", {
-              x: 1 + currentHUDScrub - shareWidth,
-              y: animationY + 1,
-            });
-            // Draw 'share' in the HUD color
-            $.ink(currentHUDTextColor || [255, 200, 240]).write("share", {
-              x: 0 + currentHUDScrub - shareWidth,
-              y: animationY,
-            });
-          } else if (currentHUDScrub < 0) {
-            // Dissolving particle animation: particles fly from far right, assembling into caret
-            // Dynamic caret width calculation based on prompt length
-            // Short prompts (4 chars or less) get a minimal threshold
-            // Longer prompts get a more stretched out threshold
-            const promptLength = currentHUDTxt.length;
-            const baseCaretWidth = tf.blockWidth + 2;
-            const maxCaretWidth = tf.blockWidth * 3; // 3 characters worth
-
-            let caretThreshold;
-            if (promptLength <= 4) {
-              // Very short prompts like "line" get minimal threshold
-              caretThreshold = baseCaretWidth;
-            } else if (promptLength <= 8) {
-              // Medium prompts get moderate threshold
-              caretThreshold = Math.floor(baseCaretWidth * 1.5);
-            } else {
-              // Long prompts get stretched threshold, capped at max
-              caretThreshold = Math.min(
-                maxCaretWidth,
-                Math.floor(promptLength * tf.blockWidth * 0.25),
-              );
-            }
-
-            const scrubProgress = Math.abs(currentHUDScrub) / caretThreshold;
-            const clampedProgress = Math.min(scrubProgress, 1);
-
-            const caretAreaWidth = tf.blockWidth; // Use actual typeface block width
-            const caretAreaHeight = tf.blockHeight; // Use actual typeface block height
-            const particleRange = tf.blockWidth * 12; // Much larger range for dramatic particle effect
-
-            // Clear the entire animation area first
-            $.ink([0, 0, 0, 0]).box(
-              textWidth - 5,
-              animationY - 1,
-              caretAreaWidth + particleRange + 20,
-              caretAreaHeight + 4,
-            );
-
-            // At the threshold, show complete caret block in theme-appropriate color
-            if (clampedProgress >= 1) {
-              // Use theme-appropriate block color: white for dark theme, black for light theme
-              const blockColor = $api.dark ? [255, 255, 255] : [0, 0, 0]; // Theme-appropriate prompt block color
-
-              // Draw complete caret block with shadow
-              $.ink([0, 0, 0, 128]).box(
-                textWidth + 1,
-                animationY + 1,
-                caretAreaWidth,
-                caretAreaHeight,
-              ); // Shadow
-              $.ink(blockColor).box(
-                textWidth,
-                animationY,
-                caretAreaWidth,
-                caretAreaHeight,
-              ); // Block
-            } else {
-              // Create particle swarm that flies from far right with improved math
-              const totalParticles = Math.floor(
-                caretAreaWidth * caretAreaHeight * 1.5,
-              ); // Dense particle swarm
-              const particlesToShow = Math.floor(
-                clampedProgress * totalParticles,
-              );
-
-              for (let i = 0; i < particlesToShow; i++) {
-                // Use consistent deterministic random for each particle based on index
-                const seed = i * 2.3456789; // Different seed for better distribution
-                const rnd1 =
-                  Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
-                const rnd2 = Math.abs(Math.sin(seed * 78.233) * 43758.5453) % 1;
-                const rnd3 = Math.abs(Math.sin(seed * 37.719) * 43758.5453) % 1;
-                const rnd4 = Math.abs(Math.sin(seed * 94.673) * 43758.5453) % 1;
-                const rnd5 = Math.abs(Math.sin(seed * 15.428) * 43758.5453) % 1;
-
-                // Final destination: randomly distributed across caret area
-                const finalX = textWidth + rnd1 * caretAreaWidth;
-                const finalY = animationY + rnd2 * caretAreaHeight;
-
-                // Starting position: much further right with more spread
-                const startX =
-                  textWidth + caretAreaWidth + rnd3 * particleRange + 30;
-                const startY = finalY + (rnd4 - 0.5) * caretAreaHeight * 1.5; // More Y variation
-
-                // Each particle has unique timing and speed
-                const particleDelay = rnd1 * 0.4; // Stagger particle launches over 40% of animation
-                const particleSpeed = 0.8 + rnd5 * 0.4; // Speed varies from 0.8 to 1.2
-
-                // Check if this particle should be active yet
-                if (clampedProgress > particleDelay) {
-                  const particleAge = clampedProgress - particleDelay;
-                  const normalizedAge = particleAge / (1.0 - particleDelay); // Normalize to 0-1
-                  const movementProgress = Math.min(
-                    normalizedAge * particleSpeed,
-                    1,
-                  );
-
-                  // Smooth easing for more natural movement (ease-out)
-                  const easedProgress = 1 - Math.pow(1 - movementProgress, 2);
-
-                  // Current position with smooth interpolation
-                  const currentX = startX - (startX - finalX) * easedProgress;
-                  const currentY = startY + (finalY - startY) * easedProgress;
-
-                  // Distance-based alpha for particle trail effect
-                  const totalDistance = startX - finalX;
-                  const remainingDistance = Math.abs(currentX - finalX);
-                  const proximityFactor = 1 - remainingDistance / totalDistance;
-
-                  // Multi-layer alpha calculation for natural fading
-                  const baseAlpha = Math.min(255, proximityFactor * 220 + 35);
-                  const speedAlpha = Math.min(255, easedProgress * 160 + 60);
-                  const randomAlpha = 200 + rnd4 * 55; // Slight alpha variation per particle
-                  const finalAlpha = Math.min(
-                    255,
-                    Math.max(baseAlpha, speedAlpha) * (randomAlpha / 255),
-                  );
-
-                  // Color with slight variation for more organic look
-                  const redChannel = Math.floor(220 + rnd5 * 35); // Red varies 220-255
-                  const particleColor = [redChannel, 0, 0, finalAlpha];
-
-                  // Draw the particle
-                  $.ink(particleColor).point(
-                    Math.floor(currentX),
-                    Math.floor(currentY),
-                  );
-
-                  // Add particle trails for particles that are moving fast
-                  if (
-                    easedProgress > 0.1 &&
-                    easedProgress < 0.9 &&
-                    rnd3 > 0.6
-                  ) {
-                    const trailX = currentX + (startX - currentX) * 0.1; // Slight trail behind
-                    const trailAlpha = finalAlpha * 0.3;
-                    $.ink([redChannel, 0, 0, trailAlpha]).point(
-                      Math.floor(trailX),
-                      Math.floor(currentY),
-                    );
-                  }
-
-                  // When particles are very close to destination, add clustering effect
-                  if (easedProgress >= 0.85) {
-                    const clusterSize = Math.floor(rnd2 * 3) + 1; // 1-3 pixels cluster
-                    for (let c = 0; c < clusterSize; c++) {
-                      const clusterX = Math.floor(finalX) + (c % 2);
-                      const clusterY = Math.floor(finalY) + Math.floor(c / 2);
-                      const clusterAlpha = Math.min(255, finalAlpha + 40);
-                      $.ink([255, 0, 0, clusterAlpha]).point(
-                        clusterX,
-                        clusterY,
-                      );
-                    }
-                  }
-                }
-              }
-            }
+            $.ink(0).line(1, 1, 1, h - 1);
+            $.ink(c).line(0, 0, 0, h - 2);
           }
         });
 
-        // Store current state in the label object for cache invalidation
-        // Always store state for comparison logic, even when caching is disabled
-        if (label) {
-          label.lastHUDState = currentHUDState;
-          hudLabelCache = label; // Persist to module-level cache
-        }
-
-        // Video piece should be flush left (0px) but keep vertical offset
-        // Use $commonApi.piece instead of piece (which comes from HUD text)
-        if ($commonApi.piece === "video") currentHUDOffset = { x: 0, y: 6 };
+        if (piece === "video") currentHUDOffset = { x: 0, y: 6 };
         if (!currentHUDOffset) currentHUDOffset = { x: defo, y: defo };
+
+        // Apply animation effects to HUD label position
+        if (hudAnimationState.animating) {
+          const currentTime = performance.now();
+          const elapsed = currentTime - hudAnimationState.startTime;
+          const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
+          
+          // Easing function for smooth macOS-style animation (ease-out)
+          const easeOut = 1 - Math.pow(1 - progress, 3);
+          
+          // Use dynamic offsets based on content size, with reasonable minimums
+          // Store dimensions from the current animation state or use defaults
+          const hudWidth = hudAnimationState.labelWidth || 120;
+          const hudHeight = hudAnimationState.labelHeight || 40;
+          const qrSize = hudAnimationState.qrSize || 80;
+          
+          // Calculate slide distances: ensure full content slides off-screen
+          // Add extra padding (20px) to guarantee complete disappearance
+          const hudSlideX = -(hudWidth + 20);  // Slide left by full width + padding
+          const hudSlideY = -(hudHeight + 20); // Slide up by full height + padding
+          const qrSlideX = qrSize + 20;         // Slide right by full size + padding
+          const qrSlideY = qrSize + 20;         // Slide down by full size + padding
+          
+          if (hudAnimationState.visible) {
+            // Animating IN: fade from 0 to 1, slide from respective corners to position
+            hudAnimationState.opacity = easeOut;
+            // HUD slides in from top-left corner
+            hudAnimationState.slideOffset = {
+              x: (1 - easeOut) * hudSlideX, // Slide in from left using actual width
+              y: (1 - easeOut) * hudSlideY  // Slide in from top using actual height
+            };
+            // QR slides in from bottom-right corner
+            hudAnimationState.qrSlideOffset = {
+              x: (1 - easeOut) * qrSlideX,  // Slide in from right using actual size
+              y: (1 - easeOut) * qrSlideY   // Slide in from bottom using actual size
+            };
+          } else {
+            // Animating OUT: fade from 1 to 0, slide to respective corners
+            hudAnimationState.opacity = 1 - easeOut;
+            // HUD slides out to top-left corner
+            hudAnimationState.slideOffset = {
+              x: easeOut * hudSlideX, // Slide out to left using actual width
+              y: easeOut * hudSlideY  // Slide out to top using actual height
+            };
+            // QR slides out to bottom-right corner
+            hudAnimationState.qrSlideOffset = {
+              x: easeOut * qrSlideX,  // Slide out to right using actual size
+              y: easeOut * qrSlideY   // Slide out to bottom using actual size
+            };
+          }
+          
+          // End animation when progress reaches 1.0
+          if (progress >= 1.0) {
+            hudAnimationState.animating = false;
+            
+            // Ensure final values are exact
+            if (hudAnimationState.visible) {
+              hudAnimationState.opacity = 1.0;
+              hudAnimationState.slideOffset = { x: 0, y: 0 };
+              hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
+            } else {
+              hudAnimationState.opacity = 0.0;
+              hudAnimationState.slideOffset = { x: hudSlideX, y: hudSlideY };
+              hudAnimationState.qrSlideOffset = { x: qrSlideX, y: qrSlideY };
+            }
+          }
+        }
 
         currentHUDButton =
           currentHUDButton ||
@@ -8831,235 +6723,28 @@ async function makeFrame({ data: { type, content } }) {
         //   text: currentHUDTxt,
         //   btn: currentHUDButton,
         // };
-        } catch (error) {
-          console.error('🏷️ HUD Generation: EXCEPTION occurred:', error);
-          label = null; // Ensure label is null on error
-        }
       }
 
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
 
-      // CRITICAL: Skip pixel transfer during tape playback to prevent overlay on video
-      // BUT: Allow video piece to continue rendering its UI during tape playback
-      // Also check for presenting state to handle cached tapes and multiple runs
-      const isVideoPiece = currentPath === "video" || currentPath === "aesthetic.computer/disks/video";
-      const skipPixelsDuringTapePlayback = !isVideoPiece && ($commonApi.rec.playing || $commonApi.rec.presenting);
-
       // Tack on the tape progress bar pixel buffer if necessary.
-      // Skip progress bar during tape playback to avoid overlay conflicts
-      if (!skipPixelsDuringTapePlayback && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
-        const progress = $api.rec.tapeProgress || 0;
-        
-        // IMPORTANT: Access the main screen buffer OUTSIDE the painting context
-        // because inside painting(), $api.screen refers to the painting's own buffer, not the main screen
-        const mainScreenPixels = screen.pixels; // This is the actual frame content
-        const mainScreenWidth = screen.width;
-        const mainScreenHeight = screen.height;
-        
-        const currentProgressWidth = Math.floor(mainScreenWidth * progress);
-        
-        // Create tape progress bar painting with VHS-style red glow
-        const tapeProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
-          // Animation frame for VHS effects - increased speed for more vibes
-          const animFrame = Number($api.paintCount || 0n);
-          
-          // Special color override for first and last frames
-          const isFirstFrame = progress <= 0.01; // First 1% of progress
-          const isLastFrame = progress >= 0.99;  // Last 1% of progress
-          
-          // Calculate smooth alpha fade - progress bar fades from 25% to 75% for longer clean content viewing
-          let progressBarAlpha = 1.0; // Default to fully visible
-          
-          if (progress >= 0.20 && progress <= 0.30) {
-            // Fade out from 20% to 30% (10% fade-out period)
-            progressBarAlpha = 1.0 - ((progress - 0.20) / 0.10);
-          } else if (progress > 0.30 && progress < 0.70) {
-            // Fully hidden from 30% to 70% (40% hidden period)
-            progressBarAlpha = 0.0;
-          } else if (progress >= 0.70 && progress <= 0.80) {
-            // Fade in from 70% to 80% (10% fade-in period)
-            progressBarAlpha = (progress - 0.70) / 0.10;
-          }
-          
-          // Draw VHS-style progress bar pixel by pixel
-          for (let x = 0; x < mainScreenWidth; x++) {
-            let baseR, baseG, baseB;
-            
-            if (x < currentProgressWidth) {
-              // FILLED AREA - VHS red with analog glow and scan lines
-              
-              if (isFirstFrame) {
-                // FIRST FRAME - Fully green across entire bar
-                baseR = 0;
-                baseG = 255;
-                baseB = 0;
-              } else if (isLastFrame) {
-                // LAST FRAME - Fully red across entire bar
-                baseR = 255;
-                baseG = 0;
-                baseB = 0;
-              } else {
-                // NORMAL FRAMES - VHS red with effects
-                // Base VHS red intensity - brighter and more consistent
-                let redIntensity = 255;
-                
-                // Enhanced VHS scan line effect with more movement
-                const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
-                
-                // Intensified analog glow effect - more pronounced waves
-                const glowPhase = (animFrame * 0.15 + x * 0.12) % (Math.PI * 2);
-                const analogGlow = Math.sin(glowPhase) * 0.2 + 0.8;
-                
-                // Enhanced VHS tracking distortion with more character
-                const tracking = Math.sin(animFrame * 0.08 + x * 0.03) * 0.1 + 0.9;
-                
-                // Secondary glow wave for more complexity
-                const secondaryGlow = Math.sin(animFrame * 0.25 + x * 0.2) * 0.1 + 0.9;
-                
-                // Combine all VHS effects with brighter base
-                redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
-                
-                // Bright VHS red color - keep it pure red, no orange bleeding
-                baseR = Math.max(200, Math.min(255, redIntensity));
-                
-                // Pure red - minimal green and blue for clean bright red
-                baseG = Math.floor(baseR * 0.05); // Very minimal green
-                baseB = Math.floor(baseR * 0.02); // Almost no blue
-                
-                // Enhanced VHS bloom effect - pure red blooms only
-                if (Math.random() < 0.025) { // 2.5% chance of bloom
-                  const bloomIntensity = 0.8 + Math.random() * 0.2;
-                  baseR = Math.floor(255 * bloomIntensity);
-                  baseG = Math.floor(20 * bloomIntensity); // Keep bloom red too
-                  baseB = Math.floor(10 * bloomIntensity);
-                }
-              }
-              
-            } else {
-              // EMPTY AREA - Enhanced VHS static/noise background
-              
-              // More pronounced VHS static with additional frequency layers
-              const staticNoise = Math.sin(animFrame * 1.2 + x * 0.2) * 0.04 + 0.06;
-              const staticNoise2 = Math.sin(animFrame * 0.7 + x * 0.3) * 0.02 + 0.03;
-              
-              // More frequent static sparkles for increased vibes
-              if (Math.random() < 0.002) { // 0.2% chance of static
-                baseR = Math.floor(50 * Math.random());
-                baseG = Math.floor(25 * Math.random());
-                baseB = Math.floor(15 * Math.random());
-              } else {
-                // Enhanced static background with more character
-                baseR = Math.floor(25 * (staticNoise + staticNoise2));
-                baseG = Math.floor(12 * (staticNoise + staticNoise2));
-                baseB = Math.floor(8 * (staticNoise + staticNoise2));
-              }
-            }
-            
-            // SINGLE bright leading pixel - allow it to go beyond the edge when progress is at 100%
-            // Check if this should be the leader pixel (current progress position, even if beyond screen)
-            const leaderPixelPosition = Math.floor(mainScreenWidth * progress);
-            const isLeaderPixel = x === leaderPixelPosition || (leaderPixelPosition >= mainScreenWidth && x === mainScreenWidth - 1);
-            
-            if (isLeaderPixel) {
-              if (isFirstFrame) {
-                // First frame - bright green leader
-                baseR = 0;
-                baseG = 255;
-                baseB = 0;
-              } else if (isLastFrame) {
-                // Last frame - bright red leader  
-                baseR = 255;
-                baseG = 0;
-                baseB = 0;
-              } else {
-                // Check if we're in the fade period (20%-80%) to enable special blinking
-                const isInFadePeriod = progress >= 0.20 && progress <= 0.80;
-                
-                if (isInFadePeriod) {
-                  // During fade period - cycle through yellow, lime, and other colors for visibility
-                  const colorCycle = Math.floor(animFrame * 0.3) % 4; // Slower color cycling
-                  
-                  switch (colorCycle) {
-                    case 0:
-                      baseR = 255; baseG = 255; baseB = 0; // Yellow
-                      break;
-                    case 1:
-                      baseR = 0; baseG = 255; baseB = 0; // Lime
-                      break;
-                    case 2:
-                      baseR = 255; baseG = 128; baseB = 0; // Orange
-                      break;
-                    case 3:
-                      baseR = 0; baseG = 255; baseB = 255; // Cyan
-                      break;
-                  }
-                } else {
-                  // Normal behavior outside fade period - super bright white-hot leader with pulsing
-                  const leaderPulse = Math.sin(animFrame * 0.6) * 0.2 + 0.8;
-                  
-                  baseR = 255;
-                  baseG = Math.floor(255 * leaderPulse); // Bright white-hot leader
-                  baseB = Math.floor(255 * leaderPulse);
-                }
-              }
-            }
-            
-            // Apply alpha fade to final colors, with beacon-like leader pixel
-            let finalAlpha = progressBarAlpha;
-            if (isLeaderPixel) {
-              if (progress >= 0.20 && progress <= 0.80) {
-                // During fade period - beacon-like signal marker (strong but not full opacity)
-                finalAlpha = 0.8; // Bright beacon for progress indication
-              } else {
-                // Outside fade period - still visible beacon
-                finalAlpha = Math.min(progressBarAlpha, 0.9); // Strong beacon at 90% opacity
-              }
-            }
-            
-            // Use proper alpha blending
-            $.ink(baseR, baseG, baseB, Math.floor(finalAlpha * 255)).box(x, 0, 1, 1);
-          }
+      if ($api.rec.tapeProgress) {
+        const tapeProgressBar = $api.painting($api.screen.width, 1, ($) => {
+          $.ink(0).box(0, 0, $api.screen.width, 1);
+          $.ink("red").box(
+            0,
+            0,
+            $api.screen.width * (1 - $api.rec.tapeProgress),
+            1,
+          );
         });
-        
-        // Ensure the painting was created successfully before adding to sendData
-        if (tapeProgressBarPainting && tapeProgressBarPainting.pixels && tapeProgressBarPainting.pixels.length > 0) {
-          // Structure the data to match what bios.mjs expects (same as label format)
-          sendData.tapeProgressBar = {
-            x: 0,
-            y: $api.screen.height - 1, // Position at bottom of screen (1px tall)
-            img: {
-              width: tapeProgressBarPainting.width,
-              height: tapeProgressBarPainting.height,
-              pixels: tapeProgressBarPainting.pixels
-            }
-          };
-        } else {
-          console.warn("🎬 Tape progress bar painting FAILED to create:", {
-            painting: !!tapeProgressBarPainting,
-            pixels: !!tapeProgressBarPainting?.pixels,
-            pixelsLength: tapeProgressBarPainting?.pixels?.length
-          });
-        }
-      } else {
-        // Debug: Log when tape progress is 0 or undefined during recording
-        if ($api.rec.recording && false) { // Disabled verbose logging
-          // console.log("🎬 Recording active but no tapeProgress:", {
-          //   recording: $api.rec.recording,
-          //   tapeProgress: $api.rec.tapeProgress,
-          //   tapeTimerStart: $api.rec.tapeTimerStart,
-          //   tapeTimerDuration: $api.rec.tapeTimerDuration
-          // });
+
+        if (tapeProgressBar) {
+          const { api, ...img } = tapeProgressBar;
+          sendData.tapeProgressBar = { x: 0, y: 0, img };
         }
       }
-
-      // Add the duration progress bar if duration tracking is active
-      // This shows a 1px bar at the bottom similar to tape, but for timed pieces
-      // NOTE: Moved this after screen.pixels is ready for proper pixel sampling
-      // const durationProgressBarData = renderDurationProgressBar($api);
-      // if (durationProgressBarData && !skipPixelsDuringTapePlayback) {
-      //   sendData.durationProgressBar = durationProgressBarData;
-      // }
 
       maybeLeave();
 
@@ -9067,25 +6752,17 @@ async function makeFrame({ data: { type, content } }) {
       sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
-      if (label) {
-        const hasVisiblePixels = checkForVisiblePixels(label.pixels);
-        if (hasVisiblePixels) {
-          // Apply animation effects to label positioning and opacity
-          const animatedOffset = {
-            x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
-            y: currentHUDOffset.y + hudAnimationState.slideOffset.y
-          };
-          
-          sendData.label = {
-            x: animatedOffset.x,
-            y: animatedOffset.y,
-            opacity: hudAnimationState.opacity, // Add opacity for fade effect
-            img: (({ width, height, pixels }) => ({ width, height, pixels }))(
-              label,
-            ),
-          };
-        }
-      }      // 🔲 Generate QR code overlay for KidLisp pieces
+      if (label)
+        sendData.label = {
+          x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
+          y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
+          opacity: hudAnimationState.opacity,
+          img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+            label,
+          ),
+        };
+
+      // 🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
       
       // Clear QR cache if caching is disabled to prevent memory buildup
@@ -9094,11 +6771,14 @@ async function makeFrame({ data: { type, content } }) {
       }
       
       // Detect if this is a KidLisp piece
-      const sourceCode = currentHUDLogicalTxt || currentHUDTxt; // Get the source from HUD text
+      const sourceCode = currentText || currentHUDTxt; // Use plain currentText first, then fall back to HUD text
       
       // More inclusive KidLisp detection for QR code generation
-      const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath)) || 
+      const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath)) ||
                              currentPath === "(...)" ||
+                             // Detect cached KidLisp pieces by $code format
+                             (sourceCode && sourceCode.startsWith("$")) ||
+                             (currentPath && currentPath.includes("/disks/$")) ||
                              (sourceCode && (
                                sourceCode.startsWith("(") || 
                                sourceCode.startsWith(";") ||
@@ -9107,11 +6787,31 @@ async function makeFrame({ data: { type, content } }) {
                                /^(wipe|ink|line|box|circle|rect|def|later|scroll|resolution|gap|frame|brush|clear|cls|help|reset|dot|pixel|stamp|paste|copy|move|rotate|scale|translate|fill|stroke|point|arc|bezier|noise|random|sin|cos|tan|sqrt|abs|floor|ceil|round|min|max|pow|log|exp|atan2|dist|lerp|map|norm|constrain|hue|sat|bright|alpha|red|green|blue|rgb|hsb|gray|background|foreground|text|font|size|width|height|mouseX|mouseY|keyCode|key|frameCount|time|second|minute|hour|day|month|year|millis|fps|deltaTime)\s/.test(sourceCode)
                              ));
       
+      // Debug QR detection (only when issues occur)
+      if (!isKidlispPiece && (sourceCode?.startsWith("$") || sourceCode?.startsWith("("))) {
+        console.log("🔍 QR Debug:", {
+          isKidlispPiece,
+          sourceCode,
+          visible: hudAnimationState.visible,
+          animating: hudAnimationState.animating,
+          currentPath,
+          currentText,
+          currentHUDTxt
+        });
+      }
       
       if (isKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating)) {
         try {
-          // Check if this source has been cached using the global registry
-          const cachedCode = getCachedCode(sourceCode);
+          // For $code pieces, the sourceCode is the code itself, so use it directly
+          let cachedCode;
+          if (sourceCode.startsWith("$")) {
+            // For $code format, the sourceCode IS the cached code (without $)
+            cachedCode = sourceCode.substring(1); // Remove the $ prefix
+          } else {
+            // For regular KidLisp source, check if it has been cached
+            cachedCode = getCachedCode(sourceCode);
+          }
+          
           if (cachedCode) {
             // Send the cached code to main thread for tape naming
             send({ type: "kidlisp:cached-code", content: cachedCode });
@@ -9119,39 +6819,20 @@ async function makeFrame({ data: { type, content } }) {
             // Use cache key based on cached code to avoid regenerating the same QR
             const cacheKey = `qr_${cachedCode}`;
             
-            // Get the font before checking cache to ensure text will render properly
+            // Get the font and ensure it's properly loaded before proceeding
             const font = typefaceCache.get("MatrixChunky8");
             
-            // Check if all characters are loaded in the font
-            let allCharsLoaded = false;
-            if (font && font.glyphs) {
-              allCharsLoaded = true;
-              for (const char of cachedCode) {
-                const glyph = font.glyphs[char];
-                // For BDF fonts like MatrixChunky8, check if glyph has pixels data
-                // For other fonts, check for commands or pixels
-                const isValidGlyph = glyph && (
-                  (glyph.pixels && Array.isArray(glyph.pixels)) ||  // BDF font with pixel data
-                  (glyph.commands && Array.isArray(glyph.commands)) ||  // Vector font with commands
-                  (glyph.resolution && glyph.pixels)  // Alternative BDF format
-                );
-                
-                if (!isValidGlyph) {
-                  allCharsLoaded = false;
-                  break;
-                }
-              }
-            }
+            // Only show QR if MatrixChunky8 font is available
+            const shouldShowQR = !!font;
             
             // Check if this QR overlay is already cached (unless caching is disabled or font not loaded)
             const isQRCacheDisabled = isQROverlayCacheDisabled();
             const hasQRCache = qrOverlayCache.has(cacheKey);
             
-            // ALWAYS generate fresh QR overlay to match HUD label live update behavior
-            // Force cache bypass to ensure QR text updates live like HUD labels
-            const forceCacheBypass = true;
+            // Enable caching for stable QR generation
+            const forceCacheBypass = true; // TEMP: Force cache bypass to test new font
             
-            if (!isQRCacheDisabled && allCharsLoaded && hasQRCache && !forceCacheBypass) {
+            if (!isQRCacheDisabled && shouldShowQR && hasQRCache && !forceCacheBypass) {
               const cachedQrData = qrOverlayCache.get(cacheKey);
               
               // Store QR dimensions in animation state for proper bounding box animations
@@ -9196,138 +6877,135 @@ async function makeFrame({ data: { type, content } }) {
               // Store QR dimensions in animation state for proper bounding box animations
               hudAnimationState.qrSize = qrSize;
             
-            // Position in bottom-right corner
-            let startX = screen.width - qrSize - margin - 1; // Account for shadow width
-            const textHeight = 12; // Space for MatrixChunky8 8px font with shadow (8px + 4px padding)
-            const totalHeight = qrSize + textHeight;
-            let startY = screen.height - totalHeight - margin; // Move 1px closer to bottom for balanced margins
-            
-            // Create QR overlay using painting API with extra space for shadow
-            const textAreaHeight = 9;
-            const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
-            const canvasHeight = qrOffsetY + qrSize + 2; // Ensure room for bottom shadow
-            const generatedQR = $api.painting(qrSize + 1, canvasHeight, ($) => {
-              // Draw QR code at offset position to make room for text above
-              for (let y = 0; y < cells.length; y++) {
-                for (let x = 0; x < cells.length; x++) {
-                  const isBlack = cells[y][x];
-                  if (isBlack) {
-                    $.ink("black");
-                  } else {
-                    $.ink("white");
+              // Position in bottom-right corner
+              let startX = screen.width - qrSize - margin - 1; // Account for shadow width
+              const textHeight = 12; // Space for MatrixChunky8 8px font with shadow (8px + 4px padding)
+              const totalHeight = qrSize + textHeight;
+              let startY = screen.height - totalHeight - margin; // Move 1px closer to bottom for balanced margins
+              
+              // Create QR overlay using painting API with extra space for shadow
+              const textAreaHeight = 9;
+              const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
+              const canvasHeight = qrOffsetY + qrSize + 2; // Ensure room for bottom shadow
+              const generatedQR = $api.painting(qrSize + 1, canvasHeight, ($) => {
+                // Draw QR code at offset position to make room for text above
+                for (let y = 0; y < cells.length; y++) {
+                  for (let x = 0; x < cells.length; x++) {
+                    const isBlack = cells[y][x];
+                    if (isBlack) {
+                      $.ink("black");
+                    } else {
+                      $.ink("white");
+                    }
+                    $.box(x * cellSize, (y * cellSize) + qrOffsetY, cellSize); // Add qrOffsetY to move QR down
                   }
-                  $.box(x * cellSize, (y * cellSize) + qrOffsetY, cellSize); // Add qrOffsetY to move QR down
-                }
-              }
-              
-              // QR text style configuration
-              const useBackdrop = true; // Set to true for backdrop style, false for shadow style
-              
-              // Prepare text for rendering
-              const codeToRender = `$${cachedCode}`;
-              
-              // Calculate actual rendered width for mathematical centering
-              // Get character advances from the font definition
-              const advances = font?.data?.advances || typefaceCache.get("MatrixChunky8")?.data?.advances || {};
-              
-              // Calculate text dimensions and positioning
-              let actualTextWidth = 0;
-              for (const char of codeToRender) {
-                actualTextWidth += advances[char] || 4; // fallback to 4px
-              }
-              
-              // Text area configuration
-              const textPaddingLeft = 1; // Left padding
-              const textPaddingRight = 0; // No right padding for tighter fit
-              const textAreaWidth = actualTextWidth + textPaddingLeft + textPaddingRight;
-              const textAreaHeight = 9; // Height reduced by 1px (was 10)
-              
-              // Position text area above QR code (which is now at qrOffsetY)
-              const textAreaX = qrSize - textAreaWidth; // Still flush right
-              const textAreaY = 0; // At the top of the canvas
-              
-              // Text position within the text area (right-aligned with left padding only)
-              const textX = textAreaX + textPaddingLeft; // Only left padding
-              const textY = textAreaY + 1; // Vertical centering within smaller text area (was 2)
-              
-              // Render text with appropriate style
-              if (useBackdrop) {
-                // Draw black background for text area (sized to fit text)
-                $.ink("black"); // Black background
-                $.box(textAreaX, textAreaY, textAreaWidth, textAreaHeight);
-                
-                // Render white text (no rotation for now)
-                $.ink("white"); // White text on black background
-                try {
-                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                } catch (error) {
-                  console.warn(`🔤 MatrixChunky8 failed, using fallback:`, error);
-                  $.write(codeToRender, { x: textX, y: textY });
-                }
-              } else {
-                // Shadow style: black shadow first, then white text
-                // Draw black shadow (1px offset) - no rotation for now
-                $.ink("black");
-                try {
-                  $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
-                } catch (error) {
-                  $.write(codeToRender, { x: textX + 1, y: textY + 1 });
                 }
                 
-                // Draw white text on top - no rotation for now
-                $.ink("white");
-                try {
-                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                } catch (error) {
-                  $.write(codeToRender, { x: textX, y: textY });
+                // QR text style configuration
+                const useBackdrop = true; // Set to true for backdrop style, false for shadow style
+                
+                // Prepare text for rendering
+                const codeToRender = `$${cachedCode}`;
+                
+                // Calculate actual rendered width for mathematical centering
+                // Get character advances from the font definition
+                const advances = font?.data?.advances || typefaceCache.get("MatrixChunky8")?.data?.advances || {};
+                
+                // Calculate text dimensions and positioning
+                let actualTextWidth = 0;
+                for (const char of codeToRender) {
+                  const charWidth = advances[char] || 4;
+                  actualTextWidth += charWidth;
                 }
+                
+                // Text area configuration - be more generous with sizing
+                const textPaddingLeft = 1; // Minimal left padding
+                const textPaddingRight = 1; // Minimal right padding for safety
+                const textAreaWidth = actualTextWidth + textPaddingLeft + textPaddingRight;
+                const textAreaHeight = 10; // Increased height (was 9)
+                
+                // Position text area above QR code (which is now at qrOffsetY)
+                const textAreaX = qrSize - textAreaWidth; // Still flush right
+                const textAreaY = 0; // At the top of the canvas
+                
+                // Text position within the text area (right-aligned with left padding only)
+                const textX = textAreaX + textPaddingLeft; // Only left padding
+                const textY = textAreaY + 1; // Vertical centering within smaller text area (was 2)
+                
+                // Render text with appropriate style
+                if (useBackdrop) {
+                  // Draw black background for text area (sized to fit text)
+                  $.ink("black"); // Black background
+                  $.box(textAreaX, textAreaY, textAreaWidth, textAreaHeight);
+                  
+                  // Render white text (no rotation for now)
+                  $.ink("white"); // White text on black background
+                  // console.log("🔤 QR Text Rendering (backdrop):", { codeToRender, textX, textY });
+                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                } else {
+                  // Shadow style: black shadow first, then white text
+                  // Draw black shadow (1px offset) - no rotation for now
+                  $.ink("black");
+                  try {
+                    $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                  } catch (error) {
+                    $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                  }
+                  
+                  // Draw white text on top - no rotation for now
+                  $.ink("white");
+                  try {
+                    $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                  } catch (error) {
+                    $.write(codeToRender, { x: textX, y: textY });
+                  }
+                }
+                
+                // Draw gray shadow along the right side and bottom of the entire overlay
+                $.ink("gray", 128);
+                // Right shadow - offset 1px down from top like a drop shadow
+                $.box(qrSize, 1, 1, qrOffsetY + qrSize);
+                // Bottom shadow - offset 1px from left edge like a drop shadow
+                $.box(1, qrOffsetY + qrSize, qrSize, 1);
+              });
+              
+              // Don't cache QR overlay if font isn't fully loaded yet (text label needs to re-render)
+              // Cache the base QR data (not the transferable pixels)
+              const qrData = {
+                width: generatedQR.width,
+                height: generatedQR.height,
+                basePixels: new Uint8ClampedArray(generatedQR.pixels) // Keep a safe copy for caching
+              };
+              
+              // Store QR dimensions in animation state for proper bounding box animations
+              hudAnimationState.qrSize = Math.max(qrData.width, qrData.height);
+              
+              // Recalculate position for current screen size (handles reframing)
+              const overlayWidth = qrData.width;
+              const overlayHeight = qrData.height;
+              startX = screen.width - overlayWidth - margin;
+              startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
+              
+              // Cache the QR data for this piece (not the transferable version)
+              // Cache if we have some characters loaded to stabilize the QR
+              if (!isQRCacheDisabled && shouldShowQR) {
+                qrOverlayCache.set(cacheKey, qrData);
               }
               
-              // Draw gray shadow along the right side and bottom of the entire overlay
-              $.ink("gray", 128);
-              // Right shadow - offset 1px down from top like a drop shadow
-              $.box(qrSize, 1, 1, qrOffsetY + qrSize);
-              // Bottom shadow - offset 1px from left edge like a drop shadow
-              $.box(1, qrOffsetY + qrSize, qrSize, 1);
-            });
-            
-            // Don't cache QR overlay if font isn't fully loaded yet (text label needs to re-render)
-            // Cache the base QR data (not the transferable pixels)
-            const qrData = {
-              width: generatedQR.width,
-              height: generatedQR.height,
-              basePixels: new Uint8ClampedArray(generatedQR.pixels) // Keep a safe copy for caching
-            };
-            
-            // Store QR dimensions in animation state for proper bounding box animations
-            hudAnimationState.qrSize = Math.max(qrData.width, qrData.height);
-            
-            // Recalculate position for current screen size (handles reframing)
-            const overlayWidth = qrData.width;
-            const overlayHeight = qrData.height;
-            startX = screen.width - overlayWidth - margin;
-            startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
-            
-            // Cache the QR data for this piece (not the transferable version)
-            // Only cache if caching is not disabled AND font is fully loaded
-            if (!isQRCacheDisabled && allCharsLoaded) {
-              qrOverlayCache.set(cacheKey, qrData);
-            }
-            
-            // Create fresh overlay for transfer each time
-            qrOverlay = {
-              width: qrData.width,
-              height: qrData.height,
-              pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
-            };
-            
-            // Add QR overlay to sendData with exact position and animation effects
-            sendData.qrOverlay = {
-              x: startX + hudAnimationState.qrSlideOffset.x,
-              y: startY + hudAnimationState.qrSlideOffset.y,
-              opacity: hudAnimationState.opacity,
-              img: qrOverlay
-            };
+              // Create fresh overlay for transfer each time
+              qrOverlay = {
+                width: qrData.width,
+                height: qrData.height,
+                pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
+              };
+              
+              // Add QR overlay to sendData with exact position and animation effects
+              sendData.qrOverlay = {
+                x: startX + hudAnimationState.qrSlideOffset.x,
+                y: startY + hudAnimationState.qrSlideOffset.y,
+                opacity: hudAnimationState.opacity,
+                img: qrOverlay
+              };
             }
           } else {
             // No cached code yet - QR will appear once caching is complete
@@ -9342,198 +7020,15 @@ async function makeFrame({ data: { type, content } }) {
       // Check to see if we have a dirtyBox to render from.
       const croppedBox = dirtyBox?.croppedBox?.(screen);
 
-      if (!skipPixelsDuringTapePlayback && croppedBox?.w > 0 && croppedBox?.h > 0) {
+      if (croppedBox?.w > 0 && croppedBox?.h > 0) {
         transferredPixels = dirtyBox.crop(screen);
         sendData.pixels = transferredPixels;
         sendData.dirtyBox = croppedBox;
-      } else if (!skipPixelsDuringTapePlayback && painted === true) {
+      } else if (painted === true) {
         // TODO: Toggling this causes a flicker in `line`... but helps prompt. 2022.01.29.13.21
         // Otherwise render everything if we drew anything!
         transferredPixels = screen.pixels;
         sendData.pixels = transferredPixels;
-      }
-
-      // Add the duration progress bar if duration tracking is active
-      // This shows a 1px bar at the bottom similar to tape, but for timed pieces
-      // NOW the screen buffer is ready for proper pixel sampling
-      const durationProgressBarData = renderDurationProgressBar($api);
-      if (durationProgressBarData && !skipPixelsDuringTapePlayback) {
-        sendData.durationProgressBar = durationProgressBarData;
-      }
-
-      // Add timecode display (00:00 / 1:20) on bottom left - shows regardless of nohud/progress bar
-      // Show timecode for duration tracking but NOT during tape recording
-      if ((durationTotal && durationStartTime !== null) && !$api.rec.recording) {
-        // Use duration tracking only (exclude tape recording)
-        const recordingDuration = durationTotal;
-        const recordingStartTime = durationStartTime;
-        
-        console.log("🕐 Starting timecode generation...", {
-          recordingDuration,
-          recordingStartTime,
-          skipPixelsDuringTapePlayback,
-          tf: !!tf,
-          tfBlockWidth: tf?.blockWidth,
-          tfBlockHeight: tf?.blockHeight,
-          isRecording: $api.rec.recording
-        });
-        
-        const currentTime = performance.now();
-        const elapsed = recordingStartTime ? Math.max(0, (currentTime - recordingStartTime) / 1000) : 0; // Convert to seconds, clamp to 0
-        
-        // Clamp elapsed to duration when completed to hold at end time
-        const clampedElapsed = Math.min(elapsed, recordingDuration);
-        
-        const elapsedMins = Math.floor(clampedElapsed / 60);
-        const elapsedSecs = Math.floor(clampedElapsed % 60);
-        const totalMins = Math.floor(recordingDuration / 60);
-        const totalSecs = Math.floor(recordingDuration % 60);
-        
-        const timecodeText = `${elapsedMins.toString().padStart(2, '0')}:${elapsedSecs.toString().padStart(2, '0')} / ${totalMins.toString().padStart(2, '0')}:${totalSecs.toString().padStart(2, '0')}`;
-        
-        console.log("🕐 Timecode details:", {
-          recordingDuration,
-          clampedElapsed,
-          elapsed,
-          elapsedMins,
-          elapsedSecs,
-          totalMins,
-          totalSecs,
-          timecodeText,
-          textLength: timecodeText.length
-        });
-        
-        // Check if duration is complete for blinking
-        const progress = Math.min(elapsed / recordingDuration, 1);
-        const completed = progress >= 1;
-        
-        // Debug completion state
-        if (completed) {
-          console.log("🕐 Duration completed! Blinking red timecode");
-        }
-        
-        // Use the current default typeface (tf) for consistency
-        if (tf) {
-          // Calculate text dimensions for positioning - ensure enough width for timecode
-          const textWidth = Math.max(timecodeText.length * tf.blockWidth, 100); // Minimum 100px width
-          const textHeight = tf.blockHeight;
-          
-          // Minimal padding, no background box
-          const padding = 1; // Reduced padding
-          const shadowOffset = 1;
-          const timecodeWidth = textWidth + padding * 2 + shadowOffset;
-          const timecodeHeight = textHeight + padding * 2 + shadowOffset;
-          
-          console.log("🕐 Timecode painting dimensions:", {
-            textWidth,
-            textHeight,
-            padding,
-            shadowOffset,
-            timecodeWidth,
-            timecodeHeight,
-            timecodeText,
-            textLength: timecodeText.length,
-            tfBlockWidth: tf.blockWidth,
-            tfBlockHeight: tf.blockHeight,
-            completed
-          });
-
-          const timecodePainting = $api.painting(timecodeWidth, timecodeHeight, ($) => {
-            console.log("🕐 Inside timecode painting function");
-            
-            // No background box - just transparent
-            
-            // Draw shadow first (offset by 1px down and right) - using same pattern as HUD
-            $.ink(0).write(
-              timecodeText,
-              {
-                x: padding + shadowOffset,
-                y: padding + shadowOffset,
-                noInlineColor: true,
-              },
-              undefined,
-              timecodeWidth, // Wrap width
-            );
-            
-            // Draw main text - blink red when completed, white when normal
-            if (completed) {
-              // Use global blink state to sync with progress bar
-              const textColor = durationBlinkState ? [255, 0, 0] : [128, 0, 0]; // Bright red to dim red
-              console.log("🕐 Drawing completed timecode:", {
-                text: timecodeText,
-                color: textColor,
-                blinkState: durationBlinkState,
-                completed
-              });
-              $.ink(textColor[0], textColor[1], textColor[2]).write(
-                timecodeText,
-                {
-                  x: padding,
-                  y: padding,
-                },
-                undefined,
-                timecodeWidth, // Wrap width
-              );
-            } else {
-              // Normal white text
-              console.log("🕐 Drawing normal timecode:", {
-                text: timecodeText,
-                color: [255, 255, 255],
-                completed
-              });
-              $.ink(255, 255, 255).write(
-                timecodeText,
-                {
-                  x: padding,
-                  y: padding,
-                },
-                undefined,
-                timecodeWidth, // Wrap width
-              );
-            }
-            
-            console.log("🕐 Finished drawing text in timecode painting");
-          });
-          
-          console.log("🕐 Timecode painting created:", {
-            painting: !!timecodePainting,
-            pixels: !!timecodePainting?.pixels,
-            pixelsLength: timecodePainting?.pixels?.length,
-            width: timecodePainting?.width,
-            height: timecodePainting?.height
-          });          // Add timecode to sendData if created successfully
-          if (timecodePainting && timecodePainting.pixels && timecodePainting.pixels.length > 0) {
-            const timecodeData = {
-              x: 3, // 3px margin from left edge
-              y: $api.screen.height - timecodeHeight - 4, // Position above progress bar (2px margin + progress bar height)
-              img: {
-                width: timecodePainting.width,
-                height: timecodePainting.height,
-                pixels: timecodePainting.pixels
-              }
-            };
-            
-            sendData.durationTimecode = timecodeData;
-            
-            console.log("🕐 Timecode added to sendData:", {
-              x: timecodeData.x,
-              y: timecodeData.y,
-              width: timecodeData.img.width,
-              height: timecodeData.img.height,
-              pixelsLength: timecodeData.img.pixels.length,
-              screenHeight: $api.screen.height,
-              calculatedY: timecodeData.y
-            });
-          } else {
-            console.warn("🕐 Timecode painting failed:", {
-              painting: !!timecodePainting,
-              pixels: !!timecodePainting?.pixels,
-              pixelsLength: timecodePainting?.pixels?.length
-            });
-          }
-        } else {
-          console.warn("🕐 No typeface (tf) available for timecode rendering");
-        }
       }
 
       // Optional messages to send.
@@ -9551,66 +7046,23 @@ async function makeFrame({ data: { type, content } }) {
 
       if (cursorCode) sendData.cursorCode = cursorCode;
 
-      // Safely handle pixel buffer conversion and transfer
+      // Note: transferredPixels will be undefined when sendData === {}.
       if (sendData.pixels) {
-        // Convert TypedArray to ArrayBuffer if needed
-        if (sendData.pixels.buffer) {
-          sendData.pixels = sendData.pixels.buffer;
-        }
-        // Validate the ArrayBuffer is not detached
-        if (!sendData.pixels || sendData.pixels.byteLength === 0) {
-          sendData.pixels = undefined;
-        }
-      } else if (!skipPixelsDuringTapePlayback && content.pixels) {
-        // Only use content.pixels if not during tape playback to avoid stale overlay
+        sendData.pixels = sendData.pixels.buffer;
+      } else {
         sendData.pixels = content.pixels;
       }
 
-      let transferredObjects = [];
-      const transferredBufferSet = new Set(); // Track unique buffers to avoid duplicates
-      
-      // Only add pixels to transfer if we actually have valid pixel data
-      if (sendData.pixels && sendData.pixels instanceof ArrayBuffer && sendData.pixels.byteLength > 0) {
-        if (!transferredBufferSet.has(sendData.pixels)) {
-          transferredObjects.push(sendData.pixels);
-          transferredBufferSet.add(sendData.pixels);
-        }
+      if (sendData.pixels?.byteLength === 0) sendData.pixels = undefined;
+
+      let transferredObjects = [sendData.pixels];
+
+      if (sendData.label) {
+        transferredObjects.push(sendData.label?.img.pixels.buffer);
       }
 
-      // Safely add label buffer to transfer array
-      if (sendData.label?.img?.pixels?.buffer) {
-        const labelBuffer = sendData.label.img.pixels.buffer;
-        if (labelBuffer instanceof ArrayBuffer && labelBuffer.byteLength > 0 && !transferredBufferSet.has(labelBuffer)) {
-          transferredObjects.push(labelBuffer);
-          transferredBufferSet.add(labelBuffer);
-        }
-      }
-
-      // Safely add QR overlay buffer to transfer array
-      if (sendData.qrOverlay?.img?.pixels?.buffer) {
-        const qrBuffer = sendData.qrOverlay.img.pixels.buffer;
-        if (qrBuffer instanceof ArrayBuffer && qrBuffer.byteLength > 0 && !transferredBufferSet.has(qrBuffer)) {
-          transferredObjects.push(qrBuffer);
-          transferredBufferSet.add(qrBuffer);
-        }
-      }
-
-      // Safely add tape progress bar buffer to transfer array
-      if (sendData.tapeProgressBar?.img?.pixels?.buffer) {
-        const tapeBuffer = sendData.tapeProgressBar.img.pixels.buffer;
-        if (tapeBuffer instanceof ArrayBuffer && tapeBuffer.byteLength > 0 && !transferredBufferSet.has(tapeBuffer)) {
-          transferredObjects.push(tapeBuffer);
-          transferredBufferSet.add(tapeBuffer);
-        }
-      }
-
-      // Safely add duration timecode buffer to transfer array
-      if (sendData.durationTimecode?.img?.pixels?.buffer) {
-        const timecodeBuffer = sendData.durationTimecode.img.pixels.buffer;
-        if (timecodeBuffer instanceof ArrayBuffer && timecodeBuffer.byteLength > 0 && !transferredBufferSet.has(timecodeBuffer)) {
-          transferredObjects.push(timecodeBuffer);
-          transferredBufferSet.add(timecodeBuffer);
-        }
+      if (sendData.qrOverlay) {
+        transferredObjects.push(sendData.qrOverlay?.img.pixels.buffer);
       }
 
       // console.log("TO:", transferredObjects);
@@ -9618,33 +7070,7 @@ async function makeFrame({ data: { type, content } }) {
 
       sendData.sound = sound;
 
-      // Safely send the render message with comprehensive error handling
-      try {
-        // Final validation: ensure no buffers are detached before sending
-        const validTransferredObjects = transferredObjects.filter(buffer => {
-          if (buffer instanceof ArrayBuffer && buffer.byteLength > 0) {
-            try {
-              // Try to create a view to test if buffer is detached
-              new Uint8Array(buffer, 0, 1);
-              return true;
-            } catch (e) {
-              console.warn("🟡 Skipping detached buffer from transfer list");
-              return false;
-            }
-          }
-          return false;
-        });
-        
-        send({ type: "render", content: sendData }, validTransferredObjects);
-      } catch (error) {
-        console.warn("🚨 Failed to send render message:", error);
-        // Attempt to send without transferred objects as fallback
-        try {
-          send({ type: "render", content: sendData }, []);
-        } catch (fallbackError) {
-          console.error("🚨 Critical: Failed to send render message even without transfers:", fallbackError);
-        }
-      }
+      send({ type: "render", content: sendData }, transferredObjects);
 
       sound.sounds.length = 0; // Empty the sound command buffer.
       sound.bubbles.length = 0;
@@ -9662,50 +7088,20 @@ async function makeFrame({ data: { type, content } }) {
       //       get sent? 23.01.06.16.02
 
       // console.log(pixels);
-      
-      // Safely handle pixels buffer for update message
-      let updatePixelsBuffer = null;
-      if (pixels?.buffer && pixels.buffer instanceof ArrayBuffer && pixels.buffer.byteLength > 0) {
-        updatePixelsBuffer = pixels.buffer;
-      }
-      
-      try {
-        send(
-          {
-            type: "update",
-            content: {
-              didntRender: true,
-              loading,
-              pixels: updatePixelsBuffer,
-              width: content.width,
-              height: content.height,
-              sound,
-            },
+      send(
+        {
+          type: "update",
+          content: {
+            didntRender: true,
+            loading,
+            pixels: pixels?.buffer,
+            width: content.width,
+            height: content.height,
+            sound,
           },
-          updatePixelsBuffer ? [updatePixelsBuffer] : [],
-        );
-      } catch (error) {
-        console.warn("🚨 Failed to send update message:", error);
-        // Attempt to send without transferred objects as fallback
-        try {
-          send(
-            {
-              type: "update",
-              content: {
-                didntRender: true,
-                loading,
-                pixels: null, // Don't include pixels in fallback
-                width: content.width,
-                height: content.height,
-                sound,
-              },
-            },
-            [],
-          );
-        } catch (fallbackError) {
-          console.error("🚨 Critical: Failed to send update message even without transfers:", fallbackError);
-        }
-      }
+        },
+        [pixels?.buffer],
+      );
     }
 
     // Wait 8 frames of the default piece before loading the initial piece.
