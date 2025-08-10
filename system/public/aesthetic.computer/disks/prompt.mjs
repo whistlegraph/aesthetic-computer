@@ -76,7 +76,6 @@ import {
   decodeKidlispFromUrl,
   encodeKidlispForUrl,
   isKidlispSource,
-  getCachedCode,
 } from "../lib/kidlisp.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
@@ -242,14 +241,13 @@ async function boot({
   // Handle params, decode kidlisp if needed
   if (params[0]) {
     const rawText = params.join(" ");
-
+    
     // Only decode if it's actually kidlisp, otherwise use as-is
     let text;
     if (isKidlispSource(rawText)) {
       text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
     } else {
-      // Handle space escaping from backspace navigation, then convert tildes to spaces
-      text = rawText.replace(/_SPACE_/g, " ").replace(/~/g, " ");
+      text = rawText; // Use text as-is (tildes already converted to spaces)
     }
 
     // Set the text and user text first before activating
@@ -258,12 +256,12 @@ async function boot({
     system.prompt.input.addUserText(text);
     system.prompt.input.snap();
     send({ type: "keyboard:text:replace", content: { text } });
-
+    
     activated({ ...api, params }, true);
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
-
+    
     // Ensure text and cursor position persist after any system initialization
     setTimeout(() => {
       if (system.prompt.input.text !== text) {
@@ -356,7 +354,7 @@ async function halt($, text) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
   } else if (slug === "shop") {
-    // console.log(slug);
+    console.log(slug);
     // TODO: Do the mapping here...
 
     // @jeffrey/help
@@ -376,51 +374,14 @@ async function halt($, text) {
     jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
-  } else if (slug.startsWith("kidlisp:") && slug.length > 8) {
-    // Handle kidlisp:code format - extract code and redirect to $code format
-    const code = slug.slice(8); // Remove "kidlisp:" prefix to get the actual nanoid
-    
-    // Update URL to use $code format immediately
-    const newUrl = `$${code}`;
-    jump("/" + newUrl);
-    return true;
-  } else if (slug.startsWith("$")) {
-    // Handle cached kidlisp lookup: $prefixed codes like $OrqM
-    const code = slug.slice(1); // Remove the $ prefix to get the actual nanoid
-    let loaded; // Declare the loaded variable
-    
-    try {
-      const response = await fetch(`/api/store-kidlisp?code=${encodeURIComponent(code)}`);
-      if (response.ok) {
-        const { source } = await response.json();
-        
-        // Execute the retrieved kidlisp source, but keep the prefixed version for URL display
-        const body = { name: slug, source: source }; // Use $prefixed version as name for URL, source for execution
-        loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
-        flashColor = [0, 255, 0];
-      } else {
-        flashColor = [255, 0, 0];
-        notice("CACHED CODE NOT FOUND", ["yellow", "red"]);
-      }
-    } catch (err) {
-      console.error("Failed to load cached code:", err);
-      flashColor = [255, 0, 0];
-      notice("CACHE LOAD ERROR", ["yellow", "red"]);
-    }
-    
-    makeFlash($);
-    return true;
   } else if (
     slug === "tape" ||
     slug === "tape:add" ||
     slug === "tape:tt" ||
     slug === "tape:nomic" ||
     slug === "tape:mic" ||
-    slug === "tape:mystery" ||
     slug === "tapem"
   ) {
-    // console.log("🎬 Tape command detected:", slug, "params:", params);
-    
     // 📼 Start taping.
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
@@ -430,16 +391,6 @@ async function halt($, text) {
     // Each of these clips can be stored in indexedDB more easily and played
     // back or be rearranged.
     // 23.09.16.18.01
-
-    // 🎬 Store original tape command for backspace navigation
-    // This preserves the full tape command so backspace from video can return to it
-    // Clear any previous tape command first to avoid conflicts
-    store.delete("tape:originalCommand");
-    store["tape:originalCommand"] = text;
-    // console.log("🎬 Stored original tape command for backspace:", text);
-    // console.log("🎬 Debug - slug:", slug, "params:", params);
-    // console.log("🎬 Debug - original text tokens:", tokens);
-
     if (slug !== "tape:add") rec.slate(); // Start a recording over.
     const defaultDuration = 7;
     const tapePromise = new Promise((resolve, reject) => {
@@ -448,7 +399,7 @@ async function halt($, text) {
     });
 
     let nomic;
-    if (slug === "tape" || slug === "tape:tt" || slug === "tape:mystery") {
+    if (slug === "tape" || slug === "tape:tt") {
       nomic = iOS || Android ? false : true;
       if (params[0] === "baktok" || params[1] == "baktok") {
         nomic = false;
@@ -464,128 +415,47 @@ async function halt($, text) {
     if (!nomic) sound.microphone.connect(); // Connect the mic.
     try {
       if (nomic) {
-        // console.log("📼 Taping...");
+        console.log("📼 Taping...");
         tapePromiseResolve?.();
       }
       await tapePromise;
       let duration = parseFloat(params[0]);
-      
-      // Check if params[0] is a valid number (not just starts with a number)
-      const isValidDuration = !isNaN(duration) && params[0] === duration.toString();
 
       let jumpTo;
 
       // Gets picked up on next piece load automatically.
       rec.loadCallback = () => {
-        // console.log("🎬 loadCallback triggered, setting up recording with duration:", duration || defaultDuration);
-        
-        // Extract piece name and parameters for filename generation
-        let pieceName = "tape";
-        let pieceParams = "";
-        
-        // Check if we have KidLisp code in the command
-        const fullKidlispContent = isValidDuration && params.length > 1 ? 
-          params.slice(1).join(" ") : 
-          (!isValidDuration && params.length > 0 ? params.join(" ") : "");
-        
-        // console.log("🎬 Debug loadCallback - isValidDuration:", isValidDuration);
-        // console.log("🎬 Debug loadCallback - fullKidlispContent:", fullKidlispContent);
-        // console.log("🎬 Debug loadCallback - isKidlispSource(fullKidlispContent):", isKidlispSource(fullKidlispContent));
-        
-        if (fullKidlispContent && isKidlispSource(fullKidlispContent)) {
-          // For kidlisp source code, try to get the cached code
-          const cachedCode = getCachedCode(fullKidlispContent);
-          console.log("🎬 Debug - Cached code for KidLisp:", cachedCode);
-          pieceName = cachedCode ? `$${cachedCode}` : "$code";
-        } else if (jumpTo) {
-          pieceName = jumpTo;
-          // Get additional parameters beyond the piece name
-          const additionalParams = !isValidDuration && params.length > 1 ? 
-            params.slice(1) : 
-            (isValidDuration && params.length > 2 ? params.slice(2) : []);
-          if (additionalParams.length > 0) {
-            pieceParams = "~" + additionalParams.join("~");
-          }
-        } else if (isKidlispSource(text)) {
-          // For kidlisp source code without params, try to get the cached code
-          const cachedCode = getCachedCode(text);
-          console.log("🎬 Debug - Cached code for KidLisp (text):", cachedCode);
-          pieceName = cachedCode ? `$${cachedCode}` : "$code";
-        }
-        
-        // console.log("🎬 Tape recording piece info:", { pieceName, pieceParams, jumpTo, text });
-        
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
         rec.rolling(
-          {
-            type: "video" + (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
-            pieceName,
-            pieceParams,
-            originalCommand: text,
-            intendedDuration: duration || defaultDuration, // Pass the intended duration for filename
-            mystery: slug === "tape:mystery" // Pass mystery flag to hide command in filename
-          },
+          "video" +
+            (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
           (time) => {
-            // console.log("🎬 rolling callback received time:", time);
             rec.tapeTimerSet(duration || defaultDuration, time);
           },
         ); // Start recording immediately.
       };
 
-      if (!isValidDuration && params[0]?.length > 0) {
-        // console.log("🎬 Debug - Taking !isValidDuration path");
+      if (isNaN(duration) && params[0]?.length > 0) {
         duration = defaultDuration; //Infinity;
-        
-        // Handle both regular pieces and kidlisp pieces
-        const jumpContent = params.join(" ");
-        // console.log("🎬 Debug - jumpContent (!isValidDuration):", jumpContent);
-        if (isKidlispSource(jumpContent)) {
-          // console.log("🎬 Debug - Detected KidLisp in !isValidDuration path");
-          // For kidlisp, encode it properly for URL
-          jump(encodeKidlispForUrl(jumpContent));
-        } else {
-          // console.log("🎬 Debug - Not KidLisp in !isValidDuration path");
-          // For regular pieces, set jumpTo and use tilde joining
-          jumpTo = params[0];
-          jump(params.join("~"));
-        }
+        jumpTo = params[0];
+        jump(params.join("~"));
         rec.videoOnLeave = true;
       } else if (params[1]) {
-        // console.log("🎬 Debug - Taking params[1] path");
-        // Handle both regular pieces and kidlisp pieces
-        const jumpContent = params.slice(1).join(" ");
-        // console.log("🎬 Debug - jumpContent (params[1]):", jumpContent);
-        if (isKidlispSource(jumpContent)) {
-          console.log("🎬 Debug - Detected KidLisp in params[1] path");
-          // For kidlisp, encode it properly for URL
-          jump(encodeKidlispForUrl(jumpContent));
-        } else {
-          // console.log("🎬 Debug - Not KidLisp in params[1] path");
-          // For regular pieces, use first param as jumpTo and join rest with tildes
-          jumpTo = params[1];
-          jump(params.slice(1).join("~"));
-        }
+        jumpTo = params[1];
+        jump(params.slice(1).join("~"));
       } else {
-        // Default to paint piece for recording when no specific piece is provided
-        console.log("🎬 No piece specified, taping the prompt."); 
-        // jump("paint");
+        jump("prompt");
       }
       flashColor = [0, 255, 0];
     } catch (err) {
-      // console.log(err);
+      console.log(err);
       flashColor = [255, 0, 0];
     }
     makeFlash($);
     return true;
     // 📼 Cut a tape early.
   } else if (slug === "tape:cut" || slug === "cut") {
-    // 🎬 Store cut command for backspace navigation (only if no original tape command exists)
-    if (!store["tape:originalCommand"]) {
-      store["tape:originalCommand"] = text;
-      console.log("🎬 Stored tape cut command for backspace:", text);
-    }
-    
     let cutRes, cutRej;
     const cutPromise = new Promise((res, rej) => {
       cutRes = res;
@@ -606,7 +476,7 @@ async function halt($, text) {
     // TODO: How can I hold the cursor here...
     return true;
   } else if (slug === "me" || slug === "profile") {
-    // console.log("Logged in?", user);
+    console.log("Logged in?", user);
     if (user) {
       jump("profile");
       return true;
@@ -659,7 +529,7 @@ async function halt($, text) {
     return true;
   } else if (slug === "painting:start") {
     system.nopaint.startRecord();
-    // console.log("🖌️🔴 Now recording:", system.nopaint.record);
+    console.log("🖌️🔴 Now recording:", system.nopaint.record);
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
@@ -705,7 +575,7 @@ async function halt($, text) {
     let recordingSlug;
 
     if (system.nopaint.recording) {
-      // console.log("🖌️ Saving recording:", destination);
+      console.log("🖌️ Saving recording:", destination);
       const record = system.nopaint.record;
       filename = `painting-${record[record.length - 1].timestamp}.png`;
       // ^ For below, because the record will be cleared.
@@ -719,13 +589,13 @@ async function halt($, text) {
       }
 
       const zipped = await zip({ destination, painting: { record } }, (p) => {
-        // console.log("🤐 Zip progress:", p);
+        console.log("🤐 Zip progress:", p);
         progressBar = p;
       });
 
       progressTrick = null;
 
-      // console.log("🤐 Zipped:", zipped);
+      console.log("🤐 Zipped:", zipped);
       recordingSlug = zipped.slug;
 
       // TODO: Don't delete painting record unless `new` is entered. 23.10.03.01.51
@@ -737,12 +607,12 @@ async function halt($, text) {
     } else {
       filename = `painting-${num.timestamp()}.png`;
       flashColor = [255, 0, 0];
-      // console.warn("🖌️ No recording to save!");
+      console.warn("🖌️ No recording to save!");
     }
 
     // Always upload a PNG.
     if (destination === "upload") {
-      // console.log("🖼️ Uploading painting...");
+      console.log("🖼️ Uploading painting...");
       progressBar = 0; // Trigger progress bar rendering.
       progressTrick = new gizmo.Hourglass(24, {
         completed: () => (progressBar += min(0.5, progressBar + 0.1)),
@@ -936,10 +806,6 @@ async function halt($, text) {
     } else {
       jump("out:/docs");
     }
-    makeFlash($);
-    return true;
-  } else if (text === "support") {
-    jump("out:https://calendly.com/aesthetic-computer");
     makeFlash($);
     return true;
   } else if (text.startsWith("edit")) {
@@ -1200,22 +1066,11 @@ async function halt($, text) {
     const vertical = slug === "flip"; // `flop` is lateral
     const w = system.painting.width,
       h = system.painting.height;
-    
-    // Store the original painting before creating a new one
-    const originalPainting = system.painting;
-    
     // Invert the scale of the painting, pasting it into a new one of the
     // same size.
     const scale = vertical ? { x: 1, y: -1 } : { x: -1, y: 1 };
-    
-    // Calculate position offset to counteract grid function's automatic adjustment
-    const offsetX = scale.x < 0 ? w + 1 : 0;
-    const offsetY = scale.y < 0 ? h + 1 : 0;
-    
     system.painting = painting(w, h, (p) => {
-      // First clear to the same background as the original
-      p.wipe(255, 0); // Clear to transparent
-      p.paste(originalPainting, offsetX, offsetY, scale);
+      p.wipe(64).paste(system.painting, 0, 0, { scale });
     });
 
     // Persis the painting.
@@ -1598,24 +1453,6 @@ async function halt($, text) {
     // Disconnect from socket server, chat, and udp in 5 seconds...
     net.hiccup();
     return true;
-  } else if (text === "cache on" || text === "cache enable") {
-    // Enable kidlisp caching
-    store["kidlisp:cache-enabled"] = true;
-    notice("CACHE ENABLED", ["green", "black"]);
-    makeFlash($);
-    return true;
-  } else if (text === "cache off" || text === "cache disable") {
-    // Disable kidlisp caching
-    store["kidlisp:cache-enabled"] = false;
-    notice("CACHE DISABLED", ["red", "black"]);
-    makeFlash($);
-    return true;
-  } else if (text === "cache status" || text === "cache") {
-    // Show cache status
-    const enabled = store["kidlisp:cache-enabled"] !== false; // Default to enabled
-    notice(enabled ? "CACHE ENABLED (3s delay)" : "CACHE DISABLED", [enabled ? "green" : "red", "black"]);
-    makeFlash($);
-    return true;
   } else {
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
@@ -1774,31 +1611,31 @@ function paint($) {
       // Position midway between login button (screen center) and handles text
       const loginY = screen.height / 2; // Login button is centered vertically
       const handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Handles text position
-
+      
       // Calculate text input area height - typically positioned at bottom with buttons
       // Use a more conservative estimate that scales with screen height
       const inputAreaHeight = Math.min(60, screen.height * 0.15); // 15% of screen or 60px max
       const inputAreaTop = screen.height - inputAreaHeight;
-
+      
       // Position ticker midway between login and handles, but ensure it doesn't overlap input area
       let tickerY = (loginY + handlesY) / 2; // Midway point
-
+      
       // Ensure ticker stays above input area with at least 12px clearance
       const maxTickerY = inputAreaTop - 12;
-
+      
       // Also ensure minimum distance from screen bottom (fallback safety)
       const absoluteMaxY = screen.height - 80;
-
+      
       // Apply constraints but ensure ticker stays below login button
       const minTickerY = loginY + 20; // 20 pixels below login button
-
+      
       if (tickerY > maxTickerY) {
         tickerY = maxTickerY;
       }
       if (tickerY > absoluteMaxY) {
         tickerY = absoluteMaxY;
       }
-
+      
       // If constraints push ticker too high, position it at minimum safe distance from login
       if (tickerY < minTickerY) {
         tickerY = minTickerY;
@@ -1813,7 +1650,7 @@ function paint($) {
       const tickerBelowLogin = tickerY >= loginY + 20;
       const tickerAboveInput = tickerY <= inputAreaTop - 12;
       const screenTallEnough = screen.height >= 130;
-
+      
       const showTicker =
         screenTallEnough &&
         availableSpace >= minSpacingRequired &&
@@ -1883,24 +1720,23 @@ function paint($) {
       if (chatTicker && $.chat.messages.length > 0) {
         // Get the ticker Y position from the ticker logic above
         const loginY = screen.height / 2;
-        const originalHandlesY =
-          screen.height / 2 + screen.height / 3.25 - 11 + 15;
+        const originalHandlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15;
         const inputAreaHeight = Math.min(60, screen.height * 0.15);
         const inputAreaTop = screen.height - inputAreaHeight;
         const maxTickerY = inputAreaTop - 12;
         const absoluteMaxY = screen.height - 80;
         const minTickerY = loginY + 20;
-
+        
         let tickerY = (loginY + originalHandlesY) / 2;
         if (tickerY > maxTickerY) tickerY = maxTickerY;
         if (tickerY > absoluteMaxY) tickerY = absoluteMaxY;
         if (tickerY < minTickerY) tickerY = minTickerY;
-
+        
         handlesY = tickerY + 20; // 20 pixels below ticker
       } else {
         handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Original position
       }
-
+      
       ink(pal.handleColor).write(
         `${handles.toLocaleString()} HANDLES SET`,
         {
@@ -1992,7 +1828,7 @@ function paint($) {
 
 // 🧮 Sim
 function sim($) {
-  ellipsisTicker?.update($.clock.time());
+  ellipsisTicker?.sim();
   progressTrick?.step();
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);
@@ -2041,135 +1877,6 @@ function act({
   notice,
   ui,
 }) {
-  // Early lift event handling - prevent TextInput activation if lift happens over interactive elements
-  if (e.is("lift") && !system.prompt.input.canType) {
-    // Check if touch started outside but ended over an interactive element
-    const liftOverInteractive =
-      (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
-      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton &&
-        !chatTickerButton.disabled &&
-        chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false &&
-        system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false &&
-        system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false &&
-        system.prompt.input.paste.btn.box.contains(e));
-
-    if (liftOverInteractive) {
-      // Prevent TextInput activation by setting backdropTouchOff
-      system.prompt.input.backdropTouchOff = true;
-      send({ type: "keyboard:lock" });
-
-      // Play a deep thud sound when cancelling interaction over a button
-      if (system.prompt.input._touchStartedOutside) {
-        synth({
-          type: "sine",
-          tone: 200,
-          attack: 0.02,
-          decay: 0.3,
-          volume: 0.4,
-          duration: 0.15,
-        });
-      }
-    }
-
-    // Clean up the tracking flag regardless
-    system.prompt.input._touchStartedOutside = false;
-  }
-
-  // Handle deactivation if TextInput is already active
-  if (
-    e.is("lift") &&
-    system.prompt.input.canType &&
-    !system.prompt.input.shifting &&
-    !system.prompt.input.recentlyShifting &&
-    !system.prompt.input.paste.down
-  ) {
-    const liftOverInteractive =
-      (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
-      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton &&
-        !chatTickerButton.disabled &&
-        chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false &&
-        system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false &&
-        system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false &&
-        system.prompt.input.paste.btn.box.contains(e));
-
-    // Deactivate when lifting over background (not over interactive elements)
-    if (!liftOverInteractive) {
-      send({ type: "keyboard:close" });
-    }
-  }
-
-  // Add clicky sound when prompt is active and user taps background to deactivate
-  if (e.is("touch") && system.prompt.input.canType) {
-    const touchOverInteractive =
-      (login?.btn.disabled === false && login?.btn.box.contains(e)) ||
-      (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton &&
-        !chatTickerButton.disabled &&
-        chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false &&
-        system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false &&
-        system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false &&
-        system.prompt.input.paste.btn.box.contains(e));
-
-    // Play distinct, higher-pitched clicky sound when tapping background (not over interactive elements) to deactivate
-    if (!touchOverInteractive) {
-      synth({
-        type: "sine",
-        tone: 500,
-        attack: 0.005,
-        decay: 0.8,
-        volume: 0.5,
-        duration: 0.01,
-      });
-    }
-  }
-
-  // Also handle touch events to prevent activation from starting
-  if (e.is("touch") && !system.prompt.input.canType) {
-    // Store the touch start position to track if it started outside interactive elements
-    if (
-      !(login?.btn.disabled === false && login?.btn.box.contains(e)) &&
-      !(signup?.btn.disabled === false && signup?.btn.box.contains(e)) &&
-      !(profile?.btn.disabled === false && profile?.btn.box.contains(e)) &&
-      !(
-        chatTickerButton &&
-        !chatTickerButton.disabled &&
-        chatTickerButton.box.contains(e)
-      ) &&
-      !(
-        system.prompt.input.enter.btn.disabled === false &&
-        system.prompt.input.enter.btn.box.contains(e)
-      ) &&
-      !(
-        system.prompt.input.copy.btn.disabled === false &&
-        system.prompt.input.copy.btn.box.contains(e)
-      ) &&
-      !(
-        system.prompt.input.paste.btn.disabled === false &&
-        system.prompt.input.paste.btn.box.contains(e)
-      )
-    ) {
-      // Touch started outside any interactive element
-      system.prompt.input._touchStartedOutside = true;
-    } else {
-      // Touch started over an interactive element
-      system.prompt.input._touchStartedOutside = false;
-    }
-  }
-
   // Checks to clear prefilled 'email user@email.com' message
   // on signup.
   if (
@@ -2250,17 +1957,13 @@ function act({
   if (!net.sandboxed) {
     if (login && !login.btn.disabled) {
       login.btn.act(e, {
-        down: () => {
-          downSound();
-        },
+        down: () => downSound(),
         push: () => {
           pushSound();
           net.login();
           // if (net.iframe) jump("login-wait");
         },
-        cancel: () => {
-          cancelSound();
-        },
+        cancel: () => cancelSound(),
       });
     }
   }
@@ -2284,10 +1987,6 @@ function act({
       down: () => {
         // Sound feedback on tap down
         downSound();
-
-        // Lock keyboard and prevent text input focus
-        send({ type: "keyboard:lock" });
-        system.prompt.input.backdropTouchOff = true;
 
         // Stop ticker animation and store initial scrub position
         if (chatTicker) {
@@ -2334,16 +2033,6 @@ function act({
         // Sound feedback on successful action
         if (!chatTickerButton.hasScrubbed) {
           pushSound();
-        } else {
-          // Play soft bump sound when scrubbing ends
-          synth({
-            type: "sine",
-            tone: 200,
-            attack: 0.1,
-            decay: 0.99,
-            volume: 0.35,
-            duration: 0.001,
-          });
         }
 
         // Only jump to chat if we didn't scrub
@@ -2356,35 +2045,15 @@ function act({
             chatTicker.paused = false;
           }
         }
-
-        // Ensure keyboard remains locked and text input unfocused
-        send({ type: "keyboard:lock" });
-        system.prompt.input.backdropTouchOff = true;
       },
       cancel: () => {
-        // Cancel sound or bump sound if scrubbed
-        if (!chatTickerButton.hasScrubbed) {
-          cancelSound();
-        } else {
-          // Play soft bump sound when scrubbing ends
-          synth({
-            type: "sine",
-            tone: 200,
-            attack: 0.1,
-            decay: 0.99,
-            volume: 0.35,
-            duration: 0.001,
-          });
-        }
+        // Cancel sound
+        cancelSound();
 
         // Resume animation on cancel
         if (chatTicker) {
           chatTicker.paused = false;
         }
-
-        // Ensure keyboard remains locked and text input unfocused
-        send({ type: "keyboard:lock" });
-        system.prompt.input.backdropTouchOff = true;
       },
     });
   }
@@ -2395,16 +2064,7 @@ function act({
     e.is("draw") &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
-      (chatTickerButton &&
-        !chatTickerButton.disabled &&
-        chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false &&
-        system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false &&
-        system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false &&
-        system.prompt.input.paste.btn.box.contains(e)))
+      (profile?.btn.disabled === false && profile?.btn.box.contains(e)))
   ) {
     send({ type: "keyboard:lock" });
   }
@@ -2416,16 +2076,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
-        profileAction === "profile") ||
-      (chatTickerButton &&
-        !chatTickerButton.disabled &&
-        chatTickerButton.box.contains(e)) ||
-      (system.prompt.input.enter.btn.disabled === false &&
-        system.prompt.input.enter.btn.box.contains(e)) ||
-      (system.prompt.input.copy.btn.disabled === false &&
-        system.prompt.input.copy.btn.box.contains(e)) ||
-      (system.prompt.input.paste.btn.disabled === false &&
-        system.prompt.input.paste.btn.box.contains(e)))
+        profileAction === "profile"))
   ) {
     send({ type: "keyboard:lock" });
     system.prompt.input.backdropTouchOff = true;
@@ -2441,50 +2092,50 @@ function act({
 
   if (profile && !profile.btn.disabled) {
     profile.btn.act(e, {
-      down: () => {
-        downSound();
-        if (profileAction !== "profile") {
-          //send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-          // send({ type: "keyboard:unlock" });
-        }
-      },
-      push: () => {
-        pushSound();
-        if (profileAction === "resend-verification") {
-          // notice("RESEND EMAIL?", ["yellow", "blue"]);
-          const text = "email " + user.email;
-          resendVerificationText = text;
-          system.prompt.input.text = text;
-          system.prompt.input.snap();
-          system.prompt.input.runnable = true;
-          firstActivation = false;
-          send({ type: "keyboard:text:replace", content: { text } });
-          // send({ type: "keyboard:unlock" });
-          // send({ type: "keyboard:open" });
-        } else if (profileAction === "profile") {
-          jump(handle() || "profile");
-        } else if (profileAction === "set-handle") {
-          notice("ENTER HANDLE", ["yellow", "blue"]);
-          const text = "handle ";
-          system.prompt.input.text = text;
-          system.prompt.input.snap();
-          system.prompt.input.runnable = true;
-          firstActivation = false;
-          send({ type: "keyboard:text:replace", content: { text } });
-          // send({ type: "keyboard:unlock" });
-          // send({ type: "keyboard:open" });
-        }
-      },
-      cancel: () => {
-        cancelSound();
+    down: () => {
+      downSound();
+      if (profileAction !== "profile") {
+        //send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+        // send({ type: "keyboard:unlock" });
+      }
+    },
+    push: () => {
+      pushSound();
+      if (profileAction === "resend-verification") {
+        // notice("RESEND EMAIL?", ["yellow", "blue"]);
+        const text = "email " + user.email;
+        resendVerificationText = text;
+        system.prompt.input.text = text;
+        system.prompt.input.snap();
+        system.prompt.input.runnable = true;
+        firstActivation = false;
+        send({ type: "keyboard:text:replace", content: { text } });
+        // send({ type: "keyboard:unlock" });
+        // send({ type: "keyboard:open" });
+      } else if (profileAction === "profile") {
+        jump(handle() || "profile");
+      } else if (profileAction === "set-handle") {
+        notice("ENTER HANDLE", ["yellow", "blue"]);
+        const text = "handle ";
+        system.prompt.input.text = text;
+        system.prompt.input.snap();
+        system.prompt.input.runnable = true;
+        firstActivation = false;
+        send({ type: "keyboard:text:replace", content: { text } });
+        // send({ type: "keyboard:unlock" });
+        // send({ type: "keyboard:open" });
+      }
+    },
+    cancel: () => {
+      cancelSound();
 
-        if (profileAction !== "profile") {
-          // send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-          send({ type: "keyboard:lock" });
-          system.prompt.input.backdropTouchOff = true;
-        }
-      },
-    });
+      if (profileAction !== "profile") {
+        // send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+        send({ type: "keyboard:lock" });
+        system.prompt.input.backdropTouchOff = true;
+      }
+    },
+  });
   }
 
   // 🖥️ Screen
@@ -2712,14 +2363,6 @@ function makeFlash($, clear = true, beep = false) {
       flashPresent = false;
       flash = undefined;
       firstActivation = false;
-      // Reset TextInput state to allow keyboard reactivation after flash
-      $.system.prompt.input.backdropTouchOff = false;
-      
-      // Reactivate the prompt for keyboard input after the flash
-      $.system.prompt.input.canType = true;
-      $.send({ type: "keyboard:unlock" });
-      $.send({ type: "keyboard:open" });
-      
       $.needsPaint();
     },
     autoFlip: true,
@@ -2729,8 +2372,6 @@ function makeFlash($, clear = true, beep = false) {
   flashShow = true;
   if (clear === true) {
     $.system.prompt.input.blank(); // Clear the prompt.
-    // Reset any state that might prevent keyboard reactivation
-    $.system.prompt.input.backdropTouchOff = false;
   } else if (typeof clear === "string") {
     $.system.prompt.input.text = clear;
     $.system.prompt.input.snap();
