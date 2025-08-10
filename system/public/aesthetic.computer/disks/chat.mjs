@@ -724,7 +724,7 @@ function act(
 
     // Backspace back to `prompt`.
     if (e.is("keyboard:down:backspace")) {
-      jump(`prompt~${hud.currentLabel().text || piece}`)(() => {
+      jump(`prompt~${hud.currentLabel().plainText || piece}`)(() => {
         send({ type: "keyboard:open" });
       });
     }
