@@ -238,17 +238,9 @@ async function boot({
       nopaste: pieceCount === 0,
     });
   }
-  // Handle params, decode kidlisp if needed
+  // Handle params - content is already decoded by parse.mjs
   if (params[0]) {
-    const rawText = params.join(" ");
-    
-    // Only decode if it's actually kidlisp, otherwise use as-is
-    let text;
-    if (isKidlispSource(rawText)) {
-      text = decodeKidlispFromUrl(rawText); // Decode kidlisp-encoded content
-    } else {
-      text = rawText; // Use text as-is (tildes already converted to spaces)
-    }
+    const text = params.join(" "); // Already decoded, just join if multiple params
 
     // Set the text and user text first before activating
     system.prompt.input.text = text;
@@ -428,8 +420,23 @@ async function halt($, text) {
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
         rec.rolling(
-          "video" +
-            (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
+          {
+            type: "video" + (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
+            pieceName: (jumpTo && jumpTo.startsWith("$")) ? "$code" : (jumpTo || "tape"),
+            pieceParams: (() => {
+              // For kidlisp codes ($xxx), exclude the command itself from params to avoid duplication
+              const startIndex = isNaN(duration) ? 0 : 1;
+              const relevantParams = params.slice(startIndex);
+              // If the first param is a kidlisp code and it matches jumpTo, exclude it
+              if (relevantParams.length > 0 && relevantParams[0] === jumpTo && jumpTo?.startsWith("$")) {
+                return relevantParams.slice(1).join("~");
+              }
+              return relevantParams.join("~");
+            })(),
+            originalCommand: text,
+            intendedDuration: isNaN(duration) ? null : duration,
+            mystery: false
+          },
           (time) => {
             rec.tapeTimerSet(duration || defaultDuration, time);
           },
@@ -438,12 +445,16 @@ async function halt($, text) {
 
       if (isNaN(duration) && params[0]?.length > 0) {
         duration = defaultDuration; //Infinity;
+        // Reconstruct the original kidlisp content without adding tildes
+        const originalContent = text.slice(text.indexOf(params[0])); // Get everything after "tape "
         jumpTo = params[0];
-        jump(params.join("~"));
+        jump(originalContent);
         rec.videoOnLeave = true;
       } else if (params[1]) {
         jumpTo = params[1];
-        jump(params.slice(1).join("~"));
+        // Reconstruct the original content for kidlisp preservation
+        const originalContent = text.slice(text.indexOf(params[1])); // Get everything after duration
+        jump(originalContent);
       } else {
         jump("prompt");
       }
