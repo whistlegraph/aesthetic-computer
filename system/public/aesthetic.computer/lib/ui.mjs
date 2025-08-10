@@ -153,11 +153,6 @@ class Button {
 
     // 1. Down: Enable the button if we touched over it. (Repeatable)
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
-      // Prevent immediate re-activation if this button was just processed
-      if (btn._justProcessed) {
-        return;
-      }
-      
       const downed = callbacks.down?.(btn);
       btn.down = downed || downed === undefined ? true : false;
       if (btn.down && btn.downPointer === undefined)
@@ -209,13 +204,6 @@ class Button {
         btn.over = false;
         activeButtons.delete(btn);
         callbacks.push?.(btn);
-        
-        // Mark as just processed to prevent immediate re-activation
-        btn._justProcessed = true;
-        btn._lastProcessedTime = Date.now();
-        setTimeout(() => {
-          btn._justProcessed = false;
-        }, 250); // Increase to 250ms to ensure lift events are handled
         
         up();
       } else if (
