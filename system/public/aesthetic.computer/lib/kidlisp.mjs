@@ -400,6 +400,10 @@ class KidLisp {
     this.timingBlinks = new Map(); // Track timing expressions that should blink
     this.blinkDuration = 200; // Duration for timing blinks in milliseconds
     
+    // Delay timer active periods tracking
+    this.delayTimerActivePeriods = new Map(); // Track delay timers in their active display period
+    this.delayTimerActiveDuration = 280; // Duration for delay timer active display in milliseconds (5 frames red + 12 frames colored = ~280ms at 60fps)
+    
     // Active timing expressions tracking for syntax highlighting
     this.activeTimingExpressions = new Map(); // Track which timing expressions are currently active
     
@@ -475,6 +479,9 @@ class KidLisp {
     // Reset timing blink tracking
     this.timingBlinks.clear();
     
+    // Reset delay timer active periods tracking
+    this.delayTimerActivePeriods.clear();
+    
     // Reset active timing expressions tracking
     this.activeTimingExpressions.clear();
     
@@ -512,17 +519,20 @@ class KidLisp {
   // Mark a timing expression as triggered for blinking
   markTimingTriggered(timingToken) {
     const now = performance.now();
+    
+    // For delay timers, use shorter flash duration (1 frame)
+    const isDelayTimer = /^\d*\.?\d+s!?$/.test(timingToken);
+    const flashDuration = isDelayTimer ? 200 : this.blinkDuration; // 200ms to make it visible
+    
     this.timingBlinks.set(timingToken, {
       triggerTime: now,
-      duration: this.blinkDuration
+      duration: flashDuration
     });
   }
 
   // Check if a timing token should be blinking
   isTimingBlinking(timingToken) {
-    if (!this.timingBlinks.has(timingToken)) {
-      return false;
-    }
+    if (!this.timingBlinks.has(timingToken)) return false;
     
     const blinkInfo = this.timingBlinks.get(timingToken);
     const now = performance.now();
@@ -534,8 +544,43 @@ class KidLisp {
       return false;
     }
     
-    // Return true if we're in the first half of the blink duration (creates flash effect)
-    return elapsed < (blinkInfo.duration / 2);
+    // For delay timers (non-cycling), implement the red flash + hold pattern
+    const isDelayTimer = /^\d*\.?\d+s!?$/.test(timingToken);
+    if (isDelayTimer) {
+      const isBlinking = elapsed < 80; // Red flash for first 80ms (~5 frames at 60fps) - longer so it's not missed
+      return isBlinking;
+    }
+    
+    // For cycle timers, return true if we're in a brief lime flash period (like delay timers)
+    return elapsed < 80; // 80ms lime flash for cycle timers (matches delay timer duration)
+  }
+
+  // Mark a delay timer as entering its active display period
+  markDelayTimerActive(timingToken) {
+    const now = performance.now();
+    this.delayTimerActivePeriods.set(timingToken, {
+      activateTime: now,
+      duration: this.delayTimerActiveDuration
+    });
+  }
+
+  // Check if a delay timer is in its active display period
+  isDelayTimerActive(timingToken) {
+    if (!this.delayTimerActivePeriods.has(timingToken)) {
+      return false;
+    }
+    
+    const activeInfo = this.delayTimerActivePeriods.get(timingToken);
+    const now = performance.now();
+    const elapsed = now - activeInfo.activateTime;
+    
+    if (elapsed > activeInfo.duration) {
+      // Active period has expired, remove it
+      this.delayTimerActivePeriods.delete(timingToken);
+      return false;
+    }
+    
+    return true;
   }
 
   // Format an expression for HUD display (convert to readable text)
@@ -837,8 +882,18 @@ class KidLisp {
     // Check if caching is enabled from store (default: true)
     const cacheEnabled = api.store?.["kidlisp:cache-enabled"] !== false;
     
+    // console.log("🔍 Cache Debug:", {
+    //   cacheEnabled,
+    //   source: source?.substring(0, 50),
+    //   sourceLength: source?.length,
+    //   isLispFile: this.isLispFile,
+    //   alreadyCached: this.cachedCode,
+    //   cachingInProgress: this.cachingInProgress
+    // });
+    
     // Skip caching if disabled or no source
     if (!cacheEnabled || !source || source.trim().length === 0) {
+      // console.log("❌ Skipping cache - disabled or no source");
       return;
     }
     
@@ -846,31 +901,54 @@ class KidLisp {
     this.cachingInProgress = true;
     
     try {
-      // Use the new request function that handles both auth and anonymous users
-      const response = await api.net.request('POST', '/api/store-kidlisp', { source });
+      // console.log("🚀 Starting cache request for:", source.substring(0, 50));
       
-      if (response && (response.status === 200 || response.status === 201)) {
-        this.shortUrl = `aesthetic.computer/$${response.code}`;
+      // Use standard fetch with proper headers (like other API calls)
+      const headers = { "Content-Type": "application/json" };
+      
+      try {
+        // Include authorization token if logged in (like the print API)
+        const token = await api.authorize(); // Get user token
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch (err) {} // Handled up-stream
+      
+      const response = await fetch('/api/store-kidlisp', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ source })
+      });
+      
+      // console.log("📥 Cache response:", response);
+      
+      if (response.ok) {
+        const data = await response.json();
+        // console.log("📥 Cache data:", data);
+        
+        this.shortUrl = `aesthetic.computer/$${data.code}`;
         
         // Store the short URL for QR generation
-        this.cachedCode = response.code;
+        this.cachedCode = data.code;
         
         // Store in global registry for access from disk.mjs
-        setCachedCode(source, response.code);
+        setCachedCode(source, data.code);
+        
+        // console.log("✅ Cache successful, stored code:", data.code);
         
         // Log the generated $code to console with styled formatting
         console.log(
-          `%c$${response.code}`,
+          `%c$${data.code}`,
           'background: yellow; color: black; font-weight: bold; font-family: monospace; padding: 2px 4px; font-size: 12px;'
         );
         
         // Update browser URL to show the short code
         this.updateBrowserUrl(response.code, api);
       } else {
+        console.log("❌ Cache failed - response not ok:", response.status, response.statusText);
         // Silently handle caching failures - auth issues are common and not critical
         // console.warn('Failed to cache kidlisp:', response?.status, response?.message || 'Unknown error');
       }
     } catch (error) {
+      console.log("❌ Cache error:", error);
       // Silently handle caching failures - auth issues are common and not critical  
       // console.warn('Failed to cache kidlisp:', error.message || error);
     } finally {
@@ -1794,11 +1872,11 @@ class KidLisp {
       zoom: (api, args = []) => {
         api.zoom(...args);
       },
-      contrast: (api, args = []) => {
-        api.contrast(...args);
-      },
       blur: (api, args = []) => {
         api.blur(...args);
+      },
+      contrast: (api, args = []) => {
+        api.contrast(...args);
       },
       pan: (api, args = []) => {
         api.pan(...args);
@@ -3085,6 +3163,7 @@ class KidLisp {
           if (seconds === 0) {
             // 0s = every frame (no timing restriction)
             this.markTimingTriggered(head); // Trigger blink
+            this.markDelayTimerActive(head); // Mark as active for display period
             let timingResult;
             for (const arg of args) {
               timingResult = this.evaluate([arg], api, env);
@@ -3109,6 +3188,7 @@ class KidLisp {
               if (diff >= minInterval) {
                 this.lastSecondExecutions[timingKey] = currentTime;
                 this.markTimingTriggered(head);
+                this.markDelayTimerActive(head); // Mark as active for display period
                 let timingResult;
                 for (const arg of args) {
                   timingResult = this.evaluate([arg], api, env);
@@ -3141,6 +3221,7 @@ class KidLisp {
                 this.lastSecondExecutions[timingKey] = currentTime;
 
                 this.markTimingTriggered(head); // Trigger blink
+                this.markDelayTimerActive(head); // Mark as active for display period
                 let timingResult;
                 for (const arg of args) {
                   timingResult = this.evaluate([arg], api, env);
@@ -3165,7 +3246,7 @@ class KidLisp {
                 this.lastSecondExecutions[timingKey] = currentTime;
 
                 this.markTimingTriggered(head); // Trigger blink
-                // Execute the timing arguments with proper context
+                this.markDelayTimerActive(head); // Mark as active for display period
                 let timingResult;
                 for (const arg of args) {
                   timingResult = this.evaluate([arg], api, env);
@@ -3699,8 +3780,19 @@ class KidLisp {
             lastColor = color;
           }
           
-          // Add the token itself
-          result += token;
+          // Special handling for rainbow coloring
+          if (color === "RAINBOW" && token === "rainbow") {
+            // ROYGBIV rainbow colors for each character
+            const rainbowColors = ["red", "orange", "yellow", "lime", "blue", "purple", "magenta"];
+            for (let charIndex = 0; charIndex < token.length; charIndex++) {
+              const charColor = rainbowColors[charIndex % rainbowColors.length];
+              result += `\\${charColor}\\${token[charIndex]}`;
+            }
+            lastColor = null; // Reset so next token gets proper color
+          } else {
+            // Add the token itself normally
+            result += token;
+          }
           
           // Update our position in the source
           sourceIndex = tokenIndex + token.length;
@@ -3724,6 +3816,7 @@ class KidLisp {
   getTimingTokenState(token, tokens, index) {
     // First, check if the current token itself is a timing token
     if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
+      // Cycle timers - sequential execution
       // Try to find this timing key in our active tracking
       // We need to check all possible timing keys since we don't know the exact arg count here
       for (const [timingKey, data] of this.activeTimingExpressions) {
@@ -3751,11 +3844,24 @@ class KidLisp {
           };
         }
       }
+    } else if (/^\d*\.?\d+s!?$/.test(token)) {
+      // Delay timers - all contents blink when triggered
+      return {
+        timingKey: token,
+        currentIndex: 0,
+        totalArgs: 1,
+        isBlinking: this.isTimingBlinking(token),
+        isActive: this.isDelayTimerActive(token), // Track active display period
+        isInActiveArg: true,
+        isDelayTimer: true // Mark as delay timer for special handling
+      };
     }
 
     // Check if this token is inside a timing expression's arguments
     for (let i = 0; i < index; i++) {
       const prevToken = tokens[i];
+      
+      // Handle cycle timer arguments
       if (/^\d*\.?\d+s\.\.\.?$/.test(prevToken)) {
         if (token === "line" || token === "box") {
           console.log(`🔍 Found timing token "${prevToken}" at index ${i} while processing "${token}" at index ${index}`);
@@ -3787,7 +3893,7 @@ class KidLisp {
                 isInActiveArg: isActive
               };
             } else {
-              console.log(`🔍 Token "${token}" not in valid argument range or argInfo is null`);
+              // console.log(`🔍 Token "${token}" not in valid argument range or argInfo is null`);
             }
           }
         }
@@ -3807,6 +3913,23 @@ class KidLisp {
               };
             }
           }
+        }
+      } else if (/^\d*\.?\d+s!?$/.test(prevToken)) {
+        // Handle delay timer arguments - always return state to control visibility
+        const isBlinking = this.isTimingBlinking(prevToken);
+        const isActive = this.isDelayTimerActive(prevToken);
+        
+        const argInfo = this.getTokenArgPosition(tokens, i, index);
+        if (argInfo !== null) {
+          return {
+            timingKey: prevToken,
+            currentIndex: 0,
+            totalArgs: 1,
+            isBlinking: isBlinking,
+            isActive: isActive,
+            isInActiveArg: true, // For delay timers, all arguments are controlled by timer state
+            isDelayTimer: true
+          };
         }
       }
     }
@@ -4150,9 +4273,31 @@ class KidLisp {
     if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
       const timingState = this.getTimingTokenState(token, tokens, index);
       if (timingState && timingState.isBlinking) {
-        return "red"; // Bright red flash when timing triggers
+        return "red"; // Bright red flash when timing first triggers
       }
-      return "yellow"; // Yellow for timing tokens like "1s...", "2s..."
+      
+      // Check if cycle timer is in its brief lime flash period (similar to delay timers)
+      if (this.isTimingBlinking(token)) {
+        return "lime"; // Brief lime flash when cycle timer triggers
+      }
+      
+      // Check if this timing token has an active expression running
+      if (timingState && (timingState.currentIndex !== undefined)) {
+        return "yellow"; // Show yellow when timing expression is actively running (matches delay timers)
+      }
+      return "yellow"; // Yellow for inactive timing tokens like "1s...", "2s..."
+    }
+    
+    // Check for delay timing patterns (1.25s, 0.5s, etc.)
+    if (/^\d*\.?\d+s!?$/.test(token)) {
+      const timingState = this.getTimingTokenState(token, tokens, index);
+      if (timingState && timingState.isBlinking) {
+        return "red"; // Bright red flash when delay timer triggers
+      }
+      if (timingState && timingState.isActive) {
+        return "cyan"; // Show cyan when delay timer is in active display period
+      }
+      return "yellow"; // Yellow for inactive delay timing tokens like "1s", "0.5s"
     }
     
     // If this token is inside a timing expression, color it based on active state
@@ -4161,13 +4306,37 @@ class KidLisp {
         // Check if the timing token for this expression is currently blinking
         const isTimingBlinking = this.isTimingBlinking(timingExprState.timingData.timingToken);
         if (isTimingBlinking) {
-          // Make the entire active timing expression blink red when timing triggers
-          return "red";
+          // Flash bright lime when cycle timer first triggers (brief flash)
+          return "lime";
         }
-        // This token is in the currently active timing argument - use olive color
-        return "olive";
+        // After the brief lime flash, allow normal syntax highlighting to show through
+        // by falling through to normal coloring logic below (similar to delay timers)
       } else {
         // This token is in an inactive timing argument - use transparent
+        return "255,255,255,0"; // White with 0 alpha (transparent)
+      }
+    }
+    
+    // Check if this token is inside a delay timer
+    const delayTimerState = this.getTimingTokenState(token, tokens, index);
+    
+    // Debug: Log delay timer state detection
+    if (token === "zoom" || token === "?" || token === "0.25" || token === "1.5") {
+      // console.log(`🔍 Token "${token}" delayTimerState:`, delayTimerState);
+    }
+    
+    if (delayTimerState && delayTimerState.isDelayTimer) {
+      if (delayTimerState.isBlinking) {
+        // console.log(`� Token "${token}" returning MAGENTA (blinking)`);
+        // All contents of delay timer flash red when triggered (brief flash)
+        return "red"; // Red flash to match the timer number flash
+      }
+      if (delayTimerState.isActive) {
+        // During active period, allow normal syntax highlighting to show through
+        // by falling through to normal coloring logic below
+      } else {
+        // console.log(`⚪ Token "${token}" inactive (transparent)`);
+        // When inactive, show as transparent (greyed out, only shadows visible)
         return "255,255,255,0"; // White with 0 alpha (transparent)
       }
     }
@@ -4191,7 +4360,7 @@ class KidLisp {
     // Check for all numbers (integers, floats, positive, negative) BEFORE timing patterns
     // This ensures consistent coloring for all literal numeric values
     if (/^-?\d+(\.\d+)?$/.test(token)) {
-      return "green";
+      return "pink";
     }
 
     // Check for timing patterns (but exclude pure numbers which were handled above)
@@ -4240,6 +4409,11 @@ class KidLisp {
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes"
     ];
+    
+    // Special case for "rainbow" - return special marker for rainbow coloring
+    if (token === "rainbow") {
+      return "RAINBOW";
+    }
     
     // Math operators get special green color
     if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
