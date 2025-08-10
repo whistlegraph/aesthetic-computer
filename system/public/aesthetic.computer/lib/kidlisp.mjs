@@ -3467,6 +3467,11 @@ class KidLisp {
                       Array.isArray(arg) ||
                       (typeof arg === "string" && !/^".*"$/.test(arg))
                     ) {
+                      // Special case for 'write' function: treat single characters as string literals
+                      if (head === "write" && typeof arg === "string" && arg.length === 1 && /^[a-zA-Z]$/.test(arg)) {
+                        return arg; // Return single characters as-is for write function
+                      }
+                      
                       // Check if this is a timing expression that needs full evaluation
                       if (Array.isArray(arg) && arg.length > 0 && 
                           typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
@@ -3634,9 +3639,14 @@ class KidLisp {
       let value = this.fastEval(id, api, env);
 
       if (value === id) {
-        // Variable not found, try to get it from global environment
-        console.warn("❗ Identifier not found:", id);
-        value = 0;
+        // Variable not found - check if it's a single character that should be treated as a string
+        if (typeof id === "string" && id.length === 1 && /^[a-zA-Z]$/.test(id)) {
+          // Single alphabetic characters are likely string literals, not undefined variables
+          value = `"${id}"`; // Treat as quoted string
+        } else {
+          console.warn("❗ Identifier not found:", id);
+          value = 0;
+        }
       }
 
       // Replace any identifiers and cancel out prefixed double negatives.
