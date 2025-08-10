@@ -13,9 +13,11 @@ class ALSProject {
     this.creator = "Unknown";
     this.version = "Unknown";
     this.projectName = "Untitled";
+    this.debugMode = true; // Enable debug mode
     
     if (xmlData) {
       this.parseXML(xmlData);
+      this.analyzeProjectStructure();
     }
   }
   
@@ -51,96 +53,28 @@ class ALSProject {
   }
   
   parseTempo(xmlData) {
-    // Enhanced tempo parsing with multiple patterns and better debugging
     console.log("🎵 Starting tempo parsing...");
     
-    // Pattern 1: Standard Tempo structure
-    let tempoMatch = xmlData.match(/<Tempo>[\s\S]*?<Manual Value="([^"]+)"[\s\S]*?<\/Tempo>/);
+    // Pattern 1: Look for the Tempo structure we found in XML analysis
+    const tempoMatch = xmlData.match(/<Tempo>[\s\S]*?<Manual Value="([^"]+)"[\s\S]*?<\/Tempo>/);
     if (tempoMatch) {
       this.tempo = parseFloat(tempoMatch[1]);
-      console.log(`🎵 Found tempo (Pattern 1): ${this.tempo} BPM`);
+      console.log(`🎵 Found tempo: ${this.tempo} BPM`);
       return;
     }
     
-    // Pattern 2: Try alternative tempo pattern with case variations
-    tempoMatch = xmlData.match(/<Manual Value="([^"]+)"[^>]*\/?>[\s\S]{0,100}?[Tt]empo/i);
-    if (tempoMatch) {
-      const tempoValue = parseFloat(tempoMatch[1]);
-      if (tempoValue >= 60 && tempoValue <= 300) {
-        this.tempo = tempoValue;
-        console.log(`🎵 Found tempo (Pattern 2): ${this.tempo} BPM`);
+    // Pattern 2: Try alternative pattern with just Manual Value
+    const manualMatch = xmlData.match(/<Manual Value="([^"]+)"/);
+    if (manualMatch) {
+      const value = parseFloat(manualMatch[1]);
+      if (value >= 60 && value <= 300) {
+        this.tempo = value;
+        console.log(`🎵 Found tempo (Manual): ${this.tempo} BPM`);
         return;
       }
     }
     
-    // Pattern 3: Look for any tempo-related Value attributes
-    const allValueMatches = xmlData.match(/Value="([0-9.]+)"/g);
-    if (allValueMatches) {
-      console.log(`🎵 Found ${allValueMatches.length} Value attributes, checking for tempo...`);
-      
-      for (let valueMatch of allValueMatches) {
-        const value = parseFloat(valueMatch.match(/Value="([0-9.]+)"/)[1]);
-        
-        // Look for values in typical BPM range
-        if (value >= 60 && value <= 300) {
-          // Check if this value appears near tempo-related keywords
-          const valueIndex = xmlData.indexOf(valueMatch);
-          const contextBefore = xmlData.substring(Math.max(0, valueIndex - 200), valueIndex);
-          const contextAfter = xmlData.substring(valueIndex, Math.min(xmlData.length, valueIndex + 200));
-          const context = contextBefore + contextAfter;
-          
-          if (/tempo|bpm|beat/i.test(context) || 
-              /MasterTrack/i.test(contextBefore) ||
-              /CurrentTempo/i.test(context)) {
-            this.tempo = value;
-            console.log(`🎵 Found tempo (Pattern 3 - contextual): ${this.tempo} BPM`);
-            return;
-          }
-        }
-      }
-    }
-    
-    // Pattern 4: Check specifically in MasterTrack
-    const masterTrackMatch = xmlData.match(/<MasterTrack[^>]*>([\s\S]*?)<\/MasterTrack>/);
-    if (masterTrackMatch) {
-      const masterContent = masterTrackMatch[1];
-      console.log("🎵 Searching in MasterTrack content...");
-      
-      // Look for any reasonable tempo values in master track
-      const masterValues = masterContent.match(/Value="([0-9.]+)"/g);
-      if (masterValues) {
-        for (let valueMatch of masterValues) {
-          const value = parseFloat(valueMatch.match(/Value="([0-9.]+)"/)[1]);
-          if (value >= 80 && value <= 200) { // Common tempo range
-            this.tempo = value;
-            console.log(`🎵 Found tempo in MasterTrack: ${this.tempo} BPM`);
-            return;
-          }
-        }
-      }
-    }
-    
-    // Pattern 5: Look for specific tempo fields
-    const tempoFields = [
-      /<CurrentTempo[^>]*Value="([^"]+)"/i,
-      /<GlobalTempo[^>]*Value="([^"]+)"/i,
-      /<Tempo[^>]*Value="([^"]+)"/i,
-      /<BPM[^>]*Value="([^"]+)"/i
-    ];
-    
-    for (let pattern of tempoFields) {
-      tempoMatch = xmlData.match(pattern);
-      if (tempoMatch) {
-        const tempoValue = parseFloat(tempoMatch[1]);
-        if (tempoValue >= 60 && tempoValue <= 300) {
-          this.tempo = tempoValue;
-          console.log(`🎵 Found tempo (specific field): ${this.tempo} BPM`);
-          return;
-        }
-      }
-    }
-    
-    // Pattern 6: Try to extract from filename (zzzZWAP 143bpm) - moved up for priority
+    // Pattern 3: Extract from filename (zzzZWAP 143bpm)
     const nameMatch = this.projectName.match(/(\d+)bpm/i);
     if (nameMatch) {
       this.tempo = parseInt(nameMatch[1]);
@@ -148,28 +82,12 @@ class ALSProject {
       return;
     }
     
-    // Pattern 7: Last resort - look for 143 specifically if that's what you expect
-    if (xmlData.includes('143')) {
-      const match143 = xmlData.match(/143(?:\.0+)?/);
-      if (match143) {
-        this.tempo = 143;
-        console.log(`🎵 Found expected tempo 143 BPM in file`);
-        return;
-      }
-    }
-    
-    // If still no tempo found, keep default but log warning
+    // If no tempo found, keep default
     if (this.tempo === 120) {
       console.warn(`⚠️ Could not find tempo in ALS file, using default ${this.tempo} BPM`);
-      
-      // Debug: Show first few Value attributes for manual inspection
-      const firstValues = xmlData.match(/Value="([0-9.]+)"/g);
-      if (firstValues) {
-        console.log("🔍 First 10 Value attributes found:", firstValues.slice(0, 10));
-      }
     }
     
-    // Time signature parsing (unchanged)
+    // Time signature parsing
     const sigNumMatch = xmlData.match(/<TimeSignatureNumerator Value="([^"]+)"/);
     const sigDenMatch = xmlData.match(/<TimeSignatureDenominator Value="([^"]+)"/);
     if (sigNumMatch && sigDenMatch) {
@@ -232,11 +150,53 @@ class ALSProject {
   }
   
   parseClips(xmlData) {
-    // Parse MIDI and Audio clips with timing data
+    console.log("🎵 Starting clip parsing...");
+    
+    // Parse clips from arrangement timeline (TakeLanes structure)
+    this.parseArrangementClips(xmlData);
+    
+    // Also parse session view clips (for completeness)
     this.parseMIDIClips(xmlData);
     this.parseAudioClips(xmlData);
+    
+    console.log(`🎵 Total clips parsed: ${this.clips.length}`);
   }
   
+  parseArrangementClips(xmlData) {
+    console.log("🎼 Parsing arrangement clips...");
+    let arrangementClips = 0;
+    
+    // Look for all MidiClip elements with Time attributes - these are arrangement clips
+    const midiClipRegex = /<MidiClip[^>]*Time="([^"]+)"[^>]*>([\s\S]*?)<\/MidiClip>/g;
+    let match;
+    
+    while ((match = midiClipRegex.exec(xmlData)) !== null) {
+      const clipTime = parseFloat(match[1]);
+      const clipContent = match[2];
+      
+      // Skip session view clips (time = 0)
+      if (clipTime > 0) {
+        const clip = {
+          id: arrangementClips,
+          type: 'MIDI',
+          time: clipTime,
+          duration: this.extractClipDuration(clipContent),
+          name: this.extractClipName(clipContent) || `Arrangement MIDI ${arrangementClips}`,
+          notes: this.extractMIDINotes(clipContent),
+          loop: this.extractLoopData(clipContent),
+          trackRef: 'unknown',
+          source: 'arrangement'
+        };
+        
+        console.log(`🎼 Found arrangement clip: "${clip.name}" at beat ${clipTime.toFixed(2)} (${clip.notes.length} notes)`);
+        this.clips.push(clip);
+        arrangementClips++;
+      }
+    }
+    
+    console.log(`🎼 Total arrangement clips: ${arrangementClips}`);
+  }
+
   parseMIDIClips(xmlData) {
     const clipRegex = /<MidiClip[^>]*Id="([^"]*)"[^>]*>([\s\S]*?)<\/MidiClip>/g;
     let match;
@@ -356,25 +316,49 @@ class ALSProject {
   
   extractMIDINotes(clipContent) {
     const notes = [];
-    const noteRegex = /<MidiNote[^>]+Time="([^"]+)"[^>]+Duration="([^"]+)"[^>]+Velocity="([^"]+)"[^>]*\/>/g;
+    
+    // Updated regex to match MidiNoteEvent from XML analysis
+    const noteRegex = /<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*(?:Key="([^"]*)")?[^>]*\/>/g;
     let noteMatch;
     
     while ((noteMatch = noteRegex.exec(clipContent)) !== null) {
-      notes.push({
+      const note = {
         time: parseFloat(noteMatch[1]),
         duration: parseFloat(noteMatch[2]),
         velocity: parseInt(noteMatch[3]),
-        pitch: this.extractNotePitch(noteMatch[0]) // Extract from full match
-      });
+        pitch: noteMatch[4] ? parseInt(noteMatch[4]) : 60 // Use Key attribute if available
+      };
+      notes.push(note);
+    }
+    
+    // If no notes found with Key attribute, try to determine from KeyTrack context
+    if (notes.length === 0) {
+      // Try the old pattern for compatibility
+      const oldNoteRegex = /<MidiNote[^>]+Time="([^"]+)"[^>]+Duration="([^"]+)"[^>]+Velocity="([^"]+)"[^>]*\/>/g;
+      while ((noteMatch = oldNoteRegex.exec(clipContent)) !== null) {
+        notes.push({
+          time: parseFloat(noteMatch[1]),
+          duration: parseFloat(noteMatch[2]),
+          velocity: parseInt(noteMatch[3]),
+          pitch: this.extractNotePitch(noteMatch[0])
+        });
+      }
     }
     
     return notes;
   }
   
   extractNotePitch(noteElement) {
-    // Extract MIDI note number from the KeyTrack structure
-    // This is a simplified extraction - real implementation would need track context
+    // Try to extract MIDI note number from context or use drum mapping
+    // For drum tracks, we'll map based on typical patterns
     return 60; // Default middle C
+  }
+  
+  findArrangementTrackForClip(takeLaneContent) {
+    // Find the track ID that this TakeLane belongs to by looking at the track structure
+    // This is a simplified approach - may need refinement based on actual XML structure
+    const trackMatch = takeLaneContent.match(/TrackId="([^"]*)"/);
+    return trackMatch ? trackMatch[1] : null;
   }
   
   extractLoopData(content) {
@@ -1638,6 +1622,182 @@ class ALSProject {
     const audioClips = this.clips.filter(clip => clip.type === 'audio').length;
     return `Clips: ${this.clips.length} (${midiClips}M, ${audioClips}A)`;
   }
+  
+  // Get drum elements active at specific beat (for visualization)
+  getActiveElementsAtTime(currentBeat) {
+    const activeElements = {
+      kick: false,
+      snare: false,
+      hihat: false,
+      bass: false,
+      activeClips: []
+    };
+    
+    // Find all clips that should be playing at this beat
+    this.clips.forEach(clip => {
+      const clipStartBeat = clip.time || 0;
+      const clipEndBeat = clipStartBeat + (clip.duration || 1);
+      
+      // Check if this clip is active at the current beat
+      if (currentBeat >= clipStartBeat && currentBeat < clipEndBeat) {
+        activeElements.activeClips.push(clip);
+        
+        // Find the track this clip belongs to
+        const track = this.tracks.find(t => t.id === clip.trackRef);
+        const trackName = track?.name?.toLowerCase() || '';
+        const clipName = (clip.name || '').toLowerCase();
+        
+        // Debug output for drum detection
+        if (this.debugMode) {
+          console.log(`🔍 Checking clip "${clip.name}" on track "${track?.name || 'unknown'}" for drums`);
+        }
+        
+        // Check for drum elements by track/clip name (expanded patterns)
+        if (trackName.includes('kick') || clipName.includes('kick') || trackName.includes('# kick')) {
+          activeElements.kick = true;
+          console.log(`🥁 KICK detected from ${trackName || clipName}`);
+        }
+        if (trackName.includes('snare') || clipName.includes('snare') || trackName.includes('# snare') || 
+            clipName.includes('clap') || trackName.includes('clap')) {
+          activeElements.snare = true;
+          console.log(`🥁 SNARE detected from ${trackName || clipName}`);
+        }
+        if (trackName.includes('hat') || clipName.includes('hat') || trackName.includes('# hat')) {
+          activeElements.hihat = true;
+          console.log(`🥁 HIHAT detected from ${trackName || clipName}`);
+        }
+        if (trackName.includes('bass') || clipName.includes('bass') || trackName.includes('# bass')) {
+          activeElements.bass = true;
+          console.log(`🥁 BASS detected from ${trackName || clipName}`);
+        }
+        
+        // Additional fallback: detect drums by clip names we see in the logs
+        if (clipName.includes('drum')) {
+          activeElements.snare = true; // "EXC!TE Snare Drum" -> snare
+          console.log(`🥁 DRUM detected from clip name: ${clipName}`);
+        }
+        
+        // Check for MIDI notes at this specific time within the clip
+        if (clip.notes && clip.notes.length > 0) {
+          const relativeTime = currentBeat - clipStartBeat;
+          const activeNotes = clip.notes.filter(note => {
+            const noteStart = note.time || 0;
+            const noteEnd = noteStart + (note.duration || 0.1);
+            return relativeTime >= noteStart && relativeTime < noteEnd;
+          });
+          
+          if (activeNotes.length > 0) {
+            // Debug: show active notes (only if debug mode enabled)
+            if (this.debugMode) {
+              console.log(`🎵 Active notes at beat ${currentBeat.toFixed(2)}: ${activeNotes.length} in clip "${clip.name}"`);
+            }
+            
+            // Analyze note pitches to determine drum type (typical drum mapping)
+            activeNotes.forEach(note => {
+              if (note.pitch >= 35 && note.pitch <= 36) activeElements.kick = true;    // C1-C#1
+              if (note.pitch >= 38 && note.pitch <= 40) activeElements.snare = true;  // D1-E1  
+              if (note.pitch >= 42 && note.pitch <= 46) activeElements.hihat = true;  // F#1-A#1
+            });
+          }
+        }
+      }
+    });
+    
+    return activeElements;
+  }
+  
+  // Comprehensive project structure analysis
+  analyzeProjectStructure() {
+    console.log("\n🎵 ===== PROJECT STRUCTURE ANALYSIS =====");
+    console.log(`📊 Project: "${this.projectName}" | ${this.tracks.length} tracks | ${this.clips.length} clips | ${this.scenes.length} scenes`);
+    console.log(`🎵 Tempo: ${this.tempo} BPM | Time Sig: ${this.timeSignature.numerator}/${this.timeSignature.denominator}`);
+    console.log(`🎚️ Creator: ${this.creator} | Version: ${this.version}`);
+    
+    // Analyze tracks by type
+    const tracksByType = {};
+    this.tracks.forEach(track => {
+      if (!tracksByType[track.type]) tracksByType[track.type] = [];
+      tracksByType[track.type].push(track);
+    });
+    
+    console.log("\n🎯 TRACKS BY TYPE:");
+    Object.keys(tracksByType).forEach(type => {
+      console.log(`  ${type}: ${tracksByType[type].length} tracks`);
+      tracksByType[type].forEach(track => {
+        const trackClips = this.clips.filter(clip => clip.trackRef === track.id);
+        console.log(`    - "${track.name}" (ID: ${track.id}) - ${trackClips.length} clips`);
+      });
+    });
+    
+    // Analyze clip timing patterns
+    const clipsByTime = {};
+    const clipsByType = { MIDI: 0, Audio: 0 };
+    
+    this.clips.forEach(clip => {
+      const startBeat = Math.floor(clip.time || 0);
+      if (!clipsByTime[startBeat]) clipsByTime[startBeat] = [];
+      clipsByTime[startBeat].push(clip);
+      clipsByType[clip.type] = (clipsByType[clip.type] || 0) + 1;
+    });
+    
+    console.log(`\n⏱️ CLIP DISTRIBUTION: ${clipsByType.MIDI || 0} MIDI clips, ${clipsByType.Audio || 0} Audio clips`);
+    
+    const timeKeys = Object.keys(clipsByTime).sort((a, b) => parseInt(a) - parseInt(b));
+    console.log(`📍 CLIPS BY START TIME (first 8 beats):`);
+    timeKeys.slice(0, 8).forEach(beat => {
+      const clips = clipsByTime[beat];
+      console.log(`  Beat ${beat}: ${clips.length} clips - ${clips.map(c => c.name || 'unnamed').slice(0, 5).join(', ')}`);
+    });
+    
+    // Find drum-related content
+    const drumTracks = this.tracks.filter(track => {
+      const name = track.name.toLowerCase();
+      return name.includes('kick') || name.includes('snare') || name.includes('hat') || 
+             name.includes('clap') || name.includes('drum') || name.includes('perc');
+    });
+    
+    console.log(`\n🥁 DRUM ELEMENTS (${drumTracks.length} drum tracks found):`);
+    drumTracks.forEach(track => {
+      const trackClips = this.clips.filter(clip => 
+        clip.trackRef === track.id || clip.name?.toLowerCase().includes(track.name.toLowerCase())
+      );
+      console.log(`  "${track.name}": ${trackClips.length} clips`);
+      
+      // Show timing pattern for first few clips
+      trackClips.slice(0, 4).forEach(clip => {
+        console.log(`    - Beat ${clip.time?.toFixed(1) || '?'}: "${clip.name}" (${clip.notes?.length || 0} notes)`);
+      });
+    });
+    
+    // Show beat pattern for first 4 beats
+    console.log(`\n🎵 BEAT PATTERN ANALYSIS (first 4 beats @ ${this.tempo} BPM):`);
+    for (let beat = 0; beat < 4; beat++) {
+      const beatClips = this.clips.filter(clip => {
+        const clipBeat = Math.floor(clip.time || 0);
+        return clipBeat === beat;
+      });
+      console.log(`  Beat ${beat}: ${beatClips.length} active clips`);
+      beatClips.forEach(clip => {
+        console.log(`    - "${clip.name}" (${clip.type}, ${clip.notes?.length || 0} notes)`);
+      });
+    }
+    
+    console.log("🎵 ===== END ANALYSIS =====\n");
+    
+    return {
+      tracksByType,
+      clipsByTime,
+      drumTracks,
+      summary: {
+        totalTracks: this.tracks.length,
+        totalClips: this.clips.length,
+        midiClips: clipsByType.MIDI || 0,
+        audioClips: clipsByType.Audio || 0,
+        drumTracks: drumTracks.length,
+        tempo: this.tempo
+      }
+    };
+  }
 }
 
 // State
@@ -1653,72 +1813,106 @@ function paint({ wipe, ink, screen, sound, clock }) {
   wipe("black");
   
   if (!alsProject) {
-    ink("green").write("LOADING...", { center: "xy", size: 1 });
+    ink("green").write("Drop ALS + WAV files to begin", { center: "xy", size: 1.5 });
     return;
   }
 
   if (!isPlaying || !sound || sound.time <= 0) {
-    ink("yellow").write("PAUSED", { center: "xy", size: 1 });
+    ink("yellow").write(`Project loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`, 
+      { center: "xy", size: 1 });
+    ink("white", 0.7).write("Press space to play audio", { center: "x", y: screen.height/2 + 30, size: 0.8 });
+    
+    // Show clip overview when not playing
+    ink("cyan", 0.6).write(`Found ${alsProject.clips.length} clips total`, 
+      { center: "x", y: screen.height/2 + 60, size: 0.8 });
+      
+    // Show first few arrangement clips as preview
+    const arrangementClips = alsProject.clips.filter(c => c.source === 'arrangement').slice(0, 5);
+    arrangementClips.forEach((clip, i) => {
+      ink("orange", 0.5).write(`• "${clip.name}" at beat ${clip.time.toFixed(1)}`, 
+        { x: 50, y: screen.height/2 + 90 + i * 20, size: 0.7 });
+    });
+    
     return;
   }
 
-  // Get current time for drum checking
-  const clockTimeRaw = clock.time();
-  const currentClockTime = typeof clockTimeRaw === 'object' && clockTimeRaw.getTime ? 
-    clockTimeRaw.getTime() / 1000 : clockTimeRaw;
+  // Calculate current beat position
   const audioTime = sound.time - audioStartTime;
-  const syncedTime = currentClockTime - playStartTime;
-  const currentAudioTime = Math.max(audioTime, syncedTime);
+  const currentBeat = alsProject.getCurrentBeat(audioTime);
   
-  // Ultra-minimal Game Boy style - just colored stripes
-  const stripeHeight = 12;
-  const drumTypes = ["KICK", "SNARE", "HIHAT", "CYMBAL", "PERC"];
-  const colors = ["red", "blue", "green", "yellow", "magenta"];
-  
-  let y = 20;
-  for (let i = 0; i < drumTypes.length; i++) {
-    const drumType = drumTypes[i];
-    const color = colors[i];
-    
-    // Check if this drum type is active right now
-    const isActive = alsProject.isDrumActiveAtTime(drumType, currentAudioTime);
-    
-    // Debug first few seconds
-    if (currentAudioTime < 10) {
-      console.log(`🥁 ${drumType} at ${currentAudioTime.toFixed(2)}s: ${isActive}`);
-    }
-    
-    if (isActive) {
-      // Full bright stripe when drum is playing
-      ink(color).box(0, y, screen.width, stripeHeight);
-    } else {
-      // Thin dim line when inactive
-      ink(color, 0.2).box(0, y + 5, screen.width, 2);
-    }
-    
-    y += stripeHeight + 4;
-  }
-  
-  // Minimal debug at bottom
-  const clipStats = alsProject.getClipStats ? alsProject.getClipStats() : "no stats";
-  ink("white", 0.7).write(`${currentAudioTime.toFixed(1)}s | ${clipStats}`, {
-    x: 5,
-    y: screen.height - 10,
-    size: 0.4
+  // Get all clips active at current time
+  const activeClips = alsProject.clips.filter(clip => {
+    const clipStart = clip.time || 0;
+    const clipEnd = clipStart + (clip.duration || 1);
+    return currentBeat >= clipStart && currentBeat < clipEnd;
   });
   
-  // Debug timing and clips in first 10 seconds
-  if (currentAudioTime < 10) {
-    console.log(`⏰ Time debug - Audio: ${currentAudioTime.toFixed(2)}s, Tempo: ${alsProject.tempo}, Total clips: ${alsProject.clips.length}`);
+  // Header info
+  ink("white").write(`"${alsProject.projectName || 'Untitled'}" - ${alsProject.tempo} BPM`, 
+    { x: 20, y: 20, size: 1.2 });
+  ink("cyan", 0.8).write(`Beat: ${currentBeat.toFixed(2)} | Active clips: ${activeClips.length}`, 
+    { x: 20, y: 40, size: 0.9 });
+  
+  // Timeline visualization - show ALL clips as bars
+  const timelineY = 80;
+  const timelineHeight = screen.height - 200;
+  const barHeight = 8;
+  const maxBeat = Math.max(400, ...alsProject.clips.map(c => c.time + (c.duration || 1)));
+  const beatWidth = Math.max(2, screen.width * 0.8 / maxBeat * 10); // Show ~10 beats per screen width
+  
+  // Background timeline
+  ink("gray", 0.2).box(20, timelineY, screen.width - 40, timelineHeight);
+  
+  // Draw clips as colored bars
+  alsProject.clips.forEach((clip, i) => {
+    if (clip.source !== 'arrangement') return;
     
-    // Show first few clips for debugging
-    if (alsProject.clips.length > 0) {
-      const firstClips = alsProject.clips.slice(0, 3);
-      firstClips.forEach((clip, i) => {
-        console.log(`🎵 Clip ${i}: ${clip.name || 'unnamed'} | Type: ${clip.type} | Time: ${clip.time} | Duration: ${clip.duration}`);
-      });
+    const x = 20 + (clip.time || 0) * beatWidth;
+    const width = Math.max(2, (clip.duration || 1) * beatWidth);
+    const y = timelineY + (i % 40) * (barHeight + 2); // Stack clips vertically
+    
+    // Color by clip name/type
+    let color = [100, 100, 100];
+    const name = (clip.name || '').toLowerCase();
+    if (name.includes('kick')) color = [255, 80, 80];
+    else if (name.includes('snare') || name.includes('drum')) color = [80, 255, 80];
+    else if (name.includes('hat')) color = [80, 80, 255];
+    else if (name.includes('bass')) color = [255, 255, 80];
+    else if (clip.notes && clip.notes.length > 50) color = [255, 150, 255]; // Dense MIDI
+    
+    // Highlight if currently active
+    const isActive = currentBeat >= (clip.time || 0) && currentBeat < ((clip.time || 0) + (clip.duration || 1));
+    if (isActive) {
+      color = color.map(c => Math.min(255, c * 1.5));
+      ink(...color).box(x - 1, y - 1, width + 2, barHeight + 2); // Glow effect
     }
+    
+    ink(...color).box(x, y, width, barHeight);
+  });
+  
+  // Current playhead
+  const playheadX = 20 + currentBeat * beatWidth;
+  ink("white").line(playheadX, timelineY, playheadX, timelineY + timelineHeight);
+  
+  // Beat markers
+  for (let beat = 0; beat < maxBeat; beat += 16) {
+    const x = 20 + beat * beatWidth;
+    ink("white", 0.3).line(x, timelineY, x, timelineY + 20);
+    ink("white", 0.6).write(beat.toString(), { x: x + 2, y: timelineY - 15, size: 0.6 });
   }
+  
+  // Active clips info at bottom
+  const infoY = screen.height - 100;
+  ink("white").write("Active Clips:", { x: 20, y: infoY, size: 1 });
+  
+  activeClips.slice(0, 8).forEach((clip, i) => {
+    const x = 20;
+    const y = infoY + 20 + i * 15;
+    const name = clip.name || `Clip ${clip.id}`;
+    const notes = clip.notes ? ` (${clip.notes.length} notes)` : '';
+    
+    ink("yellow", 0.8).write(`• ${name}${notes}`, { x, y, size: 0.7 });
+  });
 }
 
 function act({ event: e, sound, pen, clock }) {
