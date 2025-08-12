@@ -6,6 +6,9 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import crypto from 'crypto';
 
+// Feature flag for Tezos integration
+const TEZOS_ENABLED = process.env.TEZOS_ENABLED !== 'false';
+
 // Dynamically extract KidLisp function names from kidlisp.mjs
 async function getKidLispFunctionNames() {
   try {
@@ -832,8 +835,106 @@ export async function handler(event, context) {
         await collection.insertOne(doc);
         console.log(`💾 Cached new source: ${code}`);
 
+        // 🪙 Tezos Integration: Attempt to mint KidLisp meme coin
+        let tezosResult = null;
+        if (TEZOS_ENABLED && user?.sub) {
+          try {
+            // Import Tezos integration (only when needed)
+            const { integrateWithKidLispCache } = await import('../../../tezos/src/integration.js');
+            
+            console.log(`🪙 Attempting Tezos token mint for user: ${user.sub}`);
+            tezosResult = await integrateWithKidLispCache(source.trim(), user, code);
+            
+            if (tezosResult.minted) {
+              console.log(`✨ Tezos token minted successfully: Token ID ${tezosResult.tokenId} on ${tezosResult.network}`);
+              
+              // Update the document with Tezos information
+              await collection.updateOne(
+                { code },
+                {
+                  $set: {
+                    tezos: {
+                      minted: true,
+                      tokenId: tezosResult.tokenId,
+                      txHash: tezosResult.txHash,
+                      creatorAddress: tezosResult.creatorAddress,
+                      codeHash: tezosResult.codeHash,
+                      network: tezosResult.network,
+                      mintedAt: new Date()
+                    }
+                  }
+                }
+              );
+            } else if (tezosResult.exists) {
+              console.log(`🎯 Tezos token already exists: Token ID ${tezosResult.tokenId} on ${tezosResult.network}`);
+              
+              // Update with existing token info
+              await collection.updateOne(
+                { code },
+                {
+                  $set: {
+                    tezos: {
+                      minted: false,
+                      exists: true,
+                      tokenId: tezosResult.tokenId,
+                      codeHash: tezosResult.codeHash,
+                      network: tezosResult.network,
+                      reason: tezosResult.reason,
+                      checkedAt: new Date()
+                    }
+                  }
+                }
+              );
+            } else {
+              console.log(`⚠️ Tezos token operation skipped: ${tezosResult.reason}`);
+              
+              // Store the reason for debugging
+              await collection.updateOne(
+                { code },
+                {
+                  $set: {
+                    tezos: {
+                      minted: false,
+                      exists: false,
+                      reason: tezosResult.reason,
+                      error: tezosResult.error,
+                      attemptedAt: new Date()
+                    }
+                  }
+                }
+              );
+            }
+          } catch (tezosError) {
+            console.error('🚨 Tezos integration error:', tezosError);
+            
+            // Store error information for debugging
+            await collection.updateOne(
+              { code },
+              {
+                $set: {
+                  tezos: {
+                    minted: false,
+                    error: tezosError.message,
+                    failedAt: new Date()
+                  }
+                }
+              }
+            );
+          }
+        } else if (!TEZOS_ENABLED) {
+          console.log(`🚫 Tezos integration disabled by feature flag`);
+        }
+
         await database.disconnect();
-        return respond(201, { code, cached: false });
+        
+        // Include Tezos information in response
+        const responseData = { 
+          code, 
+          cached: false,
+          ...(tezosResult && { tezos: tezosResult })
+        };
+        
+        return respond(201, responseData);
 
       } catch (insertError) {
         // Handle duplicate key errors (race conditions)

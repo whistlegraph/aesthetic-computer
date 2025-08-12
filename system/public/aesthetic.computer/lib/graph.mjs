@@ -16,6 +16,7 @@ import {
   hexToRgb,
   shiftRGB,
   cssColors,
+  parseColorIndex,
 } from "./num.mjs";
 
 import * as mat4 from "../dep/gl-matrix/mat4.mjs";
@@ -38,6 +39,12 @@ const panTranslation = { x: 0, y: 0 }; // For 2d shifting using `pan` and `unpan
 let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
+
+// 📚 DOCUMENTATION: Fade support - "fade:color1-color2-color3" syntax
+// Fade state - used by ink() function for smooth color transitions
+let fadeMode = false;
+let fadeColors = [];
+let fadeDirection = "horizontal"; // horizontal, vertical, diagonal
 
 let debug = false;
 export function setDebug(newDebug) {
@@ -167,6 +174,103 @@ function flood(x, y, fillColor = c) {
   };
 }
 
+// 📚 DOCUMENTATION: Parse a fade string like "fade:blue-white" or "fade:red-yellow-blue"
+// Used by findColor() which is called from ink() in disk.mjs
+// Returns array of RGBA color arrays or null if invalid
+function parseFade(fadeString) {
+  const parts = fadeString.split(":");
+  if (parts.length !== 2 || parts[0] !== "fade") {
+    return null;
+  }
+  
+  const fadeType = parts[1];
+  
+  // Predefined fade types
+  const predefinedFades = {
+    "sunset": ["red", "orange", "yellow", "pink"],
+    "ocean": ["cyan", "blue", "navy"],
+  };
+  
+  // Check if it's a predefined fade
+  if (predefinedFades[fadeType]) {
+    const colors = [];
+    for (const colorStr of predefinedFades[fadeType]) {
+      const color = cssColors[colorStr];
+      if (color) {
+        colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+      }
+    }
+    return colors.length >= 2 ? colors : null;
+  }
+  
+  // Handle custom color-color format (e.g., "red-blue", "c0-c1")
+  const colorParts = fadeType.split("-");
+  if (colorParts.length >= 2) {
+    const colors = [];
+    for (const colorStr of colorParts) {
+      const trimmed = colorStr.trim();
+      
+      // Try color index first (c0, c1, p0, etc.)
+      const indexColor = parseColorIndex(trimmed);
+      if (indexColor && indexColor[0] !== "rainbow") {
+        // Validate that we have valid RGB values
+        if (indexColor.length >= 3 && 
+            indexColor[0] !== undefined && 
+            indexColor[1] !== undefined && 
+            indexColor[2] !== undefined) {
+          colors.push([...indexColor.slice(0, 3), 255]); // Ensure RGBA format
+        }
+      } else if (indexColor && indexColor[0] === "rainbow") {
+        // Handle rainbow palette - use first color of rainbow
+        const rainbowColors = rainbow();
+        if (rainbowColors && rainbowColors.length >= 3) {
+          colors.push([...rainbowColors.slice(0, 3), 255]);
+        }
+      } else {
+        // Fall back to CSS colors or hex
+        const color = cssColors[trimmed] || hexToRgb(trimmed);
+        if (color && color.length >= 3 && 
+            color[0] !== undefined && 
+            color[1] !== undefined && 
+            color[2] !== undefined) {
+          colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+        }
+      }
+    }
+    return colors.length >= 2 ? colors : null;
+  }
+  
+  return null;
+}
+
+// 📚 DOCUMENTATION: Get interpolated color from fade based on position (0-1)
+// Called during line/box drawing when fadeMode is active
+// Supports multi-color fades with linear interpolation
+function getFadeColor(t) {
+  if (!fadeMode || fadeColors.length < 2) {
+    return c.slice();
+  }
+  
+  // Clamp t to 0-1 range
+  t = Math.max(0, Math.min(1, t));
+  
+  // Find which segment of the fade we're in
+  const segmentCount = fadeColors.length - 1;
+  const segmentIndex = Math.floor(t * segmentCount);
+  const segmentT = (t * segmentCount) - segmentIndex;
+  
+  const startColor = fadeColors[Math.min(segmentIndex, fadeColors.length - 1)];
+  const endColor = fadeColors[Math.min(segmentIndex + 1, fadeColors.length - 1)];
+  
+  // Linear interpolation between colors
+  return [
+    Math.round(lerp(startColor[0], endColor[0], segmentT)),
+    Math.round(lerp(startColor[1], endColor[1], segmentT)),
+    Math.round(lerp(startColor[2], endColor[2], segmentT)),
+    Math.round(lerp(startColor[3], endColor[3], segmentT))
+  ];
+}
+
 // Parse a color from a variety of inputs..
 function findColor() {
   let args = [...arguments];
@@ -178,6 +282,10 @@ function findColor() {
     const isBool = typeof args[0] === "boolean";
 
     if (isBool) {
+      // Reset fade mode for non-fade colors
+      fadeMode = false;
+      fadeColors = [];
+      fadeDirection = "horizontal";
       return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
     }
 
@@ -188,6 +296,11 @@ function findColor() {
 
     // Single number argument.
     if (isNumber()) {
+      // Reset fade mode for non-fade colors
+      fadeMode = false;
+      fadeColors = [];
+      fadeDirection = "horizontal";
+      
       // Treat as raw hex if we hit a certain limit.
       if (args[0] > 255) {
         args = hexToRgb(args[0]);
@@ -197,17 +310,39 @@ function findColor() {
         args.push(args[0], args[0]);
       }
     } else if (isArray()) {
+      // Reset fade mode for non-fade colors  
+      fadeMode = false;
+      fadeColors = [];
+      fadeDirection = "horizontal";
+      
       // Or if it's an array, then spread it out and re-ink.
       // args = args[0];
       return findColor(...args[0]);
     } else if (isString()) {
-      // See if it's a hex.
-      const cleanedHex = args[0]
-        .replace("#", "")
-        .replace("0x", "")
-        .toUpperCase();
-      if (isHexString(cleanedHex) === true) {
-        args = hexToRgb(cleanedHex);
+      // Check for fade syntax first
+      if (args[0].startsWith("fade:")) {
+        const fadeColorArray = parseFade(args[0]);
+        if (fadeColorArray) {
+          fadeMode = true;
+          fadeColors = fadeColorArray;
+          fadeDirection = "horizontal"; // Default direction
+          return fadeColorArray[0]; // Return first color as base
+        }
+      }
+      
+      // Reset fade mode for non-fade strings
+      fadeMode = false;
+      fadeColors = [];
+      fadeDirection = "horizontal";
+      
+      // FIRST: Check for color index format like "c0", "c1", "p0", etc.
+      const indexColor = parseColorIndex(args[0]);
+      if (indexColor) {
+        if (indexColor[0] === "rainbow") {
+          args = rainbow(); // Handle p0 rainbow palette
+        } else {
+          args = indexColor; // Handle c0, c1, etc.
+        }
       } else if (args[0] === "erase") {
         // TODO: Add better alpha support here... 23.09.11.22.10
         //       ^ See `parseColor` in `num`.
@@ -218,10 +353,27 @@ function findColor() {
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
-        args = cssColors[args[0]]; // Try to match it to a table.
-        if (!args) {
-          args = randIntArr(255, 3);
+        // See if it's a hex.
+        const cleanedHex = args[0]
+          .replace("#", "")
+          .replace("0x", "")
+          .toUpperCase();
+        if (isHexString(cleanedHex) === true) {
+          args = hexToRgb(cleanedHex);
+        } else if (args[0].startsWith("fade:")) {
+          // Fade operations should have been handled above - this is a fallback
+          args = [255, 0, 255]; // Fallback to magenta to indicate error
           args.push(255);
+        } else {
+          // Try CSS color table lookup
+          const cssColor = cssColors[args[0]];
+          if (cssColor) {
+            args = cssColor;
+          } else {
+            // Fallback to random color
+            args = randIntArr(255, 3);
+            args.push(255);
+          }
         }
       }
       // TODO: Add an error message here. 22.08.29.13.03
@@ -231,9 +383,30 @@ function findColor() {
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
     } else if (typeof args[0] === "string") {
-      args = [...cssColors[args[0]], computeAlpha(args[1])];
+      // Check for color index format with alpha
+      const indexColor = parseColorIndex(args[0]);
+      if (indexColor) {
+        if (indexColor[0] === "rainbow") {
+          args = [...rainbow(), computeAlpha(args[1])];
+        } else {
+          args = [...indexColor, computeAlpha(args[1])];
+        }
+      } else {
+        // Try CSS color table lookup
+        const cssColor = cssColors[args[0]];
+        if (cssColor) {
+          args = [...cssColor, computeAlpha(args[1])];
+        } else {
+          args = [0, 0, 0, computeAlpha(args[1])]; // Fallback to black
+        }
+      }
     } else if (Array.isArray(args[0])) {
       args = [...args[0], args[1]];
+    } else if (args[0] === undefined) {
+      // Random color with specified alpha: (undefined, alpha)
+      const alphaValue = args[1]; // Store the alpha before generating random RGB
+      args = randIntArr(255, 3);
+      args.push(computeAlpha(alphaValue)); // Use specified alpha
     } else {
       // rgb, a
       args = [args[0], args[0], args[0], args[1]];
@@ -247,6 +420,12 @@ function findColor() {
   }
 
   if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
+
+  // Debug: Check for problematic color values
+  if (args.some(val => val === undefined || isNaN(val))) {
+    console.log("WARNING: Invalid color values detected:", args);
+    args = [255, 0, 255, 255]; // Fallback to magenta for debugging
+  }
 
   // Randomized any undefined or null values across all 4 arguments.
   args.forEach((a, i) => {
@@ -270,14 +449,26 @@ function computeAlpha(alpha) {
 }
 
 // Set global color.
-// Send 0 arguements to retrieve the current one.
-function color(r, g, b, a = 255) {
-  if (arguments.length === 0) return c.slice();
+// Internal function to set color without resetting fade mode
+function setColor(r, g, b, a = 255) {
   c[0] = floor(r);
   c[1] = floor(g);
   c[2] = floor(b);
   c[3] = floor(a);
   return c.slice();
+}
+
+// Send 0 arguements to retrieve the current one.
+function color(r, g, b, a = 255) {
+  if (arguments.length === 0) return c.slice();
+  
+  // Only reset fade mode if this isn't a fade color (check if fadeMode was just set)
+  if (!fadeMode) {
+    fadeColors = [];
+    fadeDirection = "horizontal";
+  }
+  
+  return setColor(r, g, b, a);
 }
 
 // Support for secondary color with the ability to clear the color by
@@ -332,8 +523,36 @@ function clear() {
     maxY = activeMask.y + activeMask.height;
   }
 
-  if (activeMask) {
-    // Clear only the masked area
+  if (fadeMode && fadeColors.length > 1) {
+    // Clear with fade gradient
+    const areaWidth = maxX - minX;
+    const areaHeight = maxY - minY;
+    
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const i = (y * width + x) * 4;
+        
+        // Calculate fade position based on direction
+        let t;
+        if (fadeDirection === "vertical") {
+          t = areaHeight > 1 ? (y - minY) / (areaHeight - 1) : 0;
+        } else if (fadeDirection === "diagonal") {
+          t = areaWidth + areaHeight > 2 ? ((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1)) : 0;
+        } else { // horizontal (default)
+          t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
+        }
+        
+        // Get interpolated color for this position
+        const fadeColor = getFadeColor(t);
+        
+        pixels[i] = fadeColor[0]; // r
+        pixels[i + 1] = fadeColor[1]; // g
+        pixels[i + 2] = fadeColor[2]; // b
+        pixels[i + 3] = fadeColor[3]; // alpha
+      }
+    }
+  } else if (activeMask) {
+    // Clear only the masked area with solid color
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         const i = (y * width + x) * 4;
@@ -1169,12 +1388,20 @@ function line() {
   // Lerp from primary to secondary color as needed.
   const cachedInk = c.slice(0);
 
-  // Check if line is perfectly horizontal and no gradient is present, otherwise run bresenham.
-  if (y0 === y1 && !c2) {
+  // Check if line is perfectly horizontal and no gradient/fade is present, otherwise run bresenham.
+  if (y0 === y1 && !c2 && !fadeMode) {
     lineh(x0, x1, y0);
   } else {
-    bresenham(x0, y0, x1, y1).forEach((p) => {
-      if (c2) {
+    const lineLength = sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
+    
+    bresenham(x0, y0, x1, y1).forEach((p, index, points) => {
+      if (fadeMode) {
+        // Calculate fade position based on line progress
+        const t = lineLength > 0 ? sqrt((p.x - x0) ** 2 + (p.y - y0) ** 2) / lineLength : 0;
+        const fadeColor = getFadeColor(t);
+        setColor(...fadeColor);
+        plot(p.x, p.y);
+      } else if (c2) {
         const step = sqrt(p.x * p.x + p.y * p.y) / 255; // Gradient step.
         color(...shiftRGB(c, c2, step));
         plot(p.x, p.y);
@@ -1182,7 +1409,7 @@ function line() {
         plot(p.x, p.y);
       }
     });
-    if (c2) color(...cachedInk);
+    if (c2 || fadeMode) setColor(...cachedInk);
   }
 
   const out = [x0, y0, x1, y1];
@@ -1798,11 +2025,31 @@ function box() {
   } else if (mode === "fill" || mode === "") {
     // TODO: The boxes could be cropped to always fit inside the screen here.
     w -= 1;
+    const cachedInk = c.slice(0);
+    
     if (sign(height) === 1) {
-      for (let row = 0; row < h; row += 1) line(x, y + row, x + w, y + row);
+      for (let row = 0; row < h; row += 1) {
+        if (fadeMode) {
+          // Calculate fade position based on box progress
+          const t = fadeDirection === "vertical" ? row / (h - 1) : 0;
+          const fadeColor = getFadeColor(t);
+          setColor(...fadeColor);
+        }
+        line(x, y + row, x + w, y + row);
+      }
     } else {
-      for (let row = 0; row > h; row -= 1) line(x, y + row, x + w, y + row);
+      for (let row = 0; row > h; row -= 1) {
+        if (fadeMode) {
+          // Calculate fade position based on box progress
+          const t = fadeDirection === "vertical" ? Math.abs(row) / Math.abs(h - 1) : 0;
+          const fadeColor = getFadeColor(t);
+          setColor(...fadeColor);
+        }
+        line(x, y + row, x + w, y + row);
+      }
     }
+    
+    if (fadeMode) setColor(...cachedInk);
   }
 }
 
