@@ -6,6 +6,7 @@
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+import { cssColors, rainbow, staticColorMap } from "./num.mjs";
 
 // Global cache registry for storing cached codes by source hash
 const cacheRegistry = new Map();
@@ -145,7 +146,6 @@ function setCachedCode(source, code) {
 const VERBOSE = false;
 const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
-import { cssColors } from "./num.mjs";
 
 // Performance tracking utilities
 const perfTimers = {};
@@ -641,19 +641,131 @@ class KidLisp {
     if (colorName) {
       const globalEnv = this.getGlobalEnv();
       
-      // Check if it's a color name in the global environment
+      // Check if it's a direct color name, fade string, or color code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
         try {
           // Test if this is a color function by calling it
-          globalEnv[colorName]();
+          const result = globalEnv[colorName]();
           
-          // If we get here without error, it's a color function
-          this.firstLineColor = colorName;
+          // Check if the result is a valid color (array of RGB values, fade string, or rainbow)
+          const isValidColor = Array.isArray(result) || 
+                               typeof result === "string" && (result.startsWith("fade:") || result === "rainbow");
+          
+          if (isValidColor) {
+            // If we get here without error, it's a color function
+            this.firstLineColor = colorName;
+          }
         } catch (e) {
           // Not a color function, ignore
         }
       }
+      // Also check if it's a fade string directly (like "fade:c0-c3")
+      else if (colorName.startsWith("fade:")) {
+        // Validate the fade string by trying to parse it
+        const fadeColors = this.parseFadeString(colorName);
+        if (fadeColors && fadeColors.length >= 2) {
+          this.firstLineColor = colorName;
+        }
+      }
     }
+  }
+
+  // Color a fade expression like "fade:red-blue-yellow" with each color in its own color
+  colorFadeExpression(fadeToken) {
+    if (!fadeToken.startsWith("fade:")) {
+      return fadeToken; // Fallback to original token
+    }
+
+    const colorPart = fadeToken.substring(5); // Remove "fade:" prefix
+    const colorNames = colorPart.split("-");
+    
+    let result = "\\mediumseagreen\\fade\\lime\\:"; // "fade" in emerald, ":" in green
+    
+    for (let i = 0; i < colorNames.length; i++) {
+      const colorName = colorNames[i];
+      
+      // Get the color for this color name
+      let colorValue = "white"; // Default fallback
+      
+      if (cssColors && cssColors[colorName]) {
+        // Use the actual color if it's a valid CSS color
+        const rgbColor = cssColors[colorName];
+        if (Array.isArray(rgbColor) && rgbColor.length >= 3) {
+          colorValue = `${rgbColor[0]},${rgbColor[1]},${rgbColor[2]}`;
+        }
+      } else if (colorName === "rainbow") {
+        colorValue = "RAINBOW"; // Special case for rainbow
+      }
+      
+      // Add the colored color name
+      if (colorValue === "RAINBOW") {
+        // Special rainbow handling
+        const rainbowColors = ["red", "orange", "yellow", "lime", "blue", "purple", "magenta"];
+        for (let charIndex = 0; charIndex < colorName.length; charIndex++) {
+          const charColor = rainbowColors[charIndex % rainbowColors.length];
+          result += `\\${charColor}\\${colorName[charIndex]}`;
+        }
+      } else {
+        result += `\\${colorValue}\\${colorName}`;
+      }
+      
+      // Add the dash separator in emerald (except for the last color)
+      if (i < colorNames.length - 1) {
+        result += "\\mediumseagreen\\-";
+      }
+    }
+    
+    return result;
+  }
+
+  // Helper method to parse and validate fade strings
+  // Helper method to validate if a string is a valid color
+  isValidColorString(colorStr) {
+    // Check CSS colors
+    if (cssColors[colorStr]) return true;
+    
+    // Check color codes (c0, c1, etc.) using standardized mapping
+    if (colorStr.match(/^c\d+$/)) {
+      const index = parseInt(colorStr.substring(1));
+      return staticColorMap[index] !== undefined;
+    }
+    
+    // Check if it's rainbow
+    if (colorStr === "rainbow") return true;
+    
+    return false;
+  }
+
+  parseFadeString(fadeString) {
+    if (!fadeString.startsWith("fade:")) return null;
+    
+    const colorPart = fadeString.substring(5); // Remove "fade:" prefix
+    const colorNames = colorPart.split("-");
+    
+    if (colorNames.length < 2) return null;
+    
+    const validColors = [];
+    
+    // Validate each color in the fade
+    for (const colorName of colorNames) {
+      if (this.isValidColorString(colorName)) {
+        // Get the actual RGB values
+        if (cssColors[colorName]) {
+          validColors.push(cssColors[colorName]);
+        } else if (colorName.match(/^c\d+$/)) {
+          const index = parseInt(colorName.substring(1));
+          if (staticColorMap[index]) {
+            validColors.push(staticColorMap[index]);
+          }
+        } else if (colorName === "rainbow") {
+          validColors.push([255, 0, 0]); // Just use red as representative
+        }
+      } else {
+        return null; // Invalid color
+      }
+    }
+    
+    return validColors.length >= 2 ? validColors : null;
   }
 
   // Get the background fill color for reframe operations
@@ -1769,12 +1881,28 @@ class KidLisp {
           this.clearInkState();
           return undefined;
         } else {
+          // Check for fade: symbol syntax like (ink fade:cyan-magenta)
+          if (args.length === 1 && typeof args[0] === "string" && args[0].startsWith("fade:")) {
+            this.inkState = [args[0]];
+            this.inkStateSet = true;
+            api.ink?.(args[0]);
+            return;
+          }
+          
           // Called with color arguments - store and apply the new ink state
           const processedArgs = processArgStringTypes(args);
           this.inkState = processedArgs;
           this.inkStateSet = true;
-          api.ink?.(processedArgs);
+          api.ink?.(...processedArgs);
         }
+      },
+      // Fade string constructor - returns a fade string that can be used with ink
+      fade: (api, args) => {
+        if (args.length < 2) {
+          return "fade:red-blue"; // Default fade if not enough args
+        }
+        const colors = processArgStringTypes(args).join("-");
+        return `fade:${colors}`;
       },
       // Dynamic timing helpers with intuitive names
       hop: (api, args, env) => {
@@ -1822,6 +1950,21 @@ class KidLisp {
       box: (api, args = []) => {
         // console.log(args);
         api.box(...args);
+      },
+      flood: (api, args = []) => {
+        // Flood fill at coordinates with optional color
+        // Usage: (flood x y) or (flood x y color)
+        if (args.length >= 2) {
+          const x = args[0];
+          const y = args[1];
+          const fillColor = args[2]; // Optional color, defaults to current ink
+          
+          if (fillColor !== undefined) {
+            api.flood(x, y, processArgStringTypes(fillColor));
+          } else {
+            api.flood(x, y); // Use current ink color
+          }
+        }
       },
       shape: (api, args = []) => {
         // Handle shape arguments - can be flat array of coordinates or array of pairs
@@ -2882,6 +3025,24 @@ class KidLisp {
         acc[colorName] = () => cssColors[colorName];
         return acc;
       }, {}),
+      
+      // Add static color codes (c0, c1, c2, etc.) using standardized mapping
+      ...Object.keys(staticColorMap).reduce((acc, index) => {
+        acc[`c${index}`] = () => staticColorMap[index];
+        return acc;
+      }, {}),
+      
+      // Add palette codes (p0, p1, etc.)
+      p0: () => "rainbow",
+      
+      // Add fade functions for common fades
+      "fade:red-blue": () => "fade:red-blue",
+      "fade:sunset": () => "fade:sunset", 
+      "fade:ocean": () => "fade:ocean",
+      "fade:red-yellow": () => "fade:red-yellow",
+      "fade:blue-white": () => "fade:blue-white",
+      "fade:green-purple": () => "fade:green-purple",
+      "fade:cyan-magenta": () => "fade:cyan-magenta",
     };
 
     return this.globalEnvCache;
@@ -3467,11 +3628,6 @@ class KidLisp {
                       Array.isArray(arg) ||
                       (typeof arg === "string" && !/^".*"$/.test(arg))
                     ) {
-                      // Special case for 'write' function: treat single characters as string literals
-                      if (head === "write" && typeof arg === "string" && arg.length === 1 && /^[a-zA-Z]$/.test(arg)) {
-                        return arg; // Return single characters as-is for write function
-                      }
-                      
                       // Check if this is a timing expression that needs full evaluation
                       if (Array.isArray(arg) && arg.length > 0 && 
                           typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
@@ -3639,14 +3795,9 @@ class KidLisp {
       let value = this.fastEval(id, api, env);
 
       if (value === id) {
-        // Variable not found - check if it's a single character that should be treated as a string
-        if (typeof id === "string" && id.length === 1 && /^[a-zA-Z]$/.test(id)) {
-          // Single alphabetic characters are likely string literals, not undefined variables
-          value = `"${id}"`; // Treat as quoted string
-        } else {
-          console.warn("❗ Identifier not found:", id);
-          value = 0;
-        }
+        // Variable not found, try to get it from global environment
+        console.warn("❗ Identifier not found:", id);
+        value = 0;
       }
 
       // Replace any identifiers and cancel out prefixed double negatives.
@@ -3798,6 +3949,13 @@ class KidLisp {
               const charColor = rainbowColors[charIndex % rainbowColors.length];
               result += `\\${charColor}\\${token[charIndex]}`;
             }
+            lastColor = null; // Reset so next token gets proper color
+          } 
+          // Special handling for fade expressions like "fade:red-blue-yellow"
+          else if (token.startsWith("fade:") && color === "mediumseagreen") {
+            // Parse the fade expression and color each part
+            const fadeResult = this.colorFadeExpression(token);
+            result += fadeResult;
             lastColor = null; // Reset so next token gets proper color
           } else {
             // Add the token itself normally
@@ -3953,14 +4111,6 @@ class KidLisp {
     let parenDepth = 0;
     let currentTokenPos = timingIndex + 1;
     
-    // Only debug for tokens we care about
-    const isDebugToken = tokens[tokenIndex] === "line" || tokens[tokenIndex] === "box";
-    
-    if (isDebugToken) {
-      console.log(`🔍 getTokenArgPosition: Analyzing "${tokens[tokenIndex]}" (index ${tokenIndex}) relative to timing at ${timingIndex}`);
-      console.log(`🔍 Token range: ${timingIndex + 1} to ${tokenIndex}`);
-    }
-    
     while (currentTokenPos < tokens.length && currentTokenPos <= tokenIndex) {
       const token = tokens[currentTokenPos];
       
@@ -3969,37 +4119,22 @@ class KidLisp {
         if (parenDepth === 1) {
           // Start of a new top-level argument
           argIndex++;
-          if (isDebugToken) {
-            console.log(`🔍 Starting arg ${argIndex} at token "${token}" (pos ${currentTokenPos})`);
-          }
         }
       } else if (token === ")") {
         parenDepth--;
-        if (isDebugToken) {
-          console.log(`🔍 Closing paren at pos ${currentTokenPos}, parenDepth now ${parenDepth}`);
-        }
         if (parenDepth < 0) {
           // We've exited the timing expression
-          if (isDebugToken) {
-            console.log(`🔍 Exited timing expression at pos ${currentTokenPos}`);
-          }
           break;
         }
       }
       
       if (currentTokenPos === tokenIndex) {
-        if (isDebugToken) {
-          console.log(`🔍 Found "${tokens[tokenIndex]}" inside arg ${argIndex} at depth ${parenDepth}`);
-        }
         return { argIndex, tokenDepth: parenDepth };
       }
       
       currentTokenPos++;
     }
     
-    if (isDebugToken) {
-      console.log(`🔍 Token "${tokens[tokenIndex]}" not found in timing arguments`);
-    }
     return null; // Token not found in timing arguments
   }
 
@@ -4392,7 +4527,7 @@ class KidLisp {
       return this.getFunctionColor(token);
     }
 
-    // Check if this token is a valid CSS color name
+    // Check if this token is a valid CSS color name or color code
     if (cssColors && cssColors[token]) {
       // Return the actual color value for CSS colors like "red", "blue", etc.
       const colorValue = cssColors[token];
@@ -4401,6 +4536,24 @@ class KidLisp {
         // Return as RGB format for the HUD system
         return rgbColor;
       }
+    }
+    
+    // Check if this is a color code like "c0", "c1", etc.
+    if (token.match(/^c\d+$/)) {
+      const index = parseInt(token.substring(1));
+      if (staticColorMap[index]) {
+        const colorValue = staticColorMap[index];
+        if (Array.isArray(colorValue) && colorValue.length >= 3) {
+          const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
+          return rgbColor;
+        }
+      }
+    }
+
+    // Check if this is a fade expression like "fade:red-blue-yellow"
+    if (token.startsWith("fade:")) {
+      // For now, return a special fade color - we'll handle the multi-color highlighting separately
+      return "mediumseagreen"; // Give fade expressions a distinct emerald color
     }
 
     // Check if this is a bare function call (likely at start of line or after newline)
@@ -4411,18 +4564,23 @@ class KidLisp {
 
     // Check if this is a known function name (even if not directly after parentheses)
     const knownFunctions = [
-      "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "mul", "log", "no", "yes"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade"
     ];
     
     // Special case for "rainbow" - return special marker for rainbow coloring
     if (token === "rainbow") {
       return "RAINBOW";
+    }
+    
+    // Special case for "fade" function - give it a distinct color
+    if (token === "fade") {
+      return "mediumseagreen"; // Use emerald/medium sea green for the fade function
     }
     
     // Math operators get special green color
@@ -4460,7 +4618,7 @@ class KidLisp {
 
     // Check against known functions and CSS colors
     const knownFunctions = [
-      "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
@@ -4722,6 +4880,15 @@ function isKidlispSource(text) {
 
   // Check if it contains newlines (multi-line input is likely KidLisp)
   if (text.includes("\n")) {
+    return true;
+  }
+
+  // Check for first-line color indicators (fade strings and color codes)
+  const trimmedText = text.trim();
+  if (trimmedText.startsWith("fade:") || 
+      trimmedText.match(/^c\d+$/) || 
+      cssColors[trimmedText] || 
+      trimmedText === "rainbow") {
     return true;
   }
 
