@@ -509,6 +509,12 @@ export function parseColor(params) {
 
     if (name === "?") name = anyKey(cssColors); // Pick a name if `?` is passed.
 
+    // Check for color index format like "c151"
+    const indexColor = parseColorIndex(name);
+    if (indexColor) {
+      return [...indexColor, alpha];
+    }
+
     if (name in cssColors) {
       return [...cssColors[name], alpha];
     } else if (name === "erase") {
@@ -557,6 +563,12 @@ export function parseColor(params) {
       alpha = round(alpha * 255); // Convert a float alpha from 0->1.
     } else {
       alpha = parseInt(params[1]) || 255;
+    }
+
+    // Check for color index format like "c151"
+    const indexColor = parseColorIndex(name);
+    if (indexColor) {
+      return [...indexColor, alpha];
     }
 
     if (name in cssColors) {
@@ -689,6 +701,7 @@ export const cssColors = {
   plum: [221, 160, 221],
   powderblue: [176, 224, 230],
   purple: [128, 0, 128],
+  rebeccapurple: [102, 51, 153],
   red: [255, 0, 0],
   rosybrown: [188, 143, 143],
   royalblue: [65, 105, 225],
@@ -749,6 +762,263 @@ export function findColor(rgb) {
       return name;
     }
   }
+}
+
+// Create organized color index system
+// First 16: Standard web colors
+// Then organized by color families (reds, oranges, yellows, greens, blues, purples, etc.)
+export const organizedColorIndex = [
+  // 0-15: Standard 16 web colors (c0=black, c1=white)
+  "black", "white", "red", "lime", "blue", "yellow", "cyan", "magenta", 
+  "silver", "gray", "maroon", "olive", "green", "purple", "teal", "navy",
+  
+  // 17-32: Additional reds and pinks
+  "crimson", "darkred", "firebrick", "indianred", "lightcoral", "salmon",
+  "darksalmon", "lightsalmon", "pink", "lightpink", "hotpink", "deeppink",
+  "palevioletred", "mediumvioletred", "coral", "tomato",
+  
+  // 33-48: Oranges
+  "orange", "darkorange", "orangered", "chocolate", "saddlebrown", "sienna",
+  "brown", "rosybrown", "sandybrown", "goldenrod", "darkgoldenrod", "peru",
+  "burlywood", "tan", "navajowhite", "bisque",
+  
+  // 49-64: Yellows and golds
+  "gold", "palegoldenrod", "khaki", "darkkhaki", "moccasin", "wheat",
+  "lemonchiffon", "lightgoldenrodyellow", "lightyellow", "beige", "cornsilk",
+  "blanchedalmond", "papayawhip", "antiquewhite", "linen", "oldlace",
+  
+  // 65-80: Greens
+  "forestgreen", "darkgreen", "darkolivegreen", "darkseagreen", "limegreen",
+  "seagreen", "mediumseagreen", "springgreen", "mediumspringgreen", "palegreen",
+  "lightgreen", "lawngreen", "chartreuse", "greenyellow", "yellowgreen", "olivedrab",
+  
+  // 81-96: Blues and cyans
+  "aqua", "darkturquoise", "turquoise", "mediumturquoise", "paleturquoise",
+  "lightcyan", "cadetblue", "steelblue", "lightsteelblue", "powderblue",
+  "lightblue", "skyblue", "lightskyblue", "deepskyblue", "dodgerblue", "cornflowerblue",
+  
+  // 97-112: More blues
+  "royalblue", "mediumblue", "darkblue", "midnightblue", "slateblue",
+  "darkslateblue", "mediumslateblue", "mediumpurple", "blueviolet", "indigo",
+  "darkorchid", "darkviolet", "mediumorchid", "thistle", "plum", "violet",
+  
+  // 113-128: Purples and magentas
+  "orchid", "fuchsia", "darkmagenta", "mediumvioletred", "lavenderblush",
+  "mistyrose", "lavender", "ghostwhite", "azure", "aliceblue", "mintcream",
+  "honeydew", "seashell", "ivory", "floralwhite", "snow",
+  
+  // 129-144: Grays and remaining colors
+  "gainsboro", "lightgray", "lightgrey", "darkgray", "darkgrey", "dimgray",
+  "dimgrey", "lightslategray", "lightslategrey", "slategray", "slategrey",
+  "darkslategray", "darkslategrey", "whitesmoke", "rebeccapurple"
+];
+
+// Add any remaining CSS colors that weren't included above
+const remainingColors = Object.keys(cssColors).filter(color => 
+  !organizedColorIndex.includes(color)
+);
+export const completeColorIndex = [...organizedColorIndex, ...remainingColors];
+
+// Get color by CSS index (c0, c1, etc.)
+export function getColorByIndex(index) {
+  // Use 0-based indexing (c0 = first color)
+  if (index >= 0 && index < completeColorIndex.length) {
+    const colorName = completeColorIndex[index];
+    return {
+      name: colorName,
+      rgb: cssColors[colorName]
+    };
+  }
+  return null;
+}
+
+// Palette colors (p0 = rainbow, etc.)
+export const paletteColors = {
+  0: "rainbow", // p0 = rainbow
+  // Add more palette colors here as needed
+};
+
+// Get palette color by index (p1, p2, etc.)
+export function getPaletteByIndex(index) {
+  if (index in paletteColors) {
+    return paletteColors[index];
+  }
+  return null;
+}
+
+// Static color index mapping - STANDARDIZED and PERMANENT for aesthetic.computer
+export const staticColorMap = {
+  // 0-15: Core web colors (never change these)
+  0: [0, 0, 0],         // c0 = black
+  1: [255, 255, 255],   // c1 = white  
+  2: [255, 0, 0],       // c2 = red
+  3: [0, 255, 0],       // c3 = lime
+  4: [0, 0, 255],       // c4 = blue
+  5: [255, 255, 0],     // c5 = yellow
+  6: [0, 255, 255],     // c6 = cyan
+  7: [255, 0, 255],     // c7 = magenta
+  8: [192, 192, 192],   // c8 = silver
+  9: [128, 128, 128],   // c9 = gray
+  10: [128, 0, 0],      // c10 = maroon
+  11: [128, 128, 0],    // c11 = olive
+  12: [0, 128, 0],      // c12 = green
+  13: [128, 0, 128],    // c13 = purple
+  14: [0, 128, 128],    // c14 = teal
+  15: [0, 0, 128],      // c15 = navy
+  
+  // 16-31: Red spectrum
+  16: [220, 20, 60],    // c16 = crimson
+  17: [139, 0, 0],      // c17 = darkred
+  18: [178, 34, 34],    // c18 = firebrick
+  19: [205, 92, 92],    // c19 = indianred
+  20: [240, 128, 128],  // c20 = lightcoral
+  21: [250, 128, 114],  // c21 = salmon
+  22: [233, 150, 122],  // c22 = darksalmon
+  23: [255, 160, 122],  // c23 = lightsalmon
+  24: [255, 192, 203],  // c24 = pink
+  25: [255, 182, 193],  // c25 = lightpink
+  26: [255, 105, 180],  // c26 = hotpink
+  27: [255, 20, 147],   // c27 = deeppink
+  28: [219, 112, 147],  // c28 = palevioletred
+  29: [199, 21, 133],   // c29 = mediumvioletred
+  30: [255, 127, 80],   // c30 = coral
+  31: [255, 99, 71],    // c31 = tomato
+  
+  // 32-47: Orange spectrum
+  32: [255, 69, 0],     // c32 = orangered
+  33: [255, 140, 0],    // c33 = darkorange
+  34: [255, 165, 0],    // c34 = orange
+  35: [255, 215, 0],    // c35 = gold
+  36: [255, 218, 185],  // c36 = peachpuff
+  37: [255, 228, 196],  // c37 = bisque
+  38: [255, 239, 213],  // c38 = papayawhip
+  39: [255, 228, 181],  // c39 = moccasin
+  40: [255, 222, 173],  // c40 = navajowhite
+  41: [245, 222, 179],  // c41 = wheat
+  42: [222, 184, 135],  // c42 = burlywood
+  43: [210, 180, 140],  // c43 = tan
+  44: [188, 143, 143],  // c44 = rosybrown
+  45: [205, 133, 63],   // c45 = peru
+  46: [244, 164, 96],   // c46 = sandybrown
+  47: [160, 82, 45],    // c47 = saddlebrown
+  
+  // 48-63: Yellow/Green spectrum
+  48: [255, 248, 220],  // c48 = cornsilk
+  49: [255, 255, 240],  // c49 = ivory
+  50: [255, 250, 205],  // c50 = lemonchiffon
+  51: [250, 250, 210],  // c51 = lightgoldenrodyellow
+  52: [240, 230, 140],  // c52 = khaki
+  53: [238, 232, 170],  // c53 = palegoldenrod
+  54: [189, 183, 107],  // c54 = darkkhaki
+  55: [154, 205, 50],   // c55 = yellowgreen
+  56: [124, 252, 0],    // c56 = lawngreen
+  57: [127, 255, 0],    // c57 = chartreuse
+  58: [173, 255, 47],   // c58 = greenyellow
+  59: [50, 205, 50],    // c59 = limegreen
+  60: [152, 251, 152],  // c60 = palegreen
+  61: [144, 238, 144],  // c61 = lightgreen
+  62: [0, 250, 154],    // c62 = mediumspringgreen
+  63: [0, 255, 127],    // c63 = springgreen
+  
+  // 64-79: Green spectrum
+  64: [46, 125, 50],    // c64 = forestgreen
+  65: [34, 139, 34],    // c65 = forestgreen
+  66: [0, 100, 0],      // c66 = darkgreen
+  67: [85, 107, 47],    // c67 = darkolivegreen
+  68: [107, 142, 35],   // c68 = olivedrab
+  69: [102, 205, 170],  // c69 = mediumaquamarine
+  70: [127, 255, 212],  // c70 = aquamarine
+  71: [176, 196, 222],  // c71 = lightsteelblue
+  72: [175, 238, 238],  // c72 = paleturquoise
+  73: [0, 206, 209],    // c73 = darkturquoise
+  74: [72, 209, 204],   // c74 = mediumturquoise
+  75: [64, 224, 208],   // c75 = turquoise
+  76: [0, 139, 139],    // c76 = darkcyan
+  77: [95, 158, 160],   // c77 = cadetblue
+  78: [70, 130, 180],   // c78 = steelblue
+  79: [176, 224, 230],  // c79 = powderblue
+  
+  // 80-95: Blue spectrum  
+  80: [173, 216, 230],  // c80 = lightblue
+  81: [135, 206, 235],  // c81 = skyblue
+  82: [135, 206, 250],  // c82 = lightskyblue
+  83: [0, 191, 255],    // c83 = deepskyblue
+  84: [30, 144, 255],   // c84 = dodgerblue
+  85: [100, 149, 237],  // c85 = cornflowerblue
+  86: [123, 104, 238],  // c86 = mediumslateblue
+  87: [106, 90, 205],   // c87 = slateblue
+  88: [72, 61, 139],    // c88 = darkslateblue
+  89: [25, 25, 112],    // c89 = midnightblue
+  90: [0, 0, 139],      // c90 = darkblue
+  91: [0, 0, 205],      // c91 = mediumblue
+  92: [65, 105, 225],   // c92 = royalblue
+  93: [138, 43, 226],   // c93 = blueviolet
+  94: [75, 0, 130],     // c94 = indigo
+  95: [72, 0, 72],      // c95 = darkmagenta
+  
+  // 96-111: Purple/Violet spectrum
+  96: [153, 50, 204],   // c96 = darkorchid
+  97: [186, 85, 211],   // c97 = mediumorchid
+  98: [218, 112, 214],  // c98 = orchid
+  99: [221, 160, 221],  // c99 = plum
+  100: [238, 130, 238], // c100 = violet
+  101: [255, 0, 255],   // c101 = fuchsia (same as magenta)
+  102: [208, 32, 144],  // c102 = violetred
+  103: [199, 21, 133],  // c103 = mediumvioletred
+  104: [219, 112, 147], // c104 = palevioletred
+  105: [255, 105, 180], // c105 = hotpink
+  106: [255, 20, 147],  // c106 = deeppink
+  107: [220, 20, 60],   // c107 = crimson
+  108: [139, 69, 19],   // c108 = saddlebrown
+  109: [160, 82, 45],   // c109 = saddlebrown
+  110: [205, 133, 63],  // c110 = peru
+  111: [222, 184, 135], // c111 = burlywood
+  
+  // 112-127: Browns and earth tones
+  112: [245, 245, 220], // c112 = beige
+  113: [255, 248, 220], // c113 = cornsilk
+  114: [255, 235, 205], // c114 = blanchedalmond
+  115: [245, 222, 179], // c115 = wheat
+  116: [255, 228, 181], // c116 = moccasin
+  117: [255, 218, 185], // c117 = peachpuff
+  118: [210, 180, 140], // c118 = tan
+  119: [188, 143, 143], // c119 = rosybrown
+  120: [244, 164, 96],  // c120 = sandybrown
+  121: [205, 133, 63],  // c121 = peru
+  122: [160, 82, 45],   // c122 = saddlebrown
+  123: [139, 69, 19],   // c123 = saddlebrown
+  124: [101, 67, 33],   // c124 = darkbrown
+  125: [62, 39, 35],    // c125 = darkerbrown
+  126: [139, 90, 43],   // c126 = sienna
+  127: [165, 42, 42],   // c127 = brown
+};
+
+// Parse color index string like "c0", "c1", "p0" and return color
+export function parseColorIndex(indexString) {
+  if (typeof indexString === 'string') {
+    if (indexString.startsWith('c')) {
+      const index = parseInt(indexString.substring(1), 10);
+      
+      // Use standardized static color map
+      if (!isNaN(index) && staticColorMap[index]) {
+        const color = staticColorMap[index];
+        // Validate color array
+        if (Array.isArray(color) && color.length >= 3 && 
+            color[0] !== undefined && color[1] !== undefined && color[2] !== undefined) {
+          return color;
+        }
+      }
+    } else if (indexString.startsWith('p')) {
+      const index = parseInt(indexString.substring(1), 10);
+      if (!isNaN(index)) {
+        const palette = getPaletteByIndex(index);
+        if (palette === "rainbow") {
+          return ["rainbow"]; // Special marker for rainbow
+        }
+      }
+    }
+  }
+  return null;
 }
 
 // Alpha blends two colors, mutating and returning `dst`.

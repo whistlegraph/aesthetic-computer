@@ -18,6 +18,15 @@ RUN dnf install -y xclip
 RUN dnf install -y nmap-ncat
 RUN dnf install -y inotify-tools
 
+# Tezos development dependencies
+RUN dnf install -y wget curl tar gzip bzip2
+RUN dnf install -y libsodium libsodium-devel libffi libffi-devel
+RUN dnf install -y pkg-config autoconf automake libtool
+RUN dnf install -y ocaml opam rsync m4 patch bubblewrap
+
+# Install SmartPy for Tezos smart contract development
+RUN pip install https://smartpy.io/static/tezos_smartpy-0.22.0-py3-none-any.whl
+
 # Install PowerShell
 # Use Fedora 40 repo instead of Fedora 42
 # RUN dnf install -y https://packages.microsoft.com/config/fedora/40/packages-microsoft-prod.rpm \
