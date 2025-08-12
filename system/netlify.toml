@@ -65,6 +65,7 @@ external_node_modules = ["discord-interactions"]
 [functions.clock]
 # No special config needed for clock
 [functions.store-kidlisp]
+node_bundler = "esbuild"
 external_node_modules = ["nanoid"]
 included_files = ["public/aesthetic.computer/lib/kidlisp.mjs"]
 [dev]
