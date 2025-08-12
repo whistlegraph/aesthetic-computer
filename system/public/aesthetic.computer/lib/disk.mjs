@@ -3281,7 +3281,7 @@ async function load(
         forceKidlisp ||
         slug === "(...)" ||
         path === "(...)" ||
-        path.endsWith(".lisp") ||
+        (path && path.endsWith(".lisp")) ||
         (slug && slug.startsWith("$")) // Cached codes are always kidlisp
       ) {
         // Only use basic detection, not the broader isKidlispSource function
@@ -3299,7 +3299,7 @@ async function load(
         // );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
-        loadedModule = lisp.module(sourceToRun);
+        loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         if (devReload) {
           store["publishable-piece"] = {
@@ -3335,7 +3335,7 @@ async function load(
   } catch (err) {
     console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
-    if (!fullUrl.includes('.lisp')) {
+    if (fullUrl && !fullUrl.includes('.lisp')) {
       try {
         fullUrl = fullUrl.replace(".mjs", ".lisp");
         let response;
@@ -3364,7 +3364,9 @@ async function load(
       sourceCode = await response.text();
       // console.log("📓 Source:", sourceCode);
       originalCode = sourceCode;
-      loadedModule = lisp.module(sourceCode);      if (devReload) {
+      loadedModule = lisp.module(sourceCode, true); // This is loading a .lisp file
+      
+      if (devReload) {
         store["publishable-piece"] = { slug, source: sourceCode, ext: "lisp" };
         // console.log("💌 Publishable:", store["publishable-piece"]);
       }
@@ -3949,6 +3951,7 @@ async function load(
   if (!typefaceCache.has("MatrixChunky8")) {
     // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
+    console.log("🔤 MatrixChunky8 font data:", matrixFont.data?.advances?.['[']);
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
     
     // Pre-load common QR code characters to avoid fallback during rendering
@@ -7103,7 +7106,8 @@ async function makeFrame({ data: { type, content } }) {
       const sourceCode = currentText || currentHUDTxt; // Use plain currentText first, then fall back to HUD text
       
       // More inclusive KidLisp detection for QR code generation
-      const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath)) ||
+      // But exclude proper .lisp files which should not show source HUD
+      const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
                              currentPath === "(...)" ||
                              // Detect cached KidLisp pieces by $code format
                              (sourceCode && sourceCode.startsWith("$")) ||
@@ -7113,13 +7117,17 @@ async function makeFrame({ data: { type, content } }) {
                                sourceCode.startsWith(";") ||
                                sourceCode.includes("\n") ||
                                // Check for common KidLisp commands (even single line)
-                               /^(wipe|ink|line|box|circle|rect|def|later|scroll|resolution|gap|frame|brush|clear|cls|help|reset|dot|pixel|stamp|paste|copy|move|rotate|scale|translate|fill|stroke|point|arc|bezier|noise|random|sin|cos|tan|sqrt|abs|floor|ceil|round|min|max|pow|log|exp|atan2|dist|lerp|map|norm|constrain|hue|sat|bright|alpha|red|green|blue|rgb|hsb|gray|background|foreground|text|font|size|width|height|mouseX|mouseY|keyCode|key|frameCount|time|second|minute|hour|day|month|year|millis|fps|deltaTime)\s/.test(sourceCode)
+                               /^(wipe|ink|line|box|circle|rect|def|later|scroll|resolution|gap|frame|brush|clear|cls|help|reset|dot|pixel|stamp|paste|copy|move|rotate|scale|translate|fill|stroke|point|arc|bezier|noise|random|sin|cos|tan|sqrt|abs|floor|ceil|round|min|max|pow|log|exp|atan2|dist|lerp|map|norm|constrain|hue|sat|bright|alpha|red|green|blue|rgb|hsb|gray|background|foreground|text|font|size|width|height|mouseX|mouseY|keyCode|key|frameCount|time|second|minute|hour|day|month|year|millis|fps|deltaTime)\s/.test(sourceCode) ||
+                               // Check for bare color names and fade strings
+                               /^(fade:|c\d+$|rainbow$)/.test(sourceCode.trim()) ||
+                               // Check for CSS color names (common ones)
+                               /^(red|blue|green|yellow|purple|orange|pink|cyan|magenta|black|white|gray|grey|lime|navy|teal|olive|maroon|silver|aqua|fuchsia|brown|coral|gold|indigo|ivory|khaki|lavender|lemon|mint|peach|plum|rose|tan|violet|wheat)$/.test(sourceCode.trim())
                              ));
       
       // Debug QR detection (only when issues occur)
-      if (!isKidlispPiece && (sourceCode?.startsWith("$") || sourceCode?.startsWith("("))) {
+      if (!isInlineKidlispPiece && (sourceCode?.startsWith("$") || sourceCode?.startsWith("("))) {
         console.log("🔍 QR Debug:", {
-          isKidlispPiece,
+          isInlineKidlispPiece,
           sourceCode,
           visible: hudAnimationState.visible,
           animating: hudAnimationState.animating,
@@ -7129,7 +7137,7 @@ async function makeFrame({ data: { type, content } }) {
         });
       }
       
-      if (isKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating)) {
+      if (isInlineKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating)) {
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
