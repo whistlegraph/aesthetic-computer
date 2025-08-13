@@ -712,6 +712,15 @@ class KidLisp {
         if (Array.isArray(rgbColor) && rgbColor.length >= 3) {
           colorValue = `${rgbColor[0]},${rgbColor[1]},${rgbColor[2]}`;
         }
+      } else if (colorName.match(/^c\d+$/)) {
+        // Handle color codes like c0, c1, etc.
+        const index = parseInt(colorName.substring(1));
+        if (staticColorMap && staticColorMap[index]) {
+          const rgbColor = staticColorMap[index];
+          if (Array.isArray(rgbColor) && rgbColor.length >= 3) {
+            colorValue = `${rgbColor[0]},${rgbColor[1]},${rgbColor[2]}`;
+          }
+        }
       } else if (colorName === "rainbow") {
         colorValue = "RAINBOW"; // Special case for rainbow
       }
