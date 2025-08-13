@@ -45,6 +45,7 @@ const skips = [];
 let fadeMode = false;
 let fadeColors = [];
 let fadeDirection = "horizontal"; // horizontal, vertical, diagonal
+let currentRainbowColor = null; // Cache rainbow color for current drawing operation
 
 let debug = false;
 export function setDebug(newDebug) {
@@ -221,19 +222,21 @@ function parseFade(fadeString) {
           colors.push([...indexColor.slice(0, 3), 255]); // Ensure RGBA format
         }
       } else if (indexColor && indexColor[0] === "rainbow") {
-        // Handle rainbow palette - use first color of rainbow
-        const rainbowColors = rainbow();
-        if (rainbowColors && rainbowColors.length >= 3) {
-          colors.push([...rainbowColors.slice(0, 3), 255]);
-        }
+        // Handle rainbow palette - mark as special dynamic color
+        colors.push(["rainbow"]); // Special marker for dynamic rainbow
       } else {
-        // Fall back to CSS colors or hex
-        const color = cssColors[trimmed] || hexToRgb(trimmed);
-        if (color && color.length >= 3 && 
-            color[0] !== undefined && 
-            color[1] !== undefined && 
-            color[2] !== undefined) {
-          colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+        // Check for direct rainbow first
+        if (trimmed === "rainbow") {
+          colors.push(["rainbow"]); // Special marker for dynamic rainbow
+        } else {
+          // Fall back to CSS colors or hex
+          const color = cssColors[trimmed] || hexToRgb(trimmed);
+          if (color && color.length >= 3 && 
+              color[0] !== undefined && 
+              color[1] !== undefined && 
+              color[2] !== undefined) {
+            colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+          }
         }
       }
     }
@@ -251,6 +254,11 @@ function getFadeColor(t) {
     return c.slice();
   }
   
+  // Update rainbow color once per drawing operation if needed
+  if (currentRainbowColor === null && fadeColors.some(color => color[0] === "rainbow")) {
+    currentRainbowColor = rainbow();
+  }
+  
   // Clamp t to 0-1 range
   t = Math.max(0, Math.min(1, t));
   
@@ -259,8 +267,16 @@ function getFadeColor(t) {
   const segmentIndex = Math.floor(t * segmentCount);
   const segmentT = (t * segmentCount) - segmentIndex;
   
-  const startColor = fadeColors[Math.min(segmentIndex, fadeColors.length - 1)];
-  const endColor = fadeColors[Math.min(segmentIndex + 1, fadeColors.length - 1)];
+  let startColor = fadeColors[Math.min(segmentIndex, fadeColors.length - 1)];
+  let endColor = fadeColors[Math.min(segmentIndex + 1, fadeColors.length - 1)];
+  
+  // Handle dynamic rainbow colors using cached color
+  if (startColor[0] === "rainbow") {
+    startColor = [...currentRainbowColor, startColor[1] || 255]; // Use stored alpha or default
+  }
+  if (endColor[0] === "rainbow") {
+    endColor = [...currentRainbowColor, endColor[1] || 255]; // Use stored alpha or default
+  }
   
   // Linear interpolation between colors
   return [
@@ -269,6 +285,11 @@ function getFadeColor(t) {
     Math.round(lerp(startColor[2], endColor[2], segmentT)),
     Math.round(lerp(startColor[3], endColor[3], segmentT))
   ];
+}
+
+// Reset rainbow cache for new drawing operations
+function resetRainbowCache() {
+  currentRainbowColor = null;
 }
 
 // Parse a color from a variety of inputs..
@@ -286,6 +307,7 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      resetRainbowCache();
       return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
     }
 
@@ -300,6 +322,7 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      resetRainbowCache();
       
       // Treat as raw hex if we hit a certain limit.
       if (args[0] > 255) {
@@ -314,6 +337,7 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      resetRainbowCache();
       
       // Or if it's an array, then spread it out and re-ink.
       // args = args[0];
@@ -326,6 +350,7 @@ function findColor() {
           fadeMode = true;
           fadeColors = fadeColorArray;
           fadeDirection = "horizontal"; // Default direction
+          resetRainbowCache(); // Reset for new fade operation
           return fadeColorArray[0]; // Return first color as base
         }
       }
@@ -334,6 +359,7 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      resetRainbowCache();
       
       // FIRST: Check for color index format like "c0", "c1", "p0", etc.
       const indexColor = parseColorIndex(args[0]);
@@ -383,6 +409,29 @@ function findColor() {
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
     } else if (typeof args[0] === "string") {
+      // Check for fade syntax with alpha
+      if (args[0].startsWith("fade:")) {
+        const fadeColorArray = parseFade(args[0]);
+        if (fadeColorArray) {
+          fadeMode = true;
+          fadeColors = fadeColorArray.map(color => {
+            if (color[0] === "rainbow") {
+              return ["rainbow", computeAlpha(args[1])]; // Preserve rainbow marker with alpha
+            } else {
+              return [...color.slice(0, 3), computeAlpha(args[1])]; // Apply alpha to static colors
+            }
+          });
+          fadeDirection = "horizontal"; // Default direction
+          resetRainbowCache(); // Reset for new fade operation
+          // For return value, handle rainbow specially
+          if (fadeColorArray[0][0] === "rainbow") {
+            return [...rainbow(), computeAlpha(args[1])];
+          } else {
+            return [...fadeColorArray[0].slice(0, 3), computeAlpha(args[1])]; // Return first color with alpha
+          }
+        }
+      }
+      
       // Check for color index format with alpha
       const indexColor = parseColorIndex(args[0]);
       if (indexColor) {
