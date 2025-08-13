@@ -3952,7 +3952,7 @@ async function load(
   if (!typefaceCache.has("MatrixChunky8")) {
     // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
-    console.log("🔤 MatrixChunky8 font data:", matrixFont.data?.advances?.['[']);
+    // console.log("🔤 MatrixChunky8 font data:", matrixFont.data?.advances?.['[']);
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
     
     // Pre-load common QR code characters to avoid fallback during rendering
