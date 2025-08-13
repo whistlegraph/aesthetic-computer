@@ -2768,6 +2768,7 @@ const $paintApiUnwrapped = {
   sort: graph.sort,
   zoom: graph.zoom,
   blur: graph.blur,
+  contrast: graph.contrast,
   shear: graph.shear,
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
