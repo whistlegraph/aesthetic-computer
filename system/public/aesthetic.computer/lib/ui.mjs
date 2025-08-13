@@ -179,14 +179,18 @@ class Button {
         }
       }
 
+      // In multitouch mode, only respond to lift events from the controlling pointer
+      const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+
       // Check if this is a valid button push or should be cancelled
-      const isValidPush = 
+      const isValidPush = isControllingPointer && (
         // Multi-touch case: all pens are outside box but lift event is inside
         (pens.length > 1 &&
           btn.box.containsNone(pens) &&
           btn.box.contains(e)) ||
         // Single touch case: lift event is inside box
-        ((!pens || pens.length <= 1) && btn.box.contains(e));
+        ((!pens || pens.length <= 1) && btn.box.contains(e))
+      );
 
       if (isValidPush) {
         // console.log(
@@ -207,16 +211,11 @@ class Button {
         
         up();
       } else if (
-        btn.box.containsNone(pens) ||
-        ((!pens || pens.length === 0) && !btn.box.contains(e))
+        isControllingPointer && (
+          btn.box.containsNone(pens) ||
+          ((!pens || pens.length === 0) && !btn.box.contains(e))
+        )
       ) {
-        // console.log(
-        //   "contains no pens!?",
-        //   btn.box.containsNone(pens),
-        //   pens,
-        //   "contains e:",
-        //   btn.box.contains(e),
-        // );
         btn.down = false;
         btn.over = false;
         activeButtons.delete(btn);
@@ -263,13 +262,16 @@ class Button {
         (btn.box.contains(e) || horizontallyWithin)
       ) {
         // Only allow rollover activation if conditions are met
-        // Deactivate all other buttons first (except sticky ones that are actively being used)
+        // In multitouch mode, only deactivate buttons that don't have their own active pointer
         for (const otherBtn of activeButtons) {
           if (otherBtn !== btn && !otherBtn.stickyScrubbing) {
-            otherBtn.down = false;
-            otherBtn.over = false;
-            otherBtn.actions?.up?.(otherBtn);
-            activeButtons.delete(otherBtn);
+            // In multitouch mode, only deactivate if this is the same pointer or if the other button doesn't have a specific pointer
+            if (!this.multitouch || otherBtn.downPointer === e.pointer || otherBtn.downPointer === undefined) {
+              otherBtn.down = false;
+              otherBtn.over = false;
+              otherBtn.actions?.up?.(otherBtn);
+              activeButtons.delete(otherBtn);
+            }
           }
         }
 
@@ -313,11 +315,14 @@ class Button {
       (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen);
 
     if (e.is(`draw:${t}`) && btn.down && allowScrub) {
+      // In multitouch mode, only allow scrubbing from the controlling pointer unless special cases apply
+      const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+      
       // Allow scrubbing if pointers match OR if this button was activated via rollover
       // For sticky scrubbing, always allow if the button is down regardless of pointer position
       // For offScreenScrubbing, allow if horizontally within bounds
       if (
-        e.pointer === btn.downPointer ||
+        isControllingPointer ||
         (inActiveButtons && !btn.stickyScrubbing) ||
         (btn.stickyScrubbing && btn.down) ||
         (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen)
@@ -339,7 +344,10 @@ class Button {
         (btn.offScreenScrubbing &&
           (e.x < btn.box.x || e.x >= btn.box.x + btn.box.w));
 
-      if (shouldRollout) {
+      // In multitouch mode, only trigger rollout if this is the pointer that controls this button
+      const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+
+      if (shouldRollout && isControllingPointer) {
         // Only truly deactivate if we're not dragging to another button
         // The rollover on the new button will handle the transition
         if (callbacks.rollout) {
