@@ -246,7 +246,26 @@ function readFromTokens(tokens) {
     if (tokens[0] === ")") {
       throw new Error("Unexpected ')'");
     }
-    result.push(readExpression(tokens));
+    
+    // Check if the current token is a timing expression (both simple like "1.5s" and repeating like "2s...")
+    const currentToken = tokens[0];
+    if (/^\d*\.?\d+s\.\.\.?$/.test(currentToken) || /^\d*\.?\d+s!?$/.test(currentToken)) {
+      // This is a timing token, collect it and all following expressions until we hit another timing token or end
+      const timingExpr = [readExpression(tokens)]; // Read the timing token itself
+      
+      // Collect all following expressions until we hit another timing token or run out
+      while (tokens.length > 0 && 
+             tokens[0] !== ")" && 
+             !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0]) &&
+             !/^\d*\.?\d+s!?$/.test(tokens[0])) {
+        const nextExpr = readExpression(tokens);
+        timingExpr.push(nextExpr);
+      }
+      
+      result.push(timingExpr);
+    } else {
+      result.push(readExpression(tokens));
+    }
   }
   return result;
 }
@@ -1315,6 +1334,15 @@ class KidLisp {
           lines[index - 1].split("(").length >
             lines[index - 1].split(")").length;
 
+        // Check if line starts with a timing expression like "1.5s" or "2s..."
+        const timingMatch = line.match(/^(\d*\.?\d+s\.\.\.?)\s+(.+)$/);
+        if (timingMatch && !line.startsWith("(")) {
+          // Line starts with timing expression followed by other content
+          // Keep it as a flat structure: 1.5s (zoom 0.75) becomes a single tokenized line
+          // Don't auto-wrap, let the tokenizer handle it naturally
+          return line;
+        }
+
         // If line doesn't start with ( and looks like a function call, wrap it
         // BUT don't wrap if it's likely a continuation line
         if (
@@ -1806,6 +1834,26 @@ class KidLisp {
         const a = typeof first === "number" ? first : 0;
         const b = typeof second === "number" ? second : 1;
         return b !== 0 ? a % b : 0;
+      },
+      // Random number generation
+      random: (api, args) => {
+        // (random) - returns 0-255
+        // (random max) - returns 0-max
+        // (random min max) - returns min-max
+        if (args.length === 0) {
+          return Math.floor(Math.random() * 256);
+        } else if (args.length === 1) {
+          const max = args[0];
+          return Math.floor(Math.random() * max);
+        } else if (args.length >= 2) {
+          const min = args[0];
+          const max = args[1];
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+      },
+      "?": (api) => {
+        // Shorthand for random - returns 0-255
+        return Math.floor(Math.random() * 256);
       },
       // Paint API
       resolution: (api, args) => {
@@ -3048,10 +3096,63 @@ class KidLisp {
     return this.globalEnvCache;
   }
 
+  // Context-aware randomization for ? tokens
+  contextAwareRandom(functionName, argIndex, api) {
+    const width = api.screen?.width || 256;
+    const height = api.screen?.height || 256;
+    
+    // Define context-aware ranges for different functions and argument positions
+    const contextRanges = {
+      box: [
+        { min: 0, max: width },   // x position (arg 0)
+        { min: 0, max: height },  // y position (arg 1)
+        { min: 10, max: 100 },    // width (arg 2)
+        { min: 10, max: 100 },    // height (arg 3)
+      ],
+      line: [
+        { min: 0, max: width },   // x1 (arg 0)
+        { min: 0, max: height },  // y1 (arg 1)
+        { min: 0, max: width },   // x2 (arg 2)
+        { min: 0, max: height },  // y2 (arg 3)
+      ],
+      circle: [
+        { min: 0, max: width },   // x position (arg 0)
+        { min: 0, max: height },  // y position (arg 1)
+        { min: 5, max: 50 },      // radius (arg 2)
+      ],
+      write: [
+        { min: 0, max: width },   // x position (arg 1, since arg 0 is text)
+        { min: 0, max: height },  // y position (arg 2)
+      ],
+      ink: [
+        { min: 0, max: 255 },     // red (arg 0)
+        { min: 0, max: 255 },     // green (arg 1)
+        { min: 0, max: 255 },     // blue (arg 2)
+        { min: 0, max: 255 },     // alpha (arg 3)
+      ],
+    };
+    
+    // Get the range for this function and argument index
+    const functionRanges = contextRanges[functionName];
+    if (functionRanges && functionRanges[argIndex]) {
+      const range = functionRanges[argIndex];
+      return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+    }
+    
+    // Default range if no specific context is defined
+    return Math.floor(Math.random() * 256);
+  }
+
   // Fast evaluation for common expressions to avoid full recursive evaluation
   fastEval(expr, api, env) {
     if (typeof expr === "number") return expr;
     if (typeof expr === "string") {
+      // Handle randomization token
+      if (expr === "?") {
+        // Generate a random number from 0 to 255 (default range)
+        return Math.floor(Math.random() * 256);
+      }
+
       // Fast variable lookup - don't cache iterator variables that change frequently
       let value;
       if (Object.prototype.hasOwnProperty.call(this.localEnv, expr)) {
@@ -3624,6 +3725,11 @@ class KidLisp {
                 } else {
                   // Use fast evaluation for arguments with current local environment
                   processedArgs = args.map((arg, index) => {
+                    // Handle context-aware randomization for ?
+                    if (arg === "?") {
+                      return this.contextAwareRandom(head, index, api);
+                    }
+                    
                     if (
                       Array.isArray(arg) ||
                       (typeof arg === "string" && !/^".*"$/.test(arg))
@@ -3760,6 +3866,12 @@ class KidLisp {
       // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
     }
 
+    // Check if this is a timing expression like "1.5s" or "2s..." before processing as identifier
+    if (/^\d*\.?\d+s\.\.\.?$/.test(expression)) {
+      // This is a timing expression, evaluate it properly as an array
+      return this.evaluate([expression], api, env);
+    }
+
     // Check if this is a simple function identifier that can be auto-called
     if (validIdentifierRegex.test(expression)) {
       const globalEnv = this.getGlobalEnv();
@@ -3791,6 +3903,11 @@ class KidLisp {
 
     // Evaluate identifiers by running this.evaluate([id], api, env);
     identifiers.forEach((id) => {
+      // Skip 's' if it appears to be part of a timing expression
+      if (id === 's' && /\d+\.?\d*s/.test(expression)) {
+        return; // Skip this identifier as it's part of a timing expression
+      }
+
       // Use fast evaluation for identifier lookup
       let value = this.fastEval(id, api, env);
 
@@ -3804,10 +3921,19 @@ class KidLisp {
       expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
     });
 
-    const compute = new Function(`return ${expression};`);
-    const result = compute();
-    // console.log("Evaluated result:", result);
-    return result;
+    // Handle cases where the expression might still contain timing patterns after identifier replacement
+    // Replace timing patterns like "1.5s" with valid JavaScript (though this is a fallback)
+    expression = expression.replace(/(\d+\.?\d*)s/g, '$1');
+
+    try {
+      const compute = new Function(`return ${expression};`);
+      const result = compute();
+      // console.log("Evaluated result:", result);
+      return result;
+    } catch (error) {
+      console.warn("❗ Failed to evaluate expression:", expression, error.message);
+      return 0; // Return default value instead of throwing
+    }
   }
 
   // Loop over an iterable.
@@ -4031,28 +4157,14 @@ class KidLisp {
       
       // Handle cycle timer arguments
       if (/^\d*\.?\d+s\.\.\.?$/.test(prevToken)) {
-        if (token === "line" || token === "box") {
-          console.log(`🔍 Found timing token "${prevToken}" at index ${i} while processing "${token}" at index ${index}`);
-        }
         // Try to find this timing key in our active tracking
         for (const [timingKey, data] of this.activeTimingExpressions) {
           if (timingKey.startsWith(prevToken + "_")) {
-            if (token === "line" || token === "box") {
-              console.log(`🔍 Checking timing key "${timingKey}" for token "${token}"`);
-            }
-            
             // Check if current token is within one of the timing arguments
             const argInfo = this.getTokenArgPosition(tokens, i, index);
-            if (token === "line" || token === "box") {
-              console.log(`🔍 getTokenArgPosition(${i}, ${index}) returned:`, argInfo);
-            }
             
             if (argInfo && argInfo.argIndex < data.totalArgs) {
               const isActive = argInfo.argIndex === data.currentIndex;
-              // Debug: Log which argument this token belongs to
-              if (token === "line" || token === "box") {
-                console.log(`🔍 Token "${token}" -> arg ${argInfo.argIndex}, current active: ${data.currentIndex}, is active: ${isActive}`);
-              }
               return {
                 timingKey,
                 currentIndex: data.currentIndex,
@@ -4060,8 +4172,6 @@ class KidLisp {
                 isBlinking: this.isTimingBlinking(prevToken),
                 isInActiveArg: isActive
               };
-            } else {
-              // console.log(`🔍 Token "${token}" not in valid argument range or argInfo is null`);
             }
           }
         }
@@ -4568,7 +4678,7 @@ class KidLisp {
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade"
     ];
@@ -4622,7 +4732,7 @@ class KidLisp {
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes"
     ];
