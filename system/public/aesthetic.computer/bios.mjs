@@ -13,7 +13,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
-import { isKidlispSource, encodeKidlispForUrl } from "./lib/kidlisp.mjs";
+import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
 import * as USB from "./lib/usb.mjs";
@@ -38,6 +38,15 @@ const TwoD = undefined;
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
+
+// 🎬 GIF Encoder Configuration
+// Set to true to use gifenc by default, false for gif.js
+const DEFAULT_USE_GIFENC = false;
+
+// 🚫 Cache Control Flags
+// Set these to true to disable caching for dynamic content updates
+window.acDISABLE_HUD_LABEL_CACHE = true; // Disable HUD label caching for dynamic coloring
+window.acDISABLE_QR_OVERLAY_CACHE = true; // Disable QR overlay caching for dynamic updates
 
 const diskSends = [];
 let diskSendsConsumed = false;
@@ -67,6 +76,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   preservedParams = {};
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
+  
+  // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
+  const currentParams = new URLSearchParams(location.search);
+  if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
+  if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
+  if (currentParams.has("duration")) preservedParams.duration = currentParams.get("duration");
 
   if (debug) {
     if (window.isSecureContext) {
@@ -99,8 +114,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let recordedFrames = [];
   const mediaRecorderChunks = [];
   let mediaRecorderDuration = 0,
-    mediaRecorderStartTime;
+    mediaRecorderStartTime,
+    mediaRecorderFrameCount = 0; // Frame counter for performance optimization
   let needs$creenshot = false; // Flag when a capture is requested.
+  
+  // Dynamic FPS detection for display-rate independent recording
+  let detectedDisplayFPS = 60; // Default fallback
+  let lastFrameTime = 0;
+  let frameTimes = [];
+  const FPS_SAMPLE_SIZE = 30; // Number of frames to sample for FPS detection
+
+  // Duration Progress Bar (for timed pieces from query parameter)
+  let durationProgressStartTime = undefined;
+  let durationProgressDuration = resolution.duration; // Duration in seconds from query parameter
+  let durationProgressCompleted = false;
 
   // Events
   let whens = {};
@@ -163,6 +190,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const overlayCan = document.createElement("canvas");
   const octx = overlayCan.getContext("2d");
 
+  // Reusable canvas for dirtyBox updates
+  let dirtyBoxCanvas = document.createElement("canvas");
+  let dirtyBoxCtx = dirtyBoxCanvas.getContext("2d");
+
+  // Track overlay canvas dimensions to avoid unnecessary resizing
+  let overlayCanvasWidth = 0;
+  let overlayCanvasHeight = 0;
+
   let imageData;
   let fixedWidth, fixedHeight;
   let projectedWidth, projectedHeight;
@@ -177,6 +212,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let needsReframe = false;
   let needsReappearance = false;
+  let reframeJustCompleted = false; // Track when we just finished reframing
   let freezeFrame = false,
     freezeFrameFrozen = false,
     freezeFrameGlaze = false;
@@ -184,10 +220,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const screen = apiObject("pixels", "width", "height");
   let subdivisions = 1; // Gets set in frame.
 
+  // Track UI scaling state to avoid redundant operations
+  let currentUiScale = 0;
+  let uiContextScaled = false;
+
   const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  let density = 2; // 1.333333; // window.acVSCODE ? 1.3333 : 2; // added to window.devicePixelRatio
+  let density = resolution.density !== undefined ? resolution.density : 2; // Use URL parameter or default to 2
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
@@ -204,8 +244,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Cache the current canvas if needed.
     if (
       freezeFrame &&
-      imageData?.data.length > 0 &&
-      !document.body.contains(freezeFrameCan)
+      imageData &&
+      imageData.data &&
+      imageData.data.buffer &&
+      imageData.data.buffer.byteLength > 0 &&
+      !document.body.contains(freezeFrameCan) &&
+      !underlayFrame // Don't show freeze frame during tape playback
     ) {
       if (debug && logs.frame) {
         console.log(
@@ -248,8 +292,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // ffCtx.putImageData(imageData, 0, 0); // TODO: Fix source data detached error here.
       }
 
-      if (!wrapper.contains(freezeFrameCan)) wrapper.append(freezeFrameCan);
-      else freezeFrameCan.style.removeProperty("opacity");
+      if (!wrapper.contains(freezeFrameCan)) {
+        wrapper.append(freezeFrameCan);
+      } else {
+        freezeFrameCan.style.removeProperty("opacity");
+      }
 
       canvas.style.opacity = 0;
       // console.log("Setting canvas opacity to 0...");
@@ -318,16 +365,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const tempCanvas = document.createElement("canvas");
     const tempCtx = tempCanvas.getContext("2d");
 
-    // Copy existing canvas contents
+    // Copy existing canvas contents from clean imageData (not from canvas which may have overlays)
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
-    tempCtx.drawImage(canvas, 0, 0);
+    if (
+      imageData &&
+      imageData.width === canvas.width &&
+      imageData.height === canvas.height &&
+      imageData.data &&
+      imageData.data.buffer &&
+      imageData.data.buffer.byteLength > 0
+    ) {
+      // Use clean imageData to avoid copying overlays (only if data is not detached)
+      tempCtx.putImageData(imageData, 0, 0);
+    } else {
+      // Fallback to copying from canvas if imageData doesn't match or data is detached
+      tempCtx.drawImage(canvas, 0, 0);
+    }
 
     // Resize the original canvas
     canvas.width = width;
     canvas.height = height;
 
-    // Restore the pixels onto the resized canvas
+    // Restore the clean pixels onto the resized canvas
     ctx.drawImage(tempCanvas, 0, 0);
 
     tempCanvas.width = glazeComposite.width;
@@ -341,6 +401,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     uiCanvas.width = projectedWidth * window.devicePixelRatio;
     uiCanvas.height = projectedHeight * window.devicePixelRatio;
+
+    // Reset UI scaling state when canvas size changes
+    uiContextScaled = false;
+    currentUiScale = 0;
 
     // Horizontal and vertical offsetting of the wrapper.
 
@@ -366,13 +430,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       debugCanvas.style.height = projectedHeight + "px";
     }
 
-    if (imageData?.length > 0) {
+    if (
+      imageData &&
+      imageData.data &&
+      imageData.data.buffer &&
+      imageData.data.buffer.byteLength > 0
+    ) {
       ctx.putImageData(imageData, 0, 0);
     } else {
       imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       // This will have zero alpha.
     }
 
+    // Store clean pixel data for worker communication (before any overlays are drawn)
     assign(screen, { pixels: imageData.data, width, height });
 
     TwoD?.frame(width, height, wrapper); // Reframe the 2D GPU layer.
@@ -407,8 +477,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
 
       if ("fonts" in document) {
-        //  await document.fonts.load("1em YWFTProcessing-Light");
-        //  await document.fonts.load("1em YWFTProcessing-Regular");
+        (async () => {
+          try {
+            // Wait for stylesheet to load first
+            await new Promise((resolve) => {
+              const checkFonts = () => {
+                // Check if at least one font face is available
+                const fontFaces = Array.from(document.fonts);
+                if (fontFaces.length > 0) {
+                  resolve();
+                } else {
+                  setTimeout(checkFonts, 50);
+                }
+              };
+              checkFonts();
+            });
+
+            // Now load the fonts explicitly
+            await Promise.all([
+              document.fonts.load("1em YWFTProcessing-Light"),
+              document.fonts.load("1em YWFTProcessing-Regular"),
+              document.fonts.load("bold 1em YWFTProcessing-Regular"),
+              document.fonts.load("normal 1em YWFTProcessing-Light"),
+            ]);
+          } catch (error) {
+            console.warn("⚠️ Font loading during boot failed:", error);
+            // Fallback to fonts.ready
+            await document.fonts.ready;
+          }
+        })();
         // document.fonts.load("1em Berkeley Mono Variable").then(() => {
         //   setTimeout(() => {
         //     document.getElementById("console")?.classList.remove("hidden");
@@ -492,6 +589,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     needsReframe = false;
+    reframeJustCompleted = true; // Mark that we just completed a reframe
     needsReappearance = true; // Only for `native-cursor` mode.
     send({ type: "needs-paint" });
     send({
@@ -646,6 +744,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const sfx = {}; // Buffers of sound effects that have been loaded.
   const sfxPlaying = {}; // Sound sources that are currently playing.
   const sfxLoaded = {}; // Sound sources that have been buffered and loaded.
+  const sfxCompletionCallbacks = {}; // Completion callbacks for sound effects.
 
   // const sfX // ...
 
@@ -1012,6 +1111,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         killSound = function (id, fade) {
           // console.log("📢 Kill:", id, "Fade:", fade);
           delete sfxPlaying[id];
+          delete sfxCompletionCallbacks[id]; // Clean up completion callback
           speakerProcessor.port.postMessage({
             type: "kill",
             data: { id, fade },
@@ -1067,6 +1167,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
 
           if (msg.type === "killed") {
+            // Call the completion callback if it exists
+            const completionCallback = sfxCompletionCallbacks[msg.content.id];
+            if (completionCallback) {
+              completionCallback();
+              delete sfxCompletionCallbacks[msg.content.id];
+            }
+
             send({ type: "sfx:killed", content: msg.content });
             return;
           }
@@ -1087,11 +1194,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     function enableAudioPlayback(skip = false) {
-      if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
-        backgroundMusicEl.play();
-      }
-      if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
-        audioContext.resume();
+      try {
+        if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
+          backgroundMusicEl.play().catch(error => {
+            // Audio playback failed, probably due to browser policy
+            console.log("Background music play failed (user gesture required):", error.message);
+          });
+        }
+        if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
+          audioContext.resume().catch(error => {
+            // AudioContext resume failed, probably due to browser policy  
+            console.log("AudioContext resume failed (user gesture required):", error.message);
+          });
+        }
+      } catch (error) {
+        console.log("Audio playback initialization failed:", error.message);
       }
     }
 
@@ -1107,22 +1224,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
+    // console.log("🎵 BIOS playSfx called:", {
+    //   id,
+    //   soundData,
+    //   options,
+    //   audioContextAvailable: !!audioContext,
+    //   sfxExists: !!sfx[soundData],
+    //   sfxType: sfx[soundData] ? typeof sfx[soundData] : "undefined"
+    // });
+    
     if (audioContext) {
       if (sfxCancel.includes(id)) {
+        console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
+      console.log("🎵 BIOS attempting to decode sfx:", soundData);
       await decodeSfx(soundData);
+      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
+        console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
         return;
       }
 
       if (!sfx[soundData]) {
+        console.log("🎵 BIOS sfx not found, queuing:", soundData);
         // Queue the sound effect to be played once it's loaded
-        pendingSfxQueue.push({ id, soundData, options, completed, queuedAt: Date.now() });
+        pendingSfxQueue.push({
+          id,
+          soundData,
+          options,
+          completed,
+          queuedAt: Date.now(),
+        });
         return;
       }
 
@@ -1137,12 +1274,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
+      console.log("🎵 BIOS sample prepared:", {
+        soundData,
+        sampleChannels: sample.channels.length,
+        sampleRate: sample.sampleRate,
+        length: sample.length,
+        triggerSoundAvailable: !!triggerSound
+      });
+
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
 
       // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
-      sfxPlaying[id] = triggerSound?.({
+      const playResult = triggerSound?.({
         id,
         type: "sample",
         options: {
@@ -1161,10 +1306,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
+      console.log("🎵 BIOS triggerSound result:", {
+        id,
+        playResult,
+        playResultType: typeof playResult
+      });
+
+      sfxPlaying[id] = playResult;
+
+      // Store the completion callback if provided
+      if (completed) {
+        sfxCompletionCallbacks[id] = completed;
+      }
+
       if (triggerSound) sfxLoaded[soundData] = true;
     } else {
       // Queue the sound effect to be played once audioContext is available
-      pendingSfxQueue.push({ id, soundData, options, queuedAt: Date.now() });
+      pendingSfxQueue.push({
+        id,
+        soundData,
+        options,
+        completed,
+        queuedAt: Date.now(),
+      });
     }
   }
 
@@ -1192,6 +1356,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   const microphonePermission = await checkMicrophonePermission();
 
+  // Extract embedded source if available
+  let embeddedSource = null;
+  try {
+    const embeddedScript = document.getElementById("embedded-source");
+    if (embeddedScript) {
+      embeddedSource = JSON.parse(embeddedScript.textContent);
+    }
+  } catch (err) {
+    console.warn("⚠️ Failed to parse embedded source:", err);
+  }
+
   const firstMessage = {
     type: "init-from-bios",
     content: {
@@ -1207,6 +1382,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       vscode: window.acVSCODE,
       microphonePermission,
       resolution,
+      embeddedSource,
     },
   };
 
@@ -1322,7 +1498,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (needsRender && needsReframe) {
       frame(undefined, undefined, lastGap);
-      pen.retransformPosition();
+      pen?.retransformPosition();
       //frameAlreadyRequested = false; // Deprecated. 23.09.17.01.20
       return;
     }
@@ -1352,8 +1528,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Transferrable objects
-    const transferrableObjects = [screen.pixels.buffer];
-    //const transferrableObjects = [];
+    let transferrableObjects = [];
+    let pixelsBuffer = null;
+    
+    // Only transfer pixels buffer if it's not detached
+    try {
+      if (screen.pixels.buffer.byteLength > 0) {
+        transferrableObjects = [screen.pixels.buffer];
+        pixelsBuffer = screen.pixels.buffer;
+      } else {
+        // Buffer is detached, create a fresh copy from imageData
+        console.warn("🎬 Screen buffer detached during transfer, creating fresh copy from imageData");
+        if (imageData && imageData.data && imageData.data.buffer.byteLength > 0) {
+          pixelsBuffer = imageData.data.slice().buffer;
+        } else {
+          // Last resort: create empty buffer with correct size
+          const emptyPixels = new Uint8ClampedArray(canvas.width * canvas.height * 4);
+          pixelsBuffer = emptyPixels.buffer;
+        }
+        transferrableObjects = [pixelsBuffer];
+      }
+    } catch (e) {
+      // If we can't access the buffer at all, create a fresh copy from imageData or empty buffer
+      console.warn("🎬 Screen buffer detached during transfer, creating copy from imageData");
+      try {
+        if (imageData && imageData.data && imageData.data.buffer.byteLength > 0) {
+          pixelsBuffer = imageData.data.slice().buffer;
+        } else {
+          // Last resort: create empty buffer with correct size
+          const emptyPixels = new Uint8ClampedArray(canvas.width * canvas.height * 4);
+          pixelsBuffer = emptyPixels.buffer;
+        }
+        transferrableObjects = [pixelsBuffer];
+      } catch (fallbackError) {
+        console.error("🎬 Failed to create fallback buffer:", fallbackError);
+        // Create minimal empty buffer as absolute last resort
+        const emptyPixels = new Uint8ClampedArray(64 * 64 * 4); // 64x64 fallback
+        pixelsBuffer = emptyPixels.buffer;
+        transferrableObjects = [pixelsBuffer];
+      }
+    }
 
     // TODO: Eventually make frequencyData transferrable?
     // if (frequencyData) {
@@ -1366,7 +1580,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         content: {
           needsRender,
           updateCount,
-          pixels: screen.pixels.buffer,
+          pixels: pixelsBuffer,
           audioTime: audioContext?.currentTime || 0,
           audioBpm: sound.bpm, // TODO: Turn this into a messaging thing.
           audioMusicAmplitude: amplitude,
@@ -1374,7 +1588,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           width: canvas.width,
           height: canvas.height,
           // TODO: Do all fields of `pointer` need to be sent? 22.09.19.23.30
-          pen: { events: pen.events, pointers: pen.pointers },
+          pen: { events: pen?.events || [], pointers: pen?.pointers || {} },
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
           keyboard: keyboard.events,
@@ -1391,7 +1605,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     //pastedText = undefined; // Clear any pasted text.
 
-    pen.updatePastPositions();
+    pen?.updatePastPositions();
 
     // Time budgeting stuff...
     //const updateDelta = performance.now() - updateNow;
@@ -1406,7 +1620,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     //render3d();
     // Clear pen events.
-    pen.events.length = 0;
+    if (pen) pen.events.length = 0;
     if (ThreeD?.penEvents) ThreeD.penEvents.length = 0;
 
     // Clear keyboard and gamepad events.
@@ -1427,6 +1641,127 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Helper function to generate appropriate filenames for tape recordings
+    function generateTapeFilename(extension, suffix = "") {
+      const options = window.currentRecordingOptions || {
+        pieceName: "tape",
+        pieceParams: "",
+        originalCommand: ""
+      };
+      
+      let baseName = options.pieceName || "tape";
+      console.log(`🎬 DEBUG: Initial baseName: "${baseName}", cachedCode: "${options.cachedCode}"`);
+      
+      // Handle special cases for kidlisp codes
+      if (baseName === "$code") {
+        // For kidlisp source code, use the cached code if available
+        if (options.cachedCode) {
+          console.log(`🎬 Using cached code for filename: $${options.cachedCode}`);
+          baseName = `$${options.cachedCode}`;
+        } else {
+          // Try to extract a $code from the original command as fallback
+          const codeMatch = options.originalCommand.match(/\$([a-zA-Z0-9]+)/);
+          if (codeMatch) {
+            console.log(`🎬 Using extracted code for filename: $${codeMatch[1]}`);
+            baseName = `$${codeMatch[1]}`;
+          } else {
+            // No $code available, use "kidlisp" instead of literal "$code"
+            console.log(`🎬 No code available, using "kidlisp" for filename`);
+            baseName = "kidlisp";
+          }
+        }
+      } else if (baseName.startsWith("$") && options.cachedCode) {
+        // If baseName is already a $code (like $erl) and we have cached code,
+        // don't apply the cached code again to avoid duplication
+        console.log(`🎬 Using existing piece name as-is: ${baseName} (ignoring cached code to prevent duplication)`);
+      }
+      // Note: If pieceName already has $ prefix (from cached code), use it as-is
+      console.log(`🎬 DEBUG: Final baseName after special case handling: "${baseName}"`);
+      
+      // Add parameters if they exist
+      const params = options.pieceParams || "";
+      const paramsStr = params ? params.replace(/~/g, "-") : "";
+      console.log(`🎬 DEBUG: paramsStr: "${paramsStr}"`);
+      
+      // Build filename: [@handle-]pieceName[params]-timestamp-duration[suffix].extension
+      // Include user handle if available for personalized filenames
+      // Use cached computed timestamp for perfect filename/visual synchronization,
+      // otherwise fall back to recording start timestamp or current timestamp
+      let fileTimestamp;
+      let durationPart = "";
+      
+      if (window.firstFrameComputedTimestamp && extension === "gif") {
+        // For GIF recordings, use the exact same computed timestamp as shown in the first frame
+        // Use the same formatting as the visual timestamp (no zero-padding except milliseconds)
+        const d = new Date(window.firstFrameComputedTimestamp);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1; // getMonth() returns 0-11
+        const day = d.getDate();
+        const hour = d.getHours();
+        const minute = d.getMinutes();
+        const second = d.getSeconds();
+        const millisecond = d.getMilliseconds();
+        
+        // Match visual timestamp format exactly: no zero-padding except for milliseconds
+        fileTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        
+        // Add duration if available from window.gifDurationMs (set during GIF creation)
+        if (window.gifDurationMs) {
+          const totalSeconds = Math.round(window.gifDurationMs / 1000 * 10) / 10; // Round to 1 decimal place
+          durationPart = `-${totalSeconds}s`;
+        }
+        
+        console.log(`🎬 Using cached computed timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
+      } else if (window.recordingStartTimestamp && extension === "gif") {
+        // Fallback to recording start timestamp if no cached computed timestamp
+        // Use the same formatting as the visual timestamp (no zero-padding except milliseconds)
+        const d = new Date(window.recordingStartTimestamp);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        const hour = d.getHours();
+        const minute = d.getMinutes();
+        const second = d.getSeconds();
+        const millisecond = d.getMilliseconds();
+        
+        // Match visual timestamp format exactly: no zero-padding except for milliseconds
+        fileTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        
+        // Add duration if available from window.gifDurationMs
+        if (window.gifDurationMs) {
+          const totalSeconds = Math.round(window.gifDurationMs / 1000 * 10) / 10; // Round to 1 decimal place
+          durationPart = `-${totalSeconds}s`;
+        }
+        
+        console.log(`🎬 Using recording start timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
+      } else {
+        // For other files or when no recording timestamp is available
+        fileTimestamp = timestamp();
+      }
+      
+      // Assemble filename parts: [@handle-][pieceName[params]-]timestamp-duration[suffix].extension
+      // Skip command entirely in mystery mode
+      const parts = [];
+      
+      // Add handle prefix if user has one
+      if (HANDLE) {
+        console.log(`🎬 Adding handle to filename: "${HANDLE}"`);
+        // Ensure handle doesn't already have @ prefix to avoid @@
+        const handlePrefix = HANDLE.startsWith('@') ? HANDLE : `@${HANDLE}`;
+        parts.push(handlePrefix);
+      }
+      
+      // Add piece name with parameters (skip entirely if mystery mode)
+      if (!options.mystery) {
+        parts.push(baseName + paramsStr);
+      }
+      
+      // Add timestamp with duration
+      parts.push(fileTimestamp + durationPart + suffix);
+      
+      return parts.filter(Boolean).join("-") + "." + extension;
+    }
+
     if (type === "pen:lock") {
       console.log("🖋️ Request pen lock...");
       wrapper.requestPointerLock();
@@ -1478,7 +1813,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "udp:send") {
       UDP.send(content);
       return;
-    }    // Disconect from the UDP server.
+    } // Disconect from the UDP server.
     if (type === "udp:disconnect") {
       UDP.disconnect(content.outageSeconds);
       return;
@@ -1577,6 +1912,2872 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "handle") {
       HANDLE = content; // Set the global HANDLE const to the user handle.
+      return;
+    }
+
+    if (type === "kidlisp:cached-code") {
+      // Update recording options with the newly cached code
+      if (window.currentRecordingOptions) {
+        window.currentRecordingOptions.cachedCode = content;
+        // If pieceName was initially set to "$code", update it to the actual cached code
+        if (window.currentRecordingOptions.pieceName === "$code") {
+          window.currentRecordingOptions.pieceName = `$${content}`;
+          console.log(`🎬 Updated pieceName to: $${content}`);
+        }
+      }
+      return;
+    }
+
+    // Sync labelBack state between worker and main thread
+    if (type === "labelBack:set") {
+      mainThreadLabelBack = true;
+      sessionStorage.setItem("aesthetic-labelBack", "true");
+      console.log("🔗 Main thread: Set labelBack in sessionStorage");
+      return;
+    }
+
+    if (type === "labelBack:clear") {
+      mainThreadLabelBack = false;
+      sessionStorage.removeItem("aesthetic-labelBack");
+      console.log("🔗 Main thread: Cleared labelBack from sessionStorage");
+      return;
+    }
+
+    // Helper function to ensure fonts are loaded before use
+    let fontsLoaded = false;
+    async function ensureFontsLoaded() {
+      if (fontsLoaded) {
+        return; // Fonts already loaded
+      }
+
+      if ("fonts" in document) {
+        try {
+          // Force font loading with multiple strategies
+          const fontPromises = [
+            document.fonts.load("1em YWFTProcessing-Regular"),
+            document.fonts.load("1em YWFTProcessing-Light"),
+            document.fonts.load("bold 1em YWFTProcessing-Regular"),
+            document.fonts.load("normal 1em YWFTProcessing-Light"),
+          ];
+
+          await Promise.all(fontPromises);
+          console.log("✅ Fonts loaded for tape overlay");
+
+          // Additional verification: check if fonts are actually available
+          const fontFaces = Array.from(document.fonts);
+          const hasRegular = fontFaces.some((font) =>
+            font.family.includes("YWFTProcessing-Regular"),
+          );
+          const hasLight = fontFaces.some((font) =>
+            font.family.includes("YWFTProcessing-Light"),
+          );
+
+          if (!hasRegular || !hasLight) {
+            console.warn(
+              "⚠️ Font verification failed - fonts may not be fully loaded",
+            );
+            // Wait a bit more and try again
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            await Promise.all(fontPromises);
+          }
+
+          fontsLoaded = true; // Mark fonts as loaded
+        } catch (error) {
+          console.warn("⚠️ Failed to load fonts for tape overlay:", error);
+          // Fallback: wait for document.fonts.ready
+          await document.fonts.ready;
+          fontsLoaded = true; // Mark as loaded even if fallback was used
+        }
+      }
+    }
+
+    // Helper function to add the sideways AC stamp (same as video recording)
+    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
+      // Ensure fonts are loaded before drawing
+      await ensureFontsLoaded();
+
+      // 2. Set up the font.
+      const typeSize = Math.min(
+        16,
+        Math.max(12, Math.floor(canvasHeight / 40)),
+      );
+      const gap = typeSize * 0.75;
+
+      ctx.save(); // Save the current state of the canvas
+
+      // Add film camera style timestamp at bottom-left corner
+      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata, frameIndex, totalFrames);
+
+      drawTextAtPosition(0, 90); // Left
+      drawTextAtPosition(canvasWidth, -90); // Right
+
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      function drawTextAtPosition(positionX, deg) {
+        // 5-phase pattern stretched across GIF duration: both off, both on, both off, left only, right only
+        // Use progress (0-1) to determine cycle position - allows multiple loops per GIF
+        const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
+        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+        
+        let showLeftStamp = false;
+        let showRightStamp = false;
+        
+        if (cyclePosition < 0.2) {
+          // Phase 1 (0-20%): Both off
+          showLeftStamp = false;
+          showRightStamp = false;
+        } else if (cyclePosition < 0.4) {
+          // Phase 2 (20-40%): Both on
+          showLeftStamp = true;
+          showRightStamp = true;
+        } else if (cyclePosition < 0.6) {
+          // Phase 3 (40-60%): Both off
+          showLeftStamp = false;
+          showRightStamp = false;
+        } else if (cyclePosition < 0.8) {
+          // Phase 4 (60-80%): Left only
+          showLeftStamp = true;
+          showRightStamp = false;
+        } else {
+          // Phase 5 (80-100%): Right only
+          showLeftStamp = false;
+          showRightStamp = true;
+        }
+        
+        // Determine if this specific stamp should show
+        let showStamp = false;
+        if (deg === 90) {
+          // Left side
+          showStamp = showLeftStamp;
+        } else if (deg === -90) {
+          // Right side
+          showStamp = showRightStamp;
+        }
+        
+        if (!showStamp) {
+          return; // Skip drawing this stamp
+        }
+
+        ctx.save();
+        ctx.translate(positionX, 0);
+        ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
+        
+        // Separate positioning for left and right sides for better spacing
+        const leftYDist = 0.12; // Move left side up a bit (higher than timestamp)
+        const rightYDist = 0.08; // Move right side down a bit
+
+        // Use same size as timestamp for consistency and sharpness
+        const stampSize = Math.min(
+          32,
+          Math.max(18, Math.floor(canvasHeight / 25)),
+        );
+        ctx.font = `${stampSize}px YWFTProcessing-Regular`;
+        const text = "aesthetic.computer";
+        const measured = ctx.measureText(text);
+        const textWidth = measured.width;
+
+        ["red", "lime", "blue", "white"].forEach((color) => {
+          let offsetX, offsetY;
+          if (color !== "white") {
+            ctx.globalAlpha = 0.45;
+            offsetX = choose([-1, -2, 0, 1, 2]); // Smaller offsets for sharper look
+            offsetY = choose([-1, -2, 0, 1, 2]); // Smaller offsets for sharper look
+          } else {
+            ctx.globalAlpha = choose([0.5, 0.4, 0.6]);
+            offsetX = choose([-1, 0, 1]);
+            offsetY = choose([-1, 0, 1]);
+            color = choose(["white", "white", "white", "magenta", "yellow"]);
+          }
+
+          ctx.fillStyle = color;
+
+          if (deg === 90) {
+            // Left side - move lower (closer to bottom)
+            ctx.fillText(
+              text,
+              floor(canvasHeight * (1 - leftYDist) - textWidth + offsetY),
+              -floor(offsetX + gap),
+            );
+          } else if (deg === -90) {
+            // Right side - move higher (closer to top)
+            ctx.fillText(
+              text,
+              -Math.floor(canvasHeight * rightYDist + textWidth + offsetY),
+              Math.floor(offsetX - gap),
+            );
+          }
+        });
+
+        if (HANDLE) {
+          ctx.font = `${typeSize * 1.6}px YWFTProcessing-Light`; // Even larger handle text
+          const handleWidth = textWidth / 2 + ctx.measureText(HANDLE).width / 2;
+          const handleSpace = typeSize * 2.2; // Increased spacing by another 0.2
+          
+          // Restore original 4-layer system with warmer color palette
+          ["red", "lime", "blue", "white"].forEach((color) => {
+            let offsetX, offsetY;
+            if (color !== "white") {
+              ctx.globalAlpha = 0.6;
+              offsetX = choose([-2, -4, 0, 2, 4]);
+              offsetY = choose([-2, -4, 0, 2, 4]);
+            } else {
+              ctx.globalAlpha = choose([0.7, 0.8, 0.9]);
+              offsetX = choose([-1, 0, 1]);
+              offsetY = choose([-1, 0, 1]);
+              color = choose(["white", "white", "white", "magenta", "yellow"]); // Original warmer palette
+            }
+
+            ctx.fillStyle = color;
+
+            if (deg === 90) {
+              // Handle - left side positioning (lower)
+              ctx.fillText(
+                HANDLE,
+                floor(canvasHeight * (1 - leftYDist) - handleWidth + offsetY),
+                -floor(offsetX + handleSpace + gap),
+              );
+            } else if (deg === -90) {
+              // Handle - right side positioning (higher)
+              ctx.fillText(
+                HANDLE,
+                -Math.floor(canvasHeight * rightYDist + handleWidth + offsetY),
+                Math.floor(offsetX - handleSpace - gap),
+              );
+            }
+          });
+        }
+
+        // Remove the old timestamp code from here since it's now in addFilmTimestamp
+
+        ctx.restore();
+      }
+
+      // Helper function to get syntax highlighting colors from kidlisp module
+      function getSyntaxHighlightColors() {
+        // Get cached kidlisp source code
+        const cachedCode = window.currentRecordingOptions?.cachedCode;
+        if (!cachedCode) {
+          // Fallback to default red if no code available
+          return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
+        }
+        
+        // Use the centralized syntax highlighting from kidlisp module
+        const colors = getSyntaxHighlightingColors(cachedCode);
+        
+        // Debug logging to show we're using kidlisp syntax highlighting
+        console.log("🎨 Using kidlisp syntax highlighting:", {
+          sourceLength: cachedCode.length,
+          tokenCount: colors.length,
+          colors: colors.slice(0, 5) // Show first 5 colors
+        });
+        
+        return colors;
+      }
+      
+      // Helper function to draw cyan crosshair cursor overlay
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // Cyan crosshair settings
+        const crosshairColor = "rgba(0, 255, 255, 0.8)"; // Bright cyan with slight transparency
+        const shadowColor = "rgba(0, 0, 0, 0.5)"; // Black shadow for visibility
+        const lineWidth = 2;
+        const shadowOffset = 1;
+        const crossSize = Math.max(8, Math.floor(Math.min(canvasWidth, canvasHeight) / 60)); // Responsive size
+        
+        // Draw shadow first
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = lineWidth + shadowOffset;
+        ctx.lineCap = "round";
+        
+        ctx.beginPath();
+        // Horizontal line shadow
+        ctx.moveTo(x - crossSize + shadowOffset, y + shadowOffset);
+        ctx.lineTo(x + crossSize + shadowOffset, y + shadowOffset);
+        // Vertical line shadow
+        ctx.moveTo(x + shadowOffset, y - crossSize + shadowOffset);
+        ctx.lineTo(x + shadowOffset, y + crossSize + shadowOffset);
+        ctx.stroke();
+        
+        // Draw main crosshair
+        ctx.strokeStyle = crosshairColor;
+        ctx.lineWidth = lineWidth;
+        
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        // Vertical line
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+
+      // Helper function to get syntax color at a specific position in the progress bar
+      function getSyntaxColorAtPosition(syntaxColors, position) {
+        if (syntaxColors.length === 0) {
+          return { r: 220, g: 60, b: 60 }; // Red fallback
+        }
+
+        if (syntaxColors.length === 1) {
+          return syntaxColors[0];
+        }
+
+        // Calculate which color segment we're in based on cumulative weights
+        let totalWeight = syntaxColors.reduce(
+          (sum, color) => sum + color.weight,
+          0,
+        );
+        let currentWeight = 0;
+
+        for (let i = 0; i < syntaxColors.length; i++) {
+          const color = syntaxColors[i];
+          const segmentStart = currentWeight / totalWeight;
+          const segmentEnd = (currentWeight + color.weight) / totalWeight;
+
+          if (position >= segmentStart && position <= segmentEnd) {
+            // Optionally blend with adjacent colors for smoother transitions
+            if (i < syntaxColors.length - 1 && position > segmentEnd - 0.1) {
+              const nextColor = syntaxColors[i + 1];
+              const blendFactor = (position - (segmentEnd - 0.1)) / 0.1;
+              return {
+                r: Math.floor(
+                  color.r * (1 - blendFactor) + nextColor.r * blendFactor,
+                ),
+                g: Math.floor(
+                  color.g * (1 - blendFactor) + nextColor.g * blendFactor,
+                ),
+                b: Math.floor(
+                  color.b * (1 - blendFactor) + nextColor.b * blendFactor,
+                ),
+              };
+            }
+            return color;
+          }
+
+          currentWeight += color.weight;
+        }
+
+        // Fallback to last color if position >is beyond the end
+        return syntaxColors[syntaxColors.length - 1];
+      }
+      
+      // Helper function to draw cyan crosshair cursor overlay
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // Cyan crosshair settings
+        const crosshairColor = "rgba(0, 255, 255, 0.8)"; // Bright cyan with slight transparency
+        const shadowColor = "rgba(0, 0, 0, 0.5)"; // Black shadow for visibility
+        const lineWidth = 2;
+        const shadowOffset = 1;
+        const crossSize = Math.max(8, Math.floor(Math.min(canvasWidth, canvasHeight) / 60)); // Responsive size
+        
+        // Draw shadow first
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = lineWidth + shadowOffset;
+        ctx.lineCap = "round";
+        
+        ctx.beginPath();
+        // Horizontal line shadow
+        ctx.moveTo(x - crossSize + shadowOffset, y + shadowOffset);
+        ctx.lineTo(x + crossSize + shadowOffset, y + shadowOffset);
+        // Vertical line shadow
+        ctx.moveTo(x + shadowOffset, y - crossSize + shadowOffset);
+        ctx.lineTo(x + shadowOffset, y + crossSize + shadowOffset);
+        ctx.stroke();
+        
+        // Draw main crosshair
+        ctx.strokeStyle = crosshairColor;
+        ctx.lineWidth = lineWidth;
+        
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        // Vertical line
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+
+      // Film camera style timestamp at bottom-left corner
+      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
+        // Calculate smooth alpha fade aligned with progress bar (20%-30% fade out, 30%-70% hidden, 70%-80% fade in)
+        let timestampAlpha = 1.0; // Default to fully visible
+        
+        if (progress >= 0.20 && progress <= 0.30) {
+          // Fade out from 20% to 30% (10% fade-out period)
+          timestampAlpha = 1.0 - ((progress - 0.20) / 0.10);
+        } else if (progress > 0.30 && progress < 0.70) {
+          // Fully hidden from 30% to 70% (40% hidden period)
+          timestampAlpha = 0.0;
+        } else if (progress >= 0.70 && progress <= 0.80) {
+          // Fade in from 70% to 80% (10% fade-in period)
+          timestampAlpha = (progress - 0.70) / 0.10;
+        }
+        
+        // Skip drawing timecode if it's completely transparent
+        if (timestampAlpha <= 0.0) {
+          return;
+        }
+        
+        // Define progress bar height consistently across all contexts
+        const progressBarHeight = 1;
+        
+        // Define timestamp margin for consistent spacing
+        const timestampMargin = Math.max(8, Math.floor(canvasHeight / 50)); // Responsive margin
+        
+        // NEW: Use actual real-world timestamp when this frame was originally captured
+        let timestamp;
+        if (frameMetadata && frameMetadata.originalTimestamp) {
+          // Display the actual time when this frame was captured
+          const frameDate = new Date(frameMetadata.originalTimestamp);
+          const year = frameDate.getFullYear();
+          const month = frameDate.getMonth() + 1; // getMonth() returns 0-11
+          const day = frameDate.getDate();
+          const hour = frameDate.getHours();
+          const minute = frameDate.getMinutes();
+          const second = frameDate.getSeconds();
+          const millisecond = frameDate.getMilliseconds();
+          
+          // Format as: year.month.day.hour.minute.second.milliseconds (no zero-padding except milliseconds)
+          timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        } else if (frameMetadata && frameMetadata.gifElapsedSeconds !== undefined) {
+          // For GIF playback: use actual GIF elapsed time
+          timestamp = `${frameMetadata.gifElapsedSeconds.toFixed(1)}s`;
+        } else if (mediaRecorderStartTime !== undefined) {
+          // During recording: show seconds elapsed since recording started
+          const elapsedMs = performance.now() - mediaRecorderStartTime;
+          const elapsedSeconds = elapsedMs / 1000;
+          timestamp = `${elapsedSeconds.toFixed(1)}s`;
+        } else if (window.recordingStartTimestamp && progress >= 0) {
+          // Use progress to map to intended recording duration
+          let actualRecordingDurationMs = 5000; // Default fallback
+          
+          // Prioritize intended duration for accurate real-time mapping
+          if (window.currentRecordingOptions?.intendedDuration) {
+            actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+          } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+            actualRecordingDurationMs = mediaRecorderDuration;
+          } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+            actualRecordingDurationMs = window.gifDurationMs;
+          }
+          
+          // Calculate elapsed seconds
+          const elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+          timestamp = `${elapsedSeconds.toFixed(1)}s`;
+        } else {
+          // Fallback: show current time
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          const day = now.getDate();
+          const hour = now.getHours();
+          const minute = now.getMinutes();
+          const second = now.getSeconds();
+          const millisecond = now.getMilliseconds();
+          
+          timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        }
+
+        ctx.save();
+        
+        // Remove shake/jitter effect - keep timestamp steady
+        const shakeX = 0; // No more shaking
+        const shakeY = 0; // No more shaking
+        
+        // Position timestamp above the progress bar with proper margin, more flush left and larger
+        const timestampY = canvasHeight - progressBarHeight - timestampMargin; // Above progress bar
+        const timestampX = timestampMargin * 0.5; // More flush left (was timestampMargin * 2)
+        
+        // Make timestamp much larger and more watermark-like, similar to aesthetic.computer stamps
+        const watermarkSize = Math.min(
+          32,
+          Math.max(18, Math.floor(canvasHeight / 25)), // Much larger base size
+        );
+        
+        // Draw multiple layered versions for that vibey aesthetic.computer stamp effect
+        ["red", "lime", "blue", "white"].forEach((color, index) => {
+          // Special looping blink effect - bright flashes only on first and last frame
+          let specialTimestampAlpha = 1.0;
+          let useSpecialColor = false;
+          let specialColor = color;
+          
+          // Use frame-based detection for 1-frame flashes when frame info is available
+          if (frameIndex !== null && totalFrames !== null) {
+            if (frameIndex === 0) {
+              // First frame - bright lime green blink for loop start
+              useSpecialColor = true;
+              specialColor = "lime";
+              specialTimestampAlpha = 1.0; // Full brightness
+            } else if (frameIndex === totalFrames - 1) {
+              // Last frame - bright red blink for loop end
+              useSpecialColor = true;
+              specialColor = "red";
+              specialTimestampAlpha = 1.0; // Full brightness
+            }
+          } else {
+            // Fallback to percentage-based for compatibility (very small ranges for 1-frame effect)
+            if (progress <= 0.005) {
+              // First ~0.5% of loop - bright lime green blink for loop start
+              useSpecialColor = true;
+              specialColor = "lime";
+              specialTimestampAlpha = 1.0; // Full brightness
+            } else if (progress >= 0.995) {
+              // Last ~0.5% of loop - bright red blink for loop end
+              useSpecialColor = true;
+              specialColor = "red";
+              specialTimestampAlpha = 1.0; // Full brightness
+            }
+          }
+
+          let offsetX, offsetY;
+          if (color !== "white") {
+            ctx.globalAlpha = (useSpecialColor ? 0.8 * specialTimestampAlpha : 0.45 * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
+            offsetX = choose([-3, -5, 0, 3, 5]); // Larger offsets for bigger text
+            offsetY = choose([-3, -5, 0, 3, 5]);
+          } else {
+            ctx.globalAlpha = (useSpecialColor ? 1.0 * specialTimestampAlpha : choose([0.6, 0.5, 0.7]) * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
+            offsetX = choose([-1, 0, 1]);
+            offsetY = choose([-1, 0, 1]);
+            specialColor = useSpecialColor ? specialColor : choose(["white", "white", "white", "magenta", "yellow"]); // Use special color or normal variety
+          }
+
+          ctx.fillStyle = useSpecialColor ? specialColor : color;
+          ctx.font = `bold ${watermarkSize}px YWFTProcessing-Regular`;
+          
+          ctx.fillText(
+            timestamp,
+            timestampX + offsetX + shakeX,
+            timestampY + offsetY + shakeY,
+          );
+        });
+
+        ctx.restore();
+      }
+
+      // Helper function to sample representative colors from frame data
+      function sampleFrameColors(frameData, canvasWidth, canvasHeight, numColors = 5) {
+        if (!frameData || frameData.length < 4) {
+          // Fallback to original colors if no frame data
+          return ["#FF4444", "#FF6666", "#FFAA44", "#FF8888", "#FFCCCC"];
+        }
+
+        const sampledColors = [];
+        const totalPixels = canvasWidth * canvasHeight;
+        
+        // Sample colors from different regions of the frame
+        let samplePositions;
+        if (numColors <= 5) {
+          samplePositions = [0.1, 0.3, 0.5, 0.7, 0.9]; // Original 5 positions
+        } else {
+          // Generate more evenly distributed positions for higher numColors
+          samplePositions = [];
+          for (let i = 0; i < numColors; i++) {
+            samplePositions.push((i + 1) / (numColors + 1)); // Evenly distributed from ~0.1 to ~0.9
+          }
+        }
+
+        for (let i = 0; i < numColors; i++) {
+          const samplePos = Math.floor(samplePositions[i % samplePositions.length] * totalPixels);
+          const pixelIndex = Math.min(samplePos * 4, frameData.length - 4);
+          
+          const r = frameData[pixelIndex];
+          const g = frameData[pixelIndex + 1];
+          const b = frameData[pixelIndex + 2];
+          
+          // Enhance the colors to make them more vibrant for the progress bar
+          const enhancedR = Math.min(255, Math.floor(r * 1.2));
+          const enhancedG = Math.min(255, Math.floor(g * 1.2));
+          const enhancedB = Math.min(255, Math.floor(b * 1.2));
+          
+          const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+          sampledColors.push(hexColor);
+        }
+
+        // If all sampled colors are too dark, add some brightness
+        const avgBrightness = sampledColors.reduce((sum, color) => {
+          const r = parseInt(color.slice(1, 3), 16);
+          const g = parseInt(color.slice(3, 5), 16);
+          const b = parseInt(color.slice(5, 7), 16);
+          return sum + (r + g + b) / 3;
+        }, 0) / sampledColors.length;
+
+        if (avgBrightness < 60) {
+          // Mix in some brighter colors if the frame is too dark
+          return sampledColors.map((color, i) => {
+            if (i % 2 === 0) {
+              return choose(["#FF6666", "#FFAA44", "#FF8888", "#FFCCCC", "#66FF66", "#6666FF"]);
+            }
+            return color;
+          });
+        }
+
+        return sampledColors;
+      }
+
+      // Helper function for choosing random values (simplified version)
+      function choose(options) {
+        return options[Math.floor(Math.random() * options.length)];
+      }
+    }
+
+    // Helper function to upscale pixels with nearest neighbor
+    function upscalePixels(imageData, originalWidth, originalHeight, scale) {
+      if (scale === 1) {
+        return imageData;
+      }
+
+      const scaledWidth = originalWidth * scale;
+      const scaledHeight = originalHeight * scale;
+      const scaledImageData = new Uint8ClampedArray(
+        scaledWidth * scaledHeight * 4,
+      );
+
+      for (let y = 0; y < scaledHeight; y++) {
+        for (let x = 0; x < scaledWidth; x++) {
+          const sourceX = Math.floor(x / scale);
+          const sourceY = Math.floor(y / scale);
+          const sourceIndex = (sourceY * originalWidth + sourceX) * 4;
+          const targetIndex = (y * scaledWidth + x) * 4;
+
+          scaledImageData[targetIndex] = imageData[sourceIndex]; // R
+          scaledImageData[targetIndex + 1] = imageData[sourceIndex + 1]; // G
+          scaledImageData[targetIndex + 2] = imageData[sourceIndex + 2]; // B
+          scaledImageData[targetIndex + 3] = imageData[sourceIndex + 3]; // A
+        }
+      }
+
+      return scaledImageData;
+    }
+
+    // Helper function to add stamp to pixel data by rendering to a canvas first
+    async function addStampToPixelData(pixelData, width, height, scale = 1, progress = 0, frameMetadata = null) {
+      // Create a temporary canvas to render the stamp
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+
+      tempCanvas.width = width * scale;
+      tempCanvas.height = height * scale;
+
+      // Put the original image data
+      const scaledData = upscalePixels(pixelData, width, height, scale);
+      const imageData = new ImageData(
+        scaledData,
+        width * scale,
+        height * scale,
+      );
+      tempCtx.putImageData(imageData, 0, 0);
+
+      // Add the stamp (await to ensure fonts are loaded)
+      await addAestheticComputerStamp(tempCtx, width * scale, height * scale, progress, pixelData, frameMetadata);
+
+      // Get the stamped image data back
+      const stampedImageData = tempCtx.getImageData(
+        0,
+        0,
+        width * scale,
+        height * scale,
+      );
+      return stampedImageData.data;
+    }
+
+    // 🎬 Create animated WebP from frame data
+    if (type === "create-animated-webp") {
+      console.log(
+        "📼 Creating animated WebP from",
+        content.frames.length,
+        "frames",
+      );
+
+      // Send initial progress to show the progress bar immediately
+      send({
+        type: "recorder:transcode-progress",
+        content: 0.01, // 1% to start
+      });
+
+      try {
+        // Create a canvas for frame processing
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for WebP creation");
+          return;
+        }
+
+        // Set canvas size based on first frame
+        const firstFrame = content.frames[0];
+        canvas.width = firstFrame.width;
+        canvas.height = firstFrame.height;
+        console.log(`🖼️ Canvas size: ${canvas.width}x${canvas.height}`);
+
+        // For now, create a zip of WebP frames with timing info
+        // TODO: Implement proper animated WebP encoding when browser support improves
+        if (!window.JSZip) await loadJSZip();
+        const zip = new window.JSZip();
+
+        // Add timing info
+        const timingInfo = content.frames.map((frame, i) => ({
+          frame: i,
+          duration: frame.duration,
+          timestamp: frame.timestamp,
+        }));
+
+        zip.file("timing.json", JSON.stringify(timingInfo, null, 2));
+        console.log(
+          "📋 Added timing.json with",
+          timingInfo.length,
+          "frame entries",
+        );
+
+        // Convert each frame to WebP and add to zip
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(((i + 1) / content.frames.length) * 100)}%)`,
+            );
+          }
+
+          // Create ImageData from frame data
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+
+          // Draw to canvas and convert to WebP
+          ctx.putImageData(imageData, 0, 0);
+
+          // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
+          const currentProgress = (i + 1) / content.frames.length;
+          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data, frame, i, content.frames.length);
+
+          // Convert to WebP blob
+          const webpBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/webp", 0.8);
+          });
+
+          // Add to zip
+          zip.file(`frame_${i.toString().padStart(4, "0")}.webp`, webpBlob);
+        }
+
+        console.log("📦 Generating ZIP file...");
+
+        // Generate and download the zip
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const filename = generateTapeFilename("zip", "-webp");
+
+        console.log(
+          `💾 ZIP generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: zipBlob });
+
+        console.log("🎬 WebP frames exported successfully as ZIP");
+      } catch (error) {
+        console.error("Error creating animated WebP:", error);
+      }
+      return;
+    }
+
+    // 🎬 Create single animated WebP file
+    if (type === "create-single-animated-webp") {
+      console.log(
+        "🎞️ Creating animated image from",
+        content.frames.length,
+        "frames",
+      );
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for animated image creation");
+          return;
+        }
+
+        // Try WebP animation first using webpxmux.js
+        console.log("🔄 Creating animated WebP using webpxmux.js library");
+
+        // Load webpxmux.js if not already loaded
+        if (!window.WebPXMux) {
+          console.log("📦 Loading webpxmux.js library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src =
+              "https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.min.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        console.log(
+          `🖼️ Canvas size: ${content.frames[0].width}x${content.frames[0].height}`,
+        );
+
+        // Initialize WebPXMux
+        const xMux = window.WebPXMux(
+          "https://cdn.jsdelivr.net/npm/webpxmux@1.0.2/dist/webpxmux.wasm",
+        );
+        await xMux.waitRuntime();
+
+        // Convert our frame data to WebPXMux format
+        const frames = [];
+
+        // Create a canvas for rendering stamps
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = content.frames[0].width;
+        tempCanvas.height = content.frames[0].height;
+
+        for (let i = 0; i < content.frames.length; i++) {
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(((i + 1) / content.frames.length) * 100)}%)`,
+            );
+          }
+
+          const frame = content.frames[i];
+
+          // Create ImageData from frame data and draw to canvas
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+          tempCtx.putImageData(imageData, 0, 0);
+
+          // Add sideways AC stamp like in other video recordings
+          const currentProgress = (i + 1) / content.frames.length;
+          await addAestheticComputerStamp(tempCtx, frame.width, frame.height, currentProgress, frame.data, frame);
+
+          // Get the stamped image data back
+          const stampedImageData = tempCtx.getImageData(
+            0,
+            0,
+            frame.width,
+            frame.height,
+          );
+          const stampedData = stampedImageData.data;
+
+          // Convert frame data to RGBA Uint32Array format expected by webpxmux
+          const rgba = new Uint32Array(frame.width * frame.height);
+
+          for (let j = 0; j < rgba.length; j++) {
+            const pixelIndex = j * 4;
+            const r = stampedData[pixelIndex];
+            const g = stampedData[pixelIndex + 1];
+            const b = stampedData[pixelIndex + 2];
+            const a = stampedData[pixelIndex + 3];
+
+            // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
+            rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
+          }
+
+          frames.push({
+            duration: Math.max(frame.duration || 100, 10),
+            isKeyframe: i === 0, // First frame is keyframe
+            rgba: rgba,
+          });
+        }
+
+        console.log("🔄 Encoding animated WebP...");
+
+        const webpFrames = {
+          frameCount: frames.length,
+          width: content.frames[0].width,
+          height: content.frames[0].height,
+          loopCount: 0, // Infinite loop
+          bgColor: 0xffffffff, // White background
+          frames: frames,
+        };
+
+        const webpData = await xMux.encodeFrames(webpFrames);
+
+        const webpBlob = new Blob([webpData], { type: "image/webp" });
+        const filename = generateTapeFilename("webp", "-animated");
+
+        console.log(
+          `💾 Animated WebP generated: ${filename} (${Math.round((webpBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: webpBlob });
+
+        console.log("🎬 Animated WebP exported successfully!");
+      } catch (error) {
+        console.error("Error creating animated WebP:", error);
+        console.log("🔄 Falling back to animated PNG (APNG)");
+
+        try {
+          // Fallback to APNG using UPNG.js
+          console.log("🔄 Creating animated PNG (APNG) - fallback option");
+
+          // Load pako (required for UPNG.js compression) and UPNG.js library
+          if (!window.pako) {
+            console.log("📦 Loading pako compression library...");
+            await new Promise((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src =
+                "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+
+          if (!window.UPNG) {
+            console.log("📦 Loading UPNG.js library...");
+            await new Promise((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js";
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+
+          console.log(
+            `🖼️ Canvas size: ${content.frames[0].width}x${content.frames[0].height}`,
+          );
+
+          // Convert frames to the format UPNG expects
+          const frameBuffers = [];
+          const delays = [];
+
+          for (let i = 0; i < content.frames.length; i++) {
+            const frame = content.frames[i];
+
+            if (i % 50 === 0 || i === content.frames.length - 1) {
+              console.log(
+                `🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(((i + 1) / content.frames.length) * 100)}%)`,
+              );
+            }
+
+            // UPNG expects RGBA data as ArrayBuffer
+            const frameData = new Uint8Array(frame.data);
+            frameBuffers.push(frameData.buffer);
+
+            // Convert to milliseconds for APNG delays
+            delays.push(Math.max(frame.duration || 100, 10));
+          }
+
+          console.log("🔄 Encoding animated PNG...");
+
+          // Create animated PNG using UPNG
+          const apngBuffer = window.UPNG.encode(
+            frameBuffers,
+            content.frames[0].width,
+            content.frames[0].height,
+            0, // 0 = lossless, or use 256 for lossy
+            delays,
+          );
+
+          const apngBlob = new Blob([apngBuffer], { type: "image/png" });
+          const filename = generateTapeFilename("png", "-animated");
+
+          console.log(
+            `💾 Animated PNG generated: ${filename} (${Math.round((apngBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+          );
+
+          // Use the existing download function
+          receivedDownload({ filename, data: apngBlob });
+
+          console.log("🎬 Animated PNG (APNG) exported successfully!");
+        } catch (apngError) {
+          console.error("Error creating animated PNG:", apngError);
+
+          // Final fallback: create a static WebP of the first frame
+          console.log("🔄 Falling back to static WebP of first frame");
+          try {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const firstFrame = content.frames[0];
+
+            canvas.width = firstFrame.width;
+            canvas.height = firstFrame.height;
+
+            const imageData = new ImageData(
+              new Uint8ClampedArray(firstFrame.data),
+              firstFrame.width,
+              firstFrame.height,
+            );
+
+            ctx.putImageData(imageData, 0, 0);
+
+            const webpBlob = await new Promise((resolve) => {
+              canvas.toBlob(resolve, "image/webp", 0.9);
+            });
+
+            const filename = generateTapeFilename("webp", "-static");
+            receivedDownload({ filename, data: webpBlob });
+
+            console.log("📸 Static WebP fallback exported successfully");
+          } catch (fallbackError) {
+            console.error("Error in fallback WebP creation:", fallbackError);
+          }
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create animated WebP only (no fallback to APNG)
+    if (type === "create-animated-webp-only") {
+      console.log(
+        "🎞️ Creating animated WebP from",
+        content.frames.length,
+        "frames",
+      );
+
+      // Helper function to upscale pixels with nearest neighbor - with memory safety
+      function upscalePixels(rgba, originalWidth, originalHeight, scale) {
+        if (scale === 1) {
+          return { rgba: rgba, actualScale: 1 };
+        }
+
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+        const totalPixels = scaledWidth * scaledHeight;
+
+        // Safety check to prevent array allocation errors
+        const maxSafeArraySize = 100 * 1024 * 1024; // 100M elements max
+        if (totalPixels > maxSafeArraySize) {
+          console.warn(
+            `⚠️ Scaled array too large (${totalPixels} pixels), falling back to 1x scaling`,
+          );
+          return { rgba: rgba, actualScale: 1 };
+        }
+
+        let scaledRgba;
+        try {
+          scaledRgba = new Uint32Array(totalPixels);
+        } catch (error) {
+          console.warn(
+            `⚠️ Failed to allocate scaled array: ${error.message}, falling back to 1x scaling`,
+          );
+          return { rgba: rgba, actualScale: 1 };
+        }
+
+        for (let y = 0; y < scaledHeight; y++) {
+          for (let x = 0; x < scaledWidth; x++) {
+            const sourceX = Math.floor(x / scale);
+            const sourceY = Math.floor(y / scale);
+            const sourceIndex = sourceY * originalWidth + sourceX;
+            const targetIndex = y * scaledWidth + x;
+            scaledRgba[targetIndex] = rgba[sourceIndex];
+          }
+        }
+
+        return { rgba: scaledRgba, actualScale: scale };
+      }
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for animated WebP creation");
+          return;
+        }
+
+        console.log("🔄 Creating animated WebP using webpxmux.js library");
+
+        // Load webpxmux.js using local dep files
+        if (!window.WebPXMux) {
+          console.log("📦 Loading webpxmux.js library...");
+          console.log(
+            "📍 Script URL: /aesthetic.computer/dep/webpxmux/webpxmux.min.js",
+          );
+
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
+            script.type = "text/javascript";
+
+            script.onload = () => {
+              console.log("✅ webpxmux.js script loaded successfully");
+              console.log(
+                "🔍 Checking window.WebPXMux:",
+                typeof window.WebPXMux,
+              );
+              if (window.WebPXMux) {
+                console.log("✅ WebPXMux constructor found on window");
+              } else {
+                console.error(
+                  "❌ WebPXMux not found on window after script load",
+                );
+              }
+              resolve();
+            };
+
+            script.onerror = (error) => {
+              console.error("❌ Failed to load webpxmux.js script");
+              console.error("📍 Error event:", error);
+              console.error("📍 Script src:", script.src);
+              console.error("📍 Script type:", script.type);
+              reject(error);
+            };
+
+            console.log("📎 Appending script to document head");
+            document.head.appendChild(script);
+          });
+        } else {
+          console.log("✅ webpxmux.js already loaded");
+        }
+
+        console.log(
+          `🖼️ Canvas size: ${content.frames[0].width}x${content.frames[0].height} -> checking memory requirements...`,
+        );
+
+        // Pre-calculate optimal scale to avoid memory issues
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const frameCount = content.frames.length;
+
+        // Ultra-conservative memory management for WebP animations
+        // Each frame needs significant memory overhead beyond just pixel data
+        const baseMemoryLimit = 5 * 1024 * 1024; // 5M pixels base limit (much smaller)
+
+        // Much more aggressive scaling penalties for large frame counts
+        let framePenalty = 1;
+        if (frameCount > 500)
+          framePenalty = 16; // 500+ frames: divide by 16
+        else if (frameCount > 300)
+          framePenalty = 12; // 300+ frames: divide by 12
+        else if (frameCount > 200)
+          framePenalty = 8; // 200+ frames: divide by 8
+        else if (frameCount > 100)
+          framePenalty = 6; // 100+ frames: divide by 6
+        else if (frameCount > 50)
+          framePenalty = 4; // 50+ frames: divide by 4
+        else if (frameCount > 25) framePenalty = 2; // 25+ frames: divide by 2
+
+        const adjustedMemoryLimit = Math.max(
+          baseMemoryLimit / framePenalty,
+          256 * 1024, // Minimum 256K pixels (very small for safety)
+        );
+
+        // Start with smaller default scaling
+        let optimalScale = frameCount > 400 ? 1 : 2; // Default to 2x for more animations, only 1x for very large ones
+        let scaledPixels =
+          originalWidth * originalHeight * optimalScale * optimalScale;
+
+        console.log(
+          `🧮 Conservative memory calculation: ${frameCount} frames, penalty: ${framePenalty}x, ${scaledPixels} pixels per frame (${optimalScale}x), limit: ${Math.round(adjustedMemoryLimit / 1024)}K pixels`,
+        );
+
+        // More aggressive downscaling if needed
+        if (scaledPixels > adjustedMemoryLimit) {
+          optimalScale = 1;
+          scaledPixels = originalWidth * originalHeight;
+          console.warn(
+            `⚠️ Forcing 1x scaling for ${frameCount} frames to prevent memory errors`,
+          );
+
+          // If even 1x is too large, we have a problem
+          if (scaledPixels > adjustedMemoryLimit) {
+            console.error(
+              `❌ Video too large even at 1x scaling: ${Math.round(scaledPixels / 1024)}K pixels > ${Math.round(adjustedMemoryLimit / 1024)}K limit`,
+            );
+            throw new Error(
+              `Video dimensions too large for WebP encoding: ${originalWidth}x${originalHeight} with ${frameCount} frames`,
+            );
+          }
+        }
+
+        console.log(
+          `📏 Using ${optimalScale}x scaling: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // Initialize WebPXMux
+        console.log("🔧 Initializing WebPXMux...");
+        console.log(
+          "📍 WASM URL: /aesthetic.computer/dep/webpxmux/webpxmux.wasm",
+        );
+
+        const xMux = window.WebPXMux(
+          "/aesthetic.computer/dep/webpxmux/webpxmux.wasm",
+        );
+        console.log("✅ WebPXMux instance created:", xMux);
+
+        console.log("⏳ Waiting for WebAssembly runtime...");
+        await xMux.waitRuntime();
+        console.log("✅ WebAssembly runtime ready!");
+
+        // Verify xMux instance methods are available
+        console.log("🔍 Verifying xMux methods:", {
+          hasEncodeFrames: typeof xMux.encodeFrames === "function",
+          hasWaitRuntime: typeof xMux.waitRuntime === "function",
+          xMuxKeys: Object.keys(xMux),
+        });
+
+        // Convert our frame data to WebPXMux format with smart upscaling
+        const frames = [];
+
+        for (let i = 0; i < content.frames.length; i++) {
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🎞️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(((i + 1) / content.frames.length) * 100)}%)`,
+            );
+          }
+
+          const frame = content.frames[i];
+
+          // Convert frame data to RGBA Uint32Array format expected by webpxmux
+          let rgba = new Uint32Array(frame.width * frame.height);
+          const data = frame.data;
+
+          for (let j = 0; j < rgba.length; j++) {
+            const pixelIndex = j * 4;
+            const r = data[pixelIndex];
+            const g = data[pixelIndex + 1];
+            const b = data[pixelIndex + 2];
+            const a = data[pixelIndex + 3];
+
+            // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
+            rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
+          }
+
+          // Add AC stamp to the frame data by rendering through canvas
+          const currentProgress = (i + 1) / content.frames.length;
+          const stampedPixelData = await addStampToPixelData(
+            new Uint8ClampedArray(data),
+            frame.width,
+            frame.height,
+            optimalScale,
+            currentProgress,
+            frame,
+          );
+
+          // Convert stamped pixel data back to RGBA Uint32Array
+          rgba = new Uint32Array(
+            frame.width * frame.height * optimalScale * optimalScale,
+          );
+          for (let j = 0; j < rgba.length; j++) {
+            const pixelIndex = j * 4;
+            const r = stampedPixelData[pixelIndex];
+            const g = stampedPixelData[pixelIndex + 1];
+            const b = stampedPixelData[pixelIndex + 2];
+            const a = stampedPixelData[pixelIndex + 3];
+
+            // Pack RGBA into 32-bit integer (0xRRGGBBAA format)
+            rgba[j] = (r << 24) | (g << 16) | (b << 8) | a;
+          }
+
+          // Skip the original upscaling since we already did it with the stamp
+          const upscaleResult = { rgba: rgba, actualScale: optimalScale };
+
+          // Update actual scale if upscaling failed
+          if (upscaleResult.actualScale !== optimalScale && i === 0) {
+            console.warn(
+              `⚠️ Upscaling failed, using ${upscaleResult.actualScale}x instead of ${optimalScale}x`,
+            );
+            optimalScale = upscaleResult.actualScale; // Update for remaining frames
+          }
+
+          frames.push({
+            duration: Math.max(frame.duration || 16.67, 10), // Default 60fps (~16.67ms)
+            isKeyframe: i === 0, // First frame is keyframe
+            rgba: upscaleResult.rgba,
+          });
+
+          // Aggressive memory cleanup
+          rgba.fill(0);
+          rgba = null; // Help GC
+        }
+
+        console.log("🔄 Encoding animated WebP...");
+
+        // Use the actual scale that was achieved (may be different if upscaling failed)
+        const actualWidth =
+          frames.length > 0
+            ? Math.sqrt(
+                frames[0].rgba.length / (originalWidth * originalHeight),
+              ) * originalWidth
+            : originalWidth;
+        const actualHeight =
+          frames.length > 0
+            ? Math.sqrt(
+                frames[0].rgba.length / (originalWidth * originalHeight),
+              ) * originalHeight
+            : originalHeight;
+
+        const webpFrames = {
+          frameCount: frames.length,
+          width: Math.round(actualWidth),
+          height: Math.round(actualHeight),
+          loopCount: 0, // Infinite loop
+          bgColor: 0xffffffff, // White background
+          frames: frames,
+        };
+
+        console.log("� WebP frames data structure:", {
+          frameCount: webpFrames.frameCount,
+          width: webpFrames.width,
+          height: webpFrames.height,
+          loopCount: webpFrames.loopCount,
+          bgColor: webpFrames.bgColor.toString(16),
+          firstFrameDuration: webpFrames.frames[0]?.duration,
+          firstFrameRgbaLength: webpFrames.frames[0]?.rgba?.length,
+          totalFrames: webpFrames.frames.length,
+        });
+
+        console.log("�🔧 Calling xMux.encodeFrames...");
+        const webpData = await xMux.encodeFrames(webpFrames);
+        console.log("✅ WebP encoding complete! Data length:", webpData.length);
+
+        const webpBlob = new Blob([webpData], { type: "image/webp" });
+        const filename = generateTapeFilename("webp", "-animated");
+
+        console.log(
+          `💾 Animated WebP generated: ${filename} (${Math.round((webpBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: webpBlob });
+
+        console.log("🎬 Animated WebP exported successfully!");
+      } catch (error) {
+        console.error("Error creating animated WebP:", error);
+        console.log("🔄 Falling back to static WebP of first frame");
+
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          const firstFrame = content.frames[0];
+
+          canvas.width = firstFrame.width;
+          canvas.height = firstFrame.height;
+
+          const imageData = new ImageData(
+            new Uint8ClampedArray(firstFrame.data),
+            firstFrame.width,
+            firstFrame.height,
+          );
+
+          ctx.putImageData(imageData, 0, 0);
+
+          // Add sideways AC stamp to fallback WebP as well (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(
+            ctx,
+            firstFrame.width,
+            firstFrame.height,
+            0,
+            firstFrame.data,
+            firstFrame,
+          );
+
+          const webpBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/webp", 0.9);
+          });
+
+          const filename = generateTapeFilename("webp", "-static");
+          receivedDownload({ filename, data: webpBlob });
+
+          console.log("📸 Static WebP fallback exported successfully");
+        } catch (fallbackError) {
+          console.error("Error in fallback WebP creation:", fallbackError);
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create APNG only
+    if (type === "create-single-animated-apng") {
+      console.log("🎞️ Creating APNG from", content.frames.length, "frames");
+
+      // Helper function to upscale pixels with nearest neighbor (same as WebP)
+      function upscalePixels(imageData, originalWidth, originalHeight, scale) {
+        if (scale === 1) {
+          return imageData;
+        }
+
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+        const scaledImageData = new Uint8ClampedArray(
+          scaledWidth * scaledHeight * 4,
+        );
+
+        for (let y = 0; y < scaledHeight; y++) {
+          for (let x = 0; x < scaledWidth; x++) {
+            const sourceX = Math.floor(x / scale);
+            const sourceY = Math.floor(y / scale);
+            const sourceIndex = (sourceY * originalWidth + sourceX) * 4;
+            const targetIndex = (y * scaledWidth + x) * 4;
+
+            scaledImageData[targetIndex] = imageData[sourceIndex]; // R
+            scaledImageData[targetIndex + 1] = imageData[sourceIndex + 1]; // G
+            scaledImageData[targetIndex + 2] = imageData[sourceIndex + 2]; // B
+            scaledImageData[targetIndex + 3] = imageData[sourceIndex + 3]; // A
+          }
+        }
+
+        return scaledImageData;
+      }
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for APNG creation");
+          return;
+        }
+
+        console.log("🔄 Creating animated PNG (APNG)");
+
+        // Pre-calculate optimal scale for APNG (same logic as WebP)
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const frameCount = content.frames.length;
+
+        // Be more conservative with memory limits for large frame counts
+        const baseMemoryLimit = 25 * 1024 * 1024; // 25M pixels base limit
+        const adjustedMemoryLimit = Math.max(
+          baseMemoryLimit / Math.max(1, frameCount / 500), // Reduce limit for many frames
+          1024 * 1024, // Minimum 1M pixels
+        );
+
+        let optimalScale = 4;
+        let scaledPixels =
+          originalWidth * originalHeight * optimalScale * optimalScale;
+
+        console.log(
+          `🧮 APNG Memory calculation: ${frameCount} frames, ${scaledPixels} pixels per frame (4x), limit: ${Math.round(adjustedMemoryLimit / 1024)}K pixels`,
+        );
+
+        if (scaledPixels > adjustedMemoryLimit) {
+          optimalScale = 2;
+          scaledPixels =
+            originalWidth * originalHeight * optimalScale * optimalScale;
+          console.warn(
+            `⚠️ 4x scaling would exceed memory limit for ${frameCount} frames, using 2x scaling`,
+          );
+
+          if (scaledPixels > adjustedMemoryLimit) {
+            optimalScale = 1;
+            console.warn(
+              `⚠️ Even 2x scaling too large for ${frameCount} frames, using original size (1x)`,
+            );
+          }
+        }
+
+        console.log(
+          `📏 APNG Using ${optimalScale}x scaling: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // Load pako (required for UPNG.js compression) and UPNG.js library
+        if (!window.pako) {
+          console.log("📦 Loading pako compression library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src =
+              "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        if (!window.UPNG) {
+          console.log("📦 Loading UPNG.js library...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        console.log(
+          `🖼️ Canvas size: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // Convert frames to the format UPNG expects with upscaling
+        const frameBuffers = [];
+        const delays = [];
+
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+
+          if (i % 50 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🎞️ Processing APNG frame ${i + 1}/${content.frames.length} (${Math.round(((i + 1) / content.frames.length) * 100)}%)`,
+            );
+          }
+
+          // Apply upscaling and add AC stamp to frame data
+          const originalData = new Uint8ClampedArray(frame.data);
+          const currentProgress = (i + 1) / content.frames.length;
+          const scaledData = await addStampToPixelData(
+            originalData,
+            frame.width,
+            frame.height,
+            optimalScale,
+            currentProgress,
+            frame,
+          );
+
+          // UPNG expects RGBA data as ArrayBuffer
+          const frameData = new Uint8Array(scaledData);
+          frameBuffers.push(frameData.buffer);
+
+          // Convert to milliseconds for APNG delays with 60fps default
+          delays.push(Math.max(frame.duration || 16.67, 10)); // Default 60fps (~16.67ms)
+        }
+
+        console.log("🔄 Encoding animated PNG...");
+
+        // Create animated PNG using UPNG with scaled dimensions
+        const apngBuffer = window.UPNG.encode(
+          frameBuffers,
+          originalWidth * optimalScale, // Use scaled width
+          originalHeight * optimalScale, // Use scaled height
+          0, // 0 = lossless, or use 256 for lossy
+          delays,
+        );
+
+        const apngBlob = new Blob([apngBuffer], { type: "image/png" });
+        const filename = generateTapeFilename("png", "-animated");
+
+        console.log(
+          `💾 Animated PNG generated: ${filename} (${Math.round((apngBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: apngBlob });
+
+        console.log("🎬 Animated PNG (APNG) exported successfully!");
+      } catch (error) {
+        console.error("Error creating APNG:", error);
+        console.log("🔄 Falling back to static PNG of first frame");
+
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          const firstFrame = content.frames[0];
+
+          canvas.width = firstFrame.width;
+          canvas.height = firstFrame.height;
+
+          const imageData = new ImageData(
+            new Uint8ClampedArray(firstFrame.data),
+            firstFrame.width,
+            firstFrame.height,
+          );
+
+          ctx.putImageData(imageData, 0, 0);
+
+          // Add sideways AC stamp to fallback PNG as well (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(
+            ctx,
+            firstFrame.width,
+            firstFrame.height,
+            0,
+            firstFrame.data,
+            firstFrame,
+          );
+
+          const pngBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/png");
+          });
+
+          const filename = generateTapeFilename("png", "-static");
+          receivedDownload({ filename, data: pngBlob });
+
+          console.log("📸 Static PNG fallback exported successfully");
+        } catch (fallbackError) {
+          console.error("Error in fallback PNG creation:", fallbackError);
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create ZIP of high-resolution frames
+    if (type === "create-animated-frames-zip") {
+      console.log(
+        "📦 Creating ZIP of high-resolution frames from",
+        content.frames.length,
+        "frames",
+      );
+
+      // Send initial progress to show the progress bar immediately
+      send({
+        type: "recorder:transcode-progress",
+        content: 0.01, // 1% to start
+      });
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for ZIP creation");
+          return;
+        }
+
+        // Load JSZip if not already loaded
+        if (!window.JSZip) await loadJSZip();
+        const zip = new window.JSZip();
+
+        // Use 6x scaling for ultra-high resolution frames
+        const scale = 6;
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+
+        console.log(
+          `📏 Using ${scale}x scaling: ${originalWidth}x${originalHeight} -> ${scaledWidth}x${scaledHeight}`,
+        );
+
+        // Create a canvas for frame processing
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = scaledWidth;
+        canvas.height = scaledHeight;
+
+        // Process each frame and add to ZIP
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+
+          // Update progress
+          const progress = (i / content.frames.length) * 0.9 + 0.1; // 10-100%
+          send({
+            type: "recorder:transcode-progress",
+            content: progress,
+          });
+
+          if (i % 10 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🖼️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(progress * 100)}%)`,
+            );
+          }
+
+          // Create ImageData from frame data
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+
+          // Clear canvas and draw scaled frame
+          ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+          
+          // Create a temporary canvas for the original frame
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCanvas.width = frame.width;
+          tempCanvas.height = frame.height;
+          
+          // Put original image data on temp canvas
+          tempCtx.putImageData(imageData, 0, 0);
+          
+          // Add stamp to the original frame with correct frame metadata for timestamp
+          await addAestheticComputerStamp(
+            tempCtx,
+            frame.width,
+            frame.height,
+            0, // Progress is not used for individual frame timestamps
+            frame.data,
+            frame, // Frame metadata with timestamp
+            i, // Frame index for timestamp calculation
+            content.frames.length, // Total frames for timestamp calculation
+          );
+          
+          // Scale up the stamped frame using nearest neighbor
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(tempCanvas, 0, 0, scaledWidth, scaledHeight);
+
+          // Convert to PNG blob
+          const pngBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/png");
+          });
+
+          // Add to ZIP with zero-padded filename
+          const frameNumber = String(i).padStart(4, "0");
+          const filename = `frame_${frameNumber}.png`;
+          zip.file(filename, pngBlob);
+        }
+
+        // Add timing information as JSON
+        const timingInfo = content.frames.map((frame, i) => ({
+          frame: i,
+          filename: `frame_${String(i).padStart(4, "0")}.png`,
+          duration: frame.duration,
+          timestamp: frame.timestamp,
+        }));
+        
+        zip.file("timing.json", JSON.stringify(timingInfo, null, 2));
+        
+        // Add metadata
+        const metadata = {
+          originalSize: { width: originalWidth, height: originalHeight },
+          scaledSize: { width: scaledWidth, height: scaledHeight },
+          scale: scale,
+          frameCount: content.frames.length,
+          totalDuration: content.frames.reduce((sum, f) => sum + (f.duration || 100), 0),
+          exportedAt: new Date().toISOString(),
+        };
+        
+        zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+        console.log("🗜️ Generating ZIP file...");
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        
+        const filename = generateTapeFilename("zip", "-frames");
+        
+        console.log(
+          `💾 ZIP file generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: zipBlob });
+
+        console.log("📦 High-resolution frames ZIP exported successfully!");
+        
+        // Send completion
+        send({
+          type: "recorder:transcode-progress",
+          content: 1.0,
+        });
+        
+      } catch (error) {
+        console.error("Error creating frames ZIP:", error);
+      }
+      return;
+    }
+
+    // 🎬 Create animated GIF
+    if (type === "create-animated-gif") {
+      console.log(
+        "🎞️ Creating animated GIF from",
+        content.frames.length,
+        "frames",
+      );
+
+      // Calculate GIF duration for filename - ALWAYS prioritize intended duration for real-time accuracy
+      // When user says "tape 15" they expect exactly 15 seconds of real wall-clock time
+      let totalDurationMs = 0;
+      if (window.currentRecordingOptions?.intendedDuration) {
+        // Use the EXACT duration specified in the tape command for perfect real-time mapping
+        totalDurationMs = window.currentRecordingOptions.intendedDuration * 1000; // Convert to milliseconds
+        console.log(`🎬 GIF duration from EXACT intended tape duration: ${window.currentRecordingOptions.intendedDuration}s (${totalDurationMs}ms) for real-time accuracy`);
+      } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+        // Fallback to actual recording duration if no intended duration available
+        totalDurationMs = mediaRecorderDuration; // mediaRecorderDuration is already in milliseconds
+        console.log(`🎬 GIF duration from measured recording duration: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+      } else if (content.frames && content.frames.length > 0) {
+        // Final fallback: sum frame durations if no recording duration available
+        totalDurationMs = content.frames.reduce((sum, frame) => {
+          return sum + (frame.duration || 100); // Default to 100ms if no duration
+        }, 0);
+        console.log(`🎬 GIF duration from frame durations: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+      }
+      window.gifDurationMs = totalDurationMs;
+
+      // Set the recording start timestamp to match the first frame's visual timestamp
+      // so the filename matches the first frame timestamp exactly
+      // We'll cache the actual computed timestamp from the first frame
+      window.firstFrameComputedTimestamp = null; // Reset cache
+      
+      if (content.frames.length > 0) {
+        const firstFrame = content.frames[0];
+        console.log(`🎬 Will use computed timestamp from first frame processing for GIF filename`);
+        // Don't modify recordingStartTimestamp here - it's needed for proper video playback timing
+        // The filename timestamp will be calculated during frame processing instead
+      } else {
+        console.warn(`⚠️ No frames available, using current time for filename`);
+        window.recordingStartTimestamp = Date.now();
+      }
+
+      // GIF encoder selection flag - set to true to use gifenc, false for gif.js
+      const useGifenc = content.useGifenc !== false; // Default to gifenc (true), unless explicitly set to false
+
+      // Helper function to draw exact AC cursor overlay (matches pen.mjs "precise" cursor)
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // AC cursor settings at 1.5x scale for good visibility without being too large
+        const cursorScale = 1.25; // Moderate scale for optimal visibility in GIFs
+        const radius = 2 * cursorScale;     // White center circle radius
+        const gap = 7.5 * cursorScale;      // Gap from center to crosshair start
+        const to = 10 * cursorScale;        // Length of crosshair lines
+        const lineWidth = 4 * cursorScale;  // Crosshair line width
+        
+        // Shadow offset for visibility
+        const offsetX = 2 * cursorScale;
+        const offsetY = 2 * cursorScale;
+        
+        ctx.lineCap = "round";
+        
+        // Draw shadow graphics first
+        ctx.save();
+        ctx.translate(x + offsetX, y + offsetY);
+        
+        // Shadow circle in center
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+        ctx.fill();
+        
+        // Shadow crosshair lines
+        ctx.beginPath();
+        ctx.moveTo(0, -gap);
+        ctx.lineTo(0, -to);
+        ctx.moveTo(0, gap);
+        ctx.lineTo(0, to);
+        ctx.moveTo(-gap, 0);
+        ctx.lineTo(-to, 0);
+        ctx.moveTo(gap, 0);
+        ctx.lineTo(to, 0);
+        
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        // Draw main cursor graphics
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // White center circle
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        
+        // Cyan crosshair lines (exact AC color)
+        ctx.beginPath();
+        ctx.moveTo(0, -gap); // Top
+        ctx.lineTo(0, -to);
+        ctx.moveTo(0, gap);  // Bottom
+        ctx.lineTo(0, to);
+        ctx.moveTo(-gap, 0); // Left
+        ctx.lineTo(-to, 0);
+        ctx.moveTo(gap, 0);  // Right
+        ctx.lineTo(to, 0);
+        
+        ctx.strokeStyle = "rgb(0, 255, 255)"; // Exact AC cyan color
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        ctx.restore();
+      }
+
+      try {
+        // Load appropriate GIF library if not already loaded
+        if (useGifenc) {
+          if (!window.gifenc) {
+            console.log("📦 Loading gifenc library...");
+            const { GIFEncoder, quantize, applyPalette } = await import(
+              "/aesthetic.computer/dep/gifenc/gifenc.esm.js"
+            );
+            window.gifenc = { GIFEncoder, quantize, applyPalette };
+            console.log("✅ gifenc library loaded successfully");
+          }
+        } else {
+          if (!window.GIF) {
+            console.log("📦 Loading gif.js library...");
+            await new Promise((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "/aesthetic.computer/dep/gif/gif.js";
+              script.onload = () => {
+                console.log("✅ gif.js library loaded successfully");
+                resolve();
+              };
+              script.onerror = () => {
+                console.error("❌ Failed to load gif.js library");
+                reject(new Error("Failed to load gif.js"));
+              };
+              document.head.appendChild(script);
+            });
+          }
+        }
+
+        // Force 3x scaling for consistent, fast GIF output
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const frameCount = content.frames.length;
+
+        const optimalScale = 3; // Always use 3x scaling for GIFs
+
+        console.log(
+          `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // 🎯 Properly resample frames to 30fps for optimal GIF size/quality balance
+        let processedFrames = content.frames;
+        const targetGifFPS = 30;
+        
+        if (content.frames.length > 0) {
+          const totalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+          const actualFrameRate = Math.round((content.frames.length / totalDuration) * 1000);
+          
+          if (actualFrameRate > targetGifFPS && totalDuration > 0) {
+            // Calculate how many frames we need for 30fps
+            const targetFrameCount = Math.round((totalDuration / 1000) * targetGifFPS);
+            processedFrames = [];
+            
+            console.log(`🎬 Resampling GIF from ${actualFrameRate}fps to ${targetGifFPS}fps (${content.frames.length} -> ${targetFrameCount} frames)`);
+            
+            // Properly resample frames evenly across the entire duration
+            for (let i = 0; i < targetFrameCount; i++) {
+              // Calculate the exact timestamp we want for this frame
+              const targetTimestamp = content.frames[0].timestamp + (i / (targetFrameCount - 1)) * totalDuration;
+              
+              // Find the closest source frame to this timestamp
+              let closestIndex = 0;
+              let minDistance = Math.abs(content.frames[0].timestamp - targetTimestamp);
+              
+              for (let j = 1; j < content.frames.length; j++) {
+                const distance = Math.abs(content.frames[j].timestamp - targetTimestamp);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestIndex = j;
+                }
+              }
+              
+              // Create a copy of the frame with corrected originalTimestamp for proper GIF timing
+              const correctedFrame = { ...content.frames[closestIndex] };
+              correctedFrame.originalTimestamp = targetTimestamp;
+              
+              processedFrames.push(correctedFrame);
+            }
+            
+            console.log(`🎬 GIF frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
+          } else {
+            console.log(`🎬 No resampling needed: ${actualFrameRate}fps <= ${targetGifFPS}fps target`);
+          }
+        }
+
+        // Helper function to upscale pixels with nearest neighbor
+        function upscalePixels(
+          imageData,
+          originalWidth,
+          originalHeight,
+          scale,
+        ) {
+          if (scale === 1) {
+            return imageData;
+          }
+
+          const scaledWidth = originalWidth * scale;
+          const scaledHeight = originalHeight * scale;
+          const scaledImageData = new Uint8ClampedArray(
+            scaledWidth * scaledHeight * 4,
+          );
+
+          for (let y = 0; y < scaledHeight; y++) {
+            for (let x = 0; x < scaledWidth; x++) {
+              const sourceX = Math.floor(x / scale);
+              const sourceY = Math.floor(y / scale);
+              const sourceIndex = (sourceY * originalWidth + sourceX) * 4;
+              const targetIndex = (y * scaledWidth + x) * 4;
+
+              scaledImageData[targetIndex] = imageData[sourceIndex]; // R
+              scaledImageData[targetIndex + 1] = imageData[sourceIndex + 1]; // G
+              scaledImageData[targetIndex + 2] = imageData[sourceIndex + 2]; // B
+              scaledImageData[targetIndex + 3] = imageData[sourceIndex + 3]; // A
+            }
+          }
+
+          return scaledImageData;
+        }
+
+        if (useGifenc) {
+          // Use gifenc encoder
+          console.log("🎞️ Processing frames for GIF with gifenc...");
+          
+          // Send initial status
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "gif", 
+              phase: "analyzing", 
+              message: "Analyzing frames" 
+            }
+          });
+          
+          const { GIFEncoder, quantize, applyPalette } = window.gifenc;
+          
+          // Calculate a better initial capacity based on frame count and size
+          const estimatedFrameSize = content.frames[0].width * content.frames[0].height * optimalScale * optimalScale;
+          const estimatedSize = content.frames.length * estimatedFrameSize * 0.5; // Rough estimate
+          const initialCapacity = Math.max(4096, Math.min(estimatedSize, 1024 * 1024)); // Between 4KB and 1MB
+          
+          const gif = GIFEncoder({
+            auto: true, // Auto mode for simpler usage
+            initialCapacity: initialCapacity // Pre-allocate buffer for better performance
+          });
+          
+          const finalFrames = [];
+          
+          // Check if cursor actually moved during recording to avoid static cursor overlay
+          let showCursor = false;
+          if (processedFrames.length > 1) {
+            const firstFrame = processedFrames[0];
+            const movementThreshold = 5; // pixels - minimum movement to show cursor
+            
+            if (firstFrame.penData && firstFrame.penData.x !== undefined && firstFrame.penData.y !== undefined) {
+              const startX = firstFrame.penData.x;
+              const startY = firstFrame.penData.y;
+              
+              // Check if cursor moved significantly from starting position in any frame
+              for (let i = 1; i < processedFrames.length; i++) {
+                const frame = processedFrames[i];
+                if (frame.penData && frame.penData.x !== undefined && frame.penData.y !== undefined) {
+                  const deltaX = Math.abs(frame.penData.x - startX);
+                  const deltaY = Math.abs(frame.penData.y - startY);
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  
+                  if (distance > movementThreshold) {
+                    showCursor = true;
+                    console.log(`🎯 Cursor moved ${distance.toFixed(1)}px from start - will show cursor overlay`);
+                    break;
+                  }
+                }
+              }
+              
+              if (!showCursor) {
+                console.log(`🎯 Cursor stayed within ${movementThreshold}px of start position - hiding cursor overlay`);
+              }
+            }
+          }
+          
+          // Send frame processing status
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "gif", 
+              phase: "processing", 
+              message: "Processing frames" 
+            }
+          });
+          
+          // Calculate proper timing for gifenc based on intended duration
+          let gifencDelay = 17; // Default 60fps fallback
+          
+          // Calculate proper delay based on the resampled frame timing
+          if (processedFrames.length > 1 && content.frames.length > 0) {
+            const originalTotalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+            const intendedDelayPerFrame = originalTotalDuration / processedFrames.length;
+            gifencDelay = Math.round(Math.max(intendedDelayPerFrame, 16)); // Minimum 16ms (62.5fps max)
+            console.log(`🎞️ Using calculated timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) based on intended duration`);
+          } else {
+            console.log(`🎞️ Using fallback 60fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for high quality GIF playback`);
+          }
+          
+          // Process each frame
+          for (let index = 0; index < processedFrames.length; index++) {
+            const frame = processedFrames[index];
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = originalWidth * optimalScale;
+            canvas.height = originalHeight * optimalScale;
+
+            const originalImageData = new Uint8ClampedArray(frame.data);
+            const scaledImageData = upscalePixels(
+              originalImageData,
+              originalWidth,
+              originalHeight,
+              optimalScale,
+            );
+
+            const imageData = new ImageData(
+              scaledImageData,
+              originalWidth * optimalScale,
+              originalHeight * optimalScale,
+            );
+
+            ctx.putImageData(imageData, 0, 0);
+
+            // Add cyan crosshair cursor overlay if pen data is available AND cursor moved during recording
+            if (showCursor && frame.penData) {
+              addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
+            }
+
+            // Add sideways AC stamp like in video recordings
+            const progress = (index + 1) / processedFrames.length;
+            
+            // For GIF: calculate elapsed time based on the actual delay being used in encoding
+            // This ensures timestamp matches the actual GIF playback speed
+            const gifElapsedSeconds = (index * gifencDelay) / 1000;
+            const gifFrameMetadata = {
+              ...frame,
+              gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
+            };
+            
+            await addAestheticComputerStamp(
+              ctx,
+              originalWidth * optimalScale,
+              originalHeight * optimalScale,
+              progress,
+              frame.data,
+              gifFrameMetadata, // Use enhanced metadata with GIF timing
+            );
+
+            // Get RGBA data for gifenc
+            const frameImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            finalFrames.push({
+              data: frameImageData.data,
+              width: canvas.width,
+              height: canvas.height
+            });
+
+            // Send detailed progress for frame processing (first 40% of total progress)
+            const frameProgress = (index + 1) / processedFrames.length;
+            const totalProgress = frameProgress * 0.4; // Frames take up 40% of total progress
+            
+            if ((index + 1) % 10 === 0 || index === processedFrames.length - 1) {
+              console.log(
+                `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(frameProgress * 100)}%)`,
+              );
+              
+              send({
+                type: "recorder:export-progress",
+                content: { 
+                  progress: totalProgress,
+                  type: "gif",
+                  message: `Processing frame ${index + 1}/${processedFrames.length}`
+                }
+              });
+            }
+          }
+          
+          // Send color optimization status
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "gif", 
+              phase: "optimizing", 
+              message: "Optimizing colors" 
+            }
+          });
+          
+          send({
+            type: "recorder:export-progress",
+            content: { 
+              progress: 0.5, 
+              type: "gif",
+              message: "Analyzing color palette"
+            }
+          });
+          
+          console.log("🔄 Encoding GIF with gifenc (optimized for file size)...");
+          
+          // Use sampled palette instead of loading all pixels into memory at once
+          // Sample pixels from every Nth frame to avoid memory allocation errors
+          const maxSampleFrames = Math.min(50, finalFrames.length); // Sample max 50 frames
+          const sampleInterval = Math.max(1, Math.floor(finalFrames.length / maxSampleFrames));
+          const sampleSize = finalFrames[0].width * finalFrames[0].height * 4; // Single frame size
+          const sampledPixels = new Uint8ClampedArray(maxSampleFrames * sampleSize);
+          let sampleOffset = 0;
+          
+          console.log(`🎨 Sampling ${maxSampleFrames} frames (every ${sampleInterval}) for palette generation`);
+          
+          for (let i = 0; i < finalFrames.length; i += sampleInterval) {
+            if (sampleOffset + sampleSize <= sampledPixels.length) {
+              sampledPixels.set(finalFrames[i].data, sampleOffset);
+              sampleOffset += sampleSize;
+            }
+          }
+          
+          // Quantize sampled pixels to 256 colors with optimized settings for file size
+          const palette = quantize(sampledPixels, 256, { 
+            format: "rgb565", // Good balance of quality and speed
+            clearAlpha: false, // Disable alpha processing since we don't need transparency
+            oneBitAlpha: false // Disable alpha quantization for smaller files
+          });
+          
+          // Send encoding status
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "gif", 
+              phase: "encoding", 
+              message: "Encoding GIF" 
+            }
+          });
+          
+          // Use the delay calculated earlier during frame processing
+          console.log(`🎞️ Encoding GIF with ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps)`);
+          
+          // Encode frames with optimized settings
+          for (let i = 0; i < finalFrames.length; i++) {
+            const frame = finalFrames[i];
+            const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
+            
+            // Use calculated delay based on original timing
+            const delayInMilliseconds = gifencDelay;
+            
+            gif.writeFrame(index, frame.width, frame.height, {
+              palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
+              delay: delayInMilliseconds, // Timing based on intended duration or fallback to 50fps
+              repeat: i === 0 ? 0 : undefined, // Set infinite loop only on first frame
+              transparent: false, // Disable transparency for smaller file size
+              dispose: -1 // Use default dispose method for better compression
+            });
+            
+            // Progress updates for encoding (40% to 90% of total progress)
+            if ((i + 1) % 5 === 0 || i === finalFrames.length - 1) {
+              const encodingProgress = (i + 1) / finalFrames.length;
+              const totalProgress = 0.4 + (encodingProgress * 0.5); // 40-90% of total
+              console.log(`🔄 GIF encoding progress: ${Math.round(encodingProgress * 100)}%`);
+              
+              send({
+                type: "recorder:export-progress",
+                content: { 
+                  progress: totalProgress, 
+                  type: "gif",
+                  message: `Encoding frame ${i + 1}/${finalFrames.length}`
+                }
+              });
+            }
+          }
+          
+          // Send finalization status
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "gif", 
+              phase: "finalizing", 
+              message: "Finalizing GIF" 
+            }
+          });
+          
+          send({
+            type: "recorder:export-progress",
+            content: { 
+              progress: 0.95, 
+              type: "gif",
+              message: "Finalizing file"
+            }
+          });
+          
+          gif.finish();
+          
+          // Send 100% completion progress before generating the blob
+          send({
+            type: "recorder:export-progress",
+            content: { 
+              progress: 1.0, 
+              type: "gif",
+              message: "GIF complete"
+            }
+          });
+          
+          const gifBytes = gif.bytes();
+          const blob = new Blob([gifBytes], { type: "image/gif" });
+          
+          console.log(
+            `💾 GIF generated with gifenc: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
+          );
+
+          const filename = generateTapeFilename("gif");
+          receivedDownload({ filename, data: blob });
+
+          console.log("🎬 Animated GIF exported successfully with gifenc!");
+
+          // Send completion message to video piece
+          send({
+            type: "recorder:export-complete",
+            content: { type: "gif", filename }
+          });
+          
+        } else {
+          // Use gif.js encoder (existing implementation)
+          // Add space for progress bar at bottom - but don't extend canvas, progress bar is built into stamp
+          const progressBarHeight = 6;
+
+          // Create GIF instance with optimized quality settings for better color fidelity
+          const gif = new window.GIF({
+            workers: 4, // More workers for faster processing
+            quality: 5, // Higher quality for better colors (1-30, lower = better quality)
+            dither: 'FloydSteinberg', // Better dithering for color accuracy
+            transparent: null, // No transparency to reduce file size
+            width: originalWidth * optimalScale,
+            height: originalHeight * optimalScale, // Use original height, progress bar is part of stamp
+            workerScript: "/aesthetic.computer/dep/gif/gif.worker.js",
+          });
+
+          console.log("🎞️ Processing frames for GIF...");
+
+          // Check if cursor actually moved during recording to avoid static cursor overlay
+          let showCursor = false;
+          if (processedFrames.length > 1) {
+            const firstFrame = processedFrames[0];
+            const movementThreshold = 5; // pixels - minimum movement to show cursor
+            
+            if (firstFrame.penData && firstFrame.penData.x !== undefined && firstFrame.penData.y !== undefined) {
+              const startX = firstFrame.penData.x;
+              const startY = firstFrame.penData.y;
+              
+              // Check if cursor moved significantly from starting position in any frame
+              for (let i = 1; i < processedFrames.length; i++) {
+                const frame = processedFrames[i];
+                if (frame.penData && frame.penData.x !== undefined && frame.penData.y !== undefined) {
+                  const deltaX = Math.abs(frame.penData.x - startX);
+                  const deltaY = Math.abs(frame.penData.y - startY);
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  
+                  if (distance > movementThreshold) {
+                    showCursor = true;
+                    console.log(`🎯 Cursor moved ${distance.toFixed(1)}px from start - will show cursor overlay`);
+                    break;
+                  }
+                }
+              }
+              
+              if (!showCursor) {
+                console.log(`🎯 Cursor stayed within ${movementThreshold}px of start position - hiding cursor overlay`);
+              }
+            }
+          }
+
+          // Calculate timing statistics from recorded frames
+          if (content.frames.length > 1) {
+            const timings = [];
+            for (let i = 0; i < content.frames.length - 1; i++) {
+              const currentTime = content.frames[i][0];
+              const nextTime = content.frames[i + 1][0];
+              timings.push(nextTime - currentTime);
+            }
+            const avgTiming = timings.reduce((a, b) => a + b, 0) / timings.length;
+            const minTiming = Math.min(...timings);
+            const maxTiming = Math.max(...timings);
+            const totalDuration = content.frames[content.frames.length - 1][0] - content.frames[0][0];
+            
+            // Detect GC pauses - outlier frames that are 3x longer than average
+            const gcPauseThreshold = avgTiming * 3;
+            const gcPauses = timings.filter(t => t > gcPauseThreshold);
+            
+            console.log(`📊 Frame timing stats: avg=${avgTiming.toFixed(1)}ms, min=${minTiming.toFixed(1)}ms, max=${maxTiming.toFixed(1)}ms, total=${(totalDuration/1000).toFixed(2)}s`);
+            if (gcPauses.length > 0) {
+              console.log(`🗑️ Detected ${gcPauses.length} potential GC pauses (>${gcPauseThreshold.toFixed(1)}ms): ${gcPauses.map(p => p.toFixed(1)).join(', ')}ms`);
+            }
+          }
+
+          // Process each frame with consistent timing - every frame gets the same duration
+          // Calculate consistent delay for all frames
+          let consistentDelay;
+          if (window.currentRecordingOptions?.intendedDuration && processedFrames.length > 0) {
+            // Distribute intended duration evenly - every frame gets same timing
+            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
+            consistentDelay = Math.round(totalIntendedMs / processedFrames.length);
+            consistentDelay = Math.max(consistentDelay, 20); // Minimum 20ms for browser compatibility
+          } else if (processedFrames.length > 1) {
+            // Calculate average frame timing from original recording and make it faster
+            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
+            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
+            // Speed up GIF by 25% (multiply delay by 0.75)
+            const speedMultiplier = 0.75;
+            consistentDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
+            console.log(`🎞️ Using sped-up timing: ${consistentDelay}ms delay (${(1000/consistentDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
+          } else {
+            // Fallback for single frame or no timing data - also faster
+            consistentDelay = 67; // 15fps default (faster than 10fps)
+            console.log(`🎞️ Using fallback timing: ${consistentDelay}ms delay (10fps) for ${processedFrames.length} frames`);
+          }
+          
+          console.log(`🎞️ Using consistent ${consistentDelay}ms delay for all ${processedFrames.length} frames`);
+          
+          // Store frame count for timestamp mapping
+          window.lastGIFFrameCount = processedFrames.length;
+
+          for (let index = 0; index < processedFrames.length; index++) {
+            const frame = processedFrames[index];
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = originalWidth * optimalScale;
+            canvas.height = originalHeight * optimalScale; // Use original height, progress bar is part of stamp
+
+            const originalImageData = new Uint8ClampedArray(frame.data);
+            const scaledImageData = upscalePixels(
+              originalImageData,
+              originalWidth,
+              originalHeight,
+              optimalScale,
+            );
+
+            const imageData = new ImageData(
+              scaledImageData,
+              originalWidth * optimalScale,
+              originalHeight * optimalScale,
+            );
+
+            ctx.putImageData(imageData, 0, 0);
+
+            // Add cyan crosshair cursor overlay if pen data is available AND cursor moved during recording
+            if (showCursor && frame.penData) {
+              addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
+            }
+
+            // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
+            const progress = (index + 1) / processedFrames.length;
+            
+            // For GIF: calculate elapsed time based on actual GIF playback timing
+            const gifElapsedMs = (index + 1) * consistentDelay; // Actual elapsed time in GIF playback
+            const gifElapsedSeconds = gifElapsedMs / 1000;
+            const gifFrameMetadata = {
+              ...frame,
+              gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
+            };
+            
+            await addAestheticComputerStamp(
+              ctx,
+              originalWidth * optimalScale,
+              originalHeight * optimalScale, // Use original height, progress bar is part of stamp
+              progress,
+              frame.data,
+              gifFrameMetadata, // Use enhanced metadata with GIF timing
+            );
+
+            // Every frame gets the same consistent delay - no variation
+            gif.addFrame(canvas, { copy: true, delay: consistentDelay });
+
+            if ((index + 1) % 50 === 0 || index === processedFrames.length - 1) {
+              console.log(
+                `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(((index + 1) / processedFrames.length) * 100)}%) - consistent delay: ${consistentDelay}ms`,
+              );
+            }
+          }
+
+          console.log("🔄 Rendering GIF...");
+
+          // Render the GIF
+          await new Promise((resolve, reject) => {
+            gif.on("finished", (blob) => {
+              console.log(
+                `💾 GIF generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
+              );
+
+              const filename = generateTapeFilename("gif");
+              receivedDownload({ filename, data: blob });
+
+              console.log("🎬 Animated GIF exported successfully!");
+
+              // Send completion message to video piece
+              send({
+                type: "recorder:export-complete",
+                content: { type: "gif", filename }
+              });
+
+              // Add a small delay to ensure UI processes the completion signal
+              setTimeout(() => {
+                resolve();
+              }, 100);
+            });
+
+            gif.on("progress", (progress) => {
+              console.log(
+                `🔄 GIF encoding progress: ${Math.round(progress * 100)}%`,
+              );
+              
+              // Send progress updates to video piece
+              send({
+                type: "recorder:export-progress", 
+                content: { progress, type: "gif" }
+              });
+            });
+
+            gif.render();
+          });
+        }
+      } catch (error) {
+        console.error("Error creating animated GIF:", error);
+        console.log("🔄 Falling back to static GIF of first frame");
+
+        try {
+          const progressBarHeight = 3; // Define progress bar height for fallback
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          const firstFrame = content.frames[0];
+
+          canvas.width = firstFrame.width;
+          canvas.height = firstFrame.height + progressBarHeight;
+
+          const imageData = new ImageData(
+            new Uint8ClampedArray(firstFrame.data),
+            firstFrame.width,
+            firstFrame.height,
+          );
+
+          ctx.putImageData(imageData, 0, 0);
+
+          // Add cyan crosshair cursor overlay if pen data is available
+          if (firstFrame.penData) {
+            addCyanCrosshair(ctx, canvas.width, canvas.height, firstFrame.penData, 1); // No scaling for fallback
+          }
+
+          // Add sideways AC stamp to fallback GIF as well (await to ensure fonts are loaded)
+          await addAestheticComputerStamp(
+            ctx,
+            firstFrame.width,
+            firstFrame.height + progressBarHeight,
+            0,
+            firstFrame.data,
+            firstFrame,
+          );
+
+          const gifBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/gif");
+          });
+
+          const filename = generateTapeFilename("gif", "-static");
+          receivedDownload({ filename, data: gifBlob });
+
+          console.log("📸 Static GIF fallback exported successfully");
+        } catch (fallbackError) {
+          console.error("Error in fallback GIF creation:", fallbackError);
+        }
+      }
+      return;
+    }
+
+    // 🎬 Create animated MP4 from frame data (same pipeline as GIF)
+    if (type === "create-animated-mp4") {
+      console.log(
+        "🎞️ Creating animated MP4 from",
+        content.frames.length,
+        "frames",
+      );
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for MP4 creation");
+          return;
+        }
+
+        console.log("🔄 Creating MP4 with MediaRecorder API");
+
+        // Send initial progress to show the progress bar immediately
+        send({
+          type: "recorder:transcode-progress",
+          content: 0.01, // 1% to start
+        });
+
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "preparing", 
+            message: "Preparing MP4 export" 
+          }
+        });
+
+        // Use 3x scaling for crisp MP4 (same as GIF for consistent performance)
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const optimalScale = 3; // 3x scale for stamps and crisp output
+
+        console.log(
+          `📏 Using 3x scaling for crisp MP4: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // Create canvas for frame processing (same as GIF)
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = originalWidth * optimalScale;
+        canvas.height = originalHeight * optimalScale;
+        ctx.imageSmoothingEnabled = false;
+
+        // Use fixed 60fps for MP4 files to avoid timing issues
+        const targetFrameRate = 60;
+        const targetFrameInterval = 1000 / targetFrameRate; // 16.67ms per frame
+        
+        // Calculate original recording timing for proper playback speed
+        let totalOriginalDuration = 0;
+        if (content.frames.length > 1) {
+          totalOriginalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+        } else if (content.frames.length === 1) {
+          totalOriginalDuration = 100; // Default 100ms for single frame
+        }
+        
+        // Calculate frame intervals based on original timing
+        const frameIntervals = [];
+        for (let i = 0; i < content.frames.length; i++) {
+          if (i < content.frames.length - 1) {
+            // Use actual time difference between frames
+            const interval = content.frames[i + 1].timestamp - content.frames[i].timestamp;
+            frameIntervals.push(Math.max(interval, 16.67)); // Minimum 16.67ms for 60fps max
+          } else {
+            // Last frame: use average interval or default
+            const avgInterval = frameIntervals.length > 0 
+              ? frameIntervals.reduce((a, b) => a + b, 0) / frameIntervals.length 
+              : 33.33; // Default to 30fps
+            frameIntervals.push(avgInterval);
+          }
+        }
+        
+        console.log(
+          `🎬 Using original timing for MP4 export: ${totalOriginalDuration.toFixed(1)}ms total, avg ${(totalOriginalDuration / content.frames.length).toFixed(1)}ms per frame`
+        );
+
+        // Pre-render all scaled frames with stamps before encoding
+        console.log("🎨 Pre-rendering all frames with stamps...");
+        
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "rendering", 
+            message: "Pre-rendering frames" 
+          }
+        });
+
+        const preRenderedFrames = [];
+        
+        // Create temporary canvas for pre-rendering
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = originalWidth * optimalScale;
+        tempCanvas.height = originalHeight * optimalScale;
+        tempCtx.imageSmoothingEnabled = false;
+        
+        // Pre-render all frames
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+          const progress = (i + 1) / content.frames.length;
+          
+          // Update progress for rendering phase
+          if (i % 10 === 0 || i === content.frames.length - 1) {
+            send({
+              type: "recorder:transcode-progress",
+              content: 0.01 + (i / content.frames.length) * 0.4, // 1% to 41%
+            });
+          }
+          
+          // Step 1: Create 3x scaled canvas with stamps (same as GIF)
+          const gifScaleCanvas = document.createElement("canvas");
+          const gifScaleCtx = gifScaleCanvas.getContext("2d");
+          const gifScale = 3; // Same scaling as GIF for proper stamp sizing
+          gifScaleCanvas.width = frame.width * gifScale;
+          gifScaleCanvas.height = frame.height * gifScale;
+          gifScaleCtx.imageSmoothingEnabled = false;
+          
+          // Scale up frame data to 3x first
+          const frameCanvas = document.createElement("canvas");
+          const frameCtx = frameCanvas.getContext("2d");
+          frameCanvas.width = frame.width;
+          frameCanvas.height = frame.height;
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+          frameCtx.putImageData(imageData, 0, 0);
+          
+          // Draw scaled to 3x
+          gifScaleCtx.drawImage(frameCanvas, 0, 0, gifScaleCanvas.width, gifScaleCanvas.height);
+
+          // Add AC stamp at 3x scale (same sizing as GIF) - await for proper rendering
+          await addAestheticComputerStamp(
+            gifScaleCtx,
+            gifScaleCanvas.width,
+            gifScaleCanvas.height,
+            progress,
+            frame.data,
+            frame,
+            i,
+            content.frames.length
+          );
+          
+          // Step 2: Final scaling is already at 3x (same as GIF)
+          tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.drawImage(gifScaleCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Capture the pre-rendered frame as ImageData
+          const preRenderedImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          preRenderedFrames.push(preRenderedImageData);
+        }
+        
+        console.log(`✅ Pre-rendered ${preRenderedFrames.length} frames`);
+
+        // Send encoding status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Encoding MP4" 
+          }
+        });
+
+        // Create MediaRecorder for MP4 export with H.264 codec
+        const canvasStream = canvas.captureStream(targetFrameRate);
+        
+        let mimeType;
+        // Try H.264 MP4 first (most compatible)
+        if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1.42E01E")) {
+          mimeType = "video/mp4; codecs=avc1.42E01E"; // H.264 Baseline Profile
+          console.log("✅ Using H.264 MP4 (Baseline Profile)");
+        } else if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1.4D401E")) {
+          mimeType = "video/mp4; codecs=avc1.4D401E"; // H.264 Main Profile
+          console.log("✅ Using H.264 MP4 (Main Profile)");
+        } else if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1")) {
+          mimeType = "video/mp4; codecs=avc1"; // H.264 generic
+          console.log("✅ Using H.264 MP4 (generic)");
+        } else if (MediaRecorder.isTypeSupported("video/mp4")) {
+          mimeType = "video/mp4"; // Fallback to generic MP4
+          console.log("⚠️ Using generic MP4 (codec unknown)");
+        } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8")) {
+          mimeType = "video/webm; codecs=vp8"; // VP8 fallback (avoid VP9)
+          console.log("⚠️ Falling back to WebM VP8");
+        } else if (MediaRecorder.isTypeSupported("video/webm")) {
+          mimeType = "video/webm"; // Generic WebM fallback
+          console.log("⚠️ Falling back to generic WebM");
+        } else {
+          console.error("🔴 No supported video mimetypes found");
+          return;
+        }
+
+        const videoRecorder = new MediaRecorder(canvasStream, {
+          mimeType,
+          videoBitsPerSecond: 100000000, // 100 Mbps for absolute maximum quality
+        });
+
+        const chunks = [];
+        videoRecorder.ondataavailable = function (e) {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        // Send encoding status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Encoding MP4" 
+          }
+        });
+
+        // Start recording
+        videoRecorder.start(100);
+
+        // Fast playback of pre-rendered frames (no real-time rendering)
+        let frameIndex = 0;
+        
+        function renderNextFrame() {
+          if (frameIndex >= preRenderedFrames.length) {
+            // All frames processed, stop recording
+            videoRecorder.stop();
+            return;
+          }
+
+          // Simply draw the pre-rendered frame to canvas - no processing needed!
+          ctx.putImageData(preRenderedFrames[frameIndex], 0, 0);
+          
+          // Send progress update
+          if (frameIndex % 30 === 0 || frameIndex === preRenderedFrames.length - 1) {
+            const progress = (frameIndex + 1) / preRenderedFrames.length;
+            console.log(`🎬 📹 Encoding frame ${frameIndex + 1}/${preRenderedFrames.length} (${(progress * 100).toFixed(1)}%)`);
+            
+            send({
+              type: "recorder:transcode-progress",
+              content: 0.41 + (progress * 0.54), // 41% to 95%
+            });
+          }
+
+          frameIndex++;
+          
+          // Use original frame timing for accurate playback speed
+          const nextFrameDelay = frameIntervals[frameIndex - 1] || targetFrameInterval;
+          
+          setTimeout(renderNextFrame, nextFrameDelay);
+        }
+
+        // Handle recording completion
+        videoRecorder.onstop = async function () {
+          console.log("🎬 📹 MP4 recording completed");
+          
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "video", 
+              phase: "finalizing", 
+              message: "Finalizing MP4" 
+            }
+          });
+
+          const blob = new Blob(chunks, { type: mimeType });
+          
+          console.log(
+            `💾 MP4 generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
+          );
+
+          const filename = generateTapeFilename("mp4");
+          receivedDownload({ filename, data: blob });
+
+          console.log("🎬 Animated MP4 exported successfully!");
+
+          // Send completion message to video piece
+          send({
+            type: "recorder:export-complete",
+            content: { type: "video", filename }
+          });
+        };
+
+        // Start frame processing
+        renderNextFrame();
+
+      } catch (error) {
+        console.error("Error creating animated MP4:", error);
+        
+        // Send error status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "error", 
+            message: "MP4 export failed" 
+          }
+        });
+      }
       return;
     }
 
@@ -2297,7 +5498,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // console.log("Target:", e.target);
               if (MetaBrowser && e.target !== window) {
                 // Skip dragging the finger outside of the Meta Browser.
-              } else input.blur();
+              } else {
+                input.blur();
+              }
             } else {
               keyboardOpenMethod = "pointer";
               // input.removeAttribute("readonly");
@@ -2347,16 +5550,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.visualViewport.addEventListener("resize", () => {
         const y = window.visualViewport.height;
         window.acDISK_SEND({ type: "viewport-height:changed", content: { y } });
-      });      // 🌒 Detect light or dark mode.
+      }); // 🌒 Detect light or dark mode.
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
       if (window.matchMedia) {
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-          document.documentElement.style.setProperty('color-scheme', 'dark');
+          document.documentElement.style.setProperty("color-scheme", "dark");
           send({ type: "dark-mode", content: { enabled: true } });
         } else {
-          document.documentElement.style.setProperty('color-scheme', 'light');
+          document.documentElement.style.setProperty("color-scheme", "light");
           send({ type: "dark-mode", content: { enabled: false } });
         }
 
@@ -2364,10 +5567,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
             if (event.matches) {
-              document.documentElement.style.setProperty('color-scheme', 'dark');
+              document.documentElement.style.setProperty(
+                "color-scheme",
+                "dark",
+              );
               send({ type: "dark-mode", content: { enabled: true } });
             } else {
-              document.documentElement.style.setProperty('color-scheme', 'light');
+              document.documentElement.style.setProperty(
+                "color-scheme",
+                "light",
+              );
               send({ type: "dark-mode", content: { enabled: false } });
             }
           });
@@ -2426,11 +5635,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
-    if (type === "disk-loaded") {      // Clear any active parameters once the disk has been loaded.
+    if (type === "disk-loaded") {
+      // Clear any active parameters once the disk has been loaded.
       // Special handling for prompt piece with kidlisp content
-      if (content.path === "aesthetic.computer/disks/prompt" && 
-          content.params && content.params.length > 0 && 
-          isKidlispSource(content.params[0])) {
+      if (
+        content.path === "aesthetic.computer/disks/prompt" &&
+        content.params &&
+        content.params.length > 0 &&
+        isKidlispSource(content.params[0])
+      ) {
         // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
         const encodedContent = encodeKidlispForUrl(content.params[0]);
         const encodedPath = "/prompt~" + encodedContent;
@@ -2561,16 +5774,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       glaze.on = false;
       canvas.style.removeProperty("opacity");
 
-      pen.events.length = 0; // Clear pen events.
+      if (pen) pen.events.length = 0; // Clear pen events.
       keyboard.events.length = 0; // Clear keyboard events.
       gamepad.events.length = 0; // Clear gamepad events.
 
       // Clear when events.
       whens = {};
 
-      // Close (defocus) software keyboard if we are NOT on the prompt.
-      // debugger;
-      if (content.text !== "prompt") {
+      // Close (defocus) software keyboard if we are NOT entering the prompt.
+      if (content.text && content.text.split("~")[0] !== "prompt") {
         document.querySelector("#software-keyboard-input")?.blur();
       }
       // keyboard.events.push({ name: "keyboard:close" });
@@ -2602,9 +5814,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           let urlPath;
           if (content.text === "/prompt") {
             urlPath = "/";
-          } else if (content.path === "aesthetic.computer/disks/prompt" && 
-                     content.params && content.params.length > 0 && 
-                     isKidlispSource(content.params[0])) {
+          } else if (
+            content.path === "aesthetic.computer/disks/prompt" &&
+            content.params &&
+            content.params.length > 0 &&
+            isKidlispSource(content.params[0])
+          ) {
             // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
             urlPath = "/prompt~" + encodeKidlispForUrl(content.params[0]);
           } else if (isKidlispSource(content.text)) {
@@ -2626,9 +5841,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               slug: (() => {
                 if (content.text?.startsWith("/")) {
                   return content.text.slice(1);
-                } else if (content.path === "aesthetic.computer/disks/prompt" && 
-                          content.params && content.params.length > 0 && 
-                          isKidlispSource(content.params[0])) {
+                } else if (
+                  content.path === "aesthetic.computer/disks/prompt" &&
+                  content.params &&
+                  content.params.length > 0 &&
+                  isKidlispSource(content.params[0])
+                ) {
                   return "prompt~" + encodeKidlispForUrl(content.params[0]);
                 } else if (isKidlispSource(content.text)) {
                   return encodeKidlispForUrl(content.text);
@@ -2652,9 +5870,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             let urlPath;
             if (content.text === "/prompt") {
               urlPath = "/";
-            } else if (content.path === "aesthetic.computer/disks/prompt" && 
-                       content.params && content.params.length > 0 && 
-                       isKidlispSource(content.params[0])) {
+            } else if (
+              content.path === "aesthetic.computer/disks/prompt" &&
+              content.params &&
+              content.params.length > 0 &&
+              isKidlispSource(content.params[0])
+            ) {
               // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
               urlPath = "/prompt~" + encodeKidlispForUrl(content.params[0]);
             } else if (isKidlispSource(content.text)) {
@@ -2738,7 +5959,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "keyboard:close") {
       // if (keyboardFocusLock) return; // Deprecated: 23.10.02.23.18
-      // console.log("⌨️ Keyboard closing...");
       keyboard?.input.blur();
       return;
     }
@@ -3003,9 +6223,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      // Reconstruct URL with preserved parameters (nogap, nolabel)
+      // Reconstruct URL with preserved parameters (nogap, nolabel, duration)
       const currentUrl = new URL(window.location);
-      
+
       // Add preserved parameters back to the URL
       if (preservedParams.nogap) {
         currentUrl.searchParams.set("nogap", preservedParams.nogap);
@@ -3013,7 +6233,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (preservedParams.nolabel) {
         currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
       }
-      
+      if (preservedParams.duration) {
+        currentUrl.searchParams.set("duration", preservedParams.duration);
+      }
+
       // Update the URL and reload
       window.location.href = currentUrl.toString();
       return;
@@ -3026,10 +6249,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           iOSAppSend({ type: "url", body: content.url });
         } else if (window.acVSCODE && window.parent !== window) {
           // In VSCode extension, send message to parent to handle external URL
-          window.parent.postMessage({ 
-            type: "openExternal", 
-            url: content.url 
-          }, "*");
+          window.parent.postMessage(
+            {
+              type: "openExternal",
+              url: content.url,
+            },
+            "*",
+          );
         } else {
           window.open(content.url); // Open URL in a new tab
         }
@@ -3130,17 +6356,50 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Audio-visual recording of the main audio track and microphone.
-    if (type === "recorder:rolling") {
-      // mediaRecorderBlob = null; // Clear the current blob when we start recording.
+  // Audio-visual recording of the main audio track and microphone.
+  if (type === "recorder:rolling") {
+    // mediaRecorderBlob = null; // Clear the current blob when we start recording.
 
-      const colonSplit = content.split(":");
-      // tiktokVideo = colonSplit[1] === "tiktok";
-      content = colonSplit[0];
+    // Store recording metadata for filename generation
+    let recordingOptions = {};
+    let actualContent = content;
+    
+    if (typeof content === "object") {
+      // New format with piece metadata
+      recordingOptions = {
+        pieceName: content.pieceName || "tape",
+        pieceParams: content.pieceParams || "",
+        originalCommand: content.originalCommand || "",
+        intendedDuration: content.intendedDuration || null, // Store intended duration from tape command
+        mystery: content.mystery || false // Store mystery flag to hide command in filename
+      };
+      actualContent = content.type || "video";
+    } else {
+      // Legacy string format - default to "tape"
+      recordingOptions = {
+        pieceName: "tape",
+        pieceParams: "",
+        originalCommand: "",
+        intendedDuration: null,
+        mystery: false
+      };
+      actualContent = content;
+    }
+    
+    // Store for use during export
+    window.currentRecordingOptions = recordingOptions;
 
-      if (mediaRecorder && mediaRecorder.state === "paused") {
+    const colonSplit = actualContent.split(":");
+    // tiktokVideo = colonSplit[1] === "tiktok";
+    actualContent = colonSplit[0];
+
+    if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
         mediaRecorderStartTime = performance.now();
+        // Initialize recording start timestamp for frame recording if not already set
+        if (!window.recordingStartTimestamp) {
+          window.recordingStartTimestamp = Date.now();
+        }
         send({
           type: "recorder:rolling:resumed",
           content: {
@@ -3149,7 +6408,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           },
         });
         if (debug && logs.recorder)
-          console.log("🔴 Recorder: Resumed", content);
+          console.log("🔴 Recorder: Resumed", actualContent);
         return;
       }
 
@@ -3160,10 +6419,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       function stop() {
         recordedFrames.length = 0;
         startTapePlayback = undefined;
+        // Properly stop and clean up MediaRecorder before trashing it
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
         mediaRecorder = undefined; // ❌ Trash the recorder.
         mediaRecorderStartTime = undefined;
-        mediaRecorderDuration = null;
+        mediaRecorderDuration = undefined; // Reset to undefined for clean initialization
         mediaRecorderChunks.length = 0;
+        // Clear recording timestamp for next recording
+        if (window.recordingStartTimestamp) {
+          delete window.recordingStartTimestamp;
+        }
+        // Clear cached tape data when stopping to start a new recording
+        Store.del("tape").catch(() => {}); // Clear cache, ignore errors
       }
 
       let mimeType;
@@ -3195,33 +6464,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       let options = { mimeType };
 
-      if (content === "video") {
+      if (actualContent === "video") {
         // Start recording audio.
-        mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+        try {
+          mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+          console.log("🎬 MediaRecorder created successfully:", mediaRecorder.state);
+        } catch (error) {
+          console.error("MediaRecorder creation failed:", error);
+          return;
+        }
       }
 
       // 🗺️ mediaRecorder:Start
-      mediaRecorder.onstart = function () {
-        // mediaRecorderResized = false;
-        mediaRecorderStartTime = performance.now();
-        send({
-          type: "recorder:rolling:started",
-          content: {
-            mime: mediaRecorder.mimeType,
-            time: audioContext?.currentTime,
-          },
-        });
-        if (debug && logs.recorder)
-          console.log("🔴 Recorder: Rolling", content);
+      if (mediaRecorder) {
+        console.log("🎬 Setting up MediaRecorder callbacks");
+        mediaRecorder.onstart = function () {
+          // mediaRecorderResized = false;
+          mediaRecorderStartTime = performance.now();
+          // Initialize recording start timestamp for frame recording
+          window.recordingStartTimestamp = Date.now();
+          
+          console.log(`🎬 🔴 Recording STARTED at ${mediaRecorderStartTime}, frame capture enabled, recordedFrames: ${recordedFrames.length}`);
+          
+          send({
+            type: "recorder:rolling:started",
+            content: {
+              mime: mediaRecorder.mimeType,
+              time: audioContext?.currentTime,
+            },
+          });
+          if (debug && logs.recorder)
+            console.log("🔴 Recorder: Rolling", actualContent);
 
-        // window.addEventListener("resize", () => (mediaRecorderResized = true), {
-        // once: true,
-        // });
-      };
+          // window.addEventListener("resize", () => (mediaRecorderResized = true), {
+          // once: true,
+          // });
+        };
+      }
 
       // 🗺️ mediaRecorder:Stop (Recorder Printing)
-      mediaRecorder.onstop = async function (evt) {
-        stop();
+      if (mediaRecorder) {
+        mediaRecorder.onstop = async function (evt) {
+          stop();
         // recordingDuration = (performance.now() - recordingStartTime) / 1000;
 
         // Reset global streamCanvas state.
@@ -3324,20 +6608,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // }
 
         // send({ type: "recorder:rolling:ended" });
-      };
+        };
 
-      mediaRecorder.ondataavailable = function (e) {
-        if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
-      };
+        mediaRecorder.ondataavailable = function (e) {
+          if (e.data && e.data.size > 0) mediaRecorderChunks.push(e.data);
+        };
 
-      // Always cut off mediaRecorders on unload.
-      window.addEventListener("unload", function () {
-        mediaRecorder?.stop();
-      });
+        // Always cut off mediaRecorders on unload.
+        window.addEventListener("unload", function () {
+          mediaRecorder?.stop();
+        });
 
-      window.addEventListener("beforeunload", function () {
-        mediaRecorder?.stop();
-      });
+        window.addEventListener("beforeunload", function () {
+          mediaRecorder?.stop();
+        });
+      }
 
       //if (content === "video") {
       // Start media recorder once svg loads.
@@ -3348,7 +6633,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //svgCursor.src = "/aesthetic.computer/cursors/precise.svg";
       //} else {
       // console.log("Start audio recording...");
+
+      // Clear any cached tape data and audio before starting new recording
+      Store.del("tape").catch(() => {}); // Clear cache, ignore errors
+      delete sfx["tape:audio"]; // Clear any cached audio data
+      mediaRecorderDuration = 0; // Reset duration for new recording
+      mediaRecorderFrameCount = 0; // Reset frame capture counter for optimization
+
+      console.log("🎬 Starting MediaRecorder, state before start:", mediaRecorder.state);
       mediaRecorder.start(100);
+      console.log("🎬 MediaRecorder.start() called, state after start:", mediaRecorder.state);
       //}
       return;
     }
@@ -3356,20 +6650,89 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:cut") {
       if (!mediaRecorder) return;
       if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
-      mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      
+      // Safety check to prevent NaN duration
+      if (mediaRecorderStartTime !== undefined) {
+        mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      } else {
+        console.warn("🎬 Warning: mediaRecorderStartTime is undefined during cut, cannot calculate duration");
+        // Set a minimal duration to prevent NaN
+        if (mediaRecorderDuration === undefined || isNaN(mediaRecorderDuration)) {
+          mediaRecorderDuration = 100; // Fallback to 100ms
+        }
+      }
+      
+      console.log(`🎬 ✂️ Recording CUT: captured ${recordedFrames.length} frames over ${mediaRecorderDuration}ms`);
+      
       // mediaRecorder?.stop();
       mediaRecorder?.pause(); // Single clips for now.
+
+      // Store the tape data to IndexedDB for persistence across page refreshes
+      const blob = new Blob(mediaRecorderChunks, {
+        type: mediaRecorder.mimeType,
+      });
+
+      await receivedChange({
+        data: {
+          type: "store:persist",
+          content: {
+            key: "tape",
+            method: "local:db",
+            data: {
+              blob,
+              duration: mediaRecorderDuration,
+              frames: recordedFrames, // Include frame data for WebP/Frame exports
+              timestamp: Date.now(),
+            },
+          },
+        },
+      });
+
+      if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB");
+
       send({ type: "recorder:rolling:ended" });
       return;
     }
 
     if (type === "recorder:present") {
-      if (mediaRecorder && mediaRecorder.state === "paused") {
-        const blob = new Blob(mediaRecorderChunks, {
-          type: mediaRecorder.mimeType,
-        });
-        sfx["tape:audio"] = await blobToArrayBuffer(blob);
-        // console.log("Update tape audio with new blob!");
+      // Check for cached video if no active recording AND no recorded frames
+      if (
+        (!mediaRecorder || mediaRecorder.state !== "paused") &&
+        recordedFrames.length === 0
+      ) {
+        const cachedTape = await Store.get("tape");
+        
+        console.log(`🎬 📼 Checking cached tape:`, cachedTape ? `found with ${cachedTape.frames?.length || 0} frames, ${cachedTape.blob?.size || 0} bytes audio` : 'not found');
+        
+        if (cachedTape && cachedTape.blob) {
+          sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+
+          // Restore frame data if available
+          if (cachedTape.frames) {
+            recordedFrames.length = 0;
+            recordedFrames.push(...cachedTape.frames);
+            console.log(`🎬 📼 Restored ${recordedFrames.length} frames from cache`);
+          }
+
+          // Set duration if available
+          if (cachedTape.duration) {
+            mediaRecorderDuration = cachedTape.duration;
+          }
+        }
+      }
+
+      if (
+        (mediaRecorder && mediaRecorder.state === "paused") ||
+        recordedFrames.length > 0
+      ) {
+        // Handle live recording or cached video
+        if (mediaRecorder && mediaRecorder.state === "paused") {
+          const blob = new Blob(mediaRecorderChunks, {
+            type: mediaRecorder.mimeType,
+          });
+          sfx["tape:audio"] = await blobToArrayBuffer(blob);
+          // console.log("Update tape audio with new blob!");
+        }
 
         underlayFrame = document.createElement("div");
         underlayFrame.id = "underlay";
@@ -3377,20 +6740,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const frameCan = document.createElement("canvas");
         const fctx = frameCan.getContext("2d");
 
-        frameCan.width = recordedFrames[0][1].width;
-        frameCan.height = recordedFrames[0][1].height;
+        if (recordedFrames.length > 0) {
+          frameCan.width = recordedFrames[0][1].width;
+          frameCan.height = recordedFrames[0][1].height;
+        }
 
         startTapePlayback = (
           transmitProgress = true,
           doneCb,
           stream,
           render,
+          overrideDurationMs = null, // Optional duration override for MP4 export
         ) => {
+          if (recordedFrames.length === 0) {
+            console.error("🎬 ❌ No recorded frames to play back!");
+            return;
+          }
+          
+          // Use overrideDurationMs if provided (for MP4 export), otherwise use mediaRecorderDuration
+          const playbackDurationMs = overrideDurationMs || mediaRecorderDuration;
+          console.log(`🎬 Tape playback using duration: ${playbackDurationMs}ms (${overrideDurationMs ? 'override' : 'default'})`);
+          
           let f = 0;
           let playbackStart;
           let playbackProgress = 0;
           let continuePlaying = true;
           let stopped = false;
+          
+          // Track total recording time for video export duration control
+          let totalRecordingStart = null;
 
           let tapeSoundId;
 
@@ -3405,8 +6783,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
-            console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
-            sfxPlaying[tapeSoundId]?.pause();
+            // console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
+            // Kill the sound since pause is not available
+            sfxPlaying[tapeSoundId]?.kill();
+            delete sfxPlaying[tapeSoundId]; // Clean up reference
             send({ type: "recorder:present-paused" });
           };
 
@@ -3417,13 +6797,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             continuePlaying = true;
             window.requestAnimationFrame(update);
-            sfxPlaying[tapeSoundId]?.resume();
-            playbackStart += performance.now() - pauseStart;
+
+            // Calculate audio position when paused
+            const pauseDuration = performance.now() - pauseStart;
+            playbackStart += pauseDuration;
+
+            // Restart the audio from the correct position if it was killed during pause
+            if (!sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
+              const audioPosition =
+                (performance.now() - playbackStart) /
+                (mediaRecorderDuration * 1000);
+              const clampedPosition = Math.max(0, Math.min(1, audioPosition));
+
+              tapeSoundId = "tape:audio_" + performance.now();
+              playSfx(tapeSoundId, "tape:audio", {
+                stream,
+                from: clampedPosition, // Start from the paused position
+              });
+            }
+
             send({ type: "recorder:present-playing" });
           };
 
           async function update() {
-            if (!continuePlaying || !underlayFrame) return;
+            if (!continuePlaying || !underlayFrame) {
+              return;
+            }
 
             if (f === 0) {
               tapeSoundId = "tape:audio_" + performance.now();
@@ -3446,25 +6845,68 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
 
-            render?.(frameCan, playbackProgress / mediaRecorderDuration); // Render a video as needed, using this canvas.
+            render?.(frameCan, playbackProgress / playbackDurationMs, f); // Render a video as needed, using this canvas and current frame index.
 
             playbackProgress = performance.now() - playbackStart;
 
             // Advance frames.
-            if (f === 0) f += 1;
-            while (playbackProgress > recordedFrames[f][0] && f !== 0) {
-              f = (f + 1) % recordedFrames.length;
-            } // Skip any necessary frames to better match the audio.
-
-            if (f === 0 && doneCb) {
-              send({ type: "recorder:present-progress", content: 1 });
-              return doneCb(); // Completed a cycle.
+            if (f === 0) {
+              f += 1;
+            }
+            
+            // Convert absolute timestamps back to relative timestamps for playback timing
+            const firstFrameTimestamp = recordedFrames[0][0];
+            
+            // Calculate how long we should wait for the current frame using original recorded timing
+            let targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+            
+            // Additional debug to check if timestamps look reasonable
+            if (f === 1) {
+              const frameDiff = recordedFrames[1][0] - recordedFrames[0][0];
+              if (frameDiff > 10000) {
+                console.warn(`🎬 ⚠️ Frame timestamps seem to be absolute timestamps (${frameDiff}ms gap), this will cause playback issues!`);
+              }
+            }
+            
+            // Advance frames while playback has progressed past the current frame's time
+            if (f >= recordedFrames.length - 1) {
+              // For video export, don't loop - complete when all frames are processed
+              if (doneCb && render) {
+                send({ type: "recorder:present-progress", content: 1 });
+                return doneCb(); // Completed video export.
+              }
+              
+              // For normal playback, loop
+              f = 0;
+              // Reset playback timing for the loop
+              playbackStart = performance.now();
+              playbackProgress = 0;
+              
+              // Restart audio for the loop
+              if (tapeSoundId) {
+                sfxPlaying[tapeSoundId]?.kill();
+                delete sfxPlaying[tapeSoundId];
+              }
+              tapeSoundId = "tape:audio_" + performance.now();
+              await playSfx(tapeSoundId, "tape:audio", { stream });
+            } else {
+              // Normal frame advancement logic
+              while (playbackProgress > targetFrameTime && f < recordedFrames.length - 1) {
+                f = f + 1;
+                // Recalculate target time for the new frame
+                targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+              }
             }
 
             if (transmitProgress) {
+              // Use frame-based progress for video export, time-based for normal playback
+              const currentProgress = render ? (f / (recordedFrames.length - 1)) : (playbackProgress / playbackDurationMs);
+              // Store global progress for overlay breathing pattern
+              window.currentTapeProgress = currentProgress;
+              
               send({
                 type: "recorder:present-progress",
-                content: playbackProgress / mediaRecorderDuration,
+                content: currentProgress,
               });
             }
 
@@ -3476,13 +6918,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         startTapePlayback();
 
+        // CRITICAL: Clear freeze frame that would layer above the underlay video (z-index 3 > 0)
+        if (freezeFrame || freezeFrameFrozen || wrapper.contains(freezeFrameCan)) {
+          freezeFrameCan.remove();
+          freezeFrame = false;
+          freezeFrameGlaze = false;
+          freezeFrameFrozen = false;
+        }
+
         underlayFrame.appendChild(frameCan);
         wrapper.appendChild(underlayFrame);
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
         if (debug && logs.recorder)
-          console.error("📼 No media recorder to present from!");
+          console.error(
+            "📼 No media recorder or cached video to present from!",
+          );
         send({ type: "recorder:presented:failure" });
       }
       return;
@@ -3514,6 +6966,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎞️ 🎥 Exporting stamped media.
     if (type === "recorder:print") {
       if (!mediaRecorder) return;
+      
+      // Send initial status
+      send({
+        type: "recorder:export-status",
+        content: { 
+          type: "video", 
+          phase: "preparing", 
+          message: "Preparing video export" 
+        }
+      });
+      
       send({ type: "recorder:present-playing" });
 
       let mimeType;
@@ -3556,13 +7019,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         newHeight = originalHeight * 2;
         newWidth = newHeight * aspectRatio;
       }
+      
+      // Add progress bar height to the final export canvas
+      const progressBarHeight = 3;
+      
       sctx.canvas.width = newWidth;
-      sctx.canvas.height = newHeight;
+      sctx.canvas.height = newHeight + progressBarHeight;
       //}
 
       sctx.imageSmoothingEnabled = false; // Must be set after resize.
 
-      const canvasStream = sctx.canvas.captureStream();
+      // Draw initial black frame to ensure canvas stream has content
+      sctx.fillStyle = 'black';
+      sctx.fillRect(0, 0, sctx.canvas.width, sctx.canvas.height);
+
+      const canvasStream = sctx.canvas.captureStream(30); // Specify framerate
       const tapeRenderStreamDest = audioContext.createMediaStreamDestination();
 
       tapeRenderStreamDest.stream.getAudioTracks().forEach((track) => {
@@ -3580,28 +7051,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const chunks = [];
 
       videoRecorder.ondataavailable = function (e) {
+        console.log("📹 Video data available:", e.data.size, "bytes");
         if (e.data && e.data.size > 0) chunks.push(e.data);
       };
 
       function startRendering() {
         stopTapePlayback?.();
+        
+        console.log(`🎬 📹 Starting video export with ${recordedFrames.length} recorded frames`);
+        
+        // Send encoding start status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Starting video encoding" 
+          }
+        });
+        
         videoRecorder.start(100);
         startTapePlayback(
           true,
           () => {
-            setTimeout(function () {
-              videoRecorder.stop();
-            }, 500); // Seems like this is necessary or recordings get cut-off.
+            console.log(`🎬 📹 Video export completed, stopping recorder`);
+            // Stop video recorder immediately when all frames are processed
+            videoRecorder.stop();
           },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
-          function renderTape(can, progress) {
+          function renderTape(can, progress, frameIndex) {
+            // Helper function for choosing random values
+            function choose(options) {
+              return options[Math.floor(Math.random() * options.length)];
+            }
+            
+            // Use the actual frame index from playback instead of separate counter
+            const currentFrameIndex = frameIndex !== undefined ? frameIndex : f;
+            
+            // Log progress every 60 frames to reduce console spam
+            if (currentFrameIndex % 60 === 0 || currentFrameIndex <= 5) {
+              console.log(`🎬 📹 Rendering frame ${currentFrameIndex + 1}/${recordedFrames.length} (${(progress * 100).toFixed(1)}%)`);
+            }
+            
+            const progressBarHeight = 3;
             const frameWidth = sctx.canvas.width;
-            const frameHeight = sctx.canvas.height;
-            const frameAspectRatio = frameHeight / frameWidth;
+            const totalFrameHeight = sctx.canvas.height;
+            const contentFrameHeight = totalFrameHeight - progressBarHeight; // Height for content area
+            const frameAspectRatio = contentFrameHeight / frameWidth;
             const aspectRatio = can.height / can.width;
 
-            sctx.clearRect(0, 0, frameWidth, frameHeight);
+            sctx.clearRect(0, 0, frameWidth, totalFrameHeight);
 
             // if (glaze.on) can = Glaze.getCan();
 
@@ -3612,12 +7112,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             if (frameAspectRatio > aspectRatio) {
               height = sctx.canvas.width * aspectRatio;
-              y = floor(frameHeight / 2 - height / 2);
+              y = floor(contentFrameHeight / 2 - height / 2);
               width = sctx.canvas.width;
             } else {
-              width = sctx.canvas.height / aspectRatio;
+              width = contentFrameHeight / aspectRatio;
               x = floor(frameWidth / 2 - width / 2);
-              height = sctx.canvas.height;
+              height = contentFrameHeight; // Use content frame height
             }
 
             if (ThreeD)
@@ -3631,7 +7131,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             sctx.drawImage(can, x, y, floor(width), floor(height));
 
-            if (pen.pointers[1]) {
+            if (pen?.pointers[1]) {
               const originalX = pen.pointers[1].x;
               const originalY = pen.pointers[1].y;
               const scaledX = (originalX / canvas.width) * width + x;
@@ -3646,25 +7146,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   svgCursor.naturalHeight,
                 );
               } else {
-                // Draw a soft tap.
-                // const circleRadius = 16; // example value, adjust as needed
-                // shuffleInPlace(["magenta", "lime", "white"]).forEach((color) => {
-                //   const ox = choose(-4, -2, 0, 2, 4);
-                //   const oy = choose(-4, -2, 0, 2, 4);
-                //   sctx.globalAlpha = 0.15 + Math.random() * 0.25;
-                //   sctx.beginPath();
-                //   sctx.arc(
-                //     scaledX + ox,
-                //     scaledY + oy,
-                //     circleRadius,
-                //     0,
-                //     2 * Math.PI,
-                //   );
-                //   sctx.fillStyle = color; // or any desired color
-                //   sctx.fill();
-                //   sctx.closePath();
-                // });
-                // sctx.globalAlpha = 1;
+                // Draw cyan crosshair for touch devices
+                const crosshairSize = 16;
+                const crosshairThickness = 2;
+                
+                sctx.globalAlpha = 0.8;
+                sctx.strokeStyle = "cyan";
+                sctx.lineWidth = crosshairThickness;
+                sctx.lineCap = "round";
+                
+                // Draw crosshair lines
+                sctx.beginPath();
+                // Horizontal line
+                sctx.moveTo(scaledX - crosshairSize, scaledY);
+                sctx.lineTo(scaledX + crosshairSize, scaledY);
+                // Vertical line
+                sctx.moveTo(scaledX, scaledY - crosshairSize);
+                sctx.lineTo(scaledX, scaledY + crosshairSize);
+                sctx.stroke();
+                
+                // Draw center dot
+                sctx.fillStyle = "cyan";
+                sctx.beginPath();
+                sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
+                sctx.fill();
+                
+                sctx.globalAlpha = 1;
               }
             }
 
@@ -3679,14 +7186,191 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // }
 
             // 2. Set up the font.
-            const typeSize = min(32, max(24, floor(sctx.canvas.height / 20)));
+            const typeSize = min(16, max(12, floor(sctx.canvas.height / 40)));
             // const textHeight = typeSize;
             const gap = typeSize * 0.75;
 
+            // Film camera style timestamp at bottom-left corner
+            function addFilmTimestamp(
+              sctx,
+              canvasWidth,
+              canvasHeight,
+              typeSize,
+              progress, // Export progress for the progress bar
+            ) {
+              // Always show timestamp and progress bar for the full duration of the work (no breathing pattern)
+              let showTimecodeAndProgressBar = true; // Always visible throughout the entire duration
+              
+              // Progress bar height (should match what's set above)
+              const progressBarHeight = 20;
+              
+              // Calculate the content area height (canvas height minus progress bar)
+              const contentHeight = sctx.canvas.height - progressBarHeight;
+              
+              // Calculate simple second count starting from 0
+              let elapsedSeconds = 0;
+              
+              if (mediaRecorderStartTime !== undefined) {
+                // During recording: show seconds elapsed since recording started
+                const elapsedMs = performance.now() - mediaRecorderStartTime;
+                elapsedSeconds = elapsedMs / 1000;
+              } else if (window.recordingStartTimestamp && progress >= 0) {
+                // Use progress to map to intended recording duration
+                let actualRecordingDurationMs = 5000; // Default fallback
+                
+                // Prioritize intended duration for accurate real-time mapping
+                if (window.currentRecordingOptions?.intendedDuration) {
+                  actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+                } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+                  actualRecordingDurationMs = mediaRecorderDuration;
+                } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+                  actualRecordingDurationMs = window.gifDurationMs;
+                }
+                
+                // Calculate elapsed seconds
+                elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+              } else {
+                // Fallback: show 0 seconds (for non-recording contexts)
+                elapsedSeconds = 0;
+              }
+
+              // Format as simple seconds with one decimal place
+              const timestamp = `${elapsedSeconds.toFixed(1)}s`;
+
+              sctx.save();
+
+              // Only draw timecode and progress bar if they should be visible (breathing pattern)
+              if (showTimecodeAndProgressBar) {
+                // Make timestamp more opaque and clearer
+                sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
+                
+                // Special looping blink effect - always visible but with special colors at loop boundaries
+                let timestampAlpha = 0.8; // Default opacity
+                let timestampColor = choose("white", "yellow", "red"); // Default blinking colors
+                
+                // Since we don't have frame info here, use very small percentage for 1-frame approximation
+                if (progress <= 0.001) {
+                  // Very start of loop - bright lime green blink for loop start (approximates 1 frame)
+                  timestampColor = "lime";
+                  timestampAlpha = 1.0; // Full brightness
+                } else if (progress >= 0.999) {
+                  // Very end of loop - bright red blink for loop end (approximates 1 frame)
+                  timestampColor = "red";
+                  timestampAlpha = 1.0; // Full brightness
+                }
+                
+                sctx.globalAlpha = timestampAlpha;
+                sctx.fillStyle = timestampColor;
+
+                const timestampMargin = typeSize * 0.5; // Small margin from edges
+
+                // Smoother, gentler shake effect
+                const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
+                const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
+                const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+
+                // Position timestamp in the content area (not in the progress bar area)
+                const timestampY = contentHeight - timestampMargin - typeSize * 0.5;
+
+                sctx.fillText(
+                  timestamp,
+                  timestampMargin + shakeX,
+                  timestampY + shakeY,
+                );
+
+                // Draw progress bar in the extended area at the bottom
+                const progressBarY = contentHeight; // Start right after content
+                const progressBarWidth = Math.floor(progress * canvasWidth);
+                
+                // Fill the entire progress bar area with a dark background
+                sctx.fillStyle = "#000000";
+                sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+                
+                // Sample colors from the source frame for the progress bar
+                let frameColors = []; // Start empty, no fallback yet
+                try {
+                  // Get frame data from the source canvas ('can' parameter)
+                  const tempCtx = can.getContext('2d');
+                  const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
+                  
+                  // Sample colors across the width of the progress bar for pixel-by-pixel variety
+                  const numSamples = Math.min(progressBarWidth, 50); // Cap at 50 samples for performance
+                  
+                  if (numSamples > 0 && frameImageData.data.length > 0) {
+                    for (let i = 0; i < numSamples; i++) {
+                      const xPos = Math.floor((i / Math.max(numSamples - 1, 1)) * (can.width - 1));
+                      const yPos = Math.floor(can.height * 0.5); // Sample from middle row
+                      const pixelIndex = (yPos * can.width + xPos) * 4;
+                      
+                      if (pixelIndex >= 0 && pixelIndex < frameImageData.data.length - 3) {
+                        const r = frameImageData.data[pixelIndex];
+                        const g = frameImageData.data[pixelIndex + 1];
+                        const b = frameImageData.data[pixelIndex + 2];
+                        
+                        // Very subtle enhancement - just barely brighten for visibility
+                        const subtleBoost = 1.05; // Very minimal boost (5% instead of 10-40%)
+                        const enhancedR = Math.min(255, Math.floor(r * subtleBoost));
+                        const enhancedG = Math.min(255, Math.floor(g * subtleBoost));
+                        const enhancedB = Math.min(255, Math.floor(b * subtleBoost));
+                        
+                        const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+                        frameColors.push(hexColor);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.warn("Failed to sample frame colors:", error);
+                }
+                
+                // Fallback to subtle natural colors if sampling failed or produced no colors
+                if (frameColors.length === 0) {
+                  // Use more natural, muted colors as fallback
+                  const naturalColors = ["#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"];
+                  const numFallbackSegments = Math.min(progressBarWidth, 20);
+                  for (let i = 0; i < numFallbackSegments; i++) {
+                    frameColors.push(choose(naturalColors));
+                  }
+                }
+                
+                // Draw the progress bar with frame-sampled colors
+                if (frameColors.length === 1) {
+                  // Single color fallback
+                  sctx.fillStyle = frameColors[0];
+                  sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+                } else {
+                  // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                  const segmentWidth = progressBarWidth / frameColors.length;
+                  for (let i = 0; i < frameColors.length; i++) {
+                    const segmentX = i * segmentWidth;
+                    const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                    
+                    sctx.fillStyle = frameColors[i];
+                    sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                  }
+                }
+                
+                // Add a subtle border
+                sctx.strokeStyle = "#333333";
+                sctx.lineWidth = 1;
+                sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+              }
+
+              sctx.restore();
+            }
+
             sctx.save(); // Save the current state of the canvas
 
-            drawTextAtPosition(0, 90); // Left
-            drawTextAtPosition(sctx.canvas.width, -90); // Right
+            // Add film camera style timestamp at bottom-left corner
+            addFilmTimestamp(
+              sctx,
+              sctx.canvas.width,
+              sctx.canvas.height,
+              typeSize,
+              progress, // Pass progress to the timestamp function
+            );
+
+            drawTextAtPosition(0, 90); // Left side stamp (rotated 90 degrees)
+            drawTextAtPosition(sctx.canvas.width, -90); // Right side stamp (rotated -90 degrees)
 
             sctx.restore();
             sctx.globalAlpha = 1;
@@ -3695,9 +7379,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.save();
               sctx.translate(positionX, 0);
               sctx.rotate(radians(deg));
-              const yDist = 0.05;
+              const yDist = 0.25; // Move towards center (was 0.05)
 
-              sctx.font = `${typeSize}px YWFTProcessing-Regular`;
+              // Make the stamps larger
+              sctx.font = `${typeSize * 1.2}px YWFTProcessing-Regular`;
               const text = "aesthetic.computer";
               const measured = sctx.measureText(text);
               const textWidth = measured.width;
@@ -3724,6 +7409,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 sctx.fillStyle = color;
 
                 if (deg === 90) {
+                  // LEFT SIDE: Main text positioning
                   sctx.fillText(
                     text,
                     floor(
@@ -3732,16 +7418,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     -floor(offsetX + gap),
                   );
                 } else if (deg === -90) {
+                  // RIGHT SIDE: Main text positioning
                   sctx.fillText(
                     text,
-                    -floor(sctx.canvas.height * yDist + textWidth + offsetY),
-                    floor(offsetX - gap),
+                    -floor(sctx.canvas.height * 0.05 + offsetY),
+                    floor(offsetX + gap * 3),
                   );
                 }
               });
 
               if (HANDLE) {
-                sctx.font = `${typeSize * 1.25}px YWFTProcessing-Light`;
+                sctx.font = `${typeSize * 1.5}px YWFTProcessing-Light`; // Larger handle
                 sctx.fillStyle = choose("yellow", "red", "blue");
                 let offsetX, offsetY;
                 const handleWidth =
@@ -3751,7 +7438,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 offsetY = choose(-1, 0, 1);
 
                 if (deg === 90) {
-                  // Handle
+                  // LEFT SIDE: Handle positioning
                   sctx.fillText(
                     HANDLE,
                     floor(
@@ -3760,21 +7447,190 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     -floor(offsetX + handleSpace + gap),
                   );
                 } else if (deg === -90) {
+                  // RIGHT SIDE: Handle positioning
                   sctx.fillText(
                     HANDLE,
-                    -floor(sctx.canvas.height * yDist + handleWidth + offsetY),
-                    floor(offsetX - handleSpace - gap),
+                    -floor(sctx.canvas.height * 0.05 + handleWidth + offsetY),
+                    floor(offsetX + handleSpace + gap * 3),
                   );
                 }
               }
 
+              // Remove the old timestamp code from here since it's now in addFilmTimestamp
+
               sctx.restore();
+            }
+
+            // Film camera style timestamp at bottom-left corner
+            function addFilmTimestamp(
+              sctx,
+              canvasWidth,
+              canvasHeight,
+              typeSize,
+              progress, // Export progress for the progress bar
+            ) {
+              // Progress bar height (should match what's set in renderTape)
+              const progressBarHeight = 20;
+              
+              // Calculate the original content area height
+              const originalCanvasHeight = sctx.canvas.height - progressBarHeight;
+              
+              // Calculate simple second count starting from 0
+              let elapsedSeconds = 0;
+              
+              if (mediaRecorderStartTime !== undefined) {
+                // During recording: show seconds elapsed since recording started
+                const elapsedMs = performance.now() - mediaRecorderStartTime;
+                elapsedSeconds = elapsedMs / 1000;
+              } else if (window.recordingStartTimestamp && progress >= 0) {
+                // Use progress to map to intended recording duration
+                let actualRecordingDurationMs = 5000; // Default fallback
+                
+                // Prioritize intended duration for accurate real-time mapping
+                if (window.currentRecordingOptions?.intendedDuration) {
+                  actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+                } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+                  actualRecordingDurationMs = mediaRecorderDuration;
+                } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+                  actualRecordingDurationMs = window.gifDurationMs;
+                }
+                
+                // Calculate elapsed seconds
+                elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+              } else {
+                // Fallback: show 0 seconds (for non-recording contexts)
+                elapsedSeconds = 0;
+              }
+
+              // Format as simple seconds with one decimal place
+              const timestamp = `${elapsedSeconds.toFixed(1)}s`;
+
+              sctx.save();
+              // Make timestamp more opaque and clearer
+              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
+              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
+              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
+
+              const timestampMargin = typeSize * 0.5; // Small margin from edges
+
+              // Smoother, gentler shake effect
+              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
+              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
+              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+
+              // Position timestamp in the main content area (not in the progress bar area)
+              const timestampY = originalCanvasHeight - timestampMargin - typeSize * 0.5;
+
+              sctx.fillText(
+                timestamp,
+                timestampMargin + shakeX,
+                timestampY + shakeY,
+              );
+
+              // Draw progress bar in the extended area at the bottom of the scaled content
+              const progressBarY = originalCanvasHeight; // Start right after original content
+              const progressBarWidth = Math.floor(progress * canvasWidth);
+              
+              // Fill the entire progress bar area with a dark background
+              sctx.fillStyle = "#000000";
+              sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+              
+              // Sample colors from the source frame for the progress bar
+              let frameColors = ["#FF0000"]; // Red fallback
+              try {
+                // Get frame data from the source canvas ('can' parameter)
+                const tempCtx = can.getContext('2d');
+                const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
+                
+                // Sample colors across the width of the progress bar for pixel-by-pixel variety
+                const numSamples = Math.min(progressBarWidth, 100); // Cap at 100 samples for performance
+                frameColors = [];
+                
+                for (let i = 0; i < numSamples; i++) {
+                  const xPos = Math.floor((i / numSamples) * can.width);
+                  const yPos = Math.floor(can.height * 0.5); // Sample from middle row
+                  const pixelIndex = (yPos * can.width + xPos) * 4;
+                  
+                  if (pixelIndex < frameImageData.data.length - 4) {
+                    const r = frameImageData.data[pixelIndex];
+                    const g = frameImageData.data[pixelIndex + 1];
+                    const b = frameImageData.data[pixelIndex + 2];
+                    
+                    // Enhance colors for visibility
+                    const enhancedR = Math.min(255, Math.floor(r * 1.3));
+                    const enhancedG = Math.min(255, Math.floor(g * 1.3));
+                    const enhancedB = Math.min(255, Math.floor(b * 1.3));
+                    
+                    const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+                    frameColors.push(hexColor);
+                  } else {
+                    frameColors.push("#FF0000"); // Red fallback
+                  }
+                }
+              } catch (error) {
+                console.warn("Failed to sample frame colors:", error);
+                frameColors = ["#FF0000"]; // Red fallback
+              }
+              
+              // Draw the progress bar with frame-sampled colors
+              if (frameColors.length === 1) {
+                // Single color fallback
+                sctx.fillStyle = frameColors[0];
+                sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+              } else {
+                // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                const segmentWidth = progressBarWidth / frameColors.length;
+                for (let i = 0; i < frameColors.length; i++) {
+                  const segmentX = i * segmentWidth;
+                  const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                  
+                  sctx.fillStyle = frameColors[i];
+                  sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                }
+              }
+              
+              // Add a subtle border
+              sctx.strokeStyle = "#333333";
+              sctx.lineWidth = 1;
+              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+
+              sctx.restore();
+            }
+
+            // Send detailed progress with phase information
+            let phase = "encoding";
+            let message = "Encoding video";
+            
+            if (progress < 0.3) {
+              phase = "preparing";
+              message = `Preparing frame ${currentFrameIndex + 1}`;
+            } else if (progress < 0.7) {
+              phase = "encoding";
+              message = `Encoding frame ${currentFrameIndex + 1}`;
+            } else if (progress < 0.95) {
+              phase = "transcoding";
+              message = "Transcoding MP4";
+            } else {
+              phase = "finalizing";
+              message = "Finalizing video";
             }
 
             send({
               type: "recorder:transcode-progress",
               content: progress,
             });
+            
+            // Send detailed status every few frames to avoid spam
+            if (currentFrameIndex % 5 === 0 || progress >= 0.95) {
+              send({
+                type: "recorder:export-status",
+                content: { 
+                  type: "video", 
+                  phase: phase, 
+                  message: message 
+                }
+              });
+            }
           },
         );
       }
@@ -3785,22 +7641,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Video rendered, now download...
       videoRecorder.onstop = async function (e) {
+        console.log("📹 Video recording stopped. Chunks collected:", chunks.length);
+        console.log("📹 Total video data size:", chunks.reduce((total, chunk) => total + chunk.size, 0), "bytes");
+        
         const blob = new Blob(chunks, { type: videoRecorder.mimeType });
-        const filename = `tape-${timestamp()}.mp4`;
+        console.log("📹 Final video blob size:", blob.size, "bytes, type:", blob.type);
+        
+        const filename = generateTapeFilename("mp4");
 
+        // Store video with frame data for complete persistence
+        const storeData = {
+          blob,
+          duration: mediaRecorderDuration,
+          frames: recordedFrames, // Include frame data for WebP/Frame exports
+          timestamp: Date.now(),
+          filename, // Store the generated filename
+        };
+        
+        // Debug: Check frame data before storage
+        if (recordedFrames.length > 0) {
+          const firstFrame = recordedFrames[0];
+          console.log("💾 Storing tape with frames:", {
+            frameCount: recordedFrames.length,
+            firstFrameTimestamp: firstFrame[0],
+            firstFrameTimestampType: typeof firstFrame[0],
+            firstFrameStructure: Array.isArray(firstFrame) ? `Array(${firstFrame.length})` : typeof firstFrame
+          });
+        }
+        
         await receivedChange({
           data: {
             type: "store:persist",
             content: {
               key: "tape",
               method: "local:db",
-              data: { blob, duration: mediaRecorderDuration },
+              data: storeData,
             },
           },
         });
 
         // 📥 Download the video.
         receivedDownload({ filename, data: blob });
+        
+        // Send completion message
+        send({
+          type: "recorder:export-complete",
+          content: { type: "video", filename }
+        });
+        
         send({ type: "recorder:printed", content: { id: filename } });
         stopTapePlayback?.();
         send({ type: "recorder:present-paused" });
@@ -3813,10 +7701,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:slate") {
-      if (mediaRecorder?.mimeType.indexOf("video") !== -1) {
-        await Store.del("tape");
-      }
+      // Always clear cached tape data when slating, regardless of media type
+      await Store.del("tape");
       mediaRecorder?.stop();
+      return;
+    }
+
+    // Request recorded frames for export
+    if (type === "recorder:request-frames") {
+      if (recordedFrames.length > 0) {
+        send({
+          type: "recorder:frames-response",
+          content: { frames: recordedFrames },
+        });
+      } else {
+        send({
+          type: "recorder:frames-response",
+          content: { frames: [] },
+        });
+      }
       return;
     }
 
@@ -3877,8 +7780,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a sound from a url with instant playback support.
     if (type === "sfx:load") {
-      if (debug && logs.audio) console.log("🔈 BIOS received sfx:load request for:", content);
-      
+      if (debug && logs.audio)
+        console.log("🔈 BIOS received sfx:load request for:", content);
+
       let internal = false;
 
       for (let wl of soundWhitelist) {
@@ -3899,59 +7803,81 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else url = content;
 
-      if (debug && logs.audio) console.log("🔈 BIOS loading sound from URL:", url);
+      if (debug && logs.audio)
+        console.log("🔈 BIOS loading sound from URL:", url);
 
       // Enhanced instant playback audio loading strategy
       const audioId = content;
-      
+
       // Strategy 1: Immediate HTML5 Audio for instant playback
       const htmlAudioElement = new Audio();
       htmlAudioElement.crossOrigin = "anonymous";
       htmlAudioElement.preload = "auto";
       htmlAudioElement.src = url;
-      
+
       // Store the HTML5 audio for instant playback
       sfx[audioId + "_html5"] = htmlAudioElement;
-      
-      if (debug && logs.audio) console.log("🔈 BIOS stored HTML5 audio element for:", audioId + "_html5");
-      
+
+      if (debug && logs.audio)
+        console.log(
+          "🔈 BIOS stored HTML5 audio element for:",
+          audioId + "_html5",
+        );
+
       // Strategy 2: Background fetch and decode for high-quality playback
       fetch(url)
         .then((response) => {
           return response.arrayBuffer();
         })
         .then(async (arrayBuffer) => {
-          if (debug && logs.audio) console.log("🔈 BIOS fetched audio data for:", audioId);
+          if (debug && logs.audio)
+            console.log("🔈 BIOS fetched audio data for:", audioId);
           try {
             if (!audioContext) {
               sfx[audioId] = arrayBuffer;
-              if (debug && logs.audio) console.log("🔈 BIOS stored raw audio buffer (no audioContext):", audioId);
+              if (debug && logs.audio)
+                console.log(
+                  "🔈 BIOS stored raw audio buffer (no audioContext):",
+                  audioId,
+                );
               // Process any queued sounds that might be waiting for this file
               processPendingSfx();
             } else {
               // Background decode the buffer
-              const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+              const audioBuffer =
+                await audioContext.decodeAudioData(arrayBuffer);
               sfx[audioId] = audioBuffer;
-              
-              if (debug && logs.audio) console.log("🔈 BIOS decoded and stored audio buffer:", audioId);
-              
+
+              if (debug && logs.audio)
+                console.log(
+                  "🔈 BIOS decoded and stored audio buffer:",
+                  audioId,
+                );
+
               // Clean up HTML5 audio once high-quality buffer is ready
               if (sfx[audioId + "_html5"]) {
                 delete sfx[audioId + "_html5"];
               }
-              
+
               if (debug && logs.audio)
-                console.log("🔈 Background decoded for high-quality playback:", audioId);
-              
+                console.log(
+                  "🔈 Background decoded for high-quality playback:",
+                  audioId,
+                );
+
               // Process any queued sounds that might be waiting for this file
               processPendingSfx();
             }
-            
+
             send({
               type: "loaded-sfx-success",
               content: { url, sfx: audioId },
             });
-            if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (background):", audioId);
+            if (debug && logs.audio)
+              console.log(
+                "🔈 BIOS sent loaded-sfx-success (background):",
+                audioId,
+              );
           } catch (error) {
             if (debug && logs.audio)
               console.error("Background audio decoding failed:", error);
@@ -3965,7 +7891,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         .catch((error) => {
           // Keep the HTML5 audio as fallback
           send({
-            type: "loaded-sfx-success", 
+            type: "loaded-sfx-success",
             content: { url, sfx: audioId },
           });
         });
@@ -3975,7 +7901,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: "loaded-sfx-success",
         content: { url, sfx: audioId, instantPlayback: true },
       });
-      if (debug && logs.audio) console.log("🔈 BIOS sent loaded-sfx-success (instant):", audioId);
+      if (debug && logs.audio)
+        console.log("🔈 BIOS sent loaded-sfx-success (instant):", audioId);
 
       return;
     }
@@ -4090,10 +8017,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       consumeDiskSends(send);
       return;
-    }    if (type === "back-to-piece") {
-      console.log("🔙 Browser history.back() called from URL:", window.location.href);
-      console.log("🔙 Browser history length:", window.history.length);
-      history.back();
+    }
+    if (type === "back-to-piece") {
+      // Check if we have labelBack state active
+      if (mainThreadLabelBack) {
+        // Clear the labelBack state since we're handling the navigation
+        mainThreadLabelBack = false;
+        sessionStorage.removeItem("aesthetic-labelBack");
+
+        // Navigate directly to the target piece from worker instead of using history.back()
+        // This avoids the reload cycle for kidlisp pieces
+        const targetPiece = content?.targetPiece || "chat"; // Use target from worker or fallback to chat
+
+        // Update the URL and load the target piece directly
+        const targetUrl = new URL(window.location);
+        targetUrl.pathname = "/" + targetPiece;
+        window.history.pushState(null, "", targetUrl);
+
+        const parsed = parse(targetPiece);
+        send({
+          type: "history-load",
+          content: parsed,
+        });
+      } else {
+        history.back();
+      }
       return false;
     }
 
@@ -4111,7 +8059,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     updateSynths(content.sound); // 🔈 Trigger any audio that was called upon.
 
-    // 🖥️ Compositing
+    // 🖥️ Compositing - OPTIMIZED for zero-copy pixel buffer transfer
+
+    // TEMPORARILY DISABLE PIXEL OPTIMIZER to debug black buffer dragging issue
+    /*
+    if (!window.pixelOptimizer) {
+      try {
+        const { pixelOptimizer } = await import('./lib/graphics-optimizer.mjs');
+        window.pixelOptimizer = pixelOptimizer;
+      } catch (err) {
+        console.warn('🟡 Graphics optimizer not available, using fallback:', err);
+      }
+    }
+    */
 
     // This is a bit messy compared to what happens inside of content.reframe -> frame below. 22.10.27.02.05
     if (
@@ -4119,18 +8079,100 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       content.width === screen.width &&
       content.height === screen.height
     ) {
-      screen.pixels = new Uint8ClampedArray(content.pixels);
-      // screen.width = content.width;
-      // screen.height = content.height;
-      let width = screen.width;
-      let height = screen.height;
+      // 🚀 OPTIMIZATION: Use zero-copy ImageData creation when possible
+      if (window.pixelOptimizer) {
+        try {
+          imageData = window.pixelOptimizer.createImageDataZeroCopy(
+            content.pixels, 
+            content.width, 
+            content.height
+          );
+          // Update screen reference to use the zero-copy buffer
+          assign(screen, {
+            pixels: imageData.data,
+            width: content.width,
+            height: content.height,
+          });
+          window.pixelOptimizer.stats.framesProcessed++;
+        } catch (err) {
+          console.warn('🟡 Zero-copy optimization failed, using fallback:', err);
+          // Fallback to original method
+          screen.pixels = new Uint8ClampedArray(content.pixels);
+          let width = screen.width;
+          let height = screen.height;
+          const expectedLength = width * height * 4;
+          
+          if (
+            !content.reframe &&
+            (screen.pixels.length === expectedLength || reframeJustCompleted)
+          ) {
+            if (screen.pixels.length === expectedLength) {
+              imageData = new ImageData(screen.pixels, width, height);
+              if (underlayFrame) {
+                // console.log("🎬 Fallback ImageData created during tape playback");
+              }
+            }
+            if (reframeJustCompleted) {
+              reframeJustCompleted = false;
+            }
+          }
+        }
+      } else {
+        // Original fallback code
+        screen.pixels = new Uint8ClampedArray(content.pixels);
+        let width = screen.width;
+        let height = screen.height;
+        const expectedLength = width * height * 4;
 
-      if (content.reframe && content.reframe.width && content.reframe.height) {
-        width = content.reframe.width;
-        height = content.reframe.height;
+        // Only create ImageData if dimensions match the pixel buffer
+        // (Don't create with reframe dimensions until after the reframe happens)
+        // Be more lenient right after reframe completion to restore animation
+        if (
+          !content.reframe &&
+          (screen.pixels.length === expectedLength || reframeJustCompleted)
+        ) {
+          if (screen.pixels.length === expectedLength) {
+            imageData = new ImageData(screen.pixels, width, height);
+          }
+          // Reset flag regardless of whether ImageData creation succeeded
+          if (reframeJustCompleted) {
+            reframeJustCompleted = false;
+          }
+        }
       }
-
-      imageData = new ImageData(screen.pixels, width, height);
+    } else if (reframeJustCompleted && content.pixels?.byteLength > 0) {
+      // Special case: after reframe with new dimensions, create ImageData even if screen dimensions don't match yet
+      try {
+        if (window.pixelOptimizer) {
+          // 🚀 OPTIMIZATION: Zero-copy reframe handling
+          imageData = window.pixelOptimizer.createImageDataZeroCopy(
+            content.pixels,
+            content.width,
+            content.height
+          );
+          // Update screen dimensions to match
+          assign(screen, {
+            pixels: imageData.data,
+            width: content.width,
+            height: content.height,
+          });
+          window.pixelOptimizer.stats.framesProcessed++;
+        } else {
+          // Original fallback
+          const newPixels = new Uint8ClampedArray(content.pixels);
+          imageData = new ImageData(newPixels, content.width, content.height);
+          // Update screen dimensions to match
+          assign(screen, {
+            pixels: imageData.data,
+            width: content.width,
+            height: content.height,
+          });
+        }
+        reframeJustCompleted = false;
+      } catch (err) {
+        console.warn("⚠️ Failed to create post-reframe ImageData:", err);
+        reframeJustCompleted = false;
+      }
     }
 
     // old threed garbage collection (remove)
@@ -4139,10 +8181,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (content.reframe) {
       // Reframe the captured pixels.
       frame(content.reframe.width, content.reframe.height, content.reframe.gap);
-      pen.retransformPosition();
+      pen?.retransformPosition();
     }
 
-    if (content.cursorCode) pen.setCursorCode(content.cursorCode);
+    if (content.cursorCode) pen?.setCursorCode(content.cursorCode);
 
     // Abort the render if pixels don't match.
     if (
@@ -4170,34 +8212,120 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 👌 Otherwise, grab all the pixels, or some, if `dirtyBox` is present.
     if (content.dirtyBox) {
-      // 🅰️ Cropped update.
-      const imageData = new ImageData(
-        new Uint8ClampedArray(content.pixels), // Is this the only necessary part?
-        content.dirtyBox.w,
-        content.dirtyBox.h,
-      );
+      // 🅰️ Cropped update - OPTIMIZED for zero-copy and async rendering
+      if (window.pixelOptimizer) {
+        try {
+          // Use optimized dirty box rendering
+          const imageData = window.pixelOptimizer.createImageDataZeroCopy(
+            content.pixels,
+            content.dirtyBox.w,
+            content.dirtyBox.h
+          );
 
-      // Paint everything to a secondary canvas buffer.
-      // TODO: Maybe this should be instantiated when the system starts to better
-      //       optimize things? (Only if it's ever slow...)
-      // TODO: Use ImageBitmap objects to make this faster once it lands in Safari.
-      dirtyBoxBitmapCan = document.createElement("canvas");
-      dirtyBoxBitmapCan.width = imageData.width;
-      dirtyBoxBitmapCan.height = imageData.height;
+          // Reuse the dirtyBox canvas instead of creating new ones
+          if (
+            dirtyBoxCanvas.width !== imageData.width ||
+            dirtyBoxCanvas.height !== imageData.height
+          ) {
+            dirtyBoxCanvas.width = imageData.width;
+            dirtyBoxCanvas.height = imageData.height;
+          }
 
-      const dbCtx = dirtyBoxBitmapCan.getContext("2d");
-      dbCtx.putImageData(imageData, 0, 0);
+          // Use async rendering for better performance
+          if (window.pixelOptimizer.asyncRenderingSupported && imageData.width * imageData.height > 1024) {
+            window.pixelOptimizer.renderImageDataAsync(imageData, dirtyBoxCtx, 0, 0);
+          } else {
+            dirtyBoxCtx.putImageData(imageData, 0, 0);
+          }
+          
+          dirtyBoxBitmapCan = dirtyBoxCanvas; // Reference the reused canvas
+          
+        } catch (err) {
+          console.warn('🟡 Optimized dirty box rendering failed, using fallback:', err);
+          // Fallback to original method
+          const imageData = new ImageData(
+            new Uint8ClampedArray(content.pixels),
+            content.dirtyBox.w,
+            content.dirtyBox.h,
+          );
 
-      // Use this alternative once it's faster. 2022.01.29.02.46
-      // const dbCtx = dirtyBoxBitmapCan.getContext("bitmaprenderer");
-      // dbCtx.transferFromImageBitmap(dirtyBoxBitmap);
-    } else if (content.paintChanged && content.pixels) {
-      // 🅱️ Normal full-screen update.
-      imageData = new ImageData(
-        new Uint8ClampedArray(content.pixels),
-        content.width,
-        content.height,
-      );
+          if (
+            dirtyBoxCanvas.width !== imageData.width ||
+            dirtyBoxCanvas.height !== imageData.height
+          ) {
+            dirtyBoxCanvas.width = imageData.width;
+            dirtyBoxCanvas.height = imageData.height;
+          }
+
+          dirtyBoxCtx.putImageData(imageData, 0, 0);
+          dirtyBoxBitmapCan = dirtyBoxCanvas;
+        }
+      } else {
+        // Original fallback code
+        const imageData = new ImageData(
+          new Uint8ClampedArray(content.pixels), // Is this the only necessary part?
+          content.dirtyBox.w,
+          content.dirtyBox.h,
+        );
+
+        // Reuse the dirtyBox canvas instead of creating new ones
+        if (
+          dirtyBoxCanvas.width !== imageData.width ||
+          dirtyBoxCanvas.height !== imageData.height
+        ) {
+          dirtyBoxCanvas.width = imageData.width;
+          dirtyBoxCanvas.height = imageData.height;
+        }
+
+        dirtyBoxCtx.putImageData(imageData, 0, 0);
+        dirtyBoxBitmapCan = dirtyBoxCanvas; // Reference the reused canvas
+
+        // Use this alternative once it's faster. 2022.01.29.02.46
+        // const dbCtx = dirtyBoxBitmapCan.getContext("bitmaprenderer");
+        // dbCtx.transferFromImageBitmap(dirtyBoxBitmap);
+      }
+    } else if (content.paintChanged && content.pixels && !content.reframe) {
+      // 🅱️ Normal full-screen update (skip during reframe to avoid dimension mismatch) - OPTIMIZED
+      if (window.pixelOptimizer) {
+        try {
+          // Use zero-copy optimization for full screen updates
+          imageData = window.pixelOptimizer.createImageDataZeroCopy(
+            content.pixels,
+            content.width,
+            content.height
+          );
+        } catch (err) {
+          console.warn('🟡 Zero-copy full screen update failed, using fallback:', err);
+          // Fallback to original method
+          const pixelArray = new Uint8ClampedArray(content.pixels);
+          const expectedLength = content.width * content.height * 4;
+
+          if (pixelArray.length === expectedLength || reframeJustCompleted) {
+            if (pixelArray.length === expectedLength) {
+              imageData = new ImageData(pixelArray, content.width, content.height);
+            }
+            if (reframeJustCompleted) {
+              reframeJustCompleted = false;
+            }
+          }
+        }
+      } else {
+        // Original fallback code
+        const pixelArray = new Uint8ClampedArray(content.pixels);
+        const expectedLength = content.width * content.height * 4;
+
+        // Only create ImageData if pixel buffer length matches expected dimensions
+        // Be more lenient right after reframe completion to restore animation
+        if (pixelArray.length === expectedLength || reframeJustCompleted) {
+          if (pixelArray.length === expectedLength) {
+            imageData = new ImageData(pixelArray, content.width, content.height);
+          }
+          // Reset flag regardless of whether ImageData creation succeeded
+          if (reframeJustCompleted) {
+            reframeJustCompleted = false;
+          }
+        }
+      }
     }
 
     pixelsDidChange = content.paintChanged || false;
@@ -4206,29 +8334,278 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // This currently paints corner labels and tape progress bars only.
     // (So they can be skipped for recordings?)
     let paintOverlays = {};
+
+    // Frame-persistent overlay cache that survives reframes
+    if (!window.framePersistentOverlayCache) {
+      window.framePersistentOverlayCache = {};
+    }
+
+    // Per-overlay canvas cache to prevent canvas thrashing
+    if (!window.overlayCanvasCache) {
+      window.overlayCanvasCache = {};
+    }
+
     function buildOverlay(name, o) {
-      if (!o) return;
+      // Only log reframe operations to debug flicker
+      const isHudOverlay = name === "label" || name === "qrOverlay";
+
+      // Apply breathing pattern to tapeProgressBar - hide it when both stamps are off
+      if (name === "tapeProgressBar" && window.currentTapeProgress !== undefined) {
+        const progress = window.currentTapeProgress;
+        const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
+        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+        
+        let showProgressBar = true; // Default to showing
+        
+        if (cyclePosition < 0.2) {
+          // Phase 1 (0-20%): Both stamps off - hide progress bar for breathing
+          showProgressBar = false;
+        } else if (cyclePosition < 0.4) {
+          // Phase 2 (20-40%): Both stamps on - show progress bar
+          showProgressBar = true;
+        } else if (cyclePosition < 0.6) {
+          // Phase 3 (40-60%): Both stamps off - hide progress bar for breathing
+          showProgressBar = false;
+        } else if (cyclePosition < 0.8) {
+          // Phase 4 (60-80%): Left stamp only - show progress bar
+          showProgressBar = true;
+        } else {
+          // Phase 5 (80-100%): Right stamp only - show progress bar
+          showProgressBar = true;
+        }
+        
+        // Skip building the overlay if it should be hidden
+        if (!showProgressBar) {
+          return;
+        }
+      }
+
+      if (!o || !o.img) {
+        // During reframes, if overlay data is missing but we have a cached version, use it
+        // EXCEPT for tapeProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay") {
+          paintOverlays[name] = window.framePersistentOverlayCache[name];
+          return;
+        }
+        return;
+      }
+
+      // Create or reuse dedicated canvas for this overlay
+      if (!window.overlayCanvasCache[name]) {
+        window.overlayCanvasCache[name] = {
+          canvas: document.createElement("canvas"),
+          lastKey: null,
+        };
+        window.overlayCanvasCache[name].ctx =
+          window.overlayCanvasCache[name].canvas.getContext("2d");
+      }
+
+      const overlayCache = window.overlayCanvasCache[name];
+      
+      // Create a content-aware cache key that includes pixel data hash for HUD overlays
+      let currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
+      
+      // For HUD overlays (like labels), disable caching to ensure real-time updates for KidLisp syntax highlighting
+      if (isHudOverlay && name === "label") {
+        overlayCache.lastKey = null; // Force regeneration every frame like QR overlay
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For tape progress bar, completely disable ALL caching to ensure every frame is painted
+      if (name === "tapeProgressBar") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For duration progress bar, completely disable ALL caching to ensure every frame is painted
+      if (name === "durationProgressBar") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For duration timecode, completely disable ALL caching to ensure every frame is painted
+      if (name === "durationTimecode") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For QR overlay, completely disable ALL caching to allow text label font loading
+      if (name === "qrOverlay") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+
+      // Only rebuild if overlay actually changed
+      // Force rebuild every frame for tape progress bar, duration progress bar, duration timecode and QR overlay (no caching)
+      if (
+        name !== "tapeProgressBar" &&
+        name !== "durationProgressBar" &&
+        name !== "durationTimecode" &&
+        name !== "qrOverlay" &&
+        overlayCache.lastKey === currentKey &&
+        window.framePersistentOverlayCache[name]
+      ) {
+        paintOverlays[name] = window.framePersistentOverlayCache[name];
+        return;
+      }
+      
+      // DEBUG: Log cache invalidation for HUD overlays
+      if (isHudOverlay && overlayCache.lastKey && overlayCache.lastKey !== currentKey) {
+        // Cache invalidation tracking removed for cleaner console output
+      }
+
+      overlayCache.lastKey = currentKey;
 
       paintOverlays[name] = () => {
-        octx.imageSmoothingEnabled = false;
+        const canvas = overlayCache.canvas;
+        const overlayCtx = overlayCache.ctx;
 
-        overlayCan.width = o.img.width;
-        overlayCan.height = o.img.height;
+        overlayCtx.imageSmoothingEnabled = false;
 
-        octx.putImageData(
-          new ImageData(o.img.pixels, o.img.width, o.img.height),
-          0,
-          0,
-        );
-        ctx.drawImage(overlayCan, o.x, o.y);
+        // Resize this overlay's dedicated canvas if needed
+        if (canvas.width !== o.img.width || canvas.height !== o.img.height) {
+          canvas.width = o.img.width;
+          canvas.height = o.img.height;
+        }
+
+        try {
+          let imageData;
+          // Add debug logging for durationTimecode
+          if (name === "durationTimecode") {
+            console.log(`🕐 Creating ImageData for timecode:`, {
+              pixelsType: typeof o.img.pixels,
+              pixelsLength: o.img.pixels.length,
+              width: o.img.width,
+              height: o.img.height,
+              expectedLength: o.img.width * o.img.height * 4
+            });
+          }
+          
+          // Use graphics optimizer if available, fallback to traditional method
+          if (window.pixelOptimizer) {
+            imageData = window.pixelOptimizer.createImageDataZeroCopy(
+              o.img.pixels.buffer || o.img.pixels,
+              o.img.width,
+              o.img.height,
+            );
+          } else {
+            imageData = new ImageData(
+              o.img.pixels,
+              o.img.width,
+              o.img.height,
+            );
+          }
+          overlayCtx.putImageData(imageData, 0, 0);
+          
+          if (name === "durationTimecode") {
+            console.log(`🕐 Successfully created and painted ImageData for timecode`);
+          }
+        } catch (error) {
+          console.error(`❌ Error creating ImageData for ${name}:`, error);
+          return;
+        }
+
+        // Paint overlay to main canvas (ctx is the main canvas context)
+        if (name === "tapeProgressBar") {
+          // console.log(`📼 Drawing tape progress bar to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
+          ctx.drawImage(canvas, o.x, o.y);
+          // console.log(`📼 Finished drawing tape progress bar`);
+        } else {
+          // Add debug logging for durationTimecode
+          if (name === "durationTimecode") {
+            console.log(`🕐 Drawing durationTimecode to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
+          }
+          ctx.drawImage(canvas, o.x, o.y);
+          if (name === "durationTimecode") {
+            console.log(`🕐 Finished drawing durationTimecode`);
+          }
+        }
       };
+
+      // Debug logging for tape progress bar painter creation
+      if (name === "tapeProgressBar" && false) { // Disabled verbose logging
+        console.log(`🏗️ Created painter for "${name}":`, {
+          painterExists: !!paintOverlays[name],
+          canvasSize: `${overlayCache.canvas.width}x${overlayCache.canvas.height}`
+        });
+      }
+
+      // Don't cache QR overlay painters to allow animation
+      // Don't cache tapeProgressBar or durationProgressBar painters either - force regeneration every frame
+      if (isHudOverlay && name !== "qrOverlay" && name !== "tapeProgressBar" && name !== "durationProgressBar") {
+        window.framePersistentOverlayCache[name] = paintOverlays[name];
+      }
     }
 
     buildOverlay("label", content.label);
+    buildOverlay("qrOverlay", content.qrOverlay);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
+    buildOverlay("durationProgressBar", content.durationProgressBar);
+    buildOverlay("durationTimecode", content.durationTimecode);
+    
+    // Debug: Log overlay data reception
+    if (content.durationTimecode) {
+      console.log("🕐 BIOS received durationTimecode:", {
+        x: content.durationTimecode.x,
+        y: content.durationTimecode.y,
+        width: content.durationTimecode.img?.width,
+        height: content.durationTimecode.img?.height,
+        pixelsLength: content.durationTimecode.img?.pixels?.length,
+        hasPixels: !!content.durationTimecode.img?.pixels
+      });
+    }
+    // console.log("🖼️ Received overlay data:", {
+    //   hasLabel: !!content.label,
+    //   hasQR: !!content.qrOverlay,
+    //   hasTapeProgress: !!content.tapeProgressBar,
+    //   labelDetails: content.label ? {
+    //     x: content.label.x,
+    //     y: content.label.y,
+    //     width: content.label.img?.width,
+    //     height: content.label.img?.height,
+    //     pixelLength: content.label.img?.pixels?.length,
+    //     hasPixels: !!content.label.img?.pixels
+    //   } : null
+    // });
 
     function draw() {
-      // 🅰️ Draw updated content from the piece.
+      // 🎯 Dynamic FPS Detection for display-rate independent recording
+      const currentTime = performance.now();
+      if (lastFrameTime > 0) {
+        const frameTime = currentTime - lastFrameTime;
+        frameTimes.push(frameTime);
+        
+        // Keep only recent frame timings for accurate FPS detection
+        if (frameTimes.length > FPS_SAMPLE_SIZE) {
+          frameTimes.shift();
+        }
+        
+        // Calculate actual display FPS after we have enough samples
+        if (frameTimes.length >= FPS_SAMPLE_SIZE) {
+          const averageFrameTime = frameTimes.reduce((sum, time) => sum + time, 0) / frameTimes.length;
+          detectedDisplayFPS = Math.round(1000 / averageFrameTime);
+          // console.log(`🎯 Detected display FPS: ${detectedDisplayFPS}`);
+        }
+      }
+      lastFrameTime = currentTime;
+      
+      // During tape playback, render main canvas but make it semi-transparent so video shows through
+      if (underlayFrame) {
+        // Set canvas to be semi-transparent so the video shows underneath but UI is still visible
+        canvas.style.opacity = 0.95; // Allow video to show through slightly
+        canvas.style.mixBlendMode = "normal"; // Ensure proper blending
+      } else {
+        // Restore canvas visibility when not playing tape
+        canvas.style.removeProperty("opacity");
+        canvas.style.removeProperty("mix-blend-mode");
+      }
+
+      // �🅰️ Draw updated content from the piece.
 
       const db = content.dirtyBox;
       if (db) {
@@ -4239,32 +8616,223 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         needs$creenshot ||
         mediaRecorder?.state === "recording"
       ) {
-        ctx.putImageData(imageData, 0, 0); // Comment out for a `dirtyBox` visualization.
-
-        paintOverlays["label"]?.(); // label
-
-        //
+        // 🚀 OPTIMIZATION: Async bitmap rendering with safety checks
+        let skipImmediateOverlays = false; // Flag to skip immediate overlay painting for async rendering
+        
         if (
+          imageData &&
+          imageData.data &&
+          imageData.data.buffer &&
+          imageData.data.buffer.byteLength > 0 &&
+          imageData.width === ctx.canvas.width &&
+          imageData.height === ctx.canvas.height
+        ) {
+          // Use async rendering for better performance (except during tape playback for immediate UI)
+          if (underlayFrame) {
+            // Force sync rendering during tape playback for immediate UI updates
+            ctx.putImageData(imageData, 0, 0);
+          } else if (window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
+            try {
+              // Non-blocking async rendering
+              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
+                // Paint overlays after async rendering completes
+                if (paintOverlays["label"]) paintOverlays["label"]();
+                if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
+                if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
+              }).catch(err => {
+                console.warn('🟡 Async rendering failed, falling back to sync:', err);
+              });
+              skipImmediateOverlays = true; // Skip immediate overlay painting for async rendering
+            } catch (err) {
+              console.warn('🟡 Async rendering not available, using sync:', err);
+              ctx.putImageData(imageData, 0, 0);
+            }
+          } else {
+            ctx.putImageData(imageData, 0, 0);
+          }
+        } else {
+          // If imageData buffer is detached after reframe or dimensions don't match, get fresh data from canvas
+          if (
+            imageData &&
+            imageData.data &&
+            imageData.data.buffer &&
+            (imageData.data.buffer.byteLength === 0 ||
+              imageData.width !== ctx.canvas.width ||
+              imageData.height !== ctx.canvas.height)
+          ) {
+            imageData = ctx.getImageData(
+              0,
+              0,
+              ctx.canvas.width,
+              ctx.canvas.height,
+            );
+            if (imageData.data.buffer.byteLength > 0) {
+              // Use async rendering for better performance (except during tape playback for immediate UI)
+              if (underlayFrame) {
+                // Force sync rendering during tape playback for immediate UI updates
+                ctx.putImageData(imageData, 0, 0);
+              } else if (window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
+                try {
+                  // Non-blocking async rendering
+                  window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
+                    // Paint overlays after async fallback rendering completes
+                    if (paintOverlays["label"]) paintOverlays["label"]();
+                    if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
+                    if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                    if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
+                  }).catch(err => {
+                    console.warn('🟡 Fallback async rendering failed:', err);
+                  });
+                  skipImmediateOverlays = !underlayFrame; // Don't skip overlays during tape playback
+                } catch (err) {
+                  ctx.putImageData(imageData, 0, 0);
+                }
+              } else {
+                ctx.putImageData(imageData, 0, 0);
+              }
+            }
+          }
+        }
+
+        // Store clean pixel data for worker communication (before overlays)
+        if (
+          imageData &&
+          imageData.data &&
+          imageData.data.buffer &&
+          imageData.data.buffer.byteLength > 0
+        ) {
+          assign(screen, {
+            pixels: new Uint8ClampedArray(imageData.data),
+            width: ctx.canvas.width,
+            height: ctx.canvas.height,
+          });
+        }
+
+        // Check if we need to record frames (before painting overlays)
+        const isRecording =
           // typeof paintToStreamCanvas === "function" &&
           mediaRecorder?.state === "recording" &&
-          mediaRecorderStartTime !== undefined
-          // frameCount % 2n === 0n
-        ) {
-          // Dump each frame frame if we are recording.
-          recordedFrames.push([
-            performance.now() - mediaRecorderStartTime,
-            ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
-          ]);
+          mediaRecorderStartTime !== undefined;
+
+        // Debug logging for frame capture issues (only first few frames to avoid spam)
+        if (mediaRecorder && mediaRecorderFrameCount < 5) {
+          console.log("🎬 Frame capture check:", {
+            frameCount: mediaRecorderFrameCount,
+            mediaRecorderState: mediaRecorder?.state,
+            mediaRecorderStartTime: mediaRecorderStartTime,
+            isRecording: isRecording,
+            recordedFramesLength: recordedFrames.length
+          });
         }
 
+        // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
+        let cleanScreenshotData = null;
         if (needs$creenshot) {
-          needs$creenshot(
-            ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
+          cleanScreenshotData = ctx.getImageData(
+            0,
+            0,
+            ctx.canvas.width,
+            ctx.canvas.height,
           );
+        }
+
+        // Paint overlays (but exclude tape progress from recordings)
+        
+        // console.log("🎨 Available overlay painters:", Object.keys(paintOverlays));
+        if (!skipImmediateOverlays && paintOverlays["label"]) {
+          paintOverlays["label"]();
+        } else if (skipImmediateOverlays) {
+          // console.log("🏷️ Skipping immediate label overlay painting (async mode)");
+        } else {
+          // Label overlay painter not found (no logging)
+        }
+
+        if (!skipImmediateOverlays && paintOverlays["qrOverlay"]) {
+          paintOverlays["qrOverlay"]();
+        } else if (skipImmediateOverlays) {
+          // console.log("🔲 Skipping immediate QR overlay painting (async mode)");
+        } else {
+          // QR overlay painter not found (no logging)
+        }
+
+        // Paint tape progress bar immediately (not affected by async skip)
+        if (paintOverlays["tapeProgressBar"]) {
+          // console.log("📼 Painting tape progress bar overlay (immediate)");
+          paintOverlays["tapeProgressBar"]();
+        } else if (content.tapeProgressBar) {
+          // console.log("📼 Rebuilding tape progress bar overlay due to timing issue");
+          buildOverlay("tapeProgressBar", content.tapeProgressBar);
+          if (paintOverlays["tapeProgressBar"]) {
+            paintOverlays["tapeProgressBar"]();
+          }
+        }
+
+        // Paint duration progress bar immediately (not affected by async skip)
+        if (paintOverlays["durationProgressBar"]) {
+          paintOverlays["durationProgressBar"]();
+        } else if (content.durationProgressBar) {
+          buildOverlay("durationProgressBar", content.durationProgressBar);
+          if (paintOverlays["durationProgressBar"]) {
+            paintOverlays["durationProgressBar"]();
+          }
+        }
+
+        // Paint duration timecode immediately (not affected by async skip)
+        if (paintOverlays["durationTimecode"]) {
+          paintOverlays["durationTimecode"]();
+        } else if (content.durationTimecode) {
+          buildOverlay("durationTimecode", content.durationTimecode);
+          if (paintOverlays["durationTimecode"]) {
+            paintOverlays["durationTimecode"]();
+          }
+        }
+
+        // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
+        if (isRecording) {
+          // 🎯 Capture EVERY frame - no time-based throttling for maximum quality
+          // GIF export will downsample to 30fps, MP4 will use all frames
+          mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
+          
+          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
+          const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+          const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
+          const frameDataWithHUD = ctx.getImageData(
+            0,
+            0,
+            ctx.canvas.width,
+            ctx.canvas.height,
+          );
+          
+          // Capture pen position data for crosshair rendering during export
+          // Only capture pen data if cursor is within canvas bounds
+          const penData = pen?.pointers[1] ? (() => {
+            const pointer = pen.pointers[1];
+            const x = pointer.x;
+            const y = pointer.y;
+            const canvasWidth = ctx.canvas.width;
+            const canvasHeight = ctx.canvas.height;
+            
+            // Check if pen is within canvas bounds
+            if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+              return null; // Don't capture pen data when cursor is off-screen
+            }
+            
+            return {
+              x: x,
+              y: y,
+              device: pointer.device
+            };
+          })() : null;
+          
+          recordedFrames.push([absoluteTimestamp, frameDataWithHUD, penData]);
+        }
+
+        //  Return clean screenshot data (without overlays)
+        if (needs$creenshot) {
+          needs$creenshot(cleanScreenshotData);
           needs$creenshot = null;
         }
-
-        paintOverlays["tapeProgressBar"]?.(); // tape progress
 
         if (glaze.on) {
           ThreeD?.pasteTo(glazeCompositeCtx);
@@ -4276,7 +8844,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (glaze.on) {
-        Glaze.render(now, pen.normalizedPosition(canvasRect));
+        Glaze.render(now, pen?.normalizedPosition(canvasRect));
       } else {
         Glaze.off();
         canvas.style.removeProperty("opacity");
@@ -4286,18 +8854,47 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       const dpi = window.devicePixelRatio;
 
-      uiCtx.scale(dpi, dpi);
+      // Only scale UI context when DPI changes
+      if (!uiContextScaled || currentUiScale !== dpi) {
+        if (uiContextScaled) {
+          uiCtx.resetTransform();
+        }
+        uiCtx.scale(dpi, dpi);
+        currentUiScale = dpi;
+        uiContextScaled = true;
+      }
 
-      uiCtx.clearRect(0, 0, 64, 64); // Clear 64 pixels from the top left to remove any
-      //                                previously rendered corner icons.
+      // Combine clear operations for better performance
+      // Modified to avoid clearing overlay areas - label overlay is typically at (6,6) with small dimensions
+      if (content.label) {
+        // If there's a label overlay, clear around it instead of over it
+        const labelX = content.label.x;
+        const labelY = content.label.y;
+        const labelW = content.label.img?.width || 0;
+        const labelH = content.label.img?.height || 0;
+        
+        // Clear top-left area but avoid the label overlay region
+        if (labelX > 0) {
+          uiCtx.clearRect(0, 0, labelX, 64); // Left of label
+        }
+        if (labelY > 0) {
+          uiCtx.clearRect(0, 0, 64, labelY); // Above label
+        }
+        if (labelX + labelW < 64) {
+          uiCtx.clearRect(labelX + labelW, 0, 64 - (labelX + labelW), 64); // Right of label
+        }
+        if (labelY + labelH < 64) {
+          uiCtx.clearRect(0, labelY + labelH, 64, 64 - (labelY + labelH)); // Below label
+        }
+      } else {
+        // No label overlay, clear normally
+        uiCtx.clearRect(0, 0, 64, 64); // Top left
+      }
+      
+      uiCtx.clearRect(0, uiCtx.canvas.height / dpi - 64, 64, 64); // Bottom left
+      uiCtx.clearRect(uiCtx.canvas.width / dpi - 64, 0, 64, 64); // Top right
 
-      uiCtx.clearRect(0, uiCtx.canvas.height / dpi - 64, 64, 64); // Clear 64 pixels from the bottom left to remove any
-      //                                previously rendered corner icons.
-
-      uiCtx.clearRect(uiCtx.canvas.width / dpi - 64, 0, 64, 64);
-      // Also clear 64 pixels from the top right to remove any previously rendered corner icons.
-
-      pen.render(uiCtx, canvasRect); // ️ 🐭 Draw the cursor.
+      pen?.render(uiCtx, canvasRect); // ️ 🐭 Draw the cursor.
 
       // Show the spinner on any piece other than the first, and never
       // on the prompt.
@@ -4310,17 +8907,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (debug && frameCached && content.loading !== true) UI.cached(uiCtx); // Pause icon.
-      uiCtx.resetTransform();
+
+      // Note: We keep the transform scaled for the next frame to avoid redundant operations
     }
 
     if (
       pixelsDidChange ||
       needs$creenshot ||
       mediaRecorder?.state === "recording" ||
-      pen.changedInPiece
+      (pen && pen.changedInPiece) ||
+      content.tapeProgressBar // Force draw when tape progress bar is active
     ) {
       frameCached = false;
-      pen.changedInPiece = false;
+      if (pen) pen.changedInPiece = false;
       draw();
     } else if (frameCached === false) {
       frameCached = true;
@@ -4360,7 +8959,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
     // if (lastRender) console.log(performance.now() - lastRender)
     // lastRender = performance.now()
-  }
+  } // End of receivedChange function
 
   // 📤 Reads a file and uploads it to the server.
   async function receivedUpload(
@@ -4644,18 +9243,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
       }
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (ext === "png" || ext === "webp") {
+    } else if (ext === "png" || ext === "webp" || ext === "gif") {
       // 🖼️ Images
       MIME = "image/png"; // PNG
 
       if (extension(filename) === "webp") {
         MIME = "image/webp";
+      } else if (extension(filename) === "gif") {
+        MIME = "image/gif";
       }
 
       if (data) {
         // Download locally if data is provided.
-        blob = await bufferToBlob(data, MIME, modifiers);
-        object = URL.createObjectURL(blob, { type: MIME });
+        if (data instanceof Blob) {
+          // If data is already a blob, use it directly
+          blob = data;
+          object = URL.createObjectURL(blob);
+        } else {
+          // Otherwise, convert pixel data to blob
+          blob = await bufferToBlob(data, MIME, modifiers);
+          object = URL.createObjectURL(blob, { type: MIME });
+        }
       } else {
         // Or from the storage network.
         // Check to see if filename has user handle data.
@@ -4668,14 +9276,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // TODO: ⚠️ `webm` could eventually mean audio here...
       // 🎥 Video
       // Use stored data from the global Media Recorder.
-      const tape = data || (await Store.get("tape")).blob;
-
-      // 🫲 Make sure the container matches the extension.
-      const tapeMIME = tape.type; // Check the tape's blob's type.
-      if (tapeMIME.indexOf("webm") > -1) {
-        filename = filename.replace(".mp4", ".webm"); // Replaces ".mp4" set from `video`.
+      let tape;
+      let tapeData;
+      
+      if (data instanceof Blob) {
+        // If data is already a blob (from video export), use it directly
+        tape = data;
+        tapeData = null;
       } else {
-        filename = filename.replace(".webm", ".mp4");
+        // Otherwise get from storage
+        tapeData = data || (await Store.get("tape"));
+        tape = tapeData?.blob;
+      }
+
+      // Restore frame data if available for WebP/Frame exports
+      if (tapeData?.frames && recordedFrames.length === 0) {
+        recordedFrames.length = 0; // Clear existing
+        recordedFrames.push(...tapeData.frames);
+        console.log(
+          "📼 Restored",
+          recordedFrames.length,
+          "frames from cached video",
+        );
+        // Debug: Check what the loaded frames look like
+        if (recordedFrames.length > 0) {
+          const firstFrame = recordedFrames[0];
+          console.log("🔍 First loaded frame:", {
+            structure: Array.isArray(firstFrame) ? `Array(${firstFrame.length})` : typeof firstFrame,
+            timestamp: Array.isArray(firstFrame) ? firstFrame[0] : 'N/A',
+            timestampType: Array.isArray(firstFrame) ? typeof firstFrame[0] : 'N/A',
+            hasImageData: Array.isArray(firstFrame) && firstFrame[1] && typeof firstFrame[1] === 'object'
+          });
+        }
+      }
+
+      // Use stored filename if available, otherwise fall back to provided filename
+      if (tapeData?.filename) {
+        filename = tapeData.filename;
+      } else {
+        // 🫲 Make sure the container matches the extension.
+        const tapeMIME = tape?.type; // Check the tape's blob's type.
+        if (tapeMIME?.indexOf("webm") > -1) {
+          filename = filename.replace(".mp4", ".webm"); // Replaces ".mp4" set from `video`.
+        } else {
+          filename = filename.replace(".webm", ".mp4");
+        }
       }
 
       if (tape) {
@@ -4690,14 +9335,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else if (ext === "mjs") {
       MIME = "application/javascript; charset=utf-8";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
-    } else if (extension === "zip") {
+    } else if (ext === "zip") {
+      MIME = "application/zip";
       object = URL.createObjectURL(data, { type: MIME });
     }
 
     // Fetch download url from `/presigned-download-url?for=${filename}` if we
     // don't already have a blob string.
 
-    if (!object.startsWith("blob:")) {
+    if (object && !object.startsWith("blob:")) {
       try {
         const response = await fetch(`/presigned-download-url?for=${filename}`);
         const json = await response.json();
@@ -4724,8 +9370,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       a.href = object;
       a.target = "_blank";
       a.download = filename.split("/").pop(); // Remove any extra paths.
+
+      // Add the link to DOM for better browser compatibility with large files
+      document.body.appendChild(a);
+
+      console.log(
+        `💾 Triggering download: ${filename.split("/").pop()} (${blob ? `${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB` : "unknown size"})`,
+      );
+
       a.click();
-      if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+
+      // Clean up after a delay to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(a);
+        if (typeof a.href !== "string") URL.revokeObjectURL(a.href);
+      }, 1000);
     }
 
     // Picture in Picture: Image Download UI? 22.11.24.08.51
@@ -5410,6 +10069,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // TODO: Eventually add an API so that a disk can list all the history of
   //       a user's session. This could also be used for autocompletion of
   //       pieces / up + down arrow prev-next etc.
+
+  // Track labelBack state in main thread (persists across worker reloads)
+  let mainThreadLabelBack =
+    sessionStorage.getItem("aesthetic-labelBack") === "true";
+
   window.onpopstate = function (e) {
     if (
       document.location.hash === "#debug" ||
@@ -5421,9 +10085,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const sluggy = slug(document.location.href);
     if (sluggy === "prompt") keyboard?.input.focus();
 
+    const parsed = parse(sluggy || window.acSTARTING_PIECE);
+
+    // Restore labelBack state for history navigation
+    if (mainThreadLabelBack) {
+      console.log("🔗 Main thread restoring labelBack for history navigation");
+      parsed.labelBack = true;
+      // Clear the state after using it for navigation
+      mainThreadLabelBack = false;
+      sessionStorage.removeItem("aesthetic-labelBack");
+      console.log(
+        "🔗 Main thread: Cleared labelBack after using it for history navigation",
+      );
+    }
+
     send({
       type: "history-load",
-      content: parse(sluggy || window.acSTARTING_PIECE),
+      content: parsed,
     });
   };
 
@@ -5485,19 +10163,61 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     e.stopPropagation();
     e.preventDefault();
     const files = e.dataTransfer.files; // Get the file(s).
-    // Check if a file was dropped and process only the first one.
+    
+    // Process multiple files if dropped together
     if (files.length > 0) {
-      const file = files[0];
-      const ext = extension(file.name);
-      console.log("💧 Dropped:", file.name, ext);
-      // 🗒️ Source code file.
-      if (ext === "mjs") {
+      console.log(`💧 Dropped ${files.length} file(s)`);
+      
+      // Check for ALS + WAV combination
+      let alsFile = null;
+      let wavFile = null;
+      
+      // Scan all files to identify types
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = extension(file.name);
+        console.log(`💧 File ${i + 1}: ${file.name} (${ext})`);
+        
+        if (ext === "als" && !alsFile) {
+          alsFile = file;
+        } else if (ext === "wav" && !wavFile) {
+          wavFile = file;
+        }
+      }
+      
+      // If we have both ALS and WAV, process them as a pair
+      if (alsFile && wavFile) {
+        console.log("🎵🔊 Processing ALS + WAV combination:", alsFile.name, "+", wavFile.name);
+        
+        // Process ALS file first
+        await processDroppedFile(alsFile);
+        
+        // Then process WAV file
+        await processDroppedFile(wavFile);
+        
+        return; // Exit early - we've handled the multi-file drop
+      }
+      
+      // Otherwise, process files individually (existing behavior)
+      for (let i = 0; i < files.length; i++) {
+        await processDroppedFile(files[i]);
+      }
+    }
+  });
+
+  // Extract file processing logic into reusable function
+  async function processDroppedFile(file) {
+    const ext = extension(file.name);
+    console.log("💧 Processing:", file.name, ext);
+    
+    // 🗒️ Source code file.
+    if (ext === "mjs" || ext === "lisp") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
             type: "dropped:piece",
             content: {
-              name: file.name.replace(".mjs", ""),
+              name: file.name.replace(/\.(mjs|lisp)$/, ""),
               source: e.target.result,
             },
           });
@@ -5531,36 +10251,456 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "painting:record:dropped", content: record });
         };
         reader.readAsArrayBuffer(file);
-      }
+      // 🔊 Audio file (.wav)
+      } else if (ext === "wav") {
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            console.log("🔊 BIOS: Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
+            
+            // Create a unique ID for this WAV file
+            const wavId = "dropped-wav-" + file.name.replace(/\.wav$/, "") + "-" + performance.now();
+            const arrayBuffer = e.target.result;
+            const fileSize = arrayBuffer.byteLength; // Capture size before storing
+            
+            console.log("🔊 BIOS: Storing WAV in sfx cache with ID:", wavId);
+            // Store the WAV data in the sfx cache for decoding and playback
+            sfx[wavId] = arrayBuffer;
+            
+            console.log("🔊 BIOS: Starting immediate WAV decoding...");
+            // Trigger immediate decoding
+            await decodeSfx(wavId);
+            console.log("🔊 BIOS: WAV decoding complete, sending to piece...");
+            
+            send({
+              type: "dropped:wav",
+              content: {
+                name: file.name.replace(/\.wav$/, ""),
+                originalName: file.name,
+                size: fileSize,
+                id: wavId // Include the audio ID for playback
+              },
+            });
+            
+            console.log("🔊 BIOS: WAV processing complete for:", wavId);
+          } catch (error) {
+            console.error("❌ BIOS: Failed to process WAV file:", error);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      // 🎵 Ableton Live Set file (ZIP archive containing XML)
+      } else if (ext === "als") {
+        
+        // Parse XML and extract key project structure using robust regex patterns
+        function parseAbletonProject(xmlString) {
+          try {
+            console.log("🎵 BIOS parsing ALS XML data:", xmlString.length, "characters");
+            
+            const structure = {
+              version: "Unknown",
+              creator: "Unknown", 
+              tracks: [],
+              tempo: "Unknown",
+              sceneCount: 0,
+              sampleRate: "Unknown",
+              lastModDate: "Unknown"
+            };
+            
+            // Extract Ableton version info
+            const abletonMatch = xmlString.match(/<Ableton[^>]*MajorVersion="([^"]*)"[^>]*MinorVersion="([^"]*)"[^>]*Creator="([^"]*)"/);
+            if (abletonMatch) {
+              structure.version = `${abletonMatch[1]}.${abletonMatch[2]}`;
+              structure.creator = abletonMatch[3];
+            }
+            
+            // Extract sample rate for accurate timing calculations
+            const sampleRateMatch = xmlString.match(/<SampleRate[^>]*Value="([^"]*)"/);
+            if (sampleRateMatch) {
+              structure.sampleRate = parseFloat(sampleRateMatch[1]) || 44100;
+            }
+            
+            // Extract last modified date
+            const lastModMatch = xmlString.match(/<LastModDate[^>]*Value="([^"]*)"/);
+            if (lastModMatch) {
+              structure.lastModDate = lastModMatch[1];
+            }
+            
+            // Extract tempo - Enhanced with multiple strategies
+            let tempo = "Unknown";
+            
+            // Strategy 1: Look for global tempo in LiveSet
+            const globalTempoMatch = xmlString.match(/<LiveSet[^>]*>[\s\S]*?<MasterTrack[^>]*>[\s\S]*?<DeviceChain[^>]*>[\s\S]*?<Tempo[^>]*>[\s\S]*?<Manual[^>]*Value="([^"]*)"[\s\S]*?<\/Tempo>/);
+            if (globalTempoMatch) {
+              tempo = parseFloat(globalTempoMatch[1]) || "Unknown";
+              console.log(`🎵 BIOS found global tempo: ${tempo} BPM`);
+            }
+            
+            // Strategy 2: Manual tempo value (enhanced pattern)
+            if (tempo === "Unknown") {
+              const tempoMatch = xmlString.match(/<Manual[^>]*Value="([^"]*)"/);
+              if (tempoMatch) {
+                const tempoValue = parseFloat(tempoMatch[1]);
+                // Only accept reasonable tempo values (between 60-300 BPM)
+                if (tempoValue && tempoValue >= 60 && tempoValue <= 300) {
+                  tempo = tempoValue;
+                  console.log(`🎵 BIOS found manual tempo: ${tempo} BPM`);
+                }
+              }
+            }
+            
+            // Strategy 3: MasterTrack tempo (enhanced)
+            if (tempo === "Unknown") {
+              const masterTempoMatch = xmlString.match(/<MasterTrack[^>]*>[\s\S]*?<Tempo[^>]*>[\s\S]*?<Manual[^>]*Value="([^"]*)"[\s\S]*?<\/Tempo>/);
+              if (masterTempoMatch) {
+                tempo = parseFloat(masterTempoMatch[1]) || "Unknown";
+                console.log(`🎵 BIOS found MasterTrack tempo: ${tempo} BPM`);
+              }
+            }
+            
+            structure.tempo = tempo;
+            
+            // Count scenes
+            const sceneMatches = xmlString.match(/<Scene[^>]*>/g);
+            structure.sceneCount = sceneMatches ? sceneMatches.length : 0;
+            
+            // Extract tracks - simplified for now to avoid complexity
+            const trackTypes = ['GroupTrack', 'MidiTrack', 'AudioTrack', 'ReturnTrack'];
+            console.log("🎵 BIOS starting track detection...");
+            
+            trackTypes.forEach(trackType => {
+              const trackRegex = new RegExp(`<${trackType}[^>]*>([\\s\\S]*?)</${trackType}>`, 'g');
+              let match;
+              
+              while ((match = trackRegex.exec(xmlString)) !== null) {
+                const trackContent = match[1];
+                
+                // Extract track name
+                const nameMatch = trackContent.match(/<(?:EffectiveName|UserName)[^>]*Value="([^"]*)"/);
+                const trackName = nameMatch ? nameMatch[1] : `${trackType} ${structure.tracks.length + 1}`;
+                
+                console.log(`🎵 BIOS found track: "${trackName}" (${trackType})`);
+                
+                // Extract MIDI notes for MIDI tracks
+                let midiNotes = [];
+                let clips = [];
+                
+                if (trackType === "MidiTrack") {
+                  // Look for MIDI notes in clips
+                  const clipMatches = trackContent.match(/<MidiClip[^>]*>[\s\S]*?<\/MidiClip>/g);
+                  if (clipMatches) {
+                    clipMatches.forEach((clipContent, clipIndex) => {
+                      // Extract notes from this clip
+                      const noteMatches = clipContent.match(/<KeyTrack[^>]*>[\s\S]*?<Notes>[\s\S]*?<\/Notes>/g);
+                      if (noteMatches) {
+                        noteMatches.forEach(noteSection => {
+                          const individualNotes = noteSection.match(/<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*>/g);
+                          if (individualNotes) {
+                            individualNotes.forEach(noteEvent => {
+                              const timeMatch = noteEvent.match(/Time="([^"]*)"/);
+                              const durationMatch = noteEvent.match(/Duration="([^"]*)"/);
+                              const velocityMatch = noteEvent.match(/Velocity="([^"]*)"/);
+                              
+                              if (timeMatch && durationMatch && velocityMatch) {
+                                midiNotes.push({
+                                  time: parseFloat(timeMatch[1]) || 0,
+                                  duration: parseFloat(durationMatch[1]) || 0,
+                                  velocity: parseFloat(velocityMatch[1]) || 0,
+                                  clip: clipIndex
+                                });
+                              }
+                            });
+                          }
+                        });
+                      }
+                      
+                      // Extract clip info
+                      const clipNameMatch = clipContent.match(/<Name[^>]*Value="([^"]*)"/);
+                      const clipTimeMatch = clipContent.match(/<CurrentStart[^>]*Value="([^"]*)"/);
+                      const clipLengthMatch = clipContent.match(/<Length[^>]*Value="([^"]*)"/);
+                      
+                      clips.push({
+                        name: clipNameMatch ? clipNameMatch[1] : `Clip ${clipIndex + 1}`,
+                        start: clipTimeMatch ? parseFloat(clipTimeMatch[1]) : 0,
+                        length: clipLengthMatch ? parseFloat(clipLengthMatch[1]) : 0
+                      });
+                    });
+                  }
+                } else if (trackType === "AudioTrack") {
+                  // Look for audio clips
+                  const audioClipMatches = trackContent.match(/<AudioClip[^>]*>[\s\S]*?<\/AudioClip>/g);
+                  if (audioClipMatches) {
+                    audioClipMatches.forEach((clipContent, clipIndex) => {
+                      const clipNameMatch = clipContent.match(/<Name[^>]*Value="([^"]*)"/);
+                      const clipTimeMatch = clipContent.match(/<CurrentStart[^>]*Value="([^"]*)"/);
+                      const clipLengthMatch = clipContent.match(/<Length[^>]*Value="([^"]*)"/);
+                      
+                      clips.push({
+                        name: clipNameMatch ? clipNameMatch[1] : `Audio Clip ${clipIndex + 1}`,
+                        start: clipTimeMatch ? parseFloat(clipTimeMatch[1]) : 0,
+                        length: clipLengthMatch ? parseFloat(clipLengthMatch[1]) : 0
+                      });
+                    });
+                  }
+                }
+                
+                structure.tracks.push({
+                  name: trackName.replace(/^[#\s]*/, ''), // Remove leading # and spaces
+                  type: trackType,
+                  clipCount: clips.length,
+                  clips: clips,
+                  midiNotes: midiNotes,
+                  noteCount: midiNotes.length
+                });
+              }
+            });
+            
+            console.log(`🎵 BIOS ✅ Parsing complete: ${structure.tracks.length} tracks found`);
+            return structure;
+          } catch (e) {
+            console.warn("🎵 BIOS Failed to parse XML:", e);
+            return null;
+          }
+        }
+        
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            const data = e.target.result;
+            const uint8Data = new Uint8Array(data);
+            
+            console.log("🔍 ALS file signature:", Array.from(uint8Data.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+            
+            // Check if it's a ZIP file (signature: 50 4b 03 04)
+            if (uint8Data[0] === 0x50 && uint8Data[1] === 0x4b && uint8Data[2] === 0x03 && uint8Data[3] === 0x04) {
+              console.log("📦 ALS file is a ZIP archive, loading JSZip...");
+              
+              // Load JSZip if not already loaded
+              if (!window.JSZip) await loadJSZip();
+              
+              const zip = new window.JSZip();
+              const zipData = await zip.loadAsync(data);
+              
+              console.log("📂 ZIP contents:", Object.keys(zipData.files));
+              
+              // Look for the main ALS XML file (usually named after the project)
+              let xmlContent = null;
+              let xmlFileName = null;
+              
+              // Try to find XML files in the ZIP
+              for (const fileName of Object.keys(zipData.files)) {
+                const file = zipData.files[fileName];
+                if (!file.dir && (fileName.endsWith('.xml') || fileName.endsWith('.als') || fileName === 'Project.xml')) {
+                  console.log(`📄 Found XML file: ${fileName}`);
+                  try {
+                    // Try different extraction methods
+                    console.log("🔍 Trying string extraction...");
+                    xmlContent = await file.async("string");
+                    console.log(`🔍 String extraction result (first 200 chars): ${xmlContent.substring(0, 200)}`);
+                    
+                    // If the content looks binary/garbled, try extracting as uint8array and decompress
+                    if (xmlContent.charCodeAt(0) > 127 || !xmlContent.includes('<')) {
+                      console.log("🔍 Content appears binary, trying binary extraction and decompression...");
+                      const binaryData = await file.async("uint8array");
+                      console.log(`🔍 Binary data length: ${binaryData.length}`);
+                      
+                      try {
+                        // Try gzip decompression with pako
+                        console.log("🔍 Trying gzip decompression...");
+                        const decompressed = pako.inflate(binaryData, { to: 'string' });
+                        console.log(`🔍 Gzip decompression result (first 200 chars): ${decompressed.substring(0, 200)}`);
+                        if (decompressed.includes('<')) {
+                          xmlContent = decompressed;
+                        }
+                      } catch (e) {
+                        console.log("🔍 Gzip failed, trying deflate...");
+                        try {
+                          const decompressed = pako.inflateRaw(binaryData, { to: 'string' });
+                          console.log(`🔍 Deflate decompression result (first 200 chars): ${decompressed.substring(0, 200)}`);
+                          if (decompressed.includes('<')) {
+                            xmlContent = decompressed;
+                          }
+                        } catch (e2) {
+                          console.warn("❌ Both gzip and deflate decompression failed:", e2);
+                        }
+                      }
+                    }
+                    
+                    xmlFileName = fileName;
+                    break;
+                  } catch (e) {
+                    console.warn(`❌ Failed to extract ${fileName}:`, e);
+                  }
+                }
+              }
+              
+              // If no XML found, try the first non-directory file
+              if (!xmlContent) {
+                for (const fileName of Object.keys(zipData.files)) {
+                  const file = zipData.files[fileName];
+                  if (!file.dir) {
+                    console.log(`📄 Trying file: ${fileName}`);
+                    const content = await file.async("string");
+                    if (content.includes('<?xml') || content.includes('<Ableton')) {
+                      xmlContent = content;
+                      xmlFileName = fileName;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              if (xmlContent) {
+                console.log(`✅ Successfully extracted XML from ${xmlFileName} (${xmlContent.length} chars)`);
+                console.log("🎵 🚀 BIOS sending dropped:als event with content:", {
+                  name: file.name.replace(/\.als$/, ""),
+                  xmlData: xmlContent.length + " chars"
+                });
+                send({
+                  type: "dropped:als",
+                  content: {
+                    name: file.name.replace(/\.als$/, ""),
+                    xmlData: xmlContent,
+                  },
+                });
+              } else {
+                console.error("❌ No XML content found in ALS ZIP file");
+              }
+            } else {
+              // Fall back to compression methods for non-ZIP ALS files
+              // Load pako if not already loaded
+              if (!window.pako) {
+                console.log("📦 Loading pako compression library for ALS file...");
+                await new Promise((resolve, reject) => {
+                  const script = document.createElement("script");
+                  script.src =
+                    "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+                  script.onload = resolve;
+                  script.onerror = reject;
+                  document.head.appendChild(script);
+                });
+              }
+              
+              let decompressedData = null;
+              
+              // Try different decompression methods
+              const methods = [
+                { name: 'zlib (inflate)', fn: () => pako.inflate(uint8Data, { to: 'string' }) },
+                { name: 'gzip (ungzip)', fn: () => pako.ungzip(uint8Data, { to: 'string' }) },
+                { name: 'raw deflate (inflateRaw)', fn: () => pako.inflateRaw(uint8Data, { to: 'string' }) }
+              ];
+              
+              for (const method of methods) {
+                try {
+                  console.log(`🧪 Trying ${method.name}...`);
+                  decompressedData = method.fn();
+                  console.log(`✅ Successfully decompressed using ${method.name}`);
+                  break;
+                } catch (err) {
+                  console.log(`❌ ${method.name} failed:`, err.message);
+                }
+              }
+              
+              if (decompressedData) {
+                // Parse the XML data into a structured object
+                const parsedProject = parseAbletonProject(decompressedData);
+                
+                console.log("🎵 🚀 BIOS sending dropped:als event with parsed content:", {
+                  name: file.name.replace(/\.als$/, ""),
+                  project: parsedProject ? `${parsedProject.tracks.length} tracks, ${parsedProject.tempo} BPM` : "parsing failed"
+                });
+                
+                send({
+                  type: "dropped:als",
+                  content: {
+                    name: file.name.replace(/\.als$/, ""),
+                    xmlData: decompressedData,
+                    project: parsedProject, // Send parsed structure
+                  },
+                });
+              } else {
+                console.error("❌ All decompression methods failed for ALS file");
+                // Try to read as plain text in case it's not compressed
+                try {
+                  const textData = new TextDecoder().decode(uint8Data);
+                  if (textData.includes('<?xml') || textData.includes('<Ableton')) {
+                    console.log("📄 File appears to be uncompressed XML");
+                    
+                    // Parse the XML data into a structured object
+                    const parsedProject = parseAbletonProject(textData);
+                    
+                    console.log("🎵 🚀 BIOS sending dropped:als event with uncompressed parsed content:", {
+                      name: file.name.replace(/\.als$/, ""),
+                      project: parsedProject ? `${parsedProject.tracks.length} tracks, ${parsedProject.tempo} BPM` : "parsing failed"
+                    });
+                    
+                    send({
+                      type: "dropped:als",
+                      content: {
+                        name: file.name.replace(/\.als$/, ""),
+                        xmlData: textData,
+                        project: parsedProject, // Send parsed structure
+                      },
+                    });
+                  } else {
+                    console.error("File doesn't appear to be XML either");
+                  }
+                } catch (textErr) {
+                  console.error("Failed to read as text:", textErr);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Failed to process ALS file:", error);
+          }
+        };
+        reader.readAsArrayBuffer(file);
     }
-  });
+  }
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
+    console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
+    
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
+      console.log("🎵 BIOS decodeSfx already in progress for:", sound);
       // Wait a moment and check again
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
     }
-    
+
     if (sfx[sound] instanceof ArrayBuffer) {
+      console.log("🎵 BIOS decodeSfx starting decode for ArrayBuffer:", sound);
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
-      
+
+      // Ensure audioContext is initialized before trying to decode
+      if (!audioContext) {
+        console.log("🔊 Initializing audio context for WAV decoding...");
+        if (activateSound) {
+          activateSound();
+          // Wait a moment for audio context to initialize
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
       let audioBuffer;
       try {
         const buf = sfx[sound];
         sfx[sound] = null;
-        if (buf) {
+        if (buf && audioContext) {
+          console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+          console.log("🎵 BIOS decode successful:", sound, "audioBuffer:", !!audioBuffer);
           sfx[sound] = audioBuffer;
-          
+
           // Process any queued sounds that might be waiting for this file
           processPendingSfx();
-          
+
           return sfx[sound];
+        } else {
+          console.error("🎵 BIOS decode failed - missing buffer or audioContext:", !!buf, !!audioContext);
         }
       } catch (err) {
         console.error("🔉 [DECODE] Decode error:", err, "➡️", sound);
@@ -5575,7 +10715,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Queue for sounds that need to be played once audio context is available
   let pendingSfxQueue = [];
-  
+
   // Track sounds that are currently being decoded to prevent multiple decode attempts
   const decodingInProgress = new Set();
 
@@ -5584,112 +10724,121 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (audioContext && pendingSfxQueue.length > 0) {
       const remaining = [];
       const currentTime = Date.now();
-      
-      pendingSfxQueue.forEach(({ id, soundData, options, completed, queuedAt }) => {
-        // Add timestamp if not present
-        const queueTime = queuedAt || currentTime;
-        const timeInQueue = currentTime - queueTime;
-        
-        // Only play sounds that have been loaded into the sfx cache
-        if (sfx[soundData] && !(sfx[soundData] instanceof ArrayBuffer)) {
-          playSfx(id, soundData, options, completed);
-        } else if (timeInQueue < 5000) { // Only retry for 5 seconds
-          remaining.push({ id, soundData, options, completed, queuedAt: queueTime });
-        }
-      });
-      
+
+      pendingSfxQueue.forEach(
+        ({ id, soundData, options, completed, queuedAt }) => {
+          // Add timestamp if not present
+          const queueTime = queuedAt || currentTime;
+          const timeInQueue = currentTime - queueTime;
+
+          // Only play sounds that have been loaded into the sfx cache
+          if (sfx[soundData] && !(sfx[soundData] instanceof ArrayBuffer)) {
+            playSfx(id, soundData, options, completed);
+          } else if (timeInQueue < 5000) {
+            // Only retry for 5 seconds
+            remaining.push({
+              id,
+              soundData,
+              options,
+              completed,
+              queuedAt: queueTime,
+            });
+          }
+        },
+      );
+
       pendingSfxQueue = remaining;
-      
+
       // If there are still sounds waiting, check again soon
       if (pendingSfxQueue.length > 0) {
         setTimeout(processPendingSfx, 100);
       }
     }
   }
-}
 
-// Utilities
+  // Utilities
 
-// Convert an img or blob object to an ac formatted bitmap  / "painting".
-async function toBitmap(imgOrBlob) {
-  const img = await createImageBitmap(imgOrBlob);
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  return {
-    width: imageData.width,
-    height: imageData.height,
-    pixels: imageData.data,
-  };
-}
+  // Convert an img or blob object to an ac formatted bitmap  / "painting".
+  async function toBitmap(imgOrBlob) {
+    const img = await createImageBitmap(imgOrBlob);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return {
+      width: imageData.width,
+      height: imageData.height,
+      pixels: imageData.data,
+    };
+  }
 
-// Unzip a file.
-async function unzip(data) {
-  try {
-    const zip = await window.JSZip.loadAsync(data);
+  // Unzip a file.
+  async function unzip(data) {
+    try {
+      const zip = await window.JSZip.loadAsync(data);
 
-    console.log("🤐 Zip opened...");
-    // Detect type of media based on presence of "steps" file...
-    const steps = JSON.parse(await zip.file("painting.json")?.async("text"));
-    const record = [];
+      console.log("🤐 Zip opened...");
+      // Detect type of media based on presence of "steps" file...
+      const steps = JSON.parse(await zip.file("painting.json")?.async("text"));
+      const record = [];
 
-    if (steps) {
-      console.log("🖼️⌛ Painting record detected.");
+      if (steps) {
+        console.log("🖼️⌛ Painting record detected.");
 
-      // TODO: Parse the JSON from steps.
-      const lines = steps; // Remove timestamp.
+        // TODO: Parse the JSON from steps.
+        const lines = steps; // Remove timestamp.
 
-      // Load `painting:recording` step text format.
-      for (let i = 0; i < lines.length; i += 1) {
-        const components = lines[i].step.split(" - ");
-        const step = { timestamp: components[0], label: components[1] };
-        if (lines[i].gesture?.length > 0) step.gesture = lines[i].gesture;
-        const picture = zip.file(`${lines[i].step}.png`);
+        // Load `painting:recording` step text format.
+        for (let i = 0; i < lines.length; i += 1) {
+          const components = lines[i].step.split(" - ");
+          const step = { timestamp: components[0], label: components[1] };
+          if (lines[i].gesture?.length > 0) step.gesture = lines[i].gesture;
+          const picture = zip.file(`${lines[i].step}.png`);
 
-        if (picture) {
-          const blob = await picture.async("blob");
-          step.painting = await toBitmap(blob);
+          if (picture) {
+            const blob = await picture.async("blob");
+            step.painting = await toBitmap(blob);
+          }
+          record.push(step);
         }
-        record.push(step);
-      }
-      console.log("🖼️⌛ Loaded record:", record);
+        console.log("🖼️⌛ Loaded record:", record);
 
-      return record;
-    } else {
-      console.warn("🤐 Could not detect ZIP media type.");
+        return record;
+      } else {
+        console.warn("🤐 Could not detect ZIP media type.");
+        return record;
+      }
+    } catch (err) {
+      console.error("🤐 Error reading ZIP:", err);
       return record;
     }
-  } catch (err) {
-    console.error("🤐 Error reading ZIP:", err);
-    return record;
   }
-}
 
-// Convert a blob oobject to an ArrayBuffer.
-function blobToArrayBuffer(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(blob);
-  });
-}
+  // Convert a blob oobject to an ArrayBuffer.
+  function blobToArrayBuffer(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+  }
 
-window.iMessageExtensionResize = (mode) => {
-  console.log("📱 iMessage Extension Resized:", mode);
-  window.acSEND({ type: "imessage-extension:resized", content: { mode } });
-};
+  window.iMessageExtensionResize = (mode) => {
+    console.log("📱 iMessage Extension Resized:", mode);
+    window.acSEND({ type: "imessage-extension:resized", content: { mode } });
+  };
 
-window.iOSAppSwitchPiece = (piece) => {
-  console.log("📱 iOS Switch Piece:", piece);
-  window.acSEND({
-    type: "jump",
-    content: { piece, ahistorical: false, alias: false },
-  });
-};
+  window.iOSAppSwitchPiece = (piece) => {
+    console.log("📱 iOS Switch Piece:", piece);
+    window.acSEND({
+      type: "jump",
+      content: { piece, ahistorical: false, alias: false },
+    });
+  };
+} // End of boot function
 
 function iOSAppSend(message) {
   const packedMessage = JSON.stringify(message);

@@ -10,6 +10,7 @@ import { logs } from "./logs.mjs";
 // 📓 geckos docs: https://github.com/geckosio/geckos.io
 
 const DEFAULT_RECONNECT_IN = 500; // Gets doubled on subsequent attempts.
+const MAX_RECONNECT_TIME = 5000; // Maximum retry time of 5 seconds
 let reconnectIn = DEFAULT_RECONNECT_IN; // Gets doubled on subsequent attempts.
 let channel, reconnectingTimeout;
 let reconnectTime = reconnectIn;
@@ -35,7 +36,7 @@ function connect(port = 8889, url = undefined, send) {
     reconnectingTimeout = setTimeout(() => {
       connect(port, url, send);
     }, reconnectTime);
-    reconnectTime *= 2;
+    reconnectTime = Math.min(reconnectTime * 2, MAX_RECONNECT_TIME);
   };
 
   channel.onConnect((error) => {

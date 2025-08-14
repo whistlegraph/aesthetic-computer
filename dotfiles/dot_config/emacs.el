@@ -401,11 +401,39 @@
             (tab-rename tab-name)
             (let ((default-directory directory-path))
               (delete-other-windows)
-              (let ((first t))
+              
+              ;; Try vertical splits first, then horizontal if needed
+              (let* ((window-height (window-height))
+                     (window-width (window-width))
+                     (min-height-per-window 8) ; Minimum 8 lines per window
+                     (min-width-per-window 40) ; Minimum 40 characters per window
+                     (max-vertical-splits (/ window-height min-height-per-window))
+                     (max-horizontal-splits (/ window-width min-width-per-window))
+                     (use-horizontal (< max-vertical-splits (length commands)))
+                     (first t))
+                
                 (dolist (cmd commands)
                   (unless first 
-                    (split-window-below)
-                    (other-window 1))
+                    (condition-case split-err
+                        (if use-horizontal
+                            (progn
+                              (split-window-right)
+                              (other-window 1))
+                          (progn
+                            (split-window-below)
+                            (other-window 1)))
+                      (error 
+                       ;; If one split direction fails, try the other
+                       (condition-case split-err-2
+                           (if use-horizontal
+                               (progn
+                                 (split-window-below)
+                                 (other-window 1))
+                             (progn
+                               (split-window-right)
+                               (other-window 1)))
+                         (error 
+                          (message "Warning: Cannot split window for %s - continuing in current window" cmd))))))
                   (setq first nil)
                   
                   (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))

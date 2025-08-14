@@ -32,6 +32,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
 import fs from "fs";
+import path from "path";
 import crypto from "crypto";
 import dotenv from "dotenv";
 dotenv.config();
@@ -65,6 +66,9 @@ import { filter } from "./filter.mjs"; // Profanity filtering.
 import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 const dev = process.env.NODE_ENV === "development";
+
+// Dev log file for remote debugging
+const DEV_LOG_FILE = path.join(process.cwd(), "../system/public/aesthetic.computer/dev-logs.txt");
 
 const { keys } = Object;
 let fastify; //, termkit, term;
@@ -109,6 +113,18 @@ fastify.options("*", async (req, reply) => {
 });
 
 const server = fastify.server;
+
+const DEV_LOG_DIR = "/tmp/dev-logs/";
+const deviceLogFiles = new Map(); // Track which devices have log files
+
+// Ensure log directory exists
+if (dev) {
+  try {
+    fs.mkdirSync(DEV_LOG_DIR, { recursive: true });
+  } catch (error) {
+    console.error("Failed to create dev log directory:", error);
+  }
+}
 
 const info = {
   port: process.env.PORT, // 8889 in development via `package.json`
@@ -442,6 +458,27 @@ wss.on("connection", (ws, req) => {
       // TODO: - [] When a user is ghosted, then subscribe to their location
       //            updates.
       //       - [] And stop subscribing when they are unghosted.
+    } else if (msg.type === "dev-log" && dev) {
+      // Create device-specific log files and only notify in terminal
+      const timestamp = new Date().toISOString();
+      const deviceId = `client-${id}`;
+      const logFileName = `${DEV_LOG_DIR}${deviceId}.log`;
+      
+      // Check if this is a new device
+      if (!deviceLogFiles.has(deviceId)) {
+        deviceLogFiles.set(deviceId, logFileName);
+        console.log(`📱 New device logging: ${deviceId} -> ${logFileName}`);
+        console.log(`   tail -f ${logFileName}`);
+      }
+      
+      // Write to device-specific log file
+      const logEntry = `[${timestamp}] ${msg.content.level || 'LOG'}: ${msg.content.message}\n`;
+      
+      try {
+        fs.appendFileSync(logFileName, logEntry);
+      } catch (error) {
+        console.error(`Failed to write to ${logFileName}:`, error);
+      }
     } else {
       // 🗺️ World Messages
       // TODO: Should all messages be prefixed with their piece?
