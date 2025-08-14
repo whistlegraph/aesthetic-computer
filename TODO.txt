@@ -3,6 +3,7 @@
  🌟 Projects in Progress (PIP) 🌟
 
  * `kidlisp` *
+ - Get $bez working with proper syntax highlighting.
  - Future proof URL sharing and attribution.
  - [] Any kidlisp that runs successfully should automatically be added to the
       database and given a unique UTC timestamp identifier or other meaningful
