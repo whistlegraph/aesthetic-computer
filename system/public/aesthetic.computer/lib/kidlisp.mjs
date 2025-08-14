@@ -395,6 +395,7 @@ class KidLisp {
 
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
+    this.currentSource = null; // Track current source code to detect changes
     
     // Timing blink state tracking
     this.timingBlinks = new Map(); // Track timing expressions that should blink
@@ -418,7 +419,7 @@ class KidLisp {
   }
 
   // Reset all state for a fresh KidLisp instance
-  reset() {
+  reset(clearOnceExecuted = false) {
     // Reset core state
     this.ast = null;
     this.globalDef = {};
@@ -472,9 +473,10 @@ class KidLisp {
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
     
-    // NOTE: onceExecuted is NOT cleared to preserve 'once' state across module loads
-    // This allows once blocks to work consistently between inline and .lisp file execution
-    // this.onceExecuted.clear(); // <-- REMOVED
+    // Clear onceExecuted only when explicitly requested (when source changes)
+    if (clearOnceExecuted) {
+      this.onceExecuted.clear();
+    }
     
     // Reset timing blink tracking
     this.timingBlinks.clear();
@@ -966,8 +968,13 @@ class KidLisp {
       'display: inline-block; background: #000; color: #FFEB3B; font-family: monospace; font-weight: bold; font-size: 12px; line-height: 1.4; white-space: pre-wrap; padding: 2px 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); text-shadow: 0 0 2px rgba(255, 235, 59, 0.3);'
     );
     
+    // Check if source has changed - if so, reset once state
+    const sourceChanged = this.currentSource !== source;
+    this.currentSource = source;
+    
     // Reset all state for fresh instance when loading a new module
-    this.reset();
+    // Clear onceExecuted only if the source code has changed
+    this.reset(sourceChanged);
     
     // Clear first-line color when loading new code
     this.firstLineColor = null;

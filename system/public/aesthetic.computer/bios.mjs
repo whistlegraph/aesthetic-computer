@@ -1224,20 +1224,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
+    // console.log("🎵 BIOS playSfx called:", {
+    //   id,
+    //   soundData,
+    //   options,
+    //   audioContextAvailable: !!audioContext,
+    //   sfxExists: !!sfx[soundData],
+    //   sfxType: sfx[soundData] ? typeof sfx[soundData] : "undefined"
+    // });
+    
     if (audioContext) {
       if (sfxCancel.includes(id)) {
+        console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
+      console.log("🎵 BIOS attempting to decode sfx:", soundData);
       await decodeSfx(soundData);
+      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
+        console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
         return;
       }
 
       if (!sfx[soundData]) {
+        console.log("🎵 BIOS sfx not found, queuing:", soundData);
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -1260,12 +1274,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
+      console.log("🎵 BIOS sample prepared:", {
+        soundData,
+        sampleChannels: sample.channels.length,
+        sampleRate: sample.sampleRate,
+        length: sample.length,
+        triggerSoundAvailable: !!triggerSound
+      });
+
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
 
       // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
-      sfxPlaying[id] = triggerSound?.({
+      const playResult = triggerSound?.({
         id,
         type: "sample",
         options: {
@@ -1283,6 +1305,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // attack: 0, // 🩷 TODO: These should have saner defaults.
         // decay: 0,
       });
+
+      console.log("🎵 BIOS triggerSound result:", {
+        id,
+        playResult,
+        playResultType: typeof playResult
+      });
+
+      sfxPlaying[id] = playResult;
 
       // Store the completion callback if provided
       if (completed) {
@@ -10123,18 +10153,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const reader = new FileReader();
         reader.onload = async function (e) {
           try {
-            console.log("🔊 Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
+            console.log("🔊 BIOS: Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
             
             // Create a unique ID for this WAV file
             const wavId = "dropped-wav-" + file.name.replace(/\.wav$/, "") + "-" + performance.now();
             const arrayBuffer = e.target.result;
             const fileSize = arrayBuffer.byteLength; // Capture size before storing
             
+            console.log("🔊 BIOS: Storing WAV in sfx cache with ID:", wavId);
             // Store the WAV data in the sfx cache for decoding and playback
             sfx[wavId] = arrayBuffer;
             
+            console.log("🔊 BIOS: Starting immediate WAV decoding...");
             // Trigger immediate decoding
             await decodeSfx(wavId);
+            console.log("🔊 BIOS: WAV decoding complete, sending to piece...");
             
             send({
               type: "dropped:wav",
@@ -10145,8 +10178,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 id: wavId // Include the audio ID for playback
               },
             });
+            
+            console.log("🔊 BIOS: WAV processing complete for:", wavId);
           } catch (error) {
-            console.error("❌ Failed to process WAV file:", error);
+            console.error("❌ BIOS: Failed to process WAV file:", error);
           }
         };
         reader.readAsArrayBuffer(file);
@@ -10521,14 +10556,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
+    console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
+    
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
+      console.log("🎵 BIOS decodeSfx already in progress for:", sound);
       // Wait a moment and check again
       await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
     }
 
     if (sfx[sound] instanceof ArrayBuffer) {
+      console.log("🎵 BIOS decodeSfx starting decode for ArrayBuffer:", sound);
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
 
@@ -10547,14 +10586,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const buf = sfx[sound];
         sfx[sound] = null;
         if (buf && audioContext) {
+          console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+          console.log("🎵 BIOS decode successful:", sound, "audioBuffer:", !!audioBuffer);
           sfx[sound] = audioBuffer;
 
           // Process any queued sounds that might be waiting for this file
           processPendingSfx();
 
           return sfx[sound];
+        } else {
+          console.error("🎵 BIOS decode failed - missing buffer or audioContext:", !!buf, !!audioContext);
         }
       } catch (err) {
         console.error("🔉 [DECODE] Decode error:", err, "➡️", sound);
