@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.186.0",
+  "version": "1.187.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
     "vscode": "^1.88.0"
@@ -93,6 +93,10 @@
       {
         "command": "aestheticComputer.visitGoal",
         "title": "Aesthetic Computer: Visit Goal 📔🚩"
+      },
+      {
+        "command": "aestheticComputer.clearSlug",
+        "title": "Aesthetic Computer: Clear Slug Data 🧹"
       }
     ],
     "grammars": [

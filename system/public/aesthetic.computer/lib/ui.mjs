@@ -123,7 +123,9 @@ class Button {
   // You can optionally pass in an array of `pens` {x, y} for multi-touch support.
   act(e, callbacks = () => {}, pens = []) {
     const btn = this.btn;
-    if (btn.disabled) return;
+    if (btn.disabled) {
+      return;
+    }
 
     // If only a single function is sent, then assume it's a button push callback.
     if (typeof callbacks === "function") callbacks = { push: callbacks };
@@ -157,7 +159,9 @@ class Button {
         btn.downPointer = e.pointer || 0;
       btn.over = btn.down;
       // Add to active buttons set
-      if (btn.down) activeButtons.add(btn);
+      if (btn.down) {
+        activeButtons.add(btn);
+      }
     }
 
     // 3. Push: Trigger the button if we push it.
@@ -168,22 +172,27 @@ class Button {
           btn.down = true;
           btn.over = true;
         } else {
+          btn.down = false;
+          btn.over = false;
           btn.downPointer = undefined;
           activeButtons.delete(btn);
         }
       }
 
-      if (
+      // In multitouch mode, only respond to lift events from the controlling pointer
+      const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+
+      // Check if this is a valid button push or should be cancelled
+      const isValidPush = isControllingPointer && (
+        // Multi-touch case: all pens are outside box but lift event is inside
         (pens.length > 1 &&
           btn.box.containsNone(pens) &&
           btn.box.contains(e)) ||
-        //(pens.length > 0 && btn.box.onlyContains(e.pointer - 1, pens)) ||
-        ((!pens || pens.length <= 1) && btn.box.contains(e)) // ||
+        // Single touch case: lift event is inside box
+        ((!pens || pens.length <= 1) && btn.box.contains(e))
+      );
 
-        // TODO: This may need to be fixed for stample multi touch again...
-        // e.pointer === btn.downPointer // TOOD: Hope this doesn't ruin
-        //  multi-touch / create problems across `bleep` and `stample`. 25.03.05.21.51
-      ) {
+      if (isValidPush) {
         // console.log(
         //   "Button up (push):",
         //   btn,
@@ -199,18 +208,14 @@ class Button {
         btn.over = false;
         activeButtons.delete(btn);
         callbacks.push?.(btn);
+        
         up();
       } else if (
-        btn.box.containsNone(pens) ||
-        ((!pens || pens.length === 0) && !btn.box.contains(e))
+        isControllingPointer && (
+          btn.box.containsNone(pens) ||
+          ((!pens || pens.length === 0) && !btn.box.contains(e))
+        )
       ) {
-        // console.log(
-        //   "contains no pens!?",
-        //   btn.box.containsNone(pens),
-        //   pens,
-        //   "contains e:",
-        //   btn.box.contains(e),
-        // );
         btn.down = false;
         btn.over = false;
         activeButtons.delete(btn);
@@ -243,34 +248,45 @@ class Button {
         (activeBtn) => activeBtn.stickyScrubbing,
       );
 
+      // Only prevent rollover activation if:
+      // 1. We're dragging from another button AND
+      // 2. That other button has sticky scrubbing enabled AND
+      // 3. This button doesn't allow rollover activation
+      const shouldPreventRollover = isDraggingFromOtherButton && 
+        hasStickyButton && 
+        btn.noRolloverActivation;
+
       if (
         isDraggingFromOtherButton &&
-        !hasStickyButton &&
-        !btn.noRolloverActivation && // Respect the noRolloverActivation flag
+        !shouldPreventRollover &&
         (btn.box.contains(e) || horizontallyWithin)
       ) {
-        // Only allow rollover activation if no sticky scrubbing buttons are active
-        // Deactivate all other buttons first
+        // Only allow rollover activation if conditions are met
+        // In multitouch mode, only deactivate buttons that don't have their own active pointer
         for (const otherBtn of activeButtons) {
-          if (otherBtn !== btn) {
-            otherBtn.down = false;
-            otherBtn.over = false;
-            otherBtn.actions?.up?.(otherBtn);
-            activeButtons.delete(otherBtn);
+          if (otherBtn !== btn && !otherBtn.stickyScrubbing) {
+            // In multitouch mode, only deactivate if this is the same pointer or if the other button doesn't have a specific pointer
+            if (!this.multitouch || otherBtn.downPointer === e.pointer || otherBtn.downPointer === undefined) {
+              otherBtn.down = false;
+              otherBtn.over = false;
+              otherBtn.actions?.up?.(otherBtn);
+              activeButtons.delete(otherBtn);
+            }
           }
         }
 
-        // Activate this button for dragging
-        btn.down = true;
-        btn.downPointer = e.pointer || 0;
-        activeButtons.add(btn);
-        callbacks.down?.(btn);
+        // Only activate this button if no sticky button conflicts
+        if (!hasStickyButton || btn.stickyScrubbing) {
+          btn.down = true;
+          btn.downPointer = e.pointer || 0;
+          activeButtons.add(btn);
+          callbacks.down?.(btn);
+        }
       }
 
-      // Always allow rollover callbacks, even with sticky scrubbing
+      // Always allow rollover callbacks for visual feedback
       if (
-        !hasStickyButton ||
-        !isDraggingFromOtherButton ||
+        !shouldPreventRollover ||
         horizontallyWithin
       ) {
         if (callbacks.rollover) {
@@ -299,11 +315,14 @@ class Button {
       (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen);
 
     if (e.is(`draw:${t}`) && btn.down && allowScrub) {
+      // In multitouch mode, only allow scrubbing from the controlling pointer unless special cases apply
+      const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+      
       // Allow scrubbing if pointers match OR if this button was activated via rollover
       // For sticky scrubbing, always allow if the button is down regardless of pointer position
       // For offScreenScrubbing, allow if horizontally within bounds
       if (
-        e.pointer === btn.downPointer ||
+        isControllingPointer ||
         (inActiveButtons && !btn.stickyScrubbing) ||
         (btn.stickyScrubbing && btn.down) ||
         (btn.offScreenScrubbing && btn.down && horizontallyWithinForOffScreen)
@@ -325,7 +344,10 @@ class Button {
         (btn.offScreenScrubbing &&
           (e.x < btn.box.x || e.x >= btn.box.x + btn.box.w));
 
-      if (shouldRollout) {
+      // In multitouch mode, only trigger rollout if this is the pointer that controls this button
+      const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
+
+      if (shouldRollout && isControllingPointer) {
         // Only truly deactivate if we're not dragging to another button
         // The rollover on the new button will handle the transition
         if (callbacks.rollout) {

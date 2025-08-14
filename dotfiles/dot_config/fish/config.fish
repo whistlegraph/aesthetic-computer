@@ -70,6 +70,15 @@ alias ac-ssl '~/aesthetic-computer/ssl-dev/ssl-install.fish'
 
 alias acc 'ac; ac-ssl; code .'
 
+function vidinfo
+  ffprobe -v error \
+    -select_streams v:0 \
+    -show_entries "stream=codec_name,width,height,r_frame_rate,avg_frame_rate,duration" \
+    -show_entries format=format_name,format_long_name \
+    -of default=noprint_wrappers=1:nokey=0 \
+    $argv
+end
+
 function acd
     ac
     # Kill any node instances that are running
@@ -152,7 +161,7 @@ function start
     echo "📦 Opening dev container..."
     acd # &
     echo "🎨 aesthetic.computer is ready! Have fun creating! 🚀"
-    # ac-event-daemon $argv
+    ac-event-daemon $argv
 end
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
@@ -357,3 +366,26 @@ bind \t complete-select-first
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
+
+# ac-notify function - Send notifications to ac-event-daemon
+function ac-notify
+    if test (count $argv) -eq 0
+        # Default success notification
+        echo "prompt-complete:success" | nc -u 127.0.0.1 9999 2>/dev/null
+    else
+        # Custom notification type
+        echo "prompt-complete:$argv[1]" | nc -u 127.0.0.1 9999 2>/dev/null
+    end
+end
+
+# Hook into command success/failure for prompt notifications
+function __notify_command_status --on-event fish_postexec
+    # Only notify if ac-event-daemon is running
+    if pgrep -f "ac-event-daemon" > /dev/null
+        if test $status -eq 0
+            ac-notify success
+        else
+            ac-notify error
+        end
+    end
+end

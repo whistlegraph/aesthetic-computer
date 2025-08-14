@@ -146,7 +146,7 @@ export const handler = async (event, context) => {
         const subscriptionEndTime = parsed.current_period_end; // Assume unix timestamp.
 
         if (subscriptionEndTime > currentTime) {
-          shell.log("📰 Subscription active!", performance.now());
+          shell.log("📰 Subscription active from cache!", performance.now());
           await KeyValue.disconnect();
           return parsed;
         } else {
@@ -157,6 +157,7 @@ export const handler = async (event, context) => {
         }
       }
 
+      shell.log("🔍 Checking Stripe for subscription...");
       // 🩷 Then query it from Stripe,
 
       const stripe = Stripe(key);
@@ -166,10 +167,12 @@ export const handler = async (event, context) => {
       });
 
       if (!customers.data.length) {
+        shell.log("❌ No customer found in Stripe");
         await KeyValue.disconnect();
         return { subscribed: false };
       }
       const customer = customers.data[0];
+      shell.log("✅ Customer found:", customer.id);
 
       // Fetch subscriptions for the customer
       const subscriptions = await stripe.subscriptions.list({
@@ -178,11 +181,13 @@ export const handler = async (event, context) => {
         limit: 5,
       });
 
+      shell.log("📊 Found subscriptions:", subscriptions.data.length);
       const subscription = subscriptions.data.find((sub) =>
         sub.items.data.some((item) => item.price.product === productId),
       );
 
       if (subscription) {
+        shell.log("✅ Active subscription found:", subscription.status);
         // 🩷 And serialize it into redis.
         await KeyValue.set(
           "sotce-subscribed",
@@ -192,11 +197,13 @@ export const handler = async (event, context) => {
             current_period_end: subscription.current_period_end,
           }),
         );
+        await KeyValue.disconnect();
+        return subscription;
+      } else {
+        shell.log("❌ No active subscription found");
+        await KeyValue.disconnect();
+        return { subscribed: false };
       }
-
-      await KeyValue.disconnect();
-
-      return subscription;
     } catch (err) {
       shell.error("Error fetching subscription status:", err);
       return null;
@@ -309,7 +316,7 @@ export const handler = async (event, context) => {
 
             :root {
               -webkit-locale: "en";
-              --background-color: rgb(202, 218, 228);
+              --background-color: #C7FFD8;
               --pink-border: rgb(255, 190, 215);
               --button-background: rgb(255, 235, 183);
               --button-background-highlight: rgb(255, 245, 170);
@@ -320,7 +327,7 @@ export const handler = async (event, context) => {
               /* --line-height: 1.68em; */
               --line-height: 1.76em;
               /* --garden-background: rgb(187, 251, 254); // #bbfbfe; */
-              --garden-background: rgb(204, 231, 255); // #bbfbfe;
+              --garden-background: #C7FFD8;
               /*--chat-background: rgb(255, 230, 225);*/ /* rgb(240, 235, 230); */
               --chat-background: /*rgb(202, 218, 228);*/ rgb(240, 235, 230);
               --chat-input-bar-background: rgb(255, 240, 235); /* rgb(240, 235, 230); */
@@ -2039,7 +2046,8 @@ export const handler = async (event, context) => {
                 if (
                   gateCurtain &&
                   !gateCurtain.classList.contains("obscured") &&
-                  !garden
+                  !garden &&
+                  (status === "subscribed" || subscription?.admin) // Only show chat for subscribed users and admins
                 ) {
                   chatInterface.classList.remove("hidden");
                 }
@@ -2232,7 +2240,10 @@ export const handler = async (event, context) => {
               const cookieWrapper = cel("div");
               cookieWrapper.id = "cookie-wrapper";
 
-              cookieWrapper.classList.add("interactive");
+              // Only make cookie interactive for subscribed users and admins
+              if (status === "subscribed" || subscription?.admin) {
+                cookieWrapper.classList.add("interactive");
+              }
 
               const img = document.createElement("img");
               img.id = "cookie";
@@ -2442,6 +2453,8 @@ export const handler = async (event, context) => {
                         user.sub = u.sub; // Add sub to user.
                         const entered = await subscribed();
                         if (entered) {
+                          status = "subscribed";
+                          subscription = entered;
                           await garden(entered, user, true); // Re-open garden but show the gate first.
                         } else {
                           if (!embedded) {
@@ -2593,8 +2606,14 @@ export const handler = async (event, context) => {
                     garden.classList.remove("hidden");
                     updatePath("/");
                   } else {
-                    chatInterface.classList.add("splash-chat-open");
-                    updatePath("/chat");
+                    // Only show chat for subscribed users and admins
+                    if (status === "subscribed" || subscription?.admin) {
+                      chatInterface.classList.add("splash-chat-open");
+                      updatePath("/chat");
+                    } else {
+                      // For non-subscribed users, just go to home
+                      updatePath("/");
+                    }
 
                     // Make sure the icon cookie is visible.
                     let cookieMenuWrapper = document.querySelector(
@@ -2682,9 +2701,10 @@ export const handler = async (event, context) => {
                     if (!curtain.classList.contains("obscured")) {
                       g.classList.remove("faded");
                       // Check to see if the chat is connected.
-                      if (!subscription && !chat.system.connecting) {
-                        chatInterface.classList.remove("hidden");
-                      }
+                      // Commented out to hide chat interface for logged-out users
+                      // if (!subscription && !chat.system.connecting) {
+                      //   chatInterface.classList.remove("hidden");
+                      // }
                       clearInterval(checkObscurity);
                     }
                   }, 10);
@@ -3998,6 +4018,8 @@ export const handler = async (event, context) => {
             let isAuthenticated = false;
             let fetchUser;
             let user;
+            let status; // Global status variable
+            let subscription; // Global subscription variable
 
             async function retrieveUncachedUser() {
               try {
@@ -4169,6 +4191,8 @@ export const handler = async (event, context) => {
             if (!fullAlert) {
               if (!isAuthenticated) {
                 // console.log("⚠️ Not authenticated...");
+                status = "logged-out";
+                subscription = null;
                 // Wait for a subscriber count. if we are logged out.
                 // console.log("Fetching subscribers...");
                 try {
@@ -4207,6 +4231,8 @@ export const handler = async (event, context) => {
                 //console.log("🟡 Are we here?", user);
 
                 if (!user.email_verified) {
+                  status = "unverified";
+                  subscription = null;
                   await spinnerPass(async () => await gate("unverified", user));
                 } else {
                   // The user's email is verified...
@@ -4224,6 +4250,8 @@ export const handler = async (event, context) => {
                   }
 
                   if (entered?.subscribed) {
+                    status = "subscribed";
+                    subscription = entered;
                     const showGate = path === "/gate";
 
                     let removeGateCurtain;
@@ -4240,6 +4268,8 @@ export const handler = async (event, context) => {
                       removeGateCurtain,
                     );
                   } else if (entered !== "error") {
+                    status = "verified";
+                    subscription = null;
                     await spinnerPass(async () => await gate("verified", user));
                   } else {
                     console.log("🔴 Server error.");
@@ -4347,14 +4377,12 @@ export const handler = async (event, context) => {
 
               if (response.status === 200) {
                 if (response.subscribed) {
-                  // console.log("️📰 Subscribed:", response);
                   return response;
                 } else {
-                  console.error("🗞️ Unsubscribed:", response);
                   return false;
                 }
               } else {
-                console.error("🗞️ Unsubscribed:", response);
+                console.error("Subscription check failed:", response);
                 return "error";
               }
             }
@@ -4383,10 +4411,14 @@ export const handler = async (event, context) => {
                   console.log("💳❌ Subscription cancelled:", result);
                   const entered = await subscribed();
                   if (entered?.subscribed) {
+                    status = "subscribed";
+                    subscription = entered;
                     await garden(entered, user, true); // Open garden and show the gate.
                     unveil({ instant: true });
                     setTimeout(() => alert(result.message), 100);
                   } else {
+                    status = "verified";
+                    subscription = null;
                     // unveil({ instant: true });
                     flash("red", { hold: true });
                     setTimeout(() => window.location.reload(), 150);
@@ -4631,7 +4663,9 @@ export const handler = async (event, context) => {
     const retrieve = body.retrieve || "subscription";
 
     const user = await authorize(event.headers, "sotce");
-    if (!user) return respond(401, { message: "Unauthorized." });
+    if (!user) {
+      return respond(401, { message: "Unauthorized." });
+    }
 
     const subscription = await subscribed(user);
 
@@ -4639,11 +4673,11 @@ export const handler = async (event, context) => {
       return respond(500, { error: "Failed to fetch subscription status" });
     }
 
-    if (subscription?.subscribed === false) {
-      return respond(200, subscription);
+    if (subscription?.subscribed === false || !subscription) {
+      return respond(200, { subscribed: false });
     }
 
-    if (subscription && subscription?.status === "active") {
+    if (subscription?.status === "active") {
       // What did we need the subscription for?
 
       const out = { subscribed: true };
@@ -4660,7 +4694,7 @@ export const handler = async (event, context) => {
             )
           : "recurring";
         if (out.until === "recurring") {
-          out.renews = `${new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", dateOptions)}`;
+          out.renews = new Date(subscription.current_period_end * 1000).toLocaleDateString("en-US", dateOptions);
         }
 
         // 👸 Administrator status.
