@@ -608,6 +608,16 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         `💻 Local Development: ${local ? "Enabled" : "Disabled"}`,
       );
     }),
+    vscode.commands.registerCommand("aestheticComputer.clearSlug", () => {
+      // Clear the stored slug data
+      context.globalState.update("panel:slug", "");
+      // Refresh the webview to reflect the cleared state
+      provider.refreshWebview();
+      refreshWebWindow();
+      vscode.window.showInformationMessage(
+        "🧹 Slug data cleared successfully!",
+      );
+    }),
   );
 
   // Automatically re-run the piece when saving any .mjs file.

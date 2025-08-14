@@ -1,6 +1,6 @@
 ---
-description: 'Expert guidance for developing and modifying the Aesthetic Computer platform itself - the core system, pieces, and infrastructure'
-tools: ['codebase', 'search', 'fetch', 'usages', 'findTestFiles', 'replace', 'terminal']
+description: 'Develop Aesthetic Computer platform code, pieces, and systems.'
+tools: ['changes', 'codebase', 'editFiles', 'extensions', 'fetch', 'findTestFiles', 'githubRepo', 'new', 'openSimpleBrowser', 'problems', 'runCommands', 'runNotebooks', 'runTasks', 'search', 'searchResults', 'terminalLastCommand', 'terminalSelection', 'testFailure', 'usages', 'vscodeAPI']
 ---
 
 # Aesthetic Computer Platform Development Assistant

@@ -4,6 +4,7 @@
 export const font_1 = {
   glyphHeight: 10,
   glyphWidth: 6,
+  proportional: false, // Monospace font - fixed character width
   0: "numbers/0 - 2021.12.16.18.28.06",
   1: "numbers/1 - 2021.12.16.17.56.44",
   2: "numbers/2 - 2021.12.16.17.59.01",
@@ -106,4 +107,94 @@ export const font_1 = {
 export const unifont = {
   glyphHeight: 16,
   glyphWidth: 8,
+  proportional: false, // Monospace font - fixed character width
+  bdfFont: "unifont-16.0.03", // Specify the exact BDF file to use
+};
+
+// MatrixChunky8 - LED matrix optimized font via BDF endpoint
+export const MatrixChunky8 = {
+  glyphHeight: 8,
+  // glyphWidth removed - using character-specific advance widths from BDF DWIDTH
+  baseline: 0, // No global baseline - individual BDF offsets handle all positioning
+  bdfFont: "MatrixChunky8", // Indicates this uses the BDF endpoint
+  proportional: true, // Flag indicating this is a proportional font
+  // Character advance widths for proportional spacing
+  advances: {
+    'A': 4, 'B': 4, 'C': 4, 'D': 4, 'E': 4, 'F': 4, 'G': 4, 'H': 5, 'I': 4, 'J': 2, 'K': 4, 'L': 4, 'M': 6, 'N': 4, 'O': 5, 'P': 4, 'Q': 4, 'R': 4, 'S': 4, 'T': 4, 'U': 4, 'V': 4, 'W': 6, 'X': 4, 'Y': 4, 'Z': 4,
+    'a': 4, 'b': 4, 'c': 4, 'd': 4, 'e': 4, 'f': 4, 'g': 4, 'h': 4, 'i': 4, 'j': 4, 'k': 4, 'l': 4, 'm': 6, 'n': 4, 'o': 4, 'p': 4, 'q': 4, 'r': 4, 's': 4, 't': 4, 'u': 4, 'v': 4, 'w': 6, 'x': 4, 'y': 4, 'z': 4,
+    '0': 4, '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4,
+    ' ': 2, '.': 2, ',': 2, '!': 2, '?': 4, ':': 2, ';': 2, '-': 4, '+': 4, '=': 4, '<': 4, '>': 4, '/': 4, '\\': 4, '|': 2, '"': 4, "'": 2, '(': 2, ')': 2, '[': 4, ']': 2, '{': 2, '}': 2, '@': 5, '#': 5, '$': 4, '%': 5, '^': 4, '&': 5, '*': 4, '_': 4, '~': 5
+  }
+};
+
+// Ultra-tiny 3x5 font for microtype display (legacy, QR codes now use MatrixChunky8)
+export const microtype = {
+  glyphHeight: 5,
+  glyphWidth: 4, // Increased from 3 to 4 for better spacing
+  proportional: false, // Monospace font - fixed character width
+  // Numbers (0-9)
+  0: "microtype/numbers/0",
+  1: "microtype/numbers/1", 
+  2: "microtype/numbers/2",
+  3: "microtype/numbers/3",
+  4: "microtype/numbers/4",
+  5: "microtype/numbers/5",
+  6: "microtype/numbers/6",
+  7: "microtype/numbers/7",
+  8: "microtype/numbers/8",
+  9: "microtype/numbers/9",
+  // Uppercase letters (A-Z)
+  A: "microtype/uppercase/A",
+  B: "microtype/uppercase/B",
+  C: "microtype/uppercase/C",
+  D: "microtype/uppercase/D",
+  E: "microtype/uppercase/E",
+  F: "microtype/uppercase/F",
+  G: "microtype/uppercase/G",
+  H: "microtype/uppercase/H",
+  I: "microtype/uppercase/I",
+  J: "microtype/uppercase/J",
+  K: "microtype/uppercase/K",
+  L: "microtype/uppercase/L",
+  M: "microtype/uppercase/M",
+  N: "microtype/uppercase/N",
+  O: "microtype/uppercase/O",
+  P: "microtype/uppercase/P",
+  Q: "microtype/uppercase/Q",
+  R: "microtype/uppercase/R",
+  S: "microtype/uppercase/S",
+  T: "microtype/uppercase/T",
+  U: "microtype/uppercase/U",
+  V: "microtype/uppercase/V",
+  W: "microtype/uppercase/W",
+  X: "microtype/uppercase/X",
+  Y: "microtype/uppercase/Y",
+  Z: "microtype/uppercase/Z",
+  // Lowercase letters (a-z)
+  a: "microtype/lowercase/a",
+  b: "microtype/lowercase/b",
+  c: "microtype/lowercase/c",
+  d: "microtype/lowercase/d",
+  e: "microtype/lowercase/e",
+  f: "microtype/lowercase/f",
+  g: "microtype/lowercase/g",
+  h: "microtype/lowercase/h",
+  i: "microtype/lowercase/i",
+  j: "microtype/lowercase/j",
+  k: "microtype/lowercase/k",
+  l: "microtype/lowercase/l",
+  m: "microtype/lowercase/m",
+  n: "microtype/lowercase/n",
+  o: "microtype/lowercase/o",
+  p: "microtype/lowercase/p",
+  q: "microtype/lowercase/q",
+  r: "microtype/lowercase/r",
+  s: "microtype/lowercase/s",
+  t: "microtype/lowercase/t",
+  u: "microtype/lowercase/u",
+  v: "microtype/lowercase/v",
+  w: "microtype/lowercase/w",
+  x: "microtype/lowercase/x",
+  y: "microtype/lowercase/y",
+  z: "microtype/lowercase/z",
 };

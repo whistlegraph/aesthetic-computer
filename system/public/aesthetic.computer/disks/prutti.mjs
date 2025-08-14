@@ -7,6 +7,9 @@ import { Typeface } from "../lib/type.mjs";
 #endregion */
 
 /* #region 🏁 TODO
+  Bugs, 25.07.20.10.16
+  - []  The timecode in the player doees not update when the audio is playing.
+  - [] The scrubber is weird - please just simplify it / make it work, using 'stample' as a reference interface.
   (Released)
   - [] Better scroll limiting related to the bottom of the screen.
   + Done
@@ -193,10 +196,10 @@ const lessons = [
     Dungeon & Draogns cost-play and (gay) culture > Industrial - revesed signals culture > Cyber Punk > Internet > Tekno  > Global Village Dreams > Social Media & web 2.0  > The curret Politcal Art-scene…
 
     and that current art-scene would never accept a man·ly Dungeon & Dragons cost-play picture like this:
-    [never_call-me_by_the_name_kristian_09]
+    [never_call_me_by_the_name_kristian_09]
     `,
     pictures: ["lnl9"],
-    sounds: ["never_call-me_by_the_name_kristian_09"],
+    sounds: ["never_call-me-by-the-name_kristian_09"],
   },
   {
     title: "Lesson NOT Learnt 10",
@@ -257,7 +260,7 @@ const lessons = [
 
     >>> HAANDSKULPTUR…HAANDSKULPTUR..HAANDSKULPTUR.HAANDSKULPTR >>>
 
-    N.B. now a days I hardly sign any of creation's — as I do think that my work should do the talk-ing & I have never really been a artist, in the first place -  I'am more like a UPdate'er - I take things and makes them better…
+    N.B. now a days I hardly sign any of my creation's — as I do think that my work should do the talk-ing & I have never really been a artist, in the first place -  I'am more like a UPdate'er - I take things and makes them better…
 
     If you stay around me just for a little while, things in your life improves drastically —YES - it is true, it is a mystical (also to me) gift that  i inherited when i was very small - - — in watche's people always talk about, unique thing's — but you, just as what I create is a PIECE UNIQUE
 
@@ -484,7 +487,7 @@ const lessons = [
     ^'§^'§^'Ohhhh - I am not a big fan of cigarettes - but in this world, - differences is what make life a better place, then the grave. ^§'^§'^^'§^§'^
     *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
     - ANGEL EYE's - ANGEL EYE's - ANGEL EYE's - ANGEL EYE's -
-    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?
+    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^?^'?'
 
     [new recording 16]
     `,
@@ -496,9 +499,7 @@ const lessons = [
     text: `
     ———————————————-
     L.O.V.E. RAP-rock : §§§—LOVE-YOU-POP—
-    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?….:::::..:::……..
-    En*Kat*Kat*Kat —som— er en*Kat*Kat*Kat —som—er en*Kat*Kat*Kat —som— er en* ——WAW—— Mandolin'er version
-    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?'
+    ^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^'?^?^'?^?^'?'
 
     [i love you kat - mandolin]
     `,
@@ -512,8 +513,6 @@ const lessons = [
     LOVE You dad
     Original Version - B-tar = very good…
     !—!—^*^_!0^0_*0—!—^*^!_!0^0_!*0_!
-    *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
-    I still travel to places and record music with the young ones, to learn about passion-living art's-&-tech - people think that I make this super advanced music or musical-ideas, but in reality- I just help-out, listen-in and try to make things better-  whatever that means... since I was young and until today I have alway's just done so, because even after all this years i am still just: Pruttipal -
     *_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:__*_:
 
     [i love you pop]
@@ -543,7 +542,7 @@ const lessons = [
     text: `
     In cold country's you will typically find coloured poles by the side of the road %%% - * These poles are typically used as markers for: - snow-plow-drivers- * to follow during snowstorms. They help the drivers stay on the road and avoid going too far to the side, where they might hit lets say a ditch or a tree… Additionally, ON-top they can also be used as guides for drivers in low visibility conditions. // //
     —bla. bla. bla. bla. bla. bla. bla.—
-    now last-early evening I was going on my bicikel, downtown Torshavn, and there behind a interactive-Bus-info-map, was 3 lusty road poles engaing in xxx-activities, and I was just thinking that at my AGE, there is Not much to be seen, or for some poeple to much to be seen? ? — But maybe I should make some content, looking at a BEAR-like me, would be for the few, YES only for the people with the most distinct and perverted sexual DREAMS, — AND there should be something for them as well, ROAD POLES and OLD BEAR's - uhhh so perverted you are Pruttipal'ur… - WELL you just hit START in your head and, you will never come back…
+    now last-early evening I was going on my bicikel, downtown Torshavn, and there behind a interactive-Bus-info-map, was 3 lusty road poles engaing in xxx-activities, and I was just thinking that at my AGE, there is Not much to be seen, or for some people to much to be seen? ? — But maybe I should make some content, looking at a BEAR-like me, would be for the few, YES only for the people with the most distinct and perverted sexual DREAMS, — AND there should be something for them as well, ROAD POLES and OLD BEAR's - uhhh so perverted you are Pruttipal'ur… - WELL you just hit START in your head and, you will never come back…
     ———————————————
 
     [33_freaky_ts]
@@ -568,7 +567,7 @@ const lessons = [
     text: `
     …. & raD & Mandolin'ur
 
-    V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, Picts
+    V54ttur, Nissar, Dv54rgir, Viking'ur, Picts ——— V54ttur, Nissar, Dv54rgir, Viking'ur, V54ttur, Nissar, Dv54rgir, Viking'ur, Picts
 
     <<< Pict's …. & raD >>> <<< …. & raD >>> <<< Pict's …. & raD >>> <<< …. & raD >>> <<< …. & raD >>> <<< …. & raD >>> <<< Pict's …. & raD >>>
 
@@ -893,7 +892,7 @@ const lessons = [
     [prut_goodiepal_&_galls.m4a]
     `,
     pictures: ["lnl51"],
-    sounds: ["prut_goodiepal_&_galls"]
+    sounds: ["prut_goodiepal_&_galls"],
   },
   {
     title: "Lesson Not Learned 52",
@@ -910,7 +909,7 @@ const lessons = [
     [we_are_all_luther_blissett.m4a]
     `,
     pictures: ["lnl52"],
-    sounds: ["we_are_all_luther_blissett"]
+    sounds: ["we_are_all_luther_blissett"],
   },
   {
     title: "Lesson Not Learned 53",
@@ -931,15 +930,16 @@ const lessons = [
     [PIKBLOD-when-you-walked-speed-up-slow_version.m4a]
     `,
     pictures: ["lnl53"],
-    sounds: ["PIKBLOD-when-you-walked-speed-up_slow-version"]
-  }
-
+    sounds: ["PIKBLOD-when-you-walked-speed-up_slow-version"],
+  },
 ];
 
 let lesson = 0,
   scroll = 0,
   scrollMax;
 const lessonPaintings = [],
+  lessonPaintingsCache = new Map(), // Cache for scaled dimensions and draw info
+  preRenderedPaintings = new Map(), // Cache for pre-rendered scaled paintings
   picWidth = 320;
 let color,
   noiseTint = [255, 0, 0];
@@ -951,45 +951,154 @@ let playingSfx = null,
   playStartTime = 0,
   actualDuration = null,
   preloadedAudio = null, // Store preloaded audio like wipppps
-  progress = 0, // Track playback progress like wipppps
-  waveformData = null; // Store compressed waveform data for progress bar visualization
+  progress = 0, // Track playback progress
+  isScrubbing = false, // Track if actively scrubbing (pause normal progress updates)
+  scrubOccurred = false, // Track if scrubbing occurred during this button interaction
+  scrubOffset = 0, // Offset between touch position and current playback position
+  waveformData = null, // Store compressed waveform data for progress bar visualization
+  startTimeSeconds = null, // Store the requested start time in seconds
+  requestedTimeString = null, // Store the original time string for immediate display
+  isBuffering = false, // Track if audio is currently loading
+  playbackAttempted = false, // Track if user has attempted to play audio
+  scrubButton = null; // UI button for the progress bar area
+
+// Parse time string like "1:53" into seconds
+function parseTimeString(timeStr) {
+  if (!timeStr || typeof timeStr !== "string") {
+    return null;
+  }
+
+  // Handle formats like "1:53", "0:30", "2:15", etc.
+  const timePattern = /^(\d+):(\d+)$/;
+  const match = timeStr.match(timePattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const minutes = parseInt(match[1], 10);
+  const seconds = parseInt(match[2], 10);
+
+  // Validate seconds (should be 0-59)
+  if (seconds >= 60) {
+    return null;
+  }
+
+  const totalSeconds = minutes * 60 + seconds;
+
+  return totalSeconds;
+}
 
 // 🥾 Boot
-async function boot({ api, wipe, params, hud, help, num, sound, net }) {
+ function boot({ api, wipe, params, hud, help, num, sound, net, ui, screen }) {
   wipe(0);
   noiseTint = num.randIntArr(255, 3);
   lesson = params[0] ? parseInt(params[0]) - 1 : num.randInd(lessons);
   if (lesson > lessons.length - 1 || lesson < 0) lesson = 0;
+
+  // Create the scrub button for the progress bar area - only if lesson has sounds
+  if (lessons[lesson].sounds?.length > 0) {
+    const barHeight = 22;
+    
+    // Calculate positioning based on timecode layout (matching paint function calculations)
+    const glyphWidth = 6; // Each glyph is 6 pixels wide (typeface blockWidth)
+    const promptStartX = 6; // Prompt starts at x=6
+    const cornerLabelText = "prutti"; // The corner label text
+    const cornerLabelWidth = cornerLabelText.length * glyphWidth; // Character width
+    const lessonNumberWidth = lesson.toString().length * glyphWidth; // Width of lesson number
+    const spaceWidth = glyphWidth; // Space character width
+    const timeCodeWidth = 5 * glyphWidth; // "00:00" is 5 characters
+    const totalTimeWidth = 7 * glyphWidth; // "/ 00:00" is 7 characters
+    
+    // Calculate where the timecode starts and ends
+    const timeCodeStartX = promptStartX + cornerLabelWidth + spaceWidth + lessonNumberWidth + spaceWidth;
+    const timeCodeEndX = timeCodeStartX + timeCodeWidth + totalTimeWidth;
+    
+    // Start the scrub button from the middle of the timecode area
+    const timecodeMiddleX = timeCodeStartX + Math.floor((timeCodeWidth + totalTimeWidth) / 2);
+    const buttonStartX = timecodeMiddleX; // Start from middle of timecode
+    const buttonWidth = screen.width - buttonStartX; // Extend to right edge of screen
+    
+    scrubButton = new ui.Button(buttonStartX, 0, buttonWidth, barHeight);
+    scrubButton.offScreenScrubbing = true; // Allow scrubbing to continue horizontally off-screen
+    console.log("🟣 BUTTON CREATED: Timecode-aware position (" + buttonStartX + ", 0) Size:", buttonWidth, "x", barHeight);
+     } else {
+       scrubButton = null; // Clear button if no sounds
+    console.log("🟣 BUTTON CREATED: No button created - lesson has no sounds");
+  }
+
+  // Parse start time from params[1] if provided (e.g., "1:53")
+  startTimeSeconds = parseTimeString(params[1]);
+  requestedTimeString = params[1]; // Store the original string for immediate display
+
+  if (startTimeSeconds !== null) {
+    console.log(
+      "🕐 Prutti: Start time requested:",
+      params[1],
+      "(" + startTimeSeconds + "s)",
+    );
+    // Set pausedAt to a placeholder - it will be properly set when duration is known
+    pausedAt = 0.1; // Non-zero placeholder so we know we have a start time
+    // Don't set progress yet - we'll set it when duration is known
+  } else {
+    pausedAt = 0; // No start time, start from beginning
+    progress = 0; // Reset progress for new lesson
+  }
+
   console.log("🪄 Prutti:", lesson + 1);
   hud.label("prutti " + (lesson + 1));
-  
-  // Preload unifont typeface for titles
-  await net.preloadTypeface("unifont");
-  
+
   // Reset audio state
   playingSfx = null;
   isPlaying = false;
-  pausedAt = 0;
+  isScrubbing = false; // Reset scrubbing state
+  scrubOccurred = false; // Reset scrub tracking for next interaction
+  scrubOffset = 0; // Reset scrub offset
+  // pausedAt and progress are set above based on whether we have a start time
   actualDuration = null;
   preloadedAudio = null; // Reset preloaded audio for new lesson
-  progress = 0; // Reset progress for new lesson
   waveformData = null; // Reset waveform data for new lesson
-  
+  isBuffering = false; // Reset buffering state
+  playbackAttempted = false; // Reset playback attempt state
+
   loadLesson(api, sound);
   color = help.choose("white", "cyan", "yellow", "orange", undefined);
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, write, sound, box, hud }) {
+function paint({
+  wipe,
+  ink,
+  paste,
+  screen,
+  text: txt,
+  help,
+  noiseTinted,
+  shape,
+  write,
+  sound,
+  box,
+  hud,
+  ui,
+  api,
+  painting,
+}) {
   let { title, text } = lessons[lesson];
   text = text.trim();
-  
+
   // Adjust margins for scroll bar - left margin accounts for 4px scroll bar + 6px gap
   const leftMargin = 10; // 4px scroll bar + 6px gap
   const rightMargin = 6; // Keep right margin at 6px
   const contentWidth = screen.width - leftMargin - rightMargin;
-  
-  const titleBox = txt.box(title, { x: leftMargin, y: 24 + scroll }, contentWidth, 1, true, "unifont");
+
+  const titleBox = txt.box(
+    title,
+    { x: leftMargin, y: 24 + scroll },
+    contentWidth,
+    1,
+    true,
+    "unifont",
+  );
   const textBox = txt.box(
     text,
     { x: leftMargin, y: 24 + scroll + 10 + titleBox.box.height },
@@ -1008,24 +1117,118 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
     .write(title, titleBox.pos, noiseTint, contentWidth, true, "unifont");
   ink(color).write(text, textBox.pos, 0, contentWidth);
 
+  // Debug: Display image loading status
+  const imageStatus = `Images: ${lessonPaintings.length}/${lessons[lesson].pictures?.length || 0} loaded`;
+  ink("cyan").write(imageStatus, { x: leftMargin, y: screen.height - 20 });
+
   let lastHeight = 0;
-  lessonPaintings.forEach((painting) => {
-    // if (!painting) return;
-    const width = min(picWidth, contentWidth);
-    const height = (painting.height / painting.width) * width;
-    paste(painting, leftMargin, 10 + textBox.pos.y + textBox.box.height + lastHeight, {
-      width,
-      height,
-    });
-    lastHeight += height + 10;
+  
+  // Pre-calculate the target width to avoid recalculating it every frame
+  const targetWidth = Math.min(picWidth, contentWidth);
+  
+  lessonPaintings.forEach((painting, index) => {
+    if (!painting) {
+      console.log("⚠️ PRUTTI: Painting", index + 1, "is", painting, "- skipping");
+      return;
+    }
+    
+    // Check for pre-rendered painting first (fastest path)
+    const preRenderKey = `${index}-${targetWidth}`;
+    const preRendered = preRenderedPaintings.get(preRenderKey);
+    
+    if (preRendered) {
+      // Use pre-rendered painting - fastest possible rendering
+      try {
+        paste(
+          preRendered.painting,
+          leftMargin,
+          10 + textBox.pos.y + textBox.box.height + lastHeight
+        );
+        lastHeight += preRendered.height + 10;
+        return;
+      } catch (error) {
+        console.error("❌ PRUTTI: Failed to paste pre-rendered painting", index + 1, ":", error);
+        // Fall through to regular rendering
+      }
+    }
+    
+    // Fall back to cached scaling info if no pre-rendered version
+    const cacheKey = `${index}-${targetWidth}`;
+    let cachedInfo = lessonPaintingsCache.get(cacheKey);
+    
+    if (!cachedInfo) {
+      // Handle different image object types - check for img property first
+      let imageObj = painting;
+      if (painting.img) {
+        imageObj = painting.img; // Use the actual image element if available
+      }
+      
+      // Check if painting has valid dimensions - handle different image object types
+      const paintingWidth = imageObj.width || imageObj.naturalWidth || imageObj.videoWidth || painting.width;
+      const paintingHeight = imageObj.height || imageObj.naturalHeight || imageObj.videoHeight || painting.height;
+      
+      if (!paintingWidth || !paintingHeight) {
+        console.error("❌ PRUTTI: Painting", index + 1, "has invalid dimensions - width:", paintingWidth, "height:", paintingHeight);
+        return;
+      }
+      
+      // Calculate scale factor for more efficient scaling
+      const scaleX = targetWidth / paintingWidth;
+      const scaleFactor = scaleX; // Use uniform scaling
+      const scaledHeight = paintingHeight * scaleFactor;
+      
+      // Cache the calculated info
+      cachedInfo = {
+        imageObj,
+        scaleFactor,
+        scaledHeight,
+        paintingWidth,
+        paintingHeight
+      };
+      lessonPaintingsCache.set(cacheKey, cachedInfo);
+      
+      // Trigger pre-rendering for next frame (async)
+      setTimeout(() => {
+        createPreRenderedPainting(index, targetWidth, cachedInfo, api, painting);
+      }, 0);
+    }
+    
+    try {
+      // Check if we can use a simple integer scale for performance
+      if (cachedInfo.scaleFactor > 0 && cachedInfo.scaleFactor <= 8 && Number.isInteger(cachedInfo.scaleFactor)) {
+        // Use integer scale factor for fast path in paste function
+        paste(
+          cachedInfo.imageObj,
+          leftMargin,
+          10 + textBox.pos.y + textBox.box.height + lastHeight,
+          cachedInfo.scaleFactor
+        );
+      } else {
+        // Use width/height object for complex scaling
+        paste(
+          cachedInfo.imageObj,
+          leftMargin,
+          10 + textBox.pos.y + textBox.box.height + lastHeight,
+          {
+            width: targetWidth,
+            height: cachedInfo.scaledHeight,
+          }
+        );
+      }
+    } catch (error) {
+      console.error("❌ PRUTTI: Failed to paste painting", index + 1, ":", error);
+    }
+    
+    lastHeight += cachedInfo.scaledHeight + 10;
   });
 
   // Progress bar under the corner label - only show if lesson has sounds
+
   if (progress !== undefined && lessons[lesson].sounds?.length > 0) {
     const barHeight = 22; // Increased height to balance with text positioning
     const cornerLabelY = 12; // Corner label is positioned at top: 12px
     const barY = 0; // Position progress bar at the very top of the screen with no margin
-    
+
     // Calculate the start position after the corner label - align with first number in timecode
     const glyphWidth = 6; // Each glyph is 6 pixels wide (typeface blockWidth)
     const promptStartX = 6; // Prompt starts at x=6
@@ -1033,126 +1236,179 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
     const cornerLabelWidth = cornerLabelText.length * glyphWidth; // Character width
     const lessonNumberWidth = lesson.toString().length * glyphWidth; // Width of lesson number
     const spaceWidth = glyphWidth; // Space character width
-    const timeFirstDigitX = promptStartX + cornerLabelWidth + spaceWidth + lessonNumberWidth + spaceWidth; // Position of first digit of time
+    const timeFirstDigitX =
+      promptStartX +
+      cornerLabelWidth +
+      spaceWidth +
+      lessonNumberWidth +
+      spaceWidth; // Position of first digit of time
     const progressBarStartX = 0; // Start progress bar at the left edge of the screen
     const progressBarWidth = screen.width; // Full width of the screen
 
     // Background bar - use very subtle dark color instead of bright red
-    ink(24, 24, 24, 255).box(progressBarStartX, barY, progressBarWidth, barHeight);
+    ink(24, 24, 24, 255).box(
+      progressBarStartX,
+      barY,
+      progressBarWidth,
+      barHeight,
+    );
 
-    // Draw waveform efficiently if available
+    // Draw waveform efficiently if available - with static needle approach
     if (waveformData && waveformData.length > 0) {
-      const progressPixel = Math.floor(progress * progressBarWidth);
+      // Calculate the position for the white needle - between time code and play/pause button
+      const glyphWidth = 6; // Each glyph is 6 pixels wide
+      const promptStartX = 6; // Prompt starts at x=6
+      const cornerLabelText = "prutti"; // The corner label text
+      const cornerLabelWidth = cornerLabelText.length * glyphWidth;
+      const lessonNumberWidth = lesson.toString().length * glyphWidth;
+      const spaceWidth = glyphWidth;
+      const timeCodeWidth = 5 * glyphWidth; // "00:00" is 5 characters
+      const totalTimeWidth = 7 * glyphWidth; // "/ 00:00" is 7 characters
+      const playButtonX = screen.width - 14 - 4; // Play button is 14px + 4px margin from right
+      
+      // Position needle between time code and play button
+      const timeCodeEndX = promptStartX + cornerLabelWidth + spaceWidth + lessonNumberWidth + spaceWidth + timeCodeWidth + totalTimeWidth;
+      const needleX = Math.floor((timeCodeEndX + playButtonX) / 2); // Centered between time code and play button
+      
+      // Calculate waveform offset so current position aligns with needle
+      const waveformOffset = needleX - Math.floor(progress * progressBarWidth);
+      
       const bottomY = barY + barHeight; // Bottom line for bottom-up waveform
       const topY = barY; // Top line for top-down waveform
-      
+
       // Choose colors based on playing state
       const unplayedColor = isPlaying ? [48, 48, 48, 255] : [32, 32, 64, 255]; // Blue tint when paused
       const playedColor = isPlaying ? [64, 96, 64, 255] : [64, 64, 96, 255]; // Purple tint when paused
-      
-      // Draw entire waveform with simple data-driven colors
+
+      // Draw entire waveform with offset - waveform moves, needle stays static
       for (let x = 0; x < progressBarWidth; x++) {
-        // Sample one point for each pixel for performance
-        const dataIndex = Math.floor((x / progressBarWidth) * waveformData.length);
-        const amplitude = waveformData[dataIndex] || 0;
+        // Calculate the actual waveform position accounting for offset
+        let waveformX = x - waveformOffset;
         
-        // Simple color mapping based on amplitude and position
-        const positionFactor = x / progressBarWidth; // 0 to 1 across width
+        // Handle wrapping to ensure waveform always fills the screen
+        while (waveformX < 0) waveformX += progressBarWidth;
+        waveformX = waveformX % progressBarWidth;
+        
+        // Map waveform position to data array index with proper wrapping
+        const normalizedProgress = waveformX / progressBarWidth; // 0 to 1
+        const dataIndex = Math.floor(normalizedProgress * waveformData.length) % waveformData.length;
+        const amplitude = waveformData[dataIndex] || 0;
+
+        // Simple static color mapping - no rainbow, just amplitude-based brightness
+        const baseColor = isPlaying ? [80, 120, 160] : [60, 60, 80]; // Blue when playing, gray when paused
         const amplitudeIntensity = Math.min(1, amplitude / barHeight);
         
-        // Create simple spectrum: red -> green -> blue based on position
-        let r, g, b;
-        if (positionFactor < 0.5) {
-          // Red to green
-          const t = positionFactor * 2;
-          r = Math.round(255 * (1 - t));
-          g = Math.round(255 * t);
-          b = 0;
-        } else {
-          // Green to blue
-          const t = (positionFactor - 0.5) * 2;
-          r = 0;
-          g = Math.round(255 * (1 - t));
-          b = Math.round(255 * t);
-        }
+        // Modulate brightness based on amplitude only
+        const brightness = 0.4 + amplitudeIntensity * 0.6;
+        const r = Math.round(baseColor[0] * brightness);
+        const g = Math.round(baseColor[1] * brightness);
+        const b = Math.round(baseColor[2] * brightness);
+
+        // Simple consistent rendering - just draw vertical lines from center
+        const waveHeight = Math.max(1, Math.floor(amplitude));
+        const centerY = barY + Math.floor(barHeight / 2);
+        const halfHeight = Math.floor(waveHeight / 2);
         
-        // Modulate brightness based on amplitude
-        const brightness = 0.3 + (amplitudeIntensity * 0.7);
-        r = Math.round(r * brightness);
-        g = Math.round(g * brightness);
-        b = Math.round(b * brightness);
+        // Draw single vertical line from center with color
+        const lineTop = centerY - halfHeight;
+        const lineBottom = centerY + halfHeight;
         
-        // Dim colors if not playing
-        if (!isPlaying) {
-          r = Math.round(r * 0.4);
-          g = Math.round(g * 0.4);
-          b = Math.round(b * 0.4);
-        }
-        
-        ink(r, g, b, 255);
-        
-        // Alternate between bottom-up and top-down per pixel
-        const waveHeight = Math.max(1, amplitude);
-        const barWidth = Math.min(2, progressBarWidth - x);
-        
-        if (x % 2 === 0) {
-          // Even pixels: bottom-up
-          const drawTopY = bottomY - waveHeight;
-          box(progressBarStartX + x, drawTopY, barWidth, waveHeight);
-        } else {
-          // Odd pixels: top-down
-          box(progressBarStartX + x, topY, barWidth, waveHeight);
-        }
+        ink(r, g, b, 255).line(progressBarStartX + x, lineTop, progressBarStartX + x, lineBottom);
       }
       
-      // Draw progress portion with enhanced brightness
-      if (progressPixel > 0) {
-        for (let x = 0; x < progressPixel; x++) {
-          const dataIndex = Math.floor((x / progressBarWidth) * waveformData.length);
-          const amplitude = waveformData[dataIndex] || 0;
-          
-          const positionFactor = x / progressBarWidth;
-          const amplitudeIntensity = Math.min(1, amplitude / barHeight);
-          
-          // Same color logic but brighter for played portion
-          let r, g, b;
-          if (positionFactor < 0.5) {
-            const t = positionFactor * 2;
-            r = Math.round(255 * (1 - t));
-            g = Math.round(255 * t);
-            b = 0;
-          } else {
-            const t = (positionFactor - 0.5) * 2;
-            r = 0;
-            g = Math.round(255 * (1 - t));
-            b = Math.round(255 * t);
-          }
-          
-          // Higher brightness for played portion
-          const brightness = 0.6 + (amplitudeIntensity * 0.4);
-          r = Math.round(r * brightness);
-          g = Math.round(g * brightness);
-          b = Math.round(b * brightness);
-          
-          ink(r, g, b, 255);
-          
-          const waveHeight = Math.max(1, amplitude);
-          const barWidth = Math.min(2, progressPixel - x);
-          
-          if (x % 2 === 0) {
-            const drawTopY = bottomY - waveHeight;
-            box(progressBarStartX + x, drawTopY, barWidth, waveHeight);
-          } else {
-            box(progressBarStartX + x, topY, barWidth, waveHeight);
-          }
-        }
+      // Draw vertical bars at start and end of track to show track boundaries
+      const trackStartX = needleX - Math.floor(progress * progressBarWidth);
+      const trackEndX = trackStartX + progressBarWidth;
+      
+      // Start of track marker (left boundary)
+      if (trackStartX >= 0 && trackStartX < progressBarWidth) {
+        ink(255, 255, 255, 128).line(trackStartX, barY, trackStartX, barY + barHeight);
+        ink(255, 255, 255, 64).line(trackStartX + 1, barY, trackStartX + 1, barY + barHeight);
+      }
+      
+      // End of track marker (right boundary)
+      if (trackEndX >= 0 && trackEndX < progressBarWidth) {
+        ink(255, 255, 255, 128).line(trackEndX, barY, trackEndX, barY + barHeight);
+        ink(255, 255, 255, 64).line(trackEndX - 1, barY, trackEndX - 1, barY + barHeight);
       }
     } else {
       // If no waveform data, just show the subtle background - no additional lines needed
     }
 
-    // Update HUD label with current time and draw total time on right - only if lesson has sounds
-    if (actualDuration && progress !== undefined) {
+    // Draw static needle between time code and play/pause button - always draw this after waveform
+    if (progress > 0 && (isPlaying || playbackAttempted)) {
+      // Calculate the position for the white needle - between time code and play/pause button
+      const glyphWidth = 6; // Each glyph is 6 pixels wide
+      const promptStartX = 6; // Prompt starts at x=6
+      const cornerLabelText = "prutti"; // The corner label text
+      const cornerLabelWidth = cornerLabelText.length * glyphWidth;
+      const lessonNumberWidth = lesson.toString().length * glyphWidth;
+      const spaceWidth = glyphWidth;
+      const timeCodeWidth = 5 * glyphWidth; // "00:00" is 5 characters
+      const totalTimeWidth = 7 * glyphWidth; // "/ 00:00" is 7 characters
+      const playButtonX = screen.width - 14 - 4; // Play button is 14px + 4px margin from right
+      
+      // Position needle between time code and play button
+      const timeCodeEndX = promptStartX + cornerLabelWidth + spaceWidth + lessonNumberWidth + spaceWidth + timeCodeWidth + totalTimeWidth;
+      const needleX = Math.floor((timeCodeEndX + playButtonX) / 2); // Centered between time code and play button
+      
+      // Draw a bright vertical line as static needle
+      const needleAlpha = 255;
+      const glowAlpha = 128;
+      
+      ink(255, 255, 255, needleAlpha) // Bright white needle
+        .line(needleX, barY, needleX, barY + barHeight);
+      // Add a subtle glow effect
+      ink(255, 255, 255, glowAlpha)
+        .line(needleX - 1, barY, needleX - 1, barY + barHeight)
+        .line(needleX + 1, barY, needleX + 1, barY + barHeight);
+    }
+
+    // No visual scrubbing indicators needed - stample-style simplicity
+
+    // Paint the scrub button if it exists
+    if (scrubButton) {
+      scrubButton.paint(() => {
+        // Show different colors based on button state
+        if (scrubButton.down) {
+          // Draw a subtle highlight when button is pressed
+          ink(255, 255, 255, 32).box(scrubButton.box); // Subtle white highlight when pressed
+        } else if (scrubButton.over) {
+          // Draw a very subtle overlay when hovering
+          ink(255, 255, 255, 16).box(scrubButton.box); // Very subtle white overlay when hovering
+        }
+      });
+    }
+
+    // Update HUD label with current time and draw total time on right - only if actually playing
+    // (Now integrated into HUD label, but keeping debug logs)
+    if (isBuffering && playbackAttempted) {
+      // Show "Buffering..." in place of the "/ --:--" text
+      
+      // Update the HUD label to show just "prutti 1" (no time while buffering)
+      if (hud && hud.label) {
+        hud.label(`prutti ${lesson + 1}`, undefined, 0);
+      }
+
+      // Draw "Buffering..." in the same position as the "/ --:--" text
+      const bufferingText = "Buffering...";
+      const promptString = `prutti ${lesson + 1} `;
+      const promptWidth = promptString.length * glyphWidth;
+      const bufferingX = promptStartX + promptWidth;
+      const bufferingY = cornerLabelY - 4 - 2;
+
+      // Draw shadow (offset by 1px down and right)
+      ink(32, 32, 32, 255); // Dark gray shadow
+      write(bufferingText, bufferingX + 1, bufferingY + 1);
+
+      // Draw main text in gray (to match grayed out play button)
+      ink(128, 128, 128, 255); // Gray text when buffering
+      write(bufferingText, bufferingX, bufferingY);
+    } else if (
+      actualDuration &&
+      progress !== undefined &&
+      (isPlaying || playbackAttempted)
+    ) {
       const currentTime = progress * actualDuration;
 
       // Format time as MM:SS
@@ -1166,6 +1422,40 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
       const totalTimeText = formatTime(actualDuration);
 
       // Update the HUD label to show "prutti 1 0:01" (keeping lesson number)
+      // Show real-time updates when scrubbing
+      if (hud && hud.label) {
+        const labelText = `prutti ${lesson + 1} ${currentTimeText}`;
+        hud.label(labelText, undefined, 0);
+      }
+
+      // Measure actual prompt string width for better positioning
+      const promptString = `prutti ${lesson + 1} `;
+      const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
+      const totalTimeX =
+        promptStartX +
+        promptWidth +
+        currentTimeText.length * glyphWidth +
+        glyphWidth; // Position after prompt and current time
+      const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
+
+      // Draw shadow (offset by 1px down and right)
+      ink(32, 32, 32, 255); // Dark gray shadow
+      write(`/ ${totalTimeText}`, totalTimeX + 1, totalTimeY + 1);
+
+      // Draw main text in white - brighter when scrubbing
+      const textAlpha = 255;
+      ink(255, 255, 255, textAlpha);
+      write(`/ ${totalTimeText}`, totalTimeX, totalTimeY);
+    } else if (
+      requestedTimeString &&
+      lessons[lesson].sounds?.length > 0 &&
+      (isPlaying || playbackAttempted)
+    ) {
+      // Show requested time only after playback has been attempted
+      const currentTimeText = requestedTimeString;
+      const totalTimeText = "-:--"; // Placeholder until duration is known
+
+      // Update the HUD label to show "prutti 1 1:53" (keeping lesson number)
       if (hud && hud.label) {
         hud.label(`prutti ${lesson + 1} ${currentTimeText}`, undefined, 0);
       }
@@ -1173,7 +1463,38 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
       // Measure actual prompt string width for better positioning
       const promptString = `prutti ${lesson + 1} `;
       const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
-      const totalTimeX = promptStartX + promptWidth + (currentTimeText.length * glyphWidth) + glyphWidth; // Position after prompt and current time
+      const totalTimeX =
+        promptStartX +
+        promptWidth +
+        currentTimeText.length * glyphWidth +
+        glyphWidth; // Position after prompt and current time
+      const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
+
+      // Draw shadow (offset by 1px down and right)
+      ink(32, 32, 32, 255); // Dark gray shadow
+      write(`/ ${totalTimeText}`, totalTimeX + 1, totalTimeY + 1);
+
+      // Draw main text in white
+      ink(255, 255, 255, 255);
+      write(`/ ${totalTimeText}`, totalTimeX, totalTimeY);
+    } else if (lessons[lesson].sounds?.length > 0) {
+      // Show default time display for lessons with sounds before playback is attempted
+      const currentTimeText = "--:--";
+      const totalTimeText = "--:--";
+
+      // Update the HUD label to show "prutti 1 --:--" (keeping lesson number)
+      if (hud && hud.label) {
+        hud.label(`prutti ${lesson + 1} ${currentTimeText}`, undefined, 0);
+      }
+
+      // Measure actual prompt string width for better positioning
+      const promptString = `prutti ${lesson + 1} `;
+      const promptWidth = promptString.length * glyphWidth; // Character width calculation using correct glyph width
+      const totalTimeX =
+        promptStartX +
+        promptWidth +
+        currentTimeText.length * glyphWidth +
+        glyphWidth; // Position after prompt and current time
       const totalTimeY = cornerLabelY - 4 - 2; // Match corner label y position, moved up 6px
 
       // Draw shadow (offset by 1px down and right)
@@ -1186,35 +1507,94 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
     }
   }
 
-  // Draw pause/play icon in bottom right corner - only if lesson has sounds
+  // Draw vertical scroll bar on the left side (similar to chat.mjs)
+  if (scrollMax > 0) {
+    const scrollBarX = 0; // Flush left
+    const scrollBarWidth = 4; // 4 pixels wide
+    const scrollBarTop = lessons[lesson].sounds?.length > 0 ? 22 : 0; // Start at bottom of progress bar or top
+    const scrollBarHeight = screen.height - scrollBarTop; // Flush to bottom
+
+    // Draw scroll bar background
+    ink(24, 24, 24, 255).box(
+      scrollBarX,
+      scrollBarTop,
+      scrollBarWidth,
+      scrollBarHeight,
+    );
+
+    // Calculate scroll indicator position and size
+    const totalScrollRange = scrollMax + 6; // Total scroll range from -scrollMax to +6
+    const viewportRatio = scrollBarHeight / (scrollBarHeight + scrollMax); // Ratio of viewport to total content
+    const indicatorHeight = Math.max(
+      4,
+      Math.floor(scrollBarHeight * viewportRatio),
+    );
+
+    // Calculate position: scroll ranges from -scrollMax (top) to +6 (bottom)
+    // Reverse the logic so indicator is at top when scroll is at top
+    const scrollProgress = (scroll + scrollMax) / totalScrollRange; // 0 = top, 1 = bottom
+    const indicatorY =
+      scrollBarTop +
+      Math.floor((1 - scrollProgress) * (scrollBarHeight - indicatorHeight));
+
+    // Draw scroll indicator
+    ink(128, 128, 128, 255).box(
+      scrollBarX,
+      indicatorY,
+      scrollBarWidth,
+      indicatorHeight,
+    );
+  }
+
+  // Calculate scrollMax accounting for progress bar height and ensuring content isn't cut off
+  const progressBarHeight = lessons[lesson].sounds?.length > 0 ? 16 : 0;
+  const totalContentHeight =
+    titleBox.box.height + 10 + textBox.box.height + lastHeight;
+  const availableHeight = screen.height - progressBarHeight;
+  scrollMax = Math.max(
+    0,
+    totalContentHeight - availableHeight + 6 + progressBarHeight,
+  ); // Ensure last image is 6px from bottom
+
+  // Show buffering indicator in top right corner only if user has attempted playback and audio is loading
+  // (Disabled debug logging to reduce console spam)
+  // if (isBuffering && playbackAttempted && lessons[lesson].sounds?.length > 0) {
+  //   console.log("🐛 Paint DEBUG: Showing buffering indicator (in HUD label)");
+  // }
+
+  // Draw pause/play icon in top right corner within progress bar area - always visible if lesson has sounds
+  // Drawing this last so it appears on top of all other elements
   if (lessons[lesson].sounds?.length > 0) {
-    const iconSize = 20;
-    const iconX = screen.width - iconSize - 8;
-    const iconY = screen.height - iconSize - 8; // Bottom right corner
-    
-    ink(255, 255, 0, 255); // Yellow play/pause button
-    
-    if (isPlaying && playingSfx && !playingSfx.killed) {
-      // Draw pause icon - two vertical bars with shadow
-      const barWidth = 4;
-      const barHeight = 14;
-      const barSpacing = 4;
-      
+    const iconSize = 14; // Smaller size to fit within progress bar height (22px)
+    const iconX = screen.width - iconSize - 4; // 4px margin from right edge
+    const iconY = 4; // 4px from top, centered within progress bar area
+
+    if (isPlaying && playingSfx && !playingSfx.killed && !isBuffering) {
+      // Draw pause icon - two vertical bars with shadow (only when actually playing and not buffering)
+      const barWidth = 2;
+      const barHeight = 8;
+      const barSpacing = 2;
+
       // Draw black shadow (1px right and 1px down)
       ink(0, 0, 0, 255);
       ink().box(iconX + 1, iconY + 3 + 1, barWidth, barHeight);
-      ink().box(iconX + barWidth + barSpacing + 1, iconY + 3 + 1, barWidth, barHeight);
-      
-      // Draw yellow pause bars
-      ink(255, 165, 0, 255); // Orange pause bars
+      ink().box(
+        iconX + barWidth + barSpacing + 1,
+        iconY + 3 + 1,
+        barWidth,
+        barHeight,
+      );
+
+      // Draw pause bars - orange
+      ink(255, 165, 0, 255);
       ink().box(iconX, iconY + 3, barWidth, barHeight);
       ink().box(iconX + barWidth + barSpacing, iconY + 3, barWidth, barHeight);
     } else {
-      // Draw play icon - triangle pointing right using shape function
-      const triangleSize = 14;
-      const triangleX = iconX + 10; // Center the triangle in the icon area
-      const triangleY = iconY + 10;
-      
+      // Draw play icon - triangle pointing right
+      const triangleSize = 8;
+      const triangleX = iconX + 7; // Center the triangle in the icon area
+      const triangleY = iconY + 7;
+
       // Draw black shadow (1px right and 1px down)
       ink(0, 0, 0, 255);
       shape([
@@ -1222,9 +1602,13 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
         [triangleX + triangleSize / 2 + 1, triangleY + 1],
         [triangleX - triangleSize / 2 + 1, triangleY + triangleSize / 2 + 1],
       ]);
-      
-      // Draw yellow play triangle using shape function like wipppps
-      ink(255, 255, 0, 255); // Yellow
+
+      // Draw triangle - gray when buffering, yellow when ready
+      if (isBuffering) {
+        ink(128, 128, 128, 255); // Gray when buffering
+      } else {
+        ink(255, 255, 0, 255); // Bright yellow when ready
+      }
       shape([
         [triangleX - triangleSize / 2, triangleY - triangleSize / 2],
         [triangleX + triangleSize / 2, triangleY],
@@ -1233,109 +1617,246 @@ function paint({ wipe, ink, paste, screen, text: txt, help, noiseTinted, shape, 
     }
   }
 
-  // Draw vertical scroll bar on the left side (similar to chat.mjs)
-  if (scrollMax > 0) {
-    const scrollBarX = 0; // Flush left
-    const scrollBarWidth = 4; // 4 pixels wide
-    const scrollBarTop = (lessons[lesson].sounds?.length > 0) ? 22 : 0; // Start at bottom of progress bar or top
-    const scrollBarHeight = screen.height - scrollBarTop; // Flush to bottom
-    
-    // Draw scroll bar background
-    ink(24, 24, 24, 255).box(scrollBarX, scrollBarTop, scrollBarWidth, scrollBarHeight);
-    
-    // Calculate scroll indicator position and size
-    const totalScrollRange = scrollMax + 6; // Total scroll range from -scrollMax to +6
-    const viewportRatio = scrollBarHeight / (scrollBarHeight + scrollMax); // Ratio of viewport to total content
-    const indicatorHeight = Math.max(4, Math.floor(scrollBarHeight * viewportRatio));
-    
-    // Calculate position: scroll ranges from -scrollMax (top) to +6 (bottom)
-    // Reverse the logic so indicator is at top when scroll is at top
-    const scrollProgress = (scroll + scrollMax) / totalScrollRange; // 0 = top, 1 = bottom
-    const indicatorY = scrollBarTop + Math.floor((1 - scrollProgress) * (scrollBarHeight - indicatorHeight));
-    
-    // Draw scroll indicator
-    ink(128, 128, 128, 255).box(scrollBarX, indicatorY, scrollBarWidth, indicatorHeight);
+  // Don't return false when audio is playing, buffering, or scrubbing so progress bar can update
+  if ((isPlaying && playingSfx && !playingSfx.killed) || isBuffering || isScrubbing) {
+    // Keep repainting for progress bar animation, buffering indicator, or scrubbing feedback
+    return true;
   }
 
-  // Calculate scrollMax accounting for progress bar height and ensuring content isn't cut off
-  const progressBarHeight = (lessons[lesson].sounds?.length > 0) ? 16 : 0;
-  const totalContentHeight = titleBox.box.height + 10 + textBox.box.height + lastHeight;
-  const availableHeight = screen.height - progressBarHeight;
-  scrollMax = Math.max(0, totalContentHeight - availableHeight + 6 + progressBarHeight); // Ensure last image is 6px from bottom
-  
-  // Don't return false when audio is playing so progress bar can update
-  if (isPlaying && playingSfx && !playingSfx.killed) {
-    return true; // Keep repainting for progress bar animation
-  }
-  
   return false;
 }
 
 // 🎪 Act
-function act({ event: e, needsPaint, jump, sound, net }) {
-  // Handle play/pause/resume functionality - simplified like wipppps.mjs
-  if (e.is("touch")) {
-    if (isPlaying && playingSfx && !playingSfx.killed) {
-      // Currently playing - pause the track
-      const currentTime = performance.now();
-      const elapsedSeconds = (currentTime - playStartTime) / 1000;
-      
-      // Use actual duration if available for accurate pause position
-      const trackDuration = actualDuration || 60; // Default fallback
-      
-      // ACCUMULATE pause position like wipppps - don't reset it
-      pausedAt = Math.min(
-        (pausedAt * trackDuration + elapsedSeconds) / trackDuration,
-        1.0,
-      );
-      
-      playingSfx.kill(0.1); // Fade out quickly
-      playingSfx = null;
-      isPlaying = false;
-      needsPaint();
-    } else if (lessons[lesson].sounds?.length > 0) {
-      // Not playing - start or resume audio using preloaded audio (like wipppps)
-      if (!preloadedAudio) {
-        console.error("🎵 PRUTTI: No preloaded audio available!");
-        return;
-      }
-      
-      // Kill any existing audio before starting
-      if (playingSfx && !playingSfx.killed) {
-        playingSfx.kill(0.1);
-      }
-      
-      // Use preloaded audio directly like wipppps - minimal options
-      playingSfx = sound.play(preloadedAudio, { 
-        speed: 1, 
-        from: pausedAt,
-        loop: true
-      });
-      
-      if (playingSfx && !playingSfx.killed) {
-        playStartTime = performance.now();
-        isPlaying = true;
+function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
+  // Handle the scrub button if we have sounds for this lesson
+  if (scrubButton && lessons[lesson].sounds?.length > 0) {
+    scrubButton.act(e, {
+      // Touch down on the button
+      down: (btn) => {
+        console.log("🟣 BUTTON: DOWN");
+        scrubOccurred = false; // Reset scrub tracking for this interaction
         
-        // Get duration for accurate progress tracking
-        if (!actualDuration && sound.getDuration) {
-          sound.getDuration(preloadedAudio).then((duration) => {
-            actualDuration = duration;
-          }).catch(() => {
-            actualDuration = 60; // Fallback
-          });
+        // Calculate offset between touch position and current playback position
+        if (playingSfx && !playingSfx.killed && isPlaying) {
+          const touchRelativeX = Math.max(0, Math.min(btn.box.w, e.x - btn.box.x));
+          const touchProgress = touchRelativeX / btn.box.w;
+          scrubOffset = touchProgress - progress; // Store the difference (flipped for correct direction)
+          console.log("🎯 SCRUB OFFSET: touchProgress:", touchProgress.toFixed(4), "currentProgress:", progress.toFixed(4), "offset:", scrubOffset.toFixed(4));
         }
         
-        needsPaint();
+        return true;
+      },
+      
+      // Button push (tap) - handle play/pause toggle
+      push: (btn) => {
+        // If scrubbing occurred, don't handle push - scrubbing should not trigger play/pause
+        if (isScrubbing || scrubOccurred) {
+          return true;
+        }
+        
+        // Prevent any action when buffering is active
+        if (isBuffering) {
+          return true;
+        }
+
+        if (isPlaying && playingSfx && !playingSfx.killed) {
+          // Currently playing - pause
+          console.log("🐛 Audio DEBUG: Pausing playback");
+          
+          // Use current progress as the pause position (accounts for any scrubbing)
+          // Stop audio and update position
+          playingSfx.kill(0.1);
+          playingSfx = null;
+          isPlaying = false;
+          pausedAt = progress; // Use current progress position
+          
+          console.log("🐛 Audio DEBUG: Paused at position:", (pausedAt * (actualDuration || 60)).toFixed(2) + "s");
+          needsPaint();
+        } else if (lessons[lesson].sounds?.length > 0) {
+          // Not playing - start normal playback
+          
+          // Mark that user has attempted playback
+          playbackAttempted = true;
+
+          // Load audio if not already loaded
+          if (!preloadedAudio) {
+            console.log("🎵 PRUTTI: Loading audio on first play...");
+            
+            loadAudio(api, sound)
+              .then(() => {
+                console.log("🎵 PRUTTI: Audio loaded, starting normal playback");
+                startNormalPlayback();
+              })
+              .catch((error) => {
+                console.error("🎵 PRUTTI: Audio load failed:", error);
+                isBuffering = false;
+                needsPaint();
+              });
+            return true;
+          }
+
+          // Audio already loaded, start playback directly
+          startNormalPlayback();
+
+          function startNormalPlayback() {
+            // Kill any existing audio before starting
+            if (playingSfx && !playingSfx.killed) {
+              playingSfx.kill(0.1);
+            }
+            playingSfx = null; // Clear reference
+
+            // Set buffering state since we're about to attempt audio playback
+            isBuffering = true;
+            needsPaint();
+
+            console.log(
+              "🐛 Playback DEBUG: About to play audio with from:",
+              progress,
+            );
+
+            // Use preloaded audio directly - start with normal speed for immediate playback
+            playingSfx = sound.play(preloadedAudio, {
+              speed: 1.0,
+              from: progress,
+              loop: true,
+              volume: 1,
+            });
+
+            console.log(
+              "🐛 Playback DEBUG: Audio play() called, playingSfx:",
+              playingSfx,
+            );
+
+            if (playingSfx && !playingSfx.killed) {
+              playStartTime = performance.now();
+              pausedAt = progress; // Sync pausedAt with current progress
+              isPlaying = true;
+
+              // Get duration for accurate progress tracking
+              if (!actualDuration && sound.getDuration) {
+                sound
+                  .getDuration(preloadedAudio)
+                  .then((duration) => {
+                    actualDuration = duration;
+                    if (isPlaying && playingSfx && !playingSfx.killed) {
+                      isBuffering = false;
+                      needsPaint();
+                    }
+                  })
+                  .catch(() => {
+                    actualDuration = 60;
+                    if (isPlaying && playingSfx && !playingSfx.killed) {
+                      isBuffering = false;
+                      needsPaint();
+                    }
+                  });
+              } else {
+                isBuffering = false;
+              }
+
+              needsPaint();
+            } else {
+              console.log("🐛 Playback DEBUG: Audio play() failed, stopping buffering");
+              isBuffering = false;
+              isPlaying = false;
+              needsPaint();
+            }
+          }
+        }
+        
+        return true;
+      },
+      
+      // Button scrub - direct position mapping with offset (no jumping)
+      scrub: (btn) => {
+        // Direct position mapping with offset to prevent jumping
+        if (playingSfx && !playingSfx.killed && isPlaying) {
+          isScrubbing = true; // Pause normal time-based progress updates
+          scrubOccurred = true; // Mark that scrubbing occurred during this interaction
+          
+          // Map current X position within the button to progress (0-1)
+          const relativeX = Math.max(0, Math.min(btn.box.w, e.x - btn.box.x));
+          const touchProgress = relativeX / btn.box.w;
+          
+          // Apply the offset to prevent jumping
+          let newProgress = touchProgress - scrubOffset;
+          
+          // Allow wrapping around the track boundaries
+          while (newProgress < 0) {
+            newProgress += 1.0; // Wrap to end when going past beginning
+          }
+          while (newProgress > 1.0) {
+            newProgress -= 1.0; // Wrap to beginning when going past end
+          }
+          
+          // Update progress position
+          progress = newProgress;
+          
+          needsPaint(); // Trigger visual update
+        }
+      },
+      
+      // Button up - restart audio from seeked position
+      up: (btn) => {
+        if (playingSfx && !playingSfx.killed && isPlaying && isScrubbing) {
+          // Kill and restart audio from exact seeked position
+          playingSfx.kill(0.01); // Quick fade to avoid click
+          
+          // Restart from seeked position
+          playingSfx = sound.play(preloadedAudio, {
+            speed: 1.0,
+            from: progress,
+            loop: true,
+            volume: 1,
+          });
+          
+          if (playingSfx && !playingSfx.killed) {
+            playStartTime = performance.now();
+            pausedAt = progress;
+          }
+        }
+        
+        isScrubbing = false; // Resume normal playback
+        
+        return true;
+      },
+      
+      // Button cancel - restart audio from seeked position
+      cancel: (btn) => {
+        if (playingSfx && !playingSfx.killed && isScrubbing) {
+          playingSfx.kill(0.01);
+          playingSfx = sound.play(preloadedAudio, {
+            speed: 1.0,
+            from: progress,
+            loop: true,
+            volume: 1,
+          });
+          
+          if (playingSfx && !playingSfx.killed) {
+            playStartTime = performance.now();
+            pausedAt = progress;
+          }
+        }
+        
+        isScrubbing = false;
       }
+    });
+  }
+
+  // Handle touch/draw events for page scrolling in the content area (below progress bar)
+  if (e.is("draw")) {
+    // Check if the touch is in the content area (below progress bar)
+    const progressBarHeight = lessons[lesson].sounds?.length > 0 ? 22 : 0;
+    
+    // Only handle scrolling if the touch is below the progress bar area
+    if (e.y >= progressBarHeight) {
+      scroll += e.delta.y;
+      checkScroll();
+      needsPaint();
     }
   }
 
-  if (e.is("draw")) {
-    scroll += e.delta.y;
-    checkScroll();
-    needsPaint();
-  }
-
+  // Handle keyboard navigation
   if (e.is("keyboard:down:arrowdown")) {
     scroll -= 10;
     checkScroll();
@@ -1356,141 +1877,407 @@ function act({ event: e, needsPaint, jump, sound, net }) {
     if (lesson > 0) jump(`prutti ${lesson - 1 + 1}`);
   }
 
+  // Handle scroll wheel events
   if (e.is("scroll")) {
     scroll -= e.y;
     checkScroll();
     needsPaint();
   }
-}
+
+  // Handle window/screen reframing - recreate scrub button with new dimensions
+  if (e.is("reframed")) {
+    // Recreate the scrub button if we have sounds for this lesson
+    if (lessons[lesson].sounds?.length > 0) {
+      const barHeight = 22;
+      
+      // Calculate positioning based on timecode layout (matching boot function calculations)
+      const glyphWidth = 6; // Each glyph is 6 pixels wide (typeface blockWidth)
+      const promptStartX = 6; // Prompt starts at x=6
+      const cornerLabelText = "prutti"; // The corner label text
+      const cornerLabelWidth = cornerLabelText.length * glyphWidth; // Character width
+      const lessonNumberWidth = lesson.toString().length * glyphWidth; // Width of lesson number
+      const spaceWidth = glyphWidth; // Space character width
+      const timeCodeWidth = 5 * glyphWidth; // "00:00" is 5 characters
+      const totalTimeWidth = 7 * glyphWidth; // "/ 00:00" is 7 characters
+      
+      // Calculate where the timecode starts and ends
+      const timeCodeStartX = promptStartX + cornerLabelWidth + spaceWidth + lessonNumberWidth + spaceWidth;
+      const timeCodeEndX = timeCodeStartX + timeCodeWidth + totalTimeWidth;
+      
+      // Start the scrub button from the middle of the timecode area
+      const timecodeMiddleX = timeCodeStartX + Math.floor((timeCodeWidth + totalTimeWidth) / 2);
+      const buttonStartX = timecodeMiddleX; // Start from middle of timecode
+      const buttonWidth = screen.width - buttonStartX; // Extend to right edge of screen
+      
+      // Update existing button dimensions or create new one
+      if (scrubButton) {
+        scrubButton.box.x = buttonStartX;
+        scrubButton.box.y = 0;
+        scrubButton.box.w = buttonWidth;
+        scrubButton.box.h = barHeight;
+        console.log("🟣 BUTTON REFRAMED: Updated timecode-aware position (" + buttonStartX + ", 0) Size:", buttonWidth, "x", barHeight);
+      } else {
+        // Create new button if it doesn't exist
+        scrubButton = new ui.Button(buttonStartX, 0, buttonWidth, barHeight);
+        scrubButton.offScreenScrubbing = true;
+        scrubButton.noRolloverActivation = false;
+        console.log("🟣 BUTTON REFRAMED: Created new timecode-aware button position (" + buttonStartX + ", 0) Size:", buttonWidth, "x", barHeight);
+      }
+    } else {
+      scrubButton = null; // Clear button if no sounds
+      console.log("🟣 BUTTON REFRAMED: No button - lesson has no sounds");
+    }
+    
+    needsPaint();
+  }
+    }
 
 // 🧮 Sim
 function sim({ sound }) {
   sound.speaker?.poll();
-  
-  // Calculate progress when audio is playing
-  if (isPlaying && playingSfx && !playingSfx.killed) {
+
+  // Only update position when not actively scrubbing
+  if (isPlaying && playingSfx && !playingSfx.killed && !isScrubbing) {
     const currentTime = performance.now();
     const elapsedSeconds = (currentTime - playStartTime) / 1000;
     
-    // Use actual duration if available for accurate progress calculation (like wipppps)
-    const trackDuration = actualDuration || 60; // Default fallback
+    // Normal playback
+    const trackDuration = actualDuration || 60;
     const totalElapsed = pausedAt * trackDuration + elapsedSeconds;
-    progress = Math.min(totalElapsed / trackDuration, 1.0);
+    const newPosition = Math.min(totalElapsed / trackDuration, 1.0);
     
-    // For looping audio, we don't stop at end but let it loop
-    // The audio system should handle looping automatically
+    progress = newPosition;
+    
+    // Handle looping
+    if (newPosition >= 1.0) {
+      pausedAt = 0;
+      progress = 0;
+      playStartTime = performance.now();
+    }
   }
 }
 
-// 🥁 Beat
-// function beat() {
-//   // Runs once per metronomic BPM.
-// }
-
-// 👋 Leave
-function leave() {
-  // Clean up audio when leaving the piece
-  if (playingSfx && !playingSfx.killed) {
-    playingSfx.kill(0.1);
+// 🎵 Load audio on demand when scrub button is tapped
+function loadAudio(api, sound) {
+  // Check if audio is already loaded (but not currently loading)
+  if (preloadedAudio) {
+    console.log("🎵 PRUTTI: Audio already loaded - preloadedAudio:", !!preloadedAudio);
+    return Promise.resolve();
   }
-  playingSfx = null;
-  isPlaying = false;
-  pausedAt = 0;
-}
 
-// 📰 Meta
-function meta() {
-  return {
-    title: "Prutti",
-    desc: "Lessons NOT Learnt by pruttipal aka goodiepal",
-  };
-}
+  // Check if currently loading to prevent double loading
+  if (isBuffering) {
+    console.log("🎵 PRUTTI: Audio is currently loading - isBuffering:", isBuffering);
+    return Promise.resolve();
+  }
 
-// 🖼️ Preview
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
+  // Check if current lesson has audio
+  if (!lessons[lesson].sounds?.length) {
+    console.log("🎵 PRUTTI: No audio for this lesson");
+    return Promise.resolve();
+  }
 
-// 🪷 Icon
-// function icon() {
-// Render an application icon, aka favicon.
-// }
+  // Set buffering state
+  isBuffering = true;
+  api.needsPaint(); // Trigger repaint to show buffering indicator
+  console.log("🎵 PRUTTI: Starting audio load...");
 
-export { boot, paint, act, sim, leave, meta };
-
-// 📚 Library
-//   (Useful functions used throughout the piece)
-
-function loadLesson(api, sound) {
-  // Set scroll to 6 immediately when loading a new lesson
-  scroll = 6; // Start at 6 to match the 6px side margin positioning
-  
   const path = api.debug
     ? "/assets/pruttipal/lnl"
     : "https://assets.aesthetic.computer/pruttipal/lnl";
 
-  lessons[lesson].pictures?.forEach((name, index) => {
-    const filename = name.endsWith(".png") ? name : `${name}.jpeg`;
-    api.net.preload(`${path}/${filename}`).then((file) => {
-      lessonPaintings[index] = api.resize(
-        file.img,
-        picWidth,
-        (file.img.height / file.img.width) * picWidth,
-      );
-      api.needsPaint();
-    });
-  });
+  const name = lessons[lesson].sounds[0]; // Use first sound for now
+  const ext = api.platform.Safari ? "m4a" : "ogg";
+  const soundUrl = `${path}/${name}.${ext}`;
 
-  // Load and preload audio for instant playback (like wipppps)
-  lessons[lesson].sounds?.forEach((name) => {
-    const ext = api.platform.Safari ? "m4a" : "ogg";
-    const soundUrl = `${path}/${name}.${ext}`;
-    
-    // Preload and store the audio like wipppps does
-    api.net.preload(soundUrl).then((sfx) => {
+  console.log("🎵 PRUTTI: Starting audio load for:", soundUrl);
+
+  return api.net
+    .preload(soundUrl)
+    .then((sfx) => {
+      console.log("🎵 PRUTTI: Preload result:", !!sfx);
       if (sfx) {
         preloadedAudio = sfx; // Store for instant playback
-        
-        // Load waveform data for progress bar visualization
-        if (sound.getSampleData) {
-          sound.getSampleData(sfx).then((data) => {
+        console.log("🎵 PRUTTI: Audio loaded successfully");
+
+        // Get duration and set start time if requested
+        if (sound.getDuration) {
+          console.log("🎵 PRUTTI: Getting duration...");
+          return sound
+            .getDuration(sfx)
+            .then((duration) => {
+              console.log("🎵 PRUTTI: Got duration:", duration);
+
+              if (duration && startTimeSeconds !== null) {
+                // Check if requested start time is within the audio duration
+                if (startTimeSeconds < duration) {
+                  // Convert seconds to fraction (0-1)
+                  const newPausedAt = startTimeSeconds / duration;
+                  pausedAt = newPausedAt;
+                  progress = newPausedAt; // Set initial progress to match start position
+                  console.log(
+                    "🕐 Prutti: Start time set to",
+                    startTimeSeconds + "s",
+                    "(" + (pausedAt * 100).toFixed(1) + "% of track)",
+                    "Duration:",
+                    duration + "s",
+                  );
+                } else {
+                  console.log(
+                    "🕐 Prutti: Requested start time",
+                    startTimeSeconds + "s",
+                    "is beyond track duration",
+                    duration + "s",
+                    "- starting from beginning",
+                  );
+                  pausedAt = 0;
+                  progress = 0;
+                }
+              } else if (startTimeSeconds === null) {
+                // No start time requested - only reset to beginning if this is the first load
+                // (maintain current position for subsequent play/pause cycles like stample.mjs)
+                if (pausedAt === null || pausedAt === undefined) {
+                  pausedAt = 0;
+                  progress = 0;
+                  console.log(
+                    "🕐 Prutti: No start time requested, starting from beginning (first load)",
+                  );
+                } else {
+                  console.log(
+                    "🕐 Prutti: No start time requested, maintaining current position:",
+                    pausedAt,
+                  );
+                }
+              }
+              // Clear the requested time string now that we have the actual duration
+              requestedTimeString = null;
+              actualDuration = duration;
+              api.needsPaint(); // Trigger repaint to update display
+            })
+            .catch((error) => {
+              console.error("🎵 PRUTTI: Failed to get duration:", error);
+              // If we can't get duration but have a start time, ignore it and start from beginning
+              if (startTimeSeconds !== null) {
+                console.log(
+                  "🕐 Prutti: Could not verify duration - starting from beginning",
+                );
+                pausedAt = 0;
+                progress = 0;
+              } else {
+                // No start time requested - only reset to beginning if this is the first load
+                // (maintain current position for subsequent play/pause cycles like stample.mjs)
+                if (pausedAt === null || pausedAt === undefined) {
+                  pausedAt = 0;
+                  progress = 0;
+                  console.log(
+                    "🕐 Prutti: Error getting duration, starting from beginning (first load)",
+                  );
+                } else {
+                  console.log(
+                    "🕐 Prutti: Error getting duration, maintaining current position:",
+                    pausedAt,
+                  );
+                }
+              }
+              // Clear the requested time string on error too
+              requestedTimeString = null;
+              actualDuration = 60; // Fallback duration
+              api.needsPaint(); // Trigger repaint to update display
+              return Promise.resolve(); // Make sure the promise chain continues
+            });
+        } else {
+          // No getDuration method available - only reset to beginning if this is the first load
+          // (maintain current position for subsequent play/pause cycles like stample.mjs)
+          console.log(
+            "🎵 PRUTTI: sound.getDuration method not available",
+          );
+          if (pausedAt === null || pausedAt === undefined) {
+            pausedAt = 0;
+            progress = 0;
+            console.log(
+              "🕐 Prutti: No getDuration method, starting from beginning (first load)",
+            );
+          } else {
+            console.log(
+              "🕐 Prutti: No getDuration method, maintaining current position:",
+              pausedAt,
+            );
+          }
+          requestedTimeString = null;
+          actualDuration = 60; // Fallback duration
+          return Promise.resolve();
+        }
+      } else {
+        console.error(
+          "🎵 PRUTTI: Preload returned null/undefined for:",
+          soundUrl,
+        );
+        return Promise.reject(new Error("Audio preload failed"));
+      }
+    })
+    .catch((preloadError) => {
+      console.error("🎵 PRUTTI: Preload failed:", preloadError);
+      throw preloadError; // Re-throw to continue down the chain
+    })
+    .then(() => {
+      // Load waveform data for progress bar visualization
+      if (sound.getSampleData && preloadedAudio) {
+        console.log("🎵 PRUTTI: Loading waveform data...");
+        return sound
+          .getSampleData(preloadedAudio)
+          .then((data) => {
             if (data) {
               // Compress to higher resolution for more detailed waveform
               const targetWidth = 1024; // Higher resolution for more detail
               const compressedData = api.num.arrCompress(data, targetWidth);
-              
+
               // Normalize the waveform data to fit the progress bar height (24px)
               const maxValue = Math.max(...compressedData);
               const minValue = Math.min(...compressedData);
               const range = maxValue - minValue;
-              
+
               if (range > 0) {
                 // Normalize to 0-1 range, then scale to progress bar height
                 const progressBarHeight = 24; // Match the bar height
                 const maxWaveHeight = progressBarHeight / 2; // Use half the bar height for waves
-                
-                waveformData = compressedData.map(value => 
-                  ((value - minValue) / range) * maxWaveHeight
+
+                waveformData = compressedData.map(
+                  (value) => ((value - minValue) / range) * maxWaveHeight,
                 );
               } else {
                 // If all values are the same, create a flat line
                 waveformData = new Array(compressedData.length).fill(1);
               }
+
+              console.log("🎵 PRUTTI: Waveform data loaded");
+              api.needsPaint(); // Trigger repaint to show waveform
+            } else {
+              console.log("🎵 PRUTTI: No waveform data available");
+              api.needsPaint(); // Trigger repaint anyway
             }
-          }).catch((error) => {
-            console.error("🎵 PRUTTI: Failed to load waveform data:", error);
+          })
+          .catch((error) => {
+            console.error(
+              "🎵 PRUTTI: Failed to load waveform data:",
+              error,
+            );
+            api.needsPaint(); // Trigger repaint anyway
           });
-        }
       } else {
-        console.error("🎵 PRUTTI: Preload returned null/undefined for:", soundUrl);
+        console.log(
+          "🎵 PRUTTI: No getSampleData method, skipping waveform",
+        );
+        return Promise.resolve();
       }
-    }).catch((error) => {
-      console.error("🎵 PRUTTI ERROR: Sound preload failed:", error);
+    })
+    .then(() => {
+      // Clear buffering state when everything is loaded
+      isBuffering = false;
+      console.log("🎵 PRUTTI: Audio loading complete - isBuffering set to false");
+      api.needsPaint(); // Trigger repaint to hide buffering indicator
+    })
+    .catch((error) => {
+      console.error("🎵 PRUTTI ERROR: Audio loading failed:", error);
+      isBuffering = false; // Stop buffering on error
+      api.needsPaint(); // Trigger repaint to hide buffering indicator
+      throw error; // Re-throw for caller to handle
     });
-  });
 }
 
-function checkScroll() {
-  if (scroll < -scrollMax) scroll = -scrollMax;
-  if (scroll > 6) scroll = 6; // Match the 6px side margin
+// Load lesson images
+function loadLesson(api, sound) {
+  // Load lesson images
+  const path = api.debug
+    ? "/assets/pruttipal/lnl"
+    : "https://assets.aesthetic.computer/pruttipal/lnl";
+
+  lessonPaintings.length = 0; // Clear previous paintings
+  lessonPaintingsCache.clear(); // Clear cached dimensions for new lesson
+  preRenderedPaintings.clear(); // Clear pre-rendered paintings for new lesson
+  
+  lessons[lesson].pictures?.forEach((pic, index) => {
+    const picUrl = `${path}/${pic}.jpeg`;
+    
+    api.net.preload(picUrl).then((img) => {
+      if (img) {
+        lessonPaintings[index] = img;
+        api.needsPaint();
+      } else {
+        console.error("❌ PRUTTI: Image", index + 1, "failed to load (returned null/undefined)");
+      }
+    }).catch((error) => {
+      console.error("❌ PRUTTI: Image", index + 1, "loading error:", error);
+    });
+  });
+
+  // Calculate scroll limits
+  scrollMax = lessonPaintings.length * (picWidth + 10) + 100; // Approximate
 }
+
+// Function to create pre-rendered paintings for faster rendering
+function createPreRenderedPainting(index, targetWidth, cachedInfo, api, painting) {
+  try {
+    const preRenderKey = `${index}-${targetWidth}`;
+    
+    // Don't re-create if already exists
+    if (preRenderedPaintings.has(preRenderKey)) {
+      return;
+    }
+    
+    // Try different ways to access the painting function
+    let paintingFunction = null;
+    if (typeof painting === 'function') {
+      paintingFunction = painting;
+    } else if (api && typeof api.painting === 'function') {
+      paintingFunction = api.painting;
+    } else {
+      console.error("❌ PRUTTI: Could not find painting function");
+      return;
+    }
+    
+    // Create a new painting with the scaled dimensions
+    const preRenderedPainting = paintingFunction(targetWidth, Math.floor(cachedInfo.scaledHeight), (p) => {
+      // Render the scaled image to the new painting using the callback pattern
+      p.paste(cachedInfo.imageObj, 0, 0, {
+        width: targetWidth,
+        height: cachedInfo.scaledHeight,
+      });
+    });
+    
+    if (!preRenderedPainting) {
+      console.error("❌ PRUTTI: Failed to create painting object");
+      return;
+    }
+    
+    // Cache the pre-rendered painting
+    preRenderedPaintings.set(preRenderKey, {
+      painting: preRenderedPainting,
+      width: targetWidth,
+      height: Math.floor(cachedInfo.scaledHeight)
+    });
+    
+    // Trigger a repaint to use the new pre-rendered version
+    api.needsPaint();
+    
+  } catch (error) {
+    console.error("❌ PRUTTI: Failed to pre-render painting", index + 1, ":", error);
+  }
+}
+
+// Check scroll boundaries
+function checkScroll() {
+  // Get screen height for scroll limit calculations
+  const screenHeight = 256; // Default fallback
+  
+  // Calculate content height based on current lesson
+  const { title, text } = lessons[lesson];
+  const contentHeight = title.length + text.length + lessonPaintings.length * 200; // Approximate
+  
+  // Set scroll limits
+  const maxScroll = Math.max(0, contentHeight - screenHeight + 100);
+  
+  if (scroll > 0) scroll = 0;
+  if (scroll < -maxScroll) scroll = -maxScroll;
+}
+
+export { boot, sim, paint, act };

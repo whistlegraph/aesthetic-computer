@@ -18,6 +18,9 @@ vscode-extension/*.vsix
 
 # Any emacs or vim backups.
 *~
+
+# Dev logs from remote debugging
+dev-logs.txt
 .#*
 
 # NPM

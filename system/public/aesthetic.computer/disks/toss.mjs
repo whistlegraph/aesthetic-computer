@@ -2,6 +2,7 @@
 // Play two oscillators at once.
 
 /* 📝 Notes
+  - [] the corner label dragging is broken / needs an exception in ui for the scrub event/
   - [] Add a horizontal line for low -> hi pitch.
   - [] Make a `safe` tap area to prevent scrolling or just require at least 2-3px deadzone before
        scrubbing is toggled, which can reset on lift.
@@ -82,6 +83,7 @@ function layoutBandButtons({ screen, ui }) {
   for (let i = 0; i < bandCount; i += 1) {
     const button = new ui.Button(i * segWidth, 0, segWidth, screen.height);
     button.offScreenScrubbing = true; // Enable off-screen scrubbing for toss buttons
+    button.id = `toss-band-${i}`;  // Add identifier for debugging
     bands[i].btn = button;
   }
 }

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AC Notification Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1;
+            cursor: none;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        .overlay-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        .notification-word {
+            font-size: clamp(8rem, 15vw, 20rem);
+            text-shadow: 
+                0 0 20px currentColor,
+                0 0 40px currentColor,
+                3px 3px 10px rgba(0,0,0,0.8);
+            animation: pulse 2s ease-in-out infinite;
+            border: 0.2em solid currentColor;
+            padding: 0.5em 1em;
+            border-radius: 0.3em;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            margin: 0.2em 0;
+            letter-spacing: 0.1em;
+        }
+        
+        .notification-icon {
+            font-size: clamp(4rem, 8vw, 10rem);
+            margin-bottom: 0.3em;
+            animation: bounce 1s ease-in-out infinite alternate;
+        }
+        
+        .notification-success {
+            color: #00ff88;
+            border-color: #00ff88;
+        }
+        
+        .notification-error {
+            color: #ff4444;
+            border-color: #ff4444;
+        }
+        
+        .notification-info {
+            color: #44aaff;
+            border-color: #44aaff;
+        }
+        
+        .notification-warning {
+            color: #ffaa44;
+            border-color: #ffaa44;
+        }
+        
+        .notification-default {
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        
+        @keyframes pulse {
+            0% { 
+                transform: scale(0.95); 
+                opacity: 0.8;
+                filter: brightness(0.8);
+            }
+            50% { 
+                transform: scale(1.05); 
+                opacity: 1;
+                filter: brightness(1.2);
+            }
+            100% { 
+                transform: scale(1); 
+                opacity: 0.9;
+                filter: brightness(1);
+            }
+        }
+        
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-10px); }
+        }
+        
+        .close-hint {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            font-size: 1rem;
+            opacity: 0.6;
+            animation: fadeIn 1s ease-in 1s both;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 0.6; }
+        }
+        
+        /* High DPI / Fractional scaling support */
+        @media (min-resolution: 192dpi) {
+            .notification-word {
+                text-rendering: optimizeLegibility;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay-container">
+        <div class="notification-icon" id="icon">🔔</div>
+        <div class="notification-word" id="word">LOADING</div>
+        <div class="close-hint">Click or press any key to close</div>
+    </div>
+
+    <script>
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const word = urlParams.get('word') || 'NOTIFICATION';
+        const type = urlParams.get('type') || 'default';
+        const duration = parseInt(urlParams.get('duration')) || 3000;
+        
+        // Set content
+        const wordElement = document.getElementById('word');
+        const iconElement = document.getElementById('icon');
+        
+        wordElement.textContent = word.toUpperCase();
+        
+        // Set type-specific styling and icon
+        const typeClass = `notification-${type.toLowerCase()}`;
+        wordElement.className = `notification-word ${typeClass}`;
+        
+        // Set appropriate icon
+        const icons = {
+            success: '✨',
+            error: '❌',
+            info: 'ℹ️',
+            warning: '⚠️',
+            default: '🔔'
+        };
+        iconElement.textContent = icons[type.toLowerCase()] || icons.default;
+        
+        // Auto-close functionality
+        let autoCloseTimer = setTimeout(() => {
+            closeOverlay();
+        }, duration);
+        
+        function closeOverlay() {
+            clearTimeout(autoCloseTimer);
+            document.body.style.opacity = '0';
+            document.body.style.transform = 'scale(0.8)';
+            document.body.style.transition = 'all 0.3s ease-out';
+            
+            setTimeout(() => {
+                try {
+                    window.close();
+                } catch(e) {
+                    // If can't close, try to hide
+                    document.body.style.display = 'none';
+                    // Signal to parent that we're done
+                    if (window.parent !== window) {
+                        window.parent.postMessage('close', '*');
+                    }
+                }
+            }, 300);
+        }
+        
+        // Close on interaction
+        document.addEventListener('click', closeOverlay);
+        document.addEventListener('keydown', closeOverlay);
+        document.addEventListener('touchstart', closeOverlay);
+        
+        // Prevent scrolling and zooming
+        document.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        
+        // Handle visibility change (when window loses focus)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                clearTimeout(autoCloseTimer);
+                autoCloseTimer = setTimeout(closeOverlay, 1000);
+            }
+        });
+        
+        // Console styling for debug
+        console.log(`%c🔔 AC Notification Overlay 
+Word: ${word}
+Type: ${type}
+Duration: ${duration}ms`, 
+            'color: #00ff88; font-size: 16px; font-weight: bold;'
+        );
+    </script>
+</body>
+</html>

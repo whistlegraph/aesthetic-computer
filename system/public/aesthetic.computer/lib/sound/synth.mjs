@@ -187,9 +187,11 @@ export default class Synth {
       }
       value = sin(this.#phase);
     } else if (this.type === "triangle") {
-      // 📐 Triangle Wave
+      // 📐 Triangle Wave - starts at 0 to avoid clicks
       const stepSize = 4 / this.#wavelength;
-      value = 1 - abs((this.#step % this.#wavelength) * stepSize - 2);
+      // Offset by quarter wavelength to start at 0 instead of -1
+      const adjustedStep = (this.#step + this.#wavelength / 4) % this.#wavelength;
+      value = 1 - abs(adjustedStep * stepSize - 2);
       this.#step += 1;
       if (this.#step >= this.#wavelength) this.#step = 0;
     } else if (this.type === "sawtooth") {

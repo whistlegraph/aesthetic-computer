@@ -43,17 +43,32 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  // Prevent loading of .json, font, or other non-code files as Lisp/JS pieces
+  const forbiddenExtensions = [".json", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico"];
+  for (const ext of forbiddenExtensions) {
+    if (slug.endsWith(ext)) {
+      console.log(`⛔ Blocked attempt to load forbidden file type: ${slug}`);
+      return respond(404, `File type not allowed: ${ext}`);
+    }
+  }
+
   // Safely decode URL-encoded characters in the slug
   try {
     slug = decodeURIComponent(slug);
   } catch (error) {
     console.log("⚠️ Failed to decode URL slug:", slug, "Error:", error.message);
-    // If decoding fails, fall back to original slug but replace common problematic sequences
+    // If decoding fails, fall back to simple Unicode character decoding
     slug = slug
-      .replace(/%C2%A7/g, "§") // § character
-      .replace(/%28/g, "(") // (
-      .replace(/%29/g, ")") // )
-      .replace(/%20/g, " "); // space
+      .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
+      .replace(/%C2%A4/g, "%") // UTF-8 encoded ¤ to percent
+      .replace(/%C2%A8/g, ";") // UTF-8 encoded ¨ to semicolon
+      .replace(/§/g, "\n") // Direct § to newline (in case not URL-encoded)
+      .replace(/¤/g, "%") // Direct ¤ to percent (in case not URL-encoded)
+      .replace(/¨/g, ";") // Direct ¨ to semicolon (in case not URL-encoded)
+      // Standard URL decoding
+      .replace(/%28/g, "(")
+      .replace(/%29/g, ")")
+      .replace(/%20/g, " ");
   }
 
   // console.log("Path:", event.path, "Host:", event.headers["host"]);
@@ -70,6 +85,24 @@ async function fun(event, context) {
     event.path.length <= 1
   ) {
     slug = "wg~m2w2";
+  }
+
+  // Handle kidlisp:code URL pattern and convert to $code format
+  const originalPath = event.path.slice(1) || "prompt"; // Store original for redirect check
+  if (slug.startsWith("kidlisp:") && slug.length > 8) {
+    const code = slug.slice(8); // Remove "kidlisp:" prefix
+    const newSlug = `$${code}`; // Convert to $code format
+    console.log(`🔄 Converting kidlisp:${code} to $${code} and redirecting`);
+    
+    // Redirect to the $code format to update the URL bar
+    return respond(
+      302,
+      `<a href="/${newSlug}">Redirecting to /${newSlug}</a>`,
+      {
+        "Content-Type": "text/html",
+        Location: `/${newSlug}`,
+      },
+    );
   }
 
   const parsed = parse(slug, { hostname: event.headers["host"] });

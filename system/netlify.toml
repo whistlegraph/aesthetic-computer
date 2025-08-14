@@ -64,6 +64,10 @@ external_node_modules = ["discord-interactions"]
 # No special external dependencies needed for static playlist
 [functions.clock]
 # No special config needed for clock
+[functions.store-kidlisp]
+node_bundler = "esbuild"
+external_node_modules = ["nanoid", "@taquito/taquito", "@taquito/signer"]
+included_files = ["public/aesthetic.computer/lib/kidlisp.mjs"]
 [dev]
 NODE_ENV = "development"
 publish = "public/"
@@ -319,6 +323,10 @@ status = 200
 [[redirects]]
 from = "/api/mood/*"
 to = "/.netlify/functions/mood"
+status = 200
+[[redirects]]
+from = "/api/store-kidlisp"
+to = "/.netlify/functions/store-kidlisp"
 status = 200
 [[redirects]]
 from = "/api/delete-erase-and-forget-me"

@@ -35,6 +35,11 @@ class Typeface {
   }
 
   get blockWidth() {
+    // For proportional fonts like MatrixChunky8, use a default advance width
+    // since they don't have a fixed glyphWidth
+    if (this.data.proportional === true || this.data.bdfFont === "MatrixChunky8" || this.name === "MatrixChunky8") {
+      return 4; // Default character advance for MatrixChunky8
+    }
     return this.data.glyphWidth;
   }
 
@@ -59,14 +64,34 @@ class Typeface {
             this.glyphs[glyph] = res;
           })
           .catch((err) => {
-            console.error("Couldn't load typeface:", err);
+            // Silently handle missing glyph files - some glyphs may not exist
+            // console.error("Couldn't load typeface:", err);
           });
       }); // Wait for all the promises to resolve before returning
       await Promise.all(promises);
-    } else if (this.name === "unifont") {
-      // 🗺️ UNIFONT Homepage: https://unifoundry.com/unifont.html
+    } else if (this.name === "microtype") {
+      // Load microtype 3x5 font
+      const glyphsToLoad = entries(this.data).filter(
+        ([g, loc]) => !g.startsWith("glyph"),
+      );
+      const promises = glyphsToLoad.map(([glyph, location], i) => {
+        const path = `aesthetic.computer/disks/drawings/${location}.json`;
+        return $preload(path)
+          .then((res) => {
+            this.glyphs[glyph] = res;
+          })
+          .catch((err) => {
+            console.error(`❌ Couldn't load microtype glyph "${glyph}":`, err);
+          });
+      });
+      await Promise.all(promises);
+      console.log(`✅ microtype loaded with ${Object.keys(this.glyphs).length} glyphs`);
+    } else if (this.name === "unifont" || this.data.bdfFont) {
+      // 🗺️ BDF Font support - includes UNIFONT and other BDF fonts
+      // Determine which font to use - for unifont use the name, for others use bdfFont property
+      const fontName = this.data.bdfFont || "unifont";
+      
       // Add a basic placeholder glyph for "?" character
-
       this.glyphs["?"] = {
         resolution: [6, 9],
         pixels: [
@@ -189,12 +214,12 @@ class Typeface {
           const codePointStr = codePoints.join("_");
 
           // Make API call to load the glyph using code points
-          fetch(`/api/bdf-glyph?char=${codePointStr}`)
+          fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`)
             .then((response) => {
               if (!response.ok) {
                 if (response.status === 404) {
                   console.info(
-                    `Glyph "${char}" (${codePointStr}) not available in unifont`,
+                    `Glyph "${char}" (${codePointStr}) not available in ${fontName}`,
                   );
                 } else {
                   console.warn(
@@ -208,6 +233,22 @@ class Typeface {
             .then((glyphData) => {
               // Store the loaded glyph
               target[char] = glyphData;
+              
+              // Trigger a re-render if this is for QR text
+              if (fontName === "MatrixChunky8") {
+                
+                // Invalidate QR cache so it regenerates with new characters
+                if (typeof window !== 'undefined' && window.qrOverlayCache) {
+                  window.qrOverlayCache.clear();
+                }
+                
+                // Force a repaint by calling needsPaint if available
+                if (typeof needsPaint === 'function') {
+                  needsPaint();
+                } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
+                  window.$activePaintApi.needsPaint();
+                }
+              }
               loadingGlyphs.delete(char);
 
               // Trigger a repaint to show the newly loaded glyph
@@ -296,7 +337,25 @@ class Typeface {
     // ? $.system.world.size.height
     // : $.screen.height;
 
-    const w = text.length * blockWidth * size;
+    // Calculate width properly for proportional fonts
+    let w;
+    const isProportional = this.data?.proportional === true || 
+                          this.data?.bdfFont === "MatrixChunky8" ||
+                          this.name === "MatrixChunky8";
+    
+    if (isProportional) {
+      // For proportional fonts, use character advance widths from font definition
+      const advances = this.data?.advances || {};
+      
+      w = 0;
+      [...text.toString()].forEach((char) => {
+        const charAdvance = advances[char] || blockWidth;
+        w += charAdvance * size;
+      });
+    } else {
+      // For monospace fonts, use the original calculation
+      w = text.length * blockWidth * size;
+    }
 
     // Randomize pos.x and pos.y if undefined.
     if (pos.center === undefined) {
@@ -356,6 +415,10 @@ class Typeface {
     if (bg !== null) $.ink(bg).box(x, y, fullWidth, blockHeight);
 
     // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);    // Check if we have per-character colors
+    // Apply baseline adjustment for fonts that need bottom alignment
+    const baselineAdjustment = this.data.baseline || 0;
+    y += baselineAdjustment;
+
     if (charColors && charColors.length > 0) {
       // Render each character with its own color
       let currentX = x;
@@ -365,7 +428,32 @@ class Typeface {
 
         // Set color for this character
         if (charColor) {
-          if (Array.isArray(charColor)) {
+          // Handle background color syntax (object with foreground and background)
+          if (typeof charColor === 'object' && charColor.foreground !== undefined && charColor.background !== undefined) {
+            // Draw background first
+            if (charColor.background) {
+              const charWidth = isProportional ? 
+                (this.data?.advances?.[char] || blockWidth) * size : 
+                blockWidth * size;
+              if (Array.isArray(charColor.background)) {
+                $.ink(...charColor.background);
+              } else {
+                $.ink(charColor.background);
+              }
+              $.box(currentX, y, charWidth, blockHeight);
+            }
+            
+            // Set foreground color
+            if (charColor.foreground) {
+              if (Array.isArray(charColor.foreground)) {
+                $.ink(...charColor.foreground);
+              } else {
+                $.ink(charColor.foreground);
+              }
+            } else {
+              $.ink(...rn); // Use original color if no foreground specified
+            }
+          } else if (Array.isArray(charColor)) {
             $.ink(...charColor);
           } else {
             $.ink(charColor);
@@ -385,10 +473,19 @@ class Typeface {
           0,
           thickness,
           rotation,
+          this.data, // Pass font metadata to avoid BDF proxy issues
         );
 
-        // Move to next character position
-        currentX += blockWidth * size;
+        // Move to next character position using proper advance width
+        if (isProportional) {
+          // Use character-specific advance width for proportional fonts
+          const advances = this.data?.advances || {};
+          const charAdvance = advances[char] || blockWidth;
+          currentX += charAdvance * size;
+        } else {
+          // Use fixed width for monospace fonts
+          currentX += blockWidth * size;
+        }
       }
     } else {
       // Original single-color rendering
@@ -402,6 +499,7 @@ class Typeface {
         0,
         thickness,
         rotation,
+        this.data, // Pass font metadata to avoid BDF proxy issues
       ); // Text
     }
   }
@@ -463,6 +561,7 @@ class TextInput {
   //                       (To clear any starting text.)
   #moveThreshold = 6; // Drag threshold.
   #moveDeltaX = 0;
+  #recentlyShifting = false; // Track if we just finished character sliding
 
   runnable = false; // Whether a command can be tried.
   didReset; // Callback for blank reset.
@@ -569,6 +668,7 @@ class TextInput {
     this.enter = new TB(this.scheme.buttons?.enter || "Enter");
     this.enter.stickyScrubbing = true; // Prevent drag-between-button behavior
     this.enter.btn.stickyScrubbing = true; // Also set on the actual button object
+    this.enter.btn.noEdgeDetection = true; // Prevent cancellation from edge detection
     this.copy = new TB(this.scheme.buttons?.copy.label || "Copy");
     this.paste = new TB(this.scheme.buttons?.paste?.label || "Paste");
     this.copy.btn.disabled = true; // Copy is disabled by default,
@@ -604,6 +704,10 @@ class TextInput {
 
   get lock() {
     return this.#lock;
+  }
+
+  get recentlyShifting() {
+    return this.#recentlyShifting;
   }
 
   // Adjust the gutter width for text wrapping.
@@ -943,8 +1047,10 @@ class TextInput {
   async #execute(store) {
     // Make a history stack if one doesn't exist already.
     store[this.key] = store[this.key] || [];
-    // Push input to a history stack, avoiding repeats.
-    if (store[this.key][0] !== this.text) store[this.key].unshift(this.text);
+    // Push input to a history stack, avoiding repeats and prompt-prefixed navigation.
+    if (store[this.key][0] !== this.text && !this.text.startsWith("prompt~")) {
+      store[this.key].unshift(this.text);
+    }
     // console.log("📚 Stored prompt history:", store[key]);
     store.persist(this.key); // Persist the history stack across tabs.
     // 🍎 Process commands for a given context, passing the text input.
@@ -1013,8 +1119,19 @@ class TextInput {
 
     // ⌨️ Add text via the keyboard.
     if (e.is("keyboard:down") && this.#lock === false && !this.enter.btn.down) {
+      // Reset edge cancellation when user actively starts typing
+      if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+        this.#edgeCancelled = false;
+      }
+      
       // 🔡 Inserting an individual character.
       if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+        // Auto-activate TextInput when user starts typing if not already active
+        if (!this.canType && !this.#edgeCancelled) {
+          this.#manuallyActivated = true;
+          this.#manualActivationTime = Date.now();
+          activate(this);
+        }
         // if (this.text === "" && e.key === " ") {
         //   this.blink.flip(true);
         //   return; // Skip opening spaces.
@@ -1263,12 +1380,15 @@ class TextInput {
       }
 
       if (e.key !== "Enter" && e.key !== "`") {
-        if (this.text.length > 0) {
-          this.enter.btn.disabled = false;
-          this.runnable = true;
-        } else {
-          this.enter.btn.disabled = true;
-          this.runnable = false;
+        // Only manage Enter button disabled state when TextInput is active
+        if (this.canType) {
+          if (this.text.length > 0) {
+            this.enter.btn.disabled = false;
+            this.runnable = true;
+          } else {
+            this.enter.btn.disabled = true;
+            this.runnable = false;
+          }
         }
       }
 
@@ -1321,6 +1441,8 @@ class TextInput {
               });
             }
             await this.run(store);
+            // Deactivate directly after sending message via keyboard Enter
+            deactivate(this);
           }
         } else if (!this.canType && !this.#edgeCancelled) {
           activate(this);
@@ -1344,10 +1466,22 @@ class TextInput {
       }
     }
     if (e.is("keyboard:close") && !this.#lock) {
+      // Don't process if already deactivated
+      if (!this.canType) {
+        return;
+      }
+      
       // Only deactivate via keyboard:close if we haven't recently manually activated via touch
       const timeSinceManualDeactivation = Date.now() - this.#manualDeactivationTime;
       const timeSinceManualActivation = Date.now() - this.#manualActivationTime;
-      if ((!this.#manuallyDeactivated || timeSinceManualDeactivation > 100) && (!this.#manuallyActivated || timeSinceManualActivation > 100)) {
+      
+      // Don't close if Enter button just activated the TextInput
+      if (this._enterButtonActivation) {
+        return;
+      }
+      
+      // Increase the threshold for manual activation to 500ms to account for command execution time
+      if ((!this.#manuallyDeactivated || timeSinceManualDeactivation > 100) && (!this.#manuallyActivated || timeSinceManualActivation > 500)) {
         deactivate(this);
       }
     }
@@ -1368,7 +1502,7 @@ class TextInput {
       if (!this.mute) {
         sound.synth({
           type: "sine",
-          tone: 400,
+          tone: 300,
           attack: 0.1,
           decay: 0.96,
           volume: 0.5,
@@ -1403,7 +1537,9 @@ class TextInput {
         ti.runnable = true;
         ti.paste.btn.disabled = false;
       } else {
-        if (ti.#lastPrintedText) ti.blank("blink");
+        if (ti.#lastPrintedText) {
+          ti.blank("blink");
+        }
 
         // ti.enter.btn.disabled = true;
         ti.runnable = false; // Explicitly set runnable to false when no text
@@ -1416,15 +1552,17 @@ class TextInput {
       // Ensure keyboard is unlocked and opened for mobile devices
       $.send({ type: "keyboard:unlock" });
       $.send({ type: "keyboard:open" }); // Necessary for desktop and mobile.
+      
+
 
       if (!ti.mute) {
         sound.synth({
           type: "sine",
-          tone: 600,
+          tone: 300,
           attack: 0.1,
           decay: 0.96,
           volume: 0.5,
-          duration: 0.005,
+          duration: 0.01,
         });
       }
     }
@@ -1442,7 +1580,7 @@ class TextInput {
 
       ti.activated?.($, false);
 
-      ti.enter.btn.disabled = false;
+      ti.enter.btn.disabled = false; // Always enable Enter button when deactivated so user can reactivate
       ti.paste.btn.disabled = false;
       ti.canType = false;
       ti.runnable = false;
@@ -1487,6 +1625,23 @@ class TextInput {
     }
 
     if (e.is("lift")) {
+      // Handle shifting reset first, before other lift logic
+      if (this.shifting) {
+        this.#moveDeltaX = 0;
+        this.shifting = false;
+        this.#recentlyShifting = true; // Track that we just finished character sliding
+        
+        // Reset the recently shifting flag after a short delay
+        setTimeout(() => {
+          this.#recentlyShifting = false;
+        }, 50);
+      }
+      
+      // Always unlock keyboard on lift (unless locked)
+      if (!this.#lock) {
+        $.send({ type: "keyboard:unlock" });
+      }
+      
       // Store the current backdropTouchOff state before resetting it
       const shouldPreventActivation = this.backdropTouchOff;
       this.backdropTouchOff = false;
@@ -1501,21 +1656,16 @@ class TextInput {
             this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
             this.#manualActivationTime = Date.now();
             activate(this);
-          }
+          } 
 
           this.#activatingPress = false;
         }
         // Don't reset #edgeCancelled here - let it persist to prevent keyboard events from activating
       } else {
         // Handle deactivation for active TextInput
-        
         // Don't deactivate if lift is over Enter button and button is down (push is about to occur)
         const isOverEnterButton = (this.enter.btn.disabled === false && this.enter.btn.box.contains(e));
         const enterButtonIsDown = this.enter.btn.down;
-        
-        if (isOverEnterButton && enterButtonIsDown) {
-          return;
-        }
         
         // Check if lift is over any interactive element
         const isOverInteractive = (
@@ -1524,10 +1674,15 @@ class TextInput {
           isOverEnterButton
         );
         
-        if (!isOverInteractive) {
-          this.#manuallyDeactivated = true;
-          this.#manualDeactivationTime = Date.now();
-          deactivate(this);
+        // Don't deactivate if:
+        // 1. Over interactive elements OR if over active enter button
+        // 2. Just finished character sliding (recentlyShifting)
+        if (!isOverInteractive || (isOverEnterButton && enterButtonIsDown)) {
+          if (!isOverInteractive && !this.#recentlyShifting) {
+            this.#manuallyDeactivated = true;
+            this.#manualDeactivationTime = Date.now();
+            deactivate(this);
+          }
         }
       }
     }
@@ -1587,14 +1742,34 @@ class TextInput {
             return;
           }
           
-          if (this.runnable) {
-            if (this.text.trim().length > 0) {
+          // If the TextInput is not active but has text that should be sent
+          if (!this.canType && this.text.trim().length > 0) {
+            this.#manuallyActivated = true;
+            this.#manualActivationTime = Date.now();
+            activate(this);
+            // Run command immediately after activation
+            if (this.runnable && this.text.trim().length > 0) {
               await this.run(store);
-            } else if (this.closeOnEmptyEnter) {
-              $.send({ type: "keyboard:close" });
+              deactivate(this);
             }
-          } else if (!this.#edgeCancelled) {
-            this.#manuallyActivated = true; // Set flag to block unwanted keyboard events
+          } else if (this.runnable && this.text.trim().length > 0) {
+            this.#manuallyActivated = true;
+            this.#manualActivationTime = Date.now();
+            await this.run(store);
+            // Deactivate directly after sending message
+            this._enterHandledMessage = true; // Flag to prevent redundant keyboard:close
+            deactivate(this);
+            // Clear the flag after a short delay
+            setTimeout(() => {
+              this._enterHandledMessage = false;
+            }, 200);
+          } else if (this.runnable && this.text.trim().length === 0 && this.closeOnEmptyEnter) {
+            deactivate(this);
+          } else {
+            // Reset edge cancellation for Enter button activation
+            this.#edgeCancelled = false;
+            
+            this.#manuallyActivated = true;
             this.#manualActivationTime = Date.now();
             activate(this);
           }
@@ -1681,7 +1856,7 @@ class TextInput {
       const copied = e.is("clipboard:copy:copied");
       if (debug) {
         copied
-          ? console.log("📋 Copy: Copied 🙃")
+          ? "📋 Copy: Copied 🙃"
           : console.warn("📋 Copy: Failed ⚠️");
       }
 
@@ -1704,7 +1879,7 @@ class TextInput {
     if (e.name?.startsWith("clipboard:paste")) {
       let label;
       if (e.is("clipboard:paste:pasted")) {
-        if (debug) console.log("📋 Paste: Pasted 🙃");
+        if (debug) "📋 Paste: Pasted 🙃";
         label = this.scheme.buttons?.paste?.pasted || "Pasted";
       } else if (e.is("clipboard:paste:pasted:empty")) {
         if (debug) console.warn("📋 Paste: Empty 👐️");
@@ -1772,14 +1947,7 @@ class TextInput {
     if (e.is("touch") && !this.#lock) {
       this.#ensureBlink();
       this.blink?.flip(true);
-    }
-
-    if (e.is("lift") && !this.#lock) {
-      if (this.shifting) {
-        this.#moveDeltaX = 0;
-        this.shifting = false;
-      }
-      $.send({ type: "keyboard:unlock" });
+      this.#recentlyShifting = false; // Reset the recently shifting flag on new touch
     }
 
     if (
@@ -1810,6 +1978,18 @@ class TextInput {
         this.#prompt.crawlBackward();
         this.selection = null;
         $.send({ type: "keyboard:cursor", content: -1 });
+        
+        // Play character movement click sound
+        if (!this.mute) {
+          sound.synth({
+            type: "sine",
+            tone: 800,
+            attack: 0.01,
+            decay: 0.95,
+            volume: 0.25,
+            duration: 0.008,
+          });
+        }
       }
 
       while (this.#moveDeltaX >= this.#moveThreshold) {
@@ -1822,6 +2002,18 @@ class TextInput {
           // implementations in pieces that use `TextInput`.
         }
         $.send({ type: "keyboard:cursor", content: 1 });
+        
+        // Play character movement click sound
+        if (!this.mute) {
+          sound.synth({
+            type: "sine",
+            tone: 800,
+            attack: 0.01,
+            decay: 0.95,
+            volume: 0.25,
+            duration: 0.008,
+          });
+        }
       }
 
       this.#ensureBlink();
