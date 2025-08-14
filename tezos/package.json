@@ -1,0 +1,50 @@
+{
+  "name": "@aesthetic-computer/tezos",
+  "version": "0.1.0",
+  "description": "KidLisp on Tezos - FA2 token system for aesthetic.computer",
+  "main": "lib/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test tests/*.test.js",
+    "deploy:ghostnet": "node scripts/deploy.js --network ghostnet",
+    "deploy:mainnet": "node scripts/deploy.js --network mainnet",
+    "mint": "node scripts/mint.js",
+    "setup": "npm run install:tools && npm run build",
+    "install:tools": "echo 'Please install SmartPy CLI manually: https://smartpy.io/cli'",
+    "compile:contract": "smartpy compile contracts/kidlisp_meme_coin.py output/",
+    "test:contract": "smartpy test contracts/test_kidlisp_meme_coin.py output/",
+    "originate": "node scripts/originate.js",
+    "interact": "node scripts/interact.js"
+  },
+  "dependencies": {
+    "@taquito/taquito": "^19.2.0",
+    "@taquito/beacon-wallet": "^19.2.0",
+    "@taquito/utils": "^19.2.0",
+    "@taquito/michel-codec": "^19.2.0",
+    "@taquito/michelson-encoder": "^19.2.0",
+    "@taquito/rpc": "^19.2.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "tezos",
+    "fa2",
+    "meme-coin",
+    "kidlisp",
+    "aesthetic-computer",
+    "blockchain",
+    "smart-contracts"
+  ],
+  "author": "aesthetic.computer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whistlegraph/aesthetic-computer",
+    "directory": "tezos"
+  }
+}

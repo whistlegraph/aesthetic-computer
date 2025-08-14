@@ -80,6 +80,9 @@
     "redis": "^4.7.0",
     "sharp": "^0.33.5",
     "stripe": "^17.7.0",
+    "@taquito/taquito": "^19.2.0",
+    "@taquito/signer": "^19.2.0",
+    "@taquito/utils": "^19.2.0",
     "three": "^0.175.0",
     "web3": "^4.16.0",
     "webpxmux": "^0.0.2"
