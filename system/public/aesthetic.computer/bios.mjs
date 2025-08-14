@@ -3879,7 +3879,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 }
               }
               
-              processedFrames.push(content.frames[closestIndex]);
+              // Create a copy of the frame with corrected originalTimestamp for proper GIF timing
+              const correctedFrame = { ...content.frames[closestIndex] };
+              correctedFrame.originalTimestamp = targetTimestamp;
+              
+              processedFrames.push(correctedFrame);
             }
             
             console.log(`🎬 GIF frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
@@ -3992,6 +3996,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
+          // Calculate proper timing for gifenc based on intended duration
+          let gifencDelay = 17; // Default 60fps fallback
+          
+          // Calculate proper delay based on the resampled frame timing
+          if (processedFrames.length > 1 && content.frames.length > 0) {
+            const originalTotalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+            const intendedDelayPerFrame = originalTotalDuration / processedFrames.length;
+            gifencDelay = Math.round(Math.max(intendedDelayPerFrame, 16)); // Minimum 16ms (62.5fps max)
+            console.log(`🎞️ Using calculated timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) based on intended duration`);
+          } else {
+            console.log(`🎞️ Using fallback 60fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for high quality GIF playback`);
+          }
+          
           // Process each frame
           for (let index = 0; index < processedFrames.length; index++) {
             const frame = processedFrames[index];
@@ -4025,10 +4042,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Add sideways AC stamp like in video recordings
             const progress = (index + 1) / processedFrames.length;
             
-            // For GIF: calculate elapsed time based on actual GIF playback timing
-            // Use fixed 60fps delay (17ms) for gifenc timing calculation
-            const gifElapsedMs = (index + 1) * 17; // Actual elapsed time in GIF playback (60fps = 17ms)
-            const gifElapsedSeconds = gifElapsedMs / 1000;
+            // For GIF: calculate elapsed time based on the actual delay being used in encoding
+            // This ensures timestamp matches the actual GIF playback speed
+            const gifElapsedSeconds = (index * gifencDelay) / 1000;
             const gifFrameMetadata = {
               ...frame,
               gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
@@ -4127,10 +4143,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Calculate proper timing for gifenc - use 60fps for high quality GIF playback
-          let gifencDelay = 17; // 60fps = 16.67ms, rounded to 17ms for GIF compatibility
-          
-          console.log(`🎞️ Using fixed 60fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for high quality GIF playback`);
+          // Use the delay calculated earlier during frame processing
+          console.log(`🎞️ Encoding GIF with ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps)`);
           
           // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
