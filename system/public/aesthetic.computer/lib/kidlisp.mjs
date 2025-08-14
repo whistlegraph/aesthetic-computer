@@ -6,6 +6,7 @@
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+import { cssColors, rainbow, staticColorMap } from "./num.mjs";
 
 // Global cache registry for storing cached codes by source hash
 const cacheRegistry = new Map();
@@ -145,7 +146,6 @@ function setCachedCode(source, code) {
 const VERBOSE = false;
 const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
-import { cssColors } from "./num.mjs";
 
 // Performance tracking utilities
 const perfTimers = {};
@@ -246,7 +246,26 @@ function readFromTokens(tokens) {
     if (tokens[0] === ")") {
       throw new Error("Unexpected ')'");
     }
-    result.push(readExpression(tokens));
+    
+    // Check if the current token is a timing expression (both simple like "1.5s" and repeating like "2s...")
+    const currentToken = tokens[0];
+    if (/^\d*\.?\d+s\.\.\.?$/.test(currentToken) || /^\d*\.?\d+s!?$/.test(currentToken)) {
+      // This is a timing token, collect it and all following expressions until we hit another timing token or end
+      const timingExpr = [readExpression(tokens)]; // Read the timing token itself
+      
+      // Collect all following expressions until we hit another timing token or run out
+      while (tokens.length > 0 && 
+             tokens[0] !== ")" && 
+             !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0]) &&
+             !/^\d*\.?\d+s!?$/.test(tokens[0])) {
+        const nextExpr = readExpression(tokens);
+        timingExpr.push(nextExpr);
+      }
+      
+      result.push(timingExpr);
+    } else {
+      result.push(readExpression(tokens));
+    }
   }
   return result;
 }
@@ -643,19 +662,140 @@ class KidLisp {
     if (colorName) {
       const globalEnv = this.getGlobalEnv();
       
-      // Check if it's a color name in the global environment
+      // Check if it's a direct color name, fade string, or color code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
         try {
           // Test if this is a color function by calling it
-          globalEnv[colorName]();
+          const result = globalEnv[colorName]();
           
-          // If we get here without error, it's a color function
-          this.firstLineColor = colorName;
+          // Check if the result is a valid color (array of RGB values, fade string, or rainbow)
+          const isValidColor = Array.isArray(result) || 
+                               typeof result === "string" && (result.startsWith("fade:") || result === "rainbow");
+          
+          if (isValidColor) {
+            // If we get here without error, it's a color function
+            this.firstLineColor = colorName;
+          }
         } catch (e) {
           // Not a color function, ignore
         }
       }
+      // Also check if it's a fade string directly (like "fade:c0-c3")
+      else if (colorName.startsWith("fade:")) {
+        // Validate the fade string by trying to parse it
+        const fadeColors = this.parseFadeString(colorName);
+        if (fadeColors && fadeColors.length >= 2) {
+          this.firstLineColor = colorName;
+        }
+      }
     }
+  }
+
+  // Color a fade expression like "fade:red-blue-yellow" with each color in its own color
+  colorFadeExpression(fadeToken) {
+    if (!fadeToken.startsWith("fade:")) {
+      return fadeToken; // Fallback to original token
+    }
+
+    const colorPart = fadeToken.substring(5); // Remove "fade:" prefix
+    const colorNames = colorPart.split("-");
+    
+    let result = "\\mediumseagreen\\fade\\lime\\:"; // "fade" in emerald, ":" in green
+    
+    for (let i = 0; i < colorNames.length; i++) {
+      const colorName = colorNames[i];
+      
+      // Get the color for this color name
+      let colorValue = "white"; // Default fallback
+      
+      if (cssColors && cssColors[colorName]) {
+        // Use the actual color if it's a valid CSS color
+        const rgbColor = cssColors[colorName];
+        if (Array.isArray(rgbColor) && rgbColor.length >= 3) {
+          colorValue = `${rgbColor[0]},${rgbColor[1]},${rgbColor[2]}`;
+        }
+      } else if (colorName.match(/^c\d+$/)) {
+        // Handle color codes like c0, c1, etc.
+        const index = parseInt(colorName.substring(1));
+        if (staticColorMap && staticColorMap[index]) {
+          const rgbColor = staticColorMap[index];
+          if (Array.isArray(rgbColor) && rgbColor.length >= 3) {
+            colorValue = `${rgbColor[0]},${rgbColor[1]},${rgbColor[2]}`;
+          }
+        }
+      } else if (colorName === "rainbow") {
+        colorValue = "RAINBOW"; // Special case for rainbow
+      }
+      
+      // Add the colored color name
+      if (colorValue === "RAINBOW") {
+        // Special rainbow handling
+        const rainbowColors = ["red", "orange", "yellow", "lime", "blue", "purple", "magenta"];
+        for (let charIndex = 0; charIndex < colorName.length; charIndex++) {
+          const charColor = rainbowColors[charIndex % rainbowColors.length];
+          result += `\\${charColor}\\${colorName[charIndex]}`;
+        }
+      } else {
+        result += `\\${colorValue}\\${colorName}`;
+      }
+      
+      // Add the dash separator in emerald (except for the last color)
+      if (i < colorNames.length - 1) {
+        result += "\\mediumseagreen\\-";
+      }
+    }
+    
+    return result;
+  }
+
+  // Helper method to parse and validate fade strings
+  // Helper method to validate if a string is a valid color
+  isValidColorString(colorStr) {
+    // Check CSS colors
+    if (cssColors[colorStr]) return true;
+    
+    // Check color codes (c0, c1, etc.) using standardized mapping
+    if (colorStr.match(/^c\d+$/)) {
+      const index = parseInt(colorStr.substring(1));
+      return staticColorMap[index] !== undefined;
+    }
+    
+    // Check if it's rainbow
+    if (colorStr === "rainbow") return true;
+    
+    return false;
+  }
+
+  parseFadeString(fadeString) {
+    if (!fadeString.startsWith("fade:")) return null;
+    
+    const colorPart = fadeString.substring(5); // Remove "fade:" prefix
+    const colorNames = colorPart.split("-");
+    
+    if (colorNames.length < 2) return null;
+    
+    const validColors = [];
+    
+    // Validate each color in the fade
+    for (const colorName of colorNames) {
+      if (this.isValidColorString(colorName)) {
+        // Get the actual RGB values
+        if (cssColors[colorName]) {
+          validColors.push(cssColors[colorName]);
+        } else if (colorName.match(/^c\d+$/)) {
+          const index = parseInt(colorName.substring(1));
+          if (staticColorMap[index]) {
+            validColors.push(staticColorMap[index]);
+          }
+        } else if (colorName === "rainbow") {
+          validColors.push([255, 0, 0]); // Just use red as representative
+        }
+      } else {
+        return null; // Invalid color
+      }
+    }
+    
+    return validColors.length >= 2 ? validColors : null;
   }
 
   // Get the background fill color for reframe operations
@@ -1210,6 +1350,15 @@ class KidLisp {
           lines[index - 1].split("(").length >
             lines[index - 1].split(")").length;
 
+        // Check if line starts with a timing expression like "1.5s" or "2s..."
+        const timingMatch = line.match(/^(\d*\.?\d+s\.\.\.?)\s+(.+)$/);
+        if (timingMatch && !line.startsWith("(")) {
+          // Line starts with timing expression followed by other content
+          // Keep it as a flat structure: 1.5s (zoom 0.75) becomes a single tokenized line
+          // Don't auto-wrap, let the tokenizer handle it naturally
+          return line;
+        }
+
         // If line doesn't start with ( and looks like a function call, wrap it
         // BUT don't wrap if it's likely a continuation line
         if (
@@ -1702,6 +1851,26 @@ class KidLisp {
         const b = typeof second === "number" ? second : 1;
         return b !== 0 ? a % b : 0;
       },
+      // Random number generation
+      random: (api, args) => {
+        // (random) - returns 0-255
+        // (random max) - returns 0-max
+        // (random min max) - returns min-max
+        if (args.length === 0) {
+          return Math.floor(Math.random() * 256);
+        } else if (args.length === 1) {
+          const max = args[0];
+          return Math.floor(Math.random() * max);
+        } else if (args.length >= 2) {
+          const min = args[0];
+          const max = args[1];
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+      },
+      "?": (api) => {
+        // Shorthand for random - returns 0-255
+        return Math.floor(Math.random() * 256);
+      },
       // Paint API
       resolution: (api, args) => {
         // Handle special fraction keywords
@@ -1776,12 +1945,28 @@ class KidLisp {
           this.clearInkState();
           return undefined;
         } else {
+          // Check for fade: symbol syntax like (ink fade:cyan-magenta)
+          if (args.length === 1 && typeof args[0] === "string" && args[0].startsWith("fade:")) {
+            this.inkState = [args[0]];
+            this.inkStateSet = true;
+            api.ink?.(args[0]);
+            return;
+          }
+          
           // Called with color arguments - store and apply the new ink state
           const processedArgs = processArgStringTypes(args);
           this.inkState = processedArgs;
           this.inkStateSet = true;
-          api.ink?.(processedArgs);
+          api.ink?.(...processedArgs);
         }
+      },
+      // Fade string constructor - returns a fade string that can be used with ink
+      fade: (api, args) => {
+        if (args.length < 2) {
+          return "fade:red-blue"; // Default fade if not enough args
+        }
+        const colors = processArgStringTypes(args).join("-");
+        return `fade:${colors}`;
       },
       // Dynamic timing helpers with intuitive names
       hop: (api, args, env) => {
@@ -1829,6 +2014,21 @@ class KidLisp {
       box: (api, args = []) => {
         // console.log(args);
         api.box(...args);
+      },
+      flood: (api, args = []) => {
+        // Flood fill at coordinates with optional color
+        // Usage: (flood x y) or (flood x y color)
+        if (args.length >= 2) {
+          const x = args[0];
+          const y = args[1];
+          const fillColor = args[2]; // Optional color, defaults to current ink
+          
+          if (fillColor !== undefined) {
+            api.flood(x, y, processArgStringTypes(fillColor));
+          } else {
+            api.flood(x, y); // Use current ink color
+          }
+        }
       },
       shape: (api, args = []) => {
         // Handle shape arguments - can be flat array of coordinates or array of pairs
@@ -2889,15 +3089,86 @@ class KidLisp {
         acc[colorName] = () => cssColors[colorName];
         return acc;
       }, {}),
+      
+      // Add static color codes (c0, c1, c2, etc.) using standardized mapping
+      ...Object.keys(staticColorMap).reduce((acc, index) => {
+        acc[`c${index}`] = () => staticColorMap[index];
+        return acc;
+      }, {}),
+      
+      // Add palette codes (p0, p1, etc.)
+      p0: () => "rainbow",
+      
+      // Add fade functions for common fades
+      "fade:red-blue": () => "fade:red-blue",
+      "fade:sunset": () => "fade:sunset", 
+      "fade:ocean": () => "fade:ocean",
+      "fade:red-yellow": () => "fade:red-yellow",
+      "fade:blue-white": () => "fade:blue-white",
+      "fade:green-purple": () => "fade:green-purple",
+      "fade:cyan-magenta": () => "fade:cyan-magenta",
     };
 
     return this.globalEnvCache;
+  }
+
+  // Context-aware randomization for ? tokens
+  contextAwareRandom(functionName, argIndex, api) {
+    const width = api.screen?.width || 256;
+    const height = api.screen?.height || 256;
+    
+    // Define context-aware ranges for different functions and argument positions
+    const contextRanges = {
+      box: [
+        { min: 0, max: width },   // x position (arg 0)
+        { min: 0, max: height },  // y position (arg 1)
+        { min: 10, max: 100 },    // width (arg 2)
+        { min: 10, max: 100 },    // height (arg 3)
+      ],
+      line: [
+        { min: 0, max: width },   // x1 (arg 0)
+        { min: 0, max: height },  // y1 (arg 1)
+        { min: 0, max: width },   // x2 (arg 2)
+        { min: 0, max: height },  // y2 (arg 3)
+      ],
+      circle: [
+        { min: 0, max: width },   // x position (arg 0)
+        { min: 0, max: height },  // y position (arg 1)
+        { min: 5, max: 50 },      // radius (arg 2)
+      ],
+      write: [
+        { min: 0, max: width },   // x position (arg 1, since arg 0 is text)
+        { min: 0, max: height },  // y position (arg 2)
+      ],
+      ink: [
+        { min: 0, max: 255 },     // red (arg 0)
+        { min: 0, max: 255 },     // green (arg 1)
+        { min: 0, max: 255 },     // blue (arg 2)
+        { min: 0, max: 255 },     // alpha (arg 3)
+      ],
+    };
+    
+    // Get the range for this function and argument index
+    const functionRanges = contextRanges[functionName];
+    if (functionRanges && functionRanges[argIndex]) {
+      const range = functionRanges[argIndex];
+      return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+    }
+    
+    // Default range if no specific context is defined
+    return Math.floor(Math.random() * 256);
   }
 
   // Fast evaluation for common expressions to avoid full recursive evaluation
   fastEval(expr, api, env) {
     if (typeof expr === "number") return expr;
     if (typeof expr === "string") {
+      // Handle randomization token
+      if (expr === "?") {
+        // Generate a random number from 0 to 255 (default range)
+        return Math.floor(Math.random() * 256);
+      }
+
       // Fast variable lookup - don't cache iterator variables that change frequently
       let value;
       if (Object.prototype.hasOwnProperty.call(this.localEnv, expr)) {
@@ -3470,15 +3741,15 @@ class KidLisp {
                 } else {
                   // Use fast evaluation for arguments with current local environment
                   processedArgs = args.map((arg, index) => {
+                    // Handle context-aware randomization for ?
+                    if (arg === "?") {
+                      return this.contextAwareRandom(head, index, api);
+                    }
+                    
                     if (
                       Array.isArray(arg) ||
                       (typeof arg === "string" && !/^".*"$/.test(arg))
                     ) {
-                      // Special case for 'write' function: treat single characters as string literals
-                      if (head === "write" && typeof arg === "string" && arg.length === 1 && /^[a-zA-Z]$/.test(arg)) {
-                        return arg; // Return single characters as-is for write function
-                      }
-                      
                       // Check if this is a timing expression that needs full evaluation
                       if (Array.isArray(arg) && arg.length > 0 && 
                           typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
@@ -3611,6 +3882,12 @@ class KidLisp {
       // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
     }
 
+    // Check if this is a timing expression like "1.5s" or "2s..." before processing as identifier
+    if (/^\d*\.?\d+s\.\.\.?$/.test(expression)) {
+      // This is a timing expression, evaluate it properly as an array
+      return this.evaluate([expression], api, env);
+    }
+
     // Check if this is a simple function identifier that can be auto-called
     if (validIdentifierRegex.test(expression)) {
       const globalEnv = this.getGlobalEnv();
@@ -3642,28 +3919,37 @@ class KidLisp {
 
     // Evaluate identifiers by running this.evaluate([id], api, env);
     identifiers.forEach((id) => {
+      // Skip 's' if it appears to be part of a timing expression
+      if (id === 's' && /\d+\.?\d*s/.test(expression)) {
+        return; // Skip this identifier as it's part of a timing expression
+      }
+
       // Use fast evaluation for identifier lookup
       let value = this.fastEval(id, api, env);
 
       if (value === id) {
-        // Variable not found - check if it's a single character that should be treated as a string
-        if (typeof id === "string" && id.length === 1 && /^[a-zA-Z]$/.test(id)) {
-          // Single alphabetic characters are likely string literals, not undefined variables
-          value = `"${id}"`; // Treat as quoted string
-        } else {
-          console.warn("❗ Identifier not found:", id);
-          value = 0;
-        }
+        // Variable not found, try to get it from global environment
+        console.warn("❗ Identifier not found:", id);
+        value = 0;
       }
 
       // Replace any identifiers and cancel out prefixed double negatives.
       expression = expression.replace(new RegExp(`\\b${id}\\b`, "g"), value);
     });
 
-    const compute = new Function(`return ${expression};`);
-    const result = compute();
-    // console.log("Evaluated result:", result);
-    return result;
+    // Handle cases where the expression might still contain timing patterns after identifier replacement
+    // Replace timing patterns like "1.5s" with valid JavaScript (though this is a fallback)
+    expression = expression.replace(/(\d+\.?\d*)s/g, '$1');
+
+    try {
+      const compute = new Function(`return ${expression};`);
+      const result = compute();
+      // console.log("Evaluated result:", result);
+      return result;
+    } catch (error) {
+      console.warn("❗ Failed to evaluate expression:", expression, error.message);
+      return 0; // Return default value instead of throwing
+    }
   }
 
   // Loop over an iterable.
@@ -3806,6 +4092,13 @@ class KidLisp {
               result += `\\${charColor}\\${token[charIndex]}`;
             }
             lastColor = null; // Reset so next token gets proper color
+          } 
+          // Special handling for fade expressions like "fade:red-blue-yellow"
+          else if (token.startsWith("fade:") && color === "mediumseagreen") {
+            // Parse the fade expression and color each part
+            const fadeResult = this.colorFadeExpression(token);
+            result += fadeResult;
+            lastColor = null; // Reset so next token gets proper color
           } else {
             // Add the token itself normally
             result += token;
@@ -3880,28 +4173,14 @@ class KidLisp {
       
       // Handle cycle timer arguments
       if (/^\d*\.?\d+s\.\.\.?$/.test(prevToken)) {
-        if (token === "line" || token === "box") {
-          console.log(`🔍 Found timing token "${prevToken}" at index ${i} while processing "${token}" at index ${index}`);
-        }
         // Try to find this timing key in our active tracking
         for (const [timingKey, data] of this.activeTimingExpressions) {
           if (timingKey.startsWith(prevToken + "_")) {
-            if (token === "line" || token === "box") {
-              console.log(`🔍 Checking timing key "${timingKey}" for token "${token}"`);
-            }
-            
             // Check if current token is within one of the timing arguments
             const argInfo = this.getTokenArgPosition(tokens, i, index);
-            if (token === "line" || token === "box") {
-              console.log(`🔍 getTokenArgPosition(${i}, ${index}) returned:`, argInfo);
-            }
             
             if (argInfo && argInfo.argIndex < data.totalArgs) {
               const isActive = argInfo.argIndex === data.currentIndex;
-              // Debug: Log which argument this token belongs to
-              if (token === "line" || token === "box") {
-                console.log(`🔍 Token "${token}" -> arg ${argInfo.argIndex}, current active: ${data.currentIndex}, is active: ${isActive}`);
-              }
               return {
                 timingKey,
                 currentIndex: data.currentIndex,
@@ -3909,8 +4188,6 @@ class KidLisp {
                 isBlinking: this.isTimingBlinking(prevToken),
                 isInActiveArg: isActive
               };
-            } else {
-              // console.log(`🔍 Token "${token}" not in valid argument range or argInfo is null`);
             }
           }
         }
@@ -3960,14 +4237,6 @@ class KidLisp {
     let parenDepth = 0;
     let currentTokenPos = timingIndex + 1;
     
-    // Only debug for tokens we care about
-    const isDebugToken = tokens[tokenIndex] === "line" || tokens[tokenIndex] === "box";
-    
-    if (isDebugToken) {
-      console.log(`🔍 getTokenArgPosition: Analyzing "${tokens[tokenIndex]}" (index ${tokenIndex}) relative to timing at ${timingIndex}`);
-      console.log(`🔍 Token range: ${timingIndex + 1} to ${tokenIndex}`);
-    }
-    
     while (currentTokenPos < tokens.length && currentTokenPos <= tokenIndex) {
       const token = tokens[currentTokenPos];
       
@@ -3976,37 +4245,22 @@ class KidLisp {
         if (parenDepth === 1) {
           // Start of a new top-level argument
           argIndex++;
-          if (isDebugToken) {
-            console.log(`🔍 Starting arg ${argIndex} at token "${token}" (pos ${currentTokenPos})`);
-          }
         }
       } else if (token === ")") {
         parenDepth--;
-        if (isDebugToken) {
-          console.log(`🔍 Closing paren at pos ${currentTokenPos}, parenDepth now ${parenDepth}`);
-        }
         if (parenDepth < 0) {
           // We've exited the timing expression
-          if (isDebugToken) {
-            console.log(`🔍 Exited timing expression at pos ${currentTokenPos}`);
-          }
           break;
         }
       }
       
       if (currentTokenPos === tokenIndex) {
-        if (isDebugToken) {
-          console.log(`🔍 Found "${tokens[tokenIndex]}" inside arg ${argIndex} at depth ${parenDepth}`);
-        }
         return { argIndex, tokenDepth: parenDepth };
       }
       
       currentTokenPos++;
     }
     
-    if (isDebugToken) {
-      console.log(`🔍 Token "${tokens[tokenIndex]}" not found in timing arguments`);
-    }
     return null; // Token not found in timing arguments
   }
 
@@ -4399,7 +4653,7 @@ class KidLisp {
       return this.getFunctionColor(token);
     }
 
-    // Check if this token is a valid CSS color name
+    // Check if this token is a valid CSS color name or color code
     if (cssColors && cssColors[token]) {
       // Return the actual color value for CSS colors like "red", "blue", etc.
       const colorValue = cssColors[token];
@@ -4408,6 +4662,24 @@ class KidLisp {
         // Return as RGB format for the HUD system
         return rgbColor;
       }
+    }
+    
+    // Check if this is a color code like "c0", "c1", etc.
+    if (token.match(/^c\d+$/)) {
+      const index = parseInt(token.substring(1));
+      if (staticColorMap[index]) {
+        const colorValue = staticColorMap[index];
+        if (Array.isArray(colorValue) && colorValue.length >= 3) {
+          const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
+          return rgbColor;
+        }
+      }
+    }
+
+    // Check if this is a fade expression like "fade:red-blue-yellow"
+    if (token.startsWith("fade:")) {
+      // For now, return a special fade color - we'll handle the multi-color highlighting separately
+      return "mediumseagreen"; // Give fade expressions a distinct emerald color
     }
 
     // Check if this is a bare function call (likely at start of line or after newline)
@@ -4418,18 +4690,23 @@ class KidLisp {
 
     // Check if this is a known function name (even if not directly after parentheses)
     const knownFunctions = [
-      "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "mul", "log", "no", "yes"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade"
     ];
     
     // Special case for "rainbow" - return special marker for rainbow coloring
     if (token === "rainbow") {
       return "RAINBOW";
+    }
+    
+    // Special case for "fade" function - give it a distinct color
+    if (token === "fade") {
+      return "mediumseagreen"; // Use emerald/medium sea green for the fade function
     }
     
     // Math operators get special green color
@@ -4467,11 +4744,11 @@ class KidLisp {
 
     // Check against known functions and CSS colors
     const knownFunctions = [
-      "wipe", "ink", "line", "box", "circle", "write", "paste", "stamp", "point", "poly",
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
-      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "pan", "unpan",
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes"
     ];
@@ -4729,6 +5006,15 @@ function isKidlispSource(text) {
 
   // Check if it contains newlines (multi-line input is likely KidLisp)
   if (text.includes("\n")) {
+    return true;
+  }
+
+  // Check for first-line color indicators (fade strings and color codes)
+  const trimmedText = text.trim();
+  if (trimmedText.startsWith("fade:") || 
+      trimmedText.match(/^c\d+$/) || 
+      cssColors[trimmedText] || 
+      trimmedText === "rainbow") {
     return true;
   }
 
