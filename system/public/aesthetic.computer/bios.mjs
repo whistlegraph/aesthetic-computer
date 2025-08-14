@@ -5254,12 +5254,101 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Pointer Lock 🔫
+  let pointerLockCursor = null;
+  
+  // Create the pointer lock cursor element
+  function createPointerLockCursor() {
+    // Remove any existing cursor first
+    const existing = document.getElementById("pointer-lock-cursor");
+    if (existing) existing.remove();
+    
+    const cursor = document.createElement("div");
+    cursor.id = "pointer-lock-cursor";
+    cursor.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 25 25">
+        <path d="
+            M 13,3 L 13,6 
+            M 13,20 L 13,23 
+            M 6,13 L 3,13 
+            M 20,13 L 23,13
+        " stroke="black" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="2" fill="black" />
+        <path d="
+            M 12,2 L 12,5 
+            M 12,19 L 12,22 
+            M 5,12 L 2,12 
+            M 19,12 L 22,12
+        " stroke="#00FFFF" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2" fill="#ffffff" />
+      </svg>
+    `;
+    
+    // Use setAttribute for better compatibility
+    cursor.setAttribute("style", `
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: 24px !important;
+      height: 24px !important;
+      transform: translate(-50%, -50%) !important;
+      pointer-events: none !important;
+      z-index: 999999 !important;
+      display: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    `.replace(/\s+/g, ' ').trim());
+    
+    document.body.appendChild(cursor);
+    console.log("🎯 Pointer lock cursor element created with inline SVG", cursor);
+    console.log("🎯 Cursor element styles:", cursor.getAttribute("style"));
+    console.log("🎯 Document body children count:", document.body.children.length);
+    return cursor;
+  }
+  
   document.addEventListener("pointerlockchange", () => {
+    const isLocked = document.pointerLockElement === wrapper;
+    console.log("🔒 Pointer lock change:", isLocked);
+    console.log("🔒 Pointer lock element:", document.pointerLockElement);
+    console.log("🔒 Wrapper element:", wrapper);
+    
+    // Create cursor element if it doesn't exist
+    if (!pointerLockCursor) {
+      pointerLockCursor = createPointerLockCursor();
+    }
+    
+    // Show/hide the cursor based on pointer lock state
+    if (isLocked) {
+      pointerLockCursor.style.setProperty("display", "block", "important");
+      console.log("🎯 Showing pointer lock cursor");
+      console.log("🎯 Cursor element display:", pointerLockCursor.style.display);
+      console.log("🎯 Cursor element in DOM:", document.getElementById("pointer-lock-cursor"));
+    } else {
+      pointerLockCursor.style.setProperty("display", "none", "important");
+      console.log("🎯 Hiding pointer lock cursor");
+    }
+    
     send({
-      type:
-        document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
+      type: isLocked ? "pen:locked" : "pen:unlocked",
     });
   });
+
+  // Test: Show cursor for 3 seconds on page load to verify it works
+  setTimeout(() => {
+    console.log("🧪 Testing cursor visibility...");
+    if (!pointerLockCursor) {
+      pointerLockCursor = createPointerLockCursor();
+    }
+    pointerLockCursor.style.setProperty("display", "block", "important");
+    console.log("🧪 Cursor shown for testing");
+    console.log("🧪 Test cursor computed style:", window.getComputedStyle(pointerLockCursor).display);
+    console.log("🧪 Test cursor position:", window.getComputedStyle(pointerLockCursor).position);
+    console.log("🧪 Test cursor z-index:", window.getComputedStyle(pointerLockCursor).zIndex);
+    
+    setTimeout(() => {
+      pointerLockCursor.style.setProperty("display", "none", "important");
+      console.log("🧪 Test cursor hidden");
+    }, 3000);
+  }, 1000);
 
   // document.addEventListener("pointerlockerror", () => {
   // console.error("Pointer lock failed!");

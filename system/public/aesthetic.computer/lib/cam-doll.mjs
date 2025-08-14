@@ -135,7 +135,7 @@ export class CamDoll {
     ) {
       if (this.cam.type === "perspective") {
         this.cam.rotX -= e.delta.y / 3.5;
-        this.cam.rotY -= e.delta.x / 3.5;
+        this.cam.rotY += e.delta.x / 3.5;
       }
     }
 
