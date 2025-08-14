@@ -4,7 +4,7 @@ export function headers() {
     "%cAesthetic Computer",
     `background: rgba(10, 20, 40);
      color: rgb(200, 200, 250);
-     font-size: 120%;
+     font-size: 18px;
      padding: 0 0.25em;
      border-radius: 0.15em;
      border-bottom: 0.75px solid rgb(120, 120, 170);

@@ -1,0 +1,1 @@
+sp.record(administrator = sp.address('tz1UyQDepgtUBnWjyzzonqeDwaiWoQzRKSP5'), balances = {}, code_hashes = {}, creators = {}, hash_to_token = {}, metadata = {}, next_token_id = 0, operators = {}, token_metadata = {})

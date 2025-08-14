@@ -2003,6 +2003,11 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
+      "a*": {
+        sig: "a*",
+        desc: "A* pathfinding animation.",
+        done: true,
+      },
       "alex-row": {
         sig: "alex-row",
         desc: "",
@@ -2127,6 +2132,12 @@ export async function handler(event, context) {
       chord: {
         sig: "chord",
         desc: "",
+        done: false,
+        hidden: false,
+      },
+      colors: {
+        sig: "colors",
+        desc: "An index of usable colors on AC.",
         done: false,
         hidden: false,
       },

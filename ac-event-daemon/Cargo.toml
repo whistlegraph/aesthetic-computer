@@ -2,12 +2,40 @@
 name = "ac-event-daemon"
 version = "0.1.0"
 edition = "2021"
+default-run = "ac-event-daemon"
+
+[build-dependencies]
+tauri-build = { version = "1.0", features = [] }
 
 [[bin]]
 name = "ac-event-daemon"
 path = "src/ac-event-daemon.rs"
 
+[[bin]]
+name = "tauri-overlay"
+path = "src/tauri-overlay.rs"
+
 [dependencies]
 evdev = "0.12"
 rodio = "0.17"
 crossterm = "0.27"
+wayland-client = "0.31"
+wayland-protocols-wlr = "0.2"
+memmap2 = "0.9"
+ctrlc = "3.4"
+signal-hook = "0.3"
+
+# Tauri dependencies for tauri-overlay binary
+[dependencies.tauri]
+version = "1.0"
+features = ["shell-open", "window-close", "window-hide", "window-show"]
+
+[dependencies.serde_json]
+version = "1.0"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+[dependencies.urlencoding]
+version = "2.1"
