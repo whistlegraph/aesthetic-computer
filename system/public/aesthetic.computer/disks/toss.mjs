@@ -83,6 +83,7 @@ function layoutBandButtons({ screen, ui }) {
   for (let i = 0; i < bandCount; i += 1) {
     const button = new ui.Button(i * segWidth, 0, segWidth, screen.height);
     button.offScreenScrubbing = true; // Enable off-screen scrubbing for toss buttons
+    button.id = `toss-band-${i}`;  // Add identifier for debugging
     bands[i].btn = button;
   }
 }

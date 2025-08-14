@@ -1972,6 +1972,7 @@ function setupButtons({ ui, screen, geo }) {
     const geometry = [x, y, buttonWidth, buttonHeight];
     if (!buttons[label]) {
       buttons[label] = new ui.Button(...geometry);
+      buttons[label].id = `note-${label}`;  // Add identifier for debugging
     } else {
       buttons[label].box = new geo.Box(...geometry);
     }
@@ -1988,6 +1989,7 @@ function buildWaveButton({ screen, ui, typeface }) {
     waveWidth + margin * 2 + 5,
     10 + margin * 2 - 1 + 2,
   );
+  waveBtn.id = "wave-button";  // Add identifier for debugging
 }
 
 function buildOctButton({ screen, ui, typeface }) {
@@ -2001,6 +2003,7 @@ function buildOctButton({ screen, ui, typeface }) {
     octWidth + margin * 2 + 7,
     10 + margin * 2 - 1 + 2,
   );
+  octBtn.id = "oct-button";  // Add identifier for debugging
 }
 
 let primaryColor = [0, 0, 0];

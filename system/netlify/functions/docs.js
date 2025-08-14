@@ -2135,6 +2135,12 @@ export async function handler(event, context) {
         done: false,
         hidden: false,
       },
+      colors: {
+        sig: "colors",
+        desc: "An index of usable colors on AC.",
+        done: false,
+        hidden: false,
+      },
       colplay: {
         sig: "colplay",
         desc: "Turn colors into notes.",
