@@ -83,6 +83,13 @@ function setCachedCode(source, code) {
   (box 8 32 (- width 20) (wiggle 32))
   (+ 1 2 3)
 
+  ; Multi-layer example with bake:
+  (ink "blue")
+  (box 10 10 100 100)
+  (once (bake))  ; Bakes the blue box into the background (use 'once' to prevent repeated calls)
+  (ink "red") 
+  (box 50 50 100 100)  ; This red box will appear on top of the baked blue box
+
   ((line 20 80 80 80))
   (later cross x y
     (line x-10 y-10 x+10 y+10)
@@ -374,6 +381,7 @@ class KidLisp {
       "backdrop",
       "box",
       "repeat",
+      "bake",
       "+",
       "-",
       "*",
@@ -435,6 +443,10 @@ class KidLisp {
     // Ink state management
     this.inkState = undefined; // Track KidLisp ink color (starts undefined)
     this.inkStateSet = false; // Track if ink has been explicitly set
+    
+    // Bake functionality state
+    this.bakedLayers = []; // Store baked pixel buffers
+    this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
   }
 
   // Reset all state for a fresh KidLisp instance
@@ -505,6 +517,10 @@ class KidLisp {
     
     // Reset active timing expressions tracking
     this.activeTimingExpressions.clear();
+    
+    // Reset baked layers state
+    this.bakedLayers = [];
+    this.bakeCallCount = 0;
     
     // Don't reset ink state during reset - preserve across frame transitions
     // this.inkState = undefined;
@@ -1245,10 +1261,13 @@ class KidLisp {
 
         perfStart("frame-evaluation");
         try {
-          // Then execute the full program
+          // Execute the full program first (draws current content)
           this.localEnvLevel = 0; // Reset state per program evaluation.
           this.localEnv = this.localEnvStore[this.localEnvLevel];
           /*const evaluated = */ this.evaluate(this.ast, $);
+          
+          // Then composite baked layers underneath current content
+          this.renderBakedLayers($);
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
@@ -3099,14 +3118,59 @@ class KidLisp {
       // Add palette codes (p0, p1, etc.)
       p0: () => "rainbow",
       
-      // Add fade functions for common fades
-      "fade:red-blue": () => "fade:red-blue",
-      "fade:sunset": () => "fade:sunset", 
-      "fade:ocean": () => "fade:ocean",
-      "fade:red-yellow": () => "fade:red-yellow",
-      "fade:blue-white": () => "fade:blue-white",
-      "fade:green-purple": () => "fade:green-purple",
-      "fade:cyan-magenta": () => "fade:cyan-magenta",
+      // 🍞 Bake function - creates a new painting layer by capturing current buffer state
+      // Automatically prevents repeated calls within the same program execution
+      bake: (api, args = []) => {
+        // Create a simple key for this bake call (not using counter to avoid unique keys each time)
+        const bakeKey = "bake_call";
+        
+        // Check if bake has already been executed in this program run
+        if (this.onceExecuted.has(bakeKey)) {
+          return this.bakedLayers?.length || 0;
+        }
+        
+        // Mark bake as executed for this program run
+        this.onceExecuted.add(bakeKey);
+        
+        console.log("🍞 Baking current layer...");
+        
+        // Initialize baked layers if not already done
+        if (!this.bakedLayers) {
+          this.bakedLayers = [];
+        }
+        
+        // Get current screen buffer dimensions
+        const currentWidth = api.screen?.width || 256;
+        const currentHeight = api.screen?.height || 256;
+        
+        // Create a snapshot of the current buffer state
+        if (api.screen?.pixels) {
+          // Clone the current pixel buffer to preserve the "baked" state
+          const bakedBuffer = {
+            width: currentWidth,
+            height: currentHeight,
+            pixels: new Uint8ClampedArray(api.screen.pixels)
+          };
+          
+          // Store this baked layer
+          this.bakedLayers.push(bakedBuffer);
+          this.bakeCallCount = this.bakedLayers.length;
+          
+          console.log(`🍞 Baked layer ${this.bakedLayers.length} (${currentWidth}x${currentHeight})`);
+          
+          // Clear the current buffer to start fresh (optional - could be configurable)
+          if (args.length === 0 || args[0] !== "keep") {
+            // Manually clear the screen buffer to transparent instead of using wipe
+            if (api.screen?.pixels) {
+              api.screen.pixels.fill(0); // Fill with transparent black (0,0,0,0)
+            }
+          }
+        } else {
+          console.warn("🍞 No screen buffer available to bake");
+        }
+        
+        return this.bakedLayers.length;
+      },
     };
 
     return this.globalEnvCache;
@@ -4750,7 +4814,7 @@ class KidLisp {
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "mul", "log", "no", "yes"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "bake"
     ];
 
     return knownFunctions.includes(token) || (cssColors && cssColors[token]);
@@ -4947,6 +5011,64 @@ class KidLisp {
   // Helper method to strip color codes (copied from clock.mjs pattern)
   stripColorCodes(str) {
     return str.replace(/\\[a-zA-Z0-9]+\\/g, "");
+  }
+
+  // Render baked layers underneath the current drawing
+  renderBakedLayers(api) {
+    if (!this.bakedLayers || this.bakedLayers.length === 0) {
+      return;
+    }
+
+    // Composite each baked layer onto the current screen in order
+    this.bakedLayers.forEach((bakedLayer, index) => {
+      if (bakedLayer && bakedLayer.pixels) {
+        // Use manual pixel compositing to restore the baked layer
+        this.compositeBakedLayer(api, bakedLayer);
+      }
+    });
+  }
+
+  // Manual pixel compositing for baked layers
+  compositeBakedLayer(api, bakedLayer) {
+    if (!api.screen?.pixels || !bakedLayer.pixels) {
+      return;
+    }
+
+    const currentPixels = api.screen.pixels;
+    const bakedPixels = bakedLayer.pixels;
+    const currentWidth = api.screen.width;
+    const currentHeight = api.screen.height;
+    const bakedWidth = bakedLayer.width;
+    const bakedHeight = bakedLayer.height;
+
+    // Handle different buffer sizes by compositing the overlapping area
+    const width = Math.min(currentWidth, bakedWidth);
+    const height = Math.min(currentHeight, bakedHeight);
+
+    // Composite baked pixels underneath current content
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const currentIndex = (y * currentWidth + x) * 4;
+        const bakedIndex = (y * bakedWidth + x) * 4;
+        
+        // Get current pixel (foreground)
+        const currentA = currentPixels[currentIndex + 3];
+        
+        // Get baked pixel (background)
+        const bakedR = bakedPixels[bakedIndex];
+        const bakedG = bakedPixels[bakedIndex + 1];
+        const bakedB = bakedPixels[bakedIndex + 2];
+        const bakedA = bakedPixels[bakedIndex + 3];
+        
+        // Only show baked pixel if current pixel is transparent and baked pixel has content
+        if (currentA === 0 && bakedA > 0) {
+          currentPixels[currentIndex] = bakedR;
+          currentPixels[currentIndex + 1] = bakedG;
+          currentPixels[currentIndex + 2] = bakedB;
+          currentPixels[currentIndex + 3] = bakedA;
+        }
+      }
+    }
   }
 }
 
