@@ -9991,24 +9991,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   });
 
-  // Test: Show cursor for 3 seconds on page load to verify it works
-  setTimeout(() => {
-    console.log("🧪 Testing cursor visibility...");
-    if (!pointerLockCursor) {
-      pointerLockCursor = createPointerLockCursor();
-    }
-    pointerLockCursor.style.setProperty("display", "block", "important");
-    console.log("🧪 Cursor shown for testing");
-    console.log("🧪 Test cursor computed style:", window.getComputedStyle(pointerLockCursor).display);
-    console.log("🧪 Test cursor position:", window.getComputedStyle(pointerLockCursor).position);
-    console.log("🧪 Test cursor z-index:", window.getComputedStyle(pointerLockCursor).zIndex);
-    
-    setTimeout(() => {
-      pointerLockCursor.style.setProperty("display", "none", "important");
-      console.log("🧪 Test cursor hidden");
-    }, 3000);
-  }, 1000);
-
   // document.addEventListener("pointerlockerror", () => {
   // console.error("Pointer lock failed!");
   //});
