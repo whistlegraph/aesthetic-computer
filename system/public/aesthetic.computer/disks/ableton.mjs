@@ -1613,6 +1613,127 @@ class ALSProject {
   }
   */
   
+  // HORIZONTAL LOCATOR TIMELINE - Clean scrolling view
+  drawHorizontalLocatorTimeline(ink, screen, currentTime = 0, isPlaying = false) {
+    if (this.locators.length === 0) {
+      ink("gray").write("No locators found", 
+        { x: screen.width/2 - 80, y: screen.height/2, font: "MatrixChunky8" });
+      return;
+    }
+    
+    const currentBeat = this.getCurrentBeat(currentTime);
+    
+    // Timeline parameters
+    const timelineY = screen.height/2 - 40;
+    const timelineHeight = 80;
+    const scrollSpeed = 15; // pixels per beat - good balance for visibility
+    const minimumBoxWidth = 30; // Minimum width for each locator box
+    const boxSpacing = 8; // Space between consecutive boxes
+    
+    // Create extended locator list with next section info
+    const locators = [...this.locators].sort((a, b) => a.time - b.time);
+    
+    // Add durations to each locator
+    const locatorsWithDuration = locators.map((loc, i) => {
+      const nextLoc = locators[i + 1];
+      const duration = nextLoc ? (nextLoc.time - loc.time) : 16; // Default 16 beats if last
+      return { ...loc, duration };
+    });
+    
+    // Draw timeline background
+    ink("gray", 0.2).box(0, timelineY - 10, screen.width, timelineHeight + 20);
+    ink("white", 0.6).write("LOCATOR TIMELINE", 
+      { x: 20, y: timelineY - 30, font: "MatrixChunky8" });
+    
+    // Draw current beat line
+    const centerX = screen.width / 2;
+    ink("white", 0.8).line(centerX, timelineY - 5, centerX, timelineY + timelineHeight + 5);
+    
+    // Draw locator boxes moving right to left
+    locatorsWithDuration.forEach((locator, i) => {
+      // Calculate position relative to current time
+      const relativePosition = locator.time - currentBeat;
+      const x = centerX + (relativePosition * scrollSpeed);
+      
+      // Calculate width with improved spacing
+      let width = Math.max(minimumBoxWidth, locator.duration * scrollSpeed);
+      
+      // Add spacing between consecutive boxes
+      if (i < locatorsWithDuration.length - 1) {
+        const nextLocator = locatorsWithDuration[i + 1];
+        const timeBetween = nextLocator.time - (locator.time + locator.duration);
+        
+        // If locators are very close together, ensure minimum spacing
+        if (timeBetween < 1) { // Less than 1 beat apart
+          width = Math.min(width, (nextLocator.time - locator.time) * scrollSpeed - boxSpacing);
+          width = Math.max(minimumBoxWidth, width);
+        }
+      }
+      
+      // Only draw if visible on screen
+      if (x + width > 0 && x < screen.width) {
+        // Determine if this is the current section
+        const isCurrent = currentBeat >= locator.time && 
+                         currentBeat < (locator.time + locator.duration);
+        
+        // Color coding with bright, distinct colors
+        let color = [80, 80, 120]; // Default blue
+        const name = locator.name.toLowerCase();
+        
+        if (name.includes('act')) color = [140, 80, 180]; // Bright purple for acts
+        else if (name.includes('pause')) color = [180, 180, 60]; // Bright yellow for pauses  
+        else if (name.includes('surprise')) color = [180, 80, 80]; // Red for surprises
+        else if (name.includes('end')) color = [80, 180, 80]; // Green for endings
+        else if (name.includes('start')) color = [80, 140, 200]; // Bright blue for starts
+        
+        // Highlight current section
+        if (isCurrent) {
+          color = color.map(c => Math.min(255, c * 1.3));
+        }
+        
+        // Draw locator box
+        const alpha = isCurrent ? 0.9 : 0.6;
+        ink(...color, alpha).box(x, timelineY, width, timelineHeight);
+        
+        // Draw bright border for better visibility
+        ink(...color, 1.0).box(x, timelineY, width, timelineHeight, "outline");
+        
+        // Always show locator name
+        const textColor = isCurrent ? "white" : "lightgray";
+        ink(textColor, 1.0).write(locator.name, 
+          { x: x + 4, y: timelineY + 12, font: "MatrixChunky8" });
+        
+        // Show timing info if there's space
+        if (width > 50) {
+          ink(textColor, 0.8).write(`${locator.duration.toFixed(1)}b`, 
+            { x: x + 4, y: timelineY + 32, font: "MatrixChunky8" });
+          ink(textColor, 0.6).write(`@${locator.time.toFixed(1)}`, 
+            { x: x + 4, y: timelineY + 50, font: "MatrixChunky8" });
+        }
+        
+        // Current section progress bar
+        if (isCurrent) {
+          const progress = (currentBeat - locator.time) / locator.duration;
+          const progressWidth = width * progress;
+          ink(255, 255, 255, 0.6).box(x, timelineY + timelineHeight - 6, progressWidth, 6);
+        }
+        
+        // Draw connection lines between consecutive locators for clarity
+        if (i < locatorsWithDuration.length - 1) {
+          const nextLocator = locatorsWithDuration[i + 1];
+          const nextX = centerX + ((nextLocator.time - currentBeat) * scrollSpeed);
+          
+          if (nextX > x + width && nextX < screen.width && x + width > 0) {
+            // Draw dotted line between locators
+            for (let lineX = x + width; lineX < nextX; lineX += 8) {
+              ink(100, 100, 100, 0.3).box(lineX, timelineY + timelineHeight/2 - 1, 4, 2);
+            }
+          }
+        }
+      }
+    });
+  }
+
   // NEW MINIMAL DRUM VISUALIZATION - Focus only on snare, hihat, bass kick for time sync checking
   drawMinimalDrumVisualization(ink, screen, currentTime = 0, isPlaying = false) {
     if (!currentTime || this.tracks.length === 0) return;
@@ -3136,8 +3257,8 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line }) {
   
   // Real-time activity visualization - focus on what's happening NOW
   if (useSimpleTimeline) {
-    // Use new minimal drum visualization to check time sync
-    alsProject.drawMinimalDrumVisualization(ink, screen, audioTime, isPlaying);
+    // Use new horizontal locator timeline for clean visualization
+    alsProject.drawHorizontalLocatorTimeline(ink, screen, audioTime, isPlaying);
   } else {
     // Use complex timeline with all the bells and whistles (for advanced users)
     // Enhanced timeline visualization with audio-reactive elements
