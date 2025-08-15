@@ -1,19 +1,33 @@
-// Ableton Minimal Sculpture, 2025.01.24
-// Comprehensive ALS parser and time-based track visualizer
+// Ableton Live Project Visualizer, 2025.08.10
+// Enhanced ALS parser with sophisticated timeline analysis
+// Based on reference/analyze-ableton.mjs architecture
 
-// ALS Project Parser Class
+// ALS Project Parser Class - Enhanced with reference tools knowledge
 class ALSProject {
   constructor(xmlData) {
     this.tracks = [];
     this.scenes = [];
     this.clips = [];
     this.devices = [];
+    this.locators = [];
+    this.warpMarkers = [];
+    this.tempoEvents = [];
     this.tempo = 120;
     this.timeSignature = { numerator: 4, denominator: 4 };
     this.creator = "Unknown";
     this.version = "Unknown";
     this.projectName = "Untitled";
-    this.debugMode = true; // Enable debug mode
+    this.debugMode = true;
+    this.totalElements = 0;
+    this.notes = [];
+    this.automationEnvelopes = [];
+    
+    // Performance tracking
+    this.parseStats = {
+      startTime: 0,
+      parseTime: 0,
+      elementCount: 0
+    };
     
     if (xmlData) {
       this.parseXML(xmlData);
@@ -24,15 +38,27 @@ class ALSProject {
   parseXML(xmlData) {
     try {
       console.log("🎵 Parsing ALS XML data...");
+      this.parseStats.startTime = performance.now();
+      
+      // Parse different components in order of importance
       this.parseGlobalSettings(xmlData);
+      this.parseLocators(xmlData);  // Parse locators early for structure
       this.parseTempo(xmlData);
       this.parseTracks(xmlData);
-      this.parseScenes(xmlData);
       this.parseClips(xmlData);
+      this.parseWarpMarkers(xmlData);
       this.parseDevices(xmlData);
-      console.log(`✅ Parsed ${this.tracks.length} tracks, ${this.clips.length} clips @ ${this.tempo}bpm`);
+      this.parseScenes(xmlData);
+      
+      // Calculate parse performance
+      this.parseStats.parseTime = performance.now() - this.parseStats.startTime;
+      
+      console.log(`🎵 Parse complete: ${this.parseStats.parseTime.toFixed(1)}ms`);
+      console.log(`📊 Found: ${this.tracks.length} tracks, ${this.clips.length} clips, ${this.locators.length} locators, ${this.warpMarkers.length} warp markers`);
+      
     } catch (error) {
-      console.error("🚨 ALS Parse Error:", error);
+      console.error("❌ Error parsing ALS XML:", error);
+      this.tempo = 120; // Fallback
     }
   }
   
@@ -149,50 +175,125 @@ class ALSProject {
     }
   }
   
+  // NEW: Parse locators (crucial for song structure visualization)
+  parseLocators(xmlData) {
+    console.log("🎯 Parsing locators...");
+    
+    // Find all Locator elements - these mark important song positions
+    const locatorRegex = /<Locator[^>]*Id="([^"]*)"[^>]*>([\s\S]*?)<\/Locator>/g;
+    let match;
+    
+    while ((match = locatorRegex.exec(xmlData)) !== null) {
+      const locatorId = match[1];
+      const locatorContent = match[2];
+      
+      // Extract time and name
+      const timeMatch = locatorContent.match(/<Time Value="([^"]*)"/);
+      const nameMatch = locatorContent.match(/<Name Value="([^"]*)"/);
+      
+      if (timeMatch) {
+        const locator = {
+          id: locatorId,
+          time: parseFloat(timeMatch[1]),
+          name: nameMatch ? nameMatch[1] : `Locator ${this.locators.length}`,
+          beat: this.getCurrentBeat(parseFloat(timeMatch[1]) * 60 / this.tempo) // Convert to beat
+        };
+        
+        this.locators.push(locator);
+      }
+    }
+    
+    // Sort locators by time
+    this.locators.sort((a, b) => a.time - b.time);
+    
+    console.log(`🎯 Found ${this.locators.length} locators:`, 
+      this.locators.slice(0, 5).map(l => `${l.name}@${l.time.toFixed(1)}`).join(', '));
+  }
+  
+  // NEW: Parse warp markers (audio time manipulation)
+  parseWarpMarkers(xmlData) {
+    console.log("🌊 Parsing warp markers...");
+    
+    // Find all WarpMarker elements
+    const warpRegex = /<WarpMarker[^>]+SecTime="([^"]+)"[^>]+BeatTime="([^"]+)"[^>]*\/>/g;
+    let match;
+    
+    while ((match = warpRegex.exec(xmlData)) !== null) {
+      const warpMarker = {
+        secTime: parseFloat(match[1]),
+        beatTime: parseFloat(match[2]),
+        ratio: parseFloat(match[2]) / parseFloat(match[1]) // Beat/second ratio
+      };
+      
+      this.warpMarkers.push(warpMarker);
+    }
+    
+    console.log(`🌊 Found ${this.warpMarkers.length} warp markers`);
+  }
+  
   parseClips(xmlData) {
-    console.log("🎵 Starting clip parsing...");
+    console.log("🎵 Starting enhanced clip parsing...");
     
-    // Parse clips from arrangement timeline (TakeLanes structure)
+    // Parse clips using the more sophisticated approach from reference tools
     this.parseArrangementClips(xmlData);
-    
-    // Also parse session view clips (for completeness)
     this.parseMIDIClips(xmlData);
     this.parseAudioClips(xmlData);
     
+    // Sort clips by time for timeline visualization
+    this.clips.sort((a, b) => a.time - b.time);
+    
     console.log(`🎵 Total clips parsed: ${this.clips.length}`);
+    console.log(`📊 Clip types: MIDI=${this.clips.filter(c => c.type === 'MIDI').length}, Audio=${this.clips.filter(c => c.type === 'Audio').length}`);
   }
   
   parseArrangementClips(xmlData) {
-    console.log("🎼 Parsing arrangement clips...");
+    console.log("🎼 Parsing arrangement clips with enhanced extraction...");
     let arrangementClips = 0;
     
-    // Look for all MidiClip elements with Time attributes - these are arrangement clips
-    const midiClipRegex = /<MidiClip[^>]*Time="([^"]+)"[^>]*>([\s\S]*?)<\/MidiClip>/g;
-    let match;
+    // Enhanced parsing based on reference tools - look for clips with CurrentStart/CurrentEnd
+    const clipPatterns = [
+      // Pattern 1: MidiClip with Time (arrangement)
+      /<MidiClip[^>]*Time="([^"]+)"[^>]*>([\s\S]*?)<\/MidiClip>/g,
+      // Pattern 2: AudioClip with Time (arrangement)  
+      /<AudioClip[^>]*Time="([^"]+)"[^>]*>([\s\S]*?)<\/AudioClip>/g
+    ];
     
-    while ((match = midiClipRegex.exec(xmlData)) !== null) {
-      const clipTime = parseFloat(match[1]);
-      const clipContent = match[2];
+    clipPatterns.forEach((pattern, patternIndex) => {
+      const clipType = patternIndex === 0 ? 'MIDI' : 'Audio';
+      let match;
       
-      // Skip session view clips (time = 0)
-      if (clipTime > 0) {
+      while ((match = pattern.exec(xmlData)) !== null) {
+        const clipTime = parseFloat(match[1]);
+        const clipContent = match[2];
+        
+        // Enhanced clip data extraction using reference methods
+        const currentStart = this.extractValueFromContent(clipContent, 'CurrentStart') || 0;
+        const currentEnd = this.extractValueFromContent(clipContent, 'CurrentEnd') || clipTime + 1;
+        const loopStart = this.extractValueFromContent(clipContent, 'LoopStart') || 0;
+        const loopEnd = this.extractValueFromContent(clipContent, 'LoopEnd') || currentEnd - currentStart;
+        
         const clip = {
-          id: arrangementClips,
-          type: 'MIDI',
-          time: clipTime,
-          duration: this.extractClipDuration(clipContent),
-          name: this.extractClipName(clipContent) || `Arrangement MIDI ${arrangementClips}`,
-          notes: this.extractMIDINotes(clipContent),
-          loop: this.extractLoopData(clipContent),
-          trackRef: 'unknown',
+          id: `arrangement_${arrangementClips}`,
+          type: clipType,
+          time: currentStart, // Use CurrentStart for more accurate timing
+          duration: currentEnd - currentStart,
+          currentStart: parseFloat(currentStart),
+          currentEnd: parseFloat(currentEnd),
+          loopStart: parseFloat(loopStart),
+          loopEnd: parseFloat(loopEnd),
+          name: this.extractClipName(clipContent) || `${clipType} Clip ${arrangementClips}`,
+          notes: clipType === 'MIDI' ? this.extractMIDINotes(clipContent) : [],
+          sampleRef: clipType === 'Audio' ? this.extractSampleRef(clipContent) : null,
+          warpMarkers: clipType === 'Audio' ? this.extractWarpMarkers(clipContent) : [],
+          trackRef: this.findArrangementTrackForClip(clipContent),
           source: 'arrangement'
         };
         
-        console.log(`🎼 Found arrangement clip: "${clip.name}" at beat ${clipTime.toFixed(2)} (${clip.notes.length} notes)`);
+        console.log(`🎼 Found ${clipType} clip: "${clip.name}" [${clip.currentStart.toFixed(2)}-${clip.currentEnd.toFixed(2)}] (${clip.notes.length} notes)`);
         this.clips.push(clip);
         arrangementClips++;
       }
-    }
+    });
     
     console.log(`🎼 Total arrangement clips: ${arrangementClips}`);
   }
@@ -317,35 +418,86 @@ class ALSProject {
   extractMIDINotes(clipContent) {
     const notes = [];
     
-    // Updated regex to match MidiNoteEvent from XML analysis
-    const noteRegex = /<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*(?:Key="([^"]*)")?[^>]*\/>/g;
-    let noteMatch;
+    // Enhanced regex based on reference analysis findings
+    // The zzzZWAP analysis showed MidiNoteEvent with these patterns
+    const notePatterns = [
+      // Pattern 1: Full MidiNoteEvent with all attributes
+      /<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*Key="([^"]*)"[^>]*\/>/g,
+      // Pattern 2: MidiNoteEvent without Key (will need to infer pitch)
+      /<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*\/>/g,
+      // Pattern 3: Legacy MidiNote format
+      /<MidiNote[^>]+Time="([^"]+)"[^>]+Duration="([^"]+)"[^>]+Velocity="([^"]+)"[^>]+Key="([^"]+)"[^>]*\/>/g
+    ];
     
-    while ((noteMatch = noteRegex.exec(clipContent)) !== null) {
-      const note = {
-        time: parseFloat(noteMatch[1]),
-        duration: parseFloat(noteMatch[2]),
-        velocity: parseInt(noteMatch[3]),
-        pitch: noteMatch[4] ? parseInt(noteMatch[4]) : 60 // Use Key attribute if available
-      };
-      notes.push(note);
+    // Try each pattern
+    notePatterns.forEach((pattern, patternIndex) => {
+      let noteMatch;
+      
+      while ((noteMatch = pattern.exec(clipContent)) !== null) {
+        const note = {
+          time: parseFloat(noteMatch[1]),
+          duration: parseFloat(noteMatch[2]), 
+          velocity: parseInt(noteMatch[3]),
+          pitch: noteMatch[4] ? parseInt(noteMatch[4]) : this.inferPitchFromContext(clipContent, notes.length)
+        };
+        
+        // Validate note data
+        if (note.time >= 0 && note.duration > 0 && note.velocity > 0 && note.pitch >= 0 && note.pitch <= 127) {
+          notes.push(note);
+        }
+      }
+    });
+    
+    // Try to extract pitch from KeyTrack if no Key attributes found
+    if (notes.length > 0 && notes.every(n => n.pitch === 60)) {
+      this.enhanceNotesWithKeyTrack(clipContent, notes);
     }
     
-    // If no notes found with Key attribute, try to determine from KeyTrack context
-    if (notes.length === 0) {
-      // Try the old pattern for compatibility
-      const oldNoteRegex = /<MidiNote[^>]+Time="([^"]+)"[^>]+Duration="([^"]+)"[^>]+Velocity="([^"]+)"[^>]*\/>/g;
-      while ((noteMatch = oldNoteRegex.exec(clipContent)) !== null) {
-        notes.push({
-          time: parseFloat(noteMatch[1]),
-          duration: parseFloat(noteMatch[2]),
-          velocity: parseInt(noteMatch[3]),
-          pitch: this.extractNotePitch(noteMatch[0])
+    return notes;
+  }
+  
+  // NEW: Infer pitch from context when Key attribute is missing
+  inferPitchFromContext(clipContent, noteIndex) {
+    // Look for KeyTrack information
+    const keyTrackMatch = clipContent.match(/<KeyTrack[^>]*>([\s\S]*?)<\/KeyTrack>/);
+    if (keyTrackMatch) {
+      // Try to extract pitch from KeyTrack structure
+      const keyMatch = keyTrackMatch[1].match(/<Key Value="([^"]*)"/);
+      if (keyMatch) {
+        return parseInt(keyMatch[1]);
+      }
+    }
+    
+    // Fallback to common drum/instrument mappings based on analysis
+    const commonPitches = [36, 38, 42, 46, 49, 51, 60, 62, 64, 67, 69, 72]; // Common drum + melodic pitches
+    return commonPitches[noteIndex % commonPitches.length] || 60;
+  }
+  
+  // NEW: Enhance notes with KeyTrack information
+  enhanceNotesWithKeyTrack(clipContent, notes) {
+    const keyTracks = [];
+    const keyTrackRegex = /<KeyTrack[^>]*Id="([^"]*)"[^>]*>([\s\S]*?)<\/KeyTrack>/g;
+    let match;
+    
+    while ((match = keyTrackRegex.exec(clipContent)) !== null) {
+      const keyTrackId = match[1];
+      const keyTrackContent = match[2];
+      
+      const keyMatch = keyTrackContent.match(/<Key Value="([^"]*)"/);
+      if (keyMatch) {
+        keyTracks.push({
+          id: keyTrackId,
+          pitch: parseInt(keyMatch[1])
         });
       }
     }
     
-    return notes;
+    // Map notes to key tracks if available
+    notes.forEach((note, index) => {
+      if (keyTracks[index % keyTracks.length]) {
+        note.pitch = keyTracks[index % keyTracks.length].pitch;
+      }
+    });
   }
   
   extractNotePitch(noteElement) {
@@ -424,6 +576,41 @@ class ALSProject {
     return params;
   }
   
+  findArrangementTrackForClip(clipContent) {
+    // Enhanced track finding for arrangement clips
+    // Look for track context in surrounding XML structure
+    
+    // Method 1: Look for TrackId in clip content
+    const trackIdMatch = clipContent.match(/<TrackId Value="([^"]*)"/);
+    if (trackIdMatch) {
+      return trackIdMatch[1];
+    }
+    
+    // Method 2: Look for track references in parent context
+    const trackRefMatch = clipContent.match(/TrackIndex="([^"]*)"/);
+    if (trackRefMatch) {
+      const trackIndex = parseInt(trackRefMatch[1]);
+      return this.tracks[trackIndex]?.id || trackIndex;
+    }
+    
+    // Method 3: Infer from clip position or content patterns
+    const clipName = this.extractClipName(clipContent).toLowerCase();
+    
+    // Map common instrument names to track types
+    if (clipName.includes('kick') || clipName.includes('drum')) {
+      return this.tracks.find(t => t.name.toLowerCase().includes('drum'))?.id || 0;
+    }
+    if (clipName.includes('bass')) {
+      return this.tracks.find(t => t.name.toLowerCase().includes('bass'))?.id || 1;
+    }
+    if (clipName.includes('lead') || clipName.includes('melody')) {
+      return this.tracks.find(t => t.type === 'MidiTrack')?.id || 2;
+    }
+    
+    // Fallback: distribute clips across tracks
+    return this.clips.length % Math.max(1, this.tracks.length);
+  }
+  
   findTrackForClip(clipContent) {
     // Try to find track reference in the clip content
     const trackRefMatch = clipContent.match(/<TrackId Value="([^"]*)"/);
@@ -479,8 +666,103 @@ class ALSProject {
   
   // Calculate current beat position from audio time
   getCurrentBeat(audioTime) {
-    if (!audioTime || !this.tempo) return 0;
-    return (audioTime * this.tempo) / 60;
+    if (!audioTime || !this.tempo || isNaN(audioTime) || isNaN(this.tempo)) {
+      return 0;
+    }
+    const beat = (audioTime * this.tempo) / 60;
+    return isNaN(beat) ? 0 : beat;
+  }
+  
+  // Calculate the actual project duration from clips and locators
+  calculateProjectDuration() {
+    if (this.clips.length === 0 && this.locators.length === 0) {
+      console.log("📏 No clips/locators found, using default 64 beats");
+      return 64; // Default fallback
+    }
+    
+    let maxBeat = 0;
+    
+    // Check clips for the furthest endpoint
+    this.clips.forEach(clip => {
+      // Convert to numbers and handle string numbers properly
+      const rawStart = clip.currentStart || clip.time || 0;
+      const clipStart = typeof rawStart === 'string' ? parseFloat(rawStart) : rawStart;
+      
+      let clipDuration;
+      if (clip.currentEnd) {
+        const rawEnd = typeof clip.currentEnd === 'string' ? parseFloat(clip.currentEnd) : clip.currentEnd;
+        clipDuration = rawEnd - clipStart;
+      } else {
+        const rawDuration = clip.duration || 4;
+        clipDuration = typeof rawDuration === 'string' ? parseFloat(rawDuration) : rawDuration;
+      }
+      
+      // Validate inputs after conversion
+      if (isNaN(clipStart) || isNaN(clipDuration) || clipStart < 0 || clipDuration <= 0) {
+        console.warn(`⚠️ Invalid clip timing for "${clip.name}":`, { 
+          clipStart, clipDuration, 
+          currentStart: clip.currentStart, 
+          currentEnd: clip.currentEnd,
+          time: clip.time,
+          duration: clip.duration 
+        });
+        return;
+      }
+      
+      const clipEnd = clipStart + clipDuration;
+      maxBeat = Math.max(maxBeat, clipEnd);
+      
+      // Debug first few clips (less frequently) - with validation
+      if (this.clips.indexOf(clip) < 3 && Date.now() % 3000 < 100) {
+        const safeClipEnd = (typeof clipEnd === 'number' && !isNaN(clipEnd)) ? clipEnd.toFixed(0).padStart(4, '0') : 'NaN';
+        console.log(`📏 Clip "${clip.name}": start=${clipStart}, duration=${clipDuration}, end=${safeClipEnd}`);
+      }
+    });
+    
+    // Check locators for structure endpoints  
+    this.locators.forEach(locator => {
+      maxBeat = Math.max(maxBeat, locator.time || 0);
+      // Only show locators occasionally to reduce spam
+      if (Date.now() % 5000 < 100) {
+        console.log(`📏 Locator "${locator.name}": time=${locator.time}`);
+      }
+    });
+    
+    // Add some buffer and round to sensible values
+    const bufferedDuration = maxBeat * 1.1; // 10% buffer
+    
+    // Round to nearest 16 beats for clean display
+    const roundedDuration = Math.ceil(bufferedDuration / 16) * 16;
+    
+    // Ensure minimum reasonable length
+    const finalDuration = Math.max(32, roundedDuration);
+    
+    console.log(`📏 Project duration: maxBeat=${maxBeat.toFixed(1)}, buffered=${bufferedDuration.toFixed(1)}, final=${finalDuration}`);
+    return finalDuration;
+  }
+  
+  // Convert ALS time units to beats (improved conversion)
+  alsTimeToBeat(alsTime) {
+    // ALS uses different time units depending on context
+    // This might need adjustment based on actual ALS file structure
+    
+    // For typical ALS files:
+    // - Time values are often in quarter notes already
+    // - But sometimes they're in ticks (typically 960 ticks per quarter note)
+    
+    if (alsTime < 1000) {
+      // Likely already in quarter note beats
+      return alsTime;
+    } else {
+      // Likely in ticks - convert (assuming 960 ticks per quarter note)
+      return alsTime / 960;
+    }
+  }
+  
+  // Convert beats to actual time in seconds
+  beatsToSeconds(beats) {
+    if (!this.tempo) return beats * 0.5; // Fallback at 120 BPM
+    return (beats * 60) / this.tempo;
   }
   
   // Get active clips at a specific beat position
@@ -748,136 +1030,887 @@ class ALSProject {
     return Math.min(1, avgActivity * (0.7 + densityFactor * 0.3));
   }
   
-    
-  // Generate a comprehensive time-based visualization that syncs with audio
-  drawTimeBasedVisualization(ink, screen, currentTime = 0) {
+  /*
+  // COMMENTED OUT - Original timeline visualizations
+  // Real-time activity visualization - small moving boxes showing all clips
+  drawTimeBasedVisualization(ink, screen, currentTime = 0, isPlaying = false) {
     if (!currentTime || this.tracks.length === 0) return;
     
     const beatPosition = this.getCurrentBeat(currentTime);
-    const vizData = this.generateVisualizationData(beatPosition);
     
-    // Live Notation Graphics
-    this.drawLiveNotation(ink, screen, beatPosition, vizData);
+    // Much larger activity display - use most of the screen
+    const activityHeight = screen.height - 60; // Use almost full screen height
+    const activityY = 40; // Start near top
     
-    // Timeline dimensions with better clip visibility
-    const timelineHeight = 200; // Increased height for better clip visibility
-    const timelineY = screen.height - timelineHeight - 20;
-    const trackHeight = Math.min(30, timelineHeight / Math.max(this.tracks.length, 1)); // Slightly taller tracks
+    // Dark background
+    ink(5, 5, 8).box(0, activityY, screen.width, activityHeight);
     
-    // Draw timeline background
-    ink(20, 20, 30).box(10, timelineY, screen.width - 20, timelineHeight);
+    // Minimal status line at top
+    const playStatusText = isPlaying ? "▶" : "⏸";
+    const currentMeasure = Math.floor(beatPosition / this.timeSignature.numerator) + 1;
+    const beatInMeasure = Math.floor((beatPosition % this.timeSignature.numerator)) + 1;
     
-    // Timeline scrolling: center the view around the current playhead
-    const beatsPerScreen = 16; // Show more beats for better context
-    const pixelsPerBeat = (screen.width - 40) / beatsPerScreen;
-    const startBeat = Math.max(0, beatPosition - beatsPerScreen / 2); // Center on playhead
+    ink(isPlaying ? [120, 255, 120] : [255, 200, 80]).write(playStatusText, 
+      { x: 10, y: 10, font: "MatrixChunky8" });
+    ink(180, 180, 220).write(`${currentMeasure}.${beatInMeasure}`, 
+      { x: 25, y: 10, font: "MatrixChunky8" });
+    ink(160, 160, 180).write(`${this.tempo}`, 
+      { x: 65, y: 10, font: "MatrixChunky8" });
     
-    // Beat markers with subdivision lines (updated for new range)
-    for (let i = 0; i <= beatsPerScreen; i++) {
-      const beat = startBeat + i;
-      const x = 20 + i * pixelsPerBeat;
-      
-      // Strong beat line (downbeats)
-      if (beat % this.timeSignature.numerator === 0) {
-        ink(120, 120, 140).line(x, timelineY, x, timelineY + timelineHeight);
-        ink("white").write(`${Math.floor(beat / this.timeSignature.numerator) + 1}`, 
-          { x: x + 2, y: timelineY - 15, font: "microtype" });
-      } else {
-        // Regular beat line
-        ink(60, 60, 80).line(x, timelineY, x, timelineY + timelineHeight);
-      }
-      
-      // Subdivision lines (16th notes)
-      for (let sub = 1; sub < 4; sub++) {
-        const subX = x + (sub * pixelsPerBeat / 4);
-        ink(40, 40, 50).line(subX, timelineY, subX, timelineY + timelineHeight / 2);
-      }
-    }
+    // SIMPLE FLOWING TIMELINE - much larger window
+    const timeWindow = 64; // Massive window - 64 beats of context
+    const timeOffset = beatPosition - 16; // Show 16 beats behind, 48 ahead
     
-    // Current playhead with beat flash
-    const playheadX = 20 + (beatPosition - startBeat) * pixelsPerBeat;
-    const beatPhase = beatPosition % 1;
-    const flashIntensity = beatPhase < 0.1 ? (0.1 - beatPhase) * 10 : 0;
-    ink(255, 100 + flashIntensity * 155, 100).line(playheadX, timelineY - 15, playheadX, timelineY + timelineHeight + 15);
-    
-    // Draw tracks with musical activity
-    vizData.trackActivity.forEach((trackData, trackIndex) => {
-      const y = timelineY + trackIndex * trackHeight;
-      this.drawTrackNotation(ink, screen, trackData, y, trackHeight, startBeat, pixelsPerBeat, beatPosition, trackIndex);
+    // Get all unique tracks for stable lane assignment
+    const allTracks = new Set();
+    this.clips.forEach(clip => {
+      const trackRef = clip.trackRef || clip.trackIndex || `track_${clip.id}`;
+      allTracks.add(trackRef);
     });
     
-    // Draw tempo and musical info
-    ink("yellow").write(`♩=${this.tempo}`, { x: screen.width - 100, y: timelineY - 35, font: "microtype" });
-    ink("yellow").write(`${this.timeSignature.numerator}/${this.timeSignature.denominator}`, 
-      { x: screen.width - 100, y: timelineY - 23, font: "microtype" });
-      
-    // Beat counter with musical notation
-    const currentMeasure = Math.floor(beatPosition / this.timeSignature.numerator) + 1;
-    const beatInMeasure = (beatPosition % this.timeSignature.numerator) + 1;
-    ink("cyan").write(`${currentMeasure}.${beatInMeasure.toFixed(1)}`, 
-      { x: screen.width - 100, y: timelineY - 11, font: "microtype" });
+    const trackList = Array.from(allTracks).sort();
+    const minTrackHeight = 20; // Much larger minimum height
+    const trackHeight = Math.max(minTrackHeight, Math.floor(activityHeight / Math.max(trackList.length, 1)));
+    const actualTracksShown = Math.min(trackList.length, Math.floor(activityHeight / minTrackHeight));
     
-    // Harmonic context display (simplified)
-    if (vizData.harmonicContext && vizData.harmonicContext.chord !== 'Single') {
-      ink("lightgreen").write(`${vizData.harmonicContext.chord}`, 
-        { x: screen.width - 180, y: timelineY - 35, font: "microtype" });
-      
-      const tension = vizData.harmonicContext.tension || 0;
-      const tensionColor = tension > 0.5 ? "red" : tension > 0.3 ? "orange" : "green";
-      ink(tensionColor).write(`T:${(tension * 100).toFixed(0)}%`, 
-        { x: screen.width - 180, y: timelineY - 23, font: "microtype" });
+    // Extended time grid - show much more structure
+    const pixelsPerBeat = screen.width / timeWindow;
+    
+    for (let beat = Math.floor(timeOffset); beat <= Math.ceil(timeOffset + timeWindow); beat++) {
+      const x = (beat - timeOffset) * pixelsPerBeat;
+      if (x >= 0 && x <= screen.width) {
+        const isDownbeat = beat % 4 === 0;
+        const is16Beat = beat % 16 === 0;
+        
+        if (is16Beat && beat >= 0) {
+          // Major grid lines every 16 beats
+          ink(40, 40, 50).line(x, activityY, x, activityY + activityHeight);
+          if (beat % 32 === 0) {
+            ink(80, 80, 100).write(`${beat}`, 
+              { x: x + 2, y: activityY - 12, font: "MatrixChunky8" });
+          }
+        } else if (isDownbeat) {
+          // Minor grid lines every 4 beats
+          ink(20, 20, 25).line(x, activityY, x, activityY + activityHeight);
+        }
+      }
     }
+    
+    // Draw all track activity with huge search window
+    trackList.slice(0, actualTracksShown).forEach((trackRef, trackIndex) => {
+      const trackY = activityY + trackIndex * trackHeight;
+      const laneHeight = Math.max(16, trackHeight - 4); // Much larger lane height
+      
+      // Track lane background
+      if (trackIndex % 2 === 0) {
+        ink(12, 12, 16).box(0, trackY, screen.width, laneHeight);
+      }
+      
+      // Track label with plenty of space
+      const track = this.tracks.find(t => t.id === trackRef || t.trackIndex === trackRef);
+      let trackName = track?.name?.substring(0, 12) || `Track ${trackIndex + 1}`;
+      
+      ink(100, 100, 120).write(trackName, {
+        x: 5, 
+        y: trackY + 2, 
+        font: "MatrixChunky8"
+      });
+      
+      // Get clips for this track with massive search window
+      const trackClips = this.clips.filter(clip => {
+        const clipTrackRef = clip.trackRef || clip.trackIndex || `track_${clip.id}`;
+        return clipTrackRef === trackRef;
+      });
+      
+      // Ultra-extended clip search - look WAY further ahead and behind
+      const visibleTrackClips = trackClips.filter(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        return clipEnd >= timeOffset && clipStart <= timeOffset + timeWindow;
+      });
+      
+      // Debug: Show total clips found for this track
+      if (trackClips.length > 0) {
+        ink(60, 80, 100).write(`(${trackClips.length})`, 
+          { x: 5, y: trackY + 12, font: "MatrixChunky8" });
+      }
+      
+      // Draw all clips for this track with better visibility
+      visibleTrackClips.forEach(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipDuration = (clip.duration || 1) / 4;
+        const clipEnd = clipStart + clipDuration;
+        
+        const startX = (clipStart - timeOffset) * pixelsPerBeat;
+        const endX = (clipEnd - timeOffset) * pixelsPerBeat;
+        const clipWidth = Math.max(3, endX - startX); // Minimum visible width
+        
+        // Enhanced activity detection
+        const isActive = beatPosition >= clipStart && beatPosition < clipEnd;
+        
+        // Enhanced color coding with better contrast
+        let clipColor;
+        const clipName = (clip.name || '').toLowerCase();
+        
+        if (clipName.includes('kick')) {
+          clipColor = isActive ? [255, 100, 100] : [100, 50, 50];
+        } else if (clipName.includes('snare')) {
+          clipColor = isActive ? [100, 255, 100] : [50, 100, 50];
+        } else if (clipName.includes('hat')) {
+          clipColor = isActive ? [100, 150, 255] : [50, 75, 100];
+        } else if (clipName.includes('bass')) {
+          clipColor = isActive ? [255, 255, 100] : [100, 100, 50];
+        } else if (clip.type === 'MIDI') {
+          clipColor = isActive ? [255, 200, 100] : [100, 80, 50];
+        } else {
+          clipColor = isActive ? [200, 150, 255] : [80, 60, 100];
+        }
+        
+        // Draw clip with enhanced visibility
+        if (startX < screen.width && endX > 0) {
+          const clampedStartX = Math.max(0, startX);
+          const clampedWidth = Math.min(clipWidth, screen.width - clampedStartX);
+          
+          // Main clip rectangle with better height
+          const clipBoxHeight = Math.max(8, laneHeight - 8);
+          ink(...clipColor).box(clampedStartX, trackY + 4, clampedWidth, clipBoxHeight);
+          
+          // Active clip gets outline and name
+          if (isActive) {
+            ink(255, 255, 255).rect(clampedStartX, trackY + 4, clampedWidth, clipBoxHeight);
+            
+            // Show clip name if there's space
+            if (clipWidth > 40) {
+              const shortName = (clip.name || 'CLIP').substring(0, 8);
+              ink(255, 255, 255).write(shortName, 
+                { x: clampedStartX + 2, y: trackY + 6, font: "MatrixChunky8" });
+            }
+          }
+          
+          // Enhanced MIDI note visualization
+          if (clip.type === 'MIDI' && clip.notes && clip.notes.length > 0) {
+            clip.notes.forEach(note => {
+              const noteTime = clipStart + (note.time || 0) / 4;
+              const noteX = (noteTime - timeOffset) * pixelsPerBeat;
+              
+              if (noteX >= 0 && noteX <= screen.width) {
+                const noteEnd = noteTime + (note.duration || 0.1) / 4;
+                const noteActive = beatPosition >= noteTime && beatPosition < noteEnd;
+                
+                if (noteActive) {
+                  const pitch = note.pitch || 60;
+                  const velocity = (note.velocity || 100) / 127;
+                  const noteY = trackY + 4 + Math.floor((pitch % 24) / 24 * clipBoxHeight);
+                  
+                  // Larger, more visible note indicators
+                  ink(255, 255 * velocity, 150).circle(noteX, noteY, 4);
+                }
+              }
+            });
+          }
+        }
+      });
+      
+      // Track activity indicator with better visibility
+      const hasActiveClips = trackClips.some(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        return beatPosition >= clipStart && beatPosition < clipEnd;
+      });
+      
+      if (hasActiveClips) {
+        ink(255, 150, 150).circle(screen.width - 15, trackY + Math.floor(laneHeight / 2), 5);
+      }
+    });
+    
+    // Playhead with enhanced visibility
+    const playheadX = (beatPosition - timeOffset) * pixelsPerBeat;
+    if (playheadX >= 0 && playheadX <= screen.width) {
+      ink(255, 255, 100).line(playheadX, activityY - 5, playheadX, activityY + activityHeight + 5);
+      ink(255, 200, 100).circle(playheadX, activityY - 8, 3);
+    }
+    
+    // Enhanced status info showing project coverage
+    const maxBeat = this.calculateProjectDuration();
+    const totalActive = this.getActiveClipsAtTime(currentTime).length;
+    const totalMidiNotes = this.getActiveMidiNotesAtTime(currentTime).length;
+    
+    ink(255, 255, 150).write(`Beat: ${beatPosition.toFixed(2)} / ${maxBeat.toFixed(0)}`, 
+      { x: 100, y: 10, font: "MatrixChunky8" });
+    
+    ink(150, 255, 255).write(`Window: ${timeOffset.toFixed(0)}-${(timeOffset + timeWindow).toFixed(0)}`, 
+      { x: 250, y: 10, font: "MatrixChunky8" });
+    
+    ink(255, 150, 255).write(`Active: ${totalActive} clips, ${totalMidiNotes} notes`, 
+      { x: 400, y: 10, font: "MatrixChunky8" });
+    
+    // Show total tracks for debugging
+    ink(150, 150, 255).write(`Tracks: ${trackList.length}`, 
+      { x: screen.width - 100, y: 10, font: "MatrixChunky8" });
+
+    // Beat pulse
+    const beatPhase = beatPosition % 1;
+    const pulseSize = beatPhase < 0.1 ? 4 : 2;
+    ink(255, 255 - beatPhase * 200, 100).circle(screen.width - 15, 15, pulseSize);
   }
   
-  // Minimal drum visualization with blinking boxes
-  drawMinimalDrumVisualization(ink, screen, currentTime = 0) {
+  // Ultra-detailed activity timeline - MIDI notes, automation, and all track activity
+  drawDetailedActivityTimeline(ink, screen, currentTime, startY, height) {
+    const currentBeat = this.getCurrentBeat(currentTime);
+    
+    // Much extended timeline parameters - show way more content
+    const timeWindow = 32; // Show 32 beats (was 16) - even more context
+    const pixelsPerBeat = (screen.width - 100) / timeWindow; // More space for labels
+    const playheadX = 80; // Move playhead right for label space
+    const timeOffset = currentBeat - 8; // Show 8 beats behind, 24 ahead
+    
+    // Background
+    ink(15, 15, 18).box(80, startY, screen.width - 100, height);
+    
+    // Create individual track rows - NO COMBINING!
+    const allTracks = new Set();
+    this.clips.forEach(clip => {
+      const trackRef = clip.trackRef || clip.trackIndex || `track_${clip.id}`;
+      allTracks.add(trackRef);
+    });
+    
+    // Convert to sorted array for stable ordering
+    const trackList = Array.from(allTracks).sort();
+    const minTrackHeight = 12; // Larger minimum height for better visibility
+    const trackHeight = Math.max(minTrackHeight, Math.floor(height / Math.max(trackList.length, 1)));
+    const actualTracksShown = Math.min(trackList.length, Math.floor(height / minTrackHeight));
+    
+    // Extended beat grid - show more structure
+    for (let beat = Math.floor(timeOffset); beat <= Math.ceil(timeOffset + timeWindow); beat++) {
+      const x = 80 + (beat - timeOffset) * pixelsPerBeat;
+      if (x >= 80 && x <= screen.width - 20) {
+        const isDownbeat = beat % 4 === 0;
+        const is16Beat = beat % 16 === 0;
+        
+        if (is16Beat && beat >= 0) {
+          // Major grid lines every 16 beats
+          ink(60, 60, 80).line(x, startY, x, startY + height);
+          ink(80, 80, 120).write(`${beat}`, 
+            { x: x + 1, y: startY - 10, font: "MatrixChunky8" });
+        } else if (isDownbeat) {
+          // Minor grid lines every 4 beats
+          ink(40, 40, 50).line(x, startY, x, startY + height);
+          ink(60, 60, 80).write(`${beat}`, 
+            { x: x + 1, y: startY - 8, font: "MatrixChunky8" });
+        }
+      }
+    }
+    
+    // Fixed playhead with beat sync validation
+    ink(255, 200, 100).line(playheadX, startY - 3, playheadX, startY + height + 3);
+    
+    // Debug: Show current timing info for A/V sync validation
+    ink(255, 255, 100).write(`Beat: ${currentBeat.toFixed(2)}`, 
+      { x: 5, y: startY - 15, font: "MatrixChunky8" });
+    ink(100, 255, 255).write(`Time: ${currentTime.toFixed(2)}s`, 
+      { x: 5, y: startY - 5, font: "MatrixChunky8" });
+    
+    // Show total project info for debugging
+    const maxBeat = this.calculateProjectDuration();
+    ink(255, 150, 100).write(`Max: ${maxBeat.toFixed(0)}`, 
+      { x: screen.width - 80, y: startY - 15, font: "MatrixChunky8" });
+    
+    // Draw each track on its own dedicated row with larger spacing
+    trackList.slice(0, actualTracksShown).forEach((trackRef, trackIndex) => {
+      const trackY = startY + trackIndex * trackHeight;
+      const rowHeight = Math.max(8, trackHeight - 4); // Larger rows for better visibility
+      
+      // Track background
+      ink(8, 8, 12).box(80, trackY, screen.width - 100, rowHeight);
+      
+      // Track label with better spacing - no overlap
+      const track = this.tracks.find(t => t.id === trackRef || t.trackIndex === trackRef);
+      let trackName = track?.name?.substring(0, 8) || `T${trackIndex + 1}`;
+      
+      // Ensure label doesn't overlap by using consistent spacing
+      const labelY = trackY + Math.floor(rowHeight / 2) - 3;
+      ink(120, 120, 140).write(trackName, {
+        x: 5, 
+        y: labelY, 
+        font: "MatrixChunky8"
+      });
+      
+      // Get clips for this specific track only
+      const trackClips = this.clips.filter(clip => {
+        const clipTrackRef = clip.trackRef || clip.trackIndex || `track_${clip.id}`;
+        return clipTrackRef === trackRef;
+      });
+      
+      // Much more extended clip search - look way further ahead
+      const visibleTrackClips = trackClips.filter(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        return clipEnd >= timeOffset && clipStart <= timeOffset + timeWindow;
+      });
+      
+      // Debug: Show clip count for this track
+      if (trackClips.length > 0) {
+        ink(60, 80, 100).write(`(${trackClips.length})`, 
+          { x: 5, y: labelY + 8, font: "MatrixChunky8" });
+      }
+      
+      // Draw clips for this track
+      visibleTrackClips.forEach(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipDuration = (clip.duration || 1) / 4;
+        const clipEnd = clipStart + clipDuration;
+        
+        const startX = 80 + (clipStart - timeOffset) * pixelsPerBeat;
+        const endX = 80 + (clipEnd - timeOffset) * pixelsPerBeat;
+        const clipWidth = Math.max(2, endX - startX);
+        
+        // A/V Sync check - validate timing
+        const isActive = currentBeat >= clipStart && currentBeat < clipEnd;
+        
+        // Clip color based on type and content
+        let clipColor;
+        const clipName = (clip.name || '').toLowerCase();
+        
+        if (clipName.includes('kick')) {
+          clipColor = isActive ? [255, 80, 80] : [120, 40, 40];
+        } else if (clipName.includes('snare')) {
+          clipColor = isActive ? [80, 255, 80] : [40, 120, 40];
+        } else if (clipName.includes('hat')) {
+          clipColor = isActive ? [80, 120, 255] : [40, 60, 120];
+        } else if (clipName.includes('bass')) {
+          clipColor = isActive ? [255, 255, 80] : [120, 120, 40];
+        } else if (clip.type === 'MIDI') {
+          clipColor = isActive ? [255, 180, 80] : [120, 90, 40];
+        } else {
+          clipColor = isActive ? [180, 120, 255] : [90, 60, 120];
+        }
+        
+        // Clip box
+        if (startX < screen.width - 20 && endX > 80) {
+          const clampedStartX = Math.max(80, startX);
+          const clampedWidth = Math.min(clipWidth, screen.width - 20 - clampedStartX);
+          
+          ink(...clipColor).box(clampedStartX, trackY + 2, clampedWidth, rowHeight - 4);
+          
+          // Show clip name if there's space and it's active (for debugging sync)
+          if (isActive && clipWidth > 30) {
+            const shortName = (clip.name || 'CLIP').substring(0, 6);
+            ink(255, 255, 255).write(shortName, 
+              { x: clampedStartX + 1, y: trackY + 3, font: "MatrixChunky8" });
+          }
+          
+          // MIDI note visualization - show individual notes as larger dots
+          if (clip.type === 'MIDI' && clip.notes && clip.notes.length > 0 && isActive) {
+            clip.notes.forEach(note => {
+              const noteTime = clipStart + (note.time || 0) / 4;
+              const noteX = 80 + (noteTime - timeOffset) * pixelsPerBeat;
+              
+              if (noteX >= 80 && noteX <= screen.width - 20) {
+                // Note activity - check if note is currently playing
+                const noteEnd = noteTime + (note.duration || 0.1) / 4;
+                const noteActive = currentBeat >= noteTime && currentBeat < noteEnd;
+                
+                if (noteActive) {
+                  // Active note - larger bright dot
+                  const pitch = note.pitch || 60;
+                  const velocity = (note.velocity || 100) / 127;
+                  const noteY = trackY + 2 + Math.floor((pitch % 12) / 12 * (rowHeight - 4));
+                  ink(255, 255 * velocity, 100).circle(noteX, noteY, 3);
+                }
+              }
+            });
+          }
+        }
+      });
+      
+      // Track activity indicator - show if track has any active content
+      const hasActiveClips = trackClips.some(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        return currentBeat >= clipStart && currentBeat < clipEnd;
+      });
+      
+      if (hasActiveClips) {
+        ink(255, 100, 100).circle(75, trackY + Math.floor(rowHeight / 2), 3);
+      }
+    });
+    
+    // Activity summary with sync info
+    const totalActive = this.getActiveClipsAtTime(currentTime).length;
+    const totalMidiNotes = this.getActiveMidiNotesAtTime(currentTime).length;
+    
+    ink(100, 200, 255).write(`${totalActive} clips`, 
+      { x: 5, y: startY + height - 18, font: "MatrixChunky8" });
+    
+    if (totalMidiNotes > 0) {
+      ink(255, 255, 100).write(`${totalMidiNotes} notes`, 
+        { x: 5, y: startY + height - 8, font: "MatrixChunky8" });
+    }
+    
+    // Show time window for debugging - with max project beat
+    ink(80, 80, 100).write(`${timeOffset.toFixed(1)}-${(timeOffset + timeWindow).toFixed(1)} / ${maxBeat.toFixed(0)}`, 
+      { x: screen.width - 120, y: startY + height - 8, font: "MatrixChunky8" });
+  }
+  
+  // Get currently active MIDI notes
+  getActiveMidiNotesAtTime(currentTime) {
+    const currentBeat = this.getCurrentBeat(currentTime);
+    const activeNotes = [];
+    
+    this.clips.forEach(clip => {
+      if (clip.type === 'MIDI' && clip.notes) {
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        
+        if (currentBeat >= clipStart && currentBeat < clipEnd) {
+          clip.notes.forEach(note => {
+            const noteStart = clipStart + (note.time || 0) / 4;
+            const noteEnd = noteStart + (note.duration || 0.1) / 4;
+            
+            if (currentBeat >= noteStart && currentBeat < noteEnd) {
+              activeNotes.push({
+                ...note,
+                clip: clip,
+                absoluteStart: noteStart,
+                absoluteEnd: noteEnd
+              });
+            }
+          });
+        }
+      }
+    });
+    
+    return activeNotes;
+  }
+  
+  // Show current activity with clear visual indicators - what's happening NOW
+  drawCurrentActivityIndicators(ink, screen, currentTime, startY, availableHeight) {
+    const activeClips = this.getActiveClipsAtTime(currentTime);
+    const currentBeat = this.getCurrentBeat(currentTime);
+    
+    // Header
+    ink(160, 160, 180).write("ACTIVE NOW:", 
+      { x: 15, y: startY + 5, font: "MatrixChunky8" });
+    
+    if (activeClips.length === 0) {
+      ink(120, 120, 120).write("(silence)", 
+        { x: 120, y: startY + 5, font: "MatrixChunky8" });
+      return;
+    }
+    
+    // Group active clips by type for cleaner display
+    const groupedClips = {
+      kick: activeClips.filter(c => (c.name || '').toLowerCase().includes('kick')),
+      snare: activeClips.filter(c => (c.name || '').toLowerCase().includes('snare')),
+      hat: activeClips.filter(c => (c.name || '').toLowerCase().includes('hat')),
+      bass: activeClips.filter(c => (c.name || '').toLowerCase().includes('bass')),
+      other: activeClips.filter(c => {
+        const name = (c.name || '').toLowerCase();
+        return !name.includes('kick') && !name.includes('snare') && 
+               !name.includes('hat') && !name.includes('bass');
+      })
+    };
+    
+    // Display active groups as colored activity bars
+    let yPos = startY + 25;
+    const barHeight = 12;
+    const barSpacing = 16;
+    
+    Object.entries(groupedClips).forEach(([type, clips]) => {
+      if (clips.length === 0) return;
+      
+      // Type colors
+      let typeColor;
+      switch(type) {
+        case 'kick': typeColor = [255, 100, 100]; break;
+        case 'snare': typeColor = [100, 255, 100]; break;
+        case 'hat': typeColor = [100, 150, 255]; break;
+        case 'bass': typeColor = [255, 255, 100]; break;
+        default: typeColor = [200, 150, 255]; break;
+      }
+      
+      // Activity intensity based on how many clips and their position in time
+      const intensity = Math.min(1, clips.length / 2);
+      const pulsePhase = (currentBeat * 4) % 1; // Pulse 4x per beat
+      const pulseIntensity = 0.7 + Math.sin(pulsePhase * Math.PI * 2) * 0.3;
+      
+      const finalColor = typeColor.map(c => Math.floor(c * intensity * pulseIntensity));
+      
+      // Activity bar showing current intensity
+      const barWidth = Math.floor(150 * intensity);
+      ink(...finalColor).box(90, yPos, barWidth, barHeight);
+      
+      // Type label
+      const typeLabel = type.toUpperCase();
+      ink(220, 220, 220).write(typeLabel, 
+        { x: 15, y: yPos + 2, font: "MatrixChunky8" });
+      
+      // Clip count
+      if (clips.length > 1) {
+        ink(180, 180, 180).write(`×${clips.length}`, 
+          { x: 250, y: yPos + 2, font: "MatrixChunky8" });
+      }
+      
+      yPos += barSpacing;
+    });
+    
+    // Show start/stop events happening soon
+    this.drawUpcomingEvents(ink, screen, currentTime, startY + availableHeight - 35, 30);
+  }
+  
+  // Show upcoming start/stop events in next few beats
+  drawUpcomingEvents(ink, screen, currentTime, startY, height) {
+    const currentBeat = this.getCurrentBeat(currentTime);
+    const lookAheadBeats = 2; // Look 2 beats ahead
+    
+    const upcomingEvents = [];
+    
+    // Find clips starting or ending soon
+    this.clips.forEach(clip => {
+      const clipStart = (clip.time || 0) / 4;
+      const clipEnd = clipStart + ((clip.duration || 1) / 4);
+      
+      // Check for starts
+      if (clipStart > currentBeat && clipStart <= currentBeat + lookAheadBeats) {
+        upcomingEvents.push({
+          type: 'start',
+          beat: clipStart,
+          clip: clip,
+          time: clipStart - currentBeat
+        });
+      }
+      
+      // Check for ends
+      if (clipEnd > currentBeat && clipEnd <= currentBeat + lookAheadBeats) {
+        upcomingEvents.push({
+          type: 'end',
+          beat: clipEnd,
+          clip: clip,
+          time: clipEnd - currentBeat
+        });
+      }
+    });
+    
+    if (upcomingEvents.length === 0) return;
+    
+    // Sort by time
+    upcomingEvents.sort((a, b) => a.time - b.time);
+    
+    // Header
+    ink(140, 140, 160).write("UPCOMING:", 
+      { x: 15, y: startY + 2, font: "MatrixChunky8" });
+    
+    // Show first few upcoming events
+    upcomingEvents.slice(0, 3).forEach((event, index) => {
+      const xPos = 120 + index * 80;
+      const eventColor = event.type === 'start' ? [120, 255, 120] : [255, 120, 120];
+      const symbol = event.type === 'start' ? '▶' : '◼';
+      const timeStr = `${event.time.toFixed(1)}b`;
+      
+      ink(...eventColor).write(`${symbol}${timeStr}`, 
+        { x: xPos, y: startY + 2, font: "MatrixChunky8" });
+    });
+  }
+  */
+  
+  // NEW MINIMAL DRUM VISUALIZATION - Focus only on snare, hihat, bass kick for time sync checking
+  drawMinimalDrumVisualization(ink, screen, currentTime = 0, isPlaying = false) {
     if (!currentTime || this.tracks.length === 0) return;
-    
-    // Game Boy style compact area - bottom 120px
-    const vizHeight = 120;
-    const vizY = screen.height - vizHeight;
-    
-    // Clear compact visualization area
-    ink(0, 0, 0).box(0, vizY, screen.width, vizHeight);
     
     const currentBeat = this.getCurrentBeat(currentTime);
     
-    // Compact info display (top 20px of viz area)
-    ink("white").write(`${this.tempo}BPM ${currentTime.toFixed(1)}s B${currentBeat.toFixed(1)}`, 
-      { x: 5, y: vizY + 5, font: "microtype" });
+    // Simple header
+    const headerY = 60;
+    ink(180, 180, 200).write(`DRUM SYNC CHECK | Beat: ${currentBeat.toFixed(2)} | ${this.tempo}bpm`, 
+      { x: 20, y: headerY, font: "MatrixChunky8" });
     
-    // Zoomed timeline (middle 60px)
-    this.drawCompactTimeline(ink, screen, currentTime, vizY + 20, 60);
+    // Main visualization area
+    const vizY = 100;
+    const vizHeight = 200;
+    ink(10, 10, 15).box(20, vizY, screen.width - 40, vizHeight);
     
-    // Minimal drum boxes (bottom 40px)
-    this.drawCompactDrumBoxes(ink, screen, currentTime, currentBeat, vizY + 80, 40);
+    // Get only kick, snare, and hihat clips
+    const drumClips = this.clips.filter(clip => {
+      const name = (clip.name || '').toLowerCase();
+      return name.includes('kick') || name.includes('snare') || name.includes('hat');
+    });
+    
+    // Three lanes: Kick, Snare, HiHat
+    const laneHeight = Math.floor(vizHeight / 3);
+    const laneWidth = screen.width - 80;
+    
+    // Draw lane labels
+    ink(255, 100, 100).write('KICK', { x: 25, y: vizY + 15, font: "MatrixChunky8" });
+    ink(100, 255, 100).write('SNARE', { x: 25, y: vizY + laneHeight + 15, font: "MatrixChunky8" });
+    ink(100, 150, 255).write('HIHAT', { x: 25, y: vizY + 2 * laneHeight + 15, font: "MatrixChunky8" });
+    
+    // Time window - show 8 beats around current position
+    const timeWindow = 8;
+    const timeOffset = currentBeat - 2; // Show 2 beats behind, 6 ahead
+    const pixelsPerBeat = laneWidth / timeWindow;
+    const laneStartX = 80;
+    
+    // Draw beat grid
+    for (let beat = Math.floor(timeOffset); beat <= Math.ceil(timeOffset + timeWindow); beat++) {
+      const x = laneStartX + (beat - timeOffset) * pixelsPerBeat;
+      if (x >= laneStartX && x <= laneStartX + laneWidth) {
+        const isDownbeat = beat % 4 === 0;
+        const gridAlpha = isDownbeat ? 0.6 : 0.3;
+        ink(80, 80, 100, gridAlpha).line(x, vizY, x, vizY + vizHeight);
+        
+        if (isDownbeat && beat >= 0) {
+          ink(120, 120, 140).write(beat.toString(), 
+            { x: x + 2, y: vizY - 15, font: "MatrixChunky8" });
+        }
+      }
+    }
+    
+    // Draw clips for each drum type
+    ['kick', 'snare', 'hat'].forEach((drumType, laneIndex) => {
+      const laneY = vizY + laneIndex * laneHeight;
+      const typedClips = drumClips.filter(clip => 
+        (clip.name || '').toLowerCase().includes(drumType));
+      
+      typedClips.forEach(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipDuration = (clip.duration || 1) / 4;
+        const clipEnd = clipStart + clipDuration;
+        
+        // Only draw if visible in time window
+        if (clipEnd >= timeOffset && clipStart <= timeOffset + timeWindow) {
+          const startX = laneStartX + Math.max(0, (clipStart - timeOffset) * pixelsPerBeat);
+          const endX = laneStartX + Math.min(laneWidth, (clipEnd - timeOffset) * pixelsPerBeat);
+          const width = Math.max(2, endX - startX);
+          
+          const isActive = currentBeat >= clipStart && currentBeat < clipEnd;
+          
+          // Color coding
+          let color;
+          if (drumType === 'kick') color = isActive ? [255, 150, 150] : [120, 60, 60];
+          else if (drumType === 'snare') color = isActive ? [150, 255, 150] : [60, 120, 60];
+          else color = isActive ? [150, 180, 255] : [60, 80, 120];
+          
+          // Draw clip
+          const clipHeight = laneHeight - 10;
+          ink(...color).box(startX, laneY + 5, width, clipHeight);
+          
+          // Active clip effects
+          if (isActive) {
+            // Bright outline
+            ink(255, 255, 255).rect(startX, laneY + 5, width, clipHeight);
+            
+            // Beat flash effect
+            const beatPhase = currentBeat % 1;
+            if (beatPhase < 0.1) {
+              const flashIntensity = (1 - beatPhase * 10) * 0.8;
+              ink(255, 255, 255, flashIntensity).box(startX - 2, laneY + 3, width + 4, clipHeight + 4);
+            }
+            
+            // Show clip name
+            if (width > 30) {
+              ink(0, 0, 0).write(clip.name.substring(0, 8), 
+                { x: startX + 2, y: laneY + 8, font: "MatrixChunky8" });
+            }
+          }
+        }
+      });
+      
+      // Draw activity indicator for this lane
+      const hasActive = typedClips.some(clip => {
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        return currentBeat >= clipStart && currentBeat < clipEnd;
+      });
+      
+      if (hasActive) {
+        // Large pulsing indicator
+        const pulse = Math.sin(currentBeat * 8) * 0.3 + 0.7;
+        let indicatorColor;
+        if (drumType === 'kick') indicatorColor = [255, 100, 100];
+        else if (drumType === 'snare') indicatorColor = [100, 255, 100];
+        else indicatorColor = [100, 150, 255];
+        
+        const finalColor = indicatorColor.map(c => Math.floor(c * pulse));
+        ink(...finalColor).circle(laneStartX - 15, laneY + laneHeight/2, 8);
+      }
+    });
+    
+    // Playhead
+    const playheadX = laneStartX + (currentBeat - timeOffset) * pixelsPerBeat;
+    if (playheadX >= laneStartX && playheadX <= laneStartX + laneWidth) {
+      ink(255, 255, 100).line(playheadX, vizY - 10, playheadX, vizY + vizHeight + 10);
+      
+      // Beat pulse at playhead
+      const beatPhase = currentBeat % 1;
+      const pulseSize = beatPhase < 0.1 ? 6 : 3;
+      ink(255, 255, 100).circle(playheadX, vizY - 15, pulseSize);
+    }
+    
+    // Status info
+    const statusY = vizY + vizHeight + 20;
+    const activeDrums = ['kick', 'snare', 'hat'].filter(type => 
+      drumClips.some(clip => {
+        const name = (clip.name || '').toLowerCase();
+        const clipStart = (clip.time || 0) / 4;
+        const clipEnd = clipStart + ((clip.duration || 1) / 4);
+        return name.includes(type) && currentBeat >= clipStart && currentBeat < clipEnd;
+      }));
+    
+    ink(200, 200, 220).write(`Active drums: ${activeDrums.join(', ') || 'none'}`, 
+      { x: 20, y: statusY, font: "MatrixChunky8" });
+    
+    ink(160, 160, 180).write(`Time: ${currentTime.toFixed(2)}s | Found ${drumClips.length} drum clips`, 
+      { x: 20, y: statusY + 15, font: "MatrixChunky8" });
+  }
+
+  // Get clips that are currently active at a specific time
+  getActiveClipsAtTime(currentTime) {
+    const currentBeat = this.getCurrentBeat(currentTime);
+    return this.clips.filter(clip => {
+      const clipStart = (clip.time || 0) / 4;
+      const clipDuration = (clip.duration || 1) / 4;
+      const clipEnd = clipStart + clipDuration;
+      return currentBeat >= clipStart && currentBeat < clipEnd;
+    });
   }
   
-  // Compact zoomed timeline with box-based clips
+  /*
+  // COMMENTED OUT - Duplicate methods that were accidentally added
+  // Simplified drum visualization showing small moving activity dots
+  drawMinimalDrumVisualization(ink, screen, currentTime = 0) {
+    if (!currentTime || this.tracks.length === 0) return;
+    
+    // Compact status bar at bottom
+    const vizHeight = 40;
+    const vizY = screen.height - vizHeight - 5;
+    
+    // Simple dark background
+    ink(5, 5, 10).box(0, vizY, screen.width, vizHeight);
+    
+    const currentBeat = this.getCurrentBeat(currentTime);
+    const activeClips = this.getActiveClipsAtTime(currentTime);
+    
+    // Compact info display
+    ink(140, 140, 160).write(`${activeClips.length} CLIPS • ${this.tempo}BPM • ${currentTime.toFixed(1)}s`, 
+      { x: 10, y: vizY + 5, font: "MatrixChunky8" });
+    
+    // Show small moving dots for each active clip type
+    let xPos = 10;
+    const dotSpacing = 20;
+    
+    activeClips.slice(0, 20).forEach((clip, index) => {
+      const clipName = (clip.name || '').toLowerCase();
+      let color;
+      
+      if (clipName.includes('kick')) color = [255, 100, 100];
+      else if (clipName.includes('snare')) color = [100, 255, 100];
+      else if (clipName.includes('hat')) color = [100, 150, 255];
+      else if (clipName.includes('bass')) color = [255, 255, 100];
+      else if (clip.type === 'MIDI') color = [255, 200, 100];
+      else color = [200, 150, 255];
+      
+      // Small pulsing dot with movement
+      const pulse = Math.sin(currentBeat * 6 + index) * 0.3 + 0.7;
+      const finalColor = color.map(c => Math.floor(c * pulse));
+      const movement = Math.sin(currentBeat * 2 + index * 0.5) * 3;
+      
+      ink(...finalColor).circle(xPos + movement, vizY + 25, 3);
+      
+      xPos += dotSpacing;
+      if (xPos > screen.width - 30) return; // Stop if we run out of space
+    });
+  }
+  
+  // Display active clips as simple colored boxes
+  drawActiveClipsDisplay(ink, screen, currentTime, displayY, displayHeight) {
+    const activeClips = this.getActiveClipsAtTime(currentTime);
+    const boxWidth = 60;
+    const boxHeight = 12;
+    const spacing = 5;
+    
+    // Background for active clips area
+    ink(15, 15, 20).box(5, displayY, screen.width - 10, displayHeight);
+    
+    ink(120, 120, 120).write("ACTIVE CLIPS:", 
+      { x: 8, y: displayY + 2, font: "MatrixChunky8" });
+    
+    if (activeClips.length === 0) {
+      ink(80, 80, 80).write("(none)", 
+        { x: 8, y: displayY + 15, font: "MatrixChunky8" });
+      return;
+    }
+    
+    // Draw active clips as colored boxes
+    activeClips.slice(0, 8).forEach((clip, index) => {
+      const x = 8 + (index % 4) * (boxWidth + spacing);
+      const y = displayY + 15 + Math.floor(index / 4) * (boxHeight + 3);
+      
+      // Color based on clip type and name
+      const clipName = (clip.name || '').toLowerCase();
+      let clipColor;
+      
+      if (clipName.includes('kick') || clipName.includes('bass')) {
+        clipColor = [255, 80, 80]; // Bright red
+      } else if (clipName.includes('snare') || clipName.includes('clap')) {
+        clipColor = [80, 255, 80]; // Bright green
+      } else if (clipName.includes('hat') || clipName.includes('cymbal')) {
+        clipColor = [80, 80, 255]; // Bright blue
+      } else if (clip.type === 'MIDI') {
+        clipColor = [255, 255, 80]; // Bright yellow
+      } else {
+        clipColor = [255, 140, 80]; // Bright orange
+      }
+      
+      // Pulsing effect for active clips
+      const currentBeat = this.getCurrentBeat(performance.now() / 1000);
+      const pulse = Math.sin(currentBeat * 4) * 0.2 + 0.8; // Pulse with the beat
+      const adjustedColor = clipColor.map(c => Math.floor(c * pulse));
+      
+      // Draw clip box with colored fill
+      ink(...adjustedColor).box(x, y, boxWidth, boxHeight);
+      
+      // Add colored outline for consistency
+      const outlineColor = clipColor.map(c => Math.min(255, c + 50)); // Slightly brighter outline
+      ink(...outlineColor).box(x, y, boxWidth, boxHeight, "outline");
+      
+      // Clip name with MatrixChunky8
+      const shortName = clip.name ? clip.name.substring(0, 8) : 'CLIP';
+      ink(255, 255, 255).write(shortName, 
+        { x: x + 1, y: y + 2, font: "MatrixChunky8" });
+    });
+    
+    // Show total count if more clips exist
+    if (activeClips.length > 8) {
+      ink(200, 200, 200).write(`+${activeClips.length - 8} more`, 
+        { x: screen.width - 60, y: displayY + displayHeight - 10, font: "MatrixChunky8" });
+    }
+  }
+  
+  // Simplified compact timeline with clear visual feedback
   drawCompactTimeline(ink, screen, currentTime, timelineY, timelineHeight) {
     const timelineWidth = screen.width - 10;
     
-    // Timeline background
+    // Simple dark background
     ink(20, 20, 20).box(5, timelineY, timelineWidth, timelineHeight);
     
-    // Zoomed view: show only 4 seconds around current time
-    const viewWindow = 4; // seconds
+    // Show 4 beats around current time for focus
+    const viewWindow = 2; // seconds
     const startTime = Math.max(0, currentTime - viewWindow / 2);
     const endTime = startTime + viewWindow;
     const pixelsPerSecond = timelineWidth / viewWindow;
     
-    // Playhead line
+    // Simple playhead
     const playheadX = 5 + (currentTime - startTime) * pixelsPerSecond;
-    ink(255, 255, 0).line(playheadX, timelineY, playheadX, timelineY + timelineHeight);
+    ink(255, 200, 100).line(playheadX, timelineY, playheadX, timelineY + timelineHeight);
     
-    // Find clips in view window
+    // Find active clips
     const visibleClips = this.clips.filter(clip => {
-      const clipStart = (clip.time || 0) / 4; // Convert ALS time
+      const clipStart = (clip.time || 0) / 4;
       const clipEnd = clipStart + ((clip.duration || 0) / 4);
       return clipEnd >= startTime && clipStart <= endTime;
     });
     
-    // Draw clips as boxes with proper duration
+    // Draw clips as simple colored rectangles
     visibleClips.forEach((clip, index) => {
       const clipStart = (clip.time || 0) / 4;
       const clipDuration = (clip.duration || 0.1) / 4;
@@ -885,48 +1918,46 @@ class ALSProject {
       
       const startX = Math.max(5, 5 + (clipStart - startTime) * pixelsPerSecond);
       const endX = Math.min(5 + timelineWidth, 5 + (clipEnd - startTime) * pixelsPerSecond);
-      const boxWidth = Math.max(1, endX - startX);
+      const boxWidth = Math.max(2, endX - startX);
       
-      // Stack clips vertically in compact rows
-      const trackRow = index % 4; // Max 4 rows
-      const rowHeight = Math.floor(timelineHeight / 4);
-      const boxY = timelineY + trackRow * rowHeight + 2;
+      // Stack clips in rows
+      const row = index % 3;
+      const rowHeight = Math.floor(timelineHeight / 3);
+      const boxY = timelineY + row * rowHeight + 2;
       const boxHeight = rowHeight - 4;
       
-      // Color based on clip type and activity
+      // Check if active
       const isActive = currentTime >= clipStart && currentTime <= clipEnd;
-      let clipColor = clip.type === 'MIDI' ? [100, 150, 255] : [255, 150, 100];
       
-      // Identify drum type for specific colors
+      // Simple color coding
       const clipName = (clip.name || '').toLowerCase();
-      const samplePath = clip.sampleRef ? (clip.sampleRef.path || '').toLowerCase() : '';
+      let baseColor;
       
-      if (clipName.includes('kick') || samplePath.includes('kick')) {
-        clipColor = [255, 100, 100]; // Red
-      } else if (clipName.includes('snare') || samplePath.includes('snare')) {
-        clipColor = [100, 255, 100]; // Green
-      } else if (clipName.includes('hihat') || samplePath.includes('hihat')) {
-        clipColor = [100, 100, 255]; // Blue
-      }
+      if (clipName.includes('kick')) baseColor = [200, 100, 100];
+      else if (clipName.includes('snare')) baseColor = [100, 200, 100];
+      else if (clipName.includes('hat')) baseColor = [100, 100, 200];
+      else baseColor = [150, 150, 100];
       
-      const intensity = isActive ? 1.0 : 0.6;
-      ink(clipColor[0] * intensity, clipColor[1] * intensity, clipColor[2] * intensity)
-        .box(startX, boxY, boxWidth, boxHeight);
+      const intensity = isActive ? 1.0 : 0.4;
+      const color = baseColor.map(c => Math.floor(c * intensity));
       
-      // Minimal clip label if there's space
-      if (boxWidth > 20) {
-        const shortName = (clip.name || clip.type).substring(0, 8);
-        ink("white").write(shortName, 
-          { x: startX + 1, y: boxY + 1, font: "microtype" });
+      ink(...color).box(startX, boxY, boxWidth, boxHeight);
+      
+      // Clip label if active and enough space
+      if (isActive && boxWidth > 25) {
+        const shortName = (clip.name || 'CLIP').substring(0, 6);
+        ink(255, 255, 255).write(shortName, 
+          { x: startX + 1, y: boxY + 1, font: "MatrixChunky8" });
       }
     });
     
-    // Time markers (minimal)
+    // Time markers
     for (let t = Math.floor(startTime); t <= Math.ceil(endTime); t++) {
       const x = 5 + (t - startTime) * pixelsPerSecond;
       if (x >= 5 && x <= 5 + timelineWidth) {
-        ink(80, 80, 80).line(x, timelineY, x, timelineY + 10);
-        ink("gray").write(`${t}s`, { x: x + 1, y: timelineY + timelineHeight - 10, font: "microtype" });
+        ink(60, 60, 60).line(x, timelineY, x, timelineY + 8);
+        ink(120, 120, 120).write(`${t}s`, 
+          { x: x + 1, y: timelineY + timelineHeight - 8, font: "MatrixChunky8" });
       }
     }
   }
@@ -1021,6 +2052,7 @@ class ALSProject {
     ink("white").write("CLIPS", { x: 10, y: timelineY + 20, font: "microtype" });
     ink("cyan").write(`${this.clips.length} total`, { x: 10, y: timelineY + 35, font: "microtype" });
   }
+  */
   
   // Compact drum status boxes
   drawCompactDrumBoxes(ink, screen, currentTime, currentBeat, boxY, boxHeight) {
@@ -1803,122 +2835,1078 @@ class ALSProject {
 // State
 let alsProject = null;
 let wavFile = null;
+let preloadedAudio = null; // Store preloaded audio data
 let isPlaying = false;
 let playingSfx = null;
 let playStartTime = 0;
 let audioStartTime = 0; // Track when audio actually started
+let lastAutoStartAttempt = 0; // Throttle auto-start attempts
 let message = "Drop .als + .wav files";
+let netAPI = null; // Store net API for audio preloading
+let soundDebugLogged = false; // Track if sound debug info has been logged
+let useSimpleTimeline = true; // Default to simplified real-time activity view
 
-function paint({ wipe, ink, screen, sound, clock }) {
+// Add boot function to access net API for audio preloading
+export const boot = ({ net }) => {
+  console.log("🎵 ABLETON.MJS: Boot function called with net API");
+  netAPI = net; // Store net API for audio preloading
+  console.log("🎵 ABLETON.MJS: Net API stored:", !!netAPI);
+};
+
+// Initialize
+console.log("🎵 ABLETON.MJS: Enhanced visualizer loaded and ready!");
+
+function paint({ wipe, ink, screen, sound, clock, write, box, line }) {
   wipe("black");
   
   if (!alsProject) {
     ink("green").write("Drop ALS + WAV files to begin", { center: "xy", size: 1.5 });
+    ink("cyan", 0.7).write("Real-time activity visualizer", { center: "x", y: screen.height/2 + 40 });
+    ink("white", 0.6).write("[Space] or touch to play/pause • [T] toggle view modes", { center: "x", y: screen.height/2 + 60 });
+    
+    // Show debug info about what we're waiting for
+    ink("yellow", 0.5).write("Waiting for BIOS events...", { center: "x", y: screen.height/2 + 100 });
+    if (message !== "Drop .als + .wav files") {
+      ink("orange", 0.6).write(message, { center: "x", y: screen.height/2 + 120 });
+    }
     return;
   }
 
-  if (!isPlaying || !sound || sound.time <= 0) {
-    ink("yellow").write(`Project loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`, 
+  // Auto-start audio if playing is true but no audio is actually playing
+  // Add throttling to prevent rapid start/stop cycles
+  if (isPlaying && wavFile && (preloadedAudio || wavFile.id) && !playingSfx) {
+    // Only try auto-start if we haven't tried recently
+    const now = performance.now();
+    if (!lastAutoStartAttempt || (now - lastAutoStartAttempt) > 1000) { // 1 second throttle
+      lastAutoStartAttempt = now;
+      console.log("🔄 Auto-starting audio to sync with visualization...");
+      try {
+        // Use preloaded audio if available, otherwise fallback to ID
+        const audioToPlay = preloadedAudio || wavFile.id;
+        console.log("🔊 Auto-playing audio:", typeof audioToPlay, !!preloadedAudio ? "preloaded" : "by ID");
+        
+        playingSfx = sound.play(audioToPlay);
+        if (playingSfx) {
+          audioStartTime = sound.time;
+          console.log("✅ Auto-started audio playback");
+        }
+      } catch (error) {
+        console.error("❌ Auto-start audio error:", error);
+      }
+    }
+  }
+
+  // More stable condition - avoid flickering when sound.time is unreliable
+  if (!isPlaying || (!playingSfx && !wavFile)) {
+    ink("yellow").write(`"${alsProject.projectName || 'Untitled'}" - ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`, 
       { center: "xy", size: 1 });
     ink("white", 0.7).write("Press space to play audio", { center: "x", y: screen.height/2 + 30, size: 0.8 });
     
-    // Show clip overview when not playing
-    ink("cyan", 0.6).write(`Found ${alsProject.clips.length} clips total`, 
+    // Enhanced project statistics with duration info
+    const calculatedDuration = alsProject.calculateProjectDuration();
+    ink("cyan", 0.6).write(`📊 ${alsProject.clips.length} clips • ${alsProject.locators.length} locators • Duration: ${calculatedDuration} beats`, 
       { center: "x", y: screen.height/2 + 60, size: 0.8 });
+    
+    // Show song structure via locators
+    if (alsProject.locators.length > 0) {
+      ink("orange", 0.8).write("Song Structure:", { x: 50, y: screen.height/2 + 90, size: 0.9 });
+      alsProject.locators.slice(0, 6).forEach((locator, i) => {
+        ink("orange", 0.6).write(`• ${locator.name} @ ${locator.time.toFixed(1)}`, 
+          { x: 70, y: screen.height/2 + 110 + i * 18, size: 0.7 });
+      });
+    }
+    
+    // DRAW STATIC TIMELINE PREVIEW EVEN WHEN NOT PLAYING
+    const previewY = screen.height/2 + 200;
+    const previewHeight = 80;
+    const previewWidth = screen.width - 100;
+    const maxBeats = calculatedDuration;
+    const beatsPerPixel = maxBeats / previewWidth;
+    
+    // Preview background
+    ink("gray", 0.3).box(50, previewY, previewWidth, previewHeight);
+    ink("white", 0.6).write("Timeline Preview (press space to play):", { x: 50, y: previewY - 20 });
+    
+    // Draw clips in preview
+    alsProject.clips.forEach((clip, i) => {
+      if (clip.source !== 'arrangement') return;
       
-    // Show first few arrangement clips as preview
-    const arrangementClips = alsProject.clips.filter(c => c.source === 'arrangement').slice(0, 5);
-    arrangementClips.forEach((clip, i) => {
-      ink("orange", 0.5).write(`• "${clip.name}" at beat ${clip.time.toFixed(1)}`, 
-        { x: 50, y: screen.height/2 + 90 + i * 20, size: 0.7 });
+      const clipStart = clip.currentStart || clip.time || 0;
+      const clipEnd = clip.currentEnd || (clipStart + (clip.duration || 1));
+      
+      const x = 50 + clipStart / beatsPerPixel;
+      const width = Math.max(1, (clipEnd - clipStart) / beatsPerPixel);
+      const y = previewY + 10 + (i % 8) * 8; // Stack clips
+      
+      // Simple color coding
+      let color = [100, 100, 150];
+      const name = (clip.name || '').toLowerCase();
+      if (name.includes('kick')) color = [200, 100, 100];
+      else if (name.includes('snare')) color = [100, 200, 100];
+      else if (name.includes('hat')) color = [100, 150, 200];
+      
+      ink(...color, 0.7).box(x, y, width, 6);
+    });
+    
+    // Draw locators in preview  
+    alsProject.locators.forEach(locator => {
+      const x = 50 + locator.time / beatsPerPixel;
+      ink("yellow", 0.8).line(x, previewY, x, previewY + previewHeight);
+      
+      // Locator labels
+      ink("yellow", 0.6).write(locator.name.substring(0, 6), { 
+        x: x + 2, y: previewY - 10, size: 0.6 
+      });
     });
     
     return;
   }
 
-  // Calculate current beat position
-  const audioTime = sound.time - audioStartTime;
-  const currentBeat = alsProject.getCurrentBeat(audioTime);
+  // Enhanced audio synchronization with real-time analysis
+  let audioTime = 0;
+  let currentBeat = 0;
+  let audioAmplitude = 0;
+  let audioWaveform = [];
   
-  // Get all clips active at current time
+  
+  if (isPlaying && playingSfx && !playingSfx.killed) {
+    // Use actual audio time for perfect sync - validate calculations
+    const soundTime = sound.time || 0;
+    const startTime = audioStartTime || 0;
+    
+    if (isNaN(soundTime) || isNaN(startTime)) {
+      console.warn("⚠️ Invalid audio timing:", { soundTime, startTime });
+      audioTime = 0;
+    } else {
+      audioTime = soundTime - startTime;
+    }
+    
+    currentBeat = alsProject.getCurrentBeat(audioTime);
+    
+    // Get real-time audio analysis
+    if (sound.speaker && sound.speaker.waveforms) {
+      audioWaveform = sound.speaker.waveforms.left || [];
+      if (audioWaveform.length > 0) {
+        // Calculate RMS amplitude for audio reactivity
+        const sum = audioWaveform.reduce((acc, val) => acc + val * val, 0);
+        audioAmplitude = Math.sqrt(sum / audioWaveform.length);
+      }
+    }
+
+    // Reduced console logging to prevent performance issues
+    if (Math.floor(audioTime) % 5 === 0 && Math.floor(audioTime * 10) % 10 === 0) {
+      console.log(`🎵 SYNC: audioTime=${audioTime.toFixed(2)}s, beat=${currentBeat.toFixed(2)}, tempo=${alsProject.tempo}, amp=${(audioAmplitude*100).toFixed(1)}%`);
+    }
+  } else if (isPlaying && !wavFile) {
+    // ALS-only mode - use performance timing with validation
+    const now = performance.now() / 1000;
+    const startTime = playStartTime || 0;
+    
+    if (isNaN(now) || isNaN(startTime)) {
+      console.warn("⚠️ Invalid visual timing:", { now, startTime });
+      audioTime = 0;
+    } else {
+      const visualTime = now - startTime;
+      audioTime = Math.max(0, visualTime); // Ensure non-negative
+    }
+    currentBeat = alsProject.getCurrentBeat(audioTime);
+  } else if (isPlaying && playingSfx && playingSfx.killed) {
+    // Audio was killed but we're still in playing state - clean up
+    console.log("🔄 Audio was killed, cleaning up state...");
+    playingSfx = null;
+    // Don't return here, allow visualization to continue in ALS-only mode
+    const now = performance.now() / 1000;
+    const startTime = playStartTime || 0;
+    
+    if (isNaN(now) || isNaN(startTime)) {
+      console.warn("⚠️ Invalid fallback timing:", { now, startTime });
+      audioTime = 0;
+    } else {
+      const visualTime = now - startTime;
+      audioTime = Math.max(0, visualTime);
+    }
+    currentBeat = alsProject.getCurrentBeat(audioTime);
+  }  // Beat-based visual effects
+  const beatPhase = currentBeat % 1;
+  const beatFlash = beatPhase < 0.1 ? (1 - beatPhase * 10) * 0.5 : 0;
+  const barPhase = (currentBeat % 4) / 4;
+  const barFlash = barPhase < 0.025 ? (1 - barPhase * 40) * 0.3 : 0;
+  
+  // Audio-reactive background pulse
+  const pulseIntensity = audioAmplitude * 0.3 + beatFlash + barFlash;
+  if (pulseIntensity > 0) {
+    ink("white", pulseIntensity * 0.1).box(0, 0, screen.width, screen.height);
+  }
+  
+  // Find current song section from locators with enhanced detection
+  const currentSection = alsProject.locators.reduce((prev, curr) => {
+    return (curr.time <= currentBeat && curr.time > (prev?.time || -1)) ? curr : prev;
+  }, null);
+  
+  // Get all clips active at current time with timing info
   const activeClips = alsProject.clips.filter(clip => {
-    const clipStart = clip.time || 0;
-    const clipEnd = clipStart + (clip.duration || 1);
+    const clipStart = clip.currentStart || clip.time || 0;
+    const clipEnd = clip.currentEnd || (clipStart + (clip.duration || 1));
     return currentBeat >= clipStart && currentBeat < clipEnd;
   });
   
-  // Header info
-  ink("white").write(`"${alsProject.projectName || 'Untitled'}" - ${alsProject.tempo} BPM`, 
-    { x: 20, y: 20, size: 1.2 });
-  ink("cyan", 0.8).write(`Beat: ${currentBeat.toFixed(2)} | Active clips: ${activeClips.length}`, 
-    { x: 20, y: 40, size: 0.9 });
+  // Enhanced project info with audio sync status
+  const syncStatus = wavFile ? `🔊 SYNCED` : `📊 VISUAL`;
+  ink("white").write(`${alsProject.projectName} | ${syncStatus} | ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`, 
+    { x: 20, y: 20, size: 1 });
   
-  // Timeline visualization - show ALL clips as bars
-  const timelineY = 80;
-  const timelineHeight = screen.height - 200;
-  const barHeight = 8;
-  const maxBeat = Math.max(400, ...alsProject.clips.map(c => c.time + (c.duration || 1)));
-  const beatWidth = Math.max(2, screen.width * 0.8 / maxBeat * 10); // Show ~10 beats per screen width
+  // Track Progress Bar - Clear visual indicator of song position
+  const trackDuration = alsProject.calculateProjectDuration(); // Use calculated duration
+  const progressBarWidth = screen.width - 100;
+  const progressBarHeight = 8;
+  const progressBarY = 40;
+  const currentProgress = Math.min(1, currentBeat / trackDuration);
+  
+  // Progress bar background
+  ink("gray", 0.4).box(20, progressBarY, progressBarWidth, progressBarHeight);
+  
+  // Filled progress
+  const filledWidth = currentProgress * progressBarWidth;
+  ink("lime", 0.8 + audioAmplitude * 0.2).box(20, progressBarY, filledWidth, progressBarHeight);
+  
+  // Progress markers every 16 beats
+  for (let beat = 0; beat <= trackDuration; beat += 16) {
+    const markerX = 20 + (beat / trackDuration) * progressBarWidth;
+    ink("white", 0.6).box(markerX, progressBarY - 2, 1, progressBarHeight + 4);
+    ink("white", 0.5).write(beat.toString(), { x: markerX - 8, y: progressBarY - 15 });
+  }
+  
+  // Current position indicator
+  const positionX = 20 + currentProgress * progressBarWidth;
+  ink("yellow", 0.9 + Math.sin(Date.now() * 0.01) * 0.1).box(positionX - 2, progressBarY - 3, 4, progressBarHeight + 6);
+  
+  // Progress text
+  const progressPercent = Math.round(currentProgress * 100);
+  const timeText = `${currentBeat.toFixed(1)}/${trackDuration} beats (${progressPercent}%)`;
+  ink("cyan", 0.8).write(timeText, { x: screen.width - 200, y: progressBarY + 2 });
+  
+  // Beat counter with visual pulse  
+  const beatPulseSize = 0.9 + beatFlash * 0.3 + audioAmplitude * 0.5;
+  const sectionText = currentSection ? ` | 📍 ${currentSection.name}` : '';
+  ink("cyan", 0.8 + beatFlash).write(`♪ ${currentBeat.toFixed(2)}${sectionText} | 🎵 ${activeClips.length} active`, 
+    { x: 20, y: 60, size: beatPulseSize });
+  
+  // Real-time audio level meter
+  if (audioAmplitude > 0) {
+    const levelWidth = Math.min(300, audioAmplitude * 2000);
+    const levelHeight = 12;
+    const levelY = 78;
+    
+    // Background meter
+    ink("gray", 0.3).box(20, levelY, 300, levelHeight);
+    
+    // Active level with color coding
+    let levelColor = "green";
+    if (audioAmplitude > 0.3) levelColor = "yellow";
+    if (audioAmplitude > 0.6) levelColor = "red";
+    
+    ink(levelColor, 0.8).box(20, levelY, levelWidth, levelHeight);
+    
+    // Peak indicators
+    if (audioAmplitude > 0.5) {
+      ink("white", audioAmplitude).write("PEAK", { x: levelWidth + 25, y: levelY + 2 });
+    }
+  }
+  
+  // Waveform visualization (small but responsive)
+  if (audioWaveform.length > 0) {
+    const waveY = 95;
+    const waveHeight = 30;
+    const waveWidth = Math.min(400, screen.width - 40);
+    const step = Math.floor(audioWaveform.length / waveWidth);
+    
+    ink("cyan", 0.3).box(20, waveY, waveWidth, waveHeight);
+    
+    for (let i = 0; i < waveWidth; i += 2) {
+      const sampleIndex = i * step;
+      if (sampleIndex < audioWaveform.length) {
+        const amplitude = audioWaveform[sampleIndex];
+        const barHeight = Math.abs(amplitude) * waveHeight * 0.8;
+        const y = waveY + waveHeight/2 - barHeight/2;
+        
+        ink("cyan", 0.6 + Math.abs(amplitude) * 0.4).box(20 + i, y, 1, barHeight);
+      }
+    }
+  }
+  
+  // Real-time activity visualization - focus on what's happening NOW
+  if (useSimpleTimeline) {
+    // Use new minimal drum visualization to check time sync
+    alsProject.drawMinimalDrumVisualization(ink, screen, audioTime, isPlaying);
+  } else {
+    // Use complex timeline with all the bells and whistles (for advanced users)
+    // Enhanced timeline visualization with audio-reactive elements
+    const complexTimelineY = 130;
+    const complexTimelineHeight = screen.height - 250;
+  const complexBarHeight = 32; // Increased from 20 to 32 for even taller tracks with better MIDI visibility
+  
+  // DEBUG: Timeline drawing status (reduced logging)
+  if (Math.floor(currentBeat) % 8 === 0 && Math.floor(currentBeat * 4) % 4 === 0) {
+    console.log(`🎨 Drawing timeline: Y=${complexTimelineY}, height=${complexTimelineHeight}, beat=${currentBeat.toFixed(2)}, playing=${isPlaying}`);
+  }
+  
+  // Calculate smart view window (improved scrolling behavior)
+  const viewBeats = 32; // Show more context
+  const maxBeat = alsProject.calculateProjectDuration(); // Use calculated duration
+  
+  // Improved scrolling: start immediately when playing, no delay
+  let viewStart;
+  
+  // Validate currentBeat before using it in calculations
+  if (isNaN(currentBeat)) {
+    console.warn("⚠️ currentBeat is NaN, resetting to 0");
+    currentBeat = 0;
+  }
+  
+  if (currentBeat < 2) {
+    // Stay at the beginning for just the first 2 beats
+    viewStart = 0;
+  } else {
+    // Start following immediately, keep playhead at 25% from left edge for context
+    viewStart = Math.max(0, currentBeat - viewBeats * 0.25);
+  }
+  
+  const viewEnd = Math.min(maxBeat, viewStart + viewBeats);
+  const beatWidth = (screen.width - 140) / viewBeats; // Account for wider track labels (140 instead of 60)
+  
+  // Validate calculations before proceeding
+  if (isNaN(viewStart) || isNaN(viewEnd) || isNaN(beatWidth) || isNaN(maxBeat)) {
+    console.warn("⚠️ Invalid timeline calculations:", { 
+      viewStart, viewEnd, beatWidth, maxBeat, viewBeats, 
+      screenWidth: screen.width, currentBeat 
+    });
+    return; // Skip timeline drawing if calculations are invalid
+  }
   
   // Background timeline
-  ink("gray", 0.2).box(20, timelineY, screen.width - 40, timelineHeight);
+  ink("gray", 0.2).box(20, complexTimelineY, screen.width - 40, complexTimelineHeight);
   
-  // Draw clips as colored bars
+  // Add vertical grid lines for better timing reference
+  for (let beat = Math.floor(viewStart); beat <= Math.ceil(viewEnd); beat += 1) {
+    if (beat >= viewStart && beat <= viewEnd) {
+      const gridX = 20 + (beat - viewStart) * beatWidth;
+      
+      // Validate coordinates before drawing
+      if (isNaN(gridX) || isNaN(complexTimelineY) || isNaN(complexTimelineHeight)) {
+        console.warn("⚠️ Invalid grid line coordinates:", { gridX, complexTimelineY, complexTimelineHeight });
+        continue;
+      }
+      
+      // Different line styles for different beat intervals
+      if (beat % 16 === 0) {
+        // Every 16 beats - prominent lines with labels
+        ink("white", 0.4).line(gridX, complexTimelineY, gridX, complexTimelineY + complexTimelineHeight);
+        ink("white", 0.6).write(beat.toString(), { 
+          x: gridX + 1, y: complexTimelineY - 12, size: 0.6
+        });
+      } else if (beat % 4 === 0) {
+        // Every 4 beats - medium lines with smaller labels
+        ink("white", 0.25).line(gridX, complexTimelineY, gridX, complexTimelineY + complexTimelineHeight);
+        ink("white", 0.3).write(beat.toString(), { 
+          x: gridX + 1, y: complexTimelineY - 8, size: 0.5
+        });
+      } else {
+        // Every beat - subtle lines
+        ink("white", 0.1).line(gridX, complexTimelineY, gridX, complexTimelineY + complexTimelineHeight);
+      }
+    }
+  }
+  
+  // Draw locator sections as duration boxes (behind clips)
+  const sortedLocators = [...alsProject.locators].sort((a, b) => a.time - b.time);
+  
+  for (let i = 0; i < sortedLocators.length; i++) {
+    const locator = sortedLocators[i];
+    const nextLocator = sortedLocators[i + 1];
+    
+    // Calculate section duration with validation
+    const sectionStart = locator.time || 0;
+    const sectionEnd = nextLocator ? (nextLocator.time || 0) : Math.min(maxBeat, sectionStart + 32); // Default 32 beat sections
+    
+    // Validate section values
+    if (isNaN(sectionStart) || isNaN(sectionEnd)) {
+      console.warn("⚠️ Invalid section timing:", { sectionStart, sectionEnd, locator: locator.name });
+      continue;
+    }
+    
+    // Only draw if section is visible in current view
+    if (sectionEnd >= viewStart && sectionStart <= viewEnd) {
+      const sectionX = 20 + Math.max(0, (sectionStart - viewStart) * beatWidth);
+      const sectionEndX = 20 + Math.min(viewBeats * beatWidth, (sectionEnd - viewStart) * beatWidth);
+      const sectionWidth = sectionEndX - sectionX;
+      
+      // Validate section coordinates
+      if (isNaN(sectionX) || isNaN(sectionEndX) || isNaN(sectionWidth)) {
+        console.warn("⚠️ Invalid section coordinates:", { sectionX, sectionEndX, sectionWidth });
+        continue;
+      }
+      
+      if (sectionWidth > 0) {
+        // Determine section color and style
+        const isCurrentSection = locator === currentSection;
+        const sectionName = locator.name.toLowerCase();
+        
+        // Color coding for different section types
+        let sectionColor = [60, 60, 80]; // Default blue-gray
+        let alpha = 0.15;
+        
+        if (sectionName.includes('act')) {
+          sectionColor = [80, 60, 120]; // Purple for acts
+          alpha = 0.2;
+        } else if (sectionName.includes('pause')) {
+          sectionColor = [80, 80, 60]; // Yellow-gray for pauses
+          alpha = 0.1;
+        } else if (sectionName.includes('surprise')) {
+          sectionColor = [120, 60, 60]; // Red for surprises
+          alpha = 0.25;
+        } else if (sectionName.includes('end')) {
+          sectionColor = [60, 80, 60]; // Green for endings
+          alpha = 0.2;
+        }
+        
+        // Highlight current section
+        if (isCurrentSection) {
+          sectionColor = sectionColor.map(c => c * 1.5);
+          alpha *= 2;
+        }
+        
+        // Draw section background box
+        ink(...sectionColor, alpha).box(sectionX, complexTimelineY, sectionWidth, complexTimelineHeight);
+        
+        // Draw section border with validation
+        const borderAlpha = isCurrentSection ? 0.6 : 0.3;
+        if (!isNaN(sectionX) && !isNaN(complexTimelineY) && !isNaN(complexTimelineHeight)) {
+          ink(...sectionColor, borderAlpha).line(sectionX, complexTimelineY, sectionX, complexTimelineY + complexTimelineHeight); // Left border
+        } else {
+          console.warn("⚠️ Invalid section border coordinates:", { sectionX, complexTimelineY, complexTimelineHeight });
+        }
+        
+        // Section label with duration
+        const duration = (sectionEnd - sectionStart).toFixed(1);
+        const labelText = `${locator.name} (${duration}b)`;
+        
+        // Only show label if there's enough space
+        if (sectionWidth > 60) {
+          const textColor = isCurrentSection ? "yellow" : "white";
+          const textAlpha = isCurrentSection ? 0.9 : 0.6;
+          
+          ink(textColor, textAlpha).write(labelText, { 
+            x: sectionX + 4, 
+            y: complexTimelineY - 15,
+            size: 0.8
+          });
+          
+          // Show section progress bar if it's the current section
+          if (isCurrentSection && currentBeat >= sectionStart && currentBeat < sectionEnd) {
+            const sectionProgress = (currentBeat - sectionStart) / (sectionEnd - sectionStart);
+            const progressWidth = sectionWidth * sectionProgress;
+            
+            ink("yellow", 0.3).box(sectionX, complexTimelineY + complexTimelineHeight - 4, progressWidth, 4);
+          }
+        }
+      }
+    }
+  }
+  
+  // Define timeline variables for clip rendering (needed when useSimpleTimeline is true)
+  const timelineY = useSimpleTimeline ? (screen.height - 150 - 10) : 130;
+  const timelineHeight = useSimpleTimeline ? 150 : (screen.height - 250);
+  const barHeight = 32;
+  
+  // Simple, stable track assignment - create a consistent mapping
+  const clipTrackMap = new Map(); // Stable track assignment for each clip
+  const trackNames = new Map(); // Track names
+  let nextTrack = 0;
+  
+  // Sort clips by their original order to ensure consistent assignment
+  const sortedClips = [...alsProject.clips]
+    .filter(clip => clip.source === 'arrangement')
+    .sort((a, b) => {
+      // Sort by track reference first, then by start time, then by index
+      const aTrack = a.trackRef || a.trackIndex || 0;
+      const bTrack = b.trackRef || b.trackIndex || 0;
+      if (aTrack !== bTrack) return aTrack.toString().localeCompare(bTrack.toString());
+      
+      const aStart = a.currentStart || a.time || 0;
+      const bStart = b.currentStart || b.time || 0;
+      if (aStart !== bStart) return aStart - bStart;
+      
+      return (a.id || 0) - (b.id || 0);
+    });
+  
+  // Assign each unique track reference to a visual track with proper names
+  sortedClips.forEach(clip => {
+    const trackRef = clip.trackRef || clip.trackIndex || 'default';
+    
+    if (!clipTrackMap.has(trackRef)) {
+      clipTrackMap.set(trackRef, nextTrack);
+      
+      // Get the actual track name from the project
+      let trackName = `Track ${nextTrack + 1}`;
+      const actualTrack = alsProject.tracks.find(t => t.id === trackRef || t.trackIndex === trackRef);
+      
+      if (actualTrack && actualTrack.name) {
+        trackName = actualTrack.name.substring(0, 12); // Longer names for better identification
+      } else {
+        // Fallback: try to infer from clip names in this track
+        const trackClips = alsProject.clips.filter(c => 
+          (c.trackRef || c.trackIndex) === trackRef && c.name);
+        
+        if (trackClips.length > 0) {
+          const firstClipName = trackClips[0].name.toLowerCase();
+          if (firstClipName.includes('kick') || firstClipName.includes('bd')) trackName = 'Kick';
+          else if (firstClipName.includes('snare') || firstClipName.includes('drum')) trackName = 'Snare';
+          else if (firstClipName.includes('hat') || firstClipName.includes('hi')) trackName = 'Hi-Hats';
+          else if (firstClipName.includes('bass')) trackName = 'Bass';
+          else if (firstClipName.includes('synth') || firstClipName.includes('lead')) trackName = 'Synth';
+          else if (firstClipName.includes('vocal') || firstClipName.includes('vox')) trackName = 'Vocals';
+          else if (firstClipName.includes('piano')) trackName = 'Piano';
+          else if (firstClipName.includes('guitar')) trackName = 'Guitar';
+          else trackName = `Track ${nextTrack + 1}`;
+        }
+      }
+      
+      trackNames.set(nextTrack, trackName);
+      console.log(`🎵 Assigned track ${nextTrack}: "${trackName}" (ref: ${trackRef})`);
+      nextTrack++;
+    }
+  });
+  
   alsProject.clips.forEach((clip, i) => {
     if (clip.source !== 'arrangement') return;
     
-    const x = 20 + (clip.time || 0) * beatWidth;
-    const width = Math.max(2, (clip.duration || 1) * beatWidth);
-    const y = timelineY + (i % 40) * (barHeight + 2); // Stack clips vertically
+    const clipStart = clip.currentStart || clip.time || 0;
+    const clipEnd = clip.currentEnd || (clipStart + (clip.duration || 1));
     
-    // Color by clip name/type
-    let color = [100, 100, 100];
-    const name = (clip.name || '').toLowerCase();
-    if (name.includes('kick')) color = [255, 80, 80];
-    else if (name.includes('snare') || name.includes('drum')) color = [80, 255, 80];
-    else if (name.includes('hat')) color = [80, 80, 255];
-    else if (name.includes('bass')) color = [255, 255, 80];
-    else if (clip.notes && clip.notes.length > 50) color = [255, 150, 255]; // Dense MIDI
+    // Only draw clips that intersect with the current view window
+    if (clipEnd < viewStart || clipStart > viewEnd) return;
+
+    // Calculate visible portion of the clip
+    const visibleStart = Math.max(clipStart, viewStart);
+    const visibleEnd = Math.min(clipEnd, viewEnd);
     
-    // Highlight if currently active
-    const isActive = currentBeat >= (clip.time || 0) && currentBeat < ((clip.time || 0) + (clip.duration || 1));
-    if (isActive) {
-      color = color.map(c => Math.min(255, c * 1.5));
-      ink(...color).box(x - 1, y - 1, width + 2, barHeight + 2); // Glow effect
+    const x = 90 + (visibleStart - viewStart) * beatWidth; // Start after track labels (90px)
+    const width = Math.max(1, (visibleEnd - visibleStart) * beatWidth);
+    
+    // Debug timing for first few clips to verify units
+    if (i < 3) {
+      console.log(`🎵 Clip ${i} "${clip.name}": start=${clipStart}, end=${clipEnd}, visibleStart=${visibleStart}, visibleEnd=${visibleEnd}, x=${x.toFixed(1)}, width=${width.toFixed(1)}`);
     }
     
-    ink(...color).box(x, y, width, barHeight);
+    // Get stable track assignment
+    const trackRef = clip.trackRef || clip.trackIndex || 'default';
+    const visualTrackIndex = clipTrackMap.get(trackRef) || 0;
+    
+    // Ensure we don't exceed visual space with proper spacing
+    const trackSpacing = 6; // Increased spacing for taller tracks
+    const maxVisualTracks = Math.floor((timelineHeight - 40) / (barHeight + trackSpacing));
+    const finalTrackIndex = visualTrackIndex % maxVisualTracks;
+    
+    const y = timelineY + 20 + finalTrackIndex * (barHeight + trackSpacing);
+    
+    // Debug track assignment for first few clips
+    if (i < 3) {
+      console.log(`🎯 Clip ${i} track: ref=${trackRef}, visual=${visualTrackIndex}, final=${finalTrackIndex}, y=${y}`);
+    }
+    
+    // Check if this clip is currently playing/active
+    const isActive = currentBeat >= clipStart && currentBeat < clipEnd;
+    
+    // Enhanced color coding based on musical content with vibrant named colors
+    let inkColor = "gray"; // Default color
+    const name = (clip.name || '').toLowerCase();
+    
+    if (clip.notes && clip.notes.length > 0) {
+      // MIDI clips - color by note density and pitch range
+      const avgPitch = clip.notes.reduce((sum, note) => sum + note.pitch, 0) / clip.notes.length;
+      
+      if (avgPitch < 50) inkColor = "red"; // Low = red (bass/kick)
+      else if (avgPitch < 70) inkColor = "lime"; // Mid = lime (snare/mid)
+      else inkColor = "cyan"; // High = cyan (hats/leads)
+    } else {
+      // Audio clips - enhanced color by name patterns
+      if (name.includes('kick') || name.includes('bd')) inkColor = "red"; // Kick = red
+      else if (name.includes('snare') || name.includes('drum')) inkColor = "lime"; // Snare = lime
+      else if (name.includes('hat') || name.includes('hi')) inkColor = "cyan"; // Hats = cyan
+      else if (name.includes('bass')) inkColor = "yellow"; // Bass = yellow
+      else if (name.includes('lead') || name.includes('synth')) inkColor = "magenta"; // Synths = magenta
+      else if (name.includes('vocal') || name.includes('vox')) inkColor = "green"; // Vocals = green
+      else inkColor = "blue"; // Generic audio = blue
+    }
+    
+    // Adjust brightness for active clips with pulsing effects
+    let clipAlpha = 0.6;
+    let finalColor = inkColor;
+    
+    if (isActive) {
+      // Create pulsing effect for active clips
+      const pulse = Math.sin(Date.now() * 0.01) * 0.3 + 0.7; // Slow pulse
+      const beatPulse = beatPhase < 0.1 ? (1 - beatPhase * 10) : 0; // Quick flash on beats
+      
+      clipAlpha = 0.7 + pulse * 0.3 + beatPulse * 0.2;
+      
+      // Flash yellow on beat start
+      if (beatPulse > 0.5) {
+        finalColor = "yellow";
+        clipAlpha = 1.0;
+      }
+      
+      // Add red blink for clip starts (when clip just became active)
+      const timeSinceClipStart = currentBeat - clipStart;
+      if (timeSinceClipStart < 0.5) {
+        const blinkIntensity = Math.sin(timeSinceClipStart * 20) * 0.5 + 0.5;
+        if (blinkIntensity > 0.7) {
+          finalColor = "red";
+          clipAlpha = 1.0;
+        }
+      }
+      
+      // Add glow effect around active clips using the same color
+      ink(finalColor, 0.3).box(x - 1, y - 1, width + 2, barHeight + 2); // Glow
+      
+      // Show individual MIDI notes firing (for MIDI clips with notes)
+      if (clip.notes && clip.notes.length > 0) {
+        clip.notes.forEach(note => {
+          const noteTime = (note.time || 0) + clipStart;
+          const noteDuration = note.duration || 0.25;
+          
+          // Check if this note should be playing now
+          if (currentBeat >= noteTime && currentBeat <= noteTime + noteDuration) {
+            const noteX = x + ((noteTime - clipStart) / (clipEnd - clipStart)) * width;
+            const notePitch = note.pitch || 60;
+            
+            // Visual note flash based on pitch
+            let noteColor = "white";
+            if (notePitch < 40) noteColor = "red"; // Low notes = red
+            else if (notePitch < 60) noteColor = "lime"; // Mid notes = lime
+            else if (notePitch < 80) noteColor = "cyan"; // High notes = cyan
+            else noteColor = "yellow"; // Very high = yellow
+            
+            // Note flash intensity based on velocity and timing
+            const noteProgress = (currentBeat - noteTime) / noteDuration;
+            const noteIntensity = Math.max(0.3, 1 - noteProgress) * (note.velocity || 100) / 127;
+            
+            // Draw firing note indicator
+            ink(noteColor, noteIntensity).box(
+              Math.max(x, noteX - 1), y - 2, 
+              Math.min(3, width - (noteX - x)), barHeight + 4
+            );
+            
+            // Add note spark effect for recently triggered notes
+            const timeSinceStart = currentBeat - noteTime;
+            if (timeSinceStart < 0.25) {
+              const sparkSize = (1 - timeSinceStart * 4) * 3;
+              ink(noteColor, 0.8).box(noteX - sparkSize/2, y - sparkSize, sparkSize, sparkSize);
+            }
+          }
+        });
+      }
+      
+      // Show audio event flashes (for audio clips)
+      if (!clip.notes || clip.notes.length === 0) {
+        // Detect audio events based on clip name patterns and beat timing
+        const beatInClip = (currentBeat - clipStart) % 1;
+        
+        // Hi-hat flashes (every beat or half beat for hats)
+        if (name.includes('hat') || name.includes('hi')) {
+          if (beatInClip < 0.1 || (beatInClip > 0.4 && beatInClip < 0.6)) {
+            const flashIntensity = beatInClip < 0.1 ? (1 - beatInClip * 10) : (1 - (beatInClip - 0.5) * 20);
+            ink("cyan", flashIntensity * 0.8).box(x, y - 2, width, barHeight + 4);
+          }
+        }
+        
+        // Kick flashes (strong on beat 1)
+        else if (name.includes('kick') || name.includes('bd')) {
+          const beatPosition = Math.floor(currentBeat - clipStart) % 4;
+          if (beatInClip < 0.2 && (beatPosition === 0 || beatPosition === 2)) {
+            const flashIntensity = (1 - beatInClip * 5) * audioAmplitude * 2;
+            ink("red", flashIntensity).box(x - 2, y - 3, width + 4, barHeight + 6);
+          }
+        }
+        
+        // Snare flashes (beat 2 and 4)
+        else if (name.includes('snare') || name.includes('sd')) {
+          const beatPosition = Math.floor(currentBeat - clipStart) % 4;
+          if (beatInClip < 0.15 && (beatPosition === 1 || beatPosition === 3)) {
+            const flashIntensity = (1 - beatInClip * 6.67) * 0.8;
+            ink("lime", flashIntensity).box(x, y - 2, width, barHeight + 4);
+          }
+        }
+        
+        // Bass flashes (longer, sustained)
+        else if (name.includes('bass')) {
+          if (beatInClip < 0.5) {
+            const flashIntensity = Math.sin(beatInClip * Math.PI) * 0.6;
+            ink("yellow", flashIntensity).box(x, y - 1, width, barHeight + 2);
+          }
+        }
+        
+        // Generic audio response to amplitude
+        else if (audioAmplitude > 0.2) {
+          ink("blue", audioAmplitude * 0.4).box(x, y, width, barHeight);
+        }
+      }
+    }
+    
+    // Draw main clip box with enhanced border and active highlighting
+    ink(finalColor, clipAlpha).box(x, y, width, barHeight);
+    
+    // MIDI note grid visualization for clips with notes - ENHANCED CONTRAST
+    if (clip.notes && clip.notes.length > 0 && width > 10) {
+      const noteGridHeight = barHeight - 6; // Leave more room for borders
+      const noteGridY = y + 3;
+      
+      // Draw dark background for MIDI note area for better contrast
+      ink(10, 10, 20, 0.8).box(x, noteGridY, width, noteGridHeight);
+      
+      // Determine pitch range for this clip
+      const pitches = clip.notes.map(note => note.pitch || 60);
+      const minPitch = Math.min(...pitches);
+      const maxPitch = Math.max(...pitches);
+      const pitchRange = Math.max(24, maxPitch - minPitch); // At least two octaves for better spread
+      
+      // Draw MIDI notes as prominent rectangles
+      clip.notes.forEach(note => {
+        const noteTime = (note.time || 0) + clipStart;
+        const noteDuration = note.duration || 0.25;
+        const notePitch = note.pitch || 60;
+        const noteVelocity = note.velocity || 100;
+        
+        // Check if note is within visible clip portion
+        if (noteTime >= visibleStart && noteTime <= visibleEnd) {
+          // Calculate note position within the visible clip
+          const noteStartInClip = noteTime - visibleStart;
+          const noteX = x + (noteStartInClip / (visibleEnd - visibleStart)) * width;
+          const noteWidth = Math.max(2, (noteDuration / (visibleEnd - visibleStart)) * width);
+          
+          // Calculate note Y position based on pitch (higher pitch = higher on screen)
+          const pitchNormalized = (notePitch - minPitch) / pitchRange;
+          const noteY = noteGridY + (1 - pitchNormalized) * noteGridHeight;
+          const noteHeight = Math.max(3, noteGridHeight / 16); // Taller notes for visibility
+          
+          // Note color and alpha based on velocity and current playback
+          const isNotePlaying = currentBeat >= noteTime && currentBeat <= noteTime + noteDuration;
+          let noteAlpha = Math.max(0.6, (noteVelocity / 127) * 1.0); // Higher base opacity
+          let noteColor = "white";
+          
+          if (isNotePlaying) {
+            noteAlpha = 1.0;
+            noteColor = "yellow"; // Bright yellow for currently playing notes
+            
+            // Add bright sparkle effect for playing notes
+            const sparkleSize = 3;
+            ink("white", 1.0).box(noteX - sparkleSize, noteY - sparkleSize, 
+                                  noteWidth + sparkleSize * 2, noteHeight + sparkleSize * 2);
+          } else {
+            // High contrast colors based on pitch range
+            if (notePitch < 40) noteColor = "red";      // Bass notes - red
+            else if (notePitch < 55) noteColor = "orange";  // Low-mid - orange  
+            else if (notePitch < 70) noteColor = "lime";    // Mid - lime
+            else if (notePitch < 85) noteColor = "cyan";    // High-mid - cyan
+            else noteColor = "magenta";                     // High notes - magenta
+          }
+          
+          // Draw the note rectangle with high contrast
+          ink(noteColor, noteAlpha).box(Math.floor(noteX), Math.floor(noteY), 
+                                      Math.max(2, Math.floor(noteWidth)), Math.max(3, Math.floor(noteHeight)));
+          
+          // Add bright outline for even better visibility
+          if (noteWidth >= 3 && noteHeight >= 4) {
+            ink("white", 0.6).box(Math.floor(noteX), Math.floor(noteY), 
+                                Math.max(2, Math.floor(noteWidth)), Math.max(3, Math.floor(noteHeight)), "outline");
+          }
+        }
+      });
+      
+      // Draw bright octave grid lines for reference
+      for (let octave = 0; octave <= pitchRange / 12; octave++) {
+        const gridPitch = minPitch + octave * 12;
+        const gridY = noteGridY + (1 - (gridPitch - minPitch) / pitchRange) * noteGridHeight;
+        if (gridY >= noteGridY && gridY <= noteGridY + noteGridHeight && !isNaN(gridY)) {
+          ink("white", 0.4).line(x, gridY, x + width, gridY);
+        }
+      }
+    }
+    
+    // DEBUG: Show clip drawing details for first few clips
+    if (i < 3) {
+      console.log(`🎨 Drawing clip ${i}: x=${x.toFixed(1)}, y=${y}, w=${width.toFixed(1)}, h=${barHeight}, color=${finalColor}, alpha=${clipAlpha.toFixed(2)}, notes=${clip.notes?.length || 0}`);
+    }
+    
+    // Add complete border for better definition (brighter for active clips)
+    const borderAlpha = isActive ? 0.8 : 0.5;
+    
+    // Validate coordinates before drawing borders
+    if (!isNaN(x) && !isNaN(y) && !isNaN(width) && !isNaN(barHeight)) {
+      // Draw full border - top, bottom, left, right
+      ink("white", borderAlpha).line(x, y, x + width, y); // Top border
+      ink("white", borderAlpha).line(x, y + barHeight, x + width, y + barHeight); // Bottom border  
+      ink("white", borderAlpha * 0.9).line(x, y, x, y + barHeight); // Left border
+      ink("white", borderAlpha * 0.75).line(x + width, y, x + width, y + barHeight); // Right border
+    } else {
+      console.warn("⚠️ Invalid clip border coordinates:", { x, y, width, barHeight });
+    }
+    
+    // Show MIDI note density as small indicators along the clip
+    if (clip.notes && clip.notes.length > 0 && width > 4) {
+      const noteIndicatorHeight = 2;
+      const noteY = y + barHeight - noteIndicatorHeight;
+      
+      // Group notes by position within the clip for visualization
+      const notesPerBeat = {};
+      clip.notes.forEach(note => {
+        const notePositionInClip = (note.time || 0);
+        const beatPosition = Math.floor(notePositionInClip);
+        if (!notesPerBeat[beatPosition]) notesPerBeat[beatPosition] = 0;
+        notesPerBeat[beatPosition]++;
+      });
+      
+      // Draw note density indicators
+      Object.keys(notesPerBeat).forEach(beatPos => {
+        const beat = parseInt(beatPos);
+        const noteCount = notesPerBeat[beat];
+        const indicatorX = x + (beat / (clipEnd - clipStart)) * width;
+        
+        if (indicatorX >= x && indicatorX <= x + width) {
+          const intensity = Math.min(1, noteCount / 5); // Scale by note count
+          ink(255, 255, 100, intensity * 0.8).box(indicatorX, noteY, 2, noteIndicatorHeight);
+        }
+      });
+    }
+    
+    // Show clip name for longer clips  
+    if (width > 30 && barHeight >= 6) {
+      ink("white", 0.8).write(clip.name || `C${i}`, { 
+        x: x + 2, y: y + 1
+      });
+    }
   });
   
-  // Current playhead
-  const playheadX = 20 + currentBeat * beatWidth;
-  ink("white").line(playheadX, timelineY, playheadX, timelineY + timelineHeight);
+  // Draw scrolling track labels that move with the clips
+  const visibleTracks = new Set();
   
-  // Beat markers
-  for (let beat = 0; beat < maxBeat; beat += 16) {
-    const x = 20 + beat * beatWidth;
-    ink("white", 0.3).line(x, timelineY, x, timelineY + 20);
-    ink("white", 0.6).write(beat.toString(), { x: x + 2, y: timelineY - 15, size: 0.6 });
+  // Determine which tracks are actually visible in current view
+  alsProject.clips.forEach((clip) => {
+    if (clip.source !== 'arrangement') return;
+    
+    const clipStart = clip.currentStart || clip.time || 0;
+    const clipEnd = clip.currentEnd || (clipStart + (clip.duration || 1));
+    if (clipEnd < viewStart || clipStart > viewEnd) return;
+    
+    const trackRef = clip.trackRef || clip.trackIndex || 'default';
+    const visualTrackIndex = clipTrackMap.get(trackRef) || 0;
+    const trackSpacing = 6; // Match the spacing used in clip drawing
+    const maxVisualTracks = Math.floor((timelineHeight - 40) / (barHeight + trackSpacing));
+    const finalTrackIndex = visualTrackIndex % maxVisualTracks;
+    
+    visibleTracks.add(finalTrackIndex);
+  });
+  
+  // Draw track labels only for visible tracks - positioned on the left
+  visibleTracks.forEach((trackIndex) => {
+    const trackSpacing = 6; // Match the spacing used in clip drawing
+    const y = timelineY + 20 + trackIndex * (barHeight + trackSpacing);
+    const trackName = trackNames.get(trackIndex) || `Track ${trackIndex + 1}`;
+    
+    // Draw fixed track labels on the left side (not scrolling)
+    const labelX = 2;
+    const labelWidth = 80; // Wider labels for longer track names
+    
+    // Draw label background with better contrast
+    ink(30, 30, 40, 0.95).box(labelX, y - 2, labelWidth, barHeight + 4);
+    
+    // Draw label border
+    ink(100, 100, 120, 0.8).box(labelX, y - 2, labelWidth, barHeight + 4, "outline");
+    
+    // Draw label text with high contrast
+    ink(255, 255, 255, 1.0).write(trackName, { 
+      x: labelX + 4, y: y + barHeight/2 - 4, size: 0.8 
+    });
+  });
+  
+  // PROMINENT CURRENT PLAYHEAD - Make it very visible!
+  const playheadX = 20 + (currentBeat - viewStart) * beatWidth;
+  
+  // DEBUG: Playhead position
+  console.log(`🎯 Playhead: x=${playheadX.toFixed(1)}, currentBeat=${currentBeat.toFixed(2)}, viewStart=${viewStart.toFixed(1)}, beatWidth=${beatWidth.toFixed(2)}`);
+  
+  // Only draw playhead if it's within the visible timeline
+  if (playheadX >= 20 && playheadX <= screen.width - 40) {
+    const flashIntensity = beatPhase < 0.1 ? (1 - beatPhase * 10) : 0;
+    
+    // Add audio amplitude to playhead intensity
+    const audioIntensity = audioAmplitude * 0.5;
+    const totalIntensity = Math.min(1, flashIntensity + audioIntensity);
+    
+    // Main playhead line - make it thicker and more prominent
+    const lineThickness = 3;
+    for (let i = 0; i < lineThickness; i++) {
+      ink(255, 200 + totalIntensity * 55, 100, 0.9 + totalIntensity * 0.1).line(
+        playheadX - 1 + i, timelineY - 15, 
+        playheadX - 1 + i, timelineY + timelineHeight + 15
+      );
+    }
+    
+    // Audio-reactive playhead glow - make it wider
+    if (audioAmplitude > 0.05) {
+      const glowWidth = 6 + audioAmplitude * 10;
+      ink(255, 255, 100, audioAmplitude * 0.2).box(
+        playheadX - glowWidth/2, timelineY - 15, 
+        glowWidth, timelineHeight + 30
+      );
+    }
+    
+    // Beat flash effect
+    if (beatPhase < 0.2) {
+      const flashSize = (1 - beatPhase * 5) * 8;
+      ink(255, 255, 255, flashIntensity * 0.6).box(
+        playheadX - flashSize/2, timelineY - 5, 
+        flashSize, timelineHeight + 10
+      );
+    }
+    
+    // Playhead position indicator (small triangle at top)
+    ink("yellow", 0.9).box(playheadX - 3, timelineY - 18, 6, 3);
   }
   
-  // Active clips info at bottom
-  const infoY = screen.height - 100;
-  ink("white").write("Active Clips:", { x: 20, y: infoY, size: 1 });
+  // Enhanced beat grid markers (more subtle since we have section boxes)
+  for (let beat = Math.floor(viewStart/4)*4; beat <= viewEnd; beat += 4) {
+    if (beat >= viewStart && beat <= viewEnd) {
+      const x = 20 + (beat - viewStart) * beatWidth;
+      
+      // Simple beat markers every 4 beats
+      const isAtSectionStart = alsProject.locators.some(loc => Math.abs(loc.time - beat) < 0.5);
+      
+      if (isAtSectionStart) {
+        // Section boundary markers - more prominent
+        ink("cyan", 0.5 + audioAmplitude * 0.2).line(x, timelineY - 5, x, timelineY + timelineHeight + 5);
+      } else {
+        // Regular beat markers - subtle
+        ink("white", 0.2).line(x, timelineY, x, timelineY + timelineHeight);
+      }
+      
+      // Beat numbers (every 16 beats to avoid clutter)
+      if (beat % 16 === 0) {
+        ink("white", 0.4).write(beat.toString(), { 
+          x: x + 2, y: timelineY + timelineHeight + 5,
+          size: 0.7
+        });
+      }
+    }
+  }
   
-  activeClips.slice(0, 8).forEach((clip, i) => {
+  // Active clips info with enhanced details
+  const infoY = screen.height - 120;
+  ink("white").write("Active Now:", { x: 20, y: infoY, size: 1 });
+  
+  activeClips.slice(0, 6).forEach((clip, i) => {
     const x = 20;
     const y = infoY + 20 + i * 15;
     const name = clip.name || `Clip ${clip.id}`;
-    const notes = clip.notes ? ` (${clip.notes.length} notes)` : '';
+    const noteInfo = clip.notes ? ` (${clip.notes.length} notes)` : '';
+    const timeInfo = ` [${clip.currentStart?.toFixed(1) || clip.time?.toFixed(1) || '?'}-${clip.currentEnd?.toFixed(1) || '?'}]`;
     
-    ink("yellow", 0.8).write(`• ${name}${notes}`, { x, y, size: 0.7 });
+    ink("yellow", 0.8).write(`• ${name}${noteInfo}${timeInfo}`, { x, y });
   });
+  
+  // Timeline position indicator with musical structure awareness
+  const currentBar = Math.floor(currentBeat / 4) + 1;
+  const currentBeatInBar = (currentBeat % 4) + 1;
+  const nextSection = alsProject.locators.find(loc => loc.time > currentBeat);
+  const nextSectionDistance = nextSection ? (nextSection.time - currentBeat).toFixed(1) : "∞";
+  
+  // Show timeline mode (static vs following)
+  const isFollowing = currentBeat >= 8; // Match the new scrolling threshold
+  const modeText = isFollowing ? "📍 FOLLOWING" : "📌 FIXED";
+  
+  ink("cyan", 0.6).write(`View: ${viewStart.toFixed(1)}-${viewEnd.toFixed(1)} beats | ${modeText}`, 
+    { x: screen.width - 250, y: screen.height - 50 });
+  
+  ink("yellow", 0.8).write(`Bar ${currentBar}, Beat ${currentBeatInBar.toFixed(1)}`, 
+    { x: screen.width - 250, y: screen.height - 35 });
+  
+  if (nextSection) {
+    ink("cyan", 0.7 + audioAmplitude * 0.2).write(`Next: ${nextSection.name} in ${nextSectionDistance}b`, 
+      { x: screen.width - 250, y: screen.height - 20 });
+  }
+  } // End of complex timeline else block
+  
+  // Show timeline mode indicator
+  if (useSimpleTimeline) {
+    ink("lime", 0.8).write("SIMPLE MODE (T to toggle)", 
+      { x: 20, y: screen.height - 40, font: "MatrixChunky8" });
+  } else {
+    ink("orange", 0.8).write("COMPLEX MODE (T to toggle)", 
+      { x: 20, y: screen.height - 40, font: "MatrixChunky8" });
+  }
 }
 
-function act({ event: e, sound, pen, clock }) {
+function act({ event: e, sound, pen, clock, send }) {
   // Debug all events to see what we're getting
   if (e.name !== "move" && e.name !== "draw") {
     console.log("🔍 Act event:", e.name || e.type || "unknown", Object.keys(e));
+    
+    // ENHANCED: Look for any event that might contain ALS data
+    if (JSON.stringify(e).toLowerCase().includes('als')) {
+      console.log("🎵 ABLETON.MJS: Event contains 'als' keyword:", e);
+    }
+    
+    // Check if this event has any content that looks like file data
+    if (e.content || e.data || e.xmlData) {
+      console.log("🎵 ABLETON.MJS: Event has content/data:", Object.keys(e));
+    }
+  }
+  
+  // ENHANCED: File handling is now done through the receive() function
+  // which properly processes dropped ALS and WAV files
+  
+  // ENHANCED: Look for any ALS-related events
+  if (e.type === "dropped:als" || e.name === "dropped:als" || (e.name && e.name.includes("als"))) {
+    console.log("🎵 ABLETON.MJS: ALS event detected in act:", e);
+    
+    if (e.content && e.content.xmlData) {
+      console.log("🎵 ABLETON.MJS: Found xmlData in act event, creating project...");
+      alsProject = new ALSProject(e.content.xmlData);
+      alsProject.projectName = e.content.name;
+      message = `ALS loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`;
+      console.log("✅ ABLETON.MJS: ALS Project loaded via act:", alsProject);
+      return;
+    }
+  }
+  
+  // ENHANCED: Look for any WAV-related events
+  if (e.type === "dropped:wav" || e.name === "dropped:wav" || (e.name && e.name.includes("wav"))) {
+    console.log("🔊 ABLETON.MJS: WAV event detected in act:", e);
+    
+    if (e.content) {
+      wavFile = {
+        name: e.content.name,
+        size: e.content.size || 0,
+        id: e.content.id
+      };
+      message = `WAV ready: ${wavFile.name}`;
+      console.log("✅ ABLETON.MJS: WAV loaded via act");
+      return;
+    }
+  }
+  
+  // Enhanced: Check for dropped:als events that might come through act
+  if (e.type === "dropped:als" || (e.name && e.name.includes("als"))) {
+    console.log("🎵 ALS event detected in act:", e);
+    
+    if (e.content && e.content.xmlData) {
+      console.log("🎵 Found xmlData in act event, creating project...");
+      alsProject = new ALSProject(e.content.xmlData);
+      alsProject.projectName = e.content.name;
+      message = `ALS loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`;
+      console.log("✅ ALS Project loaded via act:", alsProject);
+      return;
+    }
   }
   
   // Handle ALS file data that comes through act instead of receive
@@ -1932,7 +3920,7 @@ function act({ event: e, sound, pen, clock }) {
   }
   
   // Simple click/touch to play/pause
-  if ((e.is && e.is("touch")) && wavFile) {
+  if (e.is && e.is("touch")) {
     console.log("🎵 Touch detected, toggling playback. Current state:", isPlaying);
     
     if (isPlaying) {
@@ -1954,40 +3942,149 @@ function act({ event: e, sound, pen, clock }) {
       console.log("✅ Audio paused");
     } else {
       // Play
-      console.log("▶️ Starting playback with file:", wavFile.id);
-      try {
-        playingSfx = sound.play(wavFile.id);
+      if (wavFile && wavFile.id) {
+        console.log("▶️ Starting playback with WAV file:", wavFile.name);
+        console.log("🔊 WAV file ID:", wavFile.id);
+        console.log("🔊 Sound object available:", !!sound, "sound.play function:", typeof sound.play);
         
-        if (playingSfx) {
+        try {
+          // Use the WAV file ID directly (already decoded by BIOS)
+          console.log("🔊 Playing WAV file ID:", wavFile.id);
+          const playResult = sound.play(wavFile.id);
+          
+          console.log("🔊 sound.play() returned:", playResult, "type:", typeof playResult);
+          
+          if (playResult) {
+            playingSfx = playResult;
+            isPlaying = true;
+            playStartTime = performance.now() / 1000;
+            audioStartTime = sound.time;
+            message = "Playing - touch to pause";
+            console.log("✅ Audio playback started - Timestamp:", playStartTime, "Audio time:", audioStartTime);
+          } else {
+            console.error("❌ Failed to start audio playback - sound.play() returned null/undefined");
+            console.log("🔍 Attempting to diagnose audio issue...");
+            
+            // Try to get sample data to verify the file exists
+            if (sound.getSampleData) {
+              sound.getSampleData(wavFile.id)
+                .then((data) => {
+                  console.log("🔍 Sample data found:", !!data);
+                  if (!data) {
+                    message = `Audio file ${wavFile.name} not ready - try again`;
+                  }
+                })
+                .catch((error) => {
+                  console.error("🔍 Sample data error:", error);
+                  message = `Audio file ${wavFile.name} failed to load`;
+                });
+            }
+            
+            message = "Failed to play audio - file not ready?";
+          }
+        } catch (error) {
+          console.error("❌ Audio playback error:", error);
+          console.error("❌ Error details:", error.message, error.stack);
+          message = "Failed to play audio - " + error.message;
+        }
+      } else if (alsProject) {
+        // Start ALS visualization without audio
+        console.log("🔄 Starting ALS visualizer without audio");
+        isPlaying = true;
+        playStartTime = performance.now() / 1000; // Convert to seconds
+        message = "Playing ALS visualizer - DROP .WAV FILE FOR AUDIO";
+      } else {
+        message = "No audio or ALS file loaded - drop .als + .wav files to start";
+      }
+    }
+    return; // Important: return early to prevent other event handling
+  }
+  
+  // 🎹 Keyboard shortcut to toggle timeline view (T key)
+  if (e.is && e.is("keyboard:down:t")) {
+    useSimpleTimeline = !useSimpleTimeline;
+    message = useSimpleTimeline ? "Activity View" : "Complex Timeline";
+    console.log("🎨 View toggled:", useSimpleTimeline ? "Activity View" : "Complex Timeline");
+    return;
+  }
+  
+  // 🎹 Keyboard controls - Space to play/pause
+  if (e.is && e.is("keyboard:down:space")) {
+    console.log("🎵 Space key detected, toggling playback. Current state:", isPlaying);
+    
+    if (isPlaying) {
+      // Pause
+      console.log("⏸️ Pausing playback");
+      if (playingSfx) {
+        try {
+          if (playingSfx.kill) {
+            playingSfx.kill();
+          }
+          playingSfx = null;
+        } catch (error) {
+          console.error("Error stopping audio:", error);
+        }
+      }
+      isPlaying = false;
+      message = "Paused - [Space] or touch to resume";
+      console.log("✅ Audio paused via keyboard");
+    } else if (wavFile && wavFile.id) {
+      // Play with audio
+      console.log("▶️ Starting playback with WAV file:", wavFile.name);
+      console.log("🔊 WAV file ID:", wavFile.id);
+      console.log("🔊 Sound object available:", !!sound, "sound.play function:", typeof sound.play);
+      
+      try {
+        // Use the WAV file ID directly (already decoded by BIOS)
+        console.log("🔊 Playing WAV file ID:", wavFile.id);
+        const playResult = sound.play(wavFile.id);
+        
+        console.log("🔊 sound.play() returned:", playResult, "type:", typeof playResult);
+        
+        if (playResult) {
+          playingSfx = playResult;
           isPlaying = true;
-          // Convert clock time to numeric timestamp for consistency
-          const clockTimeRaw = clock.time();
-          playStartTime = typeof clockTimeRaw === 'object' && clockTimeRaw.getTime ? 
-            clockTimeRaw.getTime() / 1000 : clockTimeRaw; // Convert to seconds
-          audioStartTime = sound.time; // Store when audio started for sync
-          message = "Playing - touch to pause";
-          console.log("✅ Audio playback started - Clock time:", playStartTime, "Audio time:", audioStartTime);
+          playStartTime = performance.now() / 1000;
+          audioStartTime = sound.time;
+          message = "Playing - [Space] or touch to pause";
+          console.log("✅ Audio playback started via keyboard - Timestamp:", playStartTime, "Audio time:", audioStartTime);
         } else {
-          console.error("❌ Failed to start audio playback - no sound object returned");
-          message = "Failed to play audio";
+          console.error("❌ Failed to start audio playback - sound.play() returned null/undefined");
+          console.log("🔍 Checking if file exists in sound system...");
+          message = "Failed to play audio - file not found?";
         }
       } catch (error) {
         console.error("❌ Audio playback error:", error);
-        message = "Failed to play audio";
+        console.error("❌ Error details:", error.message, error.stack);
+        message = "Failed to play audio - " + error.message;
+      }
+    } else {
+      console.log("🔄 No WAV file loaded yet - starting ALS visualizer without audio");
+      if (alsProject) {
+        isPlaying = true;
+        playStartTime = performance.now() / 1000; // Convert to seconds
+        message = "Playing ALS visualizer - DROP .WAV FILE FOR AUDIO";
+      } else {
+        message = "No audio or ALS file loaded - drop .als + .wav files to start";
       }
     }
     return; // Important: return early to prevent other event handling
   }
   
   // Handle WAV events that come via act with file properties directly on event
-  if (e.name && e.size && e.id && !e.is("touch")) {
+  if (e.name && e.size && e.id && !e.is("touch") && !e.is("keyboard:down:space")) {
     console.log("🔊 WAV file received in act:", e.name, "Size:", e.size, "ID:", e.id);
+    console.log("🔊 Full WAV event details:", e);
+    
     wavFile = {
       name: e.name,
       originalName: e.originalName || e.name,
       size: e.size,
       id: e.id
     };
+    
+    console.log("🔊 WAV file stored from act:", wavFile);
+    
     isPlaying = false;
     if (playingSfx) {
       try {
@@ -2000,8 +4097,15 @@ function act({ event: e, sound, pen, clock }) {
         playingSfx = null;
       }
     }
-    message = `WAV ready: ${wavFile.name}`;
+    message = `WAV ready: ${wavFile.name} (ID: ${wavFile.id})`;
     console.log("🔊 WAV file ready for playback");
+    
+    // If ALS is already loaded, start playing
+    if (alsProject) {
+      console.log("🎵 ALS already loaded, ready to play both!");
+      message = `Ready: ${alsProject.projectName} + ${wavFile.name} - Press [Space] or touch to play`;
+    }
+    
     return;
   }
   
@@ -2020,41 +4124,110 @@ function act({ event: e, sound, pen, clock }) {
 
 // ⌨ Receive (Handle special system events)
 function receive({ type, content }) {
-  console.log("🔧 Received event:", type, content);
+  console.log("🎯 ABLETON.MJS: receive() called with type:", type, "content:", content);
+  console.log("🎯 ABLETON.MJS: receive() full event details:", { type, content });
   
   // Handle dropped ALS files
   if (type === "dropped:als") {
-    console.log("🎵 Received ALS file:", content.name);
+    console.log("🎵 ABLETON.MJS: Received ALS file:", content?.name);
+    console.log("🔍 ABLETON.MJS: Content structure:", content);
+    
+    // Check different possible data structures
     if (content.xmlData) {
+      console.log("🎵 Found xmlData in content, creating project...");
       alsProject = new ALSProject(content.xmlData);
+      alsProject.projectName = content.name;
       message = `ALS loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`;
       console.log("✅ ALS Project loaded via receive:", alsProject);
+      
+      // 🎵 Auto-start playback when ALS loads
+      if (!isPlaying && alsProject) {
+        isPlaying = true;
+        playStartTime = performance.now();
+        console.log("🎵 ABLETON.MJS: Auto-starting playback");
+      }
+    } else if (content.data) {
+      console.log("🎵 Found data in content, creating project...");
+      alsProject = new ALSProject(content.data);
+      alsProject.projectName = content.name;
+      message = `ALS loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`;
+      console.log("✅ ALS Project loaded via receive:", alsProject);
+      
+      // 🎵 Auto-start playback when ALS loads
+      if (!isPlaying && alsProject) {
+        isPlaying = true;
+        playStartTime = performance.now();
+        console.log("🎵 ABLETON.MJS: Auto-starting playback");
+      }
+    } else if (content.project && content.project.tracks) {
+      console.log("🎵 Found parsed project data, using BIOS-parsed tracks...");
+      // Create a basic project from BIOS-parsed data
+      alsProject = new ALSProject(null); // Create empty project
+      alsProject.projectName = content.name;
+      alsProject.tracks = content.project.tracks;
+      alsProject.tempo = content.project.tempo || 120;
+      message = `ALS loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm (BIOS-parsed)`;
+      console.log("✅ ALS Project loaded from BIOS data:", alsProject);
+      
+      // 🎵 Auto-start playback when ALS loads
+      if (!isPlaying && alsProject) {
+        isPlaying = true;
+        playStartTime = performance.now();
+        console.log("🎵 ABLETON.MJS: Auto-starting playback");
+      }
+    } else if (typeof content === 'string') {
+      console.log("🎵 Content is string, using as XML data...");
+      alsProject = new ALSProject(content);
+      message = `ALS loaded: ${alsProject.tracks.length} tracks @ ${alsProject.tempo}bpm`;
+      console.log("✅ ALS Project loaded via receive:", alsProject);
+    } else {
+      console.error("❌ ALS content structure not recognized:", content ? Object.keys(content) : "no content");
+      console.log("🔍 Full content:", content);
+      message = "ALS file structure not recognized";
     }
   }
   
   // Handle dropped WAV files
   if (type === "dropped:wav") {
-    console.log("🔊 Received WAV file via receive:", content.name, "ID:", content.id);
-    wavFile = {
-      name: content.name,
-      size: content.size || 0,
-      id: content.id // Use the file ID as audio reference
-    };
-    isPlaying = false;
-    if (playingSfx) {
-      // Stop any current playback
-      try {
-        if (playingSfx.kill) {
-          playingSfx.kill();
+    console.log("🔊 ABLETON.MJS: Received WAV file via receive:", content?.name, "ID:", content?.id);
+    console.log("🔊 ABLETON.MJS: Full WAV content:", content);
+    
+    if (content && content.id) {
+      wavFile = {
+        name: content.name,
+        size: content.size || 0,
+        id: content.id // Use the file ID as audio reference
+      };
+      
+      console.log("🔊 ABLETON.MJS: WAV file stored:", wavFile);
+      
+      // Stop any current playback before setting up new file
+      if (playingSfx) {
+        try {
+          if (playingSfx.kill) {
+            playingSfx.kill();
+          }
+          playingSfx = null;
+        } catch (error) {
+          console.error("Error stopping audio in receive:", error);
+          playingSfx = null;
         }
-        playingSfx = null;
-      } catch (error) {
-        console.error("Error stopping audio in receive:", error);
-        playingSfx = null;
       }
+      
+      // For dropped WAV files, the audio is already decoded by BIOS
+      // so we don't need to preload - we can use the ID directly
+      console.log("🔊 ABLETON.MJS: WAV file ready for direct playback (already decoded by BIOS)");
+      message = `WAV ready: ${wavFile.name} - touch or [Space] to play`;
+      
+      // If ALS is already loaded and was auto-playing, start audio too
+      if (isPlaying && alsProject) {
+        console.log("🎵 ALS already playing, auto-starting WAV audio...");
+        message = `Playing: ${alsProject.projectName} with ${wavFile.name}`;
+      }
+    } else {
+      console.error("🔊 ABLETON.MJS: WAV content missing ID or invalid:", content);
+      message = "WAV file could not be loaded";
     }
-    message = `WAV ready: ${wavFile.name}`;
-    console.log("🔊 WAV file ready for playback via receive");
   }
 }
 
