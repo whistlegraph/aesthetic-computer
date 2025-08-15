@@ -21,8 +21,9 @@ function boot({ Form, CUBEL, penLock }) {
   );
 }
 
-function paint({ wipe }) {
+function paint({ wipe, ink, screen }) {
   wipe("gray").ink("red").form(cube);
+  // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
 }
 
 function act({ event: e, penLock }) {

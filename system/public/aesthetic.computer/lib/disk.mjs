@@ -106,6 +106,7 @@ const defaults = {
   beat: () => false, // Runs every bpm.
   act: () => false, // All user interaction.
   leave: () => false, // Before unload.
+  receive: () => false, // Handle messages from BIOS (file drops, etc.)
   preview: ({ wipe, slug }) => {
     wipe(64).ink(255).write(slug, { center: "xy", size: 1 });
   },
@@ -254,6 +255,7 @@ let beat = defaults.beat;
 let brush, filter; // Only set in the `nopaint` system.
 let act = defaults.act;
 let leave = defaults.leave;
+let receive = defaults.receive; // Handle messages from BIOS
 let preview = defaults.preview;
 let icon = defaults.icon;
 let bake; // Currently only used by the `nopaint` system.
@@ -4249,6 +4251,7 @@ async function load(
       beat = module.beat || defaults.beat;
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
+      receive = module.receive || defaults.receive; // Handle messages from BIOS
       system = module.system || null;
 
       // delete $commonApi.system.name; // No system in use.
@@ -4666,6 +4669,81 @@ async function makeFrame({ data: { type, content } }) {
         act($api);
       } catch (e) {
         console.warn("️ ✒ Act failure...", e);
+      }
+    }
+    return;
+  }
+
+  // Handle dropped ALS files - route to piece receive function if available
+  if (type === "dropped:als") {
+    console.log("🎵 DISK.MJS: Received dropped:als message:", content);
+    
+    // First try to call the piece's receive function if it exists
+    if (typeof receive === "function") {
+      console.log("🎵 DISK.MJS: Calling piece receive function");
+      try {
+        receive({ type, content });
+      } catch (e) {
+        console.warn("🎵 DISK.MJS: Piece receive function error:", e);
+      }
+    } else {
+      console.log("🎵 DISK.MJS: No piece receive function found, triggering act event");
+      // Fall back to act event pattern
+      const $api = cachedAPI;
+      if ($api) {
+        const data = { 
+          name: content.name, 
+          xmlData: content.xmlData,
+          type: "dropped:als"
+        };
+        Object.assign(data, {
+          device: "none",
+          is: (e) => e === type,
+        });
+        $api.event = data;
+        try {
+          act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
+      }
+    }
+    return;
+  }
+
+  // Handle dropped WAV files - route to piece receive function if available
+  if (type === "dropped:wav") {
+    console.log("🎵 DISK.MJS: Received dropped:wav message:", content);
+    
+    // First try to call the piece's receive function if it exists
+    if (typeof receive === "function") {
+      console.log("🎵 DISK.MJS: Calling piece receive function for WAV");
+      try {
+        receive({ type, content });
+      } catch (e) {
+        console.warn("🎵 DISK.MJS: Piece receive function error for WAV:", e);
+      }
+    } else {
+      console.log("🎵 DISK.MJS: No piece receive function found for WAV, triggering act event");
+      // Fall back to act event pattern
+      const $api = cachedAPI;
+      if ($api) {
+        const data = { 
+          name: content.name || content.originalName,
+          id: content.id,
+          size: content.size,
+          type: "dropped:wav"
+        };
+        Object.assign(data, {
+          device: "none",
+          is: (e) => e === type,
+        });
+        $api.event = data;
+        try {
+          act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
       }
     }
     return;
