@@ -319,28 +319,60 @@ export class Pen {
     window.addEventListener("pointerleave", function (e) {
       // Send message to worker to cancel any active UI button interactions
       if (window.acSEND) {
-        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+        window.acSEND({ 
+          type: "ui:cancel-interactions", 
+          content: { 
+            x: e.x, 
+            y: e.y, 
+            pointer: e.pointerId,
+            reason: "pointerleave"
+          } 
+        });
       }
     });
     
     window.addEventListener("mouseleave", function (e) {
       // Send message to worker to cancel any active UI button interactions
       if (window.acSEND) {
-        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+        window.acSEND({ 
+          type: "ui:cancel-interactions", 
+          content: { 
+            x: e.x, 
+            y: e.y, 
+            pointer: e.pointerId,
+            reason: "mouseleave"
+          } 
+        });
       }
     });
 
     document.addEventListener("pointerleave", function (e) {
       // Send UI cancellation message
       if (window.acSEND) {
-        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+        window.acSEND({ 
+          type: "ui:cancel-interactions", 
+          content: { 
+            x: e.x, 
+            y: e.y, 
+            pointer: e.pointerId,
+            reason: "document-pointerleave"
+          } 
+        });
       }
     });
 
     document.body.addEventListener("pointerleave", function (e) {
       // Send UI cancellation message
       if (window.acSEND) {
-        window.acSEND({ type: "ui:cancel-interactions", content: {} });
+        window.acSEND({ 
+          type: "ui:cancel-interactions", 
+          content: { 
+            x: e.x, 
+            y: e.y, 
+            pointer: e.pointerId,
+            reason: "body-pointerleave"
+          } 
+        });
       }
     });
 
