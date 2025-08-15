@@ -5,6 +5,9 @@ if test -d /home/me/envs
     load_envs # Load devcontainer envs conditionally.
 end
 
+# Add Deno to PATH
+set -gx PATH /home/me/.deno/bin $PATH
+
 # Enable `fnm` support.
 
 if test -f $HOME/.fnm/fnm
