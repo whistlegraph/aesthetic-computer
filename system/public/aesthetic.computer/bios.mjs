@@ -5046,7 +5046,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (window.acTOKEN) {
         if (window.parent) {
           window.parent.postMessage({ type: "logout" }, "*");
-          localStorage.removeItem("session-aesthetic");
+          window.safeLocalStorageRemove("session-aesthetic");
         }
         // Just use the logout services of the host.
       } else {
@@ -6107,7 +6107,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Local Storage
       if (content.method === "local") {
         try {
-          localStorage.setItem(content.key, JSON.stringify(content.data));
+          window.safeLocalStorageSet(content.key, JSON.stringify(content.data));
         } catch (e) {
           // console.warn(e);
         }
@@ -6147,9 +6147,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.method === "local") {
         let data;
 
-        if (!sandboxed) {
+        if (!window.acLOCALSTORAGE_BLOCKED) {
           try {
-            data = JSON.parse(localStorage.getItem(content.key));
+            const item = window.safeLocalStorageGet(content.key);
+            if (item) data = JSON.parse(item);
           } catch (err) {
             console.warn("📦 Retrieval error:", err);
             // Probably in a sandboxed environment here...
@@ -6187,7 +6188,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.method === "local") {
         if (debug && logs.store)
           console.log("📦 Delete local data:", content.key);
-        localStorage.removeItem(content.key);
+        window.safeLocalStorageRemove(content.key);
         send({
           type: "store:deleted",
           content: { key: content.key, data: true },
