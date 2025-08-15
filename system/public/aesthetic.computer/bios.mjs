@@ -1224,20 +1224,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
+    // console.log("🎵 BIOS playSfx called:", {
+    //   id,
+    //   soundData,
+    //   options,
+    //   audioContextAvailable: !!audioContext,
+    //   sfxExists: !!sfx[soundData],
+    //   sfxType: sfx[soundData] ? typeof sfx[soundData] : "undefined"
+    // });
+    
     if (audioContext) {
       if (sfxCancel.includes(id)) {
+        console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
+      console.log("🎵 BIOS attempting to decode sfx:", soundData);
       await decodeSfx(soundData);
+      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
+        console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
         return;
       }
 
       if (!sfx[soundData]) {
+        console.log("🎵 BIOS sfx not found, queuing:", soundData);
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -1260,12 +1274,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
+      console.log("🎵 BIOS sample prepared:", {
+        soundData,
+        sampleChannels: sample.channels.length,
+        sampleRate: sample.sampleRate,
+        length: sample.length,
+        triggerSoundAvailable: !!triggerSound
+      });
+
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
 
       // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
-      sfxPlaying[id] = triggerSound?.({
+      const playResult = triggerSound?.({
         id,
         type: "sample",
         options: {
@@ -1283,6 +1305,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // attack: 0, // 🩷 TODO: These should have saner defaults.
         // decay: 0,
       });
+
+      console.log("🎵 BIOS triggerSound result:", {
+        id,
+        playResult,
+        playResultType: typeof playResult
+      });
+
+      sfxPlaying[id] = playResult;
 
       // Store the completion callback if provided
       if (completed) {
@@ -9883,12 +9913,101 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Pointer Lock 🔫
+  let pointerLockCursor = null;
+  
+  // Create the pointer lock cursor element
+  function createPointerLockCursor() {
+    // Remove any existing cursor first
+    const existing = document.getElementById("pointer-lock-cursor");
+    if (existing) existing.remove();
+    
+    const cursor = document.createElement("div");
+    cursor.id = "pointer-lock-cursor";
+    cursor.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 25 25">
+        <path d="
+            M 13,3 L 13,6 
+            M 13,20 L 13,23 
+            M 6,13 L 3,13 
+            M 20,13 L 23,13
+        " stroke="black" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="2" fill="black" />
+        <path d="
+            M 12,2 L 12,5 
+            M 12,19 L 12,22 
+            M 5,12 L 2,12 
+            M 19,12 L 22,12
+        " stroke="#00FFFF" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2" fill="#ffffff" />
+      </svg>
+    `;
+    
+    // Use setAttribute for better compatibility
+    cursor.setAttribute("style", `
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: 24px !important;
+      height: 24px !important;
+      transform: translate(-50%, -50%) !important;
+      pointer-events: none !important;
+      z-index: 999999 !important;
+      display: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    `.replace(/\s+/g, ' ').trim());
+    
+    document.body.appendChild(cursor);
+    console.log("🎯 Pointer lock cursor element created with inline SVG", cursor);
+    console.log("🎯 Cursor element styles:", cursor.getAttribute("style"));
+    console.log("🎯 Document body children count:", document.body.children.length);
+    return cursor;
+  }
+  
   document.addEventListener("pointerlockchange", () => {
+    const isLocked = document.pointerLockElement === wrapper;
+    console.log("🔒 Pointer lock change:", isLocked);
+    console.log("🔒 Pointer lock element:", document.pointerLockElement);
+    console.log("🔒 Wrapper element:", wrapper);
+    
+    // Create cursor element if it doesn't exist
+    if (!pointerLockCursor) {
+      pointerLockCursor = createPointerLockCursor();
+    }
+    
+    // Show/hide the cursor based on pointer lock state
+    if (isLocked) {
+      pointerLockCursor.style.setProperty("display", "block", "important");
+      console.log("🎯 Showing pointer lock cursor");
+      console.log("🎯 Cursor element display:", pointerLockCursor.style.display);
+      console.log("🎯 Cursor element in DOM:", document.getElementById("pointer-lock-cursor"));
+    } else {
+      pointerLockCursor.style.setProperty("display", "none", "important");
+      console.log("🎯 Hiding pointer lock cursor");
+    }
+    
     send({
-      type:
-        document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
+      type: isLocked ? "pen:locked" : "pen:unlocked",
     });
   });
+
+  // Test: Show cursor for 3 seconds on page load to verify it works
+  setTimeout(() => {
+    console.log("🧪 Testing cursor visibility...");
+    if (!pointerLockCursor) {
+      pointerLockCursor = createPointerLockCursor();
+    }
+    pointerLockCursor.style.setProperty("display", "block", "important");
+    console.log("🧪 Cursor shown for testing");
+    console.log("🧪 Test cursor computed style:", window.getComputedStyle(pointerLockCursor).display);
+    console.log("🧪 Test cursor position:", window.getComputedStyle(pointerLockCursor).position);
+    console.log("🧪 Test cursor z-index:", window.getComputedStyle(pointerLockCursor).zIndex);
+    
+    setTimeout(() => {
+      pointerLockCursor.style.setProperty("display", "none", "important");
+      console.log("🧪 Test cursor hidden");
+    }, 3000);
+  }, 1000);
 
   // document.addEventListener("pointerlockerror", () => {
   // console.error("Pointer lock failed!");
@@ -10137,18 +10256,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const reader = new FileReader();
         reader.onload = async function (e) {
           try {
-            console.log("🔊 Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
+            console.log("🔊 BIOS: Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
             
             // Create a unique ID for this WAV file
             const wavId = "dropped-wav-" + file.name.replace(/\.wav$/, "") + "-" + performance.now();
             const arrayBuffer = e.target.result;
             const fileSize = arrayBuffer.byteLength; // Capture size before storing
             
+            console.log("🔊 BIOS: Storing WAV in sfx cache with ID:", wavId);
             // Store the WAV data in the sfx cache for decoding and playback
             sfx[wavId] = arrayBuffer;
             
+            console.log("🔊 BIOS: Starting immediate WAV decoding...");
             // Trigger immediate decoding
             await decodeSfx(wavId);
+            console.log("🔊 BIOS: WAV decoding complete, sending to piece...");
             
             send({
               type: "dropped:wav",
@@ -10159,8 +10281,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 id: wavId // Include the audio ID for playback
               },
             });
+            
+            console.log("🔊 BIOS: WAV processing complete for:", wavId);
           } catch (error) {
-            console.error("❌ Failed to process WAV file:", error);
+            console.error("❌ BIOS: Failed to process WAV file:", error);
           }
         };
         reader.readAsArrayBuffer(file);
@@ -10535,14 +10659,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
+    console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
+    
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
+      console.log("🎵 BIOS decodeSfx already in progress for:", sound);
       // Wait a moment and check again
       await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
     }
 
     if (sfx[sound] instanceof ArrayBuffer) {
+      console.log("🎵 BIOS decodeSfx starting decode for ArrayBuffer:", sound);
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
 
@@ -10561,14 +10689,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const buf = sfx[sound];
         sfx[sound] = null;
         if (buf && audioContext) {
+          console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+          console.log("🎵 BIOS decode successful:", sound, "audioBuffer:", !!audioBuffer);
           sfx[sound] = audioBuffer;
 
           // Process any queued sounds that might be waiting for this file
           processPendingSfx();
 
           return sfx[sound];
+        } else {
+          console.error("🎵 BIOS decode failed - missing buffer or audioContext:", !!buf, !!audioContext);
         }
       } catch (err) {
         console.error("🔉 [DECODE] Decode error:", err, "➡️", sound);
