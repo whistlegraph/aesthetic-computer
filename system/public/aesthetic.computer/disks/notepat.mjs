@@ -1047,6 +1047,20 @@ function act({
   }
   if (e.is("keyboard:down:\\")) projector = !projector;
 
+  // 🚨 PANIC BUTTON: Press Escape to stop all stuck sounds
+  if (e.is("keyboard:down:escape")) {
+    console.log("🚨 PANIC: Force stopping all sounds!");
+    Object.keys(sounds).forEach(note => {
+      console.log("🔇 Force killing stuck sound:", note);
+      sounds[note]?.sound?.kill(0.01); // Very fast kill
+    });
+    // Clear all state
+    Object.keys(sounds).forEach(note => delete sounds[note]);
+    Object.keys(tonestack).forEach(note => delete tonestack[note]);
+    Object.keys(trail).forEach(note => delete trail[note]);
+    console.log("🧹 All audio state cleared");
+  }
+
   // if (e.is("keyboard:down:arrowleft")) {
   // scopeTrim -= 1;
   // if (scopeTrim < 0) scopeTrim = 0;
@@ -1361,8 +1375,20 @@ function act({
             },
             // TODO: The order of over and out will be important...
             out: (btn) => {
-              btn.down = false;
-              btn.actions.up(btn);
+              // Only stop the sound when dragging off, but don't affect button down state
+              console.log("🔇 Note OUT - stopping sound:", note);
+              sounds[note]?.sound?.kill(killFade);
+              delete tonestack[note]; // Remove from notestack  
+              delete sounds[note]; // Remove sound reference
+              delete trail[note]; // Clean up trail
+            },
+            cancel: (btn) => {
+              // Force cleanup when button gets stuck - stop the sound immediately
+              console.log("🔇 Force stopping stuck sound:", note);
+              sounds[note]?.sound?.kill(fastFade); // Use fast fade for force cleanup
+              delete tonestack[note]; // Remove from notestack
+              delete sounds[note]; // Remove sound reference
+              delete trail[note]; // Clean up trail
             },
             up: (btn) => {
               // ❤️‍🔥 TODO: How to manage the sliding here?
