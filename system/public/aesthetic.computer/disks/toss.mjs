@@ -153,6 +153,7 @@ function act({ event: e, api, sound, pens }) {
       e,
       {
         down: () => {
+          console.log("🎵 Toss band starting sound:", index, band.tone);
           band.sound = sound.synth({
             type,
             attack,
@@ -161,11 +162,12 @@ function act({ event: e, api, sound, pens }) {
           });
         },
         up: () => {
+          console.log("🔇 Toss band UP - stopping sound:", index, !!band.sound);
           band.sound?.kill(killFade);
           band.sound = null;
         },
         cancel: () => {
-          // Handle button cancellation (including edge detection)
+          console.log("🔇 Toss band CANCEL - stopping sound:", index, !!band.sound);
           band.sound?.kill(killFade);
           band.sound = null;
         },
@@ -173,7 +175,9 @@ function act({ event: e, api, sound, pens }) {
           // Simple rollover - no complex activation logic
         },
         out: (btn) => {
-          // Simple rollout - no complex deactivation logic
+          console.log("🔇 Toss band OUT - stopping sound:", index, !!band.sound);
+          band.sound?.kill(killFade);
+          band.sound = null;
         },
         scrub: (g) => {
           band.tone -= e.delta.y;

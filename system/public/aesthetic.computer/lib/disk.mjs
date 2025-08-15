@@ -6032,7 +6032,11 @@ async function makeFrame({ data: { type, content } }) {
       // Ingest all pen input events by running act for each event.
       // TODO: I could also be transforming pen coordinates here...
       // TODO: Keep track of lastPen to see if it changed.
+      const startTime = performance.now();
+      let penEventCount = 0;
+      
       content.pen?.events.forEach((data) => {
+        penEventCount++;
         Object.assign(data, {
           device: data.device,
           is: (e) => {
@@ -6252,6 +6256,17 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
       });
+      
+      if (penEventCount > 0) {
+        const processingTime = performance.now() - startTime;
+        if (processingTime > 5) { // Only log if processing took more than 5ms
+          console.log("🖋️ Pen event processing:", {
+            eventCount: penEventCount,
+            processingTime: processingTime.toFixed(2) + "ms",
+            avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
+          });
+        }
+      }
 
       // Ingest all keyboard input events by running act for each event.
       content.keyboard?.forEach((data) => {
@@ -6289,6 +6304,25 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
       });
+
+      // *** UI Cancel Interactions *** (For edge detection)
+      if (content.type === "ui:cancel-interactions" && content.content) {
+        const cancelData = {
+          name: "ui:cancel-interactions",
+          x: content.content.x,
+          y: content.content.y,
+          pointer: content.content.pointer,
+          reason: content.content.reason,
+          is: (e) => e === "ui:cancel-interactions",
+        };
+        
+        $api.event = cancelData;
+        try {
+          act($api); // Execute cancel for all buttons
+        } catch (e) {
+          console.warn("️ ✒ Act failure (UI cancel)...", e);
+        }
+      }
 
       // *** Act Alerts *** (Custom events defined in here.)
       // These do not run in the initial loader / preview piece.
