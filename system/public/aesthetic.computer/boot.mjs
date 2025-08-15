@@ -21,6 +21,60 @@ function cleanUrlParams(url, params) {
   );
 }
 
+// Test localStorage access early to detect sandbox restrictions
+let localStorageBlocked = false;
+try {
+  // Test both read and write access
+  const testKey = 'ac-sandbox-test';
+  localStorage.setItem(testKey, 'test');
+  localStorage.getItem(testKey);
+  localStorage.removeItem(testKey);
+} catch (err) {
+  localStorageBlocked = true;
+  console.warn('🏜️ localStorage access blocked (sandboxed iframe):', err.message);
+}
+
+// Make localStorage state globally available
+window.acLOCALSTORAGE_BLOCKED = localStorageBlocked;
+
+// Safe localStorage functions
+function safeLocalStorageGet(key) {
+  if (localStorageBlocked) return null;
+  try {
+    return localStorage.getItem(key);
+  } catch (err) {
+    console.warn('localStorage access failed:', err.message);
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  if (localStorageBlocked) return false;
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.warn('localStorage write failed:', err.message);
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key) {
+  if (localStorageBlocked) return false;
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (err) {
+    console.warn('localStorage remove failed:', err.message);
+    return false;
+  }
+}
+
+// Make safe functions globally available
+window.safeLocalStorageGet = safeLocalStorageGet;
+window.safeLocalStorageSet = safeLocalStorageSet;
+window.safeLocalStorageRemove = safeLocalStorageRemove;
+
 // 📧 Check to see if the user clicked an 'email' verified link.
 {
   const params = new URLSearchParams(window.location.search);
@@ -43,13 +97,13 @@ function cleanUrlParams(url, params) {
   const params = new URLSearchParams(window.location.search);
   const vscode =
     params.get("vscode") === "true" ||
-    localStorage.getItem("vscode") === "true";
+    safeLocalStorageGet("vscode") === "true";
 
   if (vscode) {
     params.delete("vscode");
     cleanUrlParams(url, params);
     window.acVSCODE = true;
-    localStorage.setItem("vscode", "true");
+    safeLocalStorageSet("vscode", "true");
   }
 }
 
@@ -127,10 +181,10 @@ let nolabel;
 if (nolabelParam) {
   // URL parameter provided - use it and save to localStorage
   nolabel = true;
-  localStorage.setItem("ac-nolabel", "true");
+  safeLocalStorageSet("ac-nolabel", "true");
 } else {
   // No URL parameter - check localStorage for saved nolabel
-  const savedNolabel = localStorage.getItem("ac-nolabel");
+  const savedNolabel = safeLocalStorageGet("ac-nolabel");
   nolabel = savedNolabel === "true";
 }
 
@@ -141,10 +195,10 @@ let density;
 if (densityParam) {
   // URL parameter provided - use it and save to localStorage
   density = parseFloat(densityParam);
-  localStorage.setItem("ac-density", density.toString());
+  safeLocalStorageSet("ac-density", density.toString());
 } else {
   // No URL parameter - check localStorage for saved density
-  const savedDensity = localStorage.getItem("ac-density");
+  const savedDensity = safeLocalStorageGet("ac-density");
   density = savedDensity ? parseFloat(savedDensity) : undefined;
 }
 
@@ -155,10 +209,10 @@ let zoom;
 if (zoomParam) {
   // URL parameter provided - use it and save to localStorage
   zoom = parseFloat(zoomParam);
-  localStorage.setItem("ac-zoom", zoom.toString());
+  safeLocalStorageSet("ac-zoom", zoom.toString());
 } else {
   // No URL parameter - check localStorage for saved zoom
-  const savedZoom = localStorage.getItem("ac-zoom");
+  const savedZoom = safeLocalStorageGet("ac-zoom");
   zoom = savedZoom ? parseFloat(savedZoom) : undefined;
 }
 
@@ -172,22 +226,22 @@ if (durationParam) {
   // Duration is in seconds, validate it's a positive number
   if (isNaN(duration) || duration <= 0) {
     duration = undefined;
-    localStorage.removeItem("ac-duration"); // Remove invalid duration
+    safeLocalStorageRemove("ac-duration"); // Remove invalid duration
   } else {
-    localStorage.setItem("ac-duration", duration.toString());
+    safeLocalStorageSet("ac-duration", duration.toString());
     // Optional: Remove duration from URL after consumption (uncomment next 2 lines)
     // params.delete("duration");
     // cleanUrlParams(url, params);
   }
 } else {
   // No URL parameter - check localStorage for saved duration
-  const savedDuration = localStorage.getItem("ac-duration");
+  const savedDuration = safeLocalStorageGet("ac-duration");
   if (savedDuration) {
     duration = parseFloat(savedDuration);
     // Validate saved duration
     if (isNaN(duration) || duration <= 0) {
       duration = undefined;
-      localStorage.removeItem("ac-duration");
+      safeLocalStorageRemove("ac-duration");
     }
   }
 }
@@ -208,8 +262,8 @@ if (window.acVSCODE) {
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration }, debug);
 
-let sandboxed = window.origin === "null" && !window.acVSCODE;
-// console.log("🏜️ Sandboxed:", sandboxed, window.acVSCODE);
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked;
+console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked);
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
@@ -270,16 +324,16 @@ loadAuth0Script()
         // the param in localStorage.
         let sotceParam = params.get("session-sotce");
         if (sotceParam && sotceParam !== "null" && sotceParam !== "retrieve") {
-          localStorage.setItem("session-sotce", sotceParam);
+          safeLocalStorageSet("session-sotce", sotceParam);
         }
       }
 
       if (param === "null") {
         // Returns "null" as a string if logged out.
-        localStorage.removeItem("session-aesthetic");
+        safeLocalStorageRemove("session-aesthetic");
       } else if (param === "retrieve" || param === null) {
         // null as a type if a check is needed
-        param = localStorage.getItem("session-aesthetic");
+        param = safeLocalStorageGet("session-aesthetic");
       }
 
       const sessionParams = param;
@@ -347,7 +401,7 @@ loadAuth0Script()
         }
 
         if (sessionParams) {
-          localStorage.setItem("session-aesthetic", encodedSession);
+          safeLocalStorageSet("session-aesthetic", encodedSession);
           params.delete("session-aesthetic"); // Remove the 'session' parameters
           params.delete("session-sotce");
           history.pushState({}, "", url.pathname + "?" + params.toString());
