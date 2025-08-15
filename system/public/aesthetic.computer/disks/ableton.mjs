@@ -3733,7 +3733,7 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line }) {
   const playheadX = 20 + (currentBeat - viewStart) * beatWidth;
   
   // DEBUG: Playhead position
-  console.log(`🎯 Playhead: x=${playheadX.toFixed(1)}, currentBeat=${currentBeat.toFixed(2)}, viewStart=${viewStart.toFixed(1)}, beatWidth=${beatWidth.toFixed(2)}`);
+  console.log(`� Playhead: x=${playheadX.toFixed(1)}, currentBeat=${currentBeat.toFixed(2)}, viewStart=${viewStart.toFixed(1)}, beatWidth=${beatWidth.toFixed(2)}`);
   
   // Only draw playhead if it's within the visible timeline
   if (playheadX >= 20 && playheadX <= screen.width - 40) {
