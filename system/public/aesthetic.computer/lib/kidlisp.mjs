@@ -1860,10 +1860,6 @@ class KidLisp {
           return Math.floor(Math.random() * (max - min + 1)) + min;
         }
       },
-      "?": (api) => {
-        // Shorthand for random - returns 0-255
-        return Math.floor(Math.random() * 256);
-      },
       // Paint API
       resolution: (api, args) => {
         // Handle special fraction keywords
@@ -2005,8 +2001,28 @@ class KidLisp {
         api.wiggle(...args);
       },
       box: (api, args = []) => {
-        // console.log(args);
-        api.box(...args);
+        // Handle undefined (?) values with contextual logic
+        const processedArgs = args.map((arg, index) => {
+          if (arg === undefined) {
+            // Apply contextual logic based on parameter position
+            switch (index) {
+              case 0: // x coordinate
+                return Math.floor(Math.random() * (api.screen?.width || 256));
+              case 1: // y coordinate  
+                return Math.floor(Math.random() * (api.screen?.height || 256));
+              case 2: // width
+                return Math.floor(Math.random() * ((api.screen?.width || 256) / 4)) + 10;
+              case 3: // height
+                return Math.floor(Math.random() * ((api.screen?.height || 256) / 4)) + 10;
+              default:
+                // For other parameters, use a reasonable default range
+                return Math.floor(Math.random() * 256);
+            }
+          }
+          return arg;
+        });
+        
+        api.box(...processedArgs);
       },
       flood: (api, args = []) => {
         // Flood fill at coordinates with optional color
@@ -2787,14 +2803,20 @@ class KidLisp {
       },
       // 🎲 Random selection (alias)
       "?": (api, args = []) => {
-        if (args.length === 0) return undefined;
-        // Use the help.choose function from the common API if available
-        if (api.help?.choose) {
-          return api.help.choose(...args);
+        // If arguments provided, choose randomly from them
+        if (args.length > 0) {
+          // Use the help.choose function from the common API if available
+          if (api.help?.choose) {
+            return api.help.choose(...args);
+          }
+          // Fallback to simple random selection from arguments
+          const randomIndex = Math.floor(Math.random() * args.length);
+          return args[randomIndex];
         }
-        // Fallback to simple random selection
-        const randomIndex = Math.floor(Math.random() * args.length);
-        return args[randomIndex];
+        
+        // If no arguments, return undefined (like JavaScript undefined)
+        // Functions can detect this and apply their own contextual logic
+        return undefined;
       },
       // 🔄 Sequential selection (cycles through arguments in order)
       "...": (api, args = [], env) => {
