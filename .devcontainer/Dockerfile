@@ -225,13 +225,13 @@ RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
 RUN curl https://ops.city/get.sh -sSfL | bash
 
 # Install deno
-# RUN curl -fsSL https://deno.land/install.sh | sh
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.0
 
 # Pre-cache Edge Functions bootstrap files to speed up netlify dev
-# RUN eval "$(/home/me/.deno/bin/deno --version)" && \
-#     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || echo "Bootstrap cache attempt completed" && \
-#     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || echo "Handler cache attempt completed" && \
-#     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || echo "Server cache attempt completed"
+RUN eval "$(/home/me/.deno/bin/deno --version)" && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || echo "Bootstrap cache attempt completed" && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || echo "Handler cache attempt completed" && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || echo "Server cache attempt completed"
 
 # Copy over a custom xdg-open for opening browser URLs on the host.
 # COPY xdg-open.fish /usr/local/bin/xdg-open
