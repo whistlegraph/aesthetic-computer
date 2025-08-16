@@ -2678,6 +2678,7 @@ function printLine(
   if (isProportional) {
     // Use character advance widths from font metadata
     const advances = fontMetadata?.advances || {};
+    const bdfOverrides = fontMetadata?.bdfOverrides || {};
 
     // Calculate character positions for proportional spacing
     let currentX = startX + xOffset;
@@ -2685,6 +2686,17 @@ function printLine(
     [...text.toString()].forEach((char, i) => {
       const charX = currentX;
       let charY = startY;
+      
+      // Apply BDF overrides if they exist for this character
+      if (bdfOverrides[char]) {
+        const override = bdfOverrides[char];
+        if (override.x !== undefined) {
+          charX += override.x * scale;
+        }
+        if (override.y !== undefined) {
+          charY += override.y * scale;
+        }
+      }
       
       // Get character advance width from font data, fallback to blockWidth
       const charAdvance = advances[char] || blockWidth;

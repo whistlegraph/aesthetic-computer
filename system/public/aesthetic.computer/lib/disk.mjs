@@ -48,6 +48,67 @@ import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
+// Helper function to safely check for sandboxed environments in both main thread and worker contexts
+function isSandboxed() {
+  try {
+    // In workers, window is undefined but we can still check self.origin or location
+    if (typeof window !== "undefined") {
+      return window.origin === "null";
+    } else if (typeof self !== "undefined" && self.origin) {
+      return self.origin === "null";
+    } else if (typeof location !== "undefined" && location.origin) {
+      return location.origin === "null";
+    } else {
+      return false; // Default to not sandboxed if we can't determine
+    }
+  } catch (err) {
+    return false; // Default to not sandboxed if there's an error
+  }
+}
+
+// Helper function to get safe protocol and hostname for URL construction
+function getSafeUrlParts() {
+  try {
+    const sandboxed = isSandboxed();
+    
+    if (sandboxed) {
+      return {
+        protocol: "https:",
+        hostname: "aesthetic.computer"
+      };
+    } else {
+      // Try to get location info from various contexts
+      let loc = null;
+      if (typeof location !== "undefined") {
+        loc = location;
+      } else if (typeof self !== "undefined" && self.location) {
+        loc = self.location;
+      } else if (typeof window !== "undefined" && window.location) {
+        loc = window.location;
+      }
+      
+      if (loc) {
+        return {
+          protocol: loc.protocol,
+          hostname: loc.hostname || loc.host
+        };
+      } else {
+        // Fallback if no location available
+        return {
+          protocol: "https:",
+          hostname: "aesthetic.computer"
+        };
+      }
+    }
+  } catch (err) {
+    // Fallback to defaults if there's any error
+    return {
+      protocol: "https:",
+      hostname: "aesthetic.computer"
+    };
+  }
+}
+
 let tf; // Active typeface global.
 
 // Cache for loaded typefaces to avoid recreating them
@@ -1006,8 +1067,24 @@ const $commonApi = {
               byOpts,
             );
           } else {
+            // Use the same origin-aware URL construction logic as module loading
+            const { protocol, hostname } = getSafeUrlParts();
+            
+            let baseUrl;
+            // Check if we're in a development environment (localhost with port)
+            const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+            if (isDevelopment) {
+              // Use the local development server
+              baseUrl = `${protocol}//${hostname}:${location.port}`;
+            } else {
+              // Use the production server for sandboxed iframes or production
+              baseUrl = `https://aesthetic.computer`;
+            }
+            
+            const mediaUrl = `${baseUrl}/media/${handle}/painting/${code}.${extension}`;
+            console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
-              `/media/${handle}/painting/${code}.${extension}`,
+              mediaUrl,
               true,
               undefined,
               byOpts,
@@ -1728,7 +1805,10 @@ const $commonApi = {
       // TODO: And probably the session server as well in
       //       the future. 24.05.23.21.27
     },
-    pieces: `${location.protocol}//${location.host}/aesthetic.computer/disks`,
+    pieces: `${(() => {
+      const { protocol, hostname } = getSafeUrlParts();
+      return `${protocol}//${hostname}`;
+    })()}/aesthetic.computer/disks`,
     parse, // Parse a piece slug.
     // lan: // Set dynamically.
     // host: // Set dynamically.
@@ -3169,10 +3249,41 @@ async function load(
     // if (path === firstPiece && params.length === 0) params = firstParams;
 
     // Check if the path already has a .lisp extension and use it directly, otherwise default to .mjs
-    if (path.endsWith('.lisp')) {
-      fullUrl = location.protocol + "//" + host + "/" + path + "#" + Date.now();
+    // Handle sandboxed environments where location.protocol might be "null:"
+    // For aesthetic.computer pieces, determine the correct server
+    const { protocol, hostname } = getSafeUrlParts();
+    
+    // If we're loading an aesthetic.computer piece, choose the appropriate server
+    let baseUrl;
+    if (path.startsWith('aesthetic.computer/')) {
+      // Check if we're in a development environment (localhost with port)
+      const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+      if (isDevelopment) {
+        // Use the local development server
+        baseUrl = `${protocol}//${hostname}:${location.port}`;
+      } else {
+        // Use the production server for sandboxed iframes or production
+        baseUrl = `https://aesthetic.computer`;
+      }
     } else {
-      fullUrl = location.protocol + "//" + host + "/" + path + ".mjs" + "#" + Date.now();
+      baseUrl = `${protocol}//${hostname}`;
+    }
+    
+    if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
+    
+    // Check if path already includes the hostname to avoid double paths
+    // Only strip "aesthetic.computer/" if we're using the aesthetic.computer hostname
+    let resolvedPath = path;
+    if (baseUrl.includes('aesthetic.computer') && path.startsWith('aesthetic.computer/')) {
+      resolvedPath = path.substring('aesthetic.computer/'.length);
+    }
+    
+    if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
+    
+    if (path.endsWith('.lisp')) {
+      fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
+    } else {
+      fullUrl = baseUrl + "/" + resolvedPath + ".mjs" + "#" + Date.now();
     }
     // The hash `time` parameter busts the cache so that the environment is
     // reset if a disk is re-entered while the system is running.
@@ -3248,10 +3359,13 @@ async function load(
       } else if (fullUrl) {
         let response;
         if (logs.loading) console.log("📥 Loading from url:", fullUrl);
+        if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
         response = await fetch(fullUrl);        if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
+          // Handle sandboxed environments for anon URL construction
+          const { protocol } = getSafeUrlParts();
           const anonUrl =
-            location.protocol +
+            protocol +
             "//" +
             "art.aesthetic.computer" +
             "/" +
@@ -3347,8 +3461,10 @@ async function load(
         console.log("🤖 Response:", response);
 
       if (response.status === 404 || response.status === 403) {
+        // Handle sandboxed environments for anon URL construction
+        const { protocol } = getSafeUrlParts();
         const anonUrl =
-          location.protocol +
+          protocol +
           "//" +
           "art.aesthetic.computer" +
           "/" +
@@ -3771,7 +3887,34 @@ async function load(
         } else if (url.protocol !== "https:") {
         }
       } catch {
-        path = `${location.protocol}//${location.host}/${path}`;
+        // Handle sandboxed environments for path construction
+        const { protocol, hostname } = getSafeUrlParts();
+        const originalPath = path;
+        
+        // Apply the same origin-aware logic as in module loading
+        let baseUrl;
+        if (path.startsWith('aesthetic.computer/')) {
+          // Check if we're in a development environment (localhost with port)
+          const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+          if (isDevelopment) {
+            // Use the local development server
+            baseUrl = `${protocol}//${hostname}:${location.port}`;
+          } else {
+            // Use the production server for sandboxed iframes or production
+            baseUrl = `https://aesthetic.computer`;
+          }
+          
+          // Only strip "aesthetic.computer/" if we're using the aesthetic.computer hostname
+          if (baseUrl.includes('aesthetic.computer')) {
+            path = path.substring('aesthetic.computer/'.length);
+          }
+        } else {
+          baseUrl = `${protocol}//${hostname}`;
+        }
+        
+        path = `${baseUrl}/${path}`;
+        
+        // Removed debug log for font glyph preload
       }
     }
 
