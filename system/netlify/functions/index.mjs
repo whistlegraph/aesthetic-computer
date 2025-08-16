@@ -43,6 +43,13 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  // Handle direct requests to /disks/ paths (static asset requests)
+  if (slug.startsWith("disks/")) {
+    // For direct disk file requests, strip the "disks/" prefix
+    // so "/disks/prompt.mjs" becomes "prompt.mjs"
+    slug = slug.substring(6); // Remove "disks/"
+  }
+
   // Prevent loading of .json, font, or other non-code files as Lisp/JS pieces
   const forbiddenExtensions = [".json", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico"];
   for (const ext of forbiddenExtensions) {
