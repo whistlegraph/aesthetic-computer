@@ -226,7 +226,7 @@ async function fun(event, context) {
       } catch (e) {
         console.log("🔴 Piece load failure...");
         const anonUrl = `https://art.aesthetic.computer/${
-          parsed.path.split("/").pop().mjs
+          parsed.path.split("/").pop() + ".mjs"
         }`;
         console.log("📥 Attempting to load piece from anon:", anonUrl);
         const externalPiece = await getPage(anonUrl);
