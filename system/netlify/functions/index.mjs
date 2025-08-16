@@ -48,6 +48,14 @@ async function fun(event, context) {
     // For direct disk file requests, strip the "disks/" prefix
     // so "/disks/prompt.mjs" becomes "prompt.mjs"
     slug = slug.substring(6); // Remove "disks/"
+    
+    // Also strip the file extension if present, since the netlify function expects
+    // the piece name without extension
+    if (slug.endsWith(".mjs")) {
+      slug = slug.slice(0, -4); // Remove ".mjs"
+    } else if (slug.endsWith(".lisp")) {
+      slug = slug.slice(0, -5); // Remove ".lisp"
+    }
   }
 
   // Prevent loading of .json, font, or other non-code files as Lisp/JS pieces
