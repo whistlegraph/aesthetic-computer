@@ -472,7 +472,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
         link.crossOrigin = "anonymous";
-        link.href = "/type/webfonts/" + font;
+        
+        // Use origin-aware font loading
+        let fontUrl;
+        try {
+          // Check if we're in development environment
+          const isDevelopment = location.hostname === 'localhost' && location.port;
+          if (isDevelopment) {
+            // In development, fonts are served from the root /type/webfonts/ path
+            fontUrl = "/type/webfonts/" + font;
+          } else {
+            // In production or sandboxed iframe, use the standard path
+            fontUrl = "/type/webfonts/" + font;
+          }
+        } catch (err) {
+          // Fallback to standard path if there's any error
+          fontUrl = "/type/webfonts/" + font;
+        }
+        
+        link.href = fontUrl;
         document.body.append(link);
       });
 
@@ -1931,14 +1949,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Sync labelBack state between worker and main thread
     if (type === "labelBack:set") {
       mainThreadLabelBack = true;
-      sessionStorage.setItem("aesthetic-labelBack", "true");
+      window.safeSessionStorageSet("aesthetic-labelBack", "true");
       console.log("🔗 Main thread: Set labelBack in sessionStorage");
       return;
     }
 
     if (type === "labelBack:clear") {
       mainThreadLabelBack = false;
-      sessionStorage.removeItem("aesthetic-labelBack");
+      window.safeSessionStorageRemove("aesthetic-labelBack");
       console.log("🔗 Main thread: Cleared labelBack from sessionStorage");
       return;
     }
@@ -8024,7 +8042,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (mainThreadLabelBack) {
         // Clear the labelBack state since we're handling the navigation
         mainThreadLabelBack = false;
-        sessionStorage.removeItem("aesthetic-labelBack");
+        window.safeSessionStorageRemove("aesthetic-labelBack");
 
         // Navigate directly to the target piece from worker instead of using history.back()
         // This avoids the reload cycle for kidlisp pieces
@@ -9269,9 +9287,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Or from the storage network.
         // Check to see if filename has user handle data.
         const hasEmailOrHandle = filename.split("/")[0].indexOf("@") > -1;
-        object = hasEmailOrHandle
-          ? `/media/${filename}`
-          : `https://art.aesthetic.computer/${filename}`;
+        if (hasEmailOrHandle) {
+          // Apply origin-aware URL construction for media files
+          try {
+            const isDevelopment = location.hostname === 'localhost' && location.port;
+            if (isDevelopment) {
+              object = `https://localhost:${location.port}/media/${filename}`;
+              if (debug) console.log("🖼️ Media URL (dev):", { filename, object, hostname: location.hostname, port: location.port });
+            } else {
+              object = `/media/${filename}`;
+              if (debug) console.log("🖼️ Media URL (prod):", { filename, object });
+            }
+          } catch (err) {
+            // Fallback if there's any error
+            object = `/media/${filename}`;
+            console.warn("🖼️ Media URL fallback:", { filename, object, err });
+          }
+        } else {
+          object = `https://art.aesthetic.computer/${filename}`;
+        }
       }
     } else if (ext === "mp4" || ext === "webm") {
       // TODO: ⚠️ `webm` could eventually mean audio here...
@@ -10055,7 +10089,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Track labelBack state in main thread (persists across worker reloads)
   let mainThreadLabelBack =
-    sessionStorage.getItem("aesthetic-labelBack") === "true";
+    window.safeSessionStorageGet("aesthetic-labelBack") === "true";
 
   window.onpopstate = function (e) {
     if (
@@ -10076,7 +10110,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       parsed.labelBack = true;
       // Clear the state after using it for navigation
       mainThreadLabelBack = false;
-      sessionStorage.removeItem("aesthetic-labelBack");
+      window.safeSessionStorageRemove("aesthetic-labelBack");
       console.log(
         "🔗 Main thread: Cleared labelBack after using it for history navigation",
       );
