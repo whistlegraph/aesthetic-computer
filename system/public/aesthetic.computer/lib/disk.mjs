@@ -3261,6 +3261,9 @@ async function load(
       if (isDevelopment) {
         // Use the local development server
         baseUrl = `${protocol}//${hostname}:${location.port}`;
+      } else if (hostname.includes('aesthetic.computer')) {
+        // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
+        baseUrl = `${protocol}//${hostname}`;
       } else {
         // Use the production server for sandboxed iframes or production
         baseUrl = `https://aesthetic.computer`;
@@ -3272,9 +3275,9 @@ async function load(
     if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
     
     // Check if path already includes the hostname to avoid double paths
-    // Only strip "aesthetic.computer/" if we're using the aesthetic.computer hostname
+    // Only strip "aesthetic.computer/" if we're using the main production domain
     let resolvedPath = path;
-    if (baseUrl.includes('aesthetic.computer') && path.startsWith('aesthetic.computer/')) {
+    if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
       resolvedPath = path.substring('aesthetic.computer/'.length);
     }
     
@@ -3899,13 +3902,16 @@ async function load(
           if (isDevelopment) {
             // Use the local development server
             baseUrl = `${protocol}//${hostname}:${location.port}`;
+          } else if (hostname.includes('aesthetic.computer')) {
+            // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
+            baseUrl = `${protocol}//${hostname}`;
           } else {
             // Use the production server for sandboxed iframes or production
             baseUrl = `https://aesthetic.computer`;
           }
           
-          // Only strip "aesthetic.computer/" if we're using the aesthetic.computer hostname
-          if (baseUrl.includes('aesthetic.computer')) {
+          // Only strip "aesthetic.computer/" if we're using the main production domain
+          if (baseUrl === 'https://aesthetic.computer') {
             path = path.substring('aesthetic.computer/'.length);
           }
         } else {
