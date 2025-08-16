@@ -34,8 +34,21 @@ try {
   console.warn('🏜️ localStorage access blocked (sandboxed iframe):', err.message);
 }
 
-// Make localStorage state globally available
+// Test sessionStorage access
+let sessionStorageBlocked = false;
+try {
+  const testKey = 'ac-session-test';
+  sessionStorage.setItem(testKey, 'test');
+  sessionStorage.getItem(testKey);
+  sessionStorage.removeItem(testKey);
+} catch (err) {
+  sessionStorageBlocked = true;
+  console.warn('🏜️ sessionStorage access blocked (sandboxed iframe):', err.message);
+}
+
+// Make storage state globally available
 window.acLOCALSTORAGE_BLOCKED = localStorageBlocked;
+window.acSESSIONSTORAGE_BLOCKED = sessionStorageBlocked;
 
 // Safe localStorage functions
 function safeLocalStorageGet(key) {
@@ -70,10 +83,46 @@ function safeLocalStorageRemove(key) {
   }
 }
 
+// Safe sessionStorage functions
+function safeSessionStorageGet(key) {
+  if (sessionStorageBlocked) return null;
+  try {
+    return sessionStorage.getItem(key);
+  } catch (err) {
+    console.warn('sessionStorage access failed:', err.message);
+    return null;
+  }
+}
+
+function safeSessionStorageSet(key, value) {
+  if (sessionStorageBlocked) return false;
+  try {
+    sessionStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.warn('sessionStorage write failed:', err.message);
+    return false;
+  }
+}
+
+function safeSessionStorageRemove(key) {
+  if (sessionStorageBlocked) return false;
+  try {
+    sessionStorage.removeItem(key);
+    return true;
+  } catch (err) {
+    console.warn('sessionStorage remove failed:', err.message);
+    return false;
+  }
+}
+
 // Make safe functions globally available
 window.safeLocalStorageGet = safeLocalStorageGet;
 window.safeLocalStorageSet = safeLocalStorageSet;
 window.safeLocalStorageRemove = safeLocalStorageRemove;
+window.safeSessionStorageGet = safeSessionStorageGet;
+window.safeSessionStorageSet = safeSessionStorageSet;
+window.safeSessionStorageRemove = safeSessionStorageRemove;
 
 // 📧 Check to see if the user clicked an 'email' verified link.
 {
@@ -262,8 +311,8 @@ if (window.acVSCODE) {
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration }, debug);
 
-let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked;
-console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked);
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked;
+console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked, "sessionStorage blocked:", sessionStorageBlocked);
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
