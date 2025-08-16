@@ -540,6 +540,10 @@ from = "/api/bdf-glyph"
 to = "/.netlify/functions/bdf-glyph"
 status = 200
 [[redirects]]
+from = "/disks/*"
+to = "/aesthetic.computer/disks/:splat"
+status = 200
+[[redirects]]
 from = "/*"
 to = "/.netlify/functions/index"
 status = 200
