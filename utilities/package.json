@@ -1,0 +1,17 @@
+{
+  "name": "aesthetic-computer-utilities",
+  "version": "1.0.0",
+  "description": "Utilities for aesthetic.computer development",
+  "type": "module",
+  "scripts": {
+    "ac-pack": "node ac-pack.mjs"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1"
+  },
+  "keywords": [
+    "aesthetic-computer",
+    "teia",
+    "interactive-art"
+  ]
+}

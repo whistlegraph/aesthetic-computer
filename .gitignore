@@ -1,6 +1,12 @@
 # entire ac-pill directory
 ac-pill/
 
+# ignore tokens dir (static outputs of ac pieces for archival purposes)
+tokens/*.zip
+tokens/*/
+!tokens/README.md
+!tokens/pack-for-teia.fish
+
 # assets (ignore all subdirectories but readme)
 system/public/assets/*/
 !system/public/assets/*/readme.txt

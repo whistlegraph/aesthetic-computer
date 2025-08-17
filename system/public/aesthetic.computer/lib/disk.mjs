@@ -343,7 +343,9 @@ let hudAnimationState = {
   labelWidth: 120,                 // HUD label width - updated when HUD is drawn
   labelHeight: 40,                 // HUD label height - updated when HUD is drawn
   qrSize: 80,                      // QR overlay size for bounding box animations
-  lastTabTime: 0                   // Track last tab press for double-tap detection
+  lastTabTime: 0,                  // Track last tab press for double-tap detection
+  qrFullscreen: false,             // Track if QR code is in fullscreen mode
+  cornersVisibleBeforeFullscreen: true // Remember corner state before fullscreen QR
 };
 
 let module, loadedModule; // Currently loaded piece module code with an extra reference for `hotSwap`.
@@ -5561,6 +5563,11 @@ async function makeFrame({ data: { type, content } }) {
             // Flip the target state
             hudAnimationState.visible = !hudAnimationState.visible;
             
+            // Update the remembered state for when QR fullscreen is turned off
+            if (hudAnimationState.qrFullscreen) {
+              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+            }
+            
             // Restart animation from current position by adjusting the start time
             // If we were 30% through a hide animation, start the show animation at 70% progress
             const remainingProgress = 1.0 - progress;
@@ -5573,6 +5580,11 @@ async function makeFrame({ data: { type, content } }) {
               hudAnimationState.opacity = 1.0;
               hudAnimationState.slideOffset = { x: 0, y: 0 };
               hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
+              
+              // Update remembered state
+              if (hudAnimationState.qrFullscreen) {
+                hudAnimationState.cornersVisibleBeforeFullscreen = true;
+              }
             }
             
             $commonApi.sound.synth({
@@ -5588,12 +5600,88 @@ async function makeFrame({ data: { type, content } }) {
             hudAnimationState.startTime = currentTime;
             hudAnimationState.visible = !hudAnimationState.visible;
             
+            // Update the remembered state for when QR fullscreen is turned off
+            if (hudAnimationState.qrFullscreen) {
+              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+            }
+            
             $commonApi.sound.synth({
               tone: hudAnimationState.visible ? 1200 : 800,
               duration: 0.15,
               attack: 0.01,
               decay: 0.3,
               volume: 0.2,
+            });
+          }
+        }
+
+        // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
+        if (data.key === "Shift") {
+          // Only allow QR fullscreen for KidLisp pieces that have QR codes
+          const sourceCode = currentText || currentHUDTxt;
+          const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
+                                currentPath === "(...)" ||
+                                (sourceCode && sourceCode.startsWith("$")) ||
+                                (currentPath && currentPath.includes("/disks/$")) ||
+                                (sourceCode && (
+                                  sourceCode.startsWith("(") || 
+                                  sourceCode.startsWith(";") ||
+                                  /^\s*\(/.test(sourceCode)
+                                ));
+          
+          if (isInlineKidlispPiece) {
+            if (!hudAnimationState.qrFullscreen) {
+              // Turning ON fullscreen QR
+              // Remember current corner visibility state
+              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+              
+              // If corners are currently visible, animate them out for fullscreen QR
+              if (hudAnimationState.visible) {
+                // Check if animation is already in progress
+                if (hudAnimationState.animating) {
+                  // Animation in progress: reverse it
+                  const currentTime = performance.now();
+                  const elapsed = currentTime - hudAnimationState.startTime;
+                  const remaining = Math.max(0, hudAnimationState.duration - elapsed);
+                  hudAnimationState.startTime = currentTime - remaining;
+                } else {
+                  // No animation in progress: start new animation
+                  hudAnimationState.animating = true;
+                  hudAnimationState.startTime = performance.now();
+                }
+                hudAnimationState.visible = false;
+              }
+              
+              hudAnimationState.qrFullscreen = true;
+            } else {
+              // Turning OFF fullscreen QR
+              hudAnimationState.qrFullscreen = false;
+              
+              // Restore corner visibility to what it was before fullscreen QR was activated
+              if (hudAnimationState.cornersVisibleBeforeFullscreen && !hudAnimationState.visible) {
+                // Check if animation is already in progress
+                if (hudAnimationState.animating) {
+                  // Animation in progress: reverse it
+                  const currentTime = performance.now();
+                  const elapsed = currentTime - hudAnimationState.startTime;
+                  const remaining = Math.max(0, hudAnimationState.duration - elapsed);
+                  hudAnimationState.startTime = currentTime - remaining;
+                } else {
+                  // No animation in progress: start new animation
+                  hudAnimationState.animating = true;
+                  hudAnimationState.startTime = performance.now();
+                }
+                hudAnimationState.visible = true;
+              }
+            }
+            
+            // Play sound feedback
+            $commonApi.sound.synth({
+              tone: hudAnimationState.qrFullscreen ? 1500 : 1000,
+              duration: 0.12,
+              attack: 0.01,
+              decay: 0.2,
+              volume: 0.25,
             });
           }
         }
@@ -7347,7 +7435,8 @@ async function makeFrame({ data: { type, content } }) {
       sendData.TwoD = { code: twoDCommands };
 
       // Attach a label buffer if necessary.
-      if (label)
+      // Hide label when QR is in fullscreen mode
+      if (label && !hudAnimationState.qrFullscreen)
         sendData.label = {
           x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
           y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
@@ -7400,7 +7489,7 @@ async function makeFrame({ data: { type, content } }) {
         });
       }
       
-      if (isInlineKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating)) {
+      if (isInlineKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
@@ -7432,30 +7521,109 @@ async function makeFrame({ data: { type, content } }) {
             // Enable caching for stable QR generation
             const forceCacheBypass = true; // TEMP: Force cache bypass to test new font
             
+            // Declare variables for QR positioning and sizing (used in both cached and fresh QR paths)
+            let overlayWidth, overlayHeight, startX, startY;
+            
             if (!isQRCacheDisabled && shouldShowQR && hasQRCache && !forceCacheBypass) {
               const cachedQrData = qrOverlayCache.get(cacheKey);
               
               // Store QR dimensions in animation state for proper bounding box animations
               hudAnimationState.qrSize = Math.max(cachedQrData.width, cachedQrData.height);
               
-              // Recalculate position for current screen size (handles reframing)
-              const overlayWidth = cachedQrData.width;
-              const overlayHeight = cachedQrData.height;
-              const margin = 4;
-              const startX = screen.width - overlayWidth - margin;
-              const startY = screen.height - overlayHeight - margin;
-              
-              // Create fresh overlay for transfer from cached data
-              qrOverlay = {
-                width: cachedQrData.width,
-                height: cachedQrData.height,
-                pixels: new Uint8ClampedArray(cachedQrData.basePixels) // Fresh copy for transfer
-              };
+              if (hudAnimationState.qrFullscreen) {
+                // Fullscreen mode: integer scaling only for pixel-perfect QR
+                const originalWidth = cachedQrData.width;
+                const originalHeight = cachedQrData.height;
+                
+                // Calculate maximum integer scale that fits screen with padding
+                const padding = Math.min(screen.width, screen.height) * 0.1; // 10% padding
+                const maxWidth = screen.width - padding * 2;
+                const maxHeight = screen.height - padding * 2;
+                
+                const maxScaleX = Math.floor(maxWidth / originalWidth);
+                const maxScaleY = Math.floor(maxHeight / originalHeight);
+                const scale = Math.min(maxScaleX, maxScaleY, 8); // Cap at 8x scale
+                
+                // Use integer scaling for pixel-perfect results
+                overlayWidth = originalWidth * scale;
+                overlayHeight = originalHeight * scale;
+                
+                // Calculate text dimensions for canvas sizing
+                const codeText = `$${cachedCode}`;
+                const fontSize = 16; // Fixed 2x scale (8px base font * 2 = 16px)
+                const textPadding = 8;
+                
+                // Calculate actual text width using font advances for proper sizing
+                const font = typefaceCache.get("MatrixChunky8");
+                const advances = font?.data?.advances || {};
+                let actualTextWidth = 0;
+                for (const char of codeText) {
+                  const charWidth = advances[char] || 4; // Default 4px per char if no advance data
+                  actualTextWidth += charWidth;
+                }
+                // Scale up by 2x for our size: 2 scaling
+                actualTextWidth *= 2;
+                
+                const textWidth = actualTextWidth + textPadding * 2; // Add padding
+                const textHeight = fontSize + textPadding * 2;
+                
+                // Expand canvas to include text space
+                const canvasHeight = overlayHeight + textHeight;
+                const canvasWidth = overlayWidth; // Keep QR width only
+                
+                // Center everything on screen (ensure integer coordinates)
+                startX = Math.floor((screen.width - canvasWidth) / 2);
+                startY = Math.floor((screen.height - canvasHeight) / 2);
+                
+                // Create scaled QR overlay with styled code text
+                qrOverlay = $api.painting(canvasWidth, canvasHeight, ($) => {
+                  // Draw scaled QR with integer scaling (centered in canvas)
+                  const qrOffsetX = Math.floor((canvasWidth - overlayWidth) / 2);
+                  
+                  for (let y = 0; y < originalHeight; y++) {
+                    for (let x = 0; x < originalWidth; x++) {
+                      const srcIndex = (y * originalWidth + x) * 4;
+                      
+                      if (srcIndex < cachedQrData.basePixels.length) {
+                        const r = cachedQrData.basePixels[srcIndex];
+                        const g = cachedQrData.basePixels[srcIndex + 1];
+                        const b = cachedQrData.basePixels[srcIndex + 2];
+                        
+                        $.ink(r, g, b);
+                        // Draw scale x scale pixel block
+                        $.box(qrOffsetX + x * scale, y * scale, scale, scale);
+                      }
+                    }
+                  }
+                  
+                  // Add styled code text positioned at bottom-left corner of QR with padding
+                  const textX = qrOffsetX + 4; // Add 4px left padding from QR edge
+                  const textY = overlayHeight + 4; // Add 2px more gap (was 2, now 4) for extra top padding
+                  
+                  // Draw white text on black background using built-in bg parameter
+                  $.ink("white");
+                  $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                });
+              } else {
+                // Normal mode: use original positioning
+                const margin = 4;
+                overlayWidth = cachedQrData.width;
+                overlayHeight = cachedQrData.height;
+                startX = screen.width - overlayWidth - margin;
+                startY = screen.height - overlayHeight - margin;
+                
+                // Create fresh overlay for transfer from cached data
+                qrOverlay = {
+                  width: cachedQrData.width,
+                  height: cachedQrData.height,
+                  pixels: new Uint8ClampedArray(cachedQrData.basePixels) // Fresh copy for transfer
+                };
+              }
               
               // Add QR overlay to sendData with animation effects
               sendData.qrOverlay = {
-                x: startX + hudAnimationState.qrSlideOffset.x,
-                y: startY + hudAnimationState.qrSlideOffset.y,
+                x: startX + (hudAnimationState.qrFullscreen ? 0 : hudAnimationState.qrSlideOffset.x),
+                y: startY + (hudAnimationState.qrFullscreen ? 0 : hudAnimationState.qrSlideOffset.y),
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
@@ -7580,29 +7748,109 @@ async function makeFrame({ data: { type, content } }) {
               // Store QR dimensions in animation state for proper bounding box animations
               hudAnimationState.qrSize = Math.max(qrData.width, qrData.height);
               
-              // Recalculate position for current screen size (handles reframing)
-              const overlayWidth = qrData.width;
-              const overlayHeight = qrData.height;
-              startX = screen.width - overlayWidth - margin;
-              startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
+              if (hudAnimationState.qrFullscreen) {
+                // Fullscreen mode: integer scaling only for pixel-perfect QR
+                const originalQrSize = cells.length;
+                
+                // Calculate maximum integer scale that fits screen with padding
+                const padding = Math.min(screen.width, screen.height) * 0.1; // 10% padding
+                const maxSize = Math.min(screen.width, screen.height) - padding * 2;
+                
+                const maxCellSize = Math.floor(maxSize / originalQrSize);
+                const cellSize = Math.max(2, Math.min(maxCellSize, 12)); // Integer cell size, 2-12px
+                const finalQrSize = originalQrSize * cellSize;
+                
+                overlayWidth = finalQrSize;
+                overlayHeight = finalQrSize;
+                
+                // Calculate text dimensions for canvas sizing
+                const codeText = `$${cachedCode}`;
+                const fontSize = 16; // Fixed 2x scale (8px base font * 2 = 16px)
+                const textPadding = 8;
+                
+                // Calculate actual text width using font advances for proper sizing
+                const font = typefaceCache.get("MatrixChunky8");
+                const advances = font?.data?.advances || {};
+                let actualTextWidth = 0;
+                for (const char of codeText) {
+                  const charWidth = advances[char] || 4; // Default 4px per char if no advance data
+                  actualTextWidth += charWidth;
+                }
+                // Scale up by 2x for our size: 2 scaling
+                actualTextWidth *= 2;
+                
+                const textWidth = actualTextWidth + textPadding * 2; // Add padding
+                const textHeight = fontSize + textPadding * 2;
+                
+                // Expand canvas to include text space
+                const canvasHeight = finalQrSize + textHeight;
+                const canvasWidth = finalQrSize; // Keep QR width only
+                
+                // Center everything on screen (ensure integer coordinates)
+                startX = Math.floor((screen.width - canvasWidth) / 2);
+                startY = Math.floor((screen.height - canvasHeight) / 2);
+                
+                // Generate fullscreen QR with styled code text
+                const fullscreenQR = $api.painting(canvasWidth, canvasHeight, ($) => {
+                  // Draw QR code with integer scaling (centered in canvas)
+                  const qrOffsetX = Math.floor((canvasWidth - finalQrSize) / 2);
+                  
+                  for (let y = 0; y < cells.length; y++) {
+                    for (let x = 0; x < cells.length; x++) {
+                      const isBlack = cells[y][x];
+                      if (isBlack) {
+                        $.ink("black");
+                      } else {
+                        $.ink("white");
+                      }
+                      $.box(qrOffsetX + x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                  }
+                  
+                  // Add styled code text positioned at bottom-left corner of QR with padding
+                  const textX = qrOffsetX + 4; // Add 4px left padding from QR edge
+                  const textY = finalQrSize + 4; // Add 2px more gap (was 2, now 4) for extra top padding
+                  
+                  // Draw white text on black background using built-in bg parameter
+                  $.ink("white");
+                  $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                });
+                
+                // Update qrData for fullscreen
+                qrData.width = fullscreenQR.width;
+                qrData.height = fullscreenQR.height;
+                qrData.basePixels = new Uint8ClampedArray(fullscreenQR.pixels);
+                
+                qrOverlay = {
+                  width: qrData.width,
+                  height: qrData.height,
+                  pixels: new Uint8ClampedArray(qrData.basePixels)
+                };
+              } else {
+                // Normal mode: use original positioning and size
+                overlayWidth = qrData.width;
+                overlayHeight = qrData.height;
+                startX = screen.width - overlayWidth - margin;
+                startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
+                
+                // Create fresh overlay for transfer each time
+                qrOverlay = {
+                  width: qrData.width,
+                  height: qrData.height,
+                  pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
+                };
+              }
               
               // Cache the QR data for this piece (not the transferable version)
               // Cache if we have some characters loaded to stabilize the QR
-              if (!isQRCacheDisabled && shouldShowQR) {
+              if (!isQRCacheDisabled && shouldShowQR && !hudAnimationState.qrFullscreen) {
                 qrOverlayCache.set(cacheKey, qrData);
               }
               
-              // Create fresh overlay for transfer each time
-              qrOverlay = {
-                width: qrData.width,
-                height: qrData.height,
-                pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
-              };
-              
               // Add QR overlay to sendData with exact position and animation effects
               sendData.qrOverlay = {
-                x: startX + hudAnimationState.qrSlideOffset.x,
-                y: startY + hudAnimationState.qrSlideOffset.y,
+                x: startX + (hudAnimationState.qrFullscreen ? 0 : hudAnimationState.qrSlideOffset.x),
+                y: startY + (hudAnimationState.qrFullscreen ? 0 : hudAnimationState.qrSlideOffset.y),
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
