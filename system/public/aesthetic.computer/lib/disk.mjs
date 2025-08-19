@@ -7131,11 +7131,36 @@ async function makeFrame({ data: { type, content } }) {
               text = currentHUDTxt?.replaceAll("~", " ");
             }
             
-            // Strip color codes for shadow to ensure it's always black/grey
+            // Create shadow text with appropriate shadow colors for each color segment
             const colorCodeRegex = /\\([a-zA-Z0-9,]+)\\/g;
-            const shadowText = text.replace(colorCodeRegex, '');
             
-            $.ink(0).write(
+            function createShadowText(text) {
+              return text.replace(colorCodeRegex, (match, colorValue) => {
+                // Determine if this color needs light or dark shadow
+                let needsLightShadow = false;
+                
+                // Check if it's an RGB color (e.g., "255,0,0")
+                if (colorValue.includes(',')) {
+                  const [r, g, b] = colorValue.split(',').map(n => parseInt(n) || 0);
+                  if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                    // Calculate brightness using standard luminance formula
+                    const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
+                    needsLightShadow = brightness < 64; // Very dark color
+                  }
+                }
+                // Check for named dark colors
+                else if (['black', 'darkred', 'darkblue', 'darkgreen', 'navy', 'maroon', 'darkgray', 'darkgrey', 'dimgray', 'dimgrey', 'darkslategray', 'darkslategrey'].includes(colorValue.toLowerCase())) {
+                  needsLightShadow = true;
+                }
+                
+                // Return appropriate shadow color code
+                return needsLightShadow ? '\\192,192,192\\' : '\\0,0,0\\';
+              });
+            }
+            
+            const shadowText = createShadowText(text);
+            
+            $.ink([0, 0, 0]).write( // Default ink for shadow rendering (color codes in shadowText will override)
               shadowText,
               { x: 1 + currentHUDScrub, y: 1 },
               undefined,

@@ -212,6 +212,52 @@ async function boot({ ui, typeface, store }) {
   // Build entries for special colors (rainbow, fades) 
   const specialEntries = [];
   let specialIndex = 0;
+  
+  // Add a divider before special colors
+  specialEntries.push({
+    name: "— SPECIAL COLORS —",
+    type: "divider",
+  });
+  
+  // Process special colors 
+  specialColors.forEach((special) => {
+    const [gw, gh] = typeface.glyphs[0].resolution;
+    const w = gw * special.name.length;
+    const h = gh + 1;
+    
+    specialEntries.push({
+      name: special.name,
+      description: special.description,
+      type: special.type,
+      colors: special.colors,
+      rgb: special.example,
+      button: new ui.Button(
+        LEFT_MARGIN + SQUARE_SIZE + COLOR_SQUARE_MARGIN,
+        scroll + TOP_MARGIN + ROW_HEIGHT * (cssEntries.length + specialEntries.length),
+        w,
+        h
+      ),
+    });
+  });
+
+  // Combine all entries
+  colorEntries = [...cssEntries, ...specialEntries];
+  
+  // Initialize button arrays
+  buttons = colorEntries.filter(entry => entry.button).map(entry => entry.button);
+  
+  // Create swatch buttons for color selection (only for non-divider entries)
+  swatchButtons = [];
+  swatchToEntryMap = [];
+  let swatchIndex = 0;
+  
+  colorEntries.forEach((entry, entryIndex) => {
+    if (entry.type !== "divider") {
+      swatchButtons.push(new ui.Button(35, 0, SQUARE_SIZE, SQUARE_SIZE));
+      swatchToEntryMap[swatchIndex] = entryIndex;
+      swatchIndex++;
+    }
+  });
 }
 
 function paint({ wipe, ink, ui, hud, screen, $api }) {
