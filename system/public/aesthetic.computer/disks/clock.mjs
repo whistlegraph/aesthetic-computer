@@ -1654,7 +1654,8 @@ function paint({
   const buttonHeight = 16;
   const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
   const startX = screen.width - totalWidth;
-  const startY = screen.height - buttonHeight;
+  const tapingOffset = api.system?.taping ? 1 : 0; // Move up 1 pixel when taping
+  const startY = screen.height - buttonHeight - tapingOffset;
 
   // Paint minus button with proper state handling
   octaveMinusBtn?.paint((btn) => {
@@ -3378,8 +3379,8 @@ function createManagedSound(
   // Set flag to indicate first synth has fired (for syntax coloring)
   hasFirstSynthFired = true;
 
-  // Calculate and display the actual frequency being played
-  if (screen && sound && sound.freq) {
+  // Calculate and display the actual frequency being played (only when using Hz shifts)
+  if (screen && sound && sound.freq && toneShift !== 0) {
     try {
       // Calculate the actual frequency including Hz shift
       const baseFreq = sound.freq(tone);
@@ -5153,7 +5154,7 @@ function preview({ ink, wipe, write }) {
 // }
 
 // Build octave control buttons (+ and - buttons with octave number in between)
-function buildOctaveButtons({ screen, ui, typeface }) {
+function buildOctaveButtons({ screen, ui, typeface, system }) {
   const glyphWidth = typeface.glyphs["0"].resolution[0];
   const buttonHeight = 16;
   const buttonWidth = 16;
@@ -5165,9 +5166,10 @@ function buildOctaveButtons({ screen, ui, typeface }) {
   const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
   const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
 
-  // Position flush to bottom right corner
+  // Position flush to bottom right corner, moving up 1 pixel when taping
   const startX = screen.width - totalWidth;
-  const startY = screen.height - buttonHeight;
+  const tapingOffset = system?.taping ? 1 : 0; // Move up 1 pixel when taping
+  const startY = screen.height - buttonHeight - tapingOffset;
 
   // Create minus button
   octaveMinusBtn = new ui.Button(startX, startY, buttonWidth, buttonHeight);

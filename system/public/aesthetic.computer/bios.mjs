@@ -4548,7 +4548,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const targetFrameRate = 60;
         const targetFrameInterval = 1000 / targetFrameRate; // 16.67ms per frame
         
-        // Calculate original recording timing for proper playback speed
+        // Calculate original recording timing for reference
         let totalOriginalDuration = 0;
         if (content.frames.length > 1) {
           totalOriginalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
@@ -4556,24 +4556,71 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           totalOriginalDuration = 100; // Default 100ms for single frame
         }
         
-        // Calculate frame intervals based on original timing
-        const frameIntervals = [];
-        for (let i = 0; i < content.frames.length; i++) {
-          if (i < content.frames.length - 1) {
-            // Use actual time difference between frames
-            const interval = content.frames[i + 1].timestamp - content.frames[i].timestamp;
-            frameIntervals.push(Math.max(interval, 16.67)); // Minimum 16.67ms for 60fps max
-          } else {
-            // Last frame: use average interval or default
-            const avgInterval = frameIntervals.length > 0 
-              ? frameIntervals.reduce((a, b) => a + b, 0) / frameIntervals.length 
-              : 33.33; // Default to 30fps
-            frameIntervals.push(avgInterval);
+        // For MP4 export, we need to match the audio timing exactly
+        // Calculate the original recording frame rate and duration
+        const recordingDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+        const originalFrameRate = Math.round((content.frames.length / recordingDuration) * 1000);
+        
+        // 🎯 Resample frames to target frame rate for optimal MP4 playback
+        // Use same logic as GIF to handle high refresh rate displays (120Hz -> 60fps)
+        let processedFrames = content.frames;
+        const targetMp4FPS = 60; // Target 60fps for smooth MP4 playback
+        
+        if (originalFrameRate > targetMp4FPS && recordingDuration > 0) {
+          // Calculate how many frames we need for target fps
+          const targetFrameCount = Math.round((recordingDuration / 1000) * targetMp4FPS);
+          processedFrames = [];
+          
+          console.log(`🎬 Resampling MP4 from ${originalFrameRate}fps to ${targetMp4FPS}fps (${content.frames.length} -> ${targetFrameCount} frames)`);
+          
+          // Properly resample frames evenly across the entire duration
+          for (let i = 0; i < targetFrameCount; i++) {
+            // Calculate the exact timestamp we want for this frame
+            // Ensure we span from first frame to last frame inclusive
+            let targetTimestamp;
+            if (i === targetFrameCount - 1) {
+              // For the last frame, use the actual last timestamp to ensure we capture the end
+              targetTimestamp = content.frames[content.frames.length - 1].timestamp;
+            } else {
+              // For all other frames, distribute evenly across the duration
+              targetTimestamp = content.frames[0].timestamp + (i / (targetFrameCount - 1)) * recordingDuration;
+            }
+            
+            // Find the closest source frame to this timestamp
+            let closestIndex = 0;
+            let minDistance = Math.abs(content.frames[0].timestamp - targetTimestamp);
+            
+            for (let j = 1; j < content.frames.length; j++) {
+              const distance = Math.abs(content.frames[j].timestamp - targetTimestamp);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestIndex = j;
+              }
+            }
+            
+            processedFrames.push(content.frames[closestIndex]);
+            
+            // Debug logging for first and last few frames
+            if (i < 3 || i >= targetFrameCount - 3) {
+              console.log(`🎬 Frame ${i}: target=${targetTimestamp.toFixed(1)}ms, closest=${content.frames[closestIndex].timestamp.toFixed(1)}ms, index=${closestIndex}`);
+            }
           }
+          
+          console.log(`🎬 MP4 frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
+        } else {
+          console.log(`🎬 No resampling needed: ${originalFrameRate}fps <= ${targetMp4FPS}fps target`);
         }
+
+        // Use consistent 60fps timing for smooth playback
+        const totalFrames = processedFrames.length;
+        const exportFrameRate = 60; // 60fps for smooth playback
+        const frameDuration = 1000 / exportFrameRate; // 16.67ms per frame
         
         console.log(
-          `🎬 Using original timing for MP4 export: ${totalOriginalDuration.toFixed(1)}ms total, avg ${(totalOriginalDuration / content.frames.length).toFixed(1)}ms per frame`
+          `🎬 MP4 export timing: ${recordingDuration.toFixed(1)}ms original, ${totalFrames} frames`
+        );
+        console.log(
+          `🎬 Export frame rate: ${exportFrameRate}fps (${frameDuration.toFixed(1)}ms per frame)`
         );
 
         // Pre-render all scaled frames with stamps before encoding
@@ -4598,15 +4645,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         tempCtx.imageSmoothingEnabled = false;
         
         // Pre-render all frames
-        for (let i = 0; i < content.frames.length; i++) {
-          const frame = content.frames[i];
-          const progress = (i + 1) / content.frames.length;
+        for (let i = 0; i < processedFrames.length; i++) {
+          const frame = processedFrames[i];
+          
+          // Debug frame structure for first frame
+          if (i === 0) {
+            console.log("🔍 First frame structure:", {
+              hasWidth: 'width' in frame,
+              hasHeight: 'height' in frame,
+              hasData: 'data' in frame,
+              width: frame.width,
+              height: frame.height,
+              dataLength: frame.data?.length,
+              keys: Object.keys(frame)
+            });
+          }
+          const progress = (i + 1) / processedFrames.length;
           
           // Update progress for rendering phase
-          if (i % 10 === 0 || i === content.frames.length - 1) {
+          if (i % 10 === 0 || i === processedFrames.length - 1) {
             send({
               type: "recorder:transcode-progress",
-              content: 0.01 + (i / content.frames.length) * 0.4, // 1% to 41%
+              content: 0.01 + (i / processedFrames.length) * 0.4, // 1% to 41%
             });
           }
           
@@ -4654,7 +4714,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           preRenderedFrames.push(preRenderedImageData);
         }
         
-        console.log(`✅ Pre-rendered ${preRenderedFrames.length} frames`);
+        console.log(`✅ Pre-rendered ${processedFrames.length} frames`);
 
         // Send encoding status
         send({
@@ -4669,39 +4729,271 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Create MediaRecorder for MP4 export with H.264 codec
         const canvasStream = canvas.captureStream(targetFrameRate);
         
+        // For MP4 export, we'll create video-only first, then combine with audio using Web Audio API
+        // This avoids the sync issues of real-time recording
+        
         let mimeType;
-        // Try H.264 MP4 first (most compatible)
-        if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1.42E01E")) {
-          mimeType = "video/mp4; codecs=avc1.42E01E"; // H.264 Baseline Profile
-          console.log("✅ Using H.264 MP4 (Baseline Profile)");
-        } else if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1.4D401E")) {
-          mimeType = "video/mp4; codecs=avc1.4D401E"; // H.264 Main Profile
-          console.log("✅ Using H.264 MP4 (Main Profile)");
-        } else if (MediaRecorder.isTypeSupported("video/mp4; codecs=avc1")) {
-          mimeType = "video/mp4; codecs=avc1"; // H.264 generic
-          console.log("✅ Using H.264 MP4 (generic)");
-        } else if (MediaRecorder.isTypeSupported("video/mp4")) {
-          mimeType = "video/mp4"; // Fallback to generic MP4
-          console.log("⚠️ Using generic MP4 (codec unknown)");
-        } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8")) {
-          mimeType = "video/webm; codecs=vp8"; // VP8 fallback (avoid VP9)
-          console.log("⚠️ Falling back to WebM VP8");
-        } else if (MediaRecorder.isTypeSupported("video/webm")) {
-          mimeType = "video/webm"; // Generic WebM fallback
-          console.log("⚠️ Falling back to generic WebM");
+        // Detect browser for codec selection
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isChrome = /chrome/i.test(navigator.userAgent) && !isSafari;
+        
+        console.log(`🔍 Browser detection: Safari=${isSafari}, Chrome=${isChrome}`);
+        
+        // Browser-specific codec candidates
+        let mp4Candidates;
+        
+        if (isSafari) {
+          // Safari on macOS has better codec support
+          mp4Candidates = [
+            "video/mp4; codecs=avc1.640028,mp4a.40.2", // H.264 High + AAC-LC (Twitter optimal)
+            "video/mp4; codecs=avc1.4D401E,mp4a.40.2", // H.264 Main + AAC-LC
+            "video/mp4; codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC-LC
+            "video/mp4; codecs=avc1.640028", // H.264 High only
+            "video/mp4; codecs=avc1.4D401E", // H.264 Main only
+            "video/mp4; codecs=avc1.42E01E", // H.264 Baseline only
+            "video/mp4", // Generic MP4
+          ];
         } else {
-          console.error("🔴 No supported video mimetypes found");
-          return;
+          // Chrome/Chromium - more conservative approach
+          mp4Candidates = [
+            "video/mp4; codecs=avc1.42E01E", // H.264 Baseline only (most compatible)
+            "video/mp4; codecs=avc1.4D401E", // H.264 Main Profile 
+            "video/mp4; codecs=avc1.42001E", // H.264 Baseline 3.0
+            "video/mp4", // Generic MP4 (let browser choose audio codec)
+            "video/mp4; codecs=avc1.42E01E,mp4a.40.5", // H.264 + AAC-HE (sometimes works)
+            "video/mp4; codecs=avc1.42E01E,mp4a.40.2", // H.264 + AAC-LC (often fails in Chrome)
+          ];
+        }
+        
+        let mp4Found = false;
+        for (const candidate of mp4Candidates) {
+          console.log(`🔍 Testing codec: ${candidate}`);
+          if (MediaRecorder.isTypeSupported(candidate)) {
+            mimeType = candidate;
+            mp4Found = true;
+            console.log(`✅ Using MP4 codec: ${candidate}`);
+            console.log(`🎯 Browser: ${isSafari ? 'Safari' : isChrome ? 'Chrome' : 'Unknown'}`);
+            break;
+          } else {
+            console.log(`❌ Codec not supported: ${candidate}`);
+          }
+        }
+        
+        // Fallback to WebM if no MP4 works
+        if (!mp4Found) {
+          if (MediaRecorder.isTypeSupported("video/webm; codecs=vp9,opus")) {
+            mimeType = "video/webm; codecs=vp9,opus"; // VP9 + Opus (high quality)
+            console.log("⚠️ MP4 not supported, using WebM VP9 + Opus");
+          } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8,opus")) {
+            mimeType = "video/webm; codecs=vp8,opus"; // VP8 + Opus (compatible)
+            console.log("⚠️ MP4 not supported, using WebM VP8 + Opus");
+          } else if (MediaRecorder.isTypeSupported("video/webm")) {
+            mimeType = "video/webm"; // WebM fallback
+            console.log("⚠️ Falling back to WebM (default codecs)");
+          } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8")) {
+            mimeType = "video/webm; codecs=vp8"; // VP8 fallback (avoid VP9)
+            console.log("⚠️ Falling back to WebM VP8");
+          } else {
+            console.error("🔴 No supported video mimetypes found");
+            return;
+          }
         }
 
-        const videoRecorder = new MediaRecorder(canvasStream, {
-          mimeType,
-          videoBitsPerSecond: 100000000, // 100 Mbps for absolute maximum quality
+        // Check if we have recorded audio for combination
+        let hasRecordedAudio = false;
+        let audioBuffer = null;
+        
+        console.log("🔊 Checking for recorded audio...");
+        console.log("🔊 sfx[\"tape:audio\"] exists:", !!sfx["tape:audio"]);
+        console.log("🔊 sfx[\"tape:audio\"] type:", typeof sfx["tape:audio"]);
+        console.log("🔊 sfx[\"tape:audio\"] constructor:", sfx["tape:audio"]?.constructor?.name);
+        
+        if (sfx["tape:audio"]) {
+          try {
+            // Check if it's already an AudioBuffer
+            if (sfx["tape:audio"] instanceof AudioBuffer) {
+              console.log("🔊 ✅ Audio is already an AudioBuffer!");
+              audioBuffer = sfx["tape:audio"];
+              hasRecordedAudio = true;
+              console.log("🔊 Audio buffer duration:", audioBuffer.duration, "seconds");
+              console.log("🔊 Audio buffer channels:", audioBuffer.numberOfChannels);
+              console.log("🔊 Audio buffer sample rate:", audioBuffer.sampleRate);
+              console.log("🔊 Recorded audio available for MP4 export");
+            } else if (sfx["tape:audio"] instanceof ArrayBuffer || (sfx["tape:audio"] && sfx["tape:audio"].byteLength !== undefined)) {
+              console.log("🔊 Audio is ArrayBuffer, decoding...");
+              // Create a temporary audio context to decode the audio
+              const tempAudioContext = new AudioContext();
+              console.log("🔊 Temp audio context created, sample rate:", tempAudioContext.sampleRate);
+              
+              console.log("🔊 Starting audio decode...");
+              audioBuffer = await tempAudioContext.decodeAudioData(sfx["tape:audio"].slice());
+              hasRecordedAudio = true;
+              console.log("🔊 ✅ Audio decoded successfully!");
+              console.log("🔊 Audio buffer duration:", audioBuffer.duration, "seconds");
+              console.log("🔊 Audio buffer channels:", audioBuffer.numberOfChannels);
+              console.log("🔊 Audio buffer sample rate:", audioBuffer.sampleRate);
+              console.log("🔊 Recorded audio available for MP4 export");
+            } else {
+              console.log("🔊 ❌ Unknown audio format:", typeof sfx["tape:audio"], sfx["tape:audio"]?.constructor?.name);
+            }
+          } catch (error) {
+            console.error("🔊 ❌ Failed to process recorded audio:", error);
+            console.log("🔊 Error details:", error.message);
+          }
+        } else {
+          console.log("🔊 ❌ No recorded audio found in sfx[\"tape:audio\"]");
+        }
+
+        // If we have audio, create a combined stream; otherwise video-only
+        let finalStream = canvasStream;
+        let audioDestination = null;
+        
+        console.log("🔊 Setting up final stream...");
+        console.log("🔊 hasRecordedAudio:", hasRecordedAudio);
+        console.log("🔊 audioBuffer exists:", !!audioBuffer);
+        
+        if (hasRecordedAudio && audioBuffer) {
+          try {
+            console.log("🔊 Creating export audio context...");
+            // Create audio context for export
+            const exportAudioContext = new AudioContext();
+            console.log("🔊 Export audio context created, sample rate:", exportAudioContext.sampleRate);
+            console.log("🔊 Export audio context state:", exportAudioContext.state);
+            
+            audioDestination = exportAudioContext.createMediaStreamDestination();
+            console.log("🔊 Audio destination created");
+            console.log("🔊 Audio destination stream:", audioDestination.stream);
+            console.log("🔊 Audio destination stream tracks:", audioDestination.stream.getTracks().length);
+            
+            // Create combined stream
+            finalStream = new MediaStream();
+            console.log("🔊 Combined stream created");
+            
+            // Add video tracks
+            const videoTracks = canvasStream.getVideoTracks();
+            console.log("🔊 Video tracks found:", videoTracks.length);
+            videoTracks.forEach((track, index) => {
+              finalStream.addTrack(track);
+              console.log(`🔊 Added video track ${index}:`, track.kind, track.enabled, track.readyState);
+            });
+            
+            // Add audio tracks from our export destination
+            const audioTracks = audioDestination.stream.getAudioTracks();
+            console.log("🔊 Audio tracks found:", audioTracks.length);
+            audioTracks.forEach((track, index) => {
+              finalStream.addTrack(track);
+              console.log(`🔊 Added audio track ${index}:`, track.kind, track.enabled, track.readyState);
+            });
+            
+            console.log("🔊 Final stream tracks:", finalStream.getTracks().length);
+            console.log("🔊 Final stream video tracks:", finalStream.getVideoTracks().length);
+            console.log("🔊 Final stream audio tracks:", finalStream.getAudioTracks().length);
+            
+            console.log("🔊 ✅ Created combined audio/video stream for MP4 export");
+          } catch (error) {
+            console.error("🔊 ❌ Failed to create combined stream, falling back to video-only:", error);
+            console.log("🔊 Error details:", error.message);
+            finalStream = canvasStream;
+            hasRecordedAudio = false;
+          }
+        } else {
+          console.log("🔊 Using video-only stream (no audio available)");
+        }
+
+
+        // Test codec support before creating MediaRecorder
+        console.log("🔊 Testing codec support...");
+        console.log("🔊 Original mimeType:", mimeType);
+        console.log("🔊 Codec support test:", MediaRecorder.isTypeSupported(mimeType));
+
+        let selectedMimeType = mimeType;
+        let mp4Supported = MediaRecorder.isTypeSupported(mimeType);
+        let webmVp8Opus = "video/webm; codecs=vp8,opus";
+        let webmVp9Opus = "video/webm; codecs=vp9,opus";
+        let webmBasic = "video/webm";
+        let fallbackUsed = false;
+
+        if (!mp4Supported) {
+          console.warn("🔴 MP4/H.264/AAC not supported for MediaRecorder in this browser. Falling back to WebM/VP8+Opus.");
+          if (MediaRecorder.isTypeSupported(webmVp8Opus)) {
+            selectedMimeType = webmVp8Opus;
+            fallbackUsed = true;
+            console.log("🔊 ✅ Using WebM/VP8+Opus");
+          } else if (MediaRecorder.isTypeSupported(webmVp9Opus)) {
+            selectedMimeType = webmVp9Opus;
+            fallbackUsed = true;
+            console.log("🔊 ✅ Using WebM/VP9+Opus");
+          } else if (MediaRecorder.isTypeSupported(webmBasic)) {
+            selectedMimeType = webmBasic;
+            fallbackUsed = true;
+            console.log("🔊 ✅ Using basic WebM");
+          } else {
+            selectedMimeType = "";
+            fallbackUsed = true;
+            console.warn("🔴 No supported codecs found for MediaRecorder. Browser default will be used (may fail).");
+          }
+        }
+
+        const recorderOptions = selectedMimeType ? {
+          mimeType: selectedMimeType,
+          videoBitsPerSecond: 40000000, // 40 Mbps (2x increase for premium quality)
+          audioBitsPerSecond: 256000,   // 256 kbps (high quality audio)
+        } : {
+          videoBitsPerSecond: 40000000, // 40 Mbps (2x increase for premium quality)
+          audioBitsPerSecond: 256000,   // 256 kbps (high quality audio)
+        };
+
+        if (fallbackUsed) {
+          console.warn("⚠️ Only WebM output is possible in this browser. If you need MP4, you must transcode after recording.");
+        }
+
+        console.log("🔊 Creating MediaRecorder with options:", recorderOptions);
+        const videoRecorder = new MediaRecorder(finalStream, recorderOptions);
+        
+        console.log("🔊 MediaRecorder created");
+        console.log("🔊 MediaRecorder mimeType:", videoRecorder.mimeType);
+        console.log("🔊 MediaRecorder stream:", videoRecorder.stream);
+        console.log("🔊 MediaRecorder stream tracks:", videoRecorder.stream.getTracks().length);
+        console.log("🔊 MediaRecorder stream video tracks:", videoRecorder.stream.getVideoTracks().length);
+        console.log("🔊 MediaRecorder stream audio tracks:", videoRecorder.stream.getAudioTracks().length);
+        
+        // Debug track states
+        finalStream.getTracks().forEach((track, index) => {
+          console.log(`🔊 Track ${index}: ${track.kind} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`);
         });
 
         const chunks = [];
         videoRecorder.ondataavailable = function (e) {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
+          console.log("🎬 📦 MediaRecorder data available:", e.data.size, "bytes");
+          console.log("🎬 📦 Data type:", e.data.type);
+          console.log("🎬 📦 Total chunks so far:", chunks.length);
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+            console.log("🎬 📦 ✅ Chunk added! New total:", chunks.length);
+          } else {
+            console.log("🎬 📦 ❌ Chunk ignored (zero size or null)");
+          }
+        };
+
+        // Add error handling 
+        videoRecorder.onerror = function (e) {
+          console.error("🎬 ❌ MediaRecorder error:", e);
+          console.error("🎬 Error details:", e.error);
+          console.error("🎬 Used mimeType:", selectedMimeType);
+          console.error("🎬 MediaRecorder state:", videoRecorder.state);
+        };
+
+        // Add state change monitoring
+        videoRecorder.onstart = function () {
+          console.log("🎬 ✅ MediaRecorder started successfully");
+        };
+
+        videoRecorder.onpause = function () {
+          console.log("🎬 ⏸️ MediaRecorder paused");
+        };
+
+        videoRecorder.onresume = function () {
+          console.log("🎬 ▶️ MediaRecorder resumed");
         };
 
         // Send encoding status
@@ -4714,21 +5006,95 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        // Start recording
-        videoRecorder.start(100);
-
-        // Fast playback of pre-rendered frames (no real-time rendering)
-        let frameIndex = 0;
+        // Set up audio source if we have recorded audio
+        let audioSource = null;
+        let audioStarted = false;
         
+        console.log("🔊 Setting up audio source...");
+        console.log("🔊 hasRecordedAudio:", hasRecordedAudio);
+        console.log("🔊 audioBuffer exists:", !!audioBuffer);
+        console.log("🔊 audioDestination exists:", !!audioDestination);
+        
+        if (hasRecordedAudio && audioBuffer && audioDestination) {
+          try {
+            console.log("🔊 Creating audio source from buffer...");
+            // Create audio source from the decoded buffer
+            audioSource = audioDestination.context.createBufferSource();
+            audioSource.buffer = audioBuffer;
+            audioSource.connect(audioDestination);
+            
+            console.log("🔊 Audio source created and connected");
+            console.log("🔊 Audio source buffer:", audioSource.buffer);
+            console.log("🔊 Audio source context:", audioSource.context);
+            console.log("🔊 Audio source context state:", audioSource.context.state);
+            console.log("🔊 ✅ Audio source prepared for synchronized playback");
+          } catch (error) {
+            console.error("🔊 ❌ Failed to create audio source:", error);
+            console.log("🔊 Error details:", error.message);
+            audioSource = null;
+          }
+        } else {
+          console.log("🔊 ❌ Cannot create audio source - missing requirements");
+          console.log("🔊   hasRecordedAudio:", hasRecordedAudio);
+          console.log("🔊   audioBuffer:", !!audioBuffer);
+          console.log("🔊   audioDestination:", !!audioDestination);
+        }
+
+        // Fast playback of pre-rendered frames with synchronized audio
+        let frameIndex = 0;
+        const audioBufferDuration = audioBuffer ? audioBuffer.duration * 1000 : preRenderedFrames.length * frameDuration;
+        const actualFrameDuration = audioBufferDuration / preRenderedFrames.length; // Perfect sync to audio
+        
+        console.log("🔊 Frame timing setup - audioDuration:", audioBufferDuration.toFixed(1), "ms");
+        console.log("🔊 Frame timing setup - actualFrameDuration:", actualFrameDuration.toFixed(3), "ms");
+        console.log("🔊 Frame timing setup - totalFrames:", preRenderedFrames.length);
+        
+        // Track timing for frame synchronization
+        let startTime;
+        
+        // Define the frame rendering function
         function renderNextFrame() {
           if (frameIndex >= preRenderedFrames.length) {
-            // All frames processed, stop recording
-            videoRecorder.stop();
+            console.log("🎬 📹 All frames processed, stopping MP4 recording");
+            console.log("🎬 📹 MediaRecorder state before stop:", videoRecorder.state);
+            console.log("🎬 📹 MediaRecorder data chunks collected:", chunks.length);
+            console.log("🎬 📹 Total chunk data size:", chunks.reduce((sum, chunk) => sum + chunk.size, 0), "bytes");
+            
+            try {
+              videoRecorder.stop();
+              console.log("🎬 📹 MediaRecorder stop() called successfully");
+              console.log("🎬 📹 MediaRecorder state after stop:", videoRecorder.state);
+            } catch (error) {
+              console.error("🎬 ❌ Error stopping MediaRecorder:", error);
+            }
             return;
           }
 
+          // Start audio playback on first frame for perfect sync
+          if (!audioStarted && audioSource) {
+            try {
+              console.log("🔊 Starting audio source...");
+              console.log("🔊 Audio source state before start:", audioSource.context.state);
+              console.log("🔊 Audio source buffer duration:", audioSource.buffer.duration);
+              
+              audioSource.start(0);
+              audioStarted = true;
+              console.log("🔊 ✅ Audio source started successfully");
+              console.log("🔊 Audio source context state after start:", audioSource.context.state);
+            } catch (error) {
+              console.error("🔊 ❌ Failed to start audio source:", error);
+              console.log("🔊 Error details:", error.message);
+            }
+          } else if (!audioStarted) {
+            if (frameIndex === 0) {
+              console.log("🔊 ❌ No audio source available to start");
+              console.log("🔊   audioSource exists:", !!audioSource);
+            }
+          }
+
           // Simply draw the pre-rendered frame to canvas - no processing needed!
-          ctx.putImageData(preRenderedFrames[frameIndex], 0, 0);
+          const currentFrameIndex = Math.min(frameIndex, preRenderedFrames.length - 1);
+          ctx.putImageData(preRenderedFrames[currentFrameIndex], 0, 0);
           
           // Send progress update
           if (frameIndex % 30 === 0 || frameIndex === preRenderedFrames.length - 1) {
@@ -4743,15 +5109,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           frameIndex++;
           
-          // Use original frame timing for accurate playback speed
-          const nextFrameDelay = frameIntervals[frameIndex - 1] || targetFrameInterval;
+          // Calculate next frame time based on absolute timing from start
+          const targetTime = frameIndex * actualFrameDuration;
+          const currentTime = performance.now() - startTime;
+          const delay = Math.max(0, targetTime - currentTime);
           
-          setTimeout(renderNextFrame, nextFrameDelay);
+          if (frameIndex % 30 === 0) {
+            console.log(`🔊 Frame ${frameIndex} absolute timing: target=${targetTime.toFixed(1)}ms current=${currentTime.toFixed(1)}ms delay=${delay.toFixed(1)}ms`);
+          }
+          
+          setTimeout(renderNextFrame, delay);
         }
 
-        // Handle recording completion
+        // Handle recording completion - define this before starting
         videoRecorder.onstop = async function () {
-          console.log("🎬 📹 MP4 recording completed");
+          console.log("🎬 📹 ⭐ ONSTOP HANDLER CALLED! MP4 recording completed");
+          console.log("🎬 📹 Final chunks count:", chunks.length);
+          console.log("🎬 📹 Final chunks sizes:", chunks.map(chunk => chunk.size));
+          
+          // Clean up audio resources
+          if (audioSource) {
+            try {
+              console.log("🔊 Disconnecting audio source...");
+              audioSource.disconnect();
+              console.log("🔊 Audio source disconnected");
+            } catch (error) {
+              console.log("🔊 Audio source disconnect error (may be normal):", error.message);
+            }
+          }
+          if (audioDestination) {
+            try {
+              console.log("🔊 Closing audio context...");
+              console.log("🔊 Audio context state before close:", audioDestination.context.state);
+              await audioDestination.context.close();
+              console.log("🔊 Audio context closed");
+            } catch (error) {
+              console.log("🔊 Audio context close error (may be normal):", error.message);
+            }
+          }
           
           send({
             type: "recorder:export-status",
@@ -4765,13 +5160,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const blob = new Blob(chunks, { type: mimeType });
           
           console.log(
-            `💾 MP4 generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
+            `💾 Video generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
           );
+          console.log("🔊 Final video blob type:", blob.type);
+          console.log("🔊 Final video blob size:", blob.size, "bytes");
 
-          const filename = generateTapeFilename("mp4");
+          // Determine file extension based on actual codec used
+          const extension = selectedMimeType.includes('webm') ? 'webm' : 'mp4';
+          const filename = generateTapeFilename(extension);
+          
+          console.log("🎬 📥 About to call receivedDownload with:");
+          console.log("🎬 📥 - filename:", filename);
+          console.log("🎬 📥 - blob size:", blob.size);
+          console.log("🎬 📥 - blob type:", blob.type);
+          
           receivedDownload({ filename, data: blob });
+          
+          console.log("🎬 📥 ✅ receivedDownload called successfully");
 
-          console.log("🎬 Animated MP4 exported successfully!");
+          console.log(`🎬 Animated ${extension.toUpperCase()} exported successfully!`);
 
           // Send completion message to video piece
           send({
@@ -4779,9 +5186,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             content: { type: "video", filename }
           });
         };
-
-        // Start frame processing
-        renderNextFrame();
+        
+        // Start recording and begin frame rendering after a small delay
+        console.log("🎬 Starting MediaRecorder...");
+        console.log("🎬 MediaRecorder state before start:", videoRecorder.state);
+        console.log("🎬 Stream active before start:", finalStream.active);
+        console.log("🎬 Stream tracks before start:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+        
+        try {
+          videoRecorder.start(100);
+          
+          console.log("🎬 MediaRecorder state after start():", videoRecorder.state);
+          console.log("🎬 Stream active after start:", finalStream.active);
+          
+          // Wait for MediaRecorder to start before beginning frame rendering
+          setTimeout(() => {
+            console.log("🎬 Beginning frame rendering...");
+            console.log("🎬 MediaRecorder state at frame start:", videoRecorder.state);
+            console.log("🎬 Stream active at frame start:", finalStream.active);
+            console.log("🎬 Stream tracks at frame start:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+            
+            startTime = performance.now(); // Initialize timing reference
+            renderNextFrame();
+          }, 100); // 100ms delay to let MediaRecorder initialize
+          
+        } catch (startError) {
+          console.error("🎬 ❌ Failed to start MediaRecorder:", startError);
+          
+          // Clean up audio resources
+          if (audioSource && !audioStarted) {
+            audioSource.disconnect();
+          }
+          if (exportAudioContext && exportAudioContext.state !== 'closed') {
+            exportAudioContext.close();
+          }
+          
+          console.warn("⚠️ MP4 recording failed to start. Please try again.");
+          return;
+        }
 
       } catch (error) {
         console.error("Error creating animated MP4:", error);
@@ -9235,6 +9677,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Downloads both cached files via `data` and network stored files for
   // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
+    console.log("💾 📥 receivedDownload called!");
+    console.log("💾 📥 - filename:", filename);
+    console.log("💾 📥 - data type:", typeof data);
+    console.log("💾 📥 - data instanceof Blob:", data instanceof Blob);
+    if (data instanceof Blob) {
+      console.log("💾 📥 - blob size:", data.size);
+      console.log("💾 📥 - blob type:", data.type);
+    }
+    console.log("💾 📥 - modifiers:", modifiers);
+    
     console.log("💾 Downloading:", filename);
     // if (data) console.log("Data:", typeof data);
     // if (modifiers.sharing === true) presharingFile = true;
@@ -9413,7 +9865,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         `💾 Triggering download: ${filename.split("/").pop()} (${blob ? `${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB` : "unknown size"})`,
       );
 
-      a.click();
+      // Safari-specific handling
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      if (isSafari && (ext === "mp4" || ext === "webm")) {
+        console.log("🍎 Safari: Using enhanced video download handling");
+        
+        // Force user interaction for Safari
+        a.style.display = 'none';
+        a.rel = 'noopener';
+        
+        // Try click with user gesture
+        try {
+          a.click();
+        } catch (e) {
+          console.log("🍎 Safari: Standard click failed, trying workaround");
+          // Fallback: open in new tab for manual save
+          window.open(object, '_blank');
+        }
+      } else {
+        a.click();
+      }
 
       // Clean up after a delay to ensure download starts
       setTimeout(() => {
