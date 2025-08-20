@@ -1232,8 +1232,8 @@ class KidLisp {
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
-        this.frameCount++; // Increment frame counter for timing functions
-
+        // 🕐 Timing updates moved to sim() for consistent framerate
+        
         // Cache kidlisp source for QR code generation instantly
         // This prevents caching work-in-progress code and saves server space
         const cacheDelayFrames = 0; // Instant caching
@@ -1292,6 +1292,9 @@ class KidLisp {
         // return false;
       },
       sim: ({ sound }) => {
+        // 🕐 Handle timing updates in sim (runs at consistent 120fps)
+        this.frameCount++; // Increment frame counter for timing functions
+        
         // Poll speaker for audio amplitude data (like clock.mjs does)
         sound.speaker?.poll();
 
@@ -2570,10 +2573,10 @@ class KidLisp {
         return api.screen.height;
       },
       frame: (api) => {
-        return this.frameCount || 0;
+        return api.paintCount || 0;
       },
       f: (api) => { // Abbreviation for frame
-        return this.frameCount || 0;
+        return api.paintCount || 0;
       },
       clock: (api) => {
         return Date.now(); // Returns UTC milliseconds since epoch
