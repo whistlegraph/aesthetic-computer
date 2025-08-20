@@ -1692,6 +1692,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // If baseName is already a $code (like $erl) and we have cached code,
         // don't apply the cached code again to avoid duplication
         console.log(`🎬 Using existing piece name as-is: ${baseName} (ignoring cached code to prevent duplication)`);
+      } else if (baseName === options.cachedCode) {
+        // If baseName matches cachedCode exactly (like "clock" === "clock"),
+        // don't apply cachedCode again to avoid duplication like "clockclock"
+        console.log(`🎬 BaseName "${baseName}" matches cachedCode "${options.cachedCode}", using as-is to prevent duplication`);
       }
       // Note: If pieceName already has $ prefix (from cached code), use it as-is
       console.log(`🎬 DEBUG: Final baseName after special case handling: "${baseName}"`);
@@ -4860,6 +4864,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log("🔊 Export audio context created, sample rate:", exportAudioContext.sampleRate);
             console.log("🔊 Export audio context state:", exportAudioContext.state);
             
+            // Resume audio context if suspended
+            if (exportAudioContext.state === 'suspended') {
+              console.log("🔊 Resuming suspended audio context...");
+              await exportAudioContext.resume();
+              console.log("🔊 Audio context resumed, state:", exportAudioContext.state);
+            }
+            
             audioDestination = exportAudioContext.createMediaStreamDestination();
             console.log("🔊 Audio destination created");
             console.log("🔊 Audio destination stream:", audioDestination.stream);
@@ -5077,10 +5088,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               console.log("🔊 Audio source state before start:", audioSource.context.state);
               console.log("🔊 Audio source buffer duration:", audioSource.buffer.duration);
               
-              audioSource.start(0);
-              audioStarted = true;
-              console.log("🔊 ✅ Audio source started successfully");
-              console.log("🔊 Audio source context state after start:", audioSource.context.state);
+              // Resume audio context if suspended
+              if (audioSource.context.state === 'suspended') {
+                console.log("🔊 Resuming audio context for playback...");
+                audioSource.context.resume().then(() => {
+                  console.log("🔊 Audio context resumed for playback, state:", audioSource.context.state);
+                  audioSource.start(0);
+                  audioStarted = true;
+                  console.log("🔊 ✅ Audio source started successfully");
+                  console.log("🔊 Audio source context state after start:", audioSource.context.state);
+                }).catch((resumeError) => {
+                  console.error("🔊 ❌ Failed to resume audio context:", resumeError);
+                  // Try to start anyway
+                  audioSource.start(0);
+                  audioStarted = true;
+                  console.log("🔊 ✅ Audio source started without context resume");
+                });
+              } else {
+                audioSource.start(0);
+                audioStarted = true;
+                console.log("🔊 ✅ Audio source started successfully");
+                console.log("🔊 Audio source context state after start:", audioSource.context.state);
+              }
             } catch (error) {
               console.error("🔊 ❌ Failed to start audio source:", error);
               console.log("🔊 Error details:", error.message);
@@ -5194,10 +5223,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🎬 Stream tracks before start:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
         
         try {
+          console.log("🎬 About to start MediaRecorder with timeslice:", 100);
+          console.log("🎬 MediaRecorder mimeType:", videoRecorder.mimeType);
+          console.log("🎬 Final stream tracks before start:", finalStream.getTracks().length);
+          console.log("🎬 Final stream video tracks before start:", finalStream.getVideoTracks().length);
+          console.log("🎬 Final stream audio tracks before start:", finalStream.getAudioTracks().length);
+          
           videoRecorder.start(100);
           
           console.log("🎬 MediaRecorder state after start():", videoRecorder.state);
           console.log("🎬 Stream active after start:", finalStream.active);
+          
+          // Verify tracks are still active after MediaRecorder start
+          console.log("🎬 Final stream tracks after start:", finalStream.getTracks().length);
+          finalStream.getTracks().forEach((track, index) => {
+            console.log(`🎬 Track ${index} after start: ${track.kind} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`);
+          });
           
           // Wait for MediaRecorder to start before beginning frame rendering
           setTimeout(() => {
@@ -5206,9 +5247,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log("🎬 Stream active at frame start:", finalStream.active);
             console.log("🎬 Stream tracks at frame start:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
             
+            // Check if any data has been received yet
+            console.log("🎬 Chunks collected so far:", chunks.length);
+            
             startTime = performance.now(); // Initialize timing reference
             renderNextFrame();
           }, 100); // 100ms delay to let MediaRecorder initialize
+          
+          // Add a longer timeout to check for data collection issues
+          setTimeout(() => {
+            console.log("🎬 🔍 DEBUG: 2 second check - chunks collected:", chunks.length);
+            console.log("🎬 🔍 MediaRecorder state:", videoRecorder.state);
+            console.log("🎬 🔍 Stream active:", finalStream.active);
+            console.log("🎬 🔍 Stream tracks:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+          }, 2000);
           
         } catch (startError) {
           console.error("🎬 ❌ Failed to start MediaRecorder:", startError);
