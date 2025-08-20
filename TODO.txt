@@ -2,6 +2,16 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * tezos integration *
+ - Write an ac command to load an NFT_People / (or any) OBJKT from teia.art / objkt.com as the current 'painting'.
+ - If it's a gif then maybe using 'flip' and then exporting could be a fun way to remix outside of tapes?
+
+ * tape service *
+ - Write a server / long-running backend function that takes a .zip uploaded from a tape that
+   includes frame data and audio and exports a super nice shareable mp4 as fast as possible
+   with h264 and aac codecs like setup right now for exporting mp4s, but this would
+   use the zip path first then hit a netlify endpoint function (can we do this in netlify?)
+
  * `kidlisp` *
  - Get $bez working with proper syntax highlighting.
  - Future proof URL sharing and attribution.
