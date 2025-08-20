@@ -309,6 +309,13 @@ function addUndoPainting(painting, step = "unspecified") {
 }
 
 let system = null; // Used to add built-in templated behaviors like `nopaint`.
+
+// 🎞️ Piece-level FPS control (timing-based, doesn't affect global render loop)
+let pieceFPS = null; // Target FPS for the current piece (null = no limit)
+let lastPaintTime = 0; // Last time paint() was executed
+let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint behavior
+let shouldSkipPaint = false; // Whether to skip this frame's paint call
+
 let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
@@ -4423,6 +4430,13 @@ async function load(
     keys(preloadPromises).forEach((key) => preloadPromises[key].reject(key));
     preloadPromises = {};
     noPaint = false;
+    
+    // 🎞️ Reset piece-level FPS control
+    pieceFPS = null;
+    lastPaintTime = 0;
+    lastPaintOut = undefined;
+    shouldSkipPaint = false;
+    
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
     currentHost = host;
@@ -4456,7 +4470,8 @@ async function load(
     turtlePosition = { x: screen.width / 2, y: screen.height / 2 };
 
     //$api.fps = function (newFps) {
-    send({ type: "fps-change", content: undefined });
+    // No longer reset global FPS when loading new pieces
+    // send({ type: "fps-change", content: undefined });
     //};
 
     // 🪧 See if notice needs to be shown.
@@ -6745,7 +6760,15 @@ async function makeFrame({ data: { type, content } }) {
       $api.screen.center = { x: screen.width / 2, y: screen.height / 2 };
 
       $api.fps = function (newFps) {
-        send({ type: "fps-change", content: newFps });
+        // Use piece-level timing instead of changing global render loop
+        if (newFps === undefined || newFps === null) {
+          pieceFPS = null; // Remove FPS limit
+        } else {
+          pieceFPS = newFps;
+          lastPaintTime = performance.now(); // Reset timing when FPS changes
+        }
+        // Don't send fps-change to global render loop anymore
+        // send({ type: "fps-change", content: newFps });
       };
 
       $api.cursor = (code) => (cursorCode = code);
@@ -6955,7 +6978,35 @@ async function makeFrame({ data: { type, content } }) {
               np.present($api); // No Paint: prepaint
             }
           } // All: Paint
-          paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+          
+          // 🎞️ Piece-level FPS timing control
+          const now = performance.now();
+          let shouldPaint = true;
+          
+          if (pieceFPS !== null && pieceFPS > 0) {
+            const targetFrameTime = 1000 / pieceFPS; // milliseconds per frame
+            const timeSinceLastPaint = now - lastPaintTime;
+            
+            if (timeSinceLastPaint < targetFrameTime) {
+              shouldPaint = false; // Skip this frame
+            } else {
+              lastPaintTime = now; // Update last paint time
+            }
+          }
+          
+          // Only call paint() if timing allows or no FPS limit is set
+          if (shouldPaint) {
+            paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+          } else {
+            // When skipping paint, preserve the last paintOut to maintain correct noPaint behavior
+            // This ensures HUD/overlays still render even when piece paint is skipped
+            paintOut = lastPaintOut || false;
+          }
+          
+          // Store paintOut for next frame (only when we actually painted)
+          if (shouldPaint) {
+            lastPaintOut = paintOut;
+          }
 
           // Save kidlisp's accumulated pan state for next frame
           $api.savepan();
