@@ -315,6 +315,7 @@ let pieceFPS = null; // Target FPS for the current piece (null = no limit)
 let lastPaintTime = 0; // Last time paint() was executed
 let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint behavior
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
+let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 let boot = defaults.boot;
 let sim = defaults.sim;
@@ -4436,6 +4437,7 @@ async function load(
     lastPaintTime = 0;
     lastPaintOut = undefined;
     shouldSkipPaint = false;
+    pieceFrameCount = 0;
     
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
@@ -6700,7 +6702,9 @@ async function makeFrame({ data: { type, content } }) {
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);
 
-      $api.paintCount = Number(paintCount);
+      // Use piece-level frame counter that only increments when piece actually paints
+      // This ensures frame-based calculations (like in kidlisp) work correctly with FPS limiting
+      $api.paintCount = pieceFrameCount;
 
       $api.inFocus = content.inFocus;
 
@@ -6762,10 +6766,21 @@ async function makeFrame({ data: { type, content } }) {
       $api.fps = function (newFps) {
         // Use piece-level timing instead of changing global render loop
         if (newFps === undefined || newFps === null) {
-          pieceFPS = null; // Remove FPS limit
+          if (pieceFPS !== null) {
+            pieceFPS = null; // Remove FPS limit only if it was previously set
+          }
         } else {
-          pieceFPS = newFps;
-          lastPaintTime = performance.now(); // Reset timing when FPS changes
+          // Only initialize timing if FPS wasn't set before, or if it's a different value
+          if (pieceFPS === null) {
+            // First time setting FPS - initialize timing
+            pieceFPS = newFps;
+            lastPaintTime = 0; // This will trigger "first frame" logic on next paint
+          } else if (pieceFPS !== newFps) {
+            // FPS changed to a different value - reset timing
+            pieceFPS = newFps;
+            lastPaintTime = 0; // This will trigger "first frame" logic on next paint
+          }
+          // If pieceFPS === newFps, do nothing (cache logic)
         }
         // Don't send fps-change to global render loop anymore
         // send({ type: "fps-change", content: newFps });
@@ -6985,22 +7000,32 @@ async function makeFrame({ data: { type, content } }) {
           
           if (pieceFPS !== null && pieceFPS > 0) {
             const targetFrameTime = 1000 / pieceFPS; // milliseconds per frame
-            const timeSinceLastPaint = now - lastPaintTime;
             
-            if (timeSinceLastPaint < targetFrameTime) {
-              shouldPaint = false; // Skip this frame
+            // If this is the first paint (lastPaintTime === 0), always allow it
+            if (lastPaintTime === 0) {
+              lastPaintTime = now;
+              shouldPaint = true;
             } else {
-              lastPaintTime = now; // Update last paint time
+              const timeSinceLastPaint = now - lastPaintTime;
+              
+              if (timeSinceLastPaint < targetFrameTime) {
+                shouldPaint = false; // Skip this frame
+              } else {
+                lastPaintTime = now; // Update last paint time
+                shouldPaint = true;
+              }
             }
           }
           
           // Only call paint() if timing allows or no FPS limit is set
           if (shouldPaint) {
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+            // Increment piece frame counter only when we actually paint
+            pieceFrameCount++;
           } else {
-            // When skipping paint, preserve the last paintOut to maintain correct noPaint behavior
-            // This ensures HUD/overlays still render even when piece paint is skipped
-            paintOut = lastPaintOut || false;
+            // When skipping paint, use undefined to ensure continuous rendering
+            // This maintains the render loop while skipping the actual paint call
+            paintOut = undefined;
           }
           
           // Store paintOut for next frame (only when we actually painted)
