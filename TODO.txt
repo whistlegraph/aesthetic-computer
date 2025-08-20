@@ -2,6 +2,15 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ * `prompt` poe mode *
+ - Create a 'poe' mode for 'prompt' where we skip painting the TextInput UI
+   in favor of a more presentational writing performance tool with effects
+   and a simple background color and maybe a cooler blinking caret, special
+   sound when 'clearing' with a few different 'clear' options and visual
+   keyboard shortcuts. At first it can just be like a simple white on black thing
+   and I may even have a prototype already in disks that implements a TextInput
+   but doesnt.
+
  * tezos integration *
  - Write an ac command to load an NFT_People / (or any) OBJKT from teia.art / objkt.com as the current 'painting'.
  - If it's a gif then maybe using 'flip' and then exporting could be a fun way to remix outside of tapes?
