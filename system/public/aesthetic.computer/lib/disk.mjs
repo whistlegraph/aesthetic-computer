@@ -642,20 +642,64 @@ class Recorder {
   tapeTimerSet(seconds, time) {
     this.tapeTimerStart = time;
     this.tapeTimerDuration = seconds;
+    
+    // Add a failsafe timer as backup in case tapeTimerStep stops being called
+    if (this.failsafeTimeout) {
+      clearTimeout(this.failsafeTimeout);
+    }
+    
+    // Set a failsafe that will trigger cut if the normal timer fails
+    this.failsafeTimeout = setTimeout(() => {
+      console.warn(`🎬 ⚠️ Failsafe timer triggered! Normal timer may have failed.`);
+      if (this.tapeTimerDuration && this.tapeTimerStart) {
+        this.tapeProgress = 0;
+        this.tapeTimerStart = null;
+        this.tapeTimerDuration = null;
+        
+        if (typeof this.cut === 'function') {
+          this.cut(() => {
+            $commonApi.jump("video");
+          });
+        } else {
+          console.warn(`🎬 ⚠️ Cut function not available in failsafe, manual jump to video`);
+          $commonApi.jump("video");
+        }
+      }
+      this.failsafeTimeout = null;
+    }, (seconds + 1) * 1000); // Add 1 second buffer to the failsafe
   }
 
   tapeTimerStep({ needsPaint, sound: { time } }) {
     if (!this.tapeTimerDuration) return;
+    
+    // Enhanced timing with race condition protection
     this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
     needsPaint();
+    
     const secondsOver =
       this.tapeProgress * this.tapeTimerDuration - this.tapeTimerDuration;
+    
     // Run for an extra 150 milliseconds.
     if (this.tapeProgress >= 1 && secondsOver > 0.15) {
+      // Clear failsafe since normal timer completed
+      if (this.failsafeTimeout) {
+        clearTimeout(this.failsafeTimeout);
+        this.failsafeTimeout = null;
+      }
+      
       this.tapeProgress = 0;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
-      this.cut(() => $commonApi.jump("video"));
+      
+      // Add safety check for callback existence
+      if (typeof this.cut === 'function') {
+        this.cut(() => {
+          $commonApi.jump("video");
+        });
+      } else {
+        console.warn(`🎬 ⚠️ Cut function not available, manual jump to video`);
+        $commonApi.jump("video");
+      }
     }
   }
 
@@ -679,7 +723,7 @@ class Recorder {
     this.tapeProgress = 0;
     this.tapeTimerStart = null;
     this.tapeTimerDuration = null;
-    send({ type: "recorder:cut" });
+    send({ type: "signal", content: "recorder:cut" });
   }
 
   print(cb) {
@@ -842,6 +886,8 @@ const $commonApi = {
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
     console.log("🐎 Jumping to:", to);
+    console.log("🐎 Jump context:", { leaving, ahistorical, alias });
+    
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
       return;
@@ -858,29 +904,36 @@ const $commonApi = {
       to = to.replace("out:", "");
       try {
         // url = new URL(to);
+        console.log("🐎 Jumping to web URL:", to);
         $commonApi.net.web(to, jumpOut);
         return;
       } catch (e) {
         // Could not construct a valid url from the jump, so we will be
         // running a local aesthetic.computer piece.
+        console.log("🐎 URL construction failed, treating as local piece:", e.message);
         return;
       }
     } else {
+      console.log("🐎 Setting leaving = true for local piece:", to);
       leaving = true;
     }
 
     function loadLine() {
+      console.log("🐎 loadLine called with:", to);
       load(parse(to), ahistorical, alias, false, callback);
     }
 
     let callback;
     leaveLoad = () => {
+      console.log("🐎 leaveLoad called - checking videoOnLeave:", $commonApi.rec.videoOnLeave);
       // Intercept returns to the prompt when taping from a piece directly.
       if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
+        console.log("🐎 videoOnLeave intercept - redirecting to video");
         to = "video";
         $commonApi.rec.videoOnLeave = false;
         $commonApi.rec.cut(loadLine);
       } else {
+        console.log("🐎 Normal load, no videoOnLeave intercept");
         loadLine(); // Or just load normally.
       }
     };
@@ -1169,9 +1222,10 @@ const $commonApi = {
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
-    label: (text, color, offset) => {
+    label: (text, color, offset, plainTextOverride) => {
       currentHUDTxt = text;
-      currentHUDPlainTxt = stripColorCodes(text);  // Store plain text version
+      // Use plainTextOverride if provided, otherwise strip color codes from text
+      currentHUDPlainTxt = plainTextOverride || stripColorCodes(text);  // Store plain text version
       
       if (!color) {
         currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
@@ -5099,7 +5153,21 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
     $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
-    $commonApi.rec.cutCallback?.();
+    
+    if ($commonApi.rec.cutCallback) {
+      try {
+        $commonApi.rec.cutCallback();
+        // Clear the callback after execution to prevent duplicate calls
+        $commonApi.rec.cutCallback = null;
+      } catch (error) {
+        console.error(`🎬 ❌ Error in cutCallback:`, error);
+        console.error(`🎬 ❌ Stack trace:`, error.stack);
+      }
+    } else {
+      console.warn(`🎬 ⚠️ No cutCallback available when rolling ended`);
+      // Fallback: try to jump to video directly if no callback is set
+      $commonApi.jump("video");
+    }
     return;
   }
 
@@ -6200,6 +6268,18 @@ async function makeFrame({ data: { type, content } }) {
           send({
             type: "bubble:update",
             content: { id, properties },
+          });
+        },
+        enableSustain: function () {
+          send({
+            type: "bubble:update",
+            content: { id, properties: { sustain: true } },
+          });
+        },
+        disableSustain: function () {
+          send({
+            type: "bubble:update",
+            content: { id, properties: { sustain: false } },
           });
         },
       };

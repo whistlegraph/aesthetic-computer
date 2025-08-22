@@ -49,13 +49,14 @@
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
  * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
- * - Waveform types: {sine} {sawtooth} {square} {triangle} {noise-white} {sample} {custom} - persists until changed
+ * - Waveform types: {sine} {sawtooth} {saw} {square} {triangle} {noise-white} {sample} {custom} {bubble} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Hz shift: {100hz} {-50hz} {50hz&} (frequency shift in Hz, & for cumulative) - persists until changed
  * - Speech synthesis: "text" (quoted text for speech synthesis with random voice selection)
  * - Rests: _ (explicit rest) or standalone - (context dependent)
- * - Separators: spaces (ignored), | (measure bars, ignored)
+ * - Separators: spaces (ignored), | (measure bars, ignored), ~ (visual separators, ignored)
  * - Measure separators: | (ignored, visual only)
+ * - Segment separators: ~ (ignored, visual only, preserves sticky state)
  * 
  * Duration modifier examples:
  *   c... defg    -> c is very short (1/8), d,e,f,g are also very short until changed
@@ -181,11 +182,13 @@ export function parseMelody(melodyString, startingOctave = 4) {
             console.log(`🎵 PARSER ERROR: Failed to parse Hz value: {${content}}`);
           }
         }
-        // Check for type:volume syntax like {square:0.5}
+        // Check for type:volume syntax like {square:0.5} or {saw:0.3}
         else if (contentLower.includes(':')) {
           const [waveType, volumeStr] = contentLower.split(':');
-          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(waveType)) {
-            currentWaveType = waveType;
+          // Handle 'saw' as shorthand for 'sawtooth'
+          const normalizedWaveType = waveType === 'saw' ? 'sawtooth' : waveType;
+          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom', 'bubble'].includes(normalizedWaveType)) {
+            currentWaveType = normalizedWaveType;
           }
           const volume = parseFloat(volumeStr);
           if (!isNaN(volume) && volume >= 0 && volume <= 1) {
@@ -199,9 +202,10 @@ export function parseMelody(melodyString, startingOctave = 4) {
             currentVolume = volume;
           }
         }
-        // Check for waveform-only syntax like {sine}
-        else if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(contentLower)) {
-          currentWaveType = contentLower;
+        // Check for waveform-only syntax like {sine} or {saw}
+        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'custom', 'bubble'].includes(contentLower)) {
+          // Handle 'saw' as shorthand for 'sawtooth'
+          currentWaveType = contentLower === 'saw' ? 'sawtooth' : contentLower;
         }
         
         i = endBrace + 1;
@@ -458,7 +462,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             // Handle as standalone rest dash - use comma logic now
             let commas = relativeModifier.length;
             let duration = 2 * Math.pow(2, commas); // - = half (2.0), -- = whole (4.0), etc.
-            notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
+            notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
             continue;
           } else {
             // Invalid syntax, skip
@@ -626,7 +630,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyStickyDurationModifier(duration, false);
       }
       
-      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
     }
     // Handle spaces as separators (ignore them, don't treat as rests)
     else if (char === ' ') {
@@ -646,13 +650,20 @@ export function parseMelody(melodyString, startingOctave = 4) {
       let duration = 2 * Math.pow(2, dashes);
       i = tempI; // Move index past all the dashes
       
-      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
     }
     // Handle measure separators (optional, for readability)
     else if (char === '|') {
       // Measure bars are just visual separators, skip them
       i++;
+    }
+    // Handle tilde separators (~) - preserve sticky state across segments
+    else if (char === '~') {
+      // Tilde characters are visual separators, skip them while preserving sticky state
+      // Sticky values like currentWaveType, currentVolume, etc. are preserved
+      i++;
     } else {
+      // Unknown character - skip it while preserving sticky state
       i++;
     }
   }
@@ -759,7 +770,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   let processedMelodyString = melodyString.trim();
   
   // Find waveform types at the beginning of the string
-  const globalWaveTypePattern = /^{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/;
+  const globalWaveTypePattern = /^{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/;
   const waveMatch = globalWaveTypePattern.exec(processedMelodyString);
   
   if (waveMatch) {
@@ -815,7 +826,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Apply global wave type to the single track if one was specified
-    const hasLocalWaveType = /{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : 
                                    (globalWaveType !== "sine" ? `{${globalWaveType}} ${contentForParsing}` : contentForParsing);
     
@@ -893,7 +904,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Prepend the global wave type to each group if it doesn't have its own
-    const hasLocalWaveType = /{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : `{${globalWaveType}} ${contentForParsing}`;
     
     const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);
@@ -1075,6 +1086,30 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
   const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
   const mutationOptions = [...noteNames, '_']; // Include rest as a mutation option
   
+  // Helper function to infer the appropriate waveType for mutation
+  function inferWaveType(originalItem, track) {
+    // If the item has a defined waveType, use it
+    if (originalItem.waveType && originalItem.waveType !== null) {
+      return originalItem.waveType;
+    }
+    
+    // If not, try to find the most recent waveType from other notes in the track
+    if (track && track.length > 0) {
+      // Look backwards from the current item to find the last explicit waveType
+      for (let i = track.length - 1; i >= 0; i--) {
+        const trackItem = track[i];
+        if (trackItem.waveType && trackItem.waveType !== null) {
+          return trackItem.waveType;
+        }
+      }
+    }
+    
+    // Final fallback to 'sine'
+    return 'sine';
+  }
+  
+  const inferredWaveType = inferWaveType(itemToMutate, originalTrack);
+  
   // Handle rest-to-note mutation
   if (itemToMutate.note === 'rest' || itemToMutate.note === '_') {
     // Rest mutating to a note - pick a random note (never another rest)
@@ -1101,7 +1136,7 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
       note: newNoteName,
       octave: octaveToUse,
       duration: itemToMutate.duration, // Keep the same duration
-      waveType: itemToMutate.waveType || 'sine', // Preserve or use default
+      waveType: inferredWaveType, // Use inferred waveType
       volume: itemToMutate.volume || 0.8, // Preserve or use default
       tone: noteToTone(newNoteName, octaveToUse),
       isMutation: true, // Mark this as a mutation for potential visual feedback
@@ -1163,8 +1198,8 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
       note: 'rest', // Use 'rest' to match parser format
       octave: itemToMutate.octave, // Preserve octave for potential back-mutation
       duration: itemToMutate.duration, // Keep the same duration
-      waveType: itemToMutate.waveType, // Preserve wave type
-      volume: itemToMutate.volume, // Preserve volume
+      waveType: inferredWaveType, // Use inferred waveType
+      volume: itemToMutate.volume || 0.8, // Preserve volume or use default
       tone: null, // Rests don't have tones
       isMutation: true, // Mark this as a mutation for potential visual feedback
       // Preserve ALL modifier properties from original note
@@ -1188,7 +1223,7 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
     note: newNoteName,
     octave: itemToMutate.octave || startingOctave,
     duration: itemToMutate.duration, // Keep the same duration
-    waveType: itemToMutate.waveType || 'sine', // Preserve or use default
+    waveType: inferredWaveType, // Use inferred waveType
     volume: itemToMutate.volume || 0.8, // Preserve or use default
     tone: noteToTone(newNoteName, itemToMutate.octave),
     isMutation: true, // Mark this as a mutation for potential visual feedback
