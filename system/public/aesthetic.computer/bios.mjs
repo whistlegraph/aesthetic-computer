@@ -132,6 +132,70 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Events
   let whens = {};
 
+  // Register core signal handlers
+  whens["recorder:cut"] = async function() {
+    
+    if (!mediaRecorder) {
+      console.warn(`No mediaRecorder available during cut - sending rolling:ended anyway`);
+      send({ type: "recorder:rolling:ended" });
+      return;
+    }
+    
+    if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
+    
+    try {
+      // Safety check to prevent NaN duration
+      if (mediaRecorderStartTime !== undefined) {
+        mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      } else {
+        console.warn("Warning: mediaRecorderStartTime is undefined during cut, cannot calculate duration");
+        // Set a minimal duration to prevent NaN
+        if (mediaRecorderDuration === undefined || isNaN(mediaRecorderDuration)) {
+          mediaRecorderDuration = 100; // Fallback to 100ms
+        }
+      }
+      
+      // mediaRecorder?.stop();
+      mediaRecorder?.pause(); // Single clips for now.
+
+      // Store the tape data to IndexedDB for persistence across page refreshes
+      const blob = new Blob(mediaRecorderChunks, {
+        type: mediaRecorder.mimeType,
+      });
+      
+      try {
+        await receivedChange({
+          data: {
+            type: "store:persist",
+            content: {
+              key: "tape",
+              method: "local:db",
+              data: {
+                blob,
+                duration: mediaRecorderDuration,
+                frames: recordedFrames, // Include frame data for WebP/Frame exports
+                timestamp: Date.now(),
+              },
+            },
+          },
+        });
+
+        if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB");
+      } catch (storageError) {
+        console.error("Error storing tape to IndexedDB:", storageError);
+        // Continue despite storage error
+      }
+
+      // Ensure the rolling:ended signal is sent which triggers the cutCallback
+      send({ type: "recorder:rolling:ended" });
+      
+    } catch (error) {
+      console.error("Error in cut operation:", error);
+      // Still send the ended signal even if something fails
+      send({ type: "recorder:rolling:ended" });
+    }
+  };
+
   // Video storage
   const videos = [];
 
@@ -1259,9 +1323,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      console.log("🎵 BIOS attempting to decode sfx:", soundData);
+      if (debug && logs.sound) console.log("🎵 BIOS attempting to decode sfx:", soundData);
       await decodeSfx(soundData);
-      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
+      if (debug && logs.sound) console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
         console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
@@ -1292,13 +1356,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
-      console.log("🎵 BIOS sample prepared:", {
-        soundData,
-        sampleChannels: sample.channels.length,
-        sampleRate: sample.sampleRate,
-        length: sample.length,
-        triggerSoundAvailable: !!triggerSound
-      });
+      if (debug && logs.sound) {
+        console.log("🎵 BIOS sample prepared:", {
+          soundData,
+          sampleChannels: sample.channels.length,
+          sampleRate: sample.sampleRate,
+          length: sample.length,
+          triggerSoundAvailable: !!triggerSound
+        });
+      }
 
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
@@ -1579,7 +1645,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
         transferrableObjects = [pixelsBuffer];
       } catch (fallbackError) {
-        console.error("🎬 Failed to create fallback buffer:", fallbackError);
+        console.error("Failed to create fallback buffer:", fallbackError);
         // Create minimal empty buffer as absolute last resort
         const emptyPixels = new Uint8ClampedArray(64 * 64 * 4); // 64x64 fallback
         pixelsBuffer = emptyPixels.buffer;
@@ -1668,44 +1734,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
       
       let baseName = options.pieceName || "tape";
-      console.log(`🎬 DEBUG: Initial baseName: "${baseName}", cachedCode: "${options.cachedCode}"`);
-      
       // Handle special cases for kidlisp codes
       if (baseName === "$code") {
         // For kidlisp source code, use the cached code if available
         if (options.cachedCode) {
-          console.log(`🎬 Using cached code for filename: $${options.cachedCode}`);
           baseName = `$${options.cachedCode}`;
         } else {
           // Try to extract a $code from the original command as fallback
           const codeMatch = options.originalCommand.match(/\$([a-zA-Z0-9]+)/);
           if (codeMatch) {
-            console.log(`🎬 Using extracted code for filename: $${codeMatch[1]}`);
             baseName = `$${codeMatch[1]}`;
           } else {
             // No $code available, use "kidlisp" instead of literal "$code"
-            console.log(`🎬 No code available, using "kidlisp" for filename`);
             baseName = "kidlisp";
           }
         }
       } else if (baseName.startsWith("$") && options.cachedCode) {
         // If baseName is already a $code (like $erl) and we have cached code,
         // don't apply the cached code again to avoid duplication
-        console.log(`🎬 Using existing piece name as-is: ${baseName} (ignoring cached code to prevent duplication)`);
       } else if (baseName === options.cachedCode) {
         // If baseName matches cachedCode exactly (like "clock" === "clock"),
         // don't apply cachedCode again to avoid duplication like "clockclock"
-        console.log(`🎬 BaseName "${baseName}" matches cachedCode "${options.cachedCode}", using as-is to prevent duplication`);
       }
       // Note: If pieceName already has $ prefix (from cached code), use it as-is
-      console.log(`🎬 DEBUG: Final baseName after special case handling: "${baseName}"`);
       
       // Add parameters if they exist
       const params = options.pieceParams || "";
       const paramsStr = params ? params.replace(/~/g, "-") : "";
-      console.log(`🎬 DEBUG: paramsStr: "${paramsStr}"`);
       
-      // Build filename: [@handle-]pieceName[params]-timestamp-duration[suffix].extension
       // Include user handle if available for personalized filenames
       // Use cached computed timestamp for perfect filename/visual synchronization,
       // otherwise fall back to recording start timestamp or current timestamp
@@ -4864,17 +4920,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log("🔊 Export audio context created, sample rate:", exportAudioContext.sampleRate);
             console.log("🔊 Export audio context state:", exportAudioContext.state);
             
-            // Resume audio context if suspended
+            // Resume audio context if suspended with timeout
             if (exportAudioContext.state === 'suspended') {
               console.log("🔊 Resuming suspended audio context...");
-              await exportAudioContext.resume();
-              console.log("🔊 Audio context resumed, state:", exportAudioContext.state);
+              try {
+                // Add timeout to prevent hanging
+                const resumePromise = exportAudioContext.resume();
+                const timeoutPromise = new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Audio context resume timeout')), 5000)
+                );
+                
+                await Promise.race([resumePromise, timeoutPromise]);
+                console.log("🔊 Audio context resumed, state:", exportAudioContext.state);
+              } catch (error) {
+                console.warn("🔊 ⚠️ Audio context resume failed:", error.message);
+                // Continue without audio if resume fails
+                hasRecordedAudio = false;
+                audioBuffer = null;
+                exportAudioContext.close();
+              }
             }
             
-            audioDestination = exportAudioContext.createMediaStreamDestination();
-            console.log("🔊 Audio destination created");
-            console.log("🔊 Audio destination stream:", audioDestination.stream);
-            console.log("🔊 Audio destination stream tracks:", audioDestination.stream.getTracks().length);
+            if (hasRecordedAudio && audioBuffer) {
+              audioDestination = exportAudioContext.createMediaStreamDestination();
+              console.log("🔊 Audio destination created");
+              console.log("🔊 Audio destination stream:", audioDestination.stream);
+              console.log("🔊 Audio destination stream tracks:", audioDestination.stream.getTracks().length);
+            }
             
             // Create combined stream
             finalStream = new MediaStream();
@@ -4945,13 +5017,72 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
+        // Adaptive bitrate based on content and duration
+        // For shorter recordings, we can afford higher quality
+        // For longer recordings, reduce bitrate to keep file sizes manageable
+        const estimatedDuration = (mediaRecorderDuration || 5000) / 1000; // Convert to seconds
+        const frameCount = recordedFrames?.length || 300; // Estimate if not available
+        
+        // Analyze content complexity by sampling frame differences
+        let contentComplexity = 1.0; // Default complexity multiplier
+        if (recordedFrames && recordedFrames.length > 10) {
+          let totalDifference = 0;
+          let samples = 0;
+          const sampleStep = Math.max(1, Math.floor(recordedFrames.length / 10)); // Sample every N frames
+          
+          for (let i = sampleStep; i < recordedFrames.length && samples < 10; i += sampleStep) {
+            const prevFrame = recordedFrames[i - sampleStep][1];
+            const currentFrame = recordedFrames[i][1];
+            
+            // Quick difference check using a subset of pixels
+            let pixelDiff = 0;
+            const checkStep = 100; // Check every 100th pixel for speed
+            for (let p = 0; p < prevFrame.data.length; p += checkStep * 4) {
+              pixelDiff += Math.abs(prevFrame.data[p] - currentFrame.data[p]);
+            }
+            totalDifference += pixelDiff;
+            samples++;
+          }
+          
+          if (samples > 0) {
+            const avgDifference = totalDifference / samples;
+            // Normalize complexity (typical values range from 0-10000+)
+            contentComplexity = Math.min(2.0, Math.max(0.5, avgDifference / 5000));
+          }
+        }
+        
+        console.log(`📊 Content complexity analysis: ${contentComplexity.toFixed(2)}x (1.0 = normal, >1.0 = high motion/detail)`);
+        
+        let videoBitrate;
+        let audioBitrate = 128000; // 128 kbps - good quality audio
+        
+        if (estimatedDuration <= 10) {
+          // Short recordings (≤10s): High quality
+          videoBitrate = Math.round(12000000 * contentComplexity); // 12 Mbps base
+        } else if (estimatedDuration <= 30) {
+          // Medium recordings (10-30s): Balanced quality  
+          videoBitrate = Math.round(8000000 * contentComplexity);  // 8 Mbps base
+        } else if (estimatedDuration <= 60) {
+          // Longer recordings (30-60s): Efficient quality
+          videoBitrate = Math.round(5000000 * contentComplexity);  // 5 Mbps base
+        } else {
+          // Very long recordings (>60s): Conservative quality
+          videoBitrate = Math.round(3000000 * contentComplexity);  // 3 Mbps base
+          audioBitrate = 96000;    // 96 kbps audio to save more space
+        }
+        
+        // Cap maximum bitrate to prevent extremely large files
+        videoBitrate = Math.min(videoBitrate, 20000000); // Max 20 Mbps
+        
+        console.log(`📊 Adaptive bitrate: ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio (duration: ${estimatedDuration.toFixed(1)}s)`);
+
         const recorderOptions = selectedMimeType ? {
           mimeType: selectedMimeType,
-          videoBitsPerSecond: 40000000, // 40 Mbps (2x increase for premium quality)
-          audioBitsPerSecond: 256000,   // 256 kbps (high quality audio)
+          videoBitsPerSecond: videoBitrate,
+          audioBitsPerSecond: audioBitrate,
         } : {
-          videoBitsPerSecond: 40000000, // 40 Mbps (2x increase for premium quality)
-          audioBitsPerSecond: 256000,   // 256 kbps (high quality audio)
+          videoBitsPerSecond: videoBitrate,
+          audioBitsPerSecond: audioBitrate,
         };
 
         if (fallbackUsed) {
@@ -4975,32 +5106,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         const chunks = [];
         videoRecorder.ondataavailable = function (e) {
-          console.log("🎬 📦 MediaRecorder data available:", e.data.size, "bytes");
-          console.log("🎬 📦 Data type:", e.data.type);
-          console.log("🎬 📦 Total chunks so far:", chunks.length);
           if (e.data && e.data.size > 0) {
             chunks.push(e.data);
-            console.log("🎬 📦 ✅ Chunk added! New total:", chunks.length);
-          } else {
-            console.log("🎬 📦 ❌ Chunk ignored (zero size or null)");
           }
         };
 
         // Add error handling 
         videoRecorder.onerror = function (e) {
-          console.error("🎬 ❌ MediaRecorder error:", e);
-          console.error("🎬 Error details:", e.error);
-          console.error("🎬 Used mimeType:", selectedMimeType);
-          console.error("🎬 MediaRecorder state:", videoRecorder.state);
+          console.error("MediaRecorder error:", e);
+          console.error("Error details:", e.error);
+          console.error("Used mimeType:", selectedMimeType);
+          console.error("MediaRecorder state:", videoRecorder.state);
         };
 
         // Add state change monitoring
         videoRecorder.onstart = function () {
-          console.log("🎬 ✅ MediaRecorder started successfully");
+          // MediaRecorder started successfully
         };
 
         videoRecorder.onpause = function () {
-          console.log("🎬 ⏸️ MediaRecorder paused");
+          // MediaRecorder paused
         };
 
         videoRecorder.onresume = function () {
@@ -5066,17 +5191,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Define the frame rendering function
         function renderNextFrame() {
           if (frameIndex >= preRenderedFrames.length) {
-            console.log("🎬 📹 All frames processed, stopping MP4 recording");
-            console.log("🎬 📹 MediaRecorder state before stop:", videoRecorder.state);
-            console.log("🎬 📹 MediaRecorder data chunks collected:", chunks.length);
-            console.log("🎬 📹 Total chunk data size:", chunks.reduce((sum, chunk) => sum + chunk.size, 0), "bytes");
-            
             try {
               videoRecorder.stop();
-              console.log("🎬 📹 MediaRecorder stop() called successfully");
-              console.log("🎬 📹 MediaRecorder state after stop:", videoRecorder.state);
             } catch (error) {
-              console.error("🎬 ❌ Error stopping MediaRecorder:", error);
+              console.error("Error stopping MediaRecorder:", error);
             }
             return;
           }
@@ -5084,40 +5202,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Start audio playback on first frame for perfect sync
           if (!audioStarted && audioSource) {
             try {
-              console.log("🔊 Starting audio source...");
-              console.log("🔊 Audio source state before start:", audioSource.context.state);
-              console.log("🔊 Audio source buffer duration:", audioSource.buffer.duration);
-              
               // Resume audio context if suspended
               if (audioSource.context.state === 'suspended') {
-                console.log("🔊 Resuming audio context for playback...");
                 audioSource.context.resume().then(() => {
-                  console.log("🔊 Audio context resumed for playback, state:", audioSource.context.state);
                   audioSource.start(0);
                   audioStarted = true;
-                  console.log("🔊 ✅ Audio source started successfully");
-                  console.log("🔊 Audio source context state after start:", audioSource.context.state);
                 }).catch((resumeError) => {
-                  console.error("🔊 ❌ Failed to resume audio context:", resumeError);
+                  console.error("Failed to resume audio context:", resumeError);
                   // Try to start anyway
                   audioSource.start(0);
                   audioStarted = true;
-                  console.log("🔊 ✅ Audio source started without context resume");
                 });
               } else {
                 audioSource.start(0);
                 audioStarted = true;
-                console.log("🔊 ✅ Audio source started successfully");
-                console.log("🔊 Audio source context state after start:", audioSource.context.state);
               }
             } catch (error) {
-              console.error("🔊 ❌ Failed to start audio source:", error);
-              console.log("🔊 Error details:", error.message);
-            }
-          } else if (!audioStarted) {
-            if (frameIndex === 0) {
-              console.log("🔊 ❌ No audio source available to start");
-              console.log("🔊   audioSource exists:", !!audioSource);
+              console.error("Failed to start audio source:", error);
             }
           }
 
@@ -5128,7 +5229,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Send progress update
           if (frameIndex % 30 === 0 || frameIndex === preRenderedFrames.length - 1) {
             const progress = (frameIndex + 1) / preRenderedFrames.length;
-            console.log(`🎬 📹 Encoding frame ${frameIndex + 1}/${preRenderedFrames.length} (${(progress * 100).toFixed(1)}%)`);
             
             send({
               type: "recorder:transcode-progress",
@@ -5143,37 +5243,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const currentTime = performance.now() - startTime;
           const delay = Math.max(0, targetTime - currentTime);
           
-          if (frameIndex % 30 === 0) {
-            console.log(`🔊 Frame ${frameIndex} absolute timing: target=${targetTime.toFixed(1)}ms current=${currentTime.toFixed(1)}ms delay=${delay.toFixed(1)}ms`);
-          }
-          
           setTimeout(renderNextFrame, delay);
         }
 
         // Handle recording completion - define this before starting
         videoRecorder.onstop = async function () {
-          console.log("🎬 📹 ⭐ ONSTOP HANDLER CALLED! MP4 recording completed");
-          console.log("🎬 📹 Final chunks count:", chunks.length);
-          console.log("🎬 📹 Final chunks sizes:", chunks.map(chunk => chunk.size));
-          
           // Clean up audio resources
           if (audioSource) {
             try {
-              console.log("🔊 Disconnecting audio source...");
               audioSource.disconnect();
-              console.log("🔊 Audio source disconnected");
             } catch (error) {
-              console.log("🔊 Audio source disconnect error (may be normal):", error.message);
+              // Ignore disconnect errors as they're usually normal
             }
           }
           if (audioDestination) {
             try {
-              console.log("🔊 Closing audio context...");
-              console.log("🔊 Audio context state before close:", audioDestination.context.state);
               await audioDestination.context.close();
-              console.log("🔊 Audio context closed");
             } catch (error) {
-              console.log("🔊 Audio context close error (may be normal):", error.message);
+              // Ignore close errors as they're usually normal
             }
           }
           
@@ -5187,27 +5274,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
 
           const blob = new Blob(chunks, { type: mimeType });
-          
-          console.log(
-            `💾 Video generated: ${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB`,
-          );
-          console.log("🔊 Final video blob type:", blob.type);
-          console.log("🔊 Final video blob size:", blob.size, "bytes");
 
           // Determine file extension based on actual codec used
           const extension = selectedMimeType.includes('webm') ? 'webm' : 'mp4';
           const filename = generateTapeFilename(extension);
           
-          console.log("🎬 📥 About to call receivedDownload with:");
-          console.log("🎬 📥 - filename:", filename);
-          console.log("🎬 📥 - blob size:", blob.size);
-          console.log("🎬 📥 - blob type:", blob.type);
-          
           receivedDownload({ filename, data: blob });
-          
-          console.log("🎬 📥 ✅ receivedDownload called successfully");
 
-          console.log(`🎬 Animated ${extension.toUpperCase()} exported successfully!`);
+          console.log(`Animated ${extension.toUpperCase()} exported successfully!`);
 
           // Send completion message to video piece
           send({
@@ -6290,8 +6364,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keyboard.events.length = 0; // Clear keyboard events.
       gamepad.events.length = 0; // Clear gamepad events.
 
-      // Clear when events.
-      whens = {};
+      // Clear when events but preserve core signal handlers.
+      const coreHandlers = {};
+      if (whens["recorder:cut"]) {
+        coreHandlers["recorder:cut"] = whens["recorder:cut"];
+        console.log("📻 Preserving recorder:cut handler during reset");
+      }
+      whens = coreHandlers;
 
       // Close (defocus) software keyboard if we are NOT entering the prompt.
       if (content.text && content.text.split("~")[0] !== "prompt") {
@@ -6605,7 +6684,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "signal") {
       if (debug) console.log("📻 Signal received:", content);
       if (typeof content === "string") content = { type: content };
-      if (whens[content.type]) whens[content.type](content.content);
+      
+      console.log(`📻 Signal processing: type="${content.type}", handler exists:`, !!whens[content.type]);
+      
+      if (whens[content.type]) {
+        try {
+          console.log(`📻 Calling signal handler for: ${content.type}`);
+          await whens[content.type](content.content);
+          console.log(`📻 Signal handler completed for: ${content.type}`);
+        } catch (error) {
+          console.error(`📻 Error in signal handler for ${content.type}:`, error);
+          console.error(`📻 Stack trace:`, error.stack);
+        }
+      } else {
+        console.warn(`📻 No handler found for signal: ${content.type}`);
+      }
     }
 
     // 📦 Storage
@@ -7160,53 +7253,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    if (type === "recorder:cut") {
-      if (!mediaRecorder) return;
-      if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
-      
-      // Safety check to prevent NaN duration
-      if (mediaRecorderStartTime !== undefined) {
-        mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
-      } else {
-        console.warn("🎬 Warning: mediaRecorderStartTime is undefined during cut, cannot calculate duration");
-        // Set a minimal duration to prevent NaN
-        if (mediaRecorderDuration === undefined || isNaN(mediaRecorderDuration)) {
-          mediaRecorderDuration = 100; // Fallback to 100ms
-        }
-      }
-      
-      console.log(`🎬 ✂️ Recording CUT: captured ${recordedFrames.length} frames over ${mediaRecorderDuration}ms`);
-      
-      // mediaRecorder?.stop();
-      mediaRecorder?.pause(); // Single clips for now.
-
-      // Store the tape data to IndexedDB for persistence across page refreshes
-      const blob = new Blob(mediaRecorderChunks, {
-        type: mediaRecorder.mimeType,
-      });
-
-      await receivedChange({
-        data: {
-          type: "store:persist",
-          content: {
-            key: "tape",
-            method: "local:db",
-            data: {
-              blob,
-              duration: mediaRecorderDuration,
-              frames: recordedFrames, // Include frame data for WebP/Frame exports
-              timestamp: Date.now(),
-            },
-          },
-        },
-      });
-
-      if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB");
-
-      send({ type: "recorder:rolling:ended" });
-      return;
-    }
-
     if (type === "recorder:present") {
       // Check for cached video if no active recording AND no recorded frames
       if (
@@ -7316,7 +7362,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             playbackStart += pauseDuration;
 
             // Restart the audio from the correct position if it was killed during pause
-            if (!sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
+            if (!render && !sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
               const audioPosition =
                 (performance.now() - playbackStart) /
                 (mediaRecorderDuration * 1000);
@@ -7327,6 +7373,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 stream,
                 from: clampedPosition, // Start from the paused position
               });
+              // Audio restarted after pause
             }
 
             send({ type: "recorder:present-playing" });
@@ -7337,9 +7384,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               return;
             }
 
+            // Hang detection: track time spent in this update cycle
+            const updateStartTime = performance.now();
+            let frameProcessingTime = 0;
+            
+            // Update last activity time for watchdog
+            window.lastVideoUpdateTime = updateStartTime;
+
             if (f === 0) {
-              tapeSoundId = "tape:audio_" + performance.now();
-              await playSfx(tapeSoundId, "tape:audio", { stream });
+              // Only play audio if not rendering video export
+              if (!render) {
+                tapeSoundId = "tape:audio_" + performance.now();
+                await playSfx(tapeSoundId, "tape:audio", { stream });
+                // Audio started for tape playback
+              } else {
+                console.log("🎵 Skipping audio during video export");
+              }
               // Will be silent if stream is here. ^
               playbackStart = performance.now();
               playbackProgress = 0;
@@ -7358,7 +7418,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
 
-            render?.(frameCan, playbackProgress / playbackDurationMs, f); // Render a video as needed, using this canvas and current frame index.
+            const renderStartTime = performance.now();
+            
+            try {
+              render?.(frameCan, playbackProgress / playbackDurationMs, f); // Render a video as needed, using this canvas and current frame index.
+              
+            } catch (error) {
+              console.error(`Render function failed at frame ${f} (${((f / (recordedFrames.length - 1)) * 100).toFixed(2)}%):`, error);
+              // Continue processing even if render fails
+            }
+            
+            frameProcessingTime = performance.now() - renderStartTime;
+            
+            // Enhanced warning for slow frame processing in critical zone
+            if (frameProcessingTime > 200) {
+              console.warn(`Slow frame processing: ${frameProcessingTime.toFixed(2)}ms for frame ${f}`);
+            }
+            
+            // Check for hang in critical 40% zone
+            const currentProgress = f / (recordedFrames.length - 1);
+            if (currentProgress > 0.35 && currentProgress < 0.45 && frameProcessingTime > 200) {
+              console.warn(`CRITICAL ZONE SLOW PROCESSING: ${frameProcessingTime.toFixed(2)}ms at ${(currentProgress * 100).toFixed(2)}% (frame ${f})`);
+            }
 
             playbackProgress = performance.now() - playbackStart;
 
@@ -7385,6 +7466,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (f >= recordedFrames.length - 1) {
               // For video export, don't loop - complete when all frames are processed
               if (doneCb && render) {
+                console.log(`🎬 📹 Video export reaching completion - final frame processed`);
                 send({ type: "recorder:present-progress", content: 1 });
                 return doneCb(); // Completed video export.
               }
@@ -7395,27 +7477,97 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               playbackStart = performance.now();
               playbackProgress = 0;
               
-              // Restart audio for the loop
-              if (tapeSoundId) {
-                sfxPlaying[tapeSoundId]?.kill();
-                delete sfxPlaying[tapeSoundId];
+              // Restart audio for the loop (only during normal playback)
+              if (!render) {
+                if (tapeSoundId) {
+                  sfxPlaying[tapeSoundId]?.kill();
+                  delete sfxPlaying[tapeSoundId];
+                }
+                tapeSoundId = "tape:audio_" + performance.now();
+                await playSfx(tapeSoundId, "tape:audio", { stream });
+                // Audio restarted for loop
+              } else {
+                console.log("🎵 Skipping audio restart during video export");
               }
-              tapeSoundId = "tape:audio_" + performance.now();
-              await playSfx(tapeSoundId, "tape:audio", { stream });
             } else {
-              // Normal frame advancement logic
+              // Improved frame advancement logic with better hang detection
+              const frameAdvancementStart = performance.now();
+              let frameAdvancementCount = 0;
+              const maxFrameJump = 10; // Limit frame jumps to prevent instability
+              
               while (playbackProgress > targetFrameTime && f < recordedFrames.length - 1) {
                 f = f + 1;
+                frameAdvancementCount++;
+                
+                // Prevent infinite loops with smaller threshold
+                if (frameAdvancementCount > maxFrameJump) {
+                  console.warn(`🎬 ⚠️ Frame advancement limit reached: ${frameAdvancementCount} frames, breaking loop for stability`);
+                  break;
+                }
+                
                 // Recalculate target time for the new frame
                 targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+                
+                // Check for suspicious timestamp values
+                if (isNaN(targetFrameTime) || targetFrameTime < 0) {
+                  console.error(`🎬 🚨 INVALID TIMESTAMP at frame ${f}: ${targetFrameTime}, firstFrame: ${firstFrameTimestamp}, frameTime: ${recordedFrames[f][0]}`);
+                  break;
+                }
+                
+                // Additional safety: if we're jumping too far ahead, slow down
+                if (frameAdvancementCount > 5) {
+                  console.warn(`🎬 ⚠️ Large frame jump in progress: ${frameAdvancementCount} frames`);
+                  // Break early for large jumps to maintain stability
+                  break;
+                }
+              }
+              
+              const frameAdvancementTime = performance.now() - frameAdvancementStart;
+              if (frameAdvancementTime > 5 || frameAdvancementCount > 5) {
+                console.warn(`🎬 ⚠️ Frame advancement took ${frameAdvancementTime.toFixed(2)}ms, advanced ${frameAdvancementCount} frames`);
               }
             }
 
             if (transmitProgress) {
               // Use frame-based progress for video export, time-based for normal playback
-              const currentProgress = render ? (f / (recordedFrames.length - 1)) : (playbackProgress / playbackDurationMs);
+              let currentProgress;
+              if (render) {
+                // For video export, use stable frame-based progress
+                currentProgress = Math.max(0, Math.min(1, f / (recordedFrames.length - 1)));
+                // Ensure progress always advances
+                if (currentProgress <= (window.lastVideoProgress || 0)) {
+                  currentProgress = (window.lastVideoProgress || 0) + 0.001;
+                }
+                window.lastVideoProgress = currentProgress;
+              } else {
+                // For normal playback, use time-based progress
+                currentProgress = playbackProgress / playbackDurationMs;
+              }
+              
               // Store global progress for overlay breathing pattern
               window.currentTapeProgress = currentProgress;
+              
+              // Enhanced debugging for hang detection
+              if (render) {
+                console.log(`🎬 📊 Frame ${f}/${recordedFrames.length - 1}, Progress: ${(currentProgress * 100).toFixed(2)}%`);
+                
+                // Check for potential hang conditions
+                if (f > 0 && currentProgress > 0.35 && currentProgress < 0.45) {
+                  console.log(`🎬 ⚠️ Critical zone detected - frame timing: ${targetFrameTime}ms, playback: ${playbackProgress}ms`);
+                  console.log(`🎬 ⚠️ Frame timestamp: ${recordedFrames[f][0]}, First frame: ${firstFrameTimestamp}`);
+                  
+                  // Memory monitoring in critical zone
+                  if (performance.memory) {
+                    const memInfo = performance.memory;
+                    console.log(`🎬 💾 Memory: Used ${(memInfo.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB / ${(memInfo.totalJSHeapSize / 1024 / 1024).toFixed(2)}MB`);
+                  }
+                }
+                
+                // Log every 10% progress for general monitoring
+                if (f % Math.floor(recordedFrames.length / 10) === 0) {
+                  console.log(`🎬 🔄 Progress checkpoint: ${(currentProgress * 100).toFixed(1)}% (frame ${f})`);
+                }
+              }
               
               send({
                 type: "recorder:present-progress",
@@ -7424,6 +7576,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
 
             window.requestAnimationFrame(update);
+            
+            // Check total update time and warn if excessive
+            const totalUpdateTime = performance.now() - updateStartTime;
+            if (totalUpdateTime > 50) {
+              console.warn(`🎬 ⚠️ Very slow update cycle: ${totalUpdateTime.toFixed(2)}ms at frame ${f} (${((f / (recordedFrames.length - 1)) * 100).toFixed(2)}%)`);
+            }
           }
 
           update();
@@ -7584,10 +7742,72 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
         
         videoRecorder.start(100);
+        
+        // Enhanced MediaRecorder monitoring
+        let lastDataTime = performance.now();
+        const monitoringInterval = setInterval(() => {
+          const timeSinceLastData = performance.now() - lastDataTime;
+          console.log(`🎬 📊 MediaRecorder state: ${videoRecorder.state}, Time since last data: ${timeSinceLastData}ms`);
+          
+          if (timeSinceLastData > 5000 && videoRecorder.state === "recording") {
+            console.warn(`🎬 ⚠️ No data received for ${timeSinceLastData}ms - possible hang detected`);
+          }
+        }, 2000);
+        
+        // Add video export watchdog
+        window.lastVideoUpdateTime = performance.now();
+        window.videoExportWatchdog = setInterval(() => {
+          const timeSinceLastUpdate = performance.now() - (window.lastVideoUpdateTime || 0);
+          if (timeSinceLastUpdate > 10000) { // 10 second timeout
+            console.error(`🎬 🚨 VIDEO EXPORT HANG DETECTED! No update for ${timeSinceLastUpdate}ms`);
+            console.error(`🎬 🚨 Attempting to restart or abort export...`);
+            
+            // Try to stop the current process
+            try {
+              if (videoRecorder.state === "recording") {
+                console.log(`🎬 🚨 Force stopping MediaRecorder...`);
+                videoRecorder.stop();
+              }
+            } catch (e) {
+              console.error(`🎬 ❌ Failed to stop MediaRecorder:`, e);
+            }
+            
+            // Clear the watchdog to prevent spam
+            clearInterval(window.videoExportWatchdog);
+            window.videoExportWatchdog = null;
+          }
+        }, 5000);
+        
+        // Update last data time when data is received
+        const originalOnDataAvailable = videoRecorder.ondataavailable;
+        videoRecorder.ondataavailable = function(e) {
+          lastDataTime = performance.now();
+          console.log(`🎬 📊 Data received: ${e.data.size} bytes at progress ${window.currentTapeProgress || 0}`);
+          if (originalOnDataAvailable) originalOnDataAvailable.call(this, e);
+        };
+        
+        // Clear monitoring when done
+        const originalOnStop = videoRecorder.onstop;
+        videoRecorder.onstop = function(e) {
+          clearInterval(monitoringInterval);
+          if (window.videoExportWatchdog) {
+            clearInterval(window.videoExportWatchdog);
+            window.videoExportWatchdog = null;
+            console.log(`🎬 🐕 Watchdog cleared - MediaRecorder stopped`);
+          }
+          if (originalOnStop) originalOnStop.call(this, e);
+        };
+        
         startTapePlayback(
           true,
           () => {
             console.log(`🎬 📹 Video export completed, stopping recorder`);
+            // Clear watchdog when export completes
+            if (window.videoExportWatchdog) {
+              clearInterval(window.videoExportWatchdog);
+              window.videoExportWatchdog = null;
+              console.log(`🎬 🐕 Watchdog cleared - export completed normally`);
+            }
             // Stop video recorder immediately when all frames are processed
             videoRecorder.stop();
           },
@@ -8051,12 +8271,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Sample colors from the source frame for the progress bar
               let frameColors = ["#FF0000"]; // Red fallback
               try {
+                // Add timeout protection for this operation
+                const colorSamplingStart = performance.now();
+                
                 // Get frame data from the source canvas ('can' parameter)
                 const tempCtx = can.getContext('2d');
                 const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
                 
+                const colorSamplingTime = performance.now() - colorSamplingStart;
+                if (colorSamplingTime > 50) {
+                  console.warn(`🎬 ⚠️ Slow color sampling: ${colorSamplingTime.toFixed(2)}ms at progress ${progress.toFixed(4)}`);
+                }
+                
                 // Sample colors across the width of the progress bar for pixel-by-pixel variety
-                const numSamples = Math.min(progressBarWidth, 100); // Cap at 100 samples for performance
+                const numSamples = Math.min(progressBarWidth, 50); // Reduced from 100 to 50 for performance
                 frameColors = [];
                 
                 for (let i = 0; i < numSamples; i++) {
@@ -8081,31 +8309,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   }
                 }
               } catch (error) {
-                console.warn("Failed to sample frame colors:", error);
+                console.error("🎬 ❌ Frame color sampling failed at progress", progress.toFixed(4), error);
                 frameColors = ["#FF0000"]; // Red fallback
               }
               
               // Draw the progress bar with frame-sampled colors
-              if (frameColors.length === 1) {
-                // Single color fallback
-                sctx.fillStyle = frameColors[0];
-                sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
-              } else {
-                // Draw pixel-by-pixel or segment-by-segment with sampled colors
-                const segmentWidth = progressBarWidth / frameColors.length;
-                for (let i = 0; i < frameColors.length; i++) {
-                  const segmentX = i * segmentWidth;
-                  const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
-                  
-                  sctx.fillStyle = frameColors[i];
-                  sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+              try {
+                const progressBarDrawStart = performance.now();
+                
+                if (frameColors.length === 1) {
+                  // Single color fallback
+                  sctx.fillStyle = frameColors[0];
+                  sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+                } else {
+                  // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                  const segmentWidth = progressBarWidth / frameColors.length;
+                  for (let i = 0; i < frameColors.length; i++) {
+                    const segmentX = i * segmentWidth;
+                    const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                    
+                    sctx.fillStyle = frameColors[i];
+                    sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                  }
                 }
+                
+                // Add a subtle border
+                sctx.strokeStyle = "#333333";
+                sctx.lineWidth = 1;
+                sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+                
+                const progressBarDrawTime = performance.now() - progressBarDrawStart;
+                if (progressBarDrawTime > 10) {
+                  console.warn(`🎬 ⚠️ Slow progress bar draw: ${progressBarDrawTime.toFixed(2)}ms at progress ${progress.toFixed(4)}`);
+                }
+              } catch (error) {
+                console.error(`🎬 ❌ Progress bar drawing failed at progress ${progress.toFixed(4)}:`, error);
               }
-              
-              // Add a subtle border
-              sctx.strokeStyle = "#333333";
-              sctx.lineWidth = 1;
-              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
 
               sctx.restore();
             }
