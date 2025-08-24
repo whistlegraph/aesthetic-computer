@@ -1733,6 +1733,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         originalCommand: ""
       };
       
+      // Debug logging for filename issues
+      if (debug) {
+        console.log("🎬 generateTapeFilename debug:", {
+          extension,
+          suffix,
+          options,
+          HANDLE,
+          location: location?.host || "unknown"
+        });
+      }
+      
       let baseName = options.pieceName || "tape";
       // Handle special cases for kidlisp codes
       if (baseName === "$code") {
@@ -1814,7 +1825,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log(`🎬 Using recording start timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
       } else {
         // For other files or when no recording timestamp is available
-        fileTimestamp = timestamp();
+        // Add safety check for longer recordings
+        try {
+          fileTimestamp = timestamp();
+        } catch (error) {
+          console.warn("⚠️ Timestamp generation failed, using simple fallback:", error.message);
+          const now = new Date();
+          fileTimestamp = `${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()}.${now.getHours()}.${now.getMinutes()}.${now.getSeconds()}`;
+        }
       }
       
       // Assemble filename parts: [@handle-][pieceName[params]-]timestamp-duration[suffix].extension
@@ -1822,7 +1840,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const parts = [];
       
       // Add handle prefix if user has one
-      if (HANDLE) {
+      if (HANDLE && typeof HANDLE === 'string' && HANDLE.length > 0) {
         console.log(`🎬 Adding handle to filename: "${HANDLE}"`);
         // Ensure handle doesn't already have @ prefix to avoid @@
         const handlePrefix = HANDLE.startsWith('@') ? HANDLE : `@${HANDLE}`;
@@ -1830,14 +1848,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       // Add piece name with parameters (skip entirely if mystery mode)
-      if (!options.mystery) {
+      if (!options.mystery && baseName && typeof baseName === 'string') {
         parts.push(baseName + paramsStr);
       }
       
-      // Add timestamp with duration
-      parts.push(fileTimestamp + durationPart + suffix);
+      // Add timestamp with duration - ensure these are valid strings
+      if (fileTimestamp && typeof fileTimestamp === 'string') {
+        parts.push(fileTimestamp + durationPart + suffix);
+      } else {
+        // Emergency fallback timestamp
+        const emergency = Date.now().toString();
+        console.warn("⚠️ Using emergency timestamp fallback:", emergency);
+        parts.push(emergency + suffix);
+      }
       
-      return parts.filter(Boolean).join("-") + "." + extension;
+      // Final safety check and assembly
+      const validParts = parts.filter(part => part && typeof part === 'string' && part.length > 0);
+      if (validParts.length === 0) {
+        console.warn("⚠️ No valid filename parts, using emergency fallback");
+        return `tape-${Date.now()}.${extension}`;
+      }
+      
+      return validParts.join("-") + "." + extension;
     }
 
     if (type === "pen:lock") {
@@ -4924,10 +4956,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (exportAudioContext.state === 'suspended') {
               console.log("🔊 Resuming suspended audio context...");
               try {
-                // Add timeout to prevent hanging
+                // Add timeout to prevent hanging - increased for longer recordings
                 const resumePromise = exportAudioContext.resume();
                 const timeoutPromise = new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error('Audio context resume timeout')), 5000)
+                  setTimeout(() => reject(new Error('Audio context resume timeout')), 15000) // Increased to 15 seconds
                 );
                 
                 await Promise.race([resumePromise, timeoutPromise]);
@@ -5023,35 +5055,47 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const estimatedDuration = (mediaRecorderDuration || 5000) / 1000; // Convert to seconds
         const frameCount = recordedFrames?.length || 300; // Estimate if not available
         
-        // Analyze content complexity by sampling frame differences
+        // Analyze content complexity by sampling frame differences (only for shorter recordings)
         let contentComplexity = 1.0; // Default complexity multiplier
-        if (recordedFrames && recordedFrames.length > 10) {
-          let totalDifference = 0;
-          let samples = 0;
-          const sampleStep = Math.max(1, Math.floor(recordedFrames.length / 10)); // Sample every N frames
-          
-          for (let i = sampleStep; i < recordedFrames.length && samples < 10; i += sampleStep) {
-            const prevFrame = recordedFrames[i - sampleStep][1];
-            const currentFrame = recordedFrames[i][1];
+        
+        // Skip complex analysis for longer recordings to avoid issues
+        if (recordedFrames && recordedFrames.length > 10 && estimatedDuration <= 30) {
+          try {
+            let totalDifference = 0;
+            let samples = 0;
+            const sampleStep = Math.max(1, Math.floor(recordedFrames.length / 10)); // Sample every N frames
             
-            // Quick difference check using a subset of pixels
-            let pixelDiff = 0;
-            const checkStep = 100; // Check every 100th pixel for speed
-            for (let p = 0; p < prevFrame.data.length; p += checkStep * 4) {
-              pixelDiff += Math.abs(prevFrame.data[p] - currentFrame.data[p]);
+            for (let i = sampleStep; i < recordedFrames.length && samples < 10; i += sampleStep) {
+              const prevFrame = recordedFrames[i - sampleStep][1];
+              const currentFrame = recordedFrames[i][1];
+              
+              // Safety check for valid frame data
+              if (!prevFrame?.data || !currentFrame?.data) continue;
+              
+              // Quick difference check using a subset of pixels
+              let pixelDiff = 0;
+              const checkStep = 100; // Check every 100th pixel for speed
+              const maxPixels = Math.min(prevFrame.data.length, currentFrame.data.length);
+              
+              for (let p = 0; p < maxPixels; p += checkStep * 4) {
+                pixelDiff += Math.abs(prevFrame.data[p] - currentFrame.data[p]);
+              }
+              totalDifference += pixelDiff;
+              samples++;
             }
-            totalDifference += pixelDiff;
-            samples++;
-          }
-          
-          if (samples > 0) {
-            const avgDifference = totalDifference / samples;
-            // Normalize complexity (typical values range from 0-10000+)
-            contentComplexity = Math.min(2.0, Math.max(0.5, avgDifference / 5000));
+            
+            if (samples > 0) {
+              const avgDifference = totalDifference / samples;
+              // Normalize complexity (typical values range from 0-10000+)
+              contentComplexity = Math.min(2.0, Math.max(0.5, avgDifference / 5000));
+            }
+          } catch (error) {
+            console.warn("⚠️ Content complexity analysis failed, using default:", error.message);
+            contentComplexity = 1.0; // Fallback to default
           }
         }
         
-        console.log(`📊 Content complexity analysis: ${contentComplexity.toFixed(2)}x (1.0 = normal, >1.0 = high motion/detail)`);
+        if (debug) console.log(`📊 Content complexity analysis: ${contentComplexity.toFixed(2)}x (1.0 = normal, >1.0 = high motion/detail)`);
         
         let videoBitrate;
         let audioBitrate = 128000; // 128 kbps - good quality audio
@@ -5062,19 +5106,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         } else if (estimatedDuration <= 30) {
           // Medium recordings (10-30s): Balanced quality  
           videoBitrate = Math.round(8000000 * contentComplexity);  // 8 Mbps base
-        } else if (estimatedDuration <= 60) {
-          // Longer recordings (30-60s): Efficient quality
-          videoBitrate = Math.round(5000000 * contentComplexity);  // 5 Mbps base
         } else {
-          // Very long recordings (>60s): Conservative quality
-          videoBitrate = Math.round(3000000 * contentComplexity);  // 3 Mbps base
-          audioBitrate = 96000;    // 96 kbps audio to save more space
+          // Longer recordings (>30s): Use fixed conservative bitrates to avoid issues
+          if (estimatedDuration <= 60) {
+            videoBitrate = 4000000;  // Fixed 4 Mbps for 30-60s recordings
+          } else {
+            videoBitrate = 2500000;  // Fixed 2.5 Mbps for very long recordings
+            audioBitrate = 96000;    // 96 kbps audio to save more space
+          }
         }
         
         // Cap maximum bitrate to prevent extremely large files
-        videoBitrate = Math.min(videoBitrate, 20000000); // Max 20 Mbps
+        videoBitrate = Math.min(videoBitrate, 15000000); // Max 15 Mbps (reduced)
         
-        console.log(`📊 Adaptive bitrate: ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio (duration: ${estimatedDuration.toFixed(1)}s)`);
+        if (debug) console.log(`📊 Adaptive bitrate: ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio (duration: ${estimatedDuration.toFixed(1)}s)`);
 
         const recorderOptions = selectedMimeType ? {
           mimeType: selectedMimeType,
@@ -10057,14 +10102,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let tape;
       let tapeData;
       
+      console.log("💾 🎥 Processing video download:", { ext, filename, dataIsBlobAlready: data instanceof Blob });
+      
       if (data instanceof Blob) {
         // If data is already a blob (from video export), use it directly
         tape = data;
         tapeData = null;
+        console.log("💾 🎥 Using blob data directly:", { size: tape.size, type: tape.type });
       } else {
         // Otherwise get from storage
         tapeData = data || (await Store.get("tape"));
         tape = tapeData?.blob;
+        console.log("💾 🎥 Retrieved from storage:", { 
+          hasTapeData: !!tapeData, 
+          hasTape: !!tape, 
+          tapeSize: tape?.size,
+          tapeType: tape?.type 
+        });
       }
 
       // Restore frame data if available for WebP/Frame exports
@@ -10103,7 +10157,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (tape) {
         object = URL.createObjectURL(tape);
+        console.log("💾 🎥 Created object URL for video:", { 
+          objectUrlCreated: !!object,
+          tapeSize: tape.size,
+          tapeType: tape.type,
+          finalFilename: filename
+        });
       } else {
+        console.warn("💾 🎥 No tape blob available! This will cause download issues.");
         // console.warn(
         //   "🕸️ No local video available... Trying art bucket:",
         //   filename,
@@ -10122,12 +10183,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // don't already have a blob string.
 
     if (object && !object.startsWith("blob:")) {
+      console.log("💾 🌐 Fetching presigned download URL for:", filename);
+      console.log("💾 🌐 Current object URL:", object);
       try {
         const response = await fetch(`/presigned-download-url?for=${filename}`);
         const json = await response.json();
-        object = json.url;
+        console.log("💾 🌐 Presigned URL response:", json);
+        if (json.url && json.url !== "example.com") {
+          object = json.url;
+        } else {
+          console.warn("💾 🌐 Invalid presigned URL received, keeping original:", json);
+        }
       } catch (err) {
-        console.log(err);
+        console.warn("💾 🌐 Presigned URL fetch failed, keeping original object:", err);
       }
     }
 
