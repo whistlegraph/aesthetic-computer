@@ -2394,7 +2394,7 @@ const $paintApi = {
         console.log("🔤 activeTypeface determined:", {
           customTypeface: customTypeface?.name || String(customTypeface),
           tf: tf?.name || String(tf),
-          activeTypeface: activeTypeface?.name || String(activeTypeface),
+          activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
           isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
           customTypefaceType: typeof customTypeface
         });
@@ -2409,15 +2409,15 @@ const $paintApi = {
           customTypeface: customTypeface?.name || String(customTypeface),
           customTypefaceType: typeof customTypeface,
           tfName: tf?.name || String(tf),
-          activeTypeface: activeTypeface?.name || String(activeTypeface),
-          activeTypefaceData: activeTypeface?.data?.bdfFont || "no-bdf",
+          activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
+          activeTypefaceData: tf?.data?.bdfFont || "no-bdf", // Use tf instead of undefined activeTypeface
           hasCustomTypeface: !!customTypeface,
           hasTf: !!tf,
-          activetypefacePrint: typeof activeTypeface?.print,
+          activetypefacePrint: typeof tf?.print, // Use tf instead of undefined activeTypeface
           typefaceCacheSize: typefaceCache.size,
           typefaceCacheKeys: Array.from(typefaceCache.keys()),
-          isMatrixChunky8: activeTypeface?.name === "MatrixChunky8",
-          firstCharGlyph: activeTypeface?.glyphs?.[text[0]] ? "loaded" : "missing"
+          isMatrixChunky8: tf?.name === "MatrixChunky8", // Use tf instead of undefined activeTypeface
+          firstCharGlyph: tf?.glyphs?.[text[0]] ? "loaded" : "missing" // Use tf instead of undefined activeTypeface
         });
       }
 
