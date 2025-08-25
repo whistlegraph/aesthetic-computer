@@ -4,9 +4,57 @@ console.clear();
 // Alert the parent /  we are ready.
 if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
 
+// List of legitimate query parameters that should be preserved
+const LEGITIMATE_PARAMS = [
+  'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
+  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice'
+];
+
+// Extract only legitimate query parameters from URL, preserving kidlisp ? characters in path
+function extractLegitimateParams(fullUrl) {
+  const params = new URLSearchParams();
+  
+  // Look for legitimate parameters at the end of the URL
+  for (const paramName of LEGITIMATE_PARAMS) {
+    const regex = new RegExp(`[?&]${paramName}=([^&]*)`);
+    const match = fullUrl.match(regex);
+    if (match) {
+      params.set(paramName, decodeURIComponent(match[1]));
+    }
+    
+    // Also check for boolean parameters (without =value)
+    const boolRegex = new RegExp(`[?&]${paramName}(?=[&]|$)`);
+    if (boolRegex.test(fullUrl)) {
+      params.set(paramName, 'true');
+    }
+  }
+  
+  return params;
+}
+
+// Create a clean URL without legitimate query parameters
+function createCleanUrl(fullUrl) {
+  let cleanUrl = fullUrl;
+  
+  // Remove legitimate parameters but preserve ? in kidlisp content
+  for (const paramName of LEGITIMATE_PARAMS) {
+    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`);
+    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`);
+    cleanUrl = cleanUrl.replace(regexWithValue, '');
+    cleanUrl = cleanUrl.replace(regexBool, '');
+  }
+  
+  // Clean up any trailing ? or & that might be left
+  cleanUrl = cleanUrl.replace(/[?&]+$/, '');
+  
+  return cleanUrl;
+}
+
+const legitParams = extractLegitimateParams(window.location.href);
 const previewOrIcon =
-  location.search.startsWith("?icon=") ||
-  location.search.startsWith("?preview=");
+  legitParams.has("icon") ||
+  legitParams.has("preview");
 
 window.acPREVIEW_OR_ICON = previewOrIcon;
 
@@ -126,7 +174,7 @@ window.safeSessionStorageRemove = safeSessionStorageRemove;
 
 // 📧 Check to see if the user clicked an 'email' verified link.
 {
-  const params = new URLSearchParams(window.location.search);
+  const params = extractLegitimateParams(window.location.href);
   if (
     params.get("supportSignUp") === "true" &&
     params.get("success") === "true" &&
@@ -143,7 +191,7 @@ window.safeSessionStorageRemove = safeSessionStorageRemove;
 }
 
 {
-  const params = new URLSearchParams(window.location.search);
+  const params = extractLegitimateParams(window.location.href);
   const vscode =
     params.get("vscode") === "true" ||
     safeLocalStorageGet("vscode") === "true";
@@ -220,7 +268,7 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 // Wait for fonts to load before booting.
 
 // Parse the query string to detect both ?nogap and ?nolabel parameters
-const params = new URLSearchParams(location.search);
+const params = extractLegitimateParams(window.location.href);
 const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 
 // Check for nolabel parameter with localStorage persistence
@@ -365,7 +413,7 @@ loadAuth0Script()
         window.history.replaceState({}, document.title, "/");
       }
 
-      const params = url.searchParams;
+      const params = extractLegitimateParams(window.location.href);
       let param = params.get("session-aesthetic");
 
       {
@@ -488,7 +536,8 @@ loadAuth0Script()
       if (location.pathname === "/hi") window.acLOGIN();
 
       // Redirect to signup with a query parameter.
-      if (location.search.startsWith("?signup")) window.acLOGIN("signup");
+      const legitParams = extractLegitimateParams(window.location.href);
+      if (legitParams.has("signup")) window.acLOGIN("signup");
 
       window.acLOGOUT = () => {
         if (isAuthenticated) {
