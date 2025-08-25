@@ -3269,16 +3269,52 @@ class KidLisp {
         
         const layerKey = `${cacheId}_${width}x${height}_${x},${y}`;
         
-        // Check if this embedded layer already exists
-        if (this.embeddedLayerCache.has(layerKey)) {
+        // Check if this embedded layer already exists - RETURN IMMEDIATELY if found
+        if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
           console.log("♻️ Using existing embedded layer:", layerKey);
           return this.embeddedLayerCache.get(layerKey);
         }
         
-        console.log(`�️ Creating persistent embedded layer: ${cacheId} (${width}x${height}) at (${x},${y})`);
+        // Initialize cache if needed
+        if (!this.embeddedLayerCache) {
+          this.embeddedLayerCache = new Map();
+        }
         
-        // Fetch the cached code and create the persistent layer
-        return fetchCachedCode(cacheId).then(source => {
+        // Check if we're already fetching this layer to prevent duplicates
+        const fetchKey = `${layerKey}_fetching`;
+        if (this.embeddedLayerCache.has(fetchKey)) {
+          console.log("⏳ Already fetching layer:", layerKey);
+          return this.embeddedLayerCache.get(fetchKey);
+        }
+        
+        console.log(`🖼️ Creating persistent embedded layer: ${cacheId} (${width}x${height}) at (${x},${y})`);
+        
+        // Mark as being fetched and create fetch promise
+        const fetchPromise = Promise.race([
+          fetchCachedCode(cacheId),
+          new Promise((resolve) => {
+            console.log("⏰ Setting 2 second timeout for fetch...");
+            setTimeout(() => {
+              console.warn("⏰ Fetch timeout for", cacheId, "- using fallback");
+              resolve(null);
+            }, 2000); // 2 second timeout
+          })
+        ]).then(source => {
+          console.log("🏁 Fetch promise resolved with source:", source ? "found" : "null/timeout");
+          // Remove fetch marker
+          this.embeddedLayerCache.delete(fetchKey);
+          
+          if (!source) {
+            console.warn("❌ No cached code found for:", cacheId, "- using fallback");
+            // For debugging, let's use a simple fallback pie animation
+            source = `(fps 24)
+(wipe red)
+(ink yellow)
+(line 0 64 128 64)
+(ink green)  
+(line 64 0 64 128)`;
+            console.log("🎨 Using fallback source:", source);
+          }
           if (!source) {
             console.warn("❌ No cached code found for:", cacheId);
             return undefined;
@@ -3292,13 +3328,25 @@ class KidLisp {
           
           // Create a dedicated KidLisp instance for this embedded layer
           const embeddedKidLisp = new KidLisp();
+          
+          // Synchronize state with main instance
+          embeddedKidLisp.frameCount = this.frameCount;
+          embeddedKidLisp.frameCounter = this.frameCounter;
+          
           const parsedCode = embeddedKidLisp.parse(source);
           
           // Create a buffer for this embedded layer
           const embeddedBuffer = api.painting(width, height, (bufferApi) => {
             // Initial execution to set up the buffer
             try {
-              embeddedKidLisp.evaluate(parsedCode, bufferApi, embeddedKidLisp.localEnv);
+              // Create combined API for initial execution
+              const combinedApi = {
+                ...api, // Include main API with timing, fps, etc.
+                ...bufferApi, // Include buffer-specific API
+                screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height }
+              };
+              
+              embeddedKidLisp.evaluate(parsedCode, combinedApi, embeddedKidLisp.localEnv);
             } catch (error) {
               console.error("❌ Error in initial embedded layer execution:", error);
               bufferApi.wipe?.(255, 0, 0, 128); // Red background for error
@@ -3318,7 +3366,6 @@ class KidLisp {
             x,
             y,
             buffer: embeddedBuffer,
-            bufferApi: embeddedBuffer.api || api, // Use buffer's API if available
             kidlispInstance: embeddedKidLisp,
             parsedCode,
             source
@@ -3335,8 +3382,15 @@ class KidLisp {
           
         }).catch(error => {
           console.error("❌ Error creating embedded layer:", cacheId, error);
+          // Remove fetch marker on error
+          this.embeddedLayerCache.delete(fetchKey);
           return undefined;
         });
+        
+        // Store the fetch promise to prevent duplicate requests
+        this.embeddedLayerCache.set(fetchKey, fetchPromise);
+        
+        return fetchPromise;
       },
     };
 
@@ -5293,26 +5347,59 @@ class KidLisp {
       return;
     }
 
+    console.log(`🎬 Rendering ${this.embeddedLayers.length} embedded layers`);
+
     // Update and composite each embedded layer
     this.embeddedLayers.forEach((embeddedLayer, index) => {
       if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
         try {
-          // Clear the embedded buffer for fresh frame
-          if (embeddedLayer.buffer.pixels) {
-            embeddedLayer.buffer.pixels.fill(0);
-          }
+          console.log(`🎯 Updating embedded layer ${index}: ${embeddedLayer.cacheId}`);
 
-          // Re-execute the KidLisp code in the embedded buffer context
+          // Switch to drawing on the embedded buffer using page()
+          api.page(embeddedLayer.buffer);
+          
+          // Clear the buffer first
+          api.wipe(0, 0, 0, 0); // Transparent
+          
+          // Update the embedded KidLisp instance's frame counter to match main instance
+          embeddedLayer.kidlispInstance.frameCount = this.frameCount;
+          embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
+
+          // Create API context with proper frame, width, height
+          const embeddedApi = {
+            ...api,
+            frame: api.frame || this.frameCount || 0,
+            width: embeddedLayer.width,
+            height: embeddedLayer.height
+          };
+
+          console.log(`🎮 Executing KidLisp in layer ${index} - drawing to buffer`);
+
+          // Execute the KidLisp code (it will draw to the embedded buffer via page())
           embeddedLayer.kidlispInstance.evaluate(
             embeddedLayer.parsedCode, 
-            embeddedLayer.bufferApi, 
+            embeddedApi, 
             embeddedLayer.kidlispInstance.localEnv
           );
 
-          // Composite the updated embedded layer onto the main canvas
-          this.compositeEmbeddedLayer(api, embeddedLayer);
+          console.log(`✅ Layer ${index} execution complete, buffer pixels:`, embeddedLayer.buffer.pixels?.slice(0, 20));
+
+          // Switch back to the main screen 
+          api.page(api.screen);
+          
+          // Paste the embedded buffer to the main canvas at the layer's position
+          api.paste(embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y);
+
+          console.log(`📋 Pasted layer ${index} to main canvas at (${embeddedLayer.x},${embeddedLayer.y})`);
+
         } catch (error) {
           console.error(`❌ Error updating embedded layer ${index}:`, error);
+          // Make sure we switch back to main screen even on error
+          try {
+            api.page(api.screen);
+          } catch (e) {
+            console.error("❌ Error switching back to main screen:", e);
+          }
         }
       }
     });
@@ -5563,7 +5650,9 @@ async function fetchCachedCode(nanoidCode, api = null) {
   
   try {
     // Try to fetch from the actual API with HTTPS
+    console.log("🌐 About to fetch...");
     const response = await fetch(fullUrl);
+    console.log("🌐 Fetch completed, response received");
     console.log("🌐 Response details:", {
       url: response.url,
       status: response.status,
