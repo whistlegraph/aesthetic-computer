@@ -2389,37 +2389,37 @@ const $paintApi = {
       // Now use the original text processing logic but with per-character colors
       const scale = pos?.size || 1;
       
-      // Debug what activeTypeface is being used
-      if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
-        console.log("🔤 activeTypeface determined:", {
-          customTypeface: customTypeface?.name || String(customTypeface),
-          tf: tf?.name || String(tf),
-          activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
-          isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
-          customTypefaceType: typeof customTypeface
-        });
-      }
+      // Debug what activeTypeface is being used (disabled)
+      // if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
+      //   console.log("🔤 activeTypeface determined:", {
+      //     customTypeface: customTypeface?.name || String(customTypeface),
+      //     tf: tf?.name || String(tf),
+      //     activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
+      //     isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
+      //     customTypefaceType: typeof customTypeface
+      //   });
+      // }
       
-      // Debug logging for QR text rendering - broader condition
-      if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
-        console.log("🔤 QR Font Debug:", {
-          text: text,
-          textLength: text.length,
-          requestedFont: arguments[5],
-          customTypeface: customTypeface?.name || String(customTypeface),
-          customTypefaceType: typeof customTypeface,
-          tfName: tf?.name || String(tf),
-          activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
-          activeTypefaceData: tf?.data?.bdfFont || "no-bdf", // Use tf instead of undefined activeTypeface
-          hasCustomTypeface: !!customTypeface,
-          hasTf: !!tf,
-          activetypefacePrint: typeof tf?.print, // Use tf instead of undefined activeTypeface
-          typefaceCacheSize: typefaceCache.size,
-          typefaceCacheKeys: Array.from(typefaceCache.keys()),
-          isMatrixChunky8: tf?.name === "MatrixChunky8", // Use tf instead of undefined activeTypeface
-          firstCharGlyph: tf?.glyphs?.[text[0]] ? "loaded" : "missing" // Use tf instead of undefined activeTypeface
-        });
-      }
+      // Debug logging for QR text rendering (disabled)
+      // if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
+      //   console.log("🔤 QR Font Debug:", {
+      //     text: text,
+      //     textLength: text.length,
+      //     requestedFont: arguments[5],
+      //     customTypeface: customTypeface?.name || String(customTypeface),
+      //     customTypefaceType: typeof customTypeface,
+      //     tfName: tf?.name || String(tf),
+      //     activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
+      //     activeTypefaceData: tf?.data?.bdfFont || "no-bdf", // Use tf instead of undefined activeTypeface
+      //     hasCustomTypeface: !!customTypeface,
+      //     hasTf: !!tf,
+      //     activetypefacePrint: typeof tf?.print, // Use tf instead of undefined activeTypeface
+      //     typefaceCacheSize: typefaceCache.size,
+      //     typefaceCacheKeys: Array.from(typefaceCache.keys()),
+      //     isMatrixChunky8: tf?.name === "MatrixChunky8", // Use tf instead of undefined activeTypeface
+      //     firstCharGlyph: tf?.glyphs?.[text[0]] ? "loaded" : "missing" // Use tf instead of undefined activeTypeface
+      //   });
+      // }
 
       if (bounds) {
         const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap, customTypeface);
