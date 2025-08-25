@@ -187,6 +187,31 @@ function parse(text, location = self?.location) {
   return { host, path, piece, colon: colonParam, params, search, hash, text };
 }
 
+// List of legitimate query parameters that should be preserved
+const LEGITIMATE_PARAMS = [
+  'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
+  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice'
+];
+
+// Get clean path without legitimate query parameters
+function getCleanPath(fullUrl) {
+  let cleanPath = fullUrl;
+  
+  // Remove legitimate parameters from the end
+  for (const paramName of LEGITIMATE_PARAMS) {
+    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`);
+    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`);
+    cleanPath = cleanPath.replace(regexWithValue, '');
+    cleanPath = cleanPath.replace(regexBool, '');
+  }
+  
+  // Clean up any remaining ? or & at the end
+  cleanPath = cleanPath.replace(/[?&]+$/, '');
+  
+  return cleanPath;
+}
+
 // Cleans a url for feeding into `parse` as the text parameter.
 function slug(url) {
   // Remove http protocol and host from current url before feeding it to parser.
@@ -194,8 +219,10 @@ function slug(url) {
     .replace(/^http(s?):\/\//i, "")
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
     .replace(window.location.hostname + "/", "")
-    .split("#")[0] // Remove any hash.
-    .split("?")[0]; // Remove any search params (important for kidlisp with session params)
+    .split("#")[0]; // Remove any hash.
+
+  // Use safe parameter removal instead of .split("?")[0] 
+  cleanedUrl = getCleanPath(cleanedUrl);
 
   // Decode URL-encoded characters first
   cleanedUrl = decodeURIComponent(cleanedUrl);
