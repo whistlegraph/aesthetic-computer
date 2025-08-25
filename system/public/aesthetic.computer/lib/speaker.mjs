@@ -100,6 +100,44 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // Process beat message with sound arrays (sounds, bubbles, kills)
+      if (msg.type === "beat") {
+        const soundData = msg.content;
+        
+        // Process bubbles array
+        if (soundData.bubbles) {
+          soundData.bubbles.forEach(bubbleData => {
+            const bubble = new Bubble(
+              bubbleData.radius,
+              bubbleData.rise,
+              bubbleData.volume,
+              bubbleData.pan,
+              bubbleData.id,
+            );
+            
+            // Track bubble by ID if provided
+            if (bubbleData.id !== undefined) {
+              this.#running[bubbleData.id] = bubble;
+            }
+            
+            this.#queue.push(bubble);
+          });
+        }
+        
+        // Process sounds array (existing logic should handle this via other messages)
+        
+        // Process kills array
+        if (soundData.kills) {
+          soundData.kills.forEach(killData => {
+            this.#running[killData.id]?.kill(killData.fade);
+            this.#running[killData.id] = undefined;
+            delete this.#running[killData.id];
+          });
+        }
+        
+        return;
+      }
+
       // New BPM
       if (msg.type === "new-bpm") {
         this.#bpm = msg.data;
