@@ -4,6 +4,12 @@ let colorHistory = [];
 // Timeline zoom smoothing (module-level)
 let lastPixelsPerSecond = 60;
 
+// Last MIDI note color for needle theming
+let lastMidiNoteColor = { r: 0, g: 255, b: 255 }; // Default to cyan
+
+// Track previous locator to detect section changes
+let previousLocatorName = null;
+
 // zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES
 const ZZZWAP_PALETTES = {
   START: {
@@ -1225,19 +1231,21 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
     visible3pxColors: [] // Track colors of currently playing MIDI notes
   };
   
-  // COLOR HISTORY SYSTEM for decay effect
-  // Clean up old colors (remove colors older than 0.15 seconds for faster decay)
-  const decayTimeSeconds = 0.15; // Reduced from 0.25 to 0.15 seconds for snappier feel
-  colorHistory = colorHistory.filter(colorInfo => 
-    (currentTimeSeconds - colorInfo.endTime) < decayTimeSeconds
-  );
-  
   // Analyze current musical content to generate TV bar colors
   const centerX = screen.width / 2;
   
   // Get current locator to determine which palette to use
   const { current: currentLocator } = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
   const currentPalette = getPaletteForLocator(currentLocator?.name);
+  
+  // Check for locator changes and clear decay on section transitions
+  const currentLocatorName = currentLocator?.name || null;
+  if (currentLocatorName !== previousLocatorName) {
+    // Locator changed - clear all decaying colors for clean section transition
+    colorHistory = [];
+    previousLocatorName = currentLocatorName;
+    console.log(`🎬 Locator changed to: ${currentLocatorName} - cleared color decay`);
+  }
   
   // Process MIDI notes for current time to collect active colors
   if (alsProject && alsProject.locators && alsProject.locators.length > 0) {
@@ -1293,7 +1301,6 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
                   velocity: velocity,
                   duration: noteDuration,
                   startTime: noteStartTime,
-                  endTime: noteEndTime, // Add end time for decay
                   clipIndex: clipIndex,
                   noteIndex: noteIndex,
                   paletteIndex: colorIndex, // Track which palette color was used
@@ -1301,18 +1308,6 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
                 };
                 
                 activeElements.visible3pxColors.push(colorInfo);
-                
-                // Add to color history for decay effect
-                const uniqueKey = `${noteStartTime}-${pitch}-${clipIndex}-${noteIndex}`;
-                if (!colorHistory.find(c => c.uniqueKey === uniqueKey)) {
-                  colorHistory.push({
-                    ...colorInfo,
-                    uniqueKey: uniqueKey,
-                    originalR: r,
-                    originalG: g,
-                    originalB: b
-                  });
-                }
               }
             });
           }
@@ -1364,132 +1359,204 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
     }
   }
   
-  // SMART COLOR POSITIONING SYSTEM
-  // Instead of just adding new colors to the left, position them where old ones are fading
+  // COLOR DECAY SYSTEM - restore visual persistence of notes
+  // First, identify which colors are truly NEW (not in history yet)
+  const newColorKeys = new Set();
   
-  // First, create positioned segments from decaying colors
-  const positionedSegments = [];
-  const maxSegments = 8;
-  
-  // Add fading historical colors with their positions maintained
-  colorHistory.forEach((histColor, histIndex) => {
-    // Check if this color is still actively playing
-    const isStillPlaying = uniqueColors.find(c => c.uniqueKey === histColor.uniqueKey);
+  uniqueColors.forEach(colorInfo => {
+    // Make each note much more unique so we get rapid bar addition
+    // Include more specific details to ensure almost every note gets its own bar
+    const colorKey = `${colorInfo.r}-${colorInfo.g}-${colorInfo.b}-${colorInfo.pitch || 0}-${colorInfo.clipIndex || 0}-${colorInfo.noteIndex || 0}-${Math.floor((colorInfo.startTime || 0) * 10)}`;
+    const existingIndex = colorHistory.findIndex(h => h.colorKey === colorKey);
     
-    if (!isStillPlaying && currentTimeSeconds > histColor.endTime) {
-      // Calculate decay factor (0 = just ended, 1 = fully decayed)
-      const timeSinceEnd = currentTimeSeconds - histColor.endTime;
-      const decayFactor = Math.min(1, timeSinceEnd / decayTimeSeconds);
-      const alpha = 1 - decayFactor; // 1 = full brightness, 0 = fully faded
+    if (existingIndex >= 0) {
+      // Update existing color - reset decay
+      colorHistory[existingIndex].alpha = 1.0;
+      colorHistory[existingIndex].lastSeen = performance.now();
+      colorHistory[existingIndex].isDecaying = false;
+    } else {
+      // Mark this as a new color that should flash
+      newColorKeys.add(colorKey);
       
-      if (alpha > 0.1 && positionedSegments.length < maxSegments) { // Only show if still somewhat visible
-        // Use the same current palette as timeline background for consistency
-        const segmentPalette = currentPalette; // Use the same palette as timeline background
-        const bgColor = segmentPalette?.colors[0] || { r: 50, g: 50, b: 50 }; // Default to dark gray
+      // Add new color to history with unique key and better positioning
+      // Create more spread-out positioning using full pitch range and stronger randomization
+      const pitchNormalized = Math.min(127, Math.max(0, colorInfo.pitch || 60)) / 127; // Full MIDI range 0-127
+      const timePosition = ((colorInfo.startTime || 0) % 8) / 8; // Longer time cycle for more spread
+      const randomSpread = Math.random(); // Full 0-1 random for good distribution
+      const preferredPosition = (pitchNormalized * 0.4 + timePosition * 0.2 + randomSpread * 0.4); // More randomness
+      
+      colorHistory.push({
+        r: colorInfo.r,
+        g: colorInfo.g,
+        b: colorInfo.b,
+        alpha: 1.0,
+        lastSeen: performance.now(),
+        isDecaying: false,
+        preferredPosition: preferredPosition,
+        colorKey: colorKey,
+        birthTime: performance.now(), // Track when this bar was born for flash effect
+        pitch: colorInfo.pitch || 60 // Store pitch for debugging
+      });
+      
+      // Debug: Log when we add a new bar (reduced verbosity)
+      if (Math.random() < 0.05) { // Much less frequent
+        console.log(`🎨 NEW BAR: pitch=${colorInfo.pitch}→pos=${preferredPosition.toFixed(2)}, total: ${colorHistory.length}`);
+      }
+    }
+  });
+  
+  // Update decay for all colors in history
+  const now = performance.now();
+  const decayDuration = 3000; // Reduced from 5 seconds to 3 seconds for faster clearing
+  
+  colorHistory.forEach(color => {
+    const timeSinceLastSeen = now - color.lastSeen;
+    if (timeSinceLastSeen > 100) { // Start decaying after 100ms (faster than before)
+      color.isDecaying = true;
+      color.alpha = Math.max(0, 1.0 - (timeSinceLastSeen - 100) / decayDuration);
+    }
+  });
+  
+  // Remove fully decayed colors
+  colorHistory = colorHistory.filter(color => color.alpha > 0.05);
+  
+  // Combine active and decaying colors - add new bars to CENTER, alternating left/right
+  // Only give birthTime to ACTUALLY new colors (using the newColorKeys set)
+  const allActiveColors = uniqueColors.map(color => {
+    // Check if this exact color was marked as new
+    const colorKey = `${color.r}-${color.g}-${color.b}-${color.pitch || 0}-${color.clipIndex || 0}-${color.noteIndex || 0}-${Math.floor((color.startTime || 0) * 10)}`;
+    const isNewColor = newColorKeys.has(colorKey);
+    
+    return {
+      ...color,
+      birthTime: isNewColor ? performance.now() : null, // Only truly new colors get birthTime
+      isNewBar: isNewColor // Mark as new only if it was just added
+    };
+  });
+  
+  const allDecayingColors = colorHistory.filter(h => h.isDecaying); // Decaying colors
+  
+  // Create center-out arrangement: put decaying colors on edges, new ones in center
+  // Alternate new bars left and right of center
+  const centerArrangement = [];
+  const centerIndex = Math.floor((allDecayingColors.length + allActiveColors.length) / 2);
+  
+  // First, place all decaying colors on the edges
+  allDecayingColors.forEach((color, index) => {
+    if (index % 2 === 0) {
+      centerArrangement.push(color); // Even indices go left
+    } else {
+      centerArrangement.unshift(color); // Odd indices go right (unshift = add to start)
+    }
+  });
+  
+  // Then add new active colors in the center, alternating left/right
+  allActiveColors.forEach((color, index) => {
+    const midPoint = Math.floor(centerArrangement.length / 2);
+    if (index % 2 === 0) {
+      centerArrangement.splice(midPoint, 0, color); // Even: insert at center-left
+    } else {
+      centerArrangement.splice(midPoint + 1, 0, color); // Odd: insert at center-right
+    }
+  });
+  
+  const activeSegments = centerArrangement;
+  
+  if (activeSegments.length > 0) {
+    // Show ALL colors - no arbitrary limits, let natural decay control the count
+    const colorsToShow = activeSegments;
+    
+    // Don't sort - keep new bars on the right side
+    // Order: decaying colors first (left), then new active colors (right)
+    const positionSortedColors = colorsToShow;
+    
+    // Debug logging for screen division with position info (minimal)
+    if (Math.random() < 0.001) { // Extremely rare - only for major debugging
+      const activeCount = positionSortedColors.filter(c => !c.isDecaying).length;
+      const decayCount = positionSortedColors.filter(c => c.isDecaying).length;
+      console.log(`🎨 ${positionSortedColors.length} bars: ${activeCount} active + ${decayCount} decaying`);
+    }
+    
+    // Equal width bars that divide the screen evenly - ensure no cut-off
+    const totalBars = positionSortedColors.length;
+    const barWidth = totalBars > 0 ? Math.floor(screen.width / totalBars) : screen.width;
+    
+    positionSortedColors.forEach((colorInfo, index) => {
+      try {
+        // Each bar gets an equal slice, positioned sequentially from left to right
+        const startX = index * barWidth;
+        // Ensure last bar doesn't go off screen
+        const actualWidth = (index === totalBars - 1) ? (screen.width - startX) : barWidth;
+        const clampedStartX = Math.min(startX, screen.width - actualWidth);
         
-        // Apply decay by fading toward the locator background color
-        const decayedColor = {
-          ...histColor,
-          r: Math.floor(histColor.originalR * alpha + bgColor.r * (1 - alpha)),
-          g: Math.floor(histColor.originalG * alpha + bgColor.g * (1 - alpha)),
-          b: Math.floor(histColor.originalB * alpha + bgColor.b * (1 - alpha)),
-          isDecaying: true,
-          alpha: alpha,
-          preferredPosition: histColor.lastPosition || (histIndex % maxSegments) // Maintain last position
-        };
-        positionedSegments.push(decayedColor);
-      }
-    }
-  });
-  
-  // Now add new active colors, preferring positions of decaying colors or available slots
-  uniqueColors.forEach(activeColor => {
-    if (positionedSegments.length < maxSegments) {
-      // Find a good position for this new color
-      let targetPosition = -1;
-      
-      // First, try to find a position where a color is heavily decayed (alpha < 0.3)
-      for (let i = 0; i < positionedSegments.length; i++) {
-        if (positionedSegments[i].isDecaying && positionedSegments[i].alpha < 0.3) {
-          targetPosition = i;
-          break;
+        // Debug positioning occasionally (reduced verbosity)
+        if (Math.random() < 0.001) { // Extremely rare - only for major debugging
+          const status = colorInfo.isDecaying ? `decay:α${colorInfo.alpha?.toFixed(2)}` : 'active';
+          console.log(`🎨 Bar ${index}: ${status}, w=${actualWidth}px`);
         }
+        
+        // Handle white flash for new bars and fading for decaying bars
+        const now = performance.now();
+        
+        if (colorInfo.isDecaying) {
+          // Fade to black for decaying colors
+          const alpha = colorInfo.alpha;
+          const fadedR = Math.floor(colorInfo.r * alpha);
+          const fadedG = Math.floor(colorInfo.g * alpha);
+          const fadedB = Math.floor(colorInfo.b * alpha);
+          ink(fadedR, fadedG, fadedB);
+        } else {
+          // Check for gradient flash - ALL new bars (active colors) should flash yellow-white
+          const barAge = now - (colorInfo.birthTime || 0);
+          const flashDuration = 16.67; // Exactly 1 frame at 60fps
+          
+          // Flash yellow-white gradient if it's a new bar (has birthTime and is young enough)
+          if (colorInfo.birthTime && barAge < flashDuration) {
+            // Yellow-white gradient flash with vertical direction for first frame ONLY
+            ink("fade:yellow-white:vertical");
+            
+            // Debug flash - log very rarely to avoid spam
+            if (Math.random() < 0.01) {
+              console.log(`⚡ VERTICAL GRADIENT FLASH! Bar ${index}: yellow-white vertical`);
+            }
+          } else {
+            // Normal RGB color after flash period (not gradient)
+            ink(colorInfo.r, colorInfo.g, colorInfo.b);
+          }
+        }
+        
+        // Draw the bar (after setting the correct ink)
+        box(clampedStartX, 0, actualWidth, screen.height);
+        
+        // CRITICAL: Reset fade mode by calling ink with a non-fade string
+        // This clears the global fadeMode, fadeColors, fadeDirection variables
+        ink("black"); // Forces findColor to reset fade state
+      } catch (error) {
+        console.error('Error rendering TV bar:', error);
+        // Fallback: render in red to show something went wrong
+        ink(255, 0, 0);
+        box(10 + index * 20, 0, 15, screen.height);
       }
-      
-      // If no heavily decayed position found, append to end
-      if (targetPosition === -1) {
-        targetPosition = positionedSegments.length;
-      }
-      
-      // Insert or replace at target position
-      if (targetPosition < positionedSegments.length) {
-        positionedSegments[targetPosition] = {
-          ...activeColor,
-          isDecaying: false,
-          preferredPosition: targetPosition
-        };
-      } else {
-        positionedSegments.push({
-          ...activeColor,
-          isDecaying: false,
-          preferredPosition: targetPosition
-        });
-      }
-      
-      // Store position in color history for future reference
-      const historyEntry = colorHistory.find(c => c.uniqueKey === activeColor.uniqueKey);
-      if (historyEntry) {
-        historyEntry.lastPosition = targetPosition;
-      }
-    }
-  });
-  
-  // Debug logging for positioning
-  const decayingColors = positionedSegments.filter(c => c.isDecaying);
-  if (decayingColors.length > 0 && Math.random() < 0.1) {
-    // console.log(`🌙 Decay: ${decayingColors.length} fading colors at positions:`, decayingColors.map(c => `pos${c.preferredPosition}:α${c.alpha?.toFixed(2)}`));
-  }
-  
-  if (positionedSegments.length > 0) {
-    const colorsToShow = positionedSegments;
-    
-    // Debug logging for screen division with position info
-    if (Math.random() < 0.1) {
-      const activeCount = colorsToShow.filter(c => !c.isDecaying).length;
-      const decayCount = colorsToShow.filter(c => c.isDecaying).length;
-      // console.log(`🎨 Drawing ${colorsToShow.length} positioned segments (${activeCount} active + ${decayCount} decaying) on screen width ${screen.width}`);
-      if (activeCount > 0) {
-        const activePositions = colorsToShow.filter(c => !c.isDecaying).map(c => `pos${c.preferredPosition}`);
-        // console.log(`🎯 Active colors at positions: ${activePositions.join(', ')}`);
-      }
-    }
-    
-    // Evenly divide screen width - ensure no gaps by calculating exact positions
-    colorsToShow.forEach((colorInfo, index) => {
-      const startX = Math.floor((index * screen.width) / colorsToShow.length);
-      const endX = Math.floor(((index + 1) * screen.width) / colorsToShow.length);
-      const boxWidth = endX - startX; // Exact width to fill screen completely
-      
-      // Debug logging for each segment with position info
-      if (Math.random() < 0.05) {
-        const status = colorInfo.isDecaying ? `decaying:α${colorInfo.alpha?.toFixed(2)}` : 'active';
-        // console.log(`🎨 Segment ${index} (${status}): pos${colorInfo.preferredPosition}, startX=${startX}, endX=${endX}, width=${boxWidth}, color=(${colorInfo.r},${colorInfo.g},${colorInfo.b})`);
-      }
-      
-      ink(colorInfo.r, colorInfo.g, colorInfo.b);
-      box(startX, 0, boxWidth, screen.height); // FULL SCREEN HEIGHT
     });
     
   } else {
     // Fallback: show current locator theme color across full screen
     if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
-      // Use solid theme background color (no pulse)
-      const bgColor = currentPalette.colors[0];
+      // Use the same base color logic as timeline background and segments
+      // Find the current locator index to match the segment color logic
+      let currentLocatorIndex = 0;
+      if (alsProject && alsProject.locators && currentLocator) {
+        currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+        if (currentLocatorIndex === -1) currentLocatorIndex = 0;
+      }
+      const colorIndex = currentLocatorIndex % currentPalette.colors.length;
+      const bgColor = currentPalette.colors[colorIndex];
       ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
       box(0, 0, screen.width, screen.height); // FULL SCREEN
     } else {
-      // Default background when no content is playing
-      wipe(0, 0, 0);
+      // Default background when no content is playing - match timeline fallback
+      ink(50, 50, 50);
+      box(0, 0, screen.width, screen.height); // FULL SCREEN
     }
   }
 
@@ -1516,49 +1583,8 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
     return timeWindow > 0 ? noteCount / timeWindow : 0; // notes per second
   }
   
-  // Calculate note density for upcoming section (next 8-12 seconds for wider context)
-  const densityWindowStart = currentTimeSeconds;
-  const densityWindowEnd = currentTimeSeconds + 10; // Look ahead 10 seconds for more context
-  const noteDensity = calculateNoteDensity(densityWindowStart, densityWindowEnd);
-  
-  // Dynamic zoom: lower base zoom to show more content, higher zoom for dense areas to prevent overlap
-  // Base zoom: 60 pixels/second (lower than before to show more content)
-  // Dense sections: up to 250 pixels/second to spread out overlapping notes
-  // Sparse sections: down to 40 pixels/second for broader view
-  let dynamicPixelsPerSecond = 60; // Lower base speed to show more sections
-  
-  if (noteDensity > 3.0) {
-    // Extremely dense: zoom in a lot to prevent overlap
-    dynamicPixelsPerSecond = 250;
-  } else if (noteDensity > 2.0) {
-    // Very dense: zoom in significantly
-    dynamicPixelsPerSecond = 200;
-  } else if (noteDensity > 1.5) {
-    // Moderately dense: zoom in some
-    dynamicPixelsPerSecond = 150;
-  } else if (noteDensity > 1.0) {
-    // Slightly dense: zoom in a little
-    dynamicPixelsPerSecond = 100;
-  } else if (noteDensity < 0.3) {
-    // Very sparse: zoom out for much broader view
-    dynamicPixelsPerSecond = 40;
-  } else if (noteDensity < 0.7) {
-    // Sparse: zoom out for broader view
-    dynamicPixelsPerSecond = 50;
-  }
-  
-  // Smooth the zoom changes to avoid jarring transitions (faster response)
-  if (!lastPixelsPerSecond) {
-    lastPixelsPerSecond = dynamicPixelsPerSecond;
-  }
-  const smoothingFactor = 0.92; // Slightly faster transitions for better responsiveness
-  lastPixelsPerSecond = lastPixelsPerSecond * smoothingFactor + dynamicPixelsPerSecond * (1 - smoothingFactor);
-  const pixelsPerSecond = lastPixelsPerSecond;
-  
-  // Debug logging for zoom
-  // if (Math.random() < 0.05) {
-  //   console.log(`🔍 Timeline zoom: density=${noteDensity.toFixed(2)} notes/sec, zoom=${pixelsPerSecond.toFixed(0)}px/sec`);
-  // }
+  // Fixed zoom level for consistent behavior (no dynamic scaling)
+  const pixelsPerSecond = 60; // Increased from 35 to 60 px/sec for faster scrolling / more zoomed in view
 
   // === TIMELINE OVERLAY (MINIMAL & FAST) ===
   // The timeline is now an overlay element that sits on top of the TV bar composition
@@ -1574,8 +1600,15 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
   
   // Themed timeline background - matches current TV color palette exactly
   if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
-    // Use the same background color as TV bars fallback (solid, no pulse)
-    const bgColor = currentPalette.colors[0];
+    // Use the same base color logic as timeline segments and TV bars
+    // Find the current locator index to match the segment color logic
+    let currentLocatorIndex = 0;
+    if (alsProject && alsProject.locators && currentLocator) {
+      currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+      if (currentLocatorIndex === -1) currentLocatorIndex = 0;
+    }
+    const colorIndex = currentLocatorIndex % currentPalette.colors.length;
+    const bgColor = currentPalette.colors[colorIndex];
     ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
   } else {
     ink(50, 50, 50); // Fallback to match TV default { r: 50, g: 50, b: 50 }
@@ -1607,18 +1640,7 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
         let g = paletteColor.g; 
         let b = paletteColor.b;
         
-        // Visual effects for current vs non-current segments
-        if (isCurrentTime) {
-          const pulse = Math.sin(performance.now() * 0.008) * 0.4 + 0.6;
-          r = Math.min(255, Math.floor(r + (255 - r) * pulse * 0.5));
-          g = Math.min(255, Math.floor(g + (255 - g) * pulse * 0.5));
-          b = Math.min(255, Math.floor(b + (255 - b) * pulse * 0.5));
-        } else {
-          // Slightly dimmed for non-current times
-          r = Math.floor(r * 0.8);
-          g = Math.floor(g * 0.8);
-          b = Math.floor(b * 0.8);
-        }
+        // No brightness modifications - use raw palette colors to match base backgrounds
         
         // Draw segment with proper clipping
         ink(r, g, b);
@@ -1644,10 +1666,9 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
       const segmentEndX = (segmentEnd - viewStartTime) * pixelsPerSecond;
       const segmentWidth = segmentEndX - segmentStartX;
       
-      // Only process segments visible in current view
-      const isSegmentVisible = segmentEndX > 0 && segmentStartX < screen.width;
-      
-      if (isSegmentVisible && segmentWidth > 1) {
+      // Always process segments to check for individual note visibility
+      // Don't skip segments just because the segment boundary is offscreen
+      if (segmentWidth > 1) {
         // Get all MIDI notes for this segment
         const segmentNotes = [];
         
@@ -1658,16 +1679,25 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
                 const noteStartTime = clip.startSeconds + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.time || 0));
                 const noteEndTime = noteStartTime + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.duration || 0.25));
                 
+                // Check if note belongs to this segment AND if the note itself is potentially visible
                 if (noteStartTime >= segmentStart && noteStartTime < segmentEnd) {
-                  segmentNotes.push({
-                    ...note,
-                    startTime: noteStartTime,
-                    endTime: noteEndTime,
-                    clipName: clip.name,
-                    clipIndex: clipIndex, // Add clip index for color calculation
-                    noteIndex: noteIndex, // Add note index for color calculation
-                    trackIndex: clip.trackIndex
-                  });
+                  const noteX = centerX + (noteStartTime - currentTimeSeconds) * pixelsPerSecond;
+                  const noteDuration = noteEndTime - noteStartTime;
+                  const noteWidth = Math.max(1, Math.floor(noteDuration * pixelsPerSecond));
+                  
+                  // Only include notes that are actually visible on screen
+                  if (noteX + noteWidth >= -10 && noteX < screen.width + 10) {
+                    segmentNotes.push({
+                      ...note,
+                      startTime: noteStartTime,
+                      endTime: noteEndTime,
+                      clipName: clip.name,
+                      clipIndex: clipIndex, // Add clip index for color calculation
+                      noteIndex: noteIndex, // Add note index for color calculation
+                      locatorIndex: locatorIndex, // Add locator index for stable row calculation
+                      trackIndex: clip.trackIndex
+                    });
+                  }
                 }
               });
             }
@@ -1683,22 +1713,27 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
           
           segmentNotes.forEach((note, noteIndex) => {
             const noteX = centerX + (note.startTime - currentTimeSeconds) * pixelsPerSecond;
-            const row = noteIndex % maxRows;
+            const pitch = note.key || 60;
+            // Use stable row calculation based on original note position
+            const stableIndex = (note.locatorIndex * 100) + (note.clipIndex * 20) + note.noteIndex;
+            const row = stableIndex % maxRows;
             const noteY = notesAreaStartY + row * noteHeight; // No spacing, notes touch
             
-            // Only draw if note is visible
-            if (noteX >= -10 && noteX < screen.width + 10) {
-              const velocity = note.velocity || 100;
-              const pitch = note.key || 60;
-              const noteDuration = note.endTime - note.startTime; // Single declaration for the whole block
-              const velocityNorm = velocity / 127; // Move this outside color block so it's available everywhere
+            // Note is already pre-filtered for visibility, so just draw it
+            const velocity = note.velocity || 100;
+            const noteDuration = note.endTime - note.startTime; // Single declaration for the whole block
+            const velocityNorm = velocity / 127; // Move this outside color block so it's available everywhere
               
-              // Generate themed color using EXACT same formula as TV bars
+              // Generate themed color using the palette of the note's own locator section
               let r, g, b;
-              if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
-                // Use the EXACT same color selection formula as TV bars
-                const colorIndex = (note.clipIndex * 3 + note.noteIndex * 5 + pitch * 2) % currentPalette.colors.length;
-                const baseColor = currentPalette.colors[colorIndex];
+              // Get the palette for the locator that this note belongs to
+              const noteLocator = alsProject.locators[note.locatorIndex];
+              const notePalette = getPaletteForLocator(noteLocator?.name);
+              
+              if (notePalette && notePalette.colors && notePalette.colors.length > 0) {
+                // Use the note's own locator palette, not the current active palette
+                const colorIndex = (note.clipIndex * 3 + note.noteIndex * 5 + pitch * 2) % notePalette.colors.length;
+                const baseColor = notePalette.colors[colorIndex];
                 
                 // Apply velocity-based brightness variation (same as TV bars)
                 const velocityFactor = 0.7 + (velocityNorm * 0.3); // 0.7 to 1.0
@@ -1733,93 +1768,51 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
                 b = Math.floor((b + m) * 255);
               }
               
-              // Size based on duration + decay time - show decay as extended width
+              // Simple note width based on duration only
               const minWidth = 1;
-              const totalDuration = noteDuration + decayTimeSeconds; // Note duration + decay period
-              const durationWidth = Math.max(minWidth, Math.floor(totalDuration * pixelsPerSecond));
+              const durationWidth = Math.max(minWidth, Math.floor(noteDuration * pixelsPerSecond));
               // Use the fixed noteHeight calculated above for consistent spacing
               const finalHeight = noteHeight;
               
-              // Check playing state and draw with decay visualization
+              // Check playing state - simplified without decay
               const noteEnd = note.endTime || (note.startTime + 0.25);
-              const decayEnd = noteEnd + decayTimeSeconds;
               const isPlaying = currentTimeSeconds >= note.startTime && currentTimeSeconds <= noteEnd;
-              const isDecaying = currentTimeSeconds > noteEnd && currentTimeSeconds <= decayEnd;
               
-              // Calculate widths for note portion vs decay portion  
-              const notePortionWidth = Math.max(1, Math.floor(noteDuration * pixelsPerSecond));
-              const decayPortionWidth = Math.max(0, Math.floor(decayTimeSeconds * pixelsPerSecond));
+              // Simple note width based on duration
+              const noteWidth = Math.max(1, Math.floor(noteDuration * pixelsPerSecond));
               
-              // Draw the active note portion (bright)
+              // Draw the note
               let noteR = r, noteG = g, noteB = b;
               if (isPlaying) {
-                // Note is actively playing - brighten
+                // Capture the base color BEFORE brightening for needle theming
+                lastMidiNoteColor = { r: r, g: g, b: b };
+                
+                // Note is actively playing - brighten for display
                 noteR = Math.min(255, r + 60);
                 noteG = Math.min(255, g + 60);
                 noteB = Math.min(255, b + 60);
               }
               ink(noteR, noteG, noteB);
-              box(noteX, noteY, notePortionWidth, finalHeight);
-              
-              // Draw the decay portion as a simple 1px tall shadow line (tail effect)
-              if (decayPortionWidth > 0 && (isDecaying || currentTimeSeconds <= noteEnd)) {
-                // Get background color for blending toward theme
-                const segmentPalette = currentPalette;
-                const bgColor = segmentPalette?.colors[0] || { r: 50, g: 50, b: 50 };
-                
-                let shadowAlpha = 0.6; // Default shadow visibility
-                if (isDecaying) {
-                  // Currently in decay - show progress
-                  const timeSinceEnd = currentTimeSeconds - noteEnd;
-                  const decayFactor = Math.min(1, timeSinceEnd / decayTimeSeconds);
-                  shadowAlpha = (1 - decayFactor) * 0.8; // Fade from 80% to 0%
-                }
-                
-                // Blend note color toward background color for tail effect
-                const tailR = Math.floor(r * shadowAlpha + bgColor.r * (1 - shadowAlpha));
-                const tailG = Math.floor(g * shadowAlpha + bgColor.g * (1 - shadowAlpha));
-                const tailB = Math.floor(b * shadowAlpha + bgColor.b * (1 - shadowAlpha));
-                
-                ink(tailR, tailG, tailB);
-                // Draw just a 1px tall line at the bottom of the note area
-                box(noteX + notePortionWidth, noteY + finalHeight - 1, decayPortionWidth, 1);
-              }
-            }
+              box(noteX, noteY, noteWidth, finalHeight);
           });
         }
       }
     }
   }
   
-  // Draw lead time area indicator (future area) with themed color
-  const leadAreaStartX = centerX;
-  const leadAreaWidth = leadTimeSeconds * pixelsPerSecond;
-  if (leadAreaStartX < screen.width) {
-    if (currentPalette && currentPalette.length > 0) {
-      // Use a semi-transparent version of the current palette's secondary color
-      const futureColor = currentPalette[1] || currentPalette[0];
-      const r = Math.floor(futureColor.r * 0.4);
-      const g = Math.floor(futureColor.g * 0.4);
-      const b = Math.floor(futureColor.b * 0.4);
-      ink(r, g, b, 80); // Themed semi-transparent overlay for future
-    } else {
-      ink(0, 20, 40, 60); // Fallback to blue overlay
-    }
-    box(leadAreaStartX, timelineY, Math.min(leadAreaWidth, screen.width - leadAreaStartX), timelineHeight);
-  }
+  // Draw themed needle with MIDI note color
+  const needleX = centerX; // Center perfectly
   
-  // Draw 3-pixel white needle with opacity gradient (low-high-low) - centered
-  const needleX = centerX - 1; // Move 1 pixel to the left
+  // Use the exact color of the last played MIDI note for the needle
+  const needleColor = {
+    r: lastMidiNoteColor.r,
+    g: lastMidiNoteColor.g,
+    b: lastMidiNoteColor.b
+  };
   
-  // Draw 3 separate 1-pixel lines with different opacities for smooth gradient
-  ink(255, 255, 255, 80);  // Low opacity - left edge
-  line(needleX - 1, timelineY, needleX - 1, timelineY + timelineHeight);
-  
-  ink(255, 255, 255, 255); // High opacity - center
-  line(needleX, timelineY, needleX, timelineY + timelineHeight);
-  
-  ink(255, 255, 255, 80);  // Low opacity - right edge  
-  line(needleX + 1, timelineY, needleX + 1, timelineY + timelineHeight);
+  // Draw single needle line matching MIDI note color exactly
+  ink(needleColor.r, needleColor.g, needleColor.b, 255); // Full opacity
+  line(needleX, timelineY, needleX, timelineY + timelineHeight); // Single centered line
 
 } // Close paint function
 
