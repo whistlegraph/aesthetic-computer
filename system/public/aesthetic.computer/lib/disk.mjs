@@ -315,6 +315,7 @@ let pieceFPS = null; // Target FPS for the current piece (null = no limit)
 let lastPaintTime = 0; // Last time paint() was executed
 let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint behavior
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
+let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
 
 let boot = defaults.boot;
 let sim = defaults.sim;
@@ -641,20 +642,64 @@ class Recorder {
   tapeTimerSet(seconds, time) {
     this.tapeTimerStart = time;
     this.tapeTimerDuration = seconds;
+    
+    // Add a failsafe timer as backup in case tapeTimerStep stops being called
+    if (this.failsafeTimeout) {
+      clearTimeout(this.failsafeTimeout);
+    }
+    
+    // Set a failsafe that will trigger cut if the normal timer fails
+    this.failsafeTimeout = setTimeout(() => {
+      console.warn(`🎬 ⚠️ Failsafe timer triggered! Normal timer may have failed.`);
+      if (this.tapeTimerDuration && this.tapeTimerStart) {
+        this.tapeProgress = 0;
+        this.tapeTimerStart = null;
+        this.tapeTimerDuration = null;
+        
+        if (typeof this.cut === 'function') {
+          this.cut(() => {
+            $commonApi.jump("video");
+          });
+        } else {
+          console.warn(`🎬 ⚠️ Cut function not available in failsafe, manual jump to video`);
+          $commonApi.jump("video");
+        }
+      }
+      this.failsafeTimeout = null;
+    }, (seconds + 1) * 1000); // Add 1 second buffer to the failsafe
   }
 
   tapeTimerStep({ needsPaint, sound: { time } }) {
     if (!this.tapeTimerDuration) return;
+    
+    // Enhanced timing with race condition protection
     this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
     needsPaint();
+    
     const secondsOver =
       this.tapeProgress * this.tapeTimerDuration - this.tapeTimerDuration;
+    
     // Run for an extra 150 milliseconds.
     if (this.tapeProgress >= 1 && secondsOver > 0.15) {
+      // Clear failsafe since normal timer completed
+      if (this.failsafeTimeout) {
+        clearTimeout(this.failsafeTimeout);
+        this.failsafeTimeout = null;
+      }
+      
       this.tapeProgress = 0;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
-      this.cut(() => $commonApi.jump("video"));
+      
+      // Add safety check for callback existence
+      if (typeof this.cut === 'function') {
+        this.cut(() => {
+          $commonApi.jump("video");
+        });
+      } else {
+        console.warn(`🎬 ⚠️ Cut function not available, manual jump to video`);
+        $commonApi.jump("video");
+      }
     }
   }
 
@@ -678,7 +723,7 @@ class Recorder {
     this.tapeProgress = 0;
     this.tapeTimerStart = null;
     this.tapeTimerDuration = null;
-    send({ type: "recorder:cut" });
+    send({ type: "signal", content: "recorder:cut" });
   }
 
   print(cb) {
@@ -841,6 +886,8 @@ const $commonApi = {
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
     console.log("🐎 Jumping to:", to);
+    console.log("🐎 Jump context:", { leaving, ahistorical, alias });
+    
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
       return;
@@ -857,29 +904,36 @@ const $commonApi = {
       to = to.replace("out:", "");
       try {
         // url = new URL(to);
+        console.log("🐎 Jumping to web URL:", to);
         $commonApi.net.web(to, jumpOut);
         return;
       } catch (e) {
         // Could not construct a valid url from the jump, so we will be
         // running a local aesthetic.computer piece.
+        console.log("🐎 URL construction failed, treating as local piece:", e.message);
         return;
       }
     } else {
+      console.log("🐎 Setting leaving = true for local piece:", to);
       leaving = true;
     }
 
     function loadLine() {
+      console.log("🐎 loadLine called with:", to);
       load(parse(to), ahistorical, alias, false, callback);
     }
 
     let callback;
     leaveLoad = () => {
+      console.log("🐎 leaveLoad called - checking videoOnLeave:", $commonApi.rec.videoOnLeave);
       // Intercept returns to the prompt when taping from a piece directly.
       if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
+        console.log("🐎 videoOnLeave intercept - redirecting to video");
         to = "video";
         $commonApi.rec.videoOnLeave = false;
         $commonApi.rec.cut(loadLine);
       } else {
+        console.log("🐎 Normal load, no videoOnLeave intercept");
         loadLine(); // Or just load normally.
       }
     };
@@ -1168,9 +1222,10 @@ const $commonApi = {
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
-    label: (text, color, offset) => {
+    label: (text, color, offset, plainTextOverride) => {
       currentHUDTxt = text;
-      currentHUDPlainTxt = stripColorCodes(text);  // Store plain text version
+      // Use plainTextOverride if provided, otherwise strip color codes from text
+      currentHUDPlainTxt = plainTextOverride || stripColorCodes(text);  // Store plain text version
       
       if (!color) {
         currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
@@ -2334,37 +2389,37 @@ const $paintApi = {
       // Now use the original text processing logic but with per-character colors
       const scale = pos?.size || 1;
       
-      // Debug what activeTypeface is being used
-      if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
-        console.log("🔤 activeTypeface determined:", {
-          customTypeface: customTypeface?.name || String(customTypeface),
-          tf: tf?.name || String(tf),
-          activeTypeface: activeTypeface?.name || String(activeTypeface),
-          isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
-          customTypefaceType: typeof customTypeface
-        });
-      }
+      // Debug what activeTypeface is being used (disabled)
+      // if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
+      //   console.log("🔤 activeTypeface determined:", {
+      //     customTypeface: customTypeface?.name || String(customTypeface),
+      //     tf: tf?.name || String(tf),
+      //     activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
+      //     isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
+      //     customTypefaceType: typeof customTypeface
+      //   });
+      // }
       
-      // Debug logging for QR text rendering - broader condition
-      if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
-        console.log("🔤 QR Font Debug:", {
-          text: text,
-          textLength: text.length,
-          requestedFont: arguments[5],
-          customTypeface: customTypeface?.name || String(customTypeface),
-          customTypefaceType: typeof customTypeface,
-          tfName: tf?.name || String(tf),
-          activeTypeface: activeTypeface?.name || String(activeTypeface),
-          activeTypefaceData: activeTypeface?.data?.bdfFont || "no-bdf",
-          hasCustomTypeface: !!customTypeface,
-          hasTf: !!tf,
-          activetypefacePrint: typeof activeTypeface?.print,
-          typefaceCacheSize: typefaceCache.size,
-          typefaceCacheKeys: Array.from(typefaceCache.keys()),
-          isMatrixChunky8: activeTypeface?.name === "MatrixChunky8",
-          firstCharGlyph: activeTypeface?.glyphs?.[text[0]] ? "loaded" : "missing"
-        });
-      }
+      // Debug logging for QR text rendering (disabled)
+      // if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
+      //   console.log("🔤 QR Font Debug:", {
+      //     text: text,
+      //     textLength: text.length,
+      //     requestedFont: arguments[5],
+      //     customTypeface: customTypeface?.name || String(customTypeface),
+      //     customTypefaceType: typeof customTypeface,
+      //     tfName: tf?.name || String(tf),
+      //     activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
+      //     activeTypefaceData: tf?.data?.bdfFont || "no-bdf", // Use tf instead of undefined activeTypeface
+      //     hasCustomTypeface: !!customTypeface,
+      //     hasTf: !!tf,
+      //     activetypefacePrint: typeof tf?.print, // Use tf instead of undefined activeTypeface
+      //     typefaceCacheSize: typefaceCache.size,
+      //     typefaceCacheKeys: Array.from(typefaceCache.keys()),
+      //     isMatrixChunky8: tf?.name === "MatrixChunky8", // Use tf instead of undefined activeTypeface
+      //     firstCharGlyph: tf?.glyphs?.[text[0]] ? "loaded" : "missing" // Use tf instead of undefined activeTypeface
+      //   });
+      // }
 
       if (bounds) {
         const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap, customTypeface);
@@ -4436,6 +4491,7 @@ async function load(
     lastPaintTime = 0;
     lastPaintOut = undefined;
     shouldSkipPaint = false;
+    pieceFrameCount = 0;
     
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
@@ -5097,7 +5153,21 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
     $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
-    $commonApi.rec.cutCallback?.();
+    
+    if ($commonApi.rec.cutCallback) {
+      try {
+        $commonApi.rec.cutCallback();
+        // Clear the callback after execution to prevent duplicate calls
+        $commonApi.rec.cutCallback = null;
+      } catch (error) {
+        console.error(`🎬 ❌ Error in cutCallback:`, error);
+        console.error(`🎬 ❌ Stack trace:`, error.stack);
+      }
+    } else {
+      console.warn(`🎬 ⚠️ No cutCallback available when rolling ended`);
+      // Fallback: try to jump to video directly if no callback is set
+      $commonApi.jump("video");
+    }
     return;
   }
 
@@ -6200,6 +6270,18 @@ async function makeFrame({ data: { type, content } }) {
             content: { id, properties },
           });
         },
+        enableSustain: function () {
+          send({
+            type: "bubble:update",
+            content: { id, properties: { sustain: true } },
+          });
+        },
+        disableSustain: function () {
+          send({
+            type: "bubble:update",
+            content: { id, properties: { sustain: false } },
+          });
+        },
       };
     };
 
@@ -6700,7 +6782,9 @@ async function makeFrame({ data: { type, content } }) {
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);
 
-      $api.paintCount = Number(paintCount);
+      // Use piece-level frame counter that only increments when piece actually paints
+      // This ensures frame-based calculations (like in kidlisp) work correctly with FPS limiting
+      $api.paintCount = pieceFrameCount;
 
       $api.inFocus = content.inFocus;
 
@@ -6762,10 +6846,21 @@ async function makeFrame({ data: { type, content } }) {
       $api.fps = function (newFps) {
         // Use piece-level timing instead of changing global render loop
         if (newFps === undefined || newFps === null) {
-          pieceFPS = null; // Remove FPS limit
+          if (pieceFPS !== null) {
+            pieceFPS = null; // Remove FPS limit only if it was previously set
+          }
         } else {
-          pieceFPS = newFps;
-          lastPaintTime = performance.now(); // Reset timing when FPS changes
+          // Only initialize timing if FPS wasn't set before, or if it's a different value
+          if (pieceFPS === null) {
+            // First time setting FPS - initialize timing
+            pieceFPS = newFps;
+            lastPaintTime = 0; // This will trigger "first frame" logic on next paint
+          } else if (pieceFPS !== newFps) {
+            // FPS changed to a different value - reset timing
+            pieceFPS = newFps;
+            lastPaintTime = 0; // This will trigger "first frame" logic on next paint
+          }
+          // If pieceFPS === newFps, do nothing (cache logic)
         }
         // Don't send fps-change to global render loop anymore
         // send({ type: "fps-change", content: newFps });
@@ -6985,22 +7080,32 @@ async function makeFrame({ data: { type, content } }) {
           
           if (pieceFPS !== null && pieceFPS > 0) {
             const targetFrameTime = 1000 / pieceFPS; // milliseconds per frame
-            const timeSinceLastPaint = now - lastPaintTime;
             
-            if (timeSinceLastPaint < targetFrameTime) {
-              shouldPaint = false; // Skip this frame
+            // If this is the first paint (lastPaintTime === 0), always allow it
+            if (lastPaintTime === 0) {
+              lastPaintTime = now;
+              shouldPaint = true;
             } else {
-              lastPaintTime = now; // Update last paint time
+              const timeSinceLastPaint = now - lastPaintTime;
+              
+              if (timeSinceLastPaint < targetFrameTime) {
+                shouldPaint = false; // Skip this frame
+              } else {
+                lastPaintTime = now; // Update last paint time
+                shouldPaint = true;
+              }
             }
           }
           
           // Only call paint() if timing allows or no FPS limit is set
           if (shouldPaint) {
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+            // Increment piece frame counter only when we actually paint
+            pieceFrameCount++;
           } else {
-            // When skipping paint, preserve the last paintOut to maintain correct noPaint behavior
-            // This ensures HUD/overlays still render even when piece paint is skipped
-            paintOut = lastPaintOut || false;
+            // When skipping paint, use undefined to ensure continuous rendering
+            // This maintains the render loop while skipping the actual paint call
+            paintOut = undefined;
           }
           
           // Store paintOut for next frame (only when we actually painted)
