@@ -312,7 +312,7 @@ if (window.acVSCODE) {
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration }, debug);
 
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked;
-console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked, "sessionStorage blocked:", sessionStorageBlocked);
+// console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked, "sessionStorage blocked:", sessionStorageBlocked);
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
