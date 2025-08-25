@@ -1,5 +1,6 @@
 // Kidlisp, 24.4.17.12.03
 // A lisp interpreter / compiler for writing Aesthetic Computer pieces.
+// FORCE RELOAD: 2025-08-23-CACHE-BUSTER-UPDATE
 
 // ❤️‍🔥 TODO: Add UTC Support to s... timers. etc. to be compatible with 'clock.mjs'.
 //        - Selectabe values via game controller.
@@ -90,6 +91,16 @@ function setCachedCode(source, code) {
   (ink "red") 
   (box 50 50 100 100)  ; This red box will appear on top of the baked blue box
 
+  ; Embedding cached kidlisp snippets:
+  ; First save some code to get a cache code like $abc123XY
+  ; Then you can embed it:
+  ($abc123XY)            ; Load and run cached code in default 256x256 buffer, then paste at 0,0
+  ($abc123XY 128 128)    ; Load and run cached code in 128x128 buffer  
+  (embed $abc123XY)      ; Same as ($abc123XY) - explicit embed syntax
+  (embed $abc123XY 64 64) ; Load in 64x64 buffer
+  (paste ($abc123XY 32 32) 100 100) ; Load in 32x32 buffer and paste at 100,100 
+  (box 50 50 100 100)  ; This red box will appear on top of the baked blue box
+
   ((line 20 80 80 80))
   (later cross x y
     (line x-10 y-10 x+10 y+10)
@@ -97,6 +108,12 @@ function setCachedCode(source, code) {
   )
   (ink yellow)
   (cross 16 32)
+
+  ; Embedding example (requires cached code):
+  ; If you have cached code $xyz123, you can:
+  ; ($xyz123)              ; Run in default buffer and auto-paste
+  ; ($xyz123 64 64)        ; Run in 64x64 buffer and auto-paste  
+  ; (paste ($xyz123) 50 50) ; Run and paste at specific coordinates
 #endregion */
 
 /* #region 🏁 TODO 
@@ -210,8 +227,8 @@ function perfEnd(label) {
 }
 
 // 🎰 Parser & Evaluation utility functions (stateless)
-const identifierRegex = /[a-zA-Z_]\w*/g;
-const validIdentifierRegex = /^[a-zA-Z_]\w*$/;
+const identifierRegex = /[$a-zA-Z_]\w*/g;
+const validIdentifierRegex = /^[$a-zA-Z_]\w*$/;
 
 function tokenize(input) {
   if (VERBOSE) console.log("🪙 Tokenizing:", input);
@@ -446,6 +463,10 @@ class KidLisp {
     
     // Bake functionality state
     this.bakedLayers = []; // Store baked pixel buffers
+    
+    // Embedded layers system for persistent animations
+    this.embeddedLayers = []; // Store persistent embedded layers
+    this.embeddedLayerCache = new Map(); // Cache embedded layers by cacheId
     this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
   }
 
@@ -1232,8 +1253,8 @@ class KidLisp {
       },
       paint: ($) => {
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
-        this.frameCount++; // Increment frame counter for timing functions
-
+        // 🕐 Timing updates moved to sim() for consistent framerate
+        
         // Cache kidlisp source for QR code generation instantly
         // This prevents caching work-in-progress code and saves server space
         const cacheDelayFrames = 0; // Instant caching
@@ -1268,6 +1289,9 @@ class KidLisp {
           
           // Then composite baked layers underneath current content
           this.renderBakedLayers($);
+          
+          // Then render and update embedded layers on top
+          this.renderEmbeddedLayers($);
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
@@ -1292,6 +1316,9 @@ class KidLisp {
         // return false;
       },
       sim: ({ sound }) => {
+        // 🕐 Handle timing updates in sim (runs at consistent 120fps)
+        this.frameCount++; // Increment frame counter for timing functions
+        
         // Poll speaker for audio amplitude data (like clock.mjs does)
         sound.speaker?.poll();
 
@@ -2570,10 +2597,10 @@ class KidLisp {
         return api.screen.height;
       },
       frame: (api) => {
-        return this.frameCount || 0;
+        return api.paintCount || 0;
       },
       f: (api) => { // Abbreviation for frame
-        return this.frameCount || 0;
+        return api.paintCount || 0;
       },
       clock: (api) => {
         return Date.now(); // Returns UTC milliseconds since epoch
@@ -3193,6 +3220,178 @@ class KidLisp {
         
         return this.bakedLayers.length;
       },
+      
+      // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
+      // Usage: (embed $pie) - loads cached code in default 256x256 layer
+      //        (embed $pie 128 128) - loads cached code in 128x128 layer  
+      //        (embed $pie 0 0 60 40) - loads cached code in 60x40 layer at position (0,0)
+      embed: (api, args = []) => {
+        if (args.length === 0) {
+          console.warn("❗ embed function requires a cached code argument");
+          return undefined;
+        }
+        
+        let cacheId = unquoteString(args[0].toString());
+        
+        // Strip $ prefix if present (allow both $OrqM and OrqM formats)
+        if (cacheId.startsWith("$")) {
+          cacheId = cacheId.slice(1);
+        }
+        
+        // Simple validation - just check it's not empty and alphanumeric
+        if (!cacheId || !/^[0-9A-Za-z]+$/.test(cacheId)) {
+          console.warn("❗ Invalid cache code:", cacheId);
+          return undefined;
+        }
+        
+        // Parse dimensions and position from arguments
+        let width = 256, height = 256, x = 0, y = 0; // Default values
+        
+        if (args.length >= 3) {
+          if (args.length === 3) {
+            // (embed $pie width height)
+            width = this.evaluate(args[1], api, this.localEnv) || 256;
+            height = this.evaluate(args[2], api, this.localEnv) || 256;
+          } else if (args.length >= 5) {
+            // (embed $pie x y width height)
+            x = this.evaluate(args[1], api, this.localEnv) || 0;
+            y = this.evaluate(args[2], api, this.localEnv) || 0;
+            width = this.evaluate(args[3], api, this.localEnv) || 256;
+            height = this.evaluate(args[4], api, this.localEnv) || 256;
+          }
+        }
+        
+        // Ensure dimensions are positive numbers
+        width = Math.max(1, Math.floor(width));
+        height = Math.max(1, Math.floor(height));
+        x = Math.floor(x);
+        y = Math.floor(y);
+        
+        const layerKey = `${cacheId}_${width}x${height}_${x},${y}`;
+        
+        // Check if this embedded layer already exists - RETURN IMMEDIATELY if found
+        if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
+          console.log("♻️ Using existing embedded layer:", layerKey);
+          return this.embeddedLayerCache.get(layerKey);
+        }
+        
+        // Initialize cache if needed
+        if (!this.embeddedLayerCache) {
+          this.embeddedLayerCache = new Map();
+        }
+        
+        // Check if we're already fetching this layer to prevent duplicates
+        const fetchKey = `${layerKey}_fetching`;
+        if (this.embeddedLayerCache.has(fetchKey)) {
+          console.log("⏳ Already fetching layer:", layerKey);
+          return this.embeddedLayerCache.get(fetchKey);
+        }
+        
+        console.log(`🖼️ Creating persistent embedded layer: ${cacheId} (${width}x${height}) at (${x},${y})`);
+        
+        // Mark as being fetched and create fetch promise
+        const fetchPromise = Promise.race([
+          fetchCachedCode(cacheId),
+          new Promise((resolve) => {
+            console.log("⏰ Setting 2 second timeout for fetch...");
+            setTimeout(() => {
+              console.warn("⏰ Fetch timeout for", cacheId, "- using fallback");
+              resolve(null);
+            }, 2000); // 2 second timeout
+          })
+        ]).then(source => {
+          console.log("🏁 Fetch promise resolved with source:", source ? "found" : "null/timeout");
+          // Remove fetch marker
+          this.embeddedLayerCache.delete(fetchKey);
+          
+          if (!source) {
+            console.warn("❌ No cached code found for:", cacheId, "- using fallback");
+            // For debugging, let's use a simple fallback pie animation
+            source = `(fps 24)
+(wipe red)
+(ink yellow)
+(line 0 64 128 64)
+(ink green)  
+(line 64 0 64 128)`;
+            console.log("🎨 Using fallback source:", source);
+          }
+          if (!source) {
+            console.warn("❌ No cached code found for:", cacheId);
+            return undefined;
+          }
+          
+          console.log(`📝 FETCHED SOURCE CODE FOR ${cacheId}:`);
+          console.log(`──────────────────────────────────────`);
+          console.log(source);
+          console.log(`──────────────────────────────────────`);
+          console.log(`📏 Source length: ${source.length} characters`);
+          
+          // Create a dedicated KidLisp instance for this embedded layer
+          const embeddedKidLisp = new KidLisp();
+          
+          // Synchronize state with main instance
+          embeddedKidLisp.frameCount = this.frameCount;
+          embeddedKidLisp.frameCounter = this.frameCounter;
+          
+          const parsedCode = embeddedKidLisp.parse(source);
+          
+          // Create a buffer for this embedded layer
+          const embeddedBuffer = api.painting(width, height, (bufferApi) => {
+            // Initial execution to set up the buffer
+            try {
+              // Create combined API for initial execution
+              const combinedApi = {
+                ...api, // Include main API with timing, fps, etc.
+                ...bufferApi, // Include buffer-specific API
+                screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height }
+              };
+              
+              embeddedKidLisp.evaluate(parsedCode, combinedApi, embeddedKidLisp.localEnv);
+            } catch (error) {
+              console.error("❌ Error in initial embedded layer execution:", error);
+              bufferApi.wipe?.(255, 0, 0, 128); // Red background for error
+            }
+          });
+          
+          if (!embeddedBuffer) {
+            console.error("❌ Failed to create embedded buffer for:", cacheId);
+            return undefined;
+          }
+          
+          // Create the persistent embedded layer object
+          const embeddedLayer = {
+            cacheId,
+            width,
+            height,
+            x,
+            y,
+            buffer: embeddedBuffer,
+            kidlispInstance: embeddedKidLisp,
+            parsedCode,
+            source
+          };
+          
+          // Add to embedded layers array and cache
+          this.embeddedLayers.push(embeddedLayer);
+          this.embeddedLayerCache.set(layerKey, embeddedLayer);
+          
+          console.log(`✅ Created persistent embedded layer: ${layerKey}`);
+          console.log(`🎬 Total embedded layers: ${this.embeddedLayers.length}`);
+          
+          return embeddedLayer;
+          
+        }).catch(error => {
+          console.error("❌ Error creating embedded layer:", cacheId, error);
+          // Remove fetch marker on error
+          this.embeddedLayerCache.delete(fetchKey);
+          return undefined;
+        });
+        
+        // Store the fetch promise to prevent duplicate requests
+        this.embeddedLayerCache.set(fetchKey, fetchPromise);
+        
+        return fetchPromise;
+      },
     };
 
     return this.globalEnvCache;
@@ -3231,6 +3430,15 @@ class KidLisp {
         { min: 0, max: 255 },     // green (arg 1)
         { min: 0, max: 255 },     // blue (arg 2)
         { min: 0, max: 255 },     // alpha (arg 3)
+      ],
+      embed: [
+        // arg 0 is the cache code (string), so no range for that
+        { min: 32, max: 512 },    // width (arg 1)
+        { min: 32, max: 512 },    // height (arg 2)
+        { min: 0, max: width },   // x position (arg 3 in 5-arg version)
+        { min: 0, max: height },  // y position (arg 4 in 5-arg version)
+        { min: 32, max: 512 },    // width (arg 5 in 5-arg version)
+        { min: 32, max: 512 },    // height (arg 6 in 5-arg version)
       ],
     };
     
@@ -3320,21 +3528,50 @@ class KidLisp {
 
     let result = null;
 
-    // Fast lookup order: local -> env -> global -> globalDef -> api
-    if (existing(this.localEnv[head])) {
-      result = { type: "local", value: this.localEnv[head] };
-    } else if (existing(env?.[head])) {
-      result = { type: "env", value: env[head] };
-    } else if (existing(this.getGlobalEnv()[head])) {
-      result = { type: "global", value: this.getGlobalEnv()[head] };
-    } else if (existing(this.globalDef[head])) {
-      result = { type: "globalDef", value: this.globalDef[head] };
-    } else if (existing(api[head]) && typeof api[head] === "function") {
-      result = { type: "api", value: api[head] };
+    // Special handling for $-prefixed cache codes - treat them as callable functions
+    if (typeof head === "string" && head.startsWith("$") && head.length > 1) {
+      const cacheId = head.slice(1);
+      if (/^[0-9A-Za-z]{3,12}$/.test(cacheId)) {
+        // Create a dynamic function that calls embed with the cache code
+        const cacheFunction = (api, args = []) => {
+          // Call the embed command with the cache ID and arguments
+          const globalEnv = this.getGlobalEnv();
+          const embedFunc = globalEnv.embed;
+          if (embedFunc) {
+            // Create arguments array: [cacheId, ...dimensions]
+            const embedArgs = [cacheId, ...args];
+            console.log("🎯 Calling embed with args:", embedArgs);
+            return embedFunc(api, embedArgs);
+          } else {
+            console.warn("❌ embed function not found in global environment");
+            return undefined;
+          }
+        };
+        result = {
+          type: "cache",
+          value: cacheFunction
+        };
+      }
     }
 
-    // Cache the result (but not for local env since it changes)
-    if (result && result.type !== "local") {
+    // If not a cache code, proceed with normal resolution
+    if (!result) {
+      // Fast lookup order: local -> env -> global -> globalDef -> api
+      if (existing(this.localEnv[head])) {
+        result = { type: "local", value: this.localEnv[head] };
+      } else if (existing(env?.[head])) {
+        result = { type: "env", value: env[head] };
+      } else if (existing(this.getGlobalEnv()[head])) {
+        result = { type: "global", value: this.getGlobalEnv()[head] };
+      } else if (existing(this.globalDef[head])) {
+        result = { type: "globalDef", value: this.globalDef[head] };
+      } else if (existing(api[head]) && typeof api[head] === "function") {
+        result = { type: "api", value: api[head] };
+      }
+    }
+
+    // Cache the result (but not for local env since it changes, and not for cache codes since they're dynamic)
+    if (result && result.type !== "local" && result.type !== "cache") {
       this.functionCache.set(cacheKey, result);
     }
 
@@ -3890,6 +4127,17 @@ class KidLisp {
                   : arg,
               );
               result = value(...apiArgs);
+              break;
+
+            case "cache":
+              // Cached function calls (like $pie) - use fast evaluation for arguments
+              const cacheArgs = args.map((arg) =>
+                Array.isArray(arg) ||
+                (typeof arg === "string" && !/^".*"$/.test(arg))
+                  ? this.fastEval(arg, api, this.localEnv)
+                  : arg,
+              );
+              result = value(api, cacheArgs);
               break;
           }
         } else {
@@ -4776,7 +5024,7 @@ class KidLisp {
 
     // Check if this is a known function name (even if not directly after parentheses)
     const knownFunctions = [
-      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
@@ -4830,7 +5078,7 @@ class KidLisp {
 
     // Check against known functions and CSS colors
     const knownFunctions = [
-      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
@@ -4926,7 +5174,7 @@ class KidLisp {
 
         // Drawing and graphics functions
         if (
-          ["ink", "wipe", "line", "box", "circle", "write", "paste", "stamp", "point", "poly"].includes(
+          ["ink", "wipe", "line", "box", "circle", "write", "paste", "stamp", "point", "poly", "embed"].includes(
             funcName,
           )
         ) {
@@ -5088,6 +5336,118 @@ class KidLisp {
           currentPixels[currentIndex + 1] = bakedG;
           currentPixels[currentIndex + 2] = bakedB;
           currentPixels[currentIndex + 3] = bakedA;
+        }
+      }
+    }
+  }
+
+  // Render and update embedded layers each frame
+  renderEmbeddedLayers(api) {
+    if (!this.embeddedLayers || this.embeddedLayers.length === 0) {
+      return;
+    }
+
+    console.log(`🎬 Rendering ${this.embeddedLayers.length} embedded layers`);
+
+    // Update and composite each embedded layer
+    this.embeddedLayers.forEach((embeddedLayer, index) => {
+      if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
+        try {
+          console.log(`🎯 Updating embedded layer ${index}: ${embeddedLayer.cacheId}`);
+
+          // Switch to drawing on the embedded buffer using page()
+          api.page(embeddedLayer.buffer);
+          
+          // Clear the buffer first
+          api.wipe(0, 0, 0, 0); // Transparent
+          
+          // Update the embedded KidLisp instance's frame counter to match main instance
+          embeddedLayer.kidlispInstance.frameCount = this.frameCount;
+          embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
+
+          // Create API context with proper frame, width, height
+          const embeddedApi = {
+            ...api,
+            frame: api.frame || this.frameCount || 0,
+            width: embeddedLayer.width,
+            height: embeddedLayer.height
+          };
+
+          console.log(`🎮 Executing KidLisp in layer ${index} - drawing to buffer`);
+
+          // Execute the KidLisp code (it will draw to the embedded buffer via page())
+          embeddedLayer.kidlispInstance.evaluate(
+            embeddedLayer.parsedCode, 
+            embeddedApi, 
+            embeddedLayer.kidlispInstance.localEnv
+          );
+
+          console.log(`✅ Layer ${index} execution complete, buffer pixels:`, embeddedLayer.buffer.pixels?.slice(0, 20));
+
+          // Switch back to the main screen 
+          api.page(api.screen);
+          
+          // Paste the embedded buffer to the main canvas at the layer's position
+          api.paste(embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y);
+
+          console.log(`📋 Pasted layer ${index} to main canvas at (${embeddedLayer.x},${embeddedLayer.y})`);
+
+        } catch (error) {
+          console.error(`❌ Error updating embedded layer ${index}:`, error);
+          // Make sure we switch back to main screen even on error
+          try {
+            api.page(api.screen);
+          } catch (e) {
+            console.error("❌ Error switching back to main screen:", e);
+          }
+        }
+      }
+    });
+  }
+
+  // Manual pixel compositing for embedded layers
+  compositeEmbeddedLayer(api, embeddedLayer) {
+    if (!api.screen?.pixels || !embeddedLayer.buffer?.pixels) {
+      return;
+    }
+
+    const currentPixels = api.screen.pixels;
+    const layerPixels = embeddedLayer.buffer.pixels;
+    const currentWidth = api.screen.width;
+    const currentHeight = api.screen.height;
+    const layerWidth = embeddedLayer.width;
+    const layerHeight = embeddedLayer.height;
+    const x = embeddedLayer.x || 0;
+    const y = embeddedLayer.y || 0;
+
+    // Composite the embedded layer at the specified position
+    for (let ly = 0; ly < layerHeight; ly++) {
+      for (let lx = 0; lx < layerWidth; lx++) {
+        const screenX = x + lx;
+        const screenY = y + ly;
+        
+        // Skip if outside screen bounds
+        if (screenX < 0 || screenX >= currentWidth || screenY < 0 || screenY >= currentHeight) {
+          continue;
+        }
+        
+        const layerIndex = (ly * layerWidth + lx) * 4;
+        const screenIndex = (screenY * currentWidth + screenX) * 4;
+        
+        // Get layer pixel
+        const layerR = layerPixels[layerIndex];
+        const layerG = layerPixels[layerIndex + 1];
+        const layerB = layerPixels[layerIndex + 2];
+        const layerA = layerPixels[layerIndex + 3];
+        
+        // Only composite if the layer pixel has content (not transparent)
+        if (layerA > 0) {
+          // Simple alpha blending (can be enhanced for proper alpha compositing)
+          const alpha = layerA / 255;
+          currentPixels[screenIndex] = layerR * alpha + currentPixels[screenIndex] * (1 - alpha);
+          currentPixels[screenIndex + 1] = layerG * alpha + currentPixels[screenIndex + 1] * (1 - alpha);
+          currentPixels[screenIndex + 2] = layerB * alpha + currentPixels[screenIndex + 2] * (1 - alpha);
+          currentPixels[screenIndex + 3] = Math.max(currentPixels[screenIndex + 3], layerA);
         }
       }
     }
@@ -5277,18 +5637,52 @@ function isNanoidPattern(str) {
 }
 
 // Function to fetch cached KidLisp code from nanoid
-async function fetchCachedCode(nanoidCode) {
+async function fetchCachedCode(nanoidCode, api = null) {
+  console.log("🔧 fetchCachedCode called with:", nanoidCode, "- attempting HTTPS fetch [CACHE BUST v2]");
+  console.log("🔧 Call stack:", new Error().stack);
+  
+  // Use HTTPS for localhost as that's what netlify dev uses
+  const fullUrl = `https://localhost:8888/api/store-kidlisp?code=${nanoidCode}`;
+  console.log("🌐 Full URL:", fullUrl);
+  console.log("🌐 Current location:", typeof window !== 'undefined' ? window.location.href : 'no window (Web Worker)');
+  console.log("🌐 Self location:", typeof self !== 'undefined' ? self.location.href : 'no self');
+  console.log("🌐 Is Worker context:", typeof importScripts === "function");
+  
   try {
-    const response = await fetch(`/api/store-kidlisp?code=${nanoidCode}`);
+    // Try to fetch from the actual API with HTTPS
+    console.log("🌐 About to fetch...");
+    const response = await fetch(fullUrl);
+    console.log("🌐 Fetch completed, response received");
+    console.log("🌐 Response details:", {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Array.from(response.headers.entries())
+    });
+    
     if (response.ok) {
       const data = await response.json();
+      console.log(`✅ Successfully loaded cached code for: ${nanoidCode}`, data);
+      if (data && data.source) {
+        console.log(`📝 FETCHED SOURCE CODE FOR ${nanoidCode}:`);
+        console.log(`──────────────────────────────────────`);
+        console.log(data.source);
+        console.log(`──────────────────────────────────────`);
+        console.log(`📏 Source length: ${data.source.length} characters`);
+      }
       return data.source;
     } else {
-      console.warn(`❌ Failed to load cached code: ${nanoidCode}`);
+      console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText}`);
       return null;
     }
   } catch (error) {
-    console.error(`❌ Error loading cached code: ${nanoidCode}`, error);
+    console.error(`❌ Network error loading cached code: ${nanoidCode}`, error);
+    console.error("Error details:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     return null;
   }
 }
