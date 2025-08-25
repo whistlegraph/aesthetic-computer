@@ -1253,15 +1253,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     if (audioContext) {
       if (sfxCancel.includes(id)) {
-        console.log("🎵 BIOS playSfx cancelled for:", id);
+        // console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
       // Instantly decode the audio before playback if it hasn't been already.
-      console.log("🎵 BIOS attempting to decode sfx:", soundData);
+      // console.log("🎵 BIOS attempting to decode sfx:", soundData);
       await decodeSfx(soundData);
-      console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
+      // console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
         console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
@@ -1292,13 +1292,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
-      console.log("🎵 BIOS sample prepared:", {
-        soundData,
-        sampleChannels: sample.channels.length,
-        sampleRate: sample.sampleRate,
-        length: sample.length,
-        triggerSoundAvailable: !!triggerSound
-      });
+      // console.log("🎵 BIOS sample prepared:", {
+      //   soundData,
+      //   sampleChannels: sample.channels.length,
+      //   sampleRate: sample.sampleRate,
+      //   length: sample.length,
+      //   triggerSoundAvailable: !!triggerSound
+      // });
 
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
@@ -1324,11 +1324,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // decay: 0,
       });
 
-      console.log("🎵 BIOS triggerSound result:", {
-        id,
-        playResult,
-        playResultType: typeof playResult
-      });
+      // console.log("🎵 BIOS triggerSound result:", {
+      //   id,
+      //   playResult,
+      //   playResultType: typeof playResult
+      // });
 
       sfxPlaying[id] = playResult;
 
@@ -11199,11 +11199,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
-    console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
+    // console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
     
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
-      console.log("🎵 BIOS decodeSfx already in progress for:", sound);
+      // console.log("🎵 BIOS decodeSfx already in progress for:", sound);
       // Wait a moment and check again
       await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
