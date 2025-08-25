@@ -11506,24 +11506,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
-    console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
+    // console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
     
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
-      console.log("🎵 BIOS decodeSfx already in progress for:", sound);
+      // console.log("🎵 BIOS decodeSfx already in progress for:", sound);
       // Wait a moment and check again
       await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
     }
 
     if (sfx[sound] instanceof ArrayBuffer) {
-      console.log("🎵 BIOS decodeSfx starting decode for ArrayBuffer:", sound);
+      // console.log("🎵 BIOS decodeSfx starting decode for ArrayBuffer:", sound);
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
 
       // Ensure audioContext is initialized before trying to decode
       if (!audioContext) {
-        console.log("🔊 Initializing audio context for WAV decoding...");
+        // console.log("🔊 Initializing audio context for WAV decoding...");
         if (activateSound) {
           activateSound();
           // Wait a moment for audio context to initialize
