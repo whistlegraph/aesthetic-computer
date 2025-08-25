@@ -3946,16 +3946,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        // Force 3x scaling for consistent, fast GIF output
+        // Smart scaling for GIF output based on final size
         const originalWidth = content.frames[0].width;
         const originalHeight = content.frames[0].height;
         const frameCount = content.frames.length;
 
-        const optimalScale = 3; // Always use 3x scaling for GIFs
-
-        console.log(
-          `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
-        );
+        // Calculate optimal scaling - if 3x would result in <400px, use 6x instead to get >700px
+        let optimalScale = 3; // Default 3x scaling
+        const finalWidth3x = originalWidth * 3;
+        const finalHeight3x = originalHeight * 3;
+        
+        if (finalWidth3x < 400 || finalHeight3x < 400) {
+          optimalScale = 6; // 2x the normal scaling to get into >700px range
+          console.log(
+            `📏 Small GIF detected (${finalWidth3x}x${finalHeight3x} would be <400px), using 6x scaling: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+          );
+        } else {
+          console.log(
+            `📏 Using standard 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+          );
+        }
 
         // 🎯 Properly resample frames to 30fps for optimal GIF size/quality balance
         let processedFrames = content.frames;

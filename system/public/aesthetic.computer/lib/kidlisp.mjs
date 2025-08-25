@@ -8,6 +8,7 @@
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, staticColorMap } from "./num.mjs";
+import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
 // Global cache registry for storing cached codes by source hash
 const cacheRegistry = new Map();
@@ -728,13 +729,19 @@ class KidLisp {
     }
   }
 
-  // Color a fade expression like "fade:red-blue-yellow" with each color in its own color
+  // Color a fade expression like "fade:red-blue-yellow" or "fade:red-blue:vertical" with each color in its own color
   colorFadeExpression(fadeToken) {
     if (!fadeToken.startsWith("fade:")) {
       return fadeToken; // Fallback to original token
     }
 
-    const colorPart = fadeToken.substring(5); // Remove "fade:" prefix
+    const parts = fadeToken.split(":");
+    if (parts.length < 2) {
+      return fadeToken; // Invalid fade syntax
+    }
+    
+    const colorPart = parts[1]; // The colors part
+    const direction = parts[2]; // Optional direction part
     const colorNames = colorPart.split("-");
     
     let result = "\\mediumseagreen\\fade\\lime\\:"; // "fade" in emerald, ":" in green
@@ -782,6 +789,19 @@ class KidLisp {
       }
     }
     
+    // Add direction part if present
+    if (direction) {
+      result += "\\lime\\:"; // ":" in green
+      
+      // Check if direction is numeric (angle)
+      const numericAngle = parseFloat(direction);
+      if (!isNaN(numericAngle)) {
+        result += `\\yellow\\${direction}`; // Numeric angle in yellow
+      } else {
+        result += `\\cyan\\${direction}`; // Named direction in cyan
+      }
+    }
+    
     return result;
   }
 
@@ -806,7 +826,11 @@ class KidLisp {
   parseFadeString(fadeString) {
     if (!fadeString.startsWith("fade:")) return null;
     
-    const colorPart = fadeString.substring(5); // Remove "fade:" prefix
+    const parts = fadeString.split(":");
+    if (parts.length < 2) return null;
+    
+    // Extract colors part (skip "fade" and optional direction)
+    const colorPart = parts[1]; // The part after "fade:"
     const colorNames = colorPart.split("-");
     
     if (colorNames.length < 2) return null;
@@ -1977,6 +2001,134 @@ class KidLisp {
       wipe: (api, args) => {
         api.wipe?.(processArgStringTypes(args));
       },
+      coat: (api, args, env) => {
+        // Apply a translucent color layer over existing content
+        // Usage: (coat "red" 128) - red with 50% alpha
+        // Usage: (coat fade:red-blue:45 64) - fade with 25% alpha
+        if (args.length < 1) {
+          console.error("❗ coat requires at least a color argument");
+          return;
+        }
+        
+        let color = args[0];
+        const alpha = args.length >= 2 ? args[1] : 128; // Default to 50% alpha
+        
+        // Preprocess fade strings to evaluate dynamic parts (like frame)
+        if (typeof color === "string" && color.startsWith("fade:")) {
+          const fadeParts = color.split(":");
+          if (fadeParts.length >= 3) {
+            const fadePrefix = fadeParts[0]; // "fade"
+            const colors = fadeParts[1]; // "black-red-rainbow-red-black"
+            const direction = fadeParts[2]; // "frame" or expression
+            
+            // Try to evaluate the direction part
+            let evaluatedDirection = direction;
+            try {
+              // Check if it's already a number
+              const numericValue = parseFloat(direction);
+              if (!isNaN(numericValue)) {
+                evaluatedDirection = direction; // Keep as string
+              } else {
+                // Try to evaluate as KidLisp expression/variable
+                let evalResult;
+                
+                // Special handling for function names like "frame"
+                const globalEnv = this.getGlobalEnv();
+                if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                  // It's a function, call it with the API
+                  evalResult = globalEnv[direction](api);
+                } else {
+                  // Try to evaluate as expression or variable
+                  evalResult = this.evaluate(direction, api, env);
+                }
+                
+                // Convert result to string for the fade string
+                evaluatedDirection = String(evalResult);
+              }
+            } catch (error) {
+              console.warn("Failed to evaluate fade direction in coat:", direction, error);
+              evaluatedDirection = direction; // Fallback to original
+            }
+            
+            // Reconstruct the fade string with evaluated direction
+            color = `${fadePrefix}:${colors}:${evaluatedDirection}`;
+          }
+        }
+        
+        // Store current ink state to restore later
+        const previousInk = this.inkState;
+        const previousInkSet = this.inkStateSet;
+        
+        // Set ink to the coat color
+        if (typeof color === "string" && color.startsWith("fade:")) {
+          // Handle fade strings with alpha blending
+          // Instead of setting fadeAlpha globally, modify the fade string to include alpha
+          
+          // Parse the fade string to inject alpha into each color
+          const fadeParts = color.split(":");
+          if (fadeParts.length >= 2) {
+            const fadePrefix = fadeParts[0]; // "fade"
+            const colorsStr = fadeParts[1]; // "black-red-rainbow-red-black"
+            const direction = fadeParts[2] || "horizontal"; // direction or default
+            
+            // Split colors and add alpha to each one
+            const colorNames = colorsStr.split("-");
+            const alphaColorNames = colorNames.map(colorName => {
+              // For special colors like "rainbow", keep them as-is
+              if (colorName === "rainbow") {
+                return colorName;
+              }
+              // For regular colors, we'll let the graphics system handle alpha application
+              return colorName;
+            });
+            
+            // Reconstruct fade string (don't modify it, let graphics system handle alpha)
+            const finalFadeString = `${fadePrefix}:${alphaColorNames.join("-")}:${direction}`;
+            
+            // Set the fadeAlpha BEFORE calling ink so it's applied during parseFade
+            setFadeAlpha(alpha);
+            console.log("COAT DEBUG: Set fadeAlpha to", alpha, "before ink call");
+            console.log("COAT DEBUG: About to call api.ink with:", finalFadeString);
+            api.ink?.(finalFadeString);
+            console.log("COAT DEBUG: api.ink call completed");
+          } else {
+            // Fallback for malformed fade strings
+            setFadeAlpha(alpha);
+            console.log("COAT DEBUG: Set fadeAlpha to", alpha, "before fallback ink call");
+            api.ink?.(color);
+            console.log("COAT DEBUG: Fallback api.ink call completed");
+          }
+        } else {
+          // Handle regular colors with alpha
+          const processedColor = processArgStringTypes([color]);
+          api.ink?.(...processedColor, alpha);
+        }
+        
+        // Draw a full-screen box to coat the screen
+        if (api.box) {
+          // Get screen dimensions, defaulting to common values if not available
+          const screenWidth = api.width || api.screen?.width || 256;
+          const screenHeight = api.height || api.screen?.height || 256;
+          console.log("COAT DEBUG: About to call api.box - fadeAlpha should still be set");
+          api.box(0, 0, screenWidth, screenHeight);
+          console.log("COAT DEBUG: api.box call completed");
+        }
+        
+        // Don't clear fadeAlpha immediately - let it persist for the fade parsing
+        // The fadeAlpha will be cleared by parseFade() after it's used
+        console.log("COAT DEBUG: Leaving fadeAlpha set for fade parsing");
+        
+        // Restore previous ink state
+        if (previousInkSet) {
+          this.inkState = previousInk;
+          this.inkStateSet = previousInkSet;
+          if (previousInk && previousInk.length > 0) {
+            api.ink?.(...previousInk);
+          }
+        } else {
+          this.clearInkState();
+        }
+      },
       ink: (api, args) => {
         // Handle different ink invocation patterns
         if (args.length === 0) {
@@ -2003,12 +2155,55 @@ class KidLisp {
         }
       },
       // Fade string constructor - returns a fade string that can be used with ink
+      // Usage: (fade "red" "blue") → "fade:red-blue"
+      // Usage: (fade "red" "blue" "vertical") → "fade:red-blue:vertical"
+      // Usage: (fade "red" "yellow" "blue" "horizontal-reverse") → "fade:red-yellow-blue:horizontal-reverse"
       fade: (api, args) => {
         if (args.length < 2) {
           return "fade:red-blue"; // Default fade if not enough args
         }
-        const colors = processArgStringTypes(args).join("-");
-        return `fade:${colors}`;
+        
+        // Check if last argument is a direction
+        const lastArg = args[args.length - 1];
+        const validDirections = [
+          "horizontal", "horizontal-reverse", 
+          "vertical", "vertical-reverse",
+          "diagonal", "diagonal-reverse"
+        ];
+        
+        let colors, direction;
+        if (typeof lastArg === "string" && validDirections.includes(lastArg)) {
+          // Last argument is a named direction
+          colors = processArgStringTypes(args.slice(0, -1)).join("-");
+          direction = lastArg;
+          return `fade:${colors}:${direction}`;
+        } else if (typeof lastArg === "number") {
+          // Last argument is a numeric angle - pass it directly
+          colors = processArgStringTypes(args.slice(0, -1)).join("-");
+          direction = lastArg.toString();
+          return `fade:${colors}:${direction}`;
+        } else if (args.length >= 3) {
+          // Last argument might be a variable/expression - evaluate it
+          colors = processArgStringTypes(args.slice(0, -1)).join("-");
+          
+          // Try to evaluate the last argument to see if it's a number
+          try {
+            const evaluated = typeof lastArg === "string" ? parseFloat(lastArg) : lastArg;
+            if (!isNaN(evaluated)) {
+              return `fade:${colors}:${evaluated}`;
+            } else {
+              // It's not a number, store as expression for later evaluation
+              return `fade:${colors}:${JSON.stringify(lastArg)}`;
+            }
+          } catch (error) {
+            // Fallback to storing as expression
+            return `fade:${colors}:${JSON.stringify(lastArg)}`;
+          }
+        } else {
+          // No direction specified, use default
+          colors = processArgStringTypes(args).join("-");
+          return `fade:${colors}`;
+        }
       },
       // Dynamic timing helpers with intuitive names
       hop: (api, args, env) => {
@@ -3582,6 +3777,11 @@ class KidLisp {
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
 
+    // Set KidLisp context for dynamic fade evaluation
+    if (api.setKidLispContext) {
+      api.setKidLispContext(this, api, env);
+    }
+
     let body;
 
     // Get global environment for this instance
@@ -3739,6 +3939,52 @@ class KidLisp {
       if (Array.isArray(item)) {
         // The first element indicates the function to call
         let [head, ...args] = item;
+        
+        // Preprocess arguments to evaluate any fade strings
+        args = args.map(arg => {
+          if (typeof arg === "string" && arg.startsWith("fade:")) {
+            // Parse and evaluate the fade string
+            const fadeParts = arg.split(":");
+            if (fadeParts.length >= 3) {
+              const fadePrefix = fadeParts[0]; // "fade"
+              const colors = fadeParts[1]; // "red-blue"
+              const direction = fadeParts[2]; // "frame" or "30" or expression
+              
+              // Try to evaluate the direction part
+              let evaluatedDirection = direction;
+              try {
+                // Check if it's already a number
+                const numericValue = parseFloat(direction);
+                if (!isNaN(numericValue)) {
+                  evaluatedDirection = direction; // Keep as string for now
+                } else {
+                  // Try to evaluate as KidLisp expression/variable
+                  let evalResult;
+                  
+                  // Special handling for function names like "frame"
+                  const globalEnv = this.getGlobalEnv();
+                  if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                    // It's a function, call it with the API
+                    evalResult = globalEnv[direction](api);
+                  } else {
+                    // Try to evaluate as expression or variable
+                    evalResult = this.evaluate(direction, api, env);
+                  }
+                  
+                  // Convert result to string for the fade string
+                  evaluatedDirection = String(evalResult);
+                }
+              } catch (error) {
+                console.warn("Failed to evaluate fade direction:", direction, error);
+                evaluatedDirection = direction; // Fallback to original
+              }
+              
+              // Return the evaluated fade string
+              return `${fadePrefix}:${colors}:${evaluatedDirection}`;
+            }
+          }
+          return arg; // Return argument unchanged if not a fade string
+        });
 
         // 🎵 Handle integer timing: (0 ...), (1 ...), (2 ...), etc.
         // Also handle second timing: (1s ...), (2s ...), etc.
@@ -3812,26 +4058,16 @@ class KidLisp {
 
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-              // If has instant trigger (!) and hasn't been executed yet, execute immediately
-              if (
-                hasInstantTrigger &&
-                !this.instantTriggersExecuted[timingKey]
-              ) {
-                this.instantTriggersExecuted[timingKey] = true;
-                // Set baseline time for future intervals
-                this.lastSecondExecutions[timingKey] = currentTime;
+              // Execute immediately on first call (for both normal and instant trigger)
+              this.lastSecondExecutions[timingKey] = currentTime;
 
-                this.markTimingTriggered(head); // Trigger blink
-                this.markDelayTimerActive(head); // Mark as active for display period
-                let timingResult;
-                for (const arg of args) {
-                  timingResult = this.evaluate([arg], api, env);
-                }
-                result = timingResult;
-              } else {
-                // Normal first-time setup - establish baseline without executing
-                this.lastSecondExecutions[timingKey] = currentTime;
+              this.markTimingTriggered(head); // Trigger blink
+              this.markDelayTimerActive(head); // Mark as active for display period
+              let timingResult;
+              for (const arg of args) {
+                timingResult = this.evaluate([arg], api, env);
               }
+              result = timingResult;
             } else {
               // Normal timing logic for subsequent calls
               const lastExecution = this.lastSecondExecutions[timingKey];
@@ -3873,12 +4109,16 @@ class KidLisp {
 
           // Initialize timing tracking if not set
           if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
+            // Execute immediately on first call and initialize
             this.lastSecondExecutions[timingKey] = currentTime;
             // Initialize sequence counter for this timed iteration
             if (!this.sequenceCounters) {
               this.sequenceCounters = new Map();
             }
             this.sequenceCounters.set(timingKey, 0);
+            
+            // Mark as triggered for immediate execution
+            this.markTimingTriggered(head);
           }
 
           const lastExecution = this.lastSecondExecutions[timingKey];
@@ -3926,12 +4166,72 @@ class KidLisp {
             // For timing expressions, handle bare strings as potential function calls
             let result;
             if (typeof selectedArg === "string") {
-              // Try to evaluate as a function call first (for CSS colors)
-              const globalEnv = this.getGlobalEnv();
-              if (globalEnv[selectedArg] && typeof globalEnv[selectedArg] === "function") {
-                result = globalEnv[selectedArg](api, []);
+              // Check if it's a fade string and handle it specially
+              if (selectedArg.startsWith("fade:")) {
+                // Parse and evaluate the fade string
+                const fadeParts = selectedArg.split(":");
+                if (fadeParts.length >= 3) {
+                  // fade:colors:direction format
+                  const fadePrefix = fadeParts[0]; // "fade"
+                  const colors = fadeParts[1]; // "red-blue"
+                  const direction = fadeParts[2]; // "frame" or "30" or expression
+                  
+                  // Try to evaluate the direction part
+                  let evaluatedDirection = direction;
+                  try {
+                    // Check if it's already a number
+                    const numericValue = parseFloat(direction);
+                    if (!isNaN(numericValue)) {
+                      evaluatedDirection = direction; // Keep as string for now
+                    } else {
+                      // Try to evaluate as KidLisp expression/variable
+                      let evalResult;
+                      
+                      // Special handling for function names like "frame"
+                      const globalEnv = this.getGlobalEnv();
+                      if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                        // It's a function, call it with the API
+                        evalResult = globalEnv[direction](api);
+                      } else {
+                        // Try to evaluate as expression or variable
+                        evalResult = this.evaluate(direction, api, env);
+                      }
+                      
+                      // Convert result to string for the fade string
+                      evaluatedDirection = String(evalResult);
+                    }
+                  } catch (error) {
+                    console.warn("Failed to evaluate fade direction:", direction, error);
+                    evaluatedDirection = direction; // Fallback to original
+                  }
+                  
+                  // Reconstruct the fade string with evaluated direction
+                  const evaluatedFadeString = `${fadePrefix}:${colors}:${evaluatedDirection}`;
+                  
+                  // Call ink() with the evaluated fade string
+                  if (api.ink && typeof api.ink === "function") {
+                    api.ink(evaluatedFadeString);
+                    result = evaluatedFadeString;
+                  } else {
+                    result = evaluatedFadeString;
+                  }
+                } else {
+                  // fade:colors format (no direction) - just pass through
+                  if (api.ink && typeof api.ink === "function") {
+                    api.ink(selectedArg);
+                    result = selectedArg;
+                  } else {
+                    result = selectedArg;
+                  }
+                }
               } else {
-                result = this.evaluate(selectedArg, api, env);
+                // Try to evaluate as a function call first (for CSS colors)
+                const globalEnv = this.getGlobalEnv();
+                if (globalEnv[selectedArg] && typeof globalEnv[selectedArg] === "function") {
+                  result = globalEnv[selectedArg](api, []);
+                } else {
+                  result = this.evaluate(selectedArg, api, env);
+                }
               }
             } else {
               result = this.evaluate(selectedArg, api, env);
@@ -4202,6 +4502,11 @@ class KidLisp {
         "Environment:",
         this.localEnv,
       );
+    }
+
+    // Clear KidLisp context
+    if (api.clearKidLispContext) {
+      api.clearKidLispContext();
     }
 
     perfEnd("evaluate-total");
