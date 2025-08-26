@@ -3336,7 +3336,7 @@ async function load(
       baseUrl = `${protocol}//${hostname}`;
     }
     
-    if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
+    // if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
     
     // Check if path already includes the hostname to avoid double paths
     // Only strip "aesthetic.computer/" if we're using the main production domain
@@ -3345,7 +3345,7 @@ async function load(
       resolvedPath = path.substring('aesthetic.computer/'.length);
     }
     
-    if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
+    // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
       fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
@@ -3426,7 +3426,7 @@ async function load(
       } else if (fullUrl) {
         let response;
         if (logs.loading) console.log("📥 Loading from url:", fullUrl);
-        if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
+        // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
         response = await fetch(fullUrl);        if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
