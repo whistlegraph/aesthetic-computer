@@ -1,3 +1,141 @@
+// Color history for decay effect (module-level since no window object in worker)
+let colorHistory = [];
+
+// Timeline zoom smoothing (module-level)
+let lastPixelsPerSecond = 60;
+
+// Last MIDI note color for needle theming
+let lastMidiNoteColor = { r: 0, g: 255, b: 255 }; // Default to cyan
+
+// Track previous locator to detect section changes
+let previousLocatorName = null;
+
+// Timeline visibility toggle
+let timelineVisible = true;
+
+// zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES
+const ZZZWAP_PALETTES = {
+  START: {
+    name: "Start",
+    colors: [
+      { r: 50, g: 50, b: 50 },     // Dark Gray
+      { r: 100, g: 100, b: 100 },  // Medium Gray
+      { r: 150, g: 150, b: 150 },  // Light Gray
+      { r: 80, g: 80, b: 120 },    // Dark Blue Gray
+    ]
+  },
+  ACT_I: {
+    name: "Act I",
+    colors: [
+      { r: 255, g: 100, b: 100 },  // Soft Red
+      { r: 255, g: 150, b: 100 },  // Orange
+      { r: 255, g: 200, b: 100 },  // Yellow Orange
+      { r: 255, g: 120, b: 120 },  // Light Red
+      { r: 200, g: 100, b: 100 },  // Deep Red
+    ]
+  },
+  ACT_II: {
+    name: "Act II", 
+    colors: [
+      { r: 100, g: 255, b: 100 },  // Bright Green
+      { r: 150, g: 255, b: 120 },  // Light Green
+      { r: 100, g: 200, b: 100 },  // Forest Green
+      { r: 120, g: 255, b: 150 },  // Mint Green
+      { r: 80, g: 180, b: 80 },    // Deep Green
+    ]
+  },
+  ACT_III: {
+    name: "Act III",
+    colors: [
+      { r: 100, g: 100, b: 255 },  // Bright Blue
+      { r: 120, g: 150, b: 255 },  // Light Blue
+      { r: 150, g: 120, b: 255 },  // Purple Blue
+      { r: 100, g: 180, b: 255 },  // Sky Blue
+      { r: 80, g: 80, b: 200 },    // Deep Blue
+    ]
+  },
+  ACT_IIII: {
+    name: "Act IIII",
+    colors: [
+      { r: 255, g: 100, b: 255 },  // Bright Magenta
+      { r: 255, g: 150, b: 200 },  // Pink
+      { r: 200, g: 100, b: 255 },  // Purple
+      { r: 255, g: 120, b: 180 },  // Hot Pink
+      { r: 180, g: 80, b: 200 },   // Deep Purple
+    ]
+  },
+  ACT_V: {
+    name: "Act V",
+    colors: [
+      { r: 255, g: 255, b: 100 },  // Bright Yellow
+      { r: 255, g: 200, b: 150 },  // Gold
+      { r: 200, g: 255, b: 100 },  // Yellow Green
+      { r: 255, g: 180, b: 100 },  // Orange Yellow
+      { r: 200, g: 180, b: 80 },   // Dark Gold
+    ]
+  },
+  ACT_VI: {
+    name: "Act VI",
+    colors: [
+      { r: 255, g: 150, b: 100 },  // Coral
+      { r: 100, g: 255, b: 200 },  // Aqua
+      { r: 200, g: 100, b: 255 },  // Violet
+      { r: 255, g: 200, b: 150 },  // Peach
+      { r: 150, g: 255, b: 100 },  // Lime
+      { r: 100, g: 200, b: 255 },  // Cyan
+    ]
+  },
+  SURPRISE: {
+    name: "Surprise",
+    colors: [
+      { r: 255, g: 0, b: 0 },      // Pure Red
+      { r: 0, g: 255, b: 0 },      // Pure Green  
+      { r: 0, g: 0, b: 255 },      // Pure Blue
+      { r: 255, g: 255, b: 0 },    // Pure Yellow
+      { r: 255, g: 0, b: 255 },    // Pure Magenta
+      { r: 0, g: 255, b: 255 },    // Pure Cyan
+      { r: 255, g: 255, b: 255 },  // Pure White
+    ]
+  },
+  PAUSE: {
+    name: "Pause",
+    colors: [
+      { r: 80, g: 120, b: 160 },   // Muted Blue
+      { r: 120, g: 100, b: 140 },  // Muted Purple
+      { r: 100, g: 120, b: 100 },  // Muted Green
+      { r: 140, g: 120, b: 100 },  // Muted Brown
+    ]
+  },
+  END: {
+    name: "End",
+    colors: [
+      { r: 200, g: 200, b: 200 },  // Light Gray
+      { r: 150, g: 150, b: 150 },  // Medium Gray
+      { r: 100, g: 100, b: 100 },  // Dark Gray
+      { r: 50, g: 50, b: 50 },     // Very Dark Gray
+    ]
+  }
+};
+
+// FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
+function getPaletteForLocator(locatorName) {
+  if (!locatorName) return ZZZWAP_PALETTES.START;
+  
+  const name = locatorName.toUpperCase();
+  if (name.includes('ACT VI')) return ZZZWAP_PALETTES.ACT_VI;
+  if (name.includes('ACT V')) return ZZZWAP_PALETTES.ACT_V;
+  if (name.includes('ACT IIII')) return ZZZWAP_PALETTES.ACT_IIII;
+  if (name.includes('ACT III')) return ZZZWAP_PALETTES.ACT_III;
+  if (name.includes('ACT II')) return ZZZWAP_PALETTES.ACT_II;
+  if (name.includes('ACT I')) return ZZZWAP_PALETTES.ACT_I;
+  if (name.includes('SURPRISE')) return ZZZWAP_PALETTES.SURPRISE;
+  if (name.includes('PAUSE')) return ZZZWAP_PALETTES.PAUSE;
+  if (name.includes('START')) return ZZZWAP_PALETTES.START;
+  if (name.includes('END')) return ZZZWAP_PALETTES.END;
+  
+  return ZZZWAP_PALETTES.START; // Default fallback
+}
+
 // Visualizer - zzzZWAP Project Visualizer, 2025.08.18
 // Loads specific Ableton project and audio files over network
 // Shows only current and next locator during playback
@@ -899,14 +1037,14 @@ class ALSProject {
           // Calculate the beat offset between project and audio
           const beatOffset = locator.time - beatsBasedOnAudio;
           
-          console.log(`🎯 LOCATOR PASSED: "${locator.name}" 
-            Expected: ${locator.seconds.toFixed(2)}s (no scaling)
-            Actual: ${currentTimeSeconds.toFixed(2)}s
-            Audio Time: ${unscaledAudioTime.toFixed(2)}s
-            Audio Beats: ${beatsBasedOnAudio.toFixed(2)} vs Project Beats: ${locator.time.toFixed(2)}
-            Beat Offset: ${beatOffset.toFixed(2)} beats (${(beatOffset * 60 / this.tempo).toFixed(2)}s)
-            Drift: ${timeDiff >= 0 ? '+' : ''}${timeDiff.toFixed(2)}s 
-            Beat: ${locator.time.toFixed(2)} @ ${this.tempo}BPM`);
+          // console.log(`🎯 LOCATOR PASSED: "${locator.name}" 
+          //   Expected: ${locator.seconds.toFixed(2)}s (no scaling)
+          //   Actual: ${currentTimeSeconds.toFixed(2)}s
+          //   Audio Time: ${unscaledAudioTime.toFixed(2)}s
+          //   Audio Beats: ${beatsBasedOnAudio.toFixed(2)} vs Project Beats: ${locator.time.toFixed(2)}
+          //   Beat Offset: ${beatOffset.toFixed(2)} beats (${(beatOffset * 60 / this.tempo).toFixed(2)}s)
+          //   Drift: ${timeDiff >= 0 ? '+' : ''}${timeDiff.toFixed(2)}s 
+          //   Beat: ${locator.time.toFixed(2)} @ ${this.tempo}BPM`);
         }
       } else if (!nextLocator && currentTimeSeconds < locator.seconds) {
         nextLocator = locator;
@@ -987,17 +1125,53 @@ export const boot = async ({ net }) => {
 // Initialize
 console.log("🎵 VISUALIZER.MJS: zzzZWAP visualizer loaded and ready!");
 
-function paint({ wipe, ink, screen, sound, clock, write, box, line }) {
+function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) {
   // Global TV color tracking
   let globalCurrentColor = null;
   
-  // Clear screen
-  wipe(0, 0, 0);
+  // Function to generate unique color for each locator
+  function getLocatorColor(locator, index) {
+    // Add null safety check
+    if (!locator || !locator.name) {
+      // Return a default color if locator is invalid
+      return { r: 100, g: 100, b: 100 };
+    }
+    
+    // Use locator name hash + index for unique colors
+    const nameHash = locator.name.split('').reduce((hash, char) => hash + char.charCodeAt(0), 0);
+    const hue = ((nameHash * 37) + (index * 60)) % 360; // Spread colors across spectrum
+    const saturation = 0.6; // Softer saturation for ambient colors
+    const lightness = 0.4; // Medium brightness
+    
+    // Convert HSL to RGB
+    const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = lightness - c / 2;
+    
+    let r, g, b;
+    if (hue < 60) { r = c; g = x; b = 0; }
+    else if (hue < 120) { r = x; g = c; b = 0; }
+    else if (hue < 180) { r = 0; g = c; b = x; }
+    else if (hue < 240) { r = 0; g = x; b = c; }
+    else if (hue < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    
+    r = Math.floor((r + m) * 255);
+    g = Math.floor((g + m) * 255);
+    b = Math.floor((b + m) * 255);
+    
+    return {r, g, b, name: locator.name};
+  }
   
-  // If files aren't loaded yet, show loading message
+  // If files aren't loaded yet, show loading message on black background
   if (!alsProject || !preloadedAudio) {
+    wipe(0, 0, 0);
     ink(255, 255, 255);
-    write(message, 20, screen.height / 2);
+    try {
+      write(message, 20, screen.height / 2);
+    } catch (e) {
+      // Fallback if write fails - just continue without text
+    }
     return;
   }
   
@@ -1033,27 +1207,7 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line }) {
     
     progress = Math.min(currentTime / actualDuration, 1);
     
-    // Detailed timing log every 5 seconds
-    if (Math.floor(currentTime) % 5 === 0 && Math.floor(currentTime * 10) % 10 === 0) {
-      const formatNum = (num, decimals = 2) => (num != null && !isNaN(num)) ? num.toFixed(decimals) : 'N/A';
-      
-      console.log(`🕐 TIMING ANALYSIS @ ${currentTime.toFixed(2)}s:
-        Performance elapsed: ${performanceElapsed.toFixed(2)}s
-        Audio context time: ${formatNum(audioContextTime)}s  
-        Audio progress: ${formatNum(audioProgress, 3)} (${formatNum(audioProgress ? audioProgress * actualDuration : null)}s)
-        Using: ${currentTime.toFixed(2)}s (${(progress * 100).toFixed(1)}%) via ${timingMethod}
-        Audio duration: ${actualDuration.toFixed(1)}s`);
-      
-      // Check for specific drift patterns between methods
-      if (audioProgress != null && !isNaN(audioProgress)) {
-        const perfAudioDrift = Math.abs(performanceElapsed - (audioProgress * actualDuration));
-        console.log(`        Drift: Performance vs Audio = ${perfAudioDrift.toFixed(2)}s`);
-        // Only warn for very large drift (increased threshold since we expect some difference)
-        if (perfAudioDrift > 1.0) {
-          console.warn(`⚠️ VERY LARGE DRIFT DETECTED: ${perfAudioDrift.toFixed(2)}s between timing methods`);
-        }
-      }
-    }
+    // Timing analysis disabled for performance
   }
   
   // Calculate current time in seconds based on project timeline, not audio duration
@@ -1062,453 +1216,608 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line }) {
     // Use the actual audio timeline as the master - visuals follow audio completely
     // No offset needed since we're using locator times directly
     currentTimeSeconds = progress * actualDuration;
-    
-    // Debug timing every 10 seconds
-    if (Math.floor(currentTimeSeconds) % 10 === 0 && Math.floor(currentTimeSeconds * 10) % 10 === 0) {
-      console.log(`Audio Timeline: ${currentTimeSeconds.toFixed(1)}s / ${actualDuration.toFixed(1)}s (${(progress * 100).toFixed(1)}%)`);
-    }
   } else {
     currentTimeSeconds = 0;
   }
+
+  // === PRIMARY TV BAR COMPOSITION (FULL SCREEN) ===
+  // The TV bar is the main visual element that fills the entire screen
+  // All other elements are overlays on top of this base composition
   
-  // SCROLLING TIMELINE VISUALIZATION - ZOOMED IN FOR FAST MOVEMENT
+  // ACTIVE ELEMENTS TRACKER - Collect all active/visible elements per frame
+  const activeElements = {
+    timestamp: currentTimeSeconds,
+    currentLocators: [],
+    nearbyLocators: [],
+    visibleClips: [],
+    activeNotes: [],
+    visible3pxColors: [] // Track colors of currently playing MIDI notes
+  };
+  
+  // Analyze current musical content to generate TV bar colors
   const centerX = screen.width / 2;
-  const centerY = screen.height / 2;
-  const timelineY = centerY;
-  const timelineHeight = 120;
   
-  // Timeline background - full width
-  ink(15, 15, 25);
-  box(0, timelineY - timelineHeight/2, screen.width, timelineHeight);
+  // Get current locator to determine which palette to use
+  const { current: currentLocator } = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
+  const currentPalette = getPaletteForLocator(currentLocator?.name);
   
-  // Timeline scale: ZOOMED IN - show only 20 seconds of timeline (10 seconds before/after current time)
-  const timelineWindowSeconds = 20; // Much smaller for fast movement
-  const pixelsPerSecond = screen.width / timelineWindowSeconds;
-  
-  // Calculate time range to display
-  const startTime = Math.max(0, currentTimeSeconds - timelineWindowSeconds/2);
-  const endTime = startTime + timelineWindowSeconds;
-  
-  // Draw time grid lines every 2 seconds (for zoomed view)
-  ink(30, 30, 40);
-  for (let t = Math.floor(startTime/2) * 2; t <= endTime; t += 2) {
-    const x = centerX + (t - currentTimeSeconds) * pixelsPerSecond;
-    if (x >= 0 && x <= screen.width) {
-      line(x, timelineY - timelineHeight/2, x, timelineY + timelineHeight/2);
-      
-      // Time labels
-      ink(60, 60, 80);
-      const timeLabel = `${Math.floor(t/60)}:${(t%60).toString().padStart(2, '0')}`;
-      write(timeLabel, x - timeLabel.length * 3, timelineY + timelineHeight/2 + 15);
-    }
+  // Check for locator changes and clear decay on section transitions
+  const currentLocatorName = currentLocator?.name || null;
+  if (currentLocatorName !== previousLocatorName) {
+    // Locator changed - clear all decaying colors for clean section transition
+    colorHistory = [];
+    previousLocatorName = currentLocatorName;
+    console.log(`🎬 Locator changed to: ${currentLocatorName} - cleared color decay`);
   }
   
-  // Draw LOCATOR SEGMENTS as stretched boxes showing time duration between locators
-  // Use locator times directly since audio is at correct 143 BPM
-  
-  for (let i = 0; i < alsProject.locators.length; i++) {
-    const locator = alsProject.locators[i];
-    const nextLocator = alsProject.locators[i + 1];
-    
-    // Use locator times directly - no scaling needed
-    const segmentStart = locator.seconds;
-    const segmentEnd = nextLocator ? nextLocator.seconds : actualDuration;
-    const segmentDuration = segmentEnd - segmentStart;
-    
-    // Calculate screen positions
-    const segmentStartX = centerX + (segmentStart - currentTimeSeconds) * pixelsPerSecond;
-    const segmentEndX = centerX + (segmentEnd - currentTimeSeconds) * pixelsPerSecond;
-    const segmentWidth = segmentEndX - segmentStartX;
-    
-    // Only draw if any part is visible on screen
-    if (segmentEndX >= 0 && segmentStartX <= screen.width) {
-      // Determine segment color based on current position
-      const isCurrentSegment = currentTimeSeconds >= segmentStart && currentTimeSeconds < segmentEnd;
-      const distanceToSegment = isCurrentSegment ? 0 : Math.min(
-        Math.abs(segmentStart - currentTimeSeconds),
-        Math.abs(segmentEnd - currentTimeSeconds)
-      );
+  // Process MIDI notes for current time to collect active colors
+  if (alsProject && alsProject.locators && alsProject.locators.length > 0) {
+    for (let locatorIndex = 0; locatorIndex < alsProject.locators.length; locatorIndex++) {
+      const locator = alsProject.locators[locatorIndex];
+      const segmentStart = locator.seconds;
+      const segmentEnd = alsProject.locators[locatorIndex + 1]?.seconds || actualDuration;
       
-      // Color coding for segments
-      let r, g, b, alpha = 180;
-      if (isCurrentSegment) {
-        // Current segment - bright green with pulsing effect
-        const pulse = Math.sin(performance.now() * 0.01) * 0.3 + 0.7;
-        r = 0; g = Math.floor(255 * pulse); b = Math.floor(100 * pulse);
-        alpha = 220;
-      } else if (distanceToSegment < 5) {
-        // Nearby segments - yellow/orange
-        r = 255; g = 200; b = 0;
-        alpha = 160;
-      } else if (distanceToSegment < 10) {
-        // Visible segments - blue
-        r = 100; g = 150; b = 255;
-        alpha = 120;
-      } else {
-        // Distant segments - purple/gray
-        r = 80; g = 60; b = 120;
-        alpha = 80;
-      }
+      // Check ALL segments for currently playing notes, not just the current segment
+      // This allows multiple notes from different segments to play simultaneously
       
-      // Draw the segment box (clipped to screen bounds)
-      const clippedStartX = Math.max(0, segmentStartX);
-      const clippedEndX = Math.min(screen.width, segmentEndX);
-      const clippedWidth = clippedEndX - clippedStartX;
-      
-      if (clippedWidth > 0) {
-        ink(r, g, b);
-        box(clippedStartX, timelineY - timelineHeight/2 + 10, clippedWidth, timelineHeight - 20);
-        
-        // Add border for current segment
-        if (isCurrentSegment) {
-          ink(255, 255, 255);
-          // Top border
-          box(clippedStartX, timelineY - timelineHeight/2 + 10, clippedWidth, 2);
-          // Bottom border
-          box(clippedStartX, timelineY + timelineHeight/2 - 12, clippedWidth, 2);
-        }
-        
-        // REAL-TIME DATA VISUALIZATION ON TOP OF THE SEGMENT
-        // (Draw AFTER the colored box so it appears on top)
-        if (isCurrentSegment) {
-          const activeNotes = alsProject.getActiveNotes(currentTimeSeconds);
-          
-          // Draw active notes as small indicators at the top of the segment
-          if (activeNotes.length > 0) {
-            const noteIndicatorHeight = 6;
-            const noteIndicatorY = timelineY - timelineHeight/2 + 12;
-            const noteIndicatorSpacing = 1;
-            
-            activeNotes.slice(0, 12).forEach((note, index) => { // Limit to 12 notes to fit
-              const noteIndicatorX = clippedStartX + 10 + index * (noteIndicatorSpacing + 8);
-              const noteIndicatorWidth = 6;
-              
-              // Don't draw if it would exceed the segment bounds
-              if (noteIndicatorX + noteIndicatorWidth < clippedEndX) {
-                // Color based on pitch
-                const pitch = note.key || 60;
-                const hue = (pitch * 5) % 360;
-                const r = Math.floor(255 * (0.5 + 0.5 * Math.sin(hue * Math.PI / 180)));
-                const g = Math.floor(255 * (0.5 + 0.5 * Math.sin((hue + 120) * Math.PI / 180)));
-                const b = Math.floor(255 * (0.5 + 0.5 * Math.sin((hue + 240) * Math.PI / 180)));
-                
-                ink(r, g, b);
-                box(noteIndicatorX, noteIndicatorY, noteIndicatorWidth, noteIndicatorHeight);
-                
-                // Add white border for emphasis
-                ink(255, 255, 255);
-                box(noteIndicatorX, noteIndicatorY, noteIndicatorWidth, 1); // Top border
-                box(noteIndicatorX, noteIndicatorY + noteIndicatorHeight - 1, noteIndicatorWidth, 1); // Bottom border
-              }
-            });
-          }
-        }
-        
-        // SIMPLIFIED: SHOW ONLY MIDI NOTES WITHIN THIS SEGMENT
-        // Get all MIDI notes that fall within this segment timespan
-        const segmentNotes = [];
-        
-        // Debug: Check what clips we have
-        if (isCurrentSegment) {
-          console.log(`🎵 Checking clips for MIDI notes in segment ${locator.name}:`);
-          console.log(`  Total clips: ${alsProject.clips.length}`);
-          alsProject.clips.forEach((clip, idx) => {
-            if (clip.type === 'midiclip') {
-              console.log(`  Clip ${idx}: "${clip.name}" type=${clip.type}, notes=${clip.notes ? clip.notes.length : 'none'}, startSeconds=${clip.startSeconds}`);
-            }
-          });
-        }
-        
-        alsProject.clips.forEach(clip => {
+      if (alsProject.clips) {
+        alsProject.clips.forEach((clip, clipIndex) => {
           if (clip.type === 'midiclip' && clip.notes && clip.notes.length > 0) {
-            clip.notes.forEach(note => {
+            clip.notes.forEach((note, noteIndex) => {
               // Calculate note timing in seconds
               const noteStartTime = clip.startSeconds + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.time || 0));
               const noteEndTime = noteStartTime + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.duration || 0.25));
               
-              // Check if note falls within this segment
-              if (noteStartTime >= segmentStart && noteStartTime < segmentEnd) {
-                segmentNotes.push({
-                  ...note,
+              // Check if note is currently playing (regardless of which segment it's in)
+              if (currentTimeSeconds >= noteStartTime && currentTimeSeconds <= noteEndTime) {
+                const velocity = note.velocity || 100;
+                const pitch = note.key || 60;
+                const noteDuration = noteEndTime - noteStartTime;
+                
+                // Only log occasionally to avoid spam
+                // if (Math.random() < 0.01) {
+                //   console.log(`🎵 Found playing note: pitch=${pitch}, velocity=${velocity}, start=${noteStartTime.toFixed(2)}s, end=${noteEndTime.toFixed(2)}s, clip=${clipIndex}`);
+                // }
+                
+                // LOCATOR-SPECIFIC PALETTE COLOR SELECTION
+                // Use current locator to determine palette, then pick color from that palette
+                const colorIndex = (clipIndex * 3 + noteIndex * 5 + pitch * 2) % currentPalette.colors.length;
+                const baseColor = currentPalette.colors[colorIndex];
+                
+                // Apply velocity-based brightness variation
+                const velocityFactor = 0.7 + (velocity / 127) * 0.3; // 0.7 to 1.0
+                
+                let r = Math.floor(baseColor.r * velocityFactor);
+                let g = Math.floor(baseColor.g * velocityFactor);
+                let b = Math.floor(baseColor.b * velocityFactor);
+                
+                // Ensure minimum brightness
+                r = Math.max(30, r);
+                g = Math.max(30, g);
+                b = Math.max(30, b);
+                
+                const colorInfo = {
+                  r: r,
+                  g: g,
+                  b: b,
+                  pitch: pitch,
+                  velocity: velocity,
+                  duration: noteDuration,
                   startTime: noteStartTime,
-                  endTime: noteEndTime,
-                  clipName: clip.name,
-                  trackIndex: clip.trackIndex,
-                  trackName: alsProject.tracks[clip.trackIndex]?.name || `Track ${clip.trackIndex + 1}`
-                });
+                  clipIndex: clipIndex,
+                  noteIndex: noteIndex,
+                  paletteIndex: colorIndex, // Track which palette color was used
+                  paletteName: currentPalette.name // Track which palette was used
+                };
+                
+                activeElements.visible3pxColors.push(colorInfo);
               }
             });
           }
         });
+      }
+      
+      // Track current locator for fallback color (only for the current segment)
+      const isCurrentSegment = currentTimeSeconds >= segmentStart && currentTimeSeconds < segmentEnd;
+      if (isCurrentSegment) {
+        const locatorColor = getLocatorColor(locator, locatorIndex);
+        activeElements.currentLocators.push({
+          name: locator.name,
+          color: locatorColor,
+          startTime: segmentStart,
+          endTime: segmentEnd
+        });
+      }
+    }
+  }
+  
+  // RENDER FULL-SCREEN TV BAR COMPOSITION
+  const playingColors = activeElements.visible3pxColors;
+  
+  // Debug: Log raw playing colors before deduplication
+  // if (playingColors.length > 0 && Math.random() < 0.05) {
+  //   console.log(`🎨 DEBUG: ${playingColors.length} raw colors before dedup:`, playingColors.map(c => `pitch=${c.pitch}, start=${c.startTime.toFixed(2)}, RGB=(${c.r},${c.g},${c.b})`));
+  // }
+  
+  // Remove duplicates based on startTime AND pitch to allow multiple notes starting at same time
+  const uniqueColors = [];
+  const seenNotes = new Set();
+  
+  playingColors.forEach(colorInfo => {
+    // Create unique key combining startTime, pitch, clipIndex, and noteIndex
+    // This prevents duplicate notes from same clip and allows multiple different notes
+    const noteKey = `${colorInfo.startTime}-${colorInfo.pitch}-${colorInfo.clipIndex}-${colorInfo.noteIndex}`;
+    if (!seenNotes.has(noteKey)) {
+      seenNotes.add(noteKey);
+      uniqueColors.push(colorInfo);
+    }
+  });
+  
+  // Debug logging (reduced frequency)
+  if (uniqueColors.length > 0 && Math.random() < 0.1) {
+    const paletteName = uniqueColors[0]?.paletteName || "Unknown";
+    // console.log(`🎨 TV Bar: ${uniqueColors.length} unique colors detected after dedup (Palette: ${paletteName})`);
+    if (uniqueColors.length > 1) {
+      // console.log(`🎨 Multiple colors:`, uniqueColors.map(c => `pitch=${c.pitch}, clip=${c.clipIndex}, note=${c.noteIndex}, ${c.paletteName}[${c.paletteIndex}], RGB=(${c.r},${c.g},${c.b})`));
+    }
+  }
+  
+  // COLOR DECAY SYSTEM - restore visual persistence of notes
+  // First, identify which colors are truly NEW (not in history yet)
+  const newColorKeys = new Set();
+  
+  uniqueColors.forEach(colorInfo => {
+    // Make each note much more unique so we get rapid bar addition
+    // Include more specific details to ensure almost every note gets its own bar
+    const colorKey = `${colorInfo.r}-${colorInfo.g}-${colorInfo.b}-${colorInfo.pitch || 0}-${colorInfo.clipIndex || 0}-${colorInfo.noteIndex || 0}-${Math.floor((colorInfo.startTime || 0) * 10)}`;
+    const existingIndex = colorHistory.findIndex(h => h.colorKey === colorKey);
+    
+    if (existingIndex >= 0) {
+      // Update existing color - reset decay
+      colorHistory[existingIndex].alpha = 1.0;
+      colorHistory[existingIndex].lastSeen = performance.now();
+      colorHistory[existingIndex].isDecaying = false;
+    } else {
+      // Mark this as a new color that should flash
+      newColorKeys.add(colorKey);
+      
+      // Add new color to history with unique key and better positioning
+      // Create more spread-out positioning using full pitch range and stronger randomization
+      const pitchNormalized = Math.min(127, Math.max(0, colorInfo.pitch || 60)) / 127; // Full MIDI range 0-127
+      const timePosition = ((colorInfo.startTime || 0) % 8) / 8; // Longer time cycle for more spread
+      const randomSpread = Math.random(); // Full 0-1 random for good distribution
+      const preferredPosition = (pitchNormalized * 0.4 + timePosition * 0.2 + randomSpread * 0.4); // More randomness
+      
+      colorHistory.push({
+        r: colorInfo.r,
+        g: colorInfo.g,
+        b: colorInfo.b,
+        alpha: 1.0,
+        lastSeen: performance.now(),
+        isDecaying: false,
+        preferredPosition: preferredPosition,
+        colorKey: colorKey,
+        birthTime: performance.now(), // Track when this bar was born for flash effect
+        pitch: colorInfo.pitch || 60 // Store pitch for debugging
+      });
+    }
+  });
+  
+  // Update decay for all colors in history
+  const now = performance.now();
+  const decayDuration = 3000; // Reduced from 5 seconds to 3 seconds for faster clearing
+  
+  colorHistory.forEach(color => {
+    const timeSinceLastSeen = now - color.lastSeen;
+    if (timeSinceLastSeen > 100) { // Start decaying after 100ms (faster than before)
+      color.isDecaying = true;
+      color.alpha = Math.max(0, 1.0 - (timeSinceLastSeen - 100) / decayDuration);
+    }
+  });
+  
+  // Remove fully decayed colors
+  colorHistory = colorHistory.filter(color => color.alpha > 0.05);
+  
+  // Combine active and decaying colors - add new bars to CENTER, alternating left/right
+  // Only give birthTime to ACTUALLY new colors (using the newColorKeys set)
+  const allActiveColors = uniqueColors.map(color => {
+    // Check if this exact color was marked as new
+    const colorKey = `${color.r}-${color.g}-${color.b}-${color.pitch || 0}-${color.clipIndex || 0}-${color.noteIndex || 0}-${Math.floor((color.startTime || 0) * 10)}`;
+    const isNewColor = newColorKeys.has(colorKey);
+    
+    return {
+      ...color,
+      birthTime: isNewColor ? performance.now() : null, // Only truly new colors get birthTime
+      isNewBar: isNewColor // Mark as new only if it was just added
+    };
+  });
+  
+  const allDecayingColors = colorHistory.filter(h => h.isDecaying); // Decaying colors
+  
+  // Create center-out arrangement: put decaying colors on edges, new ones in center
+  // Alternate new bars left and right of center
+  const centerArrangement = [];
+  const centerIndex = Math.floor((allDecayingColors.length + allActiveColors.length) / 2);
+  
+  // First, place all decaying colors on the edges
+  allDecayingColors.forEach((color, index) => {
+    if (index % 2 === 0) {
+      centerArrangement.push(color); // Even indices go left
+    } else {
+      centerArrangement.unshift(color); // Odd indices go right (unshift = add to start)
+    }
+  });
+  
+  // Then add new active colors in the center, alternating left/right
+  allActiveColors.forEach((color, index) => {
+    const midPoint = Math.floor(centerArrangement.length / 2);
+    if (index % 2 === 0) {
+      centerArrangement.splice(midPoint, 0, color); // Even: insert at center-left
+    } else {
+      centerArrangement.splice(midPoint + 1, 0, color); // Odd: insert at center-right
+    }
+  });
+  
+  const activeSegments = centerArrangement;
+  
+  if (activeSegments.length > 0) {
+    // Show ALL colors - no arbitrary limits, let natural decay control the count
+    const colorsToShow = activeSegments;
+    
+    // Don't sort - keep new bars on the right side
+    // Order: decaying colors first (left), then new active colors (right)
+    const positionSortedColors = colorsToShow;
+    
+    // Equal width bars that divide the screen evenly - ensure no cut-off
+    const totalBars = positionSortedColors.length;
+    const barWidth = totalBars > 0 ? Math.floor(screen.width / totalBars) : screen.width;
+    
+    positionSortedColors.forEach((colorInfo, index) => {
+      try {
+        // Each bar gets an equal slice, positioned sequentially from left to right
+        const startX = index * barWidth;
+        // Ensure last bar doesn't go off screen
+        const actualWidth = (index === totalBars - 1) ? (screen.width - startX) : barWidth;
+        const clampedStartX = Math.min(startX, screen.width - actualWidth);
         
-        // Debug info for current segment
-        if (isCurrentSegment) {
-          console.log(`🎵 Current segment: ${locator.name} (${segmentStart.toFixed(2)}s - ${segmentEnd.toFixed(2)}s)`);
-          console.log(`🎵 Found ${segmentNotes.length} MIDI notes in this segment`);
-          if (segmentNotes.length > 0) {
-            segmentNotes.slice(0, 5).forEach((note, idx) => {
-              console.log(`  ${idx}: Pitch ${note.key || 60}, Time ${note.startTime.toFixed(2)}s, Track: ${note.trackName}`);
-            });
+        // Handle white flash for new bars and fading for decaying bars
+        const now = performance.now();
+        
+        if (colorInfo.isDecaying) {
+          // Fade to black for decaying colors
+          const alpha = colorInfo.alpha;
+          const fadedR = Math.floor(colorInfo.r * alpha);
+          const fadedG = Math.floor(colorInfo.g * alpha);
+          const fadedB = Math.floor(colorInfo.b * alpha);
+          ink(fadedR, fadedG, fadedB);
+        } else {
+          // Check for gradient flash - ALL new bars (active colors) should flash yellow-white
+          const barAge = now - (colorInfo.birthTime || 0);
+          const flashDuration = 16.67; // Exactly 1 frame at 60fps
+          
+          // Flash yellow-white gradient if it's a new bar (has birthTime and is young enough)
+          if (colorInfo.birthTime && barAge < flashDuration) {
+            // Yellow-white gradient flash with vertical direction for first frame ONLY
+            ink("fade:yellow-white:vertical");
+            
+            // Debug flash - log very rarely to avoid spam
+            if (Math.random() < 0.01) {
+              console.log(`⚡ VERTICAL GRADIENT FLASH! Bar ${index}: yellow-white vertical`);
+            }
           } else {
-            console.log(`  🚫 No MIDI notes found in this segment`);
+            // Normal RGB color after flash period (not gradient)
+            ink(colorInfo.r, colorInfo.g, colorInfo.b);
           }
         }
         
-        if (segmentNotes.length > 0) {
-          // DEBUG: Draw a bright rectangle to show we're in the rendering section
-          if (isCurrentSegment) {
-            console.log(`🎵 DEBUG: Drawing debug rectangle at (${clippedStartX + 5}, ${timelineY - timelineHeight/2 + 5})`);
-            console.log(`🎵 DEBUG: Timeline area - X: ${clippedStartX} to ${clippedEndX}, Y: ${timelineY - timelineHeight/2} to ${timelineY + timelineHeight/2}`);
-            ink(255, 0, 255); // Bright magenta debug rectangle
-            box(clippedStartX + 5, timelineY - timelineHeight/2 + 5, 20, 10);
-          }
-          
-          // TV Screen area at top - shows active/last passed colors
-          const tvHeight = 25;
-          const tvY = timelineY - timelineHeight/2 - tvHeight - 10;
-          
-          // Colored squares area (restored from before)
-          const notesAreaHeight = Math.min(30, timelineHeight - 20);
-          const notesAreaStartY = timelineY - timelineHeight/2 + 10;
-          const noteSize = 3;
-          const verticalSpacing = 6;
-          const maxRows = Math.floor(notesAreaHeight / verticalSpacing);
-          
-          console.log(`🎵 SQUARES: squares area ${notesAreaHeight}px, ${maxRows} rows`);
-          
-          // Store current playing color for global TV bar (only from current segment)
-          if (isCurrentSegment) {
-            const playingNotes = segmentNotes.filter(note => {
-              const noteEnd = note.endTime || (note.startTime + 0.25);
-              return currentTimeSeconds >= note.startTime && currentTimeSeconds <= noteEnd;
-            });
-            
-            if (playingNotes.length > 0) {
-              const note = playingNotes[0];
-              const velocity = note.velocity || 100;
-              const pitch = note.key || 60;
-              const noteProgress = (note.startTime - segmentStart) / segmentDuration;
-              const row = segmentNotes.indexOf(note) % maxRows;
-              
-              const hue = (pitch * 7 + row * 60 + (noteProgress * 180)) % 360;
-              const saturation = 0.9;
-              const lightness = 0.4 + (velocity / 127) * 0.4;
-              
-              const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
-              const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-              const m = lightness - c / 2;
-              
-              let r, g, b;
-              if (hue < 60) { r = c; g = x; b = 0; }
-              else if (hue < 120) { r = x; g = c; b = 0; }
-              else if (hue < 180) { r = 0; g = c; b = x; }
-              else if (hue < 240) { r = 0; g = x; b = c; }
-              else if (hue < 300) { r = x; g = 0; b = c; }
-              else { r = c; g = 0; b = x; }
-              
-              r = Math.floor((r + m) * 255);
-              g = Math.floor((g + m) * 255);
-              b = Math.floor((b + m) * 255);
-              
-              r = Math.min(255, r + 80);
-              g = Math.min(255, g + 80);
-              b = Math.min(255, b + 80);
-              
-              globalCurrentColor = {r, g, b, pitch, velocity};
-              console.log(`🎵 STORING GLOBAL COLOR: pitch ${pitch}, RGB(${r}, ${g}, ${b})`);
+        // Draw the bar (after setting the correct ink)
+        box(clampedStartX, 0, actualWidth, screen.height);
+        
+        // CRITICAL: Reset fade mode by calling ink with a non-fade string
+        // This clears the global fadeMode, fadeColors, fadeDirection variables
+        ink("black"); // Forces findColor to reset fade state
+      } catch (error) {
+        console.error('Error rendering TV bar:', error);
+        // Fallback: render in red to show something went wrong
+        ink(255, 0, 0);
+        box(10 + index * 20, 0, 15, screen.height);
+      }
+    });
+    
+  } else {
+    // Fallback: show current locator theme color across full screen
+    if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
+      // Use the same base color logic as timeline background and segments
+      // Find the current locator index to match the segment color logic
+      let currentLocatorIndex = 0;
+      if (alsProject && alsProject.locators && currentLocator) {
+        currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+        if (currentLocatorIndex === -1) currentLocatorIndex = 0;
+      }
+      const colorIndex = currentLocatorIndex % currentPalette.colors.length;
+      const bgColor = currentPalette.colors[colorIndex];
+      ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
+      box(0, 0, screen.width, screen.height); // FULL SCREEN
+    } else {
+      // Default background when no content is playing - match timeline fallback
+      ink(50, 50, 50);
+      box(0, 0, screen.width, screen.height); // FULL SCREEN
+    }
+  }
+
+  // === DYNAMIC TIMELINE ZOOM BASED ON NOTE DENSITY ===
+  
+  // Function to calculate note density in a time window
+  function calculateNoteDensity(startTime, endTime) {
+    let noteCount = 0;
+    const timeWindow = endTime - startTime;
+    
+    if (alsProject && alsProject.clips) {
+      alsProject.clips.forEach(clip => {
+        if (clip.type === 'midiclip' && clip.notes) {
+          clip.notes.forEach(note => {
+            const noteStartTime = clip.startSeconds + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.time || 0));
+            if (noteStartTime >= startTime && noteStartTime <= endTime) {
+              noteCount++;
             }
-          }
-          
-          // Draw colored squares (restored original approach)
-          segmentNotes.forEach((note, noteIndex) => {
-            const noteProgress = (note.startTime - segmentStart) / segmentDuration;
-            const noteX = clippedStartX + noteProgress * clippedWidth;
-            
-            const row = noteIndex % maxRows;
-            const noteY = notesAreaStartY + row * verticalSpacing;
-            
-            if (noteX >= clippedStartX && noteX < clippedEndX) {
-              const velocity = note.velocity || 100;
-              const pitch = note.key || 60;
-              
-              // More varied color logic - mix pitch, time position, and row for diversity
-              const hue = (pitch * 7 + row * 60 + (noteProgress * 180)) % 360; // More variation
-              const saturation = 0.9;
-              const lightness = 0.4 + (velocity / 127) * 0.4;
-              
-              // Better HSL to RGB conversion
-              const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
-              const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-              const m = lightness - c / 2;
-              
-              let r, g, b;
-              if (hue < 60) { r = c; g = x; b = 0; }
-              else if (hue < 120) { r = x; g = c; b = 0; }
-              else if (hue < 180) { r = 0; g = c; b = x; }
-              else if (hue < 240) { r = 0; g = x; b = c; }
-              else if (hue < 300) { r = x; g = 0; b = c; }
-              else { r = c; g = 0; b = x; }
-              
-              r = Math.floor((r + m) * 255);
-              g = Math.floor((g + m) * 255);
-              b = Math.floor((b + m) * 255);
-              
-              // Check if currently playing
-              const noteEnd = note.endTime || (note.startTime + 0.25);
-              const isPlaying = currentTimeSeconds >= note.startTime && currentTimeSeconds <= noteEnd;
-              if (isPlaying) {
-                r = Math.min(255, r + 80);
-                g = Math.min(255, g + 80);
-                b = Math.min(255, b + 80);
-              }
-              
-              ink(r, g, b);
-              box(noteX, noteY, noteSize, noteSize);
+          });
+        }
+      });
+    }
+    
+    return timeWindow > 0 ? noteCount / timeWindow : 0; // notes per second
+  }
+  
+  // Fixed zoom level for consistent behavior (no dynamic scaling)
+  const pixelsPerSecond = 60; // Increased from 35 to 60 px/sec for faster scrolling / more zoomed in view
+
+  // === TIMELINE OVERLAY (MINIMAL & FAST) ===
+  // The timeline is now an overlay element that sits on top of the TV bar composition
+  
+  if (timelineVisible) {
+    // Minimal timeline layout parameters
+    const timelineHeight = 25; // Reduced from 50 to 25 - much more minimal
+    const timelineY = screen.height - timelineHeight; // Position at bottom edge
+    const leadTimeSeconds = 2.0; // Show 2 seconds of future time
+    const timelineWindowSeconds = screen.width / pixelsPerSecond;
+    // Calculate current view window - align to start at the red center line
+    const viewStartTime = currentTimeSeconds;
+    const viewEndTime = Math.min(actualDuration, currentTimeSeconds + timelineWindowSeconds);
+    
+    // Themed timeline background - matches current TV color palette exactly
+    if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
+      // Use the same base color logic as timeline segments and TV bars
+      // Find the current locator index to match the segment color logic
+      let currentLocatorIndex = 0;
+      if (alsProject && alsProject.locators && currentLocator) {
+        currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+        if (currentLocatorIndex === -1) currentLocatorIndex = 0;
+      }
+      const colorIndex = currentLocatorIndex % currentPalette.colors.length;
+      const bgColor = currentPalette.colors[colorIndex];
+      ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
+    } else {
+      ink(50, 50, 50); // Fallback to match TV default { r: 50, g: 50, b: 50 }
+    }
+    box(0, timelineY, screen.width, timelineHeight); // Simple strip at bottom
+  
+  // Draw locator segments on timeline overlay
+  if (alsProject && alsProject.locators) {
+    for (let i = 0; i < alsProject.locators.length; i++) {
+      const locator = alsProject.locators[i];
+      const segmentStart = locator.seconds;
+      const segmentEnd = alsProject.locators[i + 1]?.seconds || actualDuration;
+      
+      // Calculate screen coordinates for this segment relative to red center line
+      const segmentStartX = centerX + (segmentStart - currentTimeSeconds) * pixelsPerSecond;
+      const segmentEndX = centerX + (segmentEnd - currentTimeSeconds) * pixelsPerSecond;
+      const segmentWidth = segmentEndX - segmentStartX;
+      
+      // Only draw if segment is visible on screen
+      if (segmentEndX > -50 && segmentStartX < screen.width + 50 && segmentWidth > 0) {
+        // Use the same palette-based color logic as TV bars instead of getLocatorColor
+        const segmentPalette = getPaletteForLocator(locator.name);
+        const colorIndex = i % segmentPalette.colors.length; // Simple index-based selection for timeline
+        const paletteColor = segmentPalette.colors[colorIndex];
+        
+        const isCurrentTime = currentTimeSeconds >= segmentStart && currentTimeSeconds < segmentEnd;
+        
+        let r = paletteColor.r;
+        let g = paletteColor.g; 
+        let b = paletteColor.b;
+        
+        // No brightness modifications - use raw palette colors to match base backgrounds
+        
+        // Draw segment with proper clipping
+        ink(r, g, b);
+        const clampedX = Math.max(0, segmentStartX);
+        const effectiveWidth = segmentStartX < 0 ? segmentWidth + segmentStartX : segmentWidth;
+        const clampedWidth = Math.min(effectiveWidth, screen.width - clampedX);
+        if (clampedWidth > 0) {
+          box(clampedX, timelineY, clampedWidth, timelineHeight);
+        }
+      }
+    }
+  }
+  
+  // Draw MIDI notes overlay on timeline
+  if (alsProject && alsProject.locators && alsProject.locators.length > 0) {
+    for (let locatorIndex = 0; locatorIndex < alsProject.locators.length; locatorIndex++) {
+      const locator = alsProject.locators[locatorIndex];
+      const segmentStart = locator.seconds;
+      const segmentEnd = alsProject.locators[locatorIndex + 1]?.seconds || actualDuration;
+      
+      // Calculate segment position in the scrolling view
+      const segmentStartX = (segmentStart - viewStartTime) * pixelsPerSecond;
+      const segmentEndX = (segmentEnd - viewStartTime) * pixelsPerSecond;
+      const segmentWidth = segmentEndX - segmentStartX;
+      
+      // Always process segments to check for individual note visibility
+      // Don't skip segments just because the segment boundary is offscreen
+      if (segmentWidth > 1) {
+        // Get all MIDI notes for this segment
+        const segmentNotes = [];
+        
+        if (alsProject.clips) {
+          alsProject.clips.forEach((clip, clipIndex) => {
+            if (clip.type === 'midiclip' && clip.notes && clip.notes.length > 0) {
+              clip.notes.forEach((note, noteIndex) => {
+                const noteStartTime = clip.startSeconds + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.time || 0));
+                const noteEndTime = noteStartTime + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.duration || 0.25));
+                
+                // Check if note belongs to this segment AND if the note itself is potentially visible
+                if (noteStartTime >= segmentStart && noteStartTime < segmentEnd) {
+                  const noteX = centerX + (noteStartTime - currentTimeSeconds) * pixelsPerSecond;
+                  const noteDuration = noteEndTime - noteStartTime;
+                  const noteWidth = Math.max(1, Math.floor(noteDuration * pixelsPerSecond));
+                  
+                  // Only include notes that are actually visible on screen
+                  if (noteX + noteWidth >= -10 && noteX < screen.width + 10) {
+                    segmentNotes.push({
+                      ...note,
+                      startTime: noteStartTime,
+                      endTime: noteEndTime,
+                      clipName: clip.name,
+                      clipIndex: clipIndex, // Add clip index for color calculation
+                      noteIndex: noteIndex, // Add note index for color calculation
+                      locatorIndex: locatorIndex, // Add locator index for stable row calculation
+                      trackIndex: clip.trackIndex
+                    });
+                  }
+                }
+              });
             }
           });
         }
         
-        // Draw locator name if segment is wide enough and close enough
-        if (segmentWidth > 60 && distanceToSegment < 15) {
-          ink(255, 255, 255);
-          const nameX = Math.max(10, Math.min(screen.width - locator.name.length * 6 - 10, segmentStartX + 10));
-          const nameY = timelineY - 10;
-          write(locator.name, nameX, nameY);
+        if (segmentNotes.length > 0) {
+          // Draw MIDI notes as small rectangles with no gaps
+          const notesAreaHeight = timelineHeight - 2; // Use almost full timeline height
+          const notesAreaStartY = timelineY + 1; // Start 1px from top
+          const noteHeight = Math.max(2, Math.floor(notesAreaHeight / 10)); // Fixed height, max 10 rows
+          const maxRows = Math.floor(notesAreaHeight / noteHeight);
           
-          // Show duration
-          ink(200, 200, 200);
-          const durationText = `${segmentDuration.toFixed(1)}s`;
-          const durationX = Math.max(10, Math.min(screen.width - durationText.length * 6 - 10, segmentStartX + 10));
-          write(durationText, durationX, nameY + 15);
+          segmentNotes.forEach((note, noteIndex) => {
+            const noteX = centerX + (note.startTime - currentTimeSeconds) * pixelsPerSecond;
+            const pitch = note.key || 60;
+            // Use stable row calculation based on original note position
+            const stableIndex = (note.locatorIndex * 100) + (note.clipIndex * 20) + note.noteIndex;
+            const row = stableIndex % maxRows;
+            const noteY = notesAreaStartY + row * noteHeight; // No spacing, notes touch
+            
+            // Note is already pre-filtered for visibility, so just draw it
+            const velocity = note.velocity || 100;
+            const noteDuration = note.endTime - note.startTime; // Single declaration for the whole block
+            const velocityNorm = velocity / 127; // Move this outside color block so it's available everywhere
+              
+              // Generate themed color using the palette of the note's own locator section
+              let r, g, b;
+              // Get the palette for the locator that this note belongs to
+              const noteLocator = alsProject.locators[note.locatorIndex];
+              const notePalette = getPaletteForLocator(noteLocator?.name);
+              
+              if (notePalette && notePalette.colors && notePalette.colors.length > 0) {
+                // Use the note's own locator palette, not the current active palette
+                const colorIndex = (note.clipIndex * 3 + note.noteIndex * 5 + pitch * 2) % notePalette.colors.length;
+                const baseColor = notePalette.colors[colorIndex];
+                
+                // Apply velocity-based brightness variation (same as TV bars)
+                const velocityFactor = 0.7 + (velocityNorm * 0.3); // 0.7 to 1.0
+                
+                r = Math.floor(baseColor.r * velocityFactor);
+                g = Math.floor(baseColor.g * velocityFactor);
+                b = Math.floor(baseColor.b * velocityFactor);
+                
+                // Ensure minimum brightness (same as TV bars)
+                r = Math.max(30, r);
+                g = Math.max(30, g);
+                b = Math.max(30, b);
+              } else {
+                // Fallback to original HSL method if no palette
+                const hue = (pitch * 7 + row * 60) % 360;
+                const saturation = 0.7 + (velocityNorm * 0.3);
+                const lightness = 0.3 + (velocityNorm * 0.5);
+                
+                const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+                const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+                const m = lightness - c / 2;
+                
+                if (hue < 60) { r = c; g = x; b = 0; }
+                else if (hue < 120) { r = x; g = c; b = 0; }
+                else if (hue < 180) { r = 0; g = c; b = x; }
+                else if (hue < 240) { r = 0; g = x; b = c; }
+                else if (hue < 300) { r = x; g = 0; b = c; }
+                else { r = c; g = 0; b = x; }
+                
+                r = Math.floor((r + m) * 255);
+                g = Math.floor((g + m) * 255);
+                b = Math.floor((b + m) * 255);
+              }
+              
+              // Simple note width based on duration only
+              const minWidth = 1;
+              const durationWidth = Math.max(minWidth, Math.floor(noteDuration * pixelsPerSecond));
+              // Use the fixed noteHeight calculated above for consistent spacing
+              const finalHeight = noteHeight;
+              
+              // Check playing state - simplified without decay
+              const noteEnd = note.endTime || (note.startTime + 0.25);
+              const isPlaying = currentTimeSeconds >= note.startTime && currentTimeSeconds <= noteEnd;
+              
+              // Simple note width based on duration
+              const noteWidth = Math.max(1, Math.floor(noteDuration * pixelsPerSecond));
+              
+              // Draw the note
+              let noteR = r, noteG = g, noteB = b;
+              if (isPlaying) {
+                // Capture the base color BEFORE brightening for needle theming
+                lastMidiNoteColor = { r: r, g: g, b: b };
+                
+                // Note is actively playing - brighten for display
+                noteR = Math.min(255, r + 60);
+                noteG = Math.min(255, g + 60);
+                noteB = Math.min(255, b + 60);
+              }
+              ink(noteR, noteG, noteB);
+              box(noteX, noteY, noteWidth, finalHeight);
+          });
         }
       }
-      
-      // Draw segment boundary line
-      if (segmentStartX >= 0 && segmentStartX <= screen.width) {
-        ink(isCurrentSegment ? 255 : 150, 255, 255);
-        line(segmentStartX, timelineY - timelineHeight/2, segmentStartX, timelineY + timelineHeight/2);
-      }
     }
-  }
-  
-  // FIXED CENTRAL NEEDLE - the playhead that stays in center
-  ink(255, 50, 50); // Bright red
-  const needleWidth = 6;
-  const needleHeight = timelineHeight + 60;
-  box(centerX - needleWidth/2, timelineY - needleHeight/2, needleWidth, needleHeight);
-  
-  // Needle pointer at top and bottom
-  ink(255, 100, 100);
-  // Top arrow
-  line(centerX - 15, timelineY - needleHeight/2 - 8, centerX, timelineY - needleHeight/2);
-  line(centerX + 15, timelineY - needleHeight/2 - 8, centerX, timelineY - needleHeight/2);
-  // Bottom arrow
-  line(centerX - 15, timelineY + needleHeight/2 + 8, centerX, timelineY + needleHeight/2);
-  line(centerX + 15, timelineY + needleHeight/2 + 8, centerX, timelineY + needleHeight/2);
-  
-  // Current time display at top
-  ink(255, 255, 255);
-  const currentTimeText = `${Math.floor(currentTimeSeconds/60)}:${(currentTimeSeconds%60).toFixed(1).padStart(4, '0')}`;
-  write(currentTimeText, centerX - currentTimeText.length * 4, 30);
-  
-  // Total duration
-  if (actualDuration) {
-    ink(150, 150, 150);
-    const totalTimeText = `/ ${Math.floor(actualDuration/60)}:${(actualDuration%60).toFixed(0).padStart(2, '0')}`;
-    write(totalTimeText, centerX - totalTimeText.length * 3, 50);
-  }
-  
-  // Current locator info in large text at bottom
-  const { current: currentLocator, next: nextLocator } = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
-  
-  if (currentLocator) {
-    ink(0, 255, 100);
-    const currentText = `NOW: ${currentLocator.name}`;
-    write(currentText, centerX - currentText.length * 6, screen.height - 100);
+  } // Close the segmentNotes.forEach or similar loop that was missing
     
-    // Show progress within current segment (using direct times - no scaling)
-    if (nextLocator) {
-      const segmentProgress = (currentTimeSeconds - currentLocator.seconds) / (nextLocator.seconds - currentLocator.seconds);
-      const progressText = `${(segmentProgress * 100).toFixed(1)}% through segment`;
-      ink(100, 255, 150);
-      write(progressText, centerX - progressText.length * 3, screen.height - 80);
-    }
-  }
+    // Draw themed needle with MIDI note color
+    const needleX = centerX; // Center perfectly
+    
+    // Use the exact color of the last played MIDI note for the needle
+    const needleColor = {
+      r: lastMidiNoteColor.r,
+      g: lastMidiNoteColor.g,
+      b: lastMidiNoteColor.b
+    };
+    
+    // Draw single needle line matching MIDI note color exactly
+    // timelineY and timelineHeight are already declared at the top of the timeline conditional
+    ink(needleColor.r, needleColor.g, needleColor.b, 255); // Full opacity
+    line(needleX, timelineY, needleX, timelineY + timelineHeight); // Single centered line
+    
+  } // Close timeline visibility conditional
   
-  if (nextLocator) {
-    ink(255, 255, 0);
-    const nextText = `NEXT: ${nextLocator.name}`;
-    const timeUntil = nextLocator.seconds - currentTimeSeconds;
-    const countdownText = ` (in ${timeUntil.toFixed(1)}s)`;
-    write(nextText + countdownText, centerX - (nextText + countdownText).length * 4, screen.height - 60);
-  }
-  
-  // Progress indicator at very bottom
-  const progressBarY = screen.height - 20;
-  const progressBarWidth = screen.width - 40;
-  
-  // Progress bar background
-  ink(30, 30, 30);
-  box(20, progressBarY, progressBarWidth, 10);
-  
-  // Progress bar fill
-  if (actualDuration && actualDuration > 0) {
-    const fillWidth = progressBarWidth * progress;
-    ink(0, 120, 255);
-    box(20, progressBarY, fillWidth, 10);
-  }
-  
-  // Show play/pause state
-  if (!isPlaying && preloadedAudio) {
-    ink(100, 100, 100);
-    write("TAP TO PLAY", centerX - 40, screen.height - 140);
-  } else if (isPlaying) {
-    ink(100, 100, 100);
-    write("TAP TO PAUSE", centerX - 45, screen.height - 140);
-  }
-  
-  // BPM display in top right
-  if (alsProject && alsProject.tempo) {
-    ink(200, 200, 200);
-    const bpmText = `${alsProject.tempo} BPM`;
-    write(bpmText, screen.width - bpmText.length * 6 - 20, 30);
-  }
-  
-  // Speed indicator
-  ink(150, 150, 150);
-  const speedText = `Timeline: ${timelineWindowSeconds}s window, ${pixelsPerSecond.toFixed(1)} px/s`;
-  write(speedText, 20, screen.height - 40);
-  
-  // Compensation and locator count
-  const locatorCountText = `${alsProject.locators.length} segments`;
-  write(locatorCountText, screen.width - locatorCountText.length * 6 - 20, screen.height - 40);
-  
-  // === GLOBAL STATIC TV BAR === (completely separate from timeline segments)
-  const tvHeight = 25;
-  const tvY = 20; // Fixed position at top of screen
-  
-  if (globalCurrentColor) {
-    ink(globalCurrentColor.r, globalCurrentColor.g, globalCurrentColor.b);
-    box(20, tvY, screen.width - 40, tvHeight); // Full width, static position
-    console.log(`🎵 GLOBAL TV: Static bar showing pitch ${globalCurrentColor.pitch}, RGB(${globalCurrentColor.r}, ${globalCurrentColor.g}, ${globalCurrentColor.b})`);
-  } else {
-    // Gray when no color is active
-    ink(80, 80, 80);
-    box(20, tvY, screen.width - 40, tvHeight);
-    console.log(`🎵 GLOBAL TV: Static bar showing gray (no active notes)`);
-  }
-}
+} // Close paint function
 
 function act({ event: e, sound }) {
+  // Toggle timeline visibility with 't' key or tab key (using standard tab handler pattern)
+  if (e.is("keyboard:t") || (e.is("keyboard:down:tab") && e.key === "Tab")) {
+    timelineVisible = !timelineVisible;
+  }
+  
   // Simple play/pause control
   if (e.is("keyboard:p")) {
     timelineOffset += 0.5; // Look further ahead
-    console.log(`👀 Timeline offset: +${timelineOffset.toFixed(1)}s (looking further ahead)`);
   }
   
   if (e.is("keyboard:minus")) {
     timelineOffset = Math.max(0, timelineOffset - 0.5); // Look less ahead (minimum 0)
-    console.log(`👀 Timeline offset: +${timelineOffset.toFixed(1)}s (looking closer)`);
   }
   
   // Handle play/pause
@@ -1580,10 +1889,6 @@ function sim({ sound }) {
     playingSfx.progress().then((p) => {
       if (p && typeof p.progress === 'number') {
         currentAudioProgress = p.progress;
-        // Debug log occasionally
-        if (Math.floor(p.progress * 1000) % 500 === 0) {
-          console.log(`🎵 Audio progress resolved: ${p.progress.toFixed(3)} (${(p.progress * (actualDuration || 184)).toFixed(1)}s)`);
-        }
       }
     }).catch(err => {
       // Silent catch - don't spam console

@@ -18,6 +18,7 @@ import {
   cssColors,
   parseColorIndex,
 } from "./num.mjs";
+import { getFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
 import * as mat4 from "../dep/gl-matrix/mat4.mjs";
 import * as vec2 from "../dep/gl-matrix/vec2.mjs";
@@ -44,7 +45,9 @@ const skips = [];
 // Fade state - used by ink() function for smooth color transitions
 let fadeMode = false;
 let fadeColors = [];
-let fadeDirection = "horizontal"; // horizontal, vertical, diagonal
+let fadeDirection = "horizontal"; // horizontal, vertical, diagonal, or numeric angle (0-360)
+let fadeAlpha = null; // Alpha override for fade colors (used by coat function)
+let currentKidLispContext = null; // For dynamic evaluation of fade directions
 let currentRainbowColor = null; // Cache rainbow color for current drawing operation
 
 let debug = false;
@@ -175,16 +178,31 @@ function flood(x, y, fillColor = c) {
   };
 }
 
-// 📚 DOCUMENTATION: Parse a fade string like "fade:blue-white" or "fade:red-yellow-blue"
+// 📚 DOCUMENTATION: Parse a fade string like "fade:blue-white" or "fade:red-yellow-blue:vertical"
 // Used by findColor() which is called from ink() in disk.mjs
 // Returns array of RGBA color arrays or null if invalid
+// Supports direction syntax: "fade:red-blue:vertical", "fade:red-blue:horizontal-reverse", etc.
+// Also supports numeric angles: "fade:red-blue:0" (0-360 degrees, where 0=right-to-left, 90=top-to-bottom, etc.)
 function parseFade(fadeString) {
   const parts = fadeString.split(":");
-  if (parts.length !== 2 || parts[0] !== "fade") {
+  if (parts.length < 2 || parts.length > 3 || parts[0] !== "fade") {
     return null;
   }
   
   const fadeType = parts[1];
+  const direction = parts[2] || "horizontal"; // Default to horizontal if no direction specified
+  
+  // Store direction globally for use in getFadeColor
+  fadeDirection = direction;
+  
+  // Check if we have a fadeAlpha override from coat function
+  const overrideAlpha = getFadeAlpha();
+  const defaultAlpha = overrideAlpha !== null ? overrideAlpha : 255;
+  
+  // Clear the fadeAlpha override after using it to avoid affecting subsequent operations
+  if (overrideAlpha !== null) {
+    clearFadeAlpha();
+  }
   
   // Predefined fade types
   const predefinedFades = {
@@ -198,7 +216,7 @@ function parseFade(fadeString) {
     for (const colorStr of predefinedFades[fadeType]) {
       const color = cssColors[colorStr];
       if (color) {
-        colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+        colors.push([...color.slice(0, 3), defaultAlpha]); // Use override alpha or 255
       }
     }
     return colors.length >= 2 ? colors : null;
@@ -219,15 +237,15 @@ function parseFade(fadeString) {
             indexColor[0] !== undefined && 
             indexColor[1] !== undefined && 
             indexColor[2] !== undefined) {
-          colors.push([...indexColor.slice(0, 3), 255]); // Ensure RGBA format
+          colors.push([...indexColor.slice(0, 3), defaultAlpha]); // Use override alpha
         }
       } else if (indexColor && indexColor[0] === "rainbow") {
         // Handle rainbow palette - mark as special dynamic color
-        colors.push(["rainbow"]); // Special marker for dynamic rainbow
+        colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
       } else {
         // Check for direct rainbow first
         if (trimmed === "rainbow") {
-          colors.push(["rainbow"]); // Special marker for dynamic rainbow
+          colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
         } else {
           // Fall back to CSS colors or hex
           const color = cssColors[trimmed] || hexToRgb(trimmed);
@@ -235,7 +253,7 @@ function parseFade(fadeString) {
               color[0] !== undefined && 
               color[1] !== undefined && 
               color[2] !== undefined) {
-            colors.push([...color.slice(0, 3), 255]); // Ensure RGBA format
+            colors.push([...color.slice(0, 3), defaultAlpha]); // Use override alpha
           }
         }
       }
@@ -279,12 +297,14 @@ function getFadeColor(t) {
   }
   
   // Linear interpolation between colors
-  return [
+  const result = [
     Math.round(lerp(startColor[0], endColor[0], segmentT)),
     Math.round(lerp(startColor[1], endColor[1], segmentT)),
     Math.round(lerp(startColor[2], endColor[2], segmentT)),
     Math.round(lerp(startColor[3], endColor[3], segmentT))
   ];
+  
+  return result;
 }
 
 // Reset rainbow cache for new drawing operations
@@ -349,7 +369,7 @@ function findColor() {
         if (fadeColorArray) {
           fadeMode = true;
           fadeColors = fadeColorArray;
-          fadeDirection = "horizontal"; // Default direction
+          // Don't override fadeDirection here - it's already set by parseFade()
           resetRainbowCache(); // Reset for new fade operation
           return fadeColorArray[0]; // Return first color as base
         }
@@ -421,7 +441,7 @@ function findColor() {
               return [...color.slice(0, 3), computeAlpha(args[1])]; // Apply alpha to static colors
             }
           });
-          fadeDirection = "horizontal"; // Default direction
+          // Don't override fadeDirection here - it's already set by parseFade()
           resetRainbowCache(); // Reset for new fade operation
           // For return value, handle rainbow specially
           if (fadeColorArray[0][0] === "rainbow") {
@@ -551,6 +571,98 @@ export {
   pixel,
 };
 
+// Helper function to evaluate dynamic fade direction
+function evaluateFadeDirection(directionStr) {
+  // First try to parse as a number
+  const numericAngle = parseFloat(directionStr);
+  if (!isNaN(numericAngle)) {
+    return numericAngle;
+  }
+  
+  // Check for named directions
+  const validDirections = [
+    "horizontal", "horizontal-reverse", 
+    "vertical", "vertical-reverse",
+    "diagonal", "diagonal-reverse"
+  ];
+  if (validDirections.includes(directionStr)) {
+    return directionStr;
+  }
+  
+  // Check if it's a string representation of a number (e.g., "30")
+  const trimmed = directionStr.trim();
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const parsed = parseFloat(trimmed);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  
+  // Try to evaluate as KidLisp expression if we have context
+  if (currentKidLispContext) {
+    try {
+      // Check if it's a JSON-encoded expression
+      if (directionStr.startsWith('"') || directionStr.startsWith('[')) {
+        const parsedExpression = JSON.parse(directionStr);
+        const result = currentKidLispContext.evaluate(parsedExpression, currentKidLispContext.api, currentKidLispContext.env);
+        const numResult = parseFloat(result);
+        if (!isNaN(numResult)) {
+          return numResult;
+        }
+      } else {
+        // Try evaluating as a variable name
+        const result = currentKidLispContext.evaluate(directionStr, currentKidLispContext.api, currentKidLispContext.env);
+        const numResult = parseFloat(result);
+        if (!isNaN(numResult)) {
+          return numResult;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to evaluate fade direction expression:", directionStr, error);
+    }
+  }
+  
+  // Fallback to horizontal
+  console.warn("Invalid fade direction, falling back to horizontal:", directionStr);
+  return "horizontal";
+}
+
+// Helper function to calculate fade position based on angle (0-360 degrees)
+function calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, angle) {
+  // Normalize angle to 0-360 range
+  const originalAngle = angle;
+  angle = ((angle % 360) + 360) % 360;
+  
+  // Get area dimensions
+  const areaWidth = maxX - minX;
+  const areaHeight = maxY - minY;
+  
+  // Calculate position relative to center of the area
+  const centerX = minX + areaWidth / 2;
+  const centerY = minY + areaHeight / 2;
+  const relX = (x - centerX) / (areaWidth / 2);  // Normalize to -1 to 1
+  const relY = (y - centerY) / (areaHeight / 2); // Normalize to -1 to 1
+  
+  // Convert angle to radians and calculate direction vector
+  const radians = (angle * Math.PI) / 180;
+  const dirX = Math.cos(radians);
+  const dirY = -Math.sin(radians); // Negative because screen Y increases downward
+  
+  // Project current position onto the direction vector
+  const dotProduct = relX * dirX + relY * dirY;
+  
+  // Normalize to 0-1 range (dotProduct ranges from -sqrt(2) to sqrt(2))
+  const maxDot = Math.sqrt(2); // Maximum possible dot product
+  const t = (dotProduct + maxDot) / (2 * maxDot);
+  
+  // Debug log only for first few pixels to avoid spam
+  if (x < minX + 3 && y < minY + 3) {
+    console.log(`🎯 ANGLE CALC: orig=${originalAngle}° norm=${angle}° pos=(${x},${y}) rel=(${relX.toFixed(2)},${relY.toFixed(2)}) dir=(${dirX.toFixed(2)},${dirY.toFixed(2)}) dot=${dotProduct.toFixed(2)} t=${t.toFixed(2)}`);
+  }
+  
+  return Math.max(0, Math.min(1, t));
+}
+
 // 2. 2D Drawing
 function clear() {
   // Note: I believe this would be the fastest method but would have to test it.
@@ -573,6 +685,9 @@ function clear() {
   }
 
   if (fadeMode && fadeColors.length > 1) {
+    // Debug: Log fade clear operation
+    console.log(`🌈 FADE CLEAR: mode=${fadeMode}, direction=${fadeDirection}, colors=${fadeColors.length}`);
+    
     // Clear with fade gradient
     const areaWidth = maxX - minX;
     const areaHeight = maxY - minY;
@@ -583,12 +698,38 @@ function clear() {
         
         // Calculate fade position based on direction
         let t;
-        if (fadeDirection === "vertical") {
-          t = areaHeight > 1 ? (y - minY) / (areaHeight - 1) : 0;
-        } else if (fadeDirection === "diagonal") {
-          t = areaWidth + areaHeight > 2 ? ((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1)) : 0;
-        } else { // horizontal (default)
-          t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
+        
+        // Evaluate fadeDirection dynamically
+        const evaluatedDirection = evaluateFadeDirection(fadeDirection);
+        
+        // Debug: Log the direction evaluation
+        console.log(`🔍 CLEAR FADE: original="${fadeDirection}", evaluated="${evaluatedDirection}"`);
+        
+        // Check if evaluatedDirection is a numeric angle (0-360)
+        const numericAngle = parseFloat(evaluatedDirection);
+        if (!isNaN(numericAngle)) {
+          // Use angle-based calculation
+          console.log(`📐 USING ANGLE: ${numericAngle}° at pixel (${x},${y})`);
+          t = calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, numericAngle);
+          console.log(`📊 ANGLE RESULT: t=${t}`);
+        } else {
+          // Use named direction
+          console.log(`📝 USING NAMED: ${evaluatedDirection}`);
+          if (evaluatedDirection === "vertical") {
+            t = areaHeight > 1 ? (y - minY) / (areaHeight - 1) : 0;
+          } else if (evaluatedDirection === "vertical-reverse") {
+            t = areaHeight > 1 ? 1 - ((y - minY) / (areaHeight - 1)) : 0;
+          } else if (evaluatedDirection === "horizontal") {
+            t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
+          } else if (evaluatedDirection === "horizontal-reverse") {
+            t = areaWidth > 1 ? 1 - ((x - minX) / (areaWidth - 1)) : 0;
+          } else if (evaluatedDirection === "diagonal") {
+            t = areaWidth + areaHeight > 2 ? ((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1)) : 0;
+          } else if (evaluatedDirection === "diagonal-reverse") {
+            t = areaWidth + areaHeight > 2 ? 1 - (((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1))) : 0;
+          } else { // default to horizontal
+            t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
+          }
         }
         
         // Get interpolated color for this position
@@ -2079,22 +2220,105 @@ function box() {
     if (sign(height) === 1) {
       for (let row = 0; row < h; row += 1) {
         if (fadeMode) {
-          // Calculate fade position based on box progress
-          const t = fadeDirection === "vertical" ? row / (h - 1) : 0;
-          const fadeColor = getFadeColor(t);
-          setColor(...fadeColor);
+          // Check if fadeDirection is a numeric angle (0-360)
+          const numericAngle = parseFloat(fadeDirection);
+          
+          if (!isNaN(numericAngle)) {
+            // For numeric angles, we need to calculate fade per pixel
+            // Draw line pixel by pixel with angle-based fade
+            for (let col = 0; col <= w; col++) {
+              const pixelX = x + col;
+              const pixelY = y + row;
+              
+              // Use the same calculateAngleFadePosition function as clear()
+              const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
+              
+              const fadeColor = getFadeColor(t);
+              if (col === 0 && row === 0) { // Only log first pixel to avoid spam
+                console.log("BOX DEBUG: fadeColor with baked alpha:", fadeColor);
+              }
+              setColor(...fadeColor);
+              plot(pixelX, pixelY);
+            }
+          } else {
+            // Use named direction
+            let t;
+            if (fadeDirection === "vertical") {
+              t = row / (h - 1);
+            } else if (fadeDirection === "vertical-reverse") {
+              t = 1 - (row / (h - 1)); // Reverse the direction
+            } else if (fadeDirection === "horizontal") {
+              t = 0; // Will be calculated per pixel in line drawing
+            } else if (fadeDirection === "horizontal-reverse") {
+              t = 0; // Will be calculated per pixel in line drawing
+            } else { // diagonal, etc.
+              t = row / (h - 1);
+            }
+            
+            if (fadeDirection.startsWith("horizontal")) {
+              // For horizontal fades, we need to draw with gradient per line
+              // This will be handled in the line() function
+              line(x, y + row, x + w, y + row);
+            } else {
+              // For vertical fades, set color once per row
+              const fadeColor = getFadeColor(t);
+              setColor(...fadeColor);
+              line(x, y + row, x + w, y + row);
+            }
+          }
+        } else {
+          line(x, y + row, x + w, y + row);
         }
-        line(x, y + row, x + w, y + row);
       }
     } else {
       for (let row = 0; row > h; row -= 1) {
         if (fadeMode) {
-          // Calculate fade position based on box progress
-          const t = fadeDirection === "vertical" ? Math.abs(row) / Math.abs(h - 1) : 0;
-          const fadeColor = getFadeColor(t);
-          setColor(...fadeColor);
+          // Check if fadeDirection is a numeric angle (0-360)
+          const numericAngle = parseFloat(fadeDirection);
+          
+          if (!isNaN(numericAngle)) {
+            // For numeric angles, we need to calculate fade per pixel
+            // Draw line pixel by pixel with angle-based fade
+            for (let col = 0; col <= w; col++) {
+              const pixelX = x + col;
+              const pixelY = y + row;
+              
+              // Use the same calculateAngleFadePosition function as clear()
+              const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
+              
+              const fadeColor = getFadeColor(t);
+              setColor(...fadeColor);
+              plot(pixelX, pixelY);
+            }
+          } else {
+            // Use named direction
+            let t;
+            if (fadeDirection === "vertical") {
+              t = Math.abs(row) / Math.abs(h - 1);
+            } else if (fadeDirection === "vertical-reverse") {
+              t = 1 - (Math.abs(row) / Math.abs(h - 1));
+            } else if (fadeDirection === "horizontal") {
+              t = 0; // Will be calculated per pixel in line drawing
+            } else if (fadeDirection === "horizontal-reverse") {
+              t = 0; // Will be calculated per pixel in line drawing
+            } else { // diagonal, etc.
+              t = Math.abs(row) / Math.abs(h - 1);
+            }
+            
+            if (fadeDirection.startsWith("horizontal")) {
+              // For horizontal fades, we need to draw with gradient per line
+              // This will be handled in the line() function
+              line(x, y + row, x + w, y + row);
+            } else {
+              // For vertical fades, set color once per row
+              const fadeColor = getFadeColor(t);
+              setColor(...fadeColor);
+              line(x, y + row, x + w, y + row);
+            }
+          }
+        } else {
+          line(x, y + row, x + w, y + row);
         }
-        line(x, y + row, x + w, y + row);
       }
     }
     
@@ -4311,6 +4535,20 @@ function zeroLineClip(vertices) {
   }
 }
 
+// Function to set KidLisp evaluation context for dynamic fade directions
+function setKidLispContext(kidlispInstance, api, env) {
+  currentKidLispContext = {
+    evaluate: kidlispInstance.evaluate.bind(kidlispInstance),
+    api,
+    env
+  };
+}
+
+// Function to clear KidLisp evaluation context
+function clearKidLispContext() {
+  currentKidLispContext = null;
+}
+
 export {
   clear,
   point,
@@ -4358,4 +4596,6 @@ export {
   Camera,
   Form,
   Dolly,
+  setKidLispContext,
+  clearKidLispContext,
 };
