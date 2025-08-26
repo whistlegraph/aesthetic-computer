@@ -10,6 +10,9 @@ let lastMidiNoteColor = { r: 0, g: 255, b: 255 }; // Default to cyan
 // Track previous locator to detect section changes
 let previousLocatorName = null;
 
+// Timeline visibility toggle
+let timelineVisible = true;
+
 // zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES
 const ZZZWAP_PALETTES = {
   START: {
@@ -1397,11 +1400,6 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
         birthTime: performance.now(), // Track when this bar was born for flash effect
         pitch: colorInfo.pitch || 60 // Store pitch for debugging
       });
-      
-      // Debug: Log when we add a new bar (reduced verbosity)
-      if (Math.random() < 0.05) { // Much less frequent
-        console.log(`🎨 NEW BAR: pitch=${colorInfo.pitch}→pos=${preferredPosition.toFixed(2)}, total: ${colorHistory.length}`);
-      }
     }
   });
   
@@ -1470,13 +1468,6 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
     // Order: decaying colors first (left), then new active colors (right)
     const positionSortedColors = colorsToShow;
     
-    // Debug logging for screen division with position info (minimal)
-    if (Math.random() < 0.001) { // Extremely rare - only for major debugging
-      const activeCount = positionSortedColors.filter(c => !c.isDecaying).length;
-      const decayCount = positionSortedColors.filter(c => c.isDecaying).length;
-      console.log(`🎨 ${positionSortedColors.length} bars: ${activeCount} active + ${decayCount} decaying`);
-    }
-    
     // Equal width bars that divide the screen evenly - ensure no cut-off
     const totalBars = positionSortedColors.length;
     const barWidth = totalBars > 0 ? Math.floor(screen.width / totalBars) : screen.width;
@@ -1488,12 +1479,6 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
         // Ensure last bar doesn't go off screen
         const actualWidth = (index === totalBars - 1) ? (screen.width - startX) : barWidth;
         const clampedStartX = Math.min(startX, screen.width - actualWidth);
-        
-        // Debug positioning occasionally (reduced verbosity)
-        if (Math.random() < 0.001) { // Extremely rare - only for major debugging
-          const status = colorInfo.isDecaying ? `decay:α${colorInfo.alpha?.toFixed(2)}` : 'active';
-          console.log(`🎨 Bar ${index}: ${status}, w=${actualWidth}px`);
-        }
         
         // Handle white flash for new bars and fading for decaying bars
         const now = performance.now();
@@ -1589,31 +1574,32 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
   // === TIMELINE OVERLAY (MINIMAL & FAST) ===
   // The timeline is now an overlay element that sits on top of the TV bar composition
   
-  // Minimal timeline layout parameters
-  const timelineHeight = 25; // Reduced from 50 to 25 - much more minimal
-  const timelineY = screen.height - timelineHeight; // Position at bottom edge
-  const leadTimeSeconds = 2.0; // Show 2 seconds of future time
-  const timelineWindowSeconds = screen.width / pixelsPerSecond;
-  // Calculate current view window - align to start at the red center line
-  const viewStartTime = currentTimeSeconds;
-  const viewEndTime = Math.min(actualDuration, currentTimeSeconds + timelineWindowSeconds);
-  
-  // Themed timeline background - matches current TV color palette exactly
-  if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
-    // Use the same base color logic as timeline segments and TV bars
-    // Find the current locator index to match the segment color logic
-    let currentLocatorIndex = 0;
-    if (alsProject && alsProject.locators && currentLocator) {
-      currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
-      if (currentLocatorIndex === -1) currentLocatorIndex = 0;
+  if (timelineVisible) {
+    // Minimal timeline layout parameters
+    const timelineHeight = 25; // Reduced from 50 to 25 - much more minimal
+    const timelineY = screen.height - timelineHeight; // Position at bottom edge
+    const leadTimeSeconds = 2.0; // Show 2 seconds of future time
+    const timelineWindowSeconds = screen.width / pixelsPerSecond;
+    // Calculate current view window - align to start at the red center line
+    const viewStartTime = currentTimeSeconds;
+    const viewEndTime = Math.min(actualDuration, currentTimeSeconds + timelineWindowSeconds);
+    
+    // Themed timeline background - matches current TV color palette exactly
+    if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
+      // Use the same base color logic as timeline segments and TV bars
+      // Find the current locator index to match the segment color logic
+      let currentLocatorIndex = 0;
+      if (alsProject && alsProject.locators && currentLocator) {
+        currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+        if (currentLocatorIndex === -1) currentLocatorIndex = 0;
+      }
+      const colorIndex = currentLocatorIndex % currentPalette.colors.length;
+      const bgColor = currentPalette.colors[colorIndex];
+      ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
+    } else {
+      ink(50, 50, 50); // Fallback to match TV default { r: 50, g: 50, b: 50 }
     }
-    const colorIndex = currentLocatorIndex % currentPalette.colors.length;
-    const bgColor = currentPalette.colors[colorIndex];
-    ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
-  } else {
-    ink(50, 50, 50); // Fallback to match TV default { r: 50, g: 50, b: 50 }
-  }
-  box(0, timelineY, screen.width, timelineHeight); // Simple strip at bottom
+    box(0, timelineY, screen.width, timelineHeight); // Simple strip at bottom
   
   // Draw locator segments on timeline overlay
   if (alsProject && alsProject.locators) {
@@ -1798,25 +1784,33 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
         }
       }
     }
-  }
+  } // Close the segmentNotes.forEach or similar loop that was missing
+    
+    // Draw themed needle with MIDI note color
+    const needleX = centerX; // Center perfectly
+    
+    // Use the exact color of the last played MIDI note for the needle
+    const needleColor = {
+      r: lastMidiNoteColor.r,
+      g: lastMidiNoteColor.g,
+      b: lastMidiNoteColor.b
+    };
+    
+    // Draw single needle line matching MIDI note color exactly
+    // timelineY and timelineHeight are already declared at the top of the timeline conditional
+    ink(needleColor.r, needleColor.g, needleColor.b, 255); // Full opacity
+    line(needleX, timelineY, needleX, timelineY + timelineHeight); // Single centered line
+    
+  } // Close timeline visibility conditional
   
-  // Draw themed needle with MIDI note color
-  const needleX = centerX; // Center perfectly
-  
-  // Use the exact color of the last played MIDI note for the needle
-  const needleColor = {
-    r: lastMidiNoteColor.r,
-    g: lastMidiNoteColor.g,
-    b: lastMidiNoteColor.b
-  };
-  
-  // Draw single needle line matching MIDI note color exactly
-  ink(needleColor.r, needleColor.g, needleColor.b, 255); // Full opacity
-  line(needleX, timelineY, needleX, timelineY + timelineHeight); // Single centered line
-
 } // Close paint function
 
 function act({ event: e, sound }) {
+  // Toggle timeline visibility with 't' key or tab key (using standard tab handler pattern)
+  if (e.is("keyboard:t") || (e.is("keyboard:down:tab") && e.key === "Tab")) {
+    timelineVisible = !timelineVisible;
+  }
+  
   // Simple play/pause control
   if (e.is("keyboard:p")) {
     timelineOffset += 0.5; // Look further ahead
