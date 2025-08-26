@@ -195,19 +195,13 @@ function parseFade(fadeString) {
   // Store direction globally for use in getFadeColor
   fadeDirection = direction;
   
-  // Debug: Log fade parsing
-  console.log(`🎨 PARSE FADE: "${fadeString}" → direction="${direction}"`);
-  
   // Check if we have a fadeAlpha override from coat function
   const overrideAlpha = getFadeAlpha();
   const defaultAlpha = overrideAlpha !== null ? overrideAlpha : 255;
-  console.log("PARSE FADE: Using alpha", defaultAlpha, "(override:", overrideAlpha, ")");
-  console.log("PARSE FADE: Called for fadeString:", fadeString);
   
   // Clear the fadeAlpha override after using it to avoid affecting subsequent operations
   if (overrideAlpha !== null) {
     clearFadeAlpha();
-    console.log("PARSE FADE: Cleared fadeAlpha override after use");
   }
   
   // Predefined fade types
