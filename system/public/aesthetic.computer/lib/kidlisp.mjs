@@ -679,6 +679,15 @@ class KidLisp {
     this.syntaxSignals.clear();
   }
 
+  // Count active (non-cache-based) embedded layers for deferral logic
+  countActiveEmbeddedLayers() {
+    if (!this.embeddedLayers) return 0;
+    return this.embeddedLayers.filter(layer => {
+      // Skip cache-based embedded layers (same logic as renderEmbeddedLayers)
+      return !(layer.originalCacheId && /^[0-9A-Za-z]{3,12}$/.test(layer.originalCacheId));
+    }).length;
+  }
+
   // Mark a timing expression as triggered for blinking
   markTimingTriggered(timingToken) {
     const now = performance.now();
@@ -2620,11 +2629,9 @@ class KidLisp {
             },
             args: args
           });
-          // Scroll deferred debug log removed for performance
           return;
         }
         
-        // Scroll immediate execution debug log removed for performance
         if (!Array.isArray(args)) {
           args = [args];
         }
@@ -4777,28 +4784,12 @@ class KidLisp {
               result = this.evaluate(selectedArg, api, env);
             }
             
-            // Debug timing expression evaluation
-            if ((head === "1s..." || head === "0.1s...") && typeof selectedArg === "number") {
-              // console.log(`🔍 Timing expression selected numeric arg:`, selectedArg, `evaluated to:`, result);
-              // console.log(`🔍 Timing key: ${timingKey}, sequence counter: ${this.sequenceCounters.get(timingKey)}, args: [${args.join(', ')}]`);
-            }
+            // Clear timing context after evaluation
+            this.currentTimingContext = null;
             
-            // Debug what we're getting from timing evaluation
-            // if (head === "2s...") {
-            //   console.log(`⏰ TIMING EVAL: selectedArg=${selectedArg}, result=${result}, type=${typeof result}`);
-            //   
-            //   // If the result is still a string that might be a CSS color, try to resolve it
-            //   if (typeof result === "string" && cssColors && cssColors[result]) {
-            //     const colorValue = cssColors[result];
-            //     console.log(`⏰ TIMING COLOR: Resolved "${result}" to`, colorValue);
-            // }
-            
-            // IMPORTANT: Set result but don't return - let the loop continue to other expressions
-            // The result is stored and the loop continues to process remaining expressions
+            // Return the result instead of continuing - timing expressions should return their values
+            return result;
           }
-          
-          // Clear timing context after evaluation
-          this.currentTimingContext = null;
           
           continue; // Skip normal function processing
         }
@@ -6421,13 +6412,6 @@ class KidLisp {
     // Update and composite each embedded layer
     this.embeddedLayers.forEach((embeddedLayer, index) => {
       if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
-        
-        // SKIP embedded layers that come from cache functions (like $pie, $febs, etc.)
-        // These should only be rendered when explicitly called through timing expressions
-        if (embeddedLayer.originalCacheId && /^[0-9A-Za-z]{3,12}$/.test(embeddedLayer.originalCacheId)) {
-          // console.log(`⏸️ Skipping cache-based embedded layer: ${embeddedLayer.originalCacheId}`);
-          return; // Skip cache-based layers entirely - they should only render when called
-        }
         
         // Check if this embedded layer should be visible based on timing context
         if (embeddedLayer.timingContext) {
