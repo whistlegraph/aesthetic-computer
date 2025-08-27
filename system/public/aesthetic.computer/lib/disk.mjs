@@ -7258,7 +7258,24 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        let w = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
+        // Use plain text for width calculation to avoid counting color codes
+        const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
+        let w = textForWidthCalculation.length * tf.blockWidth + currentHUDScrub;
+        
+        // DEBUG: Log width calculation differences for kidlisp pieces with syntax highlighting
+        if (currentHUDTxt && currentHUDPlainTxt && currentHUDTxt !== currentHUDPlainTxt) {
+          const oldW = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
+          // console.log(`🎯 HUD Width Fix Applied:`, {
+          //   piece,
+          //   fullText: currentHUDTxt,
+          //   plainText: currentHUDPlainTxt,
+          //   oldWidth: oldW,
+          //   newWidth: w,
+          //   difference: oldW - w,
+          //   reduction: `${Math.round(((oldW - w) / oldW) * 100)}%`
+          // });
+        }
+        
         const labelBounds = $api.text.box(
           currentHUDTxt,
           undefined,
@@ -7275,6 +7292,12 @@ async function makeFrame({ data: { type, content } }) {
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+
+          // DEBUG: Show hitbox background (can be toggled by setting debug flag)
+          const showHitboxDebug = globalThis.debugHudHitbox || false;
+          if (showHitboxDebug) {
+            $.ink(255, 0, 0, 128).box(0, 0, w, h); // Semi-transparent red background to show actual hitbox size
+          }
 
           let c;
           if (currentHUDTextColor) {
@@ -8243,6 +8266,13 @@ function maybeLeave() {
     leaveLoad = null;
   }
 }
+
+// Debug utility for HUD hitbox visualization
+globalThis.toggleHudHitboxDebug = () => {
+  globalThis.debugHudHitbox = !globalThis.debugHudHitbox;
+  console.log(`🎯 HUD Hitbox Debug: ${globalThis.debugHudHitbox ? 'ON' : 'OFF'}`);
+  $commonApi.needsPaint(); // Force repaint to show/hide the debug visualization
+};
 
 // Play a sound when "notice" fires.
 const noticeBell = (api, { tone } = { tone: 600 }) => {
