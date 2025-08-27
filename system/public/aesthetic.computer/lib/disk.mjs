@@ -5409,7 +5409,6 @@ async function makeFrame({ data: { type, content } }) {
     if (content.result === "success") {
       authorizationRequest?.resolve(content.data);
     } else if (content.result === "error") {
-      console.warn("Failed to authenticate.", content);
       authorizationRequest?.reject(content.data);
     }
     authorizationRequest = undefined;

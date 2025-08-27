@@ -17,6 +17,7 @@ import {
   shiftRGB,
   cssColors,
   parseColorIndex,
+  rand,
 } from "./num.mjs";
 import { getFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
@@ -267,7 +268,8 @@ function parseFade(fadeString) {
 // 📚 DOCUMENTATION: Get interpolated color from fade based on position (0-1)
 // Called during line/box drawing when fadeMode is active
 // Supports multi-color fades with linear interpolation
-function getFadeColor(t) {
+// x, y are optional pixel coordinates for position-based noise
+function getFadeColor(t, x = 0, y = 0) {
   if (!fadeMode || fadeColors.length < 2) {
     return c.slice();
   }
@@ -296,13 +298,33 @@ function getFadeColor(t) {
     endColor = [...currentRainbowColor, endColor[1] || 255]; // Use stored alpha or default
   }
   
-  // Linear interpolation between colors
+  // Linear interpolation between colors with subtle film-grain-like noise
+  const grainIntensity = 2.5; // Very subtle grain amount
+  
+  // Create multiple layers of noise using hash functions for organic grain
+  const hash1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  const hash2 = Math.sin(x * 93.9898 + y * 67.345) * 28461.1398;
+  const hash3 = Math.sin(x * 15.1234 + y * 42.789) * 91735.2468;
+  
+  // Extract fractional parts and convert to -1 to 1 range
+  const grain1 = (hash1 - Math.floor(hash1)) * 2 - 1;
+  const grain2 = (hash2 - Math.floor(hash2)) * 2 - 1;
+  const grain3 = (hash3 - Math.floor(hash3)) * 2 - 1;
+  
+  // Blend different grain patterns for complexity
+  const finalGrain = (grain1 * 0.5 + grain2 * 0.3 + grain3 * 0.2);
+  
+  // Apply slightly different grain amounts per channel for subtle color variation
+  const rGrain = finalGrain * grainIntensity;
+  const gGrain = finalGrain * grainIntensity * 0.8; // Slightly less in green
+  const bGrain = finalGrain * grainIntensity * 1.2; // Slightly more in blue
+  
   const result = [
-    Math.round(lerp(startColor[0], endColor[0], segmentT)),
-    Math.round(lerp(startColor[1], endColor[1], segmentT)),
-    Math.round(lerp(startColor[2], endColor[2], segmentT)),
-    Math.round(lerp(startColor[3], endColor[3], segmentT))
-  ];
+    Math.round(lerp(startColor[0], endColor[0], segmentT) + rGrain),
+    Math.round(lerp(startColor[1], endColor[1], segmentT) + gGrain),
+    Math.round(lerp(startColor[2], endColor[2], segmentT) + bGrain),
+    Math.round(lerp(startColor[3], endColor[3], segmentT)) // Keep alpha clean
+  ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
   
   return result;
 }
@@ -657,7 +679,7 @@ function calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, angle) {
   
   // Debug log only for first few pixels to avoid spam
   if (x < minX + 3 && y < minY + 3) {
-    console.log(`🎯 ANGLE CALC: orig=${originalAngle}° norm=${angle}° pos=(${x},${y}) rel=(${relX.toFixed(2)},${relY.toFixed(2)}) dir=(${dirX.toFixed(2)},${dirY.toFixed(2)}) dot=${dotProduct.toFixed(2)} t=${t.toFixed(2)}`);
+    // Angle calculation debug log removed for performance
   }
   
   return Math.max(0, Math.min(1, t));
@@ -686,7 +708,7 @@ function clear() {
 
   if (fadeMode && fadeColors.length > 1) {
     // Debug: Log fade clear operation
-    console.log(`🌈 FADE CLEAR: mode=${fadeMode}, direction=${fadeDirection}, colors=${fadeColors.length}`);
+    // Fade clear debug log removed for performance
     
     // Clear with fade gradient
     const areaWidth = maxX - minX;
@@ -702,19 +724,15 @@ function clear() {
         // Evaluate fadeDirection dynamically
         const evaluatedDirection = evaluateFadeDirection(fadeDirection);
         
-        // Debug: Log the direction evaluation
-        console.log(`🔍 CLEAR FADE: original="${fadeDirection}", evaluated="${evaluatedDirection}"`);
+        // Debug logs removed for performance
         
         // Check if evaluatedDirection is a numeric angle (0-360)
         const numericAngle = parseFloat(evaluatedDirection);
         if (!isNaN(numericAngle)) {
-          // Use angle-based calculation
-          console.log(`📐 USING ANGLE: ${numericAngle}° at pixel (${x},${y})`);
+          // Use angle-based calculation - debug logs removed for performance
           t = calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, numericAngle);
-          console.log(`📊 ANGLE RESULT: t=${t}`);
         } else {
-          // Use named direction
-          console.log(`📝 USING NAMED: ${evaluatedDirection}`);
+          // Use named direction - debug logs removed for performance
           if (evaluatedDirection === "vertical") {
             t = areaHeight > 1 ? (y - minY) / (areaHeight - 1) : 0;
           } else if (evaluatedDirection === "vertical-reverse") {
@@ -733,7 +751,7 @@ function clear() {
         }
         
         // Get interpolated color for this position
-        const fadeColor = getFadeColor(t);
+        const fadeColor = getFadeColor(t, x, y);
         
         pixels[i] = fadeColor[0]; // r
         pixels[i + 1] = fadeColor[1]; // g
@@ -1588,7 +1606,7 @@ function line() {
       if (fadeMode) {
         // Calculate fade position based on line progress
         const t = lineLength > 0 ? sqrt((p.x - x0) ** 2 + (p.y - y0) ** 2) / lineLength : 0;
-        const fadeColor = getFadeColor(t);
+        const fadeColor = getFadeColor(t, p.x, p.y);
         setColor(...fadeColor);
         plot(p.x, p.y);
       } else if (c2) {
@@ -2233,9 +2251,9 @@ function box() {
               // Use the same calculateAngleFadePosition function as clear()
               const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
               
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getFadeColor(t, pixelX, pixelY);
               if (col === 0 && row === 0) { // Only log first pixel to avoid spam
-                console.log("BOX DEBUG: fadeColor with baked alpha:", fadeColor);
+                // BOX DEBUG fadeColor log removed for performance
               }
               setColor(...fadeColor);
               plot(pixelX, pixelY);
