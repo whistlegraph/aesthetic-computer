@@ -7260,27 +7260,54 @@ async function makeFrame({ data: { type, content } }) {
       ) {
         // Use plain text for width calculation to avoid counting color codes
         const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
-        let w = textForWidthCalculation.length * tf.blockWidth + currentHUDScrub;
+        
+        // Double-check: strip color codes directly if they're still present
+        const colorCodeRegex = /\\[^\\]*\\/g;
+        const cleanText = textForWidthCalculation.replace(colorCodeRegex, '');
+        
+        // For corner label width, measure the actual display width
+        // If there are multiple lines, find the longest line for width calculation
+        let displayWidth;
+        if (cleanText.includes('\n')) {
+          const lines = cleanText.split('\n');
+          const maxLineLength = Math.max(...lines.map(line => line.length));
+          displayWidth = maxLineLength * tf.blockWidth;
+        } else {
+          displayWidth = cleanText.length * tf.blockWidth;
+        }
+        
+        let w = displayWidth + currentHUDScrub;
+        
+        // Also calculate what text.box would give us for comparison
+        const labelBounds = $api.text.box(
+          cleanText,
+          undefined,
+          $api.screen.width - $api.typeface.blockWidth,
+        );
         
         // DEBUG: Log width calculation differences for kidlisp pieces with syntax highlighting
         if (currentHUDTxt && currentHUDPlainTxt && currentHUDTxt !== currentHUDPlainTxt) {
           const oldW = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
-          // console.log(`🎯 HUD Width Fix Applied:`, {
-          //   piece,
-          //   fullText: currentHUDTxt,
-          //   plainText: currentHUDPlainTxt,
-          //   oldWidth: oldW,
-          //   newWidth: w,
-          //   difference: oldW - w,
-          //   reduction: `${Math.round(((oldW - w) / oldW) * 100)}%`
-          // });
+          const charCountW = textForWidthCalculation.length * tf.blockWidth + currentHUDScrub;
+          const cleanCharCountW = cleanText.length * tf.blockWidth + currentHUDScrub;
+          const lines = cleanText.split('\n');
+          console.log(`🎯 HUD Width Fix Applied:`, {
+            piece,
+            fullText: currentHUDTxt.slice(0, 50) + '...',
+            plainText: currentHUDPlainTxt,
+            cleanedText: cleanText,
+            lines: lines,
+            longestLineLength: Math.max(...lines.map(line => line.length)),
+            oldWidth: oldW,
+            charCountWidth: charCountW,
+            cleanCharCountWidth: cleanCharCountW,
+            displayWidth: displayWidth,
+            measuredWidth: w,
+            textBoxWidth: labelBounds.box.width,
+            boundsHeight: labelBounds.box.height,
+            reduction: `${Math.round(((oldW - w) / oldW) * 100)}%`
+          });
         }
-        
-        const labelBounds = $api.text.box(
-          currentHUDTxt,
-          undefined,
-          $api.screen.width - $api.typeface.blockWidth,
-        );
 
         const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
@@ -7452,6 +7479,19 @@ async function makeFrame({ data: { type, content } }) {
             w: w + currentHUDOffset.x,
             h: h, // Use just the calculated height without extra y-offset
           });
+
+        // DEBUG: Log the actual button dimensions
+        if (currentHUDTxt && currentHUDPlainTxt && currentHUDTxt !== currentHUDPlainTxt) {
+          console.log(`🎯 Button Hitbox Dimensions:`, {
+            buttonWidth: w + currentHUDOffset.x,
+            buttonHeight: h,
+            calculatedWidth: w,
+            offsetX: currentHUDOffset.x,
+            offsetY: currentHUDOffset.y,
+            labelBoundsWidth: labelBounds?.box?.width,
+            labelBoundsHeight: labelBounds?.box?.height
+          });
+        }
 
         // $commonApi.hud.currentLabel = {
         //   text: currentHUDTxt,
@@ -7643,7 +7683,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // Attach a label buffer if necessary.
       // Hide label when QR is in fullscreen mode
-      if (label && !hudAnimationState.qrFullscreen)
+      if (label && !hudAnimationState.qrFullscreen) {
         sendData.label = {
           x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
           y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
@@ -7652,6 +7692,29 @@ async function makeFrame({ data: { type, content } }) {
             label,
           ),
         };
+
+        // DEBUG: Add hitbox visualization overlay
+        if (globalThis.debugHudHitbox && currentHUDButton) {
+          const hitboxWidth = currentHUDButton.box.w;
+          const hitboxHeight = currentHUDButton.box.h;
+          
+          const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
+            $.unpan();
+            // Draw a semi-transparent green border to show the hitbox
+            $.ink(0, 255, 0, 128).box(0, 0, hitboxWidth, hitboxHeight, "outline");
+            $.ink(0, 255, 0, 64).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
+          });
+          
+          sendData.hitboxDebug = {
+            x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
+            y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
+            opacity: hudAnimationState.opacity,
+            img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+              hitboxOverlay,
+            ),
+          };
+        }
+      }
 
       // 🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
