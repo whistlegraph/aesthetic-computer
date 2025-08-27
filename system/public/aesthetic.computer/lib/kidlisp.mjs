@@ -172,6 +172,94 @@ const VERBOSE = false;
 const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
 
+// 🗄️ Global $code caching system (shared across all KidLisp instances)
+// This provides multi-level caching: RAM → IndexedDB → Network
+const globalCodeCache = new Map(); // In-memory cache for current session
+let persistentStoreRef = null; // Reference to the persistent store system
+
+// Initialize persistent cache when store becomes available
+function initPersistentCache(store) {
+  if (!persistentStoreRef && store) {
+    persistentStoreRef = store;
+    console.log("🗄️ Initialized persistent $code cache");
+  }
+}
+
+// Get from persistent cache (IndexedDB)
+async function getFromPersistentCache(cacheId) {
+  if (!persistentStoreRef) return null;
+  
+  try {
+    const data = await persistentStoreRef.retrieve(`kidlisp-code:${cacheId}`, "local:db");
+    if (data && data.source) {
+      console.log(`💾 Retrieved $code from persistent cache: ${cacheId}`);
+      return data.source;
+    }
+  } catch (error) {
+    console.warn(`Failed to retrieve from persistent cache: ${cacheId}`, error);
+  }
+  return null;
+}
+
+// Save to persistent cache (IndexedDB)
+async function saveToPersistentCache(cacheId, source) {
+  if (!persistentStoreRef) return;
+  
+  try {
+    persistentStoreRef[`kidlisp-code:${cacheId}`] = {
+      source,
+      cached: Date.now(),
+      version: 1
+    };
+    persistentStoreRef.persist(`kidlisp-code:${cacheId}`, "local:db");
+    console.log(`💾 Saved $code to persistent cache: ${cacheId}`);
+  } catch (error) {
+    console.warn(`Failed to save to persistent cache: ${cacheId}`, error);
+  }
+}
+
+// Multi-level cache retrieval: RAM → IndexedDB → Network
+async function getCachedCodeMultiLevel(cacheId) {
+  // Level 1: Check RAM cache (fastest)
+  if (globalCodeCache.has(cacheId)) {
+    console.log(`⚡ Retrieved $code from RAM cache: ${cacheId}`);
+    return globalCodeCache.get(cacheId);
+  }
+  
+  // Level 2: Check IndexedDB (fast)
+  const persistentSource = await getFromPersistentCache(cacheId);
+  if (persistentSource) {
+    // Cache in RAM for future access
+    globalCodeCache.set(cacheId, persistentSource);
+    return persistentSource;
+  }
+  
+  // Level 3: Network fetch (slowest)
+  console.log(`🌐 Fetching $code from network: ${cacheId}`);
+  const networkSource = await fetchCachedCode(cacheId);
+  if (networkSource) {
+    // Cache at all levels
+    globalCodeCache.set(cacheId, networkSource);
+    await saveToPersistentCache(cacheId, networkSource);
+    return networkSource;
+  }
+  
+  return null;
+}
+
+// Clear all caches (useful for development/debugging)
+function clearAllCaches() {
+  globalCodeCache.clear();
+  console.log("🗑️ Cleared all $code caches");
+}
+
+// Save a code to all cache levels (when user creates/saves a piece)
+function saveCodeToAllCaches(cacheId, source) {
+  globalCodeCache.set(cacheId, source);
+  saveToPersistentCache(cacheId, source);
+  console.log(`💾 Saved $code to all caches: ${cacheId}`);
+}
+
 // Performance tracking utilities
 const perfTimers = {};
 const perfLogs = []; // Store logs for display in piece
@@ -390,6 +478,10 @@ class KidLisp {
     this.embeddedLayerCache = new Map();
     this.embeddedSourceCache = new Map(); // Cache source code by cacheId to avoid duplicate fetches
     
+    // Embedded layer loading state tracking
+    this.loadingEmbeddedLayers = new Set(); // Track which $codes are currently loading
+    this.loadedEmbeddedLayers = new Set();  // Track which $codes have finished loading
+    
     // Clear embedded layer cache on initialization/reload
     this.clearEmbeddedLayerCache();
 
@@ -512,6 +604,10 @@ class KidLisp {
     // Clear embedded layer cache when loading new piece
     this.clearEmbeddedLayerCache();
     
+    // Reset embedded layer loading state
+    this.loadingEmbeddedLayers.clear();
+    this.loadedEmbeddedLayers.clear();
+    
     // Reset syntax highlighting state
     this.syntaxHighlightSource = null;
     this.expressionPositions = [];
@@ -619,6 +715,94 @@ class KidLisp {
     
     // For cycle timers, return true if we're in a brief lime flash period (like delay timers)
     return elapsed < 80; // 80ms lime flash for cycle timers (matches delay timer duration)
+  }
+
+  // Scan source code for $codes and mark them as loading for syntax highlighting
+  scanAndMarkEmbeddedCodes(source) {
+    // Find all $codes in the source using regex
+    const codeMatches = source.match(/\$[0-9A-Za-z]+/g);
+    if (codeMatches) {
+      codeMatches.forEach(fullCode => {
+        const cacheId = fullCode.substring(1); // Remove $ prefix
+        // Only mark as loading if not already loaded
+        if (!this.loadedEmbeddedLayers.has(cacheId)) {
+          console.log(`🔍 Found $code in source: ${fullCode} -> marking as loading`);
+          this.loadingEmbeddedLayers.add(cacheId);
+        }
+      });
+      
+      // Start preloading all $codes in parallel for faster loading
+      this.preloadEmbeddedCodes(codeMatches);
+    }
+  }
+
+  // Preload all embedded codes in parallel for faster loading
+  preloadEmbeddedCodes(codeMatches) {
+    // Get unique cache IDs 
+    const uniqueCacheIds = [...new Set(codeMatches.map(code => code.substring(1)))];
+    
+    // Filter out codes that are already cached or being fetched
+    const needsFetching = uniqueCacheIds.filter(cacheId => {
+      // Check instance cache first
+      if (this.embeddedSourceCache.has(cacheId)) {
+        this.loadingEmbeddedLayers.delete(cacheId);
+        this.loadedEmbeddedLayers.add(cacheId);
+        return false;
+      }
+      
+      // Check global RAM cache
+      if (globalCodeCache.has(cacheId)) {
+        // Copy to instance cache for fast access
+        this.embeddedSourceCache.set(cacheId, globalCodeCache.get(cacheId));
+        this.loadingEmbeddedLayers.delete(cacheId);
+        this.loadedEmbeddedLayers.add(cacheId);
+        return false;
+      }
+      
+      const fetchKey = `${cacheId}_fetching_source`;
+      if (this.embeddedLayerCache.has(fetchKey)) {
+        return false; // Already being fetched
+      }
+      
+      return true;
+    });
+    
+    if (needsFetching.length === 0) {
+      console.log("🚀 All codes already cached or being fetched");
+      return;
+    }
+    
+    console.log(`🚀 Parallel preloading ${needsFetching.length} $codes: ${needsFetching.join(', ')}`);
+    
+    // Use individual multi-level cache calls for better cache utilization
+    // This allows each code to check IndexedDB individually before falling back to network
+    needsFetching.forEach(cacheId => {
+      const fetchKey = `${cacheId}_fetching_source`;
+      this.embeddedLayerCache.set(fetchKey, true); // Mark as being fetched
+      
+      getCachedCodeMultiLevel(cacheId)
+        .then(source => {
+          // Clean up fetch marker
+          this.embeddedLayerCache.delete(fetchKey);
+          
+          // Mark as loaded
+          this.loadingEmbeddedLayers.delete(cacheId);
+          this.loadedEmbeddedLayers.add(cacheId);
+          
+          // Cache the source if we got it
+          if (source) {
+            this.embeddedSourceCache.set(cacheId, source);
+            console.log(`✅ Preloaded $code: ${cacheId} (from ${globalCodeCache.has(cacheId) ? 'RAM' : 'persistent/network'})`);
+          } else {
+            console.warn(`❌ Failed to preload $code: ${cacheId}`);
+          }
+        })
+        .catch(error => {
+          console.error(`❌ Preload error for ${cacheId}:`, error);
+          this.embeddedLayerCache.delete(fetchKey);
+          this.loadingEmbeddedLayers.delete(cacheId);
+        });
+    });
   }
 
   // Mark a delay timer as entering its active display period
@@ -1316,6 +1500,9 @@ class KidLisp {
           // Set up command queue to defer final drawing commands
           this.postEmbedCommands = [];
           this.inEmbedPhase = false;
+          
+          // Scan for $codes and pre-mark them as loading for syntax highlighting
+          this.scanAndMarkEmbeddedCodes(source);
           
           // Execute the full program first (draws current content and creates embedded layers)
           this.localEnvLevel = 0; // Reset state per program evaluation.
@@ -2362,6 +2549,24 @@ class KidLisp {
           const y = args[1];
           const fillColor = args[2]; // Optional color, defaults to current ink
           
+          // Check if we should defer this command
+          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+            this.postEmbedCommands = this.postEmbedCommands || [];
+            this.postEmbedCommands.push({
+              name: 'flood',
+              func: () => {
+                if (fillColor !== undefined) {
+                  api.flood(x, y, processArgStringTypes(fillColor));
+                } else {
+                  api.flood(x, y); // Use current ink color
+                }
+              },
+              args: [x, y, fillColor]
+            });
+            console.log(`🌊 DEFERRED: flood command queued for post-embed execution`, [x, y, fillColor]);
+            return;
+          }
+          
           if (fillColor !== undefined) {
             api.flood(x, y, processArgStringTypes(fillColor));
           } else {
@@ -2401,6 +2606,25 @@ class KidLisp {
         api.shape({ points, filled, thickness });
       },
       scroll: (api, args = []) => {
+        // Only defer scroll commands from main code, not from embedded layers
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.inEmbeddedExecution) {
+          this.postEmbedCommands = this.postEmbedCommands || [];
+          this.postEmbedCommands.push({
+            name: 'scroll',
+            func: () => {
+              if (!Array.isArray(args)) {
+                args = [args];
+              }
+              if (typeof api.scroll === 'function') {
+                api.scroll(...args);
+              }
+            },
+            args: args
+          });
+          console.log(`🔄 DEFERRED: scroll command queued for post-embed execution`, args);
+          return;
+        }
+        
         if (!Array.isArray(args)) {
           args = [args];
         }
@@ -2409,27 +2633,82 @@ class KidLisp {
         } else {
           // For embedded layers, scroll might not be available on the API object
           // In this case, we can skip the scroll operation silently
+          console.log(`⚠️ SKIP: scroll not available on API object`, args);
         }
       },
       spin: (api, args = []) => {
+        // Defer spin execution if embedded layers exist and we're not in embed phase
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
+          console.log("🎡 Deferring spin command until after embedded layers");
+          this.postEmbedCommands.push({
+            name: 'spin',
+            func: () => api.spin(...args),
+            args
+          });
+          return;
+        }
         api.spin(...args);
       },
       resetSpin: (api, args = []) => {
         api.resetSpin();
       },
       smoothspin: (api, args = []) => {
+        // Defer smoothspin execution if embedded layers exist and we're not in embed phase
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
+          console.log("🎡 Deferring smoothspin command until after embedded layers");
+          this.postEmbedCommands.push({
+            name: 'smoothspin',
+            func: () => api.smoothSpin(...args),
+            args
+          });
+          return;
+        }
         api.smoothSpin(...args);
       },
       sort: (api, args = []) => {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
+        // Defer zoom execution if embedded layers exist and we're not in embed phase
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
+          console.log("🔍 Deferring zoom command until after embedded layers");
+          this.postEmbedCommands.push({
+            name: 'zoom',
+            func: () => api.zoom(...args),
+            args
+          });
+          return;
+        }
         api.zoom(...args);
       },
       blur: (api, args = []) => {
+        // Check if we should defer this command to execute after embedded layers are rendered
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          this.postEmbedCommands = this.postEmbedCommands || [];
+          this.postEmbedCommands.push({
+            name: 'blur',
+            func: api.blur,
+            args: args
+          });
+          console.log(`🌫️ DEFERRED: blur command queued for post-embed execution`, args);
+          return;
+        }
+        
         api.blur(...args);
       },
       contrast: (api, args = []) => {
+        // Check if we should defer this command to execute after embedded layers are rendered
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          this.postEmbedCommands = this.postEmbedCommands || [];
+          this.postEmbedCommands.push({
+            name: 'contrast',
+            func: api.contrast,
+            args: args
+          });
+          console.log(`🌓 DEFERRED: contrast command queued for post-embed execution`, args);
+          return;
+        }
+        
         api.contrast(...args);
       },
       pan: (api, args = []) => {
@@ -3253,7 +3532,7 @@ class KidLisp {
         }
         
         // Return a promise that fetches and evaluates the cached code
-        return fetchCachedCode(cacheId).then(source => {
+        return getCachedCodeMultiLevel(cacheId).then(source => {
           if (source) {
             console.log("🎯 Loading cached KidLisp code:", cacheId);
             // Parse and evaluate the cached source
@@ -3574,10 +3853,16 @@ class KidLisp {
         
         console.log(`🖼️ Creating persistent embedded layer: ${cacheId} (${width}x${height}) at (${x},${y})`);
         
+        // Mark this $code as loading for syntax highlighting
+        this.loadingEmbeddedLayers.add(cacheId);
+        
         // Check if we already have the source code cached
         if (this.embeddedSourceCache.has(cacheId)) {
           console.log("♻️ Using cached source code for:", cacheId);
           const cachedSource = this.embeddedSourceCache.get(cacheId);
+          // Mark as loaded since we have cached source
+          this.loadingEmbeddedLayers.delete(cacheId);
+          this.loadedEmbeddedLayers.add(cacheId);
           return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, api);
         }
         
@@ -3590,7 +3875,7 @@ class KidLisp {
         
         // Mark as being fetched and create fetch promise
         const fetchPromise = Promise.race([
-          fetchCachedCode(cacheId),
+          getCachedCodeMultiLevel(cacheId),
           new Promise((resolve) => {
             console.log("⏰ Setting 2 second timeout for fetch...");
             setTimeout(() => {
@@ -3602,6 +3887,10 @@ class KidLisp {
           console.log("🚀 FETCH PROMISE RESOLVED! Source found:", source ? "YES" : "NO");
           // Remove fetch marker
           this.embeddedLayerCache.delete(fetchKey);
+          
+          // Mark as no longer loading and now loaded
+          this.loadingEmbeddedLayers.delete(cacheId);
+          this.loadedEmbeddedLayers.add(cacheId);
           
           if (!source) {
             console.warn("❌ No cached code found for:", cacheId, "- using fallback");
@@ -3654,8 +3943,11 @@ class KidLisp {
             
             // Update the existing layer with the real code
             const embeddedKidLisp = new KidLisp();
-            embeddedKidLisp.frameCount = this.frameCount;
-            embeddedKidLisp.frameCounter = this.frameCounter;
+            // Start embedded layers with fresh timing states for re-entrancy
+            embeddedKidLisp.frameCount = 0;
+            embeddedKidLisp.frameCounter = 0;
+            embeddedKidLisp.timingStates = new Map();
+            embeddedKidLisp.lastSecondExecutions = {};
             
             const parsedCode = embeddedKidLisp.parse(source);
             
@@ -3671,12 +3963,13 @@ class KidLisp {
           // Create a dedicated KidLisp instance for this embedded layer
           const embeddedKidLisp = new KidLisp();
           
-          // Give each embedded instance its own isolated state
-          embeddedKidLisp.frameCount = this.frameCount;
-          embeddedKidLisp.frameCounter = this.frameCounter;
+          // Give each embedded instance its own isolated state - start fresh for re-entrancy
+          embeddedKidLisp.frameCount = 0;
+          embeddedKidLisp.frameCounter = 0;
           
           // Ensure timing states are isolated (each layer has its own timing map)
           embeddedKidLisp.timingStates = new Map();
+          embeddedKidLisp.lastSecondExecutions = {};
           
           // Create isolated local environment 
           embeddedKidLisp.localEnv = { ...this.localEnv };
@@ -3821,6 +4114,15 @@ class KidLisp {
       if (expr === "?") {
         // Generate a random number from 0 to 255 (default range)
         return Math.floor(Math.random() * 256);
+      }
+
+      // Handle negative identifiers like "-frame", "-width", etc.
+      if (expr.startsWith("-") && expr.length > 1) {
+        const baseIdentifier = expr.substring(1);
+        const baseValue = this.fastEval(baseIdentifier, api, env);
+        if (typeof baseValue === "number") {
+          return -baseValue;
+        }
       }
 
       // Fast variable lookup - don't cache iterator variables that change frequently
@@ -4936,14 +5238,20 @@ class KidLisp {
           const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
           result += whitespace;
           
-          // Add color escape sequence when color changes
-          if (color !== lastColor) {
-            result += `\\${color}\\`;
-            lastColor = color;
+          // Special handling for compound colors (like $codes)
+          if (color.startsWith("COMPOUND:")) {
+            const parts = color.split(":");
+            const prefixColor = parts[1]; // Color for $ symbol
+            const identifierColor = parts[2]; // Color for identifier part
+            
+            // Apply prefix color to $ symbol
+            result += `\\${prefixColor}\\$`;
+            // Apply identifier color to rest of token
+            result += `\\${identifierColor}\\${token.substring(1)}`;
+            lastColor = identifierColor; // Set last color to the identifier color
           }
-          
           // Special handling for rainbow coloring
-          if (color === "RAINBOW" && token === "rainbow") {
+          else if (color === "RAINBOW" && token === "rainbow") {
             // ROYGBIV rainbow colors for each character
             const rainbowColors = ["red", "orange", "yellow", "lime", "blue", "purple", "magenta"];
             for (let charIndex = 0; charIndex < token.length; charIndex++) {
@@ -4959,6 +5267,11 @@ class KidLisp {
             result += fadeResult;
             lastColor = null; // Reset so next token gets proper color
           } else {
+            // Add color escape sequence when color changes
+            if (color !== lastColor) {
+              result += `\\${color}\\`;
+              lastColor = color;
+            }
             // Add the token itself normally
             result += token;
           }
@@ -5487,6 +5800,30 @@ class KidLisp {
       return "yellow";
     }
 
+    // Check for $codes (embedded layer references) - handle loading states
+    if (token.startsWith("$") && token.length > 1 && /^[$][0-9A-Za-z]+$/.test(token)) {
+      const cacheId = token.substring(1); // Remove $ prefix
+      
+      if (this.loadingEmbeddedLayers.has(cacheId)) {
+        // Show red blinking for loading $codes - return compound color
+        const now = performance.now();
+        const blinkInterval = 200; // Blink every 200ms
+        const isBlinking = Math.floor(now / blinkInterval) % 2 === 0;
+        const mainColor = isBlinking ? "red" : "darkred";
+        return `COMPOUND:${mainColor}:${mainColor}`; // Both parts same color when loading
+      } else if (this.loadedEmbeddedLayers.has(cacheId)) {
+        // Show VHS retro 3-frame blinking $ with bright lime identifier for loaded $codes
+        const now = performance.now();
+        const magicBlinkInterval = 150; // Fast 3-frame blink every 150ms
+        const frame = Math.floor(now / magicBlinkInterval) % 3;
+        const dollarColor = frame === 0 ? "yellow" : frame === 1 ? "hotpink" : "limegreen";
+        return `COMPOUND:${dollarColor}:lime`; // $ cycles through retro VHS colors, identifier is lime
+      } else {
+        // Default brighter $ with lime identifier for unprocessed $codes
+        return "COMPOUND:limegreen:lime"; // $ is bright lime green, identifier is lime
+      }
+    }
+
     // Check for all numbers (integers, floats, positive, negative) BEFORE timing patterns
     // This ensures consistent coloring for all literal numeric values
     if (/^-?\d+(\.\d+)?$/.test(token)) {
@@ -5617,6 +5954,26 @@ class KidLisp {
 
   // Helper method to get the appropriate color for a function
   getFunctionColor(token) {
+    // Check for $codes first (they can be used as function calls)
+    if (token.startsWith("$") && token.length > 1 && /^[$][0-9A-Za-z]+$/.test(token)) {
+      const cacheId = token.substring(1); // Remove $ prefix
+      
+      if (this.loadingEmbeddedLayers.has(cacheId)) {
+        // Show red blinking for loading $codes
+        const now = performance.now();
+        const blinkInterval = 200; // Blink every 200ms
+        const isBlinking = Math.floor(now / blinkInterval) % 2 === 0;
+        const mainColor = isBlinking ? "red" : "darkred";
+        return `COMPOUND:${mainColor}:${mainColor}`; // Both parts same color when loading
+      } else if (this.loadedEmbeddedLayers.has(cacheId)) {
+        // Show green $ with bright cyan identifier for loaded $codes
+        return "COMPOUND:lime:cyan"; // $ is lime green, identifier is cyan
+      } else {
+        // Default green $ with teal identifier for unprocessed $codes
+        return "COMPOUND:green:teal"; // $ is green, identifier is teal
+      }
+    }
+    
     // Math operators get special green color
     if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
       return "lime";
@@ -5879,9 +6236,11 @@ class KidLisp {
       console.log(`♻️ Updating existing layer: ${layerKey}`);
       // Create a dedicated KidLisp instance for this embedded layer
       const embeddedKidLisp = new KidLisp();
-      embeddedKidLisp.frameCount = this.frameCount;
-      embeddedKidLisp.frameCounter = this.frameCounter;
+      // Start embedded layers with fresh timing states for re-entrancy
+      embeddedKidLisp.frameCount = 0;
+      embeddedKidLisp.frameCounter = 0;
       embeddedKidLisp.timingStates = new Map();
+      embeddedKidLisp.lastSecondExecutions = {};
       embeddedKidLisp.localEnv = { ...this.localEnv };
       
       const parsedCode = embeddedKidLisp.parse(source);
@@ -5898,15 +6257,19 @@ class KidLisp {
       existingLayer.source = source;
       existingLayer.parsedCode = parsedCode;
       existingLayer.kidlispInstance = embeddedKidLisp;
+      // Reset local frame count for fresh timing on reload
+      existingLayer.localFrameCount = 0;
       
       return existingLayer;
     }
 
     // Create new embedded layer
     const embeddedKidLisp = new KidLisp();
-    embeddedKidLisp.frameCount = this.frameCount;
-    embeddedKidLisp.frameCounter = this.frameCounter;
+    // Start embedded layers with fresh timing states for re-entrancy
+    embeddedKidLisp.frameCount = 0;
+    embeddedKidLisp.frameCounter = 0;
     embeddedKidLisp.timingStates = new Map();
+    embeddedKidLisp.lastSecondExecutions = {};
     embeddedKidLisp.localEnv = { ...this.localEnv };
     
     const parsedCode = embeddedKidLisp.parse(source);
@@ -5958,7 +6321,8 @@ class KidLisp {
       buffer: embeddedBuffer,
       kidlispInstance: embeddedKidLisp,
       parsedCode,
-      source
+      source,
+      localFrameCount: 0  // Start with fresh frame count for proper timing
     };
 
     this.embeddedLayers.push(embeddedLayer);
@@ -6057,11 +6421,8 @@ class KidLisp {
               console.log(`🎨 EMBEDDED COMMAND QUEUED: wipe`, args);
               drawingCommands.push({ command: 'wipe', args });
             },
-            // Override scroll function to work with embedded buffer using command queue
-            scroll: (dx = 0, dy = 0) => {
-              console.log(`🔄 SCROLL QUEUED: dx=${dx}, dy=${dy}`);
-              scrollCommand = { dx, dy };
-            }
+            // Note: scroll is handled by the main deferral system, not here
+            // to avoid conflicts between embedded and post-embed scroll commands
           };
 
           console.log(`🔧 Embedded API screen dimensions: ${embeddedApi.screen.width}x${embeddedApi.screen.height}`);
@@ -6142,13 +6503,8 @@ class KidLisp {
             }
           });
           
-          // Process scroll command after drawing commands
-          if (scrollCommand) {
-            console.log(`🔄 EXECUTING QUEUED SCROLL: dx=${scrollCommand.dx}, dy=${scrollCommand.dy}`);
-            if (api.scroll) {
-              api.scroll(scrollCommand.dx, scrollCommand.dy);
-            }
-          }
+          // Note: scroll commands are handled by the deferral system in post-embed commands
+          // We don't execute scroll here to avoid double-scrolling
           
           // Check the center cross intersection immediately after execution
           const centerCrossPixelPost = embeddedLayer.buffer.pixels ? embeddedLayer.buffer.pixels.slice(((centerY * embeddedLayer.width + centerX) * 4), ((centerY * embeddedLayer.width + centerX) * 4) + 4) : null;
@@ -6433,6 +6789,57 @@ function isNanoidPattern(str) {
   return hasDigit && hasLetter;
 }
 
+// Function to fetch multiple cached KidLisp codes in a single request
+async function fetchMultipleCachedCodes(codeArray, api = null) {
+  if (!codeArray || codeArray.length === 0) {
+    return {};
+  }
+  
+  console.log("🔧 fetchMultipleCachedCodes called with:", codeArray, "- attempting batch HTTPS fetch");
+  
+  // Use HTTPS for localhost as that's what netlify dev uses
+  const codesParam = encodeURIComponent(codeArray.join(','));
+  const fullUrl = `https://localhost:8888/api/store-kidlisp?codes=${codesParam}`;
+  console.log("🌐 Batch fetch URL:", fullUrl);
+  
+  try {
+    console.log("🌐 About to fetch batch...");
+    const response = await fetch(fullUrl);
+    console.log("🌐 Batch fetch completed, response received");
+    console.log("🌐 Response details:", {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`✅ Successfully loaded batch of ${codeArray.length} codes`, data.summary);
+      
+      // Extract just the sources from the results
+      const sources = {};
+      Object.entries(data.results).forEach(([code, result]) => {
+        if (result && result.source) {
+          sources[code] = result.source;
+          console.log(`📝 BATCH FETCHED SOURCE CODE FOR ${code}: ${result.source.length} chars`);
+        } else {
+          console.warn(`❌ No source found for code: ${code}`);
+          sources[code] = null;
+        }
+      });
+      
+      return sources;
+    } else {
+      console.error(`❌ Failed to load batch of cached codes: HTTP ${response.status}: ${response.statusText}`);
+      return {};
+    }
+  } catch (error) {
+    console.error(`❌ Network error loading batch of cached codes`, error);
+    return {};
+  }
+}
+
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
   console.log("🔧 fetchCachedCode called with:", nanoidCode, "- attempting HTTPS fetch [CACHE BUST v2]");
@@ -6587,7 +6994,12 @@ export {
   decodeKidlispFromUrl,
   isPromptInKidlispMode,
   fetchCachedCode,
+  fetchMultipleCachedCodes,
   getCachedCode,
   setCachedCode,
   getSyntaxHighlightingColors,
+  initPersistentCache,
+  getCachedCodeMultiLevel,
+  clearAllCaches,
+  saveCodeToAllCaches,
 };

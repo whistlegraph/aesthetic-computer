@@ -43,7 +43,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, getCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
@@ -3414,7 +3414,7 @@ async function load(
         const cacheId = slug.slice(1); // Remove $ prefix
         if (logs.loading) console.log("💾 Loading cached kidlisp code:", cacheId);
         try {
-          sourceToRun = await fetchCachedCode(cacheId);
+          sourceToRun = await getCachedCodeMultiLevel(cacheId);
           if (!sourceToRun) {
             throw new Error(`Cached code not found: ${cacheId}`);
           }
@@ -3483,6 +3483,10 @@ async function load(
         // );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
+        
+        // Initialize persistent cache for $codes (only needs to be done once)
+        initPersistentCache(store);
+        
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         if (devReload) {
