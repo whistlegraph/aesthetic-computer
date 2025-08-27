@@ -964,9 +964,90 @@ export async function handler(event, context) {
 
     } else if (event.httpMethod === 'GET') {
       const code = event.queryStringParameters?.code;
+      const codes = event.queryStringParameters?.codes;
       
+      // Handle batch retrieval of multiple codes
+      if (codes) {
+        console.log(`🔍 Batch lookup request for codes parameter: ${codes}`);
+        
+        let codeList;
+        try {
+          // Support both comma-separated string and JSON array format
+          if (codes.startsWith('[')) {
+            codeList = JSON.parse(codes);
+          } else {
+            codeList = codes.split(',').map(c => c.trim()).filter(c => c.length > 0);
+          }
+        } catch (error) {
+          return respond(400, { error: 'Invalid codes format. Use comma-separated or JSON array.' });
+        }
+        
+        if (!Array.isArray(codeList) || codeList.length === 0) {
+          return respond(400, { error: 'Codes must be a non-empty array' });
+        }
+        
+        if (codeList.length > 50) { // Limit batch size
+          return respond(400, { error: 'Too many codes. Maximum 50 per request.' });
+        }
+        
+        console.log(`🔍 Looking up ${codeList.length} codes: ${codeList.join(', ')}`);
+
+        // Fetch all documents in a single database query
+        const docs = await collection.find({ code: { $in: codeList } }).toArray();
+        
+        // Update hit counts for found documents
+        if (docs.length > 0) {
+          const foundCodes = docs.map(doc => doc.code);
+          await collection.updateMany(
+            { code: { $in: foundCodes } }, 
+            { 
+              $inc: { hits: 1 },
+              $set: { lastAccessed: new Date() }
+            }
+          );
+        }
+
+        // Create response map with found and missing codes
+        const results = {};
+        const found = [];
+        const missing = [];
+        
+        codeList.forEach(requestedCode => {
+          const doc = docs.find(d => d.code === requestedCode);
+          if (doc) {
+            results[requestedCode] = {
+              source: doc.source,
+              when: doc.when,
+              hits: doc.hits + 1,
+              user: doc.user || null
+            };
+            found.push(requestedCode);
+          } else {
+            results[requestedCode] = null;
+            missing.push(requestedCode);
+          }
+        });
+
+        console.log(`📤 Batch retrieved: ${found.length} found, ${missing.length} missing`);
+        if (found.length > 0) console.log(`✅ Found: ${found.join(', ')}`);
+        if (missing.length > 0) console.log(`❌ Missing: ${missing.join(', ')}`);
+
+        await database.disconnect();
+        return respond(200, { 
+          results,
+          summary: {
+            requested: codeList.length,
+            found: found.length,
+            missing: missing.length,
+            foundCodes: found,
+            missingCodes: missing
+          }
+        });
+      }
+      
+      // Handle single code retrieval (existing functionality)
       if (!code) {
-        return respond(400, { error: 'Code required' });
+        return respond(400, { error: 'Code or codes parameter required' });
       }
 
       console.log(`🔍 Looking up code: ${code}`);
