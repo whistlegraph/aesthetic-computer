@@ -9353,6 +9353,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
     buildOverlay("durationProgressBar", content.durationProgressBar);
     buildOverlay("durationTimecode", content.durationTimecode);
+    buildOverlay("hitboxDebug", content.hitboxDebug); // Debug overlay for HUD hitbox visualization
     
     // Debug: Log overlay data reception
     if (content.durationTimecode) {
@@ -9446,6 +9447,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                 if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
                 if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
+                if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
               }).catch(err => {
                 console.warn('🟡 Async rendering failed, falling back to sync:', err);
               });
@@ -9487,6 +9489,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                     if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
                     if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
+                    if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
                   }).catch(err => {
                     console.warn('🟡 Fallback async rendering failed:', err);
                   });
@@ -9560,6 +9563,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // console.log("🔲 Skipping immediate QR overlay painting (async mode)");
         } else {
           // QR overlay painter not found (no logging)
+        }
+
+        // Paint hitbox debug overlay immediately if debug is enabled
+        if (!skipImmediateOverlays && paintOverlays["hitboxDebug"]) {
+          paintOverlays["hitboxDebug"]();
         }
 
         // Paint tape progress bar immediately (not affected by async skip)
