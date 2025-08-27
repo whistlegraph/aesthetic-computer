@@ -7284,30 +7284,6 @@ async function makeFrame({ data: { type, content } }) {
           undefined,
           $api.screen.width - $api.typeface.blockWidth,
         );
-        
-        // DEBUG: Log width calculation differences for kidlisp pieces with syntax highlighting
-        if (currentHUDTxt && currentHUDPlainTxt && currentHUDTxt !== currentHUDPlainTxt) {
-          const oldW = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
-          const charCountW = textForWidthCalculation.length * tf.blockWidth + currentHUDScrub;
-          const cleanCharCountW = cleanText.length * tf.blockWidth + currentHUDScrub;
-          const lines = cleanText.split('\n');
-          console.log(`🎯 HUD Width Fix Applied:`, {
-            piece,
-            fullText: currentHUDTxt.slice(0, 50) + '...',
-            plainText: currentHUDPlainTxt,
-            cleanedText: cleanText,
-            lines: lines,
-            longestLineLength: Math.max(...lines.map(line => line.length)),
-            oldWidth: oldW,
-            charCountWidth: charCountW,
-            cleanCharCountWidth: cleanCharCountW,
-            displayWidth: displayWidth,
-            measuredWidth: w,
-            textBoxWidth: labelBounds.box.width,
-            boundsHeight: labelBounds.box.height,
-            reduction: `${Math.round(((oldW - w) / oldW) * 100)}%`
-          });
-        }
 
         const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
@@ -7479,19 +7455,6 @@ async function makeFrame({ data: { type, content } }) {
             w: w + currentHUDOffset.x,
             h: h, // Use just the calculated height without extra y-offset
           });
-
-        // DEBUG: Log the actual button dimensions
-        if (currentHUDTxt && currentHUDPlainTxt && currentHUDTxt !== currentHUDPlainTxt) {
-          console.log(`🎯 Button Hitbox Dimensions:`, {
-            buttonWidth: w + currentHUDOffset.x,
-            buttonHeight: h,
-            calculatedWidth: w,
-            offsetX: currentHUDOffset.x,
-            offsetY: currentHUDOffset.y,
-            labelBoundsWidth: labelBounds?.box?.width,
-            labelBoundsHeight: labelBounds?.box?.height
-          });
-        }
 
         // $commonApi.hud.currentLabel = {
         //   text: currentHUDTxt,
