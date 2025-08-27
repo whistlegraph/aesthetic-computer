@@ -3818,7 +3818,7 @@ class KidLisp {
         }
         
         // Parse dimensions and position from arguments
-        let width = 256, height = 256, x = 0, y = 0; // Default values
+        let width = api.screen?.width || 256, height = api.screen?.height || 256, x = 0, y = 0; // Default to full screen
         
         if (args.length >= 3) {
           if (args.length === 3) {
@@ -6288,8 +6288,11 @@ class KidLisp {
       
       const parsedCode = embeddedKidLisp.parse(source);
       
+      // Apply the same precompilation as the main instance
+      const precompiledCode = embeddedKidLisp.precompileAST(parsedCode);
+      
       // Set the AST for the embedded instance so detectFirstLineColor can work  
-      embeddedKidLisp.ast = JSON.parse(JSON.stringify(parsedCode));
+      embeddedKidLisp.ast = JSON.parse(JSON.stringify(precompiledCode));
       // Updated embedded AST debug log removed for performance
       
       // Detect and store first-line color for embedded layer (like fade strings)
@@ -6300,7 +6303,7 @@ class KidLisp {
       existingLayer.source = source;
       existingLayer.sourceCode = source; // Store for timing pattern extraction
       existingLayer.timingPattern = this.extractTimingPattern(source); // Pre-extract timing pattern
-      existingLayer.parsedCode = parsedCode;
+      existingLayer.parsedCode = precompiledCode;
       existingLayer.kidlispInstance = embeddedKidLisp;
       // Reset local frame count for fresh timing on reload
       existingLayer.localFrameCount = 0;
@@ -6327,8 +6330,11 @@ class KidLisp {
     
     const parsedCode = embeddedKidLisp.parse(source);
     
+    // Apply the same precompilation as the main instance
+    const precompiledCode = embeddedKidLisp.precompileAST(parsedCode);
+    
     // Set the AST for the embedded instance so detectFirstLineColor can work
-    embeddedKidLisp.ast = JSON.parse(JSON.stringify(parsedCode));
+    embeddedKidLisp.ast = JSON.parse(JSON.stringify(precompiledCode));
     // Embedded AST debug log removed for performance
     
     // Detect and store first-line color for embedded layer (like fade strings)
@@ -6351,7 +6357,7 @@ class KidLisp {
             ...bufferApi,
             screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height }
           };
-          embeddedKidLisp.evaluate(parsedCode, combinedApi, embeddedKidLisp.localEnv);
+          embeddedKidLisp.evaluate(precompiledCode, combinedApi, embeddedKidLisp.localEnv);
         } catch (error) {
           console.error("❌ Error in initial embedded layer execution:", error);
           bufferApi.wipe?.(255, 0, 0, 128);
@@ -6373,7 +6379,7 @@ class KidLisp {
       y,
       buffer: embeddedBuffer,
       kidlispInstance: embeddedKidLisp,
-      parsedCode,
+      parsedCode: precompiledCode,
       source,
       sourceCode: source, // Store for timing pattern extraction
       timingPattern: this.extractTimingPattern(source), // Pre-extract timing pattern
