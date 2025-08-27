@@ -6423,7 +6423,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const coreHandlers = {};
       if (whens["recorder:cut"]) {
         coreHandlers["recorder:cut"] = whens["recorder:cut"];
-        console.log("📻 Preserving recorder:cut handler during reset");
       }
       whens = coreHandlers;
 
