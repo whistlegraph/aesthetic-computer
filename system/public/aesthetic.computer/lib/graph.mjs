@@ -1562,10 +1562,11 @@ function line() {
   if (x1 == null) x1 = randIntRange(0, width);
   if (y1 == null) y1 = randIntRange(0, height);
 
-  if (isNaN(x0) || isNaN(y0) || isNaN(x1) || isNaN(y1)) {
-    console.error("Invalid line arguments:", x0, y0, x1, y1);
-    return;
-  }
+  // Handle NaN values the same way as null - use random values
+  if (isNaN(x0)) x0 = randIntRange(0, width);
+  if (isNaN(y0)) y0 = randIntRange(0, height);
+  if (isNaN(x1)) x1 = randIntRange(0, width);
+  if (isNaN(y1)) y1 = randIntRange(0, height);
 
   // console.log("Line in:", x0, y0, x1, y1);
 
