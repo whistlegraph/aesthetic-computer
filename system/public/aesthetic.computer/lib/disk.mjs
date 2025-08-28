@@ -43,7 +43,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, getCachedCode } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
@@ -3416,7 +3416,7 @@ async function load(
         const cacheId = slug.slice(1); // Remove $ prefix
         if (logs.loading) console.log("💾 Loading cached kidlisp code:", cacheId);
         try {
-          sourceToRun = await fetchCachedCode(cacheId);
+          sourceToRun = await getCachedCodeMultiLevel(cacheId);
           if (!sourceToRun) {
             throw new Error(`Cached code not found: ${cacheId}`);
           }
@@ -3485,6 +3485,10 @@ async function load(
         // );
         sourceCode = sourceToRun;
         originalCode = sourceCode;
+        
+        // Initialize persistent cache for $codes (only needs to be done once)
+        initPersistentCache(store);
+        
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         if (devReload) {
@@ -5412,7 +5416,6 @@ async function makeFrame({ data: { type, content } }) {
     if (content.result === "success") {
       authorizationRequest?.resolve(content.data);
     } else if (content.result === "error") {
-      console.warn("Failed to authenticate.", content);
       authorizationRequest?.reject(content.data);
     }
     authorizationRequest = undefined;
@@ -7262,9 +7265,29 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
-        let w = currentHUDTxt.length * tf.blockWidth + currentHUDScrub;
+        // Use plain text for width calculation to avoid counting color codes
+        const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
+        
+        // Double-check: strip color codes directly if they're still present
+        const colorCodeRegex = /\\[^\\]*\\/g;
+        const cleanText = textForWidthCalculation.replace(colorCodeRegex, '');
+        
+        // For corner label width, measure the actual display width
+        // If there are multiple lines, find the longest line for width calculation
+        let displayWidth;
+        if (cleanText.includes('\n')) {
+          const lines = cleanText.split('\n');
+          const maxLineLength = Math.max(...lines.map(line => line.length));
+          displayWidth = maxLineLength * tf.blockWidth;
+        } else {
+          displayWidth = cleanText.length * tf.blockWidth;
+        }
+        
+        let w = displayWidth + currentHUDScrub;
+        
+        // Also calculate what text.box would give us for comparison
         const labelBounds = $api.text.box(
-          currentHUDTxt,
+          cleanText,
           undefined,
           $api.screen.width - $api.typeface.blockWidth,
         );
@@ -7279,6 +7302,12 @@ async function makeFrame({ data: { type, content } }) {
         label = $api.painting(w, h, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+
+          // DEBUG: Show hitbox background (can be toggled by setting debug flag)
+          const showHitboxDebug = globalThis.debugHudHitbox || false;
+          if (showHitboxDebug) {
+            $.ink(255, 0, 0, 128).box(0, 0, w, h); // Semi-transparent red background to show actual hitbox size
+          }
 
           let c;
           if (currentHUDTextColor) {
@@ -7624,7 +7653,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // Attach a label buffer if necessary.
       // Hide label when QR is in fullscreen mode
-      if (label && !hudAnimationState.qrFullscreen)
+      if (label && !hudAnimationState.qrFullscreen) {
         sendData.label = {
           x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
           y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
@@ -7633,6 +7662,29 @@ async function makeFrame({ data: { type, content } }) {
             label,
           ),
         };
+
+        // DEBUG: Add hitbox visualization overlay
+        if (globalThis.debugHudHitbox && currentHUDButton) {
+          const hitboxWidth = currentHUDButton.box.w;
+          const hitboxHeight = currentHUDButton.box.h;
+          
+          const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
+            $.unpan();
+            // Draw a semi-transparent green border to show the hitbox
+            $.ink(0, 255, 0, 128).box(0, 0, hitboxWidth, hitboxHeight, "outline");
+            $.ink(0, 255, 0, 64).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
+          });
+          
+          sendData.hitboxDebug = {
+            x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
+            y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
+            opacity: hudAnimationState.opacity,
+            img: (({ width, height, pixels }) => ({ width, height, pixels }))(
+              hitboxOverlay,
+            ),
+          };
+        }
+      }
 
       // 🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
@@ -8247,6 +8299,13 @@ function maybeLeave() {
     leaveLoad = null;
   }
 }
+
+// Debug utility for HUD hitbox visualization
+globalThis.toggleHudHitboxDebug = () => {
+  globalThis.debugHudHitbox = !globalThis.debugHudHitbox;
+  console.log(`🎯 HUD Hitbox Debug: ${globalThis.debugHudHitbox ? 'ON' : 'OFF'}`);
+  $commonApi.needsPaint(); // Force repaint to show/hide the debug visualization
+};
 
 // Play a sound when "notice" fires.
 const noticeBell = (api, { tone } = { tone: 600 }) => {
