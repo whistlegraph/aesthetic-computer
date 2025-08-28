@@ -7019,9 +7019,9 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
   
   console.log("🔧 fetchMultipleCachedCodes called with:", codeArray, "- attempting batch HTTPS fetch");
   
-  // Use HTTPS for localhost as that's what netlify dev uses
+  // Use relative URL that works in both local and production
   const codesParam = encodeURIComponent(codeArray.join(','));
-  const fullUrl = `https://localhost:8888/api/store-kidlisp?codes=${codesParam}`;
+  const fullUrl = `/api/store-kidlisp?codes=${codesParam}`;
   console.log("🌐 Batch fetch URL:", fullUrl);
   
   try {
@@ -7064,8 +7064,8 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
-  // Use HTTPS for localhost as that's what netlify dev uses
-  const fullUrl = `https://localhost:8888/api/store-kidlisp?code=${nanoidCode}`;
+  // Use relative URL that works in both local and production
+  const fullUrl = `/api/store-kidlisp?code=${nanoidCode}`;
   
   try {
     // Try to fetch from the actual API with HTTPS
