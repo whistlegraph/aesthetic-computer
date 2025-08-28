@@ -1125,7 +1125,22 @@ export const boot = async ({ net }) => {
 // Initialize
 console.log("🎵 VISUALIZER.MJS: zzzZWAP visualizer loaded and ready!");
 
-function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) {
+// TV bars painting buffer - module-level to persist between frames
+let tvBarsBuffer = null;
+let lastScreenWidth = 0;
+let lastScreenHeight = 0;
+
+function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly }) {
+  // Initialize or recreate TV bars buffer if needed (first time or screen size changed)
+  if (!tvBarsBuffer || screen.width !== lastScreenWidth || screen.height !== lastScreenHeight) {
+    tvBarsBuffer = painting(screen.width, screen.height, (api) => {
+      // Initialize with transparent background
+      api.wipe(0, 0, 0, 0);
+    });
+    lastScreenWidth = screen.width;
+    lastScreenHeight = screen.height;
+  }
+
   // Global TV color tracking
   let globalCurrentColor = null;
   
@@ -1220,7 +1235,14 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
     currentTimeSeconds = 0;
   }
 
-  // === PRIMARY TV BAR COMPOSITION (FULL SCREEN) ===
+  // === PRIMARY TV BAR COMPOSITION (SEPARATE BUFFER) ===
+  // Render TV bars to their own buffer for isolation from UI elements
+  
+  // Clear and render to TV bars buffer
+  page(tvBarsBuffer); // Switch to TV bars buffer
+
+  wipe(0, 0, 0, 0); // Clear the buffer with transparent black each frame
+  
   // The TV bar is the main visual element that fills the entire screen
   // All other elements are overlays on top of this base composition
   
@@ -1510,8 +1532,59 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
           }
         }
         
-        // Draw the bar (after setting the correct ink)
-        box(clampedStartX, 0, actualWidth, screen.height);
+        // Get audio data for this bar - now with frequency bands!
+        const amplitude = sound.speaker?.amplitudes?.left || 0; // Single number for overall intensity
+        const audioWaveform = sound.speaker?.waveforms?.left || []; // Array for per-bar variation
+        const frequencyBands = sound.speaker?.frequencies?.left || []; // Array of frequency band objects
+        
+        // Calculate amplitude-based height with frequency band analysis
+        let amplitudeHeight = screen.height;
+        
+        // Try to use frequency bands first (more musical), fallback to waveform
+        if (frequencyBands.length > 0) {
+          // Map TV bars to frequency bands
+          const bandIndex = index % frequencyBands.length;
+          const frequencyBand = frequencyBands[bandIndex];
+          const bandAmplitude = frequencyBand?.amplitude || 0;
+          
+          // Combine overall amplitude (50%) with frequency band amplitude (50%)
+          const combinedAmplitude = (amplitude * 0.5) + (bandAmplitude * 0.5);
+          
+          // Scale amplitude to height
+          const minHeight = screen.height * 0.1; // 10% minimum
+          const maxHeight = screen.height;
+          amplitudeHeight = minHeight + combinedAmplitude * (maxHeight - minHeight);
+          
+          // Optional: Debug frequency band data occasionally
+          if (index === 0 && Math.random() < 0.05) {
+            console.log(`🎵 Frequency bands:`, frequencyBands.map(b => `${b.name}:${(b.amplitude * 100).toFixed(0)}%`).join(' '));
+          }
+          
+        } else if (audioWaveform.length > 0) {
+          // Fallback to waveform approach
+          const waveformIndex = Math.floor((index / totalBars) * audioWaveform.length);
+          const waveformValue = Math.abs(audioWaveform[waveformIndex] || 0);
+          
+          // Combine overall amplitude (70%) with per-bar waveform variation (30%)
+          const combinedAmplitude = (amplitude * 0.7) + (waveformValue * 0.3);
+          
+          // Scale amplitude to height (amplitude values are 0-1)
+          const minHeight = screen.height * 0.1; // 10% minimum
+          const maxHeight = screen.height;
+          amplitudeHeight = minHeight + combinedAmplitude * (maxHeight - minHeight);
+        } else {
+          // Fallback to just amplitude if no waveform data
+          const minHeight = screen.height * 0.1;
+          const maxHeight = screen.height;
+          amplitudeHeight = minHeight + amplitude * (maxHeight - minHeight);
+        }
+        
+        // Center the bar vertically
+        const barHeight = Math.floor(amplitudeHeight);
+        const barY = Math.floor((screen.height - barHeight) / 2);
+        
+        // Draw the bar with amplitude-based height
+        box(clampedStartX, barY, actualWidth, barHeight);
         
         // CRITICAL: Reset fade mode by calling ink with a non-fade string
         // This clears the global fadeMode, fadeColors, fadeDirection variables
@@ -1525,7 +1598,7 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
     });
     
   } else {
-    // Fallback: show current locator theme color across full screen
+    // Fallback: show current locator theme color across full screen with amplitude height
     if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
       // Use the same base color logic as timeline background and segments
       // Find the current locator index to match the segment color logic
@@ -1537,13 +1610,75 @@ function paint({ wipe, ink, screen, sound, clock, write, box, line, typeface }) 
       const colorIndex = currentLocatorIndex % currentPalette.colors.length;
       const bgColor = currentPalette.colors[colorIndex];
       ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
-      box(0, 0, screen.width, screen.height); // FULL SCREEN
+      
+      // Apply amplitude-based height to fallback as well
+      const amplitude = sound.speaker?.amplitudes?.left || 0;
+      let amplitudeHeight = screen.height;
+      
+      if (amplitude > 0) {
+        const minHeight = screen.height * 0.1;
+        const maxHeight = screen.height;
+        amplitudeHeight = minHeight + amplitude * (maxHeight - minHeight);
+      }
+      
+      const barHeight = Math.floor(amplitudeHeight);
+      const barY = Math.floor((screen.height - barHeight) / 2);
+      box(0, barY, screen.width, barHeight); // Amplitude-based height
     } else {
       // Default background when no content is playing - match timeline fallback
       ink(50, 50, 50);
-      box(0, 0, screen.width, screen.height); // FULL SCREEN
+      
+      // Even default gets amplitude if available
+      const amplitude = sound.speaker?.amplitudes?.left || 0;
+      let amplitudeHeight = screen.height;
+      
+      if (amplitude > 0) {
+        const minHeight = screen.height * 0.1;
+        const maxHeight = screen.height;
+        amplitudeHeight = minHeight + amplitude * (maxHeight - minHeight);
+      }
+      
+      const barHeight = Math.floor(amplitudeHeight);
+      const barY = Math.floor((screen.height - barHeight) / 2);
+      box(0, barY, screen.width, barHeight); // Amplitude-based height
     }
   }
+
+  // === WAVEFORM OVERLAY ON TV BARS ===
+  // Draw waveform on top of the TV bars (inspired by whistle.mjs)
+  const waveform = sound.speaker?.waveforms?.left || [];
+  const amplitude = sound.speaker?.amplitudes?.left || 0;
+  
+  if (waveform.length > 0) {
+    // Waveform rendering (similar to whistle.mjs paintSound function)
+    const xStep = screen.width / waveform.length;
+    const yMid = screen.height / 2;
+    const yMax = screen.height / 2;
+    
+    // Create waveform points
+    const waveformPoints = waveform.map((v, i) => [
+      i * xStep, 
+      yMid + v * yMax * 0.8 // Scale down to 80% to fit nicely over TV bars
+    ]);
+    
+    // Draw waveform as a translucent white/cyan line over the TV bars
+    ink(255, 255, 255, 128); // Semi-transparent white
+    poly(waveformPoints);
+    
+    // Optional: Draw amplitude bounding box (like whistle.mjs)
+    // ink(255, 255, 0, 64); // Semi-transparent yellow
+    // box(screen.width / 2, yMid, screen.width * 0.8, amplitude * yMax * 2, "*center");
+  }
+
+  zoom(0.5);
+  scroll(paintCount, paintCount);
+
+  // === END TV BARS RENDERING ===
+  // Switch back to main screen and paste the TV bars buffer with blur effect
+  page(screen);
+  paste(tvBarsBuffer);
+  // blur(1); // Apply blur to the TV bars buffer to test separation
+  // zoom(0.5);
 
   // === DYNAMIC TIMELINE ZOOM BASED ON NOTE DENSITY ===
   
@@ -1895,7 +2030,7 @@ function sim({ sound }) {
     });
   }
   
-  // Poll speaker for real-time analysis (if needed in future)
+  // Poll speaker for real-time analysis (following wipppps pattern)
   sound.speaker?.poll();
 }
 

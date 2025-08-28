@@ -3213,10 +3213,12 @@ class Microphone {
 class Speaker {
   waveforms = { left: [], right: [] };
   amplitudes = { left: [], right: [] };
+  frequencies = { left: [], right: [] };
 
   poll() {
     send({ type: "get-waveforms" });
     send({ type: "get-amplitudes" });
+    send({ type: "get-frequencies" });
   }
 }
 
@@ -5281,6 +5283,11 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "amplitudes") {
     speaker.amplitudes = content;
+    return;
+  }
+
+  if (type === "frequencies") {
+    speaker.frequencies = content;
     return;
   }
 
