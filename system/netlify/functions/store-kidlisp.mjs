@@ -89,6 +89,13 @@ export async function handler(event, context) {
     console.log(`📦 Body length: ${event.body.length} characters`);
   }
 
+  // Log environment variables (without sensitive data)
+  console.log(`🔧 Environment check:`, {
+    mongoDbConfigured: !!process.env.MONGODB_CONNECTION_STRING,
+    mongoDbNameConfigured: !!process.env.MONGODB_NAME,
+    tezosEnabled: process.env.TEZOS_ENABLED !== 'false'
+  });
+
   if (event.httpMethod === 'OPTIONS') {
     console.log(`✅ Handling OPTIONS preflight request`);
     return respond(200, '');
@@ -1082,6 +1089,11 @@ export async function handler(event, context) {
 
   } catch (error) {
     console.error('❌ Kidlisp cache error:', error);
-    return respond(500, { error: 'Internal server error' });
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return respond(500, { error: 'Internal server error', details: error.message });
   }
 }
