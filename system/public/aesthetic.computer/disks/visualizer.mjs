@@ -11,7 +11,10 @@ let lastMidiNoteColor = { r: 0, g: 255, b: 255 }; // Default to cyan
 let previousLocatorName = null;
 
 // Timeline visibility toggle
-let timelineVisible = true;
+let timelineVisible = false;
+
+// Frequency display toggle
+let frequencyDisplayVisible = false;
 
 // zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES
 const ZZZWAP_PALETTES = {
@@ -1538,52 +1541,16 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         const frequencyBands = sound.speaker?.frequencies?.left || []; // Array of frequency band objects
         
         // Calculate amplitude-based height with frequency band analysis
-        let amplitudeHeight = screen.height;
+        let amplitudeHeight = screen.height; // Always full length now!
         
-        // Try to use frequency bands first (more musical), fallback to waveform
-        if (frequencyBands.length > 0) {
-          // Map TV bars to frequency bands
-          const bandIndex = index % frequencyBands.length;
-          const frequencyBand = frequencyBands[bandIndex];
-          const bandAmplitude = frequencyBand?.amplitude || 0;
-          
-          // Combine overall amplitude (50%) with frequency band amplitude (50%)
-          const combinedAmplitude = (amplitude * 0.5) + (bandAmplitude * 0.5);
-          
-          // Scale amplitude to height
-          const minHeight = screen.height * 0.1; // 10% minimum
-          const maxHeight = screen.height;
-          amplitudeHeight = minHeight + combinedAmplitude * (maxHeight - minHeight);
-          
-          // Optional: Debug frequency band data occasionally
-          if (index === 0 && Math.random() < 0.05) {
-            console.log(`🎵 Frequency bands:`, frequencyBands.map(b => `${b.name}:${(b.amplitude * 100).toFixed(0)}%`).join(' '));
-          }
-          
-        } else if (audioWaveform.length > 0) {
-          // Fallback to waveform approach
-          const waveformIndex = Math.floor((index / totalBars) * audioWaveform.length);
-          const waveformValue = Math.abs(audioWaveform[waveformIndex] || 0);
-          
-          // Combine overall amplitude (70%) with per-bar waveform variation (30%)
-          const combinedAmplitude = (amplitude * 0.7) + (waveformValue * 0.3);
-          
-          // Scale amplitude to height (amplitude values are 0-1)
-          const minHeight = screen.height * 0.1; // 10% minimum
-          const maxHeight = screen.height;
-          amplitudeHeight = minHeight + combinedAmplitude * (maxHeight - minHeight);
-        } else {
-          // Fallback to just amplitude if no waveform data
-          const minHeight = screen.height * 0.1;
-          const maxHeight = screen.height;
-          amplitudeHeight = minHeight + amplitude * (maxHeight - minHeight);
-        }
+        // Always use full screen height - remove amplitude scaling
+        amplitudeHeight = screen.height;
         
         // Center the bar vertically
         const barHeight = Math.floor(amplitudeHeight);
-        const barY = Math.floor((screen.height - barHeight) / 2);
+        const barY = 0; // Start from top of screen
         
-        // Draw the bar with amplitude-based height
+        // Draw the bar with full height
         box(clampedStartX, barY, actualWidth, barHeight);
         
         // CRITICAL: Reset fade mode by calling ink with a non-fade string
@@ -1611,36 +1578,14 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       const bgColor = currentPalette.colors[colorIndex];
       ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
       
-      // Apply amplitude-based height to fallback as well
-      const amplitude = sound.speaker?.amplitudes?.left || 0;
-      let amplitudeHeight = screen.height;
-      
-      if (amplitude > 0) {
-        const minHeight = screen.height * 0.1;
-        const maxHeight = screen.height;
-        amplitudeHeight = minHeight + amplitude * (maxHeight - minHeight);
-      }
-      
-      const barHeight = Math.floor(amplitudeHeight);
-      const barY = Math.floor((screen.height - barHeight) / 2);
-      box(0, barY, screen.width, barHeight); // Amplitude-based height
+      // Always full height for fallback as well
+      box(0, 0, screen.width, screen.height); // Always full height
     } else {
       // Default background when no content is playing - match timeline fallback
       ink(50, 50, 50);
       
-      // Even default gets amplitude if available
-      const amplitude = sound.speaker?.amplitudes?.left || 0;
-      let amplitudeHeight = screen.height;
-      
-      if (amplitude > 0) {
-        const minHeight = screen.height * 0.1;
-        const maxHeight = screen.height;
-        amplitudeHeight = minHeight + amplitude * (maxHeight - minHeight);
-      }
-      
-      const barHeight = Math.floor(amplitudeHeight);
-      const barY = Math.floor((screen.height - barHeight) / 2);
-      box(0, barY, screen.width, barHeight); // Amplitude-based height
+      // Always full height for default as well
+      box(0, 0, screen.width, screen.height); // Always full height
     }
   }
 
@@ -1670,8 +1615,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // box(screen.width / 2, yMid, screen.width * 0.8, amplitude * yMax * 2, "*center");
   }
 
-  zoom(0.5);
-  scroll(paintCount, paintCount);
+  // zoom(0.25);
+  // scroll(paintCount, paintCount);
 
   // === END TV BARS RENDERING ===
   // Switch back to main screen and paste the TV bars buffer with blur effect
@@ -1705,6 +1650,222 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   // Fixed zoom level for consistent behavior (no dynamic scaling)
   const pixelsPerSecond = 60; // Increased from 35 to 60 px/sec for faster scrolling / more zoomed in view
+
+  // === FREQUENCY DISPLAY OVERLAY ===
+  // Separate small graphic element for frequency/amplitude data above timeline
+  if (frequencyDisplayVisible) {
+    const freqDisplayHeight = 30; // Smaller, more minimal height
+    const freqDisplayY = timelineVisible ? (screen.height - 25 - freqDisplayHeight) : (screen.height - freqDisplayHeight); // No gap
+    
+    // Get audio data first to calculate layouts
+    const amplitude = sound.speaker?.amplitudes?.left || 0;
+    const frequencyBands = sound.speaker?.frequencies?.left || [];
+    const waveform = sound.speaker?.waveforms?.left || [];
+    
+    if (frequencyBands.length > 0) {
+      // Filter out frequency bands that have no significant data to avoid empty dark bands
+      const activeBands = frequencyBands.filter((band, index) => {
+        const bandAmplitude = band.amplitude || 0;
+        const scaledAmplitude = Math.pow(bandAmplitude, 0.7);
+        return scaledAmplitude >= 0.005; // Only include bands with some activity
+      });
+      
+      // If we filtered out too many bands, keep at least the bands with the highest activity
+      let bandsToShow = activeBands;
+      if (activeBands.length < 8) {
+        // Not enough active bands, so include the top bands by amplitude
+        const sortedBands = frequencyBands
+          .map((band, index) => ({ ...band, originalIndex: index }))
+          .sort((a, b) => (b.amplitude || 0) - (a.amplitude || 0))
+          .slice(0, Math.max(8, activeBands.length));
+        bandsToShow = sortedBands;
+      }
+      
+      if (bandsToShow.length === 0) {
+        // Fallback: show all bands if none are active
+        bandsToShow = frequencyBands;
+      }
+      
+      // Reserve space for amplitude bar on the left - no gaps, pixel perfect
+      const ampBarWidth = 20; // Amplitude bar width
+      const freqStartX = ampBarWidth; // No gap between amp and freq
+      const freqAreaWidth = screen.width - freqStartX;
+      const exactBandWidth = freqAreaWidth / bandsToShow.length;
+      
+      // First pass: Draw individual colored negative backdrops for each active frequency band
+      bandsToShow.forEach((band, displayIndex) => {
+        // Calculate pixel-perfect positioning
+        const x = Math.floor(freqStartX + (displayIndex * exactBandWidth));
+        const nextX = Math.floor(freqStartX + ((displayIndex + 1) * exactBandWidth));
+        const barWidth = nextX - x; // Pixel-perfect width, no gaps
+        
+        // Use original index for color calculation to maintain consistent colors
+        const originalIndex = band.originalIndex !== undefined ? band.originalIndex : 
+                              frequencyBands.findIndex(b => b.name === band.name);
+        const normalizedIndex = originalIndex / frequencyBands.length;
+        let r, g, b;
+        
+        if (normalizedIndex < 0.22) {
+          // Sub-bass and bass frequencies - deep red to red
+          const t = normalizedIndex / 0.22;
+          r = Math.floor(150 + t * 105); // 150-255
+          g = Math.floor(t * 50); // 0-50
+          b = 0;
+        } else if (normalizedIndex < 0.44) {
+          // Low-mid frequencies - red to yellow
+          const t = (normalizedIndex - 0.22) / 0.22;
+          r = 255;
+          g = Math.floor(50 + t * 205); // 50-255
+          b = 0;
+        } else if (normalizedIndex < 0.67) {
+          // Mid to high-mid frequencies - yellow to cyan
+          const t = (normalizedIndex - 0.44) / 0.23;
+          r = Math.floor(255 * (1 - t));
+          g = 255;
+          b = Math.floor(t * 255);
+        } else {
+          // Treble and ultra frequencies - cyan to blue to purple
+          const t = (normalizedIndex - 0.67) / 0.33;
+          r = Math.floor(t * 128); // Add some purple
+          g = Math.floor(255 * (1 - t));
+          b = 255;
+        }
+        
+        // Create dark negative backdrop version (15% of original color)
+        const backdropR = Math.floor(r * 0.15);
+        const backdropG = Math.floor(g * 0.15);
+        const backdropB = Math.floor(b * 0.15);
+        
+        ink(backdropR, backdropG, backdropB);
+        box(x, freqDisplayY, barWidth, freqDisplayHeight);
+      });
+      
+      // Draw amplitude bar backdrop (more visible dark green)
+      ink(0, 40, 0); // Brighter dark green backdrop for amplitude so it's not black
+      box(0, freqDisplayY, ampBarWidth, freqDisplayHeight);
+      
+      // Second pass: Draw actual amplitude and frequency bars on top
+      
+      // Draw amplitude level bar on the left in green - bottom aligned, no margins
+      const ampHeight = Math.max(1, Math.floor(amplitude * freqDisplayHeight)); // Ensure at least 1px when active
+      const ampY = freqDisplayY + freqDisplayHeight - ampHeight; // Bottom aligned
+      
+      // Green amplitude bar with intensity based on level
+      const greenIntensity = Math.floor(100 + amplitude * 155); // 100-255 green
+      ink(0, greenIntensity, 0);
+      box(0, ampY, ampBarWidth, ampHeight); // Pixel perfect, no margins
+      
+      // Draw frequency bands on the right side - bottom aligned, pixel perfect
+      bandsToShow.forEach((band, displayIndex) => {
+        let bandAmplitude = band.amplitude || 0;
+        
+        // Use the amplitude directly from speaker.mjs (it's already properly scaled there)
+        // No additional compression here since speaker.mjs now handles it
+        
+        // Add frequency weighting - lower frequencies should feel heavier/more prominent
+        const originalIndex = band.originalIndex !== undefined ? band.originalIndex : 
+                              frequencyBands.findIndex(b => b.name === band.name);
+        const normalizedIndex = originalIndex / frequencyBands.length;
+        
+        // Frequency weighting: boost low frequencies, reduce high frequencies
+        let frequencyWeight = 1.0;
+        if (normalizedIndex < 0.3) {
+          // Bass and low-mid: boost by up to 30%
+          frequencyWeight = 1.0 + (0.3 - normalizedIndex) * 1.0;
+        } else if (normalizedIndex > 0.7) {
+          // High frequencies: reduce by up to 20%
+          frequencyWeight = 1.0 - (normalizedIndex - 0.7) * 0.7;
+        }
+        
+        bandAmplitude = bandAmplitude * frequencyWeight;
+        
+        // Simple threshold for showing bands
+        const threshold = 0.02; // 2% threshold
+        
+        // Calculate pixel-perfect positioning
+        const x = Math.floor(freqStartX + (displayIndex * exactBandWidth));
+        const nextX = Math.floor(freqStartX + ((displayIndex + 1) * exactBandWidth));
+        const barWidth = nextX - x; // Pixel-perfect width, no gaps
+        
+        if (bandAmplitude >= threshold) {
+          // Band has data - draw colored bar with direct amplitude scaling
+          const barHeight = Math.max(2, Math.floor(bandAmplitude * freqDisplayHeight)); // Direct scaling
+          const y = freqDisplayY + freqDisplayHeight - barHeight; // Bottom aligned
+          
+          // Use original index for consistent color mapping
+          
+          let r, g, b;
+          if (normalizedIndex < 0.22) {
+            // Sub-bass and bass frequencies - deep red to red
+            const t = normalizedIndex / 0.22;
+            r = Math.floor(150 + t * 105); // 150-255
+            g = Math.floor(t * 50); // 0-50
+            b = 0;
+          } else if (normalizedIndex < 0.44) {
+            // Low-mid frequencies - red to yellow
+            const t = (normalizedIndex - 0.22) / 0.22;
+            r = 255;
+            g = Math.floor(50 + t * 205); // 50-255
+            b = 0;
+          } else if (normalizedIndex < 0.67) {
+            // Mid to high-mid frequencies - yellow to cyan
+            const t = (normalizedIndex - 0.44) / 0.23;
+            r = Math.floor(255 * (1 - t));
+            g = 255;
+            b = Math.floor(t * 255);
+          } else {
+            // Treble and ultra frequencies - cyan to blue to purple
+            const t = (normalizedIndex - 0.67) / 0.33;
+            r = Math.floor(t * 128); // Add some purple
+            g = Math.floor(255 * (1 - t));
+            b = 255;
+          }
+          
+          // Apply amplitude-based brightness with good range
+          const brightness = 0.3 + (bandAmplitude * 0.7); // 30% to 100% brightness
+          r = Math.floor(r * brightness);
+          g = Math.floor(g * brightness);
+          b = Math.floor(b * brightness);
+          
+          ink(r, g, b);
+          box(x, y, barWidth, barHeight);
+          
+          // Optional: Add subtle "weight" effect for heavy frequencies
+          if (normalizedIndex < 0.4 && bandAmplitude > 0.4) {
+            // Add a subtle glow effect for heavy bass/low-mid frequencies
+            const glowAlpha = Math.floor((bandAmplitude - 0.4) * 80); // 0-48 alpha
+            ink(r, g, b, glowAlpha);
+            // Draw a slightly wider bar for glow effect
+            const glowWidth = Math.min(2, Math.floor(barWidth * 0.2));
+            if (glowWidth > 0) {
+              box(x - glowWidth, y, barWidth + (glowWidth * 2), barHeight);
+            }
+          }
+        }
+        // No else needed - the backdrop is already drawn
+      });
+    } else if (waveform.length > 0) {
+      // Fallback: draw waveform as amplitude visualization - bottom aligned, no gaps
+      const waveformStep = screen.width / waveform.length;
+      const maxHeight = freqDisplayHeight;
+      
+      ink(0, 255, 255); // Cyan for waveform
+      waveform.forEach((sample, index) => {
+        const x = index * waveformStep;
+        const barHeight = Math.abs(sample) * maxHeight;
+        const y = freqDisplayY + freqDisplayHeight - barHeight; // Bottom aligned
+        box(Math.floor(x), y, Math.floor(waveformStep), Math.floor(barHeight));
+      });
+    } else {
+      // Simple amplitude bar if no detailed data - bottom aligned, full width
+      const ampWidth = amplitude * screen.width;
+      const ampHeight = freqDisplayHeight;
+      const ampY = freqDisplayY;
+      
+      ink(255, 255, 0); // Yellow for amplitude
+      box(0, ampY, Math.floor(ampWidth), ampHeight);
+    }
+  }
 
   // === TIMELINE OVERLAY (MINIMAL & FAST) ===
   // The timeline is now an overlay element that sits on top of the TV bar composition
@@ -1941,9 +2102,12 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
 } // Close paint function
 
 function act({ event: e, sound }) {
-  // Toggle timeline visibility with 't' key or tab key (using standard tab handler pattern)
-  if (e.is("keyboard:t") || (e.is("keyboard:down:tab") && e.key === "Tab")) {
+  // Toggle both timeline and frequency display with 'tab' key only
+  if (e.is("keyboard:tab") || (e.is("keyboard:down:tab"))) {
     timelineVisible = !timelineVisible;
+    frequencyDisplayVisible = !frequencyDisplayVisible;
+    console.log("Timeline visibility toggled:", timelineVisible);
+    console.log("Frequency display visibility toggled:", frequencyDisplayVisible);
   }
   
   // Simple play/pause control
