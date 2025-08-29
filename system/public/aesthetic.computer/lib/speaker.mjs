@@ -49,7 +49,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #frequencyBandsRight = [];
   #fftBufferLeft = [];
   #fftBufferRight = [];
-  #fftSize = 256; // Must be power of 2
+  #fftSize = 1024; // Larger buffer for better frequency resolution
 
   #mixDivisor = 1;
 
@@ -537,14 +537,26 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       Math.sqrt(complex.real * complex.real + complex.imag * complex.imag)
     );
     
-    // Define frequency bands (in Hz)
+    // Define frequency bands (in Hz) - More detailed for better visualization, especially high frequencies
     const bands = [
-      { name: 'bass', min: 20, max: 250 },      // Bass
-      { name: 'lowMid', min: 250, max: 500 },   // Low Mid
-      { name: 'mid', min: 500, max: 2000 },     // Mid
-      { name: 'highMid', min: 2000, max: 4000 }, // High Mid
-      { name: 'treble', min: 4000, max: 8000 }, // Treble
-      { name: 'ultra', min: 8000, max: 20000 }  // Ultra High
+      { name: 'subBass', min: 20, max: 60 },        // Sub Bass
+      { name: 'bass', min: 60, max: 150 },          // Bass  
+      { name: 'lowBass', min: 150, max: 250 },      // Low Bass
+      { name: 'lowMid', min: 250, max: 500 },       // Low Mid
+      { name: 'lowMid2', min: 500, max: 800 },      // Low Mid 2
+      { name: 'mid', min: 800, max: 1200 },         // Mid
+      { name: 'midHigh', min: 1200, max: 1800 },    // Mid High
+      { name: 'highMid', min: 1800, max: 2500 },    // High Mid
+      { name: 'highMid2', min: 2500, max: 3500 },   // High Mid 2
+      { name: 'presence', min: 3500, max: 5000 },   // Presence
+      { name: 'treble1', min: 5000, max: 6500 },    // Treble 1
+      { name: 'treble2', min: 6500, max: 8000 },    // Treble 2
+      { name: 'highTreble1', min: 8000, max: 10000 }, // High Treble 1
+      { name: 'highTreble2', min: 10000, max: 12000 }, // High Treble 2
+      { name: 'air1', min: 12000, max: 14000 },     // Air 1
+      { name: 'air2', min: 14000, max: 16000 },     // Air 2
+      { name: 'ultra1', min: 16000, max: 18000 },   // Ultra High 1
+      { name: 'ultra2', min: 18000, max: 20000 }    // Ultra High 2
     ];
     
     // Calculate bin frequency resolution
@@ -564,10 +576,16 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       
       const amplitude = count > 0 ? sum / count : 0;
       
+      // Simple, conservative scaling approach
+      let scaledAmplitude = amplitude;
+      
+      // Very gentle boost with square root compression for natural feel
+      scaledAmplitude = Math.sqrt(scaledAmplitude) * 1.5; // Much more conservative
+      
       return {
         name: band.name,
         frequency: { min: band.min, max: band.max },
-        amplitude: Math.min(1, amplitude * 10), // Scale and clamp to 0-1
+        amplitude: Math.min(0.9, scaledAmplitude), // Clamp to 90% for headroom
         binRange: { start: startBin, end: endBin }
       };
     });
