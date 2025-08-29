@@ -227,8 +227,12 @@ function slug(url) {
   // Decode URL-encoded characters first
   cleanedUrl = decodeURIComponent(cleanedUrl);
 
-  // Use centralized kidlisp URL decoding
-  return decodeKidlispFromUrl(cleanedUrl);
+  // Only apply kidlisp URL decoding if this actually looks like kidlisp code
+  if (isKidlispSource(cleanedUrl)) {
+    return decodeKidlispFromUrl(cleanedUrl);
+  }
+  
+  return cleanedUrl;
 }
 
 // Read first two lines of JavaScript or Lisp source to pull off a title & desc.
