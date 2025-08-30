@@ -412,6 +412,14 @@ async function halt($, text) {
       }
       await tapePromise;
       let duration = parseFloat(params[0]);
+      let frameMode = false;
+      
+      // Check if the first parameter ends with 'f' for frame-based recording
+      if (params[0] && typeof params[0] === 'string' && params[0].toLowerCase().endsWith('f')) {
+        frameMode = true;
+        duration = parseFloat(params[0].slice(0, -1)); // Remove the 'f' suffix
+        console.log(`🎬 Frame-based recording requested: ${duration} frames`);
+      }
 
       let jumpTo;
 
@@ -435,21 +443,40 @@ async function halt($, text) {
             })(),
             originalCommand: text,
             intendedDuration: isNaN(duration) ? null : duration,
+            frameMode: frameMode,
+            frameCount: frameMode ? (isNaN(duration) ? 8 : duration) : null,
+            showTezosStamp: true, // Enable Tezos stamp by default for GIF recordings
             mystery: false
           },
           (time) => {
-            rec.tapeTimerSet(duration || defaultDuration, time);
+            if (frameMode) {
+              rec.tapeTimerSet(duration || 8, time, true); // Default to 8 frames if no duration specified
+            } else {
+              rec.tapeTimerSet(duration || defaultDuration, time, false);
+            }
           },
         ); // Start recording immediately.
       };
 
-      if (isNaN(duration) && params[0]?.length > 0) {
-        duration = defaultDuration; //Infinity;
-        // Reconstruct the original kidlisp content without adding tildes
-        const originalContent = text.slice(text.indexOf(params[0])); // Get everything after "tape "
-        jumpTo = params[0];
-        jump(originalContent);
-        rec.videoOnLeave = true;
+      if ((isNaN(duration) || duration === 0) && params[0]?.length > 0) {
+        // Handle cases like "tape $code" or "tape f" or "tape 0f"
+        if (frameMode && (isNaN(duration) || duration === 0)) {
+          duration = 8; // Default to 8 frames for "tape f" or "tape 0f"
+        } else if (!frameMode) {
+          duration = defaultDuration; // Default to 7 seconds for "tape $code"
+        }
+        
+        // Only jump to piece if it's not just a frame count
+        if (!frameMode || !params[0].toLowerCase().endsWith('f')) {
+          // Reconstruct the original kidlisp content without adding tildes
+          const originalContent = text.slice(text.indexOf(params[0])); // Get everything after "tape "
+          jumpTo = params[0];
+          jump(originalContent);
+          rec.videoOnLeave = true;
+        } else {
+          // For "tape f" or "tape 0f", just record the prompt
+          jump("prompt");
+        }
       } else if (params[1]) {
         jumpTo = params[1];
         // Reconstruct the original content for kidlisp preservation
