@@ -1,3 +1,5 @@
+// oskie - zzzZWAP
+
 // Color history for decay effect (module-level since no window object in worker)
 let colorHistory = [];
 
@@ -153,7 +155,6 @@ function getPaletteForLocator(locatorName) {
   return ZZZWAP_PALETTES.START; // Default fallback
 }
 
-// Visualizer - zzzZWAP Project Visualizer, 2025.08.18
 // Loads specific Ableton project and audio files over network
 // Shows only current and next locator during playback
 
