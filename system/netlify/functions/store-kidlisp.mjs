@@ -972,6 +972,73 @@ export async function handler(event, context) {
     } else if (event.httpMethod === 'GET') {
       const code = event.queryStringParameters?.code;
       const codes = event.queryStringParameters?.codes;
+      const recent = event.queryStringParameters?.recent;
+      
+      // Handle recent codes feed (for $.mjs piece)
+      if (recent) {
+        const limit = parseInt(event.queryStringParameters?.limit) || 50;
+        const maxLimit = 100; // Prevent excessive queries
+        const actualLimit = Math.min(limit, maxLimit);
+        
+        console.log(`📊 Recent codes request: limit=${actualLimit}`);
+        
+        // Aggregate pipeline to join with handles collection (like moods.mjs)
+        const pipeline = [
+          {
+            $lookup: {
+              from: "@handles",
+              localField: "user",
+              foreignField: "_id",
+              as: "handleInfo"
+            }
+          },
+          {
+            $sort: { when: -1 }
+          },
+          {
+            $limit: actualLimit
+          },
+          {
+            $project: {
+              _id: 0,
+              code: 1,
+              source: 1,
+              when: 1,
+              hits: 1,
+              user: 1,
+              handle: { 
+                $cond: {
+                  if: { $gt: [{ $size: "$handleInfo" }, 0] },
+                  then: { $concat: ["@", { $arrayElemAt: ["$handleInfo.handle", 0] }] },
+                  else: null
+                }
+              }
+            }
+          }
+        ];
+        
+        const docs = await collection.aggregate(pipeline).toArray();
+        
+        // Create preview versions of source code (truncate long sources)
+        const recentCodes = docs.map(doc => ({
+          code: doc.code,
+          source: doc.source,
+          preview: doc.source.length > 40 ? doc.source.substring(0, 37) + "..." : doc.source,
+          when: doc.when,
+          hits: doc.hits,
+          user: doc.user || null,
+          handle: doc.handle || null
+        }));
+        
+        console.log(`📤 Recent codes retrieved: ${recentCodes.length} codes`);
+        
+        await database.disconnect();
+        return respond(200, {
+          recent: recentCodes,
+          count: recentCodes.length,
+          limit: actualLimit
+        });
+      }
       
       // Handle batch retrieval of multiple codes
       if (codes) {
