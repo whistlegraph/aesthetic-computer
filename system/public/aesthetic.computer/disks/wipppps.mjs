@@ -222,7 +222,7 @@ class ALSProject {
     // Sort tempo changes by time
     this.tempoChanges.sort((a, b) => a.time - b.time);
     
-    console.log(`Found ${this.tempoChanges.length} tempo changes:`, this.tempoChanges);
+    // console.log(`Found ${this.tempoChanges.length} tempo changes:`, this.tempoChanges);
     
     // If no tempo changes found, create one at the beginning with the main tempo
     if (this.tempoChanges.length === 0) {
@@ -292,10 +292,10 @@ class ALSProject {
     
     if (tempoMatch) {
       this.tempo = parseFloat(tempoMatch[1]);
-      console.log("Parsed tempo:", this.tempo, "BPM");
+      // console.log("Parsed tempo:", this.tempo, "BPM");
     } else {
-      console.log("No tempo found, using default 120 BPM");
-      console.log("Tempo search patterns failed in XML. First 1000 chars:", xmlData.substring(0, 1000));
+      // console.log("No tempo found, using default 120 BPM");
+      // console.log("Tempo search patterns failed in XML. First 1000 chars:", xmlData.substring(0, 1000));
     }
     
     const timeSignatureMatch = xmlData.match(/<TimeSignature>\s*<Numerator Value="(\d+)"\s*\/>\s*<Denominator Value="(\d+)"\s*\/>\s*<\/TimeSignature>/);
@@ -309,7 +309,7 @@ class ALSProject {
   }
   
   parseTempoChanges(xmlData) {
-    console.log("Parsing tempo changes...");
+    // console.log("Parsing tempo changes...");
     this.tempoChanges = [];
     
     // For now, just create a single tempo change at the beginning
@@ -320,11 +320,11 @@ class ALSProject {
       tempo: this.tempo
     });
     
-    console.log(`Using single tempo: ${this.tempo} BPM`);
+    // console.log(`Using single tempo: ${this.tempo} BPM`);
   }
   
   parseTracks(xmlData) {
-    console.log("Starting enhanced track parsing...");
+    // console.log("Starting enhanced track parsing...");
     
     const trackRegex = /<(MidiTrack|AudioTrack|ReturnTrack|MasterTrack|GroupTrack)[\s\S]*?<\/\1>/g;
     let match;
@@ -344,12 +344,12 @@ class ALSProject {
         clips: []
       };
       
-      console.log(`Track ${trackIndex}: "${track.name}" (${track.type})`);
+      // console.log(`Track ${trackIndex}: "${track.name}" (${track.type})`);
       this.tracks.push(track);
       trackIndex++;
     }
     
-    console.log(`Parsed ${this.tracks.length} tracks with names`);
+    // console.log(`Parsed ${this.tracks.length} tracks with names`);
   }
   
   parseScenes(xmlData) {
@@ -371,13 +371,13 @@ class ALSProject {
   
   // Parse locators (crucial for song structure visualization)
   parseLocators(xmlData) {
-    console.log("Starting locator parsing...");
+    // console.log("Starting locator parsing...");
     
     // First, let's examine the locators section more carefully
     const locatorsSection = xmlData.match(/<Locators>[\s\S]*?<\/Locators>/);
     if (locatorsSection) {
-      console.log("Found Locators section, length:", locatorsSection[0].length);
-      console.log("Locators section preview:", locatorsSection[0].substring(0, 500));
+      // console.log("Found Locators section, length:", locatorsSection[0].length);
+      // console.log("Locators section preview:", locatorsSection[0].substring(0, 500));
     }
     
     // Parse individual locator elements with their full content
@@ -386,7 +386,7 @@ class ALSProject {
     
     while ((match = locatorRegex.exec(xmlData)) !== null) {
       const locatorContent = match[0];
-      console.log("Processing full locator:", locatorContent.substring(0, 300));
+      // console.log("Processing full locator:", locatorContent.substring(0, 300));
       
       // Extract ID from the opening tag
       const idMatch = locatorContent.match(/<Locator[^>]*Id="([^"]*)"[^>]*>/);
@@ -402,7 +402,7 @@ class ALSProject {
         const timeValue = parseFloat(timeMatch[1]);
         
         // Debug raw locator timing
-        console.log(`Converting locator timing for "${nameMatch ? nameMatch[1] : 'Unnamed'}": ${timeValue}`);
+        // console.log(`Converting locator timing for "${nameMatch ? nameMatch[1] : 'Unnamed'}": ${timeValue}`);
         
         // Use smart conversion for locators too
         const locator = {
@@ -413,21 +413,21 @@ class ALSProject {
           seconds: this.convertALSTimeToSeconds(timeValue, `locator "${nameMatch ? nameMatch[1] : locatorId}"`)
         };
         
-        console.log(`Locator ${locatorId}: ${locator.name} at ${timeValue} = ${locator.seconds.toFixed(2)}s`);
+        // console.log(`Locator ${locatorId}: ${locator.name} at ${timeValue} = ${locator.seconds.toFixed(2)}s`);
         this.locators.push(locator);
       } else {
-        console.log("No time found in locator:", locatorId);
+        // console.log("No time found in locator:", locatorId);
       }
     }
     
-    console.log(`Total locators parsed: ${this.locators.length}`);
+    // console.log(`Total locators parsed: ${this.locators.length}`);
     
     // Sort locators by time
     this.locators.sort((a, b) => a.time - b.time);
     
     // If still no locators found, create some test locators
     if (this.locators.length === 0) {
-      console.log("No locators found, creating test locators...");
+      // console.log("No locators found, creating test locators...");
       this.locators = [
         { id: "0", time: 0, beat: 0, name: "START", seconds: 0 },
         { id: "1", time: 480, beat: 480, name: "Verse", seconds: this.beatsToSeconds(480) },
@@ -435,7 +435,7 @@ class ALSProject {
         { id: "3", time: 1440, beat: 1440, name: "Bridge", seconds: this.beatsToSeconds(1440) },
         { id: "4", time: 1920, beat: 1920, name: "End", seconds: this.beatsToSeconds(1920) }
       ];
-      console.log("Created test locators:", this.locators);
+      // console.log("Created test locators:", this.locators);
     }
   }
   
@@ -493,7 +493,7 @@ class ALSProject {
   
   // Enhanced clip parsing for better visualization
   parseEnhancedClips(xmlData) {
-    console.log("Parsing enhanced clips for visualization...");
+    // console.log("Parsing enhanced clips for visualization...");
     
     // Parse TakeLanes which contain arrangement clips
     const takeLaneRegex = /<TakeLane[\s\S]*?<\/TakeLane>/g;
@@ -535,8 +535,6 @@ class ALSProject {
         const rawStart = clip.currentStart || clip.time || 0;
         const rawEnd = clip.currentEnd || (clip.currentStart + (clip.loopEnd - clip.loopStart)) || 0;
         
-        console.log(`Converting timing for clip "${clip.name}": rawStart=${rawStart}, rawEnd=${rawEnd}`);
-        
         clip.startSeconds = this.convertALSTimeToSeconds(rawStart, `clip "${clip.name}" start`);
         clip.endSeconds = this.convertALSTimeToSeconds(rawEnd, `clip "${clip.name}" end`);
         clip.duration = clip.endSeconds - clip.startSeconds;
@@ -548,7 +546,7 @@ class ALSProject {
       trackIndex++;
     }
     
-    console.log(`Parsed ${this.clips.length} enhanced clips across ${trackIndex} tracks`);
+    // console.log(`Parsed ${this.clips.length} enhanced clips across ${trackIndex} tracks`);
   }
 
   parseMIDIClips(xmlData) {
@@ -1099,19 +1097,19 @@ export const boot = async ({ net }) => {
   
   try {
     // Load the .als file
-    console.log("Loading zzzZWAP.als...");
+    // console.log("Loading zzzZWAP.als...");
     const alsResponse = await fetch("https://assets.aesthetic.computer/wipppps/zzzZWAP.als");
     const alsArrayBuffer = await alsResponse.arrayBuffer();
     
     // Try to decompress using native browser decompression (if supported)
     let alsText;
     try {
-      console.log("Attempting to decompress ALS file using DecompressionStream...");
+      // console.log("Attempting to decompress ALS file using DecompressionStream...");
       const stream = new Response(alsArrayBuffer).body;
       const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
       const decompressedResponse = new Response(decompressedStream);
       alsText = await decompressedResponse.text();
-      console.log("Successfully decompressed ALS file");
+      // console.log("Successfully decompressed ALS file");
     } catch (decompressError) {
       console.log("Native decompression failed, trying as plain text:", decompressError);
       // Fallback: try as plain text
@@ -1120,22 +1118,22 @@ export const boot = async ({ net }) => {
     
     // Parse the ALS project
     alsProject = new ALSProject(alsText);
-    console.log("ALS project loaded:", alsProject);
-    console.log("Locators found:", alsProject.locators.length);
-    console.log("First 1000 chars of ALS file:", alsText.substring(0, 1000));
+    // console.log("ALS project loaded:", alsProject);
+    // console.log("Locators found:", alsProject.locators.length);
+    // console.log("First 1000 chars of ALS file:", alsText.substring(0, 1000));
     
     // Load the audio file
-    console.log("Loading zzzZWAP.wav...");
+    // console.log("Loading zzzZWAP.wav...");
     preloadedAudio = await net.preload("https://assets.aesthetic.computer/wipppps/zzzZWAP.wav");
     
     // Try to get duration immediately from the preloaded audio metadata
     if (preloadedAudio && preloadedAudio.buffer) {
       actualDuration = preloadedAudio.buffer.duration;
-      console.log("Got duration from preloaded audio:", actualDuration);
+      // console.log("Got duration from preloaded audio:", actualDuration);
     }
     
     message = "Ready! Tap to play";
-    console.log("All files loaded successfully!");
+    // console.log("All files loaded successfully!");
     
   } catch (error) {
     console.error("Error loading files:", error);
@@ -1144,7 +1142,7 @@ export const boot = async ({ net }) => {
 };
 
 // Initialize
-console.log("🎵 VISUALIZER.MJS: zzzZWAP visualizer loaded and ready!");
+// console.log("🎵 VISUALIZER.MJS: zzzZWAP visualizer loaded and ready!");
 
 // TV bars painting buffer - module-level to persist between frames
 let tvBarsBuffer = null;
@@ -1290,7 +1288,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // Locator changed - clear all decaying colors for clean section transition
     colorHistory = [];
     previousLocatorName = currentLocatorName;
-    console.log(`🎬 Locator changed to: ${currentLocatorName} - cleared color decay`);
+    // console.log(`🎬 Locator changed to: ${currentLocatorName} - cleared color decay`);
   }
   
   // Process MIDI notes for current time to collect active colors
