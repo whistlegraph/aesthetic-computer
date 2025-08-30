@@ -1384,15 +1384,13 @@ class KidLisp {
     // Store flag to skip caching for .lisp files
     this.isLispFile = isLispFile;
     
-    // ⚡ PERFORMANCE: Only clear embedded layer cache if source actually changed
-    // This prevents resize/reframe operations from destroying cached layers
-    if (sourceChanged) {
-      this.clearEmbeddedLayerCache();
-    }
+    // Always clear embedded layer cache when loading a module
+    // This ensures fresh state when entering/re-entering a piece
+    this.clearEmbeddedLayerCache();
     
-    // Log source with square brackets for easy copying
-    console.log("🟪");
-    console.log(source);
+    // Source logging removed for performance
+    // console.log("🟪");
+    // console.log(source);
     
     // Log source with square brackets for easy copying
     // console.log("�");
@@ -2561,11 +2559,8 @@ class KidLisp {
         api.box(...processedArgs);
       },
       circle: (api, args = []) => {
-        console.log("🔴 CIRCLE GLOBALENV: called with args:", args, "api.circle exists:", typeof api.circle);
-        
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          console.log("🔴 CIRCLE GLOBALENV: deferring command");
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'circle',
@@ -2575,7 +2570,6 @@ class KidLisp {
           return;
         }
         
-        console.log("🔴 CIRCLE GLOBALENV: calling api.circle immediately");
         api.circle(...args);
       },
       flood: (api, args = []) => {
@@ -3878,11 +3872,14 @@ class KidLisp {
             height = this.evaluate(args[4], api, this.localEnv) || 256;
             alpha = this.evaluate(args[5], api, this.localEnv);
             // Support both 0-1 and 0-255 alpha ranges
-            if (alpha <= 1 && alpha > 0) {
+            if (alpha !== undefined && alpha !== null && alpha <= 1 && alpha >= 0) {
               alpha = Math.floor(alpha * 255);
             }
-            // Default to fully opaque if alpha parameter is undefined/null/0
-            alpha = alpha !== undefined && alpha !== null ? alpha : 255;
+            // Default to fully opaque if alpha parameter is undefined/null
+            // But allow 0 to mean fully transparent
+            if (alpha === undefined || alpha === null) {
+              alpha = 255;
+            }
           }
         }
         
@@ -3939,20 +3936,12 @@ class KidLisp {
           
           // Always render nested embedded layers when called from within another embedded layer
           // This ensures nested embeds like ($pie ...) and ($febs ...) actually execute
-          // console.log("🔄 Rendering nested embedded layer:", layerKey);
           const shouldRender = this.updateEmbeddedLayer(api, existingLayer);
           
           // Only paste if the layer decided to render this frame
           if (shouldRender && existingLayer.buffer && api.paste) {
-            // Use alpha blending if alpha is less than fully opaque
-            if (existingLayer.alpha !== undefined && existingLayer.alpha < 255) {
-              this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
-            } else {
-              api.paste(existingLayer.buffer, x, y);
-            }
-            // console.log(`📋 Pasted nested layer ${layerKey} to current buffer at (${x},${y})`);
-          } else if (!shouldRender) {
-            // Skipped pasting debug log removed for performance
+            // Always use alpha blending to properly handle pixels with alpha channels
+            this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
           }
           
           return existingLayer;
@@ -3983,8 +3972,30 @@ class KidLisp {
           return this.embeddedLayerCache.get(fetchKey);
         }
         
-        // Mark as being fetched and create fetch promise
-        const fetchPromise = Promise.race([
+        // 🚀 NON-BLOCKING APPROACH: Create placeholder layer immediately, fetch source in background
+        
+        // Create a placeholder layer with loading indicator for immediate rendering
+        const placeholderSource = `(fps 24)
+(wipe 32 32 32 128)
+(ink 200 200 200)
+(write (+ "Loading " ${JSON.stringify(cacheId)} "...") 4 4)`;
+        
+        const placeholderLayer = this.createEmbeddedLayerFromSource(
+          placeholderSource, 
+          cacheId, 
+          layerKey, 
+          width, 
+          height, 
+          x, 
+          y, 
+          alpha, 
+          api
+        );
+        
+        console.log(`✅ Placeholder layer created for ${cacheId}:`, placeholderLayer ? 'success' : 'failed');
+        
+        // Start background fetch without blocking the render
+        const backgroundFetch = Promise.race([
           getCachedCodeMultiLevel(cacheId),
           new Promise((resolve) => {
             setTimeout(() => {
@@ -4000,184 +4011,52 @@ class KidLisp {
           this.loadedEmbeddedLayers.add(cacheId);
           
           if (!source) {
-            console.warn("❌ No cached code found for:", cacheId, "- using fallback");
             source = `(fps 24)
 (wipe red)
 (ink yellow)
 (line 0 64 128 64)
 (ink green)  
 (line 64 0 64 128)`;
-            console.log("🎨 Using fallback source:", source);
           }
           
           // Cache the source code for future use
           this.embeddedSourceCache.set(cacheId, source);
           
-          return this.createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, alpha, api);
-          
-          if (!source) {
-            console.warn("❌ No cached code found for:", cacheId, "- using fallback");
-            // For debugging, let's use a simple fallback pie animation
-            source = `(fps 24)
-(wipe red)
-(ink yellow)
-(line 0 64 128 64)
-(ink green)  
-(line 64 0 64 128)`;
-            console.log("🎨 Using fallback source:", source);
-          }
-          if (!source) {
-            console.warn("❌ No cached code found for:", cacheId);
-            return undefined;
-          }
-          
-          // Check if there's already an existing layer for this key
-          const existingLayer = this.embeddedLayerCache.get(layerKey);
-          if (existingLayer && existingLayer.source !== source) {
-            
-            // Update the existing layer with the real code
-            const embeddedKidLisp = new KidLisp();
-            // Start embedded layers with fresh timing states for re-entrancy
-            embeddedKidLisp.frameCount = 0;
-            embeddedKidLisp.frameCounter = 0;
-            embeddedKidLisp.timingStates = new Map();
-            embeddedKidLisp.lastSecondExecutions = {};
-            
-            // IMPORTANT: Share the source cache with embedded instances
-            embeddedKidLisp.embeddedSourceCache = this.embeddedSourceCache;
-            embeddedKidLisp.embeddedLayerCache = this.embeddedLayerCache;
-            
-            const parsedCode = embeddedKidLisp.parse(source);
-            
-            // Update the existing layer
-            existingLayer.source = source;
-            existingLayer.parsedCode = parsedCode;
-            existingLayer.kidlispInstance = embeddedKidLisp;
-            
-            console.log(`✅ Updated existing embedded layer: ${layerKey} with real code`);
-            return existingLayer;
-          }
-          
-          // Create a dedicated KidLisp instance for this embedded layer
-          const embeddedKidLisp = new KidLisp();
-          
-          // Give each embedded instance its own isolated state - start fresh for re-entrancy
-          embeddedKidLisp.frameCount = 0;
-          embeddedKidLisp.frameCounter = 0;
-          
-          // Ensure timing states are isolated (each layer has its own timing map)
-          embeddedKidLisp.timingStates = new Map();
-          embeddedKidLisp.lastSecondExecutions = {};
-          
-          // Create isolated local environment 
-          embeddedKidLisp.localEnv = { ...this.localEnv };
-          
-          // IMPORTANT: Share the source cache with embedded instances
-          embeddedKidLisp.embeddedSourceCache = this.embeddedSourceCache;
-          embeddedKidLisp.embeddedLayerCache = this.embeddedLayerCache;
-          
-          const parsedCode = embeddedKidLisp.parse(source);
-          
-          // Check if we already have a buffer for this layer (for persistence)
-          let embeddedBuffer;
-          const persistentLayer = this.embeddedLayers.find(layer => layer.cacheId === layerKey);
-          // Persistent layer lookup and buffer creation debug logs removed for performance
-          if (persistentLayer && persistentLayer.buffer) {
-            // Check if the source code has changed
-            if (persistentLayer.source === source) {
-              console.log("♻️ Reusing existing buffer for persistent layer (same source):", layerKey);
-              embeddedBuffer = persistentLayer.buffer;
-            } else {
-              console.log("🔄 Source code changed for layer, clearing buffer:", layerKey);
-              
-              // Source changed, clear the buffer and create a new one
-              if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
-                // Clear the buffer by filling with transparent pixels
-                const pixels = persistentLayer.buffer.pixels;
-                for (let i = 0; i < pixels.length; i += 4) {
-                  pixels[i] = 0;     // R
-                  pixels[i + 1] = 0; // G
-                  pixels[i + 2] = 0; // B
-                  pixels[i + 3] = 0; // A (transparent)
-                }
+          // Update the existing layer with real source code
+          if (placeholderLayer && this.embeddedLayerCache.has(layerKey)) {
+            const existingLayer = this.embeddedLayerCache.get(layerKey);
+            if (existingLayer) {
+              // Clear the placeholder buffer
+              if (existingLayer.buffer && existingLayer.buffer.pixels) {
+                existingLayer.buffer.pixels.fill(0);
               }
-              embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
               
-              // Update the layer's source code
-              persistentLayer.source = source;
-              persistentLayer.parsedCode = parsedCode;
-              persistentLayer.kidlispInstance = embeddedKidLisp;
+              // Update with real source and reparse
+              existingLayer.source = source;
+              existingLayer.sourceCode = source;
+              existingLayer.parsedCode = existingLayer.kidlispInstance.parse(source);
+              
+              // Reset timing for fresh start
+              existingLayer.localFrameCount = 0;
+              existingLayer.timingPattern = this.extractTimingPattern(source);
+              
+              console.log(`🔄 Updated embedded layer ${cacheId} with real source code`);
             }
-          } else {
-            // Create a buffer for this embedded layer
-            embeddedBuffer = api.painting(width, height, (bufferApi) => {
-              // Initial execution to set up the buffer
-              try {
-                // Create combined API for initial execution
-                const combinedApi = {
-                  ...api, // Include main API with timing, fps, etc.
-                  ...bufferApi, // Include buffer-specific API
-                  screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height },
-                  // Ensure drawing commands work properly in embedded buffer
-                  circle: (...args) => bufferApi.circle(...args),
-                  box: (...args) => bufferApi.box(...args),
-                  line: (...args) => bufferApi.line(...args),
-                  point: (...args) => bufferApi.point(...args),
-                  poly: (...args) => bufferApi.poly(...args),
-                  paste: (...args) => bufferApi.paste(...args),
-                  stamp: (...args) => bufferApi.stamp(...args),
-                  write: (...args) => bufferApi.write(...args),
-                  flood: (...args) => bufferApi.flood(...args),
-                  ink: (...args) => bufferApi.ink(...args),
-                  wipe: (...args) => bufferApi.wipe(...args),
-                };
-                
-                embeddedKidLisp.evaluate(parsedCode, combinedApi, embeddedKidLisp.localEnv);
-              } catch (error) {
-                console.error("❌ Error in initial embedded layer execution:", error);
-                bufferApi.wipe?.(255, 0, 0, 128); // Red background for error
-              }
-            });
           }
           
-          if (!embeddedBuffer) {
-            console.error("❌ Failed to create embedded buffer for:", cacheId);
-            return undefined;
-          }
-          
-          // Create the persistent embedded layer object
-          const embeddedLayer = {
-            cacheId: layerKey, // Use full layer key for unique identification
-            originalCacheId: cacheId, // Keep original for reference
-            width,
-            height,
-            x,
-            y,
-            buffer: embeddedBuffer,
-            kidlispInstance: embeddedKidLisp,
-            parsedCode,
-            source
-          };
-          
-          // Add to embedded layers array and cache
-          this.embeddedLayers.push(embeddedLayer);
-          this.embeddedLayerCache.set(layerKey, embeddedLayer);
-          
-          // Embedded layer creation debug logs removed for performance
-          
-          return embeddedLayer;
-          
+          return placeholderLayer;
         }).catch(error => {
-          console.error("❌ Error creating embedded layer:", cacheId, error);
+          console.error("❌ Error fetching embedded layer source:", cacheId, error);
           // Remove fetch marker on error
           this.embeddedLayerCache.delete(fetchKey);
-          return undefined;
+          return placeholderLayer; // Return placeholder even on error
         });
         
-        // Store the fetch promise to prevent duplicate requests
-        this.embeddedLayerCache.set(fetchKey, fetchPromise);
+        // Store the background fetch promise but don't wait for it
+        this.embeddedLayerCache.set(fetchKey, backgroundFetch);
         
-        return fetchPromise;
+        // Return the placeholder layer immediately for non-blocking render
+        return placeholderLayer;
       },
     };
 
@@ -4324,21 +4203,6 @@ class KidLisp {
 
     let result = null;
 
-    // Debug logging for circle function resolution
-    if (head === "circle") {
-      console.log("🔍 RESOLVING CIRCLE:", {
-        head,
-        hasLocalEnv: existing(this.localEnv[head]),
-        hasEnv: existing(env?.[head]),
-        hasGlobalEnv: existing(this.getGlobalEnv()[head]),
-        hasGlobalDef: existing(this.globalDef[head]),
-        hasApi: existing(api[head]) && typeof api[head] === "function",
-        apiType: typeof api[head],
-        inEmbedPhase: this.inEmbedPhase,
-        embeddedLayersCount: this.embeddedLayers?.length || 0
-      });
-    }
-
     // Special handling for $-prefixed cache codes - treat them as callable functions
     if (typeof head === "string" && head.startsWith("$") && head.length > 1) {
       const cacheId = head.slice(1);
@@ -4380,11 +4244,6 @@ class KidLisp {
       } else if (existing(api[head]) && typeof api[head] === "function") {
         result = { type: "api", value: api[head] };
       }
-    }
-
-    // Debug logging for circle function resolution result
-    if (head === "circle") {
-      console.log("🔍 CIRCLE RESOLUTION RESULT:", result);
     }
 
     // Cache the result (but not for local env since it changes, and not for cache codes since they're dynamic)
@@ -6376,22 +6235,17 @@ class KidLisp {
     // Check if there's already an existing layer for this key
     const existingLayer = this.embeddedLayerCache.get(layerKey);
     if (existingLayer) {
-      console.log(`♻️ Updating existing layer: ${layerKey}`);
+      // Updating existing layer - log removed for performance
       
       // Check if source code has changed
       if (existingLayer.source !== source) {
-        console.log("🔄 Source code changed for existing layer, clearing buffer:", layerKey);
+        // Source changed, clearing buffer - log removed for performance
         
         // Clear the buffer when source changes
         if (existingLayer.buffer && existingLayer.buffer.pixels) {
-          const pixels = existingLayer.buffer.pixels;
-          for (let i = 0; i < pixels.length; i += 4) {
-            pixels[i] = 0;     // R
-            pixels[i + 1] = 0; // G  
-            pixels[i + 2] = 0; // B
-            pixels[i + 3] = 0; // A (transparent)
-          }
-          console.log("✅ Buffer cleared for layer:", layerKey);
+          // Fast buffer clear using fill
+          existingLayer.buffer.pixels.fill(0);
+          // Buffer cleared - log removed for performance
         }
       }
       
@@ -6474,23 +6328,15 @@ class KidLisp {
     if (persistentLayer && persistentLayer.buffer) {
       // Check if the source code has changed
       if (persistentLayer.source === source) {
-        console.log("♻️ Reusing existing buffer for persistent layer (same source):", layerKey);
+        // Reusing existing buffer - log removed for performance
         embeddedBuffer = persistentLayer.buffer;
       } else {
-        console.log("🔄 Source code changed for layer, clearing buffer:", layerKey);
-        console.log("Old source:", persistentLayer.source?.substring(0, 100) + "...");
-        console.log("New source:", source?.substring(0, 100) + "...");
+        // Source changed, clearing buffer - logs removed for performance
         
         // Source changed, clear the buffer and create a new one
         if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
-          // Clear the buffer by filling with transparent pixels
-          const pixels = persistentLayer.buffer.pixels;
-          for (let i = 0; i < pixels.length; i += 4) {
-            pixels[i] = 0;     // R
-            pixels[i + 1] = 0; // G
-            pixels[i + 2] = 0; // B
-            pixels[i + 3] = 0; // A (transparent)
-          }
+          // Fast buffer clear using fill
+          persistentLayer.buffer.pixels.fill(0);
         }
         embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
         
@@ -6503,23 +6349,27 @@ class KidLisp {
       // New buffer creation debug log removed for performance
       embeddedBuffer = api.painting(width, height, (bufferApi) => {
         try {
-          const combinedApi = {
-            ...api,
-            ...bufferApi,
-            screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height },
-            // Ensure drawing commands work properly in embedded buffer
-            circle: (...args) => bufferApi.circle(...args),
-            box: (...args) => bufferApi.box(...args),
-            line: (...args) => bufferApi.line(...args),
-            point: (...args) => bufferApi.point(...args),
-            poly: (...args) => bufferApi.poly(...args),
-            paste: (...args) => bufferApi.paste(...args),
-            stamp: (...args) => bufferApi.stamp(...args),
-            write: (...args) => bufferApi.write(...args),
-            flood: (...args) => bufferApi.flood(...args),
-            ink: (...args) => bufferApi.ink(...args),
-            wipe: (...args) => bufferApi.wipe(...args),
-          };
+          // Optimized API creation (avoid expensive spread operations)
+          const combinedApi = Object.assign(
+            Object.create(null),
+            bufferApi,
+            api,
+            {
+              screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height },
+              // Ensure drawing commands work properly in embedded buffer
+              circle: (...args) => bufferApi.circle(...args),
+              box: (...args) => bufferApi.box(...args),
+              line: (...args) => bufferApi.line(...args),
+              point: (...args) => bufferApi.point(...args),
+              poly: (...args) => bufferApi.poly(...args),
+              paste: (...args) => bufferApi.paste(...args),
+              stamp: (...args) => bufferApi.stamp(...args),
+              write: (...args) => bufferApi.write(...args),
+              flood: (...args) => bufferApi.flood(...args),
+              ink: (...args) => bufferApi.ink(...args),
+              wipe: (...args) => bufferApi.wipe(...args),
+            }
+          );
           embeddedKidLisp.evaluate(precompiledCode, combinedApi, embeddedKidLisp.localEnv);
         } catch (error) {
           console.error("❌ Error in initial embedded layer execution:", error);
@@ -6575,11 +6425,90 @@ class KidLisp {
   }
 
   // Helper function to paste a buffer with alpha blending
+  // 🚀 OPTIMIZED: Use multiple optimization strategies based on scenario
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
+      console.log("🔴 pasteWithAlpha: Invalid buffers, skipping");
       return;
     }
 
+    // 🎯 ULTRA-FAST PATH: Use native canvas operations when possible (main thread only)
+    if (alpha === 255 && typeof window !== 'undefined' && api.ctx && typeof createImageBitmap !== 'undefined') {
+      // Use hardware-accelerated canvas drawImage for maximum performance
+      console.log("🚀 pasteWithAlpha: Using ULTRA-FAST hardware-accelerated path");
+      try {
+        const imageData = new ImageData(sourceBuffer.pixels, sourceBuffer.width, sourceBuffer.height);
+        createImageBitmap(imageData).then(bitmap => {
+          if (api.ctx && api.ctx.drawImage) {
+            api.ctx.drawImage(bitmap, x, y);
+          }
+        }).catch(() => {
+          console.log("🟡 pasteWithAlpha: Hardware path failed, falling back to graph.paste");
+          // Fall back to graph.paste if bitmap fails
+          if (api.paste) {
+            api.paste(sourceBuffer, x, y);
+          } else {
+            this.fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha);
+          }
+        });
+        return;
+      } catch (e) {
+        console.log("🟡 pasteWithAlpha: Hardware path exception, falling back:", e.message);
+        // Fall through to graph.paste
+      }
+    }
+    
+    // 🎯 FAST PATH: Use graph.paste with modified buffer for optimal performance
+    // This leverages graph.mjs's optimized blending, row-wise copying, and cache efficiency
+    
+    // Check if we can use the direct graph.paste optimization
+    if (alpha === 255) {
+      // No alpha adjustment needed - use direct paste for maximum performance
+      if (api.paste) {
+        console.log("🎯 pasteWithAlpha: Using FAST graph.paste path (alpha=255)");
+        api.paste(sourceBuffer, x, y);
+      } else {
+        console.log("🔄 pasteWithAlpha: Using FALLBACK manual path (alpha=255, no api.paste)");
+        // Fallback to manual paste if api.paste not available
+        this.fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha);
+      }
+      return;
+    }
+    
+    // For alpha < 255, create a temporary buffer with adjusted alpha values
+    // This is still faster than manual pixel-by-pixel blending since we batch the alpha adjustment
+    const tempBuffer = {
+      width: sourceBuffer.width,
+      height: sourceBuffer.height,
+      pixels: new Uint8ClampedArray(sourceBuffer.pixels.length)
+    };
+    
+    // Batch alpha adjustment - more efficient than per-pixel blending during paste
+    const alphaFactor = alpha / 255.0;
+    const srcPixels = sourceBuffer.pixels;
+    const tempPixels = tempBuffer.pixels;
+    
+    // Optimized alpha pre-multiplication with proper loop bounds
+    const pixelCount = srcPixels.length;
+    for (let i = 0; i < pixelCount; i += 4) {
+      tempPixels[i] = srcPixels[i];         // R
+      tempPixels[i + 1] = srcPixels[i + 1]; // G  
+      tempPixels[i + 2] = srcPixels[i + 2]; // B
+      tempPixels[i + 3] = srcPixels[i + 3] * alphaFactor; // A
+    }
+    
+    // Use graph.paste with the alpha-adjusted buffer - leverages all graph.mjs optimizations
+    if (api.paste) {
+      api.paste(tempBuffer, x, y);
+    } else {
+      console.log("🔄 pasteWithAlpha: Using FALLBACK manual path (no api.paste available)");
+      // Fallback to manual implementation if api.paste not available
+      this.fallbackPasteWithAlpha(api, tempBuffer, x, y, 255); // Use 255 since alpha already applied
+    }
+  }
+
+  // Fallback manual alpha blending for when graph.paste is not available
+  fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha) {
     const srcPixels = sourceBuffer.pixels;
     const dstPixels = api.screen.pixels;
     const srcWidth = sourceBuffer.width;
@@ -6596,34 +6525,41 @@ class KidLisp {
     const endX = Math.min(dstWidth, x + srcWidth);
     const endY = Math.min(dstHeight, y + srcHeight);
 
-    // Blend pixels with alpha
+    // Optimized row-wise blending for better cache performance
     for (let dy = startY; dy < endY; dy++) {
+      const srcY = dy - y;
+      if (srcY < 0 || srcY >= srcHeight) continue;
+      
       for (let dx = startX; dx < endX; dx++) {
         const srcX = dx - x;
-        const srcY = dy - y;
-        
-        // Skip if source coordinates are out of bounds
-        if (srcX < 0 || srcX >= srcWidth || srcY < 0 || srcY >= srcHeight) continue;
+        if (srcX < 0 || srcX >= srcWidth) continue;
 
         const srcIndex = (srcY * srcWidth + srcX) * 4;
         const dstIndex = (dy * dstWidth + dx) * 4;
 
-        const srcA = srcPixels[srcIndex + 3] / 255.0;
+        const srcA = srcPixels[srcIndex + 3];
         
         // Skip transparent pixels
         if (srcA === 0) continue;
 
-        // Apply overall alpha factor to source alpha
-        const effectiveAlpha = srcA * alphaFactor;
-        const invAlpha = 1.0 - effectiveAlpha;
+        pixelsProcessed++;
 
-        // Alpha blend RGB channels
-        dstPixels[dstIndex] = Math.round(srcPixels[srcIndex] * effectiveAlpha + dstPixels[dstIndex] * invAlpha);
-        dstPixels[dstIndex + 1] = Math.round(srcPixels[srcIndex + 1] * effectiveAlpha + dstPixels[dstIndex + 1] * invAlpha);
-        dstPixels[dstIndex + 2] = Math.round(srcPixels[srcIndex + 2] * effectiveAlpha + dstPixels[dstIndex + 2] * invAlpha);
-        
-        // Update destination alpha
-        dstPixels[dstIndex + 3] = Math.min(255, Math.round(dstPixels[dstIndex + 3] + srcA * alpha));
+        // Fast path for fully opaque pixels
+        if (alphaFactor === 1.0 && srcA === 255) {
+          dstPixels[dstIndex] = srcPixels[srcIndex];
+          dstPixels[dstIndex + 1] = srcPixels[srcIndex + 1];
+          dstPixels[dstIndex + 2] = srcPixels[srcIndex + 2];
+          dstPixels[dstIndex + 3] = 255;
+        } else {
+          // Alpha blend using bit shifts for performance (similar to graph.mjs)
+          const effectiveAlpha = (srcA * alphaFactor + 1) | 0; // Convert to int
+          const invAlpha = 256 - effectiveAlpha;
+          
+          dstPixels[dstIndex] = (effectiveAlpha * srcPixels[srcIndex] + invAlpha * dstPixels[dstIndex]) >> 8;
+          dstPixels[dstIndex + 1] = (effectiveAlpha * srcPixels[srcIndex + 1] + invAlpha * dstPixels[dstIndex + 1]) >> 8;
+          dstPixels[dstIndex + 2] = (effectiveAlpha * srcPixels[srcIndex + 2] + invAlpha * dstPixels[dstIndex + 2]) >> 8;
+          dstPixels[dstIndex + 3] = Math.min(255, dstPixels[dstIndex + 3] + effectiveAlpha);
+        }
       }
     }
   }
@@ -6634,10 +6570,9 @@ class KidLisp {
       return;
     }
 
-    // Update and composite each embedded layer
+    // Update and composite each embedded layer (render in correct order: 0, 1, 2...)
     this.embeddedLayers.forEach((embeddedLayer, index) => {
       if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
-        
         // Check if this embedded layer should be visible based on timing context
         if (embeddedLayer.timingContext) {
           const timingCtx = embeddedLayer.timingContext;
@@ -6683,40 +6618,36 @@ class KidLisp {
           let embeddedApi = this.embeddedApiCache.get(apiCacheKey);
           
           if (!embeddedApi) {
-            // Create API object only once per layer configuration
-            console.log("🔴 CREATING EMBEDDED API:", {
-              hasApiCircle: typeof api.circle === "function",
-              hasGlobalEnvCircle: typeof globalEnv.circle === "function"
-            });
+            // Create API object only once per layer configuration (optimized)
+            embeddedApi = Object.assign(
+              Object.create(null),
+              globalEnv, // Include all KidLisp commands (fade, scroll, ink, etc.) first
+              api, // Then override with main API (including clock, screen, etc.)
+              {
+                screen: {
+                  ...api.screen,
+                  width: embeddedLayer.width,
+                  height: embeddedLayer.height,
+                  pixels: embeddedLayer.buffer.pixels
+                },
+                // Execute drawing commands directly to the embedded buffer
+                // since we've already set the page to the embedded buffer
+                line: (...args) => api.line(...args),
+                ink: (...args) => api.ink(...args),
+                wipe: (...args) => api.wipe(...args),
+                circle: (...args) => {
+                  return api.circle(...args);
+                },
+                box: (...args) => api.box(...args),
+                point: (...args) => api.point(...args),
+                poly: (...args) => api.poly(...args),
+                paste: (...args) => api.paste(...args),
+                stamp: (...args) => api.stamp(...args),
+                write: (...args) => api.write(...args),
+                flood: (...args) => api.flood(...args),
+              }
+            );
             
-            embeddedApi = {
-              ...globalEnv, // Include all KidLisp commands (fade, scroll, ink, etc.) first
-              ...api, // Then override with main API (including clock, screen, etc.)
-              screen: {
-                ...api.screen,
-                width: embeddedLayer.width,
-                height: embeddedLayer.height,
-                pixels: embeddedLayer.buffer.pixels
-              },
-              // Execute drawing commands directly to the embedded buffer
-              // since we've already set the page to the embedded buffer
-              line: (...args) => api.line(...args),
-              ink: (...args) => api.ink(...args),
-              wipe: (...args) => api.wipe(...args),
-              circle: (...args) => {
-                console.log("🔴 EMBEDDED API CIRCLE OVERRIDE: called with args:", args);
-                return api.circle(...args);
-              },
-              box: (...args) => api.box(...args),
-              point: (...args) => api.point(...args),
-              poly: (...args) => api.poly(...args),
-              paste: (...args) => api.paste(...args),
-              stamp: (...args) => api.stamp(...args),
-              write: (...args) => api.write(...args),
-              flood: (...args) => api.flood(...args),
-            };
-            
-            console.log("🔴 EMBEDDED API CREATED with circle:", typeof embeddedApi.circle);
             this.embeddedApiCache.set(apiCacheKey, embeddedApi);
           }
           
@@ -6756,12 +6687,8 @@ class KidLisp {
           api.page(api.screen);
           
           // Paste the embedded buffer to the main canvas at the layer's position
-          // Use alpha blending if alpha is less than fully opaque
-          if (embeddedLayer.alpha !== undefined && embeddedLayer.alpha < 255) {
-            this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
-          } else {
-            api.paste(embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y);
-          }
+          // Always use alpha blending to properly handle embedded layer pixels with alpha channels
+          this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
 
         } catch (error) {
           console.error(`❌ Error updating embedded layer ${index}:`, error);
