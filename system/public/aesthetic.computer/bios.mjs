@@ -847,6 +847,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     clearSoundSampleCache,
     requestSpeakerWaveforms,
     requestSpeakerAmplitudes,
+    requestSpeakerFrequencies,
     attachMicrophone,
     detachMicrophone,
     audioContext,
@@ -1222,6 +1223,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speakerProcessor.port.postMessage({ type: "get-amplitudes" });
         };
 
+        requestSpeakerFrequencies = function () {
+          speakerProcessor.port.postMessage({ type: "get-frequencies" });
+        };
+
         speakerProcessor.port.onmessage = ({ data: msg }) => {
           if (msg.type === "waveforms") {
             send({ type: "waveforms", content: msg.content });
@@ -1230,6 +1235,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (msg.type === "amplitudes") {
             send({ type: "amplitudes", content: msg.content });
+            return;
+          }
+
+          if (msg.type === "frequencies") {
+            send({ type: "frequencies", content: msg.content });
             return;
           }
 
@@ -6578,6 +6588,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const coreHandlers = {};
       if (whens["recorder:cut"]) {
         coreHandlers["recorder:cut"] = whens["recorder:cut"];
+        // console.log("📻 Preserving recorder:cut handler during reset");
       }
       whens = coreHandlers;
 
@@ -7158,6 +7169,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "get-amplitudes") {
       requestSpeakerAmplitudes?.();
+      return;
+    }
+
+    if (type === "get-frequencies") {
+      requestSpeakerFrequencies?.();
       return;
     }
 
