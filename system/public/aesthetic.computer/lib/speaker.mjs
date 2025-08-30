@@ -44,12 +44,31 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #currentAmplitudeLeft = [];
   #currentAmplitudeRight = [];
 
+  // Memory monitoring
+  #memoryCheckCounter = 0;
+  #lastMemoryCheck = 0;
+  
+  // Analysis throttling
+  #analysisCounter = 0;
+
   // Frequency analysis
   #frequencyBandsLeft = [];
   #frequencyBandsRight = [];
   #fftBufferLeft = [];
   #fftBufferRight = [];
-  #fftSize = 1024; // Larger buffer for better frequency resolution
+  #fftSize = 1024; // Reverted back to original value
+
+  // Beat detection variables
+  #energyHistory = []; // Track energy over time for beat detection
+  #energyHistorySize = 43; // ~1 second at 43Hz (1024 samples / 24000 Hz)
+  #beatSensitivity = 1.15; // Lower, more sensitive threshold (was 1.3)
+  #adaptiveThreshold = 1.15; // Dynamic threshold that adapts
+  #lastBeatTime = 0;
+  #beatCooldown = 0.08; // Shorter cooldown for more responsive detection (was 0.1)
+  #currentBeat = false;
+  #beatStrength = 0;
+  #recentEnergyPeaks = []; // Track recent energy peaks for adaptive threshold
+  #energyVariance = 0; // Track energy variance for dynamic sensitivity
 
   #mixDivisor = 1;
 
@@ -105,6 +124,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           content: {
             left: this.#frequencyBandsLeft,
             right: this.#frequencyBandsRight,
+            beat: {
+              detected: this.#currentBeat,
+              strength: this.#beatStrength,
+              timestamp: currentTime
+            }
           },
         });
         return;
@@ -367,6 +391,40 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs) {
+    try {
+      const currentTime = this.currentTime; // Get current time from AudioWorkletProcessor
+      
+      // Memory monitoring - check every 2 seconds
+      this.#memoryCheckCounter++;
+      if (this.#memoryCheckCounter >= sampleRate * 2) { // Every 2 seconds
+        this.#memoryCheckCounter = 0;
+        
+        // Log buffer sizes and memory usage
+        console.log(`🧠 Memory Check:
+        FFT Buffer Left: ${this.#fftBufferLeft?.length || 0}
+        FFT Buffer Right: ${this.#fftBufferRight?.length || 0}
+        Energy History: ${this.#energyHistory?.length || 0}
+        Queue length: ${this.#queue?.length || 0}
+        Running instruments: ${Object.keys(this.#running || {}).length}`);
+          
+        // Check for memory leaks in buffers
+        if (this.#fftBufferLeft?.length > this.#fftSize * 2) {
+          console.warn('⚠️ FFT buffer growing too large!', this.#fftBufferLeft.length);
+        }
+        if (this.#energyHistory?.length > this.#energyHistorySize * 2) {
+          console.warn('⚠️ Energy history growing too large!', this.#energyHistory.length);
+        }
+      }
+      
+      return this.#processAudio(inputs, outputs, currentTime);
+    } catch (error) {
+      console.error('🚨 Audio Worklet Error:', error);
+      return true; // Keep processor alive
+    }
+  }
+
+  #processAudio(inputs, outputs, currentTime) {
+    
     // 0️⃣ Waveform Tracking
     let waveformLeft = [];
     let waveformRight = [];
@@ -467,25 +525,33 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     this.#currentAmplitudeLeft = ampLeft;
     this.#currentAmplitudeRight = ampRight;
 
-    // === FREQUENCY ANALYSIS ===
+    // === FREQUENCY ANALYSIS (OPTIMIZED) ===
     // Add samples to FFT buffers
     this.#fftBufferLeft.push(...output[0]);
     this.#fftBufferRight.push(...output[1]);
 
-    // Keep buffer size manageable
-    while (this.#fftBufferLeft.length > this.#fftSize) {
-      this.#fftBufferLeft.shift();
-      this.#fftBufferRight.shift();
+    // Keep buffer size manageable (more efficient slice method)
+    if (this.#fftBufferLeft.length > this.#fftSize) {
+      this.#fftBufferLeft = this.#fftBufferLeft.slice(-this.#fftSize);
+      this.#fftBufferRight = this.#fftBufferRight.slice(-this.#fftSize);
     }
 
-    // Perform frequency analysis when we have enough samples
-    if (this.#fftBufferLeft.length >= this.#fftSize) {
+    // Reduce analysis frequency to improve performance
+    this.#analysisCounter = (this.#analysisCounter || 0) + 1;
+    
+    // Only analyze every 4th buffer to reduce CPU load
+    if (this.#fftBufferLeft.length >= this.#fftSize && this.#analysisCounter % 4 === 0) {
       this.#frequencyBandsLeft = this.#analyzeFrequencies(this.#fftBufferLeft);
       this.#frequencyBandsRight = this.#analyzeFrequencies(this.#fftBufferRight);
+      
+      // Beat detection even less frequently to preserve audio
+      if (this.#analysisCounter % 8 === 0) {
+        this.#detectBeats(this.#fftBufferLeft);
+      }
     }
 
     return true;
-  }
+  } // End of #processAudio method
 
   // === FREQUENCY ANALYSIS METHODS ===
   
@@ -576,19 +642,130 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       
       const amplitude = count > 0 ? sum / count : 0;
       
-      // Simple, conservative scaling approach
+      // Improved scaling approach for better visualization range
       let scaledAmplitude = amplitude;
       
-      // Very gentle boost with square root compression for natural feel
-      scaledAmplitude = Math.sqrt(scaledAmplitude) * 1.5; // Much more conservative
+      // Apply simple power scaling for better dynamic range (reverted to original)
+      if (scaledAmplitude > 0) {
+        scaledAmplitude = Math.pow(scaledAmplitude, 0.7); // Power scaling only
+      }
       
       return {
         name: band.name,
         frequency: { min: band.min, max: band.max },
-        amplitude: Math.min(0.9, scaledAmplitude), // Clamp to 90% for headroom
+        amplitude: Math.min(0.9, scaledAmplitude), // Reverted to original 90% clamp
         binRange: { start: startBin, end: endBin }
       };
     });
+  }
+
+  // Beat detection using energy-based onset detection
+  #detectBeats(buffer) {
+    if (buffer.length < this.#fftSize) return;
+    
+    // Calculate current energy (sum of squares in frequency domain)
+    const fftData = this.#fft(buffer);
+    let currentEnergy = 0;
+    
+    // Focus on lower frequencies for beat detection (bass/kick drums)
+    const bassEndBin = Math.floor(250 * this.#fftSize / sampleRate); // Up to 250Hz
+    for (let i = 1; i < Math.min(bassEndBin, fftData.length / 2); i++) {
+      const complex = fftData[i] || { real: 0, imag: 0 };
+      currentEnergy += complex.real * complex.real + complex.imag * complex.imag;
+    }
+    
+    // Normalize energy
+    currentEnergy = Math.sqrt(currentEnergy / bassEndBin);
+    
+    // Add to energy history
+    this.#energyHistory.push(currentEnergy);
+    if (this.#energyHistory.length > this.#energyHistorySize) {
+      this.#energyHistory.shift();
+    }
+    
+    // Clear expired beat flag (beat lasts 50ms to ensure it's captured by main thread)
+    if (this.#currentBeat && currentTime - this.#lastBeatTime > 0.05) {
+      this.#currentBeat = false;
+      this.#beatStrength = 0;
+    }
+    
+    // Need enough history for comparison
+    if (this.#energyHistory.length < this.#energyHistorySize) return;
+    
+    // Calculate average energy over recent history
+    const avgEnergy = this.#energyHistory.reduce((sum, energy) => sum + energy, 0) / this.#energyHistory.length;
+    
+    // Calculate energy variance for adaptive sensitivity
+    const variance = this.#energyHistory.reduce((sum, energy) => sum + Math.pow(energy - avgEnergy, 2), 0) / this.#energyHistory.length;
+    this.#energyVariance = Math.sqrt(variance);
+    
+    // Track recent energy peaks for adaptive threshold
+    if (currentEnergy > avgEnergy) {
+      this.#recentEnergyPeaks.push(currentEnergy);
+      if (this.#recentEnergyPeaks.length > 20) { // Keep last 20 peaks
+        this.#recentEnergyPeaks.shift();
+      }
+    }
+    
+    // Adaptive threshold based on recent activity and variance
+    let adaptiveMultiplier = 1.0;
+    if (this.#energyVariance > 0 && avgEnergy > 0) {
+      // Smart adaptive logic:
+      // High variance = dynamic music = be more sensitive to relative changes
+      // High energy + high variance = loud dynamic music = much more sensitive
+      
+      const normalizedVariance = Math.min(this.#energyVariance / 50, 1.0); // Cap variance impact
+      const energyLevel = Math.min(avgEnergy / 30, 1.0); // Normalize energy level
+      
+      if (avgEnergy > 20) {
+        // Loud music: be much more sensitive, focus on relative changes
+        adaptiveMultiplier = Math.max(0.4, 0.8 - normalizedVariance * 0.3);
+      } else if (normalizedVariance > 0.3) {
+        // Dynamic music: moderately more sensitive
+        adaptiveMultiplier = Math.max(0.7, 1.1 - normalizedVariance * 0.4);
+      } else {
+        // Quiet/steady music: standard sensitivity
+        adaptiveMultiplier = 1.0 + normalizedVariance * 0.2;
+      }
+    }
+    
+    // Update adaptive threshold
+    this.#adaptiveThreshold = this.#beatSensitivity * adaptiveMultiplier;
+    
+    // Also consider local peaks - if we haven't had a beat in a while, be more sensitive
+    const timeSinceLastBeat = currentTime - this.#lastBeatTime;
+    let timeBasedSensitivity = 1.0;
+    if (timeSinceLastBeat > 0.3) { // If no beat for 300ms, get more sensitive
+      timeBasedSensitivity = 1.0 + Math.min(0.4, (timeSinceLastBeat - 0.3) * 0.8); // Increase sensitivity up to 40%
+    }
+    
+    // Final threshold: lower values = easier to trigger beats
+    const finalThreshold = this.#adaptiveThreshold / timeBasedSensitivity;
+    
+    // Check if current energy is significantly higher than average
+    const energyRatio = avgEnergy > 0 ? currentEnergy / avgEnergy : 0;
+    
+    // Debug logging much less frequently to reduce performance impact
+    if (Math.floor(currentTime * 1) % 8 === 0 && this.#energyHistory.length >= this.#energyHistorySize) {
+      // console.log(`🔍 Smart Adaptive Beat Detection:
+      //   Current energy: ${currentEnergy.toFixed(4)}
+      //   Average energy: ${avgEnergy.toFixed(4)}
+      //   Energy variance: ${this.#energyVariance.toFixed(4)}
+      //   Energy ratio: ${energyRatio.toFixed(4)}
+      //   Base threshold: ${this.#beatSensitivity}
+      //   Adaptive multiplier: ${adaptiveMultiplier.toFixed(3)}
+      //   Time sensitivity boost: ${timeBasedSensitivity.toFixed(3)}
+      //   Final threshold: ${finalThreshold.toFixed(3)}
+      //   Time since last beat: ${timeSinceLastBeat.toFixed(4)}s
+      //   Would trigger: ${energyRatio > finalThreshold && timeSinceLastBeat > this.#beatCooldown}`);
+    }
+    
+    if (energyRatio > finalThreshold && timeSinceLastBeat > this.#beatCooldown) {
+      this.#currentBeat = true;
+      this.#beatStrength = Math.min(1.0, (energyRatio - finalThreshold) / 2.0); // 0-1 range
+      this.#lastBeatTime = currentTime;
+      // console.log(`🥁 SMART BEAT! Strength: ${this.#beatStrength.toFixed(4)}, Ratio: ${energyRatio.toFixed(4)}, Threshold: ${finalThreshold.toFixed(3)}`);
+    }
   }
 
   // Send data back to the `bios`.
