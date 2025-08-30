@@ -7602,9 +7602,9 @@ async function makeFrame({ data: { type, content } }) {
         const isFrameBased = $api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0;
         const frameCount = $api.rec.tapeFrameTarget || 1;
         
-        // Hide progress bar for frame-based recordings under 60 frames
-        if (isFrameBased && frameCount < 60) {
-          // Skip creating progress bar entirely
+        // Hide progress bar for ALL frame-based recordings
+        if (isFrameBased) {
+          // Skip creating progress bar entirely for frame recordings
         } else {
           // IMPORTANT: Access the main screen buffer OUTSIDE the painting context
           // because inside painting(), $api.screen refers to the painting's own buffer, not the main screen
