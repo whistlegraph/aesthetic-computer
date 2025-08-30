@@ -99,6 +99,7 @@ function setCachedCode(source, code) {
   ($abc123XY 128 128)    ; Load and run cached code in 128x128 buffer  
   (embed $abc123XY)      ; Same as ($abc123XY) - explicit embed syntax
   (embed $abc123XY 64 64) ; Load in 64x64 buffer
+  (embed $abc123XY 0 0 64 64 128) ; Load in 64x64 buffer at 0,0 with 50% alpha (128/255)
   (paste ($abc123XY 32 32) 100 100) ; Load in 32x32 buffer and paste at 100,100 
   (box 50 50 100 100)  ; This red box will appear on top of the baked blue box
 
@@ -114,6 +115,7 @@ function setCachedCode(source, code) {
   ; If you have cached code $xyz123, you can:
   ; ($xyz123)              ; Run in default buffer and auto-paste
   ; ($xyz123 64 64)        ; Run in 64x64 buffer and auto-paste  
+  ; ($xyz123 0 0 64 64 0.5) ; Run in 64x64 buffer with 50% alpha (0.5 = 50%)
   ; (paste ($xyz123) 50 50) ; Run and paste at specific coordinates
 #endregion */
 
@@ -480,16 +482,17 @@ class KidLisp {
     this.loadingEmbeddedLayers = new Set(); // Track which $codes are currently loading
     this.loadedEmbeddedLayers = new Set();  // Track which $codes have finished loading
     
-    // Clear embedded layer cache on initialization/reload
+    // Performance optimizations
+    this.functionCache = new Map(); // Cache function lookups
+    this.globalEnvCache = null; // Cache global environment
+    this.embeddedApiCache = new Map(); // Cache embedded layer API objects
+    
+    // Clear embedded layer cache on initialization/reload (after caches are initialized)
     this.clearEmbeddedLayerCache();
 
     // Microphone state tracking
     this.microphoneConnected = false;
     this.microphoneApi = null;
-
-    // Performance optimizations
-    this.functionCache = new Map(); // Cache function lookups
-    this.globalEnvCache = null; // Cache global environment
     this.fastPathFunctions = new Set([
       "line",
       "ink",
@@ -569,7 +572,7 @@ class KidLisp {
   }
 
   // Reset all state for a fresh KidLisp instance
-  reset(clearOnceExecuted = false) {
+  reset(clearOnceExecuted = false, sourceChanged = false) {
     // Reset core state
     this.ast = null;
     this.globalDef = {};
@@ -602,12 +605,15 @@ class KidLisp {
     this.mathCache.clear();
     this.sequenceCounters.clear();
     
-    // Clear embedded layer cache when loading new piece
-    this.clearEmbeddedLayerCache();
+    // ⚡ PERFORMANCE: Don't automatically clear embedded layer cache on reset
+    // This will be handled conditionally in module() based on source change
+    // this.clearEmbeddedLayerCache(); // Moved to module() for conditional clearing
     
-    // Reset embedded layer loading state
-    this.loadingEmbeddedLayers.clear();
-    this.loadedEmbeddedLayers.clear();
+    // Reset embedded layer loading state only if source changed
+    if (sourceChanged) {
+      this.loadingEmbeddedLayers.clear();
+      this.loadedEmbeddedLayers.clear();
+    }
     
     // Reset syntax highlighting state
     this.syntaxHighlightSource = null;
@@ -1370,13 +1376,19 @@ class KidLisp {
     
     // Reset all state for fresh instance when loading a new module
     // Clear onceExecuted only if the source code has changed
-    this.reset(sourceChanged);
+    this.reset(sourceChanged, sourceChanged);
     
     // Clear first-line color when loading new code
     this.firstLineColor = null;
     
     // Store flag to skip caching for .lisp files
     this.isLispFile = isLispFile;
+    
+    // ⚡ PERFORMANCE: Only clear embedded layer cache if source actually changed
+    // This prevents resize/reframe operations from destroying cached layers
+    if (sourceChanged) {
+      this.clearEmbeddedLayerCache();
+    }
     
     // Log source with square brackets for easy copying
     console.log("🟪");
@@ -2547,6 +2559,24 @@ class KidLisp {
         }
         
         api.box(...processedArgs);
+      },
+      circle: (api, args = []) => {
+        console.log("🔴 CIRCLE GLOBALENV: called with args:", args, "api.circle exists:", typeof api.circle);
+        
+        // Check if we should defer this command
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          console.log("🔴 CIRCLE GLOBALENV: deferring command");
+          this.postEmbedCommands = this.postEmbedCommands || [];
+          this.postEmbedCommands.push({
+            name: 'circle',
+            func: api.circle,
+            args: [...args]
+          });
+          return;
+        }
+        
+        console.log("🔴 CIRCLE GLOBALENV: calling api.circle immediately");
+        api.circle(...args);
       },
       flood: (api, args = []) => {
         // Flood fill at coordinates with optional color
@@ -3795,9 +3825,10 @@ class KidLisp {
       },
       
       // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
-      // Usage: (embed $pie) - loads cached code in default 256x256 layer
+      // Usage: (embed $pie) - loads cached code in default 256x256 layer (fixed size for cache efficiency)
       //        (embed $pie 128 128) - loads cached code in 128x128 layer  
       //        (embed $pie 0 0 60 40) - loads cached code in 60x40 layer at position (0,0)
+      //        (embed $pie 0 0 60 40 128) - loads cached code in 60x40 layer with alpha 128 (0-255, or 0.0-1.0)
       embed: (api, args = []) => {
         if (args.length === 0) {
           console.warn("❗ embed function requires a cached code argument");
@@ -3817,8 +3848,9 @@ class KidLisp {
           return undefined;
         }
         
-        // Parse dimensions and position from arguments
-        let width = api.screen?.width || 256, height = api.screen?.height || 256, x = 0, y = 0; // Default to full screen
+        // Parse dimensions, position, and alpha from arguments
+        // ⚡ PERFORMANCE: Use fixed default size to avoid cache invalidation on screen resize
+        let width = 256, height = 256, x = 0, y = 0, alpha = 255; // Default to 256x256 and opaque
         
         if (args.length >= 3) {
           if (args.length === 3) {
@@ -3832,22 +3864,36 @@ class KidLisp {
             const size = this.evaluate(args[3], api, this.localEnv) || 256;
             width = size;
             height = size;
-          } else if (args.length >= 5) {
+          } else if (args.length === 5) {
             // (embed $pie x y width height)
             x = this.evaluate(args[1], api, this.localEnv) || 0;
             y = this.evaluate(args[2], api, this.localEnv) || 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
             height = this.evaluate(args[4], api, this.localEnv) || 256;
+          } else if (args.length >= 6) {
+            // (embed $pie x y width height alpha)
+            x = this.evaluate(args[1], api, this.localEnv) || 0;
+            y = this.evaluate(args[2], api, this.localEnv) || 0;
+            width = this.evaluate(args[3], api, this.localEnv) || 256;
+            height = this.evaluate(args[4], api, this.localEnv) || 256;
+            alpha = this.evaluate(args[5], api, this.localEnv);
+            // Support both 0-1 and 0-255 alpha ranges
+            if (alpha <= 1 && alpha > 0) {
+              alpha = Math.floor(alpha * 255);
+            }
+            // Default to fully opaque if alpha parameter is undefined/null/0
+            alpha = alpha !== undefined && alpha !== null ? alpha : 255;
           }
         }
         
-        // Ensure dimensions are positive numbers
+        // Ensure dimensions are positive numbers and alpha is in valid range
         width = Math.max(1, Math.floor(width));
         height = Math.max(1, Math.floor(height));
         x = Math.floor(x);
         y = Math.floor(y);
+        alpha = Math.max(0, Math.min(255, Math.floor(alpha)));
         
-        const layerKey = `${cacheId}_${width}x${height}_${x},${y}`;
+        const layerKey = `${cacheId}_${width}x${height}_${x},${y}_${alpha}`;
         
         // Check if this embedded layer already exists - RETURN IMMEDIATELY if found
         if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
@@ -3898,7 +3944,12 @@ class KidLisp {
           
           // Only paste if the layer decided to render this frame
           if (shouldRender && existingLayer.buffer && api.paste) {
-            api.paste(existingLayer.buffer, x, y);
+            // Use alpha blending if alpha is less than fully opaque
+            if (existingLayer.alpha !== undefined && existingLayer.alpha < 255) {
+              this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
+            } else {
+              api.paste(existingLayer.buffer, x, y);
+            }
             // console.log(`📋 Pasted nested layer ${layerKey} to current buffer at (${x},${y})`);
           } else if (!shouldRender) {
             // Skipped pasting debug log removed for performance
@@ -3923,7 +3974,7 @@ class KidLisp {
           // Mark as loaded since we have cached source
           this.loadingEmbeddedLayers.delete(cacheId);
           this.loadedEmbeddedLayers.add(cacheId);
-          return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, api);
+          return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, alpha, api);
         }
         
         // Check if we're already fetching this source to prevent duplicates
@@ -3962,7 +4013,7 @@ class KidLisp {
           // Cache the source code for future use
           this.embeddedSourceCache.set(cacheId, source);
           
-          return this.createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, api);
+          return this.createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, alpha, api);
           
           if (!source) {
             console.warn("❌ No cached code found for:", cacheId, "- using fallback");
@@ -4032,7 +4083,31 @@ class KidLisp {
           const persistentLayer = this.embeddedLayers.find(layer => layer.cacheId === layerKey);
           // Persistent layer lookup and buffer creation debug logs removed for performance
           if (persistentLayer && persistentLayer.buffer) {
-            embeddedBuffer = persistentLayer.buffer;
+            // Check if the source code has changed
+            if (persistentLayer.source === source) {
+              console.log("♻️ Reusing existing buffer for persistent layer (same source):", layerKey);
+              embeddedBuffer = persistentLayer.buffer;
+            } else {
+              console.log("🔄 Source code changed for layer, clearing buffer:", layerKey);
+              
+              // Source changed, clear the buffer and create a new one
+              if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
+                // Clear the buffer by filling with transparent pixels
+                const pixels = persistentLayer.buffer.pixels;
+                for (let i = 0; i < pixels.length; i += 4) {
+                  pixels[i] = 0;     // R
+                  pixels[i + 1] = 0; // G
+                  pixels[i + 2] = 0; // B
+                  pixels[i + 3] = 0; // A (transparent)
+                }
+              }
+              embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
+              
+              // Update the layer's source code
+              persistentLayer.source = source;
+              persistentLayer.parsedCode = parsedCode;
+              persistentLayer.kidlispInstance = embeddedKidLisp;
+            }
           } else {
             // Create a buffer for this embedded layer
             embeddedBuffer = api.painting(width, height, (bufferApi) => {
@@ -4042,7 +4117,19 @@ class KidLisp {
                 const combinedApi = {
                   ...api, // Include main API with timing, fps, etc.
                   ...bufferApi, // Include buffer-specific API
-                  screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height }
+                  screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height },
+                  // Ensure drawing commands work properly in embedded buffer
+                  circle: (...args) => bufferApi.circle(...args),
+                  box: (...args) => bufferApi.box(...args),
+                  line: (...args) => bufferApi.line(...args),
+                  point: (...args) => bufferApi.point(...args),
+                  poly: (...args) => bufferApi.poly(...args),
+                  paste: (...args) => bufferApi.paste(...args),
+                  stamp: (...args) => bufferApi.stamp(...args),
+                  write: (...args) => bufferApi.write(...args),
+                  flood: (...args) => bufferApi.flood(...args),
+                  ink: (...args) => bufferApi.ink(...args),
+                  wipe: (...args) => bufferApi.wipe(...args),
                 };
                 
                 embeddedKidLisp.evaluate(parsedCode, combinedApi, embeddedKidLisp.localEnv);
@@ -4237,6 +4324,21 @@ class KidLisp {
 
     let result = null;
 
+    // Debug logging for circle function resolution
+    if (head === "circle") {
+      console.log("🔍 RESOLVING CIRCLE:", {
+        head,
+        hasLocalEnv: existing(this.localEnv[head]),
+        hasEnv: existing(env?.[head]),
+        hasGlobalEnv: existing(this.getGlobalEnv()[head]),
+        hasGlobalDef: existing(this.globalDef[head]),
+        hasApi: existing(api[head]) && typeof api[head] === "function",
+        apiType: typeof api[head],
+        inEmbedPhase: this.inEmbedPhase,
+        embeddedLayersCount: this.embeddedLayers?.length || 0
+      });
+    }
+
     // Special handling for $-prefixed cache codes - treat them as callable functions
     if (typeof head === "string" && head.startsWith("$") && head.length > 1) {
       const cacheId = head.slice(1);
@@ -4278,6 +4380,11 @@ class KidLisp {
       } else if (existing(api[head]) && typeof api[head] === "function") {
         result = { type: "api", value: api[head] };
       }
+    }
+
+    // Debug logging for circle function resolution result
+    if (head === "circle") {
+      console.log("🔍 CIRCLE RESOLUTION RESULT:", result);
     }
 
     // Cache the result (but not for local env since it changes, and not for cache codes since they're dynamic)
@@ -6265,11 +6372,29 @@ class KidLisp {
   }
 
   // Helper method to create embedded layer from source code
-  createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, api) {
+  createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, alpha, api) {
     // Check if there's already an existing layer for this key
     const existingLayer = this.embeddedLayerCache.get(layerKey);
     if (existingLayer) {
       console.log(`♻️ Updating existing layer: ${layerKey}`);
+      
+      // Check if source code has changed
+      if (existingLayer.source !== source) {
+        console.log("🔄 Source code changed for existing layer, clearing buffer:", layerKey);
+        
+        // Clear the buffer when source changes
+        if (existingLayer.buffer && existingLayer.buffer.pixels) {
+          const pixels = existingLayer.buffer.pixels;
+          for (let i = 0; i < pixels.length; i += 4) {
+            pixels[i] = 0;     // R
+            pixels[i + 1] = 0; // G  
+            pixels[i + 2] = 0; // B
+            pixels[i + 3] = 0; // A (transparent)
+          }
+          console.log("✅ Buffer cleared for layer:", layerKey);
+        }
+      }
+      
       // Create a dedicated KidLisp instance for this embedded layer
       const embeddedKidLisp = new KidLisp();
       // Start embedded layers with fresh timing states for re-entrancy
@@ -6305,6 +6430,7 @@ class KidLisp {
       existingLayer.timingPattern = this.extractTimingPattern(source); // Pre-extract timing pattern
       existingLayer.parsedCode = precompiledCode;
       existingLayer.kidlispInstance = embeddedKidLisp;
+      existingLayer.alpha = alpha; // Update alpha value
       // Reset local frame count for fresh timing on reload
       existingLayer.localFrameCount = 0;
       
@@ -6346,8 +6472,33 @@ class KidLisp {
     let embeddedBuffer;
     const persistentLayer = this.embeddedLayers.find(layer => layer.cacheId === layerKey);
     if (persistentLayer && persistentLayer.buffer) {
-      console.log("♻️ Reusing existing buffer for persistent layer:", layerKey);
-      embeddedBuffer = persistentLayer.buffer;
+      // Check if the source code has changed
+      if (persistentLayer.source === source) {
+        console.log("♻️ Reusing existing buffer for persistent layer (same source):", layerKey);
+        embeddedBuffer = persistentLayer.buffer;
+      } else {
+        console.log("🔄 Source code changed for layer, clearing buffer:", layerKey);
+        console.log("Old source:", persistentLayer.source?.substring(0, 100) + "...");
+        console.log("New source:", source?.substring(0, 100) + "...");
+        
+        // Source changed, clear the buffer and create a new one
+        if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
+          // Clear the buffer by filling with transparent pixels
+          const pixels = persistentLayer.buffer.pixels;
+          for (let i = 0; i < pixels.length; i += 4) {
+            pixels[i] = 0;     // R
+            pixels[i + 1] = 0; // G
+            pixels[i + 2] = 0; // B
+            pixels[i + 3] = 0; // A (transparent)
+          }
+        }
+        embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
+        
+        // Update the layer's source code
+        persistentLayer.source = source;
+        persistentLayer.parsedCode = precompiledCode;
+        persistentLayer.kidlispInstance = embeddedKidLisp;
+      }
     } else {
       // New buffer creation debug log removed for performance
       embeddedBuffer = api.painting(width, height, (bufferApi) => {
@@ -6355,7 +6506,19 @@ class KidLisp {
           const combinedApi = {
             ...api,
             ...bufferApi,
-            screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height }
+            screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height },
+            // Ensure drawing commands work properly in embedded buffer
+            circle: (...args) => bufferApi.circle(...args),
+            box: (...args) => bufferApi.box(...args),
+            line: (...args) => bufferApi.line(...args),
+            point: (...args) => bufferApi.point(...args),
+            poly: (...args) => bufferApi.poly(...args),
+            paste: (...args) => bufferApi.paste(...args),
+            stamp: (...args) => bufferApi.stamp(...args),
+            write: (...args) => bufferApi.write(...args),
+            flood: (...args) => bufferApi.flood(...args),
+            ink: (...args) => bufferApi.ink(...args),
+            wipe: (...args) => bufferApi.wipe(...args),
           };
           embeddedKidLisp.evaluate(precompiledCode, combinedApi, embeddedKidLisp.localEnv);
         } catch (error) {
@@ -6377,6 +6540,7 @@ class KidLisp {
       height,
       x,
       y,
+      alpha, // Store alpha value for blending
       buffer: embeddedBuffer,
       kidlispInstance: embeddedKidLisp,
       parsedCode: precompiledCode,
@@ -6407,6 +6571,61 @@ class KidLisp {
     this.embeddedLayers = [];
     this.embeddedLayerCache.clear();
     this.embeddedSourceCache.clear(); // Also clear source code cache
+    this.embeddedApiCache.clear(); // Clear cached API objects
+  }
+
+  // Helper function to paste a buffer with alpha blending
+  pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
+    if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
+      return;
+    }
+
+    const srcPixels = sourceBuffer.pixels;
+    const dstPixels = api.screen.pixels;
+    const srcWidth = sourceBuffer.width;
+    const srcHeight = sourceBuffer.height;
+    const dstWidth = api.screen.width;
+    const dstHeight = api.screen.height;
+
+    // Normalize alpha to 0-1 range
+    const alphaFactor = alpha / 255.0;
+
+    // Clamp destination area to screen bounds
+    const startX = Math.max(0, x);
+    const startY = Math.max(0, y);
+    const endX = Math.min(dstWidth, x + srcWidth);
+    const endY = Math.min(dstHeight, y + srcHeight);
+
+    // Blend pixels with alpha
+    for (let dy = startY; dy < endY; dy++) {
+      for (let dx = startX; dx < endX; dx++) {
+        const srcX = dx - x;
+        const srcY = dy - y;
+        
+        // Skip if source coordinates are out of bounds
+        if (srcX < 0 || srcX >= srcWidth || srcY < 0 || srcY >= srcHeight) continue;
+
+        const srcIndex = (srcY * srcWidth + srcX) * 4;
+        const dstIndex = (dy * dstWidth + dx) * 4;
+
+        const srcA = srcPixels[srcIndex + 3] / 255.0;
+        
+        // Skip transparent pixels
+        if (srcA === 0) continue;
+
+        // Apply overall alpha factor to source alpha
+        const effectiveAlpha = srcA * alphaFactor;
+        const invAlpha = 1.0 - effectiveAlpha;
+
+        // Alpha blend RGB channels
+        dstPixels[dstIndex] = Math.round(srcPixels[srcIndex] * effectiveAlpha + dstPixels[dstIndex] * invAlpha);
+        dstPixels[dstIndex + 1] = Math.round(srcPixels[srcIndex + 1] * effectiveAlpha + dstPixels[dstIndex + 1] * invAlpha);
+        dstPixels[dstIndex + 2] = Math.round(srcPixels[srcIndex + 2] * effectiveAlpha + dstPixels[dstIndex + 2] * invAlpha);
+        
+        // Update destination alpha
+        dstPixels[dstIndex + 3] = Math.min(255, Math.round(dstPixels[dstIndex + 3] + srcA * alpha));
+      }
+    }
   }
 
   // Render and update embedded layers each frame
@@ -6459,51 +6678,66 @@ class KidLisp {
           // Get the global environment containing KidLisp commands like fade, scroll, etc.
           const globalEnv = this.getGlobalEnv();
           
-          const embeddedApi = {
-            ...globalEnv, // Include all KidLisp commands (fade, scroll, ink, etc.) first
-            ...api, // Then override with main API (including clock, screen, etc.)
-            frame: smoothFrameValue, // Use smooth incrementing frame for animations
-            width: embeddedLayer.width,
-            height: embeddedLayer.height,
-            screen: {
-              ...api.screen,
-              width: embeddedLayer.width,
-              height: embeddedLayer.height,
-              pixels: embeddedLayer.buffer.pixels
-            },
-            // Execute drawing commands directly to the embedded buffer
-            // since we've already set the page to the embedded buffer
-            line: (...args) => {
-              return api.line(...args);
-            },
-            ink: (...args) => {
-              return api.ink(...args);
-            },
-            wipe: (...args) => {
-              return api.wipe(...args);
-            },
-          };
-
-          // Ensure width and height variables are available in the embedded environment
-          embeddedLayer.kidlispInstance.localEnv.width = embeddedLayer.width;
-          embeddedLayer.kidlispInstance.localEnv.height = embeddedLayer.height;
-          embeddedLayer.kidlispInstance.localEnv.frame = smoothFrameValue;
+          // ⚡ PERFORMANCE: Cache expensive API object creation
+          const apiCacheKey = `${embeddedLayer.cacheId}_${embeddedLayer.width}x${embeddedLayer.height}`;
+          let embeddedApi = this.embeddedApiCache.get(apiCacheKey);
           
-          // Also provide common math expressions for width and height
-          embeddedLayer.kidlispInstance.localEnv['width/2'] = embeddedLayer.width / 2;
-          embeddedLayer.kidlispInstance.localEnv['height/2'] = embeddedLayer.height / 2;
+          if (!embeddedApi) {
+            // Create API object only once per layer configuration
+            console.log("🔴 CREATING EMBEDDED API:", {
+              hasApiCircle: typeof api.circle === "function",
+              hasGlobalEnvCircle: typeof globalEnv.circle === "function"
+            });
+            
+            embeddedApi = {
+              ...globalEnv, // Include all KidLisp commands (fade, scroll, ink, etc.) first
+              ...api, // Then override with main API (including clock, screen, etc.)
+              screen: {
+                ...api.screen,
+                width: embeddedLayer.width,
+                height: embeddedLayer.height,
+                pixels: embeddedLayer.buffer.pixels
+              },
+              // Execute drawing commands directly to the embedded buffer
+              // since we've already set the page to the embedded buffer
+              line: (...args) => api.line(...args),
+              ink: (...args) => api.ink(...args),
+              wipe: (...args) => api.wipe(...args),
+              circle: (...args) => {
+                console.log("🔴 EMBEDDED API CIRCLE OVERRIDE: called with args:", args);
+                return api.circle(...args);
+              },
+              box: (...args) => api.box(...args),
+              point: (...args) => api.point(...args),
+              poly: (...args) => api.poly(...args),
+              paste: (...args) => api.paste(...args),
+              stamp: (...args) => api.stamp(...args),
+              write: (...args) => api.write(...args),
+              flood: (...args) => api.flood(...args),
+            };
+            
+            console.log("🔴 EMBEDDED API CREATED with circle:", typeof embeddedApi.circle);
+            this.embeddedApiCache.set(apiCacheKey, embeddedApi);
+          }
+          
+          // Update frame-specific properties (these change every frame)
+          embeddedApi.frame = smoothFrameValue; // Use smooth incrementing frame for animations
+          embeddedApi.width = embeddedLayer.width;
+          embeddedApi.height = embeddedLayer.height;
+          embeddedApi.screen.pixels = embeddedLayer.buffer.pixels; // Update buffer reference
 
-          // Set up embedded environment
+          // ⚡ PERFORMANCE: Optimize environment updates
+          const localEnv = embeddedLayer.kidlispInstance.localEnv;
+          localEnv.width = embeddedLayer.width;
+          localEnv.height = embeddedLayer.height;
+          localEnv.frame = smoothFrameValue;
+          localEnv['width/2'] = embeddedLayer.width / 2;
+          localEnv['height/2'] = embeddedLayer.height / 2;
+
+          // Set up embedded environment (avoid expensive spread operation)
           const modScrollValue = frameValue % (embeddedLayer.width + embeddedLayer.height);
-          const embeddedEnv = {
-            ...embeddedLayer.kidlispInstance.localEnv,
-            width: embeddedLayer.width,
-            height: embeddedLayer.height,
-            'width/2': embeddedLayer.width / 2,
-            'height/2': embeddedLayer.height / 2,
-            frame: smoothFrameValue,
-            scroll: modScrollValue
-          };
+          const embeddedEnv = localEnv; // Reuse the local env instead of spreading
+          embeddedEnv.scroll = modScrollValue;
           
           // Apply the detected fade string as background if available (only once when layer is created)
           if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
@@ -6522,7 +6756,12 @@ class KidLisp {
           api.page(api.screen);
           
           // Paste the embedded buffer to the main canvas at the layer's position
-          api.paste(embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y);
+          // Use alpha blending if alpha is less than fully opaque
+          if (embeddedLayer.alpha !== undefined && embeddedLayer.alpha < 255) {
+            this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+          } else {
+            api.paste(embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y);
+          }
 
         } catch (error) {
           console.error(`❌ Error updating embedded layer ${index}:`, error);
@@ -6669,66 +6908,96 @@ class KidLisp {
         embeddedLayer.kidlispInstance.timingStates = new Map();
       }
 
-      // Create API context with proper frame, width, height and KidLisp commands
+      // ⚡ PERFORMANCE: Cache expensive API object creation for nested updates
+      const nestedApiCacheKey = `nested_${embeddedLayer.cacheId}_${embeddedLayer.width}x${embeddedLayer.height}`;
+      let embeddedApi = this.embeddedApiCache.get(nestedApiCacheKey);
+      
+      if (!embeddedApi) {
+        // Create API context with proper frame, width, height and KidLisp commands
+        const globalEnv = this.getGlobalEnv();
+        
+        embeddedApi = {
+          ...globalEnv,
+          ...api,
+          screen: {
+            ...api.screen,
+            width: embeddedLayer.width,
+            height: embeddedLayer.height,
+            pixels: embeddedLayer.buffer.pixels
+          },
+          // Execute drawing commands directly to the embedded buffer and track rendering
+          line: (...args) => {
+            didRender = true;
+            return api.line(...args);
+          },
+          ink: (...args) => {
+            didRender = true;
+            return api.ink(...args);
+          },
+          wipe: (...args) => {
+            didRender = true;
+            return api.wipe(...args);
+          },
+          circle: (...args) => {
+            didRender = true;
+            return api.circle(...args);
+          },
+          box: (...args) => {
+            didRender = true;
+            return api.box(...args);
+          },
+          point: (...args) => {
+            didRender = true;
+            return api.point(...args);
+          },
+          poly: (...args) => {
+            didRender = true;
+            return api.poly(...args);
+          },
+          paste: (...args) => {
+            didRender = true;
+            return api.paste(...args);
+          },
+          stamp: (...args) => {
+            didRender = true;
+            return api.stamp(...args);
+          },
+          write: (...args) => {
+            didRender = true;
+            return api.write(...args);
+          },
+          flood: (...args) => {
+            didRender = true;
+            return api.flood(...args);
+          },
+          fade: (...args) => {
+            didRender = true;
+            return api.fade(...args);
+          },
+        };
+        this.embeddedApiCache.set(nestedApiCacheKey, embeddedApi);
+      }
+      
+      // Update frame-specific properties
       const frameValue = api.frame || this.frameCount || 0;
       const smoothFrameValue = embeddedLayer.localFrameCount;
-      
-      // Get the global environment containing KidLisp commands like fade, scroll, etc.
-      const globalEnv = this.getGlobalEnv();
+      embeddedApi.frame = smoothFrameValue;
+      embeddedApi.width = embeddedLayer.width;
+      embeddedApi.height = embeddedLayer.height;
+      embeddedApi.screen.pixels = embeddedLayer.buffer.pixels;
 
-      const embeddedApi = {
-        ...globalEnv,
-        ...api,
-        frame: smoothFrameValue,
-        width: embeddedLayer.width,
-        height: embeddedLayer.height,
-        screen: {
-          ...api.screen,
-          width: embeddedLayer.width,
-          height: embeddedLayer.height,
-          pixels: embeddedLayer.buffer.pixels
-        },
-        // Execute drawing commands directly to the embedded buffer and track rendering
-        line: (...args) => {
-          didRender = true;
-          // console.log(`🎨 NESTED DRAWING: line(${args.join(', ')}) on ${embeddedLayer.cacheId}`);
-          return api.line(...args);
-        },
-        ink: (...args) => {
-          didRender = true;
-          // console.log(`🎨 NESTED DRAWING: ink(${args.join(', ')}) on ${embeddedLayer.cacheId}`);
-          return api.ink(...args);
-        },
-        wipe: (...args) => {
-          didRender = true;
-          // console.log(`🎨 NESTED DRAWING: wipe(${args.join(', ')}) on ${embeddedLayer.cacheId}`);
-          return api.wipe(...args);
-        },
-        fade: (...args) => {
-          didRender = true;
-          // console.log(`🎨 NESTED DRAWING: fade(${args.join(', ')}) on ${embeddedLayer.cacheId}`);
-          return api.fade(...args);
-        },
-      };
+      // ⚡ PERFORMANCE: Optimize environment updates (avoid expensive spread)
+      const localEnv = embeddedLayer.kidlispInstance.localEnv;
+      localEnv.width = embeddedLayer.width;
+      localEnv.height = embeddedLayer.height;
+      localEnv.frame = smoothFrameValue;
+      localEnv['width/2'] = embeddedLayer.width / 2;
+      localEnv['height/2'] = embeddedLayer.height / 2;
 
-      // Ensure width and height variables are available in the embedded environment
-      embeddedLayer.kidlispInstance.localEnv.width = embeddedLayer.width;
-      embeddedLayer.kidlispInstance.localEnv.height = embeddedLayer.height;
-      embeddedLayer.kidlispInstance.localEnv.frame = smoothFrameValue;
-      embeddedLayer.kidlispInstance.localEnv['width/2'] = embeddedLayer.width / 2;
-      embeddedLayer.kidlispInstance.localEnv['height/2'] = embeddedLayer.height / 2;
-
-      // Set up embedded environment
+      // Set up embedded environment (reuse localEnv to avoid spread operation)
       const modScrollValue = frameValue % (embeddedLayer.width + embeddedLayer.height);
-      const embeddedEnv = {
-        ...embeddedLayer.kidlispInstance.localEnv,
-        width: embeddedLayer.width,
-        height: embeddedLayer.height,
-        'width/2': embeddedLayer.width / 2,
-        'height/2': embeddedLayer.height / 2,
-        frame: smoothFrameValue,
-        scroll: modScrollValue
-      };
+      const embeddedEnv = localEnv; // Reuse instead of spreading
+      embeddedEnv.scroll = modScrollValue;
       
       // Apply the detected fade string as background if available (only once when layer is created)
       if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
