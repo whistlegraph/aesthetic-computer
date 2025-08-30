@@ -3296,10 +3296,13 @@ class Microphone {
 class Speaker {
   waveforms = { left: [], right: [] };
   amplitudes = { left: [], right: [] };
+  frequencies = { left: [], right: [] };
+  beat = { detected: false, strength: 0, timestamp: 0 }; // Add beat detection data
 
   poll() {
     send({ type: "get-waveforms" });
     send({ type: "get-amplitudes" });
+    send({ type: "get-frequencies" });
   }
 }
 
@@ -5368,6 +5371,15 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "amplitudes") {
     speaker.amplitudes = content;
+    return;
+  }
+
+  if (type === "frequencies") {
+    speaker.frequencies = content;
+    // Extract beat data if it exists in the content
+    if (content.beat) {
+      speaker.beat = content.beat;
+    }
     return;
   }
 
