@@ -3545,7 +3545,7 @@ async function load(
         slug === "(...)" ||
         path === "(...)" ||
         (path && path.endsWith(".lisp")) ||
-        (slug && slug.startsWith("$")) // Cached codes are always kidlisp
+        (slug && slug.startsWith("$") && slug.length > 1) // Cached codes are always kidlisp
       ) {
         // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
