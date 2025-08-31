@@ -12,6 +12,7 @@ import {
   clamp,
   signedCeil,
   rainbow,
+  zebra,
   isHexString,
   hexToRgb,
   shiftRGB,
@@ -50,6 +51,7 @@ let fadeDirection = "horizontal"; // horizontal, vertical, diagonal, or numeric 
 let fadeAlpha = null; // Alpha override for fade colors (used by coat function)
 let currentKidLispContext = null; // For dynamic evaluation of fade directions
 let currentRainbowColor = null; // Cache rainbow color for current drawing operation
+let currentZebraColor = null; // Cache zebra color for current drawing operation
 
 let debug = false;
 export function setDebug(newDebug) {
@@ -205,10 +207,9 @@ function parseFade(fadeString) {
     clearFadeAlpha();
   }
   
-  // Predefined fade types
+  // Predefined fade types - removed sunset, ocean, fire as requested
   const predefinedFades = {
-    "sunset": ["red", "orange", "yellow", "pink"],
-    "ocean": ["cyan", "blue", "navy"],
+    // All predefined fades removed
   };
   
   // Check if it's a predefined fade
@@ -243,10 +244,15 @@ function parseFade(fadeString) {
       } else if (indexColor && indexColor[0] === "rainbow") {
         // Handle rainbow palette - mark as special dynamic color
         colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
+      } else if (indexColor && indexColor[0] === "zebra") {
+        // Handle zebra palette - mark as special dynamic color
+        colors.push(["zebra", defaultAlpha]); // Include alpha in zebra marker
       } else {
-        // Check for direct rainbow first
+        // Check for direct rainbow or zebra first
         if (trimmed === "rainbow") {
           colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
+        } else if (trimmed === "zebra") {
+          colors.push(["zebra", defaultAlpha]); // Include alpha in zebra marker
         } else {
           // Fall back to CSS colors or hex
           const color = cssColors[trimmed] || hexToRgb(trimmed);
@@ -279,6 +285,13 @@ function getFadeColor(t, x = 0, y = 0) {
     currentRainbowColor = rainbow();
   }
   
+  // Update zebra colors with offsets for stripes - generate multiple zebra colors
+  const zebraInstances = fadeColors.filter(color => color[0] === "zebra");
+  if (currentZebraColor === null && zebraInstances.length > 0) {
+    // For multiple zebra instances, create alternating colors for stripes
+    currentZebraColor = zebra(); // Get the base zebra color
+  }
+  
   // Clamp t to 0-1 range
   t = Math.max(0, Math.min(1, t));
   
@@ -293,9 +306,19 @@ function getFadeColor(t, x = 0, y = 0) {
   // Handle dynamic rainbow colors using cached color
   if (startColor[0] === "rainbow") {
     startColor = [...currentRainbowColor, startColor[1] || 255]; // Use stored alpha or default
+  } else if (startColor[0] === "zebra") {
+    // Calculate zebra offset based on position in fade for stripes
+    const zebraOffset = fadeColors.slice(0, segmentIndex).filter(color => color[0] === "zebra").length;
+    const zebraColor = zebra(zebraOffset);
+    startColor = [...zebraColor, startColor[1] || 255]; // Use offset zebra color
   }
   if (endColor[0] === "rainbow") {
     endColor = [...currentRainbowColor, endColor[1] || 255]; // Use stored alpha or default
+  } else if (endColor[0] === "zebra") {
+    // Calculate zebra offset based on position in fade for stripes
+    const zebraOffset = fadeColors.slice(0, segmentIndex + 1).filter(color => color[0] === "zebra").length;
+    const zebraColor = zebra(zebraOffset);
+    endColor = [...zebraColor, endColor[1] || 255]; // Use offset zebra color
   }
   
   // Linear interpolation between colors with subtle film-grain-like noise
@@ -329,9 +352,10 @@ function getFadeColor(t, x = 0, y = 0) {
   return result;
 }
 
-// Reset rainbow cache for new drawing operations
+// Reset rainbow and zebra cache for new drawing operations
 function resetRainbowCache() {
   currentRainbowColor = null;
+  currentZebraColor = null;
 }
 
 // Parse a color from a variety of inputs..

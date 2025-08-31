@@ -7,7 +7,7 @@
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
-import { cssColors, rainbow, staticColorMap } from "./num.mjs";
+import { cssColors, rainbow, zebra, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
 // Global cache registry for storing cached codes by source hash
@@ -913,9 +913,9 @@ class KidLisp {
           // Test if this is a color function by calling it
           const result = globalEnv[colorName]();
           
-          // Check if the result is a valid color (array of RGB values, fade string, or rainbow)
+          // Check if the result is a valid color (array of RGB values, fade string, or rainbow/zebra)
           const isValidColor = Array.isArray(result) || 
-                               typeof result === "string" && (result.startsWith("fade:") || result === "rainbow");
+                               typeof result === "string" && (result.startsWith("fade:") || result === "rainbow" || result === "zebra");
           
           if (isValidColor) {
             // If we get here without error, it's a color function
@@ -976,6 +976,8 @@ class KidLisp {
         }
       } else if (colorName === "rainbow") {
         colorValue = "RAINBOW"; // Special case for rainbow
+      } else if (colorName === "zebra") {
+        colorValue = "ZEBRA"; // Special case for zebra
       }
       
       // Add the colored color name
@@ -984,6 +986,13 @@ class KidLisp {
         const rainbowColors = ["red", "orange", "yellow", "lime", "blue", "purple", "magenta"];
         for (let charIndex = 0; charIndex < colorName.length; charIndex++) {
           const charColor = rainbowColors[charIndex % rainbowColors.length];
+          result += `\\${charColor}\\${colorName[charIndex]}`;
+        }
+      } else if (colorValue === "ZEBRA") {
+        // Special zebra handling (alternating black/white)
+        const zebraColors = ["black", "white"];
+        for (let charIndex = 0; charIndex < colorName.length; charIndex++) {
+          const charColor = zebraColors[charIndex % zebraColors.length];
           result += `\\${charColor}\\${colorName[charIndex]}`;
         }
       } else {
@@ -1024,8 +1033,8 @@ class KidLisp {
       return staticColorMap[index] !== undefined;
     }
     
-    // Check if it's rainbow
-    if (colorStr === "rainbow") return true;
+    // Check if it's rainbow or zebra
+    if (colorStr === "rainbow" || colorStr === "zebra") return true;
     
     return false;
   }
@@ -1057,6 +1066,8 @@ class KidLisp {
           }
         } else if (colorName === "rainbow") {
           validColors.push([255, 0, 0]); // Just use red as representative
+        } else if (colorName === "zebra") {
+          validColors.push([0, 0, 0]); // Just use black as representative
         }
       } else {
         return null; // Invalid color
@@ -1101,8 +1112,8 @@ class KidLisp {
 
   // Optimize common patterns - this could be expanded for other patterns
   compileOptimizedRepeat(ast) {
-    // Actually, let's disable optimization for rainbow ink to preserve correct behavior
-    // The rainbow function needs to be called through the interpreter to work properly
+    // Actually, let's disable optimization for rainbow/zebra ink to preserve correct behavior
+    // The rainbow/zebra functions need to be called through the interpreter to work properly
     return null;
 
     /* Disabled optimization - keeping for reference
@@ -2311,8 +2322,8 @@ class KidLisp {
             // Split colors and add alpha to each one
             const colorNames = colorsStr.split("-");
             const alphaColorNames = colorNames.map(colorName => {
-              // For special colors like "rainbow", keep them as-is
-              if (colorName === "rainbow") {
+              // For special colors like "rainbow" and "zebra", keep them as-is
+              if (colorName === "rainbow" || colorName === "zebra") {
                 return colorName;
               }
               // For regular colors, we'll let the graphics system handle alpha application
@@ -3525,6 +3536,9 @@ class KidLisp {
       rainbow: (api) => {
         return api.num?.rainbow() || [255, 0, 0]; // Fallback to red if not available
       },
+      zebra: (api) => {
+        return api.num?.zebra() || [0, 0, 0]; // Fallback to black if not available
+      },
       // 🎨 Noise generation
       noise: (api, args = []) => {
         const variant = args.length > 0 ? unquoteString(args[0]) : null;
@@ -3769,6 +3783,7 @@ class KidLisp {
       
       // Add palette codes (p0, p1, etc.)
       p0: () => "rainbow",
+      p1: () => "zebra",
       
       // 🍞 Bake function - creates a new painting layer by capturing current buffer state
       // Automatically prevents repeated calls within the same program execution
@@ -5407,6 +5422,16 @@ class KidLisp {
               result += `\\${charColor}\\${token[charIndex]}`;
             }
             lastColor = null; // Reset so next token gets proper color
+          }
+          // Special handling for zebra coloring
+          else if (color === "ZEBRA" && token === "zebra") {
+            // Alternating black/white colors for each character
+            const zebraColors = ["black", "white"];
+            for (let charIndex = 0; charIndex < token.length; charIndex++) {
+              const charColor = zebraColors[charIndex % zebraColors.length];
+              result += `\\${charColor}\\${token[charIndex]}`;
+            }
+            lastColor = null; // Reset so next token gets proper color
           } 
           // Special handling for fade expressions like "fade:red-blue-yellow"
           else if (token.startsWith("fade:") && color === "mediumseagreen") {
@@ -6036,7 +6061,7 @@ class KidLisp {
     const knownFunctions = [
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
-      "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
+      "noise", "choose", "?", "...", "..", "overtone", "rainbow", "zebra", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
@@ -6046,6 +6071,11 @@ class KidLisp {
     // Special case for "rainbow" - return special marker for rainbow coloring
     if (token === "rainbow") {
       return "RAINBOW";
+    }
+    
+    // Special case for "zebra" - return special marker for zebra coloring
+    if (token === "zebra") {
+      return "ZEBRA";
     }
     
     // Special case for "fade" function - give it a distinct color
