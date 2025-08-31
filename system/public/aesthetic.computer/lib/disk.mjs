@@ -968,8 +968,6 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
-    console.log("🐎 Jumping to:", to);
-    console.log("🐎 Jump context:", { leaving, ahistorical, alias });
     
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
@@ -997,26 +995,21 @@ const $commonApi = {
         return;
       }
     } else {
-      console.log("🐎 Setting leaving = true for local piece:", to);
       leaving = true;
     }
 
     function loadLine() {
-      console.log("🐎 loadLine called with:", to);
       load(parse(to), ahistorical, alias, false, callback);
     }
 
     let callback;
     leaveLoad = () => {
-      console.log("🐎 leaveLoad called - checking videoOnLeave:", $commonApi.rec.videoOnLeave);
       // Intercept returns to the prompt when taping from a piece directly.
       if ($commonApi.rec.videoOnLeave && to.split("~")[0] === "prompt") {
-        console.log("🐎 videoOnLeave intercept - redirecting to video");
         to = "video";
         $commonApi.rec.videoOnLeave = false;
         $commonApi.rec.cut(loadLine);
       } else {
-        console.log("🐎 Normal load, no videoOnLeave intercept");
         loadLine(); // Or just load normally.
       }
     };
@@ -4372,6 +4365,9 @@ async function load(
         modsys.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
       boot = ($) => {
+        // Reset scroll state when a new piece boots
+        graph.resetScrollState();
+        
         const booter = module.boot || nopaint_boot;
         booter($);
         if (chatEnabled) chat.boot($);
@@ -4548,6 +4544,9 @@ async function load(
       // TODO: ⚠️ Make game template. 25.06.05.09.19
     } else {
       // 🧩 piece
+      // Reset scroll state when a piece loads
+      graph.resetScrollState();
+      
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
       paint = module.paint || defaults.paint;
@@ -7122,7 +7121,7 @@ async function makeFrame({ data: { type, content } }) {
         booted
       ) {
         let paintOut;
-
+        
         // Restore kidlisp's accumulated pan state from previous frame
         $api.loadpan();
 
@@ -7626,9 +7625,41 @@ async function makeFrame({ data: { type, content } }) {
           }
           
           // Create tape progress bar painting with VHS-style red glow
-          const tapeProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
+          const tapeProgressBarPainting = $api.painting(mainScreenWidth, 2, ($) => {
             // Animation frame for VHS effects - increased speed for more vibes
             const animFrame = Number($api.paintCount || 0n);
+            
+            // Helper function to sample pixel color from above the progress bar
+            const sampleColorFromAbove = (x) => {
+              // Skip sampling during early frames for performance (first ~5 frames)
+              const frameCount = Number($api.paintCount || 0n);
+              if (frameCount < 5 || !mainScreenPixels || mainScreenPixels.length === 0) {
+                return { r: 0, g: 0, b: 0 }; // Return black during startup
+              }
+              
+              // Sample from a few pixels above the progress bar position
+              const sampleY = Math.max(0, screen.height - 10); // Sample 10px above progress bar
+              const pixelIndex = (sampleY * screen.width + x) * 4;
+              
+              if (pixelIndex >= 0 && pixelIndex < mainScreenPixels.length - 3) {
+                return {
+                  r: mainScreenPixels[pixelIndex],
+                  g: mainScreenPixels[pixelIndex + 1],
+                  b: mainScreenPixels[pixelIndex + 2]
+                };
+              }
+              // Fallback to black if can't sample
+              return { r: 0, g: 0, b: 0 };
+            };
+            
+            // Helper function to blend sampled color with VHS red
+            const blendWithVHS = (sampledColor, vhsR, vhsG, vhsB, blendFactor = 0.3) => {
+              return {
+                r: Math.floor(sampledColor.r * blendFactor + vhsR * (1 - blendFactor)),
+                g: Math.floor(sampledColor.g * blendFactor + vhsG * (1 - blendFactor)),
+                b: Math.floor(sampledColor.b * blendFactor + vhsB * (1 - blendFactor))
+              };
+            };
           
           // Special color override for first and last frames
           const isFirstFrame = progress <= 0.01; // First 1% of progress
@@ -7652,7 +7683,7 @@ async function makeFrame({ data: { type, content } }) {
           }
           
           // Fill entire bar with black backdrop using fade alpha
-          $.ink(0, 0, 0, Math.floor(progressBarAlpha * 255)).box(0, 0, mainScreenWidth, 1);
+          $.ink(0, 0, 0, Math.floor(progressBarAlpha * 255)).box(0, 0, mainScreenWidth, 2);
           
           if (isFrameBased) {
             // Draw segmented progress for frame-based recording
@@ -7678,9 +7709,21 @@ async function makeFrame({ data: { type, content } }) {
                   baseG = 0;
                   baseB = 0;
                 } else {
-                  // NORMAL FRAMES - VHS red with effects
-                  // Base VHS red intensity - brighter and more consistent
-                  let redIntensity = 255;
+                  // NORMAL FRAMES - Enhanced color sampling from buffer above
+                  const sampledColor = sampleColorFromAbove(x);
+                  
+                  // Sample additional colors for more variety
+                  const sampledColor2 = sampleColorFromAbove(Math.max(0, x - 3));
+                  const sampledColor3 = sampleColorFromAbove(Math.min(mainScreenWidth - 1, x + 3));
+                  
+                  // Mix multiple sampled colors for richer palette
+                  const mixedR = Math.floor((sampledColor.r + sampledColor2.r + sampledColor3.r) / 3);
+                  const mixedG = Math.floor((sampledColor.g + sampledColor2.g + sampledColor3.g) / 3);
+                  const mixedB = Math.floor((sampledColor.b + sampledColor2.b + sampledColor3.b) / 3);
+                  const mixedColor = { r: mixedR, g: mixedG, b: mixedB };
+                  
+                  // Base VHS red intensity - reduced to let more color through
+                  let redIntensity = 200; // Reduced from 255 for more color mixing
                   
                   // Enhanced VHS scan line effect with more movement
                   const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
@@ -7698,16 +7741,20 @@ async function makeFrame({ data: { type, content } }) {
                   // Combine all VHS effects with brighter base
                   redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
                   
-                  // Bright VHS red color - keep it pure red, no orange bleeding
-                  baseR = Math.max(200, Math.min(255, redIntensity));
+                  // Create VHS red color
+                  const vhsR = Math.max(180, Math.min(255, redIntensity)); // Reduced min from 200
+                  const vhsG = Math.floor(vhsR * 0.05); // Very minimal green
+                  const vhsB = Math.floor(vhsR * 0.02); // Very minimal blue
                   
-                  // Pure red - minimal green and blue for clean bright red
-                  baseG = Math.floor(baseR * 0.05); // Very minimal green
-                  baseB = Math.floor(baseR * 0.02); // Very minimal blue
+                  // Blend mixed sampled color with VHS red (55% sampled, 45% VHS red for more color influence)
+                  const blended = blendWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
+                  baseR = blended.r;
+                  baseG = blended.g;
+                  baseB = blended.b;
                 }
                 
                 // Use proper alpha blending for filled area (no special leader pixel treatment for frame-based)
-                $.ink(baseR, baseG, baseB, Math.floor(progressBarAlpha * 255)).box(x, 0, 1, 1);
+                $.ink(baseR, baseG, baseB, Math.floor(progressBarAlpha * 255)).box(x, 0, 1, 2);
               } else {
                 // UNFILLED AREA - Keep black background (already filled above)
                 // No need to redraw black pixels, they're already set
@@ -7735,9 +7782,21 @@ async function makeFrame({ data: { type, content } }) {
                   baseG = 0;
                   baseB = 0;
                 } else {
-                  // NORMAL FRAMES - VHS red with effects
-                  // Base VHS red intensity - brighter and more consistent
-                  let redIntensity = 255;
+                  // NORMAL FRAMES - Enhanced color sampling from buffer above
+                  const sampledColor = sampleColorFromAbove(x);
+                  
+                  // Sample additional colors for more variety
+                  const sampledColor2 = sampleColorFromAbove(Math.max(0, x - 3));
+                  const sampledColor3 = sampleColorFromAbove(Math.min(mainScreenWidth - 1, x + 3));
+                  
+                  // Mix multiple sampled colors for richer palette
+                  const mixedR = Math.floor((sampledColor.r + sampledColor2.r + sampledColor3.r) / 3);
+                  const mixedG = Math.floor((sampledColor.g + sampledColor2.g + sampledColor3.g) / 3);
+                  const mixedB = Math.floor((sampledColor.b + sampledColor2.b + sampledColor3.b) / 3);
+                  const mixedColor = { r: mixedR, g: mixedG, b: mixedB };
+                  
+                  // Base VHS red intensity - reduced to let more color through
+                  let redIntensity = 200; // Reduced from 255 for more color mixing
                   
                   // Enhanced VHS scan line effect with more movement
                   const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
@@ -7755,12 +7814,16 @@ async function makeFrame({ data: { type, content } }) {
                   // Combine all VHS effects with brighter base
                   redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
                   
-                  // Bright VHS red color - keep it pure red, no orange bleeding
-                  baseR = Math.max(200, Math.min(255, redIntensity));
+                  // Create VHS red color
+                  const vhsR = Math.max(180, Math.min(255, redIntensity)); // Reduced min from 200
+                  const vhsG = Math.floor(vhsR * 0.05); // Very minimal green
+                  const vhsB = Math.floor(vhsR * 0.02); // Very minimal blue
                   
-                  // Pure red - minimal green and blue for clean bright red
-                  baseG = Math.floor(baseR * 0.05); // Very minimal green
-                  baseB = Math.floor(baseR * 0.02); // Very minimal blue
+                  // Blend mixed sampled color with VHS red (55% sampled, 45% VHS red for more color influence)
+                  const blended = blendWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
+                  baseR = blended.r;
+                  baseG = blended.g;
+                  baseB = blended.b;
                 }
                 
                 // Special leader pixel treatment
@@ -7821,7 +7884,7 @@ async function makeFrame({ data: { type, content } }) {
                 }
                 
                 // Use proper alpha blending for filled area
-                $.ink(baseR, baseG, baseB, Math.floor(finalAlpha * 255)).box(x, 0, 1, 1);
+                $.ink(baseR, baseG, baseB, Math.floor(finalAlpha * 255)).box(x, 0, 1, 2);
               } else {
                 // UNFILLED AREA - Keep black background (already filled above)
                 // No need to redraw black pixels, they're already set
@@ -7835,7 +7898,7 @@ async function makeFrame({ data: { type, content } }) {
           // Structure the data to match what bios.mjs expects (same as label format)
           sendData.tapeProgressBar = {
             x: 0,
-            y: screen.height - 1, // Position at bottom of screen (1px tall)
+            y: screen.height - 2, // Position at bottom of screen (2px tall)
             img: {
               width: tapeProgressBarPainting.width,
               height: tapeProgressBarPainting.height,
@@ -8342,7 +8405,9 @@ async function makeFrame({ data: { type, content } }) {
 
       // Note: transferredPixels will be undefined when sendData === {}.
       if (sendData.pixels) {
-        sendData.pixels = sendData.pixels.buffer;
+        // 🛡️ Create a copy for transfer to avoid detaching the main rendering buffer
+        const pixelsCopy = new Uint8ClampedArray(sendData.pixels);
+        sendData.pixels = pixelsCopy.buffer;
       } else {
         sendData.pixels = content.pixels;
       }
@@ -8352,15 +8417,21 @@ async function makeFrame({ data: { type, content } }) {
       let transferredObjects = [sendData.pixels];
 
       if (sendData.label) {
-        transferredObjects.push(sendData.label?.img.pixels.buffer);
+        // 🛡️ Create a copy for transfer to avoid detaching the label buffer
+        const labelPixelsCopy = new Uint8ClampedArray(sendData.label.img.pixels);
+        transferredObjects.push(labelPixelsCopy.buffer);
       }
 
       if (sendData.qrOverlay) {
-        transferredObjects.push(sendData.qrOverlay?.img.pixels.buffer);
+        // 🛡️ Create a copy for transfer to avoid detaching the QR overlay buffer
+        const qrPixelsCopy = new Uint8ClampedArray(sendData.qrOverlay.img.pixels);
+        transferredObjects.push(qrPixelsCopy.buffer);
       }
 
       if (sendData.tapeProgressBar) {
-        transferredObjects.push(sendData.tapeProgressBar?.img.pixels.buffer);
+        // 🛡️ Create a copy for transfer to avoid detaching the tape progress bar buffer
+        const tapePixelsCopy = new Uint8ClampedArray(sendData.tapeProgressBar.img.pixels);
+        transferredObjects.push(tapePixelsCopy.buffer);
       }
 
       // console.log("TO:", transferredObjects);
@@ -8386,19 +8457,22 @@ async function makeFrame({ data: { type, content } }) {
       //       get sent? 23.01.06.16.02
 
       // console.log(pixels);
+      // 🛡️ Create a copy for transfer to avoid detaching the pixels buffer
+      const transferPixels = pixels ? new Uint8ClampedArray(pixels) : null;
+      
       send(
         {
           type: "update",
           content: {
             didntRender: true,
             loading,
-            pixels: pixels?.buffer,
+            pixels: transferPixels?.buffer,
             width: content.width,
             height: content.height,
             sound,
           },
         },
-        [pixels?.buffer],
+        [transferPixels?.buffer],
       );
     }
 
