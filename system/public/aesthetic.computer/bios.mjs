@@ -2136,15 +2136,194 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // 2. Set up the font.
       const typeSize = Math.min(
-        16,
+        18,
         Math.max(12, Math.floor(canvasHeight / 40)),
       );
       const gap = typeSize * 0.75;
 
       ctx.save(); // Save the current state of the canvas
 
+      // Calculate stamp visibility for timestamp fade coordination
+      let bothStampsInvisible = false;
+      const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+      
+      if (isFrameBasedRecording) {
+        // For frame-based recordings longer than 60 frames: use alternating side timing logic
+        const frameCount = window.currentRecordingOptions?.frameCount || 0;
+        
+        if (frameCount > 60 && frameIndex !== null) {
+          const cyclesPerGif = 2;
+          const frameProgress = frameIndex / frameCount;
+          const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+          
+          // Check if we're in the "both off" phases (0-20% and 40-60%)
+          if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+            bothStampsInvisible = true;
+          }
+        }
+      } else {
+        // Time-based recordings
+        const cyclesPerGif = 2;
+        const cyclePosition = (progress * cyclesPerGif) % 1.0;
+        
+        // Check if we're in the "both off" phases (0-20% and 40-60%)
+        if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+          bothStampsInvisible = true;
+        }
+      }
+
       // Add film camera style timestamp at bottom-left corner
-      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata, frameIndex, totalFrames);
+      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata, frameIndex, totalFrames, bothStampsInvisible);
+
+      // Add Tezos watermark if enabled
+      if (window.currentRecordingOptions?.showTezosStamp) {
+        // Calculate both stamp visibility for Tezos blink sync
+        let showLeftStamp = false;
+        let showRightStamp = false;
+        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+        
+        if (isFrameBasedRecording) {
+          showLeftStamp = true;
+          showRightStamp = true;
+        } else {
+          const cyclesPerGif = 2;
+          const cyclePosition = (progress * cyclesPerGif) % 1.0;
+          
+          if (cyclePosition < 0.2) {
+            // Phase 1 (0-20%): Both off
+            showLeftStamp = false;
+            showRightStamp = false;
+          } else if (cyclePosition < 0.4) {
+            // Phase 2 (20-40%): Both on
+            showLeftStamp = true;
+            showRightStamp = true;
+          } else if (cyclePosition < 0.6) {
+            // Phase 3 (40-60%): Both off
+            showLeftStamp = false;
+            showRightStamp = false;
+          } else if (cyclePosition < 0.8) {
+            // Phase 4 (60-80%): Left only
+            showLeftStamp = true;
+            showRightStamp = false;
+          } else {
+            // Phase 5 (80-100%): Right only
+            showLeftStamp = false;
+            showRightStamp = true;
+          }
+        }
+        
+        // Removed addTezosStamp from top right - now positioned with timestamp
+      }
+
+      // Add Tezos watermark to top-right if enabled (but not when right stamp is showing)
+      if (window.currentRecordingOptions?.showTezosStamp) {
+        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+        
+        // Use the SAME visibility logic as the actual stamps to avoid conflicts
+        let showRightStamp = false;
+        
+        if (isFrameBasedRecording) {
+          // For frame-based recordings longer than 60 frames: use alternating side timing logic
+          const frameCount = window.currentRecordingOptions?.frameCount || 0;
+          
+          if (frameCount > 60 && frameIndex !== null) {
+            // 5-phase pattern across total frame count
+            const cyclesPerGif = 2;
+            const frameProgress = frameIndex / frameCount;
+            const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+            
+            if (cyclePosition < 0.2) {
+              showRightStamp = false;
+            } else if (cyclePosition < 0.4) {
+              showRightStamp = true;
+            } else if (cyclePosition < 0.6) {
+              showRightStamp = false;
+            } else if (cyclePosition < 0.8) {
+              showRightStamp = false; // Left only
+            } else {
+              showRightStamp = true; // Right only
+            }
+          } else {
+            // For shorter recordings: always show both stamps, so Tezos should never show
+            showRightStamp = true;
+          }
+        } else {
+          // Time-based recordings: use progress-based visibility (SAME as stamp logic)
+          const cyclesPerGif = 2;
+          const cyclePosition = (progress * cyclesPerGif) % 1.0;
+          
+          if (cyclePosition < 0.2) {
+            showRightStamp = false; // Both off
+          } else if (cyclePosition < 0.4) {
+            showRightStamp = true; // Both on
+          } else if (cyclePosition < 0.6) {
+            showRightStamp = false; // Both off
+          } else if (cyclePosition < 0.8) {
+            showRightStamp = false; // Left only
+          } else {
+            showRightStamp = true; // Right only
+          }
+        }
+        
+        // Calculate fade alpha for Tezos logo (inverse of right stamp)
+        let tezosFadeAlpha = 1.0;
+        
+        if (isFrameBasedRecording) {
+          const frameCount = window.currentRecordingOptions?.frameCount || 0;
+          
+          if (frameCount > 60 && frameIndex !== null) {
+            const cyclesPerGif = 2;
+            const frameProgress = frameIndex / frameCount;
+            const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+            
+            // Tezos is visible when right stamp is NOT visible, with longer fades
+            if (cyclePosition < 0.15) {
+              tezosFadeAlpha = 1.0; // Fully visible
+            } else if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+              tezosFadeAlpha = 1.0 - ((cyclePosition - 0.15) / 0.10); // Fade out as right stamp fades in
+            } else if (cyclePosition > 0.25 && cyclePosition < 0.35) {
+              tezosFadeAlpha = 0.0; // Hidden while both stamps on
+            } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+              tezosFadeAlpha = (cyclePosition - 0.35) / 0.10; // Fade in as stamps fade out
+            } else if (cyclePosition > 0.45 && cyclePosition < 0.75) {
+              tezosFadeAlpha = 1.0; // Visible during off phases and left-only
+            } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+              tezosFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10); // Fade out as right stamp fades in
+            } else {
+              tezosFadeAlpha = 0.0; // Hidden during right-only phase
+            }
+          } else {
+            tezosFadeAlpha = 0.0; // Hidden for shorter recordings
+          }
+        } else {
+          // Time-based recordings
+          const cyclesPerGif = 2;
+          const cyclePosition = (progress * cyclesPerGif) % 1.0;
+          
+          if (cyclePosition < 0.15) {
+            tezosFadeAlpha = 1.0;
+          } else if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+            tezosFadeAlpha = 1.0 - ((cyclePosition - 0.15) / 0.10);
+          } else if (cyclePosition > 0.25 && cyclePosition < 0.35) {
+            tezosFadeAlpha = 0.0;
+          } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+            tezosFadeAlpha = (cyclePosition - 0.35) / 0.10;
+          } else if (cyclePosition > 0.45 && cyclePosition < 0.75) {
+            tezosFadeAlpha = 1.0;
+          } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+            tezosFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10);
+          } else {
+            tezosFadeAlpha = 0.0;
+          }
+        }
+        
+        // Clamp alpha and show with fade
+        tezosFadeAlpha = Math.max(0.0, Math.min(1.0, tezosFadeAlpha));
+        
+        if (tezosFadeAlpha > 0.0) {
+          addTezosStamp(ctx, canvasWidth, canvasHeight, typeSize, isFrameBasedRecording, true, true, frameIndex, tezosFadeAlpha);
+        }
+      }
 
       drawTextAtPosition(0, 90); // Left
       drawTextAtPosition(canvasWidth, -90); // Right
@@ -2169,9 +2348,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         let showRightStamp = false;
         
         if (isFrameBasedRecording) {
-          // For frame-based recordings: always show both stamps
-          showLeftStamp = true;
-          showRightStamp = true;
+          // For frame-based recordings longer than 60 frames: use alternating side timing logic
+          const frameCount = window.currentRecordingOptions?.frameCount || 0;
+          
+          if (frameCount > 60 && frameIndex !== null) {
+            // 5-phase pattern across total frame count: both off, both on, both off, left only, right only
+            const cyclesPerGif = 2; // Pattern loops 2 times across the full recording
+            const frameProgress = frameIndex / frameCount; // 0-1 progress through recording
+            const cyclePosition = (frameProgress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+            
+            if (cyclePosition < 0.2) {
+              // Phase 1 (0-20%): Both off
+              showLeftStamp = false;
+              showRightStamp = false;
+            } else if (cyclePosition < 0.4) {
+              // Phase 2 (20-40%): Both on
+              showLeftStamp = true;
+              showRightStamp = true;
+            } else if (cyclePosition < 0.6) {
+              // Phase 3 (40-60%): Both off
+              showLeftStamp = false;
+              showRightStamp = false;
+            } else if (cyclePosition < 0.8) {
+              // Phase 4 (60-80%): Left only
+              showLeftStamp = true;
+              showRightStamp = false;
+            } else {
+              // Phase 5 (80-100%): Right only
+              showLeftStamp = false;
+              showRightStamp = true;
+            }
+          } else {
+            // For shorter frame recordings: always show both stamps
+            showLeftStamp = true;
+            showRightStamp = true;
+          }
         } else {
           // 5-phase pattern stretched across GIF duration: both off, both on, both off, left only, right only
           // Use progress (0-1) to determine cycle position - allows multiple loops per GIF
@@ -2201,17 +2412,101 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
         
-        // Determine if this specific stamp should show
-        let showStamp = false;
+        // Determine if this specific stamp should show with fade transitions
+        let stampFadeAlpha = 0.0;
+        
+        // Calculate fade alpha for smooth transitions instead of hard cuts
+        const fadeSpeed = 0.05; // How much of each phase is fade transition (5%)
+        
         if (deg === 90) {
-          // Left side
-          showStamp = showLeftStamp;
+          // Left side - calculate fade alpha
+          if (showLeftStamp) {
+            stampFadeAlpha = 1.0;
+          } else {
+            stampFadeAlpha = 0.0;
+          }
+          
+          // Add fade transitions at boundaries
+          if (isFrameBasedRecording) {
+            // For frame-based: add quick fades at phase transitions
+            const frameCount = window.currentRecordingOptions?.frameCount || 0;
+            if (frameCount > 60 && frameIndex !== null) {
+              const cyclesPerGif = 2;
+              const frameProgress = frameIndex / frameCount;
+              const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+              
+              // Quick fade in/out at transition points - longer fades for visibility
+              if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+                // Fade in to "both on" phase (10% fade period)
+                stampFadeAlpha = (cyclePosition - 0.15) / 0.10; // 0 to 1 over 10% of cycle
+              } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+                // Fade out from "both on" phase (10% fade period)
+                stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10); // 1 to 0 over 10% of cycle
+              } else if (cyclePosition >= 0.55 && cyclePosition <= 0.65) {
+                // Fade in to "left only" phase (10% fade period)
+                stampFadeAlpha = (cyclePosition - 0.55) / 0.10; // 0 to 1 over 10% of cycle
+              } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+                // Fade out from "left only" phase (10% fade period)
+                stampFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10); // 1 to 0 over 10% of cycle
+              }
+            }
+          } else {
+            // Time-based recordings: add fade transitions (longer fades)
+            const cyclesPerGif = 2;
+            const cyclePosition = (progress * cyclesPerGif) % 1.0;
+            
+            if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+              stampFadeAlpha = (cyclePosition - 0.15) / 0.10;
+            } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+              stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10);
+            } else if (cyclePosition >= 0.55 && cyclePosition <= 0.65) {
+              stampFadeAlpha = (cyclePosition - 0.55) / 0.10;
+            } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+              stampFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10);
+            }
+          }
         } else if (deg === -90) {
-          // Right side
-          showStamp = showRightStamp;
+          // Right side - calculate fade alpha
+          if (showRightStamp) {
+            stampFadeAlpha = 1.0;
+          } else {
+            stampFadeAlpha = 0.0;
+          }
+          
+          // Add fade transitions at boundaries  
+          if (isFrameBasedRecording) {
+            const frameCount = window.currentRecordingOptions?.frameCount || 0;
+            if (frameCount > 60 && frameIndex !== null) {
+              const cyclesPerGif = 2;
+              const frameProgress = frameIndex / frameCount;
+              const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+              
+              if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+                stampFadeAlpha = (cyclePosition - 0.15) / 0.10;
+              } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+                stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10);
+              } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+                stampFadeAlpha = (cyclePosition - 0.75) / 0.10;
+              }
+            }
+          } else {
+            const cyclesPerGif = 2;
+            const cyclePosition = (progress * cyclesPerGif) % 1.0;
+            
+            if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+              stampFadeAlpha = (cyclePosition - 0.15) / 0.10;
+            } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+              stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10);
+            } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+              stampFadeAlpha = (cyclePosition - 0.75) / 0.10;
+            }
+          }
         }
         
-        if (!showStamp) {
+        // Clamp alpha to valid range
+        stampFadeAlpha = Math.max(0.0, Math.min(1.0, stampFadeAlpha));
+        
+        if (stampFadeAlpha <= 0.0) {
           return; // Skip drawing this stamp
         }
 
@@ -2220,28 +2515,99 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
         
         // Separate positioning for left and right sides for better spacing
-        const leftYDist = 0.12; // Move left side up a bit (higher than timestamp)
-        const rightYDist = 0.08; // Move right side down a bit
+        const leftYDist = 0.10; // Closer to corner (was 0.18)
+        const rightYDist = 0.08; // Closer to corner, but still avoid Tezos overlap (was 0.15)
 
-        // Use the passed-in typeSize for consistency with timestamp
-        ctx.font = `${typeSize}px YWFTProcessing-Regular`;
-        const text = "aesthetic.computer";
+        // Use smaller size to match timestamp better  
+        ctx.font = `${typeSize * 1.4}px YWFTProcessing-Regular`;
+        
+        // Always use Aesthetic.Computer text
+        const text = "Aesthetic.Computer";
         const measured = ctx.measureText(text);
         const textWidth = measured.width;
+
+        // Helper function to render text with multicolored shooting star dot
+        function renderTextWithStarDot(ctx, fullText, x, y, baseColor, alpha, offsetX, offsetY, frameIndex) {
+          const parts = fullText.split('.');
+          if (parts.length !== 2) {
+            // Fallback to normal rendering if not split correctly
+            ctx.fillText(fullText, x + offsetX, y + offsetY);
+            return;
+          }
+          
+          const beforeDot = parts[0]; // "Aesthetic"
+          const afterDot = parts[1];  // "Computer"
+          
+          // Measure parts
+          const beforeWidth = ctx.measureText(beforeDot).width;
+          const dotWidth = ctx.measureText('.').width;
+          
+          // Render "Aesthetic"
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.fillText(beforeDot, x + offsetX, y + offsetY);
+          
+          // Render CRT-style piercing dot - bright, small, sharp like asteroids
+          const dotX = x + beforeWidth + offsetX;
+          const dotY = y + offsetY;
+          
+          // CRT cathode ray piercing colors - bright, sharp, high-contrast
+          const crtColors = ["#FFFFFF", "#00FFFF", "#FFFF00", "#FF0000", "#00FF00", "#FF00FF"];
+          let dotColor;
+          let dotAlpha = alpha;
+          
+          if (frameIndex !== null) {
+            // Frame-based CRT flicker animation - faster changes for piercing effect
+            const colorIndex = Math.floor(frameIndex / 1) % crtColors.length; // Change color every frame
+            dotColor = crtColors[colorIndex];
+            
+            // Sharp, bright pulse - no gentle curves, pure CRT intensity
+            dotAlpha = alpha * (frameIndex % 2 === 0 ? 1.0 : 0.9); // Sharp flicker between 90% and 100%
+          } else {
+            // Time-based fallback - faster CRT-style changes
+            const timeIndex = Math.floor(Date.now() / 100) % crtColors.length; // Change every 100ms
+            dotColor = crtColors[timeIndex];
+            dotAlpha = alpha * (Math.floor(Date.now() / 100) % 2 === 0 ? 1.0 : 0.9); // Sharp time-based flicker
+          }
+          
+          ctx.fillStyle = dotColor;
+          ctx.globalAlpha = dotAlpha;
+          ctx.fillText('.', dotX, dotY);
+          
+          // Render "Computer"
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.fillText(afterDot, dotX + dotWidth, dotY);
+        }
 
         ["red", "lime", "blue", "white"].forEach((color) => {
           // Skip fade animations for frame-based recordings
           const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
           
+          // Frame-based glitch effects for frame recordings
+          let glitchAlpha = 1.0;
+          if (isFrameBasedRecording && frameIndex !== null) {
+            // Different glitch patterns for each color layer
+            if (color === "red") {
+              glitchAlpha = (frameIndex + 1) % 5 === 0 ? 0.2 : 1.0; // Dim every 5th frame
+            } else if (color === "lime") {
+              glitchAlpha = (frameIndex + 2) % 8 === 0 ? 0.0 : 1.0; // Off every 8th frame (offset)
+            } else if (color === "blue") {
+              glitchAlpha = (frameIndex + 3) % 6 === 0 ? 0.4 : 1.0; // Dim every 6th frame (offset)
+            } else if (color === "white") {
+              glitchAlpha = (frameIndex + 1) % 4 === 0 ? 0.6 : 1.0; // Dim every 4th frame
+            }
+          }
+          
           let offsetX, offsetY;
           if (color !== "white") {
-            ctx.globalAlpha = isFrameBasedRecording ? 0.45 : 0.45; // Keep consistent for frame recordings
-            offsetX = choose([-1, -2, 0, 1, 2]); // Smaller offsets for sharper look
-            offsetY = choose([-1, -2, 0, 1, 2]); // Smaller offsets for sharper look
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.5 * glitchAlpha : 0.5) * stampFadeAlpha; // Restore multicolor balance
+            offsetX = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
+            offsetY = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
           } else {
-            ctx.globalAlpha = isFrameBasedRecording ? 0.5 : choose([0.5, 0.4, 0.6]); // Fixed alpha for frame recordings
-            offsetX = choose([-1, 0, 1]);
-            offsetY = choose([-1, 0, 1]);
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.85 * glitchAlpha : choose([0.75, 0.85, 0.95])) * stampFadeAlpha; // Brighter white for dot visibility
+            offsetX = choose([-1, 0, 1]); // Some offsets for multicolor effect
+            offsetY = choose([-1, 0, 1]); // Some offsets for multicolor effect
             color = choose(["white", "white", "white", "magenta", "yellow"]);
           }
 
@@ -2249,40 +2615,67 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (deg === 90) {
             // Left side - move lower (closer to bottom)
-            ctx.fillText(
+            renderTextWithStarDot(
+              ctx,
               text,
-              floor(canvasHeight * (1 - leftYDist) - textWidth + offsetY),
-              -floor(offsetX + gap),
+              floor(canvasHeight * (1 - leftYDist) - textWidth),
+              -floor(gap),
+              color,
+              ctx.globalAlpha,
+              offsetX,
+              offsetY,
+              frameIndex
             );
           } else if (deg === -90) {
             // Right side - move higher (closer to top)
-            ctx.fillText(
+            renderTextWithStarDot(
+              ctx,
               text,
-              -Math.floor(canvasHeight * rightYDist + textWidth + offsetY),
-              Math.floor(offsetX - gap),
+              -Math.floor(canvasHeight * rightYDist + textWidth),
+              Math.floor(-gap),
+              color,
+              ctx.globalAlpha,
+              offsetX,
+              offsetY,
+              frameIndex
             );
           }
         });
 
         if (HANDLE) {
-          ctx.font = `${typeSize * 1.6}px YWFTProcessing-Light`; // Even larger handle text
+          ctx.font = `${typeSize * 1.3}px YWFTProcessing-Light`; // Smaller handle text (was 1.5)
           const handleWidth = textWidth / 2 + ctx.measureText(HANDLE).width / 2;
-          const handleSpace = typeSize * 2.2; // Increased spacing by another 0.2
+          const handleSpace = typeSize * 2.0; // More spacing (was 1.5)
           
           // Skip fade animations for frame-based recordings
           const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
           
           // Restore original 4-layer system with warmer color palette
           ["red", "lime", "blue", "white"].forEach((color) => {
+            // Frame-based glitch effects for frame recordings
+            let glitchAlpha = 1.0;
+            if (isFrameBasedRecording && frameIndex !== null) {
+              // Different glitch patterns for handle text (offset from main text)
+              if (color === "red") {
+                glitchAlpha = (frameIndex + 2) % 7 === 0 ? 0.1 : 1.0; // Off every 7th frame (offset)
+              } else if (color === "lime") {
+                glitchAlpha = (frameIndex + 3) % 5 === 0 ? 0.3 : 1.0; // Dim every 5th frame (offset)
+              } else if (color === "blue") {
+                glitchAlpha = (frameIndex + 4) % 9 === 0 ? 0.0 : 1.0; // Off every 9th frame (offset)
+              } else if (color === "white") {
+                glitchAlpha = (frameIndex + 2) % 3 === 0 ? 0.4 : 1.0; // Dim every 3rd frame (offset)
+              }
+            }
+            
             let offsetX, offsetY;
             if (color !== "white") {
-              ctx.globalAlpha = isFrameBasedRecording ? 0.6 : 0.6; // Keep consistent for frame recordings
-              offsetX = choose([-2, -4, 0, 2, 4]);
-              offsetY = choose([-2, -4, 0, 2, 4]);
+              ctx.globalAlpha = (isFrameBasedRecording ? 0.6 * glitchAlpha : 0.6) * stampFadeAlpha; // Less bright to keep multicolor look
+              offsetX = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
+              offsetY = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
             } else {
-              ctx.globalAlpha = isFrameBasedRecording ? 0.8 : choose([0.7, 0.8, 0.9]); // Fixed alpha for frame recordings
-              offsetX = choose([-1, 0, 1]);
-              offsetY = choose([-1, 0, 1]);
+              ctx.globalAlpha = (isFrameBasedRecording ? 0.8 * glitchAlpha : choose([0.7, 0.8, 0.9])) * stampFadeAlpha; // Keep bright white layer
+              offsetX = choose([-1, 0, 1]); // Some offsets for multicolor effect
+              offsetY = choose([-1, 0, 1]); // Some offsets for multicolor effect
               color = choose(["white", "white", "white", "magenta", "yellow"]); // Original warmer palette
             }
 
@@ -2307,113 +2700,97 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Add Tezos stamp as a third element (only for frame-based recordings)
-        const showTezosStamp = window.currentRecordingOptions?.showTezosStamp || false;
-        
-        if (showTezosStamp) {
-          // Make Tezos stamp bigger - larger than typeSize
-          const tezosSize = Math.floor(typeSize * 1.4); // Much bigger!
-          ctx.font = `bold ${tezosSize}px Arial, sans-serif`;
-          const tezosSymbol = "ꜩ"; // Single Tezos symbol
-          const tezosWidth = ctx.measureText(tezosSymbol).width;
-          const tezosSpace = typeSize * 3.4; // Position it further out from handle
-          
-          ["blue", "cyan", "white"].forEach((color) => {
-            // Separate random shake for Tezos stamp - independent of other stamps
-            let tezosOffsetX, tezosOffsetY;
-            const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
-            
-            if (color !== "white") {
-              ctx.globalAlpha = isFrameBasedRecording ? 0.6 : 0.6;
-              tezosOffsetX = choose([-2, -3, 0, 2, 3]); // Bigger shake range
-              tezosOffsetY = choose([-2, -3, 0, 2, 3]); // Bigger shake range
-            } else {
-              ctx.globalAlpha = isFrameBasedRecording ? 0.8 : choose([0.7, 0.8, 0.9]);
-              tezosOffsetX = choose([-1, -2, 0, 1, 2]); // Medium shake for white layer
-              tezosOffsetY = choose([-1, -2, 0, 1, 2]);
-              color = choose(["white", "white", "cyan", "lightblue", "yellow"]);
-            }
-
-            ctx.fillStyle = color;
-
-            if (deg === 90) {
-              // Tezos stamp - left side positioning
-              ctx.fillText(
-                tezosSymbol,
-                floor(canvasHeight * (1 - leftYDist) - tezosWidth + tezosOffsetY),
-                -floor(tezosOffsetX + tezosSpace + gap),
-              );
-            } else if (deg === -90) {
-              // Tezos stamp - right side positioning  
-              ctx.fillText(
-                tezosSymbol,
-                -Math.floor(canvasHeight * rightYDist + tezosWidth + tezosOffsetY),
-                Math.floor(tezosOffsetX - tezosSpace - gap),
-              );
-            }
-          });
-        }
-
         // Remove the old timestamp code from here since it's now in addFilmTimestamp
 
         ctx.restore();
       }
 
-      // Helper function to add Tezos support stamp
-      function addTezosStamp(ctx, canvasWidth, canvasHeight, typeSize, isFrameBasedRecording) {
+      // Helper function to add Tezos support stamp - Vegas-style magical watermark
+      function addTezosStamp(ctx, canvasWidth, canvasHeight, typeSize, isFrameBasedRecording, showLeftStamp = true, showRightStamp = true, frameIndex = null, fadeAlpha = 1.0) {
         ctx.save();
         
-        // Use the same typeSize as other stamps (passed in parameter)
-        // Try multiple fallback fonts and a more common symbol for testing
-        ctx.font = `bold ${typeSize}px Arial, "Segoe UI Symbol", "Apple Color Emoji", sans-serif`;
+        // Show Tezos when either stamp is visible (hide only when both are off)
+        if (!showLeftStamp && !showRightStamp) {
+          ctx.restore();
+          return;
+        }
         
-        // Try different symbols to see what renders
-        // ꜩ = U+A729 (official Tezos symbol)
-        // ₜ = U+209C (subscript t) 
-        // 𝕋 = U+1D54B (mathematical double-struck T)
-        // Let's try XTZ for now to test visibility
-        const tezosSymbol = "XTZ XTZ"; // Use "XTZ" abbreviation for testing
-        console.log("🎬 Tezos stamp render attempt:", {
-          symbol: tezosSymbol,
-          typeSize,
-          font: ctx.font,
-          frameIndex: arguments[5] || "unknown"
-        });
+        // Much smaller watermark size with thinner font
+        const billSize = Math.max(32, Math.floor(canvasHeight / 16)); // Bit smaller (was 44 and /11)
+        ctx.font = `${billSize}px YWFTProcessing-Light, Arial, "Segoe UI Symbol", "Apple Color Emoji", sans-serif`;
+        
+        // Use the official Tezos symbol
+        const tezosSymbol = "ꜩ"; // U+A729 (official Tezos symbol)
         
         const textWidth = ctx.measureText(tezosSymbol).width;
         
-        // Position adjacent to other stamps in bottom-left area
-        // Place it between the timestamp and the aesthetic.computer stamps
-        const margin = Math.max(8, Math.floor(canvasHeight / 50));
-        const x = margin;
-        const y = canvasHeight - margin - (typeSize * 1.5); // Position above timestamp, below aesthetic.computer
+        // Position with more margin from edges
+        const marginX = Math.max(12, Math.floor(canvasHeight / 70)); // More margin (was /100)
+        const marginY = Math.max(15, Math.floor(canvasHeight / 60)); // More margin (was /80)
+        const x = Math.floor(canvasWidth - textWidth - marginX); // Pixel boundary
+        const y = Math.floor(marginY + billSize * 0.6); // More snug position (was 0.7), pixel boundary
         
-        console.log("🎬 Tezos stamp position:", { x, y, margin, typeSize });
+        // Gentler shake animation for tiny logo
+        const billFrameSeed = Math.floor(Date.now() / 400); // Slower, calmer (was 200ms)
+        const billShakeX = Math.floor((billFrameSeed % 3) - 1); // Range -1 to 1, much gentler (was -3 to 3)
+        const billShakeY = Math.floor(((billFrameSeed + 4) % 3) - 1); // Range -1 to 1, much gentler (was -3 to 3)
         
-        // Draw with the same multi-layer aesthetic as other stamps but more visible
-        ["blue", "cyan", "white"].forEach((color, index) => {
+        // Vegas-style magical color cycling
+        const colorCycle = Math.floor(Date.now() / 150) % 6; // Fast color cycling
+        let magicColors;
+        
+        switch (colorCycle) {
+          case 0: magicColors = ["gold", "yellow", "white"]; break;
+          case 1: magicColors = ["cyan", "blue", "white"]; break;
+          case 2: magicColors = ["magenta", "red", "white"]; break;
+          case 3: magicColors = ["lime", "green", "white"]; break;
+          case 4: magicColors = ["orange", "red", "yellow"]; break;
+          case 5: magicColors = ["purple", "blue", "cyan"]; break;
+        }
+        
+        // Draw with chaotic magical effects for maximum energy
+        magicColors.forEach((color, index) => {
           let offsetX, offsetY;
-          if (color !== "white") {
-            ctx.globalAlpha = isFrameBasedRecording ? 0.8 : 0.8; // Very visible for testing
-            offsetX = choose([-1, -2, 0, 1, 2]); // Same as main stamps
-            offsetY = choose([-1, -2, 0, 1, 2]); // Same as main stamps
+          
+          // Frame-based glitch effects for frame recordings
+          let glitchAlpha = 1.0;
+          if (isFrameBasedRecording && frameIndex !== null) {
+            // Different glitch patterns for Tezos watermark layers
+            if (index === 0) {
+              glitchAlpha = (frameIndex + 5) % 13 === 0 ? 0.0 : (frameIndex + 5) % 4 === 0 ? 0.2 : 1.0; // Off every 13th, dim every 4th
+            } else if (index === 1) {
+              glitchAlpha = (frameIndex + 6) % 11 === 0 ? 0.1 : (frameIndex + 6) % 6 === 0 ? 0.4 : 1.0; // Different pattern
+            } else {
+              glitchAlpha = (frameIndex + 7) % 7 === 0 ? 0.3 : (frameIndex + 7) % 15 === 0 ? 0.0 : 1.0; // Complex pattern
+            }
+          }
+          
+          // Set watermark blend mode for authentic look
+          ctx.globalCompositeOperation = index === 0 ? 'multiply' : index === 1 ? 'screen' : 'overlay';
+          
+          if (index < 2) {
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.35 * glitchAlpha : 0.35) * fadeAlpha; // Apply fade alpha
+            offsetX = Math.floor(choose([-1, 0, 1])); // Much gentler offsets (was chaotic -4 to 5)
+            offsetY = Math.floor(choose([-1, 0, 1])); // Much gentler offsets (was chaotic -4 to 5)
           } else {
-            ctx.globalAlpha = isFrameBasedRecording ? 0.9 : choose([0.85, 0.9, 0.95]); // Very visible for testing
-            offsetX = choose([-1, 0, 1]);
-            offsetY = choose([-1, 0, 1]);
-            color = choose(["white", "white", "cyan", "lightblue", "yellow"]); // Tezos-themed colors + some variety
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.45 * glitchAlpha : 0.45) * fadeAlpha; // Apply fade alpha
+            offsetX = Math.floor(choose([0, 1])); // Minimal offsets for readability (was -3 to 3)
+            offsetY = Math.floor(choose([0, 1])); // Minimal offsets for readability (was -3 to 3)
+            // Keep white layer more magical
+            if (color === "white") {
+              color = choose(["white", "white", "yellow", "cyan", "magenta", "lime"]); // More magical colors
+            }
           }
           
           ctx.fillStyle = color;
-          ctx.fillText(tezosSymbol, x + offsetX, y + offsetY);
+          ctx.fillText(
+            tezosSymbol, 
+            x + offsetX + billShakeX, 
+            y + offsetY + billShakeY
+          );
           
-          if (index === 0) {
-            console.log("🎬 Tezos stamp first layer drawn:", { 
-              color, 
-              alpha: ctx.globalAlpha, 
-              x: x + offsetX, 
-              y: y + offsetY 
-            });
-          }
+          // Reset blend mode after each layer
+          ctx.globalCompositeOperation = 'source-over';
         });
         
         ctx.restore();
@@ -2599,24 +2976,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Film camera style timestamp at bottom-left corner
-      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
-        // Calculate smooth alpha fade aligned with progress bar (20%-30% fade out, 30%-70% hidden, 70%-80% fade in)
+      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null, bothStampsInvisible = false) {
+        // Calculate smooth alpha fade based on progress - same for both frame and time recordings
         let timestampAlpha = 1.0; // Default to fully visible
         
-        // Skip fade animations for frame-based recordings
-        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
-        
-        if (!isFrameBasedRecording) {
-          if (progress >= 0.20 && progress <= 0.30) {
-            // Fade out from 20% to 30% (10% fade-out period)
-            timestampAlpha = 1.0 - ((progress - 0.20) / 0.10);
-          } else if (progress > 0.30 && progress < 0.70) {
-            // Fully hidden from 30% to 70% (40% hidden period)
-            timestampAlpha = 0.0;
-          } else if (progress >= 0.70 && progress <= 0.80) {
-            // Fade in from 70% to 80% (10% fade-in period)
-            timestampAlpha = (progress - 0.70) / 0.10;
-          }
+        // Smooth fade transitions: visible at start, fade out towards middle, visible at end
+        if (progress < 0.15) {
+          // Fully visible at start (0-15%)
+          timestampAlpha = 1.0;
+        } else if (progress >= 0.15 && progress <= 0.35) {
+          // Fade out from 15% to 35% (20% fade-out period)
+          const fadeProgress = (progress - 0.15) / 0.20;
+          timestampAlpha = 1.0 - Math.pow(fadeProgress, 2); // Smooth quadratic fade out
+        } else if (progress > 0.35 && progress < 0.65) {
+          // Fully hidden from 35% to 65% (30% hidden period)
+          timestampAlpha = 0.0;
+        } else if (progress >= 0.65 && progress <= 0.85) {
+          // Fade in from 65% to 85% (20% fade-in period)
+          const fadeProgress = (progress - 0.65) / 0.20;
+          timestampAlpha = Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+        } else {
+          // Fully visible at end (85%-100%)
+          timestampAlpha = 1.0;
         }
         
         // Skip drawing timecode if it's completely transparent
@@ -2690,65 +3071,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const shakeY = 0; // No more shaking
         
         // Position timestamp above the progress bar with proper margin, more flush left and larger
-        const timestampY = canvasHeight - progressBarHeight - timestampMargin; // Above progress bar
-        const timestampX = timestampMargin * 0.5; // More flush left (was timestampMargin * 2)
+        // Adjust margin to make room for Tezos logo if enabled
+        let adjustedMargin = timestampMargin * 0.5;
+        if (window.currentRecordingOptions?.showTezosStamp) {
+          const tezosSize = Math.max(20, Math.floor(typeSize * 1.5 * 1.2));
+          adjustedMargin = timestampMargin * 1.8; // Less space since we moved Tezos closer
+        }
+        const timestampY = Math.floor(canvasHeight - progressBarHeight - timestampMargin * 0.6 - (typeSize * 0.2) - 4); // Move UP 4px more
+        const timestampX = Math.floor(typeSize * 0.5); // Move back right a bit (was 0.3)
         
-        // Make timestamp much larger and more watermark-like, similar to aesthetic.computer stamps
-        const baseWatermarkSize = Math.min(
-          32,
-          Math.max(18, Math.floor(canvasHeight / 25)), // Much larger base size
-        );
-        // Make timestamp smaller for frame-based recordings
-        const watermarkSize = isFrameBasedRecording ? Math.floor(baseWatermarkSize * 0.8) : baseWatermarkSize;
+        // Make timestamp smaller and more readable
+        const baseWatermarkSize = Math.floor(typeSize * 1.7); // Smaller timestamp (was 2.0)
+        // Keep timestamp same size for both frame and time recordings
+        const watermarkSize = baseWatermarkSize;
         
         // Draw multiple layered versions for that vibey aesthetic.computer stamp effect
         ["red", "lime", "blue", "white"].forEach((color, index) => {
-          // Special looping blink effect - bright flashes only on first and last frame
-          let specialTimestampAlpha = 1.0;
-          let useSpecialColor = false;
-          let specialColor = color;
-          
-          // Use frame-based detection for 1-frame flashes when frame info is available
-          if (frameIndex !== null && totalFrames !== null) {
-            if (frameIndex === 0) {
-              // First frame - bright lime green blink for loop start
-              useSpecialColor = true;
-              specialColor = "lime";
-              specialTimestampAlpha = 1.0; // Full brightness
-            } else if (frameIndex === totalFrames - 1) {
-              // Last frame - bright red blink for loop end
-              useSpecialColor = true;
-              specialColor = "red";
-              specialTimestampAlpha = 1.0; // Full brightness
-            }
-          } else {
-            // Fallback to percentage-based for compatibility (very small ranges for 1-frame effect)
-            if (progress <= 0.005) {
-              // First ~0.5% of loop - bright lime green blink for loop start
-              useSpecialColor = true;
-              specialColor = "lime";
-              specialTimestampAlpha = 1.0; // Full brightness
-            } else if (progress >= 0.995) {
-              // Last ~0.5% of loop - bright red blink for loop end
-              useSpecialColor = true;
-              specialColor = "red";
-              specialTimestampAlpha = 1.0; // Full brightness
-            }
-          }
-
           let offsetX, offsetY;
           if (color !== "white") {
-            ctx.globalAlpha = (useSpecialColor ? 0.8 * specialTimestampAlpha : 0.45 * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
+            ctx.globalAlpha = 0.45 * timestampAlpha; // Simple multicolor layers
             offsetX = choose([-3, -5, 0, 3, 5]); // Larger offsets for bigger text
             offsetY = choose([-3, -5, 0, 3, 5]);
           } else {
-            ctx.globalAlpha = (useSpecialColor ? 1.0 * specialTimestampAlpha : choose([0.6, 0.5, 0.7]) * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
+            ctx.globalAlpha = 0.65 * timestampAlpha; // Consistent white layer
             offsetX = choose([-1, 0, 1]);
             offsetY = choose([-1, 0, 1]);
-            specialColor = useSpecialColor ? specialColor : choose(["white", "white", "white", "magenta", "yellow"]); // Use special color or normal variety
+            color = "white"; // Consistent white color, no blinking
           }
 
-          ctx.fillStyle = useSpecialColor ? specialColor : color;
+          ctx.fillStyle = color;
           ctx.font = `bold ${watermarkSize}px YWFTProcessing-Regular`;
           
           ctx.fillText(
@@ -2757,6 +3108,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             timestampY + offsetY + shakeY,
           );
         });
+        
+        // Removed Tezos logo from timestamp area - moving back to top-right
 
         ctx.restore();
       }
@@ -8148,7 +8501,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // }
 
             // 2. Set up the font.
-            const typeSize = min(16, max(12, floor(sctx.canvas.height / 40)));
+            const typeSize = min(18, max(12, floor(sctx.canvas.height / 40)));
             // const textHeight = typeSize;
             const gap = typeSize * 0.75;
 
@@ -8203,22 +8556,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
               // Only draw timecode and progress bar if they should be visible (breathing pattern)
               if (showTimecodeAndProgressBar) {
-                // Make timestamp more opaque and clearer
-                sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
+                // Use original typeSize for timestamp
+                sctx.font = `bold ${typeSize}px YWFTProcessing-Regular`;
                 
-                // Special looping blink effect - always visible but with special colors at loop boundaries
-                let timestampAlpha = 0.8; // Default opacity
-                let timestampColor = choose("white", "yellow", "red"); // Default blinking colors
+                // Smooth fade transitions: visible at start, fade out towards middle, visible at end
+                let timestampAlpha = 1.0; // Default to fully visible
+                let timestampColor = "white"; // Consistent white color
                 
-                // Since we don't have frame info here, use very small percentage for 1-frame approximation
-                if (progress <= 0.001) {
-                  // Very start of loop - bright lime green blink for loop start (approximates 1 frame)
-                  timestampColor = "lime";
-                  timestampAlpha = 1.0; // Full brightness
-                } else if (progress >= 0.999) {
-                  // Very end of loop - bright red blink for loop end (approximates 1 frame)
-                  timestampColor = "red";
-                  timestampAlpha = 1.0; // Full brightness
+                // Apply fade pattern based on progress (same as other addFilmTimestamp)
+                if (progress < 0.15) {
+                  // Fully visible at start (0-15%)
+                  timestampAlpha = 1.0;
+                } else if (progress >= 0.15 && progress <= 0.35) {
+                  // Fade out from 15% to 35% (20% fade-out period)
+                  const fadeProgress = (progress - 0.15) / 0.20;
+                  timestampAlpha = 1.0 - Math.pow(fadeProgress, 2); // Smooth quadratic fade out
+                } else if (progress > 0.35 && progress < 0.65) {
+                  // Fully hidden from 35% to 65% (30% hidden period)
+                  timestampAlpha = 0.0;
+                } else if (progress >= 0.65 && progress <= 0.85) {
+                  // Fade in from 65% to 85% (20% fade-in period)
+                  const fadeProgress = (progress - 0.65) / 0.20;
+                  timestampAlpha = Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+                } else {
+                  // Fully visible at end (85%-100%)
+                  timestampAlpha = 1.0;
+                }
+                
+                // Skip drawing if completely transparent
+                if (timestampAlpha <= 0.0) {
+                  sctx.restore();
+                  return;
                 }
                 
                 sctx.globalAlpha = timestampAlpha;
@@ -8322,6 +8690,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             sctx.save(); // Save the current state of the canvas
 
+            // Calculate stamp visibility for timestamp fade coordination
+            let bothStampsInvisible = false;
+            const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+            
+            if (isFrameBasedRecording) {
+              // For frame-based recordings longer than 60 frames: use alternating side timing logic
+              const frameCount = window.currentRecordingOptions?.frameCount || 0;
+              
+              if (frameCount > 60 && frameIndex !== null) {
+                const cyclesPerGif = 2;
+                const frameProgress = frameIndex / frameCount;
+                const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+                
+                // Check if we're in the "both off" phases (0-20% and 40-60%)
+                if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+                  bothStampsInvisible = true;
+                }
+              }
+            } else {
+              // Time-based recordings
+              const cyclesPerGif = 2;
+              const cyclePosition = (progress * cyclesPerGif) % 1.0;
+              
+              // Check if we're in the "both off" phases (0-20% and 40-60%)
+              if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+                bothStampsInvisible = true;
+              }
+            }
+
             // Add film camera style timestamp at bottom-left corner
             addFilmTimestamp(
               sctx,
@@ -8329,7 +8726,77 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.canvas.height,
               typeSize,
               progress, // Pass progress to the timestamp function
+              null, // frameData
+              null, // frameMetadata  
+              frameIndex, // frameIndex
+              null, // totalFrames
+              bothStampsInvisible, // bothStampsInvisible
             );
+
+            // Removed Tezos watermark from top right - now positioned with timestamp
+            
+            // Add Tezos watermark to top-right if enabled (but not when right stamp is showing)
+            if (window.currentRecordingOptions?.showTezosStamp) {
+              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              
+              // Use the SAME visibility logic as the actual stamps to avoid conflicts
+              let showRightStamp = false;
+              
+              if (isFrameBasedRecording) {
+                // For frame recordings: always show both stamps, so Tezos should never show
+                showRightStamp = true;
+              } else {
+                // Time-based recordings: use progress-based visibility (SAME as stamp logic)
+                const cyclesPerGif = 2;
+                const cyclePosition = (progress * cyclesPerGif) % 1.0;
+                
+                if (cyclePosition < 0.2) {
+                  showRightStamp = false; // Both off
+                } else if (cyclePosition < 0.4) {
+                  showRightStamp = true; // Both on
+                } else if (cyclePosition < 0.6) {
+                  showRightStamp = false; // Both off
+                } else if (cyclePosition < 0.8) {
+                  showRightStamp = false; // Left only
+                } else {
+                  showRightStamp = true; // Right only
+                }
+              }
+              
+              // Calculate fade alpha for Tezos logo (inverse of right stamp)
+              let tezosFadeAlpha = 1.0;
+              
+              if (isFrameBasedRecording) {
+                tezosFadeAlpha = 0.0; // Hidden for frame recordings
+              } else {
+                // Time-based recordings
+                const cyclesPerGif = 2;
+                const cyclePosition = (progress * cyclesPerGif) % 1.0;
+                
+                if (cyclePosition < 0.15) {
+                  tezosFadeAlpha = 1.0;
+                } else if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+                  tezosFadeAlpha = 1.0 - ((cyclePosition - 0.15) / 0.10);
+                } else if (cyclePosition > 0.25 && cyclePosition < 0.35) {
+                  tezosFadeAlpha = 0.0;
+                } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+                  tezosFadeAlpha = (cyclePosition - 0.35) / 0.10;
+                } else if (cyclePosition > 0.45 && cyclePosition < 0.75) {
+                  tezosFadeAlpha = 1.0;
+                } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+                  tezosFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10);
+                } else {
+                  tezosFadeAlpha = 0.0;
+                }
+              }
+              
+              // Clamp alpha and show with fade
+              tezosFadeAlpha = Math.max(0.0, Math.min(1.0, tezosFadeAlpha));
+              
+              if (tezosFadeAlpha > 0.0) {
+                addTezosStamp(sctx, sctx.canvas.width, sctx.canvas.height, typeSize, isFrameBasedRecording, true, true, null, tezosFadeAlpha);
+              }
+            }
 
             drawTextAtPosition(0, 90); // Left side stamp (rotated 90 degrees)
             drawTextAtPosition(sctx.canvas.width, -90); // Right side stamp (rotated -90 degrees)
@@ -8341,24 +8808,81 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.save();
               sctx.translate(positionX, 0);
               sctx.rotate(radians(deg));
-              const yDist = 0.25; // Move towards center (was 0.05)
+            const leftYDist = 0.10; // Closer to corner (was 0.18)
+            const rightYDist = 0.08; // Closer to corner, but still avoid Tezos overlap (was 0.15)
 
-              // Use original typeSize without multiplier to restore old sizes
-              sctx.font = `${typeSize}px YWFTProcessing-Regular`;
-              const text = "aesthetic.computer";
+              // Use smaller size to match timestamp better
+              sctx.font = `${typeSize * 1.4}px YWFTProcessing-Regular`;
+              
+              // Always use Aesthetic.Computer text
+              const text = "Aesthetic.Computer";
               const measured = sctx.measureText(text);
               const textWidth = measured.width;
+
+              // Helper function to render text with multicolored shooting star dot
+              function renderTextWithStarDot(sctx, fullText, x, y, baseColor, alpha, offsetX, offsetY, frameIndex) {
+                const parts = fullText.split('.');
+                if (parts.length !== 2) {
+                  // Fallback to normal rendering if not split correctly
+                  sctx.fillText(fullText, x + offsetX, y + offsetY);
+                  return;
+                }
+                
+                const beforeDot = parts[0]; // "Aesthetic"
+                const afterDot = parts[1];  // "Computer"
+                
+                // Measure parts
+                const beforeWidth = sctx.measureText(beforeDot).width;
+                const dotWidth = sctx.measureText('.').width;
+                
+                // Render "Aesthetic"
+                sctx.fillStyle = baseColor;
+                sctx.globalAlpha = alpha;
+                sctx.fillText(beforeDot, x + offsetX, y + offsetY);
+                
+                // Render CRT-style piercing dot - bright, small, sharp like asteroids
+                const dotX = x + beforeWidth + offsetX;
+                const dotY = y + offsetY;
+                
+                // CRT cathode ray piercing colors - bright, sharp, high-contrast
+                const crtColors = ["#FFFFFF", "#00FFFF", "#FFFF00", "#FF0000", "#00FF00", "#FF00FF"];
+                let dotColor;
+                let dotAlpha = alpha;
+                
+                if (frameIndex !== null) {
+                  // Frame-based CRT flicker animation - faster changes for piercing effect
+                  const colorIndex = Math.floor(frameIndex / 1) % crtColors.length; // Change color every frame
+                  dotColor = crtColors[colorIndex];
+                  
+                  // Sharp, bright pulse - no gentle curves, pure CRT intensity
+                  dotAlpha = alpha * (frameIndex % 2 === 0 ? 1.0 : 0.9); // Sharp flicker between 90% and 100%
+                } else {
+                  // Time-based fallback - faster CRT-style changes
+                  const timeIndex = Math.floor(Date.now() / 100) % crtColors.length; // Change every 100ms
+                  dotColor = crtColors[timeIndex];
+                  dotAlpha = alpha * (Math.floor(Date.now() / 100) % 2 === 0 ? 1.0 : 0.9); // Sharp time-based flicker
+                }
+                
+                sctx.fillStyle = dotColor;
+                sctx.globalAlpha = dotAlpha;
+                sctx.fillText('.', dotX, dotY);
+                
+                // Render "Computer"
+                sctx.fillStyle = baseColor;
+                sctx.globalAlpha = alpha;
+                sctx.fillText(afterDot, dotX + dotWidth, dotY);
+              }
 
               ["red", "lime", "blue", "white"].forEach((color) => {
                 let offsetX, offsetY;
                 if (color !== "white") {
-                  sctx.globalAlpha = 0.45;
-                  offsetX = choose(-2, -4, 0, 2, 4);
-                  offsetY = choose(-2, -4, 0, 2, 4);
+                  sctx.globalAlpha = 0.5; // Restore multicolor balance (was 0.55)
+                  offsetX = choose(-1, -2, 0, 1, 2); // More offsets for multicolor flickering
+                  offsetY = choose(-1, -2, 0, 1, 2); // More offsets for multicolor flickering
                 } else {
-                  sctx.globalAlpha = choose(0.5, 0.4, 0.6);
-                  offsetX = choose(-1, 0, 1);
-                  offsetY = choose(-1, 0, 1);
+                  sctx.globalAlpha = choose(0.75, 0.85, 0.95); // Brighter white for dot visibility (was 0.55, 0.65, 0.75)
+                  offsetX = choose(-1, 0, 1); // Some offsets for multicolor effect
+                  offsetY = choose(-1, 0, 1); // Some offsets for multicolor effect
                   color = choose(
                     "white",
                     "white",
@@ -8372,30 +8896,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
                 if (deg === 90) {
                   // LEFT SIDE: Main text positioning
-                  sctx.fillText(
+                  renderTextWithStarDot(
+                    sctx,
                     text,
-                    floor(
-                      sctx.canvas.height * (1 - yDist) - textWidth + offsetY,
-                    ),
-                    -floor(offsetX + gap),
+                    floor(sctx.canvas.height * (1 - leftYDist) - textWidth),
+                    -floor(gap),
+                    color,
+                    sctx.globalAlpha,
+                    offsetX,
+                    offsetY,
+                    frameIndex
                   );
                 } else if (deg === -90) {
                   // RIGHT SIDE: Main text positioning
-                  sctx.fillText(
+                  renderTextWithStarDot(
+                    sctx,
                     text,
-                    -floor(sctx.canvas.height * 0.05 + offsetY),
-                    floor(offsetX + gap * 3),
+                    -floor(sctx.canvas.height * rightYDist),
+                    floor(gap * 3),
+                    color,
+                    sctx.globalAlpha,
+                    offsetX,
+                    offsetY,
+                    frameIndex
                   );
                 }
               });
 
               if (HANDLE) {
-                sctx.font = `${typeSize * 1.5}px YWFTProcessing-Light`; // Larger handle
+                sctx.font = `${typeSize * 1.3}px YWFTProcessing-Light`; // Smaller handle (was 1.5)
                 sctx.fillStyle = choose("yellow", "red", "blue");
                 let offsetX, offsetY;
                 const handleWidth =
                   textWidth / 2 + sctx.measureText(HANDLE).width / 2;
-                const handleSpace = typeSize * 1.35;
+                const handleSpace = typeSize * 2.0; // More spacing (was 1.5)
                 offsetX = choose(-1, 0, 1);
                 offsetY = choose(-1, 0, 1);
 
@@ -8404,7 +8938,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   sctx.fillText(
                     HANDLE,
                     floor(
-                      sctx.canvas.height * (1 - yDist) - handleWidth + offsetY,
+                      sctx.canvas.height * (1 - leftYDist) - handleWidth + offsetY,
                     ),
                     -floor(offsetX + handleSpace + gap),
                   );
@@ -8412,56 +8946,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   // RIGHT SIDE: Handle positioning
                   sctx.fillText(
                     HANDLE,
-                    -floor(sctx.canvas.height * 0.05 + handleWidth + offsetY),
+                    -floor(sctx.canvas.height * rightYDist + handleWidth + offsetY),
                     floor(offsetX + handleSpace + gap * 3),
                   );
                 }
-              }
-
-              // Add Tezos stamp as a third element (only for frame-based recordings)
-              const showTezosStamp = window.currentRecordingOptions?.showTezosStamp || false;
-              
-              if (showTezosStamp) {
-                // Make Tezos stamp bigger
-                const tezosSize = Math.floor(typeSize * 1.4);
-                sctx.font = `bold ${tezosSize}px Arial, sans-serif`;
-                const tezosSymbol = "ꜩ"; // Single Tezos symbol
-                const tezosWidth = sctx.measureText(tezosSymbol).width;
-                const tezosSpace = typeSize * 3.4; // Position it further out from handle
-                
-                ["blue", "cyan", "white"].forEach((color) => {
-                  // Separate random shake for Tezos stamp
-                  let tezosOffsetX, tezosOffsetY;
-                  
-                  if (color !== "white") {
-                    sctx.globalAlpha = 0.6;
-                    tezosOffsetX = choose([-2, -3, 0, 2, 3]);
-                    tezosOffsetY = choose([-2, -3, 0, 2, 3]);
-                  } else {
-                    sctx.globalAlpha = choose([0.7, 0.8, 0.9]);
-                    tezosOffsetX = choose([-1, -2, 0, 1, 2]);
-                    tezosOffsetY = choose([-1, -2, 0, 1, 2]);
-                    color = choose(["white", "white", "cyan", "lightblue", "yellow"]);
-                  }
-
-                  sctx.fillStyle = color;
-
-                  if (deg === 90) {
-                    // LEFT SIDE: Tezos stamp positioning
-                    sctx.fillText(
-                      tezosSymbol,
-                      floor(sctx.canvas.height * (1 - yDist) - tezosWidth + tezosOffsetY),
-                      -floor(tezosOffsetX + tezosSpace + gap),
-                    );
-                  } else if (deg === -90) {
-                    // RIGHT SIDE: Tezos stamp positioning
-                    sctx.fillText(
-                      tezosSymbol,
-                      -floor(sctx.canvas.height * 0.05 + tezosWidth + tezosOffsetY),
-                      floor(tezosOffsetX + tezosSpace + gap * 3),
-                    );
-                  }
-                });
               }
 
               // Remove the old timestamp code from here since it's now in addFilmTimestamp
@@ -8476,6 +8964,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               canvasHeight,
               typeSize,
               progress, // Export progress for the progress bar
+              frameData = null,
+              frameMetadata = null,
+              frameIndex = null,
+              totalFrames = null,
+              bothStampsInvisible = false,
             ) {
               // Progress bar height (should match what's set in renderTape)
               const progressBarHeight = 20;
@@ -8514,26 +9007,61 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
-              // Make timestamp more opaque and clearer
-              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
-              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
-              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
+              // Make timestamp smaller to match first system
+              const timestampSize = typeSize * 1.7; // Smaller timestamp (was 2.0)
+              sctx.font = `bold ${timestampSize}px YWFTProcessing-Regular`;
+              
+              // Adjust margin to make room for Tezos logo if enabled
+              let adjustedMargin = typeSize * 0.5;
+              if (window.currentRecordingOptions?.showTezosStamp) {
+                adjustedMargin = typeSize * 1.8; // Less space since we moved Tezos closer
+              }
+              
+              // Calculate timestamp alpha based on progress only, independent of side stamps
+              let timestampAlpha = 0.8; // Default to more opaque (was 0.45)
+              
+              // Add the same smooth fade logic as first system
+              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              
+              if (!isFrameBasedRecording) {
+                // Smooth fade transitions with longer periods
+                if (progress < 0.15) {
+                  // Fully visible at start
+                  timestampAlpha = 0.8;
+                } else if (progress >= 0.15 && progress <= 0.35) {
+                  // Longer fade out from 15% to 35% (20% fade-out period)
+                  const fadeProgress = (progress - 0.15) / 0.20;
+                  timestampAlpha = 0.8 * (1.0 - Math.pow(fadeProgress, 2)); // Smooth quadratic fade out
+                } else if (progress > 0.35 && progress < 0.65) {
+                  // Fully hidden from 35% to 65% (30% hidden period)
+                  timestampAlpha = 0.0;
+                } else if (progress >= 0.65 && progress <= 0.85) {
+                  // Longer fade in from 65% to 85% (20% fade-in period)
+                  const fadeProgress = (progress - 0.65) / 0.20;
+                  timestampAlpha = 0.8 * Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+                } else {
+                  // Fully visible at end (85%-100%)
+                  timestampAlpha = 0.8;
+                }
+              }
+              
+              sctx.globalAlpha = timestampAlpha;
+              sctx.fillStyle = "white"; // Clean white timestamp, no blinking
 
-              const timestampMargin = typeSize * 0.5; // Small margin from edges
+              // Remove shake effect - keep timestamp steady
+              const shakeX = 0; // No more shaking
+              const shakeY = 0; // No more shaking
 
-              // Smoother, gentler shake effect
-              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
-              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
-              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
-
-              // Position timestamp in the main content area (not in the progress bar area)
-              const timestampY = originalCanvasHeight - timestampMargin - typeSize * 0.5;
+              // Position timestamp in the main content area - move up 4px more  
+              const timestampY = originalCanvasHeight - adjustedMargin * 0.6 - typeSize * 0.2 - 4; // Move UP 4px more
 
               sctx.fillText(
                 timestamp,
-                timestampMargin + shakeX,
+                typeSize * 0.5 + shakeX, // Move back right a bit (was 0.3)
                 timestampY + shakeY,
               );
+              
+              // Removed Tezos logo from timestamp area - moved back to top-right
 
               // Draw progress bar in the extended area at the bottom of the scaled content
               const progressBarY = originalCanvasHeight; // Start right after original content
@@ -9744,17 +10272,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // typeof paintToStreamCanvas === "function" &&
           mediaRecorder?.state === "recording" &&
           mediaRecorderStartTime !== undefined;
-
-        // Debug logging for frame capture issues (only first few frames to avoid spam)
-        if (mediaRecorder && mediaRecorderFrameCount < 5) {
-          console.log("🎬 Frame capture check:", {
-            frameCount: mediaRecorderFrameCount,
-            mediaRecorderState: mediaRecorder?.state,
-            mediaRecorderStartTime: mediaRecorderStartTime,
-            isRecording: isRecording,
-            recordedFramesLength: recordedFrames.length
-          });
-        }
 
         // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
         let cleanScreenshotData = null;
