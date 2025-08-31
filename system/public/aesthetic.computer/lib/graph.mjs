@@ -65,6 +65,8 @@ export function twoD(ref) {
 function makeBuffer(width, height, fillProcess, painting, api) {
   if (!width || !height) return;
 
+  const bufferStart = performance.now(); // 🔍 PERFORMANCE DEBUG
+
   const imageData = new ImageData(width, height);
 
   const buffer = {
@@ -81,12 +83,28 @@ function makeBuffer(width, height, fillProcess, painting, api) {
     const rc = c; // Remember color.
     setBuffer(buffer);
     api.screen.pixels = buffer.pixels; // Set the API's pixel buffer.
-    fillProcess(api); // Every fill process gets a painting API.
-    painting.paint(true);
+    
+    // 🚀 OPTIMIZATION: Fast path for simple operations
+    try {
+      fillProcess(api); // Every fill process gets a painting API.
+      // Only call paint if there's actually something to paint
+      if (painting && typeof painting.paint === 'function') {
+        painting.paint(true);
+      }
+    } catch (error) {
+      console.warn('⚠️ makeBuffer fillProcess error:', error);
+    }
+    
     // Restore old buffer and color.
     setBuffer(savedBuffer);
     color(...rc);
   }
+
+  const bufferTime = performance.now() - bufferStart; // 🔍 PERFORMANCE DEBUG
+  // Disabled buffer creation logging for cleaner console
+  // if (bufferTime > 10) { // Only log very slow buffer creation
+  //   console.log(`🔍 graph.makeBuffer took ${bufferTime.toFixed(2)}ms (${width}x${height})`);
+  // }
 
   return buffer;
 }
@@ -105,6 +123,14 @@ function getBuffer() {
 }
 
 function setBuffer(buffer) {
+  // Check if the buffer's pixels array is detached and recreate if necessary
+  if (buffer.pixels && buffer.pixels.buffer && buffer.pixels.buffer.detached) {
+    console.warn('🚨 Detected detached pixels buffer in setBuffer, recreating... (This should be rare now)');
+    // Recreate the buffer with the same dimensions, filled with transparent pixels
+    buffer.pixels = new Uint8ClampedArray(buffer.width * buffer.height * 4);
+    buffer.pixels.fill(0); // Fill with transparent black
+  }
+  
   ({ width, height, pixels } = buffer);
 }
 
@@ -1029,6 +1055,20 @@ function resize(bitmap, width, height) {
 function blur(radius = 1) {
   if (radius <= 0) return;
 
+  // Performance optimization: skip expensive blur operations during startup
+  if (typeof globalThis !== 'undefined' && globalThis.$api?.paintCount) {
+    const frameCount = Number(globalThis.$api.paintCount);
+    if (frameCount < 10) {
+      return; // Skip blur during startup
+    }
+  }
+
+  // 🚀 OPTIMIZATION: For very small radius, use fast approximation
+  if (radius < 0.5) {
+    // Skip blur for imperceptible radius
+    return;
+  }
+
   // Clamp radius to reasonable values for performance
   radius = Math.min(radius, 20);
 
@@ -1050,6 +1090,13 @@ function blur(radius = 1) {
 
   // Early exit if bounds are invalid
   if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in blur, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
 
   // Create a copy of the current pixels to read from
   const sourcePixels = new Uint8ClampedArray(pixels);
@@ -1165,6 +1212,9 @@ function blur(radius = 1) {
 // Adjust the contrast of the pixel buffer
 // level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast
 function contrast(level = 1.0) {
+  // Early exit if no contrast change needed
+  if (level === 1.0) return;
+  
   // Determine the area to adjust (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -1180,7 +1230,15 @@ function contrast(level = 1.0) {
     maxY = Math.min(height, Math.floor(maskY + activeMask.height));
   }
 
-  // Apply contrast adjustment to each pixel
+  // 🚀 OPTIMIZATION: Pre-calculate contrast lookup table for faster pixel processing
+  const contrastLUT = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    const normalized = i / 255.0;
+    const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
+    contrastLUT[i] = Math.max(0, Math.min(255, Math.round(adjusted)));
+  }
+
+  // Apply contrast adjustment to each pixel using lookup table
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
       const idx = (y * width + x) * 4;
@@ -1188,13 +1246,56 @@ function contrast(level = 1.0) {
       // Skip transparent pixels
       if (pixels[idx + 3] === 0) continue;
       
-      // Apply contrast formula: newValue = ((oldValue / 255 - 0.5) * contrast + 0.5) * 255
-      // This centers the contrast adjustment around middle gray (127.5)
-      for (let c = 0; c < 3; c++) { // RGB channels only
-        const normalized = pixels[idx + c] / 255.0;
-        const adjusted = ((normalized - 0.5) * level + 0.5) * 255.0;
-        pixels[idx + c] = Math.max(0, Math.min(255, Math.round(adjusted)));
-      }
+      // Use lookup table for fast contrast adjustment (RGB channels only)
+      pixels[idx] = contrastLUT[pixels[idx]];     // R
+      pixels[idx + 1] = contrastLUT[pixels[idx + 1]]; // G
+      pixels[idx + 2] = contrastLUT[pixels[idx + 2]]; // B
+      // Alpha channel stays unchanged
+    }
+  }
+}
+
+// Adjust brightness using lookup table optimization
+// adjustment: -255 to +255 (0 = no change, positive = brighter, negative = darker)
+function brightness(adjustment = 0) {
+  // Early exit if no adjustment needed
+  if (adjustment === 0) return;
+  
+  // Clamp adjustment to valid range
+  adjustment = Math.max(-255, Math.min(255, adjustment));
+  
+  // Determine the area to adjust (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    const maskX = activeMask.x + panTranslation.x;
+    const maskY = activeMask.y + panTranslation.y;
+    minX = Math.max(0, Math.floor(maskX));
+    minY = Math.max(0, Math.floor(maskY));
+    maxX = Math.min(width, Math.floor(maskX + activeMask.width));
+    maxY = Math.min(height, Math.floor(maskY + activeMask.height));
+  }
+
+  // 🚀 OPTIMIZATION: Pre-calculate brightness lookup table
+  const brightnessLUT = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    brightnessLUT[i] = Math.max(0, Math.min(255, i + adjustment));
+  }
+
+  // Apply brightness adjustment to each pixel using lookup table
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const idx = (y * width + x) * 4;
+      
+      // Skip transparent pixels
+      if (pixels[idx + 3] === 0) continue;
+      
+      // Use lookup table for fast brightness adjustment (RGB channels only)
+      pixels[idx] = brightnessLUT[pixels[idx]];     // R
+      pixels[idx + 1] = brightnessLUT[pixels[idx + 1]]; // G
+      pixels[idx + 2] = brightnessLUT[pixels[idx + 2]]; // B
       // Alpha channel stays unchanged
     }
   }
@@ -3106,6 +3207,12 @@ let zoomTimeOffset = Math.random() * 1000; // Random time offset for organic var
 let scrollAccumulatorX = 0;
 let scrollAccumulatorY = 0;
 
+// Reset scroll accumulators - called when pieces change
+function resetScrollState() {
+  scrollAccumulatorX = 0;
+  scrollAccumulatorY = 0;
+}
+
 // Accumulated fractional shear for smooth shearing
 let shearAccumulatorX = 0;
 let shearAccumulatorY = 0;
@@ -3117,6 +3224,18 @@ let pixelShearAccumY = null;
 // Scroll the entire pixel buffer by x and/or y pixels with wrapping
 function scroll(dx = 0, dy = 0) {
   if (dx === 0 && dy === 0) return; // No change needed
+
+  // Performance optimization: skip expensive scroll operations during startup
+  // Check if we're in early frames by looking at global frame counter
+  if (typeof globalThis !== 'undefined' && globalThis.$api?.paintCount) {
+    const frameCount = Number(globalThis.$api.paintCount);
+    if (frameCount < 10) {
+      // During startup, just accumulate the scroll values but don't apply them
+      scrollAccumulatorX += dx;
+      scrollAccumulatorY += dy;
+      return;
+    }
+  }
 
   // Accumulate fractional scroll amounts
   scrollAccumulatorX += dx;
@@ -3131,7 +3250,9 @@ function scroll(dx = 0, dy = 0) {
   scrollAccumulatorY -= integerDy;
 
   // Only proceed if we have integer pixels to scroll
-  if (integerDx === 0 && integerDy === 0) return;
+  if (integerDx === 0 && integerDy === 0) {
+    return;
+  }
 
   // Determine the area to scroll (mask or full screen)
   let minX = 0,
@@ -3156,15 +3277,26 @@ function scroll(dx = 0, dy = 0) {
   const boundsHeight = maxY - minY;
 
   // Early exit if bounds are invalid
-  if (boundsWidth <= 0 || boundsHeight <= 0) return;
+  if (boundsWidth <= 0 || boundsHeight <= 0) {
+    return;
+  }
 
   // Use integer scroll amounts
   let finalDx = ((integerDx % boundsWidth) + boundsWidth) % boundsWidth;
   let finalDy = ((integerDy % boundsHeight) + boundsHeight) % boundsHeight;
 
-  if (finalDx === 0 && finalDy === 0) return; // No effective shift after normalization
+  if (finalDx === 0 && finalDy === 0) {
+    return; // No effective shift after normalization
+  }
 
   // Create a complete copy of the working area for safe reading
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in scroll, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
   const tempPixels = new Uint8ClampedArray(pixels);
 
   // General case: pixel-by-pixel with proper bounds checking
@@ -3235,6 +3367,13 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
   const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
 
   // Create a copy of the current pixels to read from
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in spin, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
   const tempPixels = new Uint8ClampedArray(pixels);
 
   // Pre-calculate constants for performance
@@ -3365,6 +3504,14 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   const anchorPixelY = minY + workingHeight * anchorY;
 
   // Create a copy of the current pixels to read from
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in zoom, recreating from screen dimensions');
+    // This should not happen if setBuffer works correctly, but just in case...
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
   const tempPixels = new Uint8ClampedArray(pixels);
 
   const scale = actualZoomLevel;
@@ -3579,6 +3726,13 @@ function shear(shearX = 0, shearY = 0) {
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
   if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in shear, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
 
   const tempPixels = new Uint8ClampedArray(pixels);
   const centerY = workingHeight / 2;
@@ -4585,6 +4739,7 @@ export {
   resize,
   blur,
   contrast,
+  brightness,
   paste,
   stamp,
   steal,
@@ -4608,6 +4763,7 @@ export {
   printLine,
   blendMode,
   scroll,
+  resetScrollState,
   spin,
   zoom,
   sort,

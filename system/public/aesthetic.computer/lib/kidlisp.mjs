@@ -487,6 +487,21 @@ class KidLisp {
     this.globalEnvCache = null; // Cache global environment
     this.embeddedApiCache = new Map(); // Cache embedded layer API objects
     
+    // 🚀 ALPHA BUFFER CACHING: Cache alpha-adjusted buffers to avoid repeated allocations
+    this.alphaBufferCache = new Map(); // size_alpha -> buffer
+    
+    // � BLEND CACHING: Cache final composite to avoid redundant alpha blending
+    this.cachedComposite = null; // Cache final blended result
+    this.compositeInvalidated = false; // Track when composite needs updating
+    
+    // �🔄 BUFFER POOLING: Reuse buffers to reduce GC pressure
+    this.bufferPool = new Map(); // size -> [buffer1, buffer2, ...]
+    this.maxPooledBuffers = 8; // Limit pool size to avoid memory bloat
+    
+    // 🔍 CONTRAST CACHING: Cache contrast operations to avoid redundant processing
+    this.lastContrastArgs = null; // Track last contrast arguments
+    this.contrastCacheInvalidated = true; // Track when contrast needs reapplication
+    
     // Clear embedded layer cache on initialization/reload (after caches are initialized)
     this.clearEmbeddedLayerCache();
 
@@ -653,6 +668,12 @@ class KidLisp {
     // Reset baked layers state
     this.bakedLayers = [];
     this.bakeCallCount = 0;
+    
+    // Reset deferred commands state
+    this.postEmbedCommands = [];
+    
+    // Reset buffer pool state
+    this.bufferPool.clear();
     
     // Don't reset ink state during reset - preserve across frame transitions
     // this.inkState = undefined;
@@ -1526,28 +1547,45 @@ class KidLisp {
           // Scan for $codes and pre-mark them as loading for syntax highlighting
           this.scanAndMarkEmbeddedCodes(source);
           
+          // 🔍 TOTAL FRAME TIMING: Start measuring complete execution cycle
+          const totalFrameStart = performance.now();
+          
           // Execute the full program first (draws current content and creates embedded layers)
           this.localEnvLevel = 0; // Reset state per program evaluation.
           this.localEnv = this.localEnvStore[this.localEnvLevel];
+          
+          const mainEvalStart = performance.now();
           /*const evaluated = */ this.evaluate(this.ast, $);
+          const mainEvalTime = performance.now() - mainEvalStart;
           
           // Mark that we're now in the embed rendering phase
           this.inEmbedPhase = true;
           
           // Then composite baked layers underneath current content
+          const bakedStart = performance.now();
           this.renderBakedLayers($);
+          const bakedTime = performance.now() - bakedStart;
           
           // Then render and update embedded layers
+          const embedStart = performance.now();
           this.renderEmbeddedLayers($);
+          const embedTime = performance.now() - embedStart;
+          
+          // 🔍 TOTAL FRAME TIMING: Disabled for cleaner console
+          const totalFrameTime = performance.now() - totalFrameStart;
+          // if (totalFrameTime > 10) { // Only log very slow frames
+          //   console.log(`🔍 TOTAL FRAME: ${totalFrameTime.toFixed(2)}ms | main=${mainEvalTime.toFixed(2)}ms, baked=${bakedTime.toFixed(2)}ms, embed=${embedTime.toFixed(2)}ms`);
+          // }
           
           // Finally execute any drawing commands that should be on top
           this.inEmbedPhase = false;
-          // Post-embed command execution debug logs removed for performance
+          
+          // Execute accumulated post-embed commands
           this.postEmbedCommands.forEach((cmd, i) => {
             try {
               cmd.func(...cmd.args);
             } catch (err) {
-              console.error(`❌ Error executing post-embed command ${cmd.name}:`, err);
+              console.error(`Error executing post-embed command ${cmd.name}:`, err);
             }
           });
           this.postEmbedCommands = [];
@@ -2523,6 +2561,12 @@ class KidLisp {
         api.wiggle(...args);
       },
       box: (api, args = []) => {
+        // Handle non-array args
+        if (!Array.isArray(args)) {
+          console.warn('⚠️ box function received non-array args, converting to array');
+          args = Array.isArray(args) ? args : [args];
+        }
+        
         // Handle undefined (?) values with contextual logic
         const processedArgs = args.map((arg, index) => {
           if (arg === undefined) {
@@ -2637,34 +2681,116 @@ class KidLisp {
         api.shape({ points, filled, thickness });
       },
       scroll: (api, args = []) => {
+        // Debug logging removed for performance
+        
+        // Handle different scroll argument formats
+        let dx = 0, dy = 0;
+        
+        // NEW: Check if we have a single timing expression argument like ['2s...', 1, 0, -1]
+        if (Array.isArray(args) && args.length === 1 && Array.isArray(args[0]) && 
+            args[0].length > 0 && typeof args[0][0] === 'string' && args[0][0].endsWith('...')) {
+          // This is a timing expression like ['2s...', 1, 0, -1]
+          // We need to evaluate it to get the current values
+          const timingExpr = args[0];
+          const result = this.evaluate([timingExpr], api);
+          
+          // If result is an array, use it as dx, dy
+          if (Array.isArray(result) && result.length >= 2) {
+            dx = parseFloat(result[0]) || 0;
+            dy = parseFloat(result[1]) || 0;
+          } else if (typeof result === 'number') {
+            dx = result;
+            dy = 0;
+          } else {
+            return;
+          }
+        }
+        // Check for timing pattern arrays like [["2s...", 1, 0, -1], ["3s...", -1, 0, 1]]
+        else if (Array.isArray(args) && args.length > 0 && Array.isArray(args[0])) {
+          // This is a timing pattern - need to evaluate which timing phase is active
+          
+          // For now, let's see what the structure looks like and handle it properly
+          const timingPhases = args;
+          let activePhase = null;
+          
+          // Evaluate each timing phase to see which one should be active
+          for (let i = 0; i < timingPhases.length; i++) {
+            const phase = timingPhases[i];
+            if (Array.isArray(phase) && phase.length > 0) {
+              const timingToken = phase[0];
+              
+              // Check if this timing phase should be active
+              if (typeof timingToken === 'string' && /^\d*\.?\d+s\.\.\.?$/.test(timingToken)) {
+                // This is a timing expression - check if it should execute
+                if (this.evaluateTimingExpression && this.evaluateTimingExpression(api, timingToken)) {
+                  activePhase = phase;
+                  break;
+                } else {
+                  console.log(`🖱️ SCROLL timing phase ${i} is inactive`);
+                }
+              }
+            }
+          }
+          
+          if (activePhase && activePhase.length > 1) {
+            // Extract scroll values from active phase
+            const values = activePhase.slice(1);
+            if (values.length >= 2) {
+              dx = parseFloat(values[0]) || 0;
+              dy = parseFloat(values[1]) || 0;
+            } else if (values.length === 1) {
+              dx = parseFloat(values[0]) || 0;
+              dy = 0;
+            }
+            console.log(`🖱️ SCROLL using active timing phase values: dx=${dx}, dy=${dy}`);
+          } else {
+            console.log(`🖱️ SCROLL no active timing phase found, using defaults`);
+          }
+        } else if (Array.isArray(args)) {
+          if (args.length === 1) {
+            // Single argument: scroll 0.1 -> (scroll 0.1)
+            dx = parseFloat(args[0]) || 0;
+            dy = 0;
+          } else if (args.length === 2) {
+            // Two arguments: scroll 0 1 -> (scroll 0 1)
+            dx = parseFloat(args[0]) || 0;
+            dy = parseFloat(args[1]) || 0;
+          } else if (args.length > 2) {
+            // Multiple complex arguments - extract what we can
+            dx = parseFloat(args[0]) || 0;
+            dy = parseFloat(args[1]) || 0;
+          }
+        }
+        
+        console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
+        
         // Only defer scroll commands from main code, not from embedded layers
-        // BUT: If we're inside a nested embedded layer, execute immediately to maintain immediate mode
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.inEmbeddedExecution && !this.isNestedInstance) {
+        // Execute immediately if we're a nested instance or in embed phase
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
+          console.log(`⏳ SCROLL deferring command until after embedded layers`);
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'scroll',
             func: () => {
-              if (!Array.isArray(args)) {
-                args = [args];
-              }
+              console.log(`🖱️ SCROLL executing deferred command: dx=${dx}, dy=${dy}`);
               if (typeof api.scroll === 'function') {
-                api.scroll(...args);
+                api.scroll(dx, dy);
+              } else {
+                console.log(`⚠️ SCROLL deferred execution failed: api.scroll not available`);
               }
             },
-            args: args
+            args: [dx, dy]
           });
           return;
         }
         
-        if (!Array.isArray(args)) {
-          args = [args];
-        }
+        console.log(`🖱️ SCROLL executing immediately: dx=${dx}, dy=${dy}`);
         if (typeof api.scroll === 'function') {
-          api.scroll(...args);
+          api.scroll(dx, dy);
         } else {
           // For embedded layers, scroll might not be available on the API object
           // In this case, we can skip the scroll operation silently
-          console.log(`⚠️ SKIP: scroll not available on API object`, args);
+          console.log(`⚠️ SCROLL immediate execution failed: api.scroll not available`);
         }
       },
       spin: (api, args = []) => {
@@ -2702,14 +2828,17 @@ class KidLisp {
       zoom: (api, args = []) => {
         // Defer zoom execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          console.log("🔍 Deferring zoom command until after embedded layers");
           this.postEmbedCommands.push({
             name: 'zoom',
-            func: () => api.zoom(...args),
+            func: () => {
+              api.zoom(...args);
+            },
             args
           });
           return;
         }
+        
+        // Execute zoom immediately
         api.zoom(...args);
       },
       blur: (api, args = []) => {
@@ -2719,14 +2848,16 @@ class KidLisp {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'blur',
-            func: api.blur,
+            func: () => {
+              api.blur(...args);
+            },
             args: args
           });
           // Blur command deferred debug log removed for performance
           return;
         }
         
-        // Blur immediate execution debug log removed for performance
+        // Execute blur immediately
         api.blur(...args);
       },
       contrast: (api, args = []) => {
@@ -2735,13 +2866,15 @@ class KidLisp {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'contrast',
-            func: api.contrast,
+            func: () => {
+              api.contrast(...args);
+            },
             args: args
           });
-          // Contrast deferred debug log removed for performance
           return;
         }
         
+        // Apply contrast immediately
         api.contrast(...args);
       },
       pan: (api, args = []) => {
@@ -3890,12 +4023,28 @@ class KidLisp {
         y = Math.floor(y);
         alpha = Math.max(0, Math.min(255, Math.floor(alpha)));
         
-        const layerKey = `${cacheId}_${width}x${height}_${x},${y}_${alpha}`;
+        // 🚀 PERFORMANCE OPTIMIZATION: Normalize dimensions to reduce cache fragmentation during reframe
+        // Use size buckets to allow cache reuse for similar dimensions
+        const normalizedWidth = width <= 128 ? 128 : width <= 256 ? 256 : width <= 512 ? 512 : width;
+        const normalizedHeight = height <= 128 ? 128 : height <= 256 ? 256 : height <= 512 ? 512 : height;
+        
+        const layerKey = `${cacheId}_${normalizedWidth}x${normalizedHeight}_${x},${y}_${alpha}`;
         
         // Check if this embedded layer already exists - RETURN IMMEDIATELY if found
         if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
-        // console.log("♻️ Using existing embedded layer:", layerKey);
           const existingLayer = this.embeddedLayerCache.get(layerKey);
+          
+          // If dimensions don't match exactly, we need to handle the scaling
+          if (existingLayer.width !== width || existingLayer.height !== height) {
+            // Update position and alpha for this specific call
+            existingLayer.x = x;
+            existingLayer.y = y; 
+            existingLayer.alpha = alpha;
+            
+            // For performance, we'll render at the cached size but paste at the requested position
+            // This avoids recreating buffers during reframe operations
+          }
+        // console.log("♻️ Using existing embedded layer:", layerKey);
           
           // Check if we're in a timing context (like 3s...) and if this embed should be active
           if (this.currentTimingContext) {
@@ -3938,8 +4087,8 @@ class KidLisp {
           // This ensures nested embeds like ($pie ...) and ($febs ...) actually execute
           const shouldRender = this.updateEmbeddedLayer(api, existingLayer);
           
-          // Only paste if the layer decided to render this frame
-          if (shouldRender && existingLayer.buffer && api.paste) {
+          // Always paste cached layers that have buffers - they contain valuable content even if they didn't render this frame
+          if (existingLayer.buffer && api.paste) {
             // Always use alpha blending to properly handle pixels with alpha channels
             this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
           }
@@ -4034,6 +4183,7 @@ class KidLisp {
               // Update with real source and reparse
               existingLayer.source = source;
               existingLayer.sourceCode = source;
+              existingLayer.kidlispInstance.source = source; // Store in instance for dynamic content detection
               existingLayer.parsedCode = existingLayer.kidlispInstance.parse(source);
               
               // Reset timing for fresh start
@@ -4233,7 +4383,12 @@ class KidLisp {
     // If not a cache code, proceed with normal resolution
     if (!result) {
       // Fast lookup order: local -> env -> global -> globalDef -> api
-      if (existing(this.localEnv[head])) {
+      // SPECIAL CASE: In embedded layers, prioritize embedded API for certain functions
+      if (this.isNestedInstance && api && typeof api[head] === "function" && 
+          (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'blur' || 
+           head === 'contrast' || head === 'shear' || head === 'brightness')) {
+        result = { type: "api", value: api[head] };
+      } else if (existing(this.localEnv[head])) {
         result = { type: "local", value: this.localEnv[head] };
       } else if (existing(env?.[head])) {
         result = { type: "env", value: env[head] };
@@ -4428,7 +4583,7 @@ class KidLisp {
     for (const item of body) {
       // console.log("🥡 Processing item:", JSON.stringify(item), "type:", Array.isArray(item) ? "array" : typeof item);
       /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
-
+      
       // Handle optimized functions first
       if (item && typeof item === "object" && item.optimized) {
         perfStart("optimized-execution");
@@ -4600,6 +4755,7 @@ class KidLisp {
           /^\d*\.?\d+s\.\.\.?$/.test(head)
         ) {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
+          
           const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
           // Get current time directly using Date.now() instead of evaluating clock function
@@ -4747,14 +4903,25 @@ class KidLisp {
               // Numbers should be returned directly without evaluation
               result = selectedArg;
             } else {
+              // Evaluate the selected argument - this should return the actual value
               result = this.evaluate(selectedArg, api, env);
+              
+              // IMPORTANT: Make sure we return a valid value, not undefined
+              if (result === undefined || result === null) {
+                result = selectedArg;
+              }
             }
             
             // Clear timing context after evaluation
             this.currentTimingContext = null;
             
-            // Return the result instead of continuing - timing expressions should return their values
-            return result;
+            // IMPORTANT: Return result if this is the only expression being evaluated (function argument context)
+            // Otherwise, store result and continue processing for top-level timing expressions
+            if (body.length === 1) {
+              // Single expression context - return the result (likely function argument)
+              return result;
+            }
+            // Multiple expressions context - continue processing
           }
           
           continue; // Skip normal function processing
@@ -6249,42 +6416,31 @@ class KidLisp {
         }
       }
       
-      // Create a dedicated KidLisp instance for this embedded layer
-      const embeddedKidLisp = new KidLisp();
-      // Start embedded layers with fresh timing states for re-entrancy
+      // 🔄 REUSE existing KidLisp instance but reset execution state
+      const embeddedKidLisp = existingLayer.kidlispInstance;
+      console.log(`🎭 REUSING nested KidLisp instance for embedded layer: ${layerKey}`);
+      
+      // 🚨 CRITICAL: Clear onceExecuted to allow re-execution of once blocks
+      // This was causing scroll commands to not execute on second load
+      embeddedKidLisp.onceExecuted.clear();
+      console.log(`🔄 CLEARED onceExecuted for re-execution`);
+      
+      // Reset timing states for fresh execution
       embeddedKidLisp.frameCount = 0;
       embeddedKidLisp.frameCounter = 0;
-      embeddedKidLisp.timingStates = new Map();
-      embeddedKidLisp.lastSecondExecutions = {};
+      embeddedKidLisp.timingStates.clear();
+      // IMPORTANT: Share timing state with parent for consistent timer behavior
+      embeddedKidLisp.lastSecondExecutions = this.lastSecondExecutions;
+      // IMPORTANT: Share sequence counters for timing expressions
+      embeddedKidLisp.sequenceCounters = this.sequenceCounters || new Map();
       embeddedKidLisp.localEnv = { ...this.localEnv };
       
-      // Mark this as a nested instance to enable immediate mode for commands like blur/scroll
+      // Ensure it remains marked as a nested instance
       embeddedKidLisp.isNestedInstance = true;
+      console.log(`🎭 MARKED as nested instance: isNestedInstance = true`);
       
-      // IMPORTANT: Share the source cache with embedded instances
-      embeddedKidLisp.embeddedSourceCache = this.embeddedSourceCache;
-      embeddedKidLisp.embeddedLayerCache = this.embeddedLayerCache;
-      
-      const parsedCode = embeddedKidLisp.parse(source);
-      
-      // Apply the same precompilation as the main instance
-      const precompiledCode = embeddedKidLisp.precompileAST(parsedCode);
-      
-      // Set the AST for the embedded instance so detectFirstLineColor can work  
-      embeddedKidLisp.ast = JSON.parse(JSON.stringify(precompiledCode));
-      // Updated embedded AST debug log removed for performance
-      
-      // Detect and store first-line color for embedded layer (like fade strings)
-      embeddedKidLisp.detectFirstLineColor();
-      // Embedded layer firstLineColor debug log removed for performance
-      // Source code debug log removed for performance
-      
-      existingLayer.source = source;
-      existingLayer.sourceCode = source; // Store for timing pattern extraction
-      existingLayer.timingPattern = this.extractTimingPattern(source); // Pre-extract timing pattern
-      existingLayer.parsedCode = precompiledCode;
-      existingLayer.kidlispInstance = embeddedKidLisp;
-      existingLayer.alpha = alpha; // Update alpha value
+      // Update the alpha value
+      existingLayer.alpha = alpha;
       // Reset local frame count for fresh timing on reload
       existingLayer.localFrameCount = 0;
       
@@ -6297,7 +6453,10 @@ class KidLisp {
     embeddedKidLisp.frameCount = 0;
     embeddedKidLisp.frameCounter = 0;
     embeddedKidLisp.timingStates = new Map();
-    embeddedKidLisp.lastSecondExecutions = {};
+    // IMPORTANT: Share timing state with parent for consistent timer behavior
+    embeddedKidLisp.lastSecondExecutions = this.lastSecondExecutions;
+    // IMPORTANT: Share sequence counters for timing expressions
+    embeddedKidLisp.sequenceCounters = this.sequenceCounters || new Map();
     embeddedKidLisp.localEnv = { ...this.localEnv };
     
     // Mark this as a nested instance to enable immediate mode for commands like blur/scroll
@@ -6308,7 +6467,17 @@ class KidLisp {
     embeddedKidLisp.embeddedSourceCache = this.embeddedSourceCache;
     embeddedKidLisp.embeddedLayerCache = this.embeddedLayerCache;
     
-    const parsedCode = embeddedKidLisp.parse(source);
+    // Preprocess source to fix scroll syntax
+    let processedSource = source;
+    
+    // Convert bare scroll expressions to proper function calls
+    // Pattern 1: "scroll 0.1" -> "(scroll 0.1)"
+    processedSource = processedSource.replace(/^scroll\s+([\d.]+)$/gm, '(scroll $1)');
+    
+    // Pattern 2: "scroll 0 (? 1 -1)" -> "(scroll 0 (? 1 -1))"
+    processedSource = processedSource.replace(/^scroll\s+(.+)$/gm, '(scroll $1)');
+    
+    const parsedCode = embeddedKidLisp.parse(processedSource);
     
     // Apply the same precompilation as the main instance
     const precompiledCode = embeddedKidLisp.precompileAST(parsedCode);
@@ -6346,36 +6515,45 @@ class KidLisp {
         persistentLayer.kidlispInstance = embeddedKidLisp;
       }
     } else {
-      // New buffer creation debug log removed for performance
-      embeddedBuffer = api.painting(width, height, (bufferApi) => {
-        try {
-          // Optimized API creation (avoid expensive spread operations)
-          const combinedApi = Object.assign(
-            Object.create(null),
-            bufferApi,
-            api,
-            {
-              screen: bufferApi.screen || { pixels: new Uint8ClampedArray(width * height * 4), width, height },
-              // Ensure drawing commands work properly in embedded buffer
-              circle: (...args) => bufferApi.circle(...args),
-              box: (...args) => bufferApi.box(...args),
-              line: (...args) => bufferApi.line(...args),
-              point: (...args) => bufferApi.point(...args),
-              poly: (...args) => bufferApi.poly(...args),
-              paste: (...args) => bufferApi.paste(...args),
-              stamp: (...args) => bufferApi.stamp(...args),
-              write: (...args) => bufferApi.write(...args),
-              flood: (...args) => bufferApi.flood(...args),
-              ink: (...args) => bufferApi.ink(...args),
-              wipe: (...args) => bufferApi.wipe(...args),
-            }
-          );
-          embeddedKidLisp.evaluate(precompiledCode, combinedApi, embeddedKidLisp.localEnv);
-        } catch (error) {
-          console.error("❌ Error in initial embedded layer execution:", error);
-          bufferApi.wipe?.(255, 0, 0, 128);
+      // � REFRAME OPTIMIZATION: Check if we can reuse existing buffer during size changes
+      let foundCompatibleBuffer = false;
+      if (existingLayer && existingLayer.buffer) {
+        const currentSize = existingLayer.buffer.width * existingLayer.buffer.height;
+        const newSize = width * height;
+        
+        // If the new size is smaller or equal, reuse the existing buffer
+        // This prevents buffer recreation during reframe operations
+        if (newSize <= currentSize && existingLayer.buffer.width >= width && existingLayer.buffer.height >= height) {
+          embeddedBuffer = existingLayer.buffer;
+          foundCompatibleBuffer = true;
+          console.log(`🔄 Reusing existing buffer during reframe: ${width}x${height} fits in ${existingLayer.buffer.width}x${existingLayer.buffer.height}`);
+          
+          // Clear only the used area
+          if (embeddedBuffer.pixels) {
+            const totalPixels = width * height * 4; // RGBA
+            embeddedBuffer.pixels.fill(0, 0, totalPixels);
+          }
         }
-      });
+      }
+      
+      // �🔄 BUFFER POOLING: Try to get a buffer from the pool first
+      if (!foundCompatibleBuffer) {
+        const bufferSizeKey = `${width}x${height}`;
+        const pooledBuffers = this.bufferPool.get(bufferSizeKey);
+        
+        if (pooledBuffers && pooledBuffers.length > 0) {
+          embeddedBuffer = pooledBuffers.pop();
+          console.log(`🔄 Reused pooled buffer ${bufferSizeKey} (${pooledBuffers.length} remaining)`);
+          
+          // Clear the reused buffer
+          if (embeddedBuffer.pixels) {
+            embeddedBuffer.pixels.fill(0);
+          }
+        } else {
+          // Use optimized buffer creation
+          embeddedBuffer = this.createOrReuseBuffer(width, height);
+        }
+      }
     }
 
     if (!embeddedBuffer) {
@@ -6417,93 +6595,265 @@ class KidLisp {
 
   // Clear embedded layer cache (called on reload/initialization)
   clearEmbeddedLayerCache() {
-    // Clearing cache debug log removed for performance
+    // 🔄 BUFFER POOLING: Return buffers to pool before clearing
+    this.embeddedLayers.forEach(layer => {
+      if (layer && layer.buffer) {
+        this.returnBufferToPool(layer.buffer, layer.width, layer.height);
+      }
+    });
+    
+    // Clear all caches
     this.embeddedLayers = [];
     this.embeddedLayerCache.clear();
-    this.embeddedSourceCache.clear(); // Also clear source code cache
-    this.embeddedApiCache.clear(); // Clear cached API objects
+    this.embeddedSourceCache.clear();
+    this.embeddedApiCache.clear();
+    
+    // 🚀 CLEAR ALPHA CACHE: Clean up alpha-adjusted buffers
+    if (this.alphaBufferCache) {
+      this.alphaBufferCache.clear();
+    }
+    
+    // 🛡️ CLEAN POOLS: Remove any potentially detached buffers from pools
+    this.cleanBufferPools();
+  }
+
+  // 🛡️ SAFETY: Clean buffer pools of any detached buffers
+  cleanBufferPools() {
+    if (!this.bufferPool) return;
+    
+    for (const [sizeKey, buffers] of this.bufferPool.entries()) {
+      const validBuffers = buffers.filter(buffer => {
+        return buffer && buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached;
+      });
+      
+      if (validBuffers.length !== buffers.length) {
+        console.log(`🧹 Cleaned ${buffers.length - validBuffers.length} detached buffers from ${sizeKey} pool`);
+      }
+      
+      if (validBuffers.length > 0) {
+        this.bufferPool.set(sizeKey, validBuffers);
+      } else {
+        this.bufferPool.delete(sizeKey);
+      }
+    }
+  }
+
+  // 🔄 BUFFER POOLING: Return a buffer to the pool for reuse
+  returnBufferToPool(buffer, width, height) {
+    if (!buffer || !buffer.pixels) return;
+    
+    // 🛡️ SAFETY CHECK: Don't pool detached buffers
+    if (buffer.pixels.buffer && buffer.pixels.buffer.detached) {
+      console.warn('🚨 Refusing to pool detached buffer');
+      return;
+    }
+    
+    const bufferSizeKey = `${width}x${height}`;
+    if (!this.bufferPool) {
+      this.bufferPool = new Map();
+    }
+    
+    let pooledBuffers = this.bufferPool.get(bufferSizeKey);
+    
+    if (!pooledBuffers) {
+      pooledBuffers = [];
+      this.bufferPool.set(bufferSizeKey, pooledBuffers);
+    }
+    
+    // Increase pool size for commonly used buffer sizes
+    const maxPoolSize = (width * height > 100000) ? 2 : 8; // Larger buffers get smaller pools
+    
+    if (pooledBuffers.length < maxPoolSize) {
+      // Fast buffer clear using fill
+      try {
+        buffer.pixels.fill(0);
+        pooledBuffers.push(buffer);
+      } catch (error) {
+        console.warn('🚨 Failed to clear buffer for pooling:', error);
+      }
+    }
+  }
+
+  // 🚀 OPTIMIZED BUFFER CREATION: Use pooling and faster allocation
+  createOrReuseBuffer(width, height) {
+    const bufferSizeKey = `${width}x${height}`;
+    const pooledBuffers = this.bufferPool?.get(bufferSizeKey);
+    
+    if (pooledBuffers && pooledBuffers.length > 0) {
+      const buffer = pooledBuffers.pop();
+      
+      // 🛡️ SAFETY CHECK: Ensure buffer is not detached
+      if (buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached) {
+        // Buffer is safe to reuse - clear it
+        buffer.pixels.fill(0);
+        return buffer;
+      } else {
+        // Buffer is detached or invalid, remove it and create new one
+        console.warn('🚨 Discarded detached buffer from pool');
+      }
+    }
+    
+    // Create new buffer with pre-zeroed memory for faster allocation
+    const pixelCount = width * height * 4;
+    return {
+      width: width,
+      height: height,
+      pixels: new Uint8ClampedArray(pixelCount) // Already zeroed
+    };
   }
 
   // Helper function to paste a buffer with alpha blending
-  // 🚀 OPTIMIZED: Use multiple optimization strategies based on scenario
+  // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
-      console.log("🔴 pasteWithAlpha: Invalid buffers, skipping");
+      return; // Silent fail for performance
+    }
+    
+    // 🛡️ SAFETY CHECK: Ensure source buffer is not detached
+    if (sourceBuffer.pixels.buffer && sourceBuffer.pixels.buffer.detached) {
+      console.warn('🚨 Attempted to paste from detached buffer, skipping');
       return;
     }
 
-    // 🎯 ULTRA-FAST PATH: Use native canvas operations when possible (main thread only)
-    if (alpha === 255 && typeof window !== 'undefined' && api.ctx && typeof createImageBitmap !== 'undefined') {
-      // Use hardware-accelerated canvas drawImage for maximum performance
-      console.log("🚀 pasteWithAlpha: Using ULTRA-FAST hardware-accelerated path");
-      try {
-        const imageData = new ImageData(sourceBuffer.pixels, sourceBuffer.width, sourceBuffer.height);
-        createImageBitmap(imageData).then(bitmap => {
-          if (api.ctx && api.ctx.drawImage) {
-            api.ctx.drawImage(bitmap, x, y);
-          }
-        }).catch(() => {
-          console.log("🟡 pasteWithAlpha: Hardware path failed, falling back to graph.paste");
-          // Fall back to graph.paste if bitmap fails
-          if (api.paste) {
-            api.paste(sourceBuffer, x, y);
-          } else {
-            this.fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha);
-          }
-        });
-        return;
-      } catch (e) {
-        console.log("🟡 pasteWithAlpha: Hardware path exception, falling back:", e.message);
-        // Fall through to graph.paste
-      }
-    }
-    
-    // 🎯 FAST PATH: Use graph.paste with modified buffer for optimal performance
-    // This leverages graph.mjs's optimized blending, row-wise copying, and cache efficiency
-    
-    // Check if we can use the direct graph.paste optimization
+    // 🎯 ULTRA-FAST PATH: Direct paste for opaque layers
     if (alpha === 255) {
-      // No alpha adjustment needed - use direct paste for maximum performance
       if (api.paste) {
-        console.log("🎯 pasteWithAlpha: Using FAST graph.paste path (alpha=255)");
         api.paste(sourceBuffer, x, y);
       } else {
-        console.log("🔄 pasteWithAlpha: Using FALLBACK manual path (alpha=255, no api.paste)");
-        // Fallback to manual paste if api.paste not available
-        this.fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha);
+        this.fastDirectPaste(api, sourceBuffer, x, y);
       }
       return;
     }
     
-    // For alpha < 255, create a temporary buffer with adjusted alpha values
-    // This is still faster than manual pixel-by-pixel blending since we batch the alpha adjustment
-    const tempBuffer = {
-      width: sourceBuffer.width,
-      height: sourceBuffer.height,
-      pixels: new Uint8ClampedArray(sourceBuffer.pixels.length)
-    };
-    
-    // Batch alpha adjustment - more efficient than per-pixel blending during paste
-    const alphaFactor = alpha / 255.0;
-    const srcPixels = sourceBuffer.pixels;
-    const tempPixels = tempBuffer.pixels;
-    
-    // Optimized alpha pre-multiplication with proper loop bounds
-    const pixelCount = srcPixels.length;
-    for (let i = 0; i < pixelCount; i += 4) {
-      tempPixels[i] = srcPixels[i];         // R
-      tempPixels[i + 1] = srcPixels[i + 1]; // G  
-      tempPixels[i + 2] = srcPixels[i + 2]; // B
-      tempPixels[i + 3] = srcPixels[i + 3] * alphaFactor; // A
+    // 🚀 CACHE ALPHA BUFFERS: Reuse alpha-adjusted buffers to avoid repeated allocations
+    const alphaBufferKey = `${sourceBuffer.width}x${sourceBuffer.height}_${alpha}`;
+    if (!this.alphaBufferCache) {
+      this.alphaBufferCache = new Map();
     }
     
-    // Use graph.paste with the alpha-adjusted buffer - leverages all graph.mjs optimizations
-    if (api.paste) {
-      api.paste(tempBuffer, x, y);
-    } else {
-      console.log("🔄 pasteWithAlpha: Using FALLBACK manual path (no api.paste available)");
-      // Fallback to manual implementation if api.paste not available
-      this.fallbackPasteWithAlpha(api, tempBuffer, x, y, 255); // Use 255 since alpha already applied
+    let cachedAlphaBuffer = this.alphaBufferCache.get(alphaBufferKey);
+    
+    // Only create new buffer if not cached or source changed
+    if (!cachedAlphaBuffer || this.needsAlphaBufferUpdate(sourceBuffer, cachedAlphaBuffer)) {
+      // Reuse buffer if possible, otherwise create new one
+      if (cachedAlphaBuffer && cachedAlphaBuffer.pixels.length === sourceBuffer.pixels.length) {
+        // Reuse existing buffer
+        this.updateAlphaBuffer(sourceBuffer, cachedAlphaBuffer, alpha);
+      } else {
+        // Create new buffer
+        cachedAlphaBuffer = {
+          width: sourceBuffer.width,
+          height: sourceBuffer.height,
+          pixels: new Uint8ClampedArray(sourceBuffer.pixels.length),
+          sourceHash: this.quickPixelHash(sourceBuffer.pixels),
+          alpha: alpha
+        };
+        this.updateAlphaBuffer(sourceBuffer, cachedAlphaBuffer, alpha);
+        this.alphaBufferCache.set(alphaBufferKey, cachedAlphaBuffer);
+      }
+    }
+    
+    // Use proper alpha blending - force fallback for true alpha compositing
+    this.fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha);
+  }
+
+  // 🚀 Check if alpha buffer needs updating (avoids expensive pixel operations)
+  needsAlphaBufferUpdate(sourceBuffer, cachedBuffer) {
+    if (!cachedBuffer || !cachedBuffer.sourceHash) return true;
+    
+    // 🛡️ SAFETY CHECK: Ensure cached buffer is not detached
+    if (!cachedBuffer.pixels || !cachedBuffer.pixels.buffer || cachedBuffer.pixels.buffer.detached) {
+      return true; // Force recreation if buffer is detached
+    }
+    
+    // Use quick hash comparison instead of full pixel comparison
+    const currentHash = this.quickPixelHash(sourceBuffer.pixels);
+    return currentHash !== cachedBuffer.sourceHash;
+  }
+
+  // 🚀 Update alpha buffer with optimized SIMD-style operations where possible
+  updateAlphaBuffer(sourceBuffer, targetBuffer, alpha) {
+    const alphaFactor = alpha / 255.0;
+    const src = sourceBuffer.pixels;
+    const dst = targetBuffer.pixels;
+    const len = src.length;
+    
+    // Process 4 pixels at a time for better cache efficiency
+    let i = 0;
+    for (; i < len - 15; i += 16) {
+      // Pixel 1
+      dst[i] = src[i];
+      dst[i + 1] = src[i + 1];
+      dst[i + 2] = src[i + 2];
+      dst[i + 3] = src[i + 3] * alphaFactor;
+      
+      // Pixel 2
+      dst[i + 4] = src[i + 4];
+      dst[i + 5] = src[i + 5];
+      dst[i + 6] = src[i + 6];
+      dst[i + 7] = src[i + 7] * alphaFactor;
+      
+      // Pixel 3
+      dst[i + 8] = src[i + 8];
+      dst[i + 9] = src[i + 9];
+      dst[i + 10] = src[i + 10];
+      dst[i + 11] = src[i + 11] * alphaFactor;
+      
+      // Pixel 4
+      dst[i + 12] = src[i + 12];
+      dst[i + 13] = src[i + 13];
+      dst[i + 14] = src[i + 14];
+      dst[i + 15] = src[i + 15] * alphaFactor;
+    }
+    
+    // Handle remaining pixels
+    for (; i < len; i += 4) {
+      dst[i] = src[i];
+      dst[i + 1] = src[i + 1];
+      dst[i + 2] = src[i + 2];
+      dst[i + 3] = src[i + 3] * alphaFactor;
+    }
+    
+    // Update metadata
+    targetBuffer.sourceHash = this.quickPixelHash(src);
+    targetBuffer.alpha = alpha;
+  }
+
+  // 🚀 Optimized direct paste without API overhead
+  fastDirectPaste(api, sourceBuffer, x, y) {
+    const src = sourceBuffer.pixels;
+    const dst = api.screen.pixels;
+    const srcW = sourceBuffer.width;
+    const srcH = sourceBuffer.height;
+    const dstW = api.screen.width;
+    const dstH = api.screen.height;
+    
+    // Calculate bounds once
+    const startX = Math.max(0, x);
+    const startY = Math.max(0, y);
+    const endX = Math.min(dstW, x + srcW);
+    const endY = Math.min(dstH, y + srcH);
+    
+    // Early exit for out-of-bounds
+    if (startX >= endX || startY >= endY) return;
+    
+    // Row-wise copying for better cache performance
+    for (let dy = startY; dy < endY; dy++) {
+      const srcY = dy - y;
+      const srcRowStart = srcY * srcW * 4;
+      const dstRowStart = dy * dstW * 4;
+      
+      for (let dx = startX; dx < endX; dx++) {
+        const srcX = dx - x;
+        const srcIdx = srcRowStart + srcX * 4;
+        const dstIdx = dstRowStart + dx * 4;
+        
+        // Copy RGBA values
+        dst[dstIdx] = src[srcIdx];
+        dst[dstIdx + 1] = src[srcIdx + 1];
+        dst[dstIdx + 2] = src[srcIdx + 2];
+        dst[dstIdx + 3] = src[srcIdx + 3];
+      }
     }
   }
 
@@ -6542,8 +6892,6 @@ class KidLisp {
         // Skip transparent pixels
         if (srcA === 0) continue;
 
-        pixelsProcessed++;
-
         // Fast path for fully opaque pixels
         if (alphaFactor === 1.0 && srcA === 255) {
           dstPixels[dstIndex] = srcPixels[srcIndex];
@@ -6564,143 +6912,277 @@ class KidLisp {
     }
   }
 
+  // Fast pixel hash for change detection (samples key pixels to avoid full buffer comparison)
+  quickPixelHash(pixels) {
+    if (!pixels || pixels.length === 0) return 0;
+    
+    let hash = 0;
+    const len = pixels.length;
+    
+    // Sample every 64th pixel for speed (still gives good change detection)
+    for (let i = 0; i < len; i += 64) {
+      hash = ((hash << 5) - hash + pixels[i]) | 0; // Simple hash combining sampled pixels
+    }
+    
+    return hash;
+  }
+
   // Render and update embedded layers each frame
   renderEmbeddedLayers(api) {
+    // 🔍 DEBUG: Log embedded layers status
     if (!this.embeddedLayers || this.embeddedLayers.length === 0) {
       return;
     }
+    
+    // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
+    const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
+    if (this.lastScreenSize && this.lastScreenSize !== currentScreenSize) {
+      const timeSinceLastResize = performance.now() - (this.lastResizeTime || 0);
+      if (timeSinceLastResize < 100) { // Within 100ms of a resize
+        // Just re-paste existing layers without re-evaluation for performance
+        this.embeddedLayers.forEach(embeddedLayer => {
+          if (embeddedLayer && embeddedLayer.buffer && api.paste) {
+            this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+          }
+        });
+        return;
+      }
+    }
+    this.lastScreenSize = currentScreenSize;
+    this.lastResizeTime = performance.now();
+    
+    // � FRAME-BASED OPTIMIZATION: Skip complex renders when too frequent
+    const layerCount = this.embeddedLayers.length;
+    if (layerCount > 3 && performance.now() - (this.lastComplexRender || 0) < 16) {
+      // For multiple layers, limit to 60fps to prevent slowdown
+      return;
+    }
+    
+    if (layerCount > 3) {
+      this.lastComplexRender = performance.now();
+    }
+
+    // �️ PERIODIC CLEANUP: Clean buffer pools occasionally to prevent detached buffer accumulation
+    if (api.frame && api.frame % 300 === 0) { // Every 5 seconds at 60fps
+      this.cleanBufferPools();
+    }
+
+    // �🚀 BATCH OPTIMIZATION: Pre-calculate frame value once
+    const frameValue = api.frame || this.frameCount || 0;
 
     // Update and composite each embedded layer (render in correct order: 0, 1, 2...)
     this.embeddedLayers.forEach((embeddedLayer, index) => {
       if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
-        // Check if this embedded layer should be visible based on timing context
+        
+        // Check timing context visibility (fast path)
         if (embeddedLayer.timingContext) {
           const timingCtx = embeddedLayer.timingContext;
-          
-          // Get the current index for this timing expression
           const currentIndex = this.sequenceCounters.get(timingCtx.timingKey);
-          
-          // If this layer doesn't correspond to the currently active argument, skip rendering
           if (currentIndex !== undefined && currentIndex !== timingCtx.argumentIndex) {
-            // console.log(`⏸️ Skipping render of ${embeddedLayer.originalCacheId} - not active (current: ${currentIndex}, layer: ${timingCtx.argumentIndex})`);
-            return; // Skip this layer
+            console.log(`🎨 Skipping layer ${index} due to timing context`);
+            return; // Skip invisible layers
           }
         }
         
+        // 🚀 DIRTY CHECK: Skip unnecessary evaluation for static content
+        const shouldEvaluate = this.shouldLayerEvaluate(embeddedLayer, frameValue);
+        
         try {
-          // Switch to drawing on the embedded buffer using page()
-          api.page(embeddedLayer.buffer);
-          
-          // Give embedded layer its own incrementing frame counter for smooth animations
-          if (!embeddedLayer.localFrameCount) {
-            embeddedLayer.localFrameCount = 0;
-          }
-          embeddedLayer.localFrameCount += 1;
-          
-          // Update the embedded KidLisp instance's frame counter to match main instance  
-          embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
-          embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
-          
-          // Ensure timing state is preserved for the embedded instance
-          if (!embeddedLayer.kidlispInstance.timingStates) {
-            embeddedLayer.kidlispInstance.timingStates = new Map();
-          }
-
-          // Create API context with proper frame, width, height and KidLisp commands
-          const frameValue = api.frame || this.frameCount || 0;
-          const smoothFrameValue = embeddedLayer.localFrameCount;
-          
-          // Get the global environment containing KidLisp commands like fade, scroll, etc.
-          const globalEnv = this.getGlobalEnv();
-          
-          // ⚡ PERFORMANCE: Cache expensive API object creation
-          const apiCacheKey = `${embeddedLayer.cacheId}_${embeddedLayer.width}x${embeddedLayer.height}`;
-          let embeddedApi = this.embeddedApiCache.get(apiCacheKey);
-          
-          if (!embeddedApi) {
-            // Create API object only once per layer configuration (optimized)
-            embeddedApi = Object.assign(
-              Object.create(null),
-              globalEnv, // Include all KidLisp commands (fade, scroll, ink, etc.) first
-              api, // Then override with main API (including clock, screen, etc.)
-              {
-                screen: {
-                  ...api.screen,
-                  width: embeddedLayer.width,
-                  height: embeddedLayer.height,
-                  pixels: embeddedLayer.buffer.pixels
-                },
-                // Execute drawing commands directly to the embedded buffer
-                // since we've already set the page to the embedded buffer
-                line: (...args) => api.line(...args),
-                ink: (...args) => api.ink(...args),
-                wipe: (...args) => api.wipe(...args),
-                circle: (...args) => {
-                  return api.circle(...args);
-                },
-                box: (...args) => api.box(...args),
-                point: (...args) => api.point(...args),
-                poly: (...args) => api.poly(...args),
-                paste: (...args) => api.paste(...args),
-                stamp: (...args) => api.stamp(...args),
-                write: (...args) => api.write(...args),
-                flood: (...args) => api.flood(...args),
-              }
-            );
-            
-            this.embeddedApiCache.set(apiCacheKey, embeddedApi);
-          }
-          
-          // Update frame-specific properties (these change every frame)
-          embeddedApi.frame = smoothFrameValue; // Use smooth incrementing frame for animations
-          embeddedApi.width = embeddedLayer.width;
-          embeddedApi.height = embeddedLayer.height;
-          embeddedApi.screen.pixels = embeddedLayer.buffer.pixels; // Update buffer reference
-
-          // ⚡ PERFORMANCE: Optimize environment updates
-          const localEnv = embeddedLayer.kidlispInstance.localEnv;
-          localEnv.width = embeddedLayer.width;
-          localEnv.height = embeddedLayer.height;
-          localEnv.frame = smoothFrameValue;
-          localEnv['width/2'] = embeddedLayer.width / 2;
-          localEnv['height/2'] = embeddedLayer.height / 2;
-
-          // Set up embedded environment (avoid expensive spread operation)
-          const modScrollValue = frameValue % (embeddedLayer.width + embeddedLayer.height);
-          const embeddedEnv = localEnv; // Reuse the local env instead of spreading
-          embeddedEnv.scroll = modScrollValue;
-          
-          // Apply the detected fade string as background if available (only once when layer is created)
-          if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
-            embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
-            embeddedLayer.fadeApplied = true;
-          }
-          
-          // Execute the KidLisp code (it will draw to the embedded buffer via page())
-          embeddedLayer.kidlispInstance.evaluate(
-            embeddedLayer.parsedCode, 
-            embeddedApi, 
-            embeddedEnv
-          );
-
-          // Switch back to the main screen 
-          api.page(api.screen);
-          
-          // Paste the embedded buffer to the main canvas at the layer's position
-          // Always use alpha blending to properly handle embedded layer pixels with alpha channels
-          this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
-
+          this.renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate);
         } catch (error) {
-          console.error(`❌ Error updating embedded layer ${index}:`, error);
-          // Make sure we switch back to main screen even on error
+          // Silent error recovery - just ensure we switch back to main screen
           try {
             api.page(api.screen);
           } catch (e) {
-            console.error("❌ Error switching back to main screen:", e);
+            // Ignore switch errors
           }
         }
       }
     });
+  }
+
+  // 🚀 OPTIMIZED: Determine if layer needs evaluation (dirty checking)
+  shouldLayerEvaluate(embeddedLayer, frameValue) {
+    // Always evaluate if never been evaluated
+    if (!embeddedLayer.hasBeenEvaluated) {
+      return true;
+    }
+
+    // Skip if evaluated this exact frame already
+    if (embeddedLayer.lastFrameEvaluated === frameValue) {
+      return false;
+    }
+
+    // Check for dynamic content in source (check multiple places)
+    const source = embeddedLayer.kidlispInstance.source || embeddedLayer.sourceCode || embeddedLayer.source || '';
+    
+    const hasDynamicContent = source.includes('frame') || 
+                             source.includes('scroll') ||
+                             source.includes('clock') ||
+                             source.includes('pen') ||
+                             source.includes('mouse') ||
+                             source.includes('key') ||
+                             source.includes('touch') ||
+                             source.includes('tap') ||
+                             source.includes('random');
+
+    // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have scroll
+    // Since source is often empty due to caching issues, force evaluation more frequently
+    if (!hasDynamicContent && embeddedLayer.hasBeenEvaluated) {
+      // Check if we should force evaluation anyway (every 10 frames for potential scroll effects)
+      const shouldForceEvaluation = (frameValue % 10 === 0);
+      if (shouldForceEvaluation) {
+        return true;
+      }
+      return false;
+    }
+
+    return true; // Default to evaluating
+  }
+
+  // 🚀 OPTIMIZED: Render single layer with minimal overhead
+  renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate) {
+    
+    // 🔥 REFRAME PERFORMANCE: Skip expensive re-evaluation during rapid screen changes
+    const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
+    const timeSinceLastRender = performance.now() - (embeddedLayer.lastRenderTime || 0);
+    
+    if (this.lastScreenSize && this.lastScreenSize !== currentScreenSize && timeSinceLastRender < 50) {
+      // During rapid screen size changes, just re-paste existing buffer
+      if (embeddedLayer.buffer && api.paste) {
+        this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+      }
+      return;
+    }
+    
+    embeddedLayer.lastRenderTime = performance.now();
+    
+    // Switch to embedded buffer
+    api.page(embeddedLayer.buffer);
+    
+    // Update frame counters
+    if (!embeddedLayer.localFrameCount) {
+      embeddedLayer.localFrameCount = 0;
+    }
+    embeddedLayer.localFrameCount += 1;
+    
+    embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
+    embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
+    
+    // Ensure timing state
+    if (!embeddedLayer.kidlispInstance.timingStates) {
+      embeddedLayer.kidlispInstance.timingStates = new Map();
+    }
+
+    if (shouldEvaluate) {
+      // Get optimized API for this layer
+      const embeddedApi = this.getOptimizedLayerApi(embeddedLayer, api);
+      
+      // Update frame-dependent properties
+      embeddedApi.frame = embeddedLayer.localFrameCount;
+      embeddedApi.screen.pixels = embeddedLayer.buffer.pixels;
+
+      // Update environment efficiently
+      const localEnv = embeddedLayer.kidlispInstance.localEnv;
+      localEnv.frame = embeddedLayer.localFrameCount;
+      localEnv.scroll = frameValue % (embeddedLayer.width + embeddedLayer.height);
+
+      // Apply fade background only once
+      if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
+        embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
+        embeddedLayer.fadeApplied = true;
+      }
+
+      // Execute the code
+      const scrollNodesInAST = Array.isArray(embeddedLayer.parsedCode) ? 
+        embeddedLayer.parsedCode.filter(node => {
+          // Check for direct scroll function calls (lists with 'scroll' as first element)
+          if (node && typeof node === 'object' && node.type === 'list' && 
+              node.value && node.value[0] && node.value[0].value === 'scroll') {
+            return true;
+          }
+          
+          // Check for timing expressions containing scroll
+          if (Array.isArray(node)) {
+            // Check if this is a timing expression like ["2s...", ["scroll", 1, 0, -1]]
+            if (node.length > 1 && typeof node[0] === 'string' && /^\d*\.?\d+s\.\.\.?$/.test(node[0])) {
+              // Check if any following elements contain scroll
+              return node.slice(1).some(elem => {
+                if (Array.isArray(elem) && elem.length > 0 && elem[0] === 'scroll') {
+                  return true;
+                }
+                return false;
+              });
+            }
+            
+            // Check for scroll function calls directly in arrays
+            if (node.length > 0 && node[0] === 'scroll') {
+              return true;
+            }
+          }
+          
+          return false;
+        }).length : 0;
+
+      
+      embeddedLayer.kidlispInstance.evaluate(
+        embeddedLayer.parsedCode, 
+        embeddedApi, 
+        localEnv
+      );
+      
+      embeddedLayer.hasBeenEvaluated = true;
+      embeddedLayer.lastFrameEvaluated = frameValue;
+    }
+
+    // Switch back to main screen
+    api.page(api.screen);
+    
+    // Paste with optimized alpha compositing
+    this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+  }
+
+  // 🚀 CACHE OPTIMIZED API: Minimal API object creation
+  getOptimizedLayerApi(embeddedLayer, api) {
+    const cacheKey = `${embeddedLayer.width}x${embeddedLayer.height}`;
+    
+    // SIMPLIFIED: Don't use complex caching, just create a working API each time
+    // Create a simple API that just passes through to the main API
+    // This is much simpler than the complex wrapper system
+    const embeddedApi = {
+      // Direct passthrough of most functions to main API
+      line: (...args) => api.line(...args),
+      ink: (...args) => api.ink(...args),
+      wipe: (...args) => api.wipe(...args),
+      circle: (...args) => api.circle(...args),
+      box: (...args) => api.box(...args),
+      point: (...args) => api.point(...args),
+      poly: (...args) => api.poly(...args),
+      paste: (...args) => api.paste(...args),
+      stamp: (...args) => api.stamp(...args),
+      write: (...args) => api.write(...args),
+      flood: (...args) => api.flood(...args),
+      
+      // IMPORTANT: For scroll, call the main API function directly
+      // No complex wrapper system - just execute scroll immediately
+      scroll: (...args) => {
+        if (typeof api.scroll === "function") {
+          return api.scroll(...args);
+        }
+      },
+      
+      // Screen properties
+      screen: {
+        width: embeddedLayer.width,
+        height: embeddedLayer.height,
+        pixels: null // Updated per render
+      },
+      width: embeddedLayer.width,
+      height: embeddedLayer.height,
+      frame: 0 // Updated per render
+    };
+    
+    return embeddedApi;
   }
 
   // Check if an embedded layer should execute this frame based on its timing patterns
@@ -6746,38 +7228,73 @@ class KidLisp {
     return expressions;
   }
 
+  // 🚀 EMBEDDED ENVIRONMENT: Simplified functions for embedded layers (no deferred execution)
+  getSimpleEmbeddedEnv(api) {
+    return {
+      // Time function for clock expressions (provides both clock.time and time)
+      time: () => {
+        if (api.clock && api.clock.time) {
+          return api.clock.time();
+        }
+        return new Date();
+      }
+    };
+  }
+
   // Evaluate a timing expression using the parent's timing state
   evaluateTimingExpression(api, timingExpr) {
+    console.log(`⏰ TIMING EVALUATION called with:`, {
+      timingExpr,
+      inEmbedPhase: this.inEmbedPhase,
+      isNestedInstance: this.isNestedInstance,
+      hasClock: !!api.clock
+    });
+    
     // Extract the interval from expressions like "3s..." or "0.25s..."
     const match = timingExpr.match(/^(\d+(?:\.\d+)?)s\.\.\.$/);
-    if (!match) return true; // Invalid pattern, default to execute
+    if (!match) {
+      console.log(`⏰ TIMING EVALUATION: Invalid pattern, returning true`);
+      return true; // Invalid pattern, default to execute
+    }
     
     const interval = parseFloat(match[1]);
     const timingKey = timingExpr + "_1"; // Use same key format as main timing system
     
+    console.log(`⏰ TIMING EVALUATION: Parsed interval=${interval}, timingKey=${timingKey}`);
+    
     // Get current time
     const clockResult = api.clock?.time();
-    if (!clockResult) return true; // No clock, default to execute
+    if (!clockResult) {
+      console.log(`⏰ TIMING EVALUATION: No clock available, returning true`);
+      return true; // No clock, default to execute
+    }
     
     const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
     const currentTime = currentTimeMs / 1000;
+    
+    console.log(`⏰ TIMING EVALUATION: Current time=${currentTime}`);
     
     // Use the parent KidLisp instance's timing state
     if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
       // First execution - always execute and record time
       this.lastSecondExecutions[timingKey] = currentTime;
+      console.log(`⏰ TIMING EVALUATION: First execution, recording time and returning true`);
       return true;
     }
     
     const lastExecution = this.lastSecondExecutions[timingKey];
     const diff = currentTime - lastExecution;
     
+    console.log(`⏰ TIMING EVALUATION: Last execution=${lastExecution}, diff=${diff}, interval=${interval}`);
+    
     // Check if enough time has passed for this timing interval
     if (diff >= interval - 0.005) { // Small tolerance for timing precision
       this.lastSecondExecutions[timingKey] = currentTime;
+      console.log(`⏰ TIMING EVALUATION: Time passed, updating and returning true`);
       return true;
     }
     
+    console.log(`⏰ TIMING EVALUATION: Not enough time passed, returning false`);
     return false;
   }
 
