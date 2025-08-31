@@ -97,7 +97,7 @@ function addActiveButton(btn, reason = "unknown", netLog = null) {
     downPointer: btn.downPointer
   };
   
-  console.log("➕ Button added to activeButtons:", logData);
+  // console.log("➕ Button added to activeButtons:", logData);
   
   // Send to remote debugging if available
   if (netLog) {
@@ -122,7 +122,7 @@ function removeActiveButton(btn, reason = "unknown", netLog = null) {
       down: btn.down,
       downPointer: btn.downPointer
     };
-    console.log("➖ Button removed from activeButtons:", logData);
+    // console.log("➖ Button removed from activeButtons:", logData);
     if (netLog) {
       netLog.info("🔘 Button deactivated:", logData);
     }
@@ -346,17 +346,17 @@ class Button {
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
       const wasRecentRollout = wasRecentlyRolledOut(btn.id || "unnamed");
       
-      console.log("🟢 Button touch down - IMMEDIATE:", {
-        buttonId: btn.id || "unnamed",
-        timestamp: performance.now(),
-        pointer: e.pointer,
-        eventType: "touch",
-        wasInActiveButtons: activeButtons.has(btn),
-        currentDownPointer: btn.downPointer,
-        over: btn.over,
-        wasRecentlyRolledOut: wasRecentRollout,
-        suspiciousRetap: wasRecentRollout && activeButtons.has(btn)
-      });
+      // console.log("🟢 Button touch down - IMMEDIATE:", {
+      //   buttonId: btn.id || "unnamed",
+      //   timestamp: performance.now(),
+      //   pointer: e.pointer,
+      //   eventType: "touch",
+      //   wasInActiveButtons: activeButtons.has(btn),
+      //   currentDownPointer: btn.downPointer,
+      //   over: btn.over,
+      //   wasRecentlyRolledOut: wasRecentRollout,
+      //   suspiciousRetap: wasRecentRollout && activeButtons.has(btn)
+      // });
       
       // SAFETY: If this button was somehow still in activeButtons but not down, clean it up first
       if (activeButtons.has(btn) && !btn.down) {
@@ -385,21 +385,21 @@ class Button {
       const downed = callbacks.down?.(btn);
       btn.down = downed || downed === undefined ? true : false;
       
-      console.log("🔍 downPointer state before assignment:", {
-        buttonId: btn.id || "unnamed",
-        eventPointer: e.pointer,
-        currentDownPointer: btn.downPointer,
-        btnDown: btn.down,
-        willSetDownPointer: btn.down && btn.downPointer === undefined
-      });
+      // console.log("🔍 downPointer state before assignment:", {
+      //   buttonId: btn.id || "unnamed",
+      //   eventPointer: e.pointer,
+      //   currentDownPointer: btn.downPointer,
+      //   btnDown: btn.down,
+      //   willSetDownPointer: btn.down && btn.downPointer === undefined
+      // });
       
       if (btn.down && btn.downPointer === undefined) {
-        console.log("🔧 Setting downPointer on initial touch:", {
-          buttonId: btn.id || "unnamed",
-          eventPointer: e.pointer,
-          beforeDownPointer: btn.downPointer,
-          afterDownPointer: e.pointer || 0
-        });
+        // console.log("🔧 Setting downPointer on initial touch:", {
+        //   buttonId: btn.id || "unnamed",
+        //   eventPointer: e.pointer,
+        //   beforeDownPointer: btn.downPointer,
+        //   afterDownPointer: e.pointer || 0
+        // });
         btn.downPointer = e.pointer || 0;
       } else if (btn.down && btn.downPointer !== undefined) {
         console.warn("⚠️ Button already has downPointer - NOT updating:", {
@@ -420,13 +420,13 @@ class Button {
     // Only process lift events from the controlling pointer
     const isControllingLiftPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
     if (e.is(`lift:${t}`) && btn.down && isControllingLiftPointer) {
-      console.log("📤 Button lift event received:", {
-        buttonId: btn.id || "unnamed",
-        timestamp: performance.now(),
-        pointer: e.pointer,
-        downPointer: btn.downPointer,
-        eventType: "lift"
-      });
+      // console.log("📤 Button lift event received:", {
+      //   buttonId: btn.id || "unnamed",
+      //   timestamp: performance.now(),
+      //   pointer: e.pointer,
+      //   downPointer: btn.downPointer,
+      //   eventType: "lift"
+      // });
       
       function up() {
         const up = callbacks.up?.(btn);
@@ -445,24 +445,24 @@ class Button {
           if (activeButtons.has(btn)) {
             removeActiveButton(btn, "button up callback", netLog);
           }
-          console.log("🏁 Button fully released:", {
-            buttonId: btn.id || "unnamed",
-            activeButtonsCount: activeButtons.size
-          });
+          // console.log("🏁 Button fully released:", {
+          //   buttonId: btn.id || "unnamed",
+          //   activeButtonsCount: activeButtons.size
+          // });
         }
       }
 
       // In multitouch mode, only respond to lift events from the controlling pointer
       const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
 
-      console.log("🔍 Pointer control analysis:", {
-        buttonId: btn.id || "unnamed",
-        multitouch: this.multitouch,
-        eventPointer: e.pointer,
-        buttonDownPointer: btn.downPointer,
-        isControllingPointer,
-        pensCount: pens?.length || 0
-      });
+      // console.log("🔍 Pointer control analysis:", {
+      //   buttonId: btn.id || "unnamed",
+      //   multitouch: this.multitouch,
+      //   eventPointer: e.pointer,
+      //   buttonDownPointer: btn.downPointer,
+      //   isControllingPointer,
+      //   pensCount: pens?.length || 0
+      // });
 
       // Check if this is a valid button push or should be cancelled
       const isValidPush = isControllingPointer && (
@@ -474,23 +474,23 @@ class Button {
         ((!pens || pens.length <= 1) && btn.box.contains(e))
       );
 
-      console.log("📤 Button lift condition check:", {
-        buttonId: btn.id || "unnamed",
-        isControllingPointer,
-        isValidPush,
-        multitouch: this.multitouch,
-        pensLength: pens?.length || 0,
-        containsE: btn.box.contains(e),
-        containsNonePens: btn.box.containsNone(pens || []),
-        pointerMatch: btn.downPointer === e.pointer
-      });
+      // console.log("📤 Button lift condition check:", {
+      //   buttonId: btn.id || "unnamed",
+      //   isControllingPointer,
+      //   isValidPush,
+      //   multitouch: this.multitouch,
+      //   pensLength: pens?.length || 0,
+      //   containsE: btn.box.contains(e),
+      //   containsNonePens: btn.box.containsNone(pens || []),
+      //   pointerMatch: btn.downPointer === e.pointer
+      // });
 
       if (isValidPush) {
-        console.log("🔴 Button lift - IMMEDIATE (valid push):", {
-          buttonId: btn.id || "unnamed",
-          timestamp: performance.now(),
-          pointer: e.pointer
-        });
+        // console.log("🔴 Button lift - IMMEDIATE (valid push):", {
+        //   buttonId: btn.id || "unnamed",
+        //   timestamp: performance.now(),
+        //   pointer: e.pointer
+        // });
         
         btn.down = false;
         btn.over = false;
