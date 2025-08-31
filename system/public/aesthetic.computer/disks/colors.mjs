@@ -1,13 +1,18 @@
 // Colors, 2025.8.11
 // A simple scrollable list of CSS colors and fade examples with preview squares.
 
-import { cssColors, completeColorIndex, staticColorMap } from "../lib/num.mjs";
+import { cssColors, completeColorIndex, staticColorMap, zebra } from "../lib/num.mjs";
 
 // Color syntax highlighting logic extracted from kidlisp.mjs
 function getColorForColorName(colorName) {
   // Special case for "rainbow" - return ROYGBIV array
   if (colorName === "rainbow") {
     return "RAINBOW"; // Special marker for rainbow rendering
+  }
+  
+  // Special case for "zebra" - return special marker
+  if (colorName === "zebra") {
+    return "ZEBRA"; // Special marker for zebra rendering
   }
   
   // Check if it's a CSS color name and return the actual color
@@ -43,6 +48,28 @@ function writeColoredText(ink, text, x, y) {
     let currentX = x;
     for (let charIndex = 0; charIndex < text.length; charIndex++) {
       const charColor = rainbowColors[charIndex % rainbowColors.length];
+      const charColorRgb = getColorForColorName(charColor);
+      const shadowColor = getShadowColor(charColorRgb);
+      
+      // Draw shadow first
+      ink(shadowColor).write(text[charIndex], {
+        x: currentX + 1,
+        y: y + 1,
+      });
+      
+      // Draw main character
+      ink(charColor).write(text[charIndex], {
+        x: currentX,
+        y: y,
+      });
+      currentX += 6; // Advance for each character in default font
+    }
+  } else if (text === "zebra") {
+    // Zebra colors for each character (alternating black/white)
+    const zebraColors = ["black", "white"];
+    let currentX = x;
+    for (let charIndex = 0; charIndex < text.length; charIndex++) {
+      const charColor = zebraColors[charIndex % zebraColors.length];
       const charColorRgb = getColorForColorName(charColor);
       const shadowColor = getShadowColor(charColorRgb);
       
@@ -117,12 +144,6 @@ const COLOR_SQUARE_MARGIN = 8;
 // Special color words and fade examples
 const specialColors = [
   {
-    name: "rainbow",
-    description: "Animated rainbow effect - cycles through spectrum",
-    type: "special",
-    example: [255, 0, 255], // Show magenta as example
-  },
-  {
     name: "fade:red-blue", 
     description: "Linear fade from red to blue",
     type: "fade",
@@ -130,18 +151,25 @@ const specialColors = [
     example: [128, 0, 128], // Show purple as example
   },
   {
-    name: "fade:sunset",
-    description: "Multi-color sunset fade",
+    name: "fade:red-blue:vertical",
+    description: "Vertical red to blue fade",
     type: "fade",
-    colors: ["red", "orange", "yellow", "pink"],
-    example: [255, 165, 0], // Show orange as example
+    colors: ["red", "blue"],
+    example: [128, 0, 128], // Show purple as example
   },
   {
-    name: "fade:ocean",
-    description: "Ocean depth fade",
-    type: "fade", 
-    colors: ["cyan", "blue", "navy"],
-    example: [0, 128, 255], // Show blue as example
+    name: "fade:zebra-rainbow",
+    description: "Fade from zebra to rainbow colors",
+    type: "fade",
+    colors: ["zebra", "rainbow"],
+    example: [127, 127, 127], // Show gray as example
+  },
+  {
+    name: "fade:zebra-zebra-zebra",
+    description: "Zebra stripes - alternating black/white",
+    type: "fade",
+    colors: ["zebra", "zebra", "zebra"],
+    example: [127, 127, 127], // Show gray as example
   },
 ];
 
@@ -209,13 +237,60 @@ async function boot({ ui, typeface, store }) {
     }
   });
 
+  // Add palette colors (p0, p1, etc.)
+  const paletteEntries = [];
+  
+  // Add a divider before palette colors
+  paletteEntries.push({
+    name: "SEQUENCES",
+    type: "divider",
+  });
+  
+  // Add p0 (rainbow)
+  const [gw0, gh0] = typeface.glyphs[0].resolution;
+  const w0 = gw0 * "rainbow".length;
+  const h0 = gh0 + 1;
+  
+  paletteEntries.push({
+    name: "rainbow",
+    description: "Animated rainbow effect - cycles through spectrum (p0)",
+    type: "special",
+    staticIndex: "p0",
+    example: [255, 0, 255], // Show magenta as example
+    button: new ui.Button(
+      LEFT_MARGIN + SQUARE_SIZE + COLOR_SQUARE_MARGIN,
+      scroll + TOP_MARGIN + ROW_HEIGHT * (cssEntries.length + paletteEntries.length),
+      w0,
+      h0
+    ),
+  });
+  
+  // Add p1 (zebra)
+  const [gw1, gh1] = typeface.glyphs[0].resolution;
+  const w1 = gw1 * "zebra".length;
+  const h1 = gh1 + 1;
+  
+  paletteEntries.push({
+    name: "zebra",
+    description: "Alternating black and white stripes (p1)",
+    type: "special",
+    staticIndex: "p1",
+    example: [128, 128, 128], // Show gray as example
+    button: new ui.Button(
+      LEFT_MARGIN + SQUARE_SIZE + COLOR_SQUARE_MARGIN,
+      scroll + TOP_MARGIN + ROW_HEIGHT * (cssEntries.length + paletteEntries.length),
+      w1,
+      h1
+    ),
+  });
+
   // Build entries for special colors (rainbow, fades) 
   const specialEntries = [];
   let specialIndex = 0;
   
   // Add a divider before special colors
   specialEntries.push({
-    name: "— SPECIAL COLORS —",
+    name: "HOW TO FADE",
     type: "divider",
   });
   
@@ -233,7 +308,7 @@ async function boot({ ui, typeface, store }) {
       rgb: special.example,
       button: new ui.Button(
         LEFT_MARGIN + SQUARE_SIZE + COLOR_SQUARE_MARGIN,
-        scroll + TOP_MARGIN + ROW_HEIGHT * (cssEntries.length + specialEntries.length),
+        scroll + TOP_MARGIN + ROW_HEIGHT * (cssEntries.length + paletteEntries.length + specialEntries.length),
         w,
         h
       ),
@@ -241,7 +316,13 @@ async function boot({ ui, typeface, store }) {
   });
 
   // Combine all entries
-  colorEntries = [...cssEntries, ...specialEntries];
+  colorEntries = [...cssEntries, ...paletteEntries, ...specialEntries];
+  
+  // Add footer space
+  colorEntries.push({
+    name: "",
+    type: "footer",
+  });
   
   // Initialize button arrays
   buttons = colorEntries.filter(entry => entry.button).map(entry => entry.button);
@@ -252,7 +333,7 @@ async function boot({ ui, typeface, store }) {
   let swatchIndex = 0;
   
   colorEntries.forEach((entry, entryIndex) => {
-    if (entry.type !== "divider") {
+    if (entry.type !== "divider" && entry.type !== "footer") {
       swatchButtons.push(new ui.Button(35, 0, SQUARE_SIZE, SQUARE_SIZE));
       swatchToEntryMap[swatchIndex] = entryIndex;
       swatchIndex++;
@@ -271,7 +352,7 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
     if (y > -ROW_HEIGHT && y < screen.height) {
       // Draw alternating row background (spreadsheet-like)
       const rowColor = index % 2 === 0 ? [16, 16, 16] : [24, 24, 24]; // Subtle alternating grays
-      ink(rowColor).box(0, y, screen.width - 10, ROW_HEIGHT); // Leave space for scroll bar
+      ink(rowColor).box(0, y, screen.width - 4, ROW_HEIGHT); // Leave space for flush right scroll bar
     }
   });
   
@@ -281,21 +362,25 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
     
     // Only draw if visible on screen
     if (y > -ROW_HEIGHT && y < screen.height) {
-      // Draw static index or handle dividers
+      // Draw static index or handle dividers/footers
       if (entry.type === "divider") {
         // Draw divider line above the text
         ink("gray").box(4, y + 4, screen.width - 20, 1);
-        // Draw divider text in gray
+        // Draw divider text in gray at 2x size, left-aligned
         ink("gray").write(entry.name, {
-          x: 4,
+          left: 6, // Explicitly position 6px from left edge
           y: y + 2 + (SQUARE_SIZE / 2) - 4,
+          size: 2, // 2x size for section titles
         });
         return; // Skip the rest for dividers
+      } else if (entry.type === "footer") {
+        // Footer - just empty space, skip all rendering
+        return;
       } else if (entry.staticIndex) {
-        // Draw static index (c0, c1, p0, etc.) - right-aligned to give more space
-        const indexText = entry.staticIndex.padStart(3, ' ');
+        // Draw static index (c0, c1, p0, etc.) - right-aligned for consistency
+        const indexText = entry.staticIndex;
         ink("white").write(indexText, {
-          x: 6, // 6px like prompt text alignment
+          x: 30 - (indexText.length * 6), // Right-align to x=30, assuming 6px per character
           y: y + 2 + (SQUARE_SIZE / 2) - 4,
         });
       }
@@ -304,9 +389,11 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
       // Draw color preview square - more space from index numbers
       const squareX = 35; // More space from the index numbers
       if (entry.type === "fade") {
-        drawFadeSquare(ink, entry, squareX, y + 2, SQUARE_SIZE);
+        drawFadeSquare(ink, entry, squareX, y + 2, SQUARE_SIZE, $api);
       } else if (entry.type === "special" && entry.name === "rainbow") {
         drawRainbowSquare(ink, squareX, y + 2, SQUARE_SIZE, $api);
+      } else if (entry.type === "special" && entry.name === "zebra") {
+        drawZebraSquare(ink, squareX, y + 2, SQUARE_SIZE, $api);
       } else {
         ink(entry.rgb).box(squareX, y + 2, SQUARE_SIZE, SQUARE_SIZE);
       }
@@ -415,9 +502,9 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
     }
   });
 
-  // Draw scroll bar on the right side - full height
+  // Draw scroll bar on the right side - flush right
   if (colorEntries.length > 0) {
-    const scrollBarX = screen.width - 6;
+    const scrollBarX = screen.width - 4; // Flush right
     const scrollBarWidth = 4;
     const scrollBarHeight = screen.height; // Full screen height
     const scrollBarY = 0; // Start at top
@@ -493,9 +580,11 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
     
     // Draw chosen color square
     if (chosenColor.type === "fade") {
-      drawFadeSquare(ink, chosenColor, chosenX, chosenY, chosenSize);
+      drawFadeSquare(ink, chosenColor, chosenX, chosenY, chosenSize, $api);
     } else if (chosenColor.type === "special" && chosenColor.name === "rainbow") {
       drawRainbowSquare(ink, chosenX, chosenY, chosenSize, $api);
+    } else if (chosenColor.type === "special" && chosenColor.name === "zebra") {
+      drawZebraSquare(ink, chosenX, chosenY, chosenSize, $api);
     } else {
       // Special handling for black color to make it visible
       if (chosenColor.name === "black") {
@@ -666,6 +755,32 @@ function act({ event, store, jump, hud, screen, sound }) {
   if (anyDown) {
     // The system will automatically show a pointer cursor
   }
+  
+  // Check if any dynamic colors are currently visible and need animation
+  let hasDynamicColors = false;
+  colorEntries.forEach((entry, index) => {
+    const y = scroll + TOP_MARGIN + ROW_HEIGHT * index;
+    // Only check if visible on screen
+    if (y > -ROW_HEIGHT && y < screen.height) {
+      if (entry.type === "special" && (entry.name === "rainbow" || entry.name === "zebra")) {
+        hasDynamicColors = true;
+      } else if (entry.type === "fade" && entry.colors && 
+                (entry.colors.includes("rainbow") || entry.colors.includes("zebra"))) {
+        hasDynamicColors = true;
+      }
+    }
+  });
+  
+  // Also check if the chosen color is dynamic
+  if (chosenColor && 
+      ((chosenColor.type === "special" && (chosenColor.name === "rainbow" || chosenColor.name === "zebra")) ||
+       (chosenColor.type === "fade" && chosenColor.colors && 
+        (chosenColor.colors.includes("rainbow") || chosenColor.colors.includes("zebra"))))) {
+    hasDynamicColors = true;
+  }
+  
+  // Return true to keep animating if we have dynamic colors
+  return hasDynamicColors;
 }
 
 // Bound scroll function with proper bottom limit
@@ -686,10 +801,24 @@ function leave({ store }) {
 export { boot, paint, act, leave };
 
 // Helper function to draw gradient squares for fade entries
-function drawFadeSquare(ink, entry, x, y, size) {
-  // Get the CSS colors for this fade
+function drawFadeSquare(ink, entry, x, y, size, $api) {
+  // Parse direction from fade name (e.g., "fade:red-blue:vertical" or "fade:fire:45")
+  let direction = "horizontal"; // default
+  if (entry.name.includes(":")) {
+    const parts = entry.name.split(":");
+    if (parts.length >= 3) {
+      direction = parts[2]; // vertical, diagonal, 45, etc.
+    }
+  }
+  
+  // Get the CSS colors for this fade - preserve dynamic color markers
   const colors = entry.colors?.map(colorName => {
-    // Look up color in cssColors
+    // Keep dynamic colors as markers for special handling
+    if (colorName === "rainbow" || colorName === "zebra") {
+      return colorName; // Keep as string marker
+    }
+    
+    // Look up color in cssColors first
     if (cssColors[colorName]) {
       return cssColors[colorName];
     }
@@ -709,35 +838,137 @@ function drawFadeSquare(ink, entry, x, y, size) {
   if (colors.length === 1) {
     // Single color
     ink(colors[0]).box(x, y, size, size);
-  } else if (colors.length === 2) {
-    // Two-color horizontal gradient
-    for (let i = 0; i < size; i++) {
-      const t = i / (size - 1);
-      const r = Math.round(colors[0][0] * (1 - t) + colors[1][0] * t);
-      const g = Math.round(colors[0][1] * (1 - t) + colors[1][1] * t);
-      const b = Math.round(colors[0][2] * (1 - t) + colors[1][2] * t);
-      ink([r, g, b]).box(x + i, y, 1, size);
-    }
-  } else {
-    // Multi-color gradient
-    for (let i = 0; i < size; i++) {
-      const t = i / (size - 1);
-      const segmentFloat = t * (colors.length - 1);
-      const segment = Math.floor(segmentFloat);
-      const localT = segmentFloat - segment;
-      
-      if (segment >= colors.length - 1) {
-        ink(colors[colors.length - 1]).box(x + i, y, 1, size);
-      } else {
-        const color1 = colors[segment];
-        const color2 = colors[segment + 1];
-        const r = Math.round(color1[0] * (1 - localT) + color2[0] * localT);
-        const g = Math.round(color1[1] * (1 - localT) + color2[1] * localT);
-        const b = Math.round(color1[2] * (1 - localT) + color2[2] * localT);
-        ink([r, g, b]).box(x + i, y, 1, size);
+    return;
+  }
+  
+  // Determine gradient direction
+  const isVertical = direction === "vertical" || direction === "vertical-reverse";
+  const isDiagonal = direction === "diagonal" || direction === "diagonal-reverse";
+  const isAngle = !isNaN(parseFloat(direction)); // numeric angle like "45"
+  const isReverse = direction.includes("reverse");
+  
+  if (isDiagonal) {
+    // Diagonal gradient
+    for (let px = 0; px < size; px++) {
+      for (let py = 0; py < size; py++) {
+        let t = (px + py) / (2 * (size - 1)); // diagonal progress
+        if (isReverse) t = 1 - t;
+        t = Math.max(0, Math.min(1, t));
+        
+        const color = interpolateColors(colors, t, $api, entry);
+        ink(color).box(x + px, y + py, 1, 1);
       }
     }
+  } else if (isAngle) {
+    // Angled gradient (approximate with diagonal for simplicity)
+    const angle = parseFloat(direction);
+    const radians = (angle * Math.PI) / 180;
+    
+    for (let px = 0; px < size; px++) {
+      for (let py = 0; py < size; py++) {
+        // Project point onto angle direction
+        const centerX = size / 2;
+        const centerY = size / 2;
+        const relX = px - centerX;
+        const relY = py - centerY;
+        
+        // Project onto the angle vector
+        const projection = relX * Math.cos(radians) + relY * Math.sin(radians);
+        let t = (projection + size / 2) / size;
+        t = Math.max(0, Math.min(1, t));
+        
+        const color = interpolateColors(colors, t, $api, entry);
+        ink(color).box(x + px, y + py, 1, 1);
+      }
+    }
+  } else if (isVertical) {
+    // Vertical gradient
+    for (let py = 0; py < size; py++) {
+      let t = py / (size - 1);
+      if (isReverse) t = 1 - t;
+      
+      const color = interpolateColors(colors, t, $api, entry);
+      ink(color).box(x, y + py, size, 1);
+    }
+  } else {
+    // Horizontal gradient (default)
+    for (let px = 0; px < size; px++) {
+      let t = px / (size - 1);
+      if (isReverse) t = 1 - t;
+      
+      const color = interpolateColors(colors, t, $api, entry);
+      ink(color).box(x + px, y, 1, size);
+    }
   }
+}
+
+// Helper function to interpolate between multiple colors - supports dynamic colors
+function interpolateColors(colors, t, $api, entry) {
+  // Convert any dynamic color names to actual colors based on current state
+  const resolvedColors = colors.map((color, index) => {
+    if (Array.isArray(color)) {
+      return color; // Already an RGB array
+    }
+    
+    // Handle dynamic color string markers
+    if (color === "rainbow") {
+      // Get current rainbow color state - simulate what rainbow() would return
+      const animFrame = $api?.paintCount ? Number($api.paintCount) : Date.now() / 100;
+      const rainbowColors = [
+        [255, 0, 0],     // Red
+        [255, 165, 0],   // Orange  
+        [255, 255, 0],   // Yellow
+        [0, 255, 0],     // Green
+        [0, 0, 255],     // Blue
+        [75, 0, 130],    // Indigo  
+        [238, 130, 238], // Violet
+      ];
+      // Slow animation to show the progression - each color shows for ~60 frames
+      const speed = 0.05;
+      const colorIdx = Math.floor(animFrame * speed) % rainbowColors.length;
+      return rainbowColors[colorIdx];
+    } else if (color === "zebra") {
+      // Get current zebra color state with offset for stripes
+      const animFrame = $api?.paintCount ? Number($api.paintCount) : Date.now() / 100;
+      const zebraColors = [
+        [0, 0, 0],       // Black
+        [255, 255, 255], // White
+      ];
+      // Faster animation to show the alternation - each color shows for ~30 frames  
+      const speed = 0.1;
+      
+      // Count how many zebra instances come before this one for offset
+      const zebraOffset = colors.slice(0, index).filter(c => c === "zebra").length;
+      const colorIdx = (Math.floor(animFrame * speed) + zebraOffset) % zebraColors.length;
+      return zebraColors[colorIdx];
+    }
+    
+    return color; // Return as-is if not dynamic
+  });
+
+  if (resolvedColors.length === 1) return resolvedColors[0];
+  if (resolvedColors.length === 2) {
+    const r = Math.round(resolvedColors[0][0] * (1 - t) + resolvedColors[1][0] * t);
+    const g = Math.round(resolvedColors[0][1] * (1 - t) + resolvedColors[1][1] * t);
+    const b = Math.round(resolvedColors[0][2] * (1 - t) + resolvedColors[1][2] * t);
+    return [r, g, b];
+  }
+  
+  // Multi-color interpolation
+  const segmentFloat = t * (resolvedColors.length - 1);
+  const segment = Math.floor(segmentFloat);
+  const localT = segmentFloat - segment;
+  
+  if (segment >= resolvedColors.length - 1) {
+    return resolvedColors[resolvedColors.length - 1];
+  }
+  
+  const color1 = resolvedColors[segment];
+  const color2 = resolvedColors[segment + 1];
+  const r = Math.round(color1[0] * (1 - localT) + color2[0] * localT);
+  const g = Math.round(color1[1] * (1 - localT) + color2[1] * localT);
+  const b = Math.round(color1[2] * (1 - localT) + color2[2] * localT);
+  return [r, g, b];
 }
 
 // Helper function to draw animated rainbow square
@@ -759,6 +990,26 @@ function drawRainbowSquare(ink, x, y, size, $api) {
   // Calculate which color to show (cycling through the sequence)
   const colorIndex = Math.floor(animFrame * speed) % rainbowColors.length;
   const currentColor = rainbowColors[colorIndex];
+  
+  // Draw the current color for the entire square
+  ink(currentColor).box(x, y, size, size);
+}
+
+// Helper function to draw animated zebra square
+function drawZebraSquare(ink, x, y, size, $api) {
+  // Zebra colors sequence (black and white)
+  const zebraColors = [
+    [0, 0, 0],       // Black
+    [255, 255, 255], // White
+  ];
+  
+  // Create animation based on paint count or time
+  const animFrame = Number($api?.paintCount || 0n) || Date.now() / 100;
+  const speed = 0.1; // Faster animation speed for zebra
+  
+  // Calculate which color to show (cycling between black and white)
+  const colorIndex = Math.floor(animFrame * speed) % zebraColors.length;
+  const currentColor = zebraColors[colorIndex];
   
   // Draw the current color for the entire square
   ink(currentColor).box(x, y, size, size);
