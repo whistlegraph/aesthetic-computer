@@ -1,4 +1,4 @@
-// oskie - zzzZWAP
+// Oskie - zzzZWAP
 
 // Color history for decay effect (module-level since no window object in worker)
 let colorHistory = [];

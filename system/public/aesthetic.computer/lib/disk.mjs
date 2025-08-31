@@ -1894,6 +1894,7 @@ const $commonApi = {
     rgbToHsl: num.rgbToHsl,
     hslToRgb: num.hslToRgb,
     rainbow: num.rainbow,
+    zebra: num.zebra,
   },
   geo: {
     Box: geo.Box,
@@ -3004,6 +3005,65 @@ const $paintApiUnwrapped = {
   noise16Aesthetic: graph.noise16Aesthetic,
   noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
+  // Kidlisp integration with persistent instances for timing state
+  kidlisp: (() => {
+    // Cache KidLisp instances by source code hash to preserve timing state
+    const kidlispInstanceCache = new Map();
+    
+    function getSourceHash(source) {
+      let hash = 0;
+      for (let i = 0; i < source.length; i++) {
+        const char = source.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return Math.abs(hash).toString(36);
+    }
+    
+    return function kidlisp(x, y, width, height, source) {
+      const kidlispBuffer = $activePaintApi.painting(width, height, (bufferApi) => {
+        try {
+          // Get or create persistent KidLisp instance for this source code
+          const sourceHash = getSourceHash(source);
+          let kidlispInstance;
+          
+          if (kidlispInstanceCache.has(sourceHash)) {
+            kidlispInstance = kidlispInstanceCache.get(sourceHash);
+          } else {
+            kidlispInstance = new lisp.KidLisp();
+            kidlispInstanceCache.set(sourceHash, kidlispInstance);
+          }
+          
+          // Use the full common API as the base, then overlay buffer-specific functions
+          // This gives KidLisp access to all timing, system, and drawing functionality
+          const kidlispAPI = {
+            ...$commonApi,  // Full common API including clock, timing, etc.
+            ...bufferApi,   // Buffer-specific drawing functions (wipe, ink, etc.)
+            screen: {
+              width: width,
+              height: height,
+              pixels: bufferApi.screen?.pixels
+            }
+          };
+          
+          const parsedCode = kidlispInstance.parse(source);
+          
+          // Evaluate each expression - KidLisp now has full context and preserved state
+          for (let i = 0; i < parsedCode.length; i++) {
+            kidlispInstance.evaluate(parsedCode[i], kidlispAPI);
+          }
+          
+        } catch (error) {
+          console.error("🚫 kidlisp error:", error);
+          bufferApi.wipe(60, 0, 0); // Red background for errors
+          bufferApi.ink(255, 255, 255);
+          bufferApi.write && bufferApi.write("ERROR", 5, 5);
+        }
+      });
+      
+      $activePaintApi.paste(kidlispBuffer, x, y);
+    };
+  })(),
   // glaze: ...
 };
 
@@ -7917,7 +7977,7 @@ async function makeFrame({ data: { type, content } }) {
                                // Check for common KidLisp commands (even single line)
                                /^(wipe|ink|line|box|circle|rect|def|later|scroll|resolution|gap|frame|brush|clear|cls|help|reset|dot|pixel|stamp|paste|copy|move|rotate|scale|translate|fill|stroke|point|arc|bezier|noise|random|sin|cos|tan|sqrt|abs|floor|ceil|round|min|max|pow|log|exp|atan2|dist|lerp|map|norm|constrain|hue|sat|bright|alpha|red|green|blue|rgb|hsb|gray|background|foreground|text|font|size|width|height|mouseX|mouseY|keyCode|key|frameCount|time|second|minute|hour|day|month|year|millis|fps|deltaTime)\s/.test(sourceCode) ||
                                // Check for bare color names and fade strings
-                               /^(fade:|c\d+$|rainbow$)/.test(sourceCode.trim()) ||
+                               /^(fade:|c\d+$|rainbow$|zebra$)/.test(sourceCode.trim()) ||
                                // Check for CSS color names (common ones)
                                /^(red|blue|green|yellow|purple|orange|pink|cyan|magenta|black|white|gray|grey|lime|navy|teal|olive|maroon|silver|aqua|fuchsia|brown|coral|gold|indigo|ivory|khaki|lavender|lemon|mint|peach|plum|rose|tan|violet|wheat)$/.test(sourceCode.trim())
                              ));

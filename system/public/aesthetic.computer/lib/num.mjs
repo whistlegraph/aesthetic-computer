@@ -521,6 +521,8 @@ export function parseColor(params) {
       return [-1, -1, -1, alpha];
     } else if (name === "rainbow") {
       return ["rainbow", alpha]; // Cycle through the "rainbow" colors here.
+    } else if (name === "zebra") {
+      return ["zebra", alpha]; // Cycle through black/white zebra colors.
     } else {
       return [0, 0, 0, alpha]; // Default to black if color name is not found
     }
@@ -730,6 +732,10 @@ export const cssColors = {
   whitesmoke: [245, 245, 245],
   yellow: [255, 255, 0],
   yellowgreen: [154, 205, 50],
+  // Custom brown colors for AC
+  darkbrown: [101, 67, 33],
+  darkerbrown: [62, 39, 35],
+  darksienna: [139, 90, 43],
 };
 
 // 🌈 Rainbow color cycling.
@@ -748,6 +754,27 @@ const rainbowColors = [
 export function rainbow() {
   const color = rainbowColors[currentRainbowIndex];
   currentRainbowIndex = (currentRainbowIndex + 1) % rainbowColors.length;
+  return color.slice();
+}
+
+// 🦓 Zebra color cycling (black/white alternating).
+let currentZebraIndex = 0;
+
+const zebraColors = [
+  cssColors.black,   // [0, 0, 0]
+  cssColors.white,   // [255, 255, 255]
+];
+
+export function zebra(offset = 0) {
+  // Apply offset to get different starting colors for stripes
+  const index = (currentZebraIndex + offset) % zebraColors.length;
+  const color = zebraColors[index];
+  
+  // Only advance the global index if no offset (normal single zebra call)
+  if (offset === 0) {
+    currentZebraIndex = (currentZebraIndex + 1) % zebraColors.length;
+  }
+  
   return color.slice();
 }
 
@@ -835,6 +862,7 @@ export function getColorByIndex(index) {
 // Palette colors (p0 = rainbow, etc.)
 export const paletteColors = {
   0: "rainbow", // p0 = rainbow
+  1: "zebra",   // p1 = zebra
   // Add more palette colors here as needed
 };
 
@@ -989,7 +1017,7 @@ export const staticColorMap = {
   123: [139, 69, 19],   // c123 = saddlebrown
   124: [101, 67, 33],   // c124 = darkbrown
   125: [62, 39, 35],    // c125 = darkerbrown
-  126: [139, 90, 43],   // c126 = sienna
+  126: [139, 90, 43],   // c126 = darksienna
   127: [165, 42, 42],   // c127 = brown
 };
 
@@ -1014,6 +1042,8 @@ export function parseColorIndex(indexString) {
         const palette = getPaletteByIndex(index);
         if (palette === "rainbow") {
           return ["rainbow"]; // Special marker for rainbow
+        } else if (palette === "zebra") {
+          return ["zebra"]; // Special marker for zebra
         }
       }
     }
