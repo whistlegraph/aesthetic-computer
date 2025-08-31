@@ -2526,6 +2526,60 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const measured = ctx.measureText(text);
         const textWidth = measured.width;
 
+        // Helper function to render text with multicolored shooting star dot
+        function renderTextWithStarDot(ctx, fullText, x, y, baseColor, alpha, offsetX, offsetY, frameIndex) {
+          const parts = fullText.split('.');
+          if (parts.length !== 2) {
+            // Fallback to normal rendering if not split correctly
+            ctx.fillText(fullText, x + offsetX, y + offsetY);
+            return;
+          }
+          
+          const beforeDot = parts[0]; // "Aesthetic"
+          const afterDot = parts[1];  // "Computer"
+          
+          // Measure parts
+          const beforeWidth = ctx.measureText(beforeDot).width;
+          const dotWidth = ctx.measureText('.').width;
+          
+          // Render "Aesthetic"
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.fillText(beforeDot, x + offsetX, y + offsetY);
+          
+          // Render CRT-style piercing dot - bright, small, sharp like asteroids
+          const dotX = x + beforeWidth + offsetX;
+          const dotY = y + offsetY;
+          
+          // CRT cathode ray piercing colors - bright, sharp, high-contrast
+          const crtColors = ["#FFFFFF", "#00FFFF", "#FFFF00", "#FF0000", "#00FF00", "#FF00FF"];
+          let dotColor;
+          let dotAlpha = alpha;
+          
+          if (frameIndex !== null) {
+            // Frame-based CRT flicker animation - faster changes for piercing effect
+            const colorIndex = Math.floor(frameIndex / 1) % crtColors.length; // Change color every frame
+            dotColor = crtColors[colorIndex];
+            
+            // Sharp, bright pulse - no gentle curves, pure CRT intensity
+            dotAlpha = alpha * (frameIndex % 2 === 0 ? 1.0 : 0.9); // Sharp flicker between 90% and 100%
+          } else {
+            // Time-based fallback - faster CRT-style changes
+            const timeIndex = Math.floor(Date.now() / 100) % crtColors.length; // Change every 100ms
+            dotColor = crtColors[timeIndex];
+            dotAlpha = alpha * (Math.floor(Date.now() / 100) % 2 === 0 ? 1.0 : 0.9); // Sharp time-based flicker
+          }
+          
+          ctx.fillStyle = dotColor;
+          ctx.globalAlpha = dotAlpha;
+          ctx.fillText('.', dotX, dotY);
+          
+          // Render "Computer"
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.fillText(afterDot, dotX + dotWidth, dotY);
+        }
+
         ["red", "lime", "blue", "white"].forEach((color) => {
           // Skip fade animations for frame-based recordings
           const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
@@ -2561,17 +2615,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (deg === 90) {
             // Left side - move lower (closer to bottom)
-            ctx.fillText(
+            renderTextWithStarDot(
+              ctx,
               text,
-              floor(canvasHeight * (1 - leftYDist) - textWidth + offsetY),
-              -floor(offsetX + gap),
+              floor(canvasHeight * (1 - leftYDist) - textWidth),
+              -floor(gap),
+              color,
+              ctx.globalAlpha,
+              offsetX,
+              offsetY,
+              frameIndex
             );
           } else if (deg === -90) {
             // Right side - move higher (closer to top)
-            ctx.fillText(
+            renderTextWithStarDot(
+              ctx,
               text,
-              -Math.floor(canvasHeight * rightYDist + textWidth + offsetY),
-              Math.floor(offsetX - gap),
+              -Math.floor(canvasHeight * rightYDist + textWidth),
+              Math.floor(-gap),
+              color,
+              ctx.globalAlpha,
+              offsetX,
+              offsetY,
+              frameIndex
             );
           }
         });
@@ -2911,40 +2977,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Film camera style timestamp at bottom-left corner
       function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null, bothStampsInvisible = false) {
-        // Calculate smooth alpha fade based on stamp visibility
+        // Calculate smooth alpha fade based on progress - same for both frame and time recordings
         let timestampAlpha = 1.0; // Default to fully visible
         
-        // Skip fade animations for frame-based recordings - use frame-based glitch patterns instead
-        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
-        
-        // Make timestamp disappear when both side stamps are invisible
-        if (bothStampsInvisible) {
+        // Smooth fade transitions: visible at start, fade out towards middle, visible at end
+        if (progress < 0.15) {
+          // Fully visible at start (0-15%)
+          timestampAlpha = 1.0;
+        } else if (progress >= 0.15 && progress <= 0.35) {
+          // Fade out from 15% to 35% (20% fade-out period)
+          const fadeProgress = (progress - 0.15) / 0.20;
+          timestampAlpha = 1.0 - Math.pow(fadeProgress, 2); // Smooth quadratic fade out
+        } else if (progress > 0.35 && progress < 0.65) {
+          // Fully hidden from 35% to 65% (30% hidden period)
           timestampAlpha = 0.0;
-        } else if (!isFrameBasedRecording) {
-          if (progress >= 0.20 && progress <= 0.30) {
-            // Fade out from 20% to 30% (10% fade-out period)
-            timestampAlpha = 1.0 - ((progress - 0.20) / 0.10);
-          } else if (progress > 0.30 && progress < 0.70) {
-            // Fully hidden from 30% to 70% (40% hidden period)
-            timestampAlpha = 0.0;
-          } else if (progress >= 0.70 && progress <= 0.80) {
-            // Fade in from 70% to 80% (10% fade-in period)
-            timestampAlpha = (progress - 0.70) / 0.10;
-          }
+        } else if (progress >= 0.65 && progress <= 0.85) {
+          // Fade in from 65% to 85% (20% fade-in period)
+          const fadeProgress = (progress - 0.65) / 0.20;
+          timestampAlpha = Math.pow(fadeProgress, 2); // Smooth quadratic fade in
         } else {
-          // Frame-based glitch pattern - use frameIndex if available
-          const currentFrame = frameIndex !== null ? frameIndex : Math.floor((progress || 0) * (totalFrames || 30));
-          
-          // Different glitch patterns based on frame number - gentler fade effects
-          if (currentFrame % 7 === 0) {
-            timestampAlpha = 0.4; // Gentle dim every 7th frame
-          } else if (currentFrame % 11 === 0) {
-            timestampAlpha = 0.6; // Medium dim every 11th frame  
-          } else if (currentFrame % 3 === 0) {
-            timestampAlpha = 0.8; // Slight dim every 3rd frame
-          } else {
-            timestampAlpha = 1.0; // Full brightness otherwise
-          }
+          // Fully visible at end (85%-100%)
+          timestampAlpha = 1.0;
         }
         
         // Skip drawing timecode if it's completely transparent
@@ -3025,61 +3078,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           adjustedMargin = timestampMargin * 1.8; // Less space since we moved Tezos closer
         }
         const timestampY = Math.floor(canvasHeight - progressBarHeight - timestampMargin * 0.6 - (typeSize * 0.2) - 4); // Move UP 4px more
-        const timestampX = Math.floor(typeSize * 0.75); // Align with left stamp margin (gap = typeSize * 0.75)
+        const timestampX = Math.floor(typeSize * 0.5); // Move back right a bit (was 0.3)
         
-        // Make timestamp bigger and more readable
-        const baseWatermarkSize = Math.floor(typeSize * 1.5);
+        // Make timestamp smaller and more readable
+        const baseWatermarkSize = Math.floor(typeSize * 1.7); // Smaller timestamp (was 2.0)
         // Keep timestamp same size for both frame and time recordings
         const watermarkSize = baseWatermarkSize;
         
         // Draw multiple layered versions for that vibey aesthetic.computer stamp effect
         ["red", "lime", "blue", "white"].forEach((color, index) => {
-          // Special looping blink effect - bright flashes only on first and last frame
-          let specialTimestampAlpha = 1.0;
-          let useSpecialColor = false;
-          let specialColor = color;
-          
-          // Use frame-based detection for 1-frame flashes when frame info is available
-          if (frameIndex !== null && totalFrames !== null) {
-            if (frameIndex === 0) {
-              // First frame - bright lime green blink for loop start
-              useSpecialColor = true;
-              specialColor = "lime";
-              specialTimestampAlpha = 1.0; // Full brightness
-            } else if (frameIndex === totalFrames - 1) {
-              // Last frame - bright red blink for loop end
-              useSpecialColor = true;
-              specialColor = "red";
-              specialTimestampAlpha = 1.0; // Full brightness
-            }
-          } else {
-            // Fallback to percentage-based for compatibility (very small ranges for 1-frame effect)
-            if (progress <= 0.005) {
-              // First ~0.5% of loop - bright lime green blink for loop start
-              useSpecialColor = true;
-              specialColor = "lime";
-              specialTimestampAlpha = 1.0; // Full brightness
-            } else if (progress >= 0.995) {
-              // Last ~0.5% of loop - bright red blink for loop end
-              useSpecialColor = true;
-              specialColor = "red";
-              specialTimestampAlpha = 1.0; // Full brightness
-            }
-          }
-
           let offsetX, offsetY;
           if (color !== "white") {
-            ctx.globalAlpha = (useSpecialColor ? 0.8 * specialTimestampAlpha : 0.45 * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
+            ctx.globalAlpha = 0.45 * timestampAlpha; // Simple multicolor layers
             offsetX = choose([-3, -5, 0, 3, 5]); // Larger offsets for bigger text
             offsetY = choose([-3, -5, 0, 3, 5]);
           } else {
-            ctx.globalAlpha = (useSpecialColor ? 1.0 * specialTimestampAlpha : choose([0.6, 0.5, 0.7]) * specialTimestampAlpha) * timestampAlpha; // Apply both special and fade alpha
+            ctx.globalAlpha = 0.65 * timestampAlpha; // Consistent white layer
             offsetX = choose([-1, 0, 1]);
             offsetY = choose([-1, 0, 1]);
-            specialColor = useSpecialColor ? specialColor : choose(["white", "white", "white", "magenta", "yellow"]); // Use special color or normal variety
+            color = "white"; // Consistent white color, no blinking
           }
 
-          ctx.fillStyle = useSpecialColor ? specialColor : color;
+          ctx.fillStyle = color;
           ctx.font = `bold ${watermarkSize}px YWFTProcessing-Regular`;
           
           ctx.fillText(
@@ -8539,19 +8559,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Use original typeSize for timestamp
                 sctx.font = `bold ${typeSize}px YWFTProcessing-Regular`;
                 
-                // Special looping blink effect - always visible but with special colors at loop boundaries
-                let timestampAlpha = 0.8; // Default opacity
-                let timestampColor = choose("white", "yellow", "red"); // Default blinking colors
+                // Smooth fade transitions: visible at start, fade out towards middle, visible at end
+                let timestampAlpha = 1.0; // Default to fully visible
+                let timestampColor = "white"; // Consistent white color
                 
-                // Since we don't have frame info here, use very small percentage for 1-frame approximation
-                if (progress <= 0.001) {
-                  // Very start of loop - bright lime green blink for loop start (approximates 1 frame)
-                  timestampColor = "lime";
-                  timestampAlpha = 1.0; // Full brightness
-                } else if (progress >= 0.999) {
-                  // Very end of loop - bright red blink for loop end (approximates 1 frame)
-                  timestampColor = "red";
-                  timestampAlpha = 1.0; // Full brightness
+                // Apply fade pattern based on progress (same as other addFilmTimestamp)
+                if (progress < 0.15) {
+                  // Fully visible at start (0-15%)
+                  timestampAlpha = 1.0;
+                } else if (progress >= 0.15 && progress <= 0.35) {
+                  // Fade out from 15% to 35% (20% fade-out period)
+                  const fadeProgress = (progress - 0.15) / 0.20;
+                  timestampAlpha = 1.0 - Math.pow(fadeProgress, 2); // Smooth quadratic fade out
+                } else if (progress > 0.35 && progress < 0.65) {
+                  // Fully hidden from 35% to 65% (30% hidden period)
+                  timestampAlpha = 0.0;
+                } else if (progress >= 0.65 && progress <= 0.85) {
+                  // Fade in from 65% to 85% (20% fade-in period)
+                  const fadeProgress = (progress - 0.65) / 0.20;
+                  timestampAlpha = Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+                } else {
+                  // Fully visible at end (85%-100%)
+                  timestampAlpha = 1.0;
+                }
+                
+                // Skip drawing if completely transparent
+                if (timestampAlpha <= 0.0) {
+                  sctx.restore();
+                  return;
                 }
                 
                 sctx.globalAlpha = timestampAlpha;
@@ -8784,6 +8819,60 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const measured = sctx.measureText(text);
               const textWidth = measured.width;
 
+              // Helper function to render text with multicolored shooting star dot
+              function renderTextWithStarDot(sctx, fullText, x, y, baseColor, alpha, offsetX, offsetY, frameIndex) {
+                const parts = fullText.split('.');
+                if (parts.length !== 2) {
+                  // Fallback to normal rendering if not split correctly
+                  sctx.fillText(fullText, x + offsetX, y + offsetY);
+                  return;
+                }
+                
+                const beforeDot = parts[0]; // "Aesthetic"
+                const afterDot = parts[1];  // "Computer"
+                
+                // Measure parts
+                const beforeWidth = sctx.measureText(beforeDot).width;
+                const dotWidth = sctx.measureText('.').width;
+                
+                // Render "Aesthetic"
+                sctx.fillStyle = baseColor;
+                sctx.globalAlpha = alpha;
+                sctx.fillText(beforeDot, x + offsetX, y + offsetY);
+                
+                // Render CRT-style piercing dot - bright, small, sharp like asteroids
+                const dotX = x + beforeWidth + offsetX;
+                const dotY = y + offsetY;
+                
+                // CRT cathode ray piercing colors - bright, sharp, high-contrast
+                const crtColors = ["#FFFFFF", "#00FFFF", "#FFFF00", "#FF0000", "#00FF00", "#FF00FF"];
+                let dotColor;
+                let dotAlpha = alpha;
+                
+                if (frameIndex !== null) {
+                  // Frame-based CRT flicker animation - faster changes for piercing effect
+                  const colorIndex = Math.floor(frameIndex / 1) % crtColors.length; // Change color every frame
+                  dotColor = crtColors[colorIndex];
+                  
+                  // Sharp, bright pulse - no gentle curves, pure CRT intensity
+                  dotAlpha = alpha * (frameIndex % 2 === 0 ? 1.0 : 0.9); // Sharp flicker between 90% and 100%
+                } else {
+                  // Time-based fallback - faster CRT-style changes
+                  const timeIndex = Math.floor(Date.now() / 100) % crtColors.length; // Change every 100ms
+                  dotColor = crtColors[timeIndex];
+                  dotAlpha = alpha * (Math.floor(Date.now() / 100) % 2 === 0 ? 1.0 : 0.9); // Sharp time-based flicker
+                }
+                
+                sctx.fillStyle = dotColor;
+                sctx.globalAlpha = dotAlpha;
+                sctx.fillText('.', dotX, dotY);
+                
+                // Render "Computer"
+                sctx.fillStyle = baseColor;
+                sctx.globalAlpha = alpha;
+                sctx.fillText(afterDot, dotX + dotWidth, dotY);
+              }
+
               ["red", "lime", "blue", "white"].forEach((color) => {
                 let offsetX, offsetY;
                 if (color !== "white") {
@@ -8807,19 +8896,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
                 if (deg === 90) {
                   // LEFT SIDE: Main text positioning
-                  sctx.fillText(
+                  renderTextWithStarDot(
+                    sctx,
                     text,
-                    floor(
-                      sctx.canvas.height * (1 - leftYDist) - textWidth + offsetY,
-                    ),
-                    -floor(offsetX + gap),
+                    floor(sctx.canvas.height * (1 - leftYDist) - textWidth),
+                    -floor(gap),
+                    color,
+                    sctx.globalAlpha,
+                    offsetX,
+                    offsetY,
+                    frameIndex
                   );
                 } else if (deg === -90) {
                   // RIGHT SIDE: Main text positioning
-                  sctx.fillText(
+                  renderTextWithStarDot(
+                    sctx,
                     text,
-                    -floor(sctx.canvas.height * rightYDist + offsetY),
-                    floor(offsetX + gap * 3),
+                    -floor(sctx.canvas.height * rightYDist),
+                    floor(gap * 3),
+                    color,
+                    sctx.globalAlpha,
+                    offsetX,
+                    offsetY,
+                    frameIndex
                   );
                 }
               });
@@ -8908,8 +9007,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
-              // Make timestamp match @handle size exactly
-              const timestampSize = typeSize * 1.5; // Use same size as first system
+              // Make timestamp smaller to match first system
+              const timestampSize = typeSize * 1.7; // Smaller timestamp (was 2.0)
               sctx.font = `bold ${timestampSize}px YWFTProcessing-Regular`;
               
               // Adjust margin to make room for Tezos logo if enabled
@@ -8918,28 +9017,47 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 adjustedMargin = typeSize * 1.8; // Less space since we moved Tezos closer
               }
               
-              // Calculate timestamp alpha based on stamp visibility
+              // Calculate timestamp alpha based on progress only, independent of side stamps
               let timestampAlpha = 0.8; // Default to more opaque (was 0.45)
               
-              // Make timestamp disappear when both side stamps are invisible
-              if (bothStampsInvisible) {
-                timestampAlpha = 0.0;
+              // Add the same smooth fade logic as first system
+              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              
+              if (!isFrameBasedRecording) {
+                // Smooth fade transitions with longer periods
+                if (progress < 0.15) {
+                  // Fully visible at start
+                  timestampAlpha = 0.8;
+                } else if (progress >= 0.15 && progress <= 0.35) {
+                  // Longer fade out from 15% to 35% (20% fade-out period)
+                  const fadeProgress = (progress - 0.15) / 0.20;
+                  timestampAlpha = 0.8 * (1.0 - Math.pow(fadeProgress, 2)); // Smooth quadratic fade out
+                } else if (progress > 0.35 && progress < 0.65) {
+                  // Fully hidden from 35% to 65% (30% hidden period)
+                  timestampAlpha = 0.0;
+                } else if (progress >= 0.65 && progress <= 0.85) {
+                  // Longer fade in from 65% to 85% (20% fade-in period)
+                  const fadeProgress = (progress - 0.65) / 0.20;
+                  timestampAlpha = 0.8 * Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+                } else {
+                  // Fully visible at end (85%-100%)
+                  timestampAlpha = 0.8;
+                }
               }
               
               sctx.globalAlpha = timestampAlpha;
-              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
+              sctx.fillStyle = "white"; // Clean white timestamp, no blinking
 
-              // Smoother, gentler shake effect
-              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
-              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
-              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+              // Remove shake effect - keep timestamp steady
+              const shakeX = 0; // No more shaking
+              const shakeY = 0; // No more shaking
 
               // Position timestamp in the main content area - move up 4px more  
               const timestampY = originalCanvasHeight - adjustedMargin * 0.6 - typeSize * 0.2 - 4; // Move UP 4px more
 
               sctx.fillText(
                 timestamp,
-                typeSize * 0.75 + shakeX, // Align with left stamp margin (gap = typeSize * 0.75)
+                typeSize * 0.5 + shakeX, // Move back right a bit (was 0.3)
                 timestampY + shakeY,
               );
               
@@ -10154,17 +10272,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // typeof paintToStreamCanvas === "function" &&
           mediaRecorder?.state === "recording" &&
           mediaRecorderStartTime !== undefined;
-
-        // Debug logging for frame capture issues (only first few frames to avoid spam)
-        if (mediaRecorder && mediaRecorderFrameCount < 5) {
-          console.log("🎬 Frame capture check:", {
-            frameCount: mediaRecorderFrameCount,
-            mediaRecorderState: mediaRecorder?.state,
-            mediaRecorderStartTime: mediaRecorderStartTime,
-            isRecording: isRecording,
-            recordedFramesLength: recordedFrames.length
-          });
-        }
 
         // 📸 Capture clean screenshot data BEFORE overlays are painted (only when needed)
         let cleanScreenshotData = null;
