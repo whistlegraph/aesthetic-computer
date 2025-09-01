@@ -2843,7 +2843,6 @@ class KidLisp {
       zoom: (api, args = []) => {
         // Defer zoom execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'zoom',
             func: () => {
