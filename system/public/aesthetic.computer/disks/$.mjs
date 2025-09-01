@@ -34,6 +34,9 @@ let selectedEntry = null;
 let previewBuffer = null;
 let previewSize = 120; // Size of the preview area
 let previewX, previewY; // Position of preview area
+let cachedSources = new Map(); // Store cached sources here
+let loadingStates = new Map(); // Track loading states to prevent retries
+let erroredCodes = new Set(); // Track codes that have errored to prevent repeated execution
 
 // Layout constants (similar to colors.mjs)
 const LEFT_MARGIN = 6;
@@ -114,7 +117,7 @@ function boot({ wipe, screen, colon, params, typeface, ui }) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, text, screen, ui, num, help: { choose }, lisp, api }) {
+function paint({ wipe, ink, text, screen, ui, num, help: { choose }, lisp, api, kidlisp }) {
   wipe(0);
   
   if (retrieving) {
@@ -298,62 +301,152 @@ function paint({ wipe, ink, text, screen, ui, num, help: { choose }, lisp, api }
       size: 1,
     });
     
-    // If we have the KidLisp system available and cached source, run embedded preview
-    if (lisp && api) {
-      try {
-        // Create a unique key for this preview
-        const previewKey = `preview_${selectedEntry.code}`;
+    // Debug: Show what we have for this entry
+    console.log(`Preview for ${selectedEntry.code}:`, {
+      hasCached: cachedSources.has(selectedEntry.code),
+      cachedValue: cachedSources.get(selectedEntry.code),
+      loadingState: loadingStates.get(selectedEntry.code)
+    });
+    
+    // Check if we have cached source for this entry
+    if (cachedSources.has(selectedEntry.code)) {
+      const cachedSource = cachedSources.get(selectedEntry.code);
+      
+      // Skip codes that have already errored to prevent infinite error loops
+      if (erroredCodes.has(selectedEntry.code)) {
+        ink("red").write("Error", {
+          x: previewX + 4,
+          y: previewY + previewSize / 2,
+          size: 1,
+        });
+        return;
+      }
+      
+      // More strict validation - must be valid KidLisp source
+      if (cachedSource && 
+          typeof cachedSource === 'string' && 
+          cachedSource.trim().length > 0 &&
+          !cachedSource.includes('Loading') && // Don't run loading messages
+          cachedSource.startsWith('(') &&      // KidLisp should start with (
+          kidlisp) {
         
-        // Try to get cached source for this code
-        lisp.getCachedCodeMultiLevel(selectedEntry.code).then((cachedSource) => {
-          if (cachedSource) {
-            // Create embedded layer for preview
-            const embeddedLayer = lisp.createEmbeddedLayerFromSource(
-              cachedSource,
-              selectedEntry.code,
-              previewKey,
-              previewSize - 8, // Leave margin
-              previewSize - 8,
-              previewX + 4,
-              previewY + 4,
-              1.0, // Full opacity
-              api
-            );
-            
-            if (embeddedLayer) {
-              // Update and render the embedded layer
-              const didRender = lisp.updateEmbeddedLayer(api, embeddedLayer);
-              
-              if (didRender && embeddedLayer.buffer) {
-                // Paste the embedded buffer to the preview area
-                api.paste(
-                  embeddedLayer.buffer,
-                  previewX + 4,
-                  previewY + 4,
-                  previewSize - 8,
-                  previewSize - 8
-                );
-              }
-            }
-          }
-        }).catch((error) => {
-          console.warn("Preview error:", error);
-          // Fallback: show error message
-          ink("red").write("Preview unavailable", {
+        console.log(`Running KidLisp for ${selectedEntry.code}:`, cachedSource.substring(0, 50) + '...');
+        
+        // Detect problematic patterns that cause continuous errors
+        const hasProblematicFunctions = /\b(scroll frame)\b/.test(cachedSource); // Specific problematic function combos
+        
+        if (hasProblematicFunctions) {
+          console.warn(`Skipping KidLisp code ${selectedEntry.code} due to problematic function combinations`);
+          erroredCodes.add(selectedEntry.code);
+          ink("orange").write("Complex", {
             x: previewX + 4,
             y: previewY + previewSize / 2,
             size: 1,
           });
-        });
-      } catch (error) {
-        console.warn("Preview system error:", error);
-        // Fallback: show code preview text
-        ink([200, 200, 200]).write(selectedEntry.preview.substring(0, 20), {
+          return;
+        }
+        
+        try {
+          // Run the original KidLisp code - let the kidlisp function handle internal errors
+          kidlisp(
+            previewX + 4,
+            previewY + 4,
+            previewSize - 8,
+            previewSize - 8,
+            cachedSource
+          );
+        } catch (error) {
+          console.warn(`Preview render error for ${selectedEntry.code}:`, error);
+          // Mark this code as errored to avoid repeated attempts
+          erroredCodes.add(selectedEntry.code);
+          
+          // Show error message instead of crashing
+          ink("red").write("Error", {
+            x: previewX + 4,
+            y: previewY + previewSize / 2,
+            size: 1,
+          });
+        }
+      } else {
+        // Show what we got instead of running it
+        const debugText = cachedSource ? 
+          (typeof cachedSource === 'string' ? 
+            `"${cachedSource.substring(0, 20)}..."` : 
+            typeof cachedSource) :
+          'null';
+        
+        console.log(`Not running KidLisp for ${selectedEntry.code}, got:`, debugText);
+        
+        // Check why we're not running it  
+        let message = "No source";
+        if (cachedSource && typeof cachedSource === 'string') {
+          if (!cachedSource.startsWith('(')) {
+            message = "Invalid format";
+          } else if (cachedSource.includes('Loading')) {
+            message = "Loading text";
+          }
+        }
+        
+        ink("gray").write(message, {
           x: previewX + 4,
           y: previewY + previewSize / 2,
           size: 1,
         });
       }
+    } else if (loadingStates.get(selectedEntry.code) === 'loading') {
+      // Currently loading - just show text, never run kidlisp
+      ink("orange").write("Loading...", {
+        x: previewX + 4,
+        y: previewY + previewSize / 2,
+        size: 1,
+      });
+    } else if (loadingStates.get(selectedEntry.code) === 'failed') {
+      // Previously failed to load
+      ink("red").write("Load failed", {
+        x: previewX + 4,
+        y: previewY + previewSize / 2,
+        size: 1,
+      });
+    } else if (loadingStates.get(selectedEntry.code) === 'error') {
+      // Previously had a runtime error
+      ink("red").write("Code error", {
+        x: previewX + 4,
+        y: previewY + previewSize / 2,
+        size: 1,
+      });
+    } else if (lisp) {
+      // Haven't tried loading yet, start loading
+      loadingStates.set(selectedEntry.code, 'loading');
+      
+      console.log(`Starting load for ${selectedEntry.code}`);
+      
+      // Show loading message
+      ink("orange").write("Loading...", {
+        x: previewX + 4,
+        y: previewY + previewSize / 2,
+        size: 1,
+      });
+      
+      // Load the cached source (this will be available on next frame)
+      lisp.getCachedCodeMultiLevel(selectedEntry.code)
+        .then((cachedSource) => {
+          console.log(`Loaded source for ${selectedEntry.code}:`, typeof cachedSource, cachedSource?.substring(0, 50));
+          // Store the result (even if null)
+          cachedSources.set(selectedEntry.code, cachedSource || null);
+          loadingStates.set(selectedEntry.code, 'loaded');
+        })
+        .catch((error) => {
+          console.warn(`Failed to load cached source for ${selectedEntry.code}:`, error);
+          cachedSources.set(selectedEntry.code, null);
+          loadingStates.set(selectedEntry.code, 'failed');
+        });
+    } else {
+      // No lisp system available
+      ink("gray").write("Preview unavailable", {
+        x: previewX + 4,
+        y: previewY + previewSize / 2,
+        size: 1,
+      });
     }
   } else {
     // No selection - show instructions
