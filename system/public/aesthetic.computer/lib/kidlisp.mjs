@@ -13,6 +13,9 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 // Global cache registry for storing cached codes by source hash
 const cacheRegistry = new Map();
 
+// Global backdrop state for first-line color shorthand
+const globalBackdropState = new Set();
+
 // Helper function to generate a hash for source code
 function getSourceHash(source) {
   // Simple hash function for source code
@@ -2555,6 +2558,7 @@ class KidLisp {
           return;
         }
         
+        
         api.line(...args);
       },
       // Batch line drawing for performance
@@ -4518,11 +4522,11 @@ class KidLisp {
       const firstItem = body[0];
       let colorName = null;
       
-      // Check if it's a bare string color name
+      // Check if it's a bare string color name (first-line shorthand)
       if (typeof firstItem === "string") {
         colorName = firstItem;
       }
-      // Check if it's a single-argument function call like ["red"]
+      // Also check for single-element arrays like ["blue"] from (blue)
       else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
         colorName = firstItem[0];
       }
@@ -4530,43 +4534,30 @@ class KidLisp {
       if (colorName) {
         const globalEnv = this.getGlobalEnv();
         
-        // Check if it's a color name in the global environment
-        if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+        // Check if it's a color name in cssColors (not just any function)
+        if (cssColors && cssColors[colorName]) {
           try {
             // Test if this is a color function by calling it
-            globalEnv[colorName]();
+            if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+              globalEnv[colorName]();
+            }
             
             // If we get here without error, it's a color function
-            // Store the color name as the default background for this KidLisp piece
-            if (!this.firstLineColor) {
-              this.firstLineColor = colorName;
+            // For color shortcuts, apply backdrop only once per call location
+            const position = api.kidlispCallPosition || "";
+            const backdropKey = `first_line_backdrop_${colorName}_${position}`;
+            
+            if (!this.onceExecuted.has(backdropKey)) {
+              this.onceExecuted.add(backdropKey);
               
               // Set the background fill color for reframe operations
               if (api.backgroundFill) {
                 api.backgroundFill(colorName);
               }
               
-              // Apply wipe once using the once mechanism
-              const backdropKey = "first_line_backdrop_" + colorName;
-              if (!this.onceExecuted.has(backdropKey)) {
-                this.onceExecuted.add(backdropKey);
-                if (api.wipe) {
-                  api.wipe(colorName);
-                }
-                
-                // Show visual feedback only once
-                // First-line color backdrop debug log removed for performance
-                
-                // Add visual indicator to HUD showing backdrop was applied
-                if (api.hud?.label) {
-                  api.hud.label(`🎨 ${colorName} backdrop`, undefined, undefined);
-                  // Set a timer to clear the label after a few seconds
-                  setTimeout(() => {
-                    if (api.hud?.label) {
-                      api.hud.label(undefined);
-                    }
-                  }, 3000);
-                }
+              // Apply wipe once for first-line color shorthand
+              if (api.wipe) {
+                api.wipe(colorName);
               }
             }
             // Remove the first item so it doesn't get evaluated again
