@@ -3002,6 +3002,8 @@ const $paintApiUnwrapped = {
   kidlisp: (() => {
     // Cache KidLisp instances by source code hash to preserve timing state
     const kidlispInstanceCache = new Map();
+    // Cache buffers by call position to preserve drawing state
+    const kidlispBufferCache = new Map();
     
     function getSourceHash(source) {
       let hash = 0;
@@ -3014,7 +3016,26 @@ const $paintApiUnwrapped = {
     }
     
     return function kidlisp(x, y, width, height, source) {
-      const kidlispBuffer = $activePaintApi.painting(width, height, (bufferApi) => {
+      // Create unique identifier for this call position and size
+      const bufferKey = `${x}_${y}_${width}_${height}`;
+      
+      // Get or create persistent buffer for this position
+      let persistentBuffer = kidlispBufferCache.get(bufferKey);
+      
+      // Create a working buffer and execute KidLisp inside the painting context
+      const painting = $activePaintApi.painting(width, height, (api) => {
+        
+        console.log(`🎨 Initial buffer state for ${bufferKey}, first few pixels:`, api.screen.pixels.slice(0, 16));
+        
+        if (persistentBuffer && persistentBuffer.pixels) {
+          // Restore existing content from persistent buffer
+          console.log(`💾 Restoring buffer for ${bufferKey}, first few pixels:`, persistentBuffer.pixels.slice(0, 16));
+          api.screen.pixels.set(persistentBuffer.pixels);
+          console.log(`✅ After restore, first few pixels:`, api.screen.pixels.slice(0, 16));
+        } else {
+          console.log(`🆕 Creating new buffer for ${bufferKey}`);
+        }
+        
         try {
           // Get or create persistent KidLisp instance for this source code
           const sourceHash = getSourceHash(source);
@@ -3028,15 +3049,18 @@ const $paintApiUnwrapped = {
           }
           
           // Use the full common API as the base, then overlay buffer-specific functions
-          // This gives KidLisp access to all timing, system, and drawing functionality
+          // This gives KidLisp access all timing, system, and drawing functionality
           const kidlispAPI = {
             ...$commonApi,  // Full common API including clock, timing, etc.
-            ...bufferApi,   // Buffer-specific drawing functions (wipe, ink, etc.)
+            ...api,   // Buffer-specific drawing functions (wipe, ink, line, etc.)
+            paintCount: pieceFrameCount, // Include current frame count for animations
             screen: {
               width: width,
               height: height,
-              pixels: bufferApi.screen?.pixels
-            }
+              pixels: api.screen?.pixels
+            },
+            // Add position info for backdrop state management
+            kidlispCallPosition: bufferKey
           };
           
           const parsedCode = kidlispInstance.parse(source);
@@ -3048,13 +3072,21 @@ const $paintApiUnwrapped = {
           
         } catch (error) {
           console.error("🚫 kidlisp error:", error);
-          bufferApi.wipe(60, 0, 0); // Red background for errors
-          bufferApi.ink(255, 255, 255);
-          bufferApi.write && bufferApi.write("ERROR", 5, 5);
+          api.wipe(60, 0, 0); // Red background for errors
+          api.ink(255, 255, 255);
+          api.write && api.write("ERROR", 5, 5);
         }
+        
+        // Update the persistent buffer with the new content
+        kidlispBufferCache.set(bufferKey, {
+          width: api.screen.width,
+          height: api.screen.height,
+          pixels: new Uint8ClampedArray(api.screen.pixels)
+        });
       });
       
-      $activePaintApi.paste(kidlispBuffer, x, y);
+      // Paste the buffer to the main canvas
+      $activePaintApi.paste(painting, x, y);
     };
   })(),
   // glaze: ...
