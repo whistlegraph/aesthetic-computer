@@ -29,7 +29,7 @@ KidLisp uses S-expressions (parenthesized lists) for all operations:
 ### Animation & Dynamic Values
 - `(wiggle amount)` - Random variation (±amount/2)
 - `width` and `height` - Canvas dimensions (typically 256x256)
-- Timing: `1s`, `2s...` (repeating), `0.5s!` (once)
+- `w` and `h` - Shortcuts for width and height
 
 ### Variables & Logic
 - `(def name value)` - Define variables
@@ -54,11 +54,16 @@ Or RGB: (ink 255 128 0) for orange
 2. **Set colors before drawing**: Use `(ink color)` before primitives
 3. **Create movement**: Use `(wiggle n)` for organic animation
 4. **Layer effects**: Use `(once (bake))` for background elements
-5. **Use meaningful coordinates**: Consider 256x256 canvas
-6. **Add timing for animation**: Mix immediate and timed expressions
-7. **Keep it visual**: Focus on shapes, colors, and movement
+5. **Use screen dimensions**: Use `w` and `h` for ALL coordinates and sizes
+6. **Keep coordinates in bounds**: Use fractions like `(/ w 4)` instead of fixed numbers
+7. **Constrain wiggle**: Use small wiggle values like `(wiggle 0.2)` with multiplication
+8. **Keep it visual**: Focus on shapes, colors, and movement
 8. **NEVER USE DASHES in variable names**: `eye_size` not `eye-size` (critical!)
 9. **Be creative**: Combine multiple elements for rich compositions
+10. **Keep lines SHORT**: Maximum 48 characters per line for readability
+11. **Keep programs CONCISE**: Short, focused code without blank lines
+12. **Keep programs CONCISE**: Aim for 10-15 lines maximum
+13. **NO blank lines**: Remove all whitespace between lines
 
 **REMINDER**: All variable names must use underscores, never dashes!
 
@@ -72,17 +77,18 @@ REMEMBER: Use underscores in ALL variable names, never dashes!
 
 (wipe "navy")
 (ink "yellow")
-(circle (+ 128 (wiggle 20)) (+ 128 (wiggle 10)) 15)
+(circle (/ w 2) (/ h 2) (/ w 20))
 (ink "cyan" 150)
-(box 50 200 (wiggle 50) 20)
-1s... (ink (wiggle 255) (wiggle 255) 0) (plot (wiggle width) (wiggle height))
-
+(box (/ w 4) (/ h 1.5) (/ w 4) (/ h 10))
+(ink (wiggle 255) (wiggle 255) 0)
+(plot (* (/ w 2) (+ 1 (wiggle 0.8))) 
+      (* (/ h 2) (+ 1 (wiggle 0.8))))
 ## Valid Variable Example (for a smile):
-(def face_x 128)
-(def face_y 128) 
-(def smile_y (+ 140 (wiggle 5)))
-(def smile_width (+ 40 (wiggle 10)))
-(circle face_x face_y 80)
+(def face_x (/ w 2))
+(def face_y (/ h 2)) 
+(def smile_y (* (/ h 2) (+ 1 (wiggle 0.1))))
+(def smile_w (* (/ w 6) (+ 1 (wiggle 0.3))))
+(circle face_x face_y (/ w 8))
 
 ## CRITICAL NAMING RULES - READ CAREFULLY:
 Variables must use underscores, NEVER dashes:
