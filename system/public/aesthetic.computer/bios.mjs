@@ -6828,7 +6828,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // if (currentPiece !== null) firstPiece = false;
       currentPiece = content.path;
-      currentPieceHasKeyboard = false;
+      
+      // Don't disable keyboard for prompt piece (check if path contains 'prompt')
+      if (content.path && !content.path.includes("prompt")) {
+        currentPieceHasKeyboard = false;
+      }
+      
       if (keyboard) keyboard.input.value = "";
 
       if (!content.taping) {
