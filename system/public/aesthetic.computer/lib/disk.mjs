@@ -126,6 +126,7 @@ let LAN_HOST; // The IP address of the hosting machine on the local network.
 let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
 let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
+let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard input)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
@@ -4844,6 +4845,7 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
+    TV_MODE = content.resolution?.tv === true;
 
     microphone.permission = content.microphonePermission;
 
@@ -4853,6 +4855,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.user = USER;
     $commonApi.net.iframe = content.iframe;
     $commonApi.net.sandboxed = content.sandboxed;
+    $commonApi.net.tvMode = TV_MODE; // Add TV mode flag to common API
 
     codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");
@@ -6685,153 +6688,155 @@ async function makeFrame({ data: { type, content } }) {
           }
 
           // Corner prompt button.
-          currentHUDButton?.act(e, {
-            down: () => {
-              originalColor = currentHUDTextColor;
-              currentHUDScrub = 0;
-              currentHUDTextColor = [0, 255, 0];
-              send({ type: "keyboard:enabled" }); // Enable keyboard flag.
-              send({ type: "keyboard:unlock" });
-              $api.needsPaint();
+          if (!TV_MODE) {
+            currentHUDButton?.act(e, {
+              down: () => {
+                originalColor = currentHUDTextColor;
+                currentHUDScrub = 0;
+                currentHUDTextColor = [0, 255, 0];
+                send({ type: "keyboard:enabled" }); // Enable keyboard flag.
+                send({ type: "keyboard:unlock" });
+                $api.needsPaint();
 
-              // Mask unless we are in the camera.
-              if ($api.slug !== "camera") masked = true;
+                // Mask unless we are in the camera.
+                if ($api.slug !== "camera") masked = true;
 
-              $api.sound.synth({
-                tone: 600,
-                beats: 0.1,
-                attack: 0.01,
-                decay: 0.5,
-                volume: 0.25,
-              });
-            },
-            push: (btn) => {
-              const shareWidth = tf.blockWidth * "share ".length;
-              if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
-                btn.actions.cancel?.();
-                return;
-              }
-
-              $api.sound.synth({
-                tone: 1200,
-                beats: 0.1,
-                attack: 0.01,
-                decay: 0.5,
-                volume: 0.15,
-              });
-              if (!labelBack) {
-                // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD
-                // For inline kidlisp prompts, preserve the content so user can continue editing
-                const content = currentHUDPlainTxt || currentHUDTxt;
-                let promptSlug = "prompt";
-                if (content && lisp.isKidlispSource(content)) {
-                  // Preserve kidlisp content when tapping HUD to return to prompt for editing
-                  const encodedContent = lisp.encodeKidlispForUrl(content);
-                  promptSlug += "~" + encodedContent;
-                } else if (content) {
-                  // For regular piece names, clear the prompt by not passing content as params
-                  // This allows the prompt to clear properly when leaving non-kidlisp pieces
-                  promptSlug = "prompt";
-                }
-                jump(promptSlug);
-              } else {
-                labelBack = false; // Reset `labelBack` after jumping.
-                if ($commonApi.history.length > 0) {
-                  send({ type: "back-to-piece" });
-                } else {
-                  jump("prompt");
-                }
-              }
-              $api.needsPaint();
-              masked = true;
-              currentHUDScrub = 0;
-            },
-            scrub: (btn) => {
-              if (piece === "share") return; // No need to share scrub while in share.
-
-              if (btn.over || currentHUDScrub > 0) {
-                currentHUDScrub += e.delta.x;
-              }
-
-              const shareWidth = tf.blockWidth * "share ".length;
-
-              if (currentHUDScrub >= 0) {
-                btn.box.w =
-                  tf.blockWidth * currentHUDTxt.length + currentHUDScrub;
-                // console.log(btn.b);
-              }
-
-              if (currentHUDScrub < 0) currentHUDScrub = 0;
-
-              if (currentHUDScrub >= shareWidth) {
-                currentHUDScrub = shareWidth;
-                currentHUDTextColor = [255, 255, 0];
-              } else if (currentHUDScrub > 0) {
-                currentHUDTextColor = [255, 0, 0];
-              } else if (currentHUDScrub === 0) {
-                if (btn.over) {
-                  currentHUDTextColor = [0, 255, 0];
-                } else {
-                  currentHUDTextColor = [255, 0, 0];
-                }
-              }
-            },
-            cancel: () => {
-              currentHUDTextColor = originalColor;
-
-              const shareWidth = tf.blockWidth * "share ".length;
-              console.log("scrub:", currentHUDScrub, shareWidth);
-
-              if (currentHUDScrub === shareWidth) {
                 $api.sound.synth({
-                  tone: 1800,
-                  beats: 0.15,
+                  tone: 600,
+                  beats: 0.1,
+                  attack: 0.01,
+                  decay: 0.5,
+                  volume: 0.25,
+                });
+              },
+              push: (btn) => {
+                const shareWidth = tf.blockWidth * "share ".length;
+                if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
+                  btn.actions.cancel?.();
+                  return;
+                }
+
+                $api.sound.synth({
+                  tone: 1200,
+                  beats: 0.1,
                   attack: 0.01,
                   decay: 0.5,
                   volume: 0.15,
                 });
+                if (!labelBack) {
+                  // Only clear prompt text when leaving NON-kidlisp pieces by tapping HUD
+                  // For inline kidlisp prompts, preserve the content so user can continue editing
+                  const content = currentHUDPlainTxt || currentHUDTxt;
+                  let promptSlug = "prompt";
+                  if (content && lisp.isKidlispSource(content)) {
+                    // Preserve kidlisp content when tapping HUD to return to prompt for editing
+                    const encodedContent = lisp.encodeKidlispForUrl(content);
+                    promptSlug += "~" + encodedContent;
+                  } else if (content) {
+                    // For regular piece names, clear the prompt by not passing content as params
+                    // This allows the prompt to clear properly when leaving non-kidlisp pieces
+                    promptSlug = "prompt";
+                  }
+                  jump(promptSlug);
+                } else {
+                  labelBack = false; // Reset `labelBack` after jumping.
+                  if ($commonApi.history.length > 0) {
+                    send({ type: "back-to-piece" });
+                  } else {
+                    jump("prompt");
+                  }
+                }
+                $api.needsPaint();
+                masked = true;
+                currentHUDScrub = 0;
+              },
+              scrub: (btn) => {
+                if (piece === "share") return; // No need to share scrub while in share.
+
+                if (btn.over || currentHUDScrub > 0) {
+                  currentHUDScrub += e.delta.x;
+                }
+
+                const shareWidth = tf.blockWidth * "share ".length;
+
+                if (currentHUDScrub >= 0) {
+                  btn.box.w =
+                    tf.blockWidth * currentHUDTxt.length + currentHUDScrub;
+                  // console.log(btn.b);
+                }
+
+                if (currentHUDScrub < 0) currentHUDScrub = 0;
+
+                if (currentHUDScrub >= shareWidth) {
+                  currentHUDScrub = shareWidth;
+                  currentHUDTextColor = [255, 255, 0];
+                } else if (currentHUDScrub > 0) {
+                  currentHUDTextColor = [255, 0, 0];
+                } else if (currentHUDScrub === 0) {
+                  if (btn.over) {
+                    currentHUDTextColor = [0, 255, 0];
+                  } else {
+                    currentHUDTextColor = [255, 0, 0];
+                  }
+                }
+              },
+              cancel: () => {
+                currentHUDTextColor = originalColor;
+
+                const shareWidth = tf.blockWidth * "share ".length;
+                console.log("scrub:", currentHUDScrub, shareWidth);
+
+                if (currentHUDScrub === shareWidth) {
+                  $api.sound.synth({
+                    tone: 1800,
+                    beats: 0.15,
+                    attack: 0.01,
+                    decay: 0.5,
+                    volume: 0.15,
+                  });
+                  $api.sound.synth({
+                    tone: 1800 / 2,
+                    beats: 0.15 * 2,
+                    attack: 0.01,
+                    decay: 0.5,
+                    volume: 0.1,
+                  });
+                  // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
+                  $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                  return;
+                }
+
+                currentHUDScrub = 0;
+                // TODO: This might break on pieces where the keyboard is already
+                //       open.
+                send({ type: "keyboard:disabled" }); // Disable keyboard flag.
+                send({ type: "keyboard:lock" });
+                $api.needsPaint();
                 $api.sound.synth({
-                  tone: 1800 / 2,
-                  beats: 0.15 * 2,
+                  tone: 200,
+                  beats: 0.1,
                   attack: 0.01,
                   decay: 0.5,
-                  volume: 0.1,
+                  volume: 0.15,
                 });
-                // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
-                return;
-              }
-
-              currentHUDScrub = 0;
-              // TODO: This might break on pieces where the keyboard is already
-              //       open.
-              send({ type: "keyboard:disabled" }); // Disable keyboard flag.
-              send({ type: "keyboard:lock" });
-              $api.needsPaint();
-              $api.sound.synth({
-                tone: 200,
-                beats: 0.1,
-                attack: 0.01,
-                decay: 0.5,
-                volume: 0.15,
-              });
-            },
-            rollover: (btn) => {
-              if (btn) {
-                send({ type: "keyboard:unlock" });
-                if (btn.down) {
-                  currentHUDTextColor = [0, 255, 0];
+              },
+              rollover: (btn) => {
+                if (btn) {
+                  send({ type: "keyboard:unlock" });
+                  if (btn.down) {
+                    currentHUDTextColor = [0, 255, 0];
+                  }
                 }
-              }
-            },
-            rollout: () => {
-              // console.log("rolled out...");
-              currentHUDTextColor = [200, 80, 80];
-              send({ type: "keyboard:lock" });
-            },
-          });
+              },
+              rollout: () => {
+                // console.log("rolled out...");
+                currentHUDTextColor = [200, 80, 80];
+                send({ type: "keyboard:lock" });
+              },
+            });
+          }
 
-          if (!masked) act($api); // Run the act function for all pen events.
+          if (!masked && !TV_MODE) act($api); // Run the act function for all pen events (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -6852,7 +6857,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          act($api);
+          if (!TV_MODE) act($api); // Skip 3D pen events in TV mode
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -6886,7 +6891,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          act($api); // Execute piece shortcut.
+          if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -6900,7 +6905,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          act($api); // Execute piece shortcut.
+          if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -6919,7 +6924,7 @@ async function makeFrame({ data: { type, content } }) {
         
         $api.event = cancelData;
         try {
-          act($api); // Execute cancel for all buttons
+          if (!TV_MODE) act($api); // Execute cancel for all buttons (skip in TV mode)
         } catch (e) {
           console.warn("️ ✒ Act failure (UI cancel)...", e);
         }
@@ -6949,7 +6954,16 @@ async function makeFrame({ data: { type, content } }) {
 
         $api.event = data;
         try {
-          act($api);
+          // In TV mode, only allow certain system events, not user input events
+          const allowInTvMode = name.startsWith('speech:') || 
+                               name.startsWith('dark-mode') || 
+                               name.startsWith('light-mode') ||
+                               name.startsWith('microphone-') ||
+                               name.startsWith('aesthetic-parent:');
+          
+          if (!TV_MODE || allowInTvMode) {
+            act($api);
+          }
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -7488,22 +7502,34 @@ async function makeFrame({ data: { type, content } }) {
         // For corner label width, measure the actual display width
         // If there are multiple lines, find the longest line for width calculation
         let displayWidth;
+        
+        // Apply scaling factor for smaller iframe sizes like 320x240
+        const screenScale = screen.width <= 320 ? 0.75 : 1.0;
+        const scaledBlockWidth = tf.blockWidth * screenScale;
+        
         if (cleanText.includes('\n')) {
           const lines = cleanText.split('\n');
           const maxLineLength = Math.max(...lines.map(line => line.length));
-          displayWidth = maxLineLength * tf.blockWidth;
+          displayWidth = maxLineLength * scaledBlockWidth;
         } else {
-          displayWidth = cleanText.length * tf.blockWidth;
+          displayWidth = cleanText.length * scaledBlockWidth;
         }
         
         let w = displayWidth + currentHUDScrub;
         
-        // Also calculate what text.box would give us for comparison
+        // Also calculate what text.box would give us for comparison, but with generous bounds
+        // to prevent unwanted word wrapping for commands like "ink rainbow"
+        const generousBounds = Math.max($api.screen.width * 0.8, displayWidth + scaledBlockWidth * 4);
         const labelBounds = $api.text.box(
           cleanText,
           undefined,
-          $api.screen.width - $api.typeface.blockWidth,
+          generousBounds,
         );
+        
+        // Use the larger of our calculated width or the text.box width to ensure no clipping
+        // Add extra padding for smaller screens to prevent button cutoff
+        const extraPadding = screenScale < 1.0 ? scaledBlockWidth * 2 : scaledBlockWidth;
+        w = Math.max(w, labelBounds.box.width) + extraPadding;
 
         const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
@@ -7534,6 +7560,9 @@ async function makeFrame({ data: { type, content } }) {
             let text = currentHUDTxt;
             if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
               text = currentHUDTxt?.replaceAll("~", " ");
+              // Handle command separators: replace § with spaces for display
+              // but keep actual newlines as newlines
+              text = text?.replaceAll("§", " ");
             }
             
             // Create shadow text with appropriate shadow colors for each color segment
