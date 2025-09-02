@@ -8,7 +8,7 @@ if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
-  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice'
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv'
 ];
 
 // Extract only legitimate query parameters from URL, preserving kidlisp ? characters in path
@@ -343,6 +343,10 @@ if (durationParam) {
   }
 }
 
+// Check for tv parameter (disables touch/keyboard input for TV display mode)
+const tvParam = params.has("tv") || location.search.includes("tv");
+const tv = tvParam === true || tvParam === "true";
+
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
 
@@ -357,7 +361,7 @@ if (window.acVSCODE) {
 }
 
 // Pass the parameters directly without stripping them
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv }, debug);
 
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked;
 // console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked, "sessionStorage blocked:", sessionStorageBlocked);
