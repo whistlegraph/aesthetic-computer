@@ -3027,7 +3027,7 @@ const $paintApiUnwrapped = {
   noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
   // 🎯 Simplified KidLisp integration using global singleton instance
-  kidlisp: function kidlisp(x = 0, y = 0, width, height, source) {
+  kidlisp: function kidlisp(x = 0, y = 0, width, height, source, options = {}) {
     // Initialize global instance if needed
     if (!globalKidLispInstance) {
       initializeGlobalKidLisp($activePaintApi);
@@ -3038,6 +3038,9 @@ const $paintApiUnwrapped = {
     if (!height) height = $activePaintApi.screen.height;
     
     console.log(`� Simple kidlisp call: ${width}x${height} at (${x},${y})`);
+    
+    // Extract options
+    const { noCache = false } = options;
     
     try {
       // Create persistent painting key and implement accumulation
@@ -3107,23 +3110,140 @@ const $paintApiUnwrapped = {
       
       // Check if we need to reset (resolved source contains 'wipe')
       const shouldReset = resolvedSource.includes('wipe');
+      
+      // Check if source contains animation-related commands that need fresh execution
+      const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'contrast', 'fade'];
+      const hasTimingCommands = /\d+\.?\d*s\b/.test(resolvedSource); // Detect timing like "0.15s", "1s", etc.
+      const hasAnimationCommands = animationCommands.some(cmd => resolvedSource.includes(cmd));
+      const needsFreshExecution = noCache && (hasAnimationCommands || hasTimingCommands);
+      
       let painting;
       
-      // For frame-dependent commands, we want to accumulate but not cache the final result
-      if (shouldReset || !globalKidLispInstance.persistentPaintings.has(regionKey)) {
-        // Create fresh painting (first time or after wipe)
-        console.log(`� Creating fresh painting for key: ${regionKey.slice(0, 50)}...`);
+      // Create fresh painting if: reset needed, no cached version exists, or animation commands need updating
+      if (shouldReset || needsFreshExecution || !globalKidLispInstance.persistentPaintings.has(regionKey)) {
+        // Create fresh painting (first time, after wipe, or for animations)
+        const reason = shouldReset ? 'wipe command' : needsFreshExecution ? 'animation content' : 'first time';
+        console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
+        
+        // For animations, start with previous frame if available (unless wiping)
+        const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey) 
+          ? globalKidLispInstance.persistentPaintings.get(regionKey) 
+          : null;
+        
         painting = $activePaintApi.painting(width, height, (api) => {
+          // For animations, paste previous frame first to maintain transformations
+          if (previousPainting && needsFreshExecution && !shouldReset) {
+            console.log(`🎨 Pasting previous frame for animation continuity`);
+            api.paste(previousPainting);
+          }
+          
           globalKidLispInstance.setAPI(api);
+          
           // Add basic timing support for KidLisp commands
           if (!api.clock) {
             api.clock = { time: () => new Date() };
           }
+          // Add scroll and zoom support for animations
+          if (!api.scroll) {
+            api.scroll = (dx, dy) => {
+              console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
+            };
+          }
+          // Override zoom and scroll functions to implement actual effects in painting context
+          const originalZoom = api.zoom;
+          const originalScroll = api.scroll;
+          
+          api.zoom = (...args) => {
+            console.log(`🔍 Zoom called in painting context: args=${JSON.stringify(args)}`);
+            const factor = args[0] || 1;
+            
+            // Implement zoom by scaling the painting buffer
+            if (painting && painting.width && painting.height) {
+              console.log(`🔍 Applying zoom factor ${factor} to ${painting.width}x${painting.height} painting`);
+              const { width, height, pixels } = painting;
+              
+              // Create a copy of current pixels
+              const originalPixels = new Uint8ClampedArray(pixels);
+              
+              // Clear the painting
+              pixels.fill(0);
+              
+              // Scale and center the image
+              const scale = factor;
+              const offsetX = (width - width * scale) / 2;
+              const offsetY = (height - height * scale) / 2;
+              
+              for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                  const srcX = Math.floor((x - offsetX) / scale);
+                  const srcY = Math.floor((y - offsetY) / scale);
+                  
+                  if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+                    const srcIndex = (srcY * width + srcX) * 4;
+                    const dstIndex = (y * width + x) * 4;
+                    
+                    pixels[dstIndex] = originalPixels[srcIndex];
+                    pixels[dstIndex + 1] = originalPixels[srcIndex + 1];
+                    pixels[dstIndex + 2] = originalPixels[srcIndex + 2];
+                    pixels[dstIndex + 3] = originalPixels[srcIndex + 3];
+                  }
+                }
+              }
+              console.log(`🔍 Zoom applied successfully`);
+            } else {
+              console.log(`🔍 No painting buffer available for zoom`);
+              if (originalZoom && typeof originalZoom === 'function') {
+                return originalZoom(...args);
+              }
+            }
+          };
+          
+          api.scroll = (dx, dy) => {
+            console.log(`� Scroll called in painting context: dx=${dx}, dy=${dy}`);
+            
+            // Implement scroll by shifting pixels
+            if (painting && painting.width && painting.height) {
+              console.log(`📜 Applying scroll (${dx}, ${dy}) to ${painting.width}x${painting.height} painting`);
+              const { width, height, pixels } = painting;
+              
+              // Create a copy of current pixels
+              const originalPixels = new Uint8ClampedArray(pixels);
+              
+              // Clear the painting
+              pixels.fill(0);
+              
+              // Shift pixels by dx, dy
+              for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                  const srcX = x - Math.floor(dx);
+                  const srcY = y - Math.floor(dy);
+                  
+                  if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+                    const srcIndex = (srcY * width + srcX) * 4;
+                    const dstIndex = (y * width + x) * 4;
+                    
+                    pixels[dstIndex] = originalPixels[srcIndex];
+                    pixels[dstIndex + 1] = originalPixels[srcIndex + 1];
+                    pixels[dstIndex + 2] = originalPixels[srcIndex + 2];
+                    pixels[dstIndex + 3] = originalPixels[srcIndex + 3];
+                  }
+                }
+              }
+              console.log(`📜 Scroll applied successfully`);
+            } else {
+              console.log(`� No painting buffer available for scroll`);
+              if (originalScroll && typeof originalScroll === 'function') {
+                return originalScroll(dx, dy);
+              }
+            }
+          };
           // Add randomization support for ink() and other commands
           if (!api.num) {
             api.num = $activePaintApi.num || { 
               random: () => Math.random(),
-              randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+              randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+              rainbow: $activePaintApi.num?.rainbow || (() => [255, 0, 0]), // Add rainbow function
+              zebra: $activePaintApi.num?.zebra || (() => [0, 0, 0]) // Add zebra function
             };
           }
           // Add color support for proper ink randomization
@@ -3138,11 +3258,27 @@ const $paintApiUnwrapped = {
           }
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
+          
+          // Save original state before forcing immediate execution mode
+          const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
+          const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
+          const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
+          
+          // Force immediate execution mode for simplified kidlisp() calls
+          globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
+          globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
+          globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          
           executeLispCode(resolvedSource, api, false); // false = not accumulating, fresh painting
+          
+          // Restore original state to avoid interfering with other KidLisp operations
+          globalKidLispInstance.inEmbedPhase = originalInEmbedPhase;
+          globalKidLispInstance.isNestedInstance = originalIsNestedInstance;
+          globalKidLispInstance.embeddedLayers = originalEmbeddedLayers;
+          
           globalKidLispInstance.setAPI($activePaintApi);
         });
-        // Always cache the painting for accumulation
-        // Frame-dependent commands will still accumulate because they go through this path
+        // Always cache the painting for next frame continuity (even for animations)
         globalKidLispInstance.persistentPaintings.set(regionKey, painting);
       } else {
         // Build on existing painting (accumulate effects)
@@ -3154,6 +3290,7 @@ const $paintApiUnwrapped = {
           api.paste(existingPainting);
           // Then add new effects on top
           globalKidLispInstance.setAPI(api);
+          
           // Add basic timing support for KidLisp commands
           if (!api.clock) {
             api.clock = { time: () => new Date() };
@@ -3162,7 +3299,9 @@ const $paintApiUnwrapped = {
           if (!api.num) {
             api.num = $activePaintApi.num || { 
               random: () => Math.random(),
-              randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+              randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+              rainbow: $activePaintApi.num?.rainbow || (() => [255, 0, 0]), // Add rainbow function
+              zebra: $activePaintApi.num?.zebra || (() => [0, 0, 0]) // Add zebra function
             };
           }
           // Add color support for proper ink randomization
@@ -3177,12 +3316,30 @@ const $paintApiUnwrapped = {
           }
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
+          
+          // Save original state before forcing immediate execution mode
+          const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
+          const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
+          const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
+          
+          // Force immediate execution mode for simplified kidlisp() calls
+          globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
+          globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
+          globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          
           executeLispCode(resolvedSource, api, true); // true = accumulating on existing painting
+          
+          // Restore original state to avoid interfering with other KidLisp operations
+          globalKidLispInstance.inEmbedPhase = originalInEmbedPhase;
+          globalKidLispInstance.isNestedInstance = originalIsNestedInstance;
+          globalKidLispInstance.embeddedLayers = originalEmbeddedLayers;
+          
           globalKidLispInstance.setAPI($activePaintApi);
         });
-        // Always update the cache with the new accumulated state
-        // This allows frame-dependent commands to accumulate while still running each frame
-        globalKidLispInstance.persistentPaintings.set(regionKey, painting);
+        // Update the cache with the new accumulated state (unless noCache is true or animation content)
+        if (!noCache || !needsFreshExecution) {
+          globalKidLispInstance.persistentPaintings.set(regionKey, painting);
+        }
       }
       
       // Paste the painting to the specified location
@@ -3232,6 +3389,18 @@ function executeLispCode(source, api, isAccumulating = false) {
       
       // Execute the parsed AST using the main evaluate method
       console.log(`🔍 Executing AST using main evaluate method...`);
+      console.log(`🔍 AST contains:`, globalKidLispInstance.ast.map(expr => Array.isArray(expr) ? expr[0] : expr));
+      
+      // Set up proper timing environment by ensuring clock and frameCount are available
+      if (!api.clock) {
+        api.clock = { time: () => new Date() };
+      }
+      
+      // Increment frame count for timing expressions
+      if (typeof globalKidLispInstance.frameCount !== 'number') {
+        globalKidLispInstance.frameCount = 0;
+      }
+      globalKidLispInstance.frameCount++;
       
       // Normal KidLisp evaluation (dollar codes already resolved)
       const result = globalKidLispInstance.evaluate(globalKidLispInstance.ast, api, globalKidLispInstance.localEnv);

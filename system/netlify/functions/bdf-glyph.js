@@ -16,8 +16,11 @@ import {
 import { shell } from "../../backend/shell.mjs";
 
 const gunzip = promisify(zlib.gunzip);
-  const dev = process.env.NETLIFY_DEV || process.env.NODE_ENV === 'development' || true; // Force dev mode for debugging
-  shell.log(`🔧 Development mode: ${dev}, NETLIFY_DEV env: ${process.env.NETLIFY_DEV}`);// S3 client for assets storage (production only)
+
+const dev = process.env.NETLIFY_DEV || process.env.NODE_ENV === 'development';
+shell.log(`🔧 Development mode: ${dev}, NETLIFY_DEV env: ${process.env.NETLIFY_DEV}`);
+
+// S3 client for assets storage (production only)
 const s3Assets = dev
   ? null
   : new S3Client({
