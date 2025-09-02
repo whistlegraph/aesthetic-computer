@@ -1,5 +1,6 @@
 // $, 2025.8.29.15.30
 // A live feed of recent KidLisp cached codes.
+// Updated to use new $code shorthand for simplified preview execution.
 
 import { isKidlispSource, getSyntaxHighlightingColors, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 
@@ -31,15 +32,8 @@ let scale = 1;
 let codeEntries = [];
 let buttons = [];
 
-// Preview system for embedded KidLisp
+// Preview system for embedded KidLisp - simplified with $code shorthand
 let selectedEntry = null;
-let lastExecutedCode = null; // Track what was last executed to avoid re-execution
-let previewBuffer = null;
-let previewSize = 120; // Size of the preview area
-let previewX, previewY; // Position of preview area
-let cachedSources = new Map(); // Store cached sources here
-let loadingStates = new Map(); // Track loading states to prevent retries
-let erroredCodes = new Set(); // Track codes that have errored to prevent repeated execution
 
 // Marquee scrolling state
 let marqueeOffsets = new Map(); // Track scroll offset for each entry
@@ -71,10 +65,6 @@ const { floor, min, abs, ceil, sin } = Math;
 function boot({ wipe, screen, colon, params, typeface, ui: { Button } }) {
   scale = parseInt(colon[0]) || 1;
   wipe(0);
-  
-  // Calculate preview position (top-right corner with margin)
-  previewX = screen.width - previewSize - 20;
-  previewY = 20;
   
   const limit = params[0] ? parseInt(params[0]) : 30;
   let query = `/api/store-kidlisp?recent=true&limit=${limit}`;
@@ -113,7 +103,7 @@ function boot({ wipe, screen, colon, params, typeface, ui: { Button } }) {
             entry.button = new Button(
               LEFT_MARGIN,
               scroll + TOP_MARGIN + ROW_HEIGHT * index,
-              Math.max(screen.width - previewSize - 60, w), // Leave space for preview area
+              Math.max(screen.width - 60, w), // Leave space for margin
               ROW_HEIGHT - 2 // Leave small gap between rows
             );
           }
@@ -372,41 +362,20 @@ function renderPreviewArea(screen, ink, splitY, api, Button, kidlisp) {
   // Draw preview background
   ink([16, 16, 24]).box(0, 0, screen.width, previewHeight);
   
-  // Always render the KidLisp area to show persistent buffer, but only execute when selection changes
-  if (selectedEntry && selectedEntry.preview && kidlisp) {
-    console.log(`🟦 EVERY FRAME: Rendering area for ${selectedEntry.code}`);
-    
-    // Only execute if this is a different code than last time
-    if (lastExecutedCode !== selectedEntry.code) {
-      console.log(`🎨 NEW EXECUTION: ${selectedEntry.code} (first time or changed)`);
-      console.log(`📝 Source: ${selectedEntry.preview}`);
-      console.log(`🔧 Buffer key will be: 4_4_${screen.width - 8}_${previewHeight - 8}`);
-      lastExecutedCode = selectedEntry.code;
-    } else {
-      console.log(`♻️  CACHE HIT: Reusing for ${selectedEntry.code}`);
-    }
-    
+  // Use simplified KidLisp execution with $code shorthand
+  if (selectedEntry && kidlisp) {
     try {
-      // Always call kidlisp to render the persistent buffer
-      // Test with explicit background commands for codes that don't have them
-      let codeToExecute = selectedEntry.preview;
-      
-      // Add explicit background for codes that don't have wipe commands
-      if (!selectedEntry.preview.toLowerCase().includes('wipe')) {
-        codeToExecute = `wipe gray, ${selectedEntry.preview}`;
-        console.log(`🎨 Adding default background to: ${selectedEntry.code}`);
-      }
-      
+      // Use the new $code shorthand with noCache option for animations
       kidlisp(
-        4,              // x
-        4,              // y  
-        screen.width - 8,  // width
-        previewHeight - 8, // height
-        codeToExecute
+        4,                    // x
+        4,                    // y  
+        screen.width - 8,     // width
+        previewHeight - 8,    // height
+        `$${selectedEntry.code}`, // Use dollar sign shortcut
+        { noCache: true }     // Disable caching to allow animations
       );
-      console.log(`✅ KidLisp call completed for ${selectedEntry.code} with code: ${codeToExecute}`);
     } catch (error) {
-      console.warn(`❌ KidLisp execution error for ${selectedEntry.code}:`, error);
+      console.warn(`❌ KidLisp execution error for $${selectedEntry.code}:`, error);
       // Fallback to showing error message
       ink("red").write("Execution Error", { 
         x: 4, 

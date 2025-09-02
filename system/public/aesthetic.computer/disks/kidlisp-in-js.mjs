@@ -5,7 +5,7 @@ function paint({ kidlisp, wipe, screen }) {
   wipe("gray");
   const hw = Math.floor(screen.width / 2);
   const h = screen.height;
-  kidlisp(0, 0, hw, h, "(wipe red) (ink blue) (repeat 10 line) (blur 2) (zoom 2)"); // Left half: Blue backdrop using inline KidLisp
-  kidlisp(hw, 0, hw, h, "(green) (ink) (repeat 30 line) (blur 1)"); // Left half: Blue backdrop using inline KidLisp
-  // kidlisp(hw, 0, hw, h, "$bop"); // Right half: Test $code shorthand 
+  // kidlisp(0, 0, hw, h, "(wipe red) (ink blue) (repeat 10 line) (blur 2) (zoom 2)"); // Left half: Blue backdrop using inline KidLisp
+  //kidlisp(hw, 0, hw, h, "(green) (ink) (repeat 30 line) (blur 1)"); // Left half: Blue backdrop using inline KidLisp
+  kidlisp(hw, 0, hw, h, "$air", { noCache: true }); // Right half: Test $code shorthand with animation support
 }

@@ -3016,7 +3016,7 @@ class KidLisp {
         api.shape({ points, filled, thickness });
       },
       scroll: (api, args = []) => {
-        // Debug logging removed for performance
+        console.log(`📜 Scroll function called with args:`, args);
         
         // Handle different scroll argument formats
         let dx = 0, dy = 0;
@@ -3161,11 +3161,17 @@ class KidLisp {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
+        console.log(`🎯 Zoom function called with args:`, args);
+        console.log(`🎯 Embedded layers length:`, this.embeddedLayers?.length);
+        console.log(`🎯 In embed phase:`, this.inEmbedPhase);
+        
         // Defer zoom execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
+          console.log(`⏸️ Deferring zoom execution due to embedded layers`);
           this.postEmbedCommands.push({
             name: 'zoom',
             func: () => {
+              console.log(`⏰ Executing deferred zoom with args:`, args);
               api.zoom(...args);
             },
             args
@@ -3174,34 +3180,11 @@ class KidLisp {
         }
         
         // Execute zoom immediately
+        console.log(`🚀 Executing zoom immediately with args:`, args);
         api.zoom(...args);
       },
       blur: (api, args = []) => {
-        // console.log("🌀 Blur called with args:", args);
-        // console.log("🌀 Blur context:", {
-        //   embeddedLayersCount: this.embeddedLayers?.length || 0,
-        //   inEmbedPhase: this.inEmbedPhase,
-        //   isNestedInstance: this.isNestedInstance
-        // });
-        
-        // Check if we should defer this command to execute after embedded layers are rendered
-        // BUT: If we're inside a nested embedded layer, execute immediately to maintain immediate mode
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
-          console.log("🌀 DEFERRING blur command");
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'blur',
-            func: () => {
-              console.log("🌀 EXECUTING DEFERRED blur command");
-              api.blur(...args);
-            },
-            args: args
-          });
-          return;
-        }
-        
-        // console.log("🌀 EXECUTING blur command immediately");
-        // Execute blur immediately
+        // Execute blur immediately on the current buffer
         api.blur(...args);
       },
       contrast: (api, args = []) => {
@@ -4746,9 +4729,13 @@ class KidLisp {
     // If not a cache code, proceed with normal resolution
     if (!result) {
       // Fast lookup order: local -> env -> global -> globalDef -> api
+      // SPECIAL CASE: Force blur to always use global environment for consistent behavior
+      if (head === 'blur' && existing(this.getGlobalEnv()[head])) {
+        result = { type: "global", value: this.getGlobalEnv()[head] };
+      }
       // SPECIAL CASE: In embedded layers, prioritize embedded API for certain functions
-      if (this.isNestedInstance && api && typeof api[head] === "function" && 
-          (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'blur' || 
+      else if (this.isNestedInstance && api && typeof api[head] === "function" && 
+          (head === 'scroll' || head === 'spin' || head === 'zoom' || 
            head === 'contrast' || head === 'shear' || head === 'brightness' || head === 'line')) {
         result = { type: "api", value: api[head] };
       } else if (existing(this.localEnv[head])) {
@@ -5337,6 +5324,14 @@ class KidLisp {
         // Use optimized function resolution
         const resolved = this.resolveFunction(head, api, env);
 
+        // Debug logging for zoom specifically
+        if (head === "zoom") {
+          console.log("🎯 About to resolve zoom function");
+          console.log("🎯 Head after processing:", head);
+          console.log("🎯 Args:", args);
+          console.log("🎯 Resolved result:", resolved);
+        }
+
         // console.log(`🔍 Function resolution for "${head}":`, resolved?.type, typeof resolved?.value);
         if (head === "-1" || head === "1") {
           console.log(`🚨 CRITICAL: Trying to resolve number "${head}" as function!`);
@@ -5345,6 +5340,16 @@ class KidLisp {
 
         if (resolved) {
           const { type, value } = resolved;
+          
+          // Debug logging for zoom function specifically
+          if (head === "zoom") {
+            console.log("� Zoom function resolved:", { type, valueType: typeof value });
+          }
+          
+          // Debug logging for scroll function specifically
+          if (head === "scroll") {
+            console.log("📜 Scroll function resolved:", { type, valueType: typeof value });
+          }
 
           switch (type) {
             case "local":
@@ -5425,6 +5430,10 @@ class KidLisp {
                 if (splitHead[1]) {
                   result = getNestedValue(value, item[0])(api, processedArgs);
                 } else {
+                  // Debug logging for zoom execution
+                  if (head === "zoom") {
+                    console.log("🚀 Executing global zoom function with args:", processedArgs);
+                  }
                   result = value(api, processedArgs, env, colon);
                   if (result?.iterable) {
                     result = this.iterate(result, api, args, env);
@@ -5459,6 +5468,19 @@ class KidLisp {
                   ? this.fastEval(arg, api, this.localEnv)
                   : arg,
               );
+              
+              // Debug logging for zoom API execution
+              if (head === "zoom") {
+                console.log("🚀 Executing API zoom function with args:", apiArgs);
+                console.log("🚀 API zoom function:", typeof value, value.toString().substring(0, 100));
+              }
+              
+              // Debug logging for scroll API execution  
+              if (head === "scroll") {
+                console.log("📜 Executing API scroll function with args:", apiArgs);
+                console.log("📜 API scroll function:", typeof value, value.toString().substring(0, 100));
+              }
+              
               result = value(...apiArgs);
               break;
 
@@ -6893,6 +6915,13 @@ class KidLisp {
     
     // Check if we already have a buffer for this layer (for persistence)
     let embeddedBuffer;
+    
+    // Ensure embeddedLayers is initialized
+    if (!this.embeddedLayers) {
+      console.log("🚨 embeddedLayers was null, reinitializing to empty array");
+      this.embeddedLayers = [];
+    }
+    
     const persistentLayer = this.embeddedLayers.find(layer => layer.cacheId === layerKey);
     if (persistentLayer && persistentLayer.buffer) {
       // Check if the source code has changed
@@ -6985,6 +7014,12 @@ class KidLisp {
       } : null
     };
 
+    // Ensure embeddedLayers is initialized before pushing
+    if (!this.embeddedLayers) {
+      console.log("🚨 embeddedLayers was null during push, reinitializing to empty array");
+      this.embeddedLayers = [];
+    }
+    
     this.embeddedLayers.push(embeddedLayer);
     this.embeddedLayerCache.set(layerKey, embeddedLayer);
 
@@ -6997,11 +7032,13 @@ class KidLisp {
   // Clear embedded layer cache (called on reload/initialization)
   clearEmbeddedLayerCache() {
     // 🔄 BUFFER POOLING: Return buffers to pool before clearing
-    this.embeddedLayers.forEach(layer => {
-      if (layer && layer.buffer) {
-        this.returnBufferToPool(layer.buffer, layer.width, layer.height);
-      }
-    });
+    if (this.embeddedLayers) {
+      this.embeddedLayers.forEach(layer => {
+        if (layer && layer.buffer) {
+          this.returnBufferToPool(layer.buffer, layer.width, layer.height);
+        }
+      });
+    }
     
     // Clear all caches
     this.embeddedLayers = [];
@@ -7351,11 +7388,13 @@ class KidLisp {
       const timeSinceLastResize = performance.now() - (this.lastResizeTime || 0);
       if (timeSinceLastResize < 100) { // Within 100ms of a resize
         // Just re-paste existing layers without re-evaluation for performance
-        this.embeddedLayers.forEach(embeddedLayer => {
-          if (embeddedLayer && embeddedLayer.buffer && api.paste) {
-            this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
-          }
-        });
+        if (this.embeddedLayers) {
+          this.embeddedLayers.forEach(embeddedLayer => {
+            if (embeddedLayer && embeddedLayer.buffer && api.paste) {
+              this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+            }
+          });
+        }
         return;
       }
     }
@@ -7382,8 +7421,9 @@ class KidLisp {
     const frameValue = api.frame || this.frameCount || 0;
 
     // Update and composite each embedded layer (render in correct order: 0, 1, 2...)
-    this.embeddedLayers.forEach((embeddedLayer, index) => {
-      if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
+    if (this.embeddedLayers) {
+      this.embeddedLayers.forEach((embeddedLayer, index) => {
+        if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
         
         // Check timing context visibility (fast path)
         if (embeddedLayer.timingContext) {
@@ -7410,6 +7450,7 @@ class KidLisp {
         }
       }
     });
+    }
   }
 
   // 🚀 OPTIMIZED: Determine if layer needs evaluation (dirty checking)
@@ -7707,7 +7748,7 @@ class KidLisp {
     console.log(`⏰ TIMING EVALUATION: Last execution=${lastExecution}, diff=${diff}, interval=${interval}`);
     
     // Check if enough time has passed for this timing interval
-    if (diff >= interval - 0.005) { // Small tolerance for timing precision
+    if (diff >= interval) { // No tolerance - exact timing
       this.lastSecondExecutions[timingKey] = currentTime;
       console.log(`⏰ TIMING EVALUATION: Time passed, updating and returning true`);
       return true;
@@ -7792,6 +7833,12 @@ class KidLisp {
       timingPattern: this.extractTimingPattern(source),
       isProgrammatic: true // Mark as programmatically created
     };
+    
+    // Ensure embeddedLayers is initialized before pushing
+    if (!this.embeddedLayers) {
+      console.log("🚨 embeddedLayers was null during programmatic push, reinitializing to empty array");
+      this.embeddedLayers = [];
+    }
     
     // Add to embedded layers array
     this.embeddedLayers.push(embeddedLayer);
