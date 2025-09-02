@@ -10,6 +10,155 @@ import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
+/* #region 🤖 LLM API SPECIFICATION
+   This section provides a structured specification for Large Language Models
+   to understand and generate valid KidLisp code for Aesthetic Computer pieces.
+   
+   ## KidLisp Language Overview
+   
+   KidLisp is a Lisp-based language for creating interactive visual art and animations.
+   It uses S-expressions (parenthesized lists) where the first element is typically
+   a function name followed by arguments.
+   
+   Basic syntax: (function-name arg1 arg2 arg3)
+   Comments: ; This is a comment
+   Multi-line: Expressions can span multiple lines
+   
+   ## Core Graphics Functions
+   
+   ### Screen Management
+   - `(wipe color)` - Clear entire screen with specified color
+   - `(resolution width height)` - Set canvas resolution
+   
+   ### Drawing Primitives  
+   - `(ink color)` - Set drawing color for subsequent operations
+   - `(ink r g b)` - Set RGB color (0-255 each)
+   - `(ink color alpha)` - Set color with transparency (0-255)
+   - `(line x1 y1 x2 y2)` - Draw line from point 1 to point 2
+   - `(box x y width height)` - Draw filled rectangle
+   - `(circle x y radius)` - Draw filled circle
+   - `(plot x y)` - Set single pixel at coordinates
+   
+   ### Color System
+   Colors can be specified as:
+   - Named colors: "red", "blue", "lime", "orange", "purple", etc.
+   - RGB values: (ink 255 0 0) for red
+   - With transparency: (ink "red" 128) for 50% transparent red
+   
+   ## Animation & Timing
+   
+   ### Timing Expressions
+   - `1s` - Execute after 1 second
+   - `2s...` - Execute every 2 seconds (repeating)
+   - `0.5s!` - Execute once after 0.5 seconds
+   
+   ### Dynamic Values
+   - `(wiggle amount)` - Random variation (±amount/2)
+   - `width` and `height` - Canvas dimensions
+   - Frame-based animation through re-evaluation
+   
+   ## Variables & Logic
+   
+   ### Variable Definition
+   - `(def name value)` - Define a variable
+   - `(def x 10)` - Set x to 10
+   - `(def color "red")` - Set color variable
+   
+   **Identifier Naming Rules:**
+   - Must start with letter (a-z, A-Z) or underscore (_)
+   - Can contain letters, digits (0-9), and underscores
+   - **Cannot contain dashes/hyphens (-)** - these are parsed as subtraction
+   - Examples: `myVar`, `line_width`, `color2` ✅
+   - Invalid: `my-var`, `line-width` ❌ (parsed as subtraction)
+   
+   ### Math Operations
+   - `(+ a b c)` - Addition (can take multiple arguments)
+   - `(- a b)` - Subtraction  
+   - `(* a b c)` - Multiplication
+   - `(/ a b)` - Division
+   
+   ### Function Definition
+   - `(later name param1 param2 body...)` - Define reusable function
+   - `(later cross x y (line (- x 10) (- y 10) (+ x 10) (+ y 10)))`
+   - Call with: `(cross 50 50)`
+   
+   ## Advanced Features
+   
+   ### One-time Execution
+   - `(once expression)` - Execute only once, not every frame
+   - Useful for setup code: `(once (wipe "black"))`
+   
+   ### Background Layers
+   - `(bake)` - Render current drawing to background layer
+   - `(once (bake))` - Bake background once for layered effects
+   
+   ### Embedded Code
+   - `($codeId)` - Execute cached code by ID
+   - `($codeId width height)` - Execute in custom buffer size
+   - `(embed $codeId x y width height alpha)` - Advanced embedding
+   
+   ## Example Patterns for LLMs
+   
+   ### Simple Drawing
+   ```kidlisp
+   (wipe "black")
+   (ink "red")  
+   (circle 50 50 30)
+   (ink "blue")
+   (box 100 100 50 50)
+   ```
+   
+   ### Animated Scene
+   ```kidlisp
+   (wipe "navy")
+   (ink "yellow")
+   (circle (+ 100 (wiggle 20)) (+ 100 (wiggle 20)) 10)
+   (ink "white" 100)
+   (box 0 (+ 150 (wiggle 5)) width 2)
+   ```
+   
+   ### Interactive Functions
+   ```kidlisp
+   (later star x y size
+     (ink "yellow")
+     (circle x y size)
+     (ink "white")
+     (circle x y (/ size 2)))
+   
+   (star 100 100 20)
+   (star 200 150 15)
+   ```
+   
+   ### Timed Animations  
+   ```kidlisp
+   (once (wipe "black"))
+   1s (ink "red") (circle 100 100 50)
+   2s (ink "blue") (box 150 150 40 40)
+   3s... (ink (wiggle 255) (wiggle 255) (wiggle 255)) (plot (wiggle width) (wiggle height))
+   ```
+   
+   ## Best Practices for LLM Generation
+   
+   1. **Start with background**: Always begin with `(wipe color)` to set background
+   2. **Set colors before drawing**: Use `(ink color)` before drawing primitives
+   3. **Use meaningful coordinates**: Consider canvas size (typically 256x256 default)
+   4. **Leverage animation**: Use `wiggle` for organic movement
+   5. **Layer effects**: Use `(once (bake))` for background elements
+   6. **Readable spacing**: Format code with proper indentation for readability
+   7. **Combine timing**: Mix immediate drawing with timed animations
+   8. **Reuse patterns**: Define functions with `later` for repeated elements
+   
+   ## Error Patterns to Avoid
+   
+   - Don't forget parentheses around expressions
+   - Don't use undefined color names (stick to CSS colors or RGB values)
+   - Don't reference undefined variables before `def`
+   - Don't mix coordinate systems (stay consistent with canvas bounds)
+   - Don't create infinite loops without timing delays
+   - **Don't use dashes in identifiers** - use underscores instead (mouth_y not mouth-y)
+   
+#endregion */
+
 // Global cache registry for storing cached codes by source hash
 const cacheRegistry = new Map();
 
@@ -2742,7 +2891,9 @@ class KidLisp {
         }
       },
       wiggle: (api, args = []) => {
-        api.wiggle(...args);
+        // (wiggle amount) - returns random variation ±amount/2
+        const amount = args.length > 0 ? args[0] : 10;
+        return (Math.random() - 0.5) * amount;
       },
       box: (api, args = []) => {
         // Handle non-array args
@@ -2946,21 +3097,21 @@ class KidLisp {
           }
         }
         
-        console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
+        //console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
         
         // Only defer scroll commands from main code, not from embedded layers
         // Execute immediately if we're a nested instance or in embed phase
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
-          console.log(`⏳ SCROLL deferring command until after embedded layers`);
+          //console.log(`⏳ SCROLL deferring command until after embedded layers`);
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'scroll',
             func: () => {
-              console.log(`🖱️ SCROLL executing deferred command: dx=${dx}, dy=${dy}`);
+              //console.log(`🖱️ SCROLL executing deferred command: dx=${dx}, dy=${dy}`);
               if (typeof api.scroll === 'function') {
                 api.scroll(dx, dy);
               } else {
-                console.log(`⚠️ SCROLL deferred execution failed: api.scroll not available`);
+                //console.log(`⚠️ SCROLL deferred execution failed: api.scroll not available`);
               }
             },
             args: [dx, dy]
@@ -2968,19 +3119,19 @@ class KidLisp {
           return;
         }
         
-        console.log(`🖱️ SCROLL executing immediately: dx=${dx}, dy=${dy}`);
+        //console.log(`🖱️ SCROLL executing immediately: dx=${dx}, dy=${dy}`);
         if (typeof api.scroll === 'function') {
           api.scroll(dx, dy);
         } else {
           // For embedded layers, scroll might not be available on the API object
           // In this case, we can skip the scroll operation silently
-          console.log(`⚠️ SCROLL immediate execution failed: api.scroll not available`);
+          //console.log(`⚠️ SCROLL immediate execution failed: api.scroll not available`);
         }
       },
       spin: (api, args = []) => {
         // Defer spin execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          console.log("🎡 Deferring spin command until after embedded layers");
+          //console.log("🎡 Deferring spin command until after embedded layers");
           this.postEmbedCommands.push({
             name: 'spin',
             func: () => api.spin(...args),
@@ -3012,7 +3163,6 @@ class KidLisp {
       zoom: (api, args = []) => {
         // Defer zoom execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'zoom',
             func: () => {
