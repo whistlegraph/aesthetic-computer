@@ -240,7 +240,8 @@ function paint({
   paintCount,
   hud: { label, currentLabel },
   store,
-  kidlisp
+  kidlisp,
+  box
 }) {
   frameCount = Number(paintCount);
   
@@ -254,24 +255,40 @@ function paint({
   // First: Clear to dark gray background
   wipe([64, 64, 64]); // Dark gray RGB
 
-  // Then: Execute KidLisp code as background (but not fullscreen to avoid wiping UI)
+  // Then: Execute KidLisp code in bottom right corner as preview
   const fullCode = displayedCode + characterBuffer;
   if (fullCode && fullCode.trim()) {
-    // Execute kidlisp in a slightly smaller area to leave room for UI
-    const uiHeight = 40; // Reserve space for UI at top
-    kidlisp(0, uiHeight, screen.width, screen.height - uiHeight, fullCode);
+    // Small preview window in bottom right
+    const previewSize = 120;
+    const margin = 10;
+    const previewX = screen.width - previewSize - margin;
+    const previewY = screen.height - previewSize - margin;
+    
+    // Draw border around the preview window using box API
+    ink("white");
+    // Top border
+    box(previewX - 1, previewY - 1, previewSize + 2, 1);
+    // Bottom border  
+    box(previewX - 1, previewY + previewSize, previewSize + 2, 1);
+    // Left border
+    box(previewX - 1, previewY, 1, previewSize);
+    // Right border
+    box(previewX + previewSize, previewY, 1, previewSize);
+    
+    kidlisp(previewX, previewY, previewSize, previewSize, fullCode);
   }
 
   // Finally: Always show the prompt with highlighting and shaking animation on top
+  let promptBounds = { bottomY: 6 };
   if (originalParams && originalParams.length > 0) {
     // Hide HUD label and show our custom prompt
     label();
-    renderPromptWithHighlighting(screen, ink, write, originalParams, currentParamIndex, typeface);
+    promptBounds = renderPromptWithHighlighting(screen, ink, write, originalParams, currentParamIndex, typeface);
   }
 
-  // And: Show code overlay during generation
+  // And: Show code overlay during generation (positioned below prompt)
   if (shouldShowCode()) {
-    displayCodeOverlay(screen, ink, write, typeface, label);
+    displayCodeOverlay(screen, ink, write, typeface, label, promptBounds.bottomY);
   }
 
   // Show progress bar during generation
@@ -304,11 +321,10 @@ function shouldShowCode() {
          (fullCode && fullCode.startsWith("ERROR"));
 }
 
-function displayCodeOverlay(screen, ink, write, typeface, label) {
+function displayCodeOverlay(screen, ink, write, typeface, label, codeStartY = 15) {
   if (!displayedCode && !characterBuffer.length) return;
   
   // Display the KidLisp code with proper line-by-line rendering
-  const codeStartY = 15; // Moved up higher
   const lineHeight = 12; // MatrixChunky8 line height
   
   if (displayedCode && displayedCode.trim()) {
@@ -409,12 +425,13 @@ function displayProgressBar(screen, ink, write, typeface) {
 }
 
 function renderPromptWithHighlighting(screen, ink, write, params, currentIndex, typeface) {
-  if (!params || !params.length) return;
+  if (!params || !params.length) return { bottomY: 6 };
   
   const words = ["make", ...params];
   const startX = 6;
   let startY = 6;
   let currentX = startX;
+  let maxY = startY;
   
   // Calculate current character based on total characters processed (one letter per chunk)
   const promptText = params.join(' '); // Only the user's prompt, not "make"
@@ -475,6 +492,9 @@ function renderPromptWithHighlighting(screen, ink, write, params, currentIndex, 
       write(char, { x: currentX + shakeX, y: startY + shakeY }, undefined, undefined, false);
       currentX += typeface.blockWidth; // Move to next character position
       
+      // Track the maximum Y position
+      maxY = Math.max(maxY, startY + typeface.blockHeight);
+      
       // Only increment prompt char index for non-"make" words
       if (!isMakeWord) {
         promptCharIndex++;
@@ -491,8 +511,12 @@ function renderPromptWithHighlighting(screen, ink, write, params, currentIndex, 
     if (currentX > screen.width - 50) {
       currentX = startX;
       startY += typeface.blockHeight; // Use typeface line height
+      maxY = Math.max(maxY, startY + typeface.blockHeight);
     }
   });
+  
+  // Return the bounding box info
+  return { bottomY: maxY + 4 }; // Add small margin
 }
 
 function checkForParamMatches(code) {
