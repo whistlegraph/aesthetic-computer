@@ -1,24 +1,11 @@
 // kidlisp-in-js.mjs, 24.08.31.17.35
-// Simple split-screen KidLisp showcase
+// Simple split-screen KidLisp showcase with $code shorthand support
 
 function paint({ kidlisp, wipe, screen }) {
-  wipe("black");
-
-  // Split screen in half
+  wipe("gray");
   const hw = Math.floor(screen.width / 2);
   const h = screen.height;
-
-  // Left half: Blue backdrop with white lines
-  kidlisp(0, 0, hw, h, "(once (wipe blue))");
-
-  // Right half: Animated color cycling with timer
-  kidlisp(
-    hw,
-    0,
-    hw,
-    h,
-    "(0.5s... (wipe red) (wipe blue)) (ink rainbow) (line 0 0 100 100) (spin 1)",
-  );
+  kidlisp(0, 0, hw, h, "(wipe red) (ink blue) (repeat 10 line) (blur 2) (zoom 2)"); // Left half: Blue backdrop using inline KidLisp
+  kidlisp(hw, 0, hw, h, "(green) (ink) (repeat 30 line) (blur 1)"); // Left half: Blue backdrop using inline KidLisp
+  // kidlisp(hw, 0, hw, h, "$bop"); // Right half: Test $code shorthand 
 }
-
-export { paint };

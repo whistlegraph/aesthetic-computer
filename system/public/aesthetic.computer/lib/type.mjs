@@ -546,6 +546,7 @@ class TextInput {
   #manualDeactivationTime = 0;
   #manuallyActivated = false;
   #manualActivationTime = 0;
+  #preventDeactivation = false; // Flag to prevent unwanted deactivation during command execution
 
 
   typeface;
@@ -1471,6 +1472,11 @@ class TextInput {
         return;
       }
       
+      // Don't deactivate if we're preventing deactivation (during command execution)
+      if (this.#preventDeactivation || this._preventDeactivation) {
+        return;
+      }
+      
       // Only deactivate via keyboard:close if we haven't recently manually activated via touch
       const timeSinceManualDeactivation = Date.now() - this.#manualDeactivationTime;
       const timeSinceManualActivation = Date.now() - this.#manualActivationTime;
@@ -1571,6 +1577,11 @@ class TextInput {
 
     // Leave the prompt input mode.
     function deactivate(ti) {
+      // Prevent deactivation if the flag is set
+      if (ti.#preventDeactivation || ti._preventDeactivation) {
+        return;
+      }
+      
       if (ti.canType === false) {
         // Assume we are already deactivated.
         // (This redundancy check is because this behavior is tied to
