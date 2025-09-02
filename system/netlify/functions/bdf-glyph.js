@@ -16,9 +16,8 @@ import {
 import { shell } from "../../backend/shell.mjs";
 
 const gunzip = promisify(zlib.gunzip);
-const dev = process.env.NETLIFY_DEV;
-
-// S3 client for assets storage (production only)
+  const dev = process.env.NETLIFY_DEV || process.env.NODE_ENV === 'development' || true; // Force dev mode for debugging
+  shell.log(`🔧 Development mode: ${dev}, NETLIFY_DEV env: ${process.env.NETLIFY_DEV}`);// S3 client for assets storage (production only)
 const s3Assets = dev
   ? null
   : new S3Client({
@@ -339,6 +338,10 @@ export const handler = async (event) => {
   const charParam = event.queryStringParameters.char;
   let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
   
+  // Add extensive logging for debugging
+  shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, font=${fontParam}`);
+  shell.log(`🔍 Query params:`, event.queryStringParameters);
+  
   // Normalize font name for unifont
   if (fontParam === "unifont") {
     fontParam = "unifont-16.0.03";
@@ -409,6 +412,8 @@ export const handler = async (event) => {
     ? process.env.URL || "http://localhost:8888"
     : "https://assets.aesthetic.computer";
 
+  shell.log(`🌐 Assets base URL: ${assetsBaseUrl} (dev mode: ${dev})`);
+
   // Determine BDF file extension and path based on font
   let bdfFileName;
   if (fontParam === "unifont-16.0.03" || fontParam === "unifont") {
@@ -421,7 +426,12 @@ export const handler = async (event) => {
     ? `${assetsBaseUrl}/assets/type/${bdfFileName}`
     : `${assetsBaseUrl}/type/${bdfFileName}`;
 
-  shell.log(`Attempting to fetch BDF from: ${bdfFileUrl}`);
+  // TEMP DEBUG: Force local file for MatrixChunky8
+  const actualBdfUrl = fontParam === "MatrixChunky8" 
+    ? "https://localhost:8888/assets/type/MatrixChunky8.bdf"
+    : bdfFileUrl;
+
+  shell.log(`Attempting to fetch BDF from: ${actualBdfUrl}`);
 
   try {
     let fetchOptions = {};
@@ -435,7 +445,7 @@ export const handler = async (event) => {
       );
     }
 
-    const response = await fetch(bdfFileUrl, fetchOptions); // Pass fetchOptions
+    const response = await fetch(actualBdfUrl, fetchOptions); // Pass fetchOptions
     if (!response.ok) {
       throw new Error(
         `Failed to fetch BDF file: ${response.statusText} from ${bdfFileUrl}`,
@@ -496,6 +506,10 @@ export const handler = async (event) => {
         };
         if (currentCharCode === charCodeToFind) {
           shell.log(`Found DWIDTH for target character ${charCodeToFind}: ${dwidth.x}`);
+        }
+        // Extra logging for character 40 (parenthesis)
+        if (currentCharCode === 40) {
+          shell.log(`🔤 Character '(' (code 40) DWIDTH: x=${dwidth.x}, y=${dwidth.y} | advance will be: ${dwidth.x}`);
         }
       } else if (inChar && line.startsWith("BBX")) {
         const parts = line.split(" ");
@@ -589,6 +603,16 @@ export const handler = async (event) => {
             }, // Font-level metrics
             commands: commands,
           };
+
+          // Extra logging for character 40 (parenthesis)
+          if (charCodeToFind === 40) {
+            shell.log(`🚀 Final glyph data for '(' (code 40):`, {
+              advance: glyphData.advance,
+              dwidth: glyphData.dwidth,
+              resolution: glyphData.resolution,
+              bbx: glyphData.bbx
+            });
+          }
 
           // Log glyph as ASCII art using block characters
           logGlyphAsASCII(charToFind, charCodeToFind, glyphData, "Generated");
