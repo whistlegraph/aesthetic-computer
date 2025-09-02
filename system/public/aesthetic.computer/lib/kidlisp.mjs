@@ -7,7 +7,7 @@
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
-import { cssColors, rainbow, zebra, staticColorMap } from "./num.mjs";
+import { cssColors, rainbow, zebra, resetZebraCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
 // Global cache registry for storing cached codes by source hash
@@ -87,6 +87,12 @@ function setCachedCode(source, code) {
   (ink "orange" (wiggle 64))
   (box 8 32 (- width 20) (wiggle 32))
   (+ 1 2 3)
+
+  ; Compact one-liner syntax with commas:
+  ; "blue, ink rainbow, repeat 100 line" becomes "(blue) (ink rainbow) (repeat 100 line)"
+  blue, ink rainbow, repeat 100 line
+  wipe black, ink red, box 10 10 50 50
+  (wipe blue), ink yellow, circle 64 64 30  ; Mix with parentheses
 
   ; Multi-layer example with bake:
   (ink "blue")
@@ -323,7 +329,8 @@ const validIdentifierRegex = /^[$a-zA-Z_]\w*$/;
 function tokenize(input) {
   if (VERBOSE) console.log("🪙 Tokenizing:", input);
 
-  const regex = /\s*(;.*|[()]|"(?:[^"\\]|\\.)*"|[^\s()";]+)/g;
+  // Updated regex to treat commas as separate tokens for comma syntax support
+  const regex = /\s*(;.*|[(),]|"(?:[^"\\]|\\.)*"|[^\s()";,]+)/g;
   const tokens = [];
   let match;
   while ((match = regex.exec(input)) !== null) {
@@ -587,6 +594,12 @@ class KidLisp {
     // Bake functionality state
     this.bakedLayers = []; // Store baked pixel buffers
     this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
+  }
+
+  // 🎯 Set API context for this KidLisp instance
+  setAPI(api) {
+    this.api = api;
+    console.log("🎯 KidLisp API context updated");
   }
 
   // Reset all state for a fresh KidLisp instance
@@ -1405,6 +1418,16 @@ class KidLisp {
   // Parse and evaluate a lisp source module
   // into a running aesthetic computer piece.
   module(source, isLispFile = false) {
+    // Add recursion protection for $code substitutions
+    if (!this.codeSubstitutionDepth) this.codeSubstitutionDepth = 0;
+    if (this.codeSubstitutionDepth > 5) {
+      console.warn(`❌ KidLisp: Maximum $code substitution depth exceeded, preventing infinite recursion`);
+      return null;
+    }
+    
+    // Reset zebra cache at the start of each module execution
+    resetZebraCache();
+    
     // Check if source has changed - if so, reset once state
     const sourceChanged = this.currentSource !== source;
     this.currentSource = source;
@@ -1434,6 +1457,81 @@ class KidLisp {
     perfStart("parse");
     const parsed = this.parse(source);
     perfEnd("parse");
+
+    // 🔍 Special case: If the program consists of only a single $code atom or function call,
+    // fetch the cached source and substitute it instead of navigating
+    // BUT: Skip this in embedded contexts to prevent infinite recursion
+    console.log(`🔍 Checking for single $code - embedded context: ${this.isEmbeddedContext}, parsed length: ${parsed.length}`);
+    if (parsed.length === 1) {
+      console.log(`🔍 Single expression detected:`, parsed[0]);
+    }
+    
+    if (!this.isEmbeddedContext && 
+        parsed.length === 1 && 
+        ((typeof parsed[0] === 'string' && parsed[0].startsWith('$')) ||
+         (Array.isArray(parsed[0]) && parsed[0].length >= 1 && 
+          typeof parsed[0][0] === 'string' && parsed[0][0].startsWith('$')))) {
+      
+      const cacheCode = typeof parsed[0] === 'string' ? parsed[0] : parsed[0][0];
+      const cacheId = cacheCode.slice(1); // Remove $ prefix
+      
+      console.log(`🔗 KidLisp: Detected single $code (${cacheCode}), fetching cached source...`);
+      
+      // Validate cache ID pattern (relaxed for development - 3+ chars, alphanumeric)
+      if (/^[0-9A-Za-z]{3,12}$/.test(cacheId)) {
+        try {
+          // Attempt to fetch cached source synchronously from memory cache first
+          if (globalCodeCache.has(cacheId)) {
+            const cachedSource = globalCodeCache.get(cacheId);
+            console.log(`✅ Found cached source in memory for ${cacheCode}, substituting...`);
+            // Recursively parse the cached source with depth tracking
+            this.codeSubstitutionDepth++;
+            const result = this.module(cachedSource, isLispFile);
+            this.codeSubstitutionDepth--;
+            return result;
+          } else {
+            // If not in memory cache, start async fetch but return navigation for now
+            // This maintains backward compatibility while we implement full async support
+            // BUT: Skip network fetching in embedded contexts to prevent spam
+            if (this.isEmbeddedContext) {
+              console.warn(`⚠️ $code ${cacheCode} not in cache and embedded context - skipping network fetch`);
+              // For embedded contexts, just treat as regular code and continue
+            } else {
+              console.log(`⏳ Cache not in memory for ${cacheCode}, starting async fetch...`);
+              getCachedCodeMultiLevel(cacheId).then(cachedSource => {
+                if (cachedSource) {
+                  console.log(`✅ Loaded ${cacheCode} from network/storage, cached for future use`);
+                  // Cache for next time
+                  globalCodeCache.set(cacheId, cachedSource);
+                }
+              }).catch(error => {
+                console.warn(`❌ Failed to load cached source for ${cacheCode}:`, error);
+              });
+              
+              // For now, fall back to navigation behavior
+              if (typeof window !== 'undefined') {
+                window.location.href = `/${cacheCode}`;
+                return null; // Return null to indicate this piece should not run
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`❌ Error processing ${cacheCode}:`, error);
+          // Fall back to navigation behavior
+          if (typeof window !== 'undefined') {
+            window.location.href = `/${cacheCode}`;
+            return null;
+          }
+        }
+      } else {
+        console.warn(`❌ Invalid cache ID format: ${cacheId}`);
+        // Fall back to navigation behavior for invalid IDs
+        if (typeof window !== 'undefined') {
+          window.location.href = `/${cacheCode}`;
+          return null;
+        }
+      }
+    }
 
     perfStart("ast-copy");
     this.ast = JSON.parse(JSON.stringify(parsed)); // Deep copy of original source. 🙃
@@ -1529,9 +1627,11 @@ class KidLisp {
         
         // Cache kidlisp source for QR code generation instantly
         // This prevents caching work-in-progress code and saves server space
+        // BUT: Skip caching in embedded contexts to prevent interference
         const cacheDelayFrames = 0; // Instant caching
         
-        if (this.frameCount >= cacheDelayFrames && !this.cachedCode) {
+        if (!this.isEmbeddedContext && 
+            this.frameCount >= cacheDelayFrames && !this.cachedCode) {
           this.cacheKidlispSource(source, $);
         }
 
@@ -1569,7 +1669,9 @@ class KidLisp {
           this.localEnv = this.localEnvStore[this.localEnvLevel];
           
           const mainEvalStart = performance.now();
+          // console.log("🔍 About to evaluate AST for embedded KidLisp");
           /*const evaluated = */ this.evaluate(this.ast, $);
+          // console.log("✅ Finished evaluating AST for embedded KidLisp");
           const mainEvalTime = performance.now() - mainEvalStart;
           
           // Mark that we're now in the embed rendering phase
@@ -1681,6 +1783,30 @@ class KidLisp {
 
   // Main parsing method - handles both single expressions and multi-line input
   parse(input) {
+    // 🏃‍♂️ Handle comma-separated expressions for compact one-liners
+    // Transform "blue, ink rainbow, repeat 100 line" into "(blue) (ink rainbow) (repeat 100 line)"
+    if (input.includes(",") && !input.includes("\n")) {
+      // Only process comma syntax for single-line input to avoid conflicts with multi-line
+      const expressions = input.split(",").map(expr => expr.trim()).filter(expr => expr.length > 0);
+      
+      // Auto-wrap each comma-separated expression in parentheses if needed
+      const wrappedExpressions = expressions.map(expr => {
+        // Skip if already wrapped in parentheses or is just a single token
+        if (expr.startsWith("(") && expr.endsWith(")")) {
+          return expr;
+        }
+        // Check if it looks like a function call or command
+        if (/^[a-zA-Z_$]\w*/.test(expr)) {
+          return `(${expr})`;
+        }
+        // For other cases (like just numbers or strings), leave as-is
+        return expr;
+      });
+      
+      // Join them with spaces for normal parsing
+      input = wrappedExpressions.join(" ");
+    }
+
     // Handle multi-line kidlisp input by auto-wrapping function calls
     if (input.includes("\n")) {
       const lines = input
@@ -1733,7 +1859,10 @@ class KidLisp {
     }
 
     const tokens = tokenize(input);
+    console.log(`🔍 Tokenized:`, tokens);
     const parsed = readFromTokens(tokens);
+    console.log(`🔍 Parsed result:`, parsed);
+    this.ast = parsed; // 🎯 Actually assign the parsed result to this.ast!
     return parsed;
   }
 
@@ -2286,7 +2415,13 @@ class KidLisp {
         }
       },
       wipe: (api, args) => {
-        api.wipe?.(processArgStringTypes(args));
+        console.log("🧹 Wipe called with args:", args);
+        const processedArgs = processArgStringTypes(args);
+        console.log("🧹 Wipe processed args:", processedArgs);
+        console.log("🧹 Wipe api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
+        console.log("🧹 Wipe api.screen pixels length:", api.screen?.pixels?.length);
+        api.wipe?.(processedArgs);
+        console.log("🧹 Wipe completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
       },
       coat: (api, args, env) => {
         // Apply a translucent color layer over existing content
@@ -2413,15 +2548,40 @@ class KidLisp {
         }
       },
       ink: (api, args) => {
+        // console.log("🖋️ Ink called with args:", args);
         // Handle different ink invocation patterns
         // Ensure args is always an array
         if (!args || !Array.isArray(args)) {
           args = args ? [args] : [];
         }
         
+        const processedArgs = processArgStringTypes(args);
+        // console.log("🖋️ Ink processed args:", processedArgs);
+        // console.log("🖋️ Ink api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
+        
         if (args.length === 0) {
-          // Called with no arguments - return current ink state
-          return this.inkState;
+          // Called with no arguments - set a random ink color
+          const randomColor = [
+            Math.floor(Math.random() * 256),
+            Math.floor(Math.random() * 256), 
+            Math.floor(Math.random() * 256)
+          ];
+          this.inkState = randomColor;
+          this.inkStateSet = true;
+          
+          // Check if we should defer this command
+          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+            this.postEmbedCommands = this.postEmbedCommands || [];
+            this.postEmbedCommands.push({
+              name: 'ink',
+              func: api.ink,
+              args: randomColor
+            });
+            return;
+          }
+          
+          api.ink?.(...randomColor);
+          return;
         } else if (args.length === 1 && (args[0] === null || args[0] === undefined)) {
           // Called with null/undefined - clear the ink state  
           this.clearInkState();
@@ -2466,6 +2626,7 @@ class KidLisp {
           }
           
           api.ink?.(...processedArgs);
+          console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
       },
       // Fade string constructor - returns a fade string that can be used with ink
@@ -2546,8 +2707,16 @@ class KidLisp {
         console.error("❗ Invalid `delay`. Expected (delay seconds action).");
       },
       line: (api, args = []) => {
+        // console.log("📏 Line called with args:", args);
+        // console.log("📏 Line context:", {
+        //   embeddedLayersCount: this.embeddedLayers?.length || 0,
+        //   inEmbedPhase: this.inEmbedPhase,
+        //   screenSize: `${api.screen?.width || 'unknown'}x${api.screen?.height || 'unknown'}`
+        // });
+        
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          console.log("📏 DEFERRING line command");
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'line',
@@ -2558,7 +2727,7 @@ class KidLisp {
           return;
         }
         
-        
+        // console.log("📏 EXECUTING line command immediately");
         api.line(...args);
       },
       // Batch line drawing for performance
@@ -2858,21 +3027,30 @@ class KidLisp {
         api.zoom(...args);
       },
       blur: (api, args = []) => {
+        // console.log("🌀 Blur called with args:", args);
+        // console.log("🌀 Blur context:", {
+        //   embeddedLayersCount: this.embeddedLayers?.length || 0,
+        //   inEmbedPhase: this.inEmbedPhase,
+        //   isNestedInstance: this.isNestedInstance
+        // });
+        
         // Check if we should defer this command to execute after embedded layers are rendered
         // BUT: If we're inside a nested embedded layer, execute immediately to maintain immediate mode
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
+          console.log("🌀 DEFERRING blur command");
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'blur',
             func: () => {
+              console.log("🌀 EXECUTING DEFERRED blur command");
               api.blur(...args);
             },
             args: args
           });
-          // Blur command deferred debug log removed for performance
           return;
         }
         
+        // console.log("🌀 EXECUTING blur command immediately");
         // Execute blur immediately
         api.blur(...args);
       },
@@ -4330,6 +4508,21 @@ class KidLisp {
         return value; // Return the function result directly, even if it's undefined
       }
 
+      // 🎯 Handle dollar code strings like $bop
+      if (expr.startsWith("$") && expr.length > 1) {
+        const cacheId = expr.slice(1);
+        if (/^[a-zA-Z0-9]{1,12}$/.test(cacheId)) {
+          console.log(`🎯 Processing dollar code: ${expr} -> cacheId: ${cacheId}`);
+          const embedFunc = globalEnv.embed;
+          if (embedFunc) {
+            return embedFunc(api, [cacheId]);
+          } else {
+            console.warn("❌ embed function not found in global environment");
+            return expr;
+          }
+        }
+      }
+
       const result = value !== undefined ? value : expr;
       return result;
     }
@@ -4406,7 +4599,7 @@ class KidLisp {
       // SPECIAL CASE: In embedded layers, prioritize embedded API for certain functions
       if (this.isNestedInstance && api && typeof api[head] === "function" && 
           (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'blur' || 
-           head === 'contrast' || head === 'shear' || head === 'brightness')) {
+           head === 'contrast' || head === 'shear' || head === 'brightness' || head === 'line')) {
         result = { type: "api", value: api[head] };
       } else if (existing(this.localEnv[head])) {
         result = { type: "local", value: this.localEnv[head] };
@@ -4432,6 +4625,11 @@ class KidLisp {
   evaluate(parsed, api = {}, env, inArgs) {
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
+
+    // Reset zebra cache at the beginning of top-level evaluations (when env is not provided)
+    if (!env) {
+      resetZebraCache();
+    }
 
     // -1 evaluation debug check removed for performance
 
@@ -5411,6 +5609,12 @@ class KidLisp {
         const token = tokens[i];
         const color = this.getTokenColor(token, tokens, i);
         
+        // Safety check: ensure color is defined
+        if (!color) {
+          console.warn(`⚠️ getTokenColor returned undefined for token:`, token, `at index:`, i);
+          continue; // Skip this token if color is undefined
+        }
+        
         // Find the token in the original source starting from our current position
         const tokenIndex = this.syntaxHighlightSource.indexOf(token, sourceIndex);
         
@@ -5976,7 +6180,15 @@ class KidLisp {
     }
     
     // For all other tokens, use normal coloring
-    return this.getNormalTokenColor(token, tokens, index);
+    const normalColor = this.getNormalTokenColor(token, tokens, index);
+    
+    // Safety check: ensure we always return a valid color
+    if (!normalColor) {
+      console.warn(`⚠️ getNormalTokenColor returned undefined for token:`, token);
+      return "orange"; // Fallback color
+    }
+    
+    return normalColor;
   }
 
   // Get the normal color for a token (the original getTokenColor logic)
@@ -6032,6 +6244,11 @@ class KidLisp {
 
     // Check for parentheses - use rainbow nesting colors
     if (token === "(" || token === ")") {
+      return this.getParenthesesColor(tokens, index);
+    }
+
+    // Check for commas - use the same rainbow colors as parentheses for visual consistency
+    if (token === ",") {
       return this.getParenthesesColor(tokens, index);
     }
 
@@ -6206,6 +6423,9 @@ class KidLisp {
       depth--;
     }
     
+    // Ensure depth is not negative
+    depth = Math.max(0, depth);
+    
     // Rainbow colors for different nesting depths
     const parenColors = [
       "192,192,192", // Light gray (depth 0)
@@ -6219,7 +6439,15 @@ class KidLisp {
     
     // Cycle through colors for deeper nesting
     const colorIndex = depth % parenColors.length;
-    return parenColors[colorIndex];
+    const color = parenColors[colorIndex];
+    
+    // Safety check
+    if (!color) {
+      console.warn(`⚠️ getParenthesesColor returning undefined. depth=${depth}, colorIndex=${colorIndex}, token=${tokens[index]}`);
+      return "192,192,192"; // Fallback to light gray
+    }
+    
+    return color;
   }
 
   // Check if an expression matches the currently executing one
@@ -6584,6 +6812,7 @@ class KidLisp {
     }
 
     const embeddedLayer = {
+      id: `embedded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID for each layer
       cacheId: layerKey,
       originalCacheId: cacheId,
       width,
@@ -6727,7 +6956,10 @@ class KidLisp {
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
+    console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
+    
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
+      console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
       return; // Silent fail for performance
     }
     
@@ -6740,8 +6972,12 @@ class KidLisp {
     // 🎯 ULTRA-FAST PATH: Direct paste for opaque layers
     if (alpha === 255) {
       if (api.paste) {
+        console.log(`🎨 pasteWithAlpha: Using api.paste for buffer ${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y})`);
+        console.log(`🎨 pasteWithAlpha: sourceBuffer first pixel:`, sourceBuffer.pixels[0], sourceBuffer.pixels[1], sourceBuffer.pixels[2], sourceBuffer.pixels[3]);
         api.paste(sourceBuffer, x, y);
+        console.log(`🎨 pasteWithAlpha: api.paste completed`);
       } else {
+        console.log(`🎨 pasteWithAlpha: Using fastDirectPaste fallback`);
         this.fastDirectPaste(api, sourceBuffer, x, y);
       }
       return;
@@ -6953,8 +7189,11 @@ class KidLisp {
   renderEmbeddedLayers(api) {
     // 🔍 DEBUG: Log embedded layers status
     if (!this.embeddedLayers || this.embeddedLayers.length === 0) {
+      // console.log("🎬 renderEmbeddedLayers: No embedded layers to render");
       return;
     }
+    
+    console.log(`🎬 renderEmbeddedLayers: Processing ${this.embeddedLayers.length} embedded layers`);
     
     // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
@@ -7027,16 +7266,19 @@ class KidLisp {
   shouldLayerEvaluate(embeddedLayer, frameValue) {
     // Always evaluate if never been evaluated
     if (!embeddedLayer.hasBeenEvaluated) {
+      console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.id}`);
       return true;
     }
 
     // Skip if evaluated this exact frame already
     if (embeddedLayer.lastFrameEvaluated === frameValue) {
+      console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.id}`);
       return false;
     }
 
     // Check for dynamic content in source (check multiple places)
     const source = embeddedLayer.kidlispInstance.source || embeddedLayer.sourceCode || embeddedLayer.source || '';
+    console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.id}:`, source);
     
     const hasDynamicContent = source.includes('frame') || 
                              source.includes('scroll') ||
@@ -7048,22 +7290,27 @@ class KidLisp {
                              source.includes('tap') ||
                              source.includes('random');
 
+    console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.id}`);
+
     // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have scroll
     // Since source is often empty due to caching issues, force evaluation more frequently
     if (!hasDynamicContent && embeddedLayer.hasBeenEvaluated) {
       // Check if we should force evaluation anyway (every 10 frames for potential scroll effects)
       const shouldForceEvaluation = (frameValue % 10 === 0);
+      console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
       if (shouldForceEvaluation) {
         return true;
       }
       return false;
     }
 
+    console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.id}`);
     return true; // Default to evaluating
   }
 
   // 🚀 OPTIMIZED: Render single layer with minimal overhead
   renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate) {
+    console.log(`🎬 renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
     
     // 🔥 REFRAME PERFORMANCE: Skip expensive re-evaluation during rapid screen changes
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
@@ -7334,6 +7581,91 @@ class KidLisp {
     // Look for timing patterns like "3s...", "1s...", "0.25s..."
     const timingMatch = sourceCode.match(/(\d+(?:\.\d+)?s\.\.\.)/);
     return timingMatch ? timingMatch[1] : null;
+  }
+
+  // 🚀 PROGRAMMATIC EMBEDDED LAYER CREATION
+  // Create an embedded layer programmatically (for JavaScript API calls)
+  // This uses the same pipeline as $code embedded layers for consistency
+  createProgrammaticEmbeddedLayer(source, x, y, width, height, options = {}) {
+    // Generate a unique cache ID for this programmatic layer
+    const cacheId = `prog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log(`🔧 Creating programmatic embedded layer: ${cacheId}`, {
+      bounds: `${x},${y} ${width}x${height}`,
+      sourceLength: source.length,
+      options
+    });
+    
+    // Initialize embedded layers array if needed
+    if (!this.embeddedLayers) {
+      this.embeddedLayers = [];
+    }
+    
+    // Create a new KidLisp instance for this layer
+    const kidlispInstance = new KidLisp();
+    kidlispInstance.isEmbeddedContext = true;
+    kidlispInstance.isNestedInstance = options.isNestedInstance !== false; // Default to true
+    kidlispInstance.embeddedContext = { x, y, width, height };
+    
+    // Parse the source code
+    let parsedCode;
+    try {
+      parsedCode = kidlispInstance.parse(source);
+    } catch (error) {
+      console.error(`❌ Failed to parse programmatic layer ${cacheId}:`, error);
+      return null;
+    }
+    
+    // Create a buffer for this layer
+    const buffer = {
+      width: width,
+      height: height,
+      pixels: new Uint8ClampedArray(width * height * 4)
+    };
+    
+    // Create the embedded layer object using same structure as $code layers
+    const embeddedLayer = {
+      id: `prog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID for each layer
+      cacheId: cacheId,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      buffer: buffer,
+      source: source,
+      parsedCode: parsedCode,
+      kidlispInstance: kidlispInstance,
+      localFrameCount: 0,
+      hasBeenEvaluated: false,
+      lastFrameEvaluated: -1,
+      alpha: options.alpha || 255,
+      timingPattern: this.extractTimingPattern(source),
+      isProgrammatic: true // Mark as programmatically created
+    };
+    
+    // Add to embedded layers array
+    this.embeddedLayers.push(embeddedLayer);
+    
+    console.log(`✅ Created programmatic embedded layer ${cacheId}, total layers: ${this.embeddedLayers.length}`);
+    
+    return cacheId;
+  }
+
+  // Remove a programmatic embedded layer
+  removeProgrammaticEmbeddedLayer(cacheId) {
+    if (!this.embeddedLayers) return false;
+    
+    const initialLength = this.embeddedLayers.length;
+    this.embeddedLayers = this.embeddedLayers.filter(layer => 
+      !(layer.isProgrammatic && layer.cacheId === cacheId)
+    );
+    
+    const removed = this.embeddedLayers.length < initialLength;
+    if (removed) {
+      console.log(`🗑️ Removed programmatic embedded layer ${cacheId}`);
+    }
+    
+    return removed;
   }
 
   // Update a single embedded layer (for nested embedding)
@@ -7618,7 +7950,26 @@ function isKidlispSource(text) {
     return true;
   }
 
+  // Check for JavaScript syntax indicators that should override KidLisp detection
+  // This must happen BEFORE the newline check since JS files are also multi-line
+  if (text.includes("//") || 
+      text.includes("function ") || 
+      text.includes("const ") || 
+      text.includes("let ") || 
+      text.includes("var ") ||
+      text.includes("=>") ||
+      text.includes("console.") ||
+      text.includes("import ") ||
+      text.includes("export ") ||
+      text.includes(".mjs") ||
+      text.includes(".js") ||
+      text.match(/\w+\.\w+/) // Method calls like object.method
+     ) {
+    return false; // Definitely JavaScript, not KidLisp
+  }
+
   // Check if it contains newlines (multi-line input is likely KidLisp)
+  // This check comes after JS detection to avoid false positives
   if (text.includes("\n")) {
     return true;
   }
@@ -7630,6 +7981,47 @@ function isKidlispSource(text) {
       cssColors[trimmedText] || 
       trimmedText === "rainbow") {
     return true;
+  }
+
+  // Check for comma-separated expressions (KidLisp one-liner syntax)
+  // Only detect as KidLisp if it contains commas AND looks like KidLisp functions
+  if (text.includes(",")) {
+    // Check if the text contains known KidLisp functions or color names
+    const kidlispFunctions = [
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
+      "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
+      "noise", "choose", "overtone", "rainbow", "zebra", "mic", "amplitude",
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
+      "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
+      "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat"
+    ];
+    
+    // Split by commas and check if any part contains KidLisp functions or colors
+    const parts = text.split(",").map(part => part.trim());
+    const hasKidlispElements = parts.some(part => {
+      // Check for KidLisp functions
+      if (kidlispFunctions.some(fn => part.includes(fn))) return true;
+      // Check for CSS colors
+      if (cssColors && cssColors[part]) return true;
+      // Check for color codes like c0, c1, etc.
+      if (part.match(/^c\d+$/)) return true;
+      return false;
+    });
+    
+    // Also check if it has a high ratio of KidLisp elements to total parts
+    const kidlispElementCount = parts.filter(part => {
+      return kidlispFunctions.some(fn => part.includes(fn)) ||
+             (cssColors && cssColors[part]) ||
+             part.match(/^c\d+$/) ||
+             part.match(/^\d+(\.\d+)?$/); // Numbers are common in KidLisp
+    }).length;
+    
+    // Require at least 1 KidLisp function/color AND either multiple KidLisp elements 
+    // or a high ratio of KidLisp elements
+    if (hasKidlispElements && (kidlispElementCount >= 2 || kidlispElementCount / parts.length >= 0.5)) {
+      return true; // Contains comma syntax with KidLisp-like content
+    }
   }
 
   // Check for encoded kidlisp that might have newlines encoded as §
@@ -7898,8 +8290,8 @@ function getSyntaxHighlightingColors(source) {
     
     // Classify token type for semantic information
     let type = "default";
-    if (token === "(" || token === ")") {
-      type = "parenthesis";
+    if (token === "(" || token === ")" || token === ",") {
+      type = "punctuation";
     } else if (/^-?\d+(\.\d+)?$/.test(token)) {
       type = "number";
     } else if (token.startsWith('"') && token.endsWith('"')) {
@@ -7934,6 +8326,7 @@ export {
   getCachedCode,
   setCachedCode,
   getSyntaxHighlightingColors,
+  tokenize,
   initPersistentCache,
   getCachedCodeMultiLevel,
   clearAllCaches,
