@@ -76,6 +76,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   preservedParams = {};
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
+  if (resolution.tv === true) preservedParams.tv = "true";
   
   // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
   const currentParams = new URLSearchParams(location.search);
@@ -1682,7 +1683,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           width: canvas.width,
           height: canvas.height,
           // TODO: Do all fields of `pointer` need to be sent? 22.09.19.23.30
-          pen: { events: pen?.events || [], pointers: pen?.pointers || {} },
+          pen: { 
+            events: resolution.tv ? [] : (pen?.events || []), // Skip pen events in TV mode
+            pointers: pen?.pointers || {} 
+          },
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
           keyboard: keyboard.events,
