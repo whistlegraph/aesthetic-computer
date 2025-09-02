@@ -21,6 +21,7 @@ import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
 //          niki
 
 function parse(text, location = self?.location) {
+  console.log("🐛 parse() called with text:", text);
   let path, host, params, search, hash;
 
   // Extract remote path from text if it begins with https and ends with `.mjs`.
@@ -191,29 +192,40 @@ function parse(text, location = self?.location) {
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
-  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice'
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv'
 ];
 
 // Get clean path without legitimate query parameters
 function getCleanPath(fullUrl) {
+  // console.log("🐛 getCleanPath() input:", fullUrl);
   let cleanPath = fullUrl;
   
   // Remove legitimate parameters from the end
   for (const paramName of LEGITIMATE_PARAMS) {
-    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`);
-    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`);
+    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`, 'g');
+    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`, 'g');
+    const beforeClean = cleanPath;
     cleanPath = cleanPath.replace(regexWithValue, '');
     cleanPath = cleanPath.replace(regexBool, '');
+    if (beforeClean !== cleanPath) {
+      // console.log(`🐛 getCleanPath() removed '${paramName}':`, beforeClean, "->", cleanPath);
+    }
   }
   
-  // Clean up any remaining ? or & at the end
-  cleanPath = cleanPath.replace(/[?&]+$/, '');
+  // Clean up any remaining ? or & sequences
+  cleanPath = cleanPath.replace(/[?&]+$/, ''); // Remove trailing ? or &
+  cleanPath = cleanPath.replace(/\?&+/, '?'); // Fix ?& sequences
+  cleanPath = cleanPath.replace(/&+/g, '&'); // Collapse multiple &
+  cleanPath = cleanPath.replace(/\?$/, ''); // Remove trailing ?
   
+  // console.log("🐛 getCleanPath() final result:", cleanPath);
   return cleanPath;
 }
 
 // Cleans a url for feeding into `parse` as the text parameter.
 function slug(url) {
+  //console.log("🐛 slug() input:", url);
+  
   // Remove http protocol and host from current url before feeding it to parser.
   let cleanedUrl = url
     .replace(/^http(s?):\/\//i, "")
@@ -221,17 +233,25 @@ function slug(url) {
     .replace(window.location.hostname + "/", "")
     .split("#")[0]; // Remove any hash.
 
+  //console.log("🐛 slug() after host removal:", cleanedUrl);
+
   // Use safe parameter removal instead of .split("?")[0] 
   cleanedUrl = getCleanPath(cleanedUrl);
+  
+  //console.log("🐛 slug() after getCleanPath:", cleanedUrl);
 
   // Decode URL-encoded characters first
   cleanedUrl = decodeURIComponent(cleanedUrl);
+  
+  //console.log("🐛 slug() after decodeURIComponent:", cleanedUrl);
 
   // Only apply kidlisp URL decoding if this actually looks like kidlisp code
   if (isKidlispSource(cleanedUrl)) {
+    //console.log("🐛 slug() detected as KidLisp, decoding...");
     return decodeKidlispFromUrl(cleanedUrl);
   }
   
+  //console.log("🐛 slug() final result:", cleanedUrl);
   return cleanedUrl;
 }
 
