@@ -1318,6 +1318,7 @@ async function halt($, text) {
 
     let size;
     if (!isNaN(w) && !isNaN(h)) size = { w, h };
+    
     await system.nopaint.noBang(
       // {
       // system,
@@ -1329,10 +1330,14 @@ async function halt($, text) {
       // },
       size, // Set a custom resolution to start.
     );
+    
     let fullText = slug;
     if (params.length > 0) fullText += "~" + params.join("~");
+    
     nopaint_adjust(api, size, fullText);
+    
     system.nopaint.startRecord(fullText); // Start recording paintings.
+    
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;

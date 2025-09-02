@@ -130,6 +130,9 @@ let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
+// 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
+let globalKidLispInstance = null;
+
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
@@ -1888,6 +1891,7 @@ const $commonApi = {
     hslToRgb: num.hslToRgb,
     rainbow: num.rainbow,
     zebra: num.zebra,
+    resetZebraCache: num.resetZebraCache,
   },
   geo: {
     Box: geo.Box,
@@ -2338,7 +2342,9 @@ const LINE = {
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
 function ink() {
-  return graph.color(...graph.findColor(...arguments));
+  const foundColor = graph.findColor(...arguments);
+  const result = graph.color(...foundColor);
+  return result;
 }
 
 function ink2() {
@@ -2347,6 +2353,20 @@ function ink2() {
   } else {
     return graph.color2(...graph.findColor(...arguments));
   }
+}
+
+// 🎯 Global KidLisp Instance Management
+function initializeGlobalKidLisp(api) {
+  if (!globalKidLispInstance) {
+    console.log("🚀 Initializing global KidLisp instance");
+    globalKidLispInstance = new lisp.KidLisp();
+    globalKidLispInstance.setAPI(api);
+  }
+  return globalKidLispInstance;
+}
+
+function getGlobalKidLisp() {
+  return globalKidLispInstance;
 }
 
 // 🔎 PAINTAPI
@@ -2965,7 +2985,9 @@ const $paintApiUnwrapped = {
     const out = graph.point(...arguments);
     twoDCommands.push(["point", ...out]);
   },
-  line: graph.line,
+  line: function() {
+    return graph.line(...arguments);
+  },
   lineAngle: graph.lineAngle,
   pline: graph.pline,
   pppline: graph.pixelPerfectPolyline,
@@ -2990,7 +3012,12 @@ const $paintApiUnwrapped = {
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
-  blur: graph.blur,
+  blur: function(radius = 1) {
+    // 🔧 FIX: Ensure blur operates on current buffer context
+    // When called from within a painting() context, the graph module
+    // should already have the correct buffer set via setBuffer()
+    return graph.blur(radius);
+  },
   contrast: graph.contrast,
   shear: graph.shear,
   noise16: graph.noise16,
@@ -2998,99 +3025,229 @@ const $paintApiUnwrapped = {
   noise16Aesthetic: graph.noise16Aesthetic,
   noise16Sotce: graph.noise16Sotce,
   noiseTinted: graph.noiseTinted,
-  // Kidlisp integration with persistent instances for timing state
-  kidlisp: (() => {
-    // Cache KidLisp instances by source code hash to preserve timing state
-    const kidlispInstanceCache = new Map();
-    // Cache buffers by call position to preserve drawing state
-    const kidlispBufferCache = new Map();
-    
-    function getSourceHash(source) {
-      let hash = 0;
-      for (let i = 0; i < source.length; i++) {
-        const char = source.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32-bit integer
-      }
-      return Math.abs(hash).toString(36);
+  // 🎯 Simplified KidLisp integration using global singleton instance
+  kidlisp: function kidlisp(x = 0, y = 0, width, height, source) {
+    // Initialize global instance if needed
+    if (!globalKidLispInstance) {
+      initializeGlobalKidLisp($activePaintApi);
     }
     
-    return function kidlisp(x, y, width, height, source) {
-      // Create unique identifier for this call position and size
-      const bufferKey = `${x}_${y}_${width}_${height}`;
+    // Default dimensions to screen size if not provided
+    if (!width) width = $activePaintApi.screen.width;
+    if (!height) height = $activePaintApi.screen.height;
+    
+    console.log(`� Simple kidlisp call: ${width}x${height} at (${x},${y})`);
+    
+    try {
+      // Create persistent painting key and implement accumulation
+      let regionKey = `${x},${y},${width},${height}:${source}`;
       
-      // Get or create persistent buffer for this position
-      let persistentBuffer = kidlispBufferCache.get(bufferKey);
+      // Initialize persistent paintings cache if needed  
+      if (!globalKidLispInstance.persistentPaintings) {
+        globalKidLispInstance.persistentPaintings = new Map();
+      }
       
-      // Create a working buffer and execute KidLisp inside the painting context
-      const painting = $activePaintApi.painting(width, height, (api) => {
+      // For dollar codes, check if we already have a resolved version cached
+      let resolvedSource = source;
+      if (source.startsWith('$') && source.length > 1) {
+        const cacheId = source.slice(1);
         
-        console.log(`🎨 Initial buffer state for ${bufferKey}, first few pixels:`, api.screen.pixels.slice(0, 16));
-        
-        if (persistentBuffer && persistentBuffer.pixels) {
-          // Restore existing content from persistent buffer
-          console.log(`💾 Restoring buffer for ${bufferKey}, first few pixels:`, persistentBuffer.pixels.slice(0, 16));
-          api.screen.pixels.set(persistentBuffer.pixels);
-          console.log(`✅ After restore, first few pixels:`, api.screen.pixels.slice(0, 16));
-        } else {
-          console.log(`🆕 Creating new buffer for ${bufferKey}`);
+        // Use a singleton-specific cache to avoid conflicts with normal prompt loading
+        if (!globalKidLispInstance.singletonDollarCodeCache) {
+          globalKidLispInstance.singletonDollarCodeCache = new Map();
         }
         
-        try {
-          // Get or create persistent KidLisp instance for this source code
-          const sourceHash = getSourceHash(source);
-          let kidlispInstance;
+        // Track loading states to prevent concurrent requests
+        if (!globalKidLispInstance.loadingDollarCodes) {
+          globalKidLispInstance.loadingDollarCodes = new Set();
+        }
+        
+        // First check if we have a painting with the resolved source already
+        if (globalKidLispInstance.singletonDollarCodeCache.has(cacheId)) {
+          resolvedSource = globalKidLispInstance.singletonDollarCodeCache.get(cacheId);
+          regionKey = `${x},${y},${width},${height}:${resolvedSource}`;
           
-          if (kidlispInstanceCache.has(sourceHash)) {
-            kidlispInstance = kidlispInstanceCache.get(sourceHash);
+          // If we already have this resolved painting, skip all dollar code logic
+          if (globalKidLispInstance.persistentPaintings.has(regionKey)) {
+            console.log(`🎯 Found existing resolved painting, skipping dollar code logic`);
           } else {
-            kidlispInstance = new lisp.KidLisp();
-            kidlispInstanceCache.set(sourceHash, kidlispInstance);
+            console.log(`🎯 Using cached source for new painting: ${resolvedSource}`);
           }
+        } else if (globalKidLispInstance.loadingDollarCodes.has(cacheId)) {
+          // Already loading this dollar code, wait for it to complete
+          console.log(`🎯 ${source} already loading, waiting...`);
+          return null;
+        } else {
+          // Start loading and mark as loading
+          console.log(`🎯 Loading ${source} for first time...`);
+          globalKidLispInstance.loadingDollarCodes.add(cacheId);
           
-          // Use the full common API as the base, then overlay buffer-specific functions
-          // This gives KidLisp access all timing, system, and drawing functionality
-          const kidlispAPI = {
-            ...$commonApi,  // Full common API including clock, timing, etc.
-            ...api,   // Buffer-specific drawing functions (wipe, ink, line, etc.)
-            paintCount: pieceFrameCount, // Include current frame count for animations
-            screen: {
-              width: width,
-              height: height,
-              pixels: api.screen?.pixels
-            },
-            // Add position info for backdrop state management
-            kidlispCallPosition: bufferKey
-          };
+          getCachedCodeMultiLevel(cacheId).then(loadedSource => {
+            if (loadedSource) {
+              console.log(`🎯 Cached source for ${cacheId}:`, loadedSource);
+              globalKidLispInstance.singletonDollarCodeCache.set(cacheId, loadedSource);
+            } else {
+              console.warn(`❌ Could not load source for ${cacheId}`);
+            }
+          }).catch(error => {
+            console.error(`❌ Error loading ${cacheId}:`, error);
+          }).finally(() => {
+            // Remove from loading set when done (success or failure)
+            globalKidLispInstance.loadingDollarCodes.delete(cacheId);
+          });
           
-          const parsedCode = kidlispInstance.parse(source);
-          
-          // Evaluate each expression - KidLisp now has full context and preserved state
-          for (let i = 0; i < parsedCode.length; i++) {
-            kidlispInstance.evaluate(parsedCode[i], kidlispAPI);
-          }
-          
-        } catch (error) {
-          console.error("🚫 kidlisp error:", error);
-          api.wipe(60, 0, 0); // Red background for errors
-          api.ink(255, 255, 255);
-          api.write && api.write("ERROR", 5, 5);
+          // Return early - no painting this frame, wait for cache
+          return null;
         }
-        
-        // Update the persistent buffer with the new content
-        kidlispBufferCache.set(bufferKey, {
-          width: api.screen.width,
-          height: api.screen.height,
-          pixels: new Uint8ClampedArray(api.screen.pixels)
-        });
-      });
+      }
       
-      // Paste the buffer to the main canvas
-      $activePaintApi.paste(painting, x, y);
-    };
-  })(),
+      // Check if the code contains frame-dependent randomization commands
+      const hasFrameDependentCommands = /\(\s*ink\s*\)|\(\s*color\s*\)|\(\s*rand\s*\)/.test(resolvedSource);
+      
+      // Check if we need to reset (resolved source contains 'wipe')
+      const shouldReset = resolvedSource.includes('wipe');
+      let painting;
+      
+      // For frame-dependent commands, we want to accumulate but not cache the final result
+      if (shouldReset || !globalKidLispInstance.persistentPaintings.has(regionKey)) {
+        // Create fresh painting (first time or after wipe)
+        console.log(`� Creating fresh painting for key: ${regionKey.slice(0, 50)}...`);
+        painting = $activePaintApi.painting(width, height, (api) => {
+          globalKidLispInstance.setAPI(api);
+          // Add basic timing support for KidLisp commands
+          if (!api.clock) {
+            api.clock = { time: () => new Date() };
+          }
+          // Add randomization support for ink() and other commands
+          if (!api.num) {
+            api.num = $activePaintApi.num || { 
+              random: () => Math.random(),
+              randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+            };
+          }
+          // Add color support for proper ink randomization
+          if (!api.color) {
+            api.color = $activePaintApi.color || {
+              random: () => [
+                Math.floor(Math.random() * 256),
+                Math.floor(Math.random() * 256), 
+                Math.floor(Math.random() * 256)
+              ]
+            };
+          }
+          // Reset KidLisp color state to prevent cross-contamination between regions
+          globalKidLispInstance.currentInk = null;
+          executeLispCode(resolvedSource, api, false); // false = not accumulating, fresh painting
+          globalKidLispInstance.setAPI($activePaintApi);
+        });
+        // Always cache the painting for accumulation
+        // Frame-dependent commands will still accumulate because they go through this path
+        globalKidLispInstance.persistentPaintings.set(regionKey, painting);
+      } else {
+        // Build on existing painting (accumulate effects)
+        const existingPainting = globalKidLispInstance.persistentPaintings.get(regionKey);
+        console.log(`🎨 Accumulating on existing painting for key: ${regionKey.slice(0, 50)}...`);
+        
+        painting = $activePaintApi.painting(width, height, (api) => {
+          // Paste previous state first
+          api.paste(existingPainting);
+          // Then add new effects on top
+          globalKidLispInstance.setAPI(api);
+          // Add basic timing support for KidLisp commands
+          if (!api.clock) {
+            api.clock = { time: () => new Date() };
+          }
+          // Add randomization support for ink() and other commands
+          if (!api.num) {
+            api.num = $activePaintApi.num || { 
+              random: () => Math.random(),
+              randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+            };
+          }
+          // Add color support for proper ink randomization
+          if (!api.color) {
+            api.color = $activePaintApi.color || {
+              random: () => [
+                Math.floor(Math.random() * 256),
+                Math.floor(Math.random() * 256), 
+                Math.floor(Math.random() * 256)
+              ]
+            };
+          }
+          // Reset KidLisp color state to prevent cross-contamination between regions
+          globalKidLispInstance.currentInk = null;
+          executeLispCode(resolvedSource, api, true); // true = accumulating on existing painting
+          globalKidLispInstance.setAPI($activePaintApi);
+        });
+        // Always update the cache with the new accumulated state
+        // This allows frame-dependent commands to accumulate while still running each frame
+        globalKidLispInstance.persistentPaintings.set(regionKey, painting);
+      }
+      
+      // Paste the painting to the specified location
+      if ($activePaintApi.paste && painting) {
+        console.log(`🎯 Pasting painting to (${x},${y})`);
+        $activePaintApi.paste(painting, x, y);
+      }
+      
+      return painting;
+      
+    } catch (error) {
+      console.error("🚫 Simple KidLisp error:", error);
+      
+      // Draw error directly to main screen
+      const originalInk = $activePaintApi.ink();
+      $activePaintApi.ink(255, 0, 0);
+      if ($activePaintApi.write) {
+        $activePaintApi.write("KidLisp Error", x, y);
+      }
+      $activePaintApi.ink(originalInk);
+      
+      return null;
+    }
+  },
   // glaze: ...
 };
+
+// Helper function to execute KidLisp code
+function executeLispCode(source, api, isAccumulating = false) {
+  try {
+    // Parse and evaluate the source directly without going through module lifecycle
+    console.log(`🔍 Parsing KidLisp source:`, source);
+    
+    // Clear previous first-line color state for fresh detection
+    globalKidLispInstance.firstLineColor = null;
+    
+    globalKidLispInstance.parse(source);
+    console.log(`🔍 Generated AST:`, globalKidLispInstance.ast);
+    
+    if (globalKidLispInstance.ast) {
+      // Detect first-line color but only apply it if not accumulating
+      globalKidLispInstance.detectFirstLineColor();
+      if (globalKidLispInstance.firstLineColor && !isAccumulating) {
+        console.log(`🎨 Applying first-line color background: ${globalKidLispInstance.firstLineColor}`);
+        api.wipe(globalKidLispInstance.firstLineColor);
+      }
+      
+      // Execute the parsed AST using the main evaluate method
+      console.log(`🔍 Executing AST using main evaluate method...`);
+      
+      // Normal KidLisp evaluation (dollar codes already resolved)
+      const result = globalKidLispInstance.evaluate(globalKidLispInstance.ast, api, globalKidLispInstance.localEnv);
+      console.log(`🔍 Evaluation result:`, result);
+    } else {
+      console.log(`⚠️ No AST generated from source`);
+    }
+  } catch (evalError) {
+    console.error("🚫 KidLisp evaluation error:", evalError);
+    // Draw error indicator
+    api.wipe(60, 0, 0);
+    api.ink(255, 255, 255);
+    if (api.write) {
+      api.write("KidLisp Eval Error", 5, 15);
+    }
+  }
+}
 
 // TODO: Eventually restructure this a bit. 2021.12.16.16.0
 //       Should global state like color and transform be stored here?
@@ -7061,6 +7218,9 @@ async function makeFrame({ data: { type, content } }) {
 
       // API Stops being modified here...
       /*if (!$activePaintApi)*/ $activePaintApi = $api;
+      
+      // 🎯 Initialize global KidLisp instance with the main API
+      initializeGlobalKidLisp($api);
 
       // TODO: Set bpm from boot.
       /*
@@ -7128,6 +7288,9 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.zoom || sys.nopaint.zoomLevel;
 
         try {
+          // Reset zebra cache at the beginning of boot to ensure consistent state
+          $api.num.resetZebraCache();
+          
           if (system === "nopaint") nopaint_boot($api);
           await boot($api);
           booted = true;
@@ -7291,6 +7454,9 @@ async function makeFrame({ data: { type, content } }) {
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
+            
+            // TODO: Remove old embedded layer rendering - using simplified approach now
+            // globalThis.renderKidlispProgrammaticLayers();
           } else {
             // When skipping paint, use undefined to ensure continuous rendering
             // This maintains the render loop while skipping the actual paint call
@@ -8058,24 +8224,15 @@ async function makeFrame({ data: { type, content } }) {
       // Detect if this is a KidLisp piece
       const sourceCode = currentText || currentHUDTxt; // Use plain currentText first, then fall back to HUD text
       
-      // More inclusive KidLisp detection for QR code generation
+      // Use centralized KidLisp detection for QR code generation
       // But exclude proper .lisp files which should not show source HUD
       const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
                              currentPath === "(...)" ||
                              // Detect cached KidLisp pieces by $code format
                              (sourceCode && sourceCode.startsWith("$")) ||
                              (currentPath && currentPath.includes("/disks/$")) ||
-                             (sourceCode && (
-                               sourceCode.startsWith("(") || 
-                               sourceCode.startsWith(";") ||
-                               sourceCode.includes("\n") ||
-                               // Check for common KidLisp commands (even single line)
-                               /^(wipe|ink|line|box|circle|rect|def|later|scroll|resolution|gap|frame|brush|clear|cls|help|reset|dot|pixel|stamp|paste|copy|move|rotate|scale|translate|fill|stroke|point|arc|bezier|noise|random|sin|cos|tan|sqrt|abs|floor|ceil|round|min|max|pow|log|exp|atan2|dist|lerp|map|norm|constrain|hue|sat|bright|alpha|red|green|blue|rgb|hsb|gray|background|foreground|text|font|size|width|height|mouseX|mouseY|keyCode|key|frameCount|time|second|minute|hour|day|month|year|millis|fps|deltaTime)\s/.test(sourceCode) ||
-                               // Check for bare color names and fade strings
-                               /^(fade:|c\d+$|rainbow$|zebra$)/.test(sourceCode.trim()) ||
-                               // Check for CSS color names (common ones)
-                               /^(red|blue|green|yellow|purple|orange|pink|cyan|magenta|black|white|gray|grey|lime|navy|teal|olive|maroon|silver|aqua|fuchsia|brown|coral|gold|indigo|ivory|khaki|lavender|lemon|mint|peach|plum|rose|tan|violet|wheat)$/.test(sourceCode.trim())
-                             ));
+                             // Use the centralized KidLisp detection that includes comma syntax
+                             (sourceCode && lisp.isKidlispSource(sourceCode));
       
       // Debug QR detection (only when issues occur)
       if (!isInlineKidlispPiece && (sourceCode?.startsWith("$") || sourceCode?.startsWith("("))) {
