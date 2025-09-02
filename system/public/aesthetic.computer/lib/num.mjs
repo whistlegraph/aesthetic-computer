@@ -759,6 +759,8 @@ export function rainbow() {
 
 // 🦓 Zebra color cycling (black/white alternating).
 let currentZebraIndex = 0;
+let frameZebraColor = null; // Cache the zebra color for this frame
+let zebraFrameAdvanced = false; // Track if we've advanced this frame
 
 const zebraColors = [
   cssColors.black,   // [0, 0, 0]
@@ -766,16 +768,23 @@ const zebraColors = [
 ];
 
 export function zebra(offset = 0) {
-  // Apply offset to get different starting colors for stripes
-  const index = (currentZebraIndex + offset) % zebraColors.length;
-  const color = zebraColors[index];
-  
-  // Only advance the global index if no offset (normal single zebra call)
-  if (offset === 0) {
+  // Advance the zebra index once per frame on the first call
+  if (!zebraFrameAdvanced) {
     currentZebraIndex = (currentZebraIndex + 1) % zebraColors.length;
+    frameZebraColor = zebraColors[currentZebraIndex].slice();
+    zebraFrameAdvanced = true;
   }
   
-  return color.slice();
+  // Calculate the final index with offset from the current frame's base
+  const finalIndex = (currentZebraIndex + offset) % zebraColors.length;
+  const result = zebraColors[finalIndex];
+  return result.slice();
+}
+
+// Reset zebra frame cache - should be called once per frame/execution
+export function resetZebraCache() {
+  zebraFrameAdvanced = false;
+  frameZebraColor = null;
 }
 
 // Find a color inside of `cssColors` by value.

@@ -73,6 +73,7 @@ function parse(text, location = self?.location) {
   const hasSpecialChars = text.includes("§") ||
     text.includes("~") ||
     text.includes("_") ||
+    text.includes(",") || // Comma-separated kidlisp syntax
     text.includes("\n") ||
     text.startsWith("(") ||
     text.startsWith(";");

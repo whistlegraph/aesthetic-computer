@@ -58,6 +58,14 @@ export function setDebug(newDebug) {
   debug = newDebug;
 }
 
+// 🔧 DEBUG: Helper function to get current global dimensions
+function getGlobalDimensions() {
+  return `${width}x${height}`;
+}
+
+// 🔧 DEBUG: Export for debugging buffer context issues
+export { getGlobalDimensions };
+
 let twoDCommands;
 export function twoD(ref) {
   twoDCommands = ref;
@@ -1077,6 +1085,8 @@ function resize(bitmap, width, height) {
 // Apply a blur effect to the current pixel buffer using smooth weighted blur
 // radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
 function blur(radius = 1) {
+  console.log(`🌀 graph.blur called with radius ${radius}, current buffer: ${width}x${height}, pixels.length: ${pixels.length}`);
+  
   if (radius <= 0) return;
 
   // Performance optimization: skip expensive blur operations during startup
