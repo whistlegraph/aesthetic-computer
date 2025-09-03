@@ -11,6 +11,9 @@ const LEGITIMATE_PARAMS = [
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight'
 ];
 
+// Auth0 parameters that need to be temporarily processed but then removed
+const AUTH0_PARAMS = ['state', 'error', 'error_description'];
+
 // Extract only legitimate query parameters from URL, preserving kidlisp ? characters in path
 function extractLegitimateParams(fullUrl) {
   const params = new URLSearchParams();
@@ -31,6 +34,23 @@ function extractLegitimateParams(fullUrl) {
   }
   
   return params;
+}
+
+// Remove Auth0 parameters from URL
+function cleanAuth0Params(url) {
+  const urlObj = new URL(url);
+  
+  // Always remove these Auth0 parameters
+  AUTH0_PARAMS.forEach(param => {
+    urlObj.searchParams.delete(param);
+  });
+  
+  // Only remove 'code' if 'state' is also present (indicating Auth0 callback)
+  if (urlObj.searchParams.has('state')) {
+    urlObj.searchParams.delete('code');
+  }
+  
+  return urlObj.pathname + (urlObj.searchParams.toString() ? '?' + urlObj.searchParams.toString() : '');
 }
 
 // Create a clean URL without legitimate query parameters
@@ -418,7 +438,10 @@ loadAuth0Script()
         } catch (e) {
           console.error("🔐", e);
         }
-        window.history.replaceState({}, document.title, "/");
+        
+        // Ensure Auth0 parameters are completely cleaned from URL
+        const cleanUrl = cleanAuth0Params(window.location.href);
+        window.history.replaceState({}, document.title, cleanUrl);
       }
 
       const params = extractLegitimateParams(window.location.href);
@@ -509,7 +532,16 @@ loadAuth0Script()
           safeLocalStorageSet("session-aesthetic", encodedSession);
           params.delete("session-aesthetic"); // Remove the 'session' parameters
           params.delete("session-sotce");
-          history.pushState({}, "", url.pathname + "?" + params.toString());
+          
+          // Also ensure any remaining Auth0 parameters are cleaned
+          AUTH0_PARAMS.forEach(param => params.delete(param));
+          // Only remove 'code' if this appears to be an Auth0 callback
+          if (params.has('state')) {
+            params.delete('code');
+          }
+          
+          const cleanUrl = url.pathname + (params.toString() ? "?" + params.toString() : "");
+          history.pushState({}, "", cleanUrl);
         }
       }
 
