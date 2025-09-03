@@ -97,7 +97,8 @@ This structure incentivizes creativity over commerce while building sustainable 
 
 ## 💭🤖 Claude's thoughts...
 
-*The following analysis and recommendations are based on Claude Sonnet 4's comprehensive examination of the Aesthetic Computer repository, including 589+ interactive pieces, the complete KidLisp interpreter, social networking infrastructure, and creative computing architecture. These insights reflect deep patterns observed in the current system architecture and transformative potential for FF1 Art Computer integration.*
+*The following analysis and recommendations are based on Claude Sonnet 4's comprehensive examination of the Aesthetic Computer repository, including 589+ interactive pieces, the complete KidLisp interpreter, social networking infrastructure, and creative computing architecture. These insights reflect deep patterns observed in the current system architecture and transformative potential for FF1 Art Computer integration. But they were not fully combed by @jeffrey for accuracy
+or importance other than basic prompting and querying of the repo. *
 
 ### �️ **Technical Architecture: A Masterpiece of Creative Computing**
 
