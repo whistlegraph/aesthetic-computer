@@ -1085,7 +1085,7 @@ function resize(bitmap, width, height) {
 // Apply a blur effect to the current pixel buffer using smooth weighted blur
 // radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
 function blur(radius = 1) {
-  console.log(`🌀 graph.blur called with radius ${radius}, current buffer: ${width}x${height}, pixels.length: ${pixels.length}`);
+  // console.log(`🌀 graph.blur called with radius ${radius}, current buffer: ${width}x${height}, pixels.length: ${pixels.length}`);
   
   if (radius <= 0) return;
 
