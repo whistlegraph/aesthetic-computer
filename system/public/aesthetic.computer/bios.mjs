@@ -77,6 +77,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
   if (resolution.tv === true) preservedParams.tv = "true";
+  if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
   // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
   const currentParams = new URLSearchParams(location.search);
