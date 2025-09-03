@@ -3059,7 +3059,7 @@ const $paintApiUnwrapped = {
       
       // For dollar codes, check if we already have a resolved version cached
       let resolvedSource = source;
-      if (source.startsWith('$') && source.length > 1) {
+      if (source && source.startsWith && source.startsWith('$') && source.length > 1) {
         const cacheId = source.slice(1);
         
         // Use a singleton-specific cache to avoid conflicts with normal prompt loading
@@ -3134,7 +3134,7 @@ const $paintApiUnwrapped = {
       const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'contrast', 'fade'];
       const hasTimingCommands = /\d+\.?\d*s\b/.test(resolvedSource); // Detect timing like "0.15s", "1s", etc.
       const hasAnimationCommands = animationCommands.some(cmd => resolvedSource.includes(cmd));
-      const isDollarCode = source.startsWith('$'); // Dollar codes should always refresh
+      const isDollarCode = source && source.startsWith && source.startsWith('$'); // Dollar codes should always refresh
       // Don't force fresh execution for timing commands - they need to run continuously
       // In accumulate mode, prefer building on existing surface unless explicitly forced
       const needsFreshExecution = !accumulate && (noCache || (isDollarCode && !hasTimingCommands) || (hasAnimationCommands && !hasTimingCommands));
@@ -7492,6 +7492,9 @@ async function makeFrame({ data: { type, content } }) {
 
       // API Stops being modified here...
       /*if (!$activePaintApi)*/ $activePaintApi = $api;
+      
+      // Add paintings cache to API for KidLisp ready? function
+      $activePaintApi.paintings = paintings;
       
       // 🎯 Initialize global KidLisp instance with the main API
       initializeGlobalKidLisp($api);

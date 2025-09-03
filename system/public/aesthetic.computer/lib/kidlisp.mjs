@@ -42,6 +42,14 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    - `(circle x y radius)` - Draw filled circle
    - `(plot x y)` - Set single pixel at coordinates
    
+   ### Image Functions
+   - `(paste url x y)` - Paste image from URL at coordinates
+   - `(paste url x y scale)` - Paste image with scaling factor
+   - `(stamp url x y)` - Paste image centered at coordinates
+   - URLs can be unquoted: `(paste https://example.com/image.png x y)`
+   - Quoted URLs also work: `(paste "https://example.com/image.png" x y)`
+   - Supports @handle/timestamp format: `(paste @user/123456 x y)`
+   
    ### Color System
    Colors can be specified as:
    - Named colors: "red", "blue", "lime", "orange", "purple", etc.
@@ -130,6 +138,16 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    
    (star 100 100 20)
    (star 200 150 15)
+   ```
+   
+   ### Image Pasting with URLs
+   ```kidlisp
+   (wipe "black")
+   ; Unquoted URLs are now supported!
+   (paste https://example.com/image.png 50 50 0.5)
+   (stamp https://example.com/logo.png (/ width 2) 100)
+   ; Quoted URLs still work
+   (paste "https://example.com/background.jpg" 0 0 1.0)
    ```
    
    ### Timed Animations  
@@ -2543,6 +2561,19 @@ class KidLisp {
           return Math.floor(Math.random() * (max - min + 1)) + min;
         }
       },
+      // Check if an image URL is ready to be pasted
+      "ready?": (api, args) => {
+        // (ready? url) - returns true if image is loaded, false otherwise
+        if (args.length === 0) return false;
+        
+        const url = unquoteString(args[0]?.toString() || "");
+        if (!url) return false;
+        
+        // Access the global paintings cache from disk.mjs
+        // We need to get this from the API context
+        const paintings = api.paintings || {};
+        return paintings[url] && paintings[url] !== "fetching";
+      },
       // Paint API
       resolution: (api, args) => {
         // Handle special fraction keywords
@@ -3354,7 +3385,8 @@ class KidLisp {
       // 🖼️ Image pasting and stamping
       paste: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        const processedArgs = args.map((arg) => {
+        // Special handling for first argument - support unquoted URLs
+        const processedArgs = args.map((arg, index) => {
           if (
             typeof arg === "string" &&
             arg.startsWith('"') &&
@@ -3365,6 +3397,13 @@ class KidLisp {
           // Handle special 'painting' keyword to reference system.painting
           if (typeof arg === "string" && arg === "painting") {
             return api.system?.painting;
+          }
+          // For the first argument (image source), support unquoted URLs and paths
+          if (index === 0 && typeof arg === "string" && arg) {
+            // If it's a URL (http/https) or a path, treat it as unquoted
+            if (arg.startsWith("http://") || arg.startsWith("https://") || arg.includes("/") || arg.includes("@")) {
+              return arg; // Return as-is for URLs, paths, and @handle/timestamp patterns
+            }
           }
           return arg;
         });
@@ -3372,7 +3411,8 @@ class KidLisp {
       },
       stamp: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        const processedArgs = args.map((arg) => {
+        // Special handling for first argument - support unquoted URLs
+        const processedArgs = args.map((arg, index) => {
           if (
             typeof arg === "string" &&
             arg.startsWith('"') &&
@@ -3383,6 +3423,13 @@ class KidLisp {
           // Handle special 'painting' keyword to reference system.painting
           if (typeof arg === "string" && arg === "painting") {
             return api.system?.painting;
+          }
+          // For the first argument (image source), support unquoted URLs and paths
+          if (index === 0 && typeof arg === "string" && arg) {
+            // If it's a URL (http/https) or a path, treat it as unquoted
+            if (arg.startsWith("http://") || arg.startsWith("https://") || arg.includes("/") || arg.includes("@")) {
+              return arg; // Return as-is for URLs, paths, and @handle/timestamp patterns
+            }
           }
           return arg;
         });
