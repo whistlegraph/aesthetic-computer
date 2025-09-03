@@ -127,6 +127,8 @@ let SHARE_SUPPORTED; // Whether navigator.share is supported. (For `dl`)
 let PREVIEW_OR_ICON; // Whether we are in preview or icon mode. (From boot.)
 let VSCODE; // Whether we are running the vscode extesion or not. (From boot.)
 let TV_MODE = false; // Whether running in TV mode (disables touch/keyboard input)
+let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
+let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
@@ -3037,7 +3039,7 @@ const $paintApiUnwrapped = {
     if (!width) width = $activePaintApi.screen.width;
     if (!height) height = $activePaintApi.screen.height;
     
-    console.log(`� Simple kidlisp call: ${width}x${height} at (${x},${y})`);
+    // console.log(`🎯 Simple kidlisp call: ${width}x${height} at (${x},${y})`);
     
     // Extract options
     const { noCache = false } = options;
@@ -3073,25 +3075,25 @@ const $paintApiUnwrapped = {
           
           // If we already have this resolved painting, skip all dollar code logic
           if (globalKidLispInstance.persistentPaintings.has(regionKey)) {
-            console.log(`🎯 Found existing resolved painting, skipping dollar code logic`);
+            // console.log(`🎯 Found existing resolved painting, skipping dollar code logic`);
           } else {
-            console.log(`🎯 Using cached source for new painting: ${resolvedSource}`);
+            // console.log(`🎯 Using cached source for new painting: ${resolvedSource}`);
           }
         } else if (globalKidLispInstance.loadingDollarCodes.has(cacheId)) {
           // Already loading this dollar code, wait for it to complete
-          console.log(`🎯 ${source} already loading, waiting...`);
+          // console.log(`🎯 ${source} already loading, waiting...`);
           return null;
         } else {
           // Start loading and mark as loading
-          console.log(`🎯 Loading ${source} for first time...`);
+          // console.log(`🎯 Loading ${source} for first time...`);
           globalKidLispInstance.loadingDollarCodes.add(cacheId);
           
           getCachedCodeMultiLevel(cacheId).then(loadedSource => {
             if (loadedSource) {
-              console.log(`🎯 Cached source for ${cacheId}:`, loadedSource);
+              // console.log(`🎯 Cached source for ${cacheId}:`, loadedSource);
               globalKidLispInstance.singletonDollarCodeCache.set(cacheId, loadedSource);
             } else {
-              console.warn(`❌ Could not load source for ${cacheId}`);
+              // console.warn(`❌ Could not load source for ${cacheId}`);
             }
           }).catch(error => {
             console.error(`❌ Error loading ${cacheId}:`, error);
@@ -3115,7 +3117,9 @@ const $paintApiUnwrapped = {
       const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'contrast', 'fade'];
       const hasTimingCommands = /\d+\.?\d*s\b/.test(resolvedSource); // Detect timing like "0.15s", "1s", etc.
       const hasAnimationCommands = animationCommands.some(cmd => resolvedSource.includes(cmd));
-      const needsFreshExecution = noCache && (hasAnimationCommands || hasTimingCommands);
+      const isDollarCode = source.startsWith('$'); // Dollar codes should always refresh
+      // Don't force fresh execution for timing commands - they need to run continuously
+      const needsFreshExecution = noCache || (isDollarCode && !hasTimingCommands) || (hasAnimationCommands && !hasTimingCommands);
       
       let painting;
       
@@ -3123,7 +3127,7 @@ const $paintApiUnwrapped = {
       if (shouldReset || needsFreshExecution || !globalKidLispInstance.persistentPaintings.has(regionKey)) {
         // Create fresh painting (first time, after wipe, or for animations)
         const reason = shouldReset ? 'wipe command' : needsFreshExecution ? 'animation content' : 'first time';
-        console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
+        // console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
         
         // For animations, start with previous frame if available (unless wiping)
         const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey) 
@@ -3133,7 +3137,7 @@ const $paintApiUnwrapped = {
         painting = $activePaintApi.painting(width, height, (api) => {
           // For animations, paste previous frame first to maintain transformations
           if (previousPainting && needsFreshExecution && !shouldReset) {
-            console.log(`🎨 Pasting previous frame for animation continuity`);
+            // console.log(`🎨 Pasting previous frame for animation continuity`);
             api.paste(previousPainting);
           }
           
@@ -3146,7 +3150,7 @@ const $paintApiUnwrapped = {
           // Add scroll and zoom support for animations
           if (!api.scroll) {
             api.scroll = (dx, dy) => {
-              console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
+              // console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
             };
           }
           // Override zoom and scroll functions to implement actual effects in painting context
@@ -3154,87 +3158,18 @@ const $paintApiUnwrapped = {
           const originalScroll = api.scroll;
           
           api.zoom = (...args) => {
-            console.log(`🔍 Zoom called in painting context: args=${JSON.stringify(args)}`);
-            const factor = args[0] || 1;
-            
-            // Implement zoom by scaling the painting buffer
-            if (painting && painting.width && painting.height) {
-              console.log(`🔍 Applying zoom factor ${factor} to ${painting.width}x${painting.height} painting`);
-              const { width, height, pixels } = painting;
-              
-              // Create a copy of current pixels
-              const originalPixels = new Uint8ClampedArray(pixels);
-              
-              // Clear the painting
-              pixels.fill(0);
-              
-              // Scale and center the image
-              const scale = factor;
-              const offsetX = (width - width * scale) / 2;
-              const offsetY = (height - height * scale) / 2;
-              
-              for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                  const srcX = Math.floor((x - offsetX) / scale);
-                  const srcY = Math.floor((y - offsetY) / scale);
-                  
-                  if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
-                    const srcIndex = (srcY * width + srcX) * 4;
-                    const dstIndex = (y * width + x) * 4;
-                    
-                    pixels[dstIndex] = originalPixels[srcIndex];
-                    pixels[dstIndex + 1] = originalPixels[srcIndex + 1];
-                    pixels[dstIndex + 2] = originalPixels[srcIndex + 2];
-                    pixels[dstIndex + 3] = originalPixels[srcIndex + 3];
-                  }
-                }
-              }
-              console.log(`🔍 Zoom applied successfully`);
-            } else {
-              console.log(`🔍 No painting buffer available for zoom`);
-              if (originalZoom && typeof originalZoom === 'function') {
-                return originalZoom(...args);
-              }
+            // console.log(`🔍 Zoom called in painting context: args=${JSON.stringify(args)}`);
+            // Just call the original zoom function - it will operate on the current buffer
+            if (originalZoom && typeof originalZoom === 'function') {
+              return originalZoom(...args);
             }
           };
           
           api.scroll = (dx, dy) => {
-            console.log(`� Scroll called in painting context: dx=${dx}, dy=${dy}`);
-            
-            // Implement scroll by shifting pixels
-            if (painting && painting.width && painting.height) {
-              console.log(`📜 Applying scroll (${dx}, ${dy}) to ${painting.width}x${painting.height} painting`);
-              const { width, height, pixels } = painting;
-              
-              // Create a copy of current pixels
-              const originalPixels = new Uint8ClampedArray(pixels);
-              
-              // Clear the painting
-              pixels.fill(0);
-              
-              // Shift pixels by dx, dy
-              for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                  const srcX = x - Math.floor(dx);
-                  const srcY = y - Math.floor(dy);
-                  
-                  if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
-                    const srcIndex = (srcY * width + srcX) * 4;
-                    const dstIndex = (y * width + x) * 4;
-                    
-                    pixels[dstIndex] = originalPixels[srcIndex];
-                    pixels[dstIndex + 1] = originalPixels[srcIndex + 1];
-                    pixels[dstIndex + 2] = originalPixels[srcIndex + 2];
-                    pixels[dstIndex + 3] = originalPixels[srcIndex + 3];
-                  }
-                }
-              }
-              console.log(`📜 Scroll applied successfully`);
-            } else {
-              console.log(`� No painting buffer available for scroll`);
-              if (originalScroll && typeof originalScroll === 'function') {
-                return originalScroll(dx, dy);
-              }
+            // console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
+            // Just call the original scroll function - it will operate on the current buffer
+            if (originalScroll && typeof originalScroll === 'function') {
+              return originalScroll(dx, dy);
             }
           };
           // Add randomization support for ink() and other commands
@@ -3259,15 +3194,42 @@ const $paintApiUnwrapped = {
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
           
-          // Save original state before forcing immediate execution mode
+          // Save original state before configuring execution mode
           const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
           const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
           const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
           
-          // Force immediate execution mode for simplified kidlisp() calls
-          globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
-          globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
-          globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          // Check if source contains timing expressions that need proper scheduling
+          const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
+          // Check if source contains scroll/zoom that needs deferred execution
+          const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
+          
+          // Only log occasionally to reduce console spam
+          if (globalThis.$api?.paintCount % 60 === 0 || globalThis.$api?.paintCount < 5) {
+            console.log(`🎯 KIDLISP EXECUTION DEBUG (frame ${globalThis.$api?.paintCount || 'unknown'}):`);
+            console.log(`   Source: ${resolvedSource.slice(0, 100)}...`);
+            console.log(`   Has timing expressions: ${hasTimingExpressions}`);
+            console.log(`   Has scroll/zoom: ${hasScrollZoom}`);
+            console.log(`   Fresh execution needed: ${needsFreshExecution}`);
+          }
+          
+          if (hasTimingExpressions) {
+            // console.log(`🎯 Detected timing expressions, preserving normal execution flow`);
+            // Don't force immediate execution for timing expressions
+            globalKidLispInstance.embeddedLayers = null; // Still clear embedded layers
+          } else if (hasScrollZoom) {
+            // console.log(`🎯 Detected scroll/zoom, allowing deferred execution`);
+            // Allow scroll/zoom to use deferred execution but clear embedded layers
+            globalKidLispInstance.inEmbedPhase = false; // Allow deferring for scroll/zoom
+            globalKidLispInstance.isNestedInstance = false; // Allow deferring for scroll/zoom
+            globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          } else {
+            // console.log(`🎯 No timing/scroll/zoom detected, forcing immediate execution`);
+            // Force immediate execution mode for simplified kidlisp() calls without timing or scroll/zoom
+            globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
+            globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
+            globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          }
           
           executeLispCode(resolvedSource, api, false); // false = not accumulating, fresh painting
           
@@ -3283,7 +3245,7 @@ const $paintApiUnwrapped = {
       } else {
         // Build on existing painting (accumulate effects)
         const existingPainting = globalKidLispInstance.persistentPaintings.get(regionKey);
-        console.log(`🎨 Accumulating on existing painting for key: ${regionKey.slice(0, 50)}...`);
+        // console.log(`🎨 Accumulating on existing painting for key: ${regionKey.slice(0, 50)}...`);
         
         painting = $activePaintApi.painting(width, height, (api) => {
           // Paste previous state first
@@ -3317,15 +3279,42 @@ const $paintApiUnwrapped = {
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
           
-          // Save original state before forcing immediate execution mode
+          // Save original state before configuring execution mode
           const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
           const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
           const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
           
-          // Force immediate execution mode for simplified kidlisp() calls
-          globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
-          globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
-          globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          // Check if source contains timing expressions that need proper scheduling
+          const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
+          // Check if source contains scroll/zoom that needs deferred execution
+          const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
+          
+          // Only log occasionally to reduce console spam
+          if (globalThis.$api?.paintCount % 60 === 0 || globalThis.$api?.paintCount < 5) {
+            console.log(`🎯 KIDLISP ACCUMULATION DEBUG (frame ${globalThis.$api?.paintCount || 'unknown'}):`);
+            console.log(`   Source: ${resolvedSource.slice(0, 100)}...`);
+            console.log(`   Has timing expressions: ${hasTimingExpressions}`);
+            console.log(`   Has scroll/zoom: ${hasScrollZoom}`);
+            console.log(`   Fresh execution needed: ${needsFreshExecution}`);
+          }
+          
+          if (hasTimingExpressions) {
+            // console.log(`🎯 Detected timing expressions in accumulation, preserving normal execution flow`);
+            // Don't force immediate execution for timing expressions
+            globalKidLispInstance.embeddedLayers = null; // Still clear embedded layers
+          } else if (hasScrollZoom) {
+            // console.log(`🎯 Detected scroll/zoom in accumulation, allowing deferred execution`);
+            // Allow scroll/zoom to use deferred execution but clear embedded layers
+            globalKidLispInstance.inEmbedPhase = false; // Allow deferring for scroll/zoom
+            globalKidLispInstance.isNestedInstance = false; // Allow deferring for scroll/zoom
+            globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          } else {
+            // console.log(`🎯 No timing/scroll/zoom in accumulation, forcing immediate execution`);
+            // Force immediate execution mode for simplified kidlisp() calls without timing or scroll/zoom
+            globalKidLispInstance.inEmbedPhase = true; // Prevent deferring
+            globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
+            globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
+          }
           
           executeLispCode(resolvedSource, api, true); // true = accumulating on existing painting
           
@@ -3344,7 +3333,7 @@ const $paintApiUnwrapped = {
       
       // Paste the painting to the specified location
       if ($activePaintApi.paste && painting) {
-        console.log(`🎯 Pasting painting to (${x},${y})`);
+        // console.log(`🎯 Pasting painting to (${x},${y})`);
         $activePaintApi.paste(painting, x, y);
       }
       
@@ -3371,25 +3360,25 @@ const $paintApiUnwrapped = {
 function executeLispCode(source, api, isAccumulating = false) {
   try {
     // Parse and evaluate the source directly without going through module lifecycle
-    console.log(`🔍 Parsing KidLisp source:`, source);
+    // console.log(`🔍 Parsing KidLisp source:`, source);
     
     // Clear previous first-line color state for fresh detection
     globalKidLispInstance.firstLineColor = null;
     
     globalKidLispInstance.parse(source);
-    console.log(`🔍 Generated AST:`, globalKidLispInstance.ast);
+    // console.log(`🔍 Generated AST:`, globalKidLispInstance.ast);
     
     if (globalKidLispInstance.ast) {
       // Detect first-line color but only apply it if not accumulating
       globalKidLispInstance.detectFirstLineColor();
       if (globalKidLispInstance.firstLineColor && !isAccumulating) {
-        console.log(`🎨 Applying first-line color background: ${globalKidLispInstance.firstLineColor}`);
+        // console.log(`🎨 Applying first-line color background: ${globalKidLispInstance.firstLineColor}`);
         api.wipe(globalKidLispInstance.firstLineColor);
       }
       
       // Execute the parsed AST using the main evaluate method
-      console.log(`🔍 Executing AST using main evaluate method...`);
-      console.log(`🔍 AST contains:`, globalKidLispInstance.ast.map(expr => Array.isArray(expr) ? expr[0] : expr));
+      // console.log(`🔍 Executing AST using main evaluate method...`);
+      // console.log(`🔍 AST contains:`, globalKidLispInstance.ast.map(expr => Array.isArray(expr) ? expr[0] : expr));
       
       // Set up proper timing environment by ensuring clock and frameCount are available
       if (!api.clock) {
@@ -3404,9 +3393,9 @@ function executeLispCode(source, api, isAccumulating = false) {
       
       // Normal KidLisp evaluation (dollar codes already resolved)
       const result = globalKidLispInstance.evaluate(globalKidLispInstance.ast, api, globalKidLispInstance.localEnv);
-      console.log(`🔍 Evaluation result:`, result);
+      // console.log(`🔍 Evaluation result:`, result);
     } else {
-      console.log(`⚠️ No AST generated from source`);
+      // console.log(`⚠️ No AST generated from source`);
     }
   } catch (evalError) {
     console.error("🚫 KidLisp evaluation error:", evalError);
@@ -5026,6 +5015,10 @@ async function load(
 
     previewOrIconMode = previewMode || iconMode;
     paintings = {}; // Reset painting cache.
+    // Reset KidLisp persistent paintings cache to avoid stale embedded content
+    if (globalKidLispInstance?.persistentPaintings) {
+      globalKidLispInstance.persistentPaintings.clear();
+    }
     prefetches?.forEach((p) => prefetchPicture(p)); // Prefetch parsed media.
     graph.color2(null); // Remove any secondary color that was added from another piece.
     // 🐢 Reset turtle state.
@@ -5172,6 +5165,31 @@ async function makeFrame({ data: { type, content } }) {
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
     TV_MODE = content.resolution?.tv === true;
+    
+    // Parse highlight parameter
+    const highlightParam = content.resolution?.highlight;
+    if (highlightParam) {
+      HIGHLIGHT_MODE = true;
+      if (highlightParam !== true && typeof highlightParam === 'string') {
+        // If it's a color string, parse it
+        if (highlightParam.startsWith('#')) {
+          // Convert hex to RGB
+          const hex = highlightParam.slice(1);
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          HIGHLIGHT_COLOR = `${r},${g},${b}`;
+        } else if (highlightParam.includes(',')) {
+          // Already RGB format
+          HIGHLIGHT_COLOR = highlightParam;
+        } else {
+          // Named color or other format - use CSS color parser or default
+          HIGHLIGHT_COLOR = highlightParam;
+        }
+      }
+    } else {
+      HIGHLIGHT_MODE = false;
+    }
 
     microphone.permission = content.microphonePermission;
 
@@ -7869,13 +7887,77 @@ async function makeFrame({ data: { type, content } }) {
         const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
         if (piece === "video") w = screen.width;
         
+        // Expand buffer size for highlight mode to prevent clipping
+        let bufferW = w;
+        let bufferH = h;
+        let leftMargin = 0;
+        if (HIGHLIGHT_MODE) {
+          leftMargin = 2; // Text offset from left edge - moved left for better positioning
+          bufferW = w + leftMargin + 8; // Text width + left margin + right padding
+          bufferH = h + 8; // Text height + top and bottom padding (4px each)
+        }
+        
         // Store actual dimensions for animation calculations
         hudAnimationState.labelWidth = w;
         hudAnimationState.labelHeight = h;
         
-        label = $api.painting(w, h, ($) => {
+        label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+
+          // HUD Background Highlighting: Add background for kidlisp hud corner labels
+          if (HIGHLIGHT_MODE) {
+            // Detect if this is a KidLisp piece
+            const sourceCode = currentText || currentHUDTxt;
+            const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
+                                 currentPath === "(...)" ||
+                                 (sourceCode && sourceCode.startsWith("$")) ||
+                                 (currentPath && currentPath.includes("/disks/$")) ||
+                                 (sourceCode && lisp.isKidlispSource(sourceCode));
+            
+            if (isKidlispPiece) {
+              // Get the actual text that will be rendered (same logic as below)
+              let text = currentHUDTxt;
+              if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
+                text = currentHUDTxt?.replaceAll("~", " ");
+                text = text?.replaceAll("§", " ");
+              }
+              
+              // Strip color codes to get the actual visible text
+              const colorCodeRegex = /\\[^\\]*\\/g;
+              const visibleText = text.replace(colorCodeRegex, '');
+              
+              // Calculate snug dimensions based on visible characters only
+              const snugWidth = visibleText.length * tf.blockWidth;
+              const snugHeight = tf.blockHeight;
+              
+              // Position highlight with 2px padding on all sides around the text
+              const bgX = leftMargin - 2; // Start 2px left of text (text at leftMargin = 2, so box at 0)
+              const bgY = -2; // Start 2px above text
+              const bgWidth = snugWidth + 4; // Text width + 2px padding on each side
+              const bgHeight = snugHeight + 4; // Text height + 2px padding top and bottom
+              
+              // Parse highlight color - support RGB comma format, hex, or named colors
+              let bgColor;
+              if (HIGHLIGHT_COLOR.includes(',')) {
+                const [r, g, b] = HIGHLIGHT_COLOR.split(',').map(n => parseInt(n.trim()));
+                bgColor = [r, g, b, 100]; // Semi-transparent
+              } else if (HIGHLIGHT_COLOR.startsWith('#')) {
+                // Parse hex color like #FFFF00
+                const hex = HIGHLIGHT_COLOR.slice(1); // Remove #
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                bgColor = [r, g, b, 100]; // Semi-transparent
+              } else {
+                // Use bright yellow as default for highlight
+                bgColor = [255, 255, 0, 100]; // Bright yellow, semi-transparent
+              }
+              
+              // Background highlight with configurable color
+              $.ink(...bgColor).box(bgX, bgY, bgWidth, bgHeight);
+            }
+          }
 
           // DEBUG: Show hitbox background (can be toggled by setting debug flag)
           const showHitboxDebug = globalThis.debugHudHitbox || false;
@@ -7931,13 +8013,13 @@ async function makeFrame({ data: { type, content } }) {
             
             $.ink([0, 0, 0]).write( // Default ink for shadow rendering (color codes in shadowText will override)
               shadowText,
-              { x: 1 + currentHUDScrub, y: 1 },
+              { x: 1 + currentHUDScrub + (HIGHLIGHT_MODE ? leftMargin : 0), y: 1 },
               undefined,
               $api.screen.width - $api.typeface.blockWidth,
             );
             $.ink(c).write(
               text,
-              { x: 0 + currentHUDScrub, y: 0 },
+              { x: 0 + currentHUDScrub + (HIGHLIGHT_MODE ? leftMargin : 0), y: 0 },
               undefined,
               $api.screen.width - $api.typeface.blockWidth,
             );
@@ -7946,11 +8028,11 @@ async function makeFrame({ data: { type, content } }) {
               const shareWidth = tf.blockWidth * "share ".length;
               const shadowShareText = "share"; // No color codes in "share"
               $.ink(0).write(shadowShareText, {
-                x: 1 + currentHUDScrub - shareWidth,
+                x: 1 + currentHUDScrub - shareWidth + (HIGHLIGHT_MODE ? leftMargin : 0),
                 y: 1,
               });
               $.ink(c).write("share", {
-                x: 0 + currentHUDScrub - shareWidth,
+                x: 0 + currentHUDScrub - shareWidth + (HIGHLIGHT_MODE ? leftMargin : 0),
                 y: 0,
               });
             }
