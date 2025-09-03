@@ -2372,6 +2372,13 @@ function getGlobalKidLisp() {
   return globalKidLispInstance;
 }
 
+// 🎵 Update KidLisp audio globals (safe for worker contexts)
+function updateKidLispAudio(audioData) {
+  if (globalKidLispInstance && globalKidLispInstance.updateAudioGlobals) {
+    globalKidLispInstance.updateAudioGlobals(audioData);
+  }
+}
+
 // 🔎 PAINTAPI
 const $paintApi = {
   // 1. Composite functions (that use $activePaintApi)
@@ -3158,15 +3165,9 @@ const $paintApiUnwrapped = {
           if (!api.clock) {
             api.clock = { time: () => new Date() };
           }
-          // Add scroll and zoom support for animations
-          if (!api.scroll) {
-            api.scroll = (dx, dy) => {
-              // console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
-            };
-          }
           // Override zoom and scroll functions to implement actual effects in painting context
           const originalZoom = api.zoom;
-          const originalScroll = api.scroll;
+          const originalScroll = api.scroll || $activePaintApi.scroll;
           
           api.zoom = (...args) => {
             // console.log(`🔍 Zoom called in painting context: args=${JSON.stringify(args)}`);
@@ -3178,9 +3179,11 @@ const $paintApiUnwrapped = {
           
           api.scroll = (dx, dy) => {
             // console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
-            // Just call the original scroll function - it will operate on the current buffer
+            // Call the real scroll function from the main paint API
             if (originalScroll && typeof originalScroll === 'function') {
               return originalScroll(dx, dy);
+            } else if ($activePaintApi.scroll && typeof $activePaintApi.scroll === 'function') {
+              return $activePaintApi.scroll(dx, dy);
             }
           };
           // Add randomization support for ink() and other commands
@@ -3287,6 +3290,25 @@ const $paintApiUnwrapped = {
           if (!api.clock) {
             api.clock = { time: () => new Date() };
           }
+          // Add scroll and zoom support for animations
+          const originalZoom = api.zoom;
+          const originalScroll = api.scroll || $activePaintApi.scroll;
+          
+          api.zoom = (...args) => {
+            // console.log(`🔍 Zoom called in accumulation context: args=${JSON.stringify(args)}`);
+            if (originalZoom && typeof originalZoom === 'function') {
+              return originalZoom(...args);
+            }
+          };
+          
+          api.scroll = (dx, dy) => {
+            // console.log(`📜 Scroll called in accumulation context: dx=${dx}, dy=${dy}`);
+            if (originalScroll && typeof originalScroll === 'function') {
+              return originalScroll(dx, dy);
+            } else if ($activePaintApi.scroll && typeof $activePaintApi.scroll === 'function') {
+              return $activePaintApi.scroll(dx, dy);
+            }
+          };
           // Add randomization support for ink() and other commands
           if (!api.num) {
             api.num = $activePaintApi.num || { 
@@ -3402,6 +3424,8 @@ const $paintApiUnwrapped = {
       return null;
     }
   },
+  // 🎵 Update KidLisp audio globals (accessible to all pieces)
+  updateKidLispAudio: updateKidLispAudio,
   // glaze: ...
 };
 

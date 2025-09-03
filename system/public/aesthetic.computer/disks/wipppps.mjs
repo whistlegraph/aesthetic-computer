@@ -12,11 +12,17 @@ let lastMidiNoteColor = { r: 0, g: 255, b: 255 }; // Default to cyan
 // Track previous locator to detect section changes
 let previousLocatorName = null;
 
+// Track PAUSE counter to cycle through different PAUSE sources
+let pauseCounter = 0;
+
 // Timeline visibility toggle
-let timelineVisible = false;
+let timelineVisible = true;
 
 // Frequency display toggle
-let frequencyDisplayVisible = false;
+let frequencyDisplayVisible = false; // Commented out to make timeline flush with top
+
+// KidLisp mode toggle - when true, use kidlisp() instead of TV bars
+let kidlispMode = true;
 
 // Frequency smoothing - track previous values for smooth transitions
 let previousFrequencyValues = [];
@@ -32,108 +38,158 @@ let pausedAt = 0; // Position where we paused (0 to 1)
 let pauseStartTime = null; // When we paused
 let totalPausedTime = 0; // Total time spent paused
 
-// zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES
+// zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES - DERIVED FROM KIDLISP PATTERNS
 const ZZZWAP_PALETTES = {
   START: {
     name: "Start",
     colors: [
-      { r: 50, g: 50, b: 50 },     // Dark Gray
-      { r: 100, g: 100, b: 100 },  // Medium Gray
-      { r: 150, g: 150, b: 150 },  // Light Gray
-      { r: 80, g: 80, b: 120 },    // Dark Blue Gray
-    ]
-  },
-  ACT_I: {
-    name: "Act I",
-    colors: [
-      { r: 255, g: 100, b: 100 },  // Soft Red
-      { r: 255, g: 150, b: 100 },  // Orange
-      { r: 255, g: 200, b: 100 },  // Yellow Orange
-      { r: 255, g: 120, b: 120 },  // Light Red
-      { r: 200, g: 100, b: 100 },  // Deep Red
-    ]
-  },
-  ACT_II: {
-    name: "Act II", 
-    colors: [
-      { r: 100, g: 255, b: 100 },  // Bright Green
-      { r: 150, g: 255, b: 120 },  // Light Green
-      { r: 100, g: 200, b: 100 },  // Forest Green
-      { r: 120, g: 255, b: 150 },  // Mint Green
-      { r: 80, g: 180, b: 80 },    // Deep Green
-    ]
-  },
-  ACT_III: {
-    name: "Act III",
-    colors: [
-      { r: 100, g: 100, b: 255 },  // Bright Blue
-      { r: 120, g: 150, b: 255 },  // Light Blue
-      { r: 150, g: 120, b: 255 },  // Purple Blue
-      { r: 100, g: 180, b: 255 },  // Sky Blue
-      { r: 80, g: 80, b: 200 },    // Deep Blue
-    ]
-  },
-  ACT_IIII: {
-    name: "Act IIII",
-    colors: [
-      { r: 255, g: 100, b: 255 },  // Bright Magenta
-      { r: 255, g: 150, b: 200 },  // Pink
-      { r: 200, g: 100, b: 255 },  // Purple
-      { r: 255, g: 120, b: 180 },  // Hot Pink
-      { r: 180, g: 80, b: 200 },   // Deep Purple
-    ]
-  },
-  ACT_V: {
-    name: "Act V",
-    colors: [
-      { r: 255, g: 255, b: 100 },  // Bright Yellow
-      { r: 255, g: 200, b: 150 },  // Gold
-      { r: 200, g: 255, b: 100 },  // Yellow Green
-      { r: 255, g: 180, b: 100 },  // Orange Yellow
-      { r: 200, g: 180, b: 80 },   // Dark Gold
-    ]
-  },
-  ACT_VI: {
-    name: "Act VI",
-    colors: [
-      { r: 255, g: 150, b: 100 },  // Coral
-      { r: 100, g: 255, b: 200 },  // Aqua
-      { r: 200, g: 100, b: 255 },  // Violet
-      { r: 255, g: 200, b: 150 },  // Peach
-      { r: 150, g: 255, b: 100 },  // Lime
-      { r: 100, g: 200, b: 255 },  // Cyan
-    ]
-  },
-  SURPRISE: {
-    name: "Surprise",
-    colors: [
-      { r: 255, g: 0, b: 0 },      // Pure Red
-      { r: 0, g: 255, b: 0 },      // Pure Green  
-      { r: 0, g: 0, b: 255 },      // Pure Blue
-      { r: 255, g: 255, b: 0 },    // Pure Yellow
-      { r: 255, g: 0, b: 255 },    // Pure Magenta
-      { r: 0, g: 255, b: 255 },    // Pure Cyan
-      { r: 255, g: 255, b: 255 },  // Pure White
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 255, g: 255, b: 0 },    // yellow
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 255, g: 0, b: 255 },    // magenta
     ]
   },
   PAUSE: {
     name: "Pause",
     colors: [
-      { r: 80, g: 120, b: 160 },   // Muted Blue
-      { r: 120, g: 100, b: 140 },  // Muted Purple
-      { r: 100, g: 120, b: 100 },  // Muted Green
-      { r: 140, g: 120, b: 100 },  // Muted Brown
+      { r: 255, g: 0, b: 0 },      // red
+      { r: 255, g: 255, b: 255 },  // white
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 128, g: 128, b: 128 },  // gray
+    ]
+  },
+  ACT_I: {
+    name: "Act I",
+    colors: [
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+      { r: 255, g: 0, b: 255 },    // magenta
+    ]
+  },
+  ACT_II: {
+    name: "Act II", 
+    colors: [
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 255, g: 0, b: 255 },    // magenta (gradient)
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+    ]
+  },
+  ACT_III: {
+    name: "Act III",
+    colors: [
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+      { r: 255, g: 0, b: 255 },    // magenta
+    ]
+  },
+  ACT_IIII: {
+    name: "Act IIII",
+    colors: [
+      { r: 255, g: 0, b: 255 },    // magenta (gradient)
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+    ]
+  },
+  ACT_V: {
+    name: "Act V",
+    colors: [
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+      { r: 255, g: 0, b: 255 },    // magenta
+    ]
+  },
+  ACT_VI: {
+    name: "Act VI",
+    colors: [
+      { r: 0, g: 255, b: 0 },      // lime (gradient)
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 255, g: 192, b: 203 },  // pink
+      { r: 255, g: 0, b: 255 },    // magenta
+    ]
+  },
+  SURPRISE: {
+    name: "Surprise",
+    colors: [
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+      { r: 255, g: 0, b: 255 },    // magenta
+    ]
+  },
+  PAUSE_2: {
+    name: "Pause 2",
+    colors: [
+      { r: 255, g: 0, b: 0 },      // red (gradient)
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 255, b: 255 },  // white
+      { r: 128, g: 128, b: 128 },  // gray
+    ]
+  },
+  PAUSE_3: {
+    name: "Pause 3", 
+    colors: [
+      { r: 255, g: 0, b: 0 },      // red
+      { r: 255, g: 255, b: 255 },  // white
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 128, g: 128, b: 128 },  // gray
     ]
   },
   END: {
     name: "End",
     colors: [
-      { r: 200, g: 200, b: 200 },  // Light Gray
-      { r: 150, g: 150, b: 150 },  // Medium Gray
-      { r: 100, g: 100, b: 100 },  // Dark Gray
-      { r: 50, g: 50, b: 50 },     // Very Dark Gray
+      { r: 0, g: 255, b: 0 },      // lime
+      { r: 128, g: 128, b: 128 },  // gray
+      { r: 0, g: 0, b: 0 },        // black
+      { r: 255, g: 192, b: 203 },  // pink
+      { r: 255, g: 0, b: 255 },    // magenta
     ]
   }
+};
+
+// Zoom on the kick....
+
+// zzzZWAP LOCATOR-SPECIFIC KIDLISP SOURCES
+const ZZZWAP_KIDLISP_SOURCES = {
+  START: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
+
+  // First pause could be a stop.
+  PAUSE: `(fade:red-white-black-gray) (ink (? red white 0) (+ 110 (* kick 155))) (ink (? red white 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 110 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.3s... -4.0 4.0)) (zoom (0.1s... 2.0 4.0)) (contrast 1.3)`,
+  
+  ACT_I: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 120 (* kick 155))) (ink (? lime magenta 0) (+ 25 (* (random) 65))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 120 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.3 1.3)) (zoom 1.2) (contrast 1.1) (scroll (? 3 -3) (? 3 -3))`,
+  
+  ACT_II: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 130 (* kick 155))) (ink (? lime magenta 0) (+ 30 (* (random) 70))) (gradient lime magenta 0 0 width height) (ink (? lime magenta 0) (+ 130 (* kick 155))) (line (/ width 2) 0 (/ width 2) height) (spin (2s... -1.5 1.5)) (zoom 1.2) (contrast 1.1) (scroll (? 4 -4) (? 3 -3))`,
+  
+  ACT_III: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 140 (* kick 155))) (ink (? lime magenta 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 140 (* kick 155))) (line 0 (/ height 2) width (/ height 2)) (line (/ width 2) 0 (/ width 2) height) (spin (1.8s... -1.7 1.7)) (zoom 1.2) (contrast 1.1) (scroll (? 5 -5) (? 4 -4))`,
+  
+  ACT_IIII: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 150 (* kick 155))) (ink (? lime magenta 0) (+ 40 (* (random) 80))) (gradient magenta lime (/ width 4) (/ height 4) (* width 0.75) (* height 0.75)) (ink (? lime magenta 0) (+ 150 (* kick 155))) (poly (/ width 2) (/ height 2) (+ 3 (* kick 4)) 6) (spin (1.5s... -2.0 2.0)) (zoom 1.2) (contrast 1.1) (scroll (? 6 -6) (? 5 -5))`,
+  
+  ACT_V: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 160 (* kick 155))) (ink (? lime magenta 0) (+ 45 (* (random) 85))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 160 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (1.2s... -2.3 2.3)) (zoom 1.2) (contrast 1.1) (scroll (? 7 -7) (? 6 -6))`,
+  
+  ACT_VI: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 170 (* kick 155))) (ink (? lime magenta 0) (+ 50 (* (random) 90))) (gradient lime black (/ width 2) 0 (/ width 2) height) (ink (? lime magenta 0) (+ 170 (* kick 155))) (point (/ width 3) (/ height 3)) (point (* width 0.66) (* height 0.66)) (line (/ width 2) 0 (/ width 2) height) (spin (1s... -2.5 2.5)) (zoom 1.2) (contrast 1.1) (scroll (? 8 -8) (? 7 -7))`,
+  
+  SURPRISE: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 180 (* kick 175))) (ink (? lime magenta 0) (+ 60 (* (random) 100))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 180 (* kick 175))) (circle (/ width 2) (/ height 2) (+ 4 (* kick 5))) (poly (/ width 4) (/ height 4) (+ 2 (* kick 3)) 8) (poly (* width 0.75) (* height 0.75) (+ 2 (* kick 3)) 8) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.5s... -3.0 3.0)) (zoom 1.3) (contrast 1.2) (scroll (? 10 -10) (? 9 -9))`,
+  
+  PAUSE_2: `(fade:red-white-black-gray) (ink (? red white 0) (+ 160 (* kick 155))) (ink (? red white 0) (+ 45 (* (random) 85))) (gradient red black 0 0 width height) (ink (? red white 0) (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height) (spin (0.2s... -5.0 5.0)) (zoom (0.05s... 2.5 5.0)) (contrast 1.4) (scroll (? 8 -8) (? 7 -7))`,
+  
+  PAUSE_3: `(fade:red-white-black-gray) (ink (? red white 0) (+ 140 (* kick 155))) (ink (? red white 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 140 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.1s... -6.0 6.0)) (zoom (0.03s... 3.0 6.0)) (contrast 1.5) (scroll (? 6 -6) (? 6 -6))`,
+  
+  END: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 80 (* kick 100))) (ink (? lime magenta 0) (+ 15 (* (random) 40))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 80 (* kick 100))) (point (/ width 2) (/ height 2)) (spin (3s... -0.5 0.5)) (zoom 1.1) (contrast 1.0) (scroll (? 1 -1) (? 1 -1))`,
+  // PAUSE: `(wipe gray) (ink white) (write PAUSE 4 4) (ink orange) (repeat 10 line)`,
+  PAUSE_2: `(wipe green) (ink white) (write PAUSE_2 4 4) (ink yellow) (repeat 12 line)`,
+  PAUSE_3: `(wipe violet) (ink white) (write PAUSE_3 4 4) (ink pink) (repeat 14 line)`,
+  END: `(wipe purple) (ink white) (write END 4 4) (ink blue) (repeat 16 line)`
 };
 
 // FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
@@ -148,11 +204,70 @@ function getPaletteForLocator(locatorName) {
   if (name.includes('ACT II')) return ZZZWAP_PALETTES.ACT_II;
   if (name.includes('ACT I')) return ZZZWAP_PALETTES.ACT_I;
   if (name.includes('SURPRISE')) return ZZZWAP_PALETTES.SURPRISE;
-  if (name.includes('PAUSE')) return ZZZWAP_PALETTES.PAUSE;
+  
+  // Handle PAUSE variations with cycling
+  if (name.includes('PAUSE')) {
+    // First check for explicitly numbered PAUSE variations
+    if (name.includes('PAUSE 3') || name.includes('PAUSE3')) return ZZZWAP_PALETTES.PAUSE_3;
+    if (name.includes('PAUSE 2') || name.includes('PAUSE2')) return ZZZWAP_PALETTES.PAUSE_2;
+    if (name.includes('PAUSE')) {
+      // Generic PAUSE - cycle through palettes based on counter
+      const pausePalettes = [ZZZWAP_PALETTES.PAUSE, ZZZWAP_PALETTES.PAUSE_2, ZZZWAP_PALETTES.PAUSE_3];
+      const paletteIndex = Math.max(0, (pauseCounter - 1)) % pausePalettes.length;
+      return pausePalettes[paletteIndex];
+    }
+  }
+  
   if (name.includes('START')) return ZZZWAP_PALETTES.START;
   if (name.includes('END')) return ZZZWAP_PALETTES.END;
   
   return ZZZWAP_PALETTES.START; // Default fallback
+}
+
+// FUNCTION TO GET KIDLISP SOURCE FOR CURRENT LOCATOR
+function getKidlispSourceForLocator(locatorName) {
+  if (!locatorName) return ZZZWAP_KIDLISP_SOURCES.START;
+  
+  const name = locatorName.toUpperCase();
+  
+  // Handle section changes to reset/increment counters
+  if (locatorName !== previousLocatorName) {
+    // If we're entering a new PAUSE section, increment the counter
+    if (name.includes('PAUSE') && (!previousLocatorName || !previousLocatorName.toUpperCase().includes('PAUSE'))) {
+      pauseCounter++;
+    }
+    // Reset pause counter if we're no longer in a PAUSE section
+    if (!name.includes('PAUSE') && previousLocatorName && previousLocatorName.toUpperCase().includes('PAUSE')) {
+      pauseCounter = 0;
+    }
+    previousLocatorName = locatorName;
+  }
+  
+  if (name.includes('ACT VI')) return ZZZWAP_KIDLISP_SOURCES.ACT_VI;
+  if (name.includes('ACT V')) return ZZZWAP_KIDLISP_SOURCES.ACT_V;
+  if (name.includes('ACT IIII')) return ZZZWAP_KIDLISP_SOURCES.ACT_IIII;
+  if (name.includes('ACT III')) return ZZZWAP_KIDLISP_SOURCES.ACT_III;
+  if (name.includes('ACT II')) return ZZZWAP_KIDLISP_SOURCES.ACT_II;
+  if (name.includes('ACT I')) return ZZZWAP_KIDLISP_SOURCES.ACT_I;
+  if (name.includes('SURPRISE')) return ZZZWAP_KIDLISP_SOURCES.SURPRISE;
+  
+  // Handle PAUSE variations with cycling
+  if (name.includes('PAUSE')) {
+    // First check for explicitly numbered PAUSE variations
+    if (name.match(/PAUSE\s*3/i) || name.match(/PAUSE3/i)) return ZZZWAP_KIDLISP_SOURCES.PAUSE_3;
+    if (name.match(/PAUSE\s*2/i) || name.match(/PAUSE2/i)) return ZZZWAP_KIDLISP_SOURCES.PAUSE_2;
+    if (name.match(/PAUSE(?!\s*\d)/i)) {
+      // Generic PAUSE - cycle through sources based on counter
+      const pauseSources = [ZZZWAP_KIDLISP_SOURCES.PAUSE, ZZZWAP_KIDLISP_SOURCES.PAUSE_2, ZZZWAP_KIDLISP_SOURCES.PAUSE_3];
+      const sourceIndex = Math.max(0, (pauseCounter - 1)) % pauseSources.length;
+      return pauseSources[sourceIndex];
+    }
+  }
+  
+  if (name.includes('START')) return ZZZWAP_KIDLISP_SOURCES.START;
+  if (name.includes('END')) return ZZZWAP_KIDLISP_SOURCES.END;
+  
+  return ZZZWAP_KIDLISP_SOURCES.START; // Default fallback
 }
 
 // Loads specific Ableton project and audio files over network
@@ -1149,7 +1264,7 @@ let tvBarsBuffer = null;
 let lastScreenWidth = 0;
 let lastScreenHeight = 0;
 
-function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape }) {
+function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape, kidlisp }) {
   // Initialize or recreate TV bars buffer if needed (first time or screen size changed)
   if (!tvBarsBuffer || screen.width !== lastScreenWidth || screen.height !== lastScreenHeight) {
     tvBarsBuffer = painting(screen.width, screen.height, (api) => {
@@ -1636,7 +1751,31 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // === END TV BARS RENDERING ===
   // Switch back to main screen and paste the TV bars buffer with blur effect
   page(screen);
-  paste(tvBarsBuffer);
+  
+  // === KIDLISP ALTERNATIVE ===
+  if (kidlispMode) {
+    // Use KidLisp instead of TV bars for visual output
+    // Use pre-defined locator-specific KidLisp sources
+    
+    // Get current locator for context
+    const { current: currentLocator } = alsProject ? alsProject.getCurrentLocator(currentTimeSeconds, actualDuration) : { current: null };
+    const currentPalette = getPaletteForLocator(currentLocator?.name);
+    
+    // Get the pre-defined KidLisp source for this locator
+    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name);
+    
+    // Add defensive checks to prevent errors
+    if (!kidlispCode) {
+      kidlispCode = ZZZWAP_KIDLISP_SOURCES.START; // Fallback to START
+    }
+    
+    // Execute the KidLisp theme code (amp is now available as a global variable)
+    kidlisp(0, 25, screen.width, screen.height-24, kidlispCode);
+  } else {
+    // Use traditional TV bars buffer
+    paste(tvBarsBuffer);
+  }
+  
   // blur(1); // Apply blur to the TV bars buffer to test separation
   // zoom(0.5);
 
@@ -1667,8 +1806,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   const pixelsPerSecond = 60; // Increased from 35 to 60 px/sec for faster scrolling / more zoomed in view
 
   // === FREQUENCY DISPLAY OVERLAY ===
-  // Separate small graphic element for frequency/amplitude data above timeline
-  if (frequencyDisplayVisible) {
+  // Frequency display commented out to make timeline flush with top
+  if (false) { // Disabled frequency display code
     const freqDisplayHeight = 12; // Even more compact - nice and tight!
     const freqDisplayY = 0; // Position frequency display at very top
     
@@ -1979,7 +2118,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       ink(255, 255, 0); // Yellow for amplitude
       box(0, ampY, Math.floor(ampWidth), ampHeight);
     }
-  }
+  } // End of disabled frequency display code
 
   // === TIMELINE OVERLAY (MINIMAL & FAST) ===
   // The timeline is now an overlay element that sits on top of the TV bar composition
@@ -2028,6 +2167,13 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       if (segmentEndX > -50 && segmentStartX < screen.width + 50 && segmentWidth > 0) {
         // Use the same palette-based color logic as TV bars instead of getLocatorColor
         const segmentPalette = getPaletteForLocator(locator.name);
+        
+        // Defensive check to prevent errors
+        if (!segmentPalette || !segmentPalette.colors || segmentPalette.colors.length === 0) {
+          console.warn(`⚠️ Invalid palette for locator: ${locator.name}`);
+          continue; // Skip this segment
+        }
+        
         const colorIndex = i % segmentPalette.colors.length; // Simple index-based selection for timeline
         const paletteColor = segmentPalette.colors[colorIndex];
         
@@ -2338,6 +2484,12 @@ function act({ event: e, sound }) {
     console.log("Frequency display visibility toggled:", frequencyDisplayVisible);
   }
   
+  // Toggle KidLisp mode with 'k' key
+  if (e.is("keyboard:k")) {
+    kidlispMode = !kidlispMode;
+    console.log("KidLisp mode toggled:", kidlispMode);
+  }
+  
   // Simple play/pause control
   if (e.is("keyboard:p")) {
     timelineOffset += 0.5; // Look further ahead
@@ -2423,7 +2575,31 @@ function act({ event: e, sound }) {
 }
 
 // Simple auto-stop when audio ends
-function sim({ sound }) {
+function sim({ sound, updateKidLispAudio }) {
+  // Update KidLisp global variables with current audio data
+  if (sound && sound.speaker && updateKidLispAudio) {
+    // Get current amplitude values
+    const leftAmp = sound.speaker.amplitudes?.left || 0;
+    const rightAmp = sound.speaker.amplitudes?.right || 0;
+    const avgAmp = (leftAmp + rightAmp) / 2;
+    
+    // Scale amplitude to a reasonable range for scroll/visual effects (0-10)
+    const scaledAmp = Math.round(avgAmp * 10);
+    
+    // Get beat detection data
+    const beatDetected = sound.speaker.beat?.detected || false;
+    const beatStrength = sound.speaker.beat?.strength || 0;
+    
+    // Update KidLisp globals using the proper API
+    updateKidLispAudio({
+      amp: scaledAmp,
+      leftAmp: Math.round(leftAmp * 10),
+      rightAmp: Math.round(rightAmp * 10),
+      beat: beatDetected ? 1 : 0,
+      kick: beatDetected ? 1 : 0  // Same as beat for now - kick drum detection
+    });
+  }
+
   if (isPlaying && playingSfx && playingSfx.killed) {
     isPlaying = false;
     progress = 0;

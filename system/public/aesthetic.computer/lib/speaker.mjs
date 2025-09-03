@@ -50,17 +50,22 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   
   // Analysis throttling
   #analysisCounter = 0;
+  
+  // Performance monitoring for mobile devices
+  #performanceMode = 'auto'; // 'auto', 'low', 'disabled'
+  #processingTimeHistory = [];
+  #lastProcessingTime = 0;
 
   // Frequency analysis
   #frequencyBandsLeft = [];
   #frequencyBandsRight = [];
   #fftBufferLeft = [];
   #fftBufferRight = [];
-  #fftSize = 1024; // Reverted back to original value
+  #fftSize = 512; // Reduced from 1024 for better mobile performance
 
   // Beat detection variables
   #energyHistory = []; // Track energy over time for beat detection
-  #energyHistorySize = 43; // ~1 second at 43Hz (1024 samples / 24000 Hz)
+  #energyHistorySize = 20; // Reduced from 43 for better mobile performance
   #beatSensitivity = 1.15; // Lower, more sensitive threshold (was 1.3)
   #adaptiveThreshold = 1.15; // Dynamic threshold that adapts
   #lastBeatTime = 0;
@@ -393,11 +398,32 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   process(inputs, outputs) {
     try {
       const currentTime = this.currentTime; // Get current time from AudioWorkletProcessor
+      const startTime = currentTime * 1000; // Use currentTime instead of performance.now()
       
       // Memory monitoring - check every 2 seconds
       this.#memoryCheckCounter++;
       if (this.#memoryCheckCounter >= sampleRate * 2) { // Every 2 seconds
         this.#memoryCheckCounter = 0;
+        
+        // Performance monitoring - check if we're running slow
+        if (this.#processingTimeHistory.length > 0) {
+          const avgProcessingTime = this.#processingTimeHistory.reduce((a, b) => a + b, 0) / this.#processingTimeHistory.length;
+          
+          // If average processing time is > 2ms, disable frequency analysis completely
+          if (avgProcessingTime > 2.0 && this.#performanceMode !== 'disabled') {
+            console.log('🚨 Disabling frequency analysis due to severe performance issues');
+            this.#performanceMode = 'disabled';
+          } else if (avgProcessingTime > 1.0 && this.#performanceMode === 'auto') {
+            console.log('🐌 Switching to low performance mode for mobile optimization');
+            this.#performanceMode = 'low';
+          } else if (avgProcessingTime < 0.5 && this.#performanceMode === 'low') {
+            console.log('🚀 Switching back to normal performance mode');
+            this.#performanceMode = 'auto';
+          } else if (avgProcessingTime < 0.3 && this.#performanceMode === 'disabled') {
+            console.log('💚 Re-enabling low performance mode');
+            this.#performanceMode = 'low';
+          }
+        }
         
         // Log buffer sizes and memory usage
         console.log(`🧠 Memory Check:
@@ -405,7 +431,9 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         FFT Buffer Right: ${this.#fftBufferRight?.length || 0}
         Energy History: ${this.#energyHistory?.length || 0}
         Queue length: ${this.#queue?.length || 0}
-        Running instruments: ${Object.keys(this.#running || {}).length}`);
+        Running instruments: ${Object.keys(this.#running || {}).length}
+        Performance mode: ${this.#performanceMode}
+        Avg processing time: ${this.#processingTimeHistory.length > 0 ? (this.#processingTimeHistory.reduce((a, b) => a + b, 0) / this.#processingTimeHistory.length).toFixed(3) : 0}ms`);
           
         // Check for memory leaks in buffers
         if (this.#fftBufferLeft?.length > this.#fftSize * 2) {
@@ -416,7 +444,16 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         }
       }
       
-      return this.#processAudio(inputs, outputs, currentTime);
+      const result = this.#processAudio(inputs, outputs, currentTime);
+      
+      // Track processing time for performance monitoring
+      const processingTime = (currentTime * 1000) - startTime;
+      this.#processingTimeHistory.push(processingTime);
+      if (this.#processingTimeHistory.length > 100) {
+        this.#processingTimeHistory.shift(); // Keep only last 100 measurements
+      }
+      
+      return result;
     } catch (error) {
       console.error('🚨 Audio Worklet Error:', error);
       return true; // Keep processor alive
@@ -536,52 +573,78 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       this.#fftBufferRight = this.#fftBufferRight.slice(-this.#fftSize);
     }
 
-    // Reduce analysis frequency to improve performance
+    // Reduce analysis frequency to improve performance on mobile devices
     this.#analysisCounter = (this.#analysisCounter || 0) + 1;
     
-    // Only analyze every 4th buffer to reduce CPU load
-    if (this.#fftBufferLeft.length >= this.#fftSize && this.#analysisCounter % 4 === 0) {
+    // Skip all frequency analysis if performance mode is disabled
+    if (this.#performanceMode === 'disabled') {
+      return; // Exit early, no frequency analysis
+    }
+    
+    // Adaptive analysis frequency based on performance mode
+    let analysisInterval, beatInterval;
+    if (this.#performanceMode === 'low') {
+      analysisInterval = 32; // Very infrequent analysis for slow devices
+      beatInterval = 64;     // Very infrequent beat detection
+    } else {
+      analysisInterval = 16; // Normal reduced interval
+      beatInterval = 32;     // Normal beat detection interval
+    }
+    
+    // Only analyze when buffer is full and at the appropriate interval
+    if (this.#fftBufferLeft.length >= this.#fftSize && this.#analysisCounter % analysisInterval === 0) {
       this.#frequencyBandsLeft = this.#analyzeFrequencies(this.#fftBufferLeft);
       this.#frequencyBandsRight = this.#analyzeFrequencies(this.#fftBufferRight);
       
-      // Beat detection even less frequently to preserve audio
-      if (this.#analysisCounter % 8 === 0) {
+      // Beat detection even less frequently to preserve audio performance
+      if (this.#analysisCounter % beatInterval === 0) {
         this.#detectBeats(this.#fftBufferLeft);
       }
-    }
-
-    return true;
+    }    return true;
   } // End of #processAudio method
 
   // === FREQUENCY ANALYSIS METHODS ===
   
-  // Simple FFT implementation for frequency analysis
+  // Optimized FFT implementation for mobile performance
   #fft(buffer) {
     const N = buffer.length;
     if (N <= 1) return buffer.map(x => ({ real: x, imag: 0 }));
     
-    // Ensure power of 2
-    const powerOf2 = Math.pow(2, Math.floor(Math.log2(N)));
+    // Ensure power of 2 and use smaller size for mobile
+    const powerOf2 = Math.min(512, Math.pow(2, Math.floor(Math.log2(N))));
     const input = buffer.slice(0, powerOf2);
     
-    // Recursive FFT
-    const even = this.#fft(input.filter((_, i) => i % 2 === 0));
-    const odd = this.#fft(input.filter((_, i) => i % 2 === 1));
+    // Use iterative FFT instead of recursive for better performance
+    const result = input.map(x => ({ real: x, imag: 0 }));
     
-    const result = new Array(powerOf2);
-    for (let k = 0; k < powerOf2 / 2; k++) {
-      const t = { 
-        real: Math.cos(-2 * Math.PI * k / powerOf2) * odd[k].real - Math.sin(-2 * Math.PI * k / powerOf2) * odd[k].imag,
-        imag: Math.sin(-2 * Math.PI * k / powerOf2) * odd[k].real + Math.cos(-2 * Math.PI * k / powerOf2) * odd[k].imag
-      };
-      result[k] = { 
-        real: even[k].real + t.real, 
-        imag: even[k].imag + t.imag 
-      };
-      result[k + powerOf2 / 2] = { 
-        real: even[k].real - t.real, 
-        imag: even[k].imag - t.imag 
-      };
+    // Bit-reverse permutation
+    for (let i = 0; i < powerOf2; i++) {
+      let j = 0;
+      for (let k = 0; k < Math.log2(powerOf2); k++) {
+        j = (j << 1) | ((i >> k) & 1);
+      }
+      if (j > i) {
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+    }
+    
+    // Iterative FFT
+    for (let len = 2; len <= powerOf2; len *= 2) {
+      const w = { real: Math.cos(-2 * Math.PI / len), imag: Math.sin(-2 * Math.PI / len) };
+      for (let i = 0; i < powerOf2; i += len) {
+        let wn = { real: 1, imag: 0 };
+        for (let j = 0; j < len / 2; j++) {
+          const u = result[i + j];
+          const v = {
+            real: result[i + j + len / 2].real * wn.real - result[i + j + len / 2].imag * wn.imag,
+            imag: result[i + j + len / 2].real * wn.imag + result[i + j + len / 2].imag * wn.real
+          };
+          result[i + j] = { real: u.real + v.real, imag: u.imag + v.imag };
+          result[i + j + len / 2] = { real: u.real - v.real, imag: u.imag - v.imag };
+          const temp = { real: wn.real * w.real - wn.imag * w.imag, imag: wn.real * w.imag + wn.imag * w.real };
+          wn = temp;
+        }
+      }
     }
     return result;
   }
@@ -590,39 +653,27 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #analyzeFrequencies(buffer) {
     if (buffer.length < this.#fftSize) return [];
     
-    // Apply window function (Hanning) to reduce spectral leakage
-    const windowed = buffer.map((sample, i) => 
-      sample * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / buffer.length))
-    );
+    // Simplified windowing - use rectangular window for better mobile performance
+    const windowedBuffer = buffer.slice(0, this.#fftSize);
     
     // Perform FFT
-    const fftResult = this.#fft(windowed);
+    const fftResult = this.#fft(windowedBuffer);
     
-    // Calculate magnitude spectrum
+    // Calculate magnitude spectrum with reduced precision for mobile
     const magnitudes = fftResult.map(complex => 
       Math.sqrt(complex.real * complex.real + complex.imag * complex.imag)
     );
     
-    // Define frequency bands (in Hz) - More detailed for better visualization, especially high frequencies
+    // Define frequency bands (in Hz) - Reduced to 8 bands for better mobile performance
     const bands = [
-      { name: 'subBass', min: 20, max: 60 },        // Sub Bass
-      { name: 'bass', min: 60, max: 150 },          // Bass  
-      { name: 'lowBass', min: 150, max: 250 },      // Low Bass
-      { name: 'lowMid', min: 250, max: 500 },       // Low Mid
-      { name: 'lowMid2', min: 500, max: 800 },      // Low Mid 2
-      { name: 'mid', min: 800, max: 1200 },         // Mid
-      { name: 'midHigh', min: 1200, max: 1800 },    // Mid High
-      { name: 'highMid', min: 1800, max: 2500 },    // High Mid
-      { name: 'highMid2', min: 2500, max: 3500 },   // High Mid 2
-      { name: 'presence', min: 3500, max: 5000 },   // Presence
-      { name: 'treble1', min: 5000, max: 6500 },    // Treble 1
-      { name: 'treble2', min: 6500, max: 8000 },    // Treble 2
-      { name: 'highTreble1', min: 8000, max: 10000 }, // High Treble 1
-      { name: 'highTreble2', min: 10000, max: 12000 }, // High Treble 2
-      { name: 'air1', min: 12000, max: 14000 },     // Air 1
-      { name: 'air2', min: 14000, max: 16000 },     // Air 2
-      { name: 'ultra1', min: 16000, max: 18000 },   // Ultra High 1
-      { name: 'ultra2', min: 18000, max: 20000 }    // Ultra High 2
+      { name: 'subBass', min: 20, max: 100 },       // Sub Bass & Bass combined
+      { name: 'lowMid', min: 100, max: 400 },       // Low Mid combined
+      { name: 'mid', min: 400, max: 1000 },         // Mid range
+      { name: 'highMid', min: 1000, max: 2500 },    // High Mid combined  
+      { name: 'presence', min: 2500, max: 5000 },   // Presence
+      { name: 'treble', min: 5000, max: 10000 },    // Treble combined
+      { name: 'air', min: 10000, max: 16000 },      // Air frequencies
+      { name: 'ultra', min: 16000, max: 20000 }     // Ultra high combined
     ];
     
     // Calculate bin frequency resolution
