@@ -196,6 +196,9 @@ const LEGITIMATE_PARAMS = [
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight'
 ];
 
+// Auth0 parameters that should be stripped from paths
+const AUTH0_PARAMS_TO_STRIP = ['state', 'code', 'error', 'error_description'];
+
 // Get clean path without legitimate query parameters
 function getCleanPath(fullUrl) {
   // console.log("🐛 getCleanPath() input:", fullUrl);
@@ -211,6 +214,20 @@ function getCleanPath(fullUrl) {
     if (beforeClean !== cleanPath) {
       // console.log(`🐛 getCleanPath() removed '${paramName}':`, beforeClean, "->", cleanPath);
     }
+  }
+  
+  // Remove Auth0 parameters from the end (these should always be stripped)
+  // Only remove 'code' if 'state' is also present (indicating Auth0 callback)
+  const hasState = /[?&]state=/.test(cleanPath);
+  const auth0ParamsToRemove = hasState 
+    ? AUTH0_PARAMS_TO_STRIP 
+    : AUTH0_PARAMS_TO_STRIP.filter(param => param !== 'code');
+    
+  for (const paramName of auth0ParamsToRemove) {
+    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`, 'g');
+    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`, 'g');
+    cleanPath = cleanPath.replace(regexWithValue, '');
+    cleanPath = cleanPath.replace(regexBool, '');
   }
   
   // Clean up any remaining ? or & sequences
