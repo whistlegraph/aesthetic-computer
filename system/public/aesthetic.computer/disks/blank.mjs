@@ -8,20 +8,37 @@
   Special note: `Use screen.pixels / direct pixel array access for any automated drawing.`
 */
 
-function paint({ api, wipe, ink, line, screen, box, circle, pen, write }) {
-  wipe("gray"); // Clear the background.
-  ink("yellow"); // Paint a diagonal yellow line.
-  line(0, 0, screen.width, screen.height);
+function paint({ api, wipe, ink, line, screen, box, circle, pen, write, paste, kidlisp }) {
+  wipe("navy"); // Clear the background.
+  
+  // ✨ NEW: Test unquoted URL support in KidLisp paste function!
+  // kidlisp(0, 0, screen.width, screen.height, `
+  //   ; Now you can use unquoted URLs in KidLisp paste commands!
+  //   (paste https://assets.aesthetic.computer/wipppps/cow.png 10 10 0.3)
+  //   (paste https://assets.aesthetic.computer/wipppps/cow.png (/ width 2) 50 0.5)
+  //   
+  //   ; Also works with stamp (centered pasting)
+  //   (stamp https://assets.aesthetic.computer/wipppps/cow.png (/ width 2) (- height 50))
+  //   
+  //   ; Quoted URLs still work too
+  //   (paste "https://assets.aesthetic.computer/wipppps/cow.png" 150 10 0.2)
+  // `);
 
-  let x = 16,
-    y = 32; // Paint RGB boxes.
-  ink("red").box(x, y, 32, 32);
-  ink(0x00ff00).box(x, y + 32, 32, 32);
-  ink(0, 0, 255, 128).box(x, y + 64, 32, 32);
+  // kidlisp(96, 24, 64, 64, 'fade:red-rainbow');
+  
+  // Regular JavaScript paste still works with quoted URLs
+  paste("https://assets.aesthetic.computer/wipppps/cow.png", 0, 0, 0.05);
+  
+  ink("lime"); // Paint some decoration
+  line(0, 0, screen.width, screen.height);
+  line(screen.width, 0, 0, screen.height);
+
+  ink("white");
+  write("🐄 Unquoted URL support in KidLisp!", 5, screen.height - 20);
 
   if (pen) {
-    ink().circle(pen.x, pen.y, 6); // Paint a cursor with text underneath.
-    ink("white").write("😄 Hello AC!", { x: pen.x, y: pen.y + 12, center: "x" });
+    ink("yellow").circle(pen.x, pen.y, 8);
+    ink("white").write("Cursor!", { x: pen.x, y: pen.y + 15, center: "x" });
   }
 }
 
