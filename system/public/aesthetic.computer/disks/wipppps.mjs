@@ -184,7 +184,7 @@ const ZZZWAP_PALETTES = {
 
 // zzzZWAP LOCATOR-SPECIFIC KIDLISP SOURCES
 const ZZZWAP_KIDLISP_SOURCES = {
-  BEFORE_START: `(fade:purple-black-green:90) (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6) (ink white 180) (tri (- (/ width 2) 20) (- (/ height 2) 20) (- (/ width 2) 20) (+ (/ height 2) 20) (+ (/ width 2) 20) (/ height 2))`,
+  BEFORE_START: `black (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6) (ink white 180) (tri (- (/ width 2) 20) (- (/ height 2) 20) (- (/ width 2) 20) (+ (/ height 2) 20) (+ (/ width 2) 20) (/ height 2))`,
   // BEFORE_START: `(fade:black-navy-black) (ink (? red blue navy 0) (+ 50 (* kick 100))) (ink (? red blue gray 0) (+ 10 (* (random) 30))) (circle (/ width 2) (/ height 2) (+ 2 (* kick 3))) (spin (5s... -0.5 0.5)) (zoom 1.125) (contrast 1.05) (ink rainbow (? 16 32 48 128 255)) (repeat 1024 point) (scroll (? 0 0 1 -1) (? 0 0 1 -1))`,
   START: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (ink yellow (? 32 64 96 255)) (repeat 32 point) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
   PAUSE: `(fade:red-white-black-gray) (ink (? red white 0) (+ 110 (* kick 155))) (ink (? red white 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 110 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.3s... -4.0 4.0)) (zoom (0.1s... 1.5 3.0)) (contrast 1.3) (ink (? red white 0) (+ 150 (* kick 100))) (repeat 64 point) (scroll (? 0 0 2 -2) (? 0 0 2 -2))`,
@@ -1808,10 +1808,13 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   // === KIDLISP AND TV BARS COMBINATION ===
   if (kidlispMode) {
-    // First paste the TV bars buffer at the bottom (24px tall)
-    paste(tvBarsBuffer, 0, screen.height - 24);
+    // Only show TV bars when playing, not when paused
+    if (isPlaying) {
+      // First paste the TV bars buffer at the bottom (24px tall)
+      paste(tvBarsBuffer, 0, screen.height - 24);
+    }
     
-    // Then render KidLisp on top, 24px shorter to leave room for TV bars
+    // Then render KidLisp on top, dimensions adjusted based on pause state
     // Use pre-defined locator-specific KidLisp sources
     
     // Get current locator for context
@@ -1827,8 +1830,14 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     }
     
     // Execute the KidLisp theme code (amp is now available as a global variable)
-    // Make KidLisp 24px shorter to leave room for TV bars at bottom
-    kidlisp(0, 25, screen.width, screen.height - 24 - 24, kidlispCode);
+    // Adjust KidLisp dimensions based on pause state
+    if (!isPlaying) {
+      // When paused: full screen KidLisp, only leave 3px at bottom for 2px progress bar
+      kidlisp(0, 0, screen.width, screen.height - 3, kidlispCode);
+    } else {
+      // When playing: normal layout with space for timeline and TV bars
+      kidlisp(0, 25, screen.width, screen.height - 24 - 24, kidlispCode);
+    }
     
     // CRITICAL: Reset fade mode by calling ink with a non-fade string
     // This clears the global fadeMode, fadeColors, fadeDirection variables
@@ -2184,8 +2193,9 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
 
   // === TIMELINE OVERLAY (MINIMAL & FAST) ===
   // The timeline is now an overlay element that sits on top of the TV bar composition
+  // Hide timeline when paused to allow full-screen KidLisp
   
-  if (timelineVisible) {
+  if (timelineVisible && isPlaying) {
     // Minimal timeline layout parameters
     const freqDisplayHeight = 12; // Define this here so timeline can reference it
     const timelineHeight = 25; // Reduced from 50 to 25 - much more minimal
@@ -2608,7 +2618,7 @@ function act({ event: e, sound }) {
   if (e.is("touch") && preloadedAudio) {
     if (!isPlaying) {
       // Not currently playing - start or resume playback
-      console.log(`🎵 STARTING PLAYBACK: pausedAt=${pausedAt.toFixed(3)}, actualDuration=${actualDuration?.toFixed(3) || 'unknown'}`);
+      // console.log(`🎵 STARTING PLAYBACK: pausedAt=${pausedAt.toFixed(3)}, actualDuration=${actualDuration?.toFixed(3) || 'unknown'}`);
       
       // Reset tracking when starting playback
       if (pausedAt === 0) {
@@ -2629,10 +2639,10 @@ function act({ event: e, sound }) {
       if (playingSfx) {
         isPlaying = true;
         playStartTime = performance.now();
-        console.log(`🎵 AUDIO STARTED: play() call took ${playCallDuration.toFixed(1)}ms`);
+        // console.log(`🎵 AUDIO STARTED: play() call took ${playCallDuration.toFixed(1)}ms`);
         
         // Try multiple ways to get duration - reduce logging
-        console.log("🎵 Duration detection attempts:");
+        // console.log("🎵 Duration detection attempts:");
         
         // Method 1: From the BIOS sample info
         if (sound.speaker && sound.speaker.length && sound.speaker.sampleRate) {
@@ -2661,8 +2671,8 @@ function act({ event: e, sound }) {
           console.log(`  - Fallback: ${actualDuration.toFixed(3)}s`);
         }
         
-        console.log(`🎵 FINAL DURATION: ${actualDuration.toFixed(3)}s`);
-        console.log(`🎵 PLAYBACK STATE: isPlaying=${isPlaying}, progress=${progress.toFixed(3)}, playStartTime=${playStartTime}`);
+        // console.log(`🎵 FINAL DURATION: ${actualDuration.toFixed(3)}s`);
+        // console.log(`🎵 PLAYBACK STATE: isPlaying=${isPlaying}, progress=${progress.toFixed(3)}, playStartTime=${playStartTime}`);
       } else {
         console.error("🎵 ERROR: sound.play() returned null/undefined!");
       }
@@ -2675,8 +2685,8 @@ function act({ event: e, sound }) {
         const elapsedSeconds = (currentTime - playStartTime) / 1000;
         const newPausedAt = Math.min((pausedAt * actualDuration + elapsedSeconds) / actualDuration, 1.0);
         
-        console.log(`🎵 PAUSING: elapsedSeconds=${elapsedSeconds.toFixed(3)}, oldPausedAt=${pausedAt.toFixed(3)}, newPausedAt=${newPausedAt.toFixed(3)}`);
-        console.log(`🎵 Pause position: ${(newPausedAt * 100).toFixed(1)}% (${(newPausedAt * actualDuration).toFixed(2)}s)`);
+        // console.log(`🎵 PAUSING: elapsedSeconds=${elapsedSeconds.toFixed(3)}, oldPausedAt=${pausedAt.toFixed(3)}, newPausedAt=${newPausedAt.toFixed(3)}`);
+        console.log(`⏸️ Pause position: ${(newPausedAt * 100).toFixed(1)}% (${(newPausedAt * actualDuration).toFixed(2)}s)`);
         
         pausedAt = newPausedAt;
         
@@ -2685,7 +2695,7 @@ function act({ event: e, sound }) {
       }
       isPlaying = false;
       pauseOverlayVisible = true; // Show pause overlay when paused
-      console.log("🎵 PAUSED");
+      // console.log("🎵 PAUSED");
     }
   }
 }
