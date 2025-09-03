@@ -445,7 +445,8 @@ async function halt($, text) {
             intendedDuration: isNaN(duration) ? null : duration,
             frameMode: frameMode,
             frameCount: frameMode ? (isNaN(duration) ? 8 : duration) : null,
-            showTezosStamp: true, // Enable Tezos stamp by default for GIF recordings
+            // showTezosStamp: true, // Enable Tezos stamp by default for GIF recordings (DISABLED)
+            showTezosStamp: false, // Tezos stamp disabled - set to true to re-enable
             mystery: false
           },
           (time) => {
