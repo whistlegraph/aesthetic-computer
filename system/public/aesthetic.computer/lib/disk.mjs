@@ -3003,6 +3003,7 @@ const $paintApiUnwrapped = {
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
+  tri: graph.tri,
   poly: graph.poly,
   box: graph.box,
   shape: graph.shape,
