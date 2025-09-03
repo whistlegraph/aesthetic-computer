@@ -621,6 +621,14 @@ class KidLisp {
     this.ast = null; // Abstract syntax tree.
     this.networkCache = { sources: {} };
     this.globalDef = {};
+    
+    // Initialize audio-related global variables
+    this.globalDef.amp = 0; // Current audio amplitude (0-10 scale)
+    this.globalDef.leftAmp = 0; // Left channel amplitude (0-10 scale) 
+    this.globalDef.rightAmp = 0; // Right channel amplitude (0-10 scale)
+    this.globalDef.beat = 0; // Beat detection (0 or 1)
+    this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
+    
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
@@ -754,11 +762,41 @@ class KidLisp {
     // console.log("🎯 KidLisp API context updated");
   }
 
+  // 🎵 Update audio-related global variables (called from pieces with audio data)
+  updateAudioGlobals(audioData) {
+    if (audioData && typeof audioData === 'object') {
+      if (typeof audioData.amp === 'number') {
+        this.globalDef.amp = audioData.amp;
+      }
+      if (typeof audioData.leftAmp === 'number') {
+        this.globalDef.leftAmp = audioData.leftAmp;
+      }
+      if (typeof audioData.rightAmp === 'number') {
+        this.globalDef.rightAmp = audioData.rightAmp;
+      }
+      if (typeof audioData.beat === 'number') {
+        this.globalDef.beat = audioData.beat;
+      }
+      if (typeof audioData.kick === 'number') {
+        this.globalDef.kick = audioData.kick;
+      }
+      // Add more audio variables as needed
+    }
+  }
+
   // Reset all state for a fresh KidLisp instance
   reset(clearOnceExecuted = false, sourceChanged = false) {
     // Reset core state
     this.ast = null;
     this.globalDef = {};
+    
+    // Initialize audio-related global variables
+    this.globalDef.amp = 0; // Current audio amplitude (0-10 scale)
+    this.globalDef.leftAmp = 0; // Left channel amplitude (0-10 scale) 
+    this.globalDef.rightAmp = 0; // Right channel amplitude (0-10 scale)
+    this.globalDef.beat = 0; // Beat detection (0 or 1)
+    this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
+    
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
