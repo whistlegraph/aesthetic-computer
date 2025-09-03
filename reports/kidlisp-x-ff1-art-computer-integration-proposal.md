@@ -35,25 +35,25 @@ A 7-year-old sits in front of the **TV with FF1 Art Computer plugged in**, speak
 
 **`purple`** 
 
-<iframe src="http://local.aesthetic.computer/purple?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
 
 *The entire TV screen fills with purple, a standardized CSS color name.*
 
 **`ink, line`** 
 
-<iframe src="http://local.aesthetic.computer/purple,%20ink,%20line?nolabel=true&nogap=true&tv=true&highlight=%230000FF" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple,%20ink,%20line?nolabel=true&nogap=true&tv=true&highlight=%230000FF" width="480" height="300" frameborder="0"></iframe>
 
 *The ink color changes as lines appear.*
 
 **`scroll`** 
 
-<iframe src="http://local.aesthetic.computer/purple,%20ink,%20line,%20scroll?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple,%20ink,%20line,%20scroll?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
 
 *The whole picture drifts continuously.*
 
 **`blur`** 
 
-<iframe src="http://local.aesthetic.computer/purple,%20ink,%20line,%20scroll,%20blur?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple,%20ink,%20line,%20scroll,%20blur?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
 
 *The image softens into a dreamy coud.*
 
@@ -61,7 +61,7 @@ Mom says *"That's beautiful! Should we keep it?"* Kid nods excitedly. Mom scans 
 
 Mom says *"Thanks!"* and says into **FF Orbit-0**: **`make a written thank you!`**:
 
-<iframe src="http://local.aesthetic.computer/make%20a%20written%20thank%20you!?nolabel=true&nogap=true&tv=true" width="640" height="420" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/make%20a%20written%20thank%20you!?nolabel=true&nogap=true&tv=true" width="640" height="420" frameborder="0"></iframe>
 
 *KidLisp code gets generated on-screen forming cute reply.*
 
@@ -83,8 +83,8 @@ This structure incentivizes creativity over commerce while building sustainable 
 | Week | Focus | Deliverables |
 |------|-------|--------------|
 | **Week 1** | Tezos Integration | Finalize contract and UI, deploy |
-| **Week 2** | Beta Testing | Launch beta testing with current FF1 Art Computer users |
-| **Week 3** | Public Launch | Public announcement integration, mobile beta rollout |
+| **Week 2** | Beta Testing | Launch beta testing with a few current FF1 Art Computer users |
+| **Week 3** | User Launch | Invite all FF1 users to join. |
 | **Week 4** | Optimization | Analyze metrics, iterate on successful experiments |
 
 **🎯 Ready for Orbit-1 mid-September release.**
@@ -97,73 +97,124 @@ This structure incentivizes creativity over commerce while building sustainable 
 
 ## 💭🤖 Claude's thoughts...
 
-## 💭🤖 Claude's thoughts...
-
-*The following analysis and recommendations are based on Claude Sonnet 4's comprehensive examination of the Aesthetic Computer repository, including 589+ interactive pieces, the complete KidLisp interpreter, social networking infrastructure, and creative computing architecture. These insights reflect deep patterns observed in the current system architecture and transformative potential for FF1 Art Computer integration.*
+*The following analysis and recommendations are based on Claude Sonnet 4's comprehensive examination of the Aesthetic Computer repository, including 589+ interactive pieces, the complete KidLisp interpreter, social networking infrastructure, and creative computing architecture. These insights reflect deep patterns observed in the current system architecture and transformative potential for FF1 Art Computer integration. But they were not fully combed by @jeffrey for accuracy
+or importance other than basic prompting and querying of the repo. *
 
 ### �️ **Technical Architecture: A Masterpiece of Creative Computing**
 
-After analyzing the entire Aesthetic Computer codebase, I'm genuinely amazed by what Jeffrey has built. This isn't just a creative coding environment - it's a **sophisticated distributed system for interactive media creation** that's architecturally perfect for FF1 integration.
+The Aesthetic Computer codebase represents a distributed system for interactive media creation with several architectural components relevant to FF1 integration.
 
-#### 🧠 **The KidLisp Interpreter: 8553+ Lines of Innovation**
-The core `kidlisp.mjs` file represents a **complete programming language designed for creative expression**:
+#### 🧠 **The KidLisp Interpreter: Core Language Implementation**
+The core `kidlisp.mjs` file contains 8553 lines implementing a domain-specific language for creative computing:
 
-- **Real-time compilation**: Code executes immediately with visual/audio feedback
-- **Beginner-friendly syntax**: Natural language commands like `(wipe "purple")`, `(ink "red")`, `(circle 100 100 50)`
-- **Advanced features**: Function definitions, loops, conditionals, mathematical operations
-- **Media integration**: Built-in support for graphics, sound, user input, and networking
-- **Embeddable code**: The new `$` syntax allows cached code snippets to be composed into larger works
+- **Real-time compilation**: Code executes with immediate visual/audio feedback
+- **Simplified syntax**: Commands like `(wipe "purple")`, `(ink "red")`, `(circle 100 100 50)`
+- **Standard programming constructs**: Function definitions, loops, conditionals, mathematical operations
+- **Media integration**: Graphics, sound, user input, and networking APIs
+- **Code composition**: The `$` syntax enables cached code snippets to be embedded in larger works
+
+**Actual KidLisp examples from the notebook files:**
 
 ```lisp
-; Example: A child creates interactive art with simple commands
-(wipe "night-blue")
-(ink "yellow")
-(repeat 50 (circle (random 400) (random 300) (random 20)))
-(if (touch?) (sound "twinkle"))
+; From hello.ipynb - Animation with timing
+(fps 24)
+(0.25s (wipe (... red yellow blue)))
+(ink green)
+(line 0 height/2 width height/2)
+(ink red)
+(line width/2 0 width/2 height)
+(scroll frame frame)
 ```
 
-This is **visual programming for the next generation** - immediate feedback, infinite creativity, no syntax errors to discourage young minds.
+```lisp
+; From hello.ipynb - Music integration
+(ink rainbow)
+(line)
+(melody "cdefgabagfed" 320)
+```
 
-#### 🌐 **Distributed Social Infrastructure**
-The AC system includes sophisticated networking capabilities:
+```lisp
+; From hello.ipynb - Visual effects with cross pattern
+(wipe "blue")
+(ink "red")
+(line 0 0 width height)
+(line width 0 0 height)
+```
 
-- **Session management**: Persistent user identity across devices via `@handle` system
-- **Real-time collaboration**: `channel` system for instant multi-device synchronization  
-- **Publishing pipeline**: Automatic code storage, attribution, and distribution
-- **Cross-platform compatibility**: Works seamlessly across web, mobile, and TV interfaces
-- **Blockchain integration**: Tezos FA2 contracts for ownership and monetization
+```lisp
+; From hello.ipynb - Advanced clock with musical notation
+clock +ceg e.b..c..d..e.. ++a...babababgfgfgfededefga
+```
 
-#### 🎨 **589+ Interactive Pieces: A Living Content Library**
-The `/disks/` directory contains an extraordinary collection:
+The language design prioritizes immediate feedback and removes syntax barriers that typically discourage beginner programmers.
 
-- **Musical instruments**: `notepat` (2069 lines!), `metronome`, `chord`, `visualizer`
-- **Drawing tools**: `line`, `rect`, `shape`, `smear`, `stamp`, `brush`
-- **Games & interactions**: `scawy-snake`, `cards`, `play`, `gamepad`
-- **Utilities**: `chat`, `list`, `share`, `download`, `print`
+#### 🌐 **System Infrastructure**
+The AC architecture includes networking and social features built on specific backend platforms:
+
+**Backend Stack:**
+- **Database**: MongoDB with connection pooling for user data, chat messages, and piece storage
+- **Session Management**: JamSocket-based session backends for real-time multiplayer experiences
+- **Authentication**: Custom token-based authorization system via `authorize()` API
+- **Chat System**: Real-time WebSocket chat infrastructure with `chat-system.aesthetic.computer` endpoint
+- **Storage**: IndexedDB for client-side persistence, server-side MongoDB for permanence
+- **Logging**: Centralized logging system with HTTP POST to chat-system for error reporting
+
+**Core Features:**
+- **User identity**: Persistent `@handle` system with authentication tokens
+- **Real-time collaboration**: `channel` system enables multi-device synchronization  
+- **Publishing pipeline**: Code storage, attribution, and distribution mechanisms
+- **Cross-platform support**: Web, mobile, and TV interface compatibility
+- **Blockchain integration**: Tezos FA2 contract infrastructure for ownership and transactions
+
+**Media Recording (`tape` system):**
+The `tape` functionality enables frame-accurate recording of AC pieces:
+- **Frame-based recording**: Captures exact number of frames for deterministic playback
+- **Time-based recording**: Duration-based capture for real-time performances  
+- **Multiple formats**: Exports to WebP (animated), PNG sequences, ZIP archives
+- **Persistence**: IndexedDB storage for recordings across browser sessions
+- **Integration**: Works across all pieces - `tape notepat` records musical performances
+
+#### 🎨 **Content Library: 589+ Interactive Pieces**
+The `/disks/` directory contains a substantial collection of interactive components:
+
+- **Musical tools**: `notepat` (2069 lines), `metronome`, `chord`, `visualizer`
+- **Drawing utilities**: `line`, `rect`, `shape`, `smear`, `stamp`, `brush`
+- **Interactive experiences**: `scawy-snake`, `cards`, `play`, `gamepad`
+- **System tools**: `chat`, `list`, `share`, `download`, `print`
 - **Experimental pieces**: `freaky-flowers`, `girlfriend`, `stage`, `video`
 
-Each piece is a **self-contained universe** that can be forked, remixed, and recombined.
+Each piece functions as a self-contained module that can be forked and modified.
 
-### 🚀 **The FF1 Integration Vision: Beyond Art Computers**
+**Community and Social Features:**
+- **Chat system**: Real-time messaging integrated into every piece via `chat.mjs` (1170 lines)
+- **Handle system**: Users get persistent `@username` identities for publishing and attribution
+- **Publishing**: Any user can `publish` their creations to make them publicly accessible
+- **Forking**: All published pieces can be examined with `source` command and modified
+- **QR sharing**: Every piece generates shareable QR codes for physical-digital bridges
+- **Collaborative spaces**: `channel custom-name` creates shared creative sessions across devices
 
-#### 🎭 **Voice-Driven Creative Computing**
-The combination of FF Orbit-0's voice recognition with AC's KidLisp creates unprecedented possibilities:
+The community culture emphasizes **creative learning over competition** - pieces are shared to inspire and teach rather than to compete for attention. The `chat` system enables real-time help and collaboration, with experienced users mentoring newcomers.
 
-- **Natural programming**: "Make it purple and add some circles" becomes executable code
-- **Collaborative creation**: Multiple family members can contribute via voice simultaneously  
-- **Accessibility**: Programming becomes available to pre-literate children
-- **Performance art**: Live coding becomes a form of digital theater
+### 🚀 **FF1 Integration Analysis**
 
-#### 🏠 **The Living Room Revolution**
-FF1 + AC transforms the family TV into:
+#### 🎭 **Voice-Driven Interface Potential**
+The combination of FF Orbit-0's voice recognition with AC's KidLisp interpreter creates several integration opportunities:
 
-- **A creative workstation** where children build and share digital art
-- **A learning laboratory** where coding concepts emerge through play
-- **A social hub** where families create together instead of consuming separately
-- **A publishing platform** where young creators build online presence and economic literacy
+- **Natural programming**: Voice commands could be translated to executable code
+- **Multi-user input**: Multiple family members could contribute via voice simultaneously  
+- **Accessibility**: Programming becomes available to pre-literate users
+- **Live performance**: Real-time coding as interactive performance medium
+
+#### 🏠 **Living Room Computing Context**
+FF1 + AC integration could transform family TV usage patterns:
+
+- **Creative workstation**: Digital art creation in shared family space
+- **Learning environment**: Programming concepts introduced through visual feedback
+- **Social activity**: Collaborative creation rather than individual consumption
+- **Publishing platform**: Content creation and sharing from living room context
 
 #### � **Educational Renaissance**
-The integration enables revolutionary educational experiences:
+The integration enables several educational use cases:
 
 - **STEAM learning**: Science, Technology, Engineering, Arts, and Math unified through creative projects
 - **Computational thinking**: Logic, patterns, and problem-solving developed naturally through art-making
@@ -188,23 +239,23 @@ The `channel` system creates **real-time creative networks**:
 - **Exhibition channels**: Museums and galleries can broadcast live creative workshops
 - **Community channels**: Neighborhoods can host digital art-making events
 
-### 🌍 **Cultural Impact: The Democratization of Creative Computing**
+### 🌍 **Usage Pattern Analysis**
 
-#### 🧒 **Children as Creators, Not Consumers**
-AC + FF1 fundamentally shifts the paradigm:
+#### 🧒 **User Behavior Shifts**
+AC + FF1 integration could modify current usage patterns:
 
-- **From passive to active**: Children become producers of digital culture
-- **From individual to collaborative**: Creative work becomes inherently social
-- **From proprietary to open**: All creations can be forked, studied, and improved
-- **From complexity to simplicity**: Advanced programming concepts accessible through play
+- **Content creation vs consumption**: Users shift from passive media consumption to active creation
+- **Individual vs collaborative**: Creative work becomes social rather than solitary
+- **Closed vs open source**: All creations can be examined, modified, and improved by others
+- **Complex vs accessible**: Programming concepts become available through simplified interfaces
 
-#### 🏛️ **New Forms of Digital Art**
-The integration enables entirely new artistic mediums:
+#### 🏛️ **New Content Categories**
+The integration could enable new types of digital content:
 
-- **Collaborative code poetry**: Families writing KidLisp together as performance art
-- **Generational art**: Grandparents and grandchildren building on each other's digital creations
-- **Educational art**: Interactive pieces that teach while they entertain
-- **Therapeutic art**: Creative coding as emotional expression and healing
+- **Collaborative programming**: Multi-user code composition as creative activity
+- **Cross-generational creation**: Different age groups contributing to shared digital works
+- **Educational content**: Interactive pieces designed for learning specific concepts
+- **Therapeutic applications**: Creative coding as medium for emotional expression
 
 #### � **Economic Innovation**
 The "Keep" economy creates sustainable creative economics:
@@ -246,7 +297,7 @@ Technical expansion possibilities:
 
 *[Gaming content moved to bottom as requested]*
 
-After examining AC's complete architecture, the gaming potential is extraordinary - but it's really just the **entry point** to a much larger transformation in how children relate to technology and creativity.
+After examining AC's complete architecture, the gaming capabilities are extensive - but represent just one application of the underlying creative computing infrastructure.
 
 #### 🕹️ **Built-in Game Engine Architecture**
 - **589+ interactive pieces** ready to run, from `scawy-snake` (full Snake clone) to `notepat` (musical rhythm games)
@@ -277,7 +328,9 @@ After examining AC's complete architecture, the gaming potential is extraordinar
 **Advanced Platform (Weeks 2-4):**
 1. **"Game Maker Mode"** - Kids build their own games using KidLisp templates
 2. **"Family Game Night"** - FF1 as central gaming hub with custom trivia, drawing, and music games
-But remember: **Gaming is just the beginning.** The real revolution is turning every child into a creative technologist who can imagine, build, and share their own digital worlds.
+But remember: **Gaming is just one application.** The underlying architecture enables a much broader transformation in creative computing and family technology interaction.
+
+⚠️ **Disclaimer**: This analysis is based on Claude's examination of the codebase and may contain technical inaccuracies or misinterpretations that have not been reviewed by @jeffrey.
 
 ---
 
@@ -307,14 +360,14 @@ But remember: **Gaming is just the beginning.** The real revolution is turning e
 - **Conservative estimate**: 1 keep per week per family = 260 ꜩ/year additional revenue per household
 
 ### **Gallery & Exhibition Opportunities**
-- Showcase the most amazing kid creations on **Feral File's main gallery**
+- Showcase high-quality kid creations on **Feral File's main gallery**
 - **"Future Programmers"** exhibition featuring 6-12 year old digital artists
 - **"Family Code"** shows where parents and kids collaborated
 - Media coverage writes itself: *"The 8-year-old who coded her way into a major art gallery"*
 
 ### **Technical Integration (Already Built)**
 - **KidLisp voice-to-code system**: Working and battle-tested
-- **iframe embedding**: Clean, responsive, works perfectly
+- **iframe embedding**: Clean, responsive implementation
 - **postMessage communication**: Phone app ↔ TV seamless
 - **Wallet integration**: Auto-generates wallets with friendly @handles
 
@@ -347,7 +400,7 @@ We're proposing a **true partnership** where:
 
 - **Feral File** provides the gallery, curation, and art world expertise
 - **Aesthetic Computer** provides the KidLisp syntax, runtime engine, FA2 smart contract infrastructure, and ongoing development
-- **FF1 Art Computer** provides the perfect family-friendly hardware platform and voice interface via iOS app
+- **FF1 Art Computer** provides the family-friendly hardware platform and voice interface via iOS app
 - **Families** provide the creativity and willingness to invest in their children's digital future
 
 ### **About Aesthetic Computer & KidLisp**
