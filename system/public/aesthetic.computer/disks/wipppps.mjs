@@ -171,10 +171,10 @@ const ZZZWAP_PALETTES = {
 
 // zzzZWAP LOCATOR-SPECIFIC KIDLISP SOURCES
 const ZZZWAP_KIDLISP_SOURCES = {
-  BEFORE_START: `(fade:purple-black-green:90) (scroll 1 -1) (once (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6)) (ink black) (write "oskie - zzzZWAP" 5 5) (ink white) (write "oskie - zzzZWAP" 4 4)`,
+  BEFORE_START: `(fade:purple-black-green:90) (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6) (ink black) (write "oskie - zzzZWAP" 5 5) (ink white) (write "oskie - zzzZWAP" 4 4)`,
   // BEFORE_START: `(fade:black-navy-black) (ink (? red blue navy 0) (+ 50 (* kick 100))) (ink (? red blue gray 0) (+ 10 (* (random) 30))) (circle (/ width 2) (/ height 2) (+ 2 (* kick 3))) (spin (5s... -0.5 0.5)) (zoom 1.125) (contrast 1.05) (ink rainbow (? 16 32 48 128 255)) (repeat 1024 point) (scroll (? 0 0 1 -1) (? 0 0 1 -1))`,
   START: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (ink yellow (? 32 64 96 255)) (repeat 32 point) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
-  PAUSE: `(fade:red-white-black-gray) (ink (? red white 0) (+ 110 (* kick 155))) (ink (? red white 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 110 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.3s... -4.0 4.0)) (zoom (0.1s... 2.0 4.0)) (contrast 1.3)`,
+  PAUSE: `(fade:red-white-black-gray) (ink (? red white 0) (+ 110 (* kick 155))) (ink (? red white 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 110 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.3s... -4.0 4.0)) (zoom (0.1s... 1.5 3.0)) (contrast 1.3) (ink (? red white 0) (+ 150 (* kick 100))) (repeat 64 point) (scroll (? 0 0 2 -2) (? 0 0 2 -2))`,
   ACT_I: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 120 (* kick 155))) (ink (? lime magenta 0) (+ 25 (* (random) 65))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 120 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.3 1.3)) (zoom 1.2) (contrast 1.1) (scroll (? 3 -3) (? 3 -3))`,
   ACT_II: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 130 (* kick 155))) (ink (? lime magenta 0) (+ 30 (* (random) 70))) (gradient lime magenta 0 0 width height) (ink (? lime magenta 0) (+ 130 (* kick 155))) (line (/ width 2) 0 (/ width 2) height) (spin (2s... -1.5 1.5)) (zoom 1.2) (contrast 1.1) (scroll (? 4 -4) (? 3 -3))`,
   ACT_III: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 140 (* kick 155))) (ink (? lime magenta 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 140 (* kick 155))) (line 0 (/ height 2) width (/ height 2)) (line (/ width 2) 0 (/ width 2) height) (spin (1.8s... -1.7 1.7)) (zoom 1.2) (contrast 1.1) (scroll (? 5 -5) (? 4 -4))`,
@@ -182,8 +182,8 @@ const ZZZWAP_KIDLISP_SOURCES = {
   ACT_V: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 160 (* kick 155))) (ink (? lime magenta 0) (+ 45 (* (random) 85))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 160 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (1.2s... -2.3 2.3)) (zoom 1.2) (contrast 1.1) (scroll (? 7 -7) (? 6 -6))`,
   ACT_VI: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 170 (* kick 155))) (ink (? lime magenta 0) (+ 50 (* (random) 90))) (gradient lime black (/ width 2) 0 (/ width 2) height) (ink (? lime magenta 0) (+ 170 (* kick 155))) (point (/ width 3) (/ height 3)) (point (* width 0.66) (* height 0.66)) (line (/ width 2) 0 (/ width 2) height) (spin (1s... -2.5 2.5)) (zoom 1.2) (contrast 1.1) (scroll (? 8 -8) (? 7 -7))`,
   SURPRISE: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 180 (* kick 175))) (ink (? lime magenta 0) (+ 60 (* (random) 100))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 180 (* kick 175))) (circle (/ width 2) (/ height 2) (+ 4 (* kick 5))) (poly (/ width 4) (/ height 4) (+ 2 (* kick 3)) 8) (poly (* width 0.75) (* height 0.75) (+ 2 (* kick 3)) 8) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.5s... -3.0 3.0)) (zoom 1.3) (contrast 1.2) (scroll (? 10 -10) (? 9 -9))`,
-  PAUSE_2: `(fade:red-white-black-gray) (ink (? red white 0) (+ 160 (* kick 155))) (ink (? red white 0) (+ 45 (* (random) 85))) (gradient red black 0 0 width height) (ink (? red white 0) (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height) (spin (0.2s... -5.0 5.0)) (zoom (0.05s... 2.5 5.0)) (contrast 1.4) (scroll (? 8 -8) (? 7 -7))`,
-  PAUSE_3: `(fade:red-white-black-gray) (ink (? red white 0) (+ 140 (* kick 155))) (ink (? red white 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 140 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.1s... -6.0 6.0)) (zoom (0.03s... 3.0 6.0)) (contrast 1.5) (scroll (? 6 -6) (? 6 -6))`,
+  PAUSE_2: `(fade:red-white-black-gray) (ink (? red white 0) (+ 160 (* kick 155))) (ink (? red white 0) (+ 45 (* (random) 85))) (gradient red black 0 0 width height) (ink (? red white 0) (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height) (spin (0.2s... -5.0 5.0)) (zoom (0.05s... 2.0 4.0)) (contrast 1.4) (ink (? red white 0) (+ 180 (* kick 120))) (repeat 96 point) (scroll (? 0 0 4 -4) (? 0 0 4 -4))`,
+  PAUSE_3: `(fade:red-white-black-gray) (ink (? red white 0) (+ 140 (* kick 155))) (ink (? red white 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 140 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.1s... -6.0 6.0)) (zoom (0.03s... 2.5 5.0)) (contrast 1.5) (ink (? red white 0) (+ 200 (* kick 140))) (repeat 128 point) (scroll (? 0 0 3 -3) (? 0 0 3 -3))`,
   END: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 80 (* kick 100))) (ink (? lime magenta 0) (+ 15 (* (random) 40))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 80 (* kick 100))) (point (/ width 2) (/ height 2)) (spin (3s... -0.5 0.5)) (zoom 1.1) (contrast 1.0) (scroll (? 1 -1) (? 1 -1))`,
 };
 
@@ -1236,17 +1236,26 @@ export const boot = async ({ net }) => {
     // console.log("First 1000 chars of ALS file:", alsText.substring(0, 1000));
     
     // Load the audio file
-    // console.log("Loading zzzZWAP.wav...");
+    console.log("🎵 Loading zzzZWAP.wav...");
+    const audioLoadStartTime = performance.now();
     preloadedAudio = await net.preload("https://assets.aesthetic.computer/wipppps/zzzZWAP.wav");
+    const audioLoadTime = performance.now() - audioLoadStartTime;
     
     // Try to get duration immediately from the preloaded audio metadata
     if (preloadedAudio && preloadedAudio.buffer) {
       actualDuration = preloadedAudio.buffer.duration;
-      // console.log("Got duration from preloaded audio:", actualDuration);
+      console.log(`🎵 Audio loaded successfully in ${audioLoadTime.toFixed(0)}ms - Duration: ${actualDuration.toFixed(2)}s`);
+      console.log("🎵 Audio buffer details:", {
+        sampleRate: preloadedAudio.buffer.sampleRate,
+        length: preloadedAudio.buffer.length,
+        numberOfChannels: preloadedAudio.buffer.numberOfChannels
+      });
+    } else {
+      console.warn("🎵 Audio loaded but no duration available from buffer");
     }
     
     message = "Ready! Tap to play";
-    // console.log("All files loaded successfully!");
+    console.log("🎵 All files loaded successfully!");
     
   } catch (error) {
     console.error("Error loading files:", error);
@@ -1262,10 +1271,11 @@ let tvBarsBuffer = null;
 let lastScreenWidth = 0;
 let lastScreenHeight = 0;
 
-function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape, kidlisp }) {
+function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape, kidlisp, flood }) {
   // Initialize or recreate TV bars buffer if needed (first time or screen size changed)
   if (!tvBarsBuffer || screen.width !== lastScreenWidth || screen.height !== lastScreenHeight) {
-    tvBarsBuffer = painting(screen.width, screen.height, (api) => {
+    // TV bars buffer is now 24px shorter to fit under KidLisp
+    tvBarsBuffer = painting(screen.width, 24, (api) => {
       // Initialize with transparent background
       api.wipe(0, 0, 0, 0);
     });
@@ -1328,7 +1338,15 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     const sessionElapsed = (performance.now() - playStartTime) / 1000;
     // Add to where we paused to get total current time
     const currentTime = (pausedAt * actualDuration) + sessionElapsed;
-    progress = Math.min(currentTime / actualDuration, 1);
+    const newProgress = Math.min(currentTime / actualDuration, 1);
+    
+    // Log sync issues if we detect significant jumps
+    if (progress > 0 && Math.abs(newProgress - progress) > 0.1) {
+      console.warn(`🎵 SYNC WARNING: Large progress jump detected! ${progress.toFixed(3)} → ${newProgress.toFixed(3)}`);
+      console.warn(`🎵 Timing details: pausedAt=${pausedAt.toFixed(3)}, sessionElapsed=${sessionElapsed.toFixed(3)}, duration=${actualDuration.toFixed(3)}`);
+    }
+    
+    progress = newProgress;
   }
   
   // Calculate current time in seconds based on project timeline, not audio duration
@@ -1337,6 +1355,14 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // Use the actual audio timeline as the master - visuals follow audio completely
     // No offset needed since we're using locator times directly
     currentTimeSeconds = progress * actualDuration;
+    
+    // Log timeline sync every few seconds to catch drift
+    if (paintCount % 1800 === 0 && currentTimeSeconds > 0) { // Every ~30 seconds at 60fps - much less frequent
+      // console.log(`🎵 TIMELINE: progress=${progress.toFixed(3)}, currentTime=${currentTimeSeconds.toFixed(2)}s, duration=${actualDuration?.toFixed(2)}s`);
+      if (currentAudioProgress) {
+        // console.log(`🎵 AUDIO: actualProgress=${currentAudioProgress.toFixed(3)}, actualTime=${(currentAudioProgress * actualDuration).toFixed(2)}s`);
+      }
+    }
   } else if (pausedAt > 0 && actualDuration) {
     // When paused, maintain the visual state at the pause position
     currentTimeSeconds = pausedAt * actualDuration;
@@ -1588,38 +1614,20 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   const allDecayingColors = colorHistory.filter(h => h.isDecaying); // Decaying colors
   
-  // Create center-out arrangement: put decaying colors on edges, new ones in center
-  // Alternate new bars left and right of center
-  const centerArrangement = [];
-  const centerIndex = Math.floor((allDecayingColors.length + allActiveColors.length) / 2);
+  // SIMPLIFIED ARRANGEMENT: Just combine all colors and distribute evenly
+  // This maintains better visual balance and prevents left-clustering
+  const allColors = [...allActiveColors, ...allDecayingColors];
   
-  // First, place all decaying colors on the edges
-  allDecayingColors.forEach((color, index) => {
-    if (index % 2 === 0) {
-      centerArrangement.push(color); // Even indices go left
-    } else {
-      centerArrangement.unshift(color); // Odd indices go right (unshift = add to start)
-    }
-  });
+  // Sort by preferredPosition to maintain consistent placement
+  allColors.sort((a, b) => (a.preferredPosition || 0) - (b.preferredPosition || 0));
   
-  // Then add new active colors in the center, alternating left/right
-  allActiveColors.forEach((color, index) => {
-    const midPoint = Math.floor(centerArrangement.length / 2);
-    if (index % 2 === 0) {
-      centerArrangement.splice(midPoint, 0, color); // Even: insert at center-left
-    } else {
-      centerArrangement.splice(midPoint + 1, 0, color); // Odd: insert at center-right
-    }
-  });
-  
-  const activeSegments = centerArrangement;
+  const activeSegments = allColors;
   
   if (activeSegments.length > 0) {
     // Show ALL colors - no arbitrary limits, let natural decay control the count
     const colorsToShow = activeSegments;
     
-    // Don't sort - keep new bars on the right side
-    // Order: decaying colors first (left), then new active colors (right)
+    // Use the simplified sorted arrangement
     const positionSortedColors = colorsToShow;
     
     // Equal width bars that divide the screen evenly - ensure no cut-off
@@ -1654,10 +1662,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
             // Yellow-white gradient flash with vertical direction for first frame ONLY
             ink("fade:yellow-white:vertical");
             
-            // Debug flash - log very rarely to avoid spam
-            if (Math.random() < 0.01) {
-              console.log(`⚡ VERTICAL GRADIENT FLASH! Bar ${index}: yellow-white vertical`);
-            }
+            // Debug flash - disabled to reduce log spam
+            // if (Math.random() < 0.01) {
+            //   console.log(`⚡ VERTICAL GRADIENT FLASH! Bar ${index}: yellow-white vertical`);
+            // }
           } else {
             // Normal RGB color after flash period (not gradient)
             ink(colorInfo.r, colorInfo.g, colorInfo.b);
@@ -1670,14 +1678,14 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         const frequencyBands = sound.speaker?.frequencies?.left || []; // Array of frequency band objects
         
         // Calculate amplitude-based height with frequency band analysis
-        let amplitudeHeight = screen.height; // Always full length now!
+        let amplitudeHeight = 24; // Use TV bars buffer height instead of screen.height
         
-        // Always use full screen height - remove amplitude scaling
-        amplitudeHeight = screen.height;
+        // Always use TV bars buffer height
+        amplitudeHeight = 24;
         
-        // Center the bar vertically
+        // Center the bar vertically within the TV bars buffer
         const barHeight = Math.floor(amplitudeHeight);
-        const barY = 0; // Start from top of screen
+        const barY = 0; // Start from top of TV bars buffer
         
         // Draw the bar with full height
         box(clampedStartX, barY, actualWidth, barHeight);
@@ -1689,7 +1697,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         console.error('Error rendering TV bar:', error);
         // Fallback: render in red to show something went wrong
         ink(255, 0, 0);
-        box(10 + index * 20, 0, 15, screen.height);
+        box(10 + index * 20, 0, 15, 24); // Use TV bars buffer height
       }
     });
     
@@ -1708,13 +1716,13 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
       
       // Always full height for fallback as well
-      box(0, 0, screen.width, screen.height); // Always full height
+      box(0, 0, screen.width, 24); // Use TV bars buffer height
     } else {
       // Default background when no content is playing - match timeline fallback
       ink(50, 50, 50);
       
       // Always full height for default as well
-      box(0, 0, screen.width, screen.height); // Always full height
+      box(0, 0, screen.width, 24); // Use TV bars buffer height
     }
   }
 
@@ -1724,24 +1732,74 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   const amplitude = sound.speaker?.amplitudes?.left || 0;
   
   if (waveform.length > 0) {
-    // Waveform rendering (similar to whistle.mjs paintSound function)
-    const xStep = screen.width / waveform.length;
-    const yMid = screen.height / 2;
-    const yMax = screen.height / 2;
+    // Waveform as a divider with flood fills above and below
+    const resampledWaveform = waveform.length > 128 
+      ? waveform.filter((_, i) => i % Math.ceil(waveform.length / 128) === 0).slice(0, 128)
+      : waveform;
     
-    // Create waveform points
-    const waveformPoints = waveform.map((v, i) => [
-      i * xStep, 
-      yMid + v * yMax * 0.8 // Scale down to 80% to fit nicely over TV bars
-    ]);
+    const xStep = screen.width / (resampledWaveform.length - 1);
+    const yMid = 12; // Half of TV bars buffer height (24/2)
+    const yMax = 8; // Amplitude range for the 24px buffer
     
-    // Draw waveform as a translucent white/cyan line over the TV bars
-    ink(255, 255, 255, 128); // Semi-transparent white
-    poly(waveformPoints);
+    // Get weird colors for above and below flood fills
+    const currentTime = performance.now();
+    const colorCycle = (currentTime / 200) % 360; // Color cycle every 200ms
     
-    // Optional: Draw amplitude bounding box (like whistle.mjs)
-    // ink(255, 255, 0, 64); // Semi-transparent yellow
-    // box(screen.width / 2, yMid, screen.width * 0.8, amplitude * yMax * 2, "*center");
+    // Weird color above the waveform (shifting through spectrum)
+    const aboveHue = (colorCycle + 180) % 360;
+    const aboveColor = hslToRgb(aboveHue / 360, 0.8, 0.4);
+    
+    // Weird color below the waveform (different hue)
+    const belowHue = (colorCycle + 90) % 360;
+    const belowColor = hslToRgb(belowHue / 360, 0.7, 0.3);
+    
+    // First draw the waveform line as fully opaque white
+    ink(255, 255, 255, 255); // Fully opaque white
+    poly(
+      resampledWaveform.map((v, i) => [
+        i * xStep,
+        yMid + v * yMax
+      ])
+    );
+    
+    // Flood fill above the midline with weird color
+    ink(aboveColor.r, aboveColor.g, aboveColor.b, 120); // Semi-transparent weird color
+    for (let x = 0; x < screen.width; x += 8) { // Sample every 8 pixels for performance
+      flood(x, 6); // Flood from upper area of TV bars buffer
+    }
+    
+    // Flood fill below the midline with different weird color
+    ink(belowColor.r, belowColor.g, belowColor.b, 120); // Semi-transparent weird color
+    for (let x = 0; x < screen.width; x += 8) { // Sample every 8 pixels for performance
+      flood(x, 18); // Flood from lower area of TV bars buffer
+    }
+  }
+  
+  // HSL to RGB conversion helper function
+  function hslToRgb(h, s, l) {
+    let r, g, b;
+    if (s === 0) {
+      r = g = b = l; // achromatic
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    return {
+      r: Math.round(r * 255),
+      g: Math.round(g * 255),
+      b: Math.round(b * 255)
+    };
   }
 
   //oom(1.5).scroll(paintCount, paintCount).spin(3).zoom(0.15).blur(0);
@@ -1750,9 +1808,12 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // Switch back to main screen and paste the TV bars buffer with blur effect
   page(screen);
   
-  // === KIDLISP ALTERNATIVE ===
+  // === KIDLISP AND TV BARS COMBINATION ===
   if (kidlispMode) {
-    // Use KidLisp instead of TV bars for visual output
+    // First paste the TV bars buffer at the bottom (24px tall)
+    paste(tvBarsBuffer, 0, screen.height - 24);
+    
+    // Then render KidLisp on top, 24px shorter to leave room for TV bars
     // Use pre-defined locator-specific KidLisp sources
     
     // Get current locator for context
@@ -1768,14 +1829,15 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     }
     
     // Execute the KidLisp theme code (amp is now available as a global variable)
-    kidlisp(0, 25, screen.width, screen.height-24, kidlispCode);
+    // Make KidLisp 24px shorter to leave room for TV bars at bottom
+    kidlisp(0, 25, screen.width, screen.height - 24 - 24, kidlispCode);
     
     // CRITICAL: Reset fade mode by calling ink with a non-fade string
     // This clears the global fadeMode, fadeColors, fadeDirection variables
     ink("black"); // Forces findColor to reset fade state
   } else {
-    // Use traditional TV bars buffer
-    paste(tvBarsBuffer);
+    // Use traditional TV bars buffer (full screen)
+    paste(tvBarsBuffer, 0, screen.height - 24);
   }
   
   // blur(1); // Apply blur to the TV bars buffer to test separation
@@ -1805,7 +1867,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   }
   
   // Fixed zoom level for consistent behavior (no dynamic scaling)
-  const pixelsPerSecond = 60; // Increased from 35 to 60 px/sec for faster scrolling / more zoomed in view
+  const pixelsPerSecond = 40; // Reduced from 60 to 40 px/sec for slower scrolling / less zoomed in view
 
   // === FREQUENCY DISPLAY OVERLAY ===
   // Frequency display commented out to make timeline flush with top
@@ -2427,15 +2489,16 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     ink(0, 0, 0, 255);
     box(0, barY, screen.width, barHeight);
 
-    // Progress bar - white when playing or paused
+    // Progress bar - red when playing or paused
     const progressWidth = progress * screen.width;
     if (progressWidth > 0) {
-      ink(255, 255, 255, 255); // Always white
+      ink(255, 0, 0, 255); // Red progress bar
       box(0, barY, progressWidth, barHeight);
     }
   }
 
-  // Draw track timer in bottom right corner - only when we have valid duration data
+  // Draw track timer in bottom right corner - COMMENTED OUT
+  /*
   if (actualDuration) {
     // Use the same timing calculation as progress for consistency
     let currentTime = 0;
@@ -2468,8 +2531,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     ink(255, 255, 255); // Set white ink for main text
     write(timeText, textX, textY);
   }
+  */
 
-  // Draw artist and track info in bottom left corner
+  // Draw artist and track info in bottom left corner - COMMENTED OUT
+  /*
   const artistText = "oskie - zzzZWAP";
   const artistX = 6; // Small margin from left edge
   const artistY = screen.height - 16; // Same height as timer
@@ -2481,6 +2546,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // Draw main artist text in white
   ink(255, 255, 255); // White text
   write(artistText, artistX, artistY);
+  */
   
 } // Close paint function
 
@@ -2512,54 +2578,63 @@ function act({ event: e, sound }) {
   if (e.is("touch") && preloadedAudio) {
     if (!isPlaying) {
       // Not currently playing - start or resume playback
+      console.log(`🎵 STARTING PLAYBACK: pausedAt=${pausedAt.toFixed(3)}, actualDuration=${actualDuration?.toFixed(3) || 'unknown'}`);
       
       // Reset tracking when starting playback
       if (pausedAt === 0) {
         passedLocators.clear();
-        // console.log("🎬 Starting playback from beginning - reset locator tracking");
+        console.log("� Starting from beginning - reset locator tracking");
       } else {
-        // console.log(`🎬 Resuming playback from ${(pausedAt * 100).toFixed(1)}%`);
+        console.log(`� Resuming from ${(pausedAt * 100).toFixed(1)}% (${(pausedAt * actualDuration).toFixed(2)}s)`);
       }
       
       // Hide pause overlay immediately when starting playback
       pauseOverlayVisible = false;
       
       // Start playing from the paused position
+      const playStartTimestamp = performance.now();
       playingSfx = sound.play(preloadedAudio, { speed: 1, from: pausedAt });
+      const playCallDuration = performance.now() - playStartTimestamp;
+      
       if (playingSfx) {
         isPlaying = true;
         playStartTime = performance.now();
+        console.log(`🎵 AUDIO STARTED: play() call took ${playCallDuration.toFixed(1)}ms`);
         
         // Try multiple ways to get duration - reduce logging
-        // console.log("playingSfx object:", playingSfx);
+        console.log("🎵 Duration detection attempts:");
         
         // Method 1: From the BIOS sample info
         if (sound.speaker && sound.speaker.length && sound.speaker.sampleRate) {
-          actualDuration = sound.speaker.length / sound.speaker.sampleRate;
-          // console.log("Got duration from speaker:", actualDuration, "length:", sound.speaker.length, "sampleRate:", sound.speaker.sampleRate);
+          const speakerDuration = sound.speaker.length / sound.speaker.sampleRate;
+          console.log(`  - Speaker: ${speakerDuration.toFixed(3)}s (length: ${sound.speaker.length}, rate: ${sound.speaker.sampleRate})`);
+          if (!actualDuration) actualDuration = speakerDuration;
         }
         
         // Method 2: From playResult
         if (playingSfx.playResult && playingSfx.playResult.buffer) {
-          actualDuration = playingSfx.playResult.buffer.duration;
-          // console.log("Got duration from playResult buffer:", actualDuration);
+          const playResultDuration = playingSfx.playResult.buffer.duration;
+          console.log(`  - PlayResult: ${playResultDuration.toFixed(3)}s`);
+          if (!actualDuration) actualDuration = playResultDuration;
         }
         
         // Method 3: From the preloaded audio metadata
         if (preloadedAudio && preloadedAudio.buffer && preloadedAudio.buffer.duration) {
-          actualDuration = preloadedAudio.buffer.duration;
-          // console.log("Got duration from preloaded audio:", actualDuration);
+          const preloadedDuration = preloadedAudio.buffer.duration;
+          console.log(`  - Preloaded: ${preloadedDuration.toFixed(3)}s`);
+          if (!actualDuration) actualDuration = preloadedDuration;
         }
         
-        // Fallback: calculate from sample info in console logs
-        // We saw: length: 8831329, sampleRate: 48000
+        // Fallback: calculate from sample info
         if (!actualDuration) {
           actualDuration = 8831329 / 48000; // About 184 seconds based on the console output
-          // console.log("Using fallback duration calculation:", actualDuration);
+          console.log(`  - Fallback: ${actualDuration.toFixed(3)}s`);
         }
         
-        // console.log("Final duration:", actualDuration);
-        // console.log(pausedAt === 0 ? "Started playing zzzZWAP" : "Resumed playing zzzZWAP");
+        console.log(`🎵 FINAL DURATION: ${actualDuration.toFixed(3)}s`);
+        console.log(`🎵 PLAYBACK STATE: isPlaying=${isPlaying}, progress=${progress.toFixed(3)}, playStartTime=${playStartTime}`);
+      } else {
+        console.error("🎵 ERROR: sound.play() returned null/undefined!");
       }
     } else {
       // Currently playing - pause the track
@@ -2569,16 +2644,18 @@ function act({ event: e, sound }) {
         const currentTime = performance.now();
         const elapsedSeconds = (currentTime - playStartTime) / 1000;
         const newPausedAt = Math.min((pausedAt * actualDuration + elapsedSeconds) / actualDuration, 1.0);
-        pausedAt = newPausedAt;
         
-        // console.log(`⏸️ Pausing at ${(pausedAt * 100).toFixed(1)}% (${(pausedAt * actualDuration).toFixed(1)}s)`);
+        console.log(`🎵 PAUSING: elapsedSeconds=${elapsedSeconds.toFixed(3)}, oldPausedAt=${pausedAt.toFixed(3)}, newPausedAt=${newPausedAt.toFixed(3)}`);
+        console.log(`🎵 Pause position: ${(newPausedAt * 100).toFixed(1)}% (${(newPausedAt * actualDuration).toFixed(2)}s)`);
+        
+        pausedAt = newPausedAt;
         
         playingSfx.kill();
         playingSfx = null;
       }
       isPlaying = false;
       pauseOverlayVisible = true; // Show pause overlay when paused
-      // console.log("Paused playing");
+      console.log("🎵 PAUSED");
     }
   }
 }
@@ -2609,22 +2686,37 @@ function sim({ sound, updateKidLispAudio }) {
     });
   }
 
+  // Check for audio ending and log sync issues
   if (isPlaying && playingSfx && playingSfx.killed) {
+    console.log("🎵 TRACK ENDED: Auto-stopping playback");
     isPlaying = false;
     progress = 0;
     pausedAt = 0; // Reset pause position when track ends
     playingSfx = null;
-    // console.log("🎬 Track ended - reset to beginning");
   }
   
-  // Get actual audio progress from speaker worklet (following stample pattern)
+  // Get actual audio progress from speaker worklet and compare with our calculations
   if (isPlaying && playingSfx && playingSfx.progress && typeof playingSfx.progress === 'function') {
     playingSfx.progress().then((p) => {
       if (p && typeof p.progress === 'number') {
+        const previousAudioProgress = currentAudioProgress;
         currentAudioProgress = p.progress;
+        
+        // Detect sync issues by comparing calculated vs actual progress
+        if (progress > 0 && currentAudioProgress > 0) {
+          const progressDiff = Math.abs(progress - currentAudioProgress);
+          if (progressDiff > 0.05) { // 5% difference threshold
+            console.warn(`🎵 SYNC DRIFT DETECTED: calculated=${progress.toFixed(3)}, actual=${currentAudioProgress.toFixed(3)}, diff=${progressDiff.toFixed(3)}`);
+          }
+        }
+        
+        // Detect if audio stopped unexpectedly
+        if (previousAudioProgress > 0 && currentAudioProgress === 0 && isPlaying) {
+          console.warn("🎵 AUDIO STOPPED UNEXPECTEDLY: progress reset to 0 while playing");
+        }
       }
     }).catch(err => {
-      // Silent catch - don't spam console
+      // Silent catch for normal promise rejections
     });
   }
   
