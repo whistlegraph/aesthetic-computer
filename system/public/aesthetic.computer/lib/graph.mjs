@@ -2570,6 +2570,129 @@ function fillShape(points) {
   }
 }
 
+// Draws a triangle from three points, with optional fill mode.
+// Usage: tri(x1, y1, x2, y2, x3, y3, mode = "fill")
+// mode can be "fill", "outline", "out", or "inline", "in"
+function tri() {
+  let x1, y1, x2, y2, x3, y3;
+  let mode = "fill";
+
+  // Apply the TODO: If any argument is NaN then just make it 'undefined'
+  for (let i = 0; i < arguments.length; i++) {
+    if (Number.isNaN(arguments[i])) {
+      arguments[i] = undefined;
+    }
+  }
+
+  if (arguments.length === 6) {
+    // tri(x1, y1, x2, y2, x3, y3)
+    x1 = arguments[0];
+    y1 = arguments[1];
+    x2 = arguments[2];
+    y2 = arguments[3];
+    x3 = arguments[4];
+    y3 = arguments[5];
+  } else if (arguments.length === 7) {
+    // tri(x1, y1, x2, y2, x3, y3, mode)
+    x1 = arguments[0];
+    y1 = arguments[1];
+    x2 = arguments[2];
+    y2 = arguments[3];
+    x3 = arguments[4];
+    y3 = arguments[5];
+    mode = arguments[6];
+  } else if (arguments.length === 1) {
+    // tri([x1, y1, x2, y2, x3, y3]) or tri({points: [...], mode: "..."})
+    if (Array.isArray(arguments[0])) {
+      const coords = arguments[0];
+      if (coords.length >= 6) {
+        x1 = coords[0];
+        y1 = coords[1];
+        x2 = coords[2];
+        y2 = coords[3];
+        x3 = coords[4];
+        y3 = coords[5];
+      }
+    } else if (arguments[0] && arguments[0].points) {
+      const obj = arguments[0];
+      const coords = obj.points;
+      if (Array.isArray(coords) && coords.length >= 6) {
+        x1 = coords[0];
+        y1 = coords[1];
+        x2 = coords[2];
+        y2 = coords[3];
+        x3 = coords[4];
+        y3 = coords[5];
+      }
+      if (obj.mode) mode = obj.mode;
+    }
+  } else if (arguments.length === 2) {
+    // tri([x1, y1, x2, y2, x3, y3], mode)
+    if (Array.isArray(arguments[0])) {
+      const coords = arguments[0];
+      if (coords.length >= 6) {
+        x1 = coords[0];
+        y1 = coords[1];
+        x2 = coords[2];
+        y2 = coords[3];
+        x3 = coords[4];
+        y3 = coords[5];
+      }
+      mode = arguments[1];
+    }
+  } else {
+    return console.error("Invalid triangle call. Expected tri(x1, y1, x2, y2, x3, y3) or tri(x1, y1, x2, y2, x3, y3, mode)");
+  }
+
+  // Validate coordinates
+  if ([x1, y1, x2, y2, x3, y3].some(coord => coord === undefined || isNaN(coord))) {
+    return console.error("Invalid triangle coordinates:", { x1, y1, x2, y2, x3, y3 });
+  }
+
+  // Random parameters if undefined, null, or NaN.
+  if (nonvalue(x1)) x1 = randInt(width);
+  if (nonvalue(y1)) y1 = randInt(height);
+  if (nonvalue(x2)) x2 = randInt(width);
+  if (nonvalue(y2)) y2 = randInt(height);
+  if (nonvalue(x3)) x3 = randInt(width);
+  if (nonvalue(y3)) y3 = randInt(height);
+
+  // Floor the coordinates
+  x1 = floor(x1);
+  y1 = floor(y1);
+  x2 = floor(x2);
+  y2 = floor(y2);
+  x3 = floor(x3);
+  y3 = floor(y3);
+
+  if (mode === "fill" || mode === "") {
+    // Use the existing fillShape function
+    const points = [[x1, y1], [x2, y2], [x3, y3]];
+    fillShape(points);
+  } else {
+    // Draw outline with specified mode
+    const thickness = parseInt(mode.split(":")[1]) || 1;
+    const outlineMode = mode.split(":")[0];
+    
+    if (outlineMode === "outline" || outlineMode === "out") {
+      // Draw three lines forming the triangle outline
+      line(x1, y1, x2, y2);
+      line(x2, y2, x3, y3);
+      line(x3, y3, x1, y1);
+    } else if (outlineMode === "inline" || outlineMode === "in") {
+      // For inline mode, we would need to shrink the triangle inward
+      // For now, just draw the outline (this could be enhanced later)
+      line(x1, y1, x2, y2);
+      line(x2, y2, x3, y3);
+      line(x3, y3, x1, y1);
+    } else {
+      // Default to fill if mode is unrecognized
+      const points = [[x1, y1], [x2, y2], [x3, y3]];
+      fillShape(points);
+    }
+  }
+}
+
 // Renders a square grid at x, y given cols, rows, and scale.
 // Buffer is optional, and if present will render the pixels at scale starting
 // from the top left corner of the buffer, repeating if needed to fill the grid.
@@ -4786,6 +4909,7 @@ export {
   oval,
   poly,
   box,
+  tri,
   shape,
   grid,
   draw,

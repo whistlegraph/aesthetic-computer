@@ -42,6 +42,7 @@ let totalPausedTime = 0; // Total time spent paused
 const ZZZWAP_PALETTES = {
   BEFORE_START: {
     name: "Before Start",
+    timelineGradient: "fade:navy-navy-blue-black:vertical",
     colors: [
       { r: 20, g: 20, b: 40 },     // dark blue
       { r: 40, g: 40, b: 80 },     // medium blue
@@ -51,6 +52,7 @@ const ZZZWAP_PALETTES = {
   },
   START: {
     name: "Start",
+    timelineGradient: "fade:lime-lime-green-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 255, g: 255, b: 0 },    // yellow
@@ -60,6 +62,7 @@ const ZZZWAP_PALETTES = {
   },
   PAUSE: {
     name: "Pause",
+    timelineGradient: "fade:gray-gray-gray-black:vertical",
     colors: [
       { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
       { r: 255, g: 0, b: 0 },      // red
@@ -69,6 +72,7 @@ const ZZZWAP_PALETTES = {
   },
   ACT_I: {
     name: "Act I",
+    timelineGradient: "fade:lime-lime-green-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
@@ -79,6 +83,7 @@ const ZZZWAP_PALETTES = {
   },
   ACT_II: {
     name: "Act II", 
+    timelineGradient: "fade:magenta-magenta-purple-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 255, g: 0, b: 255 },    // magenta (gradient)
@@ -89,6 +94,7 @@ const ZZZWAP_PALETTES = {
   },
   ACT_III: {
     name: "Act III",
+    timelineGradient: "fade:lime-lime-green-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
@@ -99,6 +105,7 @@ const ZZZWAP_PALETTES = {
   },
   ACT_IIII: {
     name: "Act IIII",
+    timelineGradient: "fade:magenta-magenta-violet-black:vertical",
     colors: [
       { r: 255, g: 0, b: 255 },    // magenta (gradient)
       { r: 0, g: 255, b: 0 },      // lime
@@ -109,6 +116,7 @@ const ZZZWAP_PALETTES = {
   },
   ACT_V: {
     name: "Act V",
+    timelineGradient: "fade:lime-lime-cyan-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
@@ -119,6 +127,7 @@ const ZZZWAP_PALETTES = {
   },
   ACT_VI: {
     name: "Act VI",
+    timelineGradient: "fade:lime-lime-teal-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime (gradient)
       { r: 0, g: 0, b: 0 },        // black
@@ -129,6 +138,7 @@ const ZZZWAP_PALETTES = {
   },
   SURPRISE: {
     name: "Surprise",
+    timelineGradient: "fade:yellow-yellow-orange-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
@@ -139,6 +149,7 @@ const ZZZWAP_PALETTES = {
   },
   PAUSE_2: {
     name: "Pause 2",
+    timelineGradient: "fade:gray-gray-gray-black:vertical",
     colors: [
       { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
       { r: 255, g: 0, b: 0 },      // red (gradient)
@@ -148,6 +159,7 @@ const ZZZWAP_PALETTES = {
   },
   PAUSE_3: {
     name: "Pause 3", 
+    timelineGradient: "fade:gray-gray-gray-black:vertical",
     colors: [
       { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
       { r: 255, g: 0, b: 0 },      // red
@@ -157,6 +169,7 @@ const ZZZWAP_PALETTES = {
   },
   END: {
     name: "End",
+    timelineGradient: "fade:white-white-silver-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
@@ -171,7 +184,7 @@ const ZZZWAP_PALETTES = {
 
 // zzzZWAP LOCATOR-SPECIFIC KIDLISP SOURCES
 const ZZZWAP_KIDLISP_SOURCES = {
-  BEFORE_START: `(fade:purple-black-green:90) (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6) (ink black) (write "oskie - zzzZWAP" 5 5) (ink white) (write "oskie - zzzZWAP" 4 4)`,
+  BEFORE_START: `(fade:purple-black-green:90) (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6) (ink white 180) (tri (- (/ width 2) 20) (- (/ height 2) 20) (- (/ width 2) 20) (+ (/ height 2) 20) (+ (/ width 2) 20) (/ height 2))`,
   // BEFORE_START: `(fade:black-navy-black) (ink (? red blue navy 0) (+ 50 (* kick 100))) (ink (? red blue gray 0) (+ 10 (* (random) 30))) (circle (/ width 2) (/ height 2) (+ 2 (* kick 3))) (spin (5s... -0.5 0.5)) (zoom 1.125) (contrast 1.05) (ink rainbow (? 16 32 48 128 255)) (repeat 1024 point) (scroll (? 0 0 1 -1) (? 0 0 1 -1))`,
   START: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (ink yellow (? 32 64 96 255)) (repeat 32 point) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
   PAUSE: `(fade:red-white-black-gray) (ink (? red white 0) (+ 110 (* kick 155))) (ink (? red white 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 110 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.3s... -4.0 4.0)) (zoom (0.1s... 1.5 3.0)) (contrast 1.3) (ink (? red white 0) (+ 150 (* kick 100))) (repeat 64 point) (scroll (? 0 0 2 -2) (? 0 0 2 -2))`,
@@ -1653,23 +1666,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
           const fadedB = Math.floor(colorInfo.b * alpha);
           ink(fadedR, fadedG, fadedB);
         } else {
-          // Check for gradient flash - ALL new bars (active colors) should flash yellow-white
-          const barAge = getPauseAwareTime() - (colorInfo.birthTime || 0);
-          const flashDuration = 16.67; // Exactly 1 frame at 60fps
-          
-          // Flash yellow-white gradient if it's a new bar (has birthTime and is young enough)
-          if (colorInfo.birthTime && barAge < flashDuration) {
-            // Yellow-white gradient flash with vertical direction for first frame ONLY
-            ink("fade:yellow-white:vertical");
-            
-            // Debug flash - disabled to reduce log spam
-            // if (Math.random() < 0.01) {
-            //   console.log(`⚡ VERTICAL GRADIENT FLASH! Bar ${index}: yellow-white vertical`);
-            // }
-          } else {
-            // Normal RGB color after flash period (not gradient)
-            ink(colorInfo.r, colorInfo.g, colorInfo.b);
-          }
+          // Normal RGB color (no flash)
+          ink(colorInfo.r, colorInfo.g, colorInfo.b);
         }
         
         // Get audio data for this bar - now with frequency bands!
@@ -1762,17 +1760,17 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       ])
     );
     
-    // Flood fill above the midline with weird color
-    ink(aboveColor.r, aboveColor.g, aboveColor.b, 120); // Semi-transparent weird color
-    for (let x = 0; x < screen.width; x += 8) { // Sample every 8 pixels for performance
-      flood(x, 6); // Flood from upper area of TV bars buffer
-    }
+    // Flood fill above the midline with weird color - COMMENTED OUT
+    // ink(aboveColor.r, aboveColor.g, aboveColor.b, 30); // Very low opacity weird color
+    // for (let x = 0; x < screen.width; x += 8) { // Sample every 8 pixels for performance
+    //   flood(x, 6); // Flood from upper area of TV bars buffer
+    // }
     
-    // Flood fill below the midline with different weird color
-    ink(belowColor.r, belowColor.g, belowColor.b, 120); // Semi-transparent weird color
-    for (let x = 0; x < screen.width; x += 8) { // Sample every 8 pixels for performance
-      flood(x, 18); // Flood from lower area of TV bars buffer
-    }
+    // Flood fill below the midline with different weird color - COMMENTED OUT
+    // ink(belowColor.r, belowColor.g, belowColor.b, 30); // Very low opacity weird color
+    // for (let x = 0; x < screen.width; x += 8) { // Sample every 8 pixels for performance
+    //   flood(x, 18); // Flood from lower area of TV bars buffer
+    // }
   }
   
   // HSL to RGB conversion helper function
@@ -1867,7 +1865,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   }
   
   // Fixed zoom level for consistent behavior (no dynamic scaling)
-  const pixelsPerSecond = 40; // Reduced from 60 to 40 px/sec for slower scrolling / less zoomed in view
+  const pixelsPerSecond = 80; // Increased from 40 to 80 px/sec for faster scrolling / more zoomed in view
 
   // === FREQUENCY DISPLAY OVERLAY ===
   // Frequency display commented out to make timeline flush with top
@@ -2200,27 +2198,36 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
     // Themed timeline background - matches current TV color palette exactly
     if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
-      // Use the same base color logic as timeline segments and TV bars
-      // Find the current locator index to match the segment color logic
-      let currentLocatorIndex = 0;
-      if (alsProject && alsProject.locators && currentLocator) {
-        currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
-        if (currentLocatorIndex === -1) currentLocatorIndex = 0;
-      }
+      // Special handling for PAUSE palettes - ALWAYS use black for timeline backdrop  
+      let colorIndex = 0; // Default to black
       
-      // Special handling for PAUSE palettes - never use red for timeline backdrop
-      let colorIndex = currentLocatorIndex % currentPalette.colors.length;
-      if (currentPalette.name && currentPalette.name.toLowerCase().includes('pause')) {
-        // For PAUSE palettes, always use black (index 0) for timeline backdrop
-        colorIndex = 0; // This will always be black since we reordered PAUSE palettes
+      // Check if this is a PAUSE or SURPRISE palette by name
+      const isPauseOrSurprise = currentPalette.name && 
+        (currentPalette.name.toLowerCase().includes('pause') || 
+         currentPalette.name.toLowerCase().includes('surprise'));
+      
+      if (!isPauseOrSurprise) {
+        // Only use locator index for non-PAUSE palettes
+        if (alsProject && alsProject.locators && currentLocator) {
+          const currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+          if (currentLocatorIndex !== -1) {
+            colorIndex = currentLocatorIndex % currentPalette.colors.length;
+          }
+        }
       }
+      // For PAUSE/SURPRISE palettes, colorIndex remains 0 (black)
       
       const bgColor = currentPalette.colors[colorIndex];
-      ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
+      
+      // Use solid colors instead of gradients
+      ink(bgColor.r, bgColor.g, bgColor.b);
     } else {
       ink(50, 50, 50); // Fallback to match TV default { r: 50, g: 50, b: 50 }
     }
     box(0, timelineY, screen.width, timelineHeight); // Simple strip at bottom
+    
+    // CRITICAL: Reset gradient/fade state after background
+    ink("black");
   
   // Draw locator segments on timeline overlay
   if (alsProject && alsProject.locators) {
@@ -2246,23 +2253,38 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         }
         
         const colorIndex = i % segmentPalette.colors.length; // Simple index-based selection for timeline
-        const paletteColor = segmentPalette.colors[colorIndex];
+        
+        // Special handling for PAUSE and SURPRISE segments - always use black (index 0)
+        const isPauseOrSurpriseSegment = segmentPalette.name && 
+          (segmentPalette.name.toLowerCase().includes('pause') || 
+           segmentPalette.name.toLowerCase().includes('surprise'));
+        
+        const finalColorIndex = isPauseOrSurpriseSegment ? 0 : colorIndex;
+        const paletteColor = segmentPalette.colors[finalColorIndex];
+        
+        // DEBUG: Log segment color info for PAUSE segments
+        if (isPauseOrSurpriseSegment) {
+          console.log(`🎬 Segment Overlay - Palette: "${segmentPalette.name}", OriginalIndex: ${colorIndex}, FinalIndex: ${finalColorIndex}, RGB: (${paletteColor.r}, ${paletteColor.g}, ${paletteColor.b}), Locator: "${locator.name}"`);
+        }
         
         const isCurrentTime = currentTimeSeconds >= segmentStart && currentTimeSeconds < segmentEnd;
         
-        let r = paletteColor.r;
-        let g = paletteColor.g; 
-        let b = paletteColor.b;
-        
-        // No brightness modifications - use raw palette colors to match base backgrounds
-        
-        // Draw segment with proper clipping
-        ink(r, g, b);
+        // Use solid colors for segments (no blinking for timeline segments)
+        if (isPauseOrSurpriseSegment) {
+          // PAUSE/SURPRISE: Dark solid color
+          ink(20, 20, 20); // Dark gray
+        } else {
+          // Other segments: Use the palette color directly
+          ink(paletteColor.r, paletteColor.g, paletteColor.b);
+        }
         const clampedX = Math.max(0, segmentStartX);
         const effectiveWidth = segmentStartX < 0 ? segmentWidth + segmentStartX : segmentWidth;
         const clampedWidth = Math.min(effectiveWidth, screen.width - clampedX);
         if (clampedWidth > 0) {
           box(clampedX, timelineY, clampedWidth, timelineHeight);
+          
+          // CRITICAL: Reset gradient/fade state after each segment
+          ink("black");
         }
       }
     }
@@ -2401,10 +2423,18 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
                 // Capture the base color BEFORE brightening for needle theming
                 lastMidiNoteColor = { r: r, g: g, b: b };
                 
-                // Note is actively playing - brighten for display
-                noteR = Math.min(255, r + 60);
-                noteG = Math.min(255, g + 60);
-                noteB = Math.min(255, b + 60);
+                // Note is actively playing - use white or red for active notes
+                if (velocity > 100) {
+                  // High velocity notes are red when active
+                  noteR = 255;
+                  noteG = 0;
+                  noteB = 0;
+                } else {
+                  // Normal velocity notes are white when active
+                  noteR = 255;
+                  noteG = 255;
+                  noteB = 255;
+                }
               }
               ink(noteR, noteG, noteB);
               box(noteX, noteY, noteWidth, finalHeight);
