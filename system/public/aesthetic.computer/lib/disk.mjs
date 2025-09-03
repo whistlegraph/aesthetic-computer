@@ -3045,9 +3045,6 @@ const $paintApiUnwrapped = {
     const { noCache = false } = options;
     
     try {
-      // Create persistent painting key and implement accumulation
-      let regionKey = `${x},${y},${width},${height}:${source}`;
-      
       // Initialize persistent paintings cache if needed  
       if (!globalKidLispInstance.persistentPaintings) {
         globalKidLispInstance.persistentPaintings = new Map();
@@ -3071,14 +3068,10 @@ const $paintApiUnwrapped = {
         // First check if we have a painting with the resolved source already
         if (globalKidLispInstance.singletonDollarCodeCache.has(cacheId)) {
           resolvedSource = globalKidLispInstance.singletonDollarCodeCache.get(cacheId);
-          regionKey = `${x},${y},${width},${height}:${resolvedSource}`;
+          // Note: regionKey will be set later after accumulation detection
           
-          // If we already have this resolved painting, skip all dollar code logic
-          if (globalKidLispInstance.persistentPaintings.has(regionKey)) {
-            // console.log(`🎯 Found existing resolved painting, skipping dollar code logic`);
-          } else {
-            // console.log(`🎯 Using cached source for new painting: ${resolvedSource}`);
-          }
+          // If we already have this resolved painting, we'll check after regionKey is set
+          // console.log(`🎯 Using cached source: ${resolvedSource}`);
         } else if (globalKidLispInstance.loadingDollarCodes.has(cacheId)) {
           // Already loading this dollar code, wait for it to complete
           // console.log(`🎯 ${source} already loading, waiting...`);
@@ -3107,11 +3100,28 @@ const $paintApiUnwrapped = {
         }
       }
       
+      // 🎨 AUTO-DETECT ACCUMULATION: Check if source starts with a color word
+      const colorWords = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'black', 'white', 'gray', 'grey', 'brown', 'pink'];
+      const firstWord = resolvedSource.trim().split(/\s+/)[0]?.toLowerCase();
+      const startsWithColor = colorWords.includes(firstWord);
+      
+      // Auto-generate accumulation settings
+      const accumulate = startsWithColor;
+      const accumulateKey = accumulate ? `auto_${x}_${y}_${width}_${height}_${firstWord}` : null;
+      
+      // Create persistent painting key with accumulation support
+      let regionKey;
+      if (accumulate && accumulateKey) {
+        regionKey = `${x},${y},${width},${height}:ACCUMULATE:${accumulateKey}`;
+      } else {
+        regionKey = `${x},${y},${width},${height}:${resolvedSource}`;
+      }
+      
       // Check if the code contains frame-dependent randomization commands
       const hasFrameDependentCommands = /\(\s*ink\s*\)|\(\s*color\s*\)|\(\s*rand\s*\)/.test(resolvedSource);
       
       // Check if we need to reset (resolved source contains 'wipe')
-      const shouldReset = resolvedSource.includes('wipe');
+      const shouldReset = resolvedSource.includes('wipe') && !accumulate; // Don't reset in accumulation mode
       
       // Check if source contains animation-related commands that need fresh execution
       const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'contrast', 'fade'];
@@ -3119,7 +3129,8 @@ const $paintApiUnwrapped = {
       const hasAnimationCommands = animationCommands.some(cmd => resolvedSource.includes(cmd));
       const isDollarCode = source.startsWith('$'); // Dollar codes should always refresh
       // Don't force fresh execution for timing commands - they need to run continuously
-      const needsFreshExecution = noCache || (isDollarCode && !hasTimingCommands) || (hasAnimationCommands && !hasTimingCommands);
+      // In accumulate mode, prefer building on existing surface unless explicitly forced
+      const needsFreshExecution = !accumulate && (noCache || (isDollarCode && !hasTimingCommands) || (hasAnimationCommands && !hasTimingCommands));
       
       let painting;
       
@@ -3177,8 +3188,8 @@ const $paintApiUnwrapped = {
             api.num = $activePaintApi.num || { 
               random: () => Math.random(),
               randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-              rainbow: $activePaintApi.num?.rainbow || (() => [255, 0, 0]), // Add rainbow function
-              zebra: $activePaintApi.num?.zebra || (() => [0, 0, 0]) // Add zebra function
+              rainbow: num.rainbow, // Use the actual rainbow function from num.mjs
+              zebra: num.zebra // Use the actual zebra function from num.mjs
             };
           }
           // Add color support for proper ink randomization
@@ -3190,6 +3201,25 @@ const $paintApiUnwrapped = {
                 Math.floor(Math.random() * 256)
               ]
             };
+          }
+          
+          // 🎨 Add CSS color functions to make unquoted color words work
+          // Import CSS colors from num.mjs and add them as functions to the API
+          const cssColors = num.cssColors;
+          if (cssColors) {
+            Object.keys(cssColors).forEach(colorName => {
+              if (!api[colorName]) {
+                api[colorName] = () => cssColors[colorName];
+              }
+            });
+          }
+          
+          // Add rainbow and zebra as top-level functions for unquoted usage
+          if (!api.rainbow) {
+            api.rainbow = () => num.rainbow();
+          }
+          if (!api.zebra) {
+            api.zebra = () => num.zebra();
           }
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
@@ -3262,8 +3292,8 @@ const $paintApiUnwrapped = {
             api.num = $activePaintApi.num || { 
               random: () => Math.random(),
               randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-              rainbow: $activePaintApi.num?.rainbow || (() => [255, 0, 0]), // Add rainbow function
-              zebra: $activePaintApi.num?.zebra || (() => [0, 0, 0]) // Add zebra function
+              rainbow: num.rainbow, // Use the actual rainbow function from num.mjs
+              zebra: num.zebra // Use the actual zebra function from num.mjs
             };
           }
           // Add color support for proper ink randomization
@@ -3275,6 +3305,25 @@ const $paintApiUnwrapped = {
                 Math.floor(Math.random() * 256)
               ]
             };
+          }
+          
+          // 🎨 Add CSS color functions to make unquoted color words work
+          // Import CSS colors from num.mjs and add them as functions to the API
+          const cssColors = num.cssColors;
+          if (cssColors) {
+            Object.keys(cssColors).forEach(colorName => {
+              if (!api[colorName]) {
+                api[colorName] = () => cssColors[colorName];
+              }
+            });
+          }
+          
+          // Add rainbow and zebra as top-level functions for unquoted usage
+          if (!api.rainbow) {
+            api.rainbow = () => num.rainbow();
+          }
+          if (!api.zebra) {
+            api.zebra = () => num.zebra();
           }
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
