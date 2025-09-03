@@ -193,7 +193,7 @@ function parse(text, location = self?.location) {
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
-  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv'
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight'
 ];
 
 // Get clean path without legitimate query parameters

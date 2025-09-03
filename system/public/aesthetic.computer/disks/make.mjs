@@ -255,7 +255,7 @@ function paint({
   // First: Clear to dark gray background
   wipe([64, 64, 64]); // Dark gray RGB
 
-  // Then: Execute KidLisp code in bottom right corner as preview
+  // Second: Execute KidLisp code in bottom right corner as preview (BACKGROUND LAYER)
   const fullCode = displayedCode + characterBuffer;
   if (fullCode && fullCode.trim()) {
     // Small preview window in bottom right
@@ -264,7 +264,179 @@ function paint({
     const previewX = screen.width - previewSize - margin;
     const previewY = screen.height - previewSize - margin;
     
-    // Draw border around the preview window using box API
+    // Force synchronous KidLisp execution by creating a painting buffer
+    const kidlispPainting = painting(previewSize, previewSize, (api) => {
+      try {
+        // Check for special first line handling (rainbow, zebra, or single colors)
+        const firstLine = fullCode.trim().split('\n')[0].trim();
+        const specialEffects = ['rainbow', 'zebra'];
+        const colorWords = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'magenta', 'pink', 'lime', 'navy', 'black', 'white', 'gray', 'brown', 'darkred', 'darkblue', 'darkgreen'];
+        
+        let needsPersistentBg = false;
+        if (colorWords.includes(firstLine.toLowerCase()) || specialEffects.includes(firstLine.toLowerCase())) {
+          needsPersistentBg = true;
+        }
+        
+        // Only wipe with dark background if NOT a persistent background case
+        if (!needsPersistentBg) {
+          api.wipe([32, 32, 32]);
+        }
+        // For persistent backgrounds, don't wipe - let KidLisp handle the background
+        
+        // Extend the painting API with missing functions that KidLisp needs
+        if (!api.time) {
+          api.time = performance.now() * 0.001; // Convert to seconds like main API
+        }
+        if (!api.typeface) {
+          api.typeface = function(font) {
+            // Simple fallback - painting API might not support full font changes
+            console.log("📝 KidLisp typeface:", font);
+          };
+        }
+        if (!api.size) {
+          api.size = function(width, height) {
+            // Size function for changing canvas dimensions
+            console.log("📐 KidLisp size:", width, height);
+          };
+        }
+        if (!api.width) {
+          api.width = screen.width;
+        }
+        if (!api.height) {
+          api.height = screen.height;
+        }
+        if (!api.w) {
+          api.w = previewSize;
+        }
+        if (!api.h) {
+          api.h = previewSize;
+        }
+        
+        // Try to access the global KidLisp instance properly
+        let kl = null;
+        
+        // Check globalThis first (works in all environments)
+        if (globalThis.globalKidLispInstance) {
+          kl = globalThis.globalKidLispInstance;
+        } else if (typeof window !== 'undefined' && window.globalKidLispInstance) {
+          kl = window.globalKidLispInstance;
+        } else if (typeof global !== 'undefined' && global.globalKidLispInstance) {
+          kl = global.globalKidLispInstance;
+        }
+        
+        if (kl && kl.setAPI && kl.parse && kl.evaluate) {
+          // Save original state
+          const originalInEmbedPhase = kl.inEmbedPhase;
+          const originalIsNestedInstance = kl.isNestedInstance;
+          const originalEmbeddedLayers = kl.embeddedLayers;
+          
+          // Force immediate execution mode
+          kl.inEmbedPhase = true;
+          kl.isNestedInstance = true;
+          kl.embeddedLayers = null;
+          
+          // Execute KidLisp
+          kl.setAPI(api);
+          kl.firstLineColor = null;
+          kl.parse(fullCode);
+          if (kl.ast && kl.ast.length > 0) {
+            kl.evaluate(kl.ast, api, kl.localEnv || {});
+          }
+          
+          // Restore original state
+          kl.inEmbedPhase = originalInEmbedPhase;
+          kl.isNestedInstance = originalIsNestedInstance;
+          kl.embeddedLayers = originalEmbeddedLayers;
+        } else {
+          // Create an isolated KidLisp instance for synchronous execution to prevent state contamination
+          try {
+            if (kidlispInstance && kidlispInstance.KidLisp) {
+              // Create a new isolated KidLisp instance
+              const isolatedKidLisp = new kidlispInstance.KidLisp();
+              
+              // Set up the isolated instance with the painting API
+              isolatedKidLisp.setAPI(api);
+              isolatedKidLisp.frameCount = 0; // Reset frame count for isolation
+              
+              // Clear any inherited state that might cause contamination
+              isolatedKidLisp.localEnv = {}; // Reset local environment
+              isolatedKidLisp.variables = {}; // Reset variables
+              isolatedKidLisp.firstLineColor = null; // Reset color state
+              
+              // Parse and evaluate in the isolated instance
+              isolatedKidLisp.parse(fullCode);
+              
+              if (isolatedKidLisp.ast && isolatedKidLisp.ast.length > 0) {
+                // Validate AST for common errors before evaluation
+                let hasIncompleteExpressions = false;
+                const validateExpression = (expr) => {
+                  if (Array.isArray(expr)) {
+                    if (expr[0] === 'def' && expr.length !== 3) {
+                      hasIncompleteExpressions = true;
+                      console.warn(`❌ Incomplete def statement:`, expr);
+                      return false;
+                    }
+                    // Recursively validate nested expressions
+                    for (let i = 1; i < expr.length; i++) {
+                      if (!validateExpression(expr[i])) return false;
+                    }
+                  }
+                  return true;
+                };
+                
+                // Validate each top-level expression
+                for (const expr of isolatedKidLisp.ast) {
+                  if (!validateExpression(expr)) {
+                    hasIncompleteExpressions = true;
+                    break;
+                  }
+                }
+                
+                if (!hasIncompleteExpressions) {
+                  const result = isolatedKidLisp.evaluate(isolatedKidLisp.ast, api, isolatedKidLisp.localEnv || {});
+                  console.log("✅ KidLisp executed in isolated instance:", result);
+                } else {
+                  console.warn("⚠️ Skipping execution due to incomplete expressions");
+                  // Show warning state
+                  api.ink(128, 128, 64);
+                  api.box(0, 0, previewSize, previewSize);
+                }
+              } else {
+                console.log("⚠️ No AST generated from code");
+                // Show empty state
+                api.ink(100, 100, 100);
+                api.box(0, 0, previewSize, previewSize);
+              }
+            } else {
+              console.warn("⚠️ kidlispInstance.KidLisp constructor not available");
+              // Fallback: show a blue background
+              api.ink(64, 64, 128);
+              api.box(0, 0, previewSize, previewSize);
+            }
+          } catch (error) {
+            console.error("❌ KidLisp isolated execution error:", error);
+            // Error fallback: show red background
+            api.ink(128, 64, 64);
+            api.box(0, 0, previewSize, previewSize);
+            api.ink("white");
+            if (api.write) {
+              api.write("Error", 10, 25);
+            } else if (api.text) {
+              api.text("Error", 10, 25);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Synchronous KidLisp execution error:", error);
+        api.ink("orange");
+        api.box(5, 5, previewSize - 10, previewSize - 10);
+      }
+    });
+    
+    // Paste the synchronously rendered KidLisp output as background
+    paste(kidlispPainting, previewX, previewY);
+    
+    // Then draw border around the preview window on top of the KidLisp output
     ink("white");
     // Top border
     box(previewX - 1, previewY - 1, previewSize + 2, 1);
@@ -274,11 +446,9 @@ function paint({
     box(previewX - 1, previewY, 1, previewSize);
     // Right border
     box(previewX + previewSize, previewY, 1, previewSize);
-    
-    kidlisp(previewX, previewY, previewSize, previewSize, fullCode);
   }
 
-  // Finally: Always show the prompt with highlighting and shaking animation on top
+  // Third: Always show the prompt with highlighting and shaking animation (FOREGROUND LAYER)
   let promptBounds = { bottomY: 6 };
   if (originalParams && originalParams.length > 0) {
     // Hide HUD label and show our custom prompt
@@ -286,7 +456,7 @@ function paint({
     promptBounds = renderPromptWithHighlighting(screen, ink, write, originalParams, currentParamIndex, typeface);
   }
 
-  // And: Show code overlay during generation (positioned below prompt)
+  // Fourth: Show code overlay during generation (positioned below prompt, FOREGROUND LAYER)
   if (shouldShowCode()) {
     displayCodeOverlay(screen, ink, write, typeface, label, promptBounds.bottomY);
   }

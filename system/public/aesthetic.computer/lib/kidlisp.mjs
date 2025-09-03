@@ -29,6 +29,9 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    ### Screen Management
    - `(wipe color)` - Clear entire screen with specified color
    - `(resolution width height)` - Set canvas resolution
+   - `(scroll)` - Randomly choose and stick to one direction (up/down/left/right) per session
+   - `(scroll dx dy)` - Scroll by dx horizontally and dy vertically
+   - `(scroll dx)` - Scroll by dx horizontally only
    
    ### Drawing Primitives  
    - `(ink color)` - Set drawing color for subsequent operations
@@ -748,7 +751,7 @@ class KidLisp {
   // 🎯 Set API context for this KidLisp instance
   setAPI(api) {
     this.api = api;
-    console.log("🎯 KidLisp API context updated");
+    // console.log("🎯 KidLisp API context updated");
   }
 
   // Reset all state for a fresh KidLisp instance
@@ -1555,7 +1558,7 @@ class KidLisp {
         // console.warn('Failed to cache kidlisp:', response?.status, response?.message || 'Unknown error');
       }
     } catch (error) {
-      console.log("❌ Cache error:", error);
+      // console.log("❌ Cache error:", error);
       // Silently handle caching failures - auth issues are common and not critical  
       // console.warn('Failed to cache kidlisp:', error.message || error);
     } finally {
@@ -1610,9 +1613,9 @@ class KidLisp {
     // 🔍 Special case: If the program consists of only a single $code atom or function call,
     // fetch the cached source and substitute it instead of navigating
     // BUT: Skip this in embedded contexts to prevent infinite recursion
-    console.log(`🔍 Checking for single $code - embedded context: ${this.isEmbeddedContext}, parsed length: ${parsed.length}`);
+    // console.log(`🔍 Checking for single $code - embedded context: ${this.isEmbeddedContext}, parsed length: ${parsed.length}`);
     if (parsed.length === 1) {
-      console.log(`🔍 Single expression detected:`, parsed[0]);
+      // console.log(`🔍 Single expression detected:`, parsed[0]);
     }
     
     if (!this.isEmbeddedContext && 
@@ -2008,9 +2011,9 @@ class KidLisp {
     }
 
     const tokens = tokenize(input);
-    console.log(`🔍 Tokenized:`, tokens);
+    // console.log(`🔍 Tokenized:`, tokens);
     const parsed = readFromTokens(tokens);
-    console.log(`🔍 Parsed result:`, parsed);
+    // console.log(`🔍 Parsed result:`, parsed);
     this.ast = parsed; // 🎯 Actually assign the parsed result to this.ast!
     return parsed;
   }
@@ -2184,7 +2187,7 @@ class KidLisp {
           const name = unquoteString(args[0]);
           // Validate the identifier.
           if (!validIdentifierRegex.test(name)) {
-            console.error("️❗ Invalid identifier name:", name);
+            // console.warn("Invalid identifier name (use underscores instead of dashes):", name);
             return;
           }
 
@@ -2564,13 +2567,13 @@ class KidLisp {
         }
       },
       wipe: (api, args) => {
-        console.log("🧹 Wipe called with args:", args);
+        // console.log("🧹 Wipe called with args:", args);
         const processedArgs = processArgStringTypes(args);
-        console.log("🧹 Wipe processed args:", processedArgs);
-        console.log("🧹 Wipe api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
-        console.log("🧹 Wipe api.screen pixels length:", api.screen?.pixels?.length);
+        // console.log("🧹 Wipe processed args:", processedArgs);
+        // console.log("🧹 Wipe api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
+        // console.log("🧹 Wipe api.screen pixels length:", api.screen?.pixels?.length);
         api.wipe?.(processedArgs);
-        console.log("🧹 Wipe completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
+        // console.log("🧹 Wipe completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
       },
       coat: (api, args, env) => {
         // Apply a translucent color layer over existing content
@@ -2775,7 +2778,7 @@ class KidLisp {
           }
           
           api.ink?.(...processedArgs);
-          console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
+          // console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
       },
       // Fade string constructor - returns a fade string that can be used with ink
@@ -3016,13 +3019,31 @@ class KidLisp {
         api.shape({ points, filled, thickness });
       },
       scroll: (api, args = []) => {
-        console.log(`📜 Scroll function called with args:`, args);
+        // console.log(`📜 Scroll function called with args:`, args);
         
         // Handle different scroll argument formats
         let dx = 0, dy = 0;
         
+        // If no arguments are provided, fuzz and choose a random direction (but stick to it)
+        if (!args || args.length === 0) {
+          // Check if we've already chosen a direction for this session
+          if (!this.scrollFuzzDirection) {
+            const directions = [
+              [1, 0],   // scroll right
+              [-1, 0],  // scroll left
+              [0, 1],   // scroll down
+              [0, -1]   // scroll up
+            ];
+            this.scrollFuzzDirection = directions[Math.floor(Math.random() * directions.length)];
+            // console.log(`🎲 SCROLL fuzzing: first call, randomly chose direction dx=${this.scrollFuzzDirection[0]}, dy=${this.scrollFuzzDirection[1]}`);
+          }
+          dx = this.scrollFuzzDirection[0];
+          dy = this.scrollFuzzDirection[1];
+          // console.log(`🎲 SCROLL fuzzing: using cached direction dx=${dx}, dy=${dy}`);
+        }
+        
         // NEW: Check if we have a single timing expression argument like ['2s...', 1, 0, -1]
-        if (Array.isArray(args) && args.length === 1 && Array.isArray(args[0]) && 
+        else if (Array.isArray(args) && args.length === 1 && Array.isArray(args[0]) && 
             args[0].length > 0 && typeof args[0][0] === 'string' && args[0][0].endsWith('...')) {
           // This is a timing expression like ['2s...', 1, 0, -1]
           // We need to evaluate it to get the current values
@@ -3161,17 +3182,17 @@ class KidLisp {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
-        console.log(`🎯 Zoom function called with args:`, args);
-        console.log(`🎯 Embedded layers length:`, this.embeddedLayers?.length);
-        console.log(`🎯 In embed phase:`, this.inEmbedPhase);
+        // console.log(`🎯 Zoom function called with args:`, args);
+        // console.log(`🎯 Embedded layers length:`, this.embeddedLayers?.length);
+        // console.log(`🎯 In embed phase:`, this.inEmbedPhase);
         
         // Defer zoom execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          console.log(`⏸️ Deferring zoom execution due to embedded layers`);
+          // console.log(`⏸️ Deferring zoom execution due to embedded layers`);
           this.postEmbedCommands.push({
             name: 'zoom',
             func: () => {
-              console.log(`⏰ Executing deferred zoom with args:`, args);
+              // console.log(`⏰ Executing deferred zoom with args:`, args);
               api.zoom(...args);
             },
             args
@@ -3180,7 +3201,7 @@ class KidLisp {
         }
         
         // Execute zoom immediately
-        console.log(`🚀 Executing zoom immediately with args:`, args);
+        // console.log(`🚀 Executing zoom immediately with args:`, args);
         api.zoom(...args);
       },
       blur: (api, args = []) => {
@@ -5326,10 +5347,10 @@ class KidLisp {
 
         // Debug logging for zoom specifically
         if (head === "zoom") {
-          console.log("🎯 About to resolve zoom function");
-          console.log("🎯 Head after processing:", head);
-          console.log("🎯 Args:", args);
-          console.log("🎯 Resolved result:", resolved);
+          // console.log("🎯 About to resolve zoom function");
+          // console.log("🎯 Head after processing:", head);
+          // console.log("🎯 Args:", args);
+          // console.log("🎯 Resolved result:", resolved);
         }
 
         // console.log(`🔍 Function resolution for "${head}":`, resolved?.type, typeof resolved?.value);
@@ -5343,12 +5364,12 @@ class KidLisp {
           
           // Debug logging for zoom function specifically
           if (head === "zoom") {
-            console.log("� Zoom function resolved:", { type, valueType: typeof value });
+            // console.log("🎯 Zoom function resolved:", { type, valueType: typeof value });
           }
           
           // Debug logging for scroll function specifically
           if (head === "scroll") {
-            console.log("📜 Scroll function resolved:", { type, valueType: typeof value });
+            // console.log("📜 Scroll function resolved:", { type, valueType: typeof value });
           }
 
           switch (type) {
@@ -5432,7 +5453,7 @@ class KidLisp {
                 } else {
                   // Debug logging for zoom execution
                   if (head === "zoom") {
-                    console.log("🚀 Executing global zoom function with args:", processedArgs);
+                    // console.log("🚀 Executing global zoom function with args:", processedArgs);
                   }
                   result = value(api, processedArgs, env, colon);
                   if (result?.iterable) {
@@ -5471,14 +5492,14 @@ class KidLisp {
               
               // Debug logging for zoom API execution
               if (head === "zoom") {
-                console.log("🚀 Executing API zoom function with args:", apiArgs);
-                console.log("🚀 API zoom function:", typeof value, value.toString().substring(0, 100));
+                // console.log("🚀 Executing API zoom function with args:", apiArgs);
+                // console.log("🚀 API zoom function:", typeof value, value.toString().substring(0, 100));
               }
               
               // Debug logging for scroll API execution  
               if (head === "scroll") {
-                console.log("📜 Executing API scroll function with args:", apiArgs);
-                console.log("📜 API scroll function:", typeof value, value.toString().substring(0, 100));
+                // console.log("📜 Executing API scroll function with args:", apiArgs);
+                // console.log("📜 API scroll function:", typeof value, value.toString().substring(0, 100));
               }
               
               result = value(...apiArgs);
@@ -5578,7 +5599,7 @@ class KidLisp {
     } else {
       // Check if this is the fps command that's not implemented
       if (expression === "fps") {
-        console.log("⚠️ FPS command called but not implemented - ignoring");
+        // console.log("⚠️ FPS command called but not implemented - ignoring");
         return "fps"; // Return the string to indicate it was processed
       }
       // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
@@ -5631,7 +5652,7 @@ class KidLisp {
 
       if (value === id) {
         // Variable not found, try to get it from global environment
-        console.warn("❗ Identifier not found:", id);
+        // console.warn("❗ Identifier not found:", id);
         value = 0;
       }
 
@@ -7143,10 +7164,10 @@ class KidLisp {
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
-    console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
+    // console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
     
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
-      console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
+      // console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
       return; // Silent fail for performance
     }
     
@@ -7380,7 +7401,7 @@ class KidLisp {
       return;
     }
     
-    console.log(`🎬 renderEmbeddedLayers: Processing ${this.embeddedLayers.length} embedded layers`);
+    // console.log(`🎬 renderEmbeddedLayers: Processing ${this.embeddedLayers.length} embedded layers`);
     
     // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
@@ -7457,19 +7478,19 @@ class KidLisp {
   shouldLayerEvaluate(embeddedLayer, frameValue) {
     // Always evaluate if never been evaluated
     if (!embeddedLayer.hasBeenEvaluated) {
-      console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.id}`);
+      // console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.id}`);
       return true;
     }
 
     // Skip if evaluated this exact frame already
     if (embeddedLayer.lastFrameEvaluated === frameValue) {
-      console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.id}`);
+      // console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.id}`);
       return false;
     }
 
     // Check for dynamic content in source (check multiple places)
     const source = embeddedLayer.kidlispInstance.source || embeddedLayer.sourceCode || embeddedLayer.source || '';
-    console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.id}:`, source);
+    // console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.id}:`, source);
     
     const hasDynamicContent = source.includes('frame') || 
                              source.includes('scroll') ||
@@ -7481,27 +7502,27 @@ class KidLisp {
                              source.includes('tap') ||
                              source.includes('random');
 
-    console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.id}`);
+    // console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.id}`);
 
     // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have scroll
     // Since source is often empty due to caching issues, force evaluation more frequently
     if (!hasDynamicContent && embeddedLayer.hasBeenEvaluated) {
       // Check if we should force evaluation anyway (every 10 frames for potential scroll effects)
       const shouldForceEvaluation = (frameValue % 10 === 0);
-      console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
+      // console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
       if (shouldForceEvaluation) {
         return true;
       }
       return false;
     }
 
-    console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.id}`);
+    // console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.id}`);
     return true; // Default to evaluating
   }
 
   // 🚀 OPTIMIZED: Render single layer with minimal overhead
   renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate) {
-    console.log(`🎬 renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
+    // console.log(`🎬 renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
     
     // 🔥 REFRAME PERFORMANCE: Skip expensive re-evaluation during rapid screen changes
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
