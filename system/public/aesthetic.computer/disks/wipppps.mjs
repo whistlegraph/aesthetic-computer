@@ -40,6 +40,15 @@ let totalPausedTime = 0; // Total time spent paused
 
 // zzzZWAP LOCATOR-SPECIFIC COLOR PALETTES - DERIVED FROM KIDLISP PATTERNS
 const ZZZWAP_PALETTES = {
+  BEFORE_START: {
+    name: "Before Start",
+    colors: [
+      { r: 20, g: 20, b: 40 },     // dark blue
+      { r: 40, g: 40, b: 80 },     // medium blue
+      { r: 60, g: 60, b: 120 },    // lighter blue
+      { r: 80, g: 80, b: 160 },    // bright blue
+    ]
+  },
   START: {
     name: "Start",
     colors: [
@@ -52,9 +61,9 @@ const ZZZWAP_PALETTES = {
   PAUSE: {
     name: "Pause",
     colors: [
+      { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
       { r: 255, g: 0, b: 0 },      // red
       { r: 255, g: 255, b: 255 },  // white
-      { r: 0, g: 0, b: 0 },        // black
       { r: 128, g: 128, b: 128 },  // gray
     ]
   },
@@ -131,8 +140,8 @@ const ZZZWAP_PALETTES = {
   PAUSE_2: {
     name: "Pause 2",
     colors: [
+      { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
       { r: 255, g: 0, b: 0 },      // red (gradient)
-      { r: 0, g: 0, b: 0 },        // black
       { r: 255, g: 255, b: 255 },  // white
       { r: 128, g: 128, b: 128 },  // gray
     ]
@@ -140,9 +149,9 @@ const ZZZWAP_PALETTES = {
   PAUSE_3: {
     name: "Pause 3", 
     colors: [
+      { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
       { r: 255, g: 0, b: 0 },      // red
       { r: 255, g: 255, b: 255 },  // white
-      { r: 0, g: 0, b: 0 },        // black
       { r: 128, g: 128, b: 128 },  // gray
     ]
   },
@@ -162,34 +171,20 @@ const ZZZWAP_PALETTES = {
 
 // zzzZWAP LOCATOR-SPECIFIC KIDLISP SOURCES
 const ZZZWAP_KIDLISP_SOURCES = {
-  START: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
-
-  // First pause could be a stop.
+  BEFORE_START: `(fade:purple-black-green:90) (scroll 1 -1) (once (paste https://assets.aesthetic.computer/wipppps/cow.png 0 0 0.6)) (ink black) (write "oskie - zzzZWAP" 5 5) (ink white) (write "oskie - zzzZWAP" 4 4)`,
+  // BEFORE_START: `(fade:black-navy-black) (ink (? red blue navy 0) (+ 50 (* kick 100))) (ink (? red blue gray 0) (+ 10 (* (random) 30))) (circle (/ width 2) (/ height 2) (+ 2 (* kick 3))) (spin (5s... -0.5 0.5)) (zoom 1.125) (contrast 1.05) (ink rainbow (? 16 32 48 128 255)) (repeat 1024 point) (scroll (? 0 0 1 -1) (? 0 0 1 -1))`,
+  START: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (ink yellow (? 32 64 96 255)) (repeat 32 point) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
   PAUSE: `(fade:red-white-black-gray) (ink (? red white 0) (+ 110 (* kick 155))) (ink (? red white 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 110 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.3s... -4.0 4.0)) (zoom (0.1s... 2.0 4.0)) (contrast 1.3)`,
-  
   ACT_I: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 120 (* kick 155))) (ink (? lime magenta 0) (+ 25 (* (random) 65))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 120 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.3 1.3)) (zoom 1.2) (contrast 1.1) (scroll (? 3 -3) (? 3 -3))`,
-  
   ACT_II: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 130 (* kick 155))) (ink (? lime magenta 0) (+ 30 (* (random) 70))) (gradient lime magenta 0 0 width height) (ink (? lime magenta 0) (+ 130 (* kick 155))) (line (/ width 2) 0 (/ width 2) height) (spin (2s... -1.5 1.5)) (zoom 1.2) (contrast 1.1) (scroll (? 4 -4) (? 3 -3))`,
-  
   ACT_III: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 140 (* kick 155))) (ink (? lime magenta 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 140 (* kick 155))) (line 0 (/ height 2) width (/ height 2)) (line (/ width 2) 0 (/ width 2) height) (spin (1.8s... -1.7 1.7)) (zoom 1.2) (contrast 1.1) (scroll (? 5 -5) (? 4 -4))`,
-  
-  ACT_IIII: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 150 (* kick 155))) (ink (? lime magenta 0) (+ 40 (* (random) 80))) (gradient magenta lime (/ width 4) (/ height 4) (* width 0.75) (* height 0.75)) (ink (? lime magenta 0) (+ 150 (* kick 155))) (poly (/ width 2) (/ height 2) (+ 3 (* kick 4)) 6) (spin (1.5s... -2.0 2.0)) (zoom 1.2) (contrast 1.1) (scroll (? 6 -6) (? 5 -5))`,
-  
+  ACT_IIII: `(fade:lime-yellow-lime) (ink (? lime magenta 0) (+ 100 (* kick 155))) (ink (? lime magenta 0) (+ 20 (* (random) 60))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 100 (* kick 155))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (2s... -1.125 1.125)) (zoom 1.2) (contrast 1.05) (ink yellow (? 32 64 96 255)) (repeat 32 point) (scroll (? 0 0 0 2 -2) (? 0 0 0 2 -2))`,
   ACT_V: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 160 (* kick 155))) (ink (? lime magenta 0) (+ 45 (* (random) 85))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 160 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (circle (/ width 2) (/ height 2) (+ 3 (* kick 4))) (spin (1.2s... -2.3 2.3)) (zoom 1.2) (contrast 1.1) (scroll (? 7 -7) (? 6 -6))`,
-  
   ACT_VI: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 170 (* kick 155))) (ink (? lime magenta 0) (+ 50 (* (random) 90))) (gradient lime black (/ width 2) 0 (/ width 2) height) (ink (? lime magenta 0) (+ 170 (* kick 155))) (point (/ width 3) (/ height 3)) (point (* width 0.66) (* height 0.66)) (line (/ width 2) 0 (/ width 2) height) (spin (1s... -2.5 2.5)) (zoom 1.2) (contrast 1.1) (scroll (? 8 -8) (? 7 -7))`,
-  
   SURPRISE: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 180 (* kick 175))) (ink (? lime magenta 0) (+ 60 (* (random) 100))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 180 (* kick 175))) (circle (/ width 2) (/ height 2) (+ 4 (* kick 5))) (poly (/ width 4) (/ height 4) (+ 2 (* kick 3)) 8) (poly (* width 0.75) (* height 0.75) (+ 2 (* kick 3)) 8) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.5s... -3.0 3.0)) (zoom 1.3) (contrast 1.2) (scroll (? 10 -10) (? 9 -9))`,
-  
   PAUSE_2: `(fade:red-white-black-gray) (ink (? red white 0) (+ 160 (* kick 155))) (ink (? red white 0) (+ 45 (* (random) 85))) (gradient red black 0 0 width height) (ink (? red white 0) (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height) (spin (0.2s... -5.0 5.0)) (zoom (0.05s... 2.5 5.0)) (contrast 1.4) (scroll (? 8 -8) (? 7 -7))`,
-  
   PAUSE_3: `(fade:red-white-black-gray) (ink (? red white 0) (+ 140 (* kick 155))) (ink (? red white 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 140 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.1s... -6.0 6.0)) (zoom (0.03s... 3.0 6.0)) (contrast 1.5) (scroll (? 6 -6) (? 6 -6))`,
-  
   END: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 80 (* kick 100))) (ink (? lime magenta 0) (+ 15 (* (random) 40))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 80 (* kick 100))) (point (/ width 2) (/ height 2)) (spin (3s... -0.5 0.5)) (zoom 1.1) (contrast 1.0) (scroll (? 1 -1) (? 1 -1))`,
-  // PAUSE: `(wipe gray) (ink white) (write PAUSE 4 4) (ink orange) (repeat 10 line)`,
-  PAUSE_2: `(wipe green) (ink white) (write PAUSE_2 4 4) (ink yellow) (repeat 12 line)`,
-  PAUSE_3: `(wipe violet) (ink white) (write PAUSE_3 4 4) (ink pink) (repeat 14 line)`,
-  END: `(wipe purple) (ink white) (write END 4 4) (ink blue) (repeat 16 line)`
 };
 
 // FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
@@ -225,7 +220,10 @@ function getPaletteForLocator(locatorName) {
 }
 
 // FUNCTION TO GET KIDLISP SOURCE FOR CURRENT LOCATOR
-function getKidlispSourceForLocator(locatorName) {
+function getKidlispSourceForLocator(locatorName, isPlaying = false) {
+  // If not playing, always use BEFORE_START
+  if (!isPlaying) return ZZZWAP_KIDLISP_SOURCES.BEFORE_START;
+  
   if (!locatorName) return ZZZWAP_KIDLISP_SOURCES.START;
   
   const name = locatorName.toUpperCase();
@@ -1762,7 +1760,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     const currentPalette = getPaletteForLocator(currentLocator?.name);
     
     // Get the pre-defined KidLisp source for this locator
-    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name);
+    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying);
     
     // Add defensive checks to prevent errors
     if (!kidlispCode) {
@@ -1771,6 +1769,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
     // Execute the KidLisp theme code (amp is now available as a global variable)
     kidlisp(0, 25, screen.width, screen.height-24, kidlispCode);
+    
+    // CRITICAL: Reset fade mode by calling ink with a non-fade string
+    // This clears the global fadeMode, fadeColors, fadeDirection variables
+    ink("black"); // Forces findColor to reset fade state
   } else {
     // Use traditional TV bars buffer
     paste(tvBarsBuffer);
@@ -2143,7 +2145,14 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
         if (currentLocatorIndex === -1) currentLocatorIndex = 0;
       }
-      const colorIndex = currentLocatorIndex % currentPalette.colors.length;
+      
+      // Special handling for PAUSE palettes - never use red for timeline backdrop
+      let colorIndex = currentLocatorIndex % currentPalette.colors.length;
+      if (currentPalette.name && currentPalette.name.toLowerCase().includes('pause')) {
+        // For PAUSE palettes, always use black (index 0) for timeline backdrop
+        colorIndex = 0; // This will always be black since we reordered PAUSE palettes
+      }
+      
       const bgColor = currentPalette.colors[colorIndex];
       ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
     } else {
