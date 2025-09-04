@@ -155,7 +155,9 @@ const defaults = {
   paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
-      if (slug?.indexOf("botce") > -1) {
+      if (slug?.indexOf("wipppps") > -1 || slug === undefined) {
+        wipe("black");
+      } else if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
       } else {
         noise16Aesthetic();
@@ -3003,6 +3005,7 @@ const $paintApiUnwrapped = {
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
+  tri: graph.tri,
   poly: graph.poly,
   box: graph.box,
   shape: graph.shape,
