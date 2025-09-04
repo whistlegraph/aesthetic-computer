@@ -7997,20 +7997,170 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Initialize recording start timestamp for frame recording
           window.recordingStartTimestamp = Date.now();
           
-          // NOW connect the raw audio processor to ensure sync
+          // DON'T connect raw audio processor immediately anymore
+          // We'll connect it when we detect actual audio playback starting
+          // This accounts for pieces like wipppps that have audio start detection delays
           if (rawAudioProcessor && sfxStreamGain) {
-            try {
-              sfxStreamGain.connect(rawAudioProcessor);
-              rawAudioProcessor.connect(audioContext.destination);
-              console.log("🎵 Raw audio capture connected at MediaRecorder start");
-            } catch (error) {
-              console.error("Failed to connect raw audio processor:", error);
-            }
+            console.log("🎵 Raw audio processor ready - will connect when audio actually starts");
+            
+            // Set up audio start detection to sync raw audio capture properly
+            let audioConnected = false;
+            let audioStartDetectionInterval;
+            let audioStartDetectionTimeout;
+            let detectionStartTime = performance.now();
+            
+            // Monitor for actual audio playback by checking multiple indicators
+            audioStartDetectionInterval = setInterval(() => {
+              try {
+                if (!audioConnected) {
+                  let shouldConnect = false;
+                  
+                  // Method 1: Check if tape progress is advancing (indicates actual playback)
+                  if (window.currentTapeProgress && window.currentTapeProgress > 0) {
+                    shouldConnect = true;
+                    console.log("🎵 Audio detected via tape progress:", window.currentTapeProgress);
+                  }
+                  
+                  // Method 2: Check the sfxStreamGain for connected nodes (actual audio flow)
+                  if (!shouldConnect && sfxStreamGain && sfxStreamGain.numberOfOutputs > 0) {
+                    // Audio nodes are connected to sfxStreamGain, indicating audio is flowing
+                    shouldConnect = true;
+                    console.log("🎵 Audio detected via sfxStreamGain connections");
+                  }
+                  
+                  // Method 3: Simple delay-based fallback - after 100ms, assume audio is starting
+                  // This handles cases where we can't detect programmatically but need to stay close
+                  const detectionTime = performance.now() - detectionStartTime;
+                  if (!shouldConnect && detectionTime > 100) {
+                    shouldConnect = true;
+                    console.log("🎵 Audio connection triggered by 100ms fallback");
+                  }
+                  
+                  if (shouldConnect) {
+                    // Audio is actually playing - connect the processor now
+                    sfxStreamGain.connect(rawAudioProcessor);
+                    rawAudioProcessor.connect(audioContext.destination);
+                    audioConnected = true;
+                    
+                    const detectionDelay = performance.now() - mediaRecorderStartTime;
+                    console.log(`🎵 Raw audio capture connected after ${detectionDelay.toFixed(1)}ms detection delay`);
+                    
+                    // Clean up detection
+                    clearInterval(audioStartDetectionInterval);
+                    clearTimeout(audioStartDetectionTimeout);
+                  }
+                }
+              } catch (error) {
+                console.warn("Audio start detection error:", error);
+              }
+            }, 16);
+            
+            // Fallback: Connect after 1 second regardless to prevent lost audio
+            audioStartDetectionTimeout = setTimeout(() => {
+              if (!audioConnected && rawAudioProcessor && sfxStreamGain) {
+                try {
+                  sfxStreamGain.connect(rawAudioProcessor);
+                  rawAudioProcessor.connect(audioContext.destination);
+                  console.log("🎵 Raw audio capture connected after 1s timeout fallback");
+                } catch (error) {
+                  console.error("Fallback audio connection failed:", error);
+                }
+              }
+              clearInterval(audioStartDetectionInterval);
+            }, 1000);
           }
           
           // Clear KidLisp FPS timeline for new recording
           window.kidlispFpsTimeline = [];
           console.log("🎬 Cleared KidLisp FPS timeline for new recording");
+          
+          // 🎵 ENSURE AUDIO CONTEXT IS ACTIVATED FOR PROGRAMMATIC PLAYBACK
+          // This is critical for pieces like wipppps that need to auto-play during recording
+          if (audioContext && audioContext.state !== 'running') {
+            console.log("🎵 TAPE_START: Activating audio context for programmatic playback, current state:", audioContext.state);
+            audioContext.resume().then(() => {
+              console.log("🎵 TAPE_START: Audio context resumed, new state:", audioContext.state);
+            }).catch(error => {
+              console.warn("🎵 TAPE_START: Audio context resume failed:", error.message);
+            });
+          } else if (audioContext) {
+            console.log("🎵 TAPE_START: Audio context already running, state:", audioContext.state);
+            // Even if running, explicitly call resume to ensure user gesture activation
+            audioContext.resume().catch(error => {
+              console.log("🎵 TAPE_START: Audio context re-resume (user gesture activation):", error.message);
+            });
+          }
+          
+          // 🎵 UNLOCK AUDIO SYSTEM WITH AUDIBLE TRIGGER
+          // Play a very short audible tone to ensure audio is fully unlocked for programmatic playback
+          if (audioContext && triggerSound) {
+            try {
+              console.log("🎵 TAPE_START: Triggering short audible tone to unlock system");
+              // Create a very short 50ms tone at low volume to unlock audio
+              const unlockBuffer = audioContext.createBuffer(2, Math.floor(audioContext.sampleRate * 0.05), audioContext.sampleRate);
+              const leftChannel = unlockBuffer.getChannelData(0);
+              const rightChannel = unlockBuffer.getChannelData(1);
+              
+              // Generate a very quiet 440Hz tone for 50ms
+              for (let i = 0; i < unlockBuffer.length; i++) {
+                const sample = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate) * 0.01; // Very low volume
+                leftChannel[i] = sample;
+                rightChannel[i] = sample;
+              }
+              
+              const unlockResult = triggerSound({
+                id: "tape_unlock_audible",
+                type: "sample", 
+                options: {
+                  buffer: {
+                    channels: [leftChannel, rightChannel],
+                    sampleRate: audioContext.sampleRate,
+                    length: unlockBuffer.length
+                  },
+                  label: "tape_unlock",
+                  from: 0,
+                  to: 1,
+                  speed: 1,
+                  loop: false
+                }
+              });
+              
+              // Stop the unlock sound after a short delay
+              setTimeout(() => {
+                if (unlockResult && unlockResult.kill) {
+                  unlockResult.kill(0.01); // Quick fade
+                }
+              }, 100);
+              
+              console.log("🎵 TAPE_START: Audible unlock trigger sent successfully");
+            } catch (error) {
+              console.log("🎵 TAPE_START: Audible unlock trigger failed:", error.message);
+            }
+          }
+          
+          // 🎵 PRELOAD AND DECODE PIECE AUDIO FOR INSTANT PLAYBACK
+          // For pieces like wipppps that need immediate audio, force decode their audio assets
+          if (actualContent.pieceName === 'wipppps') {
+            try {
+              console.log("🎵 TAPE_START: Pre-decoding wipppps audio for instant playback");
+              // Force decode the wipppps audio file to ensure it's ready as Web Audio buffer
+              const wippppsUrl = "https://assets.aesthetic.computer/wipppps/zzzZWAP.wav";
+              
+              // Check if already decoded, if not, trigger decode
+              if (!sfx[wippppsUrl] || typeof sfx[wippppsUrl] === 'string') {
+                console.log("🎵 TAPE_START: Triggering decode for", wippppsUrl);
+                decodeSfx(wippppsUrl).then(() => {
+                  console.log("🎵 TAPE_START: wipppps audio decoded successfully as Web Audio buffer");
+                }).catch(error => {
+                  console.log("🎵 TAPE_START: wipppps audio decode failed:", error);
+                });
+              } else {
+                console.log("🎵 TAPE_START: wipppps audio already decoded as Web Audio buffer");
+              }
+            } catch (error) {
+              console.log("🎵 TAPE_START: wipppps audio pre-decode error:", error.message);
+            }
+          }
           
           console.log(`🎬 🔴 Recording STARTED at ${mediaRecorderStartTime}, frame capture enabled, recordedFrames: ${recordedFrames.length}`);
           
