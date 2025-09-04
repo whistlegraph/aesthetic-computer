@@ -40,6 +40,8 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    - `(line x1 y1 x2 y2)` - Draw line from point 1 to point 2
    - `(box x y width height)` - Draw filled rectangle
    - `(circle x y radius)` - Draw filled circle
+   - `(tri x1 y1 x2 y2 x3 y3)` - Draw filled triangle from three points
+   - `(tri x1 y1 x2 y2 x3 y3 "outline")` - Draw triangle outline
    - `(plot x y)` - Set single pixel at coordinates
    
    ### Image Functions
@@ -117,6 +119,8 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    (circle 50 50 30)
    (ink "blue")
    (box 100 100 50 50)
+   (ink "yellow")
+   (tri 150 50 180 100 120 100)
    ```
    
    ### Animated Scene
@@ -3023,6 +3027,23 @@ class KidLisp {
         
         api.circle(...args);
       },
+      tri: (api, args = []) => {
+        // Triangle function with 6 coordinates and optional mode
+        // Usage: (tri x1 y1 x2 y2 x3 y3) or (tri x1 y1 x2 y2 x3 y3 mode)
+        
+        // Check if we should defer this command
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          this.postEmbedCommands = this.postEmbedCommands || [];
+          this.postEmbedCommands.push({
+            name: 'tri',
+            func: api.tri,
+            args: [...args]
+          });
+          return;
+        }
+        
+        api.tri(...args);
+      },
       flood: (api, args = []) => {
         // Flood fill at coordinates with optional color
         // Usage: (flood x y) or (flood x y color)
@@ -4712,6 +4733,14 @@ class KidLisp {
         { min: 0, max: width },   // x position (arg 0)
         { min: 0, max: height },  // y position (arg 1)
         { min: 5, max: 50 },      // radius (arg 2)
+      ],
+      tri: [
+        { min: 0, max: width },   // x1 position (arg 0)
+        { min: 0, max: height },  // y1 position (arg 1)
+        { min: 0, max: width },   // x2 position (arg 2)
+        { min: 0, max: height },  // y2 position (arg 3)
+        { min: 0, max: width },   // x3 position (arg 4)
+        { min: 0, max: height },  // y3 position (arg 5)
       ],
       write: [
         { min: 0, max: width },   // x position (arg 1, since arg 0 is text)
@@ -7760,6 +7789,7 @@ class KidLisp {
       ink: (...args) => api.ink(...args),
       wipe: (...args) => api.wipe(...args),
       circle: (...args) => api.circle(...args),
+      tri: (...args) => api.tri(...args),
       box: (...args) => api.box(...args),
       point: (...args) => api.point(...args),
       poly: (...args) => api.poly(...args),
@@ -8081,6 +8111,10 @@ class KidLisp {
           circle: (...args) => {
             didRender = true;
             return api.circle(...args);
+          },
+          tri: (...args) => {
+            didRender = true;
+            return api.tri(...args);
           },
           box: (...args) => {
             didRender = true;
