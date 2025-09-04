@@ -120,6 +120,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     mediaRecorderFrameCount = 0; // Frame counter for performance optimization
   let needs$creenshot = false; // Flag when a capture is requested.
   
+  // Raw audio capture for tape playback
+  let rawAudioProcessor = null;
+  let rawAudioData = [];
+  let rawAudioSampleRate = 44100;
+  
   // Dynamic FPS detection for display-rate independent recording
   let detectedDisplayFPS = 60; // Default fallback
   let lastFrameTime = 0;
@@ -165,6 +170,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         type: mediaRecorder.mimeType,
       });
       
+      // Convert raw audio data to serializable format for storage
+      let rawAudioArrays = null;
+      if (rawAudioData.length > 0 && audioContext) {
+        try {
+          const totalSamples = rawAudioData.length * 4096; // 4096 samples per chunk
+          const leftChannelData = new Float32Array(totalSamples);
+          const rightChannelData = new Float32Array(totalSamples);
+          
+          let sampleIndex = 0;
+          for (let i = 0; i < rawAudioData.length; i++) {
+            const chunk = rawAudioData[i];
+            for (let j = 0; j < chunk.left.length; j++) {
+              if (sampleIndex < totalSamples) {
+                leftChannelData[sampleIndex] = chunk.left[j];
+                rightChannelData[sampleIndex] = chunk.right[j];
+                sampleIndex++;
+              }
+            }
+          }
+          
+          rawAudioArrays = {
+            left: leftChannelData,
+            right: rightChannelData,
+            sampleRate: rawAudioSampleRate,
+            totalSamples: totalSamples
+          };
+          
+          console.log(`🎵 Created raw audio arrays: ${totalSamples} samples, ${totalSamples / rawAudioSampleRate}s duration`);
+        } catch (error) {
+          console.error("Error creating raw audio arrays:", error);
+        }
+      }
+      
       try {
         await receivedChange({
           data: {
@@ -177,6 +215,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 duration: mediaRecorderDuration,
                 frames: recordedFrames, // Include frame data for WebP/Frame exports
                 timestamp: Date.now(),
+                rawAudio: rawAudioArrays, // Add raw audio arrays for playback
               },
             },
           },
@@ -923,6 +962,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function startSound() {
     if (navigator.audioSession) navigator.audioSession.type = "ambient";
 
+    // 🎵 AUDIO INITIALIZATION LOGGING - Critical for tracking audio timing setup
+    const audioStartTimestamp = performance.now();
+    console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
+
     // Main audio feed
     audioContext = new AudioContext({
       latencyHint: "interactive",
@@ -932,6 +975,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 48000,
       sampleRate: 48000, //iOS || Aesthetic || Android ? 48000 : 192000,
     });
+
+    // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
+    console.log(`🎵 AUDIO_CONTEXT_CREATED: sampleRate=${audioContext.sampleRate}, state=${audioContext.state}, baseLatency=${audioContext.baseLatency?.toFixed(6) || 'N/A'}s, outputLatency=${audioContext.outputLatency?.toFixed(6) || 'N/A'}s`);
+    console.log(`🎵 AUDIO_TIMING_INIT: currentTime=${audioContext.currentTime.toFixed(6)}s, creation_delay=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
     acDISK_SEND({
       type: "audio:sample-rate",
@@ -1144,7 +1191,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       (async () => {
         const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
         const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
+        
+        // 🎵 WORKLET LOADING LOGGING
+        const workletLoadStart = performance.now();
+        console.log(`🎵 WORKLET_LOAD_START: Loading ${baseUrl}${cacheBuster}`);
+        
         await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
+        
+        const workletLoadTime = performance.now() - workletLoadStart;
+        console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
 
         const speakerProcessor = new AudioWorkletNode(
           audioContext,
@@ -1154,6 +1209,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             processorOptions: { bpm: sound.bpm, debug: true },
           },
         );
+
+        // 🎵 WORKLET INITIALIZATION LOGGING
+        console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
         beatSkip = function () {
           speakerProcessor.port.postMessage({ type: "beat:skip" });
@@ -1331,6 +1389,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (sfxCancel.includes(id)) {
         // console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
+        return;
+      }
+
+      // Handle stream option - audio should be silent for streaming
+      if (options?.stream) {
+        console.log("🎵 BIOS stream option detected, audio will be silent:", soundData);
+        // Create a dummy playback object for tracking
+        sfxPlaying[id] = {
+          kill: () => {
+            // No-op for silent stream audio
+          }
+        };
         return;
       }
 
@@ -7625,6 +7695,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mediaRecorderStartTime = undefined;
         mediaRecorderDuration = undefined; // Reset to undefined for clean initialization
         mediaRecorderChunks.length = 0;
+        
+        // Clean up raw audio processor
+        if (rawAudioProcessor) {
+          try {
+            rawAudioProcessor.disconnect();
+            rawAudioProcessor = null;
+          } catch (error) {
+            console.warn("Error disconnecting raw audio processor:", error);
+          }
+        }
+        rawAudioData = [];
+        
         // Clear recording timestamp for next recording
         if (window.recordingStartTimestamp) {
           delete window.recordingStartTimestamp;
@@ -7670,6 +7752,36 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         } catch (error) {
           console.error("MediaRecorder creation failed:", error);
           return;
+        }
+        
+        // Set up raw audio capture for playback
+        if (audioContext && sfxStreamGain) {
+          try {
+            rawAudioData = [];
+            rawAudioSampleRate = audioContext.sampleRate;
+            
+            // Create a script processor node to capture raw audio
+            rawAudioProcessor = audioContext.createScriptProcessor(4096, 2, 2);
+            rawAudioProcessor.onaudioprocess = function(event) {
+              const inputBuffer = event.inputBuffer;
+              const leftChannel = inputBuffer.getChannelData(0);
+              const rightChannel = inputBuffer.getChannelData(1);
+              
+              // Store the audio data
+              rawAudioData.push({
+                left: new Float32Array(leftChannel),
+                right: new Float32Array(rightChannel)
+              });
+            };
+            
+            // Connect the audio stream to our processor
+            sfxStreamGain.connect(rawAudioProcessor);
+            rawAudioProcessor.connect(audioContext.destination);
+            
+            console.log("🎵 Raw audio capture setup for tape playback");
+          } catch (error) {
+            console.error("Raw audio capture setup failed:", error);
+          }
         }
       }
 
@@ -7856,7 +7968,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log(`🎬 📼 Checking cached tape:`, cachedTape ? `found with ${cachedTape.frames?.length || 0} frames, ${cachedTape.blob?.size || 0} bytes audio` : 'not found');
         
         if (cachedTape && cachedTape.blob) {
-          sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+          // Use raw audio arrays to create AudioBuffer for playback if available
+          if (cachedTape.rawAudio && audioContext) {
+            try {
+              console.log("🎬 📼 Creating AudioBuffer from raw audio data");
+              const rawAudio = cachedTape.rawAudio;
+              const audioBuffer = audioContext.createBuffer(2, rawAudio.totalSamples, rawAudio.sampleRate);
+              
+              audioBuffer.getChannelData(0).set(rawAudio.left);
+              audioBuffer.getChannelData(1).set(rawAudio.right);
+              
+              sfx["tape:audio"] = audioBuffer;
+              console.log(`🎬 📼 Successfully created AudioBuffer: ${rawAudio.totalSamples} samples, ${rawAudio.totalSamples / rawAudio.sampleRate}s duration`);
+            } catch (error) {
+              console.error("🎬 📼 Failed to create AudioBuffer from raw audio:", error);
+              // Fall back to blob for export only
+              sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+            }
+          } else {
+            console.log("🎬 📼 No raw audio available, storing blob for export only");
+            // Store the blob for export purposes but we won't be able to play it
+            sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+          }
 
           // Restore frame data if available
           if (cachedTape.frames) {
@@ -7881,8 +8014,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const blob = new Blob(mediaRecorderChunks, {
             type: mediaRecorder.mimeType,
           });
-          sfx["tape:audio"] = await blobToArrayBuffer(blob);
-          // console.log("Update tape audio with new blob!");
+          
+          // Use raw audio data for live playback
+          if (rawAudioData.length > 0 && audioContext) {
+            try {
+              console.log("🎬 📼 Creating AudioBuffer from live raw audio data");
+              const totalSamples = rawAudioData.length * 4096; // 4096 samples per chunk
+              const audioBuffer = audioContext.createBuffer(2, totalSamples, rawAudioSampleRate);
+              
+              const leftChannelData = audioBuffer.getChannelData(0);
+              const rightChannelData = audioBuffer.getChannelData(1);
+              
+              let sampleIndex = 0;
+              for (let i = 0; i < rawAudioData.length; i++) {
+                const chunk = rawAudioData[i];
+                for (let j = 0; j < chunk.left.length; j++) {
+                  if (sampleIndex < totalSamples) {
+                    leftChannelData[sampleIndex] = chunk.left[j];
+                    rightChannelData[sampleIndex] = chunk.right[j];
+                    sampleIndex++;
+                  }
+                }
+              }
+              
+              sfx["tape:audio"] = audioBuffer;
+              console.log(`🎬 📼 Successfully created live AudioBuffer: ${totalSamples} samples, ${totalSamples / rawAudioSampleRate}s duration`);
+            } catch (error) {
+              console.error("🎬 📼 Failed to create live AudioBuffer:", error);
+              // Store compressed data as fallback for export
+              sfx["tape:audio"] = await blobToArrayBuffer(blob);
+            }
+          } else {
+            console.log("🎬 📼 No raw audio data available, storing compressed blob for export only");
+            sfx["tape:audio"] = await blobToArrayBuffer(blob);
+          }
         }
 
         underlayFrame = document.createElement("div");
@@ -7960,12 +8125,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 (mediaRecorderDuration * 1000);
               const clampedPosition = Math.max(0, Math.min(1, audioPosition));
 
+              // Kill any existing tape audio before starting new one
+              Object.keys(sfxPlaying).forEach(id => {
+                if (id.startsWith("tape:audio_")) {
+                  sfxPlaying[id]?.kill();
+                  delete sfxPlaying[id];
+                }
+              });
+
               tapeSoundId = "tape:audio_" + performance.now();
               playSfx(tapeSoundId, "tape:audio", {
-                stream,
                 from: clampedPosition, // Start from the paused position
               });
-              // Audio restarted after pause
+              console.log("🎵 Audio restarted after pause at position:", clampedPosition);
             }
 
             send({ type: "recorder:present-playing" });
@@ -7987,7 +8159,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Only play audio if not rendering video export
               if (!render) {
                 tapeSoundId = "tape:audio_" + performance.now();
-                await playSfx(tapeSoundId, "tape:audio", { stream });
+                await playSfx(tapeSoundId, "tape:audio");
                 // Audio started for tape playback
               } else {
                 console.log("🎵 Skipping audio during video export");
@@ -8076,7 +8248,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   delete sfxPlaying[tapeSoundId];
                 }
                 tapeSoundId = "tape:audio_" + performance.now();
-                await playSfx(tapeSoundId, "tape:audio", { stream });
+                await playSfx(tapeSoundId, "tape:audio");
                 // Audio restarted for loop
               } else {
                 console.log("🎵 Skipping audio restart during video export");
@@ -12300,6 +12472,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         const buf = sfx[sound];
         sfx[sound] = null;
+        
         if (buf && audioContext) {
           console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
           audioBuffer = await audioContext.decodeAudioData(buf);
@@ -12316,6 +12489,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } catch (err) {
         console.error("🔉 [DECODE] Decode error:", err, "➡️", sound);
+        sfx[sound] = null; // Clear the failed audio data
       } finally {
         // Always remove from decoding set when done
         decodingInProgress.delete(sound);
