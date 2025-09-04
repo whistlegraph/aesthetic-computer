@@ -372,8 +372,10 @@ async function halt($, text) {
     slug === "tape:tt" ||
     slug === "tape:nomic" ||
     slug === "tape:mic" ||
+    slug === "tape:clean" ||
     slug === "tapem"
   ) {
+    console.log("🐛 TAPE COMMAND DETECTED:", slug, "params:", params);
     // 📼 Start taping.
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
@@ -398,7 +400,7 @@ async function halt($, text) {
       } else {
         nomic = true;
       }
-    } else if (slug === "tape:nomic") {
+    } else if (slug === "tape:nomic" || slug === "tape:clean") {
       nomic = true;
     } else if (slug === "tape:mic" || slug === "tapem") {
       nomic = false;
@@ -425,6 +427,10 @@ async function halt($, text) {
 
       // Gets picked up on next piece load automatically.
       rec.loadCallback = () => {
+        // Capture the KidLisp FPS if available (set by fps function)
+        const kidlispFps = (typeof window !== 'undefined' && window.currentKidlispFps) || null;
+        console.log(`🎬 Captured KidLisp FPS for recording: ${kidlispFps}`);
+        
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
         rec.rolling(
@@ -445,6 +451,8 @@ async function halt($, text) {
             intendedDuration: isNaN(duration) ? null : duration,
             frameMode: frameMode,
             frameCount: frameMode ? (isNaN(duration) ? 8 : duration) : null,
+            kidlispFps: kidlispFps, // Pass the KidLisp framerate
+            cleanMode: slug === "tape:clean", // Enable clean mode (no overlays, no progress bar)
             // showTezosStamp: true, // Enable Tezos stamp by default for GIF recordings (DISABLED)
             showTezosStamp: false, // Tezos stamp disabled - set to true to re-enable
             mystery: false
@@ -492,6 +500,7 @@ async function halt($, text) {
       flashColor = [255, 0, 0];
     }
     makeFlash($);
+    console.log("🐛 TAPE COMMAND COMPLETED, returning true");
     return true;
     // 📼 Cut a tape early.
   } else if (slug === "tape:cut" || slug === "cut") {
@@ -1498,6 +1507,7 @@ async function halt($, text) {
     net.hiccup();
     return true;
   } else {
+    console.log("🐛 FALLBACK PARSE BLOCK - unrecognized command:", text);
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?
