@@ -11,20 +11,20 @@
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write, paste, kidlisp }) {
   wipe("navy"); // Clear the background.
   
-  // ✨ NEW: Test unquoted URL support in KidLisp paste function!
-  // kidlisp(0, 0, screen.width, screen.height, `
-  //   ; Now you can use unquoted URLs in KidLisp paste commands!
-  //   (paste https://assets.aesthetic.computer/wipppps/cow.png 10 10 0.3)
-  //   (paste https://assets.aesthetic.computer/wipppps/cow.png (/ width 2) 50 0.5)
-  //   
-  //   ; Also works with stamp (centered pasting)
-  //   (stamp https://assets.aesthetic.computer/wipppps/cow.png (/ width 2) (- height 50))
-  //   
-  //   ; Quoted URLs still work too
-  //   (paste "https://assets.aesthetic.computer/wipppps/cow.png" 150 10 0.2)
-  // `);
-
-  // kidlisp(96, 24, 64, 64, 'fade:red-rainbow');
+  // ✨ Test the new tri function!
+  kidlisp(0, 0, screen.width, screen.height, `
+    ; Test the new triangle function
+    (ink "red")
+    (tri 50 50 100 50 75 100)
+    
+    ; Test triangle outline  
+    (ink "lime")
+    (tri 150 50 200 50 175 100 "outline")
+    
+    ; Test play button triangle (similar to the one mentioned)
+    (ink "yellow")
+    (tri 100 150 120 160 100 170)
+  `);
   
   // Regular JavaScript paste still works with quoted URLs
   paste("https://assets.aesthetic.computer/wipppps/cow.png", 0, 0, 0.05);
@@ -34,7 +34,7 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write, paste, k
   line(screen.width, 0, 0, screen.height);
 
   ink("white");
-  write("🐄 Unquoted URL support in KidLisp!", 5, screen.height - 20);
+  write("� Testing tri function in KidLisp!", 5, screen.height - 20);
 
   if (pen) {
     ink("yellow").circle(pen.x, pen.y, 8);
