@@ -208,7 +208,7 @@ const ZZZWAP_KIDLISP_SOURCES = {
   ACT_VI: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 170 (* kick 155))) (ink (? lime magenta 0) (+ 50 (* (random) 90))) (gradient lime black (/ width 2) 0 (/ width 2) height) (ink (? lime magenta 0) (+ 170 (* kick 155))) (point (/ width 3) (/ height 3)) (point (* width 0.66) (* height 0.66)) (line (/ width 2) 0 (/ width 2) height) (spin (1s... -2.5 2.5)) (zoom 1.2) (contrast 1.1) (scroll (? 8 -8) (? 7 -7))`,
   SURPRISE: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 180 (* kick 175))) (ink (? lime magenta 0) (+ 60 (* (random) 100))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 180 (* kick 175))) (circle (/ width 2) (/ height 2) (+ 4 (* kick 5))) (poly (/ width 4) (/ height 4) (+ 2 (* kick 3)) 8) (poly (* width 0.75) (* height 0.75) (+ 2 (* kick 3)) 8) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.5s... -3.0 3.0)) (zoom 1.3) (contrast 1.2) (scroll (? 10 -10) (? 9 -9))`,
   PAUSE_2: `(fade:red-white-black-gray) (ink (? red white 0) (+ 160 (* kick 155))) (ink (? red white 0) (+ 45 (* (random) 85))) (gradient red black 0 0 width height) (ink (? red white 0) (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height) (spin (0.2s... -5.0 5.0)) (zoom (0.05s... 2.0 4.0)) (contrast 1.4) (ink (? red white 0) (+ 180 (* kick 120))) (repeat 96 point) (scroll (? 0 0 4 -4) (? 0 0 4 -4))`,
-  PAUSE_3: `(fade:red-white-black-gray) (ink (? red white 0) (+ 140 (* kick 155))) (ink (? red white 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 140 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.1s... -6.0 6.0)) (zoom (0.03s... 2.5 5.0)) (contrast 1.5) (ink (? red white 0) (+ 200 (* kick 140))) (repeat 128 point) (scroll (? 0 0 3 -3) (? 0 0 3 -3))`,
+  PAUSE_3: `(fade:magenta-red-yellow-white-black) (ink (? magenta red yellow white) (+ 160 (* kick 95))) (def beat (* kick 12)) (def pulse (* amp 8)) (def cx (/ width 2)) (def cy (/ height 2)) (def t (* frame 0.08)) (ink (? yellow magenta white) (+ 120 (* amp 75))) (def x1 (+ cx (* beat (sin t)))) (def y1 (+ cy (* pulse (cos (* t 1.3))))) (def x2 (+ cx (* pulse (sin (* t 2))))) (def y2 (+ cy (* beat (cos (* t 0.7))))) (tri x1 y1 x2 y2 cx cy) (circle (+ cx (* 20 (sin (* t 3)))) (+ cy (* 15 (cos (* t 2)))) (+ 3 (* kick 5))) (box cx cy (+ beat pulse) (+ beat pulse)) (spin (0.05s... -10.0 10.0)) (zoom (0.01s... 2.8 5.5)) (contrast (+ 1.4 (* kick 0.5))) (repeat (+ 64 (* amp 96)) point) (scroll (* kick 5) (* amp -5))`,
   END: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 80 (* kick 100))) (ink (? lime magenta 0) (+ 15 (* (random) 40))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 80 (* kick 100))) (point (/ width 2) (/ height 2)) (spin (3s... -0.5 0.5)) (zoom 1.1) (contrast 1.0) (scroll (? 1 -1) (? 1 -1))`,
   // NEW: Buffering/initialization visual
   BUFFERING: `(fade:orange-yellow-orange) (ink stateColor (+ 80 (* amp 120))) (ink stateColor (+ 30 (* (random) 80))) (flood (/ width 2) (/ height 2)) (ink stateColor 200) (circle (/ width 2) (/ height 2) (+ 8 (* amp 15))) (box (- (/ width 2) 10) (- (/ height 2) 10) 20 20) (spin (0.8s... -3.0 3.0)) (zoom (2s... 1.0 1.5)) (contrast 1.4) (ink stateColor (+ 120 (* amp 100))) (repeat 128 point) (scroll (? 0 0 2 -2) (? 0 0 2 -2))`
@@ -256,6 +256,20 @@ function getKidlispSourceForLocator(locatorName, isPlaying = false, audioInitial
     console.log(`🎬 KIDLISP_TAPE_MODE: Skipping loading states, using content directly. locator=${locatorName}, isPlaying=${isPlaying}, audioInitializing=${audioInitializing}`);
   }
 
+  // Handle section changes to reset/increment counters (SHARED LOGIC for both modes)
+  if (locatorName && locatorName !== previousLocatorName) {
+    const name = locatorName.toUpperCase();
+    // If we're entering a new PAUSE section, increment the counter
+    if (name.includes('PAUSE') && (!previousLocatorName || !previousLocatorName.toUpperCase().includes('PAUSE'))) {
+      pauseCounter++;
+    }
+    // Reset pause counter if we're no longer in a PAUSE section
+    if (!name.includes('PAUSE') && previousLocatorName && previousLocatorName.toUpperCase().includes('PAUSE')) {
+      pauseCounter = 0;
+    }
+    previousLocatorName = locatorName;
+  }
+
   // In tape mode, skip all loading/waiting states and go straight to playing content
   // This prevents any play button or loading states from appearing during recording
   if (inTapeMode) {
@@ -273,28 +287,16 @@ function getKidlispSourceForLocator(locatorName, isPlaying = false, audioInitial
     
     const name = locatorName.toUpperCase();
     
-    // Handle section changes to reset/increment counters
-    if (locatorName !== previousLocatorName) {
-      // If we're entering a new PAUSE section, increment the counter
-      if (name.includes('PAUSE') && (!previousLocatorName || !previousLocatorName.toUpperCase().includes('PAUSE'))) {
-        pauseCounter++;
-      }
-      // Reset pause counter if we're no longer in a PAUSE section
-      if (!name.includes('PAUSE') && previousLocatorName && previousLocatorName.toUpperCase().includes('PAUSE')) {
-        pauseCounter = 0;
-      }
-      previousLocatorName = locatorName;
-    }
-    
     // Return appropriate content for the locator
     if (name.includes('PAUSE')) {
       // Cycle through different PAUSE sources based on counter
       const pauseSources = [
-        ZZZWAP_KIDLISP_SOURCES.PAUSE_1,
+        ZZZWAP_KIDLISP_SOURCES.PAUSE,
         ZZZWAP_KIDLISP_SOURCES.PAUSE_2,
         ZZZWAP_KIDLISP_SOURCES.PAUSE_3
       ];
-      return pauseSources[pauseCounter % pauseSources.length];
+      const sourceIndex = Math.max(0, (pauseCounter - 1)) % pauseSources.length;
+      return pauseSources[sourceIndex];
     }
     
     if (name.includes('ACT_I')) return ZZZWAP_KIDLISP_SOURCES.ACT_I;
@@ -324,19 +326,6 @@ function getKidlispSourceForLocator(locatorName, isPlaying = false, audioInitial
   if (!locatorName) return ZZZWAP_KIDLISP_SOURCES.START;
   
   const name = locatorName.toUpperCase();
-  
-  // Handle section changes to reset/increment counters
-  if (locatorName !== previousLocatorName) {
-    // If we're entering a new PAUSE section, increment the counter
-    if (name.includes('PAUSE') && (!previousLocatorName || !previousLocatorName.toUpperCase().includes('PAUSE'))) {
-      pauseCounter++;
-    }
-    // Reset pause counter if we're no longer in a PAUSE section
-    if (!name.includes('PAUSE') && previousLocatorName && previousLocatorName.toUpperCase().includes('PAUSE')) {
-      pauseCounter = 0;
-    }
-    previousLocatorName = locatorName;
-  }
   
   if (name.includes('ACT VI')) return ZZZWAP_KIDLISP_SOURCES.ACT_VI;
   if (name.includes('ACT V')) return ZZZWAP_KIDLISP_SOURCES.ACT_V;
