@@ -1819,15 +1819,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
       
       // Debug logging for filename issues
-      if (debug) {
-        console.log("🎬 generateTapeFilename debug:", {
-          extension,
-          suffix,
-          options,
-          HANDLE,
-          location: location?.host || "unknown"
-        });
-      }
+      console.log("🎬 generateTapeFilename debug:", {
+        extension,
+        suffix,
+        options,
+        baseName: options.pieceName,
+        cachedCode: options.cachedCode,
+        HANDLE,
+        location: location?.host || "unknown"
+      });
       
       let baseName = options.pieceName || "tape";
       // Handle special cases for kidlisp codes
@@ -1952,7 +1952,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       // Add piece name with parameters (skip entirely if mystery mode)
       if (!options.mystery && baseName && typeof baseName === 'string') {
+        console.log(`🎬 Adding piece name to filename: "${baseName}" (params: "${paramsStr}")`);
         parts.push(baseName + paramsStr);
+      } else if (options.mystery) {
+        console.log(`🎬 Skipping piece name due to mystery mode`);
+      } else {
+        console.log(`🎬 Skipping piece name - baseName: "${baseName}", type: ${typeof baseName}`);
       }
       
       // Add timestamp with duration - ensure these are valid strings
@@ -4328,19 +4333,116 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             canvas.toBlob(resolve, "image/png");
           });
 
-          // Add to ZIP with zero-padded filename
-          const frameNumber = String(i).padStart(4, "0");
-          const filename = `frame_${frameNumber}.png`;
+          // Add to ZIP with timestamp-based filename
+          let filename;
+          if (frame.timestamp !== undefined) {
+            // Create proper date/time timestamp from frame timestamp
+            const frameDate = new Date(frame.timestamp);
+            const year = frameDate.getFullYear();
+            const month = frameDate.getMonth() + 1;
+            const day = frameDate.getDate();
+            const hour = frameDate.getHours();
+            const minute = frameDate.getMinutes();
+            const second = frameDate.getSeconds();
+            const millisecond = frameDate.getMilliseconds();
+            
+            // Use same format as main tape filename: year.month.day.hour.minute.second.millisecond
+            const dateTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+            filename = `frame_${dateTimestamp}.png`;
+          } else {
+            // Fallback to index-based naming if timestamp is missing
+            const frameNumber = String(i).padStart(4, "0");
+            filename = `frame_${frameNumber}.png`;
+          }
           zip.file(filename, pngBlob);
         }
 
+        // Function to convert raw audio data to WAV format
+        function createWavFromRawAudio(rawAudioChunks, sampleRate = 48000) {
+          if (!rawAudioChunks || rawAudioChunks.length === 0) {
+            return null;
+          }
+
+          // Calculate total samples
+          const totalSamples = rawAudioChunks.length * 4096; // 4096 samples per chunk
+          const numChannels = 2; // Stereo
+          const bytesPerSample = 2; // 16-bit
+          const byteRate = sampleRate * numChannels * bytesPerSample;
+          const blockAlign = numChannels * bytesPerSample;
+          const dataSize = totalSamples * numChannels * bytesPerSample;
+          const fileSize = 36 + dataSize;
+
+          // Create WAV file buffer
+          const buffer = new ArrayBuffer(44 + dataSize);
+          const view = new DataView(buffer);
+
+          // WAV header
+          const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+              view.setUint8(offset + i, string.charCodeAt(i));
+            }
+          };
+
+          writeString(0, 'RIFF');
+          view.setUint32(4, fileSize, true);
+          writeString(8, 'WAVE');
+          writeString(12, 'fmt ');
+          view.setUint32(16, 16, true); // fmt chunk size
+          view.setUint16(20, 1, true); // PCM format
+          view.setUint16(22, numChannels, true);
+          view.setUint32(24, sampleRate, true);
+          view.setUint32(28, byteRate, true);
+          view.setUint16(32, blockAlign, true);
+          view.setUint16(34, 16, true); // bits per sample
+          writeString(36, 'data');
+          view.setUint32(40, dataSize, true);
+
+          // Convert float32 audio data to 16-bit PCM
+          let offset = 44;
+          for (let i = 0; i < rawAudioChunks.length; i++) {
+            const chunk = rawAudioChunks[i];
+            for (let j = 0; j < chunk.left.length; j++) {
+              // Left channel
+              const leftSample = Math.max(-1, Math.min(1, chunk.left[j]));
+              view.setInt16(offset, leftSample * 0x7FFF, true);
+              offset += 2;
+              
+              // Right channel
+              const rightSample = Math.max(-1, Math.min(1, chunk.right[j]));
+              view.setInt16(offset, rightSample * 0x7FFF, true);
+              offset += 2;
+            }
+          }
+
+          return new Blob([buffer], { type: 'audio/wav' });
+        }
+
         // Add timing information as JSON
-        const timingInfo = content.frames.map((frame, i) => ({
-          frame: i,
-          filename: `frame_${String(i).padStart(4, "0")}.png`,
-          duration: frame.duration,
-          timestamp: frame.timestamp,
-        }));
+        const timingInfo = content.frames.map((frame, i) => {
+          let filename;
+          if (frame.timestamp !== undefined) {
+            const frameDate = new Date(frame.timestamp);
+            const year = frameDate.getFullYear();
+            const month = frameDate.getMonth() + 1;
+            const day = frameDate.getDate();
+            const hour = frameDate.getHours();
+            const minute = frameDate.getMinutes();
+            const second = frameDate.getSeconds();
+            const millisecond = frameDate.getMilliseconds();
+            
+            const dateTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+            filename = `frame_${dateTimestamp}.png`;
+          } else {
+            filename = `frame_${String(i).padStart(4, "0")}.png`;
+          }
+          
+          return {
+            frame: i,
+            filename: filename,
+            duration: frame.duration,
+            timestamp: frame.timestamp,
+          };
+        });
         
         zip.file("timing.json", JSON.stringify(timingInfo, null, 2));
         
@@ -4356,10 +4458,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         zip.file("metadata.json", JSON.stringify(metadata, null, 2));
 
+        // Add audio file if available - convert raw audio to WAV
+        try {
+          if (rawAudioData && rawAudioData.length > 0) {
+            console.log("🎵 Converting raw audio data to WAV for ZIP...");
+            const wavBlob = createWavFromRawAudio(rawAudioData, rawAudioSampleRate);
+            if (wavBlob) {
+              zip.file("soundtrack.wav", wavBlob);
+              console.log("🎵 Audio added to ZIP as soundtrack.wav");
+            } else {
+              console.log("🎵 Failed to create WAV from raw audio data");
+            }
+          } else {
+            console.log("🎵 No raw audio data available for ZIP export");
+          }
+        } catch (audioError) {
+          console.warn("🎵 Could not add audio to ZIP:", audioError);
+        }
+
         console.log("🗜️ Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
         
-        const filename = generateTapeFilename("zip", "-frames");
+        const filename = generateTapeFilename("zip");
         
         console.log(
           `💾 ZIP file generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
@@ -5264,13 +5384,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        // Use 3x scaling for crisp MP4 (same as GIF for consistent performance)
+        // Use higher scaling for clean mode: 6x vs 3x for ultra crisp output
         const originalWidth = content.frames[0].width;
         const originalHeight = content.frames[0].height;
-        const optimalScale = 3; // 3x scale for stamps and crisp output
+        const optimalScale = window.currentRecordingOptions?.cleanMode ? 6 : 3;
 
         console.log(
-          `📏 Using 3x scaling for crisp MP4: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+          `📏 Using ${optimalScale}x scaling for ${window.currentRecordingOptions?.cleanMode ? 'ultra-crisp clean mode' : 'standard'} MP4: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
         );
 
         // Create canvas for frame processing (same as GIF)
@@ -5360,7 +5480,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         // Pre-render all scaled frames with stamps before encoding
-        console.log("🎨 Pre-rendering all frames with stamps...");
+        console.log("🎨 Setting up streaming frame processing (render-on-demand)...");
+        
+        // Instead of pre-rendering all frames, we'll render them on-demand during encoding
+        // This saves massive amounts of memory for high-resolution exports
         
         send({
           type: "recorder:export-status",
@@ -5371,86 +5494,67 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
-        const preRenderedFrames = [];
+        // Instead of pre-rendering all frames, we'll render them on-demand during encoding
+        // This saves massive amounts of memory for high-resolution exports
         
-        // Create temporary canvas for pre-rendering
-        const tempCanvas = document.createElement("canvas");
-        const tempCtx = tempCanvas.getContext("2d");
-        tempCanvas.width = originalWidth * optimalScale;
-        tempCanvas.height = originalHeight * optimalScale;
-        tempCtx.imageSmoothingEnabled = false;
-        
-        // Pre-render all frames
-        for (let i = 0; i < processedFrames.length; i++) {
-          const frame = processedFrames[i];
-          
-          // Debug frame structure for first frame
-          if (i === 0) {
-            console.log("🔍 First frame structure:", {
-              hasWidth: 'width' in frame,
-              hasHeight: 'height' in frame,
-              hasData: 'data' in frame,
-              width: frame.width,
-              height: frame.height,
-              dataLength: frame.data?.length,
-              keys: Object.keys(frame)
-            });
-          }
-          const progress = (i + 1) / processedFrames.length;
-          
-          // Update progress for rendering phase
-          if (i % 10 === 0 || i === processedFrames.length - 1) {
-            send({
-              type: "recorder:transcode-progress",
-              content: 0.01 + (i / processedFrames.length) * 0.4, // 1% to 41%
-            });
-          }
-          
-          // Step 1: Create 3x scaled canvas with stamps (same as GIF)
-          const gifScaleCanvas = document.createElement("canvas");
-          const gifScaleCtx = gifScaleCanvas.getContext("2d");
-          const gifScale = 3; // Same scaling as GIF for proper stamp sizing
-          gifScaleCanvas.width = frame.width * gifScale;
-          gifScaleCanvas.height = frame.height * gifScale;
-          gifScaleCtx.imageSmoothingEnabled = false;
-          
-          // Scale up frame data to 3x first
-          const frameCanvas = document.createElement("canvas");
-          const frameCtx = frameCanvas.getContext("2d");
-          frameCanvas.width = frame.width;
-          frameCanvas.height = frame.height;
+        // Function to render a specific frame on-demand
+        async function renderFrameOnDemand(frameIndex) {
+          const frame = processedFrames[frameIndex];
+          if (!frame) return null;
+
+          // Create ImageData from frame
           const imageData = new ImageData(
             new Uint8ClampedArray(frame.data),
             frame.width,
-            frame.height,
+            frame.height
           );
-          frameCtx.putImageData(imageData, 0, 0);
-          
-          // Draw scaled to 3x
-          gifScaleCtx.drawImage(frameCanvas, 0, 0, gifScaleCanvas.width, gifScaleCanvas.height);
 
-          // Add AC stamp at 3x scale (same sizing as GIF) - await for proper rendering
+          // Create a temporary canvas for processing this single frame
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCanvas.width = frame.width;
+          tempCanvas.height = frame.height;
+          tempCtx.putImageData(imageData, 0, 0);
+
+          // Add stamp to the frame
           await addAestheticComputerStamp(
-            gifScaleCtx,
-            gifScaleCanvas.width,
-            gifScaleCanvas.height,
-            progress,
+            tempCtx,
+            frame.width,
+            frame.height,
+            0,
             frame.data,
             frame,
-            i,
-            content.frames.length
+            frameIndex,
+            processedFrames.length
           );
+
+          // Scale up using nearest neighbor
+          const scaledCanvas = document.createElement("canvas");
+          const scaledCtx = scaledCanvas.getContext("2d");
+          scaledCanvas.width = originalWidth * optimalScale;
+          scaledCanvas.height = originalHeight * optimalScale;
+          scaledCtx.imageSmoothingEnabled = false;
+          scaledCtx.drawImage(
+            tempCanvas,
+            0, 0, frame.width, frame.height,
+            0, 0, scaledCanvas.width, scaledCanvas.height
+          );
+
+          // Get the final ImageData
+          const finalImageData = scaledCtx.getImageData(0, 0, scaledCanvas.width, scaledCanvas.height);
           
-          // Step 2: Final scaling is already at 3x (same as GIF)
-          tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-          tempCtx.drawImage(gifScaleCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+          // Clean up temporary canvases immediately
+          tempCanvas.width = 1;
+          tempCanvas.height = 1;
+          scaledCanvas.width = 1;
+          scaledCanvas.height = 1;
           
-          // Capture the pre-rendered frame as ImageData
-          const preRenderedImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-          preRenderedFrames.push(preRenderedImageData);
+          return finalImageData;
         }
+
+        const preRenderedFrames = null; // No longer pre-rendering frames
         
-        console.log(`✅ Pre-rendered ${processedFrames.length} frames`);
+        console.log(`✅ Ready for streaming frame processing of ${processedFrames.length} frames`);
 
         // Send encoding status
         send({
@@ -5746,10 +5850,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         // Clean mode: Use highest quality settings regardless of duration
         if (window.currentRecordingOptions?.cleanMode) {
-          videoBitrate = Math.round(50000000 * contentComplexity); // 50 Mbps base for clean mode
-          audioBitrate = 192000; // 192 kbps audio for clean mode
-          videoBitrate = Math.min(videoBitrate, 50000000); // Max 50 Mbps for clean mode
-          console.log(`🎬 🧹 Clean mode: Using high bitrate ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio`);
+          videoBitrate = Math.round(100000000 * contentComplexity); // 100 Mbps base for clean mode (2x increase)
+          audioBitrate = 320000; // 320 kbps audio for clean mode (ultra high quality)
+          videoBitrate = Math.min(videoBitrate, 100000000); // Max 100 Mbps for clean mode (2x increase)
+          console.log(`🎬 🧹 Clean mode: Using ultra-high bitrate ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio`);
         } else if (estimatedDuration <= 10) {
           // Short recordings (≤10s): High quality
           videoBitrate = Math.round(12000000 * contentComplexity); // 12 Mbps base
@@ -5781,6 +5885,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           videoBitsPerSecond: videoBitrate,
           audioBitsPerSecond: audioBitrate,
         };
+
+        // Add frame rate constraint for consistent 60fps output
+        if (finalStream.getVideoTracks().length > 0) {
+          const videoTrack = finalStream.getVideoTracks()[0];
+          const settings = videoTrack.getSettings();
+          if (settings.frameRate && settings.frameRate > 60) {
+            console.log(`🎬 Constraining video track from ${settings.frameRate}fps to 60fps`);
+            videoTrack.applyConstraints({
+              frameRate: { ideal: 60, max: 60 }
+            }).catch(err => console.warn("Failed to apply frame rate constraint:", err));
+          }
+        }
 
         if (fallbackUsed) {
           console.warn("⚠️ Only WebM output is possible in this browser. If you need MP4, you must transcode after recording.");
@@ -5875,19 +5991,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Fast playback of pre-rendered frames with synchronized audio
         let frameIndex = 0;
-        const audioBufferDuration = audioBuffer ? audioBuffer.duration * 1000 : preRenderedFrames.length * frameDuration;
-        const actualFrameDuration = audioBufferDuration / preRenderedFrames.length; // Perfect sync to audio
+        const audioBufferDuration = audioBuffer ? audioBuffer.duration * 1000 : processedFrames.length * frameDuration;
         
-        console.log("🔊 Frame timing setup - audioDuration:", audioBufferDuration.toFixed(1), "ms");
-        console.log("🔊 Frame timing setup - actualFrameDuration:", actualFrameDuration.toFixed(3), "ms");
-        console.log("🔊 Frame timing setup - totalFrames:", preRenderedFrames.length);
+        // Use original frame timing for perfect sync instead of artificial even spacing
+        const useOriginalTiming = content.frames && content.frames.length > 0 && content.frames[0].timestamp !== undefined;
+        
+        if (useOriginalTiming) {
+          console.log("🔊 Using original frame timing for perfect audio sync");
+          console.log("🔊 Audio duration:", audioBufferDuration.toFixed(1), "ms");
+          console.log("🔊 Original recording duration:", (content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp).toFixed(1), "ms");
+        } else {
+          console.log("🔊 Using calculated frame timing - audioDuration:", audioBufferDuration.toFixed(1), "ms");
+          console.log("🔊 Frame timing setup - actualFrameDuration:", (audioBufferDuration / processedFrames.length).toFixed(3), "ms");
+        }
+        console.log("🔊 Frame timing setup - totalFrames:", processedFrames.length);
         
         // Track timing for frame synchronization
         let startTime;
         
-        // Define the frame rendering function
-        function renderNextFrame() {
-          if (frameIndex >= preRenderedFrames.length) {
+        // Define the frame rendering function with streaming approach
+        async function renderNextFrame() {
+          if (frameIndex >= processedFrames.length) {
             try {
               videoRecorder.stop();
             } catch (error) {
@@ -5919,13 +6043,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
 
-          // Simply draw the pre-rendered frame to canvas - no processing needed!
-          const currentFrameIndex = Math.min(frameIndex, preRenderedFrames.length - 1);
-          ctx.putImageData(preRenderedFrames[currentFrameIndex], 0, 0);
+          // Render frame on-demand to save memory
+          const frameImageData = await renderFrameOnDemand(frameIndex);
+          if (frameImageData) {
+            ctx.putImageData(frameImageData, 0, 0);
+          } else {
+            console.warn(`Failed to render frame ${frameIndex}, using blank frame`);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
           
           // Send progress update
-          if (frameIndex % 30 === 0 || frameIndex === preRenderedFrames.length - 1) {
-            const progress = (frameIndex + 1) / preRenderedFrames.length;
+          if (frameIndex % 30 === 0 || frameIndex === processedFrames.length - 1) {
+            const progress = (frameIndex + 1) / processedFrames.length;
             
             send({
               type: "recorder:transcode-progress",
@@ -5935,8 +6065,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           frameIndex++;
           
-          // Calculate next frame time based on absolute timing from start
-          const targetTime = frameIndex * actualFrameDuration;
+          // Calculate next frame time - force 60fps output timing
+          const targetFrameRate = 60;
+          const frameDuration = 1000 / targetFrameRate; // 16.67ms per frame
+          
+          let targetTime;
+          if (useOriginalTiming && frameIndex < content.frames.length) {
+            // Use original timing but clamp to 60fps maximum
+            const baseTimestamp = content.frames[0].timestamp;
+            const currentFrameTimestamp = content.frames[Math.min(frameIndex, content.frames.length - 1)].timestamp;
+            const originalDelta = currentFrameTimestamp - baseTimestamp;
+            
+            // Ensure we don't exceed 60fps (minimum 16.67ms between frames)
+            const minFrameTime = frameIndex * frameDuration;
+            targetTime = Math.max(originalDelta, minFrameTime);
+          } else {
+            // Force exactly 60fps timing
+            targetTime = frameIndex * frameDuration;
+          }
+          
           const currentTime = performance.now() - startTime;
           const delay = Math.max(0, targetTime - currentTime);
           
@@ -5975,6 +6122,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Determine file extension based on actual codec used
           const extension = selectedMimeType.includes('webm') ? 'webm' : 'mp4';
           const filename = generateTapeFilename(extension);
+          console.log("🎬 Animated MP4 Export - currentRecordingOptions:", JSON.stringify(window.currentRecordingOptions, null, 2));
           
           receivedDownload({ filename, data: blob });
 
@@ -7807,7 +7955,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return;
         }
         
-        // Set up raw audio capture for playback
+        // Set up raw audio capture for playback - but don't connect yet
         if (audioContext && sfxStreamGain) {
           try {
             rawAudioData = [];
@@ -7815,23 +7963,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Create a script processor node to capture raw audio
             rawAudioProcessor = audioContext.createScriptProcessor(4096, 2, 2);
+            let rawAudioStartOffset = 0; // Track when audio capture actually starts
+            
             rawAudioProcessor.onaudioprocess = function(event) {
+              // Only start capturing after MediaRecorder has started
+              if (mediaRecorderStartTime === undefined) return;
+              
               const inputBuffer = event.inputBuffer;
               const leftChannel = inputBuffer.getChannelData(0);
               const rightChannel = inputBuffer.getChannelData(1);
               
-              // Store the audio data
+              // Store the audio data with timing information
               rawAudioData.push({
                 left: new Float32Array(leftChannel),
-                right: new Float32Array(rightChannel)
+                right: new Float32Array(rightChannel),
+                timestamp: performance.now() - mediaRecorderStartTime // Relative to recording start
               });
             };
             
-            // Connect the audio stream to our processor
-            sfxStreamGain.connect(rawAudioProcessor);
-            rawAudioProcessor.connect(audioContext.destination);
-            
-            console.log("🎵 Raw audio capture setup for tape playback");
+            console.log("🎵 Raw audio capture prepared (will connect when recording starts)");
           } catch (error) {
             console.error("Raw audio capture setup failed:", error);
           }
@@ -7846,6 +7996,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           mediaRecorderStartTime = performance.now();
           // Initialize recording start timestamp for frame recording
           window.recordingStartTimestamp = Date.now();
+          
+          // NOW connect the raw audio processor to ensure sync
+          if (rawAudioProcessor && sfxStreamGain) {
+            try {
+              sfxStreamGain.connect(rawAudioProcessor);
+              rawAudioProcessor.connect(audioContext.destination);
+              console.log("🎵 Raw audio capture connected at MediaRecorder start");
+            } catch (error) {
+              console.error("Failed to connect raw audio processor:", error);
+            }
+          }
           
           // Clear KidLisp FPS timeline for new recording
           window.kidlispFpsTimeline = [];
@@ -8148,7 +8309,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           stopTapePlayback = () => {
             continuePlaying = false;
             stopped = true;
-            sfxPlaying[tapeSoundId]?.kill();
+            // Kill all tape audio instances
+            Object.keys(sfxPlaying).forEach(id => {
+              if (id.startsWith("tape:audio_")) {
+                sfxPlaying[id]?.kill();
+                delete sfxPlaying[id];
+              }
+            });
+            console.log("🎵 All tape audio instances stopped");
           };
 
           let pauseStart;
@@ -8156,10 +8324,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
-            // console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
-            // Kill the sound since pause is not available
-            sfxPlaying[tapeSoundId]?.kill();
-            delete sfxPlaying[tapeSoundId]; // Clean up reference
+            // Kill all tape audio instances since pause is not available
+            Object.keys(sfxPlaying).forEach(id => {
+              if (id.startsWith("tape:audio_")) {
+                sfxPlaying[id]?.kill();
+                delete sfxPlaying[id];
+              }
+            });
+            console.log("🎵 All tape audio instances paused");
             send({ type: "recorder:present-paused" });
           };
 
@@ -8215,9 +8387,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (f === 0) {
               // Only play audio if not rendering video export
               if (!render) {
+                // Kill any existing tape audio before starting new one
+                Object.keys(sfxPlaying).forEach(id => {
+                  if (id.startsWith("tape:audio_")) {
+                    sfxPlaying[id]?.kill();
+                    delete sfxPlaying[id];
+                  }
+                });
+                
                 tapeSoundId = "tape:audio_" + performance.now();
                 await playSfx(tapeSoundId, "tape:audio");
-                // Audio started for tape playback
+                console.log("🎵 Audio started for tape playback");
               } else {
                 console.log("🎵 Skipping audio during video export");
               }
@@ -8300,13 +8480,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               
               // Restart audio for the loop (only during normal playback)
               if (!render) {
-                if (tapeSoundId) {
-                  sfxPlaying[tapeSoundId]?.kill();
-                  delete sfxPlaying[tapeSoundId];
-                }
+                // Kill any existing tape audio before starting new one
+                Object.keys(sfxPlaying).forEach(id => {
+                  if (id.startsWith("tape:audio_")) {
+                    sfxPlaying[id]?.kill();
+                    delete sfxPlaying[id];
+                  }
+                });
+                
                 tapeSoundId = "tape:audio_" + performance.now();
                 await playSfx(tapeSoundId, "tape:audio");
-                // Audio restarted for loop
+                console.log("🎵 Audio restarted for loop");
               } else {
                 console.log("🎵 Skipping audio restart during video export");
               }
@@ -9448,6 +9632,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("📹 Final video blob size:", blob.size, "bytes, type:", blob.type);
         
         const filename = generateTapeFilename("mp4");
+        console.log("🎬 MP4 Export - currentRecordingOptions:", JSON.stringify(window.currentRecordingOptions, null, 2));
 
         // Store video with frame data for complete persistence
         const storeData = {

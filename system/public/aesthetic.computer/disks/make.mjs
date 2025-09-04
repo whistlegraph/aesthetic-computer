@@ -8,6 +8,62 @@
 */
 
 /* #region 📓 TODO
+
+ - [] Add $code reader support so make prompts that include those codes
+      would machine read those codes off the network before sending
+      to claude in a structured way that way mods can happen.
+      - Also we could feed it other recent and popular snippers
+        just to create a 'fashion' of sorts.
+
+idLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 184.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+95ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:161 📥 Received chunk: 20 chars
+225ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:161 📥 Received chunk: 24 chars
+225ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:161 📥 Received chunk: 26 chars
+75ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:161 📥 Received chunk: 20 chars
+235ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:161 📥 Received chunk: 18 chars
+45ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:167 ✅ KidLisp generation complete
+5ffbc331-e097-4fa0-9dbc-aca1cdc375b6:168 📜 Final generated code: red
+(fade blue 0.1)
+(scroll 2 1)
+(ink white 100)
+(repeat 8
+  (circle (+ (/ w 8) (* (/ w 8) (random 7)))
+          (+ (/ h 8) (* (/ h 8) (random 7)))
+          (+ 3 (wiggle 2))))
+(blur 1)
+335ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 185.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 186.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 187.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 188.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 189.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1175ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 190.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 191.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 192.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 193.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1175ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 194.002667s (getter called from at Recorder.tapeTimerStep (https://localhost:8888/aesthetic.computer/lib/disk.mjs?session-aesthetic=null&session-sotce=null#1756956496729:719:40))
+1205ffbc331-e097-4fa0-9dbc-aca1cdc375b6:398 ✅ KidLisp executed in isolated instance: undefined
+
+
+
+
+
   - [x] Incorporate UI/UX features from `oldmake.mjs`
   - [x] Adapt for KidLisp code generation instead of JavaScript
   - [x] Add KidLisp syntax highlighting
@@ -394,7 +450,7 @@ function paint({
                 
                 if (!hasIncompleteExpressions) {
                   const result = isolatedKidLisp.evaluate(isolatedKidLisp.ast, api, isolatedKidLisp.localEnv || {});
-                  console.log("✅ KidLisp executed in isolated instance:", result);
+                  // console.log("✅ KidLisp executed in isolated instance:", result);
                 } else {
                   console.warn("⚠️ Skipping execution due to incomplete expressions");
                   // Show warning state

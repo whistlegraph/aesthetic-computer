@@ -201,7 +201,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         // 🎵 PROGRESS SYNC LOGGING - Critical for timeline sync accuracy
         if (soundInstance && progressValue !== undefined) {
           const playDuration = currentTime - (soundInstance.startTime || 0);
-          console.log(`🎵 PROGRESS_REPORT: id=${msg.content}, progress=${progressValue.toFixed(6)}, duration=${playDuration.toFixed(3)}s, time=${currentTime.toFixed(6)}s`);
+          // console.log(`🎵 PROGRESS_REPORT: id=${msg.content}, progress=${progressValue.toFixed(6)}, duration=${playDuration.toFixed(3)}s, time=${currentTime.toFixed(6)}s`);
           
           // Detect if sound has stopped unexpectedly (progress goes to 0 while playing)
           if (progressValue === 0 && playDuration > 0.1) {
