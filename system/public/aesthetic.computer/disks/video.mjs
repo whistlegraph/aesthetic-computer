@@ -63,7 +63,7 @@ let completionMessageTimer = 0; // Timer for how long to show completion message
 // Progress bar mode configuration
 // true = Use native extended progress bar (old mode)
 // false = Use baked-in VHS progress bar (new tape-style mode with disk.mjs rendering)
-const useExtendedProgressBar = false;
+const useExtendedProgressBar = true;
 
 // Request WebP creation from main thread (document not available in worker)
 // Note: Optimized to handle large frame counts without memory issues
@@ -1043,6 +1043,8 @@ function handleSystemMessage({ event: e, rec }) {
   // Handle export progress updates for all export types
   if (e.is("recorder:export-progress") || e.is("recorder:transcode-progress")) {
     console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
+    console.log("🎯 Current export state - isPrinting:", isPrinting, "isExportingGIF:", isExportingGIF, "currentExportType:", currentExportType);
+    
     if (e.progress !== undefined || (e.is("recorder:transcode-progress") && typeof e.content === "number")) {
       // Handle both message formats: {progress, type} and direct number content
       const progress = e.progress !== undefined ? e.progress : (typeof e.content === "object" ? e.content.progress : e.content);
@@ -1068,9 +1070,17 @@ function handleSystemMessage({ event: e, rec }) {
         // Handle transcode progress for any active export
         (e.is("recorder:transcode-progress") && (isPrinting || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames));
         
+      console.log("🎯 isValidExport check:", isValidExport, "- conditions:", {
+        videoAndPrinting: exportType === "video" && isPrinting,
+        gifAndExporting: exportType === "gif" && isExportingGIF,
+        transcodeAndAnyExport: e.is("recorder:transcode-progress") && (isPrinting || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames)
+      });
+        
       if (isValidExport) {
         const oldProgress = printProgress;
         printProgress = progress;
+        
+        console.log(`📊 Export progress updated: ${Math.floor(progress * 100)}% (was ${Math.floor(oldProgress * 100)}%) - type: ${exportType}`);
         
         // Track progress history for ETA calculation
         const now = performance.now();
