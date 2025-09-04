@@ -194,16 +194,26 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       }
 
       if (msg.type === "get-progress") {
-        // ⏰ TODO: Compute actual sound progress from 0->1 here by looking
-        // up the id with `msg.content`.
-        // console.log(
-        //   "Progress needed for:",
-        //   msg.content,
-        //   this.#running[msg.content],
-        // );
+        // ⏰ Compute actual sound progress from 0->1 here by looking up the id
+        const soundInstance = this.#running[msg.content];
+        const progressValue = soundInstance?.progress();
+        
+        // 🎵 PROGRESS SYNC LOGGING - Critical for timeline sync accuracy
+        if (soundInstance && progressValue !== undefined) {
+          const playDuration = currentTime - (soundInstance.startTime || 0);
+          console.log(`🎵 PROGRESS_REPORT: id=${msg.content}, progress=${progressValue.toFixed(6)}, duration=${playDuration.toFixed(3)}s, time=${currentTime.toFixed(6)}s`);
+          
+          // Detect if sound has stopped unexpectedly (progress goes to 0 while playing)
+          if (progressValue === 0 && playDuration > 0.1) {
+            console.warn(`🎵 AUDIO_STOPPED: Sound ${msg.content} progress reset to 0 after ${playDuration.toFixed(3)}s`);
+          }
+        }
+        
         this.#report("progress", {
           id: msg.content,
-          progress: this.#running[msg.content]?.progress(),
+          progress: progressValue,
+          duration: soundInstance?.totalDuration || 0,
+          timestamp: currentTime
         });
         return;
       }
@@ -462,17 +472,26 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
   #processAudio(inputs, outputs, currentTime) {
     
+    // 🎵 TIMELINE SYNC LOGGING - Track audio worklet timing for mini timeline sync
+    // Log audio timing every few seconds to monitor sync drift
+    if (Math.floor(currentTime * 10) % 50 === 0) { // Every 5 seconds
+      console.log(`🎵 WORKLET_TIME: ${currentTime.toFixed(6)}s, sampleRate=${sampleRate}, frame=${currentFrame}`);
+    }
+    
     // 0️⃣ Waveform Tracking
     let waveformLeft = [];
     let waveformRight = [];
 
     // 1️⃣ Metronome
+    const previousTicks = this.#ticks;
     this.#ticks += currentTime - this.#lastTime;
     this.#lastTime = currentTime;
 
     // const timeTillNextBeat = this.#ticks / this.#bpmInSec;
 
     if (this.#ticks >= this.#bpmInSec) {
+      // 🎵 BEAT SYNC LOGGING - Critical for timeline sync
+      console.log(`🎵 BEAT: ${currentTime.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
       this.#ticks = 0;
       this.#report("metronome", currentTime);
     }

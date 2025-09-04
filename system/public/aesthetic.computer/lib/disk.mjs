@@ -6502,7 +6502,14 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     const $sound = {
-      time: content.audioTime,
+      get time() {
+        const currentTime = content.audioTime;
+        // Add comprehensive logging for audio timing (throttled to avoid spam)
+        if (debug && Math.floor(currentTime * 100) % 100 === 0) { // Log every 10ms when rounded
+          console.log(`🎵 AUDIO_TIME: ${currentTime.toFixed(6)}s (getter called from ${(new Error().stack.split('\n')[2] || 'unknown').trim()})`);
+        }
+        return currentTime;
+      },
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
       bpm: function (newBPM) {
         if (newBPM) sound.bpm = newBPM;
@@ -6761,7 +6768,26 @@ async function makeFrame({ data: { type, content } }) {
         progress: async () => {
           if (playingSound.killed) return { progress: 0 };
           const prom = new Promise((resolve, reject) => {
-            sfxProgressReceivers[id] = resolve;
+            sfxProgressReceivers[id] = (progressData) => {
+              // Enhanced logging for audio progress tracking
+              if (debug && progressData?.progress !== undefined) {
+                const timeElapsed = soundTime - playingSound.startedAt;
+                console.log(`🎵 AUDIO_PROGRESS: id=${id.substring(id.lastIndexOf('_') + 1)}, progress=${progressData.progress.toFixed(6)}, elapsed=${timeElapsed.toFixed(3)}s, started=${playingSound.startedAt.toFixed(3)}s, current=${soundTime.toFixed(3)}s`);
+                
+                // Detect potential timing issues - compare in consistent units
+                if (progressData.progress > 0 && timeElapsed > 0 && progressData.duration) {
+                  // Convert audio progress to actual time for comparison
+                  const actualAudioTime = progressData.progress * progressData.duration;
+                  const timeDrift = Math.abs(actualAudioTime - timeElapsed);
+                  const driftPercent = (timeDrift / progressData.duration) * 100;
+                  
+                  if (driftPercent > 5) { // 5% drift threshold
+                    console.warn(`🎵 SYNC_DRIFT: actual=${actualAudioTime.toFixed(3)}s, expected=${timeElapsed.toFixed(3)}s, drift=${timeDrift.toFixed(3)}s (${driftPercent.toFixed(1)}%)`);
+                  }
+                }
+              }
+              resolve(progressData);
+            };
             return { resolve, reject };
           });
           send({ type: "sfx:progress", content: { id } });
