@@ -21,6 +21,11 @@ let timelineVisible = true;
 // Frequency display toggle
 let frequencyDisplayVisible = false; // Commented out to make timeline flush with top
 
+// Audio sync logging variables
+let stallWarningTime = null;
+let progressErrorCount = 0;
+let lastProgressError = null;
+
 // KidLisp mode toggle - when true, use kidlisp() instead of TV bars
 let kidlispMode = true;
 
@@ -30,6 +35,13 @@ let previousFrequencyValues = [];
 // Pause overlay state for play button
 let pauseOverlayVisible = false;
 let pauseOverlayStartTime = 0;
+let audioStarting = false; // NEW: Track when audio is starting but not yet playing
+let tapeAutoPlayStarted = false; // Track if auto-play has been triggered for tape mode
+let isCurrentlyRecording = false; // Track recording state for paint function
+
+// Emergency escape mechanism for stuck detection loops
+let emergencyTapCount = 0;
+let lastEmergencyTap = null;
 
 // Pause/resume functionality
 let pausedAt = 0; // Position where we paused (0 to 1)
@@ -64,10 +76,10 @@ const ZZZWAP_PALETTES = {
     name: "Pause",
     timelineGradient: "fade:gray-gray-gray-black:vertical",
     colors: [
-      { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
+      { r: 255, g: 255, b: 255 },  // white (timeline backdrop)
       { r: 255, g: 0, b: 0 },      // red
-      { r: 255, g: 255, b: 255 },  // white
       { r: 128, g: 128, b: 128 },  // gray
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
     ]
   },
   ACT_I: {
@@ -76,7 +88,7 @@ const ZZZWAP_PALETTES = {
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
       { r: 255, g: 0, b: 255 },    // magenta
     ]
@@ -88,7 +100,7 @@ const ZZZWAP_PALETTES = {
       { r: 0, g: 255, b: 0 },      // lime
       { r: 255, g: 0, b: 255 },    // magenta (gradient)
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
     ]
   },
@@ -98,7 +110,7 @@ const ZZZWAP_PALETTES = {
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
       { r: 255, g: 0, b: 255 },    // magenta
     ]
@@ -110,7 +122,7 @@ const ZZZWAP_PALETTES = {
       { r: 255, g: 0, b: 255 },    // magenta (gradient)
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
     ]
   },
@@ -120,7 +132,7 @@ const ZZZWAP_PALETTES = {
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
       { r: 255, g: 0, b: 255 },    // magenta
     ]
@@ -130,7 +142,7 @@ const ZZZWAP_PALETTES = {
     timelineGradient: "fade:lime-lime-teal-black:vertical",
     colors: [
       { r: 0, g: 255, b: 0 },      // lime (gradient)
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 128, g: 128, b: 128 },  // gray
       { r: 255, g: 192, b: 203 },  // pink
       { r: 255, g: 0, b: 255 },    // magenta
@@ -142,7 +154,7 @@ const ZZZWAP_PALETTES = {
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
       { r: 255, g: 0, b: 255 },    // magenta
     ]
@@ -151,20 +163,20 @@ const ZZZWAP_PALETTES = {
     name: "Pause 2",
     timelineGradient: "fade:gray-gray-gray-black:vertical",
     colors: [
-      { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
+      { r: 255, g: 255, b: 255 },  // white (timeline backdrop)
       { r: 255, g: 0, b: 0 },      // red (gradient)
-      { r: 255, g: 255, b: 255 },  // white
       { r: 128, g: 128, b: 128 },  // gray
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
     ]
   },
   PAUSE_3: {
     name: "Pause 3", 
     timelineGradient: "fade:gray-gray-gray-black:vertical",
     colors: [
-      { r: 0, g: 0, b: 0 },        // black (timeline backdrop - no red)
+      { r: 255, g: 255, b: 255 },  // white (timeline backdrop)
       { r: 255, g: 0, b: 0 },      // red
-      { r: 255, g: 255, b: 255 },  // white
       { r: 128, g: 128, b: 128 },  // gray
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
     ]
   },
   END: {
@@ -173,7 +185,7 @@ const ZZZWAP_PALETTES = {
     colors: [
       { r: 0, g: 255, b: 0 },      // lime
       { r: 128, g: 128, b: 128 },  // gray
-      { r: 0, g: 0, b: 0 },        // black
+      { r: 16, g: 16, b: 16 },     // very dark gray (was black)
       { r: 255, g: 192, b: 203 },  // pink
       { r: 255, g: 0, b: 255 },    // magenta
     ]
@@ -198,6 +210,8 @@ const ZZZWAP_KIDLISP_SOURCES = {
   PAUSE_2: `(fade:red-white-black-gray) (ink (? red white 0) (+ 160 (* kick 155))) (ink (? red white 0) (+ 45 (* (random) 85))) (gradient red black 0 0 width height) (ink (? red white 0) (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height) (spin (0.2s... -5.0 5.0)) (zoom (0.05s... 2.0 4.0)) (contrast 1.4) (ink (? red white 0) (+ 180 (* kick 120))) (repeat 96 point) (scroll (? 0 0 4 -4) (? 0 0 4 -4))`,
   PAUSE_3: `(fade:red-white-black-gray) (ink (? red white 0) (+ 140 (* kick 155))) (ink (? red white 0) (+ 35 (* (random) 75))) (flood (/ width 2) (/ height 2)) (ink (? red white 0) (+ 140 (* kick 155))) (box (/ width 2) (/ height 2) (+ 3 (* kick 4)) (+ 3 (* kick 4))) (spin (0.1s... -6.0 6.0)) (zoom (0.03s... 2.5 5.0)) (contrast 1.5) (ink (? red white 0) (+ 200 (* kick 140))) (repeat 128 point) (scroll (? 0 0 3 -3) (? 0 0 3 -3))`,
   END: `(fade:lime-gray-black-pink) (ink (? lime magenta 0) (+ 80 (* kick 100))) (ink (? lime magenta 0) (+ 15 (* (random) 40))) (flood (/ width 2) (/ height 2)) (ink (? lime magenta 0) (+ 80 (* kick 100))) (point (/ width 2) (/ height 2)) (spin (3s... -0.5 0.5)) (zoom 1.1) (contrast 1.0) (scroll (? 1 -1) (? 1 -1))`,
+  // NEW: Buffering/initialization visual
+  BUFFERING: `(fade:orange-yellow-orange) (ink stateColor (+ 80 (* amp 120))) (ink stateColor (+ 30 (* (random) 80))) (flood (/ width 2) (/ height 2)) (ink stateColor 200) (circle (/ width 2) (/ height 2) (+ 8 (* amp 15))) (box (- (/ width 2) 10) (- (/ height 2) 10) 20 20) (spin (0.8s... -3.0 3.0)) (zoom (2s... 1.0 1.5)) (contrast 1.4) (ink stateColor (+ 120 (* amp 100))) (repeat 128 point) (scroll (? 0 0 2 -2) (? 0 0 2 -2))`
 };
 
 // FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
@@ -233,7 +247,10 @@ function getPaletteForLocator(locatorName) {
 }
 
 // FUNCTION TO GET KIDLISP SOURCE FOR CURRENT LOCATOR
-function getKidlispSourceForLocator(locatorName, isPlaying = false) {
+function getKidlispSourceForLocator(locatorName, isPlaying = false, audioInitializing = false) {
+  // If audio is initializing, always use BUFFERING
+  if (audioInitializing) return ZZZWAP_KIDLISP_SOURCES.BUFFERING;
+  
   // If not playing, always use BEFORE_START
   if (!isPlaying) return ZZZWAP_KIDLISP_SOURCES.BEFORE_START;
   
@@ -1205,6 +1222,7 @@ let alsProject = null;
 let wavFile = null;
 let preloadedAudio = null;
 let isPlaying = false;
+let audioInitializing = false; // NEW: Track when audio is decoding/worklet loading
 let playingSfx = null;
 let playStartTime = 0;
 let audioStartTime = 0;
@@ -1248,27 +1266,68 @@ export const boot = async ({ net }) => {
     // console.log("Locators found:", alsProject.locators.length);
     // console.log("First 1000 chars of ALS file:", alsText.substring(0, 1000));
     
-    // Load the audio file
+    // Load the audio file with progress tracking for mobile
     console.log("🎵 Loading zzzZWAP.wav...");
+    message = "Loading audio...";
     const audioLoadStartTime = performance.now();
-    preloadedAudio = await net.preload("https://assets.aesthetic.computer/wipppps/zzzZWAP.wav");
-    const audioLoadTime = performance.now() - audioLoadStartTime;
     
-    // Try to get duration immediately from the preloaded audio metadata
-    if (preloadedAudio && preloadedAudio.buffer) {
-      actualDuration = preloadedAudio.buffer.duration;
-      console.log(`🎵 Audio loaded successfully in ${audioLoadTime.toFixed(0)}ms - Duration: ${actualDuration.toFixed(2)}s`);
-      console.log("🎵 Audio buffer details:", {
-        sampleRate: preloadedAudio.buffer.sampleRate,
-        length: preloadedAudio.buffer.length,
-        numberOfChannels: preloadedAudio.buffer.numberOfChannels
+    try {
+      // Load with progress callback for better mobile UX
+      preloadedAudio = await net.preload("https://assets.aesthetic.computer/wipppps/zzzZWAP.wav", true, (progress) => {
+        if (progress && progress.loaded && progress.total) {
+          const percent = Math.round((progress.loaded / progress.total) * 100);
+          message = `Loading audio: ${percent}%`;
+          console.log(`🎵 Audio download progress: ${percent}%`);
+        }
       });
-    } else {
-      console.warn("🎵 Audio loaded but no duration available from buffer");
+      
+      const audioLoadTime = performance.now() - audioLoadStartTime;
+      
+      // 🎵 ENHANCED AUDIO VALIDATION FOR MOBILE
+      if (!preloadedAudio) {
+        throw new Error("Failed to load audio file");
+      }
+      
+      console.log(`🎵 Audio preload completed in ${audioLoadTime.toFixed(0)}ms`);
+      console.log("🎵 Preloaded audio object:", preloadedAudio);
+      
+      // Try to determine duration from various sources
+      let durationSources = [];
+      
+      // Check for buffer property first (Web Audio API format)
+      if (preloadedAudio.buffer && preloadedAudio.buffer.duration) {
+        actualDuration = preloadedAudio.buffer.duration;
+        durationSources.push(`buffer: ${actualDuration.toFixed(3)}s`);
+      }
+      // Check for direct duration property
+      else if (preloadedAudio.duration) {
+        actualDuration = preloadedAudio.duration;
+        durationSources.push(`direct: ${actualDuration.toFixed(3)}s`);
+      }
+      // Check if it's just a string (URL) and we need to handle it differently
+      else if (typeof preloadedAudio === 'string') {
+        console.log("🎵 Audio returned as URL string:", preloadedAudio);
+        // For now, use fallback duration - we'll get the real one when playing
+        actualDuration = 183.8; // Known duration of zzzZWAP.wav
+        durationSources.push(`fallback: ${actualDuration.toFixed(3)}s`);
+      }
+      else {
+        console.warn("🎵 Could not determine duration from preloaded audio");
+        console.log("🎵 Audio object properties:", Object.keys(preloadedAudio));
+        actualDuration = 183.8; // Fallback duration
+        durationSources.push(`unknown_fallback: ${actualDuration.toFixed(3)}s`);
+      }
+      
+      console.log(`🎵 Duration sources: [${durationSources.join(', ')}] → final: ${actualDuration.toFixed(3)}s`);
+      
+      message = "Ready! Tap to play";
+      console.log("🎵 All files loaded successfully!");
+      
+    } catch (audioError) {
+      console.error("🎵 Audio loading failed:", audioError);
+      message = "Audio loading failed - check connection";
+      preloadedAudio = null;
     }
-    
-    message = "Ready! Tap to play";
-    console.log("🎵 All files loaded successfully!");
     
   } catch (error) {
     console.error("Error loading files:", error);
@@ -1345,21 +1404,81 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     return;
   }
   
-  // Update progress with simplified timing
+  // Update progress with audio-driven timing (audio is master clock)
   if (isPlaying && playingSfx && actualDuration) {
-    // Calculate elapsed time since resuming
-    const sessionElapsed = (performance.now() - playStartTime) / 1000;
-    // Add to where we paused to get total current time
-    const currentTime = (pausedAt * actualDuration) + sessionElapsed;
-    const newProgress = Math.min(currentTime / actualDuration, 1);
-    
-    // Log sync issues if we detect significant jumps
-    if (progress > 0 && Math.abs(newProgress - progress) > 0.1) {
-      console.warn(`🎵 SYNC WARNING: Large progress jump detected! ${progress.toFixed(3)} → ${newProgress.toFixed(3)}`);
-      console.warn(`🎵 Timing details: pausedAt=${pausedAt.toFixed(3)}, sessionElapsed=${sessionElapsed.toFixed(3)}, duration=${actualDuration.toFixed(3)}`);
+    // Use actual audio progress as the master timing source, but validate it first
+    if (currentAudioProgress !== null && currentAudioProgress > 0) {
+      // Check if audio progress seems reasonable for a resume scenario
+      const expectedProgress = pausedAt; // Where we should be based on last pause
+      const progressDiff = Math.abs(currentAudioProgress - expectedProgress);
+      
+      // Calculate what manual timing says we should be at
+      const timeSincePlay = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
+      const sessionElapsed = (performance.now() - playStartTime) / 1000;
+      const manualProgress = Math.min((pausedAt * actualDuration + sessionElapsed) / actualDuration, 1);
+      const manualAudioDiff = Math.abs(currentAudioProgress - manualProgress);
+      
+      // More aggressive protection: reject audio progress if it's inconsistent
+      const isRecentResume = timeSincePlay < 10.0; // Extended to 10 seconds for more protection
+      const isProgressSuspicious = (pausedAt > 0 && progressDiff > 0.01) || manualAudioDiff > 0.01; // Very tight 1% threshold
+      
+      if (isRecentResume && isProgressSuspicious) {
+        // Audio progress seems wrong - use manual timing to maintain visual continuity
+        progress = manualProgress;
+        
+        // Log the decision to override audio progress
+        if (paintCount % 30 === 0) { // More frequent logging during overrides
+          console.log(`🎵 VISUAL_CONTINUITY: Using manual=${manualProgress.toFixed(6)} instead of audio=${currentAudioProgress.toFixed(6)} (pauseDiff=${progressDiff.toFixed(6)}, manualDiff=${manualAudioDiff.toFixed(6)}, timeSincePlay=${timeSincePlay.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)})`);
+        }
+      } else {
+        // Audio progress seems trustworthy - transition gradually
+        const oldProgress = progress;
+        
+        // If this is a big jump, ease into it rather than jumping immediately
+        if (Math.abs(oldProgress - currentAudioProgress) > 0.02) { // 2% threshold for easing
+          // Ease towards audio progress instead of jumping
+          const easeRate = 0.1; // 10% per frame
+          progress = oldProgress + (currentAudioProgress - oldProgress) * easeRate;
+          
+          if (paintCount % 60 === 0) {
+            console.log(`🎵 EASING_TO_AUDIO: from=${oldProgress.toFixed(6)} to=${currentAudioProgress.toFixed(6)} current=${progress.toFixed(6)} (easing)`);
+          }
+        } else {
+          // Small difference, safe to use audio progress directly
+          progress = currentAudioProgress;
+          
+          // Log when we switch to audio-driven mode
+          if (Math.abs(oldProgress - progress) > 0.01 && paintCount % 60 === 0) {
+            console.log(`🎵 AUDIO_DRIVEN: switched from manual=${oldProgress.toFixed(6)} to audio=${progress.toFixed(6)} (manualDiff=${manualAudioDiff.toFixed(6)}, timeSincePlay=${timeSincePlay.toFixed(3)}s)`);
+          }
+        }
+      }
+    } else {
+      // Fallback to manual timing if audio progress isn't available yet
+      const sessionElapsed = (performance.now() - playStartTime) / 1000;
+      const currentTime = (pausedAt * actualDuration) + sessionElapsed;
+      const newProgress = Math.min(currentTime / actualDuration, 1);
+      
+      // Only use manual timing if we don't have audio progress
+      if (currentAudioProgress === null) {
+        progress = newProgress;
+        
+        // Log when using manual timing
+        if (paintCount % 300 === 0) {
+          console.log(`🎵 MANUAL_TIMING: progress=${progress.toFixed(6)}, elapsed=${sessionElapsed.toFixed(3)}s, waiting for audio progress`);
+        }
+      }
     }
     
-    progress = newProgress;
+    // Log sync comparison for debugging
+    if (currentAudioProgress !== null && paintCount % 300 === 0) {
+      const sessionElapsed = (performance.now() - playStartTime) / 1000;
+      const manualProgress = Math.min(((pausedAt * actualDuration) + sessionElapsed) / actualDuration, 1);
+      const audioProgress = currentAudioProgress;
+      const progressDrift = Math.abs(manualProgress - audioProgress);
+      
+      console.log(`🎵 SYNC_COMPARISON: manual=${manualProgress.toFixed(6)}, audio=${audioProgress.toFixed(6)}, drift=${progressDrift.toFixed(6)}, using=${progress === audioProgress ? 'audio' : 'manual'}`);
+    }
   }
   
   // Calculate current time in seconds based on project timeline, not audio duration
@@ -1369,16 +1488,37 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // No offset needed since we're using locator times directly
     currentTimeSeconds = progress * actualDuration;
     
-    // Log timeline sync every few seconds to catch drift
-    if (paintCount % 1800 === 0 && currentTimeSeconds > 0) { // Every ~30 seconds at 60fps - much less frequent
-      // console.log(`🎵 TIMELINE: progress=${progress.toFixed(3)}, currentTime=${currentTimeSeconds.toFixed(2)}s, duration=${actualDuration?.toFixed(2)}s`);
-      if (currentAudioProgress) {
-        // console.log(`🎵 AUDIO: actualProgress=${currentAudioProgress.toFixed(3)}, actualTime=${(currentAudioProgress * actualDuration).toFixed(2)}s`);
+    // 🎵 ENHANCED TIMELINE SYNC LOGGING - Audio-driven timeline
+    if (paintCount % 300 === 0 && currentTimeSeconds > 0) { // Every ~5 seconds at 60fps
+      console.log(`🎵 TIMELINE_SYNC: progress=${progress.toFixed(6)}, timeSeconds=${currentTimeSeconds.toFixed(3)}, duration=${actualDuration?.toFixed(2)}s`);
+      
+      if (currentAudioProgress !== null) {
+        const audioTime = currentAudioProgress * actualDuration;
+        const visualTime = progress * actualDuration;
+        const timeDrift = Math.abs(visualTime - audioTime);
+        console.log(`🎵 AUDIO_SYNC: audioProgress=${currentAudioProgress.toFixed(6)}, audioTime=${audioTime.toFixed(3)}s, visualTime=${visualTime.toFixed(3)}s, drift=${timeDrift.toFixed(3)}s`);
+        
+        // Alert on significant drift (should be minimal now)
+        if (timeDrift > 0.1) { // 100ms drift threshold  
+          console.warn(`🎵 SYNC_DRIFT_ALERT: Unexpected drift! Visual=${visualTime.toFixed(3)}s, Audio=${audioTime.toFixed(3)}s, Drift=${timeDrift.toFixed(3)}s`);
+        } else {
+          console.log(`🎵 SYNC_STATUS: ✅ Audio and visuals in sync (${timeDrift.toFixed(3)}s drift)`);
+        }
+      }
+      
+      // Log current locator for context
+      const locatorInfo = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
+      if (locatorInfo.current) {
+        console.log(`🎵 LOCATOR_SYNC: current="${locatorInfo.current.name}", expected=${locatorInfo.current.seconds.toFixed(3)}s, actual=${currentTimeSeconds.toFixed(3)}s`);
       }
     }
   } else if (pausedAt > 0 && actualDuration) {
     // When paused, maintain the visual state at the pause position
     currentTimeSeconds = pausedAt * actualDuration;
+    // Log pause state occasionally
+    if (paintCount % 600 === 0) { // Every ~10 seconds when paused
+      console.log(`🎵 PAUSED_STATE: pausedAt=${pausedAt.toFixed(6)}, timeSeconds=${currentTimeSeconds.toFixed(3)}s`);
+    }
   } else {
     currentTimeSeconds = 0;
   }
@@ -1822,7 +1962,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     const currentPalette = getPaletteForLocator(currentLocator?.name);
     
     // Get the pre-defined KidLisp source for this locator
-    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying);
+    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying, audioInitializing);
     
     // Add defensive checks to prevent errors
     if (!kidlispCode) {
@@ -2196,6 +2336,18 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // Hide timeline when paused to allow full-screen KidLisp
   
   if (timelineVisible && isPlaying) {
+    // 🎵 TIMELINE RENDER LOGGING - Track when timeline is drawn and its sync status
+    if (paintCount % 600 === 0) { // Every ~10 seconds at 60fps
+      const locatorInfo = alsProject?.getCurrentLocator(currentTimeSeconds, actualDuration);
+      console.log(`🎵 TIMELINE_RENDER: visible=true, playing=true, currentTime=${currentTimeSeconds.toFixed(3)}s, locator="${locatorInfo?.current?.name || 'none'}"`);
+      
+      if (currentAudioProgress !== null) {
+        const audioTime = currentAudioProgress * actualDuration;
+        const visualAudioDrift = Math.abs(currentTimeSeconds - audioTime);
+        console.log(`🎵 TIMELINE_SYNC_STATUS: visual=${currentTimeSeconds.toFixed(3)}s, audio=${audioTime.toFixed(3)}s, drift=${visualAudioDrift.toFixed(3)}s`);
+      }
+    }
+    
     // Minimal timeline layout parameters
     const freqDisplayHeight = 12; // Define this here so timeline can reference it
     const timelineHeight = 25; // Reduced from 50 to 25 - much more minimal
@@ -2208,24 +2360,15 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
     // Themed timeline background - matches current TV color palette exactly
     if (currentPalette && currentPalette.colors && currentPalette.colors.length > 0) {
-      // Special handling for PAUSE palettes - ALWAYS use black for timeline backdrop  
-      let colorIndex = 0; // Default to black
+      let colorIndex = 0; // Default to first color
       
-      // Check if this is a PAUSE or SURPRISE palette by name
-      const isPauseOrSurprise = currentPalette.name && 
-        (currentPalette.name.toLowerCase().includes('pause') || 
-         currentPalette.name.toLowerCase().includes('surprise'));
-      
-      if (!isPauseOrSurprise) {
-        // Only use locator index for non-PAUSE palettes
-        if (alsProject && alsProject.locators && currentLocator) {
-          const currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
-          if (currentLocatorIndex !== -1) {
-            colorIndex = currentLocatorIndex % currentPalette.colors.length;
-          }
+      // Use locator index for all palettes (including PAUSE)
+      if (alsProject && alsProject.locators && currentLocator) {
+        const currentLocatorIndex = alsProject.locators.findIndex(loc => loc.name === currentLocator.name);
+        if (currentLocatorIndex !== -1) {
+          colorIndex = currentLocatorIndex % currentPalette.colors.length;
         }
       }
-      // For PAUSE/SURPRISE palettes, colorIndex remains 0 (black)
       
       const bgColor = currentPalette.colors[colorIndex];
       
@@ -2264,29 +2407,19 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         
         const colorIndex = i % segmentPalette.colors.length; // Simple index-based selection for timeline
         
-        // Special handling for PAUSE and SURPRISE segments - always use black (index 0)
-        const isPauseOrSurpriseSegment = segmentPalette.name && 
-          (segmentPalette.name.toLowerCase().includes('pause') || 
-           segmentPalette.name.toLowerCase().includes('surprise'));
+        // Use normal color cycling for all segments including PAUSE
+        const paletteColor = segmentPalette.colors[colorIndex];
         
-        const finalColorIndex = isPauseOrSurpriseSegment ? 0 : colorIndex;
-        const paletteColor = segmentPalette.colors[finalColorIndex];
-        
-        // DEBUG: Log segment color info for PAUSE segments
-        if (isPauseOrSurpriseSegment) {
-          console.log(`🎬 Segment Overlay - Palette: "${segmentPalette.name}", OriginalIndex: ${colorIndex}, FinalIndex: ${finalColorIndex}, RGB: (${paletteColor.r}, ${paletteColor.g}, ${paletteColor.b}), Locator: "${locator.name}"`);
+        // DEBUG: Log segment color info for PAUSE segments (now using normal colors)
+        const isPauseSegment = segmentPalette.name && segmentPalette.name.toLowerCase().includes('pause');
+        if (isPauseSegment) {
+          console.log(`🎬 Segment Overlay - Palette: "${segmentPalette.name}", ColorIndex: ${colorIndex}, RGB: (${paletteColor.r}, ${paletteColor.g}, ${paletteColor.b}), Locator: "${locator.name}"`);
         }
         
         const isCurrentTime = currentTimeSeconds >= segmentStart && currentTimeSeconds < segmentEnd;
         
-        // Use solid colors for segments (no blinking for timeline segments)
-        if (isPauseOrSurpriseSegment) {
-          // PAUSE/SURPRISE: Dark solid color
-          ink(20, 20, 20); // Dark gray
-        } else {
-          // Other segments: Use the palette color directly
-          ink(paletteColor.r, paletteColor.g, paletteColor.b);
-        }
+        // Use solid colors for all segments (no special handling for PAUSE)
+        ink(paletteColor.r, paletteColor.g, paletteColor.b);
         const clampedX = Math.max(0, segmentStartX);
         const effectiveWidth = segmentStartX < 0 ? segmentWidth + segmentStartX : segmentWidth;
         const clampedWidth = Math.min(effectiveWidth, screen.width - clampedX);
@@ -2472,8 +2605,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   } // Close timeline visibility conditional
   
   // === PAUSE OVERLAY WITH PLAY BUTTON ===
-  // Show play button overlay when not playing OR when explicitly shown during playback
-  const showOverlay = !isPlaying || (isPlaying && pauseOverlayVisible);
+  // Show play button overlay when not playing (but not when audio is starting) OR when explicitly shown during playback
+  // Also show during initialization for visual feedback
+  // BUT: Don't show overlay when recording (tape mode) - just show black
+  const showOverlay = (!isCurrentlyRecording) && ((!isPlaying && !audioStarting) || (isPlaying && pauseOverlayVisible) || audioInitializing);
   
   if (showOverlay) {
     const overlayTime = performance.now();
@@ -2489,34 +2624,47 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     ink(0, 0, 0, 180); // Darker overlay (was 120, now 180)
     box(0, 0, screen.width, screen.height);
     
-    // Draw simple play triangle in center - using same method as old wipppps
+    // Different visual feedback based on state
     const centerX = screen.width / 2;
     const centerY = screen.height / 2;
     const triangleSize = 14; // Same size as old wipppps
     
-    // Draw black shadow for play triangle (offset by 1px)
-    ink(0, 0, 0, 255);
-    shape([
-      [centerX - triangleSize / 2 + 1, centerY - triangleSize / 2 + 1],
-      [centerX + triangleSize / 2 + 1, centerY + 1],
-      [centerX - triangleSize / 2 + 1, centerY + triangleSize / 2 + 1],
-    ]);
+    if (audioInitializing) {
+      // During initialization, the KidLisp BUFFERING source will handle visuals
+      // Just show a simple loading indicator here as backup
+      ink("orange");
+      const pulsePhase = (overlayTime / 300) % 2; // 300ms cycle
+      const opacity = pulsePhase < 1 ? Math.floor(pulsePhase * 255) : Math.floor((2 - pulsePhase) * 255);
+      ink(255, 165, 0, opacity); // Orange with pulsing opacity
+      box(centerX - 2, centerY - 2, 4, 4);
+      
+    } else {
+      // Show normal play triangle when not initializing
+      
+      // Draw black shadow for play triangle (offset by 1px)
+      ink(0, 0, 0, 255);
+      shape([
+        [centerX - triangleSize / 2 + 1, centerY - triangleSize / 2 + 1],
+        [centerX + triangleSize / 2 + 1, centerY + 1],
+        [centerX - triangleSize / 2 + 1, centerY + triangleSize / 2 + 1],
+      ]);
 
-    // Draw white outline for play triangle (slightly larger)
-    ink(255, 255, 255, 255);
-    shape([
-      [centerX - triangleSize / 2 - 1, centerY - triangleSize / 2 - 1],
-      [centerX + triangleSize / 2 + 1, centerY],
-      [centerX - triangleSize / 2 - 1, centerY + triangleSize / 2 + 1],
-    ]);
+      // Draw white outline for play triangle (slightly larger)
+      ink(255, 255, 255, 255);
+      shape([
+        [centerX - triangleSize / 2 - 1, centerY - triangleSize / 2 - 1],
+        [centerX + triangleSize / 2 + 1, centerY],
+        [centerX - triangleSize / 2 - 1, centerY + triangleSize / 2 + 1],
+      ]);
 
-    // Draw main white play triangle (black and white vibes - no rainbow)
-    ink(255, 255, 255, 255);
-    shape([
-      [centerX - triangleSize / 2, centerY - triangleSize / 2],
-      [centerX + triangleSize / 2, centerY],
-      [centerX - triangleSize / 2, centerY + triangleSize / 2],
-    ]);
+      // Draw main white play triangle (black and white vibes - no rainbow)
+      ink(255, 255, 255, 255);
+      shape([
+        [centerX - triangleSize / 2, centerY - triangleSize / 2],
+        [centerX + triangleSize / 2, centerY],
+        [centerX - triangleSize / 2, centerY + triangleSize / 2],
+      ]);
+    }
   }
   
   // === PROGRESS BAR AND TRACK INFO ===
@@ -2590,7 +2738,33 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
 } // Close paint function
 
-function act({ event: e, sound }) {
+async function act({ event: e, sound, api }) {
+  // Track recording state for paint function
+  isCurrentlyRecording = api?.rec?.recording || api?.rec?.loadCallback !== null;
+  
+  // Reset auto-play flag when not recording to allow it to work again next time
+  if (!api?.rec?.recording && !api?.rec?.loadCallback) {
+    tapeAutoPlayStarted = false;
+  }
+  
+  // 🎵 TAPE_MODE_AUTO_PLAY: Automatically start playback when in tape mode
+  // Check for recording state in api.rec instead of api.system.taping
+  // BUT: Only auto-play during actual recording, not during video playback of the tape
+  const isRecording = api?.rec?.recording; // Only during active recording, not when loadCallback is set (playback)
+  if (isRecording && !isPlaying && !audioStarting && preloadedAudio && !tapeAutoPlayStarted) {
+    console.log("🎵 TAPE_MODE: Auto-starting playback for tape mode (detected via api.rec.recording)");
+    tapeAutoPlayStarted = true; // Prevent multiple auto-starts
+    
+    // Simulate a touch event to trigger the existing audio playback logic
+    // This ensures we use the same robust playback system that handles all edge cases
+    const syntheticTouchEvent = {
+      is: (type) => type === "touch"
+    };
+    
+    // Temporarily override the event and recursively call act to trigger playback
+    return act({ event: syntheticTouchEvent, sound, api });
+  }
+
   // Toggle both timeline and frequency display with 'tab' key only
   if (e.is("keyboard:tab") || (e.is("keyboard:down:tab"))) {
     timelineVisible = !timelineVisible;
@@ -2616,86 +2790,446 @@ function act({ event: e, sound }) {
   
   // Handle play/pause/resume
   if (e.is("touch") && preloadedAudio) {
-    if (!isPlaying) {
+    console.log(`🎵 TOUCH_EVENT: isPlaying=${isPlaying}, audioStarting=${audioStarting}, playingSfx=${!!playingSfx}, killed=${playingSfx?.killed}`);
+    
+    if (isPlaying && playingSfx && !playingSfx.killed) {
+      // Currently playing - pause the track
+      console.log("🎵 PAUSING_PLAYBACK: Touch detected while playing, pausing audio");
+      
+      if (actualDuration) {
+        // Use the visual progress that we've been maintaining, not the potentially wrong audio progress
+        let newPausedAt;
+        
+        // Always use the visual progress since we've been protecting it from bad audio progress
+        newPausedAt = Math.min(progress, 1.0); // Use our carefully maintained visual progress
+        console.log(`⏸️ Using visual progress for pause: ${(newPausedAt * 100).toFixed(1)}% (${(newPausedAt * actualDuration).toFixed(2)}s)`);
+        
+        // Log comparison for debugging
+        if (currentAudioProgress !== null && currentAudioProgress > 0) {
+          const audioPausedAt = Math.min(currentAudioProgress, 1.0);
+          const progressDiff = Math.abs(newPausedAt - audioPausedAt);
+          console.log(`⏸️ Progress comparison: visual=${(newPausedAt * 100).toFixed(1)}%, audio=${(audioPausedAt * 100).toFixed(1)}%, diff=${(progressDiff * 100).toFixed(1)}%`);
+        }
+        
+        pausedAt = newPausedAt;
+        
+        // Set state before killing to prevent race condition in sim()
+        isPlaying = false;
+        audioStarting = false; // Clear any starting state
+        audioInitializing = false; // Clear any initialization state
+        pauseOverlayVisible = true; // Show pause overlay when paused
+        
+        playingSfx.kill();
+        playingSfx = null;
+      } else {
+        isPlaying = false;
+        audioStarting = false;
+        audioInitializing = false; // Clear any initialization state
+        pauseOverlayVisible = true; // Show pause overlay when paused  
+      }
+      console.log("🎵 PAUSED");
+      return;
+    }
+    
+    // Prevent multiple touches from starting multiple audio instances when not playing
+    if (audioStarting || (playingSfx && !playingSfx.killed)) {
+      console.log("🎵 TOUCH_IGNORED: Audio already starting or about to start");
+      
+      // EMERGENCY ESCAPE: If user taps multiple times while stuck in detection loop, force start
+      const now = performance.now();
+      if (!lastEmergencyTap) lastEmergencyTap = now;
+      
+      const timeSinceLastTap = now - lastEmergencyTap;
+      if (timeSinceLastTap < 2000) { // Multiple taps within 2 seconds
+        emergencyTapCount = (emergencyTapCount || 0) + 1;
+        console.log(`🎵 EMERGENCY_TAP: Tap ${emergencyTapCount} detected while stuck in detection`);
+        
+        if (emergencyTapCount >= 3) { // 3 quick taps = emergency escape
+          console.warn("🎵 EMERGENCY_ESCAPE: Force starting audio due to repeated taps during detection loop");
+          
+          // Force clear all blocking states
+          audioStartDetected = true;
+          audioStarting = false;
+          audioInitializing = false;
+          isPlaying = true;
+          
+          // Initialize visual progress
+          if (pausedAt > 0) {
+            progress = pausedAt;
+          } else {
+            progress = 0;
+          }
+          
+          // Start visual timeline
+          const resumeOffset = pausedAt * actualDuration;
+          playStartTime = performance.now() - (resumeOffset * 1000);
+          
+          console.log("🎵 EMERGENCY_TIMELINE_START: Force started visual timeline");
+          
+          // Reset emergency counters
+          emergencyTapCount = 0;
+          lastEmergencyTap = null;
+          
+          return; // Don't process this as a normal touch
+        }
+      } else {
+        // Reset counter if too much time has passed
+        emergencyTapCount = 0;
+      }
+      
+      lastEmergencyTap = now;
+      return;
+    }
+    
+    if (!isPlaying && !audioStarting) {
       // Not currently playing - start or resume playback
-      // console.log(`🎵 STARTING PLAYBACK: pausedAt=${pausedAt.toFixed(3)}, actualDuration=${actualDuration?.toFixed(3) || 'unknown'}`);
+      
+      // 🎵 MOBILE AUDIO CONTEXT ACTIVATION CHECK
+      // Ensure audio context is running (required for mobile browsers)
+      if (sound && sound.enabled && sound.enabled()) {
+        console.log("🎵 Audio context is enabled and ready");
+      } else {
+        console.warn("🎵 Audio context not enabled - attempting activation");
+        message = "Activating audio...";
+        // The touch event should activate the audio context automatically
+        // but let's add a small delay to ensure it's ready
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Check again after delay
+        if (!sound || !sound.enabled || !sound.enabled()) {
+          console.error("🎵 Audio context failed to activate!");
+          message = "Audio context failed - try again";
+          return;
+        }
+      }
+      
+      // 🎵 VERIFY AUDIO IS READY
+      if (!preloadedAudio) {
+        console.error("🎵 AUDIO_NOT_READY: No preloaded audio available");
+        message = "Audio not loaded";
+        return;
+      }
+      
+      console.log(`🎵 AUDIO_READY: Audio object available for playback`);
+      console.log("🎵 Audio object type:", typeof preloadedAudio);
+      if (typeof preloadedAudio === 'object') {
+        console.log("🎵 Audio object keys:", Object.keys(preloadedAudio));
+      }
       
       // Reset tracking when starting playback
       if (pausedAt === 0) {
         passedLocators.clear();
-        console.log("� Starting from beginning - reset locator tracking");
+        console.log("🎵 Starting from beginning - reset locator tracking");
       } else {
-        console.log(`� Resuming from ${(pausedAt * 100).toFixed(1)}% (${(pausedAt * actualDuration).toFixed(2)}s)`);
+        console.log(`🎵 Resuming from ${(pausedAt * 100).toFixed(1)}% (${(pausedAt * actualDuration).toFixed(2)}s)`);
       }
       
       // Hide pause overlay immediately when starting playback
       pauseOverlayVisible = false;
       
+      // Set initialization flag to provide feedback during audio loading
+      audioInitializing = true;
+      console.log("🎵 AUDIO_INITIALIZING: Set initialization flag for visual feedback");
+      
       // Start playing from the paused position
       const playStartTimestamp = performance.now();
-      playingSfx = sound.play(preloadedAudio, { speed: 1, from: pausedAt });
+      const audioTimeBeforePlay = sound.time;
+      
+      // 🎵 COMPREHENSIVE AUDIO START LOGGING
+      console.log(`🎵 AUDIO_START_ATTEMPT: pausedAt=${pausedAt.toFixed(6)}, duration=${actualDuration?.toFixed(3) || 'unknown'}s, audioTime=${audioTimeBeforePlay?.toFixed(6) || 'unknown'}s`);
+      
+      // Start playing from the correct position
+      if (pausedAt > 0) {
+        // Resume from a specific position
+        playingSfx = sound.play(preloadedAudio, { speed: 1, from: pausedAt });
+        console.log(`🎵 AUDIO_PLAY: Resuming from position ${(pausedAt * 100).toFixed(1)}%`);
+      } else {
+        // Start from beginning - don't use 'from' parameter
+        playingSfx = sound.play(preloadedAudio, { speed: 1 });
+        console.log(`🎵 AUDIO_PLAY: Starting from beginning`);
+      }
       const playCallDuration = performance.now() - playStartTimestamp;
+      const audioTimeAfterPlay = sound.time;
       
       if (playingSfx) {
-        isPlaying = true;
-        playStartTime = performance.now();
-        // console.log(`🎵 AUDIO STARTED: play() call took ${playCallDuration.toFixed(1)}ms`);
+        // 🎵 DON'T START VISUAL TIMELINE YET - wait for actual audio to begin
+        // Set a flag that we're waiting for audio to start
+        isPlaying = false; // Keep false until we detect actual audio
+        audioStarting = true; // NEW: Hide overlay while audio is starting
+        let audioStartDetected = false;
+        playStartTime = null; // Will be set when audio actually starts
         
-        // Try multiple ways to get duration - reduce logging
-        // console.log("🎵 Duration detection attempts:");
+        // 🎵 DETAILED SUCCESS LOGGING
+        console.log(`🎵 AUDIO_PLAY_CALLED: play() took ${playCallDuration.toFixed(3)}ms, audioTime: ${audioTimeBeforePlay?.toFixed(6) || 'N/A'}s → ${audioTimeAfterPlay?.toFixed(6) || 'N/A'}s`);
+        console.log(`🎵 WAITING_FOR_AUDIO: Waiting for actual audio to start before beginning visual timeline`);
+        
+        // Validate playingSfx object structure for progress tracking
+        console.log(`🎵 PLAY_OBJECT: hasProgress=${typeof playingSfx.progress === 'function'}, hasKill=${typeof playingSfx.kill === 'function'}, hasPlayResult=${!!playingSfx.playResult}`);
+        
+        // 🎵 FORCE SEEK AFTER PLAY - attempt to correct false starts
+        if (pausedAt > 0 && typeof playingSfx.seek === 'function') {
+          const seekTarget = pausedAt * actualDuration; // Convert to seconds
+          console.log(`🎵 FORCE_SEEK: Attempting to seek to ${seekTarget.toFixed(3)}s (${(pausedAt * 100).toFixed(1)}%)`);
+          try {
+            playingSfx.seek(seekTarget);
+            console.log(`🎵 FORCE_SEEK: Seek completed`);
+          } catch (seekError) {
+            console.warn(`🎵 FORCE_SEEK_FAILED: ${seekError.message}`);
+          }
+        } else if (pausedAt > 0) {
+          console.log(`🎵 FORCE_SEEK: Skipped - seek method not available, but pausedAt=${pausedAt.toFixed(6)}`);
+        } else {
+          console.log(`🎵 FORCE_SEEK: Skipped - starting from beginning, pausedAt=${pausedAt}`);
+        }
+        
+        // 🎵 AUDIO START DETECTION LOOP
+        // Check for actual audio progress to confirm audio has started
+        const checkAudioStart = async () => {
+          let attempts = 0;
+          const maxAttempts = 20; // Reduced from 100 to 20 (1 second timeout with 50ms intervals)
+          let consecutiveFailures = 0; // Track consecutive progress() failures
+          
+          console.log(`🎵 DETECTION_START: Beginning audio start detection loop, maxAttempts=${maxAttempts}`);
+          
+          while (!audioStartDetected && attempts < maxAttempts && playingSfx && !playingSfx.killed) {
+            attempts++;
+            console.log(`🎵 DETECTION_ATTEMPT_${attempts}: Starting attempt ${attempts}/${maxAttempts}`);
+            
+            try {
+              let progressCallSucceeded = false;
+              
+              // Check if we're getting actual audio progress > 0 (with timeout)
+              if (typeof playingSfx.progress === 'function') {
+                console.log(`🎵 DETECTION_ATTEMPT_${attempts}: Calling progress() with timeout`);
+                
+                // Add timeout to progress call to prevent hanging
+                const progressPromise = playingSfx.progress();
+                const timeoutPromise = new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Progress timeout')), 200) // Shorter timeout for responsiveness
+                );
+                
+                try {
+                  const progressData = await Promise.race([progressPromise, timeoutPromise]);
+                  progressCallSucceeded = true;
+                  consecutiveFailures = 0; // Reset failure counter
+                  console.log(`🎵 DETECTION_ATTEMPT_${attempts}: progress=${progressData?.progress || 'null'}, killed=${playingSfx.killed}`);
+                  
+                  if (progressData && typeof progressData.progress === 'number' && progressData.progress >= 0) {
+                    // Verify the progress is reasonably close to where we expect it
+                    const expectedProgress = pausedAt;
+                    const actualProgress = progressData.progress;
+                    const progressDiff = Math.abs(actualProgress - expectedProgress);
+                    
+                    console.log(`🎵 PROGRESS_VERIFICATION: expected=${expectedProgress.toFixed(6)}, actual=${actualProgress.toFixed(6)}, diff=${progressDiff.toFixed(6)}`);
+                    
+                    // If progress is too far off, try seeking again
+                    if (pausedAt > 0 && progressDiff > 0.05 && typeof playingSfx.seek === 'function') { // 5% tolerance
+                      const seekTarget = pausedAt * actualDuration;
+                      console.log(`🎵 RETRY_SEEK: Progress too far off, re-seeking to ${seekTarget.toFixed(3)}s`);
+                      try {
+                        playingSfx.seek(seekTarget);
+                        // Continue the loop to check again
+                        await new Promise(resolve => setTimeout(resolve, 100)); // Wait a bit for seek to take effect
+                        continue;
+                      } catch (seekError) {
+                        console.warn(`🎵 RETRY_SEEK_FAILED: ${seekError.message}`);
+                      }
+                    }
+                    
+                    // Audio has actually started! (any progress >= 0 means it's running)
+                    console.log(`🎵 AUDIO_START_DETECTED: Audio actually playing after ${attempts * 50}ms, progress=${progressData.progress.toFixed(6)}`);
+                    audioStartDetected = true;
+                    audioStarting = false; // Clear starting flag - this will hide the overlay
+                    audioInitializing = false; // Clear initialization flag - audio is fully ready
+                    isPlaying = true;
+                    
+                    // Initialize visual progress to maintain continuity
+                    if (pausedAt > 0) {
+                      // When resuming, start visual progress from where we paused
+                      progress = pausedAt;
+                      console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)}`);
+                    } else {
+                      // Starting fresh from beginning
+                      progress = 0;
+                      console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning`);
+                    }
+                    
+                    // More precise timing: account for the detection delay and maintain visual continuity
+                    const audioCurrentTime = progressData.progress * actualDuration;
+                    // When resuming from pause, maintain visual timeline continuity
+                    const resumeOffset = pausedAt * actualDuration; // Where we should visually be
+                    playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused, not current audio
+                    console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime}, audioCurrentTime=${audioCurrentTime.toFixed(3)}s, resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+                    console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, ready for playback`);
+                    break;
+                  }
+                } catch (progressError) {
+                  consecutiveFailures++;
+                  console.log(`🎵 DETECTION_ATTEMPT_${attempts}: Progress call failed: ${progressError.message} (consecutive failures: ${consecutiveFailures})`);
+                  
+                  // If we've had too many consecutive progress failures, give up and start anyway
+                  if (consecutiveFailures >= 10) {
+                    console.warn(`🎵 PROGRESS_FAILURE_LIMIT: Too many consecutive progress failures (${consecutiveFailures}), starting visual timeline anyway`);
+                    break; // Exit the loop and start the fallback
+                  }
+                }
+              } else {
+                console.log(`🎵 DETECTION_ATTEMPT_${attempts}: progress function not available`);
+              }
+              
+              // Always check the speaker for audio activity (more reliable)
+              if (sound.speaker && sound.speaker.amplitudes) {
+                const leftAmp = Number(sound.speaker.amplitudes.left) || 0;
+                const rightAmp = Number(sound.speaker.amplitudes.right) || 0;
+                console.log(`🎵 DETECTION_ATTEMPT_${attempts}: amplitudes L=${leftAmp.toFixed(4)}, R=${rightAmp.toFixed(4)}`);
+                
+                if (leftAmp > 0.001 || rightAmp > 0.001) { // Lower threshold for detection
+                  console.log(`🎵 AUDIO_START_DETECTED: Speaker amplitude detected after ${attempts * 50}ms, L=${leftAmp.toFixed(3)}, R=${rightAmp.toFixed(3)}`);
+                  audioStartDetected = true;
+                  audioStarting = false; // Clear starting flag - this will hide the overlay
+                  audioInitializing = false; // Clear initialization flag - audio is fully ready
+                  isPlaying = true;
+                  
+                  // Initialize visual progress to maintain continuity
+                  if (pausedAt > 0) {
+                    // When resuming, start visual progress from where we paused
+                    progress = pausedAt;
+                    console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)}`);
+                  } else {
+                    // Starting fresh from beginning
+                    progress = 0;
+                    console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning`);
+                  }
+                  
+                  // When resuming from pause, maintain visual timeline continuity
+                  const resumeOffset = pausedAt * actualDuration; // Where we should visually be
+                  playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused, not detection delay
+                  console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (amplitude-based detection), resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+                  console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, ready for playback`);
+                  break;
+                }
+              } else {
+                console.log(`🎵 DETECTION_ATTEMPT_${attempts}: speaker amplitudes not available`);
+              }
+              
+            } catch (err) {
+              console.warn(`🎵 AUDIO_START_CHECK_ERROR: attempt ${attempts}, ${err.message}`);
+            }
+            
+            // Wait 50ms before checking again (more responsive)
+            console.log(`🎵 DETECTION_ATTEMPT_${attempts}: Waiting 50ms before next attempt`);
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          
+          if (!audioStartDetected) {
+            console.warn(`🎵 AUDIO_START_TIMEOUT: Failed to detect audio start after ${maxAttempts * 50}ms (${consecutiveFailures} consecutive failures), starting visual timeline anyway`);
+            // Force clear all blocking states and start visual timeline
+            audioStartDetected = true; // Set to true to prevent any further detection attempts
+            audioStarting = false; // Clear starting flag
+            audioInitializing = false; // Clear initialization flag - timeout reached
+            isPlaying = true;
+            
+            // Initialize visual progress to maintain continuity
+            if (pausedAt > 0) {
+              // When resuming, start visual progress from where we paused
+              progress = pausedAt;
+              console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)} (fallback)`);
+            } else {
+              // Starting fresh from beginning
+              progress = 0;
+              console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning (fallback)`);
+            }
+            
+            // When resuming from pause, maintain visual timeline continuity even on timeout
+            const resumeOffset = pausedAt * actualDuration; // Where we should visually be
+            playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused
+            console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (timeout fallback), resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+            console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, timeout fallback - forcing start`);
+          }
+          
+          console.log(`🎵 DETECTION_END: audioStartDetected=${audioStartDetected}, isPlaying=${isPlaying}, audioStarting=${audioStarting}`);
+        };
+        
+        // Start the audio detection process (non-blocking)
+        console.log(`🎵 DETECTION_INIT: Starting checkAudioStart() function`);
+        checkAudioStart().then(() => {
+          console.log(`🎵 DETECTION_COMPLETE: checkAudioStart() completed successfully`);
+        }).catch(err => {
+          console.error(`🎵 AUDIO_START_DETECTION_ERROR: ${err.message}`);
+          // Fallback: start visual timeline anyway
+          audioStarting = false; // Clear starting flag
+          isPlaying = true;
+          
+          // Initialize visual progress to maintain continuity
+          if (pausedAt > 0) {
+            // When resuming, start visual progress from where we paused
+            progress = pausedAt;
+            console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)}`);
+          } else {
+            // Starting fresh from beginning
+            progress = 0;
+            console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning`);
+          }
+          
+          // When resuming from pause, maintain visual timeline continuity even on error
+          const resumeOffset = pausedAt * actualDuration; // Where we should visually be
+          playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused
+          console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (error fallback), resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+        });
+        
+        // Try multiple ways to get duration with enhanced logging
+        let durationSources = [];
         
         // Method 1: From the BIOS sample info
         if (sound.speaker && sound.speaker.length && sound.speaker.sampleRate) {
           const speakerDuration = sound.speaker.length / sound.speaker.sampleRate;
-          console.log(`  - Speaker: ${speakerDuration.toFixed(3)}s (length: ${sound.speaker.length}, rate: ${sound.speaker.sampleRate})`);
+          durationSources.push(`speaker: ${speakerDuration.toFixed(3)}s`);
           if (!actualDuration) actualDuration = speakerDuration;
         }
         
         // Method 2: From playResult
         if (playingSfx.playResult && playingSfx.playResult.buffer) {
           const playResultDuration = playingSfx.playResult.buffer.duration;
-          console.log(`  - PlayResult: ${playResultDuration.toFixed(3)}s`);
+          durationSources.push(`playResult: ${playResultDuration.toFixed(3)}s`);
           if (!actualDuration) actualDuration = playResultDuration;
         }
         
         // Method 3: From the preloaded audio metadata
         if (preloadedAudio && preloadedAudio.buffer && preloadedAudio.buffer.duration) {
           const preloadedDuration = preloadedAudio.buffer.duration;
-          console.log(`  - Preloaded: ${preloadedDuration.toFixed(3)}s`);
+          durationSources.push(`preloaded: ${preloadedDuration.toFixed(3)}s`);
           if (!actualDuration) actualDuration = preloadedDuration;
         }
         
         // Fallback: calculate from sample info
         if (!actualDuration) {
           actualDuration = 8831329 / 48000; // About 184 seconds based on the console output
-          console.log(`  - Fallback: ${actualDuration.toFixed(3)}s`);
+          durationSources.push(`fallback: ${actualDuration.toFixed(3)}s`);
         }
         
-        // console.log(`🎵 FINAL DURATION: ${actualDuration.toFixed(3)}s`);
-        // console.log(`🎵 PLAYBACK STATE: isPlaying=${isPlaying}, progress=${progress.toFixed(3)}, playStartTime=${playStartTime}`);
+        console.log(`🎵 DURATION_SOURCES: [${durationSources.join(', ')}] → final: ${actualDuration.toFixed(3)}s`);
+        
+        // Test immediate progress to catch false starts
+        if (typeof playingSfx.progress === 'function') {
+          playingSfx.progress().then((initialProgress) => {
+            console.log(`🎵 INITIAL_PROGRESS: ${initialProgress?.progress?.toFixed(6) || 'N/A'} (should be ~${pausedAt.toFixed(6)})`);
+            
+            // Detect false start or sync issues
+            if (initialProgress?.progress !== undefined) {
+              const progressDiff = Math.abs(initialProgress.progress - pausedAt);
+              if (progressDiff > 0.01) { // 1% tolerance
+                console.warn(`🎵 FALSE_START_DETECTED: expected=${pausedAt.toFixed(6)}, actual=${initialProgress.progress.toFixed(6)}, diff=${progressDiff.toFixed(6)}`);
+              }
+            }
+          }).catch(err => {
+            console.warn(`🎵 PROGRESS_TEST_FAILED: ${err.message}`);
+          });
+        }
+        
       } else {
-        console.error("🎵 ERROR: sound.play() returned null/undefined!");
+        console.error("🎵 AUDIO_START_FAILED: sound.play() returned null/undefined!");
+        console.error(`🎵 START_CONTEXT: preloadedAudio=${!!preloadedAudio}, pausedAt=${pausedAt}, audioTime=${audioTimeBeforePlay}`);
       }
-    } else {
-      // Currently playing - pause the track
-      if (playingSfx && actualDuration) {
-        // Always use performance timing calculation instead of audio progress
-        // because audio progress resets when we resume from a position
-        const currentTime = performance.now();
-        const elapsedSeconds = (currentTime - playStartTime) / 1000;
-        const newPausedAt = Math.min((pausedAt * actualDuration + elapsedSeconds) / actualDuration, 1.0);
-        
-        // console.log(`🎵 PAUSING: elapsedSeconds=${elapsedSeconds.toFixed(3)}, oldPausedAt=${pausedAt.toFixed(3)}, newPausedAt=${newPausedAt.toFixed(3)}`);
-        console.log(`⏸️ Pause position: ${(newPausedAt * 100).toFixed(1)}% (${(newPausedAt * actualDuration).toFixed(2)}s)`);
-        
-        pausedAt = newPausedAt;
-        
-        playingSfx.kill();
-        playingSfx = null;
-      }
-      isPlaying = false;
-      pauseOverlayVisible = true; // Show pause overlay when paused
-      // console.log("🎵 PAUSED");
     }
   }
 }
@@ -2722,11 +3256,21 @@ function sim({ sound, updateKidLispAudio }) {
       leftAmp: Math.round(leftAmp * 10),
       rightAmp: Math.round(rightAmp * 10),
       beat: beatDetected ? 1 : 0,
-      kick: beatDetected ? 1 : 0  // Same as beat for now - kick drum detection
+      kick: beatDetected ? 1 : 0,  // Same as beat for now - kick drum detection
+      // Add state flags for visual feedback
+      isPlaying: isPlaying ? 1 : 0,
+      audioStarting: audioStarting ? 1 : 0,
+      audioInitializing: audioInitializing ? 1 : 0,
+      pauseOverlayVisible: pauseOverlayVisible ? 1 : 0,
+      // Add simple color string based on state
+      stateColor: audioInitializing ? "orange" : 
+                  audioStarting ? "yellow" : 
+                  isPlaying ? "lime" : 
+                  pauseOverlayVisible ? "red" : "white"
     });
   }
 
-  // Check for audio ending and log sync issues
+  // Check for audio ending naturally (but not manual pause)
   if (isPlaying && playingSfx && playingSfx.killed) {
     console.log("🎵 TRACK ENDED: Auto-stopping playback");
     isPlaying = false;
@@ -2742,21 +3286,56 @@ function sim({ sound, updateKidLispAudio }) {
         const previousAudioProgress = currentAudioProgress;
         currentAudioProgress = p.progress;
         
-        // Detect sync issues by comparing calculated vs actual progress
+        // 🎵 COMPREHENSIVE SYNC DRIFT DETECTION
         if (progress > 0 && currentAudioProgress > 0) {
           const progressDiff = Math.abs(progress - currentAudioProgress);
+          const timeDiff = Math.abs(progress * actualDuration - currentAudioProgress * actualDuration);
+          
           if (progressDiff > 0.05) { // 5% difference threshold
-            console.warn(`🎵 SYNC DRIFT DETECTED: calculated=${progress.toFixed(3)}, actual=${currentAudioProgress.toFixed(3)}, diff=${progressDiff.toFixed(3)}`);
+            console.warn(`🎵 SYNC_DRIFT: calculated=${progress.toFixed(6)}, actual=${currentAudioProgress.toFixed(6)}, diff=${progressDiff.toFixed(6)} (${timeDiff.toFixed(3)}s)`);
+          }
+          
+          // Alert on major sync issues
+          if (timeDiff > 1.0) { // 1 second drift
+            console.error(`🎵 MAJOR_SYNC_ISSUE: Time drift of ${timeDiff.toFixed(3)}s detected! Visual timeline may be out of sync.`);
           }
         }
         
         // Detect if audio stopped unexpectedly
         if (previousAudioProgress > 0 && currentAudioProgress === 0 && isPlaying) {
-          console.warn("🎵 AUDIO STOPPED UNEXPECTEDLY: progress reset to 0 while playing");
+          console.warn("🎵 AUDIO_STOPPED_UNEXPECTEDLY: progress reset to 0 while playing");
+        }
+        
+        // Detect audio stalls (progress not advancing)
+        if (previousAudioProgress !== null && Math.abs(currentAudioProgress - previousAudioProgress) < 0.001 && isPlaying) {
+          // Only log if this is a consistent stall (not just occasional timing)
+          if (!stallWarningTime || performance.now() - stallWarningTime > 5000) {
+            console.warn(`🎵 AUDIO_STALL: Progress stuck at ${currentAudioProgress.toFixed(6)} (previous: ${previousAudioProgress.toFixed(6)})`);
+            stallWarningTime = performance.now();
+          }
+        }
+        
+        // Log progress details every few seconds (less frequent than timeline logging)
+        if (Math.floor(currentAudioProgress * 1000) % 50 === 0) { // Every ~5% of track
+          console.log(`🎵 PROGRESS_UPDATE: ${(currentAudioProgress * 100).toFixed(2)}% (${(currentAudioProgress * actualDuration).toFixed(2)}s/${actualDuration.toFixed(1)}s)`);
+        }
+        
+      } else {
+        // Handle invalid progress responses
+        if (isPlaying) {
+          console.warn(`🎵 INVALID_PROGRESS: Received invalid progress data:`, p);
         }
       }
     }).catch(err => {
-      // Silent catch for normal promise rejections
+      // Monitor progress polling errors
+      if (!progressErrorCount) progressErrorCount = 0;
+      progressErrorCount++;
+      
+      if (progressErrorCount > 10 && (!lastProgressError || performance.now() - lastProgressError > 10000)) {
+        console.warn(`🎵 PROGRESS_ERRORS: ${progressErrorCount} progress polling errors detected`);
+        lastProgressError = performance.now();
+        progressErrorCount = 0;
+      }
     });
   }
   
