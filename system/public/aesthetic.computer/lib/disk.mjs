@@ -5745,6 +5745,50 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Forward recorder export events to the current piece
+  if (
+    type === "recorder:export-status" ||
+    type === "recorder:export-progress" ||
+    type === "recorder:transcode-progress" ||
+    type === "recorder:export-complete"
+  ) {
+    if (debug) console.log("📼 Forwarding export event to piece:", type, content);
+    
+    // These events should be delivered to pieces via the normal event system
+    // Add them to the actEvents queue so they get processed in the next frame
+    if (typeof actEvents !== 'undefined' && actEvents && Array.isArray(actEvents)) {
+      const event = {
+        is: (eventType) => eventType === type,
+        type: type,
+        content: content,
+        progress: type === "recorder:transcode-progress" ? content : undefined
+      };
+      
+      actEvents.push(event);
+      console.log("📼 Added event to actEvents queue:", type);
+    } else {
+      console.log("📼 actEvents not available, trying direct piece call");
+      
+      // Fallback: try to call piece directly if actEvents isn't available  
+      if ($currentPiece?.act) {
+        const event = {
+          is: (eventType) => eventType === type,
+          type: type,
+          content: content,
+          progress: type === "recorder:transcode-progress" ? content : undefined
+        };
+        
+        try {
+          $currentPiece.act({ event });
+          console.log("📼 Called piece.act directly:", type);
+        } catch (error) {
+          console.error("📼 Error forwarding event to piece:", error);
+        }
+      }
+    }
+    return;
+  }
+
   if (
     type === "recorder:rolling:started" ||
     type === "recorder:rolling:resumed"
