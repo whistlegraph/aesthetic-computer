@@ -438,11 +438,11 @@ async function halt($, text) {
             type: "video" + (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
             pieceName: (jumpTo && jumpTo.startsWith("$")) ? "$code" : (jumpTo || "tape"),
             pieceParams: (() => {
-              // For kidlisp codes ($xxx), exclude the command itself from params to avoid duplication
+              // Exclude the piece name from params to avoid duplication in filename
               const startIndex = isNaN(duration) ? 0 : 1;
               const relevantParams = params.slice(startIndex);
-              // If the first param is a kidlisp code and it matches jumpTo, exclude it
-              if (relevantParams.length > 0 && relevantParams[0] === jumpTo && jumpTo?.startsWith("$")) {
+              // If the first param matches jumpTo (the piece name), exclude it
+              if (relevantParams.length > 0 && relevantParams[0] === jumpTo) {
                 return relevantParams.slice(1).join("~");
               }
               return relevantParams.join("~");

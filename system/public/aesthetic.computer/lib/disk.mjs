@@ -6772,7 +6772,7 @@ async function makeFrame({ data: { type, content } }) {
               // Enhanced logging for audio progress tracking
               if (debug && progressData?.progress !== undefined) {
                 const timeElapsed = soundTime - playingSound.startedAt;
-                console.log(`🎵 AUDIO_PROGRESS: id=${id.substring(id.lastIndexOf('_') + 1)}, progress=${progressData.progress.toFixed(6)}, elapsed=${timeElapsed.toFixed(3)}s, started=${playingSound.startedAt.toFixed(3)}s, current=${soundTime.toFixed(3)}s`);
+                // console.log(`🎵 AUDIO_PROGRESS: id=${id.substring(id.lastIndexOf('_') + 1)}, progress=${progressData.progress.toFixed(6)}, elapsed=${timeElapsed.toFixed(3)}s, started=${playingSound.startedAt.toFixed(3)}s, current=${soundTime.toFixed(3)}s`);
                 
                 // Detect potential timing issues - compare in consistent units
                 if (progressData.progress > 0 && timeElapsed > 0 && progressData.duration) {
