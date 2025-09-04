@@ -3789,6 +3789,45 @@ class KidLisp {
       clock: (api) => {
         return Date.now(); // Returns UTC milliseconds since epoch
       },
+      fps: (api, args) => {
+        if (args.length > 0) {
+          const targetFps = parseFloat(args[0]);
+          if (!isNaN(targetFps) && targetFps > 0) {
+            // Store the target FPS in the KidLisp instance
+            this.targetFps = targetFps;
+            // Also store in a global location accessible to the tape system
+            if (api && api.system) {
+              api.system.kidlispFps = targetFps;
+            }
+            // Store in window for tape system access
+            if (typeof window !== 'undefined') {
+              window.currentKidlispFps = targetFps;
+              
+              // Initialize FPS timeline if it doesn't exist
+              if (!window.kidlispFpsTimeline) {
+                window.kidlispFpsTimeline = [];
+              }
+              
+              // Add FPS change to timeline with current timestamp
+              const timestamp = performance.now();
+              window.kidlispFpsTimeline.push({
+                timestamp: timestamp,
+                fps: targetFps
+              });
+              
+              // Also update recording options if they exist (for backward compatibility)
+              if (window.currentRecordingOptions) {
+                window.currentRecordingOptions.kidlispFps = targetFps;
+                window.currentRecordingOptions.kidlispFpsTimeline = window.kidlispFpsTimeline;
+                console.log(`🎬 Updated recording options with KidLisp FPS: ${targetFps} at ${timestamp.toFixed(2)}ms`);
+              }
+            }
+            console.log(`🎬 KidLisp FPS set to: ${targetFps} at ${(typeof window !== 'undefined' ? performance.now() : 0).toFixed(2)}ms`);
+            return targetFps;
+          }
+        }
+        return this.targetFps || 60; // Default to 60 FPS if no fps was set
+      },
       // 🔄 Repeat function (highly optimized)
       repeat: (api, args, env) => {
         perfStart("repeat-setup");
