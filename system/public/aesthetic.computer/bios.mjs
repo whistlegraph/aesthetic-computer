@@ -2206,6 +2206,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Helper function to add the sideways AC stamp (same as video recording)
     async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
+      // Skip all stamps in clean mode
+      if (window.currentRecordingOptions?.cleanMode) {
+        console.log("🎬 🧹 Skipping Aesthetic Computer stamp in clean mode");
+        return;
+      }
+      
       // Ensure fonts are loaded before drawing
       await ensureFontsLoaded();
 
@@ -4707,22 +4713,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Calculate proper timing for gifenc based on intended duration
-          let gifencDelay = 17; // Default 60fps fallback
+          // Calculate per-frame timing using KidLisp FPS timeline or fallback methods
+          console.log(`🎬 GIF Encoding Debug - KidLisp FPS Timeline:`, window.currentRecordingOptions?.kidlispFpsTimeline);
+          console.log(`🎬 GIF Encoding Debug - Recording Options:`, window.currentRecordingOptions);
           
-          // Calculate proper delay based on the resampled frame timing
-          if (processedFrames.length > 1 && content.frames.length > 0) {
-            const originalTotalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
-            const intendedDelayPerFrame = originalTotalDuration / processedFrames.length;
-            gifencDelay = Math.round(Math.max(intendedDelayPerFrame, 16)); // Minimum 16ms (62.5fps max)
-            console.log(`🎞️ Using calculated timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) based on intended duration`);
-          } else {
-            console.log(`🎞️ Using fallback 60fps timing: ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps) for high quality GIF playback`);
+          // Helper function to get FPS at a specific timestamp
+          function getFpsAtTimestamp(timestamp, fpsTimeline, fallbackFps = 60) {
+            if (!fpsTimeline || fpsTimeline.length === 0) {
+              return fallbackFps;
+            }
+            
+            // Find the last FPS change before or at this timestamp
+            let activeFps = fallbackFps;
+            for (const fpsChange of fpsTimeline) {
+              if (fpsChange.timestamp <= timestamp) {
+                activeFps = fpsChange.fps;
+              } else {
+                break; // Timeline should be chronological
+              }
+            }
+            return activeFps;
           }
+          
+          // Process each frame with individual timing
+          const frameDelays = [];
+          const fpsTimeline = window.currentRecordingOptions?.kidlispFpsTimeline;
+          const fallbackFps = window.currentRecordingOptions?.kidlispFps || 60;
+          
+          for (let i = 0; i < processedFrames.length; i++) {
+            const frame = processedFrames[i];
+            const frameTimestamp = frame.timestamp;
+            
+            // Get the active FPS for this specific frame
+            const activeFps = getFpsAtTimestamp(frameTimestamp, fpsTimeline, fallbackFps);
+            const frameDelay = Math.round(1000 / activeFps);
+            frameDelays.push(frameDelay);
+            
+            if (i < 5 || i % 20 === 0) { // Log first few frames and every 20th frame
+              console.log(`🎞️ Frame ${i}: timestamp=${frameTimestamp.toFixed(2)}ms, fps=${activeFps}, delay=${frameDelay}ms`);
+            }
+          }
+          
+          console.log(`🎞️ Using per-frame KidLisp timing. Frame delays range: ${Math.min(...frameDelays)}ms to ${Math.max(...frameDelays)}ms`);
+          
+          // Default delay for frames without timeline data (fallback)
+          const defaultDelay = Math.round(1000 / fallbackFps);
           
           // Process each frame
           for (let index = 0; index < processedFrames.length; index++) {
             const frame = processedFrames[index];
+            const frameDelay = frameDelays[index] || defaultDelay;
+            
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
 
@@ -4856,20 +4897,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Use the delay calculated earlier during frame processing
-          console.log(`🎞️ Encoding GIF with ${gifencDelay}ms delay (${(1000/gifencDelay).toFixed(1)}fps)`);
+          // Encode frames with per-frame timing
+          console.log(`🎞️ Encoding GIF with per-frame timing (${Math.min(...frameDelays)}ms to ${Math.max(...frameDelays)}ms delays)`);
           
           // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
             const frame = finalFrames[i];
             const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
             
-            // Use calculated delay based on original timing
-            const delayInMilliseconds = gifencDelay;
+            // Use per-frame delay calculated from KidLisp FPS timeline
+            const delayInMilliseconds = frameDelays[i] || defaultDelay;
             
             gif.writeFrame(index, frame.width, frame.height, {
               palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
-              delay: delayInMilliseconds, // Timing based on intended duration or fallback to 50fps
+              delay: delayInMilliseconds, // Per-frame timing based on KidLisp FPS changes
               repeat: i === 0 ? 0 : undefined, // Set infinite loop only on first frame
               transparent: false, // Disable transparency for smaller file size
               dispose: -1 // Use default dispose method for better compression
@@ -5703,7 +5744,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         let videoBitrate;
         let audioBitrate = 128000; // 128 kbps - good quality audio
         
-        if (estimatedDuration <= 10) {
+        // Clean mode: Use highest quality settings regardless of duration
+        if (window.currentRecordingOptions?.cleanMode) {
+          videoBitrate = Math.round(50000000 * contentComplexity); // 50 Mbps base for clean mode
+          audioBitrate = 192000; // 192 kbps audio for clean mode
+          videoBitrate = Math.min(videoBitrate, 50000000); // Max 50 Mbps for clean mode
+          console.log(`🎬 🧹 Clean mode: Using high bitrate ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio`);
+        } else if (estimatedDuration <= 10) {
           // Short recordings (≤10s): High quality
           videoBitrate = Math.round(12000000 * contentComplexity); // 12 Mbps base
         } else if (estimatedDuration <= 30) {
@@ -5719,8 +5766,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
         
-        // Cap maximum bitrate to prevent extremely large files
-        videoBitrate = Math.min(videoBitrate, 15000000); // Max 15 Mbps (reduced)
+        // Cap maximum bitrate to prevent extremely large files (skip for clean mode)
+        if (!window.currentRecordingOptions?.cleanMode) {
+          videoBitrate = Math.min(videoBitrate, 15000000); // Max 15 Mbps (reduced)
+        }
         
         if (debug) console.log(`📊 Adaptive bitrate: ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio (duration: ${estimatedDuration.toFixed(1)}s)`);
 
@@ -7638,6 +7687,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         mystery: content.mystery || false, // Store mystery flag to hide command in filename
         frameMode: content.frameMode || false, // Store frame-based recording mode
         frameCount: content.frameCount || null, // Store target frame count
+        kidlispFps: content.kidlispFps || null, // Store KidLisp framerate from fps function
+        cleanMode: content.cleanMode || false, // Store clean mode flag (no overlays, no progress bar)
         showTezosStamp: content.showTezosStamp || false // Store Tezos stamp visibility
       };
       actualContent = content.type || "video";
@@ -7648,7 +7699,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         pieceParams: "",
         originalCommand: "",
         intendedDuration: null,
-        mystery: false
+        mystery: false,
+        cleanMode: false, // Default to false for legacy recordings
+        kidlispFps: null // Initialize for KidLisp framerate updates
       };
       actualContent = content;
     }
@@ -7793,6 +7846,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           mediaRecorderStartTime = performance.now();
           // Initialize recording start timestamp for frame recording
           window.recordingStartTimestamp = Date.now();
+          
+          // Clear KidLisp FPS timeline for new recording
+          window.kidlispFpsTimeline = [];
+          console.log("🎬 Cleared KidLisp FPS timeline for new recording");
           
           console.log(`🎬 🔴 Recording STARTED at ${mediaRecorderStartTime}, frame capture enabled, recordedFrames: ${recordedFrames.length}`);
           
@@ -8872,54 +8929,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             sctx.save(); // Save the current state of the canvas
 
-            // Calculate stamp visibility for timestamp fade coordination
-            let bothStampsInvisible = false;
-            const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
-            
-            if (isFrameBasedRecording) {
-              // For frame-based recordings longer than 60 frames: use alternating side timing logic
-              const frameCount = window.currentRecordingOptions?.frameCount || 0;
+            // Skip all stamp rendering in clean mode but still do frame processing
+            if (!window.currentRecordingOptions?.cleanMode) {
+              // Calculate stamp visibility for timestamp fade coordination
+              let bothStampsInvisible = false;
+              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
               
-              if (frameCount > 60 && frameIndex !== null) {
+              if (isFrameBasedRecording) {
+                // For frame-based recordings longer than 60 frames: use alternating side timing logic
+                const frameCount = window.currentRecordingOptions?.frameCount || 0;
+                
+                if (frameCount > 60 && frameIndex !== null) {
+                  const cyclesPerGif = 2;
+                  const frameProgress = frameIndex / frameCount;
+                  const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+                  
+                  // Check if we're in the "both off" phases (0-20% and 40-60%)
+                  if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+                    bothStampsInvisible = true;
+                  }
+                }
+              } else {
+                // Time-based recordings
                 const cyclesPerGif = 2;
-                const frameProgress = frameIndex / frameCount;
-                const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+                const cyclePosition = (progress * cyclesPerGif) % 1.0;
                 
                 // Check if we're in the "both off" phases (0-20% and 40-60%)
                 if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
                   bothStampsInvisible = true;
                 }
               }
-            } else {
-              // Time-based recordings
-              const cyclesPerGif = 2;
-              const cyclePosition = (progress * cyclesPerGif) % 1.0;
+
+              // Add film camera style timestamp at bottom-left corner
+              addFilmTimestamp(
+                sctx,
+                sctx.canvas.width,
+                sctx.canvas.height,
+                typeSize,
+                progress, // Pass progress to the timestamp function
+                null, // frameData
+                null, // frameMetadata  
+                frameIndex, // frameIndex
+                null, // totalFrames
+                bothStampsInvisible, // bothStampsInvisible
+              );
+
+              // Removed Tezos watermark from top right - now positioned with timestamp
               
-              // Check if we're in the "both off" phases (0-20% and 40-60%)
-              if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
-                bothStampsInvisible = true;
-              }
-            }
-
-            // Add film camera style timestamp at bottom-left corner
-            addFilmTimestamp(
-              sctx,
-              sctx.canvas.width,
-              sctx.canvas.height,
-              typeSize,
-              progress, // Pass progress to the timestamp function
-              null, // frameData
-              null, // frameMetadata  
-              frameIndex, // frameIndex
-              null, // totalFrames
-              bothStampsInvisible, // bothStampsInvisible
-            );
-
-            // Removed Tezos watermark from top right - now positioned with timestamp
-            
-            // Add Tezos watermark to top-right if enabled (but not when right stamp is showing)
-            if (window.currentRecordingOptions?.showTezosStamp) {
-              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              // Add Tezos watermark to top-right if enabled (but not when right stamp is showing)
+              if (window.currentRecordingOptions?.showTezosStamp) {
+                const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
               
               // Use the SAME visibility logic as the actual stamps to avoid conflicts
               let showRightStamp = false;
@@ -8982,6 +9041,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             drawTextAtPosition(0, 90); // Left side stamp (rotated 90 degrees)
             drawTextAtPosition(sctx.canvas.width, -90); // Right side stamp (rotated -90 degrees)
+            
+            } else {
+              console.log("🎬 🧹 Skipping all stamp rendering in clean mode");
+            }
 
             sctx.restore();
             sctx.globalAlpha = 1;
@@ -10083,11 +10146,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     function buildOverlay(name, o) {
+      // Skip ALL overlays in clean mode (no stamps, no progress bars, no labels)
+      if (window.currentRecordingOptions?.cleanMode) {
+        return;
+      }
+      
       // Only log reframe operations to debug flicker
       const isHudOverlay = name === "label" || name === "qrOverlay";
 
       // Apply breathing pattern to tapeProgressBar - hide it when both stamps are off
       if (name === "tapeProgressBar" && window.currentTapeProgress !== undefined) {
+        // Skip tape progress bar in clean mode
+        if (window.currentRecordingOptions?.cleanMode) {
+          console.log("🎬 📼 Skipping tape progress bar in clean mode");
+          return;
+        }
+        
         const progress = window.currentTapeProgress;
         const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
         const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
