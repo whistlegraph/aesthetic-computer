@@ -214,6 +214,9 @@ const ZZZWAP_KIDLISP_SOURCES = {
   BUFFERING: `(fade:orange-yellow-orange) (ink stateColor (+ 80 (* amp 120))) (ink stateColor (+ 30 (* (random) 80))) (flood (/ width 2) (/ height 2)) (ink stateColor 200) (circle (/ width 2) (/ height 2) (+ 8 (* amp 15))) (box (- (/ width 2) 10) (- (/ height 2) 10) 20 20) (spin (0.8s... -3.0 3.0)) (zoom (2s... 1.0 1.5)) (contrast 1.4) (ink stateColor (+ 120 (* amp 100))) (repeat 128 point) (scroll (? 0 0 2 -2) (? 0 0 2 -2))`
 };
 
+// Blank KidLisp for tape mode before audio starts
+const DEFAULT_BLANK_KIDLISP = `black`;
+
 // FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
 function getPaletteForLocator(locatorName) {
   if (!locatorName) return ZZZWAP_PALETTES.START;
@@ -247,12 +250,76 @@ function getPaletteForLocator(locatorName) {
 }
 
 // FUNCTION TO GET KIDLISP SOURCE FOR CURRENT LOCATOR
-function getKidlispSourceForLocator(locatorName, isPlaying = false, audioInitializing = false) {
+function getKidlispSourceForLocator(locatorName, isPlaying = false, audioInitializing = false, inTapeMode = false) {
+  // Debug logging for tape mode issues
+  if (inTapeMode) {
+    console.log(`🎬 KIDLISP_TAPE_MODE: Skipping loading states, using content directly. locator=${locatorName}, isPlaying=${isPlaying}, audioInitializing=${audioInitializing}`);
+  }
+
+  // In tape mode, skip all loading/waiting states and go straight to playing content
+  // This prevents any play button or loading states from appearing during recording
+  if (inTapeMode) {
+    // Show black screen until audio actually starts playing
+    if (!isPlaying) {
+      console.log(`🎬 KIDLISP_TAPE_MODE: Showing black screen until audio starts`);
+      return DEFAULT_BLANK_KIDLISP;
+    }
+    
+    // Once audio is playing, use normal locator content
+    console.log(`🎬 KIDLISP_TAPE_MODE: Audio playing, using timeline content`);
+    
+    // If we have a locator, use it; otherwise use START
+    if (!locatorName) return ZZZWAP_KIDLISP_SOURCES.START;
+    
+    const name = locatorName.toUpperCase();
+    
+    // Handle section changes to reset/increment counters
+    if (locatorName !== previousLocatorName) {
+      // If we're entering a new PAUSE section, increment the counter
+      if (name.includes('PAUSE') && (!previousLocatorName || !previousLocatorName.toUpperCase().includes('PAUSE'))) {
+        pauseCounter++;
+      }
+      // Reset pause counter if we're no longer in a PAUSE section
+      if (!name.includes('PAUSE') && previousLocatorName && previousLocatorName.toUpperCase().includes('PAUSE')) {
+        pauseCounter = 0;
+      }
+      previousLocatorName = locatorName;
+    }
+    
+    // Return appropriate content for the locator
+    if (name.includes('PAUSE')) {
+      // Cycle through different PAUSE sources based on counter
+      const pauseSources = [
+        ZZZWAP_KIDLISP_SOURCES.PAUSE_1,
+        ZZZWAP_KIDLISP_SOURCES.PAUSE_2,
+        ZZZWAP_KIDLISP_SOURCES.PAUSE_3
+      ];
+      return pauseSources[pauseCounter % pauseSources.length];
+    }
+    
+    if (name.includes('ACT_I')) return ZZZWAP_KIDLISP_SOURCES.ACT_I;
+    if (name.includes('ACT_II')) return ZZZWAP_KIDLISP_SOURCES.ACT_II;
+    if (name.includes('ACT_III')) return ZZZWAP_KIDLISP_SOURCES.ACT_III;
+    if (name.includes('INTERMISSION')) return ZZZWAP_KIDLISP_SOURCES.INTERMISSION;
+    if (name.includes('END')) return ZZZWAP_KIDLISP_SOURCES.END;
+    if (name.includes('START')) return ZZZWAP_KIDLISP_SOURCES.START;
+    
+    // Default fallback for tape mode
+    return ZZZWAP_KIDLISP_SOURCES.START;
+  }
+
+  // Normal (non-tape) mode behavior
   // If audio is initializing, always use BUFFERING
-  if (audioInitializing) return ZZZWAP_KIDLISP_SOURCES.BUFFERING;
+  if (audioInitializing) {
+    console.log(`🎬 KIDLISP_NORMAL_MODE: Using BUFFERING (audioInitializing=${audioInitializing})`);
+    return ZZZWAP_KIDLISP_SOURCES.BUFFERING;
+  }
   
-  // If not playing, always use BEFORE_START
-  if (!isPlaying) return ZZZWAP_KIDLISP_SOURCES.BEFORE_START;
+  // If not playing, use BEFORE_START
+  if (!isPlaying) {
+    console.log(`🎬 KIDLISP_NORMAL_MODE: Using BEFORE_START (isPlaying=${isPlaying}, inTapeMode=${inTapeMode})`);
+    return ZZZWAP_KIDLISP_SOURCES.BEFORE_START;
+  }
   
   if (!locatorName) return ZZZWAP_KIDLISP_SOURCES.START;
   
@@ -1343,7 +1410,28 @@ let tvBarsBuffer = null;
 let lastScreenWidth = 0;
 let lastScreenHeight = 0;
 
-function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape, kidlisp, flood }) {
+function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape, kidlisp, flood, api }) {
+  // Basic debug to confirm piece is running
+  if (paintCount === 1) {
+    console.log(`🎬 WIPPPPS_PIECE_LOADED: Paint function started for wipppps piece`);
+  }
+
+  // Check for tape recording mode early for KidLisp source selection
+  // Use direct API access for immediate detection without frame delay
+  const directRecordingState = api?.rec?.recording === true;
+  const inTapeMode = directRecordingState || isCurrentlyRecording || tapeAutoPlayStarted;
+
+  // Debug logging for tape mode detection (only log occasionally to avoid spam)
+  if (paintCount % 60 === 0) { // Log every ~1 second at 60fps
+    console.log(`🎬 TAPE_MODE_DEBUG: inTapeMode=${inTapeMode}, directRecordingState=${directRecordingState}, isCurrentlyRecording=${isCurrentlyRecording}, tapeAutoPlayStarted=${tapeAutoPlayStarted}`);
+  }
+
+  // In tape mode before audio starts, show completely black screen
+  if (inTapeMode && !isPlaying) {
+    wipe(0, 0, 0, 255); // Complete black screen
+    return; // Skip all other rendering
+  }
+
   // Initialize or recreate TV bars buffer if needed (first time or screen size changed)
   if (!tvBarsBuffer || screen.width !== lastScreenWidth || screen.height !== lastScreenHeight) {
     // TV bars buffer is now 24px shorter to fit under KidLisp
@@ -1477,7 +1565,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       const audioProgress = currentAudioProgress;
       const progressDrift = Math.abs(manualProgress - audioProgress);
       
-      console.log(`🎵 SYNC_COMPARISON: manual=${manualProgress.toFixed(6)}, audio=${audioProgress.toFixed(6)}, drift=${progressDrift.toFixed(6)}, using=${progress === audioProgress ? 'audio' : 'manual'}`);
+      // console.log(`🎵 SYNC_COMPARISON: manual=${manualProgress.toFixed(6)}, audio=${audioProgress.toFixed(6)}, drift=${progressDrift.toFixed(6)}, using=${progress === audioProgress ? 'audio' : 'manual'}`);
     }
   }
   
@@ -1490,26 +1578,26 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
     // 🎵 ENHANCED TIMELINE SYNC LOGGING - Audio-driven timeline
     if (paintCount % 300 === 0 && currentTimeSeconds > 0) { // Every ~5 seconds at 60fps
-      console.log(`🎵 TIMELINE_SYNC: progress=${progress.toFixed(6)}, timeSeconds=${currentTimeSeconds.toFixed(3)}, duration=${actualDuration?.toFixed(2)}s`);
+      // console.log(`🎵 TIMELINE_SYNC: progress=${progress.toFixed(6)}, timeSeconds=${currentTimeSeconds.toFixed(3)}, duration=${actualDuration?.toFixed(2)}s`);
       
       if (currentAudioProgress !== null) {
         const audioTime = currentAudioProgress * actualDuration;
         const visualTime = progress * actualDuration;
         const timeDrift = Math.abs(visualTime - audioTime);
-        console.log(`🎵 AUDIO_SYNC: audioProgress=${currentAudioProgress.toFixed(6)}, audioTime=${audioTime.toFixed(3)}s, visualTime=${visualTime.toFixed(3)}s, drift=${timeDrift.toFixed(3)}s`);
+        // console.log(`🎵 AUDIO_SYNC: audioProgress=${currentAudioProgress.toFixed(6)}, audioTime=${audioTime.toFixed(3)}s, visualTime=${visualTime.toFixed(3)}s, drift=${timeDrift.toFixed(3)}s`);
         
         // Alert on significant drift (should be minimal now)
         if (timeDrift > 0.1) { // 100ms drift threshold  
           console.warn(`🎵 SYNC_DRIFT_ALERT: Unexpected drift! Visual=${visualTime.toFixed(3)}s, Audio=${audioTime.toFixed(3)}s, Drift=${timeDrift.toFixed(3)}s`);
         } else {
-          console.log(`🎵 SYNC_STATUS: ✅ Audio and visuals in sync (${timeDrift.toFixed(3)}s drift)`);
+          // console.log(`🎵 SYNC_STATUS: ✅ Audio and visuals in sync (${timeDrift.toFixed(3)}s drift)`);
         }
       }
       
       // Log current locator for context
       const locatorInfo = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
       if (locatorInfo.current) {
-        console.log(`🎵 LOCATOR_SYNC: current="${locatorInfo.current.name}", expected=${locatorInfo.current.seconds.toFixed(3)}s, actual=${currentTimeSeconds.toFixed(3)}s`);
+        // console.log(`🎵 LOCATOR_SYNC: current="${locatorInfo.current.name}", expected=${locatorInfo.current.seconds.toFixed(3)}s, actual=${currentTimeSeconds.toFixed(3)}s`);
       }
     }
   } else if (pausedAt > 0 && actualDuration) {
@@ -1517,7 +1605,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     currentTimeSeconds = pausedAt * actualDuration;
     // Log pause state occasionally
     if (paintCount % 600 === 0) { // Every ~10 seconds when paused
-      console.log(`🎵 PAUSED_STATE: pausedAt=${pausedAt.toFixed(6)}, timeSeconds=${currentTimeSeconds.toFixed(3)}s`);
+      // console.log(`🎵 PAUSED_STATE: pausedAt=${pausedAt.toFixed(6)}, timeSeconds=${currentTimeSeconds.toFixed(3)}s`);
     }
   } else {
     currentTimeSeconds = 0;
@@ -1962,7 +2050,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     const currentPalette = getPaletteForLocator(currentLocator?.name);
     
     // Get the pre-defined KidLisp source for this locator
-    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying, audioInitializing);
+    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying, audioInitializing, inTapeMode);
     
     // Add defensive checks to prevent errors
     if (!kidlispCode) {
@@ -2339,7 +2427,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // 🎵 TIMELINE RENDER LOGGING - Track when timeline is drawn and its sync status
     if (paintCount % 600 === 0) { // Every ~10 seconds at 60fps
       const locatorInfo = alsProject?.getCurrentLocator(currentTimeSeconds, actualDuration);
-      console.log(`🎵 TIMELINE_RENDER: visible=true, playing=true, currentTime=${currentTimeSeconds.toFixed(3)}s, locator="${locatorInfo?.current?.name || 'none'}"`);
+      // console.log(`🎵 TIMELINE_RENDER: visible=true, playing=true, currentTime=${currentTimeSeconds.toFixed(3)}s, locator="${locatorInfo?.current?.name || 'none'}"`);
       
       if (currentAudioProgress !== null) {
         const audioTime = currentAudioProgress * actualDuration;
@@ -2608,7 +2696,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // Show play button overlay when not playing (but not when audio is starting) OR when explicitly shown during playback
   // Also show during initialization for visual feedback
   // BUT: Don't show overlay when recording (tape mode) - just show black
-  const showOverlay = (!isCurrentlyRecording) && ((!isPlaying && !audioStarting) || (isPlaying && pauseOverlayVisible) || audioInitializing);
+  // Check for any indication that we're in tape recording mode
+  const showOverlay = (!inTapeMode) && ((!isPlaying && !audioStarting) || (isPlaying && pauseOverlayVisible) || audioInitializing);
   
   if (showOverlay) {
     const overlayTime = performance.now();
@@ -2669,7 +2758,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   // === PROGRESS BAR AND TRACK INFO ===
   // Progress bar at the bottom - drawn AFTER all other overlays to appear on top
-  if (progress !== undefined && actualDuration) {
+  // BUT: Hide progress bar during tape recording mode
+  if (progress !== undefined && actualDuration && !inTapeMode) {
     const barHeight = 2; // 2px tall progress bar (thinner)
     const barY = screen.height - barHeight;
 
@@ -2739,8 +2829,17 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
 } // Close paint function
 
 async function act({ event: e, sound, api }) {
-  // Track recording state for paint function
-  isCurrentlyRecording = api?.rec?.recording || api?.rec?.loadCallback !== null;
+  // Track recording state for paint function - only use api.rec.recording for actual recording
+  const prevIsCurrentlyRecording = isCurrentlyRecording;
+  isCurrentlyRecording = api?.rec?.recording === true;
+  
+  // Debug the actual API values
+  console.log(`🎬 ACT_DEBUG: api.rec.recording=${api?.rec?.recording}, api.rec.loadCallback=${api?.rec?.loadCallback}, isCurrentlyRecording=${isCurrentlyRecording}`);
+  
+  // Debug logging when recording state changes
+  if (isCurrentlyRecording !== prevIsCurrentlyRecording) {
+    console.log(`🎬 RECORDING_STATE_CHANGED: isCurrentlyRecording=${isCurrentlyRecording} (was ${prevIsCurrentlyRecording}), api.rec.recording=${api?.rec?.recording}, api.rec.loadCallback=${api?.rec?.loadCallback !== null ? 'set' : 'null'}`);
+  }
   
   // Reset auto-play flag when not recording to allow it to work again next time
   if (!api?.rec?.recording && !api?.rec?.loadCallback) {
@@ -2755,8 +2854,47 @@ async function act({ event: e, sound, api }) {
     console.log("🎵 TAPE_MODE: Auto-starting playback for tape mode (detected via api.rec.recording)");
     tapeAutoPlayStarted = true; // Prevent multiple auto-starts
     
-    // Simulate a touch event to trigger the existing audio playback logic
-    // This ensures we use the same robust playback system that handles all edge cases
+    // Force audio context to running state for tape mode
+    try {
+      if (sound.bios && sound.bios.audioContext) {
+        console.log(`🎵 TAPE_MODE: Audio context state: ${sound.bios.audioContext.state}`);
+        if (sound.bios.audioContext.state === 'suspended') {
+          console.log("🎵 TAPE_MODE: Resuming suspended audio context");
+          sound.bios.audioContext.resume();
+        } else if (sound.bios.audioContext.state === 'running') {
+          console.log("🎵 TAPE_MODE: Audio context already running - good for autoplay");
+        }
+      }
+    } catch (error) {
+      console.log("🎵 TAPE_MODE: Could not check audio context:", error);
+    }
+    
+    // Try to start audio directly without synthetic events first
+    try {
+      if (preloadedAudio && typeof preloadedAudio.play === 'function') {
+        console.log("🎵 TAPE_MODE: Attempting direct audio play");
+        const playPromise = preloadedAudio.play();
+        if (playPromise && playPromise.then) {
+          playPromise.then(() => {
+            console.log("🎵 TAPE_MODE: Direct audio play succeeded");
+            // Set audio state variables to reflect that it's playing
+            isPlaying = true;
+            audioStarting = false;
+            startAudioStartDetection();
+          }).catch(err => {
+            console.log("🎵 TAPE_MODE: Direct audio play failed, trying synthetic event:", err);
+            // Fallback to synthetic event
+            const syntheticTouchEvent = { is: (type) => type === "touch" };
+            return act({ event: syntheticTouchEvent, sound, api });
+          });
+        }
+        return; // Exit early if we tried direct play
+      }
+    } catch (error) {
+      console.log("🎵 TAPE_MODE: Direct play error:", error);
+    }
+    
+    // Fallback: use synthetic touch event
     const syntheticTouchEvent = {
       is: (type) => type === "touch"
     };
@@ -2790,11 +2928,11 @@ async function act({ event: e, sound, api }) {
   
   // Handle play/pause/resume
   if (e.is("touch") && preloadedAudio) {
-    console.log(`🎵 TOUCH_EVENT: isPlaying=${isPlaying}, audioStarting=${audioStarting}, playingSfx=${!!playingSfx}, killed=${playingSfx?.killed}`);
+    // console.log(`🎵 TOUCH_EVENT: isPlaying=${isPlaying}, audioStarting=${audioStarting}, playingSfx=${!!playingSfx}, killed=${playingSfx?.killed}`);
     
     if (isPlaying && playingSfx && !playingSfx.killed) {
       // Currently playing - pause the track
-      console.log("🎵 PAUSING_PLAYBACK: Touch detected while playing, pausing audio");
+      // console.log("🎵 PAUSING_PLAYBACK: Touch detected while playing, pausing audio");
       
       if (actualDuration) {
         // Use the visual progress that we've been maintaining, not the potentially wrong audio progress

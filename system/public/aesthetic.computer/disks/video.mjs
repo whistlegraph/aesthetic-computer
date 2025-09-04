@@ -51,6 +51,15 @@ let exportStatusMessage = ""; // Detailed status message
 let printProgress = 0; // Export progress (0-1)
 let ellipsisTicker;
 
+// Enhanced progress tracking
+let exportStartTime = 0; // When export started
+let progressHistory = []; // Track progress over time for ETA calculation
+let currentStatusAlert = null; // Track current status alert for updates
+
+// Completion message display
+let completionMessage = ""; // Message to show when export completes
+let completionMessageTimer = 0; // Timer for how long to show completion message
+
 // Progress bar mode configuration
 // true = Use native extended progress bar (old mode)
 // false = Use baked-in VHS progress bar (new tape-style mode with disk.mjs rendering)
@@ -213,6 +222,17 @@ function paint({
           text = "FINALIZING GIF";
           phaseProgress = (printProgress - 0.9) / 0.1;
         }
+      } else if (currentExportType === "frames") {
+        if (printProgress < 0.5) {
+          text = "PROCESSING FRAMES";
+          phaseProgress = printProgress / 0.5;
+        } else if (printProgress < 0.9) {
+          text = "CREATING ZIP";
+          phaseProgress = (printProgress - 0.5) / 0.4;
+        } else {
+          text = "FINALIZING ZIP";
+          phaseProgress = (printProgress - 0.9) / 0.1;
+        }
       // Hidden export types - keeping for future use
       /*
       } else if (currentExportType === "webp") {
@@ -221,8 +241,6 @@ function paint({
         } else {
           text = "CREATING ZIP";
         }
-      } else if (currentExportType === "frames") {
-        text = "EXPORTING FRAMES";
       } else if (currentExportType === "animwebp") {
         text = "CREATING ANIMATED WEBP";
       } else if (currentExportType === "apng") {
@@ -254,6 +272,26 @@ function paint({
         barWidth = screen.width;
       }
 
+      // Calculate ETA if we have progress history
+      let etaText = "";
+      if (progressHistory.length > 1 && printProgress > 0.05) {
+        const now = performance.now();
+        const elapsed = (now - exportStartTime) / 1000; // seconds
+        const remainingProgress = 1 - printProgress;
+        const progressRate = printProgress / elapsed; // progress per second
+        
+        if (progressRate > 0) {
+          const eta = Math.ceil(remainingProgress / progressRate);
+          if (eta < 60) {
+            etaText = ` • ${eta}s remaining`;
+          } else {
+            const minutes = Math.floor(eta / 60);
+            const seconds = eta % 60;
+            etaText = ` • ${minutes}m ${seconds}s remaining`;
+          }
+        }
+      }
+
       // Draw main progress bar (overall progress)
       wipe(0, 0, 80, 180)
         .ink(0)
@@ -273,6 +311,8 @@ function paint({
         .write(`${percentage}%`, { x: 8, y: screen.height / 2 - h / 2 + 4 });
         
       // Draw status text centered
+      ink(255)
+        .write(text + etaText, { center: "x", y: screen.height / 2 - h / 2 - 8 });
       ink(255, 200)
         .write(text, { center: "xy" });
     } else {
@@ -325,6 +365,27 @@ function paint({
     // clearBtn.paint(api);
   } else if (paintCount > 16n) {
     wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
+  }
+  
+  // Show completion message if active
+  if (completionMessage && completionMessageTimer > 0) {
+    // Create a box for the completion message
+    const msgWidth = completionMessage.length * 6 + 20; // Approximate text width
+    const msgHeight = 24;
+    const x = (screen.width - msgWidth) / 2;
+    const y = screen.height / 2 - 60; // Above center
+    
+    // Background box with slight transparency
+    ink(0, 200).box(x - 5, y - 5, msgWidth + 10, msgHeight + 10);
+    ink(0, 150).box(x, y, msgWidth, msgHeight, "outline");
+    
+    // Success message text
+    ink(0, 255, 0).write(completionMessage, { center: "x", y: y + 8 });
+    
+    completionMessageTimer--;
+    if (completionMessageTimer <= 0) {
+      completionMessage = "";
+    }
   }
 }
 
@@ -966,12 +1027,16 @@ function signal(content) {
 function handleSystemMessage({ event: e, rec }) {
   // Handle detailed export status messages
   if (e.is("recorder:export-status")) {
-    if (e.message) {
-      exportStatusMessage = e.message;
+    console.log("🎯 Video piece received status:", e.content);
+    
+    if (e.content?.message) {
+      exportStatusMessage = e.content.message;
     }
-    if (e.phase) {
-      currentExportPhase = e.phase;
+    
+    if (e.content?.phase) {
+      currentExportPhase = e.content.phase;
     }
+    
     return true;
   }
 
@@ -1004,16 +1069,20 @@ function handleSystemMessage({ event: e, rec }) {
         (e.is("recorder:transcode-progress") && (isPrinting || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames));
         
       if (isValidExport) {
+        const oldProgress = printProgress;
         printProgress = progress;
         
-        // Don't update tape progress during exports - it's only for live recording
-        // The export progress is for the UI progress bar, not the burned-in recording progress bar
-        // if (!useExtendedProgressBar) {
-        //   // Feed export progress into the tape progress system for overlay display
-        //   rec.tapeProgress = progress;
-        // }
+        // Track progress history for ETA calculation
+        const now = performance.now();
+        if (exportStartTime === 0) {
+          exportStartTime = now;
+        }
         
-        // Don't call needsPaint here as it's handled by the main paint loop
+        progressHistory.push({ time: now, progress: progress });
+        // Keep only recent history (last 10 seconds)
+        progressHistory = progressHistory.filter(h => now - h.time < 10000);
+        
+        console.log(`📊 Export progress: ${Math.floor(progress * 100)}% (${exportType}) - ${exportStatusMessage}`);
       }
     }
     return true;
@@ -1040,6 +1109,12 @@ function handleSystemMessage({ event: e, rec }) {
     });
       
     if (isValidExportComplete) {
+      console.log(`✅ ${exportType?.toUpperCase() || "Export"} completed successfully!`, e.content?.filename || "");
+      
+      // Set completion message to show briefly
+      completionMessage = `${exportType?.toUpperCase() || "EXPORT"} COMPLETED!`;
+      completionMessageTimer = 180; // Show for 3 seconds at 60fps
+      
       // Reset UI flags when export actually completes
       isPrinting = false;
       isExportingGIF = false;
@@ -1050,6 +1125,10 @@ function handleSystemMessage({ event: e, rec }) {
       currentExportType = "";
       currentExportPhase = "";
       exportStatusMessage = "";
+      
+      // Reset progress tracking
+      exportStartTime = 0;
+      progressHistory = [];
       
       // Re-enable all buttons
       if (gifBtn) gifBtn.disabled = false;
