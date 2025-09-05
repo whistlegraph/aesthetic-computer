@@ -97,6 +97,12 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    
    ## Advanced Features
    
+   ### Navigation
+   - `(jump "piece-name")` - Jump to another Aesthetic Computer piece
+   - `(jump "https://example.com")` - Jump to external URL
+   - `(jump $abc123)` - Jump to cached KidLisp piece by ID
+   - Automatically resets KidLisp state and loads the new piece
+   
    ### One-time Execution
    - `(once expression)` - Execute only once, not every frame
    - Useful for setup code: `(once (wipe "black"))`
@@ -160,6 +166,19 @@ import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
    1s (ink "red") (circle 100 100 50)
    2s (ink "blue") (box 150 150 40 40)
    3s... (ink (wiggle 255) (wiggle 255) (wiggle 255)) (plot (wiggle width) (wiggle height))
+   ```
+   
+   ### Navigation & Jumps
+   ```kidlisp
+   (wipe "black")
+   (ink "white")
+   (write "Click to jump!" { center: "xy" })
+   
+   ; Jump to another piece after 3 seconds
+   3s (jump "prompt")
+   
+   ; Or jump to a cached KidLisp piece
+   ; 5s (jump $abc123)
    ```
    
    ## Best Practices for LLM Generation
@@ -718,6 +737,7 @@ class KidLisp {
       "mic",
       "paste",
       "stamp",
+      "jump",
     ]); // Common functions for fast path
     // Reduce map allocations - reuse simple objects
     this.reusableTimingKey = ""; // Reuse string for timing keys  
@@ -781,6 +801,8 @@ class KidLisp {
   // 🎯 Set API context for this KidLisp instance
   setAPI(api) {
     this.api = api;
+    // Clear embedded API cache to force refresh with new system references
+    this.embeddedApiCache.clear();
     // console.log("🎯 KidLisp API context updated");
   }
 
@@ -1882,7 +1904,7 @@ class KidLisp {
           
           const mainEvalStart = performance.now();
           // console.log("🔍 About to evaluate AST for embedded KidLisp");
-          /*const evaluated = */ this.evaluate(this.ast, $);
+          /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
           // console.log("✅ Finished evaluating AST for embedded KidLisp");
           const mainEvalTime = performance.now() - mainEvalStart;
           
@@ -3404,6 +3426,12 @@ class KidLisp {
         api.putback(...args);
       },
       // 🖼️ Image pasting and stamping
+      // Shorthand for pasting the current user's painting
+      painting: (api, args = []) => {
+        // painting x y is equivalent to paste painting x y
+        const processedArgs = [api.system?.painting, ...args];
+        api.paste(...processedArgs);
+      },
       paste: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
         // Special handling for first argument - support unquoted URLs
@@ -4705,6 +4733,67 @@ class KidLisp {
         // Return the placeholder layer immediately for non-blocking render
         return placeholderLayer;
       },
+      
+      // 🚀 Navigation function - jump to another piece
+      jump: (api, args = [], env) => {
+        if (args.length === 0) {
+          console.warn("❗ jump function requires a destination argument");
+          return;
+        }
+        
+        // Special handling for $code arguments - don't evaluate them, use as strings
+        let destination = args[0];
+        
+        // If it's a $code token (string starting with $), use it directly
+        if (typeof destination === "string" && destination.startsWith("$")) {
+          // Keep the $code as-is for the jump
+          destination = destination;
+        } else if (typeof destination === "string") {
+          // Regular string argument, remove quotes if present
+          destination = unquoteString(destination);
+        } else {
+          // For other types, evaluate them first
+          destination = this.evaluate(destination, api, env);
+          
+          // Handle the result of evaluation
+          if (typeof destination === "object" && destination !== null) {
+            // If it's an object (like from $code evaluation), convert to string
+            if (destination.toString && typeof destination.toString === "function") {
+              destination = destination.toString();
+            } else {
+              console.warn("❗ Invalid jump destination type:", typeof destination);
+              return;
+            }
+          } else {
+            // Convert other types to string
+            destination = String(destination);
+          }
+        }
+        
+        // 🚀 Optimization: Check cache for $code destinations
+        if (typeof destination === "string" && destination.startsWith("$")) {
+          const cacheId = destination.slice(1); // Remove $ prefix
+          
+          // Check if we have the code cached locally
+          if (globalCodeCache.has(cacheId)) {
+            console.log(`🚀 KidLisp fast-jumping to cached code: ${destination} (no network request needed)`);
+          } else {
+            console.log(`🚀 KidLisp jumping to ${destination} (will check IndexedDB and network if needed)`);
+          }
+        }
+        
+        // Optional parameters for jump function
+        const ahistorical = args.length > 1 ? args[1] : false;
+        const alias = args.length > 2 ? args[2] : false;
+        
+        // Call the underlying jump API function
+        if (api.jump) {
+          console.log("🚀 KidLisp jumping to:", destination);
+          api.jump(destination, ahistorical, alias);
+        } else {
+          console.warn("❗ Jump API function not available");
+        }
+      },
     };
 
     return this.globalEnvCache;
@@ -4933,13 +5022,14 @@ class KidLisp {
     return result;
   }
 
-  evaluate(parsed, api = {}, env, inArgs) {
+  evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
 
     // Reset zebra cache at the beginning of top-level evaluations (when env is not provided)
     if (!env) {
       resetZebraCache();
+      isTopLevel = true; // Mark as top-level when no env is provided
     }
 
     // -1 evaluation debug check removed for performance
@@ -5096,7 +5186,32 @@ class KidLisp {
 
     let result;
 
-    for (const item of body) {
+    // Process pending timing triggers (for repeating timers)
+    if (this.pendingTimingTriggers && this.pendingTimingTriggers.size > 0) {
+      const toTrigger = [];
+      const toKeep = new Map();
+      
+      for (const [timingKey, pending] of this.pendingTimingTriggers) {
+        pending.frameDelay--;
+        if (pending.frameDelay <= 0) {
+          // Trigger now
+          toTrigger.push(pending);
+        } else {
+          // Keep waiting
+          toKeep.set(timingKey, pending);
+        }
+      }
+      
+      this.pendingTimingTriggers = toKeep;
+      
+      // Trigger the pending timing expressions
+      for (const pending of toTrigger) {
+        this.markTimingTriggered(pending.head);
+      }
+    }
+
+    for (let bodyIndex = 0; bodyIndex < body.length; bodyIndex++) {
+      const item = body[bodyIndex];
       // console.log("🥡 Processing item:", JSON.stringify(item), "type:", Array.isArray(item) ? "array" : typeof item);
       /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
       
@@ -5175,6 +5290,14 @@ class KidLisp {
         } else if (typeof head === "string" && /^\d*\.?\d+s!?$/.test(head)) {
           // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
           // Also handle instant trigger modifier like "0.25s!", "1s!", "2s!"
+          
+          // 🚫 Only execute timing expressions at top-level, not when nested in function arguments
+          if (!isTopLevel) {
+            // When not at top-level, just return the timing expression as a string literal
+            result = head;
+            continue;
+          }
+          
           const hasInstantTrigger = head.endsWith("!");
           const timeString = hasInstantTrigger ? head.slice(0, -1) : head;
           const seconds = parseFloat(timeString.slice(0, -1)); // Remove 's' and parse as float
@@ -5231,16 +5354,25 @@ class KidLisp {
 
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-              // Execute immediately on first call (for both normal and instant trigger)
+              // Only execute immediately on first call if this is the first expression in the program
               this.lastSecondExecutions[timingKey] = currentTime;
 
-              this.markTimingTriggered(head); // Trigger blink
-              this.markDelayTimerActive(head); // Mark as active for display period
-              let timingResult;
-              for (const arg of args) {
-                timingResult = this.evaluate([arg], api, env);
+              if (bodyIndex === 0) {
+                // Mark timing as triggered for blink effect first
+                this.markTimingTriggered(head); // Trigger blink
+                this.markDelayTimerActive(head); // Mark as active for display period
+                
+                // Execute with a slight delay to let the blink show
+                setTimeout(() => {
+                  let timingResult;
+                  for (const arg of args) {
+                    timingResult = this.evaluate([arg], api, env, undefined, true);
+                  }
+                }, 50); // 50ms delay to let blink effect show
+                
+                // Return a placeholder result
+                result = "delayed-execution";
               }
-              result = timingResult;
             } else {
               // Normal timing logic for subsequent calls
               const lastExecution = this.lastSecondExecutions[timingKey];
@@ -5255,13 +5387,20 @@ class KidLisp {
               if (diff >= adjustedSeconds) {
                 this.lastSecondExecutions[timingKey] = currentTime;
 
+                // Mark timing as triggered for blink effect first
                 this.markTimingTriggered(head); // Trigger blink
                 this.markDelayTimerActive(head); // Mark as active for display period
-                let timingResult;
-                for (const arg of args) {
-                  timingResult = evaluateTimingArg(arg, api, env);
-                }
-                result = timingResult;
+                
+                // Execute with a slight delay to let the blink show
+                setTimeout(() => {
+                  let timingResult;
+                  for (const arg of args) {
+                    timingResult = evaluateTimingArg(arg, api, env);
+                  }
+                }, 50); // 50ms delay to let blink effect show
+                
+                // Return a placeholder result
+                result = "delayed-execution";
               }
             }
           }
@@ -5271,6 +5410,13 @@ class KidLisp {
           /^\d*\.?\d+s\.\.\.?$/.test(head)
         ) {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
+          
+          // 🚫 Only execute timing expressions at top-level, not when nested in function arguments
+          if (!isTopLevel) {
+            // When not at top-level, just return the timing expression as a string literal
+            result = head;
+            continue;
+          }
           
           const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
@@ -5283,7 +5429,7 @@ class KidLisp {
 
           // Initialize timing tracking if not set
           if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-            // Execute immediately on first call and initialize
+            // Initialize timing state
             this.lastSecondExecutions[timingKey] = currentTime;
             // Initialize sequence counter for this timed iteration
             if (!this.sequenceCounters) {
@@ -5291,8 +5437,17 @@ class KidLisp {
             }
             this.sequenceCounters.set(timingKey, 0);
             
-            // Mark as triggered for immediate execution
-            this.markTimingTriggered(head);
+            // Only mark as triggered for immediate execution if this is the first expression
+            if (bodyIndex === 0) {
+              // Schedule the blink trigger after a delay to let syntax highlighting show
+              if (!this.pendingTimingTriggers) {
+                this.pendingTimingTriggers = new Map();
+              }
+              this.pendingTimingTriggers.set(timingKey, {
+                frameDelay: 2, // Wait 2 frames before triggering
+                head: head
+              });
+            }
           }
 
           const lastExecution = this.lastSecondExecutions[timingKey];
@@ -5570,7 +5725,8 @@ class KidLisp {
                   head === "once" ||
                   head === "hop" ||
                   head === "delay" ||
-                  head === "trans"
+                  head === "trans" ||
+                  head === "jump"
                 ) {
                   processedArgs = args;
                 } else {
@@ -6646,7 +6802,7 @@ class KidLisp {
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"
     ];
     
     // Special case for "rainbow" - return special marker for rainbow coloring
@@ -6705,7 +6861,7 @@ class KidLisp {
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "bake"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "bake", "jump"
     ];
 
     return knownFunctions.includes(token) || (cssColors && cssColors[token]);
@@ -7783,7 +7939,14 @@ class KidLisp {
     // SIMPLIFIED: Don't use complex caching, just create a working API each time
     // Create a simple API that just passes through to the main API
     // This is much simpler than the complex wrapper system
+    const globalEnv = this.getGlobalEnv();
     const embeddedApi = {
+      // Include KidLisp functions from global environment
+      ...globalEnv,
+      
+      // Include system context for functions like 'painting'
+      system: api.system,
+      
       // Direct passthrough of most functions to main API
       line: (...args) => api.line(...args),
       ink: (...args) => api.ink(...args),
@@ -8089,6 +8252,7 @@ class KidLisp {
         embeddedApi = {
           ...globalEnv,
           ...api,
+          system: api.system, // Ensure system context is available in embedded layers
           screen: {
             ...api.screen,
             width: embeddedLayer.width,
@@ -8370,7 +8534,7 @@ function isKidlispSource(text) {
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
-      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat"
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat", "jump"
     ];
     
     // Split by commas and check if any part contains KidLisp functions or colors
