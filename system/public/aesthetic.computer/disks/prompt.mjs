@@ -296,6 +296,10 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
+  // 📝 Log the command that was entered
+  const tabId = $?.commonApi?._tabId || 'unknown';
+  console.log(`💬 COMMAND ENTERED: "${text}" (tab: ${tabId?.substr(0, 4)}...)`);
+  
   const {
     api,
     broadcast,
@@ -372,7 +376,7 @@ async function halt($, text) {
     slug === "tape:tt" ||
     slug === "tape:nomic" ||
     slug === "tape:mic" ||
-    slug === "tape:clean" ||
+    slug === "tape:neat" ||
     slug === "tapem"
   ) {
     console.log("🐛 TAPE COMMAND DETECTED:", slug, "params:", params);
@@ -400,7 +404,7 @@ async function halt($, text) {
       } else {
         nomic = true;
       }
-    } else if (slug === "tape:nomic" || slug === "tape:clean") {
+    } else if (slug === "tape:nomic" || slug === "tape:neat") {
       nomic = true;
     } else if (slug === "tape:mic" || slug === "tapem") {
       nomic = false;
@@ -452,7 +456,7 @@ async function halt($, text) {
             frameMode: frameMode,
             frameCount: frameMode ? (isNaN(duration) ? 8 : duration) : null,
             kidlispFps: kidlispFps, // Pass the KidLisp framerate
-            cleanMode: slug === "tape:clean", // Enable clean mode (no overlays, no progress bar)
+            cleanMode: slug === "tape:neat", // Enable clean mode (no overlays, no progress bar)
             // showTezosStamp: true, // Enable Tezos stamp by default for GIF recordings (DISABLED)
             showTezosStamp: false, // Tezos stamp disabled - set to true to re-enable
             mystery: false
@@ -1128,6 +1132,16 @@ async function halt($, text) {
       pixels: system.painting.pixels,
     }; // system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
+    
+    // 🎨 Broadcast painting flip/flop to other tabs
+    if (typeof $commonApi !== 'undefined' && $commonApi.broadcastPaintingUpdate) {
+      $commonApi.broadcastPaintingUpdate("updated", {
+        source: "transform",
+        operation: slug,
+        vertical: vertical
+      });
+    }
+    
     system.nopaint.addUndoPainting(system.painting, slug);
     flashColor = [0, 0, 255];
     makeFlash($);
@@ -1169,6 +1183,16 @@ async function halt($, text) {
       pixels: system.painting.pixels,
     }; // system.painting;
     store.persist("painting", "local:db"); // Also persist the painting.
+    
+    // 🎨 Broadcast painting rotation to other tabs
+    if (typeof $commonApi !== 'undefined' && $commonApi.broadcastPaintingUpdate) {
+      $commonApi.broadcastPaintingUpdate("updated", {
+        source: "rotate",
+        direction: slug,
+        angle: angle
+      });
+    }
+    
     system.nopaint.addUndoPainting(system.painting, slug);
     store["painting:resolution-lock"] = true; // Set resolution lock.
     store.persist("painting:resolution-lock", "local:db");
@@ -1189,12 +1213,7 @@ async function halt($, text) {
       flashColor = [255, 0, 0];
     } else {
       const result = nopaint_adjust(
-        {
-          screen,
-          system,
-          painting,
-          store,
-        },
+        api,
         { w, h, scale: true },
         fullText,
       );

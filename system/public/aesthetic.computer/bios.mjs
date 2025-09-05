@@ -4916,7 +4916,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // For GIF: calculate elapsed time based on the actual delay being used in encoding
             // This ensures timestamp matches the actual GIF playback speed
-            const gifElapsedSeconds = (index * gifencDelay) / 1000;
+            const gifElapsedSeconds = (index * frameDelay) / 1000;
             const gifFrameMetadata = {
               ...frame,
               gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
