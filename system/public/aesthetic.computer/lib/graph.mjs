@@ -570,10 +570,32 @@ function findColor() {
 
   if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
 
-  // Debug: Check for problematic color values
-  if (args.some(val => val === undefined || isNaN(val))) {
+  // Debug: Check for problematic color values and filter out timing expressions
+  if (args.some(val => val === undefined || isNaN(val) || (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
     console.log("WARNING: Invalid color values detected:", args);
-    args = [255, 0, 255, 255]; // Fallback to magenta for debugging
+    
+    // Filter out timing expressions that were incorrectly passed as color arguments
+    args = args.filter(val => !(typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)));
+    
+    // If we filtered out timing expressions, we might be short on arguments
+    while (args.length < 3) {
+      args.push(255); // Add default RGB values
+    }
+    if (args.length === 3) args.push(255); // Add alpha if missing
+    
+    // Clean up any remaining invalid values
+    args = args.map((val, i) => {
+      if (val === undefined || isNaN(val) || typeof val === 'string') {
+        return i === 3 ? 255 : randInt(255); // Alpha defaults to 255, RGB gets random
+      }
+      return val;
+    });
+    
+    // Ensure we have exactly 4 values
+    args = args.slice(0, 4);
+    while (args.length < 4) {
+      args.push(args.length === 3 ? 255 : randInt(255));
+    }
   }
 
   // Randomized any undefined or null values across all 4 arguments.

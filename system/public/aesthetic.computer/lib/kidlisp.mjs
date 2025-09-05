@@ -5411,12 +5411,7 @@ class KidLisp {
         ) {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
           
-          // 🚫 Only execute timing expressions at top-level, not when nested in function arguments
-          if (!isTopLevel) {
-            // When not at top-level, just return the timing expression as a string literal
-            result = head;
-            continue;
-          }
+          // ✅ Allow timing expressions to work both at top-level and as function arguments
           
           const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
