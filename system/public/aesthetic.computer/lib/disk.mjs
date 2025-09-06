@@ -3525,6 +3525,7 @@ const $paintApiUnwrapped = {
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
+  suck: graph.suck,
   blur: function(radius = 1) {
     // 🔧 FIX: Ensure blur operates on current buffer context
     // When called from within a painting() context, the graph module
