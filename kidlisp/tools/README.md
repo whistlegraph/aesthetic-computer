@@ -1,68 +1,43 @@
-# KidLisp Tools
+# 🔧 KidLisp Development Tools
 
-Tools for analyzing and debugging KidLisp pieces.
+This directory contains utilities for KidLisp development and analysis.
 
-## source-tree.fish
+## Available Tools
 
-Analyzes KidLisp pieces and displays their embedded layer tree structure along with performance characteristics.
+### `api-summary.mjs`
+**Dynamic API analysis tool** - Generates a complete function inventory
+```bash
+node tools/api-summary.mjs
+```
+- Lists all 118 KidLisp functions across 12 categories
+- Analyzes function distribution and prominence  
+- Provides API balance reporting
+- Useful for documentation and feature planning
 
-### Usage
-
-```fish
-./source-tree.fish <piece-name>
+### `get-source.mjs`
+**Source code extraction utility** - Retrieves KidLisp piece source code
+```bash
+node tools/get-source.mjs
 ```
 
-### Examples
-
-```fish
-# Analyze the $cow piece and its embedded layers
-./source-tree.fish cow
-
-# Analyze a specific embedded layer
-./source-tree.fish 39i
-
-# Works with or without $ prefix
-./source-tree.fish $r2f
+### `source-tree.mjs`  
+**Codebase analysis tool** - Analyzes project structure
+```bash
+node tools/source-tree.mjs
 ```
 
-### Features
+## Usage
 
-- **📁 Tree Structure**: Shows hierarchical structure of embedded layers
-- **📄 Source Preview**: Displays first few lines of each piece's source code
-- **🔍 Performance Analysis**: Identifies expensive operations (blur, zoom, contrast, etc.)
-- **⏱️ Animation Detection**: Detects timing expressions and animations
-- **🎲 Randomness Detection**: Identifies pieces using randomness (?)
-- **📊 Layer Count**: Shows how many layers a piece embeds
+All tools are designed to be run from the main `aesthetic-computer` directory:
+```bash
+cd /workspaces/aesthetic-computer
+node kidlisp/tools/api-summary.mjs
+```
 
-### Output Explanation
+## Development Notes
 
-- `📁` - Piece with embedded layers
-- `📄` - Simple piece (no embedded layers)
-- `⚠️` - Contains expensive operations that may impact performance
-- `✅` - Clean piece with no expensive operations
-- `⏱️` - Contains animations (timing expressions)
-- `🎲` - Uses randomness
-- `❌` - Piece not found
-
-### Performance Analysis
-
-The tool automatically detects these expensive operations:
-- **blur** - Gaussian blur effects
-- **zoom** - Scaling transformations
-- **contrast** - Contrast adjustments
-- **spin** - Rotation animations
-- **flood** - Flood fill operations
-
-Use this information to understand why certain pieces may have slower initial frames.
-
-### Requirements
-
-- fish shell
-- curl
-- Local dev server running (`npm run dev`)
-- Access to `https://localhost:8888/.netlify/functions/store-kidlisp`
-
-### Development
-
-To add new analysis features, modify the `analyze_performance_features` function.
-To improve parsing, update the `extract_embedded_pieces` function.
+These tools help maintain KidLisp by:
+- Tracking API completeness
+- Documenting function relationships
+- Analyzing implementation patterns
+- Supporting documentation generation

@@ -303,10 +303,11 @@ function nopaint_act({
 // or provide a custom resolution.
 // (Also used in `prompt`.)
 function nopaint_adjust(
-  { screen, system: sys, painting, store, dark, theme },
+  api,
   size = null,
   slug = "resize",
 ) {
+  const { screen, system: sys, painting, store, dark, theme } = api;
   if (!size && store["painting:resolution-lock"] === true) return;
 
   if (
@@ -390,6 +391,11 @@ function nopaint_adjust(
     store["painting:resolution-lock"] = true;
     store.persist("painting:resolution-lock", "local:db");
     store.persist("painting", "local:db"); // Also persist the painting.
+    
+    // 🪝 Frame-based monitoring will handle resize broadcast with storage completion hooks
+    // No direct broadcast needed - the frame monitoring system will detect dimension changes
+    // and use the proper storage completion sequence for cross-tab sync
+    
     sys.nopaint.resetTransform({ system: sys, screen }); // Reset transform.
     sys.nopaint.storeTransform(store, sys);
   }

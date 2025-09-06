@@ -237,6 +237,12 @@ const nopaint = {
 
       store.persist("painting", "local:db");
 
+      // 🎨 Broadcast painting update to other tabs
+      $commonApi.broadcastPaintingUpdate("updated", {
+        source: "leave",
+        slug: $.slug
+      });
+
       // And its transform.
       store["painting:transform"] = {
         translation: system.nopaint.translation,
@@ -365,6 +371,58 @@ let hudAnimationState = {
 };
 
 let module, loadedModule; // Currently loaded piece module code with an extra reference for `hotSwap`.
+
+// 🎨 Enhanced painting change detection with immediate pixel monitoring
+let lastPaintingHash = null;
+let paintingChangeCheckInterval = null;
+let frameBasedMonitoring = false;
+
+// Performance optimization: Use requestAnimationFrame for more efficient monitoring
+function enableFrameBasedMonitoring() {
+  if (frameBasedMonitoring) return;
+  frameBasedMonitoring = true;
+  
+  let lastDimensions = null;
+  
+  function checkPaintingChanges() {
+    if ($commonApi.system?.painting && !$commonApi._processingBroadcast) {
+      const currentHash = generatePaintingHash($commonApi.system.painting);
+      const currentDimensions = {
+        width: $commonApi.system.painting.width,
+        height: $commonApi.system.painting.height
+      };
+      
+      if (lastPaintingHash !== null && currentHash !== lastPaintingHash) {
+        console.log(`🎨 FRAME-DETECTED: Painting change (${lastPaintingHash?.substr(0,6)} → ${currentHash?.substr(0,6)})`);
+        
+        // Check if this is a dimension change (resize operation)
+        const isDimensionChange = lastDimensions && 
+          (lastDimensions.width !== currentDimensions.width || 
+           lastDimensions.height !== currentDimensions.height);
+        
+        // Immediate broadcast with appropriate source
+        $commonApi.broadcastPaintingUpdateImmediate("frame_update", {
+          source: isDimensionChange ? "resize" : "frame_monitor",
+          hash: currentHash.substr(0,8)
+        });
+      }
+      
+      lastPaintingHash = currentHash;
+      lastDimensions = currentDimensions;
+    }
+    
+    if (frameBasedMonitoring) {
+      requestAnimationFrame(checkPaintingChanges);
+    }
+  }
+  
+  requestAnimationFrame(checkPaintingChanges);
+  console.log(`🎨 Enabled frame-based painting monitoring`);
+}
+
+// 🎨 Broadcast throttling to prevent infinite loops
+let lastBroadcastTime = 0;
+let broadcastThrottleDelay = 100; // Minimum ms between broadcasts
 let currentPath,
   currentHost,
   currentSearch,
@@ -1458,6 +1516,11 @@ const $commonApi = {
 
           store.persist("painting", "local:db");
 
+          // 🎨 Broadcast painting update to other tabs
+          $commonApi.broadcastPaintingUpdate("updated", {
+            source: "yes-no-decision"
+          });
+
           system.painting = store["painting"];
 
           if (system.nopaint.recording && dontRecord === false) {
@@ -1648,7 +1711,24 @@ const $commonApi = {
         system.painting = painting(res.w, res.h, ($) => {
           $.wipe(theme[dark ? "dark" : "light"].wipeNum);
         });
-        store["painting"] = $commonApi.system.painting;
+        
+        // Store only the pixel data, not the full painting object with functions
+        store["painting"] = {
+          width: system.painting.width,
+          height: system.painting.height,
+          pixels: system.painting.pixels,
+        };
+        
+        // Store the new painting BEFORE broadcasting
+        store.persist("painting", "local:db");
+        
+        // 🎨 Broadcast painting cleared to other tabs
+        $commonApi.broadcastPaintingUpdate("cleared", {
+          source: "clear",
+          width: res.w,
+          height: res.h,
+          resetTransform: true // Flag that receiving tabs should reset their transform
+        });
 
         // Clear any existing painting recording in RAM and
         // storage.
@@ -1669,8 +1749,22 @@ const $commonApi = {
         message = "(replace)",
       ) => {
         system.painting = painting; // Update references.
-        store["painting"] = system.painting;
+        
+        // Store only the pixel data, not the full painting object
+        store["painting"] = {
+          width: system.painting.width,
+          height: system.painting.height,
+          pixels: system.painting.pixels,
+        };
+        
         store.persist("painting", "local:db"); // Persist to storage.
+        
+        // 🎨 Broadcast painting replacement to other tabs
+        $commonApi.broadcastPaintingUpdate("replaced", {
+          source: "replace",
+          message: message
+        });
+        
         store["painting:resolution-lock"] = true;
         store.persist("painting:resolution-lock", "local:db");
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
@@ -2108,6 +2202,7 @@ const $commonApi = {
     noPaint = false;
     if (system === "nopaint") $commonApi.system.nopaint.needsPresent = true;
   }, // TODO: Does "paint" needs this?
+  
   store,
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
@@ -2123,6 +2218,9 @@ chatClient.$commonApi = $commonApi; // Add a reference to the `Chat` module.
 
 const nopaintAPI = $commonApi.system.nopaint;
 
+// 🎨 Start painting change monitoring for cross-tab sync
+startPaintingChangeMonitoring();
+
 // Broadcast to other tabs in the same origin.
 const channel = new BroadcastChannel("aesthetic.computer");
 
@@ -2133,6 +2231,13 @@ channel.onmessage = (event) => {
 
 async function processMessage(msg) {
   if (logs.messaging) console.log(`🗼 Processing broadcast: ${msg}`);
+  
+  // 🎨 Handle painting updates (both new JSON format and legacy string format)
+  if (msg.startsWith("painting:") || (msg.startsWith("{") && msg.includes('"type":"painting:updated"'))) {
+    await handlePaintingUpdate(msg);
+    return;
+  }
+  
   if (msg.startsWith("handle:updated")) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
@@ -2156,10 +2261,405 @@ async function processMessage(msg) {
   }
 }
 
+// 🎨 Handle painting update messages from other tabs
+async function handlePaintingUpdate(msg) {
+  try {
+    // Parse the JSON message
+    const data = JSON.parse(msg);
+    
+    if (data.type !== "painting:updated") return;
+    
+    // Skip if this message is from the current tab
+    if (data.tabId === $commonApi._tabId) {
+      console.log(`🎨 SKIPPED: Own message (${data.action})`);
+      return;
+    }
+    
+    console.log(`🎨 HANDLING: ${data.action} from tab ${data.tabId?.substr(0, 4)}...`);
+    
+    if (!$commonApi.system) {
+      console.log(`🎨 SKIPPED: No system available`);
+      return;
+    }
+
+    // 📐 Handle resize events specifically
+    if ((data.action === "resized" && data.metadata?.source === "screen_resize") || 
+        (data.action === "updated" && (data.source === "resize" || data.source === "crop"))) {
+      const width = data.width || data.metadata?.width;
+      const height = data.height || data.metadata?.height;
+      console.log(`📐 DIMENSION CHANGE EVENT: ${width}x${height} (source: ${data.source || data.metadata?.source})`);
+      
+      // For dimension change events, we need to wait for a "storage_complete" event
+      $commonApi._processingResize = true;
+      $commonApi._awaitingResizeStorage = { width, height, timestamp: data.timestamp };
+      
+      console.log(`📐 Waiting for storage completion for ${data.source} ${width}x${height}...`);
+      return; // Don't continue with regular painting sync for dimension change events
+    }
+    
+    // 💾 Handle storage completion events
+    if (data.action === "storage_complete" && (data.source === "resize" || data.source === "crop")) {
+      const awaitingResize = $commonApi._awaitingResizeStorage;
+      console.log(`🪝 RECEIVED storage_complete:`, {
+        source: data.source,
+        timestamp: data.timestamp,
+        awaitingResize: awaitingResize,
+        timestampMatch: awaitingResize && data.timestamp === awaitingResize.timestamp
+      });
+      
+      if (awaitingResize && data.timestamp === awaitingResize.timestamp) {
+        console.log(`📐 Storage completed for ${data.source} ${awaitingResize.width}x${awaitingResize.height}, applying...`);
+        
+        try {
+          const storedPainting = await store.retrieve("painting", "local:db");
+          if (storedPainting) {
+            // Update system painting with the stored version
+            $commonApi.system.painting = {
+              width: storedPainting.width,
+              height: storedPainting.height,
+              pixels: new Uint8ClampedArray(storedPainting.pixels)
+            };
+            
+            // Store the painting data  
+            store["painting"] = {
+              width: storedPainting.width,
+              height: storedPainting.height,
+              pixels: storedPainting.pixels
+            };
+            
+            // Update painting hash
+            lastPaintingHash = generatePaintingHash($commonApi.system.painting);
+            
+            // Update KidLisp with new painting reference
+            const kidlispInstance = getGlobalKidLisp();
+            if (kidlispInstance) {
+              kidlispInstance.setAPI($commonApi);
+              console.log(`🎯 KidLisp API refreshed with ${data.source} painting: ${storedPainting.width}x${storedPainting.height}`);
+            }
+            
+            // Force repaint with new dimensions
+            if ($commonApi.system.nopaint) {
+              $commonApi.system.nopaint.needsPresent = true;
+            }
+            $commonApi.needsPaint();
+            
+            console.log(`📐 Screen updated after ${data.source}: ${storedPainting.width}x${storedPainting.height}`);
+          }
+        } catch (error) {
+          console.error(`📐 ERROR applying ${data.source} after storage completion:`, error);
+        }
+        
+        // Clean up
+        delete $commonApi._awaitingResizeStorage;
+        $commonApi._processingResize = false;
+        return;
+      }
+    }
+
+    // Set processing flag to prevent feedback loops
+    $commonApi._processingBroadcast = true;
+    
+    console.log(`🎨 Loading painting from storage...`);
+    
+    try {
+      // Load painting from storage (lightweight messages don't contain pixel data)
+      const storedPainting = await store.retrieve("painting", "local:db");
+      if (storedPainting) {
+        $commonApi.system.painting = {
+          width: storedPainting.width,
+          height: storedPainting.height,
+          pixels: new Uint8ClampedArray(storedPainting.pixels)
+        };
+        
+        // Store only the pixel data, not the full painting object
+        store["painting"] = {
+          width: storedPainting.width,
+          height: storedPainting.height,
+          pixels: storedPainting.pixels
+        };
+        
+        // Update painting hash to prevent false positives
+        lastPaintingHash = generatePaintingHash($commonApi.system.painting);
+        
+        // 🎯 Update KidLisp with the new painting reference
+        const kidlispInstance = getGlobalKidLisp();
+        if (kidlispInstance) {
+          kidlispInstance.setAPI($commonApi);
+          console.log(`🎯 KidLisp API refreshed with updated painting`);
+        }
+        
+        // Force repaint
+        if ($commonApi.system.nopaint) {
+          $commonApi.system.nopaint.needsPresent = true;
+        }
+        $commonApi.needsPaint();
+        
+        // 🆕 Force nopan (reset transform) for clear/new actions or explicit flag
+        if (((data.action === "cleared" || data.action === "new") || data.resetTransform) && $commonApi.system.nopaint) {
+          console.log(`🎯 ${data.action?.toUpperCase() || 'TRANSFORM_RESET'}: Forcing nopan (reset transform) on receiver`);
+          $commonApi.system.nopaint.resetTransform({ 
+            system: $commonApi.system, 
+            screen: $commonApi.screen 
+          });
+        }
+        
+        console.log(`🎨 PAINTING SYNCED: ${storedPainting.width}x${storedPainting.height}`, {
+          hash: generatePaintingHash($commonApi.system.painting)?.substr(0, 8),
+          fromHash: data.hash || 'unknown',
+          firstPixels: Array.from($commonApi.system.painting.pixels.slice(0, 12)) // First 3 pixels (RGBA)
+        });
+      } else {
+        console.log(`🎨 WARNING: No painting found in storage`);
+      }
+    } catch (storageError) {
+      console.error(`🎨 ERROR loading from storage:`, storageError);
+    }
+    
+  } catch (error) {
+    console.error(`🎨 ERROR handling painting update:`, error);
+    
+    // Fallback to old string-based format
+    if (typeof msg === "string" && msg.startsWith("painting:")) {
+      const action = msg.split(":")[1];
+      console.log(`🎨 FALLBACK: Processing legacy format ${action}`);
+      
+      // Legacy handling - load from storage
+      try {
+        const storedPainting = await store.retrieve("painting", "local:db");
+        if (storedPainting) {
+          $commonApi.system.painting = {
+            width: storedPainting.width,
+            height: storedPainting.height,
+            pixels: new Uint8ClampedArray(storedPainting.pixels)
+          };
+          
+          // Store only the pixel data, not the full painting object
+          store["painting"] = {
+            width: storedPainting.width,
+            height: storedPainting.height,
+            pixels: storedPainting.pixels
+          };
+          
+          const kidlispInstance = getGlobalKidLisp();
+          if (kidlispInstance) {
+            kidlispInstance.setAPI($commonApi);
+          }
+          
+          if ($commonApi.system.nopaint) {
+            $commonApi.system.nopaint.needsPresent = true;
+          }
+          $commonApi.needsPaint();
+        }
+      } catch (storageError) {
+        console.error(`🎨 ERROR in fallback storage load:`, storageError);
+      }
+    }
+  } finally {
+    // Clear processing flag regardless of success or error
+    setTimeout(() => {
+      $commonApi._processingBroadcast = false;
+    }, 50);
+  }
+}
+
 $commonApi.broadcast = (msg) => {
   processMessage(msg); // Process locally.
   channel.postMessage(msg);
 };
+
+// 🎨 Broadcast painting updates to other tabs
+$commonApi.broadcastPaintingUpdate = (action, data = {}) => {
+  if (!$commonApi.system?.painting) return;
+  
+  // Throttle broadcasts to prevent excessive messages
+  const now = Date.now();
+  if (now - lastBroadcastTime < broadcastThrottleDelay) {
+    console.log(`🎨 THROTTLED: Skipping broadcast of ${action} (too frequent)`);
+    return;
+  }
+  lastBroadcastTime = now;
+  
+  // Generate unique tab ID to prevent self-processing
+  if (!$commonApi._tabId) {
+    $commonApi._tabId = Math.random().toString(36).substr(2, 9);
+    console.log(`🆔 TAB ID: ${$commonApi._tabId} (first broadcast)`);
+  }
+  
+  // Create lightweight notification message (no pixel data)
+  const message = {
+    type: "painting:updated",
+    action,
+    tabId: $commonApi._tabId,
+    timestamp: now,
+    width: $commonApi.system.painting.width,
+    height: $commonApi.system.painting.height,
+    ...data
+  };
+  
+  console.log(`🎨 Broadcasting: ${action} [LIGHTWEIGHT]`, {
+    size: `${message.width}x${message.height}`,
+    tabId: message.tabId.substr(0, 4) + '...'
+  });
+  
+  // Only send to other tabs (exclude self)
+  channel.postMessage(JSON.stringify(message));
+};
+
+// 🚀 Immediate painting broadcast - bypasses throttling for instant sync
+$commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
+  if (!$commonApi.system?.painting || $commonApi._processingBroadcast) return;
+  
+  // Performance: Skip if we just broadcasted very recently (debounce)
+  const now = Date.now();
+  if (now - (lastBroadcastTime || 0) < 16) { // ~60fps max broadcast rate
+    return;
+  }
+  
+  // Generate unique tab ID if needed
+  if (!$commonApi._tabId) {
+    $commonApi._tabId = Math.random().toString(36).substr(2, 9);
+    console.log(`🆔 TAB ID: ${$commonApi._tabId} (immediate broadcast)`);
+  }
+  
+  const paintingHash = generatePaintingHash($commonApi.system.painting);
+  const message = {
+    type: "painting:updated",
+    action,
+    tabId: $commonApi._tabId,
+    timestamp: now,
+    width: $commonApi.system.painting.width,
+    height: $commonApi.system.painting.height,
+    hash: paintingHash?.substr(0, 8),
+    immediate: true,
+    ...data
+  };
+  
+  console.log(`🚀 IMMEDIATE Broadcasting: ${action}`, {
+    size: `${message.width}x${message.height}`,
+    tabId: message.tabId.substr(0, 4) + '...',
+    paintingHash: paintingHash?.substr(0,8)
+  });
+  
+  // Store painting immediately (async to not block)
+  setTimeout(() => {
+    store["painting"] = {
+      width: $commonApi.system.painting.width,
+      height: $commonApi.system.painting.height,
+      pixels: $commonApi.system.painting.pixels,
+    };
+    store.persist("painting", "local:db");
+    
+    // 🪝 Fire storage completion hook for resize and crop events
+    if (data.source === "resize" || data.source === "crop") {
+      const storageCompleteMessage = {
+        type: "painting:updated",
+        action: "storage_complete",
+        source: data.source,
+        tabId: message.tabId,
+        timestamp: message.timestamp,
+        width: $commonApi.system.painting.width,
+        height: $commonApi.system.painting.height
+      };
+      
+      channel.postMessage(JSON.stringify(storageCompleteMessage));
+      console.log(`🪝 STORAGE COMPLETE hook fired for ${data.source} ${$commonApi.system.painting.width}x${$commonApi.system.painting.height}`, {
+        timestamp: message.timestamp,
+        tabId: message.tabId.substr(0, 4) + '...'
+      });
+    }
+    
+    console.log(`🎨 STORED painting:`, {
+      width: $commonApi.system.painting.width,
+      height: $commonApi.system.painting.height,
+      pixelCount: $commonApi.system.painting.pixels.length,
+      firstPixels: Array.from($commonApi.system.painting.pixels.slice(0, 12)) // First 3 pixels (RGBA)
+    });
+  }, 0);
+  
+  // Update hash to prevent duplicate detection
+  lastPaintingHash = paintingHash;
+  lastBroadcastTime = now;
+  
+  channel.postMessage(JSON.stringify(message));
+};
+
+// 🎨 Painting change detection system
+function generatePaintingHash(painting) {
+  if (!painting?.pixels) return null;
+  
+  // Simple hash using width, height, and sample of pixels
+  let hash = painting.width * 31 + painting.height * 37;
+  
+  // Sample every 100th pixel to create a lightweight hash
+  for (let i = 0; i < painting.pixels.length; i += 100) {
+    hash = ((hash << 5) - hash + painting.pixels[i]) & 0xffffffff;
+  }
+  
+  return hash.toString(36);
+}
+
+function startPaintingChangeMonitoring() {
+  if (paintingChangeCheckInterval) return; // Already monitoring
+  
+  console.log(`🎨 Starting comprehensive painting change monitoring...`);
+  
+  // Initialize hash baseline if painting exists
+  if ($commonApi.system?.painting) {
+    lastPaintingHash = generatePaintingHash($commonApi.system.painting);
+    console.log(`🎨 Initialized painting hash: ${lastPaintingHash?.substr(0,8)}...`);
+  }
+  
+  // Enable frame-based monitoring for immediate detection
+  enableFrameBasedMonitoring();
+  
+  // Keep interval-based monitoring as backup (lower frequency)
+  paintingChangeCheckInterval = setInterval(() => {
+    if (!$commonApi.system?.painting || frameBasedMonitoring) return; // Skip if frame monitoring is active
+    
+    const currentHash = generatePaintingHash($commonApi.system.painting);
+    
+    // Only broadcast if hash actually changed AND we're not currently processing a broadcast
+    if (lastPaintingHash !== null && 
+        currentHash !== lastPaintingHash && 
+        !$commonApi._processingBroadcast) {
+      
+      console.log(`🎨 INTERVAL-DETECTED: Painting change via monitoring (hash: ${currentHash.substr(0,8)}...)`);
+      
+      // Set flag to prevent feedback loops during broadcast processing
+      $commonApi._processingBroadcast = true;
+      
+      // Store updated painting
+      store["painting"] = {
+        width: $commonApi.system.painting.width,
+        height: $commonApi.system.painting.height,
+        pixels: $commonApi.system.painting.pixels,
+      };
+      store.persist("painting", "local:db");
+      
+      // Broadcast the change
+      $commonApi.broadcastPaintingUpdate("updated", {
+        source: "interval_monitor",
+        hash: currentHash.substr(0,8)
+      });
+      
+      // Clear the processing flag after a brief delay
+      setTimeout(() => {
+        $commonApi._processingBroadcast = false;
+      }, 100);
+    }
+    
+    lastPaintingHash = currentHash;
+  }, 1000); // Slower backup monitoring (1 second)
+}
+
+function stopPaintingChangeMonitoring() {
+  frameBasedMonitoring = false; // Stop frame-based monitoring
+  if (paintingChangeCheckInterval) {
+    clearInterval(paintingChangeCheckInterval);
+    paintingChangeCheckInterval = null;
+  }
+  console.log(`🎨 Stopped painting change monitoring`);
+}
 
 // Spawn a session backend for a piece.
 async function session(slug, forceProduction = false, service) {
@@ -3038,6 +3538,7 @@ const $paintApiUnwrapped = {
   spin: graph.spin,
   sort: graph.sort,
   zoom: graph.zoom,
+  suck: graph.suck,
   blur: function(radius = 1) {
     // 🔧 FIX: Ensure blur operates on current buffer context
     // When called from within a painting() context, the graph module
@@ -5389,10 +5890,20 @@ async function makeFrame({ data: { type, content } }) {
         `👋 Welcome back %c${HANDLE || USER.email}`,
         `color: yellow; background: rgba(10, 20, 40);`,
       );
+      // Log tab ID for debugging
+      if (!$commonApi._tabId) {
+        $commonApi._tabId = Math.random().toString(36).substr(2, 9);
+      }
+      console.log(`🆔 TAB ID: ${$commonApi._tabId} (welcome message)`);
       // Broadcast to other tabs...
       $commonApi.broadcast("login:success");
     } else {
       // console.log("🔐 You are not logged in.");
+      // Log tab ID for debugging (anonymous user)
+      if (!$commonApi._tabId) {
+        $commonApi._tabId = Math.random().toString(36).substr(2, 9);
+      }
+      console.log(`🆔 TAB ID: ${$commonApi._tabId} (anonymous session)`);
     }
     sessionStarted = true;
     return;
@@ -5758,17 +6269,15 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  // Forward recorder export events to the current piece
+  // Forward recorder export events to the current piece, but only when not in export mode
+  // During export (when actEvents is undefined), let events pass through directly to main thread
   if (
     type === "recorder:export-status" ||
     type === "recorder:export-progress" ||
     type === "recorder:transcode-progress" ||
     type === "recorder:export-complete"
   ) {
-    if (debug) console.log("📼 Forwarding export event to piece:", type, content);
-    
-    // These events should be delivered to pieces via the normal event system
-    // Add them to the actEvents queue so they get processed in the next frame
+    // If actEvents is available, route to the piece as normal
     if (typeof actEvents !== 'undefined' && actEvents && Array.isArray(actEvents)) {
       const event = {
         is: (eventType) => eventType === type,
@@ -5778,28 +6287,14 @@ async function makeFrame({ data: { type, content } }) {
       };
       
       actEvents.push(event);
-      console.log("📼 Added event to actEvents queue:", type);
+      if (debug) console.log("📼 ✅ Used actEvents for export event:", type);
+      return; // Don't let it pass through to main thread
     } else {
-      console.log("📼 actEvents not available, trying direct piece call");
-      
-      // Fallback: try to call piece directly if actEvents isn't available  
-      if ($currentPiece?.act) {
-        const event = {
-          is: (eventType) => eventType === type,
-          type: type,
-          content: content,
-          progress: type === "recorder:transcode-progress" ? content : undefined
-        };
-        
-        try {
-          $currentPiece.act({ event });
-          console.log("📼 Called piece.act directly:", type);
-        } catch (error) {
-          console.error("📼 Error forwarding event to piece:", error);
-        }
-      }
+      // During export, actEvents is undefined - let the event pass through directly
+      // to main thread without trying to route it through the piece system
+      // (Silent mode - no debug logging to avoid console spam)
+      // Don't return here - let it fall through to normal send() handling
     }
-    return;
   }
 
   if (
@@ -6562,9 +7057,9 @@ async function makeFrame({ data: { type, content } }) {
       get time() {
         const currentTime = content.audioTime;
         // Add comprehensive logging for audio timing (throttled to avoid spam)
-        //if (debug && Math.floor(currentTime * 100) % 100 === 0) { // Log every 10ms when rounded
-          // console.log(`🎵 AUDIO_TIME: ${currentTime.toFixed(6)}s (getter called from ${(new Error().stack.split('\n')[2] || 'unknown').trim()})`);
-        //}
+        // if (debug && Math.floor(currentTime * 100) % 100 === 0) { // Log every 10ms when rounded
+        //   console.log(`🎵 AUDIO_TIME: ${currentTime.toFixed(6)}s (getter called from ${(new Error().stack.split('\n')[2] || 'unknown').trim()})`);
+        // }
         return currentTime;
       },
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
@@ -7514,6 +8009,16 @@ async function makeFrame({ data: { type, content } }) {
               this.width = store[name].width;
               this.height = store[name].height;
               $commonApi.resize(this.width, this.height);
+              
+              // 🎨 Broadcast screen resize from load operation
+              if ($commonApi.broadcastPaintingUpdate) {
+                $commonApi.broadcastPaintingUpdate("resized", {
+                  width: this.width,
+                  height: this.height,
+                  source: "screen_load"
+                });
+              }
+              
               return true;
             } else {
               return false;
@@ -7529,6 +8034,15 @@ async function makeFrame({ data: { type, content } }) {
         };
 
         screen[hasScreen ? "resized" : "created"] = true; // Screen change type.
+
+        // 🎨 Broadcast screen resize to other tabs
+        if (hasScreen && $commonApi.broadcastPaintingUpdate) {
+          $commonApi.broadcastPaintingUpdate("resized", {
+            width: screen.width,
+            height: screen.height,
+            source: "screen_resize"
+          });
+        }
 
         // TODO: Add the depth buffer back here.
         // Reset the depth buffer.
@@ -7784,6 +8298,12 @@ async function makeFrame({ data: { type, content } }) {
               $api.page($api.screen);
               np.present($api);
               np.needsBake = false;
+              
+              // 🚀 Immediately broadcast bake completion for instant sync
+              $commonApi.broadcastPaintingUpdateImmediate("baked", {
+                source: "immediate_bake",
+                piece: loadedModule?.meta?.()?.title || "unknown"
+              });
             } else if (np.is("painting") || np.needsPresent) {
               np.present($api); // No Paint: prepaint
             }
