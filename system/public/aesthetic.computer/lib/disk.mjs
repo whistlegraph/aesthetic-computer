@@ -6256,17 +6256,15 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  // Forward recorder export events to the current piece
+  // Forward recorder export events to the current piece, but only when not in export mode
+  // During export (when actEvents is undefined), let events pass through directly to main thread
   if (
     type === "recorder:export-status" ||
     type === "recorder:export-progress" ||
     type === "recorder:transcode-progress" ||
     type === "recorder:export-complete"
   ) {
-    if (debug) console.log("📼 Forwarding export event to piece:", type, content);
-    
-    // These events should be delivered to pieces via the normal event system
-    // Add them to the actEvents queue so they get processed in the next frame
+    // If actEvents is available, route to the piece as normal
     if (typeof actEvents !== 'undefined' && actEvents && Array.isArray(actEvents)) {
       const event = {
         is: (eventType) => eventType === type,
@@ -6276,28 +6274,14 @@ async function makeFrame({ data: { type, content } }) {
       };
       
       actEvents.push(event);
-      console.log("📼 Added event to actEvents queue:", type);
+      if (debug) console.log("📼 ✅ Used actEvents for export event:", type);
+      return; // Don't let it pass through to main thread
     } else {
-      console.log("📼 actEvents not available, trying direct piece call");
-      
-      // Fallback: try to call piece directly if actEvents isn't available  
-      if (module?.act) {
-        const event = {
-          is: (eventType) => eventType === type,
-          type: type,
-          content: content,
-          progress: type === "recorder:transcode-progress" ? content : undefined
-        };
-        
-        try {
-          module.act({ event });
-          console.log("📼 Called piece.act directly:", type);
-        } catch (error) {
-          console.error("📼 Error forwarding event to piece:", error);
-        }
-      }
+      // During export, actEvents is undefined - let the event pass through directly
+      // to main thread without trying to route it through the piece system
+      // (Silent mode - no debug logging to avoid console spam)
+      // Don't return here - let it fall through to normal send() handling
     }
-    return;
   }
 
   if (
