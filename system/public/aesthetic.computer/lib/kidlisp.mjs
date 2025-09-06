@@ -1196,11 +1196,43 @@ class KidLisp {
       return fadeToken; // Invalid fade syntax
     }
     
-    const colorPart = parts[1]; // The colors part
-    const direction = parts[2]; // Optional direction part
+    // Check for neat modifier and handle different positions
+    let isNeat = false;
+    let colorPart = parts[1];
+    let direction = parts[2];
+    
+    if (parts[1] === "neat" && parts[2]) {
+      // Format: fade:neat:red-blue or fade:neat:red-blue:vertical
+      isNeat = true;
+      colorPart = parts[2];
+      direction = parts[3];
+    } else if (parts[2] === "neat") {
+      // Format: fade:red-blue:neat
+      isNeat = true;
+      direction = undefined;
+    } else if (parts[3] === "neat") {
+      // Format: fade:red-blue:vertical:neat
+      isNeat = true;
+      direction = parts[2];
+    } else if (parts.includes("neat")) {
+      // Handle neat anywhere in the string
+      isNeat = true;
+      // Remove neat from parts and reconstruct
+      const filteredParts = parts.filter(p => p !== "neat");
+      if (filteredParts.length >= 2) {
+        colorPart = filteredParts[1];
+        direction = filteredParts[2];
+      }
+    }
+    
     const colorNames = colorPart.split("-");
     
     let result = "\\mediumseagreen\\fade\\lime\\:"; // "fade" in emerald, ":" in green
+    
+    // Add neat modifier if present
+    if (isNeat) {
+      result += "\\cyan\\neat\\lime\\:"; // "neat" in cyan, ":" in green
+    }
     
     for (let i = 0; i < colorNames.length; i++) {
       const colorName = colorNames[i];
