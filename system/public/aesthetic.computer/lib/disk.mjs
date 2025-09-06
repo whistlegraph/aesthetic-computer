@@ -1735,6 +1735,8 @@ const $commonApi = {
         console.warn("⚠️ No text for `box`.");
         return;
       }
+      
+      // DEBUG: Log what text.box is processing (reduced frequency)
       pos = { ...pos };
       let run = 0;
       const blockWidth = tf.blockWidth * abs(scale);
@@ -1830,8 +1832,9 @@ const $commonApi = {
         characterWrap(text);
       }
 
-      const blockMargin = 1;
-      const blockHeight = (tf.blockHeight + blockMargin) * scale;
+      const blockMargin = 0; 
+      const lineHeightGap = 1; // Slightly less than write function for tighter fit
+      const blockHeight = (tf.blockHeight + lineHeightGap) * scale; // 10 + 1 = 11px per line
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
@@ -1842,8 +1845,18 @@ const $commonApi = {
       }
 
       const height = lines.length * blockHeight;
-      const box = { x: pos.x, y: pos.y, width: bounds, height };
-
+      
+      // Calculate the actual width of the longest line (true text bounds)
+      let maxLineWidth = 0;
+      lines.forEach(line => {
+        if (line.length > 0) {
+          const lineText = line.join(' '); // Join words with spaces
+          const lineWidth = lineText.length * blockWidth;
+          maxLineWidth = Math.max(maxLineWidth, lineWidth);
+        }
+      });
+      
+      const box = { x: pos.x, y: pos.y, width: maxLineWidth, height };
       if (lines[0]?.[0].startsWith("test:")) console.log(lines);
       return { pos, box, lines };
     },
@@ -2363,7 +2376,7 @@ function ink2() {
 // 🎯 Global KidLisp Instance Management
 function initializeGlobalKidLisp(api) {
   if (!globalKidLispInstance) {
-    console.log("🚀 Initializing global KidLisp instance");
+    // console.log("🚀 Initializing global KidLisp instance");
     globalKidLispInstance = new lisp.KidLisp();
     globalKidLispInstance.setAPI(api);
   }
@@ -6549,9 +6562,9 @@ async function makeFrame({ data: { type, content } }) {
       get time() {
         const currentTime = content.audioTime;
         // Add comprehensive logging for audio timing (throttled to avoid spam)
-        if (debug && Math.floor(currentTime * 100) % 100 === 0) { // Log every 10ms when rounded
-          console.log(`🎵 AUDIO_TIME: ${currentTime.toFixed(6)}s (getter called from ${(new Error().stack.split('\n')[2] || 'unknown').trim()})`);
-        }
+        //if (debug && Math.floor(currentTime * 100) % 100 === 0) { // Log every 10ms when rounded
+          // console.log(`🎵 AUDIO_TIME: ${currentTime.toFixed(6)}s (getter called from ${(new Error().stack.split('\n')[2] || 'unknown').trim()})`);
+        //}
         return currentTime;
       },
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
@@ -7998,53 +8011,90 @@ async function makeFrame({ data: { type, content } }) {
         const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
         
         // Double-check: strip color codes directly if they're still present
-        const colorCodeRegex = /\\[^\\]*\\/g;
-        const cleanText = textForWidthCalculation.replace(colorCodeRegex, '');
+        // Handle multiple color code formats: \colorname\, \255,255,255\, etc.
+        const colorCodeRegex = /\\[^\\]*\\/g; // Matches \anything\ format
+        let cleanText = textForWidthCalculation.replace(colorCodeRegex, '');
         
-        // For corner label width, measure the actual display width
-        // If there are multiple lines, find the longest line for width calculation
-        let displayWidth;
+        // Also try removing RGB color codes like \255,255,255\ if any remain
+        cleanText = cleanText.replace(/\\\d+,\d+,\d+(,\d+)?\\/g, '');
         
-        // Apply scaling factor for smaller iframe sizes like 320x240
-        const screenScale = screen.width <= 320 ? 0.75 : 1.0;
+        // Remove any remaining single backslashes that might be color code remnants
+        cleanText = cleanText.replace(/\\/g, '');
+        
+        // 🔵 DEBUG: Enhanced text cleaning logging with samples
+        // Use consistent scaling regardless of screen size
+        const screenScale = 1.0;
         const scaledBlockWidth = tf.blockWidth * screenScale;
         
-        if (cleanText.includes('\n')) {
-          const lines = cleanText.split('\n');
-          const maxLineLength = Math.max(...lines.map(line => line.length));
-          displayWidth = maxLineLength * scaledBlockWidth;
-        } else {
-          displayWidth = cleanText.length * scaledBlockWidth;
-        }
+        // Account for 6px margin on left and right (button starts at x=6)
+        const maxButtonWidth = $api.screen.width - 12;
         
-        let w = displayWidth + currentHUDScrub;
-        
-        // Also calculate what text.box would give us for comparison, but with generous bounds
-        // to prevent unwanted word wrapping for commands like "ink rainbow"
-        const generousBounds = Math.max($api.screen.width * 0.8, displayWidth + scaledBlockWidth * 4);
-        const labelBounds = $api.text.box(
+        // First get natural dimensions with a generous but reasonable width limit
+        const naturalMaxWidth = Math.max($api.screen.width * 2, 600); // Allow up to 2x screen width or 600px minimum
+        const naturalBounds = $api.text.box(
           cleanText,
           undefined,
-          generousBounds,
+          naturalMaxWidth, // Use reasonable max width instead of undefined
+          screenScale
         );
         
-        // Use the larger of our calculated width or the text.box width to ensure no clipping
-        // Add extra padding for smaller screens to prevent button cutoff
-        const extraPadding = screenScale < 1.0 ? scaledBlockWidth * 2 : scaledBlockWidth;
-        w = Math.max(w, labelBounds.box.width) + extraPadding;
+        // Check if natural width fits screen, if not use constrained version
+        let textBounds;
+        if (naturalBounds.box.width <= $api.screen.width - 20) {
+          // Use natural dimensions - no wrapping needed
+          textBounds = naturalBounds;
+        } else {
+          // Use constrained dimensions for screen fit
+          textBounds = $api.text.box(
+            cleanText,
+            undefined,
+            maxButtonWidth,
+            screenScale
+          );
+        }
+        
+        // Use the exact width from text.box - no padding, perfect text hugging
+        let w = textBounds.box.width;
+        
+        // DEBUG: Throttled HUD width calculations (every 30 frames) - DISABLED OLD VERSION
+        if (false && shouldLog) {
+          const lines = cleanText.split('\n');
+          console.log("� Button Width: HUD Width Debug:", {
+            piece: piece,
+            screenWidth: $api.screen.width,
+            screenHeight: $api.screen.height,
+            cleanText: cleanText.substring(0, 50) + "...",
+            cleanTextLength: cleanText.length,
+            lineCount: lines.length,
+            longestLine: Math.max(...lines.map(line => line.length)),
+            tfBlockWidth: tf.blockWidth,
+            screenScale: screenScale,
+            scaledBlockWidth: scaledBlockWidth,
+            maxButtonWidth: maxButtonWidth,
+            textWidth: textWidth,
+            textBoxWidth: textBounds.box.width,
+            textBoxHeight: textBounds.box.height,
+            padding: padding,
+            finalWidth: w,
+            currentHUDScrub: currentHUDScrub,
+            isMultiline: cleanText.includes('\n'),
+            willOverflow: w > $api.screen.width
+          });
+        }
 
-        const h = labelBounds.box.height + $api.typeface.blockHeight; // tf.blockHeight;
+        // SIMPLIFIED: Use text.box output directly for both width and height
+        w = textBounds.box.width;
+        let h = textBounds.box.height;
+        
         if (piece === "video") w = screen.width;
         
-        // Expand buffer size for highlight mode to prevent clipping
+        // DEBUG: Simplified text.box results
+        if (false && currentHUDTxt && currentHUDTxt.length > 0 && (pieceFrameCount % 60 === 0)) {
+          console.log(`� text.box RESULT - Using: ${w}x${h}, MaxWidth: ${maxButtonWidth}`);
+        }
+        // SIMPLIFIED: No buffer expansion, painting size matches button size exactly
         let bufferW = w;
         let bufferH = h;
-        let leftMargin = 0;
-        if (HIGHLIGHT_MODE) {
-          leftMargin = 2; // Text offset from left edge - moved left for better positioning
-          bufferW = w + leftMargin + 8; // Text width + left margin + right padding
-          bufferH = h + 8; // Text height + top and bottom padding (4px each)
-        }
         
         // Store actual dimensions for animation calculations
         hudAnimationState.labelWidth = w;
@@ -8053,6 +8103,9 @@ async function makeFrame({ data: { type, content } }) {
         label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+
+          // SIMPLIFIED: Draw visualization box underneath (always visible for debugging)
+          $.ink(255, 0, 0, 64).box(0, 0, w, h); // Semi-transparent red box shows exact button/press area
 
           // HUD Background Highlighting: Add background for kidlisp hud corner labels
           if (HIGHLIGHT_MODE) {
@@ -8108,12 +8161,6 @@ async function makeFrame({ data: { type, content } }) {
             }
           }
 
-          // DEBUG: Show hitbox background (can be toggled by setting debug flag)
-          const showHitboxDebug = globalThis.debugHudHitbox || false;
-          if (showHitboxDebug) {
-            $.ink(255, 0, 0, 128).box(0, 0, w, h); // Semi-transparent red background to show actual hitbox size
-          }
-
           let c;
           if (currentHUDTextColor) {
             c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
@@ -8160,15 +8207,16 @@ async function makeFrame({ data: { type, content } }) {
             
             const shadowText = createShadowText(text);
             
+            // SIMPLIFIED: Simple positioning without complex highlight mode offsets
             $.ink([0, 0, 0]).write( // Default ink for shadow rendering (color codes in shadowText will override)
               shadowText,
-              { x: 1 + currentHUDScrub + (HIGHLIGHT_MODE ? leftMargin : 0), y: 1 },
+              { x: 1 + currentHUDScrub, y: 1 },
               undefined,
               $api.screen.width - $api.typeface.blockWidth,
             );
             $.ink(c).write(
               text,
-              { x: 0 + currentHUDScrub + (HIGHLIGHT_MODE ? leftMargin : 0), y: 0 },
+              { x: 0 + currentHUDScrub, y: 0 },
               undefined,
               $api.screen.width - $api.typeface.blockWidth,
             );
@@ -8177,11 +8225,11 @@ async function makeFrame({ data: { type, content } }) {
               const shareWidth = tf.blockWidth * "share ".length;
               const shadowShareText = "share"; // No color codes in "share"
               $.ink(0).write(shadowShareText, {
-                x: 1 + currentHUDScrub - shareWidth + (HIGHLIGHT_MODE ? leftMargin : 0),
+                x: 1 + currentHUDScrub - shareWidth,
                 y: 1,
               });
               $.ink(c).write("share", {
-                x: 0 + currentHUDScrub - shareWidth + (HIGHLIGHT_MODE ? leftMargin : 0),
+                x: 0 + currentHUDScrub - shareWidth,
                 y: 0,
               });
             }
@@ -8267,7 +8315,7 @@ async function makeFrame({ data: { type, content } }) {
           new $api.ui.Button({
             x: 0,
             y: 0,
-            w: w + currentHUDOffset.x,
+            w: w, // FIXED: Don't add currentHUDOffset.x to button width
             h: h, // Use just the calculated height without extra y-offset
           });
 

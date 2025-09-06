@@ -48,6 +48,7 @@ const skips = [];
 let fadeMode = false;
 let fadeColors = [];
 let fadeDirection = "horizontal"; // horizontal, vertical, diagonal, or numeric angle (0-360)
+let fadeNeat = false; // When true, disable film-grain noise for clean gradients
 let fadeAlpha = null; // Alpha override for fade colors (used by coat function)
 let currentKidLispContext = null; // For dynamic evaluation of fade directions
 let currentRainbowColor = null; // Cache rainbow color for current drawing operation
@@ -171,6 +172,11 @@ function colorsMatch(color1, color2) {
 
 // Fill pixels with a color using a flood fill technique.
 function flood(x, y, fillColor = c) {
+  // Check if this is a fade color that needs gradient flood fill
+  if (typeof fillColor === "string" && fillColor.startsWith("fade:")) {
+    return gradientFlood(x, y, fillColor);
+  }
+  
   // Get the target color of the pixel at (x, y)
   const targetColor = pixel(x, y);
   if (targetColor[3] === 0) {
@@ -215,31 +221,168 @@ function flood(x, y, fillColor = c) {
   };
 }
 
+// Gradient flood fill for fade colors
+function gradientFlood(x, y, fadeString) {
+  // Get the target color of the pixel at (x, y)
+  const targetColor = pixel(x, y);
+  if (targetColor[3] === 0) {
+    // If the target pixel is transparent, return
+    return {
+      color: targetColor,
+      area: 0,
+    };
+  }
+
+  // Parse the fade to set up fade mode
+  const fadeColorArray = parseFade(fadeString);
+  if (!fadeColorArray) {
+    // Fallback to regular flood if fade parsing fails
+    return flood(x, y, "white");
+  }
+
+  // Set up fade mode
+  const oldFadeMode = fadeMode;
+  const oldFadeColors = fadeColors.slice();
+  const oldFadeDirection = fadeDirection;
+  const oldFadeNeat = fadeNeat;
+  
+  fadeMode = true;
+  fadeColors = fadeColorArray;
+  
+  let count = 0;
+  const visited = new Set();
+  const stack = [[x, y]];
+  const pixels = [];
+  
+  // First pass: collect all pixels to be filled
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    const key = `${cx},${cy}`;
+
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    const currentColor = pixel(cx, cy);
+    if (colorsMatch(currentColor, targetColor)) {
+      count++;
+      pixels.push([cx, cy]);
+
+      stack.push([cx + 1, cy]); // Push neighbors to stack.
+      stack.push([cx - 1, cy]);
+      stack.push([cx, cy + 1]);
+      stack.push([cx, cy - 1]);
+    }
+  }
+
+  // Calculate bounding box of filled area
+  if (pixels.length > 0) {
+    const minX = Math.min(...pixels.map(p => p[0]));
+    const maxX = Math.max(...pixels.map(p => p[0]));
+    const minY = Math.min(...pixels.map(p => p[1]));
+    const maxY = Math.max(...pixels.map(p => p[1]));
+    
+    const fillWidth = maxX - minX;
+    const fillHeight = maxY - minY;
+
+    // Second pass: fill each pixel with the appropriate gradient color
+    for (const [px, py] of pixels) {
+      let t = 0;
+      
+      // Calculate gradient position based on direction
+      if (fadeDirection === "vertical" || fadeDirection === "vertical-reverse") {
+        t = fillHeight > 0 ? (py - minY) / fillHeight : 0;
+        if (fadeDirection === "vertical-reverse") t = 1 - t;
+      } else if (fadeDirection === "diagonal" || fadeDirection === "diagonal-reverse") {
+        t = (fillWidth + fillHeight > 0) ? ((px - minX) + (py - minY)) / (fillWidth + fillHeight) : 0;
+        if (fadeDirection === "diagonal-reverse") t = 1 - t;
+      } else if (!isNaN(parseFloat(fadeDirection))) {
+        // Numeric angle
+        const angle = parseFloat(fadeDirection);
+        const radians = (angle * Math.PI) / 180;
+        const centerX = minX + fillWidth / 2;
+        const centerY = minY + fillHeight / 2;
+        const relX = px - centerX;
+        const relY = py - centerY;
+        const projection = relX * Math.cos(radians) + relY * Math.sin(radians);
+        const maxProjection = Math.max(fillWidth, fillHeight) / 2;
+        t = maxProjection > 0 ? (projection + maxProjection) / (2 * maxProjection) : 0;
+      } else {
+        // Default horizontal
+        t = fillWidth > 0 ? (px - minX) / fillWidth : 0;
+        if (fadeDirection === "horizontal-reverse") t = 1 - t;
+      }
+      
+      // Get the fade color for this position
+      const gradientColor = getFadeColor(t, px, py);
+      color(...gradientColor);
+      plot(px, py);
+    }
+  }
+
+  // Restore old fade state
+  fadeMode = oldFadeMode;
+  fadeColors = oldFadeColors;
+  fadeDirection = oldFadeDirection;
+  fadeNeat = oldFadeNeat;
+
+  return {
+    color: targetColor,
+    area: count,
+  };
+}
+
 // 📚 DOCUMENTATION: Parse a fade string like "fade:blue-white" or "fade:red-yellow-blue:vertical"
 // Used by findColor() which is called from ink() in disk.mjs
 // Returns array of RGBA color arrays or null if invalid
 // Supports direction syntax: "fade:red-blue:vertical", "fade:red-blue:horizontal-reverse", etc.
 // Also supports numeric angles: "fade:red-blue:0" (0-360 degrees, where 0=right-to-left, 90=top-to-bottom, etc.)
+// Supports neat modifier: "fade:neat:red-blue" or "fade:red-blue:neat" for clean gradients without noise
 function parseFade(fadeString) {
   const parts = fadeString.split(":");
-  if (parts.length < 2 || parts.length > 3 || parts[0] !== "fade") {
+  if (parts.length < 2 || parts.length > 4 || parts[0] !== "fade") {
     return null;
   }
   
-  const fadeType = parts[1];
-  const direction = parts[2] || "horizontal"; // Default to horizontal if no direction specified
+  // Check for neat modifier
+  let isNeat = false;
+  let fadeType = parts[1];
+  let direction = parts[2] || "horizontal";
   
-  // Store direction globally for use in getFadeColor
+  // Handle different neat syntax positions
+  if (parts[1] === "neat" && parts[2]) {
+    // Format: fade:neat:red-blue or fade:neat:red-blue:vertical
+    isNeat = true;
+    fadeType = parts[2];
+    direction = parts[3] || "horizontal";
+  } else if (parts[2] === "neat") {
+    // Format: fade:red-blue:neat
+    isNeat = true;
+    direction = "horizontal";
+  } else if (parts[3] === "neat") {
+    // Format: fade:red-blue:vertical:neat
+    isNeat = true;
+    direction = parts[2];
+  } else if (parts.length > 2 && (parts[2] === "neat" || parts[parts.length - 1] === "neat")) {
+    // Handle neat anywhere in the string
+    isNeat = true;
+    // Remove neat from parts and reconstruct
+    const filteredParts = parts.filter(p => p !== "neat");
+    if (filteredParts.length >= 2) {
+      fadeType = filteredParts[1];
+      direction = filteredParts[2] || "horizontal";
+    }
+  }
+  
+  // Store direction and neat flag globally for use in getFadeColor
   fadeDirection = direction;
+  fadeNeat = isNeat;
   
   // Check if we have a fadeAlpha override from coat function
   const overrideAlpha = getFadeAlpha();
   const defaultAlpha = overrideAlpha !== null ? overrideAlpha : 255;
   
-  // Clear the fadeAlpha override after using it to avoid affecting subsequent operations
-  if (overrideAlpha !== null) {
-    clearFadeAlpha();
-  }
+  // Don't clear the fadeAlpha override here - let it persist for getFadeColor()
+  // It will be cleared when the fade operation is complete
   
   // Predefined fade types - removed sunset, ocean, fire as requested
   const predefinedFades = {
@@ -355,33 +498,49 @@ function getFadeColor(t, x = 0, y = 0) {
     endColor = [...zebraColor, endColor[1] || 255]; // Use offset zebra color
   }
   
-  // Linear interpolation between colors with subtle film-grain-like noise
-  const grainIntensity = 2.5; // Very subtle grain amount
+  // Linear interpolation between colors with optional film-grain-like noise
+  let result;
   
-  // Create multiple layers of noise using hash functions for organic grain
-  const hash1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-  const hash2 = Math.sin(x * 93.9898 + y * 67.345) * 28461.1398;
-  const hash3 = Math.sin(x * 15.1234 + y * 42.789) * 91735.2468;
+  // Check if there's a stored fade alpha that should override interpolated alpha
+  const storedAlpha = getFadeAlpha();
   
-  // Extract fractional parts and convert to -1 to 1 range
-  const grain1 = (hash1 - Math.floor(hash1)) * 2 - 1;
-  const grain2 = (hash2 - Math.floor(hash2)) * 2 - 1;
-  const grain3 = (hash3 - Math.floor(hash3)) * 2 - 1;
-  
-  // Blend different grain patterns for complexity
-  const finalGrain = (grain1 * 0.5 + grain2 * 0.3 + grain3 * 0.2);
-  
-  // Apply slightly different grain amounts per channel for subtle color variation
-  const rGrain = finalGrain * grainIntensity;
-  const gGrain = finalGrain * grainIntensity * 0.8; // Slightly less in green
-  const bGrain = finalGrain * grainIntensity * 1.2; // Slightly more in blue
-  
-  const result = [
-    Math.round(lerp(startColor[0], endColor[0], segmentT) + rGrain),
-    Math.round(lerp(startColor[1], endColor[1], segmentT) + gGrain),
-    Math.round(lerp(startColor[2], endColor[2], segmentT) + bGrain),
-    Math.round(lerp(startColor[3], endColor[3], segmentT)) // Keep alpha clean
-  ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
+  if (fadeNeat) {
+    // Clean gradient without noise
+    result = [
+      Math.round(lerp(startColor[0], endColor[0], segmentT)),
+      Math.round(lerp(startColor[1], endColor[1], segmentT)),
+      Math.round(lerp(startColor[2], endColor[2], segmentT)),
+      storedAlpha !== null ? storedAlpha : Math.round(lerp(startColor[3], endColor[3], segmentT)) // Use stored alpha if available
+    ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
+  } else {
+    // Apply subtle film-grain noise for organic look
+    const grainIntensity = 2.5; // Very subtle grain amount
+    
+    // Create multiple layers of noise using hash functions for organic grain
+    const hash1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    const hash2 = Math.sin(x * 93.9898 + y * 67.345) * 28461.1398;
+    const hash3 = Math.sin(x * 15.1234 + y * 42.789) * 91735.2468;
+    
+    // Extract fractional parts and convert to -1 to 1 range
+    const grain1 = (hash1 - Math.floor(hash1)) * 2 - 1;
+    const grain2 = (hash2 - Math.floor(hash2)) * 2 - 1;
+    const grain3 = (hash3 - Math.floor(hash3)) * 2 - 1;
+    
+    // Blend different grain patterns for complexity
+    const finalGrain = (grain1 * 0.5 + grain2 * 0.3 + grain3 * 0.2);
+    
+    // Apply slightly different grain amounts per channel for subtle color variation
+    const rGrain = finalGrain * grainIntensity;
+    const gGrain = finalGrain * grainIntensity * 0.8; // Slightly less in green
+    const bGrain = finalGrain * grainIntensity * 1.2; // Slightly more in blue
+    
+    result = [
+      Math.round(lerp(startColor[0], endColor[0], segmentT) + rGrain),
+      Math.round(lerp(startColor[1], endColor[1], segmentT) + gGrain),
+      Math.round(lerp(startColor[2], endColor[2], segmentT) + bGrain),
+      storedAlpha !== null ? storedAlpha : Math.round(lerp(startColor[3], endColor[3], segmentT)) // Use stored alpha if available
+    ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
+  }
   
   return result;
 }
@@ -407,6 +566,8 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      fadeNeat = false;
+      clearFadeAlpha();
       resetRainbowCache();
       return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
     }
@@ -422,6 +583,8 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      fadeNeat = false;
+      clearFadeAlpha();
       resetRainbowCache();
       
       // Treat as raw hex if we hit a certain limit.
@@ -437,6 +600,8 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      fadeNeat = false;
+      clearFadeAlpha();
       resetRainbowCache();
       
       // Or if it's an array, then spread it out and re-ink.
@@ -459,6 +624,8 @@ function findColor() {
       fadeMode = false;
       fadeColors = [];
       fadeDirection = "horizontal";
+      fadeNeat = false;
+      clearFadeAlpha();
       resetRainbowCache();
       
       // FIRST: Check for color index format like "c0", "c1", "p0", etc.

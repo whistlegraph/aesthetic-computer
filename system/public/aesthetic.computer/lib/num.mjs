@@ -509,6 +509,16 @@ export function parseColor(params) {
 
     if (name === "?") name = anyKey(cssColors); // Pick a name if `?` is passed.
 
+    // Check for fade syntax first (new feature)
+    if (name.startsWith("fade:")) {
+      return {
+        type: "fade",
+        fadeString: name,
+        alpha: alpha,
+        originalParams: params
+      };
+    }
+
     // Check for color index format like "c151"
     const indexColor = parseColorIndex(name);
     if (indexColor) {
@@ -540,6 +550,14 @@ function calculateAlpha(alphaParam) {
     alpha = rangedInts([alphaParam]) || 255;
   }
   return alpha;
+}
+
+// Helper function to check if parseColor result is a fade
+export function isFadeColor(colorResult) {
+  return colorResult && 
+         typeof colorResult === "object" && 
+         !Array.isArray(colorResult) && 
+         colorResult.type === "fade";
 }
 
 /*
