@@ -6,8 +6,6 @@
 import https from 'https';
 
 // ANSI terminal colors
-import https from 'https';
-
 const COLORS = {
   reset: '\x1b[0m',
   bright: '\x1b[1m',
@@ -193,23 +191,24 @@ async function printTreeNode(pieceName, depth = 0, prefix = "", showSource = fal
         
         // Print current piece
         if (embeddedPieces.length > 0) {
-            console.log(`${indent}${prefix}${colors.bright}${colors.blue}📁 $${pieceName}${colors.reset}`);
+            console.log(`${indent}${prefix}${COLORS.bright}${COLORS.blue}📁 $${pieceName}${COLORS.reset}`);
         } else {
-            console.log(`${indent}${prefix}${colors.cyan}📄 $${pieceName}${colors.reset}`);
+            console.log(`${indent}${prefix}${COLORS.cyan}📄 $${pieceName}${COLORS.reset}`);
         }
         
         // Print source code if requested
         if (showSource) {
             const sourceLines = cleanSource.split('\n');
             
-            console.log(`${indent}   ${colors.dim}┌─ Source Code ─────────────────────────────────────────┐${colors.reset}`);
+            console.log(`${indent}   ${COLORS.dim}┌─ Source Code ─────────────────────────────────────────┐${COLORS.reset}`);
             
             sourceLines.forEach((line, index) => {
                 const lineNumber = (index + 1).toString().padStart(3, ' ');
-                console.log(`${indent}   ${colors.dim}${lineNumber}:${colors.reset} ${line}`);
+                const highlightedLine = syntaxHighlight(line);
+                console.log(`${indent}   ${COLORS.dim}${lineNumber}:${COLORS.reset} ${highlightedLine}`);
             });
             
-            console.log(`${indent}   ${colors.dim}└───────────────────────────────────────────────────────┘${colors.reset}`);
+            console.log(`${indent}   ${COLORS.dim}└───────────────────────────────────────────────────────┘${COLORS.reset}`);
             console.log(); // Empty line after source
         } else {
             // Show just first few lines as preview
@@ -220,14 +219,14 @@ async function printTreeNode(pieceName, depth = 0, prefix = "", showSource = fal
                     if (line.length > 60) {
                         truncatedLine += "...";
                     }
-                    console.log(`${indent}   ${colors.dim}│${colors.reset} ${truncatedLine}`);
+                    console.log(`${indent}   ${COLORS.dim}│${COLORS.reset} ${truncatedLine}`);
                 }
             }
             
             // If source is longer than 3 lines, show indicator
             const totalLines = cleanSource.split('\n').length;
             if (totalLines > 3) {
-                console.log(`${indent}   ${colors.dim}│ ... (${totalLines} lines total)${colors.reset}`);
+                console.log(`${indent}   ${COLORS.dim}│ ... (${totalLines} lines total)${COLORS.reset}`);
             }
         }
         
@@ -243,13 +242,13 @@ async function printTreeNode(pieceName, depth = 0, prefix = "", showSource = fal
             console.log(`${indent}   └─ ... (max depth reached)`);
         }
     } catch (error) {
-        console.log(`${indent}${prefix}${colors.red}❌ $${pieceName}${colors.reset} ${colors.dim}(${error.message})${colors.reset}`);
+        console.log(`${indent}${prefix}${COLORS.red}❌ $${pieceName}${COLORS.reset} ${COLORS.dim}(${error.message})${COLORS.reset}`);
     }
 }
 
 function analyzePerformanceFeatures(source) {
     console.log("");
-    console.log(`${colors.bright}🔍 Performance Analysis:${colors.reset}`);
+    console.log(`${COLORS.bright}🔍 Performance Analysis:${COLORS.reset}`);
     
     // Check for expensive operations
     const expensiveOps = [];
@@ -260,9 +259,9 @@ function analyzePerformanceFeatures(source) {
     if (source.includes('flood')) expensiveOps.push('flood');
     
     if (expensiveOps.length > 0) {
-        console.log(`   ${colors.yellow}⚠️  Expensive operations detected: ${expensiveOps.join(", ")}${colors.reset}`);
+        console.log(`   ${COLORS.yellow}⚠️  Expensive operations detected: ${expensiveOps.join(", ")}${COLORS.reset}`);
     } else {
-        console.log(`   ${colors.green}✅ No expensive operations detected${colors.reset}`);
+        console.log(`   ${COLORS.green}✅ No expensive operations detected${COLORS.reset}`);
     }
     
     // Check for timing expressions
@@ -272,13 +271,13 @@ function analyzePerformanceFeatures(source) {
     
     // Check for randomness
     if (source.includes('?')) {
-        console.log(`   ${colors.magenta}🎲 Contains randomness (?)${colors.reset}`);
+        console.log(`   ${COLORS.magenta}🎲 Contains randomness (?)${COLORS.reset}`);
     }
     
     // Count embedded layers
     const embeddedCount = extractEmbeddedPieces(source).length;
     if (embeddedCount > 0) {
-        console.log(`   ${colors.cyan}📁 Embeds ${embeddedCount} layer(s)${colors.reset}`);
+        console.log(`   ${COLORS.cyan}📁 Embeds ${embeddedCount} layer(s)${COLORS.reset}`);
     }
 }
 
@@ -297,7 +296,7 @@ async function main() {
     // Remove $ prefix if present for display
     const displayName = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
     
-    console.log(`${colors.bright}🌳 KidLisp Source Tree for ${displayName}${colors.reset}`);
+    console.log(`${COLORS.bright}🌳 KidLisp Source Tree for ${displayName}${COLORS.reset}`);
     console.log("═══════════════════════════════════════════");
     
     try {
@@ -309,12 +308,18 @@ async function main() {
         analyzePerformanceFeatures(mainSource);
         
         console.log("");
-        console.log(`${colors.bright}💡 Use this analysis to understand performance bottlenecks!${colors.reset}`);
-        console.log(`   ${colors.dim}Run with different pieces: source-tree.mjs $39i --source${colors.reset}`);
+        console.log(`${COLORS.bright}💡 Use this analysis to understand performance bottlenecks!${COLORS.reset}`);
+        console.log(`   ${COLORS.dim}Run with different pieces: source-tree.mjs $39i --source${COLORS.reset}`);
+        
+        // Explicitly exit to prevent hanging
+        process.exit(0);
     } catch (error) {
-        console.error(`${colors.red}❌ Error: ${error.message}${colors.reset}`);
+        console.error(`${COLORS.red}❌ Error: ${error.message}${COLORS.reset}`);
         process.exit(1);
     }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+    console.error(`${COLORS.RED}❌ Unhandled error: ${error.message}${COLORS.RESET}`);
+    process.exit(1);
+});
