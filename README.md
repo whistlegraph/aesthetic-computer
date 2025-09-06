@@ -59,6 +59,12 @@ piece[3].
 
 ---
 
+### KidLisp
+
+Aesthetic Computer includes KidLisp, a minimal Lisp dialect for creating generative art and interactive experiences. See the [KidLisp documentation](kidlisp/) for language reference, examples, and technical details.
+
+---
+
 [0] No Paint HN discussion from 2020: https://news.ycombinator.com/item?id=23546706
 
 [1] Recent HN discussion on `notepat` here: https://news.ycombinator.com/item?id=41526754

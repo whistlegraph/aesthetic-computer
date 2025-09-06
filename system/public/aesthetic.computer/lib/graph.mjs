@@ -3396,6 +3396,9 @@ function resetScrollState() {
 let shearAccumulatorX = 0;
 let shearAccumulatorY = 0;
 
+// Accumulated radial displacement for smooth sucking
+let suckAccumulator = 0.0;
+
 // Per-pixel shear accumulation for ensuring all pixels eventually move
 let pixelShearAccumX = null;
 let pixelShearAccumY = null;
@@ -3740,6 +3743,154 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   }
 
   // Don't reset zoom accumulator - let it continue accumulating like scroll and spin
+}
+
+// Radial displacement transformation with pixel-perfect nearest neighbor sampling
+// Creates discrete, lossless pixel movement without blur or center holes
+function suck(strength = 1, centerX, centerY) {
+  if (strength === 0.0) return; // No change needed - neutral suck
+  
+  // Accumulate the suck strength like zoom does
+  suckAccumulator += strength;
+  
+  // Apply transformation when accumulator reaches threshold
+  const threshold = 0.5; // Higher threshold for more controlled movement
+  if (Math.abs(suckAccumulator) < threshold) return;
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Default center point to middle of working area
+  const centerPixelX = centerX !== undefined ? centerX : minX + workingWidth * 0.5;
+  const centerPixelY = centerY !== undefined ? centerY : minY + workingHeight * 0.5;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in suck, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  // Create snapshot for pixel-perfect sampling
+  const tempPixels = new Uint8ClampedArray(pixels);
+
+  // Use smooth displacement (no discrete steps for quality preservation)
+  const displacementAmount = Math.abs(suckAccumulator);
+  const direction = suckAccumulator > 0 ? 1 : -1; // Positive = inward, Negative = outward
+  
+  if (displacementAmount < 0.01) {
+    suckAccumulator = 0.0;
+    return; // No movement needed
+  }
+  
+  // Calculate maximum distance for wrapping
+  const maxDistance = Math.max(workingWidth, workingHeight);
+
+  // Apply pixel-perfect radial displacement
+  for (let destY = minY; destY < maxY; destY++) {
+    const destRowOffset = destY * width;
+    
+    for (let destX = minX; destX < maxX; destX++) {
+      // Calculate distance from center using Euclidean distance for natural circles
+      const dx = destX - centerPixelX;
+      const dy = destY - centerPixelY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Prevent center hole by having minimum movement radius
+      if (distance < 2.0) {
+        // Very center pixels stay put to prevent holes
+        const destIdx = (destRowOffset + destX) * 4;
+        pixels[destIdx] = tempPixels[destIdx];
+        pixels[destIdx + 1] = tempPixels[destIdx + 1];
+        pixels[destIdx + 2] = tempPixels[destIdx + 2];
+        pixels[destIdx + 3] = tempPixels[destIdx + 3];
+        continue;
+      }
+      
+      // Calculate smooth source distance with sub-pixel precision
+      let srcDistance = distance - (direction * displacementAmount); // Smooth sub-pixel movement
+      
+      // Proper wrapping for true circulation
+      if (srcDistance <= 0) {
+        // Pixel moved past center, wrap to outer edge 
+        srcDistance = maxDistance + srcDistance; // Preserve the excess
+      } else if (srcDistance > maxDistance) {
+        // Pixel moved past edge, wrap back toward center
+        srcDistance = srcDistance - maxDistance;
+      }
+      
+      // Calculate source position using exact same direction as destination
+      const angle = Math.atan2(dy, dx);
+      const srcX = centerPixelX + srcDistance * Math.cos(angle);
+      const srcY = centerPixelY + srcDistance * Math.sin(angle);
+      
+      // Proper modulo wrapping for continuous circulation
+      let wrappedSrcX = srcX;
+      let wrappedSrcY = srcY;
+      
+      // True modulo wrapping that preserves circulation
+      while (wrappedSrcX < minX) {
+        wrappedSrcX += workingWidth;
+      }
+      while (wrappedSrcX >= maxX) {
+        wrappedSrcX -= workingWidth;
+      }
+      
+      while (wrappedSrcY < minY) {
+        wrappedSrcY += workingHeight;
+      }
+      while (wrappedSrcY >= maxY) {
+        wrappedSrcY -= workingHeight;
+      }
+      
+      // SMOOTH SAMPLING: Use bilinear interpolation for sub-pixel precision
+      const srcX_floor = Math.floor(wrappedSrcX);
+      const srcY_floor = Math.floor(wrappedSrcY);
+      const srcX_ceil = srcX_floor + 1;
+      const srcY_ceil = srcY_floor + 1;
+      
+      // Calculate interpolation weights
+      const wx = wrappedSrcX - srcX_floor;
+      const wy = wrappedSrcY - srcY_floor;
+      
+      // Clamp coordinates to valid range
+      const x1 = Math.max(minX, Math.min(maxX - 1, srcX_floor));
+      const y1 = Math.max(minY, Math.min(maxY - 1, srcY_floor));
+      const x2 = Math.max(minX, Math.min(maxX - 1, srcX_ceil));
+      const y2 = Math.max(minY, Math.min(maxY - 1, srcY_ceil));
+      
+      // Get four corner pixels for bilinear interpolation
+      const idx1 = (y1 * width + x1) * 4; // top-left
+      const idx2 = (y1 * width + x2) * 4; // top-right  
+      const idx3 = (y2 * width + x1) * 4; // bottom-left
+      const idx4 = (y2 * width + x2) * 4; // bottom-right
+      
+      const destIdx = (destRowOffset + destX) * 4;
+      
+      // Bilinear interpolation for each color channel
+      for (let c = 0; c < 4; c++) {
+        const topInterp = tempPixels[idx1 + c] * (1 - wx) + tempPixels[idx2 + c] * wx;
+        const bottomInterp = tempPixels[idx3 + c] * (1 - wx) + tempPixels[idx4 + c] * wx;
+        const finalInterp = topInterp * (1 - wy) + bottomInterp * wy;
+        pixels[destIdx + c] = Math.round(finalInterp);
+      }
+    }
+  }
+
+  // Reset accumulator after applying transformation
+  suckAccumulator = 0.0;
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -4946,6 +5097,7 @@ export {
   resetScrollState,
   spin,
   zoom,
+  suck,
   sort,
   shear,
   Camera,
