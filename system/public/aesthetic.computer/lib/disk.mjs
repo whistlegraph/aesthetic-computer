@@ -8104,9 +8104,6 @@ async function makeFrame({ data: { type, content } }) {
           // Ensure label renders with clean pan state
           $.unpan();
 
-          // SIMPLIFIED: Draw visualization box underneath (always visible for debugging)
-          $.ink(255, 0, 0, 64).box(0, 0, w, h); // Semi-transparent red box shows exact button/press area
-
           // HUD Background Highlighting: Add background for kidlisp hud corner labels
           if (HIGHLIGHT_MODE) {
             // Detect if this is a KidLisp piece
