@@ -2,6 +2,8 @@
 // This module contains *most* of the nopaint system template functionality.
 // Shared functionality can be found in `disk.mjs`.
 
+import { generateNopaintHUDLabel } from "../lib/color-highlighting.mjs";
+
 let state = "idle";
 const cursor = { x: 0, y: 0 };
 
@@ -407,4 +409,12 @@ function nopaint_paint({
   // Currently empty but available for debugging coordinate issues
 }
 
-export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_adjust };
+// Helper function for nopaint brushes to generate colored HUD labels
+function nopaint_generateColoredLabel(brushName, colorParams, rawParams, modifiers = "", api) {
+  if (!api || !api.hud || !api.hud.label) return;
+  
+  const coloredLabel = generateNopaintHUDLabel(brushName, colorParams, rawParams, modifiers);
+  api.hud.label(coloredLabel);
+}
+
+export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_adjust, nopaint_generateColoredLabel };

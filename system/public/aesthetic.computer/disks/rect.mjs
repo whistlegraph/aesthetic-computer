@@ -11,6 +11,8 @@
   Ex. `rect:o:c 255 0 0` for an outlined 1px rectangle.
   Ex. `rect:i-2` for a randomly colored 2px inline rectangle.
               ^ add a number here for thickness! 
+  Ex. `rect fade:red-blue` for a red to blue fade rectangle.
+  Ex. `rect fade:red-blue-yellow:vertical` for a multi-color vertical fade.
 #endregion */
 
 /* #region ✅ TODO 
@@ -18,7 +20,13 @@
   + Done
   - [x] Support zoomed paintings.
   - [x] Support ranged parameters
+  - [x] Support fade colors via enhanced parseColor
+  - [x] Color highlighting for HUD labels
 #endregion */
+
+import { nopaint_generateColoredLabel } from "../systems/nopaint.mjs";
+import { isFadeColor } from "../lib/num.mjs";
+import { setFadeAlpha } from "../lib/fade-state.mjs";
 
 let rect,
   color,
@@ -29,18 +37,25 @@ let rect,
   erase = false;
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ params, num, colon }) {
+function boot({ params, num, colon, hud, ...api }) {
   color = num.parseColor(params);
 
-  // 🌈 Rainbow
-  if (color[0] === "rainbow") {
-    rainbow = true;
-    color = [...num.rainbow(), color[1]];
-  }
-  // 🧱 Erase
-  if (color[0] === -1) {
-    erase = true; // Detect erase color.
-    color = [32, color[3]]; // Don't use the -1 erase color here.
+  // Check if we got a fade color
+  if (isFadeColor(color)) {
+    // For fades, we'll use the fade string directly with ink() in paint()
+    // The graph system will handle the fade rendering
+  } else {
+    // Handle traditional color processing
+    // 🌈 Rainbow
+    if (color[0] === "rainbow") {
+      rainbow = true;
+      color = [...num.rainbow(), color[1]];
+    }
+    // 🧱 Erase
+    if (color[0] === -1) {
+      erase = true; // Detect erase color.
+      color = [32, color[3]]; // Don't use the -1 erase color here.
+    }
   }
 
   // Handle parameters for outline, inline, and fill.
@@ -65,6 +80,10 @@ function boot({ params, num, colon }) {
     mode += "*center";
     centered = true;
   }
+
+  // Generate colored HUD label using the new color highlighting system
+  const modifiers = colon.length > 0 ? `:${colon.join(":")}` : "";
+  nopaint_generateColoredLabel("rect", color, params, modifiers, { hud, ...api });
 }
 
 // 🎨 Paint (Executes every display frame)
@@ -85,7 +104,18 @@ function paint({
 
     page(nopaint.buffer).wipe(255, 0);
     if (!erase) blend("blit");
-    ink(color).box(r, mode); // UI: Paint a preview to the screen.
+    
+    // Handle fade colors vs traditional colors
+    if (isFadeColor(color)) {
+      // For fade colors, set alpha if specified and use the fadeString directly
+      if (color.alpha !== undefined) {
+        setFadeAlpha(color.alpha);
+      }
+      ink(color.fadeString).box(r, mode);
+    } else {
+      ink(color).box(r, mode); // UI: Paint a preview to the screen.
+    }
+    
     if (!erase) blend();
     page(screen);
 
