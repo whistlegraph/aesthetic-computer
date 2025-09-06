@@ -3296,17 +3296,19 @@ class KidLisp {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
-        // console.log(`🎯 Zoom function called with args:`, args);
-        // console.log(`🎯 Embedded layers length:`, this.embeddedLayers?.length);
-        // console.log(`🎯 In embed phase:`, this.inEmbedPhase);
+        console.log(`🎯 Zoom function called with args:`, args);
+        console.log(`🎯 Embedded layers length:`, this.embeddedLayers?.length);
+        console.log(`🎯 In embed phase:`, this.inEmbedPhase);
+        console.log(`🎯 Is embedded context:`, this.isEmbeddedContext);
         
-        // Defer zoom execution if embedded layers exist and we're not in embed phase
-        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
-          // console.log(`⏸️ Deferring zoom execution due to embedded layers`);
+        // Only defer zoom execution if we're in the main program with embedded layers
+        // BUT allow immediate execution if we're already inside an embedded layer
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+          console.log(`⏸️ Deferring zoom execution due to embedded layers`);
           this.postEmbedCommands.push({
             name: 'zoom',
             func: () => {
-              // console.log(`⏰ Executing deferred zoom with args:`, args);
+              console.log(`⏰ Executing deferred zoom with args:`, args);
               api.zoom(...args);
             },
             args
@@ -3315,7 +3317,7 @@ class KidLisp {
         }
         
         // Execute zoom immediately
-        // console.log(`🚀 Executing zoom immediately with args:`, args);
+        console.log(`🚀 Executing zoom immediately with args:`, args);
         api.zoom(...args);
       },
       suck: (api, args = []) => {
@@ -4936,6 +4938,7 @@ class KidLisp {
           console.log(`🎯 Processing dollar code: ${expr} -> cacheId: ${cacheId}`);
           const embedFunc = globalEnv.embed;
           if (embedFunc) {
+            console.log(`🔧 Calling embed function for ${expr}`);
             return embedFunc(api, [cacheId]);
           } else {
             console.warn("❌ embed function not found in global environment");
@@ -5316,12 +5319,10 @@ class KidLisp {
           // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
           // Also handle instant trigger modifier like "0.25s!", "1s!", "2s!"
           
-          // 🚫 Only execute timing expressions at top-level, not when nested in function arguments
-          if (!isTopLevel) {
-            // When not at top-level, just return the timing expression as a string literal
-            result = head;
-            continue;
-          }
+          // console.log(`⏰ TIMING DETECTED: ${head}, isTopLevel: ${isTopLevel}, args:`, args);
+          
+          // Note: We process timing expressions at any level in embedded layers, 
+          // but only top-level timers get immediate first execution
           
           const hasInstantTrigger = head.endsWith("!");
           const timeString = hasInstantTrigger ? head.slice(0, -1) : head;
@@ -5338,6 +5339,7 @@ class KidLisp {
             result = timingResult;
           } else if (seconds < 0.016) {
             // For very small intervals (less than ~60fps), limit to 60fps max to prevent excessive triggering
+            console.log(`⏰ FAST TIMING: ${head} (${seconds}s) using 60fps limiting`);
             const minInterval = 0.016; // ~16ms, roughly 60fps
             const clockResult = api.clock.time();
             if (!clockResult) continue;
@@ -5379,21 +5381,19 @@ class KidLisp {
 
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-              // Only execute immediately on first call if this is the first expression in the program
-              this.lastSecondExecutions[timingKey] = currentTime;
+            this.lastSecondExecutions[timingKey] = currentTime;
 
-              if (bodyIndex === 0) {
+            // Execute immediately on first call if this is the first expression in the program
+            if (bodyIndex === 0) {
                 // Mark timing as triggered for blink effect first
                 this.markTimingTriggered(head); // Trigger blink
                 this.markDelayTimerActive(head); // Mark as active for display period
                 
-                // Execute with a slight delay to let the blink show
-                setTimeout(() => {
-                  let timingResult;
-                  for (const arg of args) {
-                    timingResult = this.evaluate([arg], api, env, undefined, true);
-                  }
-                }, 50); // 50ms delay to let blink effect show
+                // Execute immediately - no setTimeout needed for frame-based timing!
+                let timingResult;
+                for (const arg of args) {
+                  timingResult = this.evaluate([arg], api, env, undefined, true);
+                }
                 
                 // Return a placeholder result
                 result = "delayed-execution";
@@ -5412,20 +5412,33 @@ class KidLisp {
               if (diff >= adjustedSeconds) {
                 this.lastSecondExecutions[timingKey] = currentTime;
 
+                // console.log(`⏰ TIMING EXECUTE: ${head} executing after ${diff}s (needed ${adjustedSeconds}s)`);
+
                 // Mark timing as triggered for blink effect first
                 this.markTimingTriggered(head); // Trigger blink
                 this.markDelayTimerActive(head); // Mark as active for display period
                 
-                // Execute with a slight delay to let the blink show
-                setTimeout(() => {
-                  let timingResult;
-                  for (const arg of args) {
-                    timingResult = evaluateTimingArg(arg, api, env);
-                  }
-                }, 50); // 50ms delay to let blink effect show
+                // Execute immediately - no setTimeout needed for frame-based timing!
+                // console.log(`🔥 TIMING EXECUTION: ${head} starting with args:`, args);
+                // console.log(`🔥 TIMING CONTEXT: isEmbeddedContext=${this.isEmbeddedContext}, inEmbedPhase=${this.inEmbedPhase}`);
                 
-                // Return a placeholder result
-                result = "delayed-execution";
+                // Preserve embedded context for timing execution
+                const wasInEmbedPhase = this.inEmbedPhase;
+                this.inEmbedPhase = true; // Force embed phase during timing execution
+                
+                let timingResult;
+                for (const arg of args) {
+                  // console.log(`🔥 TIMING ARG: evaluating`, arg);
+                  timingResult = this.fastEval(arg, api, env);
+                  // console.log(`🔥 TIMING ARG RESULT:`, timingResult);
+                }
+                
+                // Restore previous embed phase
+                this.inEmbedPhase = wasInEmbedPhase;
+                // console.log(`🔥 TIMING EXECUTION: ${head} completed`);
+                
+                // Return the result directly instead of placeholder
+                result = timingResult;
               }
             }
           }
@@ -5490,7 +5503,21 @@ class KidLisp {
           if (args.length > 0) {
             const currentIndex = this.sequenceCounters.get(timingKey) || 0;
             
-            // Debug timing state removed for performance
+            // 🐛 DEBUG: Log timing execution details for debugging zoom issues
+            if (head === "0.1s" && args.some(arg => 
+              (Array.isArray(arg) && arg[0] === "zoom") || 
+              (typeof arg === "string" && arg.includes("zoom"))
+            )) {
+              console.log(`⏰ DEBUG TIMER [${head}]: executing arg ${currentIndex} of ${args.length}`, {
+                timingKey,
+                currentIndex,
+                selectedArg: args[currentIndex],
+                allArgs: args,
+                timeDiff: diff,
+                secondsRequired: seconds,
+                shouldAdvance: diff >= seconds
+              });
+            }
             
             // Track the active timing expression for syntax highlighting
             this.activeTimingExpressions.set(timingKey, {
@@ -8400,13 +8427,14 @@ class KidLisp {
       }
 
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
-      // console.log(`🎮 Executing nested layer KidLisp: ${embeddedLayer.cacheId}`);
+      // console.log(`🎮 Executing embedded layer: ${embeddedLayer.originalCacheId}`);
+      // console.log(`📝 Source code: ${embeddedLayer.source || 'No source available'}`);
       embeddedLayer.kidlispInstance.evaluate(
         embeddedLayer.parsedCode, 
         embeddedApi, 
         embeddedEnv
       );
-      // console.log(`✅ Nested layer execution complete: ${embeddedLayer.cacheId}`);
+      // console.log(`✅ Embedded layer execution complete: ${embeddedLayer.originalCacheId}`);
 
       // Switch back to the original page
       api.page(originalPage);
