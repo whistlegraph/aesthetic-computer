@@ -41,7 +41,7 @@ const { isFinite } = Number;
 
 // 🎬 GIF Encoder Configuration
 // Set to true to use gifenc by default, false for gif.js
-const DEFAULT_USE_GIFENC = false;
+const DEFAULT_USE_GIFENC = true;
 
 // 🚫 Cache Control Flags
 // Set these to true to disable caching for dynamic content updates
@@ -2142,6 +2142,47 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           window.currentRecordingOptions.pieceName = `$${content}`;
           console.log(`🎬 Updated pieceName to: $${content}`);
         }
+      }
+      return;
+    }
+
+    // Handle export events forwarded from worker via send() fallback
+    if (type === "export-event-fallback") {
+      // Route export events to current piece through actEvents
+      if (actEvents && content && content.eventType && content.eventContent) {
+        const event = {
+          is: (eventType) => eventType === content.eventType,
+          type: content.eventType,
+          content: content.eventContent,
+          progress: content.eventType === "recorder:transcode-progress" ? content.eventContent : undefined
+        };
+        
+        console.log("🔗 ✅ Routed fallback export event to piece:", content.eventType);
+        actEvents.add(event);
+      } else {
+        console.log("🔗 ❌ Cannot route fallback event - missing actEvents or content:", !!actEvents, !!content);
+      }
+      return;
+    }
+
+    // Handle direct export events from worker (when actEvents unavailable during export)
+    if (
+      type === "recorder:export-status" ||
+      type === "recorder:export-progress" ||
+      type === "recorder:transcode-progress" ||
+      type === "recorder:export-complete"
+    ) {
+      // Route direct export events to current piece through actEvents
+      if (actEvents) {
+        const event = {
+          is: (eventType) => eventType === type,
+          type: type,
+          content: content,
+          progress: type === "recorder:transcode-progress" ? content : undefined
+        };
+        
+        console.log("🔗 ✅ Routed direct export event to piece:", type);
+        actEvents.add(event);
       }
       return;
     }
@@ -4638,10 +4679,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (useGifenc) {
           if (!window.gifenc) {
             console.log("📦 Loading gifenc library...");
-            const { GIFEncoder, quantize, applyPalette } = await import(
+            const { GIFEncoder, quantize, applyPalette, prequantize } = await import(
               "/aesthetic.computer/dep/gifenc/gifenc.esm.js"
             );
-            window.gifenc = { GIFEncoder, quantize, applyPalette };
+            window.gifenc = { GIFEncoder, quantize, applyPalette, prequantize };
             console.log("✅ gifenc library loaded successfully");
           }
         } else {
@@ -4692,6 +4733,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const totalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
           const actualFrameRate = Math.round((content.frames.length / totalDuration) * 1000);
           
+          // EARLY HIGH REFRESH RATE DETECTION - before resampling!
+          let shouldUseHighRefreshRateNormalization = false;
+          if (content.frames.length > 1) {
+            const avgOriginalTiming = totalDuration / (content.frames.length - 1);
+            console.log(`🎞️ EARLY TIMING ANALYSIS: ${content.frames.length} frames, totalDuration=${totalDuration.toFixed(2)}ms, avgTiming=${avgOriginalTiming.toFixed(2)}ms (${(1000/avgOriginalTiming).toFixed(1)}fps)`);
+            
+            // Detect high refresh rate from original capture (before resampling)
+            if (avgOriginalTiming < 13.5) { // Less than 13.5ms indicates >74fps
+              shouldUseHighRefreshRateNormalization = true;
+              window.earlyHighRefreshRateDetected = true;
+              console.log(`🎞️ EARLY HIGH REFRESH RATE DETECTED: ${(1000/avgOriginalTiming).toFixed(1)}fps capture - will normalize to 60fps timing`);
+            } else {
+              window.earlyHighRefreshRateDetected = false;
+              console.log(`🎞️ EARLY NORMAL REFRESH RATE: ${(1000/avgOriginalTiming).toFixed(1)}fps capture - will use original timing`);
+            }
+          }
+          
           if (actualFrameRate > targetGifFPS && totalDuration > 0) {
             // Calculate how many frames we need for 30fps
             const targetFrameCount = Math.round((totalDuration / 1000) * targetGifFPS);
@@ -4726,6 +4784,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log(`🎬 GIF frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
           } else {
             console.log(`🎬 No resampling needed: ${actualFrameRate}fps <= ${targetGifFPS}fps target`);
+            // Initialize early high refresh rate detection for non-resampled case
+            if (content.frames.length > 1) {
+              const avgOriginalTiming = totalDuration / (content.frames.length - 1);
+              window.earlyHighRefreshRateDetected = avgOriginalTiming < 13.5;
+              console.log(`🎞️ EARLY TIMING (no resampling): avgTiming=${avgOriginalTiming.toFixed(2)}ms, highRefresh=${window.earlyHighRefreshRateDetected}`);
+            } else {
+              window.earlyHighRefreshRateDetected = false;
+            }
           }
         }
 
@@ -4777,7 +4843,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          const { GIFEncoder, quantize, applyPalette } = window.gifenc;
+          const { GIFEncoder, quantize, applyPalette, prequantize } = window.gifenc;
           
           // Calculate a better initial capacity based on frame count and size
           const estimatedFrameSize = content.frames[0].width * content.frames[0].height * optimalScale * optimalScale;
@@ -4834,6 +4900,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
           
           // Calculate per-frame timing using KidLisp FPS timeline or fallback methods
+          console.log("🎞️ === GIFENC TIMING ANALYSIS START ===");
           console.log(`🎬 GIF Encoding Debug - KidLisp FPS Timeline:`, window.currentRecordingOptions?.kidlispFpsTimeline);
           console.log(`🎬 GIF Encoding Debug - Recording Options:`, window.currentRecordingOptions);
           
@@ -4858,23 +4925,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Process each frame with individual timing
           const frameDelays = [];
           const fpsTimeline = window.currentRecordingOptions?.kidlispFpsTimeline;
-          const fallbackFps = window.currentRecordingOptions?.kidlispFps || 60;
+          let fallbackFps = window.currentRecordingOptions?.kidlispFps || 60;
           
-          for (let i = 0; i < processedFrames.length; i++) {
-            const frame = processedFrames[i];
-            const frameTimestamp = frame.timestamp;
+          // Detect high refresh rate displays for non-KidLisp pieces
+          if (!fpsTimeline && processedFrames.length > 1) {
+            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
+            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
             
-            // Get the active FPS for this specific frame
-            const activeFps = getFpsAtTimestamp(frameTimestamp, fpsTimeline, fallbackFps);
-            const frameDelay = Math.round(1000 / activeFps);
-            frameDelays.push(frameDelay);
+            console.log(`🎞️ GIFENC TIMING DEBUG: totalDuration=${totalOriginalDuration.toFixed(2)}ms, frames=${processedFrames.length}, avgTiming=${avgFrameTiming.toFixed(2)}ms (${(1000/avgFrameTiming).toFixed(1)}fps)`);
             
-            if (i < 5 || i % 20 === 0) { // Log first few frames and every 20th frame
-              console.log(`🎞️ Frame ${i}: timestamp=${frameTimestamp.toFixed(2)}ms, fps=${activeFps}, delay=${frameDelay}ms`);
+            // Check if early high refresh rate detection was triggered (stored in window)
+            const earlyHighRefreshDetected = window.earlyHighRefreshRateDetected;
+            console.log(`🎞️ Early high refresh rate detection result: ${earlyHighRefreshDetected}`);
+            
+            // Use early detection result or fallback to current detection
+            const isHighRefreshRate = earlyHighRefreshDetected || avgFrameTiming < 13.5;
+            
+            if (isHighRefreshRate) {
+              // For high refresh rate displays, normalize to 30fps instead of 60fps for proper playback speed
+              fallbackFps = 30; // Use 30fps for smoother, slower GIF playback on high refresh displays
+              console.log(`🎞️ HIGH REFRESH RATE DETECTED in gifenc (${earlyHighRefreshDetected ? 'early detection' : 'fallback detection'}), normalizing to 30fps instead of 60fps`);
+            } else {
+              console.log(`🎞️ Normal refresh rate detected in gifenc (${(1000/avgFrameTiming).toFixed(1)}fps), using original timing`);
+            }
+          }
+          
+          // Calculate frame delays with intended duration taking absolute priority
+          if (window.currentRecordingOptions?.intendedDuration && processedFrames.length > 0) {
+            // PRIORITY: Use intended duration for perfect real-time accuracy (e.g., "tape 5" = 5 second playback)
+            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
+            const uniformDelay = Math.round(totalIntendedMs / processedFrames.length);
+            console.log(`🎞️ USING INTENDED DURATION: ${window.currentRecordingOptions.intendedDuration}s for ${processedFrames.length} frames = ${uniformDelay}ms per frame`);
+            
+            // Set all frame delays to the uniform delay for real-time accuracy
+            for (let i = 0; i < processedFrames.length; i++) {
+              frameDelays.push(uniformDelay);
+            }
+          } else {
+            // FALLBACK: Use FPS-based timing only when no intended duration is specified
+            for (let i = 0; i < processedFrames.length; i++) {
+              const frame = processedFrames[i];
+              const frameTimestamp = frame.timestamp;
+              
+              // Get the active FPS for this specific frame
+              const activeFps = getFpsAtTimestamp(frameTimestamp, fpsTimeline, fallbackFps);
+              const frameDelay = Math.round(1000 / activeFps);
+              frameDelays.push(frameDelay);
+              
+              if (i < 5 || i % 20 === 0) { // Log first few frames and every 20th frame
+                console.log(`🎞️ Frame ${i}: timestamp=${frameTimestamp.toFixed(2)}ms, fps=${activeFps}, delay=${frameDelay}ms, fallbackFps=${fallbackFps}`);
+              }
             }
           }
           
           console.log(`🎞️ Using per-frame KidLisp timing. Frame delays range: ${Math.min(...frameDelays)}ms to ${Math.max(...frameDelays)}ms`);
+          console.log(`🎞️ All frame delays:`, frameDelays.slice(0, 10), frameDelays.length > 10 ? `... (${frameDelays.length} total)` : '');
+          console.log(`🎞️ DEFAULT DELAY: ${Math.round(1000 / fallbackFps)}ms (${fallbackFps}fps)`);
           
           // Default delay for frames without timeline data (fallback)
           const defaultDelay = Math.round(1000 / fallbackFps);
@@ -4916,7 +5022,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // For GIF: calculate elapsed time based on the actual delay being used in encoding
             // This ensures timestamp matches the actual GIF playback speed
-            const gifElapsedSeconds = (index * gifencDelay) / 1000;
+            const gifElapsedSeconds = (index * frameDelay) / 1000;
             const gifFrameMetadata = {
               ...frame,
               gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
@@ -4951,60 +5057,88 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(frameProgress * 100)}%)`,
               );
               
+              // Use the same progress mechanism as MP4 export for consistency
               send({
-                type: "recorder:export-progress",
-                content: { 
-                  progress: totalProgress,
-                  type: "gif",
-                  message: `Processing frame ${index + 1}/${processedFrames.length}`
-                }
+                type: "recorder:transcode-progress",
+                content: totalProgress
               });
             }
           }
           
           // Send color optimization status
           send({
-            type: "recorder:export-status",
-            content: { 
-              type: "gif", 
-              phase: "optimizing", 
-              message: "Optimizing colors" 
-            }
-          });
-          
-          send({
-            type: "recorder:export-progress",
-            content: { 
-              progress: 0.5, 
-              type: "gif",
-              message: "Analyzing color palette"
-            }
+            type: "recorder:transcode-progress",
+            content: 0.5
           });
           
           console.log("🔄 Encoding GIF with gifenc (optimized for file size)...");
           
-          // Use sampled palette instead of loading all pixels into memory at once
-          // Sample pixels from every Nth frame to avoid memory allocation errors
-          const maxSampleFrames = Math.min(50, finalFrames.length); // Sample max 50 frames
-          const sampleInterval = Math.max(1, Math.floor(finalFrames.length / maxSampleFrames));
+          // Improved sampling strategy - prioritize quality over memory savings
+          // Sample all frames for recordings up to 8 seconds (typically ~240-480 frames at 30-60fps)
+          // Only use intelligent sampling for very long recordings (8+ seconds)
+          const maxFramesForFullSampling = 480; // About 8 seconds at 60fps
+          const shouldSampleAll = finalFrames.length <= maxFramesForFullSampling;
+          
+          let sampledPixels, actualSampleFrames;
           const sampleSize = finalFrames[0].width * finalFrames[0].height * 4; // Single frame size
-          const sampledPixels = new Uint8ClampedArray(maxSampleFrames * sampleSize);
-          let sampleOffset = 0;
           
-          console.log(`🎨 Sampling ${maxSampleFrames} frames (every ${sampleInterval}) for palette generation`);
+          console.log(`🎨 Sampling strategy: ${finalFrames.length} frames ${shouldSampleAll ? '(sampling ALL)' : '(intelligent sampling)'}`);
           
-          for (let i = 0; i < finalFrames.length; i += sampleInterval) {
-            if (sampleOffset + sampleSize <= sampledPixels.length) {
+          if (shouldSampleAll) {
+            // Sample all frames for best quality - most recordings will use this path
+            actualSampleFrames = finalFrames.length;
+            sampledPixels = new Uint8ClampedArray(actualSampleFrames * sampleSize);
+            let sampleOffset = 0;
+            
+            for (let i = 0; i < finalFrames.length; i++) {
               sampledPixels.set(finalFrames[i].data, sampleOffset);
               sampleOffset += sampleSize;
             }
+            console.log(`🎨 Sampled ALL ${actualSampleFrames} frames for optimal palette quality`);
+          } else {
+            // Only for very long recordings: intelligent sampling to avoid memory issues
+            const maxSampleFrames = Math.min(Math.max(100, Math.ceil(finalFrames.length * 0.2)), 500); // 20% of frames, min 100, max 500
+            actualSampleFrames = maxSampleFrames;
+            sampledPixels = new Uint8ClampedArray(actualSampleFrames * sampleSize);
+            let sampleOffset = 0;
+            
+            // Intelligent sampling: include first, last, and evenly distributed middle frames
+            const keyFrames = [0, Math.floor(finalFrames.length / 4), Math.floor(finalFrames.length / 2), 
+                              Math.floor(finalFrames.length * 3 / 4), finalFrames.length - 1];
+            
+            // Add evenly distributed frames
+            const sampleInterval = Math.max(1, Math.floor(finalFrames.length / maxSampleFrames));
+            for (let i = 0; i < finalFrames.length; i += sampleInterval) {
+              keyFrames.push(i);
+            }
+            
+            // Remove duplicates and sort
+            const uniqueFrames = [...new Set(keyFrames)].sort((a, b) => a - b).slice(0, maxSampleFrames);
+            
+            console.log(`🎨 Long recording detected (${finalFrames.length} frames) - sampling ${uniqueFrames.length} key frames`);
+            
+            for (const frameIndex of uniqueFrames) {
+              if (sampleOffset + sampleSize <= sampledPixels.length && frameIndex < finalFrames.length) {
+                sampledPixels.set(finalFrames[frameIndex].data, sampleOffset);
+                sampleOffset += sampleSize;
+              }
+            }
           }
           
-          // Quantize sampled pixels to 256 colors with optimized settings for file size
+          // Apply prequantization to reduce color noise and improve palette quality
+          console.log(`🎨 Applying prequantization to reduce color noise...`);
+          prequantize(sampledPixels, {
+            roundRGB: 3,      // Round RGB values to nearest 3 (reduces similar colors)
+            roundAlpha: 10,   // Round alpha values to nearest 10
+            oneBitAlpha: null // Keep full alpha channel
+          });
+          
+          // Enhanced quantization with better quality settings
           const palette = quantize(sampledPixels, 256, { 
-            format: "rgb565", // Good balance of quality and speed
+            format: "rgba4444", // Better color precision than rgb565 while still being efficient
             clearAlpha: false, // Disable alpha processing since we don't need transparency
-            oneBitAlpha: false // Disable alpha quantization for smaller files
+            oneBitAlpha: false, // Disable alpha quantization for smaller files
+            colorSpace: "rgb" // Ensure we're working in RGB color space for better accuracy
           });
           
           // Send encoding status
@@ -5023,7 +5157,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
             const frame = finalFrames[i];
-            const index = applyPalette(frame.data, palette, "rgb565"); // Use same format as quantization
+            const index = applyPalette(frame.data, palette, "rgba4444"); // Use same format as quantization
             
             // Use per-frame delay calculated from KidLisp FPS timeline
             const delayInMilliseconds = frameDelays[i] || defaultDelay;
@@ -5042,46 +5176,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const totalProgress = 0.4 + (encodingProgress * 0.5); // 40-90% of total
               console.log(`🔄 GIF encoding progress: ${Math.round(encodingProgress * 100)}%`);
               
+              // Use the same progress mechanism as MP4 export for consistency
               send({
-                type: "recorder:export-progress",
-                content: { 
-                  progress: totalProgress, 
-                  type: "gif",
-                  message: `Encoding frame ${i + 1}/${finalFrames.length}`
-                }
+                type: "recorder:transcode-progress",
+                content: totalProgress
               });
             }
           }
           
-          // Send finalization status
-          send({
-            type: "recorder:export-status",
-            content: { 
-              type: "gif", 
-              phase: "finalizing", 
-              message: "Finalizing GIF" 
-            }
-          });
-          
-          send({
-            type: "recorder:export-progress",
-            content: { 
-              progress: 0.95, 
-              type: "gif",
-              message: "Finalizing file"
-            }
-          });
-          
-          gif.finish();
-          
           // Send 100% completion progress before generating the blob
           send({
-            type: "recorder:export-progress",
-            content: { 
-              progress: 1.0, 
-              type: "gif",
-              message: "GIF complete"
-            }
+            type: "recorder:transcode-progress",
+            content: 1.0
           });
           
           const gifBytes = gif.bytes();
@@ -5096,10 +5202,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           console.log("🎬 Animated GIF exported successfully with gifenc!");
 
-          // Send completion message to video piece
+          // Send completion signal like MP4 export does
           send({
-            type: "recorder:export-complete",
-            content: { type: "gif", filename }
+            type: "signal", 
+            content: "recorder:transcoding-done"
           });
           
         } else {
@@ -5184,13 +5290,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             consistentDelay = Math.round(totalIntendedMs / processedFrames.length);
             consistentDelay = Math.max(consistentDelay, 20); // Minimum 20ms for browser compatibility
           } else if (processedFrames.length > 1) {
-            // Calculate average frame timing from original recording and make it faster
+            // Calculate average frame timing from original recording
             const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
             const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
-            // Speed up GIF by 25% (multiply delay by 0.75)
-            const speedMultiplier = 0.75;
-            consistentDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
-            console.log(`🎞️ Using sped-up timing: ${consistentDelay}ms delay (${(1000/consistentDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
+            
+            console.log(`🎞️ GIF.JS TIMING DEBUG: totalDuration=${totalOriginalDuration.toFixed(2)}ms, frames=${processedFrames.length}, avgTiming=${avgFrameTiming.toFixed(2)}ms (${(1000/avgFrameTiming).toFixed(1)}fps)`);
+            
+            // Detect high refresh rate displays (120Hz = ~8.33ms, 90Hz = ~11.11ms)
+            // Be more aggressive: anything faster than 75fps (13.33ms) should be normalized
+            const isHighRefreshRate = avgFrameTiming < 13.5; // Less than 13.5ms indicates >74fps
+            
+            if (isHighRefreshRate) {
+              // For high refresh rate displays, normalize to 60fps equivalent timing
+              // Target 60fps = 16.67ms per frame, which gives smooth GIF playback
+              consistentDelay = Math.round(Math.max(16.67, 16)); // 60fps timing
+              console.log(`🎞️ HIGH REFRESH RATE DETECTED (${(1000/avgFrameTiming).toFixed(1)}fps capture), normalizing to 60fps: ${consistentDelay}ms delay`);
+            } else {
+              // For normal displays, apply modest speed up but not as aggressive
+              const speedMultiplier = 0.9; // Only 10% faster instead of 25%
+              consistentDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
+              console.log(`🎞️ NORMAL REFRESH RATE: Using slightly sped-up timing: ${consistentDelay}ms delay (${(1000/consistentDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
+            }
           } else {
             // Fallback for single frame or no timing data - also faster
             consistentDelay = 67; // 15fps default (faster than 10fps)

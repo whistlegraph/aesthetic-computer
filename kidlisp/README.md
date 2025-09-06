@@ -50,32 +50,38 @@ KidLisp uses S-expressions (parentheses-based syntax):
 ```
 
 ### Core Functions
-The evaluator in `kidlisp.mjs` implements a comprehensive set of functions for:
-- **Graphics**: `rect`, `circle`, `line`, `pixel`, `blur`, `wipe`, etc.
-- **Transformations**: `zoom`, `scroll`, `spin`, `shear`, `suck` - pixel-level transformations
-- **Animation**: `s()` timing expressions, `frame` counter
-- **Interaction**: Mouse, keyboard, and touch input
-- **Math**: Arithmetic, trigonometry, random numbers
-- **Control**: Conditionals, loops, variables
+The evaluator in `kidlisp.mjs` implements a comprehensive set of **118 functions** across 12 categories:
+
+- **Graphics**: `wipe`, `ink`, `line`, `box`, `circle`, `tri`, `plot`, `flood`, `shape`
+- **Transformations**: `zoom`, `scroll`, `spin`, `blur`, `contrast` - 11 pixel-level effects
+- **Math**: `+`, `-`, `*`, `/`, `sin`, `cos`, `random`, `wiggle` - 14 mathematical operations  
+- **3D Graphics**: `cube`, `form`, `trans` - 8 three-dimensional functions
+- **Audio**: `mic`, `melody`, `overtone` - 6 sound processing functions
+- **System**: `width`, `height`, `frame`, `clock`, `fps` - 9 system properties
+- **Colors**: All CSS colors plus `rainbow`, `zebra` - 19 color functions
+- **Control**: `def`, `later`, `if`, `once`, `repeat` - 7 language constructs
 
 #### Graphics & Transformations
-KidLisp provides several pixel-level transformation functions:
+KidLisp provides 11 pixel-level transformation functions:
 
-- **`(zoom factor)`** - Scale transformation with accumulation
 - **`(scroll x y)`** - Translation with wrapping  
+- **`(zoom factor)`** - Scale transformation with accumulation
 - **`(spin angle)`** - Rotation around screen center
-- **`(suck strength [centerX] [centerY])`** - Radial displacement (inward/outward)
+- **`(blur amount)`** - Gaussian blur effect
+- **`(contrast level)`** - Contrast adjustment
+- **`(blur amount)`** - Gaussian blur effect
 
 Examples:
 ```lisp
-(zoom 1.1)          ; Gradual zoom in
 (scroll 5 0)        ; Move right by 5 pixels
+(zoom 1.1)          ; Gradual zoom in
 (spin 1)            ; Slow rotation
-(suck 1)            ; Inward vortex
-(suck -0.5)         ; Gentle outward flow
+(blur 2)            ; Soft blur effect
 ```
 
-*For a complete API reference, see the evaluator source code which serves as the canonical documentation.*
+*For a complete API reference with all 118 functions, see [`COMPLETE_API_MAP.md`](COMPLETE_API_MAP.md).*
+
+*For detailed transformation documentation, see [`docs/suck-complete-technical-guide.md`](docs/suck-complete-technical-guide.md).*
 
 ## 🔧 Architecture
 
@@ -101,47 +107,32 @@ KidLisp supports embedding other pieces as layers:
 ```
 This enables composition and reusability while maintaining performance through caching.
 
-## 🌪️ Suck Function - Technical Implementation
+## 🔄 Transformation Functions
 
-The `suck` function represents a major advancement in KidLisp's transformation capabilities, implementing fluid dynamics principles for organic pixel displacement.
+KidLisp includes 11 transformation functions for pixel manipulation:
 
-### Mathematical Foundation
-- **Polar Coordinates**: Converts (x,y) to (r,θ) for radial operations
-- **Irrotational Vortex**: Uses logarithmic falloff: `displacement = strength * log(r) / r`
-- **Wrapping Behavior**: Pixels loop seamlessly at edges, preserving data
-- **Mask Support**: Respects active mask boundaries for localized effects
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `scroll` | Move pixels with wrapping | `(scroll 5 0)` |
+| `zoom` | Scale from center | `(zoom 1.1)` |
+| `spin` | Rotate canvas | `(spin 1)` |
+| `blur` | Gaussian blur | `(blur 2)` |
+| `contrast` | Adjust contrast | `(contrast 1.5)` |
+| `suck` | Radial displacement | `(suck 0.5)` |
+| `pan` | Camera movement | `(pan 10 5)` |
+| `sort` | Sort pixels by brightness | `(sort)` |
+| `resetSpin` | Reset rotation | `(resetSpin)` |
+| `smoothspin` | Smooth rotation | `(smoothspin 0.1)` |
+| `unpan` | Reset camera | `(unpan)` |
 
-### Integration Details
-- **Deferred Execution**: Like `zoom` and `scroll`, respects embedded layer timing
-- **Accumulation Pattern**: Follows graph.mjs patterns for consistent behavior  
-- **Performance**: Optimized nearest-neighbor sampling with unrolled RGBA copying
-- **Safety**: Buffer detachment protection with automatic recreation
-
-### Usage Patterns
 ```lisp
-; Basic vortex effects
-(suck 1)           ; Inward spiral
-(suck -1)          ; Outward explosion
-
-; Animated sequences  
-(s1 (suck 0.5))    ; Gentle pulse every second
-(s0.1 (suck 0.1))  ; Rapid micro-movements
-
-; Combined with other transforms
-(scroll 1 0)       ; Move right
-(suck 0.2)         ; Add subtle vortex
-
-; Localized effects with masks
-(mask 50 50 100 100)  ; Define region
-(suck 2)              ; Strong effect in masked area
-(unmask)              ; Return to full screen
+; Basic transformation examples
+(scroll 5 0)        ; Move right by 5 pixels
+(zoom 1.1)          ; Gradual zoom in
+(spin 1)            ; Slow rotation
+(blur 2)            ; Soft blur effect
+(suck 0.5)          ; Radial displacement
 ```
-
-### Technical Notes
-- Currently uses nearest-neighbor sampling (bilinear interpolation planned)
-- Center point defaults to screen/mask center
-- Strength parameter affects displacement intensity exponentially
-- Compatible with all existing graph.mjs functions and timing systems
 
 ## 🛠️ Development
 
@@ -169,17 +160,43 @@ When modifying the evaluator:
    - Test with both immediate and deferred execution contexts
 
 **Recent Additions (2025-09-06):**
-- `suck` function: Radial pixel displacement with fluid dynamics algorithms
+- Complete documentation organization with 118-function API map
+- Development tools for API analysis and function discovery
+
+## 🚀 Summary
+
+KidLisp is a comprehensive creative coding language with **118 functions** designed for real-time visual art. Key strengths include:
+
+- **Rich API**: 12 function categories covering graphics, math, 3D, audio, and system control
+- **Live coding**: Interactive development with immediate visual feedback  
+- **Advanced transformations**: 11 pixel-level effects for visual manipulation
+- **Embedded systems**: Code composition and layer management
+- **Performance**: Optimized evaluation with caching and deferred execution
+
+### Quick Start
+```lisp
+(wipe "navy")                    ; Set background
+(ink "yellow")                   ; Set drawing color  
+(repeat 50 i                     ; Draw 50 circles
+  (circle (wiggle width) (wiggle height) 10))
+```
+
+### Resources
+- **[Complete API Map](COMPLETE_API_MAP.md)** - All 118 functions categorized
+- **[Function Drilldowns](docs/functions/)** - Detailed guides for specific functions
+- **[Development Tools](tools/)** - Analysis and debugging utilities
+- **[Technical Reports](reports/)** - Implementation research and comparisons
 
 ## 📚 Related Documentation
 
-- [Embedding System](docs/kidlisp-embed-feature.md)
-- [Feed System](docs/kidlisp-feed-feature.md)
-- [Tools Documentation](kidlisp/tools/README.md)
-- [Architecture Analysis Reports](reports/) - Various architectural deep-dives
+- [Embedding System](docs/features/embedding-system.md)
+- [Feed System](docs/features/feed-system.md)  
+- [Architecture Analysis Reports](reports/) - Technical deep-dives and comparisons
 
 ## 🎯 Philosophy
 
 KidLisp embodies the aesthetic computer philosophy of simplicity and expressiveness. It provides just enough power to create compelling visual experiences while remaining approachable for beginners and powerful for experts.
 
 The language is designed to feel immediate and responsive, with changes reflected in real-time. This makes it ideal for live coding, artistic exploration, and interactive installations.
+
+*KidLisp: Expressive creative coding for the Aesthetic Computer platform.*
