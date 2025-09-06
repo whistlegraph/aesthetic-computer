@@ -1667,8 +1667,10 @@ class KidLisp {
     this.currentSource = source;
     
     // Reset all state for fresh instance when loading a new module
-    // Clear onceExecuted only if the source code has changed
-    this.reset(sourceChanged, sourceChanged);
+    // For prompt executions (!isLispFile), always clear onceExecuted for fresh runs
+    // For file executions (isLispFile), only clear onceExecuted when source changes
+    const shouldClearOnce = !isLispFile || sourceChanged;
+    this.reset(shouldClearOnce, sourceChanged);
     
     // Clear first-line color when loading new code
     this.firstLineColor = null;
@@ -3315,6 +3317,29 @@ class KidLisp {
         // Execute zoom immediately
         // console.log(`🚀 Executing zoom immediately with args:`, args);
         api.zoom(...args);
+      },
+      suck: (api, args = []) => {
+        // console.log(`🌪️ Suck function called with args:`, args);
+        // console.log(`🌪️ Embedded layers length:`, this.embeddedLayers?.length);
+        // console.log(`🌪️ In embed phase:`, this.inEmbedPhase);
+        
+        // Defer suck execution if embedded layers exist and we're not in embed phase
+        if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
+          // console.log(`⏸️ Deferring suck execution due to embedded layers`);
+          this.postEmbedCommands.push({
+            name: 'suck',
+            func: () => {
+              // console.log(`⏰ Executing deferred suck with args:`, args);
+              api.suck(...args);
+            },
+            args
+          });
+          return;
+        }
+        
+        // Execute suck immediately
+        // console.log(`🚀 Executing suck immediately with args:`, args);
+        api.suck(...args);
       },
       blur: (api, args = []) => {
         // Execute blur immediately on the current buffer
@@ -4998,7 +5023,7 @@ class KidLisp {
       }
       // SPECIAL CASE: In embedded layers, prioritize embedded API for certain functions
       else if (this.isNestedInstance && api && typeof api[head] === "function" && 
-          (head === 'scroll' || head === 'spin' || head === 'zoom' || 
+          (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'suck' ||
            head === 'contrast' || head === 'shear' || head === 'brightness' || head === 'line')) {
         result = { type: "api", value: api[head] };
       } else if (existing(this.localEnv[head])) {
@@ -5758,6 +5783,10 @@ class KidLisp {
                   // Debug logging for zoom execution
                   if (head === "zoom") {
                     // console.log("🚀 Executing global zoom function with args:", processedArgs);
+                  }
+                  // Debug logging for suck execution
+                  if (head === "suck") {
+                    // console.log("🌪️ Executing global suck function with args:", processedArgs);
                   }
                   result = value(api, processedArgs, env, colon);
                   if (result?.iterable) {
