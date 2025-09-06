@@ -51,29 +51,41 @@ KidLisp uses S-expressions (parentheses-based syntax):
 
 ### Core Functions
 The evaluator in `kidlisp.mjs` implements a comprehensive set of functions for:
-- **Graphics**: `rect`, `circle`, `line`, `pixel`, `blur`, `wipe`, etc.
-- **Transformations**: `zoom`, `scroll`, `spin`, `shear`, `suck` - pixel-level transformations
+- **Graphics**: `rect`, `circle`, `line`, `pixel`, `blur`, etc.
+- **Transformations**: `zoom`, `suck`, `scroll`, `spin`, `shear` - pixel-level transformations
 - **Animation**: `s()` timing expressions, `frame` counter
 - **Interaction**: Mouse, keyboard, and touch input
 - **Math**: Arithmetic, trigonometry, random numbers
 - **Control**: Conditionals, loops, variables
 
-#### Graphics & Transformations
-KidLisp provides several pixel-level transformation functions:
+#### Transformation Functions
+KidLisp provides several pixel-level transformation functions that manipulate the screen buffer:
 
-- **`(zoom factor)`** - Scale transformation with accumulation
-- **`(scroll x y)`** - Translation with wrapping  
-- **`(spin angle)`** - Rotation around screen center
-- **`(suck strength [centerX] [centerY])`** - Radial displacement (inward/outward)
+**`(suck strength [centerX] [centerY])`** - NEW! Radial pixel displacement
+- `strength`: Positive values suck pixels toward center, negative pushes outward
+- `centerX`, `centerY`: Optional center point (defaults to screen center)
+- Uses fluid dynamics algorithms for natural, organic motion
+- Maintains data through wrapping - pixels loop seamlessly at edges
+- Examples:
+  ```lisp
+  (suck 1)      ; Gentle inward vortex effect
+  (suck -2)     ; Strong outward expansion  
+  (suck 0.5 100 50)  ; Subtle suck centered at (100,50)
+  ```
 
-Examples:
-```lisp
-(zoom 1.1)          ; Gradual zoom in
-(scroll 5 0)        ; Move right by 5 pixels
-(spin 1)            ; Slow rotation
-(suck 1)            ; Inward vortex
-(suck -0.5)         ; Gentle outward flow
-```
+**`(zoom factor)`** - Scale transformation
+- Traditional geometric scaling with accumulation
+- Factors > 1 zoom in, < 1 zoom out
+- Example: `(zoom 1.1)` for gradual zoom in
+
+**`(scroll x y)`** - Translation transformation  
+- Shifts pixels by given offset with wrapping
+- Example: `(scroll 5 0)` moves right by 5 pixels
+
+**`(spin angle)`** - Rotation transformation
+- Rotates pixels around screen center
+- Angle in degrees, positive = clockwise
+- Example: `(spin 1)` for slow rotation
 
 *For a complete API reference, see the evaluator source code which serves as the canonical documentation.*
 
