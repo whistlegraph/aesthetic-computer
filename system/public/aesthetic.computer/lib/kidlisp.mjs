@@ -7993,6 +7993,38 @@ class KidLisp {
         }
       },
       
+      // IMPORTANT: Add missing transform functions that embedded pieces need
+      spin: (...args) => {
+        if (typeof api.spin === "function") {
+          return api.spin(...args);
+        }
+      },
+      resetSpin: (...args) => {
+        if (typeof api.resetSpin === "function") {
+          return api.resetSpin(...args);
+        }
+      },
+      smoothspin: (...args) => {
+        if (typeof api.smoothspin === "function") {
+          return api.smoothspin(...args);
+        }
+      },
+      zoom: (...args) => {
+        if (typeof api.zoom === "function") {
+          return api.zoom(...args);
+        }
+      },
+      blur: (...args) => {
+        if (typeof api.blur === "function") {
+          return api.blur(...args);
+        }
+      },
+      contrast: (...args) => {
+        if (typeof api.contrast === "function") {
+          return api.contrast(...args);
+        }
+      },
+      
       // Screen properties
       screen: {
         width: embeddedLayer.width,
