@@ -40,12 +40,64 @@ function fish_greeting
     end
 
     printf "🧩 Hi @$AESTHETIC!\n\n"
+    
+    # Show the new KidLisp source tree shortcut
+    printf "💡 New: Use 'st cow' or 'st \$cow' to analyze KidLisp pieces from anywhere!\n\n"
 
     # printf "Ask with 'umm' and forget with 'nvm'\n"
     # printf "or use 'code' and 'done' with 'copy'\n"
     # printf "to generate and get code.\n\n"
     # printf "🆕 Try 'aider' to make edits: https://github.com/paul-gauthier/aider?tab=readme-ov-file#usage\n\n"
     # printf "📋 Clipboard also requires `xhost +local:docker` to be set on the host."
+end
+
+# KidLisp Source Tree Tool - allows running source-tree from anywhere
+# Usage: st cow, st $cow, st cow --source, st --test-colors, or st --test-css-colors
+function st
+    # Check for special commands first
+    if test "$argv[1]" = "--test-colors"
+        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs --test-colors
+        return
+    end
+    
+    if test "$argv[1]" = "--test-css-colors"
+        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs --test-css-colors
+        return
+    end
+    
+    if test "$argv[1]" = "--debug-colors"
+        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs --debug-colors
+        return
+    end
+    
+    set -l piece_name $argv[1]
+    set -l extra_args $argv[2..-1]
+    
+    # Remove $ prefix if present
+    if string match -q '$*' $piece_name
+        set piece_name (string sub -s 2 $piece_name)
+    end
+    
+    # Check if --source flag is explicitly provided
+    set -l has_source false
+    for arg in $extra_args
+        if test "$arg" = "--source"
+            set has_source true
+            break
+        end
+    end
+    
+    # Run the source-tree tool with clean output (no Node.js warnings)
+    if test $has_source = true
+        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs $piece_name $extra_args
+    else
+        node --no-warnings /workspaces/aesthetic-computer/kidlisp/tools/source-tree.mjs $piece_name $extra_args
+    end
+end
+
+# Alternative function for those who prefer the $ syntax
+function dollarpiece
+    st $argv
 end
 
 # always start in aesthetic-computer directory if there was a greeting
