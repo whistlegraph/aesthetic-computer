@@ -21,7 +21,7 @@ import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
 //          niki
 
 function parse(text, location = self?.location) {
-  console.log("🐛 parse() called with text:", text);
+  // console.log("🐛 parse() called with text:", text);
   let path, host, params, search, hash;
 
   // Extract remote path from text if it begins with https and ends with `.mjs`.

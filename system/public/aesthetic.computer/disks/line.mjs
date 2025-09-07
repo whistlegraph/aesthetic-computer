@@ -1,18 +1,24 @@
 // Line, 22.09.19.12.44 (Redesigned 25.01.08)
 // A clean, responsive line drawing brush with proper thickness support
 
-/* #region 🏁 todos the 1px li
+/* #region 🏁 todos
   + Current Version
   - [x] Remove laggy Race smoothing system
   - [x] Fix thickness support using improved pline
   - [x] Simplify the pipeline for better performance
   - [x] Add proper rounded end caps
   - [x] Direct integration with graph.mjs optimized functions
+  - [x] Add fade support via enhanced parseColor
+  - [x] Add color highlighting for HUD labels
   + Future
   - [] Optional pressure sensitivity support
   - [] Texture brushes
   - [] Multiple color modes
 #endregion */
+
+import { nopaint_generateColoredLabel } from "../systems/nopaint.mjs";
+import { isFadeColor } from "../lib/num.mjs";
+import { setFadeAlpha } from "../lib/fade-state.mjs";
 
 let colorParams, // Processed color parameters
   thickness, // Line thickness
@@ -45,7 +51,7 @@ function about({ colon, params, num }) {
 }
 
 // 🥾 Boot - Initialize the brush
-function boot({ params, num, colon }) {
+function boot({ params, num, colon, hud, ...api }) {
   colorParams = num.parseColor(params);
   thickness = parseInt(colon[0]) || 1; // Set line thickness with colon param
   
@@ -57,6 +63,10 @@ function boot({ params, num, colon }) {
   
   // Initialize state tracking
   wasPainting = false;
+
+  // Generate colored HUD label using the new color highlighting system  
+  const modifiers = colon.length > 0 ? `:${colon.join(":")}` : "";
+  nopaint_generateColoredLabel("line", colorParams, params, modifiers, { hud, ...api });
 }
 
 // 🧮 Sim - No simulation needed for the streamlined version
@@ -103,16 +113,38 @@ function paint({ pen, ink, page, paste, screen, num, system: { nopaint } }) {
         for (let i = 0; i < smoothed.length - 1; i++) {
           const p1 = smoothed[i];
           const p2 = smoothed[i + 1];
-          ink(colorParams).line(p1.x, p1.y, p2.x, p2.y, true);
+          // Handle fade colors vs traditional colors
+          if (isFadeColor(colorParams)) {
+            if (colorParams.alpha !== undefined) {
+              setFadeAlpha(colorParams.alpha);
+            }
+            ink(colorParams.fadeString).line(p1.x, p1.y, p2.x, p2.y, true);
+          } else {
+            ink(colorParams).line(p1.x, p1.y, p2.x, p2.y, true);
+          }
         }
       } else {
         // Use pixel-perfect rendering for crisp 1px lines (no smoothing for crispness)
-        ink(colorParams).pppline(currentStroke);
+        if (isFadeColor(colorParams)) {
+          if (colorParams.alpha !== undefined) {
+            setFadeAlpha(colorParams.alpha);
+          }
+          ink(colorParams.fadeString).pppline(currentStroke);
+        } else {
+          ink(colorParams).pppline(currentStroke);
+        }
       }
     } else {
       // For thick lines, always apply smoothing and use fast spinal rendering
       const smoothed = currentStroke.length > 2 ? smoothStroke(currentStroke) : currentStroke;
-      ink(colorParams).pline(smoothed, thickness);
+      if (isFadeColor(colorParams)) {
+        if (colorParams.alpha !== undefined) {
+          setFadeAlpha(colorParams.alpha);
+        }
+        ink(colorParams.fadeString).pline(smoothed, thickness);
+      } else {
+        ink(colorParams).pline(smoothed, thickness);
+      }
     }
     
     page(screen);
