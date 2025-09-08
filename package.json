@@ -80,6 +80,7 @@
     "terminal-kit": "^3.1.2"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "ntp-client": "^0.5.3"
   }
 }
