@@ -228,6 +228,7 @@
         "npm:stripe@^17.7.0",
         "npm:three@^0.175.0",
         "npm:typescript@^5.8.2",
+        "npm:wasmboy@^0.7.1",
         "npm:web3@^4.16.0",
         "npm:webpxmux@^0.0.2"
       ]

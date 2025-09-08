@@ -35,25 +35,25 @@ A 7-year-old sits in front of the **TV with FF1 Art Computer plugged in**, speak
 
 **`purple`** 
 
-<iframe src="https://aesthetic.computer/purple?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple?&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
 
 *The entire TV screen fills with purple, a standardized CSS color name.*
 
 **`ink, line`** 
 
-<iframe src="https://aesthetic.computer/purple,%20ink,%20line?nolabel=true&nogap=true&tv=true&highlight=%230000FF" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple,%20ink,%20line?&nogap=true&tv=true&highlight=%230000FF" width="480" height="300" frameborder="0"></iframe>
 
 *The ink color changes as lines appear.*
 
 **`scroll`** 
 
-<iframe src="https://aesthetic.computer/purple,%20ink,%20line,%20scroll?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple,%20ink,%20line,%20scroll&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
 
 *The whole picture drifts continuously.*
 
 **`blur`** 
 
-<iframe src="https://aesthetic.computer/purple,%20ink,%20line,%20scroll,%20blur?nolabel=true&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/purple,%20ink,%20line,%20scroll,%20blur&nogap=true&tv=true" width="480" height="300" frameborder="0"></iframe>
 
 *The image softens into a dreamy coud.*
 
@@ -61,7 +61,7 @@ Mom says *"That's beautiful! Should we keep it?"* Kid nods excitedly. Mom scans 
 
 Mom says *"Thanks!"* and says into **FF Orbit-0**: **`make a written thank you!`**:
 
-<iframe src="https://aesthetic.computer/make%20a%20written%20thank%20you!?nolabel=true&nogap=true&tv=true" width="640" height="420" frameborder="0"></iframe>
+<iframe src="https://aesthetic.computer/make%20a%20written%20thank%20you!&nogap=true&tv=true" width="640" height="420" frameborder="0"></iframe>
 
 *KidLisp code gets generated on-screen forming cute reply.*
 
