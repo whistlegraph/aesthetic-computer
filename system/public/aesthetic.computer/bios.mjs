@@ -581,14 +581,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Use origin-aware font loading
         let fontUrl;
         try {
-          // Check if we're in development environment
-          const isDevelopment = location.hostname === 'localhost' && location.port;
-          if (isDevelopment) {
-            // In development, fonts are served from the root /type/webfonts/ path
-            fontUrl = "/type/webfonts/" + font;
+          // Check if we're in TEIA mode (sandboxed)
+          if (window.acTEIA_MODE) {
+            // In TEIA mode, use relative paths to bundled fonts
+            fontUrl = "./type/webfonts/" + font;
           } else {
-            // In production or sandboxed iframe, use the standard path
-            fontUrl = "/type/webfonts/" + font;
+            // Check if we're in development environment
+            const isDevelopment = location.hostname === 'localhost' && location.port;
+            if (isDevelopment) {
+              // In development, fonts are served from the root /type/webfonts/ path
+              fontUrl = "/type/webfonts/" + font;
+            } else {
+              // In production or sandboxed iframe, use the standard path
+              fontUrl = "/type/webfonts/" + font;
+            }
           }
         } catch (err) {
           // Fallback to standard path if there's any error
@@ -1512,13 +1518,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  type: "module",
   //});
   const fullPath =
-    "/aesthetic.computer/lib/disk.mjs" +
+    (window.acTEIA_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
     window.location.search +
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const sandboxed =
-    (window.origin === "null" || !window.origin) && !window.acVSCODE;
+    (window.origin === "null" || !window.origin || window.acTEIA_MODE) && !window.acVSCODE;
 
   const microphonePermission = await checkMicrophonePermission();
 
@@ -1546,6 +1552,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
+      teiaMode: window.acTEIA_MODE || false,
       microphonePermission,
       resolution,
       embeddedSource,
@@ -1561,8 +1568,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  👷️ Always use workers if they are supported, except for
   //     when we are in VR (MetaBrowser).
   // Disable workers if we are in a sandboxed iframe.
-  const workersEnabled = !sandboxed;
-  // const workersEnabled = false;
+  // Test if workers are actually available instead of just checking sandboxed state
+  let workersEnabled = true;
+  try {
+    // Try to create a simple test worker to see if they're supported
+    if (typeof Worker === 'undefined') {
+      workersEnabled = false;
+    }
+  } catch (e) {
+    workersEnabled = false;
+  }
+  
+  // Override: force disable workers only for specific problematic environments
+  if (sandboxed && window.origin === "null" && !window.acTEIA_MODE) {
+    // Only disable for truly sandboxed non-TEIA environments
+    workersEnabled = false;
+  }
+  
+  // Workers enabled logging removed for cleaner console
 
   if (/*!MetaBrowser &&*/ workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {

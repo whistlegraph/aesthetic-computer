@@ -277,7 +277,10 @@ if (
 }
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
-const parsed = parse(slug(location.href) || window.acSTARTING_PIECE);
+
+// In TEIA mode, always use acSTARTING_PIECE instead of URL slug
+const pieceToLoad = window.acTEIA_MODE ? window.acSTARTING_PIECE : (slug(location.href) || window.acSTARTING_PIECE);
+const parsed = parse(pieceToLoad);
 
 // Preserve the original search parameters that were stripped by slug()
 if (location.search) {
@@ -387,8 +390,7 @@ if (window.acVSCODE) {
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
-let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked;
-// console.log("🏜️ Sandboxed:", sandboxed, "localStorage blocked:", localStorageBlocked, "sessionStorage blocked:", sessionStorageBlocked);
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acTEIA_MODE;
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
@@ -411,9 +413,10 @@ function loadAuth0Script() {
 }
 
 // Call this function at the desired point in your application
-loadAuth0Script()
-  .then(async () => {
-    if (!sandboxed && window.auth0 && !previewOrIcon) {
+if (!sandboxed) {
+  loadAuth0Script()
+    .then(async () => {
+      if (!sandboxed && window.auth0 && !previewOrIcon) {
       const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
       const before = performance.now();
 
@@ -650,6 +653,9 @@ loadAuth0Script()
   .catch((error) => {
     console.error("Failed to load Auth0 script:", error);
   });
+} else {
+  // Auth0 disabled in TEIA mode
+}
 // #endregion
 
 // ***Incoming Message Responder***
@@ -712,6 +718,7 @@ window.addEventListener("message", receive);
 // TODO: Test this to make sure it's skipped in the native apps,
 //       and factor it out. 24.02.26.19.29
 
+async function initNotifications() {
 try {
   const { initializeApp } = await import(
     "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
@@ -721,7 +728,10 @@ try {
     "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js"
   );
 
-  function initNotifications() {
+  // Call the setup function
+  setupNotifications();
+  
+  function setupNotifications() {
     // Your web app's Firebase configuration
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
@@ -779,7 +789,11 @@ try {
       });
   }
 
-  if (!previewOrIcon && !sandboxed) initNotifications();
+  // Call the setup function  
+  setupNotifications();
 } catch (err) {
   console.warn("🔥 Could not initialize firebase notifications:", err);
 }
+}
+
+if (!previewOrIcon && !sandboxed) initNotifications();
