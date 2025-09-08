@@ -7,6 +7,11 @@ tokens/*/
 !tokens/README.md
 !tokens/pack-for-teia.fish
 
+# ignore teia output (packaged pieces for Teia Interactive OBJKTs)
+teia/output/*.zip
+teia/output/*/
+!teia/output/README.md
+
 # assets (ignore all subdirectories but readme)
 system/public/assets/*/
 !system/public/assets/*/readme.txt
