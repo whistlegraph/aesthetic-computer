@@ -11,8 +11,8 @@ export function headers() {
      border-right: 0.75px solid rgb(120, 120, 170);`
   ); // Print a pretty title in the console.
   
-  // Show TEIA mode in TEIA environments
-  if (window.acTEIA_MODE) {
+  // Show TEIA mode in TEIA environments (check for window first)
+  if (typeof window !== 'undefined' && window.acTEIA_MODE) {
     console.log(
       "%cTEIA",
       `background: rgba(0, 0, 0, 0.9);
