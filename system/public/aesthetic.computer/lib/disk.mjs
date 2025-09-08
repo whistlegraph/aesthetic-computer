@@ -4312,6 +4312,15 @@ sound = {
 const speaker = new Speaker();
 const microphone = new Microphone();
 
+// 🎮 Game Boy Emulator API
+const gameboy = {
+  frame: null,         // Current frame data (Uint8ClampedArray)
+  width: 160,          // Game Boy screen width
+  height: 144,         // Game Boy screen height  
+  romName: null,       // Currently loaded ROM name
+  isPlaying: false     // Whether emulator is running
+};
+
 // 2. ✔ Loading the disk.
 let originalHost;
 let firstLoad = true;
@@ -6449,6 +6458,18 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Handle Game Boy frame data
+  if (type === "gameboy:frame-data") {
+    // Store frame data and metadata in gameboy API object
+    gameboy.frame = content.pixels;
+    gameboy.romName = content.romName;
+    gameboy.title = content.title; 
+    gameboy.isGameBoyColor = content.isGameBoyColor;
+    gameboy.isPlaying = true;
+    
+    return;
+  }
+
   if (type === "microphone-pitch") {
     microphone.pitch = content;
     return;
@@ -7277,6 +7298,7 @@ async function makeFrame({ data: { type, content } }) {
 
     $sound.microphone = microphone;
     $sound.speaker = speaker;
+    $sound.gameboy = gameboy;
     $sound.sampleRate = AUDIO_SAMPLE_RATE;
 
     // TODO: Generalize square and bubble calls.
