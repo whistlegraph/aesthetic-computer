@@ -3745,14 +3745,7 @@ const $paintApiUnwrapped = {
           // Check if source contains scroll/zoom that needs deferred execution
           const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
           
-          // Only log occasionally to reduce console spam
-          if (globalThis.$api?.paintCount % 60 === 0 || globalThis.$api?.paintCount < 5) {
-            console.log(`🎯 KIDLISP EXECUTION DEBUG (frame ${globalThis.$api?.paintCount || 'unknown'}):`);
-            console.log(`   Source: ${resolvedSource.slice(0, 100)}...`);
-            console.log(`   Has timing expressions: ${hasTimingExpressions}`);
-            console.log(`   Has scroll/zoom: ${hasScrollZoom}`);
-            console.log(`   Fresh execution needed: ${needsFreshExecution}`);
-          }
+
           
           if (hasTimingExpressions) {
             // console.log(`🎯 Detected timing expressions, preserving normal execution flow`);
@@ -3869,13 +3862,7 @@ const $paintApiUnwrapped = {
           const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
           
           // Only log occasionally to reduce console spam
-          if (globalThis.$api?.paintCount % 60 === 0 || globalThis.$api?.paintCount < 5) {
-            console.log(`🎯 KIDLISP ACCUMULATION DEBUG (frame ${globalThis.$api?.paintCount || 'unknown'}):`);
-            console.log(`   Source: ${resolvedSource.slice(0, 100)}...`);
-            console.log(`   Has timing expressions: ${hasTimingExpressions}`);
-            console.log(`   Has scroll/zoom: ${hasScrollZoom}`);
-            console.log(`   Fresh execution needed: ${needsFreshExecution}`);
-          }
+
           
           if (hasTimingExpressions) {
             // console.log(`🎯 Detected timing expressions in accumulation, preserving normal execution flow`);
@@ -4302,6 +4289,15 @@ sound = {
 
 const speaker = new Speaker();
 const microphone = new Microphone();
+
+// 🎮 Game Boy Emulator API
+const gameboy = {
+  frame: null,         // Current frame data (Uint8ClampedArray)
+  width: 160,          // Game Boy screen width
+  height: 144,         // Game Boy screen height  
+  romName: null,       // Currently loaded ROM name
+  isPlaying: false     // Whether emulator is running
+};
 
 // 2. ✔ Loading the disk.
 let originalHost;
@@ -5628,7 +5624,14 @@ async function load(
     currentSearch = search;
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    hideLabel = parsed.search?.startsWith("nolabel") || false;
+    
+    // Parse search parameters properly to check for nolabel
+    hideLabel = false;
+    if (parsed.search) {
+      const searchParams = new URLSearchParams(parsed.search);
+      hideLabel = searchParams.has("nolabel");
+    }
+    
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -5638,8 +5641,14 @@ async function load(
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
 
-    previewMode = parsed.search?.startsWith("preview") || false;
-    iconMode = parsed.search?.startsWith("icon") || false;
+    // Parse search parameters properly to check for preview and icon
+    previewMode = false;
+    iconMode = false;
+    if (parsed.search) {
+      const searchParams = new URLSearchParams(parsed.search);
+      previewMode = searchParams.has("preview");
+      iconMode = searchParams.has("icon");
+    }
 
     // console.log("🔴 PREVIEW OR ICON:", PREVIEW_OR_ICON, "Preview mode:", previewMode, "Icon mode:", iconMode);
     // console.log("📑 Search:", parsed.search);
@@ -6490,6 +6499,18 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Handle Game Boy frame data
+  if (type === "gameboy:frame-data") {
+    // Store frame data and metadata in gameboy API object
+    gameboy.frame = content.pixels;
+    gameboy.romName = content.romName;
+    gameboy.title = content.title; 
+    gameboy.isGameBoyColor = content.isGameBoyColor;
+    gameboy.isPlaying = true;
+    
+    return;
+  }
+
   if (type === "microphone-pitch") {
     microphone.pitch = content;
     return;
@@ -7318,6 +7339,7 @@ async function makeFrame({ data: { type, content } }) {
 
     $sound.microphone = microphone;
     $sound.speaker = speaker;
+    $sound.gameboy = gameboy;
     $sound.sampleRate = AUDIO_SAMPLE_RATE;
 
     // TODO: Generalize square and bubble calls.
@@ -8561,6 +8583,8 @@ async function makeFrame({ data: { type, content } }) {
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
 
+
+      
       if (
         !previewMode &&
         !iconMode &&
@@ -8568,6 +8592,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
+
         // Use plain text for width calculation to avoid counting color codes
         const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
         
@@ -8675,7 +8700,10 @@ async function makeFrame({ data: { type, content } }) {
                                  (currentPath && currentPath.includes("/disks/$")) ||
                                  (sourceCode && lisp.isKidlispSource(sourceCode));
             
-            if (isKidlispPiece) {
+
+            
+            // Apply highlighting to ALL pieces when HIGHLIGHT_MODE is enabled, not just KidLisp
+            if (true) { // Changed from isKidlispPiece to always true when HIGHLIGHT_MODE is on
               // Get the actual text that will be rendered (same logic as below)
               let text = currentHUDTxt;
               if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
@@ -8692,6 +8720,7 @@ async function makeFrame({ data: { type, content } }) {
               const snugHeight = tf.blockHeight;
               
               // Position highlight with 2px padding on all sides around the text
+              const leftMargin = 2; // Define the left margin for HUD text
               const bgX = leftMargin - 2; // Start 2px left of text (text at leftMargin = 2, so box at 0)
               const bgY = -2; // Start 2px above text
               const bgWidth = snugWidth + 4; // Text width + 2px padding on each side
