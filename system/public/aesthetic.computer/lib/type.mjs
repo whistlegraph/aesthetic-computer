@@ -215,10 +215,9 @@ class Typeface {
 
           // Make API call to load the glyph using code points
           
-          // In Teia mode, try local assets first
+          // Only try local assets in actual TEIA mode (not just any non-API location)
           const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) || 
-                           (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE) ||
-                           (location && location.pathname && !location.pathname.includes('/api/'));
+                           (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
           
           if (isTeiaMode && fontName === "MatrixChunky8") {
             // Try to load from local bundled assets
@@ -256,14 +255,14 @@ class Typeface {
                 }
               })
               .catch((error) => {
-                // If local loading fails, fall back to API
-                console.log(
-                  `Glyph "${char}" (${codePointStr}) not available locally, trying API...`,
-                );
-                // Don't store undefined here, let it fall through to API call
+                // If local loading fails in TEIA mode, use fallback glyph
+                loadingGlyphs.delete(char);
+                failedGlyphs.add(char);
+                // Glyph fallback logging reduced for cleaner console
               });
             
-            // Still try API as fallback (don't return early)
+            // In TEIA mode, return early - don't try API
+            return this.getEmojiFallback(char, target);
           }
           
           // Only make API calls when NOT in TEIA mode
