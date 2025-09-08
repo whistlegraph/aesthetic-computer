@@ -136,6 +136,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let durationProgressDuration = resolution.duration; // Duration in seconds from query parameter
   let durationProgressCompleted = false;
 
+  // 🎮 Game Boy Emulator (main thread)
+  let gameboyEmulator = null;
+  let currentGameboyPixels = null;
+  let currentGameboyROM = null;
+
   // Events
   let whens = {};
 
@@ -1642,6 +1647,172 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   send(firstMessage);
   consumeDiskSends(send);
 
+  // 🎮 Initialize Game Boy emulator in main thread
+  // (Placed after worker setup so `send` is properly wired)
+  async function initGameboy() {
+    if (!window.WasmBoy) {
+      console.log("🎮 Loading wasmboy library...");
+      // Load wasmboy library dynamically
+      const wasmBoyModule = await import('./dep/wasmboy/wasmboy.ts.esm.js');
+      console.log("🎮 wasmBoyModule:", wasmBoyModule);
+      console.log("🎮 wasmBoyModule.WasmBoy:", wasmBoyModule.WasmBoy);
+      console.log("🎮 wasmBoyModule keys:", Object.keys(wasmBoyModule));
+      window.WasmBoy = wasmBoyModule.WasmBoy;
+    }
+    
+    if (!gameboyEmulator) {
+      console.log("🎮 Initializing Game Boy emulator with invisible canvas...");
+      
+      // Create a canvas but make it completely invisible
+      const hiddenCanvas = document.createElement('canvas');
+      hiddenCanvas.width = 160;
+      hiddenCanvas.height = 144;
+      hiddenCanvas.id = 'wasmboy-hidden-canvas';
+      
+      // Make canvas completely invisible using multiple methods
+      hiddenCanvas.style.cssText = `
+        position: fixed !important;
+        left: -99999px !important;
+        top: -99999px !important;
+        width: 1px !important;
+        height: 1px !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        z-index: -99999 !important;
+        display: none !important;
+      `;
+      
+      // Add comprehensive CSS to hide any wasmboy canvases
+      if (!document.getElementById('wasmboy-hide-style')) {
+        const style = document.createElement('style');
+        style.id = 'wasmboy-hide-style';
+        style.textContent = `
+          canvas[width="160"][height="144"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            position: fixed !important;
+            left: -99999px !important;
+            top: -99999px !important;
+            pointer-events: none !important;
+            z-index: -99999 !important;
+          }
+          #wasmboy-hidden-canvas {
+            display: none !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      document.body.appendChild(hiddenCanvas);
+      window.gameboyCanvas = hiddenCanvas; // Store reference for cleanup
+      
+      gameboyEmulator = window.WasmBoy; // It's a singleton, not a constructor
+      
+      await gameboyEmulator.config({
+        headless: false, // Must be false for updateGraphicsCallback to work
+        isAudioEnabled: true,
+        updateGraphicsCallback: (imageDataArray) => {
+          // Direct access to wasmboy's pixel buffer - much more efficient than canvas extraction
+          if (imageDataArray && imageDataArray.length === 92160) { // 160 * 144 * 4 = 92160 RGBA pixels
+            // Send the raw pixel data directly along with ROM metadata
+            acDISK_SEND({
+              type: "gameboy:frame-data", 
+              content: { 
+                pixels: imageDataArray,
+                romName: currentGameboyROM?.originalName || "unknown",
+                title: currentGameboyROM?.title || currentGameboyROM?.name || "unknown",
+                isGameBoyColor: currentGameboyROM?.isGameBoyColor || false
+              }
+            });
+          }
+        },
+        updateAudioCallback: (audioContext, audioBufferSourceNode) => {
+          // Route audio through AC's speaker system by connecting to sfxStreamGain
+          if (sfxStreamGain && audioBufferSourceNode) {
+            try {
+              // Check if audio contexts match
+              if (audioBufferSourceNode.context === sfxStreamGain.context) {
+                audioBufferSourceNode.connect(sfxStreamGain);
+              } else {
+                console.log("🎮 Audio context mismatch - Game Boy audio isolated");
+                // Let wasmboy handle its own audio output
+              }
+            } catch (error) {
+              console.log("🎮 Game Boy audio connection failed:", error.message);
+            }
+          }
+          return audioBufferSourceNode;
+        }
+      }, hiddenCanvas); // Pass the hidden canvas to setCanvas during config
+      
+      console.log("🎮 Game Boy emulator initialized");
+    }
+  }
+
+  // 🎮 Load a Game Boy ROM
+  async function loadGameboyROM(romData) {
+    try {
+      if (!gameboyEmulator) {
+        await initGameboy();
+      }
+      
+      console.log("🎮 Loading ROM:", romData.originalName);
+      
+      // Convert ArrayBuffer to Uint8Array for wasmboy
+      const romBytes = new Uint8Array(romData.romData);
+      await gameboyEmulator.loadROM(romBytes);
+      await gameboyEmulator.play();
+      
+      // Try to get cartridge info/metadata from wasmboy
+      try {
+        const cartridgeInfo = await gameboyEmulator.getCartridgeInfo();
+        console.log("🎮 Cartridge Info:", cartridgeInfo);
+        
+        // Add cartridge metadata to ROM data
+        romData.cartridgeInfo = cartridgeInfo;
+        romData.title = cartridgeInfo.titleAsString?.trim() || romData.name;
+        romData.isGameBoyColor = cartridgeInfo.isGameBoyColor || romData.isGameBoyColor;
+      } catch (error) {
+        console.log("🎮 Could not get cartridge info:", error);
+        romData.title = romData.name;
+      }
+      
+      currentGameboyROM = romData;
+      console.log("🎮 ROM loaded and playing:", romData.originalName);
+      
+      // Navigate to gameboy disk using AC's jump system
+      console.log("🎮 About to jump to gameboy piece");
+      send({ 
+        type: "jump", 
+        content: { 
+          piece: "gameboy",
+          ahistorical: false, // Add to history so user can go back
+          alias: true
+        }
+      });
+      console.log("🎮 Jump command sent to gameboy piece");
+      
+    } catch (error) {
+      console.error("🎮 Failed to load ROM:", error);
+    }
+  }
+
+  // 🎮 Handle Game Boy input from worker
+  function handleGameboyInput(joypadState) {
+    console.log("🎮 handleGameboyInput called with:", joypadState);
+    console.log("🎮 gameboyEmulator exists:", !!gameboyEmulator);
+    console.log("🎮 currentGameboyROM exists:", !!currentGameboyROM);
+    
+    if (gameboyEmulator && currentGameboyROM) {
+      console.log("🎮 Calling setJoypadState with:", joypadState);
+      gameboyEmulator.setJoypadState(joypadState);
+    } else {
+      console.warn("🎮 Cannot set joypad state - emulator or ROM not ready");
+    }
+  }
+
   // Beat
 
   // Set the default bpm.
@@ -2006,6 +2177,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "pen:lock") {
       console.log("🖋️ Request pen lock...");
       wrapper.requestPointerLock();
+      return;
+    }
+
+    // 🎮 Handle Game Boy input from worker
+    if (type === "gameboy:input") {
+      handleGameboyInput(content);
       return;
     }
 
@@ -7118,6 +7295,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.addEventListener("beforeunload", (e) => {
         send({ type: "before-unload" });
         wrapper.classList.add("reloading");
+        
+        // 🎮 Clean up GameBoy emulator on page unload
+        if (gameboyEmulator) {
+          try {
+            console.log("🎮 Cleaning up GameBoy emulator on page unload");
+            gameboyEmulator.pause();
+            // Remove the hidden canvas
+            if (window.gameboyCanvas) {
+              window.gameboyCanvas.remove();
+              window.gameboyCanvas = null;
+            }
+          } catch (error) {
+            console.log("🎮 Error during GameBoy cleanup:", error);
+          }
+        }
       });
 
       // Listen for resize events on the visual viewport
@@ -7242,7 +7434,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // if (currentPiece !== null) firstPiece = false;
+      console.log("🎮 currentPiece CHANGING FROM:", currentPiece, "TO:", content.path);
+      
+      // 🎮 GameBoy emulator lifecycle management
+      if (gameboyEmulator) {
+        if (currentPiece && currentPiece.includes('gameboy') && !content.path.includes('gameboy')) {
+          // Leaving gameboy piece - pause emulator
+          console.log("🎮 Leaving gameboy piece - pausing emulator");
+          try {
+            gameboyEmulator.pause();
+          } catch (error) {
+            console.log("🎮 Error pausing emulator:", error);
+          }
+        } else if (!currentPiece?.includes('gameboy') && content.path.includes('gameboy')) {
+          // Entering gameboy piece - resume emulator if ROM is loaded
+          console.log("🎮 Entering gameboy piece - resuming emulator");
+          try {
+            if (currentGameboyROM) {
+              gameboyEmulator.play();
+            }
+          } catch (error) {
+            console.log("🎮 Error resuming emulator:", error);
+          }
+        }
+      }
+      
       currentPiece = content.path;
+      console.log("🎮 currentPiece SET TO:", currentPiece);
       
       // Don't disable keyboard for prompt piece (check if path contains 'prompt')
       if (content.path && !content.path.includes("prompt")) {
@@ -12576,15 +12794,58 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             source: bitmap,
           },
         });
-        // 🖼️⌛ Recorded Painting (or other complex media)
+        // 🖼️⌛ Recorded Painting (or other complex media) / 🎮 Game Boy ROMs in ZIP
       } else if (ext === "zip") {
         const reader = new FileReader();
         reader.onload = async function (e) {
           const data = e.target.result;
           if (!window.JSZip) await loadJSZip();
-          const record = await unzip(data);
-          if (record)
-            send({ type: "painting:record:dropped", content: record });
+          
+          try {
+            const zip = new window.JSZip();
+            const zipContent = await zip.loadAsync(data);
+            
+            // Look for Game Boy ROM files first
+            const romFiles = [];
+            zipContent.forEach((relativePath, file) => {
+              const ext = extension(file.name);
+              if (ext === "gb" || ext === "gbc") {
+                romFiles.push(file);
+              }
+            });
+            
+            if (romFiles.length > 0) {
+              // Handle Game Boy ROMs from zip
+              console.log(`🎮 Found ${romFiles.length} Game Boy ROM(s) in zip:`, romFiles.map(f => f.name));
+              
+              // If multiple ROMs, let user choose (for now, just take the first one)
+              const romFile = romFiles[0];
+              const romData = await romFile.async("arraybuffer");
+              const ext = extension(romFile.name);
+              
+              console.log("🎮 BIOS: Extracted Game Boy ROM from zip:", romFile.name, `(${romData.byteLength} bytes)`);
+              
+              const gameRomData = {
+                name: romFile.name.replace(/\.(gb|gbc)$/, ""),
+                originalName: romFile.name,
+                romData: romData, // ArrayBuffer
+                isGameBoyColor: ext === "gbc"
+              };
+              
+              // Handle ROM loading directly in main thread
+              loadGameboyROM(gameRomData);
+              return; // Exit early, we found a ROM
+            }
+            
+            // If no ROM files found, try processing as painting record
+            const record = await unzip(data);
+            if (record) {
+              send({ type: "painting:record:dropped", content: record });
+            }
+            
+          } catch (error) {
+            console.error("❌ Failed to process ZIP file:", error);
+          }
         };
         reader.readAsArrayBuffer(file);
       // 🔊 Audio file (.wav)
@@ -12988,6 +13249,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           } catch (error) {
             console.error("Failed to process ALS file:", error);
           }
+        };
+        reader.readAsArrayBuffer(file);
+      // 🎮 Game Boy ROM file (.gb, .gbc)
+      } else if (ext === "gb" || ext === "gbc") {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          console.log("🎮 BIOS: Dropped Game Boy ROM:", file.name, `(${e.target.result.byteLength} bytes)`);
+          
+          const romData = {
+            name: file.name.replace(/\.(gb|gbc)$/, ""),
+            originalName: file.name,
+            romData: e.target.result, // ArrayBuffer
+            isGameBoyColor: ext === "gbc"
+          };
+          
+          // Handle ROM loading directly in main thread
+          loadGameboyROM(romData);
         };
         reader.readAsArrayBuffer(file);
     }
