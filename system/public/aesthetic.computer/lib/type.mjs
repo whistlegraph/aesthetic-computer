@@ -214,64 +214,123 @@ class Typeface {
           const codePointStr = codePoints.join("_");
 
           // Make API call to load the glyph using code points
-          fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`)
-            .then((response) => {
-              if (!response.ok) {
-                if (response.status === 404) {
-                  console.info(
-                    `Glyph "${char}" (${codePointStr}) not available in ${fontName}`,
-                  );
-                } else {
-                  console.warn(
-                    `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
-                  );
+          
+          // In Teia mode, try local assets first
+          const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) || 
+                           (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE) ||
+                           (location && location.pathname && !location.pathname.includes('/api/'));
+          
+          if (isTeiaMode && fontName === "MatrixChunky8") {
+            // Try to load from local bundled assets
+            // Convert padded hex codes to the format used by actual font files (no leading zeros)
+            const localFileName = codePointStr.split('_').map(code => {
+              // Remove leading zeros but keep at least one digit
+              return code.replace(/^0+/, '') || '0';
+            }).join('_');
+            const localPath = `./assets/type/MatrixChunky8/${localFileName}.json`;
+            fetch(localPath)
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error(`Local glyph not found: ${response.status}`);
                 }
-                throw new Error(`Failed to load glyph: ${response.status}`);
-              }
-              return response.json();
-            })
-            .then((glyphData) => {
-              // Store the loaded glyph
-              target[char] = glyphData;
-              
-              // Trigger a re-render if this is for QR text
-              if (fontName === "MatrixChunky8") {
+                return response.json();
+              })
+              .then((glyphData) => {
+                // Store the loaded glyph
+                target[char] = glyphData;
                 
-                // Invalidate QR cache so it regenerates with new characters
-                if (typeof window !== 'undefined' && window.qrOverlayCache) {
-                  window.qrOverlayCache.clear();
+                // Trigger a re-render if this is for QR text
+                if (fontName === "MatrixChunky8") {
+                  
+                  // Invalidate QR cache so it regenerates with new characters
+                  if (typeof window !== 'undefined' && window.qrOverlayCache) {
+                    window.qrOverlayCache.clear();
+                  }
+                  
+                  // Force a repaint by calling needsPaint if available
+                  if (typeof needsPaint === 'function') {
+                    needsPaint();
+                  } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
+                    window.$activePaintApi.needsPaint();
+                  }
                 }
-                
-                // Force a repaint by calling needsPaint if available
-                if (typeof needsPaint === 'function') {
-                  needsPaint();
-                } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
-                  window.$activePaintApi.needsPaint();
-                }
-              }
-              loadingGlyphs.delete(char);
-
-              // Trigger a repaint to show the newly loaded glyph
-              if (
-                needsPaintCallback &&
-                typeof needsPaintCallback === "function"
-              ) {
-                needsPaintCallback();
-              }
-            })
-            .catch((err) => {
-              // Mark this glyph as failed to avoid future requests
-              failedGlyphs.add(char);
-              loadingGlyphs.delete(char);
-
-              // Don't log as error for 404s, just info
-              if (!err.message.includes("404")) {
-                console.warn(
-                  `Failed to load glyph "${char}" (${codePointStr}):`,
-                  err,
+              })
+              .catch((error) => {
+                // If local loading fails, fall back to API
+                console.log(
+                  `Glyph "${char}" (${codePointStr}) not available locally, trying API...`,
                 );
-              }
-            });
+                // Don't store undefined here, let it fall through to API call
+              });
+            
+            // Still try API as fallback (don't return early)
+          }
+          
+          // Only make API calls when NOT in TEIA mode
+          if (!isTeiaMode) {
+            fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`)
+              .then((response) => {
+                if (!response.ok) {
+                  if (response.status === 404) {
+                    console.info(
+                      `Glyph "${char}" (${codePointStr}) not available in ${fontName}`,
+                    );
+                  } else {
+                    console.warn(
+                      `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
+                    );
+                  }
+                  throw new Error(`Failed to load glyph: ${response.status}`);
+                }
+                return response.json();
+              })
+              .then((glyphData) => {
+                // Store the loaded glyph
+                target[char] = glyphData;
+                
+                // Trigger a re-render if this is for QR text
+                if (fontName === "MatrixChunky8") {
+                  
+                  // Invalidate QR cache so it regenerates with new characters
+                  if (typeof window !== 'undefined' && window.qrOverlayCache) {
+                    window.qrOverlayCache.clear();
+                  }
+                  
+                  // Force a repaint by calling needsPaint if available
+                  if (typeof needsPaint === 'function') {
+                    needsPaint();
+                  } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
+                    window.$activePaintApi.needsPaint();
+                  }
+                }
+                loadingGlyphs.delete(char);
+
+                // Trigger a repaint to show the newly loaded glyph
+                if (
+                  needsPaintCallback &&
+                  typeof needsPaintCallback === "function"
+                ) {
+                  needsPaintCallback();
+                }
+              })
+              .catch((err) => {
+                // Mark this glyph as failed to avoid future requests
+                failedGlyphs.add(char);
+                loadingGlyphs.delete(char);
+
+                // Don't log as error for 404s, just info
+                if (!err.message.includes("404")) {
+                  console.warn(
+                    `Failed to load glyph "${char}" (${codePointStr}):`,
+                    err,
+                  );
+                }
+              });
+          } else {
+            // In TEIA mode, just mark as failed to avoid repeated attempts
+            failedGlyphs.add(char);
+            loadingGlyphs.delete(char);
+          }
 
           // Return appropriate fallback immediately while loading
           return this.getEmojiFallback(char, target);
