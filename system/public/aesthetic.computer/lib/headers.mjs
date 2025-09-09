@@ -10,6 +10,19 @@ export function headers() {
      border-bottom: 0.75px solid rgb(120, 120, 170);
      border-right: 0.75px solid rgb(120, 120, 170);`
   ); // Print a pretty title in the console.
+  
+  // Show TEIA mode in TEIA environments (check for window first)
+  if (typeof window !== 'undefined' && window.acTEIA_MODE) {
+    console.log(
+      "%cTEIA",
+      `background: rgba(0, 0, 0, 0.9);
+       color: rgb(255, 255, 255);
+       font-size: 16px;
+       padding: 0 0.35em;
+       border-radius: 0.15em;
+       border: 0.75px solid rgb(120, 120, 120);`
+    );
+  }
 
   // Global Keyboard Shortcuts
   // console.log(

@@ -11,5 +11,6 @@
   },
   "workbench.list.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
-  "notebook.lineNumbers": "off"
+  "notebook.lineNumbers": "off",
+  "editor.minimap.autohide": "mouseover"
 }

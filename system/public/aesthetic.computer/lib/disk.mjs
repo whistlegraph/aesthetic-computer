@@ -46,7 +46,6 @@ import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
-import * as chat from "../disks/chat.mjs"; // Import chat everywhere.
 
 // Helper function to safely check for sandboxed environments in both main thread and worker contexts
 function isSandboxed() {
@@ -132,6 +131,7 @@ let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let visible = true; // Is aesthetic.computer visibly rendering or not?
+let TEIA_MODE = false; // Will be set during init-from-bios
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
@@ -155,7 +155,7 @@ const defaults = {
   paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
-      if (slug?.indexOf("wipppps") > -1 || slug === undefined) {
+      if (slug?.indexOf("wipppps") > -1) {
         wipe("black");
       } else if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
@@ -417,7 +417,7 @@ function enableFrameBasedMonitoring() {
   }
   
   requestAnimationFrame(checkPaintingChanges);
-  console.log(`🎨 Enabled frame-based painting monitoring`);
+  // Frame-based painting monitoring enabled silently
 }
 
 // 🎨 Broadcast throttling to prevent infinite loops
@@ -2482,7 +2482,6 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
   // Generate unique tab ID to prevent self-processing
   if (!$commonApi._tabId) {
     $commonApi._tabId = Math.random().toString(36).substr(2, 9);
-    console.log(`🆔 TAB ID: ${$commonApi._tabId} (first broadcast)`);
   }
   
   // Create lightweight notification message (no pixel data)
@@ -2496,10 +2495,7 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
     ...data
   };
   
-  console.log(`🎨 Broadcasting: ${action} [LIGHTWEIGHT]`, {
-    size: `${message.width}x${message.height}`,
-    tabId: message.tabId.substr(0, 4) + '...'
-  });
+  // Broadcasting silently
   
   // Only send to other tabs (exclude self)
   channel.postMessage(JSON.stringify(message));
@@ -2518,7 +2514,6 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
   // Generate unique tab ID if needed
   if (!$commonApi._tabId) {
     $commonApi._tabId = Math.random().toString(36).substr(2, 9);
-    console.log(`🆔 TAB ID: ${$commonApi._tabId} (immediate broadcast)`);
   }
   
   const paintingHash = generatePaintingHash($commonApi.system.painting);
@@ -2534,11 +2529,7 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
     ...data
   };
   
-  console.log(`🚀 IMMEDIATE Broadcasting: ${action}`, {
-    size: `${message.width}x${message.height}`,
-    tabId: message.tabId.substr(0, 4) + '...',
-    paintingHash: paintingHash?.substr(0,8)
-  });
+  // Immediate broadcasting silently
   
   // Store painting immediately (async to not block)
   setTimeout(() => {
@@ -2601,7 +2592,7 @@ function generatePaintingHash(painting) {
 function startPaintingChangeMonitoring() {
   if (paintingChangeCheckInterval) return; // Already monitoring
   
-  console.log(`🎨 Starting comprehensive painting change monitoring...`);
+  // Painting change monitoring initialized silently
   
   // Initialize hash baseline if painting exists
   if ($commonApi.system?.painting) {
@@ -3754,14 +3745,7 @@ const $paintApiUnwrapped = {
           // Check if source contains scroll/zoom that needs deferred execution
           const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
           
-          // Only log occasionally to reduce console spam
-          if (globalThis.$api?.paintCount % 60 === 0 || globalThis.$api?.paintCount < 5) {
-            console.log(`🎯 KIDLISP EXECUTION DEBUG (frame ${globalThis.$api?.paintCount || 'unknown'}):`);
-            console.log(`   Source: ${resolvedSource.slice(0, 100)}...`);
-            console.log(`   Has timing expressions: ${hasTimingExpressions}`);
-            console.log(`   Has scroll/zoom: ${hasScrollZoom}`);
-            console.log(`   Fresh execution needed: ${needsFreshExecution}`);
-          }
+
           
           if (hasTimingExpressions) {
             // console.log(`🎯 Detected timing expressions, preserving normal execution flow`);
@@ -3878,13 +3862,7 @@ const $paintApiUnwrapped = {
           const hasScrollZoom = /\(\s*(scroll|zoom)\s/.test(resolvedSource);
           
           // Only log occasionally to reduce console spam
-          if (globalThis.$api?.paintCount % 60 === 0 || globalThis.$api?.paintCount < 5) {
-            console.log(`🎯 KIDLISP ACCUMULATION DEBUG (frame ${globalThis.$api?.paintCount || 'unknown'}):`);
-            console.log(`   Source: ${resolvedSource.slice(0, 100)}...`);
-            console.log(`   Has timing expressions: ${hasTimingExpressions}`);
-            console.log(`   Has scroll/zoom: ${hasScrollZoom}`);
-            console.log(`   Fresh execution needed: ${needsFreshExecution}`);
-          }
+
           
           if (hasTimingExpressions) {
             // console.log(`🎯 Detected timing expressions in accumulation, preserving normal execution flow`);
@@ -4312,6 +4290,15 @@ sound = {
 const speaker = new Speaker();
 const microphone = new Microphone();
 
+// 🎮 Game Boy Emulator API
+const gameboy = {
+  frame: null,         // Current frame data (Uint8ClampedArray)
+  width: 160,          // Game Boy screen width
+  height: 144,         // Game Boy screen height  
+  romName: null,       // Currently loaded ROM name
+  isPlaying: false     // Whether emulator is running
+};
+
 // 2. ✔ Loading the disk.
 let originalHost;
 let firstLoad = true;
@@ -4397,17 +4384,23 @@ async function load(
     // If we're loading an aesthetic.computer piece, choose the appropriate server
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
-      // Check if we're in a development environment (localhost with port)
-      const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
-      if (isDevelopment) {
-        // Use the local development server
-        baseUrl = `${protocol}//${hostname}:${location.port}`;
-      } else if (hostname.includes('aesthetic.computer')) {
-        // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
-        baseUrl = `${protocol}//${hostname}`;
+      // Check if we're in TEIA mode - use local bundled files
+      if (TEIA_MODE) {
+        // In TEIA mode, use relative paths to load bundled pieces
+        baseUrl = ".";
       } else {
-        // Use the production server for sandboxed iframes or production
-        baseUrl = `https://aesthetic.computer`;
+        // Check if we're in a development environment (localhost with port)
+        const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+        if (isDevelopment) {
+          // Use the local development server
+          baseUrl = `${protocol}//${hostname}:${location.port}`;
+        } else if (hostname.includes('aesthetic.computer')) {
+          // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
+          baseUrl = `${protocol}//${hostname}`;
+        } else {
+          // Use the production server for sandboxed iframes or production
+          baseUrl = `https://aesthetic.computer`;
+        }
       }
     } else {
       baseUrl = `${protocol}//${hostname}`;
@@ -4416,18 +4409,34 @@ async function load(
     // if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
     
     // Check if path already includes the hostname to avoid double paths
-    // Only strip "aesthetic.computer/" if we're using the main production domain
     let resolvedPath = path;
-    if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
+    if (TEIA_MODE && path.startsWith('aesthetic.computer/')) {
+      // In TEIA mode, keep the full path since files are bundled with directory structure
+      resolvedPath = path;
+    } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
+      // Only strip "aesthetic.computer/" if we're using the main production domain
       resolvedPath = path.substring('aesthetic.computer/'.length);
     }
     
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
-      fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
+      if (TEIA_MODE) {
+        // In TEIA mode, use absolute path from iframe origin
+        fullUrl = "/" + resolvedPath + "#" + Date.now();
+      } else {
+        fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
+      }
     } else {
-      fullUrl = baseUrl + "/" + resolvedPath + ".mjs" + "#" + Date.now();
+      if (TEIA_MODE) {
+        // In TEIA mode, navigate up from lib directory to aesthetic.computer root, then to target
+        const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
+          ? resolvedPath.substring('aesthetic.computer/'.length)
+          : resolvedPath;
+        fullUrl = "../" + relativePath + ".mjs" + "#" + Date.now();
+      } else {
+        fullUrl = baseUrl + "/" + resolvedPath + ".mjs" + "#" + Date.now();
+      }
     }
     // The hash `time` parameter busts the cache so that the environment is
     // reset if a disk is re-entered while the system is running.
@@ -4501,6 +4510,16 @@ async function load(
           throw new Error(`Failed to load cached code: ${cacheId}`);
         }
       } else if (fullUrl) {
+        // In TEIA mode, try direct import first for .mjs files to avoid CSP issues
+        // Extract the filename from URL, handling ./ prefix and hash fragments
+        const urlWithoutHash = fullUrl.split('#')[0];
+        const filename = urlWithoutHash.split('/').pop();
+        
+        if (TEIA_MODE && filename.endsWith('.mjs')) {
+          // In TEIA mode, skip dynamic import and use fetch directly since files are bundled locally
+          // Will proceed to fetch() below
+        }
+        
         let response;
         if (logs.loading) console.log("📥 Loading from url:", fullUrl);
         // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
@@ -4789,6 +4808,11 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
+    // Skip socket connections in TEIA mode
+    if (TEIA_MODE) {
+      return;
+    }
+    
     if (
       //parsed.search?.startsWith("preview") ||
       //parsed.search?.startsWith("icon")
@@ -5362,23 +5386,37 @@ async function load(
       $commonApi.system.nopaint.bakeOnLeave =
         modsys.split(":")[1] === "bake-on-leave"; // The default is to `bake` at the end of each gesture aka `bake-on-lift`.
 
-      boot = ($) => {
+      boot = async ($) => {
         // Reset scroll state when a new piece boots
         graph.resetScrollState();
         
         const booter = module.boot || nopaint_boot;
         booter($);
-        if (chatEnabled) chat.boot($);
+        if (chatEnabled) {
+          try {
+            const chatModule = await import("../disks/chat.mjs");
+            chatModule.boot($);
+          } catch (err) {
+            console.log("💬 Chat disabled in TEIA mode");
+          }
+        }
       };
 
       sim = module.sim || defaults.sim;
-      paint = ($) => {
+      paint = async ($) => {
         if (module.paint) {
           const painted = module.paint($);
           $.system.nopaint.needsPresent = true;
 
           // TODO: Pass in extra arguments here that flag the wipe.
-          if (chatEnabled) chat.paint($, { embedded: true }); // Render any chat interface necessary.
+          if (chatEnabled) {
+            try {
+              const chatModule = await import("../disks/chat.mjs");
+              chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
+            } catch (err) {
+              console.log("💬 Chat disabled in TEIA mode");
+            }
+          }
 
           return painted;
         }
@@ -5586,7 +5624,14 @@ async function load(
     currentSearch = search;
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    hideLabel = parsed.search?.startsWith("nolabel") || false;
+    
+    // Parse search parameters properly to check for nolabel
+    hideLabel = false;
+    if (parsed.search) {
+      const searchParams = new URLSearchParams(parsed.search);
+      hideLabel = searchParams.has("nolabel");
+    }
+    
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -5596,8 +5641,14 @@ async function load(
     hourGlasses.length = 0;
     // labelBack = false; // Now resets after a jump label push. 25.03.22.21.36
 
-    previewMode = parsed.search?.startsWith("preview") || false;
-    iconMode = parsed.search?.startsWith("icon") || false;
+    // Parse search parameters properly to check for preview and icon
+    previewMode = false;
+    iconMode = false;
+    if (parsed.search) {
+      const searchParams = new URLSearchParams(parsed.search);
+      previewMode = searchParams.has("preview");
+      iconMode = searchParams.has("icon");
+    }
 
     // console.log("🔴 PREVIEW OR ICON:", PREVIEW_OR_ICON, "Preview mode:", previewMode, "Icon mode:", iconMode);
     // console.log("📑 Search:", parsed.search);
@@ -5754,6 +5805,7 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
+    TEIA_MODE = content.teiaMode || false;
     TV_MODE = content.resolution?.tv === true;
     
     // Parse highlight parameter
@@ -5894,16 +5946,14 @@ async function makeFrame({ data: { type, content } }) {
       if (!$commonApi._tabId) {
         $commonApi._tabId = Math.random().toString(36).substr(2, 9);
       }
-      console.log(`🆔 TAB ID: ${$commonApi._tabId} (welcome message)`);
       // Broadcast to other tabs...
       $commonApi.broadcast("login:success");
     } else {
       // console.log("🔐 You are not logged in.");
-      // Log tab ID for debugging (anonymous user)
+      // Generate tab ID for debugging (anonymous user)
       if (!$commonApi._tabId) {
         $commonApi._tabId = Math.random().toString(36).substr(2, 9);
       }
-      console.log(`🆔 TAB ID: ${$commonApi._tabId} (anonymous session)`);
     }
     sessionStarted = true;
     return;
@@ -6446,6 +6496,18 @@ async function makeFrame({ data: { type, content } }) {
     if (content.beat) {
       speaker.beat = content.beat;
     }
+    return;
+  }
+
+  // Handle Game Boy frame data
+  if (type === "gameboy:frame-data") {
+    // Store frame data and metadata in gameboy API object
+    gameboy.frame = content.pixels;
+    gameboy.romName = content.romName;
+    gameboy.title = content.title; 
+    gameboy.isGameBoyColor = content.isGameBoyColor;
+    gameboy.isPlaying = true;
+    
     return;
   }
 
@@ -7277,6 +7339,7 @@ async function makeFrame({ data: { type, content } }) {
 
     $sound.microphone = microphone;
     $sound.speaker = speaker;
+    $sound.gameboy = gameboy;
     $sound.sampleRate = AUDIO_SAMPLE_RATE;
 
     // TODO: Generalize square and bubble calls.
@@ -8520,6 +8583,8 @@ async function makeFrame({ data: { type, content } }) {
       const piece = currentHUDTxt?.split("~")[0];
       const defo = 6; // Default offset
 
+
+      
       if (
         !previewMode &&
         !iconMode &&
@@ -8527,6 +8592,7 @@ async function makeFrame({ data: { type, content } }) {
         piece !== undefined &&
         piece.length > 0
       ) {
+
         // Use plain text for width calculation to avoid counting color codes
         const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
         
@@ -8634,7 +8700,10 @@ async function makeFrame({ data: { type, content } }) {
                                  (currentPath && currentPath.includes("/disks/$")) ||
                                  (sourceCode && lisp.isKidlispSource(sourceCode));
             
-            if (isKidlispPiece) {
+
+            
+            // Apply highlighting to ALL pieces when HIGHLIGHT_MODE is enabled, not just KidLisp
+            if (true) { // Changed from isKidlispPiece to always true when HIGHLIGHT_MODE is on
               // Get the actual text that will be rendered (same logic as below)
               let text = currentHUDTxt;
               if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
@@ -8651,6 +8720,7 @@ async function makeFrame({ data: { type, content } }) {
               const snugHeight = tf.blockHeight;
               
               // Position highlight with 2px padding on all sides around the text
+              const leftMargin = 2; // Define the left margin for HUD text
               const bgX = leftMargin - 2; // Start 2px left of text (text at leftMargin = 2, so box at 0)
               const bgY = -2; // Start 2px above text
               const bgWidth = snugWidth + 4; // Text width + 2px padding on each side
@@ -9726,11 +9796,6 @@ async function makeFrame({ data: { type, content } }) {
       paintCount > 8n &&
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
     ) {
-      //if (loadAfterPreamble) {
-      // TODO: WHy does enabling this make the icon work?
-      // console.log("💾 Loading after the preamble...");
-      //}
-
       loadAfterPreamble?.(); // Start loading after the first disk if necessary.
     }
 
