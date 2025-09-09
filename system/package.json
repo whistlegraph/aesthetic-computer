@@ -84,6 +84,7 @@
     "@taquito/signer": "^19.2.0",
     "@taquito/utils": "^19.2.0",
     "three": "^0.175.0",
+    "wasmboy": "^0.7.1",
     "web3": "^4.16.0",
     "webpxmux": "^0.0.2"
   },
