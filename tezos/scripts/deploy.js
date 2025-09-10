@@ -35,9 +35,10 @@ async function deployContract(network) {
   const tezos = new TezosToolkit(networks[network].rpc);
   
   // Set up signer with admin private key
-  const privateKey = process.env.CONTRACT_ADMIN_SECRET_KEY;
+  const privateKeyEnvVar = `CONTRACT_ADMIN_SECRET_KEY_${network.toUpperCase()}`;
+  const privateKey = process.env[privateKeyEnvVar];
   if (!privateKey) {
-    throw new Error('CONTRACT_ADMIN_SECRET_KEY not found in environment');
+    throw new Error(`${privateKeyEnvVar} not found in environment`);
   }
   
   tezos.setSignerProvider(new InMemorySigner(privateKey));
@@ -50,6 +51,10 @@ async function deployContract(network) {
   
   const contractCode = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
   
+  // Load storage template
+  const storagePath = path.join(process.cwd(), 'KidLisp', 'step_002_cont_0_storage.json');
+  const storageTemplate = JSON.parse(fs.readFileSync(storagePath, 'utf8'));
+  
   // Get admin address
   const adminAddress = await tezos.signer.publicKeyHash();
   console.log(`📝 Admin address: ${adminAddress}`);
@@ -58,7 +63,7 @@ async function deployContract(network) {
   const metadata = {
     "": Buffer.from("tezos-storage:content").toString('hex'),
     "content": Buffer.from(JSON.stringify({
-      "name": "KidLisp",
+      "name": process.env.KIDLISP_COIN_NAME || "KidLisp",
       "description": "FA2 fungible tokens for aesthetic.computer KidLisp code snippets",
       "version": "1.0.0",
       "homepage": "https://aesthetic.computer",
@@ -74,25 +79,13 @@ async function deployContract(network) {
   try {
     console.log('📦 Originating contract...');
     
+    // Update storage template with admin address
+    const storage = JSON.parse(JSON.stringify(storageTemplate));
+    storage.args[0] = { string: adminAddress };
+    
     const operation = await tezos.contract.originate({
       code: contractCode.michelson,
-      storage: {
-        // Initialize with admin and metadata
-        administrator: adminAddress,
-        metadata: metadata,
-        // Add other required FA2 storage fields
-        ledger: {},
-        token_metadata: {},
-        operators: {},
-        // KidLisp specific fields
-        creators: {},
-        code_hashes: {},
-        hash_to_token: {},
-        royalty_percentage: parseInt(process.env.CREATOR_ROYALTY_PERCENTAGE || '500'),
-        next_token_id: 0,
-        minting_fee: parseInt(process.env.MINTING_FEE || '100000'),
-        contract_metadata: metadata
-      }
+      storage: storage
     });
     
     console.log('⏳ Waiting for confirmation...');

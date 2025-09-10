@@ -13,7 +13,7 @@ RUN dnf update -y && \
         qemu-kvm qemu-img qemu-system-x86 qemu-user-static \
         openssl openssl-devel awscli redis \
         dnf-plugins-core lolcat toilet iproute xclip nmap-ncat \
-        inotify-tools \
+        inotify-tools gron miller \
     && dnf clean all
 
 # Tezos development dependencies
@@ -22,6 +22,11 @@ RUN dnf install -y \
         libsodium libsodium-devel libffi libffi-devel \
         pkg-config autoconf automake libtool \
         ocaml opam rsync m4 patch bubblewrap \
+    && dnf clean all
+
+# Install Octez (Tezos) tools from official repository
+RUN dnf config-manager --add-repo https://packages.nomadic-labs.com/tezos.repo && \
+    dnf install -y octez-client octez-node octez-baker-PsParisC octez-accuser-PsParisC \
     && dnf clean all
 
 # Install SmartPy for Tezos smart contract development
@@ -165,7 +170,8 @@ RUN eval "$(/home/me/.fnm/fnm env --shell bash)" && \
     npm install -g prettier typescript typescript-language-server npm-check-updates && \
     npm install -g @anthropic-ai/claude-code && \
     npm install -g @openai/codex && \
-    npm install -g netlify-cli
+    npm install -g netlify-cli && \
+    npm install -g fx json-table cli-table3 jsonfmt
 
 # Ensure the default Node.js version is available in Fish shell sessions
 RUN echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
