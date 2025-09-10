@@ -3328,19 +3328,12 @@ class KidLisp {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
-        console.log(`🎯 Zoom function called with args:`, args);
-        console.log(`🎯 Embedded layers length:`, this.embeddedLayers?.length);
-        console.log(`🎯 In embed phase:`, this.inEmbedPhase);
-        console.log(`🎯 Is embedded context:`, this.isEmbeddedContext);
-        
         // Only defer zoom execution if we're in the main program with embedded layers
         // BUT allow immediate execution if we're already inside an embedded layer
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
-          console.log(`⏸️ Deferring zoom execution due to embedded layers`);
           this.postEmbedCommands.push({
             name: 'zoom',
             func: () => {
-              console.log(`⏰ Executing deferred zoom with args:`, args);
               api.zoom(...args);
             },
             args
@@ -3349,7 +3342,6 @@ class KidLisp {
         }
         
         // Execute zoom immediately
-        console.log(`🚀 Executing zoom immediately with args:`, args);
         api.zoom(...args);
       },
       suck: (api, args = []) => {
