@@ -2,27 +2,27 @@ FROM fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=1.45.0
+ENV NETLIFY_DENO_VERSION=2.4.5
 
-# Update all packages.
-RUN dnf update -y
-RUN dnf install -y awk which tree procps-ng coreutils unzip jq bat
-RUN dnf install -y git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user
-RUN dnf install -y make cmake gcc-c++ python3-devel
-RUN dnf install -y qemu-kvm qemu-img qemu-system-x86 qemu-user-static
-RUN dnf install -y openssl openssl-devel awscli redis
-RUN dnf install -y dnf-plugins-core
-RUN dnf install -y lolcat toilet
-RUN dnf install -y iproute
-RUN dnf install -y xclip
-RUN dnf install -y nmap-ncat
-RUN dnf install -y inotify-tools
+# Update all packages and install core tools in one layer
+RUN dnf update -y && \
+    dnf install -y \
+        awk which tree procps-ng coreutils unzip jq bat \
+        git gh gcc clang python3 python3-pip emacs-nox fish util-linux-user \
+        make cmake gcc-c++ python3-devel \
+        qemu-kvm qemu-img qemu-system-x86 qemu-user-static \
+        openssl openssl-devel awscli redis \
+        dnf-plugins-core lolcat toilet iproute xclip nmap-ncat \
+        inotify-tools \
+    && dnf clean all
 
 # Tezos development dependencies
-RUN dnf install -y wget curl tar gzip bzip2
-RUN dnf install -y libsodium libsodium-devel libffi libffi-devel
-RUN dnf install -y pkg-config autoconf automake libtool
-RUN dnf install -y ocaml opam rsync m4 patch bubblewrap
+RUN dnf install -y \
+        wget curl tar gzip bzip2 \
+        libsodium libsodium-devel libffi libffi-devel \
+        pkg-config autoconf automake libtool \
+        ocaml opam rsync m4 patch bubblewrap \
+    && dnf clean all
 
 # Install SmartPy for Tezos smart contract development
 RUN pip install https://smartpy.io/static/tezos_smartpy-0.22.0-py3-none-any.whl
@@ -41,31 +41,14 @@ RUN dnf copr enable -y @caddy/caddy
 RUN dnf install -y caddy
 # RUN dnf install -y dotnet-sdk-9.0
 
-# Install necessary dependencies for Puppeteer
+# Install necessary dependencies for Puppeteer and Chromium
 RUN dnf install -y \
-    libX11 \
-    libxkbfile \
-    libsecret \
-    libxshmfence \
-    libXtst \
-    nss \
-    atk \
-    pango \
-    cups-libs \
-    libXcomposite \
-    libXcursor \
-    libXi \
-    libXdamage \
-    libXrandr \
-    alsa-lib \
-    gtk3 \
-    xorg-x11-server-Xvfb \
-    psmisc \
-    lsof \
-    iproute
-
-# Install Chromium browser explicitly
-RUN dnf install -y chromium
+        libX11 libxkbfile libsecret libxshmfence libXtst \
+        nss atk pango cups-libs libXcomposite libXcursor \
+        libXi libXdamage libXrandr alsa-lib gtk3 \
+        xorg-x11-server-Xvfb psmisc lsof iproute \
+        chromium \
+    && dnf clean all
 
 # Install keyring
 # RUN dnf install -y \
@@ -92,10 +75,10 @@ RUN useradd -m me && \
 RUN chsh -s /usr/bin/fish me
 
 # Download and install the Stripe CLI
-RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.19.4/stripe_1.19.4_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
+RUN curl -sL https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
 
 # Install the redli redis CLI
-RUN curl -sL https://github.com/IBM-Cloud/redli/releases/download/v0.13.0/redli_0.13.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+RUN curl -sL https://github.com/IBM-Cloud/redli/releases/download/v0.15.0/redli_0.15.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
 RUN mv /usr/local/bin/redli_linux_amd64 /usr/local/bin/redli
 
 # Install mkcert
@@ -176,7 +159,6 @@ RUN mkdir -p /home/me/.config/fish/conf.d && \
 # Install Node.js versions and global packages
 # Use a single RUN command with proper fnm environment setup
 RUN eval "$(/home/me/.fnm/fnm env --shell bash)" && \
-    /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm install lts-jod && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
@@ -225,7 +207,7 @@ RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
 RUN curl https://ops.city/get.sh -sSfL | bash
 
 # Install deno
-RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.0
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5
 
 # Pre-cache Edge Functions bootstrap files to speed up netlify dev
 RUN /home/me/.deno/bin/deno --version && \
