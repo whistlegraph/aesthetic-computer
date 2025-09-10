@@ -5269,6 +5269,11 @@ async function load(
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
   // Initialize MatrixChunky8 font for QR code text rendering
+  // TEMP: Clear MatrixChunky8 cache to force reload with new J advance width
+  if (typefaceCache.has("MatrixChunky8")) {
+    typefaceCache.delete("MatrixChunky8");
+  }
+  
   if (!typefaceCache.has("MatrixChunky8")) {
     // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
