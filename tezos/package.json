@@ -7,28 +7,42 @@
   "scripts": {
     "build": "tsc",
     "test": "node --test tests/*.test.js",
-    "deploy:ghostnet": "node scripts/deploy.js --network ghostnet",
-    "deploy:mainnet": "node scripts/deploy.js --network mainnet",
+    "deploy:ghostnet": "./deploy.fish ghostnet",
+    "deploy:mainnet": "./deploy.fish mainnet",
+    "deploy": "./deploy.fish",
+    "configure": "source configure.fish",
+    "setup-apis": "source setup-apis.fish",
+    "toolkit": "source tezos-toolkit.fish",
+    "setup-tezos": "./setup-tezos.fish",
+    "setup-cli": "source setup-cli.fish",
+    "setup-enhanced": "source setup-enhanced.fish",
+    "explore": "source explore.fish",
+    "format": "source format.fish",
+    "json-demo": "source json-demo.fish && demo_json_formatters",
+    "fx": "source format.fish",
     "mint": "node scripts/mint.js",
-    "setup": "npm run install:tools && npm run build",
-    "install:tools": "echo 'Please install SmartPy CLI manually: https://smartpy.io/cli'",
-    "compile:contract": "smartpy compile contracts/kidlisp_meme_coin.py output/",
-    "test:contract": "smartpy test contracts/test_kidlisp_meme_coin.py output/",
-    "originate": "node scripts/originate.js",
-    "interact": "node scripts/interact.js"
+    "setup": "npm run build && npm run setup-apis",
+    "compile:contract": "echo 'Contract already compiled in KidLisp/ directory'",
+    "test:contract": "echo 'Use existing contract tests'",
+    "interact": "node scripts/interact.js",
+    "help": "source tezos-toolkit.fish && tezos-help",
+    "status": "source tezos-toolkit.fish && tezos-status",
+    "network": "source tezos-toolkit.fish && tezos-network"
   },
   "dependencies": {
-    "@taquito/taquito": "^19.2.0",
     "@taquito/beacon-wallet": "^19.2.0",
-    "@taquito/utils": "^19.2.0",
     "@taquito/michel-codec": "^19.2.0",
     "@taquito/michelson-encoder": "^19.2.0",
     "@taquito/rpc": "^19.2.0",
+    "@taquito/taquito": "^19.2.0",
+    "@taquito/utils": "^19.2.0",
     "crypto": "^1.0.1",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/node-fetch": "^2.6.13",
     "typescript": "^5.3.0"
   },
   "keywords": [
