@@ -5,17 +5,23 @@
   "name": "Default",
   "build": {
     "dockerfile": "Dockerfile",
-    "args": { "BUILDKIT_INLINE_CACHE": "1" },
+    "args": { 
+      "BUILDKIT_INLINE_CACHE": "1",
+      "DOCKER_BUILDKIT": "1"
+    },
     "platform": "linux/amd64"
   },
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
-    "HOST_IP": "${localEnv:HOST_IP}"
+    "HOST_IP": "${localEnv:HOST_IP}",
+    "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1"
   },
   "mounts": [
-    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
-    "source=${localWorkspaceFolder}/.devcontainer/fish_history,target=/home/me/.local/share/fish/fish_history,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=delegated",
+    "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=delegated",
+    "source=${localWorkspaceFolder}/.devcontainer/fish_history,target=/home/me/.local/share/fish/fish_history,type=bind,consistency=delegated",
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
@@ -61,16 +67,18 @@
     "-v",
     "/tmp/.X11-unix:/tmp/.X11-unix",
     "-q",
-    "--privileged",
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=apparmor=unconfined",
     "--name",
     "aesthetic",
     "--hostname",
     "aesthetic",
-    "--security-opt",
-    "seccomp=unconfined",
     "--init",
-    "--memory=12g",
-    "--memory-swap=12g",
+    "--memory=8g",
+    "--memory-swap=8g",
+    "--shm-size=2g",
+    "--cgroupns=host",
+    "--tmpfs=/tmp:noexec,nosuid,size=2g",
     "-p",
     "0.0.0.0:8888:8888",
     "-p",
