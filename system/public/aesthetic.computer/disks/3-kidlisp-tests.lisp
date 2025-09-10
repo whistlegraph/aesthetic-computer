@@ -16,12 +16,13 @@
 ; 🏡 Stripes, 25.06.20.08.33
 ;(if (= slide 1)
 ;  (label "'stripes', 25.06.20.08.33")
+(black)
 (ink rainbow (? 45 128 20))
 (0.028s 
   (scroll width/8)
   (box 0 0 width/16 height)
 )
-(shear 0.00400 (? 0.03 0.1 -1 10))
+(shear 0.00650 (? 0.03 0.1 -1 10))
 
 
 ; 🚋 Train, 25.06.20.07.29
@@ -56,14 +57,14 @@
 ; 🌪️ Spin cycle, 25.06.20.08.34
 ;(if (= slide 3)
 ;  (label "'spin cycle', 25.06.20.08.34")
-(0.02s (zoom 0.97))
-(ink rainbow 200)
-(repeat 5 (line))
-(ink black 180)
-(1s (blur (? 2 1)))
-(repeat 4 (line))
-(steal 0 0 width 1)
-(putback 0 (% (/ clock 7) height) 20)
-(spin 0.28888)
-(scroll 0.5)
+; (0.02s (zoom 0.97))
+; (ink rainbow 200)
+; (repeat 5 (line))
+; (ink black 180)
+; (1s (blur (? 2 1)))
+; (repeat 4 (line))
+; (steal 0 0 width 1)
+; (putback 0 (% (/ clock 7) height) 20)
+; (spin 0.28888)
+; (scroll 0.5)
 ;)
