@@ -5979,6 +5979,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Capture the browser scroll wheel / scroll effect.
   if (type === "scroll") {
+    if (!cachedAPI) return; // Guard against undefined cachedAPI
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
