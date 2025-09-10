@@ -433,6 +433,7 @@ let currentPath,
   currentCode,
   currentHUDTxt,
   currentHUDPlainTxt,  // Plain text version without color codes
+  currentOriginalCodeId, // Track original $code identifier for sharing
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
@@ -4504,6 +4505,8 @@ async function load(
           if (!sourceToRun) {
             throw new Error(`Cached code not found: ${cacheId}`);
           }
+          // Track the original $code identifier for sharing
+          currentOriginalCodeId = slug; // Keep the full $code format
           if (logs.loading) console.log("✅ Successfully loaded cached code:", cacheId);
         } catch (error) {
           console.error("❌ Failed to load cached code:", cacheId, error);
@@ -5703,6 +5706,10 @@ async function load(
     if (module.nohud || system === "prompt") {
       currentHUDTxt = undefined;
       currentHUDPlainTxt = undefined;
+    }
+    // Clear original code ID for non-$code pieces (unless this was a $code load)
+    if (!slug?.startsWith("$")) {
+      currentOriginalCodeId = undefined;
     }
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
@@ -7869,7 +7876,12 @@ async function makeFrame({ data: { type, content } }) {
                     volume: 0.1,
                   });
                   // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                  $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                  // If this was originally loaded from $code, use that format for sharing instead of full source
+                  if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
+                    $api.jump("share~" + currentOriginalCodeId);
+                  } else {
+                    $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                  }
                   return;
                 }
 
