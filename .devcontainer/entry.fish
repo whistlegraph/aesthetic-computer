@@ -66,6 +66,10 @@ if test -d /home/me/envs
     load_envs # Load devcontainer envs conditionally.
 end
 
+# Set environment variables to prevent ETXTBSY errors and disable telemetry
+set -gx NETLIFY_CLI_TELEMETRY_DISABLED 1
+set -gx NODE_DISABLE_COMPILE_CACHE 1
+
 set -gx TERM xterm-256color
 
 # Start dbus-run-session for the keryring and execute the command passed to the script
@@ -101,6 +105,10 @@ git config pull.rebase false
 
 # Make sure git is setup and authorized for making commits via `gh`.
 gh auth setup-git
+
+# Disable Netlify CLI telemetry to prevent ETXTBSY errors
+echo "Disabling Netlify CLI telemetry..."
+cd /home/me/aesthetic-computer/system && netlify --telemetry-disable 2>/dev/null || echo "Netlify telemetry disable completed"
 
 # Add aesthetic.local and sotce.local to /etc/hosts if they don't already exist
 if not grep -q "aesthetic.local" /etc/hosts
