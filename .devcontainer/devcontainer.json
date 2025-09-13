@@ -86,11 +86,11 @@
     "-p",
     "0.0.0.0:8889:8889",
     "--ulimit",
-    "nofile=131072:131072"
+    "nofile=131072:131072",
+    "--platform",
+    "linux/amd64"
     // "--network",
     // "host"
-    //    "--platform",
-    //    "linux/amd64"
   ],
   "initializeCommand": "touch .devcontainer/fish_history",
   "postStartCommand": "fish /entry.fish",
