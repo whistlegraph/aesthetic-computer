@@ -1,64 +1,11 @@
 {
-  "name": "@aesthetic-computer/tezos",
-  "version": "0.1.0",
-  "description": "KidLisp on Tezos - FA2 token system for aesthetic.computer",
-  "main": "lib/index.js",
+  "name": "tezos",
+  "version": "1.0.0",
+  "description": "Tezos blockchain utilities",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "test": "node --test tests/*.test.js",
-    "deploy:ghostnet": "./deploy.fish ghostnet",
-    "deploy:mainnet": "./deploy.fish mainnet",
-    "deploy": "./deploy.fish",
-    "configure": "source configure.fish",
-    "setup-apis": "source setup-apis.fish",
-    "toolkit": "source tezos-toolkit.fish",
-    "setup-tezos": "./setup-tezos.fish",
-    "setup-cli": "source setup-cli.fish",
-    "setup-enhanced": "source setup-enhanced.fish",
-    "explore": "source explore.fish",
-    "format": "source format.fish",
-    "json-demo": "source json-demo.fish && demo_json_formatters",
-    "fx": "source format.fish",
-    "mint": "node scripts/mint.js",
-    "setup": "npm run build && npm run setup-apis",
-    "compile:contract": "echo 'Contract already compiled in KidLisp/ directory'",
-    "test:contract": "echo 'Use existing contract tests'",
-    "interact": "node scripts/interact.js",
-    "help": "source tezos-toolkit.fish && tezos-help",
-    "status": "source tezos-toolkit.fish && tezos-status",
-    "network": "source tezos-toolkit.fish && tezos-network"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "@taquito/beacon-wallet": "^19.2.0",
-    "@taquito/michel-codec": "^19.2.0",
-    "@taquito/michelson-encoder": "^19.2.0",
-    "@taquito/rpc": "^19.2.0",
-    "@taquito/taquito": "^19.2.0",
-    "@taquito/utils": "^19.2.0",
-    "crypto": "^1.0.1",
-    "dotenv": "^16.3.1",
-    "node-fetch": "^3.3.2"
-  },
-  "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@types/node-fetch": "^2.6.13",
-    "typescript": "^5.3.0"
-  },
-  "keywords": [
-    "tezos",
-    "fa2",
-    "meme-coin",
-    "kidlisp",
-    "aesthetic-computer",
-    "blockchain",
-    "smart-contracts"
-  ],
-  "author": "aesthetic.computer",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/whistlegraph/aesthetic-computer",
-    "directory": "tezos"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }

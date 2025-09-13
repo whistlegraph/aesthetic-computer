@@ -63,6 +63,10 @@ contracts/__pycache__/
 contracts/*.py[cod]
 contracts/*$py.class
 
+# SmartPy local installation
+smartpy_local/
+smartpy-cli.zip
+
 # Tezos specific
 *.tz
 *.tzkt
