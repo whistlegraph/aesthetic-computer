@@ -1,8 +1,10 @@
-FROM fedora:latest
+FROM --platform=linux/amd64 fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
 ENV NETLIFY_DENO_VERSION=2.4.5
+ENV NETLIFY_CLI_TELEMETRY_DISABLED=1
+ENV NODE_DISABLE_COMPILE_CACHE=1
 
 # Update all packages and install core tools in one layer
 RUN dnf update -y && \
@@ -13,7 +15,7 @@ RUN dnf update -y && \
         qemu-kvm qemu-img qemu-system-x86 qemu-user-static \
         openssl openssl-devel awscli redis \
         dnf-plugins-core lolcat toilet iproute xclip nmap-ncat \
-        inotify-tools gron miller \
+        inotify-tools \
     && dnf clean all
 
 # Tezos development dependencies
@@ -24,13 +26,29 @@ RUN dnf install -y \
         ocaml opam rsync m4 patch bubblewrap \
     && dnf clean all
 
-# Install Octez (Tezos) tools from official repository
-RUN dnf config-manager --add-repo https://packages.nomadic-labs.com/tezos.repo && \
-    dnf install -y octez-client octez-node octez-baker-PsParisC octez-accuser-PsParisC \
-    && dnf clean all
+# Install Octez (Tezos) tools - Alternative installation approach
+RUN dnf -y update && \
+    dnf -y install dnf-plugins-core wget curl && \
+    # Try to install Octez from binary releases or build from source
+    (wget -q https://github.com/serokell/tezos-packaging/releases/download/v20.3-1/octez-client -O /usr/local/bin/octez-client && \
+     wget -q https://github.com/serokell/tezos-packaging/releases/download/v20.3-1/octez-node -O /usr/local/bin/octez-node && \
+     chmod +x /usr/local/bin/octez-* && \
+     echo "Octez tools installed from binary releases") || \
+    # Fallback: Install via opam if available
+    (dnf -y install opam && \
+     opam init --disable-sandboxing -y && \
+     eval $(opam env) && \
+     opam install tezos -y && \
+     echo "Octez tools installed via opam") || \
+    # Final fallback: Just continue without Octez
+    echo "Warning: Octez installation failed, continuing without Tezos tools" && \
+    dnf clean all
 
 # Install SmartPy for Tezos smart contract development
 RUN pip install https://smartpy.io/static/tezos_smartpy-0.22.0-py3-none-any.whl
+
+# Install PyTezos for Tezos blockchain interaction
+RUN pip install pytezos
 
 # Install PowerShell
 # Use Fedora 40 repo instead of Fedora 42
@@ -165,13 +183,13 @@ RUN mkdir -p /home/me/.config/fish/conf.d && \
 # Use a single RUN command with proper fnm environment setup
 RUN eval "$(/home/me/.fnm/fnm env --shell bash)" && \
     /home/me/.fnm/fnm install lts-jod && \
+    /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
     npm install -g prettier typescript typescript-language-server npm-check-updates && \
     npm install -g @anthropic-ai/claude-code && \
     npm install -g @openai/codex && \
-    npm install -g netlify-cli && \
-    npm install -g fx json-table cli-table3 jsonfmt
+    npm install -g netlify-cli
 
 # Ensure the default Node.js version is available in Fish shell sessions
 RUN echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
