@@ -1,3 +1,4 @@
+# From here: https://smartpy.io/templates/fa2_lib_nft.py
 import smartpy as sp
 from smartpy.templates import fa2_lib as fa2
 
