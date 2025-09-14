@@ -789,6 +789,52 @@ class KidLisp {
     this.expressionRegistry = new Map(); // Map AST expressions to unique IDs
     this.nextExpressionId = 0; // Counter for expression IDs
     
+    // 🎯 Performance monitoring system
+    this.perf = {
+      enabled: false, // Toggle for performance monitoring
+      showHUD: false, // Toggle for performance HUD overlay
+      samples: 100, // Number of samples to keep for rolling averages
+      lastLogTime: 0, // Last time we logged to console
+      logInterval: 1000, // Log every 1 second
+      history: [], // Historical snapshots for bar graph (keep last 20)
+      
+      // Timing categories
+      timings: {
+        parse: [], // Parse time samples
+        evaluate: [], // Evaluation time samples
+        render: [], // Render time samples (if available)
+        total: [], // Total frame time samples
+      },
+      
+      // Function call tracking
+      functions: new Map(), // functionName -> { count, totalTime, avgTime }
+      
+      // Memory usage tracking
+      memory: {
+        ast: 0, // AST size estimate
+        env: 0, // Environment size estimate
+        cache: 0, // Cache size estimate
+      },
+      
+      // Current frame stats
+      current: {
+        parseTime: 0,
+        evaluateTime: 0,
+        renderTime: 0,
+        totalTime: 0,
+        frameStart: 0,
+      },
+      
+      // Rolling averages (calculated from samples)
+      avg: {
+        parse: 0,
+        evaluate: 0,
+        render: 0,
+        total: 0,
+        fps: 0,
+      }
+    };
+    
     // Ink state management
     this.inkState = undefined; // Track KidLisp ink color (starts undefined)
     this.inkStateSet = false; // Track if ink has been explicitly set
@@ -796,6 +842,395 @@ class KidLisp {
     // Bake functionality state
     this.bakedLayers = []; // Store baked pixel buffers
     this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
+    
+    // Performance monitoring
+    this.performanceEnabled = false; // Enable/disable performance monitoring
+    this.frameTimings = []; // Store recent frame timings
+    this.evaluationCounts = new Map(); // Track evaluation counts per expression type
+    this.totalEvaluations = 0; // Total evaluations this frame
+    this.currentFrameStart = 0; // Start time of current frame
+  }
+
+  // 🎯 Performance monitoring methods
+  startPerformanceMonitoring() {
+    this.perf.enabled = true;
+    this.perf.showHUD = true;
+    
+    // Also enable graph performance tracking - try multiple approaches
+    if (typeof window !== 'undefined') {
+      // Try direct window access
+      if (window.graphPerf) {
+        window.graphPerf.enabled = true;
+        console.log("🎯 KidLisp + Graph performance monitoring enabled (window)");
+      } else {
+        console.log("🎯 KidLisp performance monitoring enabled (window.graphPerf not found)");
+      }
+    }
+    
+    // Try global scope access
+    if (typeof globalThis !== 'undefined' && globalThis.graphPerf) {
+      globalThis.graphPerf.enabled = true;
+      console.log("🎯 Graph performance monitoring enabled (globalThis)");
+    }
+    
+    // Try importing graph.mjs directly if available
+    try {
+      // Enable graph performance through module system if possible
+      if (typeof graphPerf !== 'undefined') {
+        graphPerf.enabled = true;
+        console.log("🎯 Graph performance monitoring enabled (direct)");
+      }
+    } catch (e) {
+      // Module access not available
+    }
+  }
+
+  stopPerformanceMonitoring() {
+    this.perf.enabled = false;
+    this.perf.showHUD = false;
+    
+    // Also disable graph performance tracking
+    if (typeof window !== 'undefined' && window.graphPerf) {
+      window.graphPerf.enabled = false;
+    }
+  }
+
+  togglePerformanceHUD() {
+    this.perf.showHUD = !this.perf.showHUD;
+    if (this.perf.showHUD) {
+      this.perf.enabled = true; // Enable tracking when HUD is shown
+    }
+    return this.perf.showHUD;
+  }
+
+  startFrame() {
+    if (!this.perf.enabled) return;
+    this.perf.current.frameStart = performance.now();
+  }
+
+  endFrame() {
+    if (!this.perf.enabled) return;
+    const now = performance.now();
+    this.perf.current.totalTime = now - this.perf.current.frameStart;
+    this.addSample('total', this.perf.current.totalTime);
+    this.updateAverages();
+  }
+
+  startTiming(category) {
+    return performance.now();
+  }
+
+  endTiming(category, startTime) {
+    if (!this.perf.enabled) return;
+    const duration = performance.now() - startTime;
+    this.perf.current[category + 'Time'] = duration;
+    this.addSample(category, duration);
+  }
+
+  addSample(category, value) {
+    if (!this.perf.timings[category]) return;
+    this.perf.timings[category].push(value);
+    if (this.perf.timings[category].length > this.perf.samples) {
+      this.perf.timings[category].shift();
+    }
+  }
+
+  updateAverages() {
+    Object.keys(this.perf.timings).forEach(category => {
+      const samples = this.perf.timings[category];
+      if (samples.length > 0) {
+        this.perf.avg[category] = samples.reduce((a, b) => a + b, 0) / samples.length;
+      }
+    });
+    
+    // Calculate FPS from total time
+    if (this.perf.avg.total > 0) {
+      this.perf.avg.fps = 1000 / this.perf.avg.total;
+    }
+  }
+
+  trackFunction(name, duration) {
+    if (!this.perf.enabled) return;
+    if (!this.perf.functions.has(name)) {
+      this.perf.functions.set(name, { count: 0, totalTime: 0, avgTime: 0 });
+    }
+    const stats = this.perf.functions.get(name);
+    stats.count++;
+    stats.totalTime += duration;
+    stats.avgTime = stats.totalTime / stats.count;
+    
+    // 🚨 Hot function detection - warn about excessive calls
+    if (stats.count > 0 && stats.count % 1000 === 0) {
+      console.warn(`🔥 HOT FUNCTION: ${name} called ${stats.count} times (${stats.avgTime.toFixed(3)}ms avg)`);
+    }
+  }
+
+  // 📊 Render performance HUD in top-right corner with tiny matrix font
+  renderPerformanceHUD(api) {
+    if (!this.perf.showHUD || !api.ink || !api.write || !api.box) return;
+
+    // Log performance data every second
+    const now = performance.now();
+    if (now - this.perf.lastLogTime > this.perf.logInterval) {
+      this.logPerformanceSnapshot();
+      this.perf.lastLogTime = now;
+    }
+
+    const screen = api.screen || { width: 256, height: 256 };
+    const hudWidth = 100;
+    const hudHeight = 75; // Reduced from 90 to make it more compact
+    const x = screen.width - hudWidth - 2;
+    const y = 2;
+    
+    // Semi-transparent background
+    api.ink(0, 0, 0, 200);
+    api.box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "fill");
+    
+    // Border
+    api.ink(100, 255, 100, 255);
+    api.box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "outline");
+    
+    // Performance stats text
+    let lineY = y + 1;
+    const lineHeight = 8;
+    
+    // FPS and total time with health color coding
+    const fps = this.perf.avg.fps;
+    const totalTime = this.perf.avg.total;
+    
+    // Color code FPS based on 60fps target: green >= 55, yellow >= 45, orange >= 30, red < 30
+    let fpsColor = fps >= 55 ? [0, 255, 0] : fps >= 45 ? [255, 255, 0] : fps >= 30 ? [255, 165, 0] : [255, 0, 0];
+    api.ink(fpsColor[0], fpsColor[1], fpsColor[2]);
+    api.write(`FPS:${fps.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    lineY += lineHeight;
+    
+    // Color code total time based on 16.67ms budget (60fps): green <= 16.67, yellow <= 22, orange <= 33, red > 33
+    let totalColor = totalTime <= 16.67 ? [0, 255, 0] : totalTime <= 22 ? [255, 255, 0] : totalTime <= 33 ? [255, 165, 0] : [255, 0, 0];
+    api.ink(totalColor[0], totalColor[1], totalColor[2]);
+    api.write(`TOT:${totalTime.toFixed(1)}ms`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    lineY += lineHeight;
+    
+    // Parse time with bar (show current if avg is 0)
+    api.ink(255, 200, 100);
+    const parseTime = this.perf.avg.parse || this.perf.current.parseTime || 0;
+    api.write(`PAR:${parseTime.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    this.drawPerfBar(api, x + 40, lineY, parseTime, 2.0, 50, [255, 200, 100]); // 2ms max for 60fps budget
+    lineY += lineHeight;
+    
+    // Evaluate time with bar (show current if avg is 0)
+    api.ink(100, 200, 255);
+    const evalTime = this.perf.avg.evaluate || this.perf.current.evaluateTime || 0;
+    api.write(`EVL:${evalTime.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    this.drawPerfBar(api, x + 40, lineY, evalTime, 8.0, 50, [100, 200, 255]); // 8ms max for evaluation
+    lineY += lineHeight;
+    
+    // Render time with bar
+    api.ink(255, 100, 200);
+    api.write(`REN:${this.perf.avg.render.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    this.drawPerfBar(api, x + 40, lineY, this.perf.avg.render, 6.0, 50, [255, 100, 200]); // 6ms max for rendering
+    lineY += lineHeight;
+    
+    // Function call count
+    let totalFunctionCalls = 0;
+    this.perf.functions.forEach(stats => totalFunctionCalls += stats.count);
+    api.ink(200, 200, 200);
+    api.write(`FUN:${totalFunctionCalls}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    lineY += lineHeight;
+    
+    // Memory usage (estimate)
+    const memEstimate = this.estimateMemoryUsage();
+    api.ink(150, 150, 255);
+    api.write(`MEM:${(memEstimate / 1024).toFixed(1)}KB`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    lineY += lineHeight;
+    
+    // Historical performance bar graph (mini sparkline)
+    if (this.perf.history.length > 1) {
+      api.ink(80, 80, 80);
+      api.write(`HIST`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+      
+      const graphX = x + 20;
+      const graphY = lineY + 2;
+      const graphWidth = 70;
+      const graphHeight = 6;
+      
+      // Draw background
+      api.ink(20, 20, 20);
+      api.box(graphX, graphY, graphWidth, graphHeight, "fill");
+      
+      // Draw FPS history bars (normalized to 60fps target)
+      const barWidth = Math.max(1, Math.floor(graphWidth / this.perf.history.length));
+      for (let i = 0; i < this.perf.history.length; i++) {
+        const snapshot = this.perf.history[i];
+        // Normalize to 60fps = full height, allow up to 75fps max display
+        const normalizedFps = Math.min(75, snapshot.fps);
+        const barHeight = Math.min(graphHeight, Math.max(1, (normalizedFps / 75) * graphHeight));
+        const barX = graphX + (i * barWidth);
+        const barY = graphY + graphHeight - barHeight;
+        
+        // 60fps-targeted color thresholds: green >= 55fps, yellow >= 45fps, orange >= 30fps, red < 30fps
+        if (snapshot.fps >= 55) {
+          api.ink(0, 255, 0);      // Green: excellent performance
+        } else if (snapshot.fps >= 45) {
+          api.ink(255, 255, 0);    // Yellow: good performance
+        } else if (snapshot.fps >= 30) {
+          api.ink(255, 165, 0);    // Orange: concerning performance
+        } else {
+          api.ink(255, 0, 0);      // Red: poor performance
+        }
+        
+        api.box(barX, barY, Math.max(1, barWidth - 1), barHeight, "fill");
+      }
+      
+      // Draw 60fps target line
+      const targetY = graphY + graphHeight - Math.floor((60 / 75) * graphHeight);
+      api.ink(128, 128, 128);
+      api.box(graphX, targetY, graphWidth, 1, "fill");
+    }
+  }
+
+  // Draw a tiny performance bar with 60fps-oriented health colors
+  drawPerfBar(api, x, y, value, maxValue, width, baseColor) {
+    const fillWidth = Math.min(width, (value / maxValue) * width);
+    const fillRatio = value / maxValue;
+    
+    // Background bar
+    api.ink(50, 50, 50);
+    api.box(x, y + 2, width, 3, "fill");
+    
+    // Fill bar with health-based coloring
+    if (fillWidth > 0) {
+      let barColor;
+      if (fillRatio <= 0.5) {
+        // Green zone: 0-50% of budget is healthy
+        barColor = [0, 255, 0];
+      } else if (fillRatio <= 0.75) {
+        // Yellow zone: 50-75% of budget is concerning
+        barColor = [255, 255, 0];
+      } else if (fillRatio <= 1.0) {
+        // Orange zone: 75-100% of budget is problematic
+        barColor = [255, 165, 0];
+      } else {
+        // Red zone: over budget is critical
+        barColor = [255, 0, 0];
+      }
+      
+      api.ink(barColor[0], barColor[1], barColor[2]);
+      api.box(x, y + 2, fillWidth, 3, "fill");
+    }
+    
+    // Overflow indicator if over max
+    if (value > maxValue) {
+      api.ink(255, 0, 0);
+      api.box(x + width - 2, y + 1, 2, 5, "fill");
+    }
+  }
+
+  // Estimate memory usage
+  estimateMemoryUsage() {
+    let size = 0;
+    
+    // AST size estimate (rough)
+    size += JSON.stringify(this.localEnv || {}).length;
+    
+    // Timing data
+    size += this.perf.timings.total.length * 8; // rough estimate
+    
+    // Function tracking
+    size += this.perf.functions.size * 64; // rough estimate
+    
+    return size;
+  }
+
+  // Log performance snapshot to console and store in history
+  logPerformanceSnapshot() {
+    let totalFunctionCalls = 0;
+    let graphCalls = 0;
+    let apiCalls = 0;
+    let userCalls = 0;
+    let optCalls = 0;
+    
+    // Categorize function calls
+    this.perf.functions.forEach((stats, name) => {
+      totalFunctionCalls += stats.count;
+      if (name.startsWith('api:')) {
+        apiCalls += stats.count;
+      } else if (name.startsWith('user:')) {
+        userCalls += stats.count;
+      } else if (name.startsWith('opt:')) {
+        optCalls += stats.count;
+      } else {
+        // Global functions - likely graph functions
+        graphCalls += stats.count;
+      }
+    });
+    
+    const parseTime = this.perf.avg.parse || this.perf.current.parseTime || 0;
+    const evalTime = this.perf.avg.evaluate || this.perf.current.evaluateTime || 0;
+    
+    const snapshot = {
+      time: new Date().toLocaleTimeString(),
+      fps: this.perf.avg.fps,
+      total: this.perf.avg.total,
+      parse: parseTime,
+      evaluate: evalTime,
+      render: this.perf.avg.render,
+      functions: totalFunctionCalls,
+      memory: (this.estimateMemoryUsage() / 1024).toFixed(1)
+    };
+    
+    // Log basic performance metrics
+    console.log(`🎯 PERF [${snapshot.time}]: FPS=${snapshot.fps.toFixed(1)} TOT=${snapshot.total.toFixed(1)}ms PAR=${snapshot.parse.toFixed(1)}ms EVL=${snapshot.evaluate.toFixed(1)}ms REN=${snapshot.render.toFixed(1)}ms`);
+    
+    // Log categorized function calls
+    console.log(`📊 CALLS: TOT=${totalFunctionCalls} GRAPH=${graphCalls} API=${apiCalls} USER=${userCalls} OPT=${optCalls} MEM=${snapshot.memory}KB`);
+    
+    // Log top function hotspots if we have many calls
+    if (totalFunctionCalls > 1000) {
+      const sortedFunctions = Array.from(this.perf.functions.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 8); // Top 8 most called functions
+      
+      console.log(`🔥 TOP HOTSPOTS:`);
+      sortedFunctions.forEach(([name, stats], i) => {
+        const callsPerSecond = Math.round(stats.count);
+        const totalTime = stats.totalTime.toFixed(1);
+        const category = name.startsWith('api:') ? '📱' : name.startsWith('user:') ? '👤' : name.startsWith('opt:') ? '⚡' : '🎨';
+        console.log(`   ${i+1}. ${category} ${name}: ${callsPerSecond} calls (${totalTime}ms total, ${stats.avgTime.toFixed(3)}ms avg)`);
+      });
+      
+      // Log evaluation loop stats if we have them
+      if (this.perf.evalCallCount > 0 || this.perf.bodyProcessCount > 0) {
+        console.log(`🔄 LOOPS: evaluate() called ${this.perf.evalCallCount || 0} times, body processing ${this.perf.bodyProcessCount || 0} times`);
+      }
+      
+      // Log graph performance if available (check global scope)
+      if (typeof window !== 'undefined' && window.graphPerf) {
+        if (window.graphPerf.functions.size > 0) {
+          const graphStats = window.graphPerf.getStats();
+          console.log(`🎨 GRAPH HOTSPOTS:`);
+          graphStats.slice(0, 5).forEach((stat, i) => {
+            console.log(`   ${i+1}. ${stat.name}: ${stat.count} calls (${stat.totalTime.toFixed(1)}ms total, ${stat.avgTime.toFixed(2)}ms avg, ${stat.maxTime.toFixed(2)}ms max)`);
+          });
+          window.graphPerf.reset();
+        } else {
+          // Debug: Check why graph performance isn't being tracked
+          console.log(`🎨 GRAPH DEBUG: graphPerf enabled=${window.graphPerf.enabled}, functions.size=${window.graphPerf.functions.size}`);
+        }
+      } else {
+        console.log(`🎨 GRAPH DEBUG: window.graphPerf not available`);
+      }
+      
+      // Reset counters after logging to get per-second rates
+      this.perf.functions.clear();
+      this.perf.evalCallCount = 0;
+      this.perf.bodyProcessCount = 0;
+    }
+    
+    // Store in history (keep last 20 snapshots)
+    this.perf.history.push(snapshot);
+    if (this.perf.history.length > 20) {
+      this.perf.history.shift();
+    }
   }
 
   // 🎯 Set API context for this KidLisp instance
@@ -963,6 +1398,56 @@ class KidLisp {
       // Skip cache-based embedded layers (same logic as renderEmbeddedLayers)
       return !(layer.originalCacheId && /^[0-9A-Za-z]{3,12}$/.test(layer.originalCacheId));
     }).length;
+  }
+
+  // Performance monitoring methods
+  enablePerformanceMonitoring(enable = true) {
+    this.performanceEnabled = enable;
+    if (enable) {
+      console.log("🔬 KidLisp performance monitoring enabled");
+    } else {
+      console.log("🔬 KidLisp performance monitoring disabled");
+    }
+  }
+  
+  startFrameTiming() {
+    if (!this.performanceEnabled) return;
+    this.currentFrameStart = performance.now();
+    this.totalEvaluations = 0;
+    this.evaluationCounts.clear();
+  }
+  
+  endFrameTiming() {
+    if (!this.performanceEnabled) return;
+    const frameDuration = performance.now() - this.currentFrameStart;
+    this.frameTimings.push(frameDuration);
+    
+    // Keep only last 60 frames for rolling average
+    if (this.frameTimings.length > 60) {
+      this.frameTimings.shift();
+    }
+    
+    // Log performance stats every 60 frames (roughly 1 second at 60fps)
+    if (this.frameTimings.length === 60) {
+      const avgFrameTime = this.frameTimings.reduce((a, b) => a + b) / 60;
+      const maxFrameTime = Math.max(...this.frameTimings);
+      const minFrameTime = Math.min(...this.frameTimings);
+      
+      console.log(`🔬 KidLisp Performance (60 frames):
+        Avg: ${avgFrameTime.toFixed(2)}ms, Min: ${minFrameTime.toFixed(2)}ms, Max: ${maxFrameTime.toFixed(2)}ms
+        Total evaluations: ${this.totalEvaluations}
+        Top expressions:`, Array.from(this.evaluationCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5));
+      
+      this.frameTimings = []; // Reset for next cycle
+    }
+  }
+  
+  trackEvaluation(type) {
+    if (!this.performanceEnabled) return;
+    this.totalEvaluations++;
+    this.evaluationCounts.set(type, (this.evaluationCounts.get(type) || 0) + 1);
   }
 
   // Mark a timing expression as triggered for blinking
@@ -1890,6 +2375,9 @@ class KidLisp {
         }
       },
       paint: ($) => {
+        // 🎯 Start performance frame tracking
+        this.startFrame();
+        
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         // 🕐 Timing updates moved to sim() for consistent framerate
         
@@ -1908,6 +2396,16 @@ class KidLisp {
 
         // Update HUD with syntax highlighting
         this.updateHUDWithSyntaxHighlighting($);
+
+        // 🔄 FRAME-LEVEL RESET: Reset evaluation counters and clear frame cache
+        if (this.perf.enabled) {
+          this.perf.evalCallCount = 0;
+          this.perf.bodyProcessCount = 0;
+          // Clear frame-level expression cache for new frame
+          if (this.frameCache) {
+            this.frameCache.clear();
+          }
+        }
 
         // Restore KidLisp ink state at the beginning of each paint frame
         // This ensures ink color persists despite modifications by HUD, QR codes, etc.
@@ -1973,6 +2471,12 @@ class KidLisp {
             }
           });
           this.postEmbedCommands = [];
+          
+          // 🎯 Render performance HUD overlay (always rendered last)
+          if (this.perf.showHUD) {
+            this.renderPerformanceHUD($);
+          }
+          
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
@@ -1995,6 +2499,9 @@ class KidLisp {
 
         // TODO: Add haltability to paint with a shortcut that triggers the below.
         // return false;
+        
+        // 🎯 End performance frame tracking
+        this.endFrame();
       },
       sim: ({ sound }) => {
         // 🕐 Handle timing updates in sim (runs at consistent 120fps)
@@ -2051,6 +2558,7 @@ class KidLisp {
 
   // Main parsing method - handles both single expressions and multi-line input
   parse(input) {
+    const parseStart = this.startTiming('parse');
     // 🏃‍♂️ Handle comma-separated expressions for compact one-liners
     // Transform "blue, ink rainbow, repeat 100 line" into "(blue) (ink rainbow) (repeat 100 line)"
     if (input.includes(",") && !input.includes("\n")) {
@@ -2131,6 +2639,7 @@ class KidLisp {
     const parsed = readFromTokens(tokens);
     // console.log(`🔍 Parsed result:`, parsed);
     this.ast = parsed; // 🎯 Actually assign the parsed result to this.ast!
+    this.endTiming('parse', parseStart);
     return parsed;
   }
 
@@ -3531,7 +4040,8 @@ class KidLisp {
               return arg; // Return as-is for URLs, paths, and @handle/timestamp patterns
             }
           }
-          return arg;
+          // Evaluate expressions for non-string arguments (like math expressions)
+          return this.evaluate(arg, api, this.localEnv);
         });
         api.stamp(...processedArgs);
       },
@@ -3868,6 +4378,31 @@ class KidLisp {
       clock: (api) => {
         return Date.now(); // Returns UTC milliseconds since epoch
       },
+      // 🎯 Performance monitoring functions (singleton behavior)
+      perf: (api, args = []) => {
+        // Always use singleton behavior - only execute once per module load
+        const perfKey = `perf_singleton_${args.join('_')}`;
+        
+        if (this.onceExecuted.has(perfKey)) {
+          return this.perf.showHUD; // Already executed, return current state
+        }
+        this.onceExecuted.add(perfKey);
+        
+        if (args.length === 0) {
+          // Default: enable and show HUD
+          this.startPerformanceMonitoring();
+          return true;
+        } else if (args[0] === "start" || args[0] === "on") {
+          this.startPerformanceMonitoring();
+          return true;
+        } else if (args[0] === "stop" || args[0] === "off") {
+          this.stopPerformanceMonitoring();
+          return false;
+        } else if (args[0] === "toggle") {
+          return this.togglePerformanceHUD();
+        }
+        return this.perf.enabled;
+      },
       fps: (api, args) => {
         if (args.length > 0) {
           const targetFps = parseFloat(args[0]);
@@ -3924,6 +4459,14 @@ class KidLisp {
           console.error(
             "❗ repeat count must be a non-negative number, got:",
             countValue,
+          );
+          return undefined;
+        }
+        
+        // 🚨 SAFETY: Prevent performance-killing massive repeat loops
+        if (count > 10000) {
+          console.error(
+            `❗ repeat count ${count} exceeds safety limit of 10,000. Use smaller counts or timing expressions.`,
           );
           return undefined;
         }
@@ -5075,13 +5618,94 @@ class KidLisp {
   }
 
   evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
+    const evalStart = this.startTiming('evaluate');
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
+
+    // 🚨 RECURSION LIMITER: Prevent runaway evaluation loops
+    if (!this.evalDepth) this.evalDepth = 0;
+    this.evalDepth++;
+    
+    // 🚀 PERFORMANCE: Simple frame-level caching for expensive expressions
+    const needsCaching = Array.isArray(parsed) && parsed.length > 0;
+    let cacheKey = null;
+    if (needsCaching && this.perf.enabled) {
+      // Create a simple cache key from the expression structure
+      const head = parsed[0];
+      // Only cache mathematical operations that are pure and don't contain time-varying variables
+      if (typeof head === 'string' && 
+          (head === 'sin' || head === 'cos' || head === 'mod' || head === '+' || head === '-' || 
+           head === '*' || head === '/' || head === 'min' || head === 'max' || head === 'abs')) {
+        
+        // Check if expression contains time-varying variables that shouldn't be cached
+        const exprString = JSON.stringify(parsed);
+        const hasTimeVars = exprString.includes('frame') || exprString.includes('amplitude') || 
+                           exprString.includes('clock') || exprString.includes('speaker') ||
+                           exprString.includes('"i"') || exprString.includes('"j"') || 
+                           exprString.includes('"n"') || exprString.includes('"x"') || 
+                           exprString.includes('"y"') || exprString.includes('random');
+        
+        // Only cache if it doesn't contain time-varying variables
+        if (!hasTimeVars) {
+          cacheKey = exprString + '_' + this.frameCount;
+          if (!this.frameCache) this.frameCache = new Map();
+          if (this.frameCache.has(cacheKey)) {
+            this.evalDepth--;
+            this.endTiming('evaluate', evalStart);
+            perfEnd("evaluate-total");
+            return this.frameCache.get(cacheKey);
+          }
+        }
+      }
+    }
+    
+    if (this.evalDepth > 50) {
+      console.error(`🚨 RECURSION DEPTH LIMIT EXCEEDED (${this.evalDepth})! Terminating to prevent crash.`);
+      this.evalDepth--;
+      this.endTiming('evaluate', evalStart);
+      perfEnd("evaluate-total");
+      
+      // Return sensible defaults based on expected type
+      if (Array.isArray(parsed)) {
+        return []; // Empty array for lists
+      } else if (typeof parsed === 'string') {
+        return parsed; // Return the string itself
+      } else if (typeof parsed === 'number') {
+        return parsed; // Return the number itself
+      }
+      return 0; // Default fallback
+    }
+
+    // 🚨 PERFORMANCE: Track evaluation call frequency  
+    if (this.perf.enabled && !this.perf.evalCallCount) {
+      this.perf.evalCallCount = 0;
+    }
+    
+    if (this.perf.enabled) {
+      this.perf.evalCallCount++;
+      
+      // Less aggressive monitoring - only warn at higher thresholds
+      if (this.perf.evalCallCount % 1000 === 0) {
+        console.warn(`🔥 EVALUATE CALLED ${this.perf.evalCallCount} TIMES! Depth: ${this.evalDepth}`);
+      }
+      
+      // Much higher limit - only stop in truly pathological cases
+      if (this.perf.evalCallCount > 10000) {
+        console.error(`🚨 PATHOLOGICAL CASE: Evaluation limit exceeded (${this.perf.evalCallCount})! There may be an infinite loop.`);
+        this.perf.evalCallCount = 0;
+        this.evalDepth = 0;
+        this.perf.bodyProcessCount = 0;
+        return 0;
+      }
+    }
 
     // Reset zebra cache at the beginning of top-level evaluations (when env is not provided)
     if (!env) {
       resetZebraCache();
       isTopLevel = true; // Mark as top-level when no env is provided
+      
+      // 🔄 Reset evaluation depth counter at top level to prevent accumulation across frames
+      this.evalDepth = 0;
     }
 
     // -1 evaluation debug check removed for performance
@@ -5262,6 +5886,24 @@ class KidLisp {
       }
     }
 
+    // 🚨 PERFORMANCE: Track body processing frequency but allow complex programs
+    if (this.perf.enabled && body.length > 0) {
+      if (!this.perf.bodyProcessCount) this.perf.bodyProcessCount = 0;
+      this.perf.bodyProcessCount++;
+      if (this.perf.bodyProcessCount % 500 === 0) {
+        console.warn(`🔥 BODY PROCESSING ${this.perf.bodyProcessCount} TIMES! Body length: ${body.length}`);
+      }
+      
+      // Only stop in truly pathological cases
+      if (this.perf.bodyProcessCount > 5000) {
+        console.error(`🚨 PATHOLOGICAL BODY PROCESSING: ${this.perf.bodyProcessCount} calls! Likely infinite recursion.`);
+        this.perf.bodyProcessCount = 0;
+        this.perf.evalCallCount = 0;
+        this.evalDepth = 0;
+        return 0;
+      }
+    }
+
     for (let bodyIndex = 0; bodyIndex < body.length; bodyIndex++) {
       const item = body[bodyIndex];
       // console.log("🥡 Processing item:", JSON.stringify(item), "type:", Array.isArray(item) ? "array" : typeof item);
@@ -5270,7 +5912,13 @@ class KidLisp {
       // Handle optimized functions first
       if (item && typeof item === "object" && item.optimized) {
         perfStart("optimized-execution");
+        
+        // Track function call performance
+        const optFuncStart = performance.now();
         result = item.func(api);
+        const optFuncEnd = performance.now();
+        this.trackFunction(`opt:${item.name || 'anonymous'}`, optFuncEnd - optFuncStart);
+        
         perfEnd("optimized-execution");
         continue;
       }
@@ -5569,13 +6217,17 @@ class KidLisp {
             // Evaluate the selected argument instead of just returning it
             const selectedArg = args[currentIndex];
             
-            // Timing evaluation debug removed for performance
+            // Timing sequences work correctly now
             
             // For timing expressions, handle bare strings as potential function calls
             let result;
             if (typeof selectedArg === "string") {
+              // Check if it's a quoted string literal and return it without quotes
+              if (selectedArg.startsWith('"') && selectedArg.endsWith('"')) {
+                result = selectedArg.slice(1, -1); // Remove quotes and return as literal string
+              }
               // Check if it's a fade string and handle it specially
-              if (selectedArg.startsWith("fade:")) {
+              else if (selectedArg.startsWith("fade:")) {
                 // Parse and evaluate the fade string
                 const fadeParts = selectedArg.split(":");
                 if (fadeParts.length >= 3) {
@@ -5656,6 +6308,8 @@ class KidLisp {
             
             // Clear timing context after evaluation
             this.currentTimingContext = null;
+            
+            // Timing results work correctly now
             
             // IMPORTANT: Return result if this is the only expression being evaluated (function argument context)
             // Otherwise, store result and continue processing for top-level timing expressions
@@ -5839,7 +6493,12 @@ class KidLisp {
                   if (head === "suck") {
                     // console.log("🌪️ Executing global suck function with args:", processedArgs);
                   }
+                  
+                  // Track function call performance
+                  const funcStart = performance.now();
                   result = value(api, processedArgs, env, colon);
+                  const funcEnd = performance.now();
+                  this.trackFunction(head, funcEnd - funcStart);
                   if (result?.iterable) {
                     result = this.iterate(result, api, args, env);
                     continue;
@@ -5859,10 +6518,14 @@ class KidLisp {
                   : arg,
               );
 
+              // Track function call performance
+              const userFuncStart = performance.now();
               result =
                 Array.isArray(value) || value.body
                   ? this.evaluate(value, api, this.localEnv, evaluatedArgs)
                   : value;
+              const userFuncEnd = performance.now();
+              this.trackFunction(`user:${head}`, userFuncEnd - userFuncStart);
               break;
 
             case "api":
@@ -5886,7 +6549,11 @@ class KidLisp {
                 // console.log("📜 API scroll function:", typeof value, value.toString().substring(0, 100));
               }
               
+              // Track function call performance
+              const apiFuncStart = performance.now();
               result = value(...apiArgs);
+              const apiFuncEnd = performance.now();
+              this.trackFunction(`api:${head}`, apiFuncEnd - apiFuncStart);
               break;
 
             case "cache":
@@ -5972,7 +6639,16 @@ class KidLisp {
     // Clear timing context to prevent leakage between evaluations
     this.currentTimingContext = null;
 
+    // � PERFORMANCE: Cache the result if we created a cache key
+    if (cacheKey && this.frameCache && result !== undefined) {
+      this.frameCache.set(cacheKey, result);
+    }
+
+    // �🚨 RECURSION LIMITER: Decrement depth counter
+    this.evalDepth--;
+
     perfEnd("evaluate-total");
+    this.endTiming('evaluate', evalStart);
     return result;
   }
 
