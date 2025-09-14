@@ -12,5 +12,7 @@
   "workbench.list.smoothScrolling": true,
   "terminal.integrated.smoothScrolling": true,
   "notebook.lineNumbers": "off",
-  "editor.minimap.autohide": "mouseover"
+  "editor.minimap.autohide": "mouseover",
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python-envs.pythonProjects": []
 }
