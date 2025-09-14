@@ -1,7 +1,0 @@
-{
-  "prim": "Pair",
-  "args": [
-    { "string": "abc123hash" },
-    { "prim": "Pair", "args": [ { "string": "tz1h4EsGunH2Ue1T2uNs8mfKZ8XZoQji3HcK" }, { "bytes": "7b226e616d65223a20224b69644c697370205465737420546f6b656e227d" } ] }
-  ]
-}

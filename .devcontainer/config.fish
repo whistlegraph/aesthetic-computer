@@ -1,5 +1,9 @@
 # Aesthetic Computer Development Environment Fish Config (Docker)
 
+# Set environment variables to prevent ETXTBSY errors
+set -gx NETLIFY_CLI_TELEMETRY_DISABLED 1
+set -gx NODE_DISABLE_COMPILE_CACHE 1
+
 if test -d /home/me/envs
     source /home/me/envs/load_envs.fish
     load_envs # Load devcontainer envs conditionally.
