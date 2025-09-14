@@ -71,7 +71,7 @@ included_files = ["public/aesthetic.computer/lib/kidlisp.mjs"]
 [dev]
 NODE_ENV = "development"
 publish = "public/"
-command = "npm run media-server-caddy"
+command = "caddy run --config Caddyfile"
 targetPort = 8111
 #framework = "#static"
 autoLaunch = false
