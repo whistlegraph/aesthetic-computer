@@ -698,6 +698,10 @@ class KidLisp {
     this.globalEnvCache = null; // Cache global environment
     this.embeddedApiCache = new Map(); // Cache embedded layer API objects
     
+    // Screen dimension tracking for responsive cache invalidation
+    this.lastScreenWidth = null;
+    this.lastScreenHeight = null;
+    
     // 🚀 ALPHA BUFFER CACHING: Cache alpha-adjusted buffers to avoid repeated allocations
     this.alphaBufferCache = new Map(); // size_alpha -> buffer
     
@@ -946,6 +950,11 @@ class KidLisp {
     // Calculate FPS from total time
     if (this.perf.avg.total > 0) {
       this.perf.avg.fps = 1000 / this.perf.avg.total;
+      
+      // 🚀 PERFORMANCE: Share FPS with graph performance tracking for frame skipping
+      if (globalThis.graphPerf) {
+        globalThis.graphPerf.lastFPS = this.perf.avg.fps;
+      }
     }
   }
 
@@ -959,8 +968,8 @@ class KidLisp {
     stats.totalTime += duration;
     stats.avgTime = stats.totalTime / stats.count;
     
-    // 🚨 Hot function detection - warn about excessive calls
-    if (stats.count > 0 && stats.count % 1000 === 0) {
+    // 🚨 Hot function detection - warn about excessive calls (disabled)
+    if (false && stats.count > 0 && stats.count % 1000 === 0) {
       console.warn(`🔥 HOT FUNCTION: ${name} called ${stats.count} times (${stats.avgTime.toFixed(3)}ms avg)`);
     }
   }
@@ -978,7 +987,7 @@ class KidLisp {
 
     const screen = api.screen || { width: 256, height: 256 };
     const hudWidth = 100;
-    const hudHeight = 75; // Reduced from 90 to make it more compact
+    const hudHeight = 45; // Reduced for simplified stats display
     const x = screen.width - hudWidth - 2;
     const y = 2;
     
@@ -990,11 +999,11 @@ class KidLisp {
     api.ink(100, 255, 100, 255);
     api.box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "outline");
     
-    // Performance stats text
+    // Performance stats text - simplified version
     let lineY = y + 1;
     const lineHeight = 8;
     
-    // FPS and total time with health color coding
+    // FPS with health color coding
     const fps = this.perf.avg.fps;
     const totalTime = this.perf.avg.total;
     
@@ -1004,43 +1013,38 @@ class KidLisp {
     api.write(`FPS:${fps.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
     
-    // Color code total time based on 16.67ms budget (60fps): green <= 16.67, yellow <= 22, orange <= 33, red > 33
-    let totalColor = totalTime <= 16.67 ? [0, 255, 0] : totalTime <= 22 ? [255, 255, 0] : totalTime <= 33 ? [255, 165, 0] : [255, 0, 0];
-    api.ink(totalColor[0], totalColor[1], totalColor[2]);
-    api.write(`TOT:${totalTime.toFixed(1)}ms`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-    lineY += lineHeight;
-    
-    // Parse time with bar (show current if avg is 0)
-    api.ink(255, 200, 100);
-    const parseTime = this.perf.avg.parse || this.perf.current.parseTime || 0;
-    api.write(`PAR:${parseTime.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-    this.drawPerfBar(api, x + 40, lineY, parseTime, 2.0, 50, [255, 200, 100]); // 2ms max for 60fps budget
-    lineY += lineHeight;
-    
-    // Evaluate time with bar (show current if avg is 0)
+    // Logic time (parse + evaluate combined)
     api.ink(100, 200, 255);
-    const evalTime = this.perf.avg.evaluate || this.perf.current.evaluateTime || 0;
-    api.write(`EVL:${evalTime.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-    this.drawPerfBar(api, x + 40, lineY, evalTime, 8.0, 50, [100, 200, 255]); // 8ms max for evaluation
+    const logicTime = (this.perf.avg.parse || 0) + (this.perf.avg.evaluate || 0);
+    api.write(`LOGIC:${logicTime.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    this.drawPerfBar(api, x + 48, lineY, logicTime, 8.0, 50, [100, 200, 255]); // 8ms max for logic
     lineY += lineHeight;
     
-    // Render time with bar
+    // Paint time (render)
     api.ink(255, 100, 200);
-    api.write(`REN:${this.perf.avg.render.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-    this.drawPerfBar(api, x + 40, lineY, this.perf.avg.render, 6.0, 50, [255, 100, 200]); // 6ms max for rendering
+    api.write(`PAINT:${this.perf.avg.render.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    this.drawPerfBar(api, x + 48, lineY, this.perf.avg.render, 6.0, 50, [255, 100, 200]); // 6ms max for painting
     lineY += lineHeight;
     
-    // Function call count
-    let totalFunctionCalls = 0;
-    this.perf.functions.forEach(stats => totalFunctionCalls += stats.count);
-    api.ink(200, 200, 200);
-    api.write(`FUN:${totalFunctionCalls}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-    lineY += lineHeight;
-    
-    // Memory usage (estimate)
+    // Memory usage
     const memEstimate = this.estimateMemoryUsage();
     api.ink(150, 150, 255);
-    api.write(`MEM:${(memEstimate / 1024).toFixed(1)}KB`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    api.write(`MEMORY:${(memEstimate / 1024).toFixed(1)}KB`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    lineY += lineHeight;
+    
+    // Overall health bar (simplified single indicator)
+    api.ink(200, 200, 200);
+    api.write(`HEALTH`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Calculate overall health score (0-100)
+    const fpsHealth = Math.min(100, (fps / 60) * 100);
+    const timeHealth = Math.max(0, 100 - ((totalTime - 16.67) / 16.67) * 100);
+    const memHealth = Math.max(0, 100 - Math.max(0, (memEstimate - 1024 * 1024) / (1024 * 1024)) * 100);
+    const overallHealth = (fpsHealth + timeHealth + memHealth) / 3;
+    
+    // Color code health: green >= 80, yellow >= 60, orange >= 40, red < 40
+    let healthColor = overallHealth >= 80 ? [0, 255, 0] : overallHealth >= 60 ? [255, 255, 0] : overallHealth >= 40 ? [255, 165, 0] : [255, 0, 0];
+    this.drawPerfBar(api, x + 48, lineY, overallHealth, 100, 50, healthColor);
     lineY += lineHeight;
     
     // Historical performance bar graph (mini sparkline)
@@ -1179,13 +1183,13 @@ class KidLisp {
     };
     
     // Log basic performance metrics
-    console.log(`🎯 PERF [${snapshot.time}]: FPS=${snapshot.fps.toFixed(1)} TOT=${snapshot.total.toFixed(1)}ms PAR=${snapshot.parse.toFixed(1)}ms EVL=${snapshot.evaluate.toFixed(1)}ms REN=${snapshot.render.toFixed(1)}ms`);
+    // console.log(`🎯 PERF [${snapshot.time}]: FPS=${snapshot.fps.toFixed(1)} TOT=${snapshot.total.toFixed(1)}ms PAR=${snapshot.parse.toFixed(1)}ms EVL=${snapshot.evaluate.toFixed(1)}ms REN=${snapshot.render.toFixed(1)}ms`);
     
     // Log categorized function calls
-    console.log(`📊 CALLS: TOT=${totalFunctionCalls} GRAPH=${graphCalls} API=${apiCalls} USER=${userCalls} OPT=${optCalls} MEM=${snapshot.memory}KB`);
+    // console.log(`📊 CALLS: TOT=${totalFunctionCalls} GRAPH=${graphCalls} API=${apiCalls} USER=${userCalls} OPT=${optCalls} MEM=${snapshot.memory}KB`);
     
     // Log top function hotspots if we have many calls
-    if (totalFunctionCalls > 1000) {
+    if (false && totalFunctionCalls > 1000) { // Disabled logging
       const sortedFunctions = Array.from(this.perf.functions.entries())
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 8); // Top 8 most called functions
@@ -1204,7 +1208,7 @@ class KidLisp {
       }
       
       // Log graph performance if available (check global scope)
-      if (typeof window !== 'undefined' && window.graphPerf) {
+      if (false && typeof window !== 'undefined' && window.graphPerf) { // Disabled logging
         if (window.graphPerf.functions.size > 0) {
           const graphStats = window.graphPerf.getStats();
           console.log(`🎨 GRAPH HOTSPOTS:`);
@@ -1217,7 +1221,7 @@ class KidLisp {
           console.log(`🎨 GRAPH DEBUG: graphPerf enabled=${window.graphPerf.enabled}, functions.size=${window.graphPerf.functions.size}`);
         }
       } else {
-        console.log(`🎨 GRAPH DEBUG: window.graphPerf not available`);
+        // console.log(`🎨 GRAPH DEBUG: window.graphPerf not available`);
       }
       
       // Reset counters after logging to get per-second rates
@@ -2143,11 +2147,10 @@ class KidLisp {
         
         // console.log("✅ Cache successful, stored code:", data.code);
         
-        // Log the generated $code to console with styled formatting
-        console.log(
-          `%c$${data.code}`,
-          'display: inline-block; background: #1a1a2e; color: #16a085; font-family: monospace; font-weight: bold; font-size: 12px; line-height: 1.4; white-space: pre-wrap; padding: 2px 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); text-shadow: 0 0 2px rgba(22, 160, 133, 0.3);'
-        );
+        // Use the day-themed logging from headers.mjs
+        const { logKidlispCode } = await import('./headers.mjs');
+        logKidlispCode(source, data.code, api.dark);
+        
         
         // Update browser URL to show the short code
         this.updateBrowserUrl(response.code, api);
@@ -2535,13 +2538,38 @@ class KidLisp {
         this.updateMelodies({ sound });
       },
       act: ({ event: e, api }) => {
+        // Check for center tap to hide UI (only if no custom tap/draw handlers)
         if (e.is("touch")) {
-          api.needsPaint();
-          this.tap(api);
+          // console.log("🫵 Touch event detected in kidlisp piece");
+          
+          const hasTapHandler = this.tapper !== null;
+          const hasDrawHandler = this.drawer !== null;
+          
+          // console.log("🔍 Handler check:", { 
+          //   hasTapHandler, 
+          //   hasDrawHandler,
+          //   tapper: this.tapper,
+          //   drawer: this.drawer
+          // });
+          
+          // If piece has custom interaction handlers, use them normally
+          if (hasTapHandler || hasDrawHandler) {
+            // console.log("📝 Using custom handlers");
+            api.needsPaint();
+            if (hasTapHandler) this.tap(api);
+          } else {
+            // No custom handlers - any tap toggles HUD
+            // console.log("🎯 No custom handlers, toggling HUD for any tap");
+            api.toggleHUD();
+          }
         }
+        
         if (e.is("draw")) {
-          api.needsPaint();
-          this.draw(api, { dy: e.delta.y, dx: e.delta.x });
+          const hasDrawHandler = this.drawer !== null;
+          if (hasDrawHandler) {
+            api.needsPaint();
+            this.draw(api, { dy: e.delta.y, dx: e.delta.x });
+          }
         }
 
         // Handle microphone connection events
@@ -5097,10 +5125,20 @@ class KidLisp {
         // Parse dimensions, position, and alpha from arguments
         // ⚡ PERFORMANCE: Use fixed default size to avoid cache invalidation on screen resize
         let width = 256, height = 256, x = 0, y = 0, alpha = 255; // Default to 256x256 and opaque
+        let usesScreenDimensions = false; // Track if w/h are used for responsive sizing
         
         if (args.length >= 3) {
           if (args.length === 3) {
             // (embed $pie width height)
+            const widthArg = args[1];
+            const heightArg = args[2];
+            
+            // Check if using screen dimensions
+            if ((typeof widthArg === 'string' && widthArg === 'w') || 
+                (typeof heightArg === 'string' && heightArg === 'h')) {
+              usesScreenDimensions = true;
+            }
+            
             width = this.evaluate(args[1], api, this.localEnv) || 256;
             height = this.evaluate(args[2], api, this.localEnv) || 256;
           } else if (args.length === 4) {
@@ -5112,12 +5150,30 @@ class KidLisp {
             height = size;
           } else if (args.length === 5) {
             // (embed $pie x y width height)
+            const widthArg = args[3];
+            const heightArg = args[4];
+            
+            // Check if using screen dimensions
+            if ((typeof widthArg === 'string' && widthArg === 'w') || 
+                (typeof heightArg === 'string' && heightArg === 'h')) {
+              usesScreenDimensions = true;
+            }
+            
             x = this.evaluate(args[1], api, this.localEnv) || 0;
             y = this.evaluate(args[2], api, this.localEnv) || 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
             height = this.evaluate(args[4], api, this.localEnv) || 256;
           } else if (args.length >= 6) {
             // (embed $pie x y width height alpha)
+            const widthArg = args[3];
+            const heightArg = args[4];
+            
+            // Check if using screen dimensions
+            if ((typeof widthArg === 'string' && widthArg === 'w') || 
+                (typeof heightArg === 'string' && heightArg === 'h')) {
+              usesScreenDimensions = true;
+            }
+            
             x = this.evaluate(args[1], api, this.localEnv) || 0;
             y = this.evaluate(args[2], api, this.localEnv) || 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
@@ -5144,10 +5200,46 @@ class KidLisp {
         
         // 🚀 PERFORMANCE OPTIMIZATION: Normalize dimensions to reduce cache fragmentation during reframe
         // Use size buckets to allow cache reuse for similar dimensions
-        const normalizedWidth = width <= 128 ? 128 : width <= 256 ? 256 : width <= 512 ? 512 : width;
-        const normalizedHeight = height <= 128 ? 128 : height <= 256 ? 256 : height <= 512 ? 512 : height;
+        // BUT: Skip normalization if using screen dimensions to ensure proper responsive behavior
+        let normalizedWidth, normalizedHeight;
+        if (usesScreenDimensions) {
+          // For screen-responsive embeds, use actual dimensions and include screen size in cache key
+          normalizedWidth = width;
+          normalizedHeight = height;
+        } else {
+          normalizedWidth = width <= 128 ? 128 : width <= 256 ? 256 : width <= 512 ? 512 : width;
+          normalizedHeight = height <= 128 ? 128 : height <= 256 ? 256 : height <= 512 ? 512 : height;
+        }
         
-        const layerKey = `${cacheId}_${normalizedWidth}x${normalizedHeight}_${x},${y}_${alpha}`;
+        // Include screen dimensions in cache key for responsive embeds
+        const screenSuffix = usesScreenDimensions ? `_screen${api.screen.width}x${api.screen.height}` : '';
+        const layerKey = `${cacheId}_${normalizedWidth}x${normalizedHeight}_${x},${y}_${alpha}${screenSuffix}`;
+        
+        // 🔄 RESPONSIVE CACHE: Clear outdated screen-dependent entries before checking cache
+        if (this.embeddedLayerCache && usesScreenDimensions) {
+          const currentScreenKey = `_screen${api.screen.width}x${api.screen.height}`;
+          const entriesToDelete = [];
+          
+          for (const [key, layer] of this.embeddedLayerCache.entries()) {
+            // Look for cache keys that include screen dimensions but don't match current screen
+            if (key.includes('_screen') && !key.includes(currentScreenKey)) {
+              entriesToDelete.push(key);
+              // Return buffer to pool before deletion
+              if (layer && layer.buffer) {
+                this.returnBufferToPool(layer.buffer, layer.width, layer.height);
+              }
+            }
+          }
+          
+          // Delete the outdated screen-dependent entries
+          if (entriesToDelete.length > 0) {
+            entriesToDelete.forEach(key => {
+              this.embeddedLayerCache.delete(key);
+              console.log(`🗑️ Cleared outdated responsive cache entry: ${key}`);
+            });
+            console.log(`✨ Cleared ${entriesToDelete.length} outdated responsive cache entries`);
+          }
+        }
         
         // Check if this embedded layer already exists - RETURN IMMEDIATELY if found
         if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
@@ -5622,7 +5714,16 @@ class KidLisp {
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
 
-    // 🚨 RECURSION LIMITER: Prevent runaway evaluation loops
+    // � DEBUG: Track expensive evaluations
+    const isExpensiveExpression = Array.isArray(parsed) && parsed.length > 10;
+    const shouldLog = isExpensiveExpression || (Array.isArray(parsed) && 
+      ['repeat', 'blur', 'shape', 'write', 'if', 'do'].includes(parsed[0]));
+    
+    if (shouldLog) {
+      // console.log(`🐌 EVAL START: ${Array.isArray(parsed) ? parsed[0] : 'primitive'} (depth: ${this.evalDepth || 0})`);
+    }
+
+    // �🚨 RECURSION LIMITER: Prevent runaway evaluation loops
     if (!this.evalDepth) this.evalDepth = 0;
     this.evalDepth++;
     
@@ -5659,57 +5760,6 @@ class KidLisp {
       }
     }
     
-    if (this.evalDepth > 50) {
-      console.error(`🚨 RECURSION DEPTH LIMIT EXCEEDED (${this.evalDepth})! Terminating to prevent crash.`);
-      this.evalDepth--;
-      this.endTiming('evaluate', evalStart);
-      perfEnd("evaluate-total");
-      
-      // Return sensible defaults based on expected type
-      if (Array.isArray(parsed)) {
-        return []; // Empty array for lists
-      } else if (typeof parsed === 'string') {
-        return parsed; // Return the string itself
-      } else if (typeof parsed === 'number') {
-        return parsed; // Return the number itself
-      }
-      return 0; // Default fallback
-    }
-
-    // 🚨 PERFORMANCE: Track evaluation call frequency  
-    if (this.perf.enabled && !this.perf.evalCallCount) {
-      this.perf.evalCallCount = 0;
-    }
-    
-    if (this.perf.enabled) {
-      this.perf.evalCallCount++;
-      
-      // Less aggressive monitoring - only warn at higher thresholds
-      if (this.perf.evalCallCount % 1000 === 0) {
-        console.warn(`🔥 EVALUATE CALLED ${this.perf.evalCallCount} TIMES! Depth: ${this.evalDepth}`);
-      }
-      
-      // Much higher limit - only stop in truly pathological cases
-      if (this.perf.evalCallCount > 10000) {
-        console.error(`🚨 PATHOLOGICAL CASE: Evaluation limit exceeded (${this.perf.evalCallCount})! There may be an infinite loop.`);
-        this.perf.evalCallCount = 0;
-        this.evalDepth = 0;
-        this.perf.bodyProcessCount = 0;
-        return 0;
-      }
-    }
-
-    // Reset zebra cache at the beginning of top-level evaluations (when env is not provided)
-    if (!env) {
-      resetZebraCache();
-      isTopLevel = true; // Mark as top-level when no env is provided
-      
-      // 🔄 Reset evaluation depth counter at top level to prevent accumulation across frames
-      this.evalDepth = 0;
-    }
-
-    // -1 evaluation debug check removed for performance
-
     // Set KidLisp context for dynamic fade evaluation
     if (api.setKidLispContext) {
       api.setKidLispContext(this, api, env);
@@ -6646,6 +6696,12 @@ class KidLisp {
 
     // �🚨 RECURSION LIMITER: Decrement depth counter
     this.evalDepth--;
+
+    // 🔍 DEBUG: Track completion of expensive evaluations
+    const evalTime = performance.now() - evalStart.time;
+    if (shouldLog && evalTime > 1) {
+      console.log(`🐌 EVAL END: ${Array.isArray(parsed) ? parsed[0] : 'primitive'} took ${evalTime.toFixed(2)}ms`);
+    }
 
     perfEnd("evaluate-total");
     this.endTiming('evaluate', evalStart);
@@ -8053,7 +8109,7 @@ class KidLisp {
         
         if (pooledBuffers && pooledBuffers.length > 0) {
           embeddedBuffer = pooledBuffers.pop();
-          console.log(`🔄 Reused pooled buffer ${bufferSizeKey} (${pooledBuffers.length} remaining)`);
+          // console.log(`🔄 Reused pooled buffer ${bufferSizeKey} (${pooledBuffers.length} remaining)`);
           
           // Clear the reused buffer
           if (embeddedBuffer.pixels) {
@@ -8134,6 +8190,90 @@ class KidLisp {
     
     // 🛡️ CLEAN POOLS: Remove any potentially detached buffers from pools
     this.cleanBufferPools();
+  }
+
+  // 🔄 RESPONSIVE CACHE: Check if screen dimensions changed and clear responsive entries
+  checkAndClearResponsiveCacheOnReframe(api) {
+    if (!api || !api.screen) return false;
+    
+    const currentWidth = api.screen.width;
+    const currentHeight = api.screen.height;
+    
+    // Check if this is the first time or if dimensions have changed significantly
+    // Add a small threshold to avoid clearing cache for tiny changes during resize
+    const widthChanged = this.lastScreenWidth === null || Math.abs(this.lastScreenWidth - currentWidth) > 2;
+    const heightChanged = this.lastScreenHeight === null || Math.abs(this.lastScreenHeight - currentHeight) > 2;
+    
+    if (widthChanged || heightChanged) {
+      console.log(`📐 Screen dimensions changed significantly: ${this.lastScreenWidth}x${this.lastScreenHeight} → ${currentWidth}x${currentHeight}`);
+      
+      // Clear cache entries that depend on screen dimensions
+      if (this.embeddedLayerCache) {
+        const entriesToDelete = [];
+        for (const [key, layer] of this.embeddedLayerCache.entries()) {
+          // Look for cache keys that include screen dimensions (contain "_screen")
+          if (key.includes('_screen')) {
+            entriesToDelete.push(key);
+            // Return buffer to pool before deletion
+            if (layer && layer.buffer) {
+              this.returnBufferToPool(layer.buffer, layer.width, layer.height);
+            }
+          }
+        }
+        
+        // Delete the screen-dependent entries
+        entriesToDelete.forEach(key => {
+          this.embeddedLayerCache.delete(key);
+          console.log(`🗑️ Cleared responsive cache entry: ${key}`);
+        });
+        
+        if (entriesToDelete.length > 0) {
+          console.log(`✨ Cleared ${entriesToDelete.length} responsive cache entries for screen resize`);
+        }
+      }
+      
+      // Update tracked dimensions
+      this.lastScreenWidth = currentWidth;
+      this.lastScreenHeight = currentHeight;
+      
+      return true; // Dimensions changed
+    }
+    
+    return false; // No significant change
+  }
+
+  // 🖼️ REFRAME HANDLER: Called when screen dimensions change (called from disk systems)
+  onReframe(newWidth, newHeight) {
+    console.log(`🖼️ KidLisp received reframe event: ${newWidth}x${newHeight}`);
+    
+    // Force clear responsive cache entries regardless of threshold
+    if (this.embeddedLayerCache) {
+      const entriesToDelete = [];
+      for (const [key, layer] of this.embeddedLayerCache.entries()) {
+        // Look for cache keys that include screen dimensions (contain "_screen")
+        if (key.includes('_screen')) {
+          entriesToDelete.push(key);
+          // Return buffer to pool before deletion
+          if (layer && layer.buffer) {
+            this.returnBufferToPool(layer.buffer, layer.width, layer.height);
+          }
+        }
+      }
+      
+      // Delete the screen-dependent entries
+      entriesToDelete.forEach(key => {
+        this.embeddedLayerCache.delete(key);
+        console.log(`🗑️ Cleared responsive cache entry on reframe: ${key}`);
+      });
+      
+      if (entriesToDelete.length > 0) {
+        console.log(`✨ Cleared ${entriesToDelete.length} responsive cache entries for reframe`);
+      }
+    }
+    
+    // Update tracked dimensions
+    this.lastScreenWidth = newWidth;
+    this.lastScreenHeight = newHeight;
   }
 
   // 🛡️ SAFETY: Clean buffer pools of any detached buffers
@@ -8665,7 +8805,6 @@ class KidLisp {
           return false;
         }).length : 0;
 
-      
       embeddedLayer.kidlispInstance.evaluate(
         embeddedLayer.parsedCode, 
         embeddedApi, 
@@ -9129,6 +9268,7 @@ class KidLisp {
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
       // console.log(`🎮 Executing embedded layer: ${embeddedLayer.originalCacheId}`);
       // console.log(`📝 Source code: ${embeddedLayer.source || 'No source available'}`);
+      
       embeddedLayer.kidlispInstance.evaluate(
         embeddedLayer.parsedCode, 
         embeddedApi, 
