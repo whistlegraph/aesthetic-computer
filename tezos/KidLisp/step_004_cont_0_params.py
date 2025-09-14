@@ -1,1 +1,0 @@
-sp.record(code_hash = 'abc123hash', creator = sp.address('tz1h4EsGunH2Ue1T2uNs8mfKZ8XZoQji3HcK'), metadata = sp.bytes('0x7b226e616d65223a20224b69644c697370205465737420546f6b656e227d'))
