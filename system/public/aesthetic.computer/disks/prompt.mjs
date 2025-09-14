@@ -296,10 +296,6 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
-  // 📝 Log the command that was entered
-  const tabId = $?.commonApi?._tabId || 'unknown';
-  console.log(`💬 COMMAND ENTERED: "${text}" (tab: ${tabId?.substr(0, 4)}...)`);
-  
   const {
     api,
     broadcast,
@@ -1526,7 +1522,6 @@ async function halt($, text) {
     net.hiccup();
     return true;
   } else {
-    console.log("🐛 FALLBACK PARSE BLOCK - unrecognized command:", text);
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
     // Theory: Is `load` actually similar to eval?

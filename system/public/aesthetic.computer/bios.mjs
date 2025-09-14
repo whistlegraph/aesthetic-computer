@@ -70,7 +70,7 @@ USB.initialize();
 
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
-  headers(); // Print console headers.
+  headers(); // Print console headers with auto-detected theme.
 
   // Store original URL parameters for refresh functionality from the resolution object
   preservedParams = {};
@@ -975,7 +975,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎵 AUDIO INITIALIZATION LOGGING - Critical for tracking audio timing setup
     const audioStartTimestamp = performance.now();
-    console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
+    // console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
 
     // Main audio feed
     audioContext = new AudioContext({
@@ -988,8 +988,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
 
     // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
-    console.log(`🎵 AUDIO_CONTEXT_CREATED: sampleRate=${audioContext.sampleRate}, state=${audioContext.state}, baseLatency=${audioContext.baseLatency?.toFixed(6) || 'N/A'}s, outputLatency=${audioContext.outputLatency?.toFixed(6) || 'N/A'}s`);
-    console.log(`🎵 AUDIO_TIMING_INIT: currentTime=${audioContext.currentTime.toFixed(6)}s, creation_delay=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
+    // console.log(`🎵 AUDIO_CONTEXT_CREATED: sampleRate=${audioContext.sampleRate}, state=${audioContext.state}, baseLatency=${audioContext.baseLatency?.toFixed(6) || 'N/A'}s, outputLatency=${audioContext.outputLatency?.toFixed(6) || 'N/A'}s`);
+    // console.log(`🎵 AUDIO_TIMING_INIT: currentTime=${audioContext.currentTime.toFixed(6)}s, creation_delay=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
     acDISK_SEND({
       type: "audio:sample-rate",
@@ -1205,12 +1205,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         // 🎵 WORKLET LOADING LOGGING
         const workletLoadStart = performance.now();
-        console.log(`🎵 WORKLET_LOAD_START: Loading ${baseUrl}${cacheBuster}`);
+        // console.log(`🎵 WORKLET_LOAD_START: Loading ${baseUrl}${cacheBuster}`);
         
         await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
         
         const workletLoadTime = performance.now() - workletLoadStart;
-        console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
+        // console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
 
         const speakerProcessor = new AudioWorkletNode(
           audioContext,
@@ -1222,7 +1222,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
 
         // 🎵 WORKLET INITIALIZATION LOGGING
-        console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
+        // console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
         beatSkip = function () {
           speakerProcessor.port.postMessage({ type: "beat:skip" });
@@ -1426,7 +1426,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (!sfx[soundData]) {
-        console.log("🎵 BIOS sfx not found, queuing:", soundData);
+        // `console.log("🎵 BIOS sfx not found, queuing:", soundData);
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -7434,7 +7434,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // if (currentPiece !== null) firstPiece = false;
-      console.log("🎮 currentPiece CHANGING FROM:", currentPiece, "TO:", content.path);
+      // console.log("🎮 currentPiece CHANGING FROM:", currentPiece, "TO:", content.path);
       
       // 🎮 GameBoy emulator lifecycle management
       if (gameboyEmulator) {
@@ -7460,7 +7460,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       currentPiece = content.path;
-      console.log("🎮 currentPiece SET TO:", currentPiece);
+      // console.log("🎮 currentPiece SET TO:", currentPiece);
       
       // Don't disable keyboard for prompt piece (check if path contains 'prompt')
       if (content.path && !content.path.includes("prompt")) {
