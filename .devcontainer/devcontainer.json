@@ -28,6 +28,9 @@
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
   ],
+  // "features": {
+  //   "ghcr.io/devcontainers/features/python:1": "none"
+  // },
   "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345],
   "customizations": {
     "vscode": {
