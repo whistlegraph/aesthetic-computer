@@ -47,6 +47,7 @@ const skips = [];
 const graphPerf = {
   enabled: false,
   functions: new Map(),
+  lastFPS: 0, // Track current FPS for frame skipping
   track(name, duration) {
     if (!this.enabled) return;
     if (!this.functions.has(name)) {
@@ -57,8 +58,8 @@ const graphPerf = {
     stats.totalTime += duration;
     stats.maxTime = Math.max(stats.maxTime, duration);
     
-    // Warn about slow functions
-    if (duration > 5) {
+    // Warn about slow functions (reduced threshold for important debugging)
+    if (duration > 15) {
       console.warn(`🐌 SLOW GRAPH FUNCTION: ${name} took ${duration.toFixed(2)}ms`);
     }
   },
@@ -1358,7 +1359,7 @@ function storeBlurCache(cacheKey, resultData) {
   blurCache.set(cacheKey, new Uint8ClampedArray(resultData));
 }
 
-// 🚀 SIMPLE & FAST BOX BLUR - Reliable CPU implementation
+// 🚀 IMPROVED BOX BLUR - Alpha-preserving implementation
 function fastBoxBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight, maxX, maxY) {
   // ️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
@@ -1376,65 +1377,96 @@ function fastBoxBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, work
   // Copy source pixels to working buffer
   blurBuffer1.set(pixels);
   
-  // Simple separable box blur - horizontal pass first
+  // Alpha-preserving separable box blur - horizontal pass first
   for (let y = minY; y < maxY; y++) {
     for (let x = minX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, a = 0, count = 0;
+      let r = 0, g = 0, b = 0, totalAlpha = 0, maxAlpha = 0;
       
       // Sample horizontally around this pixel
       for (let sx = Math.max(minX, x - radius); sx <= Math.min(maxX - 1, x + radius); sx++) {
         const idx = (y * width + sx) * 4;
-        r += blurBuffer1[idx];
-        g += blurBuffer1[idx + 1];
-        b += blurBuffer1[idx + 2];
-        a += blurBuffer1[idx + 3];
-        count++;
+        const alpha = blurBuffer1[idx + 3];
+        
+        // Alpha-weighted color sampling (prevents darkening from transparent pixels)
+        if (alpha > 0) {
+          const alphaWeight = alpha / 255.0;
+          r += blurBuffer1[idx] * alphaWeight;
+          g += blurBuffer1[idx + 1] * alphaWeight;
+          b += blurBuffer1[idx + 2] * alphaWeight;
+          totalAlpha += alphaWeight;
+        }
+        
+        // Track maximum alpha for spreading behavior
+        maxAlpha = Math.max(maxAlpha, alpha);
       }
       
       // Write horizontally blurred result back to pixels
       const outIdx = (y * width + x) * 4;
-      pixels[outIdx] = Math.round(r / count);
-      pixels[outIdx + 1] = Math.round(g / count);
-      pixels[outIdx + 2] = Math.round(b / count);
-      pixels[outIdx + 3] = Math.round(a / count);
+      if (totalAlpha > 0) {
+        pixels[outIdx] = Math.round(r / totalAlpha);
+        pixels[outIdx + 1] = Math.round(g / totalAlpha);
+        pixels[outIdx + 2] = Math.round(b / totalAlpha);
+        // Use max alpha for better spreading (preserves opacity)
+        pixels[outIdx + 3] = Math.round(maxAlpha * 0.9); // Slight fade for natural look
+      } else {
+        // Keep original if no opaque pixels nearby
+        pixels[outIdx] = blurBuffer1[outIdx];
+        pixels[outIdx + 1] = blurBuffer1[outIdx + 1];
+        pixels[outIdx + 2] = blurBuffer1[outIdx + 2];
+        pixels[outIdx + 3] = blurBuffer1[outIdx + 3];
+      }
     }
   }
   
   // Copy result back to buffer for vertical pass
   blurBuffer1.set(pixels);
   
-  // Vertical pass
+  // Vertical pass with same alpha-preserving logic
   for (let x = minX; x < maxX; x++) {
     for (let y = minY; y < maxY; y++) {
-      let r = 0, g = 0, b = 0, a = 0, count = 0;
+      let r = 0, g = 0, b = 0, totalAlpha = 0, maxAlpha = 0;
       
       // Sample vertically around this pixel
       for (let sy = Math.max(minY, y - radius); sy <= Math.min(maxY - 1, y + radius); sy++) {
         const idx = (sy * width + x) * 4;
-        r += blurBuffer1[idx];
-        g += blurBuffer1[idx + 1];
-        b += blurBuffer1[idx + 2];
-        a += blurBuffer1[idx + 3];
-        count++;
+        const alpha = blurBuffer1[idx + 3];
+        
+        // Alpha-weighted color sampling
+        if (alpha > 0) {
+          const alphaWeight = alpha / 255.0;
+          r += blurBuffer1[idx] * alphaWeight;
+          g += blurBuffer1[idx + 1] * alphaWeight;
+          b += blurBuffer1[idx + 2] * alphaWeight;
+          totalAlpha += alphaWeight;
+        }
+        
+        // Track maximum alpha
+        maxAlpha = Math.max(maxAlpha, alpha);
       }
       
       // Write final result
       const outIdx = (y * width + x) * 4;
-      pixels[outIdx] = Math.round(r / count);
-      pixels[outIdx + 1] = Math.round(g / count);
-      pixels[outIdx + 2] = Math.round(b / count);
-      pixels[outIdx + 3] = Math.round(a / count);
+      if (totalAlpha > 0) {
+        pixels[outIdx] = Math.round(r / totalAlpha);
+        pixels[outIdx + 1] = Math.round(g / totalAlpha);
+        pixels[outIdx + 2] = Math.round(b / totalAlpha);
+        // Use max alpha for better spreading
+        pixels[outIdx + 3] = Math.round(maxAlpha * 0.9);
+      } else {
+        // Keep original if no opaque pixels nearby
+        pixels[outIdx] = blurBuffer1[outIdx];
+        pixels[outIdx + 1] = blurBuffer1[outIdx + 1];
+        pixels[outIdx + 2] = blurBuffer1[outIdx + 2];
+        pixels[outIdx + 3] = blurBuffer1[outIdx + 3];
+      }
     }
   }
   
-  console.log(`⚡ SIMPLE BOX BLUR: radius=${radius} in ${(performance.now() - blurStart).toFixed(2)}ms`);
   graphPerf.track('blur', performance.now() - blurStart);
 }
 
 // 🔥 STACK BLUR - Fixed geometry and bounds checking
 function stackBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight, maxX, maxY) {
-  console.log(`🎯 STACK BLUR STARTED: radius=${radius}, region: ${minX},${minY} ${workingWidth}x${workingHeight}`);
-  
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
     console.warn('🚨 Pixels buffer detached in stackBlur, recreating from screen dimensions');
@@ -1485,33 +1517,48 @@ function stackBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workin
   const mul = radius < mulsum.length ? mulsum[radius] : 1;
   const shg = radius < shgsum.length ? shgsum[radius] : 23;
   
-  // Horizontal pass (work within bounds)
+  // Horizontal pass (work within bounds) - Alpha-preserving
   for (let y = minY; y < maxY; y++) {
-    let rsum = 0, gsum = 0, bsum = 0, asum = 0;
+    let rsum = 0, gsum = 0, bsum = 0, asum = 0, alphaWeightSum = 0;
     
     // Initialize sum for this row
     for (let i = -radius; i <= radius; i++) {
       const x = Math.max(minX, Math.min(maxX - 1, minX + i));
       const idx = (y * width + x) * 4;
-      rsum += blurBuffer1[idx];
-      gsum += blurBuffer1[idx + 1];
-      bsum += blurBuffer1[idx + 2];
-      asum += blurBuffer1[idx + 3];
+      const alpha = blurBuffer1[idx + 3];
+      
+      if (alpha > 0) {
+        const alphaWeight = alpha / 255.0;
+        rsum += blurBuffer1[idx] * alphaWeight;
+        gsum += blurBuffer1[idx + 1] * alphaWeight;
+        bsum += blurBuffer1[idx + 2] * alphaWeight;
+        alphaWeightSum += alphaWeight;
+      }
+      asum += alpha; // Still accumulate alpha for spreading
     }
     
     // Process each pixel in the row
     for (let x = minX; x < maxX; x++) {
       const idx = (y * width + x) * 4;
       
-      // Preserve alpha channel to prevent unwanted transparency
+      // Get original alpha for comparison
       const originalAlpha = blurBuffer1[idx + 3];
       
-      // Write blurred values (clamp to prevent overflow)
-      pixels[idx] = Math.min(255, Math.max(0, Math.round((rsum * mul) >> shg)));
-      pixels[idx + 1] = Math.min(255, Math.max(0, Math.round((gsum * mul) >> shg)));
-      pixels[idx + 2] = Math.min(255, Math.max(0, Math.round((bsum * mul) >> shg)));
-      // Keep original alpha unchanged to prevent transparency artifacts
-      pixels[idx + 3] = originalAlpha;
+      // Write blurred values using alpha-weighted averaging
+      if (alphaWeightSum > 0) {
+        pixels[idx] = Math.min(255, Math.max(0, Math.round(rsum / alphaWeightSum)));
+        pixels[idx + 1] = Math.min(255, Math.max(0, Math.round(gsum / alphaWeightSum)));
+        pixels[idx + 2] = Math.min(255, Math.max(0, Math.round(bsum / alphaWeightSum)));
+        // Use max of blurred alpha and original alpha for better preservation
+        const blurredAlpha = Math.round((asum * mul) >> shg);
+        pixels[idx + 3] = Math.max(originalAlpha, Math.round(blurredAlpha * 0.8));
+      } else {
+        // Keep original if no opaque pixels nearby
+        pixels[idx] = blurBuffer1[idx];
+        pixels[idx + 1] = blurBuffer1[idx + 1];
+        pixels[idx + 2] = blurBuffer1[idx + 2];
+        pixels[idx + 3] = originalAlpha;
+      }
       
       // Slide the window: remove left pixel, add right pixel
       if (x < maxX - 1) {
@@ -1521,10 +1568,28 @@ function stackBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workin
         const leftIdx = (y * width + leftX) * 4;
         const rightIdx = (y * width + rightX) * 4;
         
-        rsum = rsum - blurBuffer1[leftIdx] + blurBuffer1[rightIdx];
-        gsum = gsum - blurBuffer1[leftIdx + 1] + blurBuffer1[rightIdx + 1];
-        bsum = bsum - blurBuffer1[leftIdx + 2] + blurBuffer1[rightIdx + 2];
-        asum = asum - blurBuffer1[leftIdx + 3] + blurBuffer1[rightIdx + 3];
+        const leftAlpha = blurBuffer1[leftIdx + 3];
+        const rightAlpha = blurBuffer1[rightIdx + 3];
+        
+        // Remove left pixel (alpha-weighted)
+        if (leftAlpha > 0) {
+          const leftWeight = leftAlpha / 255.0;
+          rsum -= blurBuffer1[leftIdx] * leftWeight;
+          gsum -= blurBuffer1[leftIdx + 1] * leftWeight;
+          bsum -= blurBuffer1[leftIdx + 2] * leftWeight;
+          alphaWeightSum -= leftWeight;
+        }
+        
+        // Add right pixel (alpha-weighted)
+        if (rightAlpha > 0) {
+          const rightWeight = rightAlpha / 255.0;
+          rsum += blurBuffer1[rightIdx] * rightWeight;
+          gsum += blurBuffer1[rightIdx + 1] * rightWeight;
+          bsum += blurBuffer1[rightIdx + 2] * rightWeight;
+          alphaWeightSum += rightWeight;
+        }
+        
+        asum = asum - leftAlpha + rightAlpha;
       }
     }
   }
@@ -1532,33 +1597,48 @@ function stackBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workin
   // Copy result back for vertical pass
   blurBuffer1.set(pixels);
   
-  // Vertical pass (work within bounds)
+  // Vertical pass (work within bounds) - Alpha-preserving
   for (let x = minX; x < maxX; x++) {
-    let rsum = 0, gsum = 0, bsum = 0, asum = 0;
+    let rsum = 0, gsum = 0, bsum = 0, asum = 0, alphaWeightSum = 0;
     
     // Initialize sum for this column
     for (let i = -radius; i <= radius; i++) {
       const y = Math.max(minY, Math.min(maxY - 1, minY + i));
       const idx = (y * width + x) * 4;
-      rsum += blurBuffer1[idx];
-      gsum += blurBuffer1[idx + 1];
-      bsum += blurBuffer1[idx + 2];
-      asum += blurBuffer1[idx + 3];
+      const alpha = blurBuffer1[idx + 3];
+      
+      if (alpha > 0) {
+        const alphaWeight = alpha / 255.0;
+        rsum += blurBuffer1[idx] * alphaWeight;
+        gsum += blurBuffer1[idx + 1] * alphaWeight;
+        bsum += blurBuffer1[idx + 2] * alphaWeight;
+        alphaWeightSum += alphaWeight;
+      }
+      asum += alpha;
     }
     
     // Process each pixel in the column
     for (let y = minY; y < maxY; y++) {
       const idx = (y * width + x) * 4;
       
-      // Preserve alpha channel to prevent unwanted transparency
+      // Get original alpha for comparison
       const originalAlpha = blurBuffer1[idx + 3];
       
-      // Write final blurred values (clamp to prevent overflow)
-      pixels[idx] = Math.min(255, Math.max(0, Math.round((rsum * mul) >> shg)));
-      pixels[idx + 1] = Math.min(255, Math.max(0, Math.round((gsum * mul) >> shg)));
-      pixels[idx + 2] = Math.min(255, Math.max(0, Math.round((bsum * mul) >> shg)));
-      // Keep original alpha unchanged to prevent transparency artifacts
-      pixels[idx + 3] = originalAlpha;
+      // Write final blurred values using alpha-weighted averaging
+      if (alphaWeightSum > 0) {
+        pixels[idx] = Math.min(255, Math.max(0, Math.round(rsum / alphaWeightSum)));
+        pixels[idx + 1] = Math.min(255, Math.max(0, Math.round(gsum / alphaWeightSum)));
+        pixels[idx + 2] = Math.min(255, Math.max(0, Math.round(bsum / alphaWeightSum)));
+        // Use max of blurred alpha and original alpha for better preservation
+        const blurredAlpha = Math.round((asum * mul) >> shg);
+        pixels[idx + 3] = Math.max(originalAlpha, Math.round(blurredAlpha * 0.8));
+      } else {
+        // Keep original if no opaque pixels nearby
+        pixels[idx] = blurBuffer1[idx];
+        pixels[idx + 1] = blurBuffer1[idx + 1];
+        pixels[idx + 2] = blurBuffer1[idx + 2];
+        pixels[idx + 3] = originalAlpha;
+      }
       
       // Slide the window: remove top pixel, add bottom pixel
       if (y < maxY - 1) {
@@ -1568,15 +1648,32 @@ function stackBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workin
         const topIdx = (topY * width + x) * 4;
         const bottomIdx = (bottomY * width + x) * 4;
         
-        rsum = rsum - blurBuffer1[topIdx] + blurBuffer1[bottomIdx];
-        gsum = gsum - blurBuffer1[topIdx + 1] + blurBuffer1[bottomIdx + 1];
-        bsum = bsum - blurBuffer1[topIdx + 2] + blurBuffer1[bottomIdx + 2];
-        asum = asum - blurBuffer1[topIdx + 3] + blurBuffer1[bottomIdx + 3];
+        const topAlpha = blurBuffer1[topIdx + 3];
+        const bottomAlpha = blurBuffer1[bottomIdx + 3];
+        
+        // Remove top pixel (alpha-weighted)
+        if (topAlpha > 0) {
+          const topWeight = topAlpha / 255.0;
+          rsum -= blurBuffer1[topIdx] * topWeight;
+          gsum -= blurBuffer1[topIdx + 1] * topWeight;
+          bsum -= blurBuffer1[topIdx + 2] * topWeight;
+          alphaWeightSum -= topWeight;
+        }
+        
+        // Add bottom pixel (alpha-weighted)
+        if (bottomAlpha > 0) {
+          const bottomWeight = bottomAlpha / 255.0;
+          rsum += blurBuffer1[bottomIdx] * bottomWeight;
+          gsum += blurBuffer1[bottomIdx + 1] * bottomWeight;
+          bsum += blurBuffer1[bottomIdx + 2] * bottomWeight;
+          alphaWeightSum += bottomWeight;
+        }
+        
+        asum = asum - topAlpha + bottomAlpha;
       }
     }
   }
   
-  console.log(`🔥 STACK BLUR: radius=${radius} in ${(performance.now() - blurStart).toFixed(2)}ms (fixed geometry)`);
   graphPerf.track('blur', performance.now() - blurStart);
 }
 
@@ -1688,7 +1785,7 @@ function nativeFilterBlur(radius, blurStart, cacheKey, minX, minY, workingWidth,
       }
     }
     
-    console.log(`🚀 NATIVE BLUR: ${radius}px in ${(performance.now() - blurStart).toFixed(2)}ms (GPU accelerated)`);
+    graphPerf.track('blur', performance.now() - blurStart);
     
   } catch (error) {
     console.warn('🚨 Native filter blur failed, falling back to manual blur:', error);
@@ -1713,8 +1810,6 @@ function blur(radius = 1) {
     graphPerf.enabled = true;
     console.log("🎯 Auto-enabling graph performance tracking");
   }
-  
-  console.log(`🌀 BLUR CALLED: radius=${radius}, graphPerf.enabled=${graphPerf.enabled}`); // DEBUG
   
   if (radius <= 0) {
     graphPerf.track('blur', performance.now() - blurStart);
@@ -1771,7 +1866,6 @@ function blur(radius = 1) {
       }
     }
     
-    console.log(`💾 BLUR CACHE HIT: ${radius}px in ${(performance.now() - blurStart).toFixed(2)}ms (cached)`);
     graphPerf.track('blur', performance.now() - blurStart);
     return;
   }
@@ -1811,7 +1905,6 @@ function manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, worki
 
   // 🚀 OPTIMIZATION: Use fast stack blur for large radii (Photoshop-grade algorithm)
   if (radius >= 4) {
-    console.log(`🔥 SWITCHING TO STACK BLUR: radius=${radius}, bounds: ${actualMinX},${actualMinY} to ${maxX},${maxY}`);
     return stackBlur(radius, blurStart, cacheKey, actualMinX, actualMinY, workingWidth, workingHeight, maxX, maxY);
   }
 
@@ -1835,55 +1928,87 @@ function manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, worki
   // 🚀 Get pre-calculated weights for this radius
   const { weights, sampleRadius } = generateBlurWeights(radius);
 
-  // Apply horizontal blur pass (only within mask bounds)
+  // Apply horizontal blur pass (only within mask bounds) - Alpha-preserving
   for (let y = actualMinY; y < maxY; y++) {
     for (let x = actualMinX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
+      let r = 0, g = 0, b = 0, totalAlphaWeight = 0, maxAlpha = 0;
 
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
         // Clamp sampling to mask bounds for proper edge handling
         const sampleX = Math.max(actualMinX, Math.min(maxX - 1, x + i));
         const index = (y * width + sampleX) * 4;
         const weight = weights[i + sampleRadius];
+        const alpha = blurBuffer1[index + 3];
 
-        r += blurBuffer1[index] * weight;
-        g += blurBuffer1[index + 1] * weight;
-        b += blurBuffer1[index + 2] * weight;
-        a += blurBuffer1[index + 3] * weight;
+        // Only sample opaque pixels for color (prevents darkening)
+        if (alpha > 0) {
+          const alphaWeight = (alpha / 255.0) * weight;
+          r += blurBuffer1[index] * alphaWeight;
+          g += blurBuffer1[index + 1] * alphaWeight;
+          b += blurBuffer1[index + 2] * alphaWeight;
+          totalAlphaWeight += alphaWeight;
+        }
+        
+        // Track maximum alpha for spreading
+        maxAlpha = Math.max(maxAlpha, alpha * weight);
       }
 
       // Write result to second buffer
       const index = (y * width + x) * 4;
-      blurBuffer2[index] = r;
-      blurBuffer2[index + 1] = g;
-      blurBuffer2[index + 2] = b;
-      blurBuffer2[index + 3] = a;
+      if (totalAlphaWeight > 0) {
+        blurBuffer2[index] = r / totalAlphaWeight;
+        blurBuffer2[index + 1] = g / totalAlphaWeight;
+        blurBuffer2[index + 2] = b / totalAlphaWeight;
+        blurBuffer2[index + 3] = Math.max(blurBuffer1[index + 3], maxAlpha * 0.9);
+      } else {
+        // Keep original if no opaque pixels nearby
+        blurBuffer2[index] = blurBuffer1[index];
+        blurBuffer2[index + 1] = blurBuffer1[index + 1];
+        blurBuffer2[index + 2] = blurBuffer1[index + 2];
+        blurBuffer2[index + 3] = blurBuffer1[index + 3];
+      }
     }
   }
 
-  // Apply vertical blur pass (only within mask bounds)
+  // Apply vertical blur pass (only within mask bounds) - Alpha-preserving
   for (let y = actualMinY; y < maxY; y++) {
     for (let x = actualMinX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
+      let r = 0, g = 0, b = 0, totalAlphaWeight = 0, maxAlpha = 0;
 
       for (let i = -sampleRadius; i <= sampleRadius; i++) {
         // Clamp sampling to mask bounds for proper edge handling
         const sampleY = Math.max(actualMinY, Math.min(maxY - 1, y + i));
         const index = (sampleY * width + x) * 4;
         const weight = weights[i + sampleRadius];
+        const alpha = blurBuffer2[index + 3];
 
-        r += blurBuffer2[index] * weight;
-        g += blurBuffer2[index + 1] * weight;
-        b += blurBuffer2[index + 2] * weight;
-        a += blurBuffer2[index + 3] * weight;
+        // Only sample opaque pixels for color (prevents darkening)
+        if (alpha > 0) {
+          const alphaWeight = (alpha / 255.0) * weight;
+          r += blurBuffer2[index] * alphaWeight;
+          g += blurBuffer2[index + 1] * alphaWeight;
+          b += blurBuffer2[index + 2] * alphaWeight;
+          totalAlphaWeight += alphaWeight;
+        }
+        
+        // Track maximum alpha for spreading
+        maxAlpha = Math.max(maxAlpha, alpha * weight);
       }
 
       // Write final result back to main buffer
       const index = (y * width + x) * 4;
-      pixels[index] = r;
-      pixels[index + 1] = g;
-      pixels[index + 2] = b;
-      pixels[index + 3] = a;
+      if (totalAlphaWeight > 0) {
+        pixels[index] = r / totalAlphaWeight;
+        pixels[index + 1] = g / totalAlphaWeight;
+        pixels[index + 2] = b / totalAlphaWeight;
+        pixels[index + 3] = Math.max(blurBuffer2[index + 3], maxAlpha * 0.9);
+      } else {
+        // Keep original if no opaque pixels nearby
+        pixels[index] = blurBuffer2[index];
+        pixels[index + 1] = blurBuffer2[index + 1];
+        pixels[index + 2] = blurBuffer2[index + 2];
+        pixels[index + 3] = blurBuffer2[index + 3];
+      }
     }
   }
   
@@ -1905,6 +2030,123 @@ function manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, worki
   }
   
   graphPerf.track('blur', performance.now() - blurStart); // 🚨 PERFORMANCE TRACKING
+}
+
+// 🎨 SPREAD BLUR - Specialized blur that spreads colors outward without transparency
+// This variant is perfect for creating glow effects or spreading paint-like colors
+function spreadBlur(radius = 1) {
+  const blurStart = performance.now();
+  
+  if (radius <= 0) return;
+  
+  // Use a larger effective radius for better spreading
+  const effectiveRadius = Math.ceil(radius * 1.5);
+  
+  // Determine working area
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = Math.max(0, Math.min(width, activeMask.x));
+    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
+    minY = Math.max(0, Math.min(height, activeMask.y));
+    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height));
+  }
+  
+  // Allocate working buffer
+  const bufferSize = width * height * 4;
+  if (!blurBuffer1 || blurBuffer1.length !== bufferSize) {
+    blurBuffer1 = new Uint8ClampedArray(bufferSize);
+  }
+  
+  blurBuffer1.set(pixels);
+  
+  // Multiple passes for better spreading
+  for (let pass = 0; pass < 2; pass++) {
+    // Horizontal spread pass
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const currentIdx = (y * width + x) * 4;
+        const currentAlpha = blurBuffer1[currentIdx + 3];
+        
+        // If current pixel is already opaque, skip spreading to it
+        if (currentAlpha >= 200) continue;
+        
+        let r = 0, g = 0, b = 0, foundColor = false, totalWeight = 0;
+        
+        // Look for nearby opaque pixels to spread from
+        for (let sx = Math.max(minX, x - effectiveRadius); sx <= Math.min(maxX - 1, x + effectiveRadius); sx++) {
+          const idx = (y * width + sx) * 4;
+          const alpha = blurBuffer1[idx + 3];
+          
+          if (alpha > 50) { // Only spread from reasonably opaque pixels
+            const distance = Math.abs(sx - x);
+            const weight = Math.max(0, 1 - (distance / effectiveRadius));
+            const alphaWeight = (alpha / 255.0) * weight;
+            
+            r += blurBuffer1[idx] * alphaWeight;
+            g += blurBuffer1[idx + 1] * alphaWeight;
+            b += blurBuffer1[idx + 2] * alphaWeight;
+            totalWeight += alphaWeight;
+            foundColor = true;
+          }
+        }
+        
+        if (foundColor && totalWeight > 0) {
+          pixels[currentIdx] = Math.round(r / totalWeight);
+          pixels[currentIdx + 1] = Math.round(g / totalWeight);
+          pixels[currentIdx + 2] = Math.round(b / totalWeight);
+          // Gradually increase alpha for spreading effect
+          pixels[currentIdx + 3] = Math.min(255, Math.max(currentAlpha, Math.round(totalWeight * 255 * 0.3)));
+        }
+      }
+    }
+    
+    // Copy result back for vertical pass
+    blurBuffer1.set(pixels);
+    
+    // Vertical spread pass
+    for (let x = minX; x < maxX; x++) {
+      for (let y = minY; y < maxY; y++) {
+        const currentIdx = (y * width + x) * 4;
+        const currentAlpha = blurBuffer1[currentIdx + 3];
+        
+        // If current pixel is already opaque, skip spreading to it
+        if (currentAlpha >= 200) continue;
+        
+        let r = 0, g = 0, b = 0, foundColor = false, totalWeight = 0;
+        
+        // Look for nearby opaque pixels to spread from
+        for (let sy = Math.max(minY, y - effectiveRadius); sy <= Math.min(maxY - 1, y + effectiveRadius); sy++) {
+          const idx = (sy * width + x) * 4;
+          const alpha = blurBuffer1[idx + 3];
+          
+          if (alpha > 50) { // Only spread from reasonably opaque pixels
+            const distance = Math.abs(sy - y);
+            const weight = Math.max(0, 1 - (distance / effectiveRadius));
+            const alphaWeight = (alpha / 255.0) * weight;
+            
+            r += blurBuffer1[idx] * alphaWeight;
+            g += blurBuffer1[idx + 1] * alphaWeight;
+            b += blurBuffer1[idx + 2] * alphaWeight;
+            totalWeight += alphaWeight;
+            foundColor = true;
+          }
+        }
+        
+        if (foundColor && totalWeight > 0) {
+          pixels[currentIdx] = Math.round(r / totalWeight);
+          pixels[currentIdx + 1] = Math.round(g / totalWeight);
+          pixels[currentIdx + 2] = Math.round(b / totalWeight);
+          // Gradually increase alpha for spreading effect
+          pixels[currentIdx + 3] = Math.min(255, Math.max(currentAlpha, Math.round(totalWeight * 255 * 0.3)));
+        }
+      }
+    }
+    
+    // Prepare for next pass
+    if (pass < 1) blurBuffer1.set(pixels);
+  }
+  
+  graphPerf.track('blur', performance.now() - blurStart);
 }
 
 // Adjust the contrast of the pixel buffer
@@ -2120,32 +2362,59 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 
   // TODO: See if from has a dirtyBox attribute.
   if (from.crop) {
-    // A cropped copy - optimize with row-wise operations where possible.
+    // A cropped copy - optimize with bulk pixel operations
     const cropW = from.crop.w;
     const cropH = from.crop.h;
+    const fromPixels = from.painting?.pixels || from.pixels;
 
-    // Check if we can do efficient row copying
+    // 🚀 OPTIMIZATION: Bulk pixel copying for cropped regions
     if (
-      cropW > 8 &&
+      fromPixels &&
       destX >= 0 &&
       destY >= 0 &&
       destX + cropW <= width &&
       destY + cropH <= height
     ) {
-      // Row-wise copying for better cache efficiency
+      const fromWidth = from.painting?.width || from.width;
+      
       for (let y = 0; y < cropH; y += 1) {
         const srcY = from.crop.y + y;
         const destRowY = destY + y;
-
-        // Copy entire row when possible
+        
+        // Process entire row for better cache performance
         for (let x = 0; x < cropW; x += 1) {
-          copy(destX + x, destRowY, from.crop.x + x, srcY, from.painting);
+          const srcX = from.crop.x + x;
+          const srcIdx = (srcY * fromWidth + srcX) * 4;
+          const destIdx = (destRowY * width + (destX + x)) * 4;
+          
+          // Skip if source index is out of bounds
+          if (srcIdx + 3 < fromPixels.length) {
+            const srcAlpha = fromPixels[srcIdx + 3];
+            
+            if (srcAlpha > 0) {
+              if (srcAlpha === 255) {
+                // Opaque source - direct copy
+                pixels[destIdx] = fromPixels[srcIdx];
+                pixels[destIdx + 1] = fromPixels[srcIdx + 1];
+                pixels[destIdx + 2] = fromPixels[srcIdx + 2];
+                pixels[destIdx + 3] = fromPixels[srcIdx + 3];
+              } else {
+                // Alpha blending
+                const alpha = srcAlpha + 1;
+                const invAlpha = 256 - alpha;
+                pixels[destIdx] = (alpha * fromPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                pixels[destIdx + 1] = (alpha * fromPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                pixels[destIdx + 2] = (alpha * fromPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+              }
+            }
+          }
         }
       }
     } else {
-      // Fall back to original implementation
-      for (let x = 0; x < cropW; x += 1) {
-        for (let y = 0; y < cropH; y += 1) {
+      // Fall back to copy() function for edge cases
+      for (let y = 0; y < cropH; y += 1) {
+        for (let x = 0; x < cropW; x += 1) {
           copy(
             destX + x,
             destY + y,
@@ -2162,29 +2431,56 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     if (blit) {
       pixels.set(from.pixels, 0);
     } else {
-      // Optimize pixel-by-pixel copy with better access patterns
+      // 🚀 MAJOR OPTIMIZATION: Bulk pixel copying for better performance
       const srcWidth = from.width;
       const srcHeight = from.height;
+      const srcPixels = from.pixels;
 
-      // Check if we can do efficient bulk operations
+      // Check if we can do ultra-fast bulk copying
       if (
-        srcWidth > 4 &&
-        srcHeight > 4 &&
         destX >= 0 &&
         destY >= 0 &&
         destX + srcWidth <= width &&
-        destY + srcHeight <= height
+        destY + srcHeight <= height &&
+        srcPixels
       ) {
-        // Row-major order for better cache performance
+        // Ultra-fast bulk pixel blending
         for (let y = 0; y < srcHeight; y += 1) {
+          const srcRowStart = y * srcWidth * 4;
+          const destRowStart = ((destY + y) * width + destX) * 4;
+          
+          // Process entire row at once for better cache performance
           for (let x = 0; x < srcWidth; x += 1) {
-            copy(destX + x, destY + y, x, y, from);
+            const srcIdx = srcRowStart + (x * 4);
+            const destIdx = destRowStart + (x * 4);
+            
+            // Skip transparent pixels
+            if (srcPixels[srcIdx + 3] > 0) {
+              // Fast alpha blending without function call overhead
+              const srcAlpha = srcPixels[srcIdx + 3];
+              
+              if (srcAlpha === 255) {
+                // Opaque source - direct copy (fastest path)
+                pixels[destIdx] = srcPixels[srcIdx];
+                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
+                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
+                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
+              } else {
+                // Alpha blending (optimized inline version)
+                const alpha = srcAlpha + 1;
+                const invAlpha = 256 - alpha;
+                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+              }
+            }
           }
         }
       } else {
-        // Original implementation for edge cases
-        for (let x = 0; x < srcWidth; x += 1) {
-          for (let y = 0; y < srcHeight; y += 1) {
+        // Fallback to copy() function for edge cases
+        for (let y = 0; y < srcHeight; y += 1) {
+          for (let x = 0; x < srcWidth; x += 1) {
             copy(destX + x, destY + y, x, y, from);
           }
         }
@@ -2196,15 +2492,32 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   graphPerf.track('paste', pasteEnd - pasteStart);
 }
 
+let stampSkipCounter = 0;
+
 // Similar to `paste` but always centered.
 // Fixed: Now properly supports scale and angle parameters while maintaining center positioning
 function stamp(from, x, y, scale, angle) {
   const stampStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
-  // 🚀 OPTIMIZATION: Skip stamps that are too small to be visible
+  // � DEBUG: Log stamp calls
+  // console.log(`🎯 STAMP called: from=${from?.constructor?.name || typeof from}, scale=${scale}, angle=${angle}`);
+  
+  // �🚀 OPTIMIZATION: Skip stamps that are too small to be visible
   if (scale !== undefined && Math.abs(scale) < 0.01) {
     graphPerf.track('stamp', 0);
     return;
+  }
+
+  // 🚀 PERFORMANCE OPTIMIZATION: Only skip frames when running very slowly
+  if (graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 5) {
+    stampSkipCounter++;
+    if (stampSkipCounter % 3 !== 0) { // Skip 2 out of 3 frames when FPS < 5
+      console.log(`⏭️ STAMP skipped due to low FPS: ${graphPerf.lastFPS}`);
+      graphPerf.track('stamp', 0);
+      return;
+    }
+  } else {
+    stampSkipCounter = 0; // Reset when performance is good
   }
   
   if (scale !== undefined || angle !== undefined) {
@@ -3420,6 +3733,11 @@ function grid(
   },
   buffer,
 ) {
+  const gridStart = performance.now(); // 🚨 PERFORMANCE TRACKING
+  
+  // 🚀 PERFORMANCE OPTIMIZATION: Use lower precision when running slowly
+  const isSlowFrame = graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 15;
+  
   const oc = c.slice(); // Remember the original color.
 
   let w, h;
@@ -3609,11 +3927,14 @@ function grid(
       }
     } else {
       // Complex path for rotation and non-integer scaling (preserve existing functionality)
-      for (let j = 0; j < rows; j += 1) {
+      // 🚀 PERFORMANCE OPTIMIZATION: Reduce resolution when running slowly
+      const skipStep = isSlowFrame ? 2 : 1; // Skip every other pixel when slow
+      
+      for (let j = 0; j < rows; j += skipStep) {
         const plotY = y + rowPix * j;
         const repeatY = j % bufHeight;
 
-        for (let i = 0; i < cols; i += 1) {
+        for (let i = 0; i < cols; i += skipStep) {
           const plotX = x + colPix * i;
 
           let finalX, finalY;
@@ -3735,6 +4056,10 @@ function grid(
 
     color(...oc); // Restore color.
   }
+  
+  // 🚨 PERFORMANCE TRACKING
+  const gridEnd = performance.now();
+  graphPerf.track('grid', gridEnd - gridStart);
 }
 
 // Rendering stored drawings.
@@ -4215,6 +4540,12 @@ function scroll(dx = 0, dy = 0) {
 // 🚀 Pre-allocated spin buffer for performance
 let spinBuffer;
 
+// Rotates pixels in concentric rings around a specified anchor point
+// steps: positive for clockwise, negative for counterclockwise
+// anchorX, anchorY: optional anchor point (defaults to center of working area)
+
+let spinSkipCounter = 0;
+
 // Each ring rotates by exactly 'steps' pixels, preserving all data
 function spin(steps = 0, anchorX = null, anchorY = null) {
   const spinStart = performance.now();
@@ -4222,6 +4553,17 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
   if (steps === 0) {
     graphPerf.track('spin', 0);
     return;
+  }
+
+  // 🚀 PERFORMANCE OPTIMIZATION: Skip frames when running very slowly  
+  if (graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 6) {
+    spinSkipCounter++;
+    if (spinSkipCounter % 2 !== 0) { // Skip every other frame when FPS < 6
+      graphPerf.track('spin', 0);
+      return;
+    }
+  } else {
+    spinSkipCounter = 0; // Reset when performance is good
   }
 
   // 🚀 OPTIMIZATION: Skip small spin steps for imperceptible changes
@@ -4271,10 +4613,16 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
   if (!spinBuffer || spinBuffer.length !== bufferSize) {
     spinBuffer = new Uint8ClampedArray(bufferSize);
   }
+  
+  // 🛡️ SAFETY CHECK: Ensure pixels array size matches expected buffer size
+  if (pixels.length !== bufferSize) {
+    pixels = new Uint8ClampedArray(bufferSize);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
   spinBuffer.set(pixels);
 
-  // Pre-calculate constants for performance
-  const invTwoPi = 1.0 / (2 * PI);
+  // Pre-calculate constants for performance (keep original math)
   const twoPi = 2 * PI;
   const maxXMinus1 = maxX - 1;
   const maxYMinus1 = maxY - 1;
@@ -4299,10 +4647,11 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
         continue;
       }
       
+      // RESTORED: Original geometric calculations for consistent behavior
       const distance = sqrt(distanceSquared);
       const angle = Math.atan2(dy, dx);
       
-      // Optimized step angle calculation
+      // Original step angle calculation
       const circumference = twoPi * distance;
       const stepAngle = twoPi / circumference; // Simplifies to 1/distance
       const totalAngleChange = integerSteps / distance; // More direct calculation
@@ -4310,15 +4659,15 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
       // Find source angle (rotate backwards)
       let sourceAngle = angle - totalAngleChange;
       
-      // Normalize angle efficiently
+      // Original angle normalization
       if (sourceAngle < 0) sourceAngle += twoPi;
       else if (sourceAngle >= twoPi) sourceAngle -= twoPi;
       
-      // Convert back to cartesian coordinates using pre-calculated values
+      // Convert back to cartesian coordinates using original math
       const srcX = centerX + distance * Math.cos(sourceAngle);
       const srcY = centerY + distance * Math.sin(sourceAngle);
       
-      // Optimized wrapping with bounds checking
+      // Original wrapping with bounds checking
       let wrappedSrcX = srcX;
       let wrappedSrcY = srcY;
       
