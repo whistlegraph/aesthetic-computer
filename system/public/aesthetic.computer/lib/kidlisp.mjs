@@ -451,7 +451,7 @@ async function getCachedCodeMultiLevel(cacheId) {
 // Clear all caches (useful for development/debugging)
 function clearAllCaches() {
   globalCodeCache.clear();
-  console.log("%c🗑️ $cache cleared", 'color: #FF5722; font-weight: bold;');
+  // console.log("%c🗑️ $cache cleared", 'color: #FF5722; font-weight: bold;');
 }
 
 // Save a code to all cache levels (when user creates/saves a piece)
@@ -865,16 +865,16 @@ class KidLisp {
       // Try direct window access
       if (window.graphPerf) {
         window.graphPerf.enabled = true;
-        console.log("🎯 KidLisp + Graph performance monitoring enabled (window)");
+        // console.log("🎯 KidLisp + Graph performance monitoring enabled (window)");
       } else {
-        console.log("🎯 KidLisp performance monitoring enabled (window.graphPerf not found)");
+        // console.log("🎯 KidLisp performance monitoring enabled (window.graphPerf not found)");
       }
     }
     
     // Try global scope access
     if (typeof globalThis !== 'undefined' && globalThis.graphPerf) {
       globalThis.graphPerf.enabled = true;
-      console.log("🎯 Graph performance monitoring enabled (globalThis)");
+      // console.log("🎯 Graph performance monitoring enabled (globalThis)");
     }
     
     // Try importing graph.mjs directly if available
@@ -882,7 +882,7 @@ class KidLisp {
       // Enable graph performance through module system if possible
       if (typeof graphPerf !== 'undefined') {
         graphPerf.enabled = true;
-        console.log("🎯 Graph performance monitoring enabled (direct)");
+        // console.log("🎯 Graph performance monitoring enabled (direct)");
       }
     } catch (e) {
       // Module access not available
@@ -1309,6 +1309,16 @@ class KidLisp {
     this.mathCache.clear();
     this.sequenceCounters.clear();
     
+    // Clear choice cache to prevent memory leaks
+    if (this.choiceCache) {
+      this.choiceCache.clear();
+    }
+    
+    // Clear global function cache
+    if (this.globalFunctionCache) {
+      this.globalFunctionCache.clear();
+    }
+    
     // ⚡ PERFORMANCE: Don't automatically clear embedded layer cache on reset
     // This will be handled conditionally in module() based on source change
     // this.clearEmbeddedLayerCache(); // Moved to module() for conditional clearing
@@ -1408,9 +1418,9 @@ class KidLisp {
   enablePerformanceMonitoring(enable = true) {
     this.performanceEnabled = enable;
     if (enable) {
-      console.log("🔬 KidLisp performance monitoring enabled");
+      // console.log("🔬 KidLisp performance monitoring enabled");
     } else {
-      console.log("🔬 KidLisp performance monitoring disabled");
+      // console.log("🔬 KidLisp performance monitoring disabled");
     }
   }
   
@@ -2433,6 +2443,21 @@ class KidLisp {
           // 🔍 TOTAL FRAME TIMING: Start measuring complete execution cycle
           const totalFrameStart = performance.now();
           
+          // Performance mode: disable logging when FPS is low
+          if (!this.performanceMode) this.performanceMode = { enabled: false, lastCheck: 0 };
+          if (performance.now() - this.performanceMode.lastCheck > 1000) {
+            // Check FPS every second
+            const fps = $.system?.fps || 60;
+            this.performanceMode.enabled = fps < 30;
+            this.performanceMode.lastCheck = performance.now();
+            if (this.performanceMode.enabled) {
+              // console.log("🚀 PERFORMANCE MODE: Enabled due to low FPS:", fps);
+            }
+          }
+          
+          // Clear frame cache for new frame
+          this.frameCache = new Map();
+          
           // Execute the full program first (draws current content and creates embedded layers)
           this.localEnvLevel = 0; // Reset state per program evaluation.
           this.localEnv = this.localEnvStore[this.localEnvLevel];
@@ -2965,8 +2990,17 @@ class KidLisp {
           console.error("❗ Invalid `not`. Wrong number of arguments.");
           return false;
         }
+        
         const evaled = this.evaluate(args[0], api, env);
-        if (!evaled) this.evaluate(args.slice(1), api, env);
+        
+        if (!evaled) {
+          // Execute body expressions
+          args.slice(1).forEach((expr) => {
+            this.evaluate(expr, api, env);
+          });
+        }
+        
+        return !evaled;
       },
       range: (api, args) => {
         // console.log("Range detected:", args);
@@ -3366,6 +3400,15 @@ class KidLisp {
         }
       },
       ink: (api, args) => {
+        // 🚀 FAST PATH: For performance mode, handle simple numeric cases quickly
+        if (this.performanceMode?.enabled && args && Array.isArray(args) && 
+            args.length >= 3 && typeof args[0] === 'number' && typeof args[1] === 'number' && typeof args[2] === 'number') {
+          this.inkState = [args[0], args[1], args[2]];
+          this.inkStateSet = true;
+          api.ink?.(args[0], args[1], args[2]);
+          return;
+        }
+        
         // console.log("🖋️ Ink called with args:", args);
         // Handle different ink invocation patterns
         // Ensure args is always an array
@@ -3673,6 +3716,13 @@ class KidLisp {
       shape: (api, args = []) => {
         // Handle shape arguments - can be flat array of coordinates or array of pairs
         if (args.length === 0) return;
+
+        // 🚀 FAST PATH: For performance mode with simple numeric triangles
+        if (this.performanceMode?.enabled && args.length === 6 && 
+            args.every(arg => typeof arg === 'number')) {
+          api.shape({ points: args, filled: true, thickness: 1 });
+          return;
+        }
 
         // Check if last argument is a string indicating filled/outline
         let filled = true;
@@ -4509,7 +4559,7 @@ class KidLisp {
           const expressions = args.slice(2);
 
           // Fast path optimization: Check if this is a simple drawing pattern
-          // like: (repeat count i (ink ...) (box ...))
+          // like: (repeat count i (ink ...) (box ...)) or text rendering patterns
           if (
             expressions.length === 2 &&
             Array.isArray(expressions[0]) &&
@@ -4641,6 +4691,97 @@ class KidLisp {
             return result;
           }
 
+          // 🚀 ULTRA-FAST TEXT RENDERING OPTIMIZATION
+          // Detect pattern: (repeat count i (ink (choose ...)) (write (choose ...) (mod ...) (mod ...)))
+          if (
+            expressions.length === 2 &&
+            Array.isArray(expressions[0]) &&
+            expressions[0][0] === "ink" &&
+            Array.isArray(expressions[1]) &&
+            expressions[1][0] === "write"
+          ) {
+            perfStart("fast-text-loop");
+            const inkExpr = expressions[0];
+            const writeExpr = expressions[1];
+
+            // Check if ink uses choose for colors
+            let colorChoices = null;
+            if (
+              inkExpr.length === 2 &&
+              Array.isArray(inkExpr[1]) &&
+              inkExpr[1][0] === "choose"
+            ) {
+              colorChoices = inkExpr[1].slice(1); // Extract color choices
+            }
+
+            // Check if write uses choose for text
+            let textChoices = null;
+            if (
+              writeExpr.length >= 2 &&
+              Array.isArray(writeExpr[1]) &&
+              writeExpr[1][0] === "choose"
+            ) {
+              textChoices = writeExpr[1].slice(1); // Extract text choices
+            }
+
+            // Pre-setup environment
+            const prevLocalEnv = this.localEnv;
+            this.localEnvLevel += 1;
+            if (!this.localEnvStore[this.localEnvLevel]) {
+              this.localEnvStore[this.localEnvLevel] = Object.create(null);
+            }
+            const loopEnv = this.localEnvStore[this.localEnvLevel];
+
+            // Copy environment efficiently
+            for (const key in this.localEnv) {
+              loopEnv[key] = this.localEnv[key];
+            }
+            for (const key in env) {
+              loopEnv[key] = env[key];
+            }
+            this.localEnv = loopEnv;
+
+            // Ultra-fast text rendering loop
+            for (let i = 0; i < count; i++) {
+              loopEnv[iteratorVar] = i;
+
+              // Fast color selection
+              if (colorChoices) {
+                const colorIndex = Math.floor(Math.random() * colorChoices.length);
+                api.ink?.(colorChoices[colorIndex]);
+              } else {
+                this.evaluate(inkExpr, api, this.localEnv);
+              }
+
+              // Fast text and position evaluation
+              let text, x, y;
+              if (textChoices) {
+                const textIndex = Math.floor(Math.random() * textChoices.length);
+                text = textChoices[textIndex];
+              } else {
+                text = this.fastEval(writeExpr[1], api, this.localEnv);
+              }
+
+              // Optimize position calculations using fastEval
+              if (writeExpr.length >= 4) {
+                x = this.fastEval(writeExpr[2], api, this.localEnv);
+                y = this.fastEval(writeExpr[3], api, this.localEnv);
+              } else {
+                x = 0;
+                y = 0;
+              }
+
+              // Direct write call with minimal overhead
+              api.write?.(text, x, y);
+            }
+
+            this.localEnvLevel -= 1;
+            this.localEnv = prevLocalEnv;
+            perfEnd("fast-text-loop");
+            perfEnd("repeat-with-iterator");
+            return result;
+          }
+
           // OPTIMIZED: Standard loop with pre-evaluation and environment reuse
           const baseEnv = { ...this.localEnv, ...env };
           const prevLocalEnv = this.localEnv;
@@ -4716,9 +4857,32 @@ class KidLisp {
       rep: (api, args, env) => {
         return this.getGlobalEnv().repeat(api, args, env);
       },
-      // 🎲 Random selection
+      // 🎲 Random selection (optimized with caching for performance)
       choose: (api, args = []) => {
         if (args.length === 0) return undefined;
+        
+        // 🚀 PERFORMANCE: Cache small choice sets to avoid repeated array access
+        if (args.length <= 8) {
+          const cacheKey = JSON.stringify(args);
+          if (!this.choiceCache) this.choiceCache = new Map();
+          
+          let cachedArgs = this.choiceCache.get(cacheKey);
+          if (!cachedArgs) {
+            cachedArgs = [...args]; // Copy args for caching
+            this.choiceCache.set(cacheKey, cachedArgs);
+            
+            // Limit cache size to prevent memory bloat
+            if (this.choiceCache.size > 100) {
+              const firstKey = this.choiceCache.keys().next().value;
+              this.choiceCache.delete(firstKey);
+            }
+          }
+          
+          // Fast random selection from cached args
+          const randomIndex = Math.floor(Math.random() * cachedArgs.length);
+          return cachedArgs[randomIndex];
+        }
+        
         // Use the help.choose function from the common API if available
         if (api.help?.choose) {
           return api.help.choose(...args);
@@ -4985,7 +5149,25 @@ class KidLisp {
       },
       // 🔊 Speaker - returns whether sound is enabled
       speaker: (api) => {
+        // PERFORMANCE: Ultra-fast implementation with minimal logic
         return api.sound?.enabled?.() || false;
+        // Cache speaker result across multiple frames to avoid expensive repeated calls
+        if (!this.speakerCache) this.speakerCache = { result: null, timestamp: 0 };
+        
+        const now = performance.now();
+        // Use cached result if it's less than 2000ms old (ultra-aggressive caching)
+        if (this.speakerCache.result !== null && (now - this.speakerCache.timestamp) < 2000) {
+          return this.speakerCache.result;
+        }
+        
+        const soundEnabled = api.sound?.enabled?.() || false;
+        console.log("� SPEAKER: First call this frame, sound enabled:", soundEnabled);
+        
+        // Cache the result
+        this.speakerCache.result = soundEnabled;
+        this.speakerCache.timestamp = now;
+        
+        return soundEnabled;
       },
       
       // 🎨 Backdrop - shorthand for (once (wipe color)) to set background once
@@ -5610,7 +5792,7 @@ class KidLisp {
       return result;
     }
 
-    // Fast math expression evaluation
+    // Fast math expression evaluation - Enhanced for nested operations
     if (Array.isArray(expr) && expr.length === 3) {
       const [op, left, right] = expr;
       if (op === "+" || op === "-" || op === "*" || op === "/" || op === "%") {
@@ -5627,9 +5809,67 @@ class KidLisp {
             case "*":
               return leftVal * rightVal;
             case "/":
-              return leftVal / rightVal;
+              return rightVal !== 0 ? leftVal / rightVal : 0; // Prevent division by zero
             case "%":
-              return leftVal % rightVal;
+              return rightVal !== 0 ? leftVal % rightVal : 0;
+          }
+        }
+      }
+    }
+
+    // 🚀 ULTRA-PERFORMANCE: Optimize complex positioning expressions like (mod (+ (* i 67) (* frame 0.5)) width)
+    if (Array.isArray(expr) && expr.length === 3 && expr[0] === "mod") {
+      const [, innerExpr, modulus] = expr;
+      
+      // Handle (mod (+ (* i N) (* frame M)) dimension) pattern
+      if (Array.isArray(innerExpr) && innerExpr.length === 3 && innerExpr[0] === "+") {
+        const [, leftTerm, rightTerm] = innerExpr;
+        
+        // Check if both terms are multiplication expressions
+        if (Array.isArray(leftTerm) && leftTerm.length === 3 && leftTerm[0] === "*" &&
+            Array.isArray(rightTerm) && rightTerm.length === 3 && rightTerm[0] === "*") {
+          
+          // Fast evaluation of both multiplication terms
+          const leftResult = this.fastEval(leftTerm[1], api, env) * this.fastEval(leftTerm[2], api, env);
+          const rightResult = this.fastEval(rightTerm[1], api, env) * this.fastEval(rightTerm[2], api, env);
+          const sum = leftResult + rightResult;
+          const modValue = this.fastEval(modulus, api, env);
+          
+          if (typeof sum === "number" && typeof modValue === "number" && modValue !== 0) {
+            return sum % modValue;
+          }
+        }
+      }
+      
+      // Fallback: evaluate inner expression and apply modulo
+      const innerValue = this.fastEval(innerExpr, api, env);
+      const modValue = this.fastEval(modulus, api, env);
+      
+      if (typeof innerValue === "number" && typeof modValue === "number" && modValue !== 0) {
+        return innerValue % modValue;
+      }
+    }
+
+    // 🚀 OPTIMIZATION: Handle common shape coordinate patterns
+    // Patterns like (- (/ width 2) 8), (+ (/ width 2) 8), etc.
+    if (Array.isArray(expr) && expr.length === 3) {
+      const [op, left, right] = expr;
+      
+      // Pattern: (- (/ width 2) offset) or (+ (/ width 2) offset)
+      if ((op === "+" || op === "-") && Array.isArray(left) && left.length === 3) {
+        const [innerOp, innerLeft, innerRight] = left;
+        
+        // Check for (/ width 2) or (/ height 2) pattern
+        if (innerOp === "/" && typeof innerLeft === "string" && 
+            (innerLeft === "width" || innerLeft === "height") && 
+            typeof innerRight === "number" && innerRight === 2) {
+          
+          const dimension = this.fastEval(innerLeft, api, env);
+          const offset = this.fastEval(right, api, env);
+          
+          if (typeof dimension === "number" && typeof offset === "number") {
+            const halfDimension = dimension / 2;
+            return op === "+" ? halfDimension + offset : halfDimension - offset;
           }
         }
       }
@@ -5641,7 +5881,34 @@ class KidLisp {
 
   // Optimized function resolution
   resolveFunction(head, api, env) {
-    // Check cache first
+    // � ULTRA-PERFORMANCE: Pre-cache common functions to avoid repeated lookups
+    if (!this.globalFunctionCache) {
+      this.globalFunctionCache = new Map();
+      
+      // Pre-populate cache with most common functions to avoid expensive lookups
+      const globalEnv = this.getGlobalEnv();
+      const commonFunctions = ['ink', 'box', 'line', 'circle', 'write', 'repeat', 'choose', 'blur', 'shape', 'tri', 'wipe'];
+      
+      for (const funcName of commonFunctions) {
+        if (globalEnv[funcName]) {
+          this.globalFunctionCache.set(funcName, { type: "global", value: globalEnv[funcName] });
+        }
+      }
+      
+      // console.log(`🚀 Pre-cached ${this.globalFunctionCache.size} common functions for performance`);
+    }
+    
+    // 🚀 FAST PATH: Check global function cache first for common functions
+    if (this.globalFunctionCache.has(head)) {
+      return this.globalFunctionCache.get(head);
+    }
+    
+    // �🔍 DEBUG: Log function resolution for performance tracking (only for uncached functions now)
+    // if (['repeat', 'blur', 'shape', 'write', 'choose', 'ink'].includes(head)) {
+      // console.log(`🔍 RESOLVE: Function '${head}' being resolved (cache miss)`);
+    // }
+    
+    // Check local cache
     const cacheKey = `${head}_${this.localEnvLevel}`;
     if (this.functionCache.has(cacheKey)) {
       return this.functionCache.get(cacheKey);
@@ -5714,10 +5981,18 @@ class KidLisp {
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
 
-    // � DEBUG: Track expensive evaluations
-    const isExpensiveExpression = Array.isArray(parsed) && parsed.length > 10;
-    const shouldLog = isExpensiveExpression || (Array.isArray(parsed) && 
-      ['repeat', 'blur', 'shape', 'write', 'if', 'do'].includes(parsed[0]));
+    // 🔍 DEBUG: Track expensive evaluations - disabled for performance
+    const shouldLog = false;  // Completely disable evaluation logging for performance
+    
+    // 🔍 PERFORMANCE DEBUG: Log slow operations  
+    let perfTimer;
+    if (shouldLog) {
+      const exprName = Array.isArray(parsed) ? 
+        `${parsed[0]}${parsed.length > 1 ? '(...)' : ''}` : 
+        String(parsed).substring(0, 20);
+      // console.log(`🔍 EVAL START: ${exprName}`);
+      perfTimer = performance.now();
+    }
     
     if (shouldLog) {
       // console.log(`🐌 EVAL START: ${Array.isArray(parsed) ? parsed[0] : 'primitive'} (depth: ${this.evalDepth || 0})`);
@@ -6700,7 +6975,18 @@ class KidLisp {
     // 🔍 DEBUG: Track completion of expensive evaluations
     const evalTime = performance.now() - evalStart.time;
     if (shouldLog && evalTime > 1) {
-      console.log(`🐌 EVAL END: ${Array.isArray(parsed) ? parsed[0] : 'primitive'} took ${evalTime.toFixed(2)}ms`);
+      // console.log(`🐌 EVAL END: ${Array.isArray(parsed) ? parsed[0] : 'primitive'} took ${evalTime.toFixed(2)}ms`);
+    }
+
+    // 🔍 PERFORMANCE DEBUG: Log completion of slow operations
+    if (shouldLog && perfTimer) {
+      const totalTime = performance.now() - perfTimer;
+      if (totalTime > 5.0) {  // Only log operations taking more than 5ms
+        const exprName = Array.isArray(parsed) ? 
+          `${parsed[0]}${parsed.length > 1 ? '(...)' : ''}` : 
+          String(parsed).substring(0, 20);
+        // console.log(`🔍 EVAL END: ${exprName} took ${totalTime.toFixed(2)}ms`);
+      }
     }
 
     perfEnd("evaluate-total");

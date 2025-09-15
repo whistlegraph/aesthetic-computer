@@ -2512,7 +2512,7 @@ function stamp(from, x, y, scale, angle) {
   if (graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 5) {
     stampSkipCounter++;
     if (stampSkipCounter % 3 !== 0) { // Skip 2 out of 3 frames when FPS < 5
-      console.log(`⏭️ STAMP skipped due to low FPS: ${graphPerf.lastFPS}`);
+      // console.log(`⏭️ STAMP skipped due to low FPS: ${graphPerf.lastFPS}`);
       graphPerf.track('stamp', 0);
       return;
     }
@@ -3537,7 +3537,16 @@ function shape() {
   }
 
   if (filled) {
-    fillShape(points); // Fill the shape in with the chosen color.
+    // 🚀 MASSIVE OPTIMIZATION: Use fast fillTri for triangles instead of slow fillShape
+    if (points.length === 3) {
+      // Triangle - use the optimized fillTri function
+      const triPixels = [];
+      fillTri(points, triPixels);
+      triPixels.forEach((p) => point(p));
+    } else {
+      // For other polygons, fall back to the general fillShape algorithm
+      fillShape(points);
+    }
   } else {
     // Make lines from 1->2->3->...->1
     if (thickness === 1) {
