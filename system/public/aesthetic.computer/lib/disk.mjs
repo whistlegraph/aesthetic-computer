@@ -32,6 +32,7 @@ import {
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
 import { nopaint_boot, nopaint_act, nopaint_is, nopaint_renderPerfHUD, nopaint_triggerBakeFlash } from "../systems/nopaint.mjs";
+import { getPreserveFadeAlpha, setPreserveFadeAlpha } from "./fade-state.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
 import { headers } from "./headers.mjs";
@@ -462,13 +463,6 @@ function enableFrameBasedMonitoring() {
       const nopaintBuffer = $commonApi.system?.nopaint?.buffer;
       
       if (lastPaintingHash !== null && currentHash !== lastPaintingHash) {
-        console.log(`🎨 FRAME-DETECTED: Painting change (${lastPaintingHash?.substr(0,6)} → ${currentHash?.substr(0,6)})`, {
-          nopaintActive: isNopaintActive,
-          hasNopaintBuffer: !!nopaintBuffer,
-          paintingSize: `${currentDimensions.width}x${currentDimensions.height}`,
-          nopaintBufferSize: nopaintBuffer ? `${nopaintBuffer.width}x${nopaintBuffer.height}` : 'none'
-        });
-        
         // Check if this is a dimension change (resize operation)
         const isDimensionChange = lastDimensions && 
           (lastDimensions.width !== currentDimensions.width || 
@@ -1757,26 +1751,15 @@ const $commonApi = {
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
           paste(system.painting);
-          // Use appropriate blend mode for fade colors to preserve alpha compositing
-          if (system.nopaint.usesFadeColors) {
-            // For fade colors, use default blend mode to preserve alpha transparency
-            paste(system.nopaint.buffer);
-          } else {
-            paste(system.nopaint.buffer);
-          }
+          paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
 
           wipe(theme[dark ? "dark" : "light"].wipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel);
             
-          // Use appropriate blend mode for fade colors to preserve alpha compositing during pan
-          if (system.nopaint.usesFadeColors) {
-            // For fade colors, use default blend mode to preserve alpha transparency
-            paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel);
-          } else {
-            paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel);
-          }
+          // Normal alpha blending for overlay buffer
+          paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel);
           
           ink(128)
             .box(
@@ -2730,12 +2713,6 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       });
     }
     
-    console.log(`🎨 STORED painting:`, {
-      width: $commonApi.system.painting.width,
-      height: $commonApi.system.painting.height,
-      pixelCount: $commonApi.system.painting.pixels.length,
-      firstPixels: Array.from($commonApi.system.painting.pixels.slice(0, 12)) // First 3 pixels (RGBA)
-    });
   }, 0);
   
   // Update hash to prevent duplicate detection
@@ -3593,10 +3570,22 @@ const $paintApiUnwrapped = {
   // 2D
   wipe: function () {
     const cc = graph.c.slice(0);
+    
+    // Preserve fade alpha during wipe operations to prevent clearing it
+    const preserveFadeAlpha = getPreserveFadeAlpha?.() || false;
+    if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+      setPreserveFadeAlpha(true);
+    }
+    
     ink(...arguments);
     graph.clear();
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
+    
+    // Restore previous preservation state
+    if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+      setPreserveFadeAlpha(false);
+    }
   },
   // Erase the screen.
   clear: function () {
@@ -5589,6 +5578,33 @@ async function load(
           $.system.nopaint.needsPresent = true;
         }
 
+        // 🎨 OVERLAY SUPPORT: Call overlay function for preview rendering with painting coordinates
+        if (module.overlay && $.system.nopaint?.brush?.dragBox) {
+          // Transform painting coordinates to screen coordinates for direct screen rendering
+          const originalDragBox = $.system.nopaint.brush.dragBox;
+          const zoom = $.system.nopaint.zoomLevel;
+          const tx = $.system.nopaint.translation.x;
+          const ty = $.system.nopaint.translation.y;
+          
+          // Create screen-space dragBox
+          const screenDragBox = {
+            x: originalDragBox.x * zoom + tx,
+            y: originalDragBox.y * zoom + ty,
+            w: originalDragBox.w * zoom,
+            h: originalDragBox.h * zoom
+          };
+          
+          // Temporarily replace the dragBox with screen coordinates
+          const originalBrush = $.system.nopaint.brush;
+          $.system.nopaint.brush = { ...originalBrush, dragBox: screenDragBox };
+          
+          // Render overlay directly to screen buffer 
+          module.overlay($);
+          
+          // Restore original dragBox
+          $.system.nopaint.brush = originalBrush;
+        }
+
         // 📊 Always render nopaint performance HUD if enabled (regardless of module.paint result)
         if (system === "nopaint" && nopaintPerf) {
           nopaint_renderPerfHUD($);
@@ -5619,8 +5635,6 @@ async function load(
         // 🎯 IMMEDIATE BAKING: Fix race condition by triggering bake immediately after lift
         const np = $.system.nopaint;
         if (np.needsBake === true && bake) {
-          console.log("🔥 IMMEDIATE BAKE: Triggering bake immediately after lift event");
-          
           // 📊 Trigger bake flash effect and beep sound
           nopaint_triggerBakeFlash();
           
@@ -5635,7 +5649,6 @@ async function load(
           
           // 🎨 ELEGANT BRUSH PATTERN: Call brush one final time for painting surface
           if (brush) {
-            console.log("🎨 FINAL BRUSH: About to call brush function with lift flag");
             const finalBrushApi = { ...$ };
             
             // 🎯 Use preserved coordinates since brush is null at bake time
@@ -5649,10 +5662,8 @@ async function load(
                 x: preservedStartDrag?.x || preservedDragBox.x,
                 y: preservedStartDrag?.y || preservedDragBox.y
               };
-              console.log("🎨 FINAL BRUSH: Using preserved dragBox =", preservedDragBox);
             } else {
               finalBrushApi.pen = $.system.nopaint.brush; // Fallback to original (likely null)
-              console.log("🎨 FINAL BRUSH: No preserved coordinates, pen =", finalBrushApi.pen);
             }
             
             finalBrushApi.lift = true; // 🎯 Single clean flag for final brush call
@@ -5660,15 +5671,12 @@ async function load(
             $.page($.system.painting); // Set context to painting surface
             brush(finalBrushApi); // Call brush for final painting
             $.page($.screen); // Reset context
-          } else {
-            console.log("🎨 FINAL BRUSH: No brush function available");
           }
           
           $.page($.system.painting);
           bake($);
           
           // 🧹 CLEAR BUFFER: Prevent flickering by clearing buffer BEFORE presentation
-          console.log("🧹 IMMEDIATE CLEAR: Clearing nopaint buffer before presentation");
           $.page($.system.nopaint.buffer).wipe(255, 255, 255, 0);
           
           $.page($.screen);
@@ -8449,7 +8457,7 @@ async function makeFrame({ data: { type, content } }) {
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
           
-          if (system === "nopaint") nopaint_boot($api);
+          if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           booted = true;
         } catch (e) {
