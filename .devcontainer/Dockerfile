@@ -1,9 +1,9 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
-FROM --platform=linux/amd64 fedora:latest
+FROM fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=2.4.5
+ENV NETLIFY_DENO_VERSION=1.45.0
 ENV NETLIFY_CLI_TELEMETRY_DISABLED=1
 ENV NODE_DISABLE_COMPILE_CACHE=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -22,6 +22,7 @@ RUN dnf update -y && \
       dnf-plugins-core lolcat toilet iproute xclip nmap-ncat \
       inotify-tools wget curl tar gzip bzip2 \
       libsodium libsodium-devel libffi libffi-devel \
+      gmp gmp-devel \
       pkg-config autoconf automake libtool \
       ocaml opam rsync m4 patch bubblewrap \
       libX11 libxkbfile libsecret libxshmfence libXtst \
@@ -40,8 +41,15 @@ RUN /usr/bin/python3.11 -m venv /opt/py311 && \
 ENV PATH="/opt/py311/bin:${PATH}"
 
 # --- SmartPy (pinned) + smoke test -------------------------------------------
-RUN pip install "tezos-smartpy==0.22.0" "pytezos>=3.9.0,<4" requests && \
-    python -c "import smartpy as sp; print('SmartPy successfully imported')"
+# Note: SmartPy doesn't support ARM64 architecture (Apple Silicon)
+RUN set -eux; \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+        pip install "tezos-smartpy==0.22.0" "pytezos>=3.9.0,<4" requests && \
+        python -c "import smartpy as sp; print('SmartPy successfully imported')"; \
+    else \
+        echo "Skipping SmartPy on $(uname -m) architecture (not supported)"; \
+        pip install "pytezos>=3.9.0,<4" requests; \
+    fi
 
 # --- Octez (best-effort binary) ----------------------------------------------
 RUN set -eux; \
@@ -54,20 +62,44 @@ RUN set -eux; \
       echo "Octez binaries unavailable, skipping"; \
     fi
 
-# --- Stripe CLI ---------------------------------------------------------------
-RUN curl -fsSL https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_x86_64.tar.gz \
+# --- Stripe CLI (architecture-aware) -----------------------------------------
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) ARCH=x86_64 ;; \
+        aarch64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v1.30.0/stripe_1.30.0_linux_${ARCH}.tar.gz" \
     | tar xz -C /usr/local/bin
 
-# --- redli --------------------------------------------------------------------
-RUN curl -fsSL https://github.com/IBM-Cloud/redli/releases/download/v0.15.0/redli_0.15.0_linux_amd64.tar.gz \
-    | tar xz -C /usr/local/bin && mv /usr/local/bin/redli_linux_amd64 /usr/local/bin/redli
+# --- redli (architecture-aware) ----------------------------------------------
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) ARCH=amd64 ;; \
+        aarch64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/IBM-Cloud/redli/releases/download/v0.15.0/redli_0.15.0_linux_${ARCH}.tar.gz" \
+    | tar xz -C /usr/local/bin && mv "/usr/local/bin/redli_linux_${ARCH}" /usr/local/bin/redli
 
-# --- mkcert -------------------------------------------------------------------
-RUN curl -fsSL https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64 \
+# --- mkcert (architecture-aware) ---------------------------------------------
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) ARCH=amd64 ;; \
+        aarch64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-${ARCH}" \
     -o /usr/local/bin/mkcert && chmod +x /usr/local/bin/mkcert
 
-# --- ngrok --------------------------------------------------------------------
-RUN curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o /tmp/ngrok.tgz && \
+# --- ngrok (architecture-aware) ----------------------------------------------
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) ARCH=amd64 ;; \
+        aarch64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-${ARCH}.tgz" -o /tmp/ngrok.tgz && \
     tar -xzf /tmp/ngrok.tgz -C /usr/local/bin && rm /tmp/ngrok.tgz
 
 # --- Jupyter bits -------------------------------------------------------------
@@ -117,12 +149,12 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
 # --- OPS (nanos) --------------------------------------------------------------
 RUN curl https://ops.city/get.sh -sSfL | bash
 
-# --- Deno ---------------------------------------------------------------------
-RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5 && \
+# --- Deno (v1.45.0 for Netlify CLI compatibility) ----------------------------
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.0 && \
     /home/me/.deno/bin/deno --version && \
-    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
-    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \
-    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || true
+    /home/me/.deno/bin/deno cache https://v2-14-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
+    /home/me/.deno/bin/deno cache https://v2-14-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \
+    /home/me/.deno/bin/deno cache https://v2-14-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || true
 
 # --- Fish config / entry ------------------------------------------------------
 COPY config.fish /home/me/.config/fish/config.fish
