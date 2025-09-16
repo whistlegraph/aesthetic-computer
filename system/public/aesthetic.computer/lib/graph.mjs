@@ -42,6 +42,13 @@ let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
 
+// Legacy global fade variables (kept for backward compatibility)
+// Note: New code should use local fade system via parseLocalFade/getLocalFadeColor
+let fadeMode = false;
+let fadeColors = [];
+let fadeDirection = "horizontal";
+let fadeNeat = false;
+
 // 🚨 GRAPH PERFORMANCE TRACKING
 const graphPerf = {
   enabled: false,
@@ -92,10 +99,7 @@ if (typeof globalThis !== 'undefined') {
 
 // 📚 DOCUMENTATION: Fade support - "fade:color1-color2-color3" syntax
 // Fade state - used by ink() function for smooth color transitions
-let fadeMode = false;
-let fadeColors = [];
-let fadeDirection = "horizontal"; // horizontal, vertical, diagonal, or numeric angle (0-360)
-let fadeNeat = false; // When true, disable film-grain noise for clean gradients
+// Removed global fade state - everything is now local!
 let currentKidLispContext = null; // For dynamic evaluation of fade directions
 let currentRainbowColor = null; // Cache rainbow color for current drawing operation
 let currentZebraColor = null; // Cache zebra color for current drawing operation
@@ -103,6 +107,242 @@ let currentZebraColor = null; // Cache zebra color for current drawing operation
 let debug = false;
 export function setDebug(newDebug) {
   debug = newDebug;
+}
+
+// 🎨 FADE HELPERS: New local fade detection and parsing
+// These replace the global fade state management system
+
+/**
+ * Check if a color contains a fade string
+ * @param {Array} color - Color array that might contain fade string
+ * @returns {boolean} - True if color contains fade string
+ */
+function isFadeColor(color) {
+  return Array.isArray(color) && 
+         color.length > 0 && 
+         typeof color[0] === 'string' && 
+         color[0].startsWith('fade:');
+}
+
+/**
+ * Parse fade color locally without setting global state
+ * @param {Array} color - Color array containing fade string
+ * @returns {Object|null} - Fade info object or null if not a fade
+ */
+/**
+ * Parse fade colors locally without setting any global state
+ * @param {string} fadeType - The fade type (e.g., "red-blue", "rainbow-black-rainbow")
+ * @param {number} alpha - Alpha value to apply to all colors
+ * @returns {Array} - Array of color arrays
+ */
+function parseLocalFade(fadeType, alpha = 255) {
+  // Handle color combinations separated by dashes
+  const colorNames = fadeType.split("-");
+  const colors = [];
+  
+  for (const colorName of colorNames) {
+    if (colorName === "rainbow") {
+      // Special handling for rainbow - will be processed during rendering
+      colors.push(["rainbow", 255, 255, 255, alpha]);
+    } else if (colorName === "zebra") {
+      // Special handling for zebra - will be processed during rendering  
+      colors.push(["zebra", 255, 255, 255, alpha]);
+    } else if (colorName.startsWith("c")) {
+      // Color index like c0, c1, etc.
+      const indexColor = parseColorIndex(colorName);
+      if (indexColor) {
+        colors.push([...indexColor.slice(0, 3), alpha]);
+      }
+    } else {
+      // Named CSS color
+      const color = cssColors[colorName];
+      if (color) {
+        colors.push([...color.slice(0, 3), alpha]);
+      } else {
+        // If color not found, use a default color
+        colors.push([128, 128, 128, alpha]);
+      }
+    }
+  }
+  
+  return colors.length >= 2 ? colors : null;
+}
+
+function parseFadeColor(color) {
+  if (!isFadeColor(color)) return null;
+  
+  const fadeString = color[0];
+  const alpha = color[1] || 255; // Second element is alpha if provided
+  
+  // Parse fade string locally without setting global state
+  const parts = fadeString.split(":");
+  if (parts.length < 2 || parts.length > 4 || parts[0] !== "fade") {
+    return null;
+  }
+  
+  // Extract direction and neat flag locally
+  let isNeat = false;
+  let fadeType = parts[1];
+  let direction = parts[2] || "horizontal";
+  
+  // Handle different neat syntax positions
+  if (parts[1] === "neat" && parts[2]) {
+    isNeat = true;
+    fadeType = parts[2];
+    direction = parts[3] || "horizontal";
+  } else if (parts[2] === "neat") {
+    isNeat = true;
+    direction = "horizontal";
+  } else if (parts[3] === "neat") {
+    isNeat = true;
+    direction = parts[2];
+  } else if (parts.length > 2 && (parts[2] === "neat" || parts[parts.length - 1] === "neat")) {
+    isNeat = true;
+    const filteredParts = parts.filter(p => p !== "neat");
+    if (filteredParts.length >= 2) {
+      fadeType = filteredParts[1];
+      direction = filteredParts[2] || "horizontal";
+    }
+  }
+  
+  // Parse fade colors using the local fade type and alpha
+  const fadeColors = parseLocalFade(fadeType, alpha);
+  if (!fadeColors) return null;
+  
+  return {
+    colors: fadeColors,
+    direction: direction,  // Local direction, no global state
+    neat: isNeat          // Local neat flag, no global state
+  };
+}
+
+/**
+ * Get interpolated fade color locally without using global state
+ * @param {number} t - Position along fade (0-1)
+ * @param {number} x - X coordinate for noise (optional)
+ * @param {number} y - Y coordinate for noise (optional)
+ * @param {Object} fadeInfo - Local fade info from parseFadeColor
+ * @returns {Array} - RGBA color array
+ */
+function getLocalFadeColor(t, x = 0, y = 0, fadeInfo) {
+  if (!fadeInfo || fadeInfo.colors.length < 2) {
+    return c.slice(); // Return current color if no fade info
+  }
+  
+  const colors = fadeInfo.colors;
+  
+  // Clamp t to 0-1 range
+  t = Math.max(0, Math.min(1, t));
+  
+  // Calculate which colors to interpolate between
+  const segments = colors.length - 1;
+  const segment = Math.min(Math.floor(t * segments), segments - 1);
+  const localT = (t * segments) - segment;
+  
+  const color1 = colors[segment];
+  const color2 = colors[segment + 1] || colors[segment]; // Fallback to same color if out of bounds
+  
+  // Safety check to prevent undefined access
+  if (!color1 || !color2) {
+    console.warn("🚨 getLocalFadeColor: Invalid color data", { segment, colors, t });
+    return c.slice(); // Return current color as fallback
+  }
+  
+  // Handle special dynamic colors (rainbow, zebra)
+  if (color1[0] === "rainbow" || color2[0] === "rainbow") {
+    // Use cached rainbow color for consistent per-frame rendering
+    if (!currentRainbowColor) {
+      currentRainbowColor = rainbow();
+    }
+    
+    // Properly interpolate between rainbow and regular colors
+    if (color1[0] === "rainbow" && color2[0] === "rainbow") {
+      // Both are rainbow, return rainbow color with interpolated alpha
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[4] || 255;
+      const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
+      return [...currentRainbowColor.slice(0, 3), alpha];
+    } else if (color1[0] === "rainbow") {
+      // Interpolate from rainbow to regular color
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[3] || 255;
+      return [
+        Math.round(currentRainbowColor[0] + (color2[0] - currentRainbowColor[0]) * localT),
+        Math.round(currentRainbowColor[1] + (color2[1] - currentRainbowColor[1]) * localT),
+        Math.round(currentRainbowColor[2] + (color2[2] - currentRainbowColor[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    } else {
+      // Interpolate from regular color to rainbow
+      const alpha1 = color1[3] || 255;
+      const alpha2 = color2[4] || 255;
+      return [
+        Math.round(color1[0] + (currentRainbowColor[0] - color1[0]) * localT),
+        Math.round(color1[1] + (currentRainbowColor[1] - color1[1]) * localT),
+        Math.round(color1[2] + (currentRainbowColor[2] - color1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    }
+  }
+  
+  if (color1[0] === "zebra" || color2[0] === "zebra") {
+    // Use cached zebra color for consistent per-frame rendering
+    if (!currentZebraColor) {
+      currentZebraColor = zebra();
+    }
+    
+    // Properly interpolate between zebra and regular colors
+    if (color1[0] === "zebra" && color2[0] === "zebra") {
+      // Both are zebra, return zebra color with interpolated alpha
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[4] || 255;
+      const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
+      return [...currentZebraColor.slice(0, 3), alpha];
+    } else if (color1[0] === "zebra") {
+      // Interpolate from zebra to regular color
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[3] || 255;
+      return [
+        Math.round(currentZebraColor[0] + (color2[0] - currentZebraColor[0]) * localT),
+        Math.round(currentZebraColor[1] + (color2[1] - currentZebraColor[1]) * localT),
+        Math.round(currentZebraColor[2] + (color2[2] - currentZebraColor[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    } else {
+      // Interpolate from regular color to zebra
+      const alpha1 = color1[3] || 255;
+      const alpha2 = color2[4] || 255;
+      return [
+        Math.round(color1[0] + (currentZebraColor[0] - color1[0]) * localT),
+        Math.round(color1[1] + (currentZebraColor[1] - color1[1]) * localT),
+        Math.round(color1[2] + (currentZebraColor[2] - color1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    }
+  }
+  
+  // Linear interpolation between regular colors
+  const r = Math.round(color1[0] + (color2[0] - color1[0]) * localT);
+  const g = Math.round(color1[1] + (color2[1] - color1[1]) * localT);
+  const b = Math.round(color1[2] + (color2[2] - color1[2]) * localT);
+  const a = Math.round(color1[3] + (color2[3] - color1[3]) * localT);
+  
+  // Add noise if not neat mode (same logic as getFadeColor)
+  if (!fadeInfo.neat) {
+    const noiseAmount = 8;
+    const noiseR = (Math.random() - 0.5) * noiseAmount;
+    const noiseG = (Math.random() - 0.5) * noiseAmount;
+    const noiseB = (Math.random() - 0.5) * noiseAmount;
+    
+    return [
+      Math.max(0, Math.min(255, r + noiseR)),
+      Math.max(0, Math.min(255, g + noiseG)),
+      Math.max(0, Math.min(255, b + noiseB)),
+      a
+    ];
+  }
+  
+  return [r, g, b, a];
 }
 
 // 🔧 DEBUG: Helper function to get current global dimensions
@@ -218,10 +458,8 @@ function colorsMatch(color1, color2) {
 
 // Fill pixels with a color using a flood fill technique.
 function flood(x, y, fillColor = c) {
-  // Check if this is a fade color that needs gradient flood fill
-  if (typeof fillColor === "string" && fillColor.startsWith("fade:")) {
-    return gradientFlood(x, y, fillColor);
-  }
+  // Note: Fade flood fill temporarily disabled during global fade system removal
+  // TODO: Implement local fade flood fill later
   
   // Get the target color of the pixel at (x, y)
   const targetColor = pixel(x, y);
@@ -268,333 +506,32 @@ function flood(x, y, fillColor = c) {
 }
 
 // Gradient flood fill for fade colors
-function gradientFlood(x, y, fadeString) {
-  // Get the target color of the pixel at (x, y)
-  const targetColor = pixel(x, y);
-  if (targetColor[3] === 0) {
-    // If the target pixel is transparent, return
-    return {
-      color: targetColor,
-      area: 0,
-    };
-  }
+// gradientFlood function temporarily removed during global fade system refactor
+// TODO: Implement local fade flood fill using the new local fade system
 
-  // Parse the fade to set up fade mode
-  const fadeColorArray = parseFade(fadeString);
-  if (!fadeColorArray) {
-    // Fallback to regular flood if fade parsing fails
-    return flood(x, y, "white");
-  }
-
-  // Set up fade mode
-  const oldFadeMode = fadeMode;
-  const oldFadeColors = fadeColors.slice();
-  const oldFadeDirection = fadeDirection;
-  const oldFadeNeat = fadeNeat;
-  
-  fadeMode = true;
-  fadeColors = fadeColorArray;
-  
-  let count = 0;
-  const visited = new Set();
-  const stack = [[x, y]];
-  const pixels = [];
-  
-  // First pass: collect all pixels to be filled
-  while (stack.length) {
-    const [cx, cy] = stack.pop();
-    const key = `${cx},${cy}`;
-
-    if (visited.has(key)) continue;
-    visited.add(key);
-
-    const currentColor = pixel(cx, cy);
-    if (colorsMatch(currentColor, targetColor)) {
-      count++;
-      pixels.push([cx, cy]);
-
-      stack.push([cx + 1, cy]); // Push neighbors to stack.
-      stack.push([cx - 1, cy]);
-      stack.push([cx, cy + 1]);
-      stack.push([cx, cy - 1]);
-    }
-  }
-
-  // Calculate bounding box of filled area
-  if (pixels.length > 0) {
-    const minX = Math.min(...pixels.map(p => p[0]));
-    const maxX = Math.max(...pixels.map(p => p[0]));
-    const minY = Math.min(...pixels.map(p => p[1]));
-    const maxY = Math.max(...pixels.map(p => p[1]));
-    
-    const fillWidth = maxX - minX;
-    const fillHeight = maxY - minY;
-
-    // Second pass: fill each pixel with the appropriate gradient color
-    for (const [px, py] of pixels) {
-      let t = 0;
-      
-      // Calculate gradient position based on direction
-      if (fadeDirection === "vertical" || fadeDirection === "vertical-reverse") {
-        t = fillHeight > 0 ? (py - minY) / fillHeight : 0;
-        if (fadeDirection === "vertical-reverse") t = 1 - t;
-      } else if (fadeDirection === "diagonal" || fadeDirection === "diagonal-reverse") {
-        t = (fillWidth + fillHeight > 0) ? ((px - minX) + (py - minY)) / (fillWidth + fillHeight) : 0;
-        if (fadeDirection === "diagonal-reverse") t = 1 - t;
-      } else if (!isNaN(parseFloat(fadeDirection))) {
-        // Numeric angle
-        const angle = parseFloat(fadeDirection);
-        const radians = (angle * Math.PI) / 180;
-        const centerX = minX + fillWidth / 2;
-        const centerY = minY + fillHeight / 2;
-        const relX = px - centerX;
-        const relY = py - centerY;
-        const projection = relX * Math.cos(radians) + relY * Math.sin(radians);
-        const maxProjection = Math.max(fillWidth, fillHeight) / 2;
-        t = maxProjection > 0 ? (projection + maxProjection) / (2 * maxProjection) : 0;
-      } else {
-        // Default horizontal
-        t = fillWidth > 0 ? (px - minX) / fillWidth : 0;
-        if (fadeDirection === "horizontal-reverse") t = 1 - t;
-      }
-      
-      // Get the fade color for this position
-      const gradientColor = getFadeColor(t, px, py);
-      color(...gradientColor);
-      plot(px, py);
-    }
-  }
-
-  // Restore old fade state
-  fadeMode = oldFadeMode;
-  fadeColors = oldFadeColors;
-  fadeDirection = oldFadeDirection;
-  fadeNeat = oldFadeNeat;
-
-  return {
-    color: targetColor,
-    area: count,
-  };
-}
-
-// 📚 DOCUMENTATION: Parse a fade string like "fade:blue-white" or "fade:red-yellow-blue:vertical"
-// Used by findColor() which is called from ink() in disk.mjs
-// Returns array of RGBA color arrays or null if invalid
-// Supports direction syntax: "fade:red-blue:vertical", "fade:red-blue:horizontal-reverse", etc.
-// Also supports numeric angles: "fade:red-blue:0" (0-360 degrees, where 0=right-to-left, 90=top-to-bottom, etc.)
-// Supports neat modifier: "fade:neat:red-blue" or "fade:red-blue:neat" for clean gradients without noise
-// totalAlpha parameter applies to all colors in the fade (e.g., from "fade:red-blue 128")
-function parseFade(fadeString, totalAlpha = 255) {
-  const parts = fadeString.split(":");
-  if (parts.length < 2 || parts.length > 4 || parts[0] !== "fade") {
-    return null;
-  }
-  
-  // Check for neat modifier
-  let isNeat = false;
-  let fadeType = parts[1];
-  let direction = parts[2] || "horizontal";
-  
-  // Handle different neat syntax positions
-  if (parts[1] === "neat" && parts[2]) {
-    // Format: fade:neat:red-blue or fade:neat:red-blue:vertical
-    isNeat = true;
-    fadeType = parts[2];
-    direction = parts[3] || "horizontal";
-  } else if (parts[2] === "neat") {
-    // Format: fade:red-blue:neat
-    isNeat = true;
-    direction = "horizontal";
-  } else if (parts[3] === "neat") {
-    // Format: fade:red-blue:vertical:neat
-    isNeat = true;
-    direction = parts[2];
-  } else if (parts.length > 2 && (parts[2] === "neat" || parts[parts.length - 1] === "neat")) {
-    // Handle neat anywhere in the string
-    isNeat = true;
-    // Remove neat from parts and reconstruct
-    const filteredParts = parts.filter(p => p !== "neat");
-    if (filteredParts.length >= 2) {
-      fadeType = filteredParts[1];
-      direction = filteredParts[2] || "horizontal";
-    }
-  }
-  
-  // Store direction and neat flag globally for use in getFadeColor
-  fadeDirection = direction;
-  fadeNeat = isNeat;
-  
-  // Use the totalizing alpha parameter instead of global fadeAlpha state
-  const defaultAlpha = totalAlpha;
-  
-  // Predefined fade types - removed sunset, ocean, fire as requested
-  const predefinedFades = {
-    // All predefined fades removed
-  };
-  
-  // Check if it's a predefined fade
-  if (predefinedFades[fadeType]) {
-    const colors = [];
-    for (const colorStr of predefinedFades[fadeType]) {
-      const color = cssColors[colorStr];
-      if (color) {
-        colors.push([...color.slice(0, 3), defaultAlpha]); // Use override alpha or 255
-      }
-    }
-    return colors.length >= 2 ? colors : null;
-  }
-  
-  // Handle custom color-color format (e.g., "red-blue", "c0-c1")
-  const colorParts = fadeType.split("-");
-  if (colorParts.length >= 2) {
-    const colors = [];
-    for (const colorStr of colorParts) {
-      const trimmed = colorStr.trim();
-      
-      // Try color index first (c0, c1, p0, etc.)
-      const indexColor = parseColorIndex(trimmed);
-      if (indexColor && indexColor[0] !== "rainbow") {
-        // Validate that we have valid RGB values
-        if (indexColor.length >= 3 && 
-            indexColor[0] !== undefined && 
-            indexColor[1] !== undefined && 
-            indexColor[2] !== undefined) {
-          colors.push([...indexColor.slice(0, 3), defaultAlpha]); // Use override alpha
-        }
-      } else if (indexColor && indexColor[0] === "rainbow") {
-        // Handle rainbow palette - mark as special dynamic color
-        colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
-      } else if (indexColor && indexColor[0] === "zebra") {
-        // Handle zebra palette - mark as special dynamic color
-        colors.push(["zebra", defaultAlpha]); // Include alpha in zebra marker
-      } else {
-        // Check for direct rainbow or zebra first
-        if (trimmed === "rainbow") {
-          colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
-        } else if (trimmed === "zebra") {
-          colors.push(["zebra", defaultAlpha]); // Include alpha in zebra marker
-        } else {
-          // Fall back to CSS colors or hex
-          const color = cssColors[trimmed] || hexToRgb(trimmed);
-          if (color && color.length >= 3 && 
-              color[0] !== undefined && 
-              color[1] !== undefined && 
-              color[2] !== undefined) {
-            colors.push([...color.slice(0, 3), defaultAlpha]); // Use override alpha
-          }
-        }
-      }
-    }
-    return colors.length >= 2 ? colors : null;
-  }
-  
-  return null;
-}
-
-// 📚 DOCUMENTATION: Get interpolated color from fade based on position (0-1)
-// Called during line/box drawing when fadeMode is active
-// Supports multi-color fades with linear interpolation
-// x, y are optional pixel coordinates for position-based noise
-function getFadeColor(t, x = 0, y = 0) {
-  if (!fadeMode || fadeColors.length < 2) {
-    return c.slice();
-  }
-  
-  // Update rainbow color once per drawing operation if needed
-  if (currentRainbowColor === null && fadeColors.some(color => color[0] === "rainbow")) {
-    currentRainbowColor = rainbow();
-  }
-  
-  // Update zebra colors with offsets for stripes - generate multiple zebra colors
-  const zebraInstances = fadeColors.filter(color => color[0] === "zebra");
-  if (currentZebraColor === null && zebraInstances.length > 0) {
-    // For multiple zebra instances, create alternating colors for stripes
-    currentZebraColor = zebra(); // Get the base zebra color
-  }
-  
-  // Clamp t to 0-1 range
-  t = Math.max(0, Math.min(1, t));
-  
-  // Find which segment of the fade we're in
-  const segmentCount = fadeColors.length - 1;
-  const segmentIndex = Math.floor(t * segmentCount);
-  const segmentT = (t * segmentCount) - segmentIndex;
-  
-  // Safety check for empty fadeColors
-  if (fadeColors.length === 0) {
-    console.warn("🚨 FADE ERROR: fadeColors is empty, returning default color");
-    return [255, 255, 255, 255]; // Return white as fallback
-  }
-  
-  let startColor = fadeColors[Math.min(segmentIndex, fadeColors.length - 1)];
-  let endColor = fadeColors[Math.min(segmentIndex + 1, fadeColors.length - 1)];
-  
-  // Handle dynamic rainbow colors using cached color
-  if (startColor[0] === "rainbow") {
-    startColor = [...currentRainbowColor, startColor[1] || 255]; // Use stored alpha or default
-  } else if (startColor[0] === "zebra") {
-    // Calculate zebra offset based on position in fade for stripes
-    const zebraOffset = fadeColors.slice(0, segmentIndex).filter(color => color[0] === "zebra").length;
-    const zebraColor = zebra(zebraOffset);
-    startColor = [...zebraColor, startColor[1] || 255]; // Use offset zebra color
-  }
-  if (endColor[0] === "rainbow") {
-    endColor = [...currentRainbowColor, endColor[1] || 255]; // Use stored alpha or default
-  } else if (endColor[0] === "zebra") {
-    // Calculate zebra offset based on position in fade for stripes
-    const zebraOffset = fadeColors.slice(0, segmentIndex + 1).filter(color => color[0] === "zebra").length;
-    const zebraColor = zebra(zebraOffset);
-    endColor = [...zebraColor, endColor[1] || 255]; // Use offset zebra color
-  }
-  
-  // Linear interpolation between colors with optional film-grain-like noise
-  let result;
-  
-  if (fadeNeat) {
-    // Clean gradient without noise
-    result = [
-      Math.round(lerp(startColor[0], endColor[0], segmentT)),
-      Math.round(lerp(startColor[1], endColor[1], segmentT)),
-      Math.round(lerp(startColor[2], endColor[2], segmentT)),
-      Math.round(lerp(startColor[3], endColor[3], segmentT)) // Interpolate alpha naturally
-    ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
-  } else {
-    // Apply subtle film-grain noise for organic look
-    const grainIntensity = 2.5; // Very subtle grain amount
-    
-    // Create multiple layers of noise using hash functions for organic grain
-    const hash1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-    const hash2 = Math.sin(x * 93.9898 + y * 67.345) * 28461.1398;
-    const hash3 = Math.sin(x * 15.1234 + y * 42.789) * 91735.2468;
-    
-    // Extract fractional parts and convert to -1 to 1 range
-    const grain1 = (hash1 - Math.floor(hash1)) * 2 - 1;
-    const grain2 = (hash2 - Math.floor(hash2)) * 2 - 1;
-    const grain3 = (hash3 - Math.floor(hash3)) * 2 - 1;
-    
-    // Blend different grain patterns for complexity
-    const finalGrain = (grain1 * 0.5 + grain2 * 0.3 + grain3 * 0.2);
-    
-    // Apply slightly different grain amounts per channel for subtle color variation
-    const rGrain = finalGrain * grainIntensity;
-    const gGrain = finalGrain * grainIntensity * 0.8; // Slightly less in green
-    const bGrain = finalGrain * grainIntensity * 1.2; // Slightly more in blue
-    
-    result = [
-      Math.round(lerp(startColor[0], endColor[0], segmentT) + rGrain),
-      Math.round(lerp(startColor[1], endColor[1], segmentT) + gGrain),
-      Math.round(lerp(startColor[2], endColor[2], segmentT) + bGrain),
-      Math.round(lerp(startColor[3], endColor[3], segmentT)) // Interpolate alpha naturally
-    ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
-  }
-  
-  return result;
-}
+// getFadeColor function removed - everything uses local getLocalFadeColor now!
 
 // Reset rainbow and zebra cache for new drawing operations
 function resetRainbowCache() {
   currentRainbowColor = null;
   currentZebraColor = null;
+}
+
+// Legacy getFadeColor function (for backward compatibility)
+// New code should use getLocalFadeColor instead
+function getFadeColor(t, x = 0, y = 0) {
+  if (!fadeMode || fadeColors.length < 2) {
+    return c.slice(); // Return current color if no fade
+  }
+  
+  // For backward compatibility, create local fade info and use local function
+  const fadeInfo = {
+    colors: fadeColors,
+    direction: fadeDirection,
+    neat: fadeNeat
+  };
+  
+  return getLocalFadeColor(t, x, y, fadeInfo);
 }
 
 // Parse a color from a variety of inputs..
@@ -608,27 +545,16 @@ function findColor() {
     const isFadeObject = () => typeof args[0] === "object" && args[0] !== null && args[0].type === "fade";
     const isBool = typeof args[0] === "boolean";
 
-    // Handle fade objects (from parseColor)
+    // Handle fade objects (from parseColor) - now completely local
     if (isFadeObject()) {
-      console.log("🌈 FINDCOLOR: Processing fade object:", args[0]);
       const fadeObj = args[0];
-      const fadeColorArray = parseFade(fadeObj.fadeString, fadeObj.alpha || 255);
-      if (fadeColorArray) {
-        fadeMode = true;
-        fadeColors = fadeColorArray;
-        resetRainbowCache(); // Reset for new fade operation
-        console.log("🌈 FINDCOLOR: Fade object processed successfully, fadeMode:", fadeMode, "fadeColors:", fadeColors);
-        console.log("🌈 FINDCOLOR: Setting fadeMode=true, should be constrained to shape bounds");
-        return fadeColorArray[0]; // Return first color as base
-      }
+      // Create fade color array format for local detection
+      const fadeColorArray = [fadeObj.fadeString, fadeObj.alpha || 255];
+      return fadeColorArray; // Return as is for local processing
     }
 
     if (isBool) {
-      // Reset fade mode for non-fade colors
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
+      // No more global fade state to reset
       resetRainbowCache();
       return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
     }
@@ -640,11 +566,7 @@ function findColor() {
 
     // Single number argument.
     if (isNumber()) {
-      // Reset fade mode for non-fade colors
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
+      // No more global fade state to reset
       resetRainbowCache();
       
       // Treat as raw hex if we hit a certain limit.
@@ -656,38 +578,16 @@ function findColor() {
         args.push(args[0], args[0]);
       }
     } else if (isArray()) {
-      // Check if this looks like a fade alpha setting (single number array)
-      const isFadeAlpha = args[0].length === 1 && typeof args[0][0] === 'number';
-      
-      if (!isFadeAlpha) {
-        // Reset fade mode for non-fade colors only if it's not a fade alpha
-        fadeMode = false;
-        fadeColors = [];
-        fadeDirection = "horizontal";
-        fadeNeat = false;
-        resetRainbowCache();
-      }
-      
-      // Or if it's an array, then spread it out and re-ink.
-      // args = args[0];
+      // No more global fade state handling needed
       return findColor(...args[0]);
     } else if (isString()) {
       // Check for fade syntax first (for direct fade strings)
       if (args[0].startsWith("fade:")) {
-        const fadeColorArray = parseFade(args[0], 255); // Default alpha for direct strings
-        if (fadeColorArray) {
-          fadeMode = true;
-          fadeColors = fadeColorArray;
-          resetRainbowCache(); // Reset for new fade operation
-          return fadeColorArray[0]; // Return first color as base
-        }
+        // Return as fade color array for local processing
+        return [args[0], 255]; // Default alpha for direct strings
       }
       
-      // Reset fade mode for non-fade strings
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
+      // No more global fade state to reset
       resetRainbowCache();
       
       // FIRST: Check for color index format like "c0", "c1", "p0", etc.
@@ -740,25 +640,10 @@ function findColor() {
     } else if (typeof args[0] === "string") {
       // Check for fade syntax with alpha
       if (args[0].startsWith("fade:")) {
-        const fadeColorArray = parseFade(args[0]);
-        if (fadeColorArray) {
-          fadeMode = true;
-          fadeColors = fadeColorArray.map(color => {
-            if (color[0] === "rainbow") {
-              return ["rainbow", computeAlpha(args[1])]; // Preserve rainbow marker with alpha
-            } else {
-              return [...color.slice(0, 3), computeAlpha(args[1])]; // Apply alpha to static colors
-            }
-          });
-          // Don't override fadeDirection here - it's already set by parseFade()
-          resetRainbowCache(); // Reset for new fade operation
-          // For return value, handle rainbow specially
-          if (fadeColorArray[0][0] === "rainbow") {
-            return [...rainbow(), computeAlpha(args[1])];
-          } else {
-            return [...fadeColorArray[0].slice(0, 3), computeAlpha(args[1])]; // Return first color with alpha
-          }
-        }
+        // Return local fade info instead of setting global state
+        const fadeString = args[0];
+        const alpha = computeAlpha(args[1] || 255);
+        return [fadeString, alpha]; // Return as fade color array for local processing
       }
       
       // Check for color index format with alpha
@@ -802,6 +687,14 @@ function findColor() {
   // Debug: Check for problematic color values and filter out timing expressions
   if (args.some(val => val === undefined || isNaN(val) || (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
     console.log("WARNING: Invalid color values detected:", args);
+    
+    // Check if this contains a fade string that got passed incorrectly
+    const fadeString = args.find(val => typeof val === 'string' && val.startsWith('fade:'));
+    if (fadeString) {
+      // Return fade color array format
+      const alpha = args.find(val => typeof val === 'number' && !isNaN(val)) || 255;
+      return [fadeString, alpha];
+    }
     
     // Filter out timing expressions that were incorrectly passed as color arguments
     args = args.filter(val => !(typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)));
@@ -862,11 +755,27 @@ function setColor(r, g, b, a = 255) {
 function color(r, g, b, a = 255) {
   if (arguments.length === 0) return c.slice();
   
-  // Only reset fade mode if this isn't a fade color (check if fadeMode was just set)
-  if (!fadeMode) {
-    fadeColors = [];
-    fadeDirection = "horizontal";
+  // Check if this is a fade color string (when called as color("fade:red-lime", 255))
+  if (typeof r === 'string' && r.startsWith('fade:')) {
+    // Store the fade color array directly in c for box() to detect
+    c[0] = r; // fade string
+    c[1] = g || 255; // alpha from second argument
+    c[2] = 0; // unused for fade
+    c[3] = 255; // default alpha fallback
+    return c.slice();
   }
+  
+  // Check if this is a fade color array format (when called as color(["fade:red-lime", 255]))
+  if (arguments.length === 1 && Array.isArray(r) && typeof r[0] === 'string' && r[0].startsWith('fade:')) {
+    // Store the fade color array directly in c for box() to detect
+    c[0] = r[0]; // fade string
+    c[1] = r[1] || 255; // alpha
+    c[2] = 0; // unused for fade
+    c[3] = 255; // default alpha fallback
+    return c.slice();
+  }
+  
+  // No more global fade state to manage - everything is local now!
   
   return setColor(r, g, b, a);
 }
@@ -1015,60 +924,8 @@ function clear() {
     maxY = activeMask.y + activeMask.height;
   }
 
-  if (fadeMode && fadeColors.length > 1) {
-    // Debug: Log fade clear operation
-    // Fade clear debug log removed for performance
-    
-    // Clear with fade gradient
-    const areaWidth = maxX - minX;
-    const areaHeight = maxY - minY;
-    
-    for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const i = (y * width + x) * 4;
-        
-        // Calculate fade position based on direction
-        let t;
-        
-        // Evaluate fadeDirection dynamically
-        const evaluatedDirection = evaluateFadeDirection(fadeDirection);
-        
-        // Debug logs removed for performance
-        
-        // Check if evaluatedDirection is a numeric angle (0-360)
-        const numericAngle = parseFloat(evaluatedDirection);
-        if (!isNaN(numericAngle)) {
-          // Use angle-based calculation - debug logs removed for performance
-          t = calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, numericAngle);
-        } else {
-          // Use named direction - debug logs removed for performance
-          if (evaluatedDirection === "vertical") {
-            t = areaHeight > 1 ? (y - minY) / (areaHeight - 1) : 0;
-          } else if (evaluatedDirection === "vertical-reverse") {
-            t = areaHeight > 1 ? 1 - ((y - minY) / (areaHeight - 1)) : 0;
-          } else if (evaluatedDirection === "horizontal") {
-            t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
-          } else if (evaluatedDirection === "horizontal-reverse") {
-            t = areaWidth > 1 ? 1 - ((x - minX) / (areaWidth - 1)) : 0;
-          } else if (evaluatedDirection === "diagonal") {
-            t = areaWidth + areaHeight > 2 ? ((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1)) : 0;
-          } else if (evaluatedDirection === "diagonal-reverse") {
-            t = areaWidth + areaHeight > 2 ? 1 - (((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1))) : 0;
-          } else { // default to horizontal
-            t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
-          }
-        }
-        
-        // Get interpolated color for this position
-        const fadeColor = getFadeColor(t, x, y);
-        
-        pixels[i] = fadeColor[0]; // r
-        pixels[i + 1] = fadeColor[1]; // g
-        pixels[i + 2] = fadeColor[2]; // b
-        pixels[i + 3] = fadeColor[3]; // alpha
-      }
-    }
-  } else if (activeMask) {
+  // Simple clear - no fade logic since we use local fade system now
+  if (activeMask) {
     // Clear only the masked area with solid color
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
@@ -3407,11 +3264,26 @@ function box() {
     w -= 1;
     const cachedInk = c.slice(0);
     
+    // 🎨 NEW LOCAL FADE HANDLING: Check if current color is a fade
+    const fadeInfo = parseFadeColor(c);
+    const isLocalFade = fadeInfo !== null;
+    
+    // console.log("📦 BOX DEBUG: Local fade detection", {
+    //   "current color c": c,
+    //   "c[0]": c[0],
+    //   "typeof c[0]": typeof c[0],
+    //   "c[0] startsWith fade": typeof c[0] === 'string' ? c[0].startsWith('fade:') : 'not string',
+    //   "fadeInfo": fadeInfo,
+    //   "isLocalFade": isLocalFade,
+    //   "global fadeMode": fadeMode,
+    //   "global fadeColors": fadeColors.length > 0 ? fadeColors : "empty"
+    // });
+    
     if (sign(height) === 1) {
       for (let row = 0; row < h; row += 1) {
-        if (fadeMode) {
-          // Check if fadeDirection is a numeric angle (0-360)
-          const numericAngle = parseFloat(fadeDirection);
+        if (isLocalFade) {
+          // Use local fade info instead of global fade state
+          const numericAngle = parseFloat(fadeInfo.direction);
           
           if (!isNaN(numericAngle)) {
             // For numeric angles, we need to calculate fade per pixel
@@ -3423,35 +3295,43 @@ function box() {
               // Use the same calculateAngleFadePosition function as clear()
               const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
               
-              const fadeColor = getFadeColor(t, pixelX, pixelY);
-              if (col === 0 && row === 0) { // Only log first pixel to avoid spam
-                // BOX DEBUG fadeColor log removed for performance
-              }
+              // Calculate fade color locally without setting global state
+              const fadeColor = getLocalFadeColor(t, pixelX, pixelY, fadeInfo);
               setColor(...fadeColor);
               plot(pixelX, pixelY);
             }
           } else {
             // Use named direction
             let t;
-            if (fadeDirection === "vertical") {
-              t = row / (h - 1);
-            } else if (fadeDirection === "vertical-reverse") {
-              t = 1 - (row / (h - 1)); // Reverse the direction
-            } else if (fadeDirection === "horizontal") {
+            if (fadeInfo.direction === "vertical") {
+              t = h <= 1 ? 0 : row / (h - 1);
+            } else if (fadeInfo.direction === "vertical-reverse") {
+              t = h <= 1 ? 0 : 1 - (row / (h - 1)); // Reverse the direction
+            } else if (fadeInfo.direction === "horizontal") {
               t = 0; // Will be calculated per pixel in line drawing
-            } else if (fadeDirection === "horizontal-reverse") {
+            } else if (fadeInfo.direction === "horizontal-reverse") {
               t = 0; // Will be calculated per pixel in line drawing
             } else { // diagonal, etc.
-              t = row / (h - 1);
+              t = h <= 1 ? 0 : row / (h - 1);
             }
             
-            if (fadeDirection.startsWith("horizontal")) {
-              // For horizontal fades, we need to draw with gradient per line
-              // This will be handled in the line() function
-              line(x, y + row, x + w, y + row);
+            if (fadeInfo.direction.startsWith("horizontal")) {
+              // For horizontal fades, draw pixels individually with local fade colors
+              const lineY = y + row;
+              for (let px = x; px < x + w; px++) {
+                // Prevent division by zero for single-pixel width
+                const horizontalT = w <= 1 ? 0 : (
+                  fadeInfo.direction === "horizontal-reverse" 
+                    ? 1 - ((px - x) / (w - 1))
+                    : (px - x) / (w - 1)
+                );
+                const fadeColor = getLocalFadeColor(horizontalT, px, lineY, fadeInfo);
+                setColor(...fadeColor);
+                plot(px, lineY);
+              }
             } else {
               // For vertical fades, set color once per row
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getLocalFadeColor(t, x, y + row, fadeInfo);
               setColor(...fadeColor);
               line(x, y + row, x + w, y + row);
             }
@@ -3462,9 +3342,9 @@ function box() {
       }
     } else {
       for (let row = 0; row > h; row -= 1) {
-        if (fadeMode) {
-          // Check if fadeDirection is a numeric angle (0-360)
-          const numericAngle = parseFloat(fadeDirection);
+        if (isLocalFade) {
+          // Use local fade info instead of global fade state
+          const numericAngle = parseFloat(fadeInfo.direction);
           
           if (!isNaN(numericAngle)) {
             // For numeric angles, we need to calculate fade per pixel
@@ -3476,32 +3356,48 @@ function box() {
               // Use the same calculateAngleFadePosition function as clear()
               const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
               
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getLocalFadeColor(t, pixelX, pixelY, fadeInfo);
               setColor(...fadeColor);
               plot(pixelX, pixelY);
             }
           } else {
             // Use named direction
             let t;
-            if (fadeDirection === "vertical") {
+            if (fadeInfo.direction === "vertical") {
               t = Math.abs(row) / Math.abs(h - 1);
-            } else if (fadeDirection === "vertical-reverse") {
+            } else if (fadeInfo.direction === "vertical-reverse") {
               t = 1 - (Math.abs(row) / Math.abs(h - 1));
-            } else if (fadeDirection === "horizontal") {
+            } else if (fadeInfo.direction === "horizontal") {
               t = 0; // Will be calculated per pixel in line drawing
-            } else if (fadeDirection === "horizontal-reverse") {
+            } else if (fadeInfo.direction === "horizontal-reverse") {
               t = 0; // Will be calculated per pixel in line drawing
             } else { // diagonal, etc.
               t = Math.abs(row) / Math.abs(h - 1);
             }
             
-            if (fadeDirection.startsWith("horizontal")) {
-              // For horizontal fades, we need to draw with gradient per line
-              // This will be handled in the line() function
+            if (fadeInfo.direction.startsWith("horizontal")) {
+              // For horizontal fades, we need to temporarily set up fade state for line()
+              // TODO: Update line() function to also use local fade handling
+              const savedFadeMode = fadeMode;
+              const savedFadeColors = fadeColors.slice();
+              const savedFadeDirection = fadeDirection;
+              const savedFadeNeat = fadeNeat;
+              
+              fadeMode = true;
+              fadeColors = fadeInfo.colors;
+              fadeDirection = fadeInfo.direction;
+              fadeNeat = fadeInfo.neat;
+              
               line(x, y + row, x + w, y + row);
+              
+              // Restore previous fade state
+              fadeMode = savedFadeMode;
+              fadeColors = savedFadeColors;
+              fadeDirection = savedFadeDirection;
+              fadeNeat = savedFadeNeat;
             } else {
               // For vertical fades, set color once per row
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getLocalFadeColor(t, x, y + row, fadeInfo);
               setColor(...fadeColor);
               line(x, y + row, x + w, y + row);
             }
@@ -3511,8 +3407,6 @@ function box() {
         }
       }
     }
-    
-    if (fadeMode) setColor(...cachedInk);
   }
   
   graphPerf.track('box', performance.now() - boxStart); // 🚨 PERFORMANCE TRACKING
