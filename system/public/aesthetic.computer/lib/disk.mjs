@@ -31,7 +31,8 @@ import {
 } from "./helpers.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
-import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act, nopaint_is, nopaint_renderPerfHUD, nopaint_triggerBakeFlash } from "../systems/nopaint.mjs";
+import { getPreserveFadeAlpha, setPreserveFadeAlpha } from "./fade-state.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
 import { headers } from "./headers.mjs";
@@ -130,6 +131,7 @@ let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
+let nopaintPerf = true; // Performance panel for nopaint system debugging - enabled for testing
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 let TEIA_MODE = false; // Will be set during init-from-bios
 
@@ -456,19 +458,26 @@ function enableFrameBasedMonitoring() {
         height: $commonApi.system.painting.height
       };
       
+      // Add detailed logging for nopaint interference detection
+      const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+      const nopaintBuffer = $commonApi.system?.nopaint?.buffer;
+      
       if (lastPaintingHash !== null && currentHash !== lastPaintingHash) {
-        console.log(`🎨 FRAME-DETECTED: Painting change (${lastPaintingHash?.substr(0,6)} → ${currentHash?.substr(0,6)})`);
-        
         // Check if this is a dimension change (resize operation)
         const isDimensionChange = lastDimensions && 
           (lastDimensions.width !== currentDimensions.width || 
            lastDimensions.height !== currentDimensions.height);
         
-        // Immediate broadcast with appropriate source
-        $commonApi.broadcastPaintingUpdateImmediate("frame_update", {
-          source: isDimensionChange ? "resize" : "frame_monitor",
-          hash: currentHash.substr(0,8)
-        });
+        // Skip broadcasting during active nopaint operations to prevent interference
+        if (isNopaintActive) {
+          console.log(`🚫 SKIPPING broadcast during nopaint operation to prevent live preview interference`);
+        } else {
+          // Immediate broadcast with appropriate source
+          $commonApi.broadcastPaintingUpdateImmediate("frame_update", {
+            source: isDimensionChange ? "resize" : "frame_monitor",
+            hash: currentHash.substr(0,8)
+          });
+        }
       }
       
       lastPaintingHash = currentHash;
@@ -481,7 +490,7 @@ function enableFrameBasedMonitoring() {
   }
   
   requestAnimationFrame(checkPaintingChanges);
-  // Frame-based painting monitoring enabled silently
+  console.log(`🎨 Frame-based painting monitoring enabled with nopaint interference protection`);
 }
 
 // 🎨 Broadcast throttling to prevent infinite loops
@@ -1693,20 +1702,26 @@ const $commonApi = {
         const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
         const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
 
-        if (act === "touch") system.nopaint.startDrag = { x, y };
+        if (act === "touch") {
+          system.nopaint.startDrag = { x, y };
+        }
+
+        // Ensure startDrag exists before creating dragBox
+        if (!system.nopaint.startDrag) {
+          system.nopaint.startDrag = { x, y };
+        }
 
         const dragBox = new geo.Box(
           system.nopaint.startDrag.x,
           system.nopaint.startDrag.y,
-          x -
-            system.nopaint.startDrag.x +
-            (x >= system.nopaint.startDrag.x ? 1 : -1),
-          y -
-            system.nopaint.startDrag.y +
-            (y >= system.nopaint.startDrag.y ? 1 : -1),
+          x - system.nopaint.startDrag.x,
+          y - system.nopaint.startDrag.y,
         );
 
         system.nopaint.brush = { x, y, dragBox, pressure: pen.pressure };
+        
+        // Call needsPaint during any pen movement to ensure continuous painting and HUD updates
+        $commonApi.needsPaint();
       },
 
       // Helper to display the existing painting on the screen, with an
@@ -1716,7 +1731,7 @@ const $commonApi = {
       //       - [] And Rotation!
 
       present: (
-        { system, screen, wipe, paste, ink, slug, dark, theme },
+        { system, screen, wipe, paste, ink, slug, dark, theme, blend },
         tx,
         ty,
       ) => {
@@ -1735,14 +1750,18 @@ const $commonApi = {
 
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
-          paste(system.painting).paste(system.nopaint.buffer);
+          paste(system.painting);
+          paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
 
           wipe(theme[dark ? "dark" : "light"].wipeBG)
-            .paste(system.painting, x, y, system.nopaint.zoomLevel)
-            .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
-            .ink(128)
+            .paste(system.painting, x, y, system.nopaint.zoomLevel);
+            
+          // Normal alpha blending for overlay buffer
+          paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel);
+          
+          ink(128)
             .box(
               x,
               y,
@@ -1751,6 +1770,41 @@ const $commonApi = {
               "outline",
             );
         }
+
+        // 🎯 DEBUG: Draw dragBox overlay if one exists (COMMENTED OUT)
+        /*
+        if (system.nopaint.brush?.dragBox) {
+          const dragBox = system.nopaint.brush.dragBox;
+          
+          // Apply zoom and translation to the dragBox coordinates
+          const overlayX = (dragBox.x * system.nopaint.zoomLevel) + x;
+          const overlayY = (dragBox.y * system.nopaint.zoomLevel) + y;
+          const overlayW = dragBox.w * system.nopaint.zoomLevel;
+          const overlayH = dragBox.h * system.nopaint.zoomLevel;
+          
+          // Draw the dragBox outline in bright green with some transparency
+          ink(0, 255, 0, 180).box(overlayX, overlayY, overlayW, overlayH, "outline");
+          
+          // Draw corner indicators
+          const cornerSize = 4;
+          ink(0, 255, 0, 220);
+          // Top-left corner
+          ink().box(overlayX - cornerSize/2, overlayY - cornerSize/2, cornerSize, cornerSize);
+          // Top-right corner  
+          ink().box(overlayX + overlayW - cornerSize/2, overlayY - cornerSize/2, cornerSize, cornerSize);
+          // Bottom-left corner
+          ink().box(overlayX - cornerSize/2, overlayY + overlayH - cornerSize/2, cornerSize, cornerSize);
+          // Bottom-right corner
+          ink().box(overlayX + overlayW - cornerSize/2, overlayY + overlayH - cornerSize/2, cornerSize, cornerSize);
+          
+          // Display coordinate info
+          const coordText = `${dragBox.x},${dragBox.y} ${dragBox.w}x${dragBox.h}`;
+          ink(0, 255, 0, 200).write(coordText, { 
+            x: overlayX, 
+            y: Math.max(overlayY - 15, 5) // Position above the box, but not off screen
+          }, undefined, undefined, false, "MatrixChunky8");
+        }
+        */
 
         // Graph `zoomLevel`
         if (system.nopaint.zoomLevel !== 1 && slug !== "prompt")
@@ -2217,10 +2271,7 @@ const $commonApi = {
         const filename = levelOrFilename;
         const content = args[0];
         
-        // Always log locally first
-        console.log(`📝 File log ${filename}:`, content);
-        
-        // Send to session server if socket is available
+        // Send to session server if socket is available (removed verbose console log)
         if (socket && socket.send) {
           socket.send("dev-log", {
             level: "INFO",
@@ -2277,6 +2328,7 @@ const $commonApi = {
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
   debug,
+  nopaintPerf,
 };
 
 // Convenience methods for different log levels
@@ -2304,6 +2356,13 @@ async function processMessage(msg) {
   
   // 🎨 Handle painting updates (both new JSON format and legacy string format)
   if (msg.startsWith("painting:") || (msg.startsWith("{") && msg.includes('"type":"painting:updated"'))) {
+    const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+    if (isNopaintActive) {
+      console.log(`🚫 CROSS-TAB INTERFERENCE: Receiving painting update during nopaint operation - this may disrupt live preview!`, {
+        msgPreview: msg.substring(0, 100) + '...',
+        nopaintState: 'painting'
+      });
+    }
     await handlePaintingUpdate(msg);
     return;
   }
@@ -2541,6 +2600,16 @@ $commonApi.broadcast = (msg) => {
 $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
   if (!$commonApi.system?.painting) return;
   
+  // Check if we're in a nopaint operation and log it
+  const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+  if (isNopaintActive) {
+    console.log(`🚫 NOPAINT INTERFERENCE: Attempting to broadcast "${action}" during nopaint operation - this may disrupt live preview!`, {
+      action,
+      source: data.source,
+      nopaintState: 'painting'
+    });
+  }
+  
   // Throttle broadcasts to prevent excessive messages
   const now = Date.now();
   if (now - lastBroadcastTime < broadcastThrottleDelay) {
@@ -2565,7 +2634,12 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
     ...data
   };
   
-  // Broadcasting silently
+  console.log(`🎨 Broadcasting: ${action} [LIGHTWEIGHT]`, {
+    size: `${message.width}x${message.height}`,
+    tabId: message.tabId.substr(0, 4) + '...',
+    nopaintActive: isNopaintActive,
+    source: data.source
+  });
   
   // Only send to other tabs (exclude self)
   channel.postMessage(JSON.stringify(message));
@@ -2574,6 +2648,16 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
 // 🚀 Immediate painting broadcast - bypasses throttling for instant sync
 $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
   if (!$commonApi.system?.painting || $commonApi._processingBroadcast) return;
+  
+  // Check for nopaint interference
+  const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+  if (isNopaintActive) {
+    console.log(`🚫 IMMEDIATE NOPAINT INTERFERENCE: Attempting immediate broadcast "${action}" during nopaint operation!`, {
+      action,
+      source: data.source,
+      nopaintState: 'painting'
+    });
+  }
   
   // Performance: Skip if we just broadcasted very recently (debounce)
   const now = Date.now();
@@ -2629,12 +2713,6 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       });
     }
     
-    console.log(`🎨 STORED painting:`, {
-      width: $commonApi.system.painting.width,
-      height: $commonApi.system.painting.height,
-      pixelCount: $commonApi.system.painting.pixels.length,
-      firstPixels: Array.from($commonApi.system.painting.pixels.slice(0, 12)) // First 3 pixels (RGBA)
-    });
   }, 0);
   
   // Update hash to prevent duplicate detection
@@ -3492,10 +3570,27 @@ const $paintApiUnwrapped = {
   // 2D
   wipe: function () {
     const cc = graph.c.slice(0);
-    ink(...arguments);
+    
+    // Preserve fade alpha during wipe operations to prevent clearing it
+    const preserveFadeAlpha = getPreserveFadeAlpha?.() || false;
+    if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+      setPreserveFadeAlpha(true);
+    }
+    
+    // Default to white if no arguments provided
+    if (arguments.length === 0) {
+      ink(255, 255, 255);
+    } else {
+      ink(...arguments);
+    }
     graph.clear();
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
+    
+    // Restore previous preservation state
+    if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+      setPreserveFadeAlpha(false);
+    }
   },
   // Erase the screen.
   clear: function () {
@@ -5481,21 +5576,59 @@ async function load(
 
       sim = module.sim || defaults.sim;
       paint = async ($) => {
+        let painted = false;
+        
         if (module.paint) {
-          const painted = module.paint($);
+          painted = module.paint($);
           $.system.nopaint.needsPresent = true;
+        }
 
-          // TODO: Pass in extra arguments here that flag the wipe.
-          if (chatEnabled) {
-            try {
-              const chatModule = await import("../disks/chat.mjs");
-              chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
-            } catch (err) {
-              console.log("💬 Chat disabled in TEIA mode");
-            }
-          }
+        // 🎨 OVERLAY SUPPORT: Call overlay function for preview rendering with painting coordinates
+        if (module.overlay && $.system.nopaint?.brush?.dragBox) {
+          // Transform painting coordinates to screen coordinates for direct screen rendering
+          const originalDragBox = $.system.nopaint.brush.dragBox;
+          const zoom = $.system.nopaint.zoomLevel;
+          const tx = $.system.nopaint.translation.x;
+          const ty = $.system.nopaint.translation.y;
+          
+          // Create screen-space dragBox
+          const screenDragBox = {
+            x: originalDragBox.x * zoom + tx,
+            y: originalDragBox.y * zoom + ty,
+            w: originalDragBox.w * zoom,
+            h: originalDragBox.h * zoom
+          };
+          
+          // Temporarily replace the dragBox with screen coordinates
+          const originalBrush = $.system.nopaint.brush;
+          $.system.nopaint.brush = { ...originalBrush, dragBox: screenDragBox };
+          
+          // Render overlay directly to screen buffer 
+          module.overlay($);
+          
+          // Restore original dragBox
+          $.system.nopaint.brush = originalBrush;
+        }
 
+        // 📊 Always render nopaint performance HUD if enabled (regardless of module.paint result)
+        if (system === "nopaint" && nopaintPerf) {
+          nopaint_renderPerfHUD($);
+          // Force continuous painting for nopaint system when perf HUD is enabled
+          painted = true;
+        }
+
+        if (painted) {
           return painted;
+        }
+
+        // TODO: Pass in extra arguments here that flag the wipe.
+        if (chatEnabled) {
+          try {
+            const chatModule = await import("../disks/chat.mjs");
+            chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
+          } catch (err) {
+            console.log("💬 Chat disabled in TEIA mode");
+          }
         }
       };
       beat = module.beat || defaults.beat;
@@ -5503,6 +5636,65 @@ async function load(
       filter = module.filter;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.
+        
+        // 🎯 IMMEDIATE BAKING: Fix race condition by triggering bake immediately after lift
+        const np = $.system.nopaint;
+        if (np.needsBake === true && bake) {
+          // 📊 Trigger bake flash effect and beep sound
+          nopaint_triggerBakeFlash();
+          
+          // 🔊 Microwave-style beep for bake completion
+          $commonApi.sound.synth({
+            tone: 800, // Higher pitched beep like a microwave
+            duration: 0.1,
+            attack: 0.01,
+            decay: 0.5,
+            volume: 0.3,
+          });
+          
+          // 🎨 ELEGANT BRUSH PATTERN: Call brush one final time for painting surface
+          if (brush) {
+            const finalBrushApi = { ...$ };
+            
+            // 🎯 Use preserved coordinates since brush is null at bake time
+            const preservedDragBox = $.system.nopaint.finalDragBox;
+            const preservedStartDrag = $.system.nopaint.finalStartDrag;
+            
+            if (preservedDragBox) {
+              // Create a pen object with the preserved coordinates
+              finalBrushApi.pen = {
+                dragBox: preservedDragBox,
+                x: preservedStartDrag?.x || preservedDragBox.x,
+                y: preservedStartDrag?.y || preservedDragBox.y
+              };
+            } else {
+              finalBrushApi.pen = $.system.nopaint.brush; // Fallback to original (likely null)
+            }
+            
+            finalBrushApi.lift = true; // 🎯 Single clean flag for final brush call
+            
+            $.page($.system.painting); // Set context to painting surface
+            brush(finalBrushApi); // Call brush for final painting
+            $.page($.screen); // Reset context
+          }
+          
+          $.page($.system.painting);
+          bake($);
+          
+          // 🧹 CLEAR BUFFER: Prevent flickering by clearing buffer BEFORE presentation
+          $.page($.system.nopaint.buffer).wipe(255, 255, 255, 0);
+          
+          $.page($.screen);
+          np.present($);
+          np.needsBake = false;
+          
+          // 🚀 Broadcast bake completion
+          $commonApi.broadcastPaintingUpdateImmediate("baked", {
+            source: "immediate_bake",
+            piece: loadedModule?.meta?.()?.title || "unknown"
+          });
+        }
+        
         if (module.act) {
           return module.act($);
         } else {
@@ -5667,7 +5859,17 @@ async function load(
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
       receive = module.receive || defaults.receive; // Handle messages from BIOS
-      system = module.system || null;
+      
+      // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush function, automatically use nopaint system
+      system = module.system || (module.brush ? "nopaint" : null);
+      
+      // 🎨 AUTO-GENERATE BAKE: If using brush but no explicit bake function, create a default one
+      if (module.brush && !module.bake) {
+        bake = ({ paste, system, page }) => {
+          paste(system.nopaint.buffer);
+          page(system.nopaint.buffer).wipe(255, 255, 255, 0);
+        };
+      }
 
       // delete $commonApi.system.name; // No system in use.
     }
@@ -8260,7 +8462,7 @@ async function makeFrame({ data: { type, content } }) {
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
           
-          if (system === "nopaint") nopaint_boot($api);
+          if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           booted = true;
         } catch (e) {
@@ -8341,7 +8543,7 @@ async function makeFrame({ data: { type, content } }) {
       if (
         previewMode === false &&
         iconMode === false &&
-        (noPaint === false || scream || fairies.length > 0) &&
+        (noPaint === false || scream || fairies.length > 0 || (system === "nopaint" && nopaintPerf)) &&
         booted
       ) {
         let paintOut;
@@ -8384,19 +8586,9 @@ async function makeFrame({ data: { type, content } }) {
               }
             }
 
-            if (np.needsBake === true && bake) {
-              $api.page($api.system.painting);
-              bake($api);
-              $api.page($api.screen);
-              np.present($api);
-              np.needsBake = false;
-              
-              // 🚀 Immediately broadcast bake completion for instant sync
-              $commonApi.broadcastPaintingUpdateImmediate("baked", {
-                source: "immediate_bake",
-                piece: loadedModule?.meta?.()?.title || "unknown"
-              });
-            } else if (np.is("painting") || np.needsPresent) {
+            // 🎯 BAKING MOVED TO ACT PHASE: Removed duplicate baking logic
+            // Baking now happens immediately in act() to fix race conditions
+            if (np.is("painting") || np.needsPresent) {
               np.present($api); // No Paint: prepaint
             }
           } // All: Paint

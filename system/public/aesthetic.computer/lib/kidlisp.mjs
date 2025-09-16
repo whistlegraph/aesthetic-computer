@@ -3335,40 +3335,10 @@ class KidLisp {
         
         // Set ink to the coat color
         if (typeof color === "string" && color.startsWith("fade:")) {
-          // Handle fade strings with alpha blending
-          // Instead of setting fadeAlpha globally, modify the fade string to include alpha
-          
-          // Parse the fade string to inject alpha into each color
-          const fadeParts = color.split(":");
-          if (fadeParts.length >= 2) {
-            const fadePrefix = fadeParts[0]; // "fade"
-            const colorsStr = fadeParts[1]; // "black-red-rainbow-red-black"
-            const direction = fadeParts[2] || "horizontal"; // direction or default
-            
-            // Split colors and add alpha to each one
-            const colorNames = colorsStr.split("-");
-            const alphaColorNames = colorNames.map(colorName => {
-              // For special colors like "rainbow" and "zebra", keep them as-is
-              if (colorName === "rainbow" || colorName === "zebra") {
-                return colorName;
-              }
-              // For regular colors, we'll let the graphics system handle alpha application
-              return colorName;
-            });
-            
-            // Reconstruct fade string (don't modify it, let graphics system handle alpha)
-            const finalFadeString = `${fadePrefix}:${alphaColorNames.join("-")}:${direction}`;
-            
-            // Set the fadeAlpha BEFORE calling ink so it's applied during parseFade
-            setFadeAlpha(alpha);
-            // COAT DEBUG logs removed for performance
-            api.ink?.(finalFadeString);
-          } else {
-            // Fallback for malformed fade strings
-            setFadeAlpha(alpha);
-            // COAT DEBUG logs removed for performance
-            api.ink?.(color);
-          }
+          // Handle fade strings with alpha - follow neobrush pattern
+          // Create fade color array that triggers local fade detection
+          const fadeColorArray = [color, alpha];
+          api.ink?.(fadeColorArray);
         } else {
           // Handle regular colors with alpha
           const processedColor = processArgStringTypes([color]);
@@ -3383,10 +3353,6 @@ class KidLisp {
           // COAT DEBUG logs removed for performance
           api.box(0, 0, screenWidth, screenHeight);
         }
-        
-        // Don't clear fadeAlpha immediately - let it persist for the fade parsing
-        // The fadeAlpha will be cleared by parseFade() after it's used
-        // COAT DEBUG logs removed for performance
         
         // Restore previous ink state
         if (previousInkSet) {
