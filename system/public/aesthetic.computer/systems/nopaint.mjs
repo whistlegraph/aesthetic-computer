@@ -2,7 +2,14 @@
 // This module contains *most* of the nopaint system template functionality.
 // Shared functionality can be found in `disk.mjs`.
 
-import { generateNopaintHUDLabel } from "../lib/color-highlighting.mjs";
+import { generateNopaintHUDLabel, colorizeColorName } from "../lib/color-highlighting.mjs";
+import { isFadeColor } from "../lib/num.mjs";
+
+// Utility function to strip color codes from text
+function stripColorCodes(str) {
+  if (!str) return '';
+  return str.replace(/\\[^\\]*\\/g, '');
+}
 
 let state = "idle";
 let previousState = "idle"; // Track state before panning to restore it later
@@ -57,7 +64,19 @@ function log(api, event, data = {}) {
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
-function nopaint_boot({ api, screen, system, painting, store }) {
+function nopaint_boot({ 
+  system, 
+  store, 
+  nopaint, 
+  screen, 
+  wipe, 
+  api,
+  params,
+  colon,
+  hud,
+  num,
+  painting
+}) {
   cursor.x = screen.width / 2;
   cursor.y = screen.height / 2;
   nopaint_adjust(api);
@@ -73,6 +92,45 @@ function nopaint_boot({ api, screen, system, painting, store }) {
     },
   );
 
+  // 🎨 CENTRALIZED BRUSH PARAMETER PARSING
+  if (params && num) {
+    // Parse color centrally for all brushes
+    system.nopaint.color = num.parseColor(params);
+    
+    // 🔍 DEBUG: Check what we're working with
+    console.log("🎨 NOPAINT BOOT DEBUG:", {
+      slug: api.slug,
+      params: params,
+      colon: colon,
+      currentHUDTxt: typeof window !== 'undefined' && window.currentHUDTxt
+    });
+    
+    // Generate colored HUD label to completely replace the default one
+    const modifiers = colon && colon.length > 0 ? `:${colon.join(":")}` : "";
+    const brushName = api.slug || "brush";
+    
+    // Extract just the piece name (without parameters) for the base
+    const pieceName = brushName.split('~')[0].split(':')[0];
+    
+    let label = `\\cyan\\${pieceName}`;
+    if (modifiers) label += `\\gray\\${modifiers}`;
+    if (params.length > 0) {
+      label += " " + params.map(p => colorizeColorName(p)).join(" ");
+    }
+    
+    console.log("🎨 SETTING HUD LABEL:", label);
+    
+    // Completely replace currentHUDTxt directly instead of using hud.label
+    if (typeof window !== 'undefined' && window.currentHUDTxt !== undefined) {
+      window.currentHUDTxt = label;
+      window.currentHUDPlainTxt = stripColorCodes(label);
+      console.log("🎨 REPLACED currentHUDTxt directly");
+    } else if (hud && hud.label) {
+      // Fallback to hud.label if direct access isn't available
+      hud.label(label);
+    }
+  }
+
   system.nopaint.present(api);
 }
 
@@ -83,7 +141,6 @@ function nopaint_is(stateQuery) {
 // 📊 Trigger bake flash effect
 function nopaint_triggerBakeFlash() {
   bakeFlashTime = performance.now();
-  console.log("📊 BAKE FLASH: Triggered at", bakeFlashTime);
   
   // Cancel any existing animation
   if (animationId) {
@@ -141,18 +198,9 @@ function nopaint_act({
     });
   }
 
-  // 🚨 CRITICAL DEBUG: Log ANY lift event to track state issues
+  // Handle lift events for painting and panning
   if (e.is && (e.is("lift:1") || e.is("lift:2"))) {
-    console.log("🚨 LIFT EVENT DEBUG:", {
-      currentState: state,
-      previousState: previousState,
-      isPainting: nopaint_is("painting"),
-      isPanning: nopaint_is("panning"),
-      device: e.device,
-      liftType: e.is("lift:1") ? "lift:1" : "lift:2",
-      willProcessInPaintingBlock: nopaint_is("painting") && e.is("lift:1") && (e.device === "mouse" || e.device === "pen" || e.device === "touch"),
-      willProcessInPanningBlock: nopaint_is("panning") && (e.is("keyboard:up:shift") || e.is("lift:2") || e.is("lift:1"))
-    });
+    // (debug logging removed)
   }
 
   // if (e.is("keyboard:down:enter")) {
@@ -175,19 +223,7 @@ function nopaint_act({
   if (e.is("touch:1")) {
     const timestamp = performance.now();
     
-    console.log(`🎯 STATE DEBUG [${Math.floor(timestamp)}]: Touch detected, changing state from`, state, "to 'painting'", {
-      currentState: state,
-      eventDevice: e.device,
-      eventType: e.type,
-      eventIs: {
-        touch1: e.is("touch:1")
-      },
-      timestamp: timestamp
-    });
-    
     state = "painting";
-    
-    console.log(`🎯 STATE DEBUG [${Math.floor(timestamp)}]: State changed to:`, state, `nopaint_is("painting"):`, nopaint_is("painting"));
     
     system.nopaint.updateBrush(api, "touch");
 
@@ -260,20 +296,7 @@ function nopaint_act({
   ) {
     const timestamp = performance.now();
     
-    console.log(`🎯 STATE DEBUG [${Math.floor(timestamp)}]: Lift detected, changing state from 'painting' to 'idle'`, {
-      currentState: state,
-      eventDevice: e.device,
-      eventType: e.type,
-      eventIs: {
-        lift1: e.is("lift:1"),
-        painting: nopaint_is("painting")
-      },
-      timestamp: timestamp
-    });
-    
     state = "idle";
-    
-    console.log(`🎯 STATE DEBUG [${Math.floor(timestamp)}]: State changed to:`, state, `nopaint_is("painting"):`, nopaint_is("painting"));
     
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
 
@@ -303,7 +326,7 @@ function nopaint_act({
 
     // 🎯 PRESERVE coordinates for baking before clearing state
     // This fixes the geometry mismatch issue where bake() had no access to dragBox coordinates
-    console.log("🎯 NOPAINT: Preserving coordinates before state clearing");
+    
     if (system.nopaint.brush && system.nopaint.brush.dragBox) {
       system.nopaint.finalDragBox = {
         x: system.nopaint.brush.dragBox.x,
@@ -311,18 +334,12 @@ function nopaint_act({
         w: system.nopaint.brush.dragBox.w,
         h: system.nopaint.brush.dragBox.h
       };
-      console.log("🎯 NOPAINT: Preserved finalDragBox:", system.nopaint.finalDragBox);
-    } else {
-      console.log("🎯 NOPAINT: No dragBox to preserve");
     }
     if (system.nopaint.startDrag) {
       system.nopaint.finalStartDrag = {
         x: system.nopaint.startDrag.x,
         y: system.nopaint.startDrag.y
       };
-      console.log("🎯 NOPAINT: Preserved finalStartDrag:", system.nopaint.finalStartDrag);
-    } else {
-      console.log("🎯 NOPAINT: No startDrag to preserve");
     }
 
     // Clear the brush and dragBox state to prevent flickering between gestures
@@ -336,8 +353,11 @@ function nopaint_act({
     cursor.x = pen.x;
     cursor.y = pen.y;
     
-    // 📊 Update brush and trigger needsPaint for HUD updates during move (even when lifted)
-    system.nopaint.updateBrush(api, "move");
+    // 📊 Only update brush during move if we're actively painting
+    // This prevents overwriting preserved coordinates after lift
+    if (nopaint_is("painting")) {
+      system.nopaint.updateBrush(api, "move");
+    }
     api.needsPaint();
   }
 
@@ -368,24 +388,9 @@ function nopaint_act({
     e.is("keyboard:down:shift") ||
     ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
   ) {
-    console.log("🎯 STATE DEBUG: Panning start detected", {
-      currentState: state,
-      willSaveToPreviousState: state,
-      eventDevice: e.device,
-      eventType: e.type,
-      eventIs: {
-        keyboardDownShift: e.is("keyboard:down:shift"),
-        touch1: e.is("touch:1"),
-        touch2: e.is("touch:2")
-      },
-      pensLength: pens().length
-    });
-    
     // if (debug) console.log("🧭 Panning!");
     previousState = state; // Preserve current state
     state = "panning";
-    
-    console.log("🎯 STATE DEBUG: Panning started, state changed to:", state, "previousState:", previousState);
   }
 
   // Track
@@ -410,29 +415,14 @@ function nopaint_act({
     nopaint_is("panning") &&
     (e.is("keyboard:up:shift") || e.is("lift:2") || e.is("lift:1"))
   ) {
-    console.log("🎯 STATE DEBUG: Panning end detected, restoring state", {
-      currentState: state,
-      previousState: previousState,
-      eventDevice: e.device,
-      eventType: e.type,
-      eventIs: {
-        keyboardUpShift: e.is("keyboard:up:shift"),
-        lift1: e.is("lift:1"),
-        lift2: e.is("lift:2")
-      }
-    });
-    
     // 🚨 SAFEGUARD: If this is a lift event and previousState was "painting", 
     // we should go to "idle" instead to prevent stuck painting state
     if ((e.is("lift:1") || e.is("lift:2")) && previousState === "painting") {
-      console.log("🚨 SAFEGUARD: Lift during panning with painting previousState - forcing to idle");
       state = "idle";
     } else {
       // if (debug) console.log("🧭 Not panning...");
       state = previousState; // Restore previous state
     }
-    
-    console.log("🎯 STATE DEBUG: State restored to:", state, "from previousState:", previousState);
     
     previousState = "idle"; // Reset
     system.nopaint.storeTransform(store, system); // Store the translation after completion.
@@ -604,6 +594,12 @@ function nopaint_renderPerfHUD({
 }) {
   if (!nopaintPerf || !ink || !write || !box) return;
 
+  // 🧹 CRITICAL: Reset fade mode by calling ink with a non-fade string
+  // This clears the global fadeMode, fadeColors, fadeDirection variables
+  ink("black"); // Forces findColor to reset fade state completely
+  // NOTE: Don't clear fade alpha here - it might be needed by other systems like neobrush
+  // Fade system no longer uses global state
+
   // 🎨 Trigger next frame for smooth animation
   if (needsPaintRef) {
     needsPaintRef();
@@ -727,4 +723,75 @@ function nopaint_generateColoredLabel(brushName, colorParams, rawParams, modifie
   api.hud.label(coloredLabel);
 }
 
-export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_adjust, nopaint_generateColoredLabel, nopaint_renderPerfHUD, nopaint_triggerBakeFlash };
+// Central color handling function for nopaint brushes
+// Automatically manages fade alpha, color processing, and HUD labels
+function nopaint_handleColor(color, ink, brushName, params, modifiers = "", api = null) {
+  // Generate colored HUD label if API is provided
+  if (api && api.hud) {
+    const coloredLabel = generateNopaintHUDLabel(brushName, color, params, modifiers);
+    api.hud.label(coloredLabel);
+  }
+  
+  if (isFadeColor(color)) {
+    // Fade colors now handle alpha automatically via totalizing alpha
+    return ink(color);
+  } else {
+    // Regular color - just use it directly
+    return ink(color);
+  }
+}
+
+// Cleanup function for when brush operations are complete
+function nopaint_cleanupColor() {
+  // No longer needed with new fade system
+}
+
+// 🎨 Centralized brush parameter parsing for consistent behavior across all brushes
+function nopaint_parseBrushParams({ params, num, colon }) {
+  // Store original params for HUD labeling
+  const originalParams = params;
+  const modifiers = colon.length > 0 ? `:${colon.join(":")}` : "";
+  
+  // Parse color using num.parseColor
+  const color = num.parseColor(params);
+  
+  // Parse mode and thickness from colon parameters
+  let mode = "fill"; // default
+  let thickness = 1; // default
+  let centered = false;
+  
+  if (colon.length > 0) {
+    const modeParam = colon[0];
+    
+    // Check for centered flag
+    if (modeParam.includes("c")) {
+      centered = true;
+    }
+    
+    // Parse mode (o=outline, i=inline, f=fill)
+    if (modeParam.includes("o")) {
+      mode = "outline";
+      // Extract thickness for outline mode
+      const thickMatch = modeParam.match(/o-?(\d+)/);
+      if (thickMatch) thickness = parseInt(thickMatch[1]);
+    } else if (modeParam.includes("i")) {
+      mode = "inline";
+      // Extract thickness for inline mode
+      const thickMatch = modeParam.match(/i-?(\d+)/);
+      if (thickMatch) thickness = parseInt(thickMatch[1]);
+    } else if (modeParam.includes("f")) {
+      mode = "fill";
+    }
+  }
+  
+  return {
+    color,
+    mode,
+    thickness,
+    centered,
+    originalParams,
+    modifiers
+  };
+}
+
+export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_adjust, nopaint_generateColoredLabel, nopaint_handleColor, nopaint_cleanupColor, nopaint_parseBrushParams, nopaint_renderPerfHUD, nopaint_triggerBakeFlash };
