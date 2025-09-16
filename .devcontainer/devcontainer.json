@@ -8,8 +8,7 @@
     "args": { 
       "BUILDKIT_INLINE_CACHE": "1",
       "DOCKER_BUILDKIT": "1"
-    },
-    "platform": "linux/amd64"
+    }
   },
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
@@ -22,8 +21,6 @@
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=delegated",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=delegated",
     "source=${localWorkspaceFolder}/.devcontainer/fish_history,target=/home/me/.local/share/fish/fish_history,type=bind,consistency=delegated",
-    "source=${localWorkspaceFolder}/.devcontainer/tezos-data,target=/home/me/.tezos-client,type=bind,consistency=delegated",
-    "source=${localWorkspaceFolder}/.devcontainer/tezos-node,target=/home/me/.tezos-node,type=bind,consistency=delegated",
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
@@ -89,9 +86,7 @@
     "-p",
     "0.0.0.0:8889:8889",
     "--ulimit",
-    "nofile=131072:131072",
-    "--platform",
-    "linux/amd64"
+    "nofile=131072:131072"
     // "--network",
     // "host"
   ],
