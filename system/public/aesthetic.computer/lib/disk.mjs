@@ -354,6 +354,70 @@ let iconMode = false; // Detects ?icon on a piece and yields its
 let previewOrIconMode;
 let hideLabel = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
+
+// Helper function to toggle HUD visibility (used by Tab key and center tap)
+function toggleHUDVisibility(isDoubleTap = false) {
+  const currentTime = performance.now();
+  
+  if (hudAnimationState.animating) {
+    // Animation in progress: reverse direction and continue from current position
+    const elapsed = currentTime - hudAnimationState.startTime;
+    const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
+    
+    // Flip the target state
+    hudAnimationState.visible = !hudAnimationState.visible;
+    
+    // Update the remembered state for when QR fullscreen is turned off
+    if (hudAnimationState.qrFullscreen) {
+      hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+    }
+    
+    // Restart animation from current position by adjusting the start time
+    // If we were 30% through a hide animation, start the show animation at 70% progress
+    const remainingProgress = 1.0 - progress;
+    hudAnimationState.startTime = currentTime - (remainingProgress * hudAnimationState.duration);
+    
+    // Special double-tap: immediately show HUD if hiding
+    if (isDoubleTap && !hudAnimationState.visible) {
+      hudAnimationState.animating = false;
+      hudAnimationState.visible = true;
+      hudAnimationState.opacity = 1.0;
+      hudAnimationState.slideOffset = { x: 0, y: 0 };
+      hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
+      
+      // Update remembered state
+      if (hudAnimationState.qrFullscreen) {
+        hudAnimationState.cornersVisibleBeforeFullscreen = true;
+      }
+    }
+    
+    $commonApi.sound.synth({
+      tone: hudAnimationState.visible ? 1200 : 800,
+      duration: 0.15,
+      attack: 0.01,
+      decay: 0.3,
+      volume: 0.2,
+    });
+  } else {
+    // No animation in progress: start new animation
+    hudAnimationState.animating = true;
+    hudAnimationState.startTime = currentTime;
+    hudAnimationState.visible = !hudAnimationState.visible;
+    
+    // Update the remembered state for when QR fullscreen is turned off
+    if (hudAnimationState.qrFullscreen) {
+      hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+    }
+    
+    $commonApi.sound.synth({
+      tone: hudAnimationState.visible ? 1200 : 800,
+      duration: 0.15,
+      attack: 0.01,
+      decay: 0.3,
+      volume: 0.2,
+    });
+  }
+}
 let hudAnimationState = {
   visible: true,
   animating: false,
@@ -1031,6 +1095,11 @@ const $commonApi = {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
     glazeAfterReframe = { type: "glaze", content };
+  },
+  
+  // Toggle HUD visibility (same as Tab key functionality)
+  toggleHUD: function (isDoubleTap = false) {
+    toggleHUDVisibility(isDoubleTap);
   },
 
   jump: function jump(to, ahistorical = false, alias = false) {
@@ -4716,7 +4785,7 @@ async function load(
 
   if (!debug && !firstLoad) {
     // console.clear();
-    headers(); // Clear console and re-print headers if we are in production.
+    headers($commonApi.dark); // Clear console and re-print headers if we are in production.
   }
 
   // console.log("🧩", path, "🌐", host);
@@ -6878,65 +6947,7 @@ async function makeFrame({ data: { type, content } }) {
           const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
           
           hudAnimationState.lastTabTime = currentTime;
-          
-          if (hudAnimationState.animating) {
-            // Animation in progress: reverse direction and continue from current position
-            const elapsed = currentTime - hudAnimationState.startTime;
-            const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
-            
-            // Flip the target state
-            hudAnimationState.visible = !hudAnimationState.visible;
-            
-            // Update the remembered state for when QR fullscreen is turned off
-            if (hudAnimationState.qrFullscreen) {
-              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
-            }
-            
-            // Restart animation from current position by adjusting the start time
-            // If we were 30% through a hide animation, start the show animation at 70% progress
-            const remainingProgress = 1.0 - progress;
-            hudAnimationState.startTime = currentTime - (remainingProgress * hudAnimationState.duration);
-            
-            // Special double-tap: immediately show HUD if hiding
-            if (isDoubleTap && !hudAnimationState.visible) {
-              hudAnimationState.animating = false;
-              hudAnimationState.visible = true;
-              hudAnimationState.opacity = 1.0;
-              hudAnimationState.slideOffset = { x: 0, y: 0 };
-              hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
-              
-              // Update remembered state
-              if (hudAnimationState.qrFullscreen) {
-                hudAnimationState.cornersVisibleBeforeFullscreen = true;
-              }
-            }
-            
-            $commonApi.sound.synth({
-              tone: hudAnimationState.visible ? 1200 : 800,
-              duration: 0.15,
-              attack: 0.01,
-              decay: 0.3,
-              volume: 0.2,
-            });
-          } else {
-            // No animation in progress: start new animation
-            hudAnimationState.animating = true;
-            hudAnimationState.startTime = currentTime;
-            hudAnimationState.visible = !hudAnimationState.visible;
-            
-            // Update the remembered state for when QR fullscreen is turned off
-            if (hudAnimationState.qrFullscreen) {
-              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
-            }
-            
-            $commonApi.sound.synth({
-              tone: hudAnimationState.visible ? 1200 : 800,
-              duration: 0.15,
-              attack: 0.01,
-              decay: 0.3,
-              volume: 0.2,
-            });
-          }
+          toggleHUDVisibility(isDoubleTap);
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
