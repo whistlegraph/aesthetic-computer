@@ -20,7 +20,7 @@ import {
   parseColorIndex,
   rand,
 } from "./num.mjs";
-import { getFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
+import { getFadeAlpha, clearFadeAlpha, getPreserveFadeAlpha } from "./fade-state.mjs";
 
 import * as mat4 from "../dep/gl-matrix/mat4.mjs";
 import * as vec2 from "../dep/gl-matrix/vec2.mjs";
@@ -429,6 +429,15 @@ function parseFade(fadeString) {
   const overrideAlpha = getFadeAlpha();
   const defaultAlpha = overrideAlpha !== null ? overrideAlpha : 255;
   
+  // Reduced logging for fade processing
+  // console.log("🎨 FADE PROCESSING:", {
+  //   fadeType: fadeType,
+  //   overrideAlpha: overrideAlpha,
+  //   defaultAlpha: defaultAlpha,
+  //   direction: direction,
+  //   isNeat: isNeat
+  // });
+  
   // Don't clear the fadeAlpha override here - let it persist for getFadeColor()
   // It will be cleared when the fade operation is complete
   
@@ -525,6 +534,12 @@ function getFadeColor(t, x = 0, y = 0) {
   const segmentIndex = Math.floor(t * segmentCount);
   const segmentT = (t * segmentCount) - segmentIndex;
   
+  // Safety check for empty fadeColors
+  if (fadeColors.length === 0) {
+    console.warn("🚨 FADE ERROR: fadeColors is empty, returning default color");
+    return [255, 255, 255, 255]; // Return white as fallback
+  }
+  
   let startColor = fadeColors[Math.min(segmentIndex, fadeColors.length - 1)];
   let endColor = fadeColors[Math.min(segmentIndex + 1, fadeColors.length - 1)];
   
@@ -552,6 +567,17 @@ function getFadeColor(t, x = 0, y = 0) {
   // Check if there's a stored fade alpha that should override interpolated alpha
   const storedAlpha = getFadeAlpha();
   
+  // Log fade color generation for debugging
+  if (x === 0 && y === 0) { // Only log once per fade to avoid spam
+    console.log("🌈 FADE COLOR GENERATION:", {
+      storedAlpha: storedAlpha,
+      startColor: startColor,
+      endColor: endColor,
+      segmentT: segmentT,
+      fadeDirection: fadeDirection
+    });
+  }
+  
   if (fadeNeat) {
     // Clean gradient without noise
     result = [
@@ -560,6 +586,11 @@ function getFadeColor(t, x = 0, y = 0) {
       Math.round(lerp(startColor[2], endColor[2], segmentT)),
       storedAlpha !== null ? storedAlpha : Math.round(lerp(startColor[3], endColor[3], segmentT)) // Use stored alpha if available
     ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
+    
+    // Log the final result for debugging
+    if (x === 0 && y === 0) {
+      console.log("🎯 FINAL FADE COLOR (neat):", result, "alpha channel:", result[3]);
+    }
   } else {
     // Apply subtle film-grain noise for organic look
     const grainIntensity = 2.5; // Very subtle grain amount
@@ -615,7 +646,10 @@ function findColor() {
       fadeColors = [];
       fadeDirection = "horizontal";
       fadeNeat = false;
-      clearFadeAlpha();
+      // Reduced logging for per-frame calls
+      if (!getPreserveFadeAlpha()) {
+        clearFadeAlpha();
+      }
       resetRainbowCache();
       return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
     }
@@ -632,7 +666,11 @@ function findColor() {
       fadeColors = [];
       fadeDirection = "horizontal";
       fadeNeat = false;
-      clearFadeAlpha();
+      // Reduced logging for per-frame calls
+      if (!getPreserveFadeAlpha()) {
+        // console.log("🚨 FINDCOLOR: About to clear fadeAlpha from number path, number:", args[0], "preserve:", getPreserveFadeAlpha());
+        clearFadeAlpha();
+      }
       resetRainbowCache();
       
       // Treat as raw hex if we hit a certain limit.
@@ -649,7 +687,10 @@ function findColor() {
       fadeColors = [];
       fadeDirection = "horizontal";
       fadeNeat = false;
-      clearFadeAlpha();
+      // Reduced logging for per-frame calls
+      if (!getPreserveFadeAlpha()) {
+        clearFadeAlpha();
+      }
       resetRainbowCache();
       
       // Or if it's an array, then spread it out and re-ink.
@@ -658,12 +699,15 @@ function findColor() {
     } else if (isString()) {
       // Check for fade syntax first
       if (args[0].startsWith("fade:")) {
+        // Reduced logging for fade processing
+        // console.log("🌈 FINDCOLOR: Processing fade string:", args[0]);
         const fadeColorArray = parseFade(args[0]);
         if (fadeColorArray) {
           fadeMode = true;
           fadeColors = fadeColorArray;
           // Don't override fadeDirection here - it's already set by parseFade()
           resetRainbowCache(); // Reset for new fade operation
+          // console.log("🌈 FINDCOLOR: Fade processed successfully, returning first color");
           return fadeColorArray[0]; // Return first color as base
         }
       }
@@ -673,7 +717,10 @@ function findColor() {
       fadeColors = [];
       fadeDirection = "horizontal";
       fadeNeat = false;
-      clearFadeAlpha();
+      // Reduced logging for per-frame calls
+      if (!getPreserveFadeAlpha()) {
+        clearFadeAlpha();
+      }
       resetRainbowCache();
       
       // FIRST: Check for color index format like "c0", "c1", "p0", etc.
