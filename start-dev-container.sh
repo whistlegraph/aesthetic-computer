@@ -28,8 +28,6 @@ docker run -d \
   -v /Users/jas/Desktop/code/aesthetic-computer/.devcontainer/.emacs.d:/home/me/.emacs.d:delegated \
   -v /Users/jas/Desktop/code/aesthetic-computer/.devcontainer/envs:/home/me/envs:delegated \
   -v /Users/jas/Desktop/code/aesthetic-computer/.devcontainer/fish_history:/home/me/.local/share/fish/fish_history:delegated \
-  -v /Users/jas/Desktop/code/aesthetic-computer/.devcontainer/tezos-data:/home/me/.tezos-client:delegated \
-  -v /Users/jas/Desktop/code/aesthetic-computer/.devcontainer/tezos-node:/home/me/.tezos-node:delegated \
   -v codespaces-linux-var-lib-docker:/var/lib/docker \
   -v /var/run/docker.sock:/var/run/docker-host.sock \
   -v /var/run/docker.sock:/var/run/docker.sock \
