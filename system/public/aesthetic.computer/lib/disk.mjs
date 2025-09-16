@@ -2634,13 +2634,6 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
     ...data
   };
   
-  console.log(`🎨 Broadcasting: ${action} [LIGHTWEIGHT]`, {
-    size: `${message.width}x${message.height}`,
-    tabId: message.tabId.substr(0, 4) + '...',
-    nopaintActive: isNopaintActive,
-    source: data.source
-  });
-  
   // Only send to other tabs (exclude self)
   channel.postMessage(JSON.stringify(message));
 };
