@@ -3577,7 +3577,12 @@ const $paintApiUnwrapped = {
       setPreserveFadeAlpha(true);
     }
     
-    ink(...arguments);
+    // Default to white if no arguments provided
+    if (arguments.length === 0) {
+      ink(255, 255, 255);
+    } else {
+      ink(...arguments);
+    }
     graph.clear();
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
