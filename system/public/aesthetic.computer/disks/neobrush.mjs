@@ -1,6 +1,10 @@
 // 🖌️ NeoBrush, 25.09.16
 // Enhanced rectangular brush with fade colors, modes, and thickness
 
+// TODO: Support robotics.
+// TODO: Brushes should have a 'color coded' word top level and there
+//       should be a Bauhaus like cateogorical method across AC pieces.
+
 /* region docs 📚
   Draw colored rectangles with brush gestures.
   // neobrush color
@@ -39,20 +43,9 @@ function overlay({ ink, system }) {
   const rect = centered ? { ...dragBox, w: dragBox.w * 2, h: dragBox.h * 2 } : dragBox;
   
   const useColor = system.nopaint.color;
-  const isFade = system.nopaint.color?.type === 'fade';
   
-  if (isFade) {
-    // Extract alpha value from array if needed
-    const alphaValue = Array.isArray(useColor.alpha) ? useColor.alpha[0] : useColor.alpha;
-    
-    // Create fade color array that triggers local fade detection in box()
-    const fadeColorArray = [useColor.fadeString, alphaValue || 255];
-    
-    // This will trigger the local fade path in box() via parseFadeColor()
-    ink(fadeColorArray).box(rect, mode);
-  } else {
-    ink(useColor).box(rect, mode);
-  }
+  // ink() now automatically handles both regular colors and fade colors
+  ink(useColor).box(rect, mode);
 }
 
 function brush({ ink, lift, system }) {
@@ -62,20 +55,9 @@ function brush({ ink, lift, system }) {
   const rect = centered ? { ...dragBox, w: dragBox.w * 2, h: dragBox.h * 2 } : dragBox;
   
   const useColor = system.nopaint.color;
-  const isFade = system.nopaint.color?.type === 'fade';
   
-  if (isFade) {
-    // Extract alpha value from array if needed
-    const alphaValue = Array.isArray(useColor.alpha) ? useColor.alpha[0] : useColor.alpha;
-    
-    // Create fade color array that triggers local fade detection in box()
-    const fadeColorArray = [useColor.fadeString, alphaValue || 255];
-    
-    // This will trigger the local fade path in box() via parseFadeColor()
-    ink(fadeColorArray).box(rect, mode);
-  } else {
-    ink(useColor).box(rect, mode);
-  }
+  // ink() now automatically handles both regular colors and fade colors
+  ink(useColor).box(rect, mode);
 }
 
 export { boot, paint, overlay, brush };

@@ -97,14 +97,6 @@ function nopaint_boot({
     // Parse color centrally for all brushes
     system.nopaint.color = num.parseColor(params);
     
-    // 🔍 DEBUG: Check what we're working with
-    console.log("🎨 NOPAINT BOOT DEBUG:", {
-      slug: api.slug,
-      params: params,
-      colon: colon,
-      currentHUDTxt: typeof window !== 'undefined' && window.currentHUDTxt
-    });
-    
     // Generate colored HUD label to completely replace the default one
     const modifiers = colon && colon.length > 0 ? `:${colon.join(":")}` : "";
     const brushName = api.slug || "brush";
@@ -118,13 +110,10 @@ function nopaint_boot({
       label += " " + params.map(p => colorizeColorName(p)).join(" ");
     }
     
-    console.log("🎨 SETTING HUD LABEL:", label);
-    
     // Completely replace currentHUDTxt directly instead of using hud.label
     if (typeof window !== 'undefined' && window.currentHUDTxt !== undefined) {
       window.currentHUDTxt = label;
       window.currentHUDPlainTxt = stripColorCodes(label);
-      console.log("🎨 REPLACED currentHUDTxt directly");
     } else if (hud && hud.label) {
       // Fallback to hud.label if direct access isn't available
       hud.label(label);
