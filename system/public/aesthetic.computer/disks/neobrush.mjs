@@ -37,7 +37,22 @@ function overlay({ ink, system }) {
   if (!system.nopaint.brush?.dragBox) return;
   const dragBox = system.nopaint.brush.dragBox;
   const rect = centered ? { ...dragBox, w: dragBox.w * 2, h: dragBox.h * 2 } : dragBox;
-  ink(system.nopaint.color).box(rect, mode);
+  
+  const useColor = system.nopaint.color;
+  const isFade = system.nopaint.color?.type === 'fade';
+  
+  if (isFade) {
+    // Extract alpha value from array if needed
+    const alphaValue = Array.isArray(useColor.alpha) ? useColor.alpha[0] : useColor.alpha;
+    
+    // Create fade color array that triggers local fade detection in box()
+    const fadeColorArray = [useColor.fadeString, alphaValue || 255];
+    
+    // This will trigger the local fade path in box() via parseFadeColor()
+    ink(fadeColorArray).box(rect, mode);
+  } else {
+    ink(useColor).box(rect, mode);
+  }
 }
 
 function brush({ ink, lift, system }) {
@@ -45,7 +60,22 @@ function brush({ ink, lift, system }) {
   const dragBox = system.nopaint.finalDragBox;
   if (!dragBox) return;
   const rect = centered ? { ...dragBox, w: dragBox.w * 2, h: dragBox.h * 2 } : dragBox;
-  ink(system.nopaint.color).box(rect, mode);
+  
+  const useColor = system.nopaint.color;
+  const isFade = system.nopaint.color?.type === 'fade';
+  
+  if (isFade) {
+    // Extract alpha value from array if needed
+    const alphaValue = Array.isArray(useColor.alpha) ? useColor.alpha[0] : useColor.alpha;
+    
+    // Create fade color array that triggers local fade detection in box()
+    const fadeColorArray = [useColor.fadeString, alphaValue || 255];
+    
+    // This will trigger the local fade path in box() via parseFadeColor()
+    ink(fadeColorArray).box(rect, mode);
+  } else {
+    ink(useColor).box(rect, mode);
+  }
 }
 
 export { boot, paint, overlay, brush };
