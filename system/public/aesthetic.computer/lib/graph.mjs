@@ -819,7 +819,10 @@ function findColor() {
   if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
 
   // Debug: Check for problematic color values and filter out timing expressions
-  if (args.some(val => val === undefined || isNaN(val) || (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
+  // Exclude valid fade strings from the invalid check
+  if (args.some(val => val === undefined || 
+                      (isNaN(val) && !(typeof val === 'string' && val.startsWith('fade:'))) || 
+                      (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
     console.log("WARNING: Invalid color values detected:", args);
     
     // Check if this contains a fade string that got passed incorrectly
