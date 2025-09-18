@@ -597,8 +597,8 @@ class Tape extends HeadlessAC {
         this.cacheFrame(frameIndex, frameData, baseFrameTime);
         this.frameCount++;
         
-        // Display frame as sixel in terminal
-        this.displayFrameSixel(frameData, frameIndex, calculatedFrames);
+        // Log frame completion
+        console.log(`🎬 Frame ${frameIndex + 1}/${calculatedFrames} rendered`);
         
         const frameEndTime = performance.now();
         const frameRenderTime = frameEndTime - frameStartTime;
@@ -680,7 +680,7 @@ class Tape extends HeadlessAC {
         this.frameCount++;
         
         // Display frame as sixel in terminal
-        this.displayFrameSixel(frameData, frameIndex, totalFrames);
+        console.log(`🎬 Frame ${frameIndex + 1}/${totalFrames} rendered`);
         
         const frameEndTime = performance.now();
         const frameRenderTime = frameEndTime - frameStartTime;
@@ -778,7 +778,7 @@ class Tape extends HeadlessAC {
           
           // Display frame as sixel in terminal
           const frameData = { data: this.pixelBuffer };
-          this.displayFrameSixel(frameData, frameIndex, actualTotalFrames);
+          console.log(`🎬 Frame ${frameIndex + 1}/${actualTotalFrames} rendered`);
           
         } catch (error) {
           console.error('\n💥 Error in simulation/paint:', error);

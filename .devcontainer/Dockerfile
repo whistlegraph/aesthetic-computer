@@ -3,7 +3,7 @@ FROM fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=1.45.0
+ENV NETLIFY_DENO_VERSION=1.45.5
 ENV NETLIFY_CLI_TELEMETRY_DISABLED=1
 ENV NODE_DISABLE_COMPILE_CACHE=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -31,7 +31,13 @@ RUN dnf update -y && \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
       caddy \
-      ffmpeg ffmpeg-devel \
+    && dnf clean all
+
+# --- FFmpeg from RPM Fusion ---------------------------------------------------
+RUN dnf install -y \
+      https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+      https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
+    && dnf install -y --allowerasing --skip-unavailable ffmpeg ffmpeg-devel \
     && dnf clean all
 
 # --- Python 3.11 venv as default "python" -------------------------------------
@@ -150,12 +156,12 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
 # --- OPS (nanos) --------------------------------------------------------------
 RUN curl https://ops.city/get.sh -sSfL | bash
 
-# --- Deno (v1.45.0 for Netlify CLI compatibility) ----------------------------
-RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.0 && \
+# --- Deno ---------------------------------------------------------------------
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.5 && \
     /home/me/.deno/bin/deno --version && \
-    /home/me/.deno/bin/deno cache https://v2-14-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
-    /home/me/.deno/bin/deno cache https://v2-14-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \
-    /home/me/.deno/bin/deno cache https://v2-14-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || true
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \
+    /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || true
 
 # --- Fish config / entry ------------------------------------------------------
 COPY config.fish /home/me/.config/fish/config.fish
