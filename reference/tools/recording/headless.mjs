@@ -8,6 +8,7 @@ import { PNG } from 'pngjs';
 import { timestamp } from "../../../system/public/aesthetic.computer/lib/num.mjs";
 import chalk from 'chalk';
 import ora from 'ora';
+import { logInfo, logError, logWarning } from './logger.mjs';
 
 // Simple PNG encoding function
 function encodePNG(width, height, pixelBuffer) {
@@ -129,14 +130,14 @@ export class HeadlessAC {
   enableV8Optimizations() {
     // Hint to V8 that these are hot functions
     if (global.gc) {
-      console.log('💫 V8 optimizations: Garbage collection available');
+      logInfo('💫 V8 optimizations: Garbage collection available');
     }
     
     // Pre-allocate some objects to avoid GC pressure
     this.scratchBuffer = new Uint8Array(this.width * this.height * 4);
     this.colorCache = new Map();
     
-    console.log(`🚀 Performance mode: Pixel buffer ${this.width}x${this.height} (${(this.pixelBuffer.length / 1024 / 1024).toFixed(2)}MB)`);
+    logInfo(`🚀 Performance mode: Pixel buffer ${this.width}x${this.height} (${(this.pixelBuffer.length / 1024 / 1024).toFixed(2)}MB)`);
   }
 
   async initializeAC() {
@@ -232,9 +233,9 @@ export class HeadlessAC {
         spinner.text = 'Loading text system...';
         const textModule = await import("../../../system/public/aesthetic.computer/lib/text.mjs");
         this.text = textModule;
-        console.log(chalk.green('✅ Text module loaded:'), Object.keys(textModule));
+        logInfo(chalk.green('✅ Text module loaded:'), Object.keys(textModule));
       } catch (error) {
-        console.log(chalk.yellow('⚠️ Text module not found:', error.message));
+        logWarning(chalk.yellow('⚠️ Text module not found:', error.message));
       }
       
       // Load the type system and create a typeface
@@ -289,7 +290,7 @@ export class HeadlessAC {
         
         // Load the font glyphs
         await this.typeface.load(mockPreload);
-        console.log(chalk.green('✅ Font system loaded with glyphs:'), Object.keys(this.typeface.glyphs).length, 'characters');
+        logInfo(chalk.green('✅ Font system loaded with glyphs:'), Object.keys(this.typeface.glyphs).length, 'characters');
         
         // Debug first few glyphs to see what we loaded
         const glyphKeys = Object.keys(this.typeface.glyphs).slice(0, 5);
@@ -333,7 +334,12 @@ export class HeadlessAC {
       
       // Log if operation takes longer than 0.01ms or if detailed logging is enabled
       if (duration > 0.01 || self.detailedTiming) {
-        console.log(`⚡ ${operationName}: ${duration.toFixed(3)}ms`);
+        const logMessage = `${operationName}: ${duration.toFixed(3)}ms`;
+        if (self.logger && typeof self.logger === 'function') {
+          self.logger('line', logMessage, duration);
+        } else {
+          console.log(`⚡ ${logMessage}`);
+        }
       }
       
       // Track total time per operation type
@@ -350,7 +356,7 @@ export class HeadlessAC {
 
     // Try to use real disk.mjs API if available
     if (this.disk && this.graph) {
-      console.log('🔧 Creating graph-based API...');
+      logInfo('🔧 Creating graph-based API...');
       
       const api = {};
       
@@ -434,8 +440,11 @@ export class HeadlessAC {
             };
             
             // Parse arguments like AC's write function
-            let x, y, text, pos = {};
-            if (args.length >= 3) {
+            let x, y, text, size = 0, pos = {};
+            if (args.length >= 4) {
+              [text, x, y, size] = args;
+              pos = { x, y };
+            } else if (args.length >= 3) {
               [text, x, y] = args;
               pos = { x, y };
             } else if (args.length === 2) {
@@ -444,8 +453,8 @@ export class HeadlessAC {
               text = args[0];
             }
             
-            // Call the real typeface print method
-            self.typeface.print(mockAPI, pos, 0, text);
+            // Call the real typeface print method with proper size
+            self.typeface.print(mockAPI, pos, size, text);
             
           } catch (error) {
             console.warn('⚠️ Typeface rendering failed, using fallback:', error.message);
@@ -539,7 +548,12 @@ export class HeadlessAC {
       
       api.blur = function(...args) {
         logCall('blur', args);
-        console.log(`🌀 Blur: ${args.join(', ')}`);
+        const logMessage = `Blur: ${args.join(', ')}`;
+        if (self.logger && typeof self.logger === 'function') {
+          self.logger('blur', logMessage);
+        } else {
+          console.log(`🌀 ${logMessage}`);
+        }
         
         // Call the real graph.mjs blur function
         if (self.graph && self.graph.blur) {
@@ -555,7 +569,7 @@ export class HeadlessAC {
       
       api.scroll = function(...args) {
         logCall('scroll', args);
-        console.log(`📜 Scroll: ${args.join(', ')}`);
+        logInfo(`📜 Scroll: ${args.join(', ')}`);
         
         // Call the real graph.mjs scroll function
         if (self.graph && self.graph.scroll) {
@@ -691,7 +705,12 @@ export class HeadlessAC {
       // Write function for text rendering (used by embedded KidLisp pieces)
       api.write = function(...args) {
         logCall('write', args);
-        console.log(`📝 Write: ${args[0] || ''}`);
+        const logMessage = `Write: ${args[0] || ''}`;
+        if (self.logger && typeof self.logger === 'function') {
+          self.logger('write', logMessage);
+        } else {
+          console.log(`📝 ${logMessage}`);
+        }
         
         // Use the real AC typeface system if available
         if (self.typeface && Object.keys(self.typeface.glyphs).length > 0) {
@@ -732,8 +751,11 @@ export class HeadlessAC {
             };
             
             // Parse arguments like AC's write function
-            let x, y, text, pos = {};
-            if (args.length >= 3) {
+            let x, y, text, size = 0, pos = {};
+            if (args.length >= 4) {
+              [text, x, y, size] = args;
+              pos = { x, y };
+            } else if (args.length >= 3) {
               [text, x, y] = args;
               pos = { x, y };
             } else if (args.length === 2) {
@@ -742,8 +764,8 @@ export class HeadlessAC {
               text = args[0];
             }
             
-            // Call the real typeface print method
-            self.typeface.print(mockAPI, pos, 0, text);
+            // Call the real typeface print method with proper size
+            self.typeface.print(mockAPI, pos, size, text);
             
           } catch (error) {
             console.warn('⚠️ Typeface rendering failed, using fallback:', error.message);
@@ -808,6 +830,103 @@ export class HeadlessAC {
       // Note: embed function should be provided by KidLisp's global environment
       // via getGlobalEnv(), not the API. If $code evaluation isn't working,
       // the issue is likely that the global environment isn't properly set up.
+      
+      // Add text API that references the actual text module functions
+      // This mirrors how $commonApi.text is structured in disk.mjs but uses the loaded modules
+      api.text = {
+        // Use actual text module functions
+        capitalize: self.text ? self.text.capitalize : (str) => str.charAt(0).toUpperCase() + str.slice(1),
+        reverse: self.text ? self.text.reverse : (str) => str.split('').reverse().join(''),
+        
+        // These mirror the disk.mjs $commonApi.text implementation
+        width: (text) => {
+          if (Array.isArray(text)) text = text.join(" ");
+          return text.length * 6; // blockWidth = 6
+        },
+        
+        height: (text) => {
+          return 10; // blockHeight = 10
+        },
+        
+        // Use the actual box function logic from disk.mjs but adapted for headless
+        box: function(text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) {
+          // Try to call the actual implementation from disk.mjs if available
+          if (self.disk && self.disk.$commonApi && self.disk.$commonApi.text && self.disk.$commonApi.text.box) {
+            console.log(`🎯 Using real disk.mjs text.box for "${text}" scale=${scale}`);
+            return self.disk.$commonApi.text.box(text, pos, bounds, scale, wordWrap);
+          }
+          
+          // Fallback to simplified version
+          console.log(`⚠️ Using fallback text.box for "${text}" scale=${scale}`);
+          if (!text) {
+            console.warn("⚠️ No text for `box`.");
+            return;
+          }
+          
+          // Use the same logic as disk.mjs $commonApi.text.box
+          pos = { ...pos };
+          let run = 0;
+          
+          // Use actual scale without adjustment to match text rendering
+          const adjustedScale = scale; // Use the same scale as text rendering
+          const tf = self.typeface || { blockWidth: 6, blockHeight: 10 };
+          const blockWidth = tf.blockWidth * Math.abs(adjustedScale);
+
+          const lines = [[]];
+          let line = 0;
+
+          if (bounds === undefined) bounds = (text.length + 2) * blockWidth;
+
+          function newLine() {
+            run = 0;
+            line += 1;
+            lines[line] = [];
+          }
+
+          // Simplified word wrapping logic matching disk.mjs
+          if (wordWrap) {
+            const words = text.split(" ");
+            words.forEach((word, wordIndex) => {
+              const wordLen = word.length * blockWidth;
+              const spaceWidth = blockWidth;
+              const spaceNeeded = run > 0 ? spaceWidth : 0;
+              
+              if (run + spaceNeeded + wordLen >= bounds) newLine();
+              lines[line].push(word);
+              run += wordLen + (wordIndex < words.length - 1 ? spaceWidth : 0);
+            });
+          } else {
+            lines[0] = [text];
+          }
+
+          const blockHeight = tf.blockHeight * adjustedScale; // Full line height including spacing
+          
+          // For single-line text, use just the character height without extra line spacing
+          let height;
+          if (lines.length === 1) {
+            // Single line: use the actual blockHeight (which should be the glyph height)
+            height = blockHeight;
+          } else {
+            // Multiple lines: add a small gap between lines (like +1px per line for spacing)
+            const lineSpacing = adjustedScale; // 1px scaled up
+            height = lines.length * blockHeight + (lines.length - 1) * lineSpacing;
+          }
+          
+          let maxLineWidth = 0;
+          lines.forEach(line => {
+            if (line.length > 0) {
+              const lineText = line.join(' ');
+              const lineWidth = lineText.length * blockWidth;
+              maxLineWidth = Math.max(maxLineWidth, lineWidth);
+            }
+          });
+          
+          const box = { x: pos.x, y: pos.y, width: maxLineWidth, height };
+          return { pos, box, lines };
+        }
+      };
+      
+      console.log('✅ Text API exposed using actual text module functions: capitalize, reverse, width, height, box');
       
       // Add direct references for destructuring patterns used by some disks
       api.api = api; // Self reference for when destructured as { api }
@@ -931,6 +1050,38 @@ export class HeadlessAC {
         clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
         dist: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
         timestamp: Date.now()
+      },
+      
+      // Add basic text API fallback
+      text: {
+        box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
+          // Basic text box calculation
+          const blockWidth = 6 * Math.abs(scale);
+          const blockHeight = 10 * Math.abs(scale);
+          
+          if (!text) {
+            console.warn("⚠️ No text for basic `text.box`.");
+            return { pos, box: { x: pos.x, y: pos.y, width: 0, height: 0 }, lines: [] };
+          }
+          
+          // Simple line breaking for basic mode
+          const lines = text.toString().split('\\n');
+          let maxWidth = 0;
+          
+          lines.forEach(line => {
+            maxWidth = Math.max(maxWidth, line.length * blockWidth);
+          });
+          
+          const height = lines.length * blockHeight;
+          
+          return {
+            pos,
+            box: { x: pos.x, y: pos.y, width: maxWidth, height },
+            lines: lines.map(line => [line])
+          };
+        },
+        width: (text) => text ? text.toString().length * 6 : 0,
+        height: (text) => 10
       }
     };
   }
