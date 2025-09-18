@@ -337,7 +337,7 @@ let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
 let beat = defaults.beat;
-let brush, filter; // Only set in the `nopaint` system.
+let brush, lift, filter; // Only set in the `nopaint` system.
 let act = defaults.act;
 let leave = defaults.leave;
 let receive = defaults.receive; // Handle messages from BIOS
@@ -2633,13 +2633,6 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
     height: $commonApi.system.painting.height,
     ...data
   };
-  
-  console.log(`🎨 Broadcasting: ${action} [LIGHTWEIGHT]`, {
-    size: `${message.width}x${message.height}`,
-    tabId: message.tabId.substr(0, 4) + '...',
-    nopaintActive: isNopaintActive,
-    source: data.source
-  });
   
   // Only send to other tabs (exclude self)
   channel.postMessage(JSON.stringify(message));
@@ -5544,6 +5537,7 @@ async function load(
     if (
       module.system?.startsWith("nopaint") ||
       typeof module?.brush === "function" ||
+      typeof module?.lift === "function" ||
       typeof module?.filter === "function"
     ) {
       // If there is no painting is in ram, then grab it from the local store,
@@ -5603,6 +5597,12 @@ async function load(
           const originalBrush = $.system.nopaint.brush;
           $.system.nopaint.brush = { ...originalBrush, dragBox: screenDragBox };
           
+          // Add color word for overlay function
+          $.color = $.system.nopaint.color;
+          
+          // Add mark word for overlay function (preview dragBox)
+          $.mark = $.system.nopaint.brush?.dragBox;
+          
           // Render overlay directly to screen buffer 
           module.overlay($);
           
@@ -5633,6 +5633,7 @@ async function load(
       };
       beat = module.beat || defaults.beat;
       brush = module.brush;
+      lift = module.lift;
       filter = module.filter;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.
@@ -5652,9 +5653,14 @@ async function load(
             volume: 0.3,
           });
           
-          // 🎨 ELEGANT BRUSH PATTERN: Call brush one final time for painting surface
-          if (brush) {
+          // 🎨 ELEGANT BRUSH PATTERN: Call brush or lift function for final painting
+          if (brush || lift) {
             const finalBrushApi = { ...$ };
+            // Add top-level 'color' word that maps to system.nopaint.color
+            finalBrushApi.color = $.system.nopaint.color;
+            
+            // Add top-level 'mark' word that maps to finalDragBox for brush
+            finalBrushApi.mark = $.system.nopaint.finalDragBox;
             
             // 🎯 Use preserved coordinates since brush is null at bake time
             const preservedDragBox = $.system.nopaint.finalDragBox;
@@ -5674,7 +5680,14 @@ async function load(
             finalBrushApi.lift = true; // 🎯 Single clean flag for final brush call
             
             $.page($.system.painting); // Set context to painting surface
-            brush(finalBrushApi); // Call brush for final painting
+            
+            // Call lift function if it exists, otherwise fall back to brush
+            if (lift) {
+              lift(finalBrushApi); // Call lift for final painting
+            } else if (brush) {
+              brush(finalBrushApi); // Call brush for final painting (legacy)
+            }
+            
             $.page($.screen); // Reset context
           }
           
@@ -5860,11 +5873,11 @@ async function load(
       leave = module.leave || defaults.leave;
       receive = module.receive || defaults.receive; // Handle messages from BIOS
       
-      // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush function, automatically use nopaint system
-      system = module.system || (module.brush ? "nopaint" : null);
+      // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush or lift function, automatically use nopaint system
+      system = module.system || (module.brush || module.lift ? "nopaint" : null);
       
-      // 🎨 AUTO-GENERATE BAKE: If using brush but no explicit bake function, create a default one
-      if (module.brush && !module.bake) {
+      // 🎨 AUTO-GENERATE BAKE: If using brush/lift but no explicit bake function, create a default one
+      if ((module.brush || module.lift) && !module.bake) {
         bake = ({ paste, system, page }) => {
           paste(system.nopaint.buffer);
           page(system.nopaint.buffer).wipe(255, 255, 255, 0);
@@ -8562,6 +8575,8 @@ async function makeFrame({ data: { type, content } }) {
               $api.pen?.drawing /*&& currentHUDButton.down === false*/
             ) {
               const brushFilterApi = { ...$api };
+              // Add top-level 'color' word that maps to system.nopaint.color
+              brushFilterApi.color = $api.system.nopaint.color;
               if (currentHUDButton.down === false) {
                 brushFilterApi.pen = $api.system.nopaint.brush;
                 if (brush) {
