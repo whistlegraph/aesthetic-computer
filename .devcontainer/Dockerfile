@@ -31,6 +31,7 @@ RUN dnf update -y && \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
       caddy \
+      ffmpeg ffmpeg-devel \
     && dnf clean all
 
 # --- Python 3.11 venv as default "python" -------------------------------------
