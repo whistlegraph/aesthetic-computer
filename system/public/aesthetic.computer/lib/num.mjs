@@ -758,6 +758,8 @@ export const cssColors = {
 
 // 🌈 Rainbow color cycling.
 let currentRainbowIndex = 0;
+let frameRainbowColor = null; // Cache the rainbow color for this frame
+let rainbowFrameAdvanced = false; // Track if we've advanced this frame
 
 const rainbowColors = [
   cssColors.red,
@@ -769,10 +771,18 @@ const rainbowColors = [
   cssColors.violet,
 ];
 
-export function rainbow() {
-  const color = rainbowColors[currentRainbowIndex];
-  currentRainbowIndex = (currentRainbowIndex + 1) % rainbowColors.length;
-  return color.slice();
+export function rainbow(offset = 0) {
+  // Advance the rainbow index once per frame on the first call
+  if (!rainbowFrameAdvanced) {
+    currentRainbowIndex = (currentRainbowIndex + 1) % rainbowColors.length;
+    frameRainbowColor = rainbowColors[currentRainbowIndex].slice();
+    rainbowFrameAdvanced = true;
+  }
+  
+  // Calculate the final index with offset from the current frame's base
+  const finalIndex = (currentRainbowIndex + offset) % rainbowColors.length;
+  const result = rainbowColors[finalIndex];
+  return result.slice();
 }
 
 // 🦓 Zebra color cycling (black/white alternating).
@@ -803,6 +813,12 @@ export function zebra(offset = 0) {
 export function resetZebraCache() {
   zebraFrameAdvanced = false;
   frameZebraColor = null;
+}
+
+// Reset rainbow frame cache - should be called once per frame/execution
+export function resetRainbowCache() {
+  rainbowFrameAdvanced = false;
+  frameRainbowColor = null;
 }
 
 // Find a color inside of `cssColors` by value.
