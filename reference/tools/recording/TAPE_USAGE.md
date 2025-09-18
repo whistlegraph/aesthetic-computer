@@ -34,8 +34,8 @@ node tape.mjs '$roz' --simd    # SIMD processing
 - `--resolution N` - Canvas size NxN (default: 768)
 - `--png` - Export PNG instead of default GIF
 - `--timing` - Show detailed timing information
-- `--blocks` - 🧪 Experimental block-based processing
-- `--simd` - 🚀 Experimental SIMD processing
+- `--blocks` - 🧪 Experimental block-based processing (deprecated, please remove)
+- `--simd` - 🚀 Experimental SIMD processing (deprecated, please remove)
 
 ### Output
 - GIFs saved to: `/workspaces/aesthetic-computer/reference/tools/output/`

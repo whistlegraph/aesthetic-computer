@@ -115,12 +115,13 @@ export class HeadlessAC {
     // Performance optimizations
     this.enableV8Optimizations();
     
-    // Initialize with transparent black
+    // Initialize with opaque black (like normal AC environment)
+    // This ensures proper alpha blending behavior for semi-transparent elements
     for (let i = 0; i < this.pixelBuffer.length; i += 4) {
       this.pixelBuffer[i] = 0;     // R
       this.pixelBuffer[i + 1] = 0; // G
       this.pixelBuffer[i + 2] = 0; // B
-      this.pixelBuffer[i + 3] = 0; // A (transparent)
+      this.pixelBuffer[i + 3] = 255; // A (opaque)
     }
   }
 
@@ -245,6 +246,32 @@ export class HeadlessAC {
         // Create a typeface instance for font_1
         this.typeface = new typeModule.Typeface("font_1");
         
+        // Override the load method to properly filter out non-string values
+        const originalLoad = this.typeface.load.bind(this.typeface);
+        this.typeface.load = async function($preload, needsPaintCallback) {
+          if (this.name === "font_1") {
+            // Filter entries to only include actual glyph paths (string values, not prefixed with "glyph")
+            const glyphsToLoad = Object.entries(this.data).filter(
+              ([g, loc]) => !g.startsWith("glyph") && typeof loc === 'string'
+            );
+            const promises = glyphsToLoad.map(([glyph, location], i) => {
+              return $preload(
+                `aesthetic.computer/disks/drawings/${this.name}/${location}.json`,
+              )
+                .then((res) => {
+                  this.glyphs[glyph] = res;
+                })
+                .catch((err) => {
+                  // Silently handle missing glyph files - some glyphs may not exist
+                });
+            });
+            await Promise.all(promises);
+          } else {
+            // For other fonts, use the original method
+            return originalLoad($preload, needsPaintCallback);
+          }
+        };
+        
         // Create a mock $preload function for loading glyph data
         const mockPreload = async (path) => {
           try {
@@ -263,6 +290,18 @@ export class HeadlessAC {
         // Load the font glyphs
         await this.typeface.load(mockPreload);
         console.log(chalk.green('✅ Font system loaded with glyphs:'), Object.keys(this.typeface.glyphs).length, 'characters');
+        
+        // Debug first few glyphs to see what we loaded
+        const glyphKeys = Object.keys(this.typeface.glyphs).slice(0, 5);
+        for (const key of glyphKeys) {
+          const glyph = this.typeface.glyphs[key];
+          if (glyph && Array.isArray(glyph)) {
+            console.log(`🔍 Glyph "${key}" (char ${key.charCodeAt(0)}): ${glyph.length} commands`);
+            if (glyph.length > 0) {
+              console.log(`📝 First command:`, glyph[0]);
+            }
+          }
+        }
         
       } catch (error) {
         console.log(chalk.yellow('⚠️ Font system load failed:', error.message));
@@ -362,7 +401,13 @@ export class HeadlessAC {
             // Create a mock $ object with the functions typeface.print needs
             const mockAPI = {
               screen: { width: self.width, height: self.height },
-              inkrn: () => [255, 255, 255], // Return current color
+              inkrn: () => {
+                // Return the actual current color from graph system
+                if (self.graph && self.graph.c) {
+                  return self.graph.c.slice(); // Return copy of current color
+                }
+                return [255, 255, 255]; // Fallback to white
+              },
               ink: (...color) => {
                 if (color.length > 0) {
                   const foundColor = self.graph.findColor(...color);
@@ -376,7 +421,11 @@ export class HeadlessAC {
               },
               printLine: (text, font, x, y, blockWidth, size, xOffset, thickness, rotation, fontData) => {
                 // Use graph.mjs printLine function directly
-                self.graph.printLine(text, font, x, y, blockWidth, size, xOffset, thickness, rotation, fontData);
+                if (self.graph && self.graph.printLine) {
+                  self.graph.printLine(text, font, x, y, blockWidth, size, xOffset, thickness, rotation, fontData);
+                } else {
+                  console.warn('⚠️ graph.printLine not available');
+                }
                 return mockAPI;
               },
               num: {
@@ -642,8 +691,66 @@ export class HeadlessAC {
       // Write function for text rendering (used by embedded KidLisp pieces)
       api.write = function(...args) {
         logCall('write', args);
-        // For now, just log the write call - actual text rendering would need font system
         console.log(`📝 Write: ${args[0] || ''}`);
+        
+        // Use the real AC typeface system if available
+        if (self.typeface && Object.keys(self.typeface.glyphs).length > 0) {
+          try {
+            // Create a mock $ object with the functions typeface.print needs
+            const mockAPI = {
+              screen: { width: self.width, height: self.height },
+              inkrn: () => {
+                // Return the actual current color from graph system
+                if (self.graph && self.graph.c) {
+                  return self.graph.c.slice(); // Return copy of current color
+                }
+                return [255, 255, 255]; // Fallback to white
+              },
+              ink: (...color) => {
+                if (color.length > 0) {
+                  const foundColor = self.graph.findColor(...color);
+                  self.graph.color(...foundColor);
+                }
+                return mockAPI;
+              },
+              box: (x, y, w, h) => {
+                self.graph.box(x, y, w, h);
+                return mockAPI;
+              },
+              printLine: (text, font, x, y, blockWidth, size, xOffset, thickness, rotation, fontData) => {
+                // Use graph.mjs printLine function directly
+                if (self.graph && self.graph.printLine) {
+                  self.graph.printLine(text, font, x, y, blockWidth, size, xOffset, thickness, rotation, fontData);
+                } else {
+                  console.warn('⚠️ graph.printLine not available');
+                }
+                return mockAPI;
+              },
+              num: {
+                randIntRange: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+              }
+            };
+            
+            // Parse arguments like AC's write function
+            let x, y, text, pos = {};
+            if (args.length >= 3) {
+              [text, x, y] = args;
+              pos = { x, y };
+            } else if (args.length === 2) {
+              [text, pos] = args;
+            } else if (args.length === 1) {
+              text = args[0];
+            }
+            
+            // Call the real typeface print method
+            self.typeface.print(mockAPI, pos, 0, text);
+            
+          } catch (error) {
+            console.warn('⚠️ Typeface rendering failed, using fallback:', error.message);
+          }
+        } else {
+          console.warn('⚠️ No typeface system available for text rendering');
+        }
       };
       
       // Paste function for compositing embedded buffers back to main canvas

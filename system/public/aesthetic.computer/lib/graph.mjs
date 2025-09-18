@@ -1946,14 +1946,182 @@ function blur(radius = 1) {
     return;
   }
 
+  // ⚡ ULTRA-FAST UNROLLED BLUR: Specialized implementation for radius 3 (most common)
+  if (radius === 3) {
+    console.log("⚡ Using ultra-fast unrolled blur for radius 3");
+    return ultraFastBlur3(blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
+  }
+
+  // 🚀 FAST BLOCK BLUR: Use optimized block-based blur for best performance 
+  if (radius >= 1 && radius <= 8) {
+    console.log(`🚀 Using fast block blur for radius ${radius}`);
+    return fastBlockBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
+  }
+
   // 🚀 MASSIVE OPTIMIZATION: Use native Canvas filter for GPU acceleration (10x+ faster)
   if (typeof globalThis !== 'undefined' && globalThis.canvas) {
+    console.log(`🖥️ Using native filter blur for radius ${radius}`);
     return nativeFilterBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
   }
 
   // Fall back to manual blur implementation
+  console.log(`⚠️ Using manual blur fallback for radius ${radius}`);
   return manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
 }
+
+// ⚡ ULTRA-FAST UNROLLED BLUR for radius 3 (most common case)
+function ultraFastBlur3(blurStart, cacheKey, minX, minY, workingWidth, workingHeight) {
+  // Pre-calculated gaussian weights for radius 3
+  const w0 = 0.006136, w1 = 0.061496, w2 = 0.242036, w3 = 0.383062, w4 = 0.242036, w5 = 0.061496, w6 = 0.006136;
+  
+  // Work area bounds with defaults
+  const actualMinX = minX || 0;
+  const actualMinY = minY || 0;
+  const maxX = (minX || 0) + (workingWidth || width);
+  const maxY = (minY || 0) + (workingHeight || height);
+  
+  // Allocate working buffers once
+  const bufferSize = width * height * 4;
+  if (!fastBlurBuffer1 || fastBlurBuffer1.length !== bufferSize) {
+    fastBlurBuffer1 = new Uint8ClampedArray(bufferSize);
+    fastBlurBuffer2 = new Uint8ClampedArray(bufferSize);
+  }
+  
+  // Copy source to working buffer
+  fastBlurBuffer1.set(pixels);
+  
+  // 🔥 HORIZONTAL PASS - Unrolled for radius 3
+  for (let y = actualMinY; y < maxY; y++) {
+    const rowOffset = y * width * 4;
+    for (let x = actualMinX; x < maxX; x++) {
+      // Pre-calculate sample positions with bounds clamping
+      const x0 = Math.max(actualMinX, x - 3) * 4;
+      const x1 = Math.max(actualMinX, x - 2) * 4;
+      const x2 = Math.max(actualMinX, x - 1) * 4;
+      const x3 = x * 4;
+      const x4 = Math.min(maxX - 1, x + 1) * 4;
+      const x5 = Math.min(maxX - 1, x + 2) * 4;
+      const x6 = Math.min(maxX - 1, x + 3) * 4;
+      
+      const destIdx = rowOffset + x * 4;
+      
+      // Unrolled RGBA calculation (no loops!)
+      fastBlurBuffer2[destIdx] = 
+        fastBlurBuffer1[rowOffset + x0] * w0 +
+        fastBlurBuffer1[rowOffset + x1] * w1 +
+        fastBlurBuffer1[rowOffset + x2] * w2 +
+        fastBlurBuffer1[rowOffset + x3] * w3 +
+        fastBlurBuffer1[rowOffset + x4] * w4 +
+        fastBlurBuffer1[rowOffset + x5] * w5 +
+        fastBlurBuffer1[rowOffset + x6] * w6;
+        
+      fastBlurBuffer2[destIdx + 1] = 
+        fastBlurBuffer1[rowOffset + x0 + 1] * w0 +
+        fastBlurBuffer1[rowOffset + x1 + 1] * w1 +
+        fastBlurBuffer1[rowOffset + x2 + 1] * w2 +
+        fastBlurBuffer1[rowOffset + x3 + 1] * w3 +
+        fastBlurBuffer1[rowOffset + x4 + 1] * w4 +
+        fastBlurBuffer1[rowOffset + x5 + 1] * w5 +
+        fastBlurBuffer1[rowOffset + x6 + 1] * w6;
+        
+      fastBlurBuffer2[destIdx + 2] = 
+        fastBlurBuffer1[rowOffset + x0 + 2] * w0 +
+        fastBlurBuffer1[rowOffset + x1 + 2] * w1 +
+        fastBlurBuffer1[rowOffset + x2 + 2] * w2 +
+        fastBlurBuffer1[rowOffset + x3 + 2] * w3 +
+        fastBlurBuffer1[rowOffset + x4 + 2] * w4 +
+        fastBlurBuffer1[rowOffset + x5 + 2] * w5 +
+        fastBlurBuffer1[rowOffset + x6 + 2] * w6;
+        
+      fastBlurBuffer2[destIdx + 3] = 
+        fastBlurBuffer1[rowOffset + x0 + 3] * w0 +
+        fastBlurBuffer1[rowOffset + x1 + 3] * w1 +
+        fastBlurBuffer1[rowOffset + x2 + 3] * w2 +
+        fastBlurBuffer1[rowOffset + x3 + 3] * w3 +
+        fastBlurBuffer1[rowOffset + x4 + 3] * w4 +
+        fastBlurBuffer1[rowOffset + x5 + 3] * w5 +
+        fastBlurBuffer1[rowOffset + x6 + 3] * w6;
+    }
+  }
+  
+  // � VERTICAL PASS - Unrolled for radius 3
+  for (let y = actualMinY; y < maxY; y++) {
+    // Pre-calculate row offsets with bounds clamping
+    const y0 = Math.max(actualMinY, y - 3) * width * 4;
+    const y1 = Math.max(actualMinY, y - 2) * width * 4;
+    const y2 = Math.max(actualMinY, y - 1) * width * 4;
+    const y3 = y * width * 4;
+    const y4 = Math.min(maxY - 1, y + 1) * width * 4;
+    const y5 = Math.min(maxY - 1, y + 2) * width * 4;
+    const y6 = Math.min(maxY - 1, y + 3) * width * 4;
+    
+    for (let x = actualMinX; x < maxX; x++) {
+      const xOff = x * 4;
+      const destIdx = y3 + xOff;
+      
+      // Unrolled RGBA calculation (no loops!)
+      pixels[destIdx] = 
+        fastBlurBuffer2[y0 + xOff] * w0 +
+        fastBlurBuffer2[y1 + xOff] * w1 +
+        fastBlurBuffer2[y2 + xOff] * w2 +
+        fastBlurBuffer2[y3 + xOff] * w3 +
+        fastBlurBuffer2[y4 + xOff] * w4 +
+        fastBlurBuffer2[y5 + xOff] * w5 +
+        fastBlurBuffer2[y6 + xOff] * w6;
+        
+      pixels[destIdx + 1] = 
+        fastBlurBuffer2[y0 + xOff + 1] * w0 +
+        fastBlurBuffer2[y1 + xOff + 1] * w1 +
+        fastBlurBuffer2[y2 + xOff + 1] * w2 +
+        fastBlurBuffer2[y3 + xOff + 1] * w3 +
+        fastBlurBuffer2[y4 + xOff + 1] * w4 +
+        fastBlurBuffer2[y5 + xOff + 1] * w5 +
+        fastBlurBuffer2[y6 + xOff + 1] * w6;
+        
+      pixels[destIdx + 2] = 
+        fastBlurBuffer2[y0 + xOff + 2] * w0 +
+        fastBlurBuffer2[y1 + xOff + 2] * w1 +
+        fastBlurBuffer2[y2 + xOff + 2] * w2 +
+        fastBlurBuffer2[y3 + xOff + 2] * w3 +
+        fastBlurBuffer2[y4 + xOff + 2] * w4 +
+        fastBlurBuffer2[y5 + xOff + 2] * w5 +
+        fastBlurBuffer2[y6 + xOff + 2] * w6;
+        
+      pixels[destIdx + 3] = 
+        fastBlurBuffer2[y0 + xOff + 3] * w0 +
+        fastBlurBuffer2[y1 + xOff + 3] * w1 +
+        fastBlurBuffer2[y2 + xOff + 3] * w2 +
+        fastBlurBuffer2[y3 + xOff + 3] * w3 +
+        fastBlurBuffer2[y4 + xOff + 3] * w4 +
+        fastBlurBuffer2[y5 + xOff + 3] * w5 +
+        fastBlurBuffer2[y6 + xOff + 3] * w6;
+    }
+  }
+  
+  // Cache result if needed
+  if (cacheKey && workingWidth > 0 && workingHeight > 0) {
+    const cacheResult = new Uint8ClampedArray(workingWidth * workingHeight * 4);
+    for (let y = 0; y < workingHeight; y++) {
+      for (let x = 0; x < workingWidth; x++) {
+        const srcIndex = ((actualMinY + y) * width + (actualMinX + x)) * 4;
+        const destIndex = (y * workingWidth + x) * 4;
+        
+        cacheResult[destIndex] = pixels[srcIndex];
+        cacheResult[destIndex + 1] = pixels[srcIndex + 1];
+        cacheResult[destIndex + 2] = pixels[srcIndex + 2];
+        cacheResult[destIndex + 3] = pixels[srcIndex + 3];
+      }
+    }
+    storeBlurCache(cacheKey, cacheResult);
+  }
+  
+  graphPerf.track('blur', performance.now() - blurStart);
+}
+
+// Static buffers and cache for fast blur
+let fastBlurBuffer1 = null;
+let fastBlurBuffer2 = null;
+const fastBlurWeights = new Map();
 
 // Manual blur implementation as fallback (renamed from original blur function)
 function manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight) {
@@ -2684,7 +2852,8 @@ function blend(dst, src, si, di, alphaIn = 1) {
     dst[di] = (alpha * src[si + 0] + invAlpha * dst[di + 0]) >> 8;
     dst[di + 1] = (alpha * src[si + 1] + invAlpha * dst[di + 1]) >> 8;
     dst[di + 2] = (alpha * src[si + 2] + invAlpha * dst[di + 2]) >> 8;
-    dst[di + 3] = dst[di + 3] + alpha;
+    // Keep destination alpha opaque when blending over opaque background
+    dst[di + 3] = 255;
   }
 }
 

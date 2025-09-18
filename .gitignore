@@ -13,6 +13,7 @@ teia/output/*/
 !teia/output/README.md
 
 # ignore reference tools output directory (bake/tape generated files)
+reference/tools/recording/.tape-frames-cache
 reference/tools/output/
 !reference/tools/output/.gitkeep
 
