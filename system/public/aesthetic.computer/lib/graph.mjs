@@ -1395,15 +1395,15 @@ function resize(bitmap, width, height) {
   return { pixels, width, height };
 }
 
-// 🚀 Pre-allocated blur buffers for performance
-let blurBuffer1, blurBuffer2;
-
-// GPU-accelerated native blur support
-let blurOffscreenCanvas, blurOffscreenCtx;
-
-// Blur result caching system for massive performance gains
-const blurCache = new Map();
-const MAX_BLUR_CACHE_SIZE = 50; // Limit cache size to prevent memory issues
+// Helper function to detect recording mode
+function isInRecordingMode() {
+  // Check multiple indicators that we're in recording mode
+  return typeof globalThis !== 'undefined' && (
+    globalThis.tapeRecording === true ||
+    globalThis.recording === true ||
+    (typeof process !== 'undefined' && process.argv && process.argv.includes('--recording'))
+  );
+}
 
 // Fast checksum for pixel data (using sampling for performance)
 function getPixelChecksum(pixels, width, height, x, y, w, h) {
@@ -1420,977 +1420,6 @@ function getPixelChecksum(pixels, width, height, x, y, w, h) {
   }
   
   return checksum;
-}
-
-// Store blur result in cache with LRU eviction
-function storeBlurCache(cacheKey, resultData) {
-  // Limit cache size
-  if (blurCache.size >= MAX_BLUR_CACHE_SIZE) {
-    // Remove oldest entry (LRU)
-    const firstKey = blurCache.keys().next().value;
-    blurCache.delete(firstKey);
-  }
-  
-  // Store a copy of the result data
-  blurCache.set(cacheKey, new Uint8ClampedArray(resultData));
-}
-
-// 🚀 IMPROVED BOX BLUR - Alpha-preserving implementation
-function fastBoxBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight, maxX, maxY) {
-  // ️ SAFETY CHECK: If pixels buffer is detached, recreate it
-  if (pixels.buffer && pixels.buffer.detached) {
-    console.warn('🚨 Pixels buffer detached in fastBoxBlur, recreating from screen dimensions');
-    pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0);
-  }
-
-  // 🚀 OPTIMIZATION: Reuse blur buffer
-  const bufferSize = width * height * 4;
-  if (!blurBuffer1 || blurBuffer1.length !== bufferSize) {
-    blurBuffer1 = new Uint8ClampedArray(bufferSize);
-  }
-
-  // Copy source pixels to working buffer
-  blurBuffer1.set(pixels);
-  
-  // Alpha-preserving separable box blur - horizontal pass first
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, totalAlpha = 0, maxAlpha = 0;
-      
-      // Sample horizontally around this pixel
-      for (let sx = Math.max(minX, x - radius); sx <= Math.min(maxX - 1, x + radius); sx++) {
-        const idx = (y * width + sx) * 4;
-        const alpha = blurBuffer1[idx + 3];
-        
-        // Alpha-weighted color sampling (prevents darkening from transparent pixels)
-        if (alpha > 0) {
-          const alphaWeight = alpha / 255.0;
-          r += blurBuffer1[idx] * alphaWeight;
-          g += blurBuffer1[idx + 1] * alphaWeight;
-          b += blurBuffer1[idx + 2] * alphaWeight;
-          totalAlpha += alphaWeight;
-        }
-        
-        // Track maximum alpha for spreading behavior
-        maxAlpha = Math.max(maxAlpha, alpha);
-      }
-      
-      // Write horizontally blurred result back to pixels
-      const outIdx = (y * width + x) * 4;
-      if (totalAlpha > 0) {
-        pixels[outIdx] = Math.round(r / totalAlpha);
-        pixels[outIdx + 1] = Math.round(g / totalAlpha);
-        pixels[outIdx + 2] = Math.round(b / totalAlpha);
-        // Use max alpha for better spreading (preserves opacity)
-        pixels[outIdx + 3] = Math.round(maxAlpha * 0.9); // Slight fade for natural look
-      } else {
-        // Keep original if no opaque pixels nearby
-        pixels[outIdx] = blurBuffer1[outIdx];
-        pixels[outIdx + 1] = blurBuffer1[outIdx + 1];
-        pixels[outIdx + 2] = blurBuffer1[outIdx + 2];
-        pixels[outIdx + 3] = blurBuffer1[outIdx + 3];
-      }
-    }
-  }
-  
-  // Copy result back to buffer for vertical pass
-  blurBuffer1.set(pixels);
-  
-  // Vertical pass with same alpha-preserving logic
-  for (let x = minX; x < maxX; x++) {
-    for (let y = minY; y < maxY; y++) {
-      let r = 0, g = 0, b = 0, totalAlpha = 0, maxAlpha = 0;
-      
-      // Sample vertically around this pixel
-      for (let sy = Math.max(minY, y - radius); sy <= Math.min(maxY - 1, y + radius); sy++) {
-        const idx = (sy * width + x) * 4;
-        const alpha = blurBuffer1[idx + 3];
-        
-        // Alpha-weighted color sampling
-        if (alpha > 0) {
-          const alphaWeight = alpha / 255.0;
-          r += blurBuffer1[idx] * alphaWeight;
-          g += blurBuffer1[idx + 1] * alphaWeight;
-          b += blurBuffer1[idx + 2] * alphaWeight;
-          totalAlpha += alphaWeight;
-        }
-        
-        // Track maximum alpha
-        maxAlpha = Math.max(maxAlpha, alpha);
-      }
-      
-      // Write final result
-      const outIdx = (y * width + x) * 4;
-      if (totalAlpha > 0) {
-        pixels[outIdx] = Math.round(r / totalAlpha);
-        pixels[outIdx + 1] = Math.round(g / totalAlpha);
-        pixels[outIdx + 2] = Math.round(b / totalAlpha);
-        // Use max alpha for better spreading
-        pixels[outIdx + 3] = Math.round(maxAlpha * 0.9);
-      } else {
-        // Keep original if no opaque pixels nearby
-        pixels[outIdx] = blurBuffer1[outIdx];
-        pixels[outIdx + 1] = blurBuffer1[outIdx + 1];
-        pixels[outIdx + 2] = blurBuffer1[outIdx + 2];
-        pixels[outIdx + 3] = blurBuffer1[outIdx + 3];
-      }
-    }
-  }
-  
-  graphPerf.track('blur', performance.now() - blurStart);
-}
-
-// 🔥 STACK BLUR - Fixed geometry and bounds checking
-function stackBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight, maxX, maxY) {
-  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
-  if (pixels.buffer && pixels.buffer.detached) {
-    console.warn('🚨 Pixels buffer detached in stackBlur, recreating from screen dimensions');
-    pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0);
-  }
-
-  // Clamp radius to reasonable values to prevent overflow
-  radius = Math.min(radius, 254);
-  if (radius < 1) return;
-
-  const wm = width - 1;
-  const hm = height - 1;
-  const r1 = radius + 1;
-  const divsum = (r1 * (r1 + 1)) >> 1;
-  
-  // Create working buffer
-  if (!blurBuffer1 || blurBuffer1.length !== pixels.length) {
-    blurBuffer1 = new Uint8ClampedArray(pixels.length);
-  }
-  
-  // Copy source to working buffer
-  blurBuffer1.set(pixels);
-  
-  // Stack blur tables (clamped to prevent overflow)
-  const mulsum = [
-    512, 512, 456, 512, 328, 456, 335, 512, 405, 328, 271, 456, 388, 335, 292, 512,
-    454, 405, 364, 328, 298, 271, 496, 456, 420, 388, 360, 335, 312, 292, 273, 512,
-    482, 454, 428, 405, 383, 364, 345, 328, 312, 298, 284, 271, 259, 496, 475, 456,
-    437, 420, 404, 388, 374, 360, 347, 335, 323, 312, 302, 292, 282, 273, 265, 512,
-    497, 482, 468, 454, 441, 428, 417, 405, 394, 383, 373, 364, 354, 345, 337, 328,
-    320, 312, 305, 298, 291, 284, 278, 271, 265, 259, 507, 496, 485, 475, 465, 456,
-    446, 437, 428, 420, 412, 404, 396, 388, 381, 374, 367, 360, 354, 347, 341, 335,
-    329, 323, 318, 312, 307, 302, 297, 292, 287, 282, 278, 273, 269, 265, 261, 512
-  ];
-  
-  const shgsum = [
-    9, 11, 12, 13, 13, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 17,
-    17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19,
-    19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20,
-    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 21,
-    21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
-    21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 22,
-    22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
-    22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 23
-  ];
-  
-  const mul = radius < mulsum.length ? mulsum[radius] : 1;
-  const shg = radius < shgsum.length ? shgsum[radius] : 23;
-  
-  // Horizontal pass (work within bounds) - Alpha-preserving
-  for (let y = minY; y < maxY; y++) {
-    let rsum = 0, gsum = 0, bsum = 0, asum = 0, alphaWeightSum = 0;
-    
-    // Initialize sum for this row
-    for (let i = -radius; i <= radius; i++) {
-      const x = Math.max(minX, Math.min(maxX - 1, minX + i));
-      const idx = (y * width + x) * 4;
-      const alpha = blurBuffer1[idx + 3];
-      
-      if (alpha > 0) {
-        const alphaWeight = alpha / 255.0;
-        rsum += blurBuffer1[idx] * alphaWeight;
-        gsum += blurBuffer1[idx + 1] * alphaWeight;
-        bsum += blurBuffer1[idx + 2] * alphaWeight;
-        alphaWeightSum += alphaWeight;
-      }
-      asum += alpha; // Still accumulate alpha for spreading
-    }
-    
-    // Process each pixel in the row
-    for (let x = minX; x < maxX; x++) {
-      const idx = (y * width + x) * 4;
-      
-      // Get original alpha for comparison
-      const originalAlpha = blurBuffer1[idx + 3];
-      
-      // Write blurred values using alpha-weighted averaging
-      if (alphaWeightSum > 0) {
-        pixels[idx] = Math.min(255, Math.max(0, Math.round(rsum / alphaWeightSum)));
-        pixels[idx + 1] = Math.min(255, Math.max(0, Math.round(gsum / alphaWeightSum)));
-        pixels[idx + 2] = Math.min(255, Math.max(0, Math.round(bsum / alphaWeightSum)));
-        // Use max of blurred alpha and original alpha for better preservation
-        const blurredAlpha = Math.round((asum * mul) >> shg);
-        pixels[idx + 3] = Math.max(originalAlpha, Math.round(blurredAlpha * 0.8));
-      } else {
-        // Keep original if no opaque pixels nearby
-        pixels[idx] = blurBuffer1[idx];
-        pixels[idx + 1] = blurBuffer1[idx + 1];
-        pixels[idx + 2] = blurBuffer1[idx + 2];
-        pixels[idx + 3] = originalAlpha;
-      }
-      
-      // Slide the window: remove left pixel, add right pixel
-      if (x < maxX - 1) {
-        const leftX = Math.max(minX, Math.min(maxX - 1, x - radius));
-        const rightX = Math.max(minX, Math.min(maxX - 1, x + radius + 1));
-        
-        const leftIdx = (y * width + leftX) * 4;
-        const rightIdx = (y * width + rightX) * 4;
-        
-        const leftAlpha = blurBuffer1[leftIdx + 3];
-        const rightAlpha = blurBuffer1[rightIdx + 3];
-        
-        // Remove left pixel (alpha-weighted)
-        if (leftAlpha > 0) {
-          const leftWeight = leftAlpha / 255.0;
-          rsum -= blurBuffer1[leftIdx] * leftWeight;
-          gsum -= blurBuffer1[leftIdx + 1] * leftWeight;
-          bsum -= blurBuffer1[leftIdx + 2] * leftWeight;
-          alphaWeightSum -= leftWeight;
-        }
-        
-        // Add right pixel (alpha-weighted)
-        if (rightAlpha > 0) {
-          const rightWeight = rightAlpha / 255.0;
-          rsum += blurBuffer1[rightIdx] * rightWeight;
-          gsum += blurBuffer1[rightIdx + 1] * rightWeight;
-          bsum += blurBuffer1[rightIdx + 2] * rightWeight;
-          alphaWeightSum += rightWeight;
-        }
-        
-        asum = asum - leftAlpha + rightAlpha;
-      }
-    }
-  }
-  
-  // Copy result back for vertical pass
-  blurBuffer1.set(pixels);
-  
-  // Vertical pass (work within bounds) - Alpha-preserving
-  for (let x = minX; x < maxX; x++) {
-    let rsum = 0, gsum = 0, bsum = 0, asum = 0, alphaWeightSum = 0;
-    
-    // Initialize sum for this column
-    for (let i = -radius; i <= radius; i++) {
-      const y = Math.max(minY, Math.min(maxY - 1, minY + i));
-      const idx = (y * width + x) * 4;
-      const alpha = blurBuffer1[idx + 3];
-      
-      if (alpha > 0) {
-        const alphaWeight = alpha / 255.0;
-        rsum += blurBuffer1[idx] * alphaWeight;
-        gsum += blurBuffer1[idx + 1] * alphaWeight;
-        bsum += blurBuffer1[idx + 2] * alphaWeight;
-        alphaWeightSum += alphaWeight;
-      }
-      asum += alpha;
-    }
-    
-    // Process each pixel in the column
-    for (let y = minY; y < maxY; y++) {
-      const idx = (y * width + x) * 4;
-      
-      // Get original alpha for comparison
-      const originalAlpha = blurBuffer1[idx + 3];
-      
-      // Write final blurred values using alpha-weighted averaging
-      if (alphaWeightSum > 0) {
-        pixels[idx] = Math.min(255, Math.max(0, Math.round(rsum / alphaWeightSum)));
-        pixels[idx + 1] = Math.min(255, Math.max(0, Math.round(gsum / alphaWeightSum)));
-        pixels[idx + 2] = Math.min(255, Math.max(0, Math.round(bsum / alphaWeightSum)));
-        // Use max of blurred alpha and original alpha for better preservation
-        const blurredAlpha = Math.round((asum * mul) >> shg);
-        pixels[idx + 3] = Math.max(originalAlpha, Math.round(blurredAlpha * 0.8));
-      } else {
-        // Keep original if no opaque pixels nearby
-        pixels[idx] = blurBuffer1[idx];
-        pixels[idx + 1] = blurBuffer1[idx + 1];
-        pixels[idx + 2] = blurBuffer1[idx + 2];
-        pixels[idx + 3] = originalAlpha;
-      }
-      
-      // Slide the window: remove top pixel, add bottom pixel
-      if (y < maxY - 1) {
-        const topY = Math.max(minY, Math.min(maxY - 1, y - radius));
-        const bottomY = Math.max(minY, Math.min(maxY - 1, y + radius + 1));
-        
-        const topIdx = (topY * width + x) * 4;
-        const bottomIdx = (bottomY * width + x) * 4;
-        
-        const topAlpha = blurBuffer1[topIdx + 3];
-        const bottomAlpha = blurBuffer1[bottomIdx + 3];
-        
-        // Remove top pixel (alpha-weighted)
-        if (topAlpha > 0) {
-          const topWeight = topAlpha / 255.0;
-          rsum -= blurBuffer1[topIdx] * topWeight;
-          gsum -= blurBuffer1[topIdx + 1] * topWeight;
-          bsum -= blurBuffer1[topIdx + 2] * topWeight;
-          alphaWeightSum -= topWeight;
-        }
-        
-        // Add bottom pixel (alpha-weighted)
-        if (bottomAlpha > 0) {
-          const bottomWeight = bottomAlpha / 255.0;
-          rsum += blurBuffer1[bottomIdx] * bottomWeight;
-          gsum += blurBuffer1[bottomIdx + 1] * bottomWeight;
-          bsum += blurBuffer1[bottomIdx + 2] * bottomWeight;
-          alphaWeightSum += bottomWeight;
-        }
-        
-        asum = asum - topAlpha + bottomAlpha;
-      }
-    }
-  }
-  
-  graphPerf.track('blur', performance.now() - blurStart);
-}
-
-// 🚀 Weight cache for different radii
-const weightCache = new Map();
-
-// Generate optimized Gaussian-like weights for blur
-function generateBlurWeights(radius) {
-  const cacheKey = radius.toString();
-  if (weightCache.has(cacheKey)) {
-    return weightCache.get(cacheKey);
-  }
-  
-  const sampleRadius = Math.max(1, Math.ceil(radius));
-  const weights = new Float32Array(sampleRadius * 2 + 1);
-  let totalWeight = 0;
-  
-  // Generate weights with Gaussian-like falloff
-  for (let i = -sampleRadius; i <= sampleRadius; i++) {
-    const distance = Math.abs(i);
-    let weight;
-    if (distance === 0) {
-      weight = 1.0;
-    } else {
-      // Optimized weight calculation - faster than Math.exp
-      const normalizedDistance = distance / radius;
-      weight = Math.max(0, 1 - normalizedDistance * normalizedDistance);
-    }
-    weights[i + sampleRadius] = weight;
-    totalWeight += weight;
-  }
-  
-  // Normalize weights
-  for (let i = 0; i < weights.length; i++) {
-    weights[i] /= totalWeight;
-  }
-  
-  const result = { weights, sampleRadius };
-  weightCache.set(cacheKey, result);
-  return result;
-}
-
-// 🚀 MASSIVE OPTIMIZATION: GPU-accelerated native blur using Canvas filter API
-function nativeFilterBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight) {
-  // Try to get canvas context from global scope (set by bios.js)
-  const canvasCtx = typeof globalThis !== 'undefined' && globalThis.canvas?.getContext('2d');
-  
-  if (!canvasCtx || typeof canvasCtx.filter === 'undefined') {
-    console.log('🚨 Canvas context or filter not available, falling back to manual blur');
-    return manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
-  }
-  
-  // Save current filter state
-  const savedFilter = canvasCtx.filter;
-  const savedCompositeOp = canvasCtx.globalCompositeOperation;
-  
-  try {
-    // Create offscreen canvas for blur operation
-    if (!blurOffscreenCanvas || blurOffscreenCanvas.width !== width || blurOffscreenCanvas.height !== height) {
-      // Try OffscreenCanvas first, fallback to regular canvas
-      try {
-        blurOffscreenCanvas = new OffscreenCanvas(width, height);
-        blurOffscreenCtx = blurOffscreenCanvas.getContext('2d', { willReadFrequently: true });
-      } catch (e) {
-        // Fallback to regular canvas
-        blurOffscreenCanvas = document.createElement('canvas');
-        blurOffscreenCanvas.width = width;
-        blurOffscreenCanvas.height = height;
-        blurOffscreenCtx = blurOffscreenCanvas.getContext('2d', { willReadFrequently: true });
-      }
-    }
-    
-    // Use the mask bounds already calculated
-    const sourceX = minX, sourceY = minY, sourceWidth = workingWidth, sourceHeight = workingHeight;
-    
-    // Early exit if bounds are invalid
-    if (sourceWidth <= 0 || sourceHeight <= 0) {
-      graphPerf.track('blur', performance.now() - blurStart);
-      return;
-    }
-    
-    // Copy pixel buffer to canvas for GPU processing
-    const imageData = new ImageData(new Uint8ClampedArray(pixels.buffer, pixels.byteOffset, pixels.byteLength), width, height);
-    blurOffscreenCtx.putImageData(imageData, 0, 0);
-    
-    // Apply GPU-accelerated blur filter
-    canvasCtx.filter = `blur(${radius}px)`;
-    
-    // Draw blurred result back to main canvas
-    canvasCtx.drawImage(blurOffscreenCanvas, sourceX, sourceY, sourceWidth, sourceHeight, 
-                        sourceX, sourceY, sourceWidth, sourceHeight);
-    
-    // Read back the blurred pixels
-    const blurredImageData = canvasCtx.getImageData(sourceX, sourceY, sourceWidth, sourceHeight);
-    
-    // Store in cache for future use
-    storeBlurCache(cacheKey, blurredImageData.data);
-    
-    // Copy blurred pixels back to our pixel buffer
-    for (let y = 0; y < sourceHeight; y++) {
-      for (let x = 0; x < sourceWidth; x++) {
-        const srcIndex = (y * sourceWidth + x) * 4;
-        const destIndex = ((sourceY + y) * width + (sourceX + x)) * 4;
-        
-        pixels[destIndex] = blurredImageData.data[srcIndex];
-        pixels[destIndex + 1] = blurredImageData.data[srcIndex + 1];
-        pixels[destIndex + 2] = blurredImageData.data[srcIndex + 2];
-        pixels[destIndex + 3] = blurredImageData.data[srcIndex + 3];
-      }
-    }
-    
-    graphPerf.track('blur', performance.now() - blurStart);
-    
-  } catch (error) {
-    console.warn('🚨 Native filter blur failed, falling back to manual blur:', error);
-    // Fall through to manual blur implementation
-    return manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
-  } finally {
-    // Restore filter state
-    canvasCtx.filter = savedFilter;
-    canvasCtx.globalCompositeOperation = savedCompositeOp;
-  }
-  
-  graphPerf.track('blur', performance.now() - blurStart);
-}
-
-// Apply a blur effect to the current pixel buffer using GPU-accelerated native filter
-// radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
-function blur(radius = 1) {
-  const blurStart = performance.now(); // 🚨 PERFORMANCE TRACKING
-  
-  // Auto-enable graph performance if not already enabled but window.graphPerf exists
-  if (!graphPerf.enabled && typeof window !== 'undefined' && window.graphPerf) {
-    graphPerf.enabled = true;
-    console.log("🎯 Auto-enabling graph performance tracking");
-  }
-  
-  if (radius <= 0) {
-    graphPerf.track('blur', performance.now() - blurStart);
-    return;
-  }
-
-  // Performance optimization: skip expensive blur operations during startup
-  if (typeof globalThis !== 'undefined' && globalThis.$api?.paintCount) {
-    const frameCount = Number(globalThis.$api.paintCount);
-    if (frameCount < 10) {
-      return; // Skip blur during startup
-    }
-  }
-
-  // 🚀 OPTIMIZATION: For very small radius, use fast approximation
-  if (radius < 0.5) {
-    // Skip blur for imperceptible radius
-    return;
-  }
-
-  // Clamp radius to reasonable values (stack blur can handle much larger radii efficiently)
-  radius = Math.min(radius, 50);
-
-  // 🚀 OPTIMIZATION: Check blur cache before expensive operations
-  let minX = 0, minY = 0, maxX = width, maxY = height;
-  if (activeMask) {
-    minX = Math.max(0, Math.min(width, activeMask.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
-    minY = Math.max(0, Math.min(height, activeMask.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height));
-  }
-  
-  const workingWidth = maxX - minX;
-  const workingHeight = maxY - minY;
-  
-  // Generate cache key based on content and blur parameters
-  const contentChecksum = getPixelChecksum(pixels, width, height, minX, minY, workingWidth, workingHeight);
-  const cacheKey = `${contentChecksum}-${radius}-${minX}-${minY}-${workingWidth}-${workingHeight}`;
-  
-  // Check if we have a cached result
-  if (blurCache.has(cacheKey)) {
-    const cachedResult = blurCache.get(cacheKey);
-    
-    // Copy cached result back to pixels buffer
-    for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const srcIndex = ((y - minY) * workingWidth + (x - minX)) * 4;
-        const destIndex = (y * width + x) * 4;
-        
-        pixels[destIndex] = cachedResult[srcIndex];
-        pixels[destIndex + 1] = cachedResult[srcIndex + 1];
-        pixels[destIndex + 2] = cachedResult[srcIndex + 2];
-        pixels[destIndex + 3] = cachedResult[srcIndex + 3];
-      }
-    }
-    
-    graphPerf.track('blur', performance.now() - blurStart);
-    return;
-  }
-
-  // ⚡ ULTRA-FAST UNROLLED BLUR: Specialized implementation for radius 3 (most common)
-  if (radius === 3) {
-    console.log("⚡ Using ultra-fast unrolled blur for radius 3");
-    return ultraFastBlur3(blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
-  }
-
-  // 🚀 FAST BLOCK BLUR: Use optimized block-based blur for best performance 
-  if (radius >= 1 && radius <= 8) {
-    console.log(`🚀 Using fast block blur for radius ${radius}`);
-    return fastBlockBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
-  }
-
-  // 🚀 MASSIVE OPTIMIZATION: Use native Canvas filter for GPU acceleration (10x+ faster)
-  if (typeof globalThis !== 'undefined' && globalThis.canvas) {
-    console.log(`🖥️ Using native filter blur for radius ${radius}`);
-    return nativeFilterBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
-  }
-
-  // Fall back to manual blur implementation
-  console.log(`⚠️ Using manual blur fallback for radius ${radius}`);
-  return manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight);
-}
-
-// ⚡ ULTRA-FAST UNROLLED BLUR for radius 3 (most common case)
-function ultraFastBlur3(blurStart, cacheKey, minX, minY, workingWidth, workingHeight) {
-  // Pre-calculated gaussian weights for radius 3
-  const w0 = 0.006136, w1 = 0.061496, w2 = 0.242036, w3 = 0.383062, w4 = 0.242036, w5 = 0.061496, w6 = 0.006136;
-  
-  // Work area bounds with defaults
-  const actualMinX = minX || 0;
-  const actualMinY = minY || 0;
-  const maxX = (minX || 0) + (workingWidth || width);
-  const maxY = (minY || 0) + (workingHeight || height);
-  
-  // Allocate working buffers once
-  const bufferSize = width * height * 4;
-  if (!fastBlurBuffer1 || fastBlurBuffer1.length !== bufferSize) {
-    fastBlurBuffer1 = new Uint8ClampedArray(bufferSize);
-    fastBlurBuffer2 = new Uint8ClampedArray(bufferSize);
-  }
-  
-  // Copy source to working buffer
-  fastBlurBuffer1.set(pixels);
-  
-  // 🔥 HORIZONTAL PASS - Unrolled for radius 3
-  for (let y = actualMinY; y < maxY; y++) {
-    const rowOffset = y * width * 4;
-    for (let x = actualMinX; x < maxX; x++) {
-      // Pre-calculate sample positions with bounds clamping
-      const x0 = Math.max(actualMinX, x - 3) * 4;
-      const x1 = Math.max(actualMinX, x - 2) * 4;
-      const x2 = Math.max(actualMinX, x - 1) * 4;
-      const x3 = x * 4;
-      const x4 = Math.min(maxX - 1, x + 1) * 4;
-      const x5 = Math.min(maxX - 1, x + 2) * 4;
-      const x6 = Math.min(maxX - 1, x + 3) * 4;
-      
-      const destIdx = rowOffset + x * 4;
-      
-      // Unrolled RGBA calculation (no loops!)
-      fastBlurBuffer2[destIdx] = 
-        fastBlurBuffer1[rowOffset + x0] * w0 +
-        fastBlurBuffer1[rowOffset + x1] * w1 +
-        fastBlurBuffer1[rowOffset + x2] * w2 +
-        fastBlurBuffer1[rowOffset + x3] * w3 +
-        fastBlurBuffer1[rowOffset + x4] * w4 +
-        fastBlurBuffer1[rowOffset + x5] * w5 +
-        fastBlurBuffer1[rowOffset + x6] * w6;
-        
-      fastBlurBuffer2[destIdx + 1] = 
-        fastBlurBuffer1[rowOffset + x0 + 1] * w0 +
-        fastBlurBuffer1[rowOffset + x1 + 1] * w1 +
-        fastBlurBuffer1[rowOffset + x2 + 1] * w2 +
-        fastBlurBuffer1[rowOffset + x3 + 1] * w3 +
-        fastBlurBuffer1[rowOffset + x4 + 1] * w4 +
-        fastBlurBuffer1[rowOffset + x5 + 1] * w5 +
-        fastBlurBuffer1[rowOffset + x6 + 1] * w6;
-        
-      fastBlurBuffer2[destIdx + 2] = 
-        fastBlurBuffer1[rowOffset + x0 + 2] * w0 +
-        fastBlurBuffer1[rowOffset + x1 + 2] * w1 +
-        fastBlurBuffer1[rowOffset + x2 + 2] * w2 +
-        fastBlurBuffer1[rowOffset + x3 + 2] * w3 +
-        fastBlurBuffer1[rowOffset + x4 + 2] * w4 +
-        fastBlurBuffer1[rowOffset + x5 + 2] * w5 +
-        fastBlurBuffer1[rowOffset + x6 + 2] * w6;
-        
-      fastBlurBuffer2[destIdx + 3] = 
-        fastBlurBuffer1[rowOffset + x0 + 3] * w0 +
-        fastBlurBuffer1[rowOffset + x1 + 3] * w1 +
-        fastBlurBuffer1[rowOffset + x2 + 3] * w2 +
-        fastBlurBuffer1[rowOffset + x3 + 3] * w3 +
-        fastBlurBuffer1[rowOffset + x4 + 3] * w4 +
-        fastBlurBuffer1[rowOffset + x5 + 3] * w5 +
-        fastBlurBuffer1[rowOffset + x6 + 3] * w6;
-    }
-  }
-  
-  // � VERTICAL PASS - Unrolled for radius 3
-  for (let y = actualMinY; y < maxY; y++) {
-    // Pre-calculate row offsets with bounds clamping
-    const y0 = Math.max(actualMinY, y - 3) * width * 4;
-    const y1 = Math.max(actualMinY, y - 2) * width * 4;
-    const y2 = Math.max(actualMinY, y - 1) * width * 4;
-    const y3 = y * width * 4;
-    const y4 = Math.min(maxY - 1, y + 1) * width * 4;
-    const y5 = Math.min(maxY - 1, y + 2) * width * 4;
-    const y6 = Math.min(maxY - 1, y + 3) * width * 4;
-    
-    for (let x = actualMinX; x < maxX; x++) {
-      const xOff = x * 4;
-      const destIdx = y3 + xOff;
-      
-      // Unrolled RGBA calculation (no loops!)
-      pixels[destIdx] = 
-        fastBlurBuffer2[y0 + xOff] * w0 +
-        fastBlurBuffer2[y1 + xOff] * w1 +
-        fastBlurBuffer2[y2 + xOff] * w2 +
-        fastBlurBuffer2[y3 + xOff] * w3 +
-        fastBlurBuffer2[y4 + xOff] * w4 +
-        fastBlurBuffer2[y5 + xOff] * w5 +
-        fastBlurBuffer2[y6 + xOff] * w6;
-        
-      pixels[destIdx + 1] = 
-        fastBlurBuffer2[y0 + xOff + 1] * w0 +
-        fastBlurBuffer2[y1 + xOff + 1] * w1 +
-        fastBlurBuffer2[y2 + xOff + 1] * w2 +
-        fastBlurBuffer2[y3 + xOff + 1] * w3 +
-        fastBlurBuffer2[y4 + xOff + 1] * w4 +
-        fastBlurBuffer2[y5 + xOff + 1] * w5 +
-        fastBlurBuffer2[y6 + xOff + 1] * w6;
-        
-      pixels[destIdx + 2] = 
-        fastBlurBuffer2[y0 + xOff + 2] * w0 +
-        fastBlurBuffer2[y1 + xOff + 2] * w1 +
-        fastBlurBuffer2[y2 + xOff + 2] * w2 +
-        fastBlurBuffer2[y3 + xOff + 2] * w3 +
-        fastBlurBuffer2[y4 + xOff + 2] * w4 +
-        fastBlurBuffer2[y5 + xOff + 2] * w5 +
-        fastBlurBuffer2[y6 + xOff + 2] * w6;
-        
-      pixels[destIdx + 3] = 
-        fastBlurBuffer2[y0 + xOff + 3] * w0 +
-        fastBlurBuffer2[y1 + xOff + 3] * w1 +
-        fastBlurBuffer2[y2 + xOff + 3] * w2 +
-        fastBlurBuffer2[y3 + xOff + 3] * w3 +
-        fastBlurBuffer2[y4 + xOff + 3] * w4 +
-        fastBlurBuffer2[y5 + xOff + 3] * w5 +
-        fastBlurBuffer2[y6 + xOff + 3] * w6;
-    }
-  }
-  
-  // Cache result if needed
-  if (cacheKey && workingWidth > 0 && workingHeight > 0) {
-    const cacheResult = new Uint8ClampedArray(workingWidth * workingHeight * 4);
-    for (let y = 0; y < workingHeight; y++) {
-      for (let x = 0; x < workingWidth; x++) {
-        const srcIndex = ((actualMinY + y) * width + (actualMinX + x)) * 4;
-        const destIndex = (y * workingWidth + x) * 4;
-        
-        cacheResult[destIndex] = pixels[srcIndex];
-        cacheResult[destIndex + 1] = pixels[srcIndex + 1];
-        cacheResult[destIndex + 2] = pixels[srcIndex + 2];
-        cacheResult[destIndex + 3] = pixels[srcIndex + 3];
-      }
-    }
-    storeBlurCache(cacheKey, cacheResult);
-  }
-  
-  graphPerf.track('blur', performance.now() - blurStart);
-}
-
-// Static buffers and cache for fast blur
-let fastBlurBuffer1 = null;
-let fastBlurBuffer2 = null;
-const fastBlurWeights = new Map();
-
-// Manual blur implementation as fallback (renamed from original blur function)
-function manualBlur(radius, blurStart, cacheKey, minX, minY, workingWidth, workingHeight) {
-  // Use provided bounds instead of recalculating
-  let actualMinX = minX, actualMinY = minY, maxX = minX + workingWidth, maxY = minY + workingHeight;
-  
-  // If bounds weren't provided, calculate them (backwards compatibility)
-  if (arguments.length < 3) {
-    actualMinX = 0;
-    actualMinY = 0;
-    maxX = width;
-    maxY = height;
-    if (activeMask) {
-      actualMinX = Math.max(0, Math.min(width, activeMask.x));
-      maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
-      actualMinY = Math.max(0, Math.min(height, activeMask.y));
-      maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height));
-    }
-    workingWidth = maxX - actualMinX;
-    workingHeight = maxY - actualMinY;
-  }
-
-  // Early exit if bounds are invalid
-  if (workingWidth <= 0 || workingHeight <= 0) return;
-
-  // 🚀 OPTIMIZATION: Use fast stack blur for large radii (Photoshop-grade algorithm)
-  if (radius >= 4) {
-    return stackBlur(radius, blurStart, cacheKey, actualMinX, actualMinY, workingWidth, workingHeight, maxX, maxY);
-  }
-
-  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
-  if (pixels.buffer && pixels.buffer.detached) {
-    console.warn('🚨 Pixels buffer detached in blur, recreating from screen dimensions');
-    pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0); // Fill with transparent black
-  }
-
-  // 🚀 OPTIMIZATION: Reuse blur buffers instead of allocating new ones
-  const bufferSize = width * height * 4;
-  if (!blurBuffer1 || blurBuffer1.length !== bufferSize) {
-    blurBuffer1 = new Uint8ClampedArray(bufferSize);
-    blurBuffer2 = new Uint8ClampedArray(bufferSize);
-  }
-
-  // Copy source pixels to working buffer
-  blurBuffer1.set(pixels);
-
-  // 🚀 Get pre-calculated weights for this radius
-  const { weights, sampleRadius } = generateBlurWeights(radius);
-
-  // Apply horizontal blur pass (only within mask bounds) - Alpha-preserving
-  for (let y = actualMinY; y < maxY; y++) {
-    for (let x = actualMinX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, totalAlphaWeight = 0, maxAlpha = 0;
-
-      for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        // Clamp sampling to mask bounds for proper edge handling
-        const sampleX = Math.max(actualMinX, Math.min(maxX - 1, x + i));
-        const index = (y * width + sampleX) * 4;
-        const weight = weights[i + sampleRadius];
-        const alpha = blurBuffer1[index + 3];
-
-        // Only sample opaque pixels for color (prevents darkening)
-        if (alpha > 0) {
-          const alphaWeight = (alpha / 255.0) * weight;
-          r += blurBuffer1[index] * alphaWeight;
-          g += blurBuffer1[index + 1] * alphaWeight;
-          b += blurBuffer1[index + 2] * alphaWeight;
-          totalAlphaWeight += alphaWeight;
-        }
-        
-        // Track maximum alpha for spreading
-        maxAlpha = Math.max(maxAlpha, alpha * weight);
-      }
-
-      // Write result to second buffer
-      const index = (y * width + x) * 4;
-      if (totalAlphaWeight > 0) {
-        blurBuffer2[index] = r / totalAlphaWeight;
-        blurBuffer2[index + 1] = g / totalAlphaWeight;
-        blurBuffer2[index + 2] = b / totalAlphaWeight;
-        blurBuffer2[index + 3] = Math.max(blurBuffer1[index + 3], maxAlpha * 0.9);
-      } else {
-        // Keep original if no opaque pixels nearby
-        blurBuffer2[index] = blurBuffer1[index];
-        blurBuffer2[index + 1] = blurBuffer1[index + 1];
-        blurBuffer2[index + 2] = blurBuffer1[index + 2];
-        blurBuffer2[index + 3] = blurBuffer1[index + 3];
-      }
-    }
-  }
-
-  // Apply vertical blur pass (only within mask bounds) - Alpha-preserving
-  for (let y = actualMinY; y < maxY; y++) {
-    for (let x = actualMinX; x < maxX; x++) {
-      let r = 0, g = 0, b = 0, totalAlphaWeight = 0, maxAlpha = 0;
-
-      for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        // Clamp sampling to mask bounds for proper edge handling
-        const sampleY = Math.max(actualMinY, Math.min(maxY - 1, y + i));
-        const index = (sampleY * width + x) * 4;
-        const weight = weights[i + sampleRadius];
-        const alpha = blurBuffer2[index + 3];
-
-        // Only sample opaque pixels for color (prevents darkening)
-        if (alpha > 0) {
-          const alphaWeight = (alpha / 255.0) * weight;
-          r += blurBuffer2[index] * alphaWeight;
-          g += blurBuffer2[index + 1] * alphaWeight;
-          b += blurBuffer2[index + 2] * alphaWeight;
-          totalAlphaWeight += alphaWeight;
-        }
-        
-        // Track maximum alpha for spreading
-        maxAlpha = Math.max(maxAlpha, alpha * weight);
-      }
-
-      // Write final result back to main buffer
-      const index = (y * width + x) * 4;
-      if (totalAlphaWeight > 0) {
-        pixels[index] = r / totalAlphaWeight;
-        pixels[index + 1] = g / totalAlphaWeight;
-        pixels[index + 2] = b / totalAlphaWeight;
-        pixels[index + 3] = Math.max(blurBuffer2[index + 3], maxAlpha * 0.9);
-      } else {
-        // Keep original if no opaque pixels nearby
-        pixels[index] = blurBuffer2[index];
-        pixels[index + 1] = blurBuffer2[index + 1];
-        pixels[index + 2] = blurBuffer2[index + 2];
-        pixels[index + 3] = blurBuffer2[index + 3];
-      }
-    }
-  }
-  
-  // 🚀 OPTIMIZATION: Store result in cache if cacheKey provided
-  if (cacheKey && workingWidth > 0 && workingHeight > 0) {
-    const cacheResult = new Uint8ClampedArray(workingWidth * workingHeight * 4);
-    for (let y = 0; y < workingHeight; y++) {
-      for (let x = 0; x < workingWidth; x++) {
-        const srcIndex = ((actualMinY + y) * width + (actualMinX + x)) * 4;
-        const destIndex = (y * workingWidth + x) * 4;
-        
-        cacheResult[destIndex] = pixels[srcIndex];
-        cacheResult[destIndex + 1] = pixels[srcIndex + 1];
-        cacheResult[destIndex + 2] = pixels[srcIndex + 2];
-        cacheResult[destIndex + 3] = pixels[srcIndex + 3];
-      }
-    }
-    storeBlurCache(cacheKey, cacheResult);
-  }
-  
-  graphPerf.track('blur', performance.now() - blurStart); // 🚨 PERFORMANCE TRACKING
-}
-
-// 🎨 SPREAD BLUR - Specialized blur that spreads colors outward without transparency
-// This variant is perfect for creating glow effects or spreading paint-like colors
-function spreadBlur(radius = 1) {
-  const blurStart = performance.now();
-  
-  if (radius <= 0) return;
-  
-  // Use a larger effective radius for better spreading
-  const effectiveRadius = Math.ceil(radius * 1.5);
-  
-  // Determine working area
-  let minX = 0, minY = 0, maxX = width, maxY = height;
-  if (activeMask) {
-    minX = Math.max(0, Math.min(width, activeMask.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
-    minY = Math.max(0, Math.min(height, activeMask.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height));
-  }
-  
-  // Allocate working buffer
-  const bufferSize = width * height * 4;
-  if (!blurBuffer1 || blurBuffer1.length !== bufferSize) {
-    blurBuffer1 = new Uint8ClampedArray(bufferSize);
-  }
-  
-  blurBuffer1.set(pixels);
-  
-  // Multiple passes for better spreading
-  for (let pass = 0; pass < 2; pass++) {
-    // Horizontal spread pass
-    for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const currentIdx = (y * width + x) * 4;
-        const currentAlpha = blurBuffer1[currentIdx + 3];
-        
-        // If current pixel is already opaque, skip spreading to it
-        if (currentAlpha >= 200) continue;
-        
-        let r = 0, g = 0, b = 0, foundColor = false, totalWeight = 0;
-        
-        // Look for nearby opaque pixels to spread from
-        for (let sx = Math.max(minX, x - effectiveRadius); sx <= Math.min(maxX - 1, x + effectiveRadius); sx++) {
-          const idx = (y * width + sx) * 4;
-          const alpha = blurBuffer1[idx + 3];
-          
-          if (alpha > 50) { // Only spread from reasonably opaque pixels
-            const distance = Math.abs(sx - x);
-            const weight = Math.max(0, 1 - (distance / effectiveRadius));
-            const alphaWeight = (alpha / 255.0) * weight;
-            
-            r += blurBuffer1[idx] * alphaWeight;
-            g += blurBuffer1[idx + 1] * alphaWeight;
-            b += blurBuffer1[idx + 2] * alphaWeight;
-            totalWeight += alphaWeight;
-            foundColor = true;
-          }
-        }
-        
-        if (foundColor && totalWeight > 0) {
-          pixels[currentIdx] = Math.round(r / totalWeight);
-          pixels[currentIdx + 1] = Math.round(g / totalWeight);
-          pixels[currentIdx + 2] = Math.round(b / totalWeight);
-          // Gradually increase alpha for spreading effect
-          pixels[currentIdx + 3] = Math.min(255, Math.max(currentAlpha, Math.round(totalWeight * 255 * 0.3)));
-        }
-      }
-    }
-    
-    // Copy result back for vertical pass
-    blurBuffer1.set(pixels);
-    
-    // Vertical spread pass
-    for (let x = minX; x < maxX; x++) {
-      for (let y = minY; y < maxY; y++) {
-        const currentIdx = (y * width + x) * 4;
-        const currentAlpha = blurBuffer1[currentIdx + 3];
-        
-        // If current pixel is already opaque, skip spreading to it
-        if (currentAlpha >= 200) continue;
-        
-        let r = 0, g = 0, b = 0, foundColor = false, totalWeight = 0;
-        
-        // Look for nearby opaque pixels to spread from
-        for (let sy = Math.max(minY, y - effectiveRadius); sy <= Math.min(maxY - 1, y + effectiveRadius); sy++) {
-          const idx = (sy * width + x) * 4;
-          const alpha = blurBuffer1[idx + 3];
-          
-          if (alpha > 50) { // Only spread from reasonably opaque pixels
-            const distance = Math.abs(sy - y);
-            const weight = Math.max(0, 1 - (distance / effectiveRadius));
-            const alphaWeight = (alpha / 255.0) * weight;
-            
-            r += blurBuffer1[idx] * alphaWeight;
-            g += blurBuffer1[idx + 1] * alphaWeight;
-            b += blurBuffer1[idx + 2] * alphaWeight;
-            totalWeight += alphaWeight;
-            foundColor = true;
-          }
-        }
-        
-        if (foundColor && totalWeight > 0) {
-          pixels[currentIdx] = Math.round(r / totalWeight);
-          pixels[currentIdx + 1] = Math.round(g / totalWeight);
-          pixels[currentIdx + 2] = Math.round(b / totalWeight);
-          // Gradually increase alpha for spreading effect
-          pixels[currentIdx + 3] = Math.min(255, Math.max(currentAlpha, Math.round(totalWeight * 255 * 0.3)));
-        }
-      }
-    }
-    
-    // Prepare for next pass
-    if (pass < 1) blurBuffer1.set(pixels);
-  }
-  
-  graphPerf.track('blur', performance.now() - blurStart);
 }
 
 // Adjust the contrast of the pixel buffer
@@ -5810,6 +4839,228 @@ function suck(strength = 1, centerX, centerY) {
   suckAccumulator = 0.0;
 }
 
+// Accumulated blur strength for smooth progressive blurring
+let blurAccumulator = 0.0;
+
+// Reusable temporary buffer for blur operations to avoid memory allocation on each call
+let blurTempBuffer = null;
+let blurTempBufferSize = 0;
+
+// Efficient Gaussian blur using separable filtering with linear sampling optimization
+// Creates smooth blur effect by applying horizontal then vertical Gaussian convolution
+function blur(strength = 1, quality = "medium") {
+  if (strength <= 0.1) return; // No blur needed - neutral blur
+  
+  // Start timing for performance monitoring
+  const blurStartTime = performance.now();
+  
+  // Accumulate the blur strength for progressive blurring
+  blurAccumulator += strength;
+  
+  // Apply blur when accumulator reaches threshold
+  const threshold = 0.5;
+  if (Math.abs(blurAccumulator) < threshold) return;
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) {
+    blurAccumulator = 0.0;
+    return;
+  }
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in blur, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  // Calculate blur parameters based on strength and quality
+  const blurRadius = Math.max(1, Math.floor(Math.abs(blurAccumulator)));
+  const kernelSize = Math.min(blurRadius * 2 + 1, 15); // Cap at 15 for performance
+  
+  // Generate Gaussian weights using Pascal triangle approximation
+  const weights = generateGaussianWeights(kernelSize, quality);
+  const radius = Math.floor(kernelSize / 2);
+  
+  try {
+    // Reuse temporary buffer to avoid repeated large allocations
+    const requiredSize = pixels.length;
+    if (!blurTempBuffer || blurTempBufferSize !== requiredSize) {
+      // Only allocate new buffer if size changed or buffer doesn't exist
+      blurTempBuffer = new Uint8ClampedArray(requiredSize);
+      blurTempBufferSize = requiredSize;
+    }
+    
+    // Clear the temp buffer to ensure clean state
+    blurTempBuffer.fill(0);
+    
+    // PASS 1: Horizontal blur
+    applyHorizontalBlur(pixels, blurTempBuffer, weights, radius, minX, minY, maxX, maxY);
+    
+    // PASS 2: Vertical blur (from temp back to main buffer)
+    applyVerticalBlur(blurTempBuffer, pixels, weights, radius, minX, minY, maxX, maxY);
+    
+  } catch (error) {
+    console.warn('🚨 Blur operation failed:', error);
+    // Reset temp buffer on error to prevent issues on next call
+    blurTempBuffer = null;
+    blurTempBufferSize = 0;
+  }
+  
+  // Log timing information for performance monitoring
+  const blurEndTime = performance.now();
+  const blurDuration = blurEndTime - blurStartTime;
+  console.log(`⚡ blur: ${blurDuration.toFixed(3)}ms`);
+  
+  // Reset accumulator after applying blur
+  blurAccumulator = 0.0;
+}
+
+// Generate optimized Gaussian weights for blur kernel
+function generateGaussianWeights(kernelSize, quality) {
+  const weights = new Array(kernelSize);
+  const radius = Math.floor(kernelSize / 2);
+  const sigma = radius / 3.0; // Standard deviation for nice falloff
+  
+  if (quality === "fast") {
+    // Simple box blur approximation - all weights equal
+    const weight = 1.0 / kernelSize;
+    for (let i = 0; i < kernelSize; i++) {
+      weights[i] = weight;
+    }
+  } else {
+    // Proper Gaussian weights
+    let sum = 0.0;
+    for (let i = 0; i < kernelSize; i++) {
+      const x = i - radius;
+      const weight = Math.exp(-(x * x) / (2 * sigma * sigma));
+      weights[i] = weight;
+      sum += weight;
+    }
+    
+    // Normalize weights to sum to 1.0
+    for (let i = 0; i < kernelSize; i++) {
+      weights[i] /= sum;
+    }
+  }
+  
+  return weights;
+}
+
+// Apply horizontal Gaussian blur pass with optimized sampling
+function applyHorizontalBlur(sourcePixels, destPixels, weights, radius, minX, minY, maxX, maxY) {
+  // Safety checks
+  if (!sourcePixels || !destPixels || !weights) return;
+  if (radius < 0 || radius >= weights.length / 2) return;
+  
+  for (let y = minY; y < maxY; y++) {
+    const rowOffset = y * width;
+    
+    for (let x = minX; x < maxX; x++) {
+      const destIdx = (rowOffset + x) * 4;
+      
+      // Bounds check for destination index
+      if (destIdx < 0 || destIdx + 3 >= destPixels.length) continue;
+      
+      let r = 0, g = 0, b = 0, a = 0;
+      
+      // Apply convolution kernel horizontally
+      for (let k = -radius; k <= radius; k++) {
+        // Handle boundary conditions with clamping
+        const srcX = Math.max(minX, Math.min(maxX - 1, x + k));
+        const srcIdx = (rowOffset + srcX) * 4;
+        
+        // Bounds check for source index
+        if (srcIdx < 0 || srcIdx + 3 >= sourcePixels.length) continue;
+        
+        const weightIdx = k + radius;
+        if (weightIdx < 0 || weightIdx >= weights.length) continue;
+        
+        const weight = weights[weightIdx];
+        
+        r += sourcePixels[srcIdx] * weight;
+        g += sourcePixels[srcIdx + 1] * weight;
+        b += sourcePixels[srcIdx + 2] * weight;
+        a += sourcePixels[srcIdx + 3] * weight;
+      }
+      
+      // Store blurred values with clamping
+      destPixels[destIdx] = Math.round(Math.max(0, Math.min(255, r)));
+      destPixels[destIdx + 1] = Math.round(Math.max(0, Math.min(255, g)));
+      destPixels[destIdx + 2] = Math.round(Math.max(0, Math.min(255, b)));
+      destPixels[destIdx + 3] = Math.round(Math.max(0, Math.min(255, a)));
+    }
+  }
+}
+
+// Apply vertical Gaussian blur pass with optimized sampling
+function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY, maxX, maxY) {
+  // Safety checks
+  if (!sourcePixels || !destPixels || !weights) return;
+  if (radius < 0 || radius >= weights.length / 2) return;
+  
+  for (let y = minY; y < maxY; y++) {
+    const rowOffset = y * width;
+    
+    for (let x = minX; x < maxX; x++) {
+      const destIdx = (rowOffset + x) * 4;
+      
+      // Bounds check for destination index
+      if (destIdx < 0 || destIdx + 3 >= destPixels.length) continue;
+      
+      let r = 0, g = 0, b = 0, a = 0;
+      
+      // Apply convolution kernel vertically
+      for (let k = -radius; k <= radius; k++) {
+        // Handle boundary conditions with clamping
+        const srcY = Math.max(minY, Math.min(maxY - 1, y + k));
+        const srcIdx = (srcY * width + x) * 4;
+        
+        // Bounds check for source index
+        if (srcIdx < 0 || srcIdx + 3 >= sourcePixels.length) continue;
+        
+        const weightIdx = k + radius;
+        if (weightIdx < 0 || weightIdx >= weights.length) continue;
+        
+        const weight = weights[weightIdx];
+        
+        r += sourcePixels[srcIdx] * weight;
+        g += sourcePixels[srcIdx + 1] * weight;
+        b += sourcePixels[srcIdx + 2] * weight;
+        a += sourcePixels[srcIdx + 3] * weight;
+      }
+      
+      // Store blurred values with clamping
+      destPixels[destIdx] = Math.round(Math.max(0, Math.min(255, r)));
+      destPixels[destIdx + 1] = Math.round(Math.max(0, Math.min(255, g)));
+      destPixels[destIdx + 2] = Math.round(Math.max(0, Math.min(255, b)));
+      destPixels[destIdx + 3] = Math.round(Math.max(0, Math.min(255, a)));
+    }
+  }
+}
+
 // Sort pixels by color within the masked area (or entire screen if no mask)
 // Sorts by luminance (brightness) - darker pixels first, lighter pixels last
 function sort() {
@@ -6984,7 +6235,6 @@ export {
   skip,
   copy,
   resize,
-  blur,
   contrast,
   brightness,
   paste,
@@ -7015,6 +6265,7 @@ export {
   spin,
   zoom,
   suck,
+  blur,
   sort,
   shear,
   setBlockProcessing,
