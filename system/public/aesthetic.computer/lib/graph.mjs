@@ -13,6 +13,8 @@ import {
   signedCeil,
   rainbow,
   zebra,
+  resetRainbowCache as numResetRainbowCache,
+  resetZebraCache as numResetZebraCache,
   isHexString,
   hexToRgb,
   shiftRGB,
@@ -140,13 +142,24 @@ function parseLocalFade(fadeType, alpha = 255) {
   const colorNames = fadeType.split("-");
   const colors = [];
   
-  for (const colorName of colorNames) {
+  // For symmetric patterns, we want the same sequence colors to have the same base
+  // but still support consecutive different colors like rainbow-rainbow-rainbow
+  let rainbowBaseOffset = 0;
+  let zebraBaseOffset = 0;
+  
+  for (let i = 0; i < colorNames.length; i++) {
+    const colorName = colorNames[i];
+    
     if (colorName === "rainbow") {
-      // Special handling for rainbow - will be processed during rendering
-      colors.push(["rainbow", 255, 255, 255, alpha]);
+      // Check if this is a consecutive rainbow (previous color was also rainbow)
+      const consecutiveOffset = (i > 0 && colorNames[i-1] === "rainbow") ? 1 : 0;
+      colors.push(["rainbow", 255, 255, 255, alpha, rainbowBaseOffset + consecutiveOffset]);
+      if (consecutiveOffset > 0) rainbowBaseOffset++;
     } else if (colorName === "zebra") {
-      // Special handling for zebra - will be processed during rendering  
-      colors.push(["zebra", 255, 255, 255, alpha]);
+      // Check if this is a consecutive zebra (previous color was also zebra)
+      const consecutiveOffset = (i > 0 && colorNames[i-1] === "zebra") ? 1 : 0;
+      colors.push(["zebra", 255, 255, 255, alpha, zebraBaseOffset + consecutiveOffset]);
+      if (consecutiveOffset > 0) zebraBaseOffset++;
     } else if (colorName.startsWith("c")) {
       // Color index like c0, c1, etc.
       const indexColor = parseColorIndex(colorName);
@@ -248,74 +261,190 @@ function getLocalFadeColor(t, x = 0, y = 0, fadeInfo) {
     return c.slice(); // Return current color as fallback
   }
   
-  // Handle special dynamic colors (rainbow, zebra)
-  if (color1[0] === "rainbow" || color2[0] === "rainbow") {
-    // Use cached rainbow color for consistent per-frame rendering
-    if (!currentRainbowColor) {
-      currentRainbowColor = rainbow();
-    }
+  // Handle special dynamic colors (zebra first, then rainbow)
+  if (color1[0] === "zebra" || color2[0] === "zebra") {
+    // Don't use cached zebra color - always get fresh colors with offsets
+    // This fixes the cyan zebra issue when zebra is first in the chain
     
-    // Properly interpolate between rainbow and regular colors
-    if (color1[0] === "rainbow" && color2[0] === "rainbow") {
-      // Both are rainbow, return rainbow color with interpolated alpha
+    // Properly interpolate between zebra and regular colors
+    if (color1[0] === "zebra" && color2[0] === "zebra") {
+      // Both are zebra, get colors with their respective offsets
+      const offset1 = color1[5] || 0; // Get offset from 6th element
+      const offset2 = color2[5] || 0;
+      const zebra1 = zebra(offset1);
+      const zebra2 = zebra(offset2);
+      
       const alpha1 = color1[4] || 255;
       const alpha2 = color2[4] || 255;
       const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
-      return [...currentRainbowColor.slice(0, 3), alpha];
-    } else if (color1[0] === "rainbow") {
-      // Interpolate from rainbow to regular color
-      const alpha1 = color1[4] || 255;
-      const alpha2 = color2[3] || 255;
+      
       return [
-        Math.round(currentRainbowColor[0] + (color2[0] - currentRainbowColor[0]) * localT),
-        Math.round(currentRainbowColor[1] + (color2[1] - currentRainbowColor[1]) * localT),
-        Math.round(currentRainbowColor[2] + (color2[2] - currentRainbowColor[2]) * localT),
+        Math.round(zebra1[0] + (zebra2[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (zebra2[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (zebra2[2] - zebra1[2]) * localT),
+        alpha
+      ];
+    } else if (color1[0] === "zebra") {
+      // Interpolate from zebra to regular/rainbow color
+      const offset1 = color1[5] || 0;
+      const zebra1 = zebra(offset1);
+      const alpha1 = color1[4] || 255;
+      
+      // Handle if color2 is also a special color
+      let color2RGB;
+      let alpha2;
+      if (color2[0] === "rainbow") {
+        const offset2 = color2[5] || 0;
+        color2RGB = rainbow(offset2);
+        alpha2 = color2[4] || 255;
+      } else {
+        color2RGB = [color2[0], color2[1], color2[2]];
+        alpha2 = color2[3] || 255;
+      }
+      
+      return [
+        Math.round(zebra1[0] + (color2RGB[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (color2RGB[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (color2RGB[2] - zebra1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    } else {
+      // Interpolate from regular color to zebra
+      const offset2 = color2[5] || 0;
+      const zebra2 = zebra(offset2);
+      const alpha1 = color1[3] || 255;
+      const alpha2 = color2[4] || 255;
+      return [
+        Math.round(color1[0] + (zebra2[0] - color1[0]) * localT),
+        Math.round(color1[1] + (zebra2[1] - color1[1]) * localT),
+        Math.round(color1[2] + (zebra2[2] - color1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    }
+  }
+  
+  if (color1[0] === "rainbow" || color2[0] === "rainbow") {
+    // Don't use cached rainbow color - always get fresh colors with offsets
+    // This keeps rainbow consistent with zebra behavior
+    
+    // Properly interpolate between rainbow and regular colors
+    if (color1[0] === "rainbow" && color2[0] === "rainbow") {
+      // Both are rainbow, get colors with their respective offsets
+      const offset1 = color1[5] || 0; // Get offset from 6th element
+      const offset2 = color2[5] || 0;
+      const rainbow1 = rainbow(offset1);
+      const rainbow2 = rainbow(offset2);
+      
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[4] || 255;
+      const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
+      
+      return [
+        Math.round(rainbow1[0] + (rainbow2[0] - rainbow1[0]) * localT),
+        Math.round(rainbow1[1] + (rainbow2[1] - rainbow1[1]) * localT),
+        Math.round(rainbow1[2] + (rainbow2[2] - rainbow1[2]) * localT),
+        alpha
+      ];
+    } else if (color1[0] === "rainbow") {
+      // Interpolate from rainbow to regular/zebra color
+      const offset1 = color1[5] || 0;
+      const rainbow1 = rainbow(offset1);
+      const alpha1 = color1[4] || 255;
+      
+      // Handle if color2 is also a special color
+      let color2RGB;
+      let alpha2;
+      if (color2[0] === "zebra") {
+        const offset2 = color2[5] || 0;
+        color2RGB = zebra(offset2);
+        alpha2 = color2[4] || 255;
+      } else {
+        color2RGB = [color2[0], color2[1], color2[2]];
+        alpha2 = color2[3] || 255;
+      }
+      
+      return [
+        Math.round(rainbow1[0] + (color2RGB[0] - rainbow1[0]) * localT),
+        Math.round(rainbow1[1] + (color2RGB[1] - rainbow1[1]) * localT),
+        Math.round(rainbow1[2] + (color2RGB[2] - rainbow1[2]) * localT),
         Math.round(alpha1 + (alpha2 - alpha1) * localT)
       ];
     } else {
       // Interpolate from regular color to rainbow
+      const offset2 = color2[5] || 0;
+      const rainbow2 = rainbow(offset2);
       const alpha1 = color1[3] || 255;
       const alpha2 = color2[4] || 255;
       return [
-        Math.round(color1[0] + (currentRainbowColor[0] - color1[0]) * localT),
-        Math.round(color1[1] + (currentRainbowColor[1] - color1[1]) * localT),
-        Math.round(color1[2] + (currentRainbowColor[2] - color1[2]) * localT),
+        Math.round(color1[0] + (rainbow2[0] - color1[0]) * localT),
+        Math.round(color1[1] + (rainbow2[1] - color1[1]) * localT),
+        Math.round(color1[2] + (rainbow2[2] - color1[2]) * localT),
         Math.round(alpha1 + (alpha2 - alpha1) * localT)
       ];
     }
   }
   
   if (color1[0] === "zebra" || color2[0] === "zebra") {
-    // Use cached zebra color for consistent per-frame rendering
-    if (!currentZebraColor) {
-      currentZebraColor = zebra();
-    }
+    console.log("🦓 Taking zebra branch");
+    // Don't use cached zebra color - always get fresh colors with offsets
+    // This fixes the cyan zebra issue when zebra is first in the chain
     
     // Properly interpolate between zebra and regular colors
     if (color1[0] === "zebra" && color2[0] === "zebra") {
-      // Both are zebra, return zebra color with interpolated alpha
+      // Both are zebra, get colors with their respective offsets
+      const offset1 = color1[5] || 0; // Get offset from 6th element
+      const offset2 = color2[5] || 0;
+      const zebra1 = zebra(offset1);
+      const zebra2 = zebra(offset2);
+      
       const alpha1 = color1[4] || 255;
       const alpha2 = color2[4] || 255;
       const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
-      return [...currentZebraColor.slice(0, 3), alpha];
-    } else if (color1[0] === "zebra") {
-      // Interpolate from zebra to regular color
-      const alpha1 = color1[4] || 255;
-      const alpha2 = color2[3] || 255;
+      
       return [
-        Math.round(currentZebraColor[0] + (color2[0] - currentZebraColor[0]) * localT),
-        Math.round(currentZebraColor[1] + (color2[1] - currentZebraColor[1]) * localT),
-        Math.round(currentZebraColor[2] + (color2[2] - currentZebraColor[2]) * localT),
+        Math.round(zebra1[0] + (zebra2[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (zebra2[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (zebra2[2] - zebra1[2]) * localT),
+        alpha
+      ];
+    } else if (color1[0] === "zebra") {
+      // Interpolate from zebra to regular/rainbow color
+      const offset1 = color1[5] || 0;
+      const zebra1 = zebra(offset1);
+      
+      // DEBUG: Log zebra color when it's first
+      console.log("🦓 DEBUG zebra first:", { offset1, zebra1, color1 });
+      
+      const alpha1 = color1[4] || 255;
+      
+      // Handle if color2 is also a special color
+      let color2RGB;
+      let alpha2;
+      if (color2[0] === "rainbow") {
+        const offset2 = color2[5] || 0;
+        color2RGB = rainbow(offset2);
+        alpha2 = color2[4] || 255;
+      } else {
+        color2RGB = [color2[0], color2[1], color2[2]];
+        alpha2 = color2[3] || 255;
+      }
+      
+      return [
+        Math.round(zebra1[0] + (color2RGB[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (color2RGB[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (color2RGB[2] - zebra1[2]) * localT),
         Math.round(alpha1 + (alpha2 - alpha1) * localT)
       ];
     } else {
       // Interpolate from regular color to zebra
+      const offset2 = color2[5] || 0;
+      const zebra2 = zebra(offset2);
       const alpha1 = color1[3] || 255;
       const alpha2 = color2[4] || 255;
       return [
-        Math.round(color1[0] + (currentZebraColor[0] - color1[0]) * localT),
-        Math.round(color1[1] + (currentZebraColor[1] - color1[1]) * localT),
-        Math.round(color1[2] + (currentZebraColor[2] - color1[2]) * localT),
+        Math.round(color1[0] + (zebra2[0] - color1[0]) * localT),
+        Math.round(color1[1] + (zebra2[1] - color1[1]) * localT),
+        Math.round(color1[2] + (zebra2[2] - color1[2]) * localT),
         Math.round(alpha1 + (alpha2 - alpha1) * localT)
       ];
     }
@@ -515,6 +644,9 @@ function flood(x, y, fillColor = c) {
 function resetRainbowCache() {
   currentRainbowColor = null;
   currentZebraColor = null;
+  // Also reset the num.mjs frame caches
+  numResetRainbowCache();
+  numResetZebraCache();
 }
 
 // Legacy getFadeColor function (for backward compatibility)
@@ -548,8 +680,10 @@ function findColor() {
     // Handle fade objects (from parseColor) - now completely local
     if (isFadeObject()) {
       const fadeObj = args[0];
+      // Extract alpha value from array if needed (for range syntax like "32-64")
+      const alphaValue = Array.isArray(fadeObj.alpha) ? fadeObj.alpha[0] : fadeObj.alpha;
       // Create fade color array format for local detection
-      const fadeColorArray = [fadeObj.fadeString, fadeObj.alpha || 255];
+      const fadeColorArray = [fadeObj.fadeString, alphaValue || 255];
       return fadeColorArray; // Return as is for local processing
     }
 
@@ -685,7 +819,10 @@ function findColor() {
   if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
 
   // Debug: Check for problematic color values and filter out timing expressions
-  if (args.some(val => val === undefined || isNaN(val) || (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
+  // Exclude valid fade strings from the invalid check
+  if (args.some(val => val === undefined || 
+                      (isNaN(val) && !(typeof val === 'string' && val.startsWith('fade:'))) || 
+                      (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
     console.log("WARNING: Invalid color values detected:", args);
     
     // Check if this contains a fade string that got passed incorrectly
