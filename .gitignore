@@ -12,6 +12,10 @@ teia/output/*.zip
 teia/output/*/
 !teia/output/README.md
 
+# ignore reference tools output directory (bake/tape generated files)
+reference/tools/output/
+!reference/tools/output/.gitkeep
+
 # assets (ignore all subdirectories but readme)
 system/public/assets/*/
 !system/public/assets/*/readme.txt
