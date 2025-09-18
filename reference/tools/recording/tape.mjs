@@ -36,6 +36,7 @@ import readline from 'readline';
 import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createCanvas } from 'canvas';
 // Import gifenc for GIF export
 import { GIFEncoder, quantize, applyPalette, prequantize } from '../../../system/public/aesthetic.computer/dep/gifenc/gifenc.esm.js';
 // Import KidLisp for $code recording
@@ -143,6 +144,11 @@ class Tape extends HeadlessAC {
     // Disk-based frame caching for scalable rendering
     this.frameCacheDir = join(process.cwd(), '.tape-frames-cache');
     this.useDiskCache = true; // Enable disk caching by default for scalability
+    
+    // Reuse single canvas for PNG generation to prevent memory bloat
+    this.pngCanvas = null;
+    this.pngCtx = null;
+    
     this.setupFrameCache();
   }
 
@@ -164,16 +170,26 @@ class Tape extends HeadlessAC {
     }
   }
 
-  // Cache frame to disk instead of keeping in memory
+  // Cache frame to disk as PNG only for memory efficiency and direct ffmpeg use
   cacheFrame(frameIndex, frameData, timestamp) {
     if (this.useDiskCache) {
-      const framePath = join(this.frameCacheDir, `frame-${frameIndex.toString().padStart(6, '0')}.bin`);
-      writeFileSync(framePath, frameData);
+      const framePngPath = join(this.frameCacheDir, `frame-${frameIndex.toString().padStart(6, '0')}.png`);
       
-      // Store only metadata in memory
+      // Memory monitoring for PNG generation debugging
+      const beforeMem = process.memoryUsage();
+      console.log(`Frame ${frameIndex} - Before PNG: RSS ${Math.round(beforeMem.rss / 1024 / 1024)}MB, Heap ${Math.round(beforeMem.heapUsed / 1024 / 1024)}MB`);
+      
+      // Save as PNG only - compressed, memory efficient, and directly usable by ffmpeg
+      this.saveToPNG(frameData, framePngPath);
+      
+      const afterMem = process.memoryUsage();
+      console.log(`Frame ${frameIndex} - After PNG: RSS ${Math.round(afterMem.rss / 1024 / 1024)}MB, Heap ${Math.round(afterMem.heapUsed / 1024 / 1024)}MB`);
+      console.log(`Frame ${frameIndex} - Delta: RSS +${Math.round((afterMem.rss - beforeMem.rss) / 1024 / 1024)}MB, Heap +${Math.round((afterMem.heapUsed - beforeMem.heapUsed) / 1024 / 1024)}MB`);
+      
+      // Store metadata in memory
       this.frames.push({
         index: frameIndex,
-        path: framePath,
+        pngPath: framePngPath,
         timestamp: timestamp,
         width: this.width,
         height: this.height
@@ -187,12 +203,45 @@ class Tape extends HeadlessAC {
     }
   }
 
-  // Read frame from disk cache
+  // Convert RGBA data to PNG file efficiently with reused canvas and memory management
+  saveToPNG(frameData, pngPath) {
+    try {
+      // Initialize reusable canvas if needed
+      if (!this.pngCanvas) {
+        this.pngCanvas = createCanvas(this.width, this.height);
+        this.pngCtx = this.pngCanvas.getContext('2d');
+        console.log(`📦 Initialized reusable PNG canvas: ${this.width}x${this.height}`);
+      }
+      
+      // Reuse existing canvas and context - much more memory efficient
+      const imageData = this.pngCtx.createImageData(this.width, this.height);
+      imageData.data.set(frameData);
+      this.pngCtx.putImageData(imageData, 0, 0);
+      
+      // Generate PNG buffer and save immediately
+      const buffer = this.pngCanvas.toBuffer('image/png');
+      writeFileSync(pngPath, buffer);
+      
+      // Force garbage collection hint for large buffers
+      if (buffer.length > 1024 * 1024) { // > 1MB
+        if (global.gc) {
+          global.gc();
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not create PNG cache: ${error.message}`);
+    }
+  }
+
+  // Read frame from disk cache (PNG format only)
   readCachedFrame(frameIndex) {
     if (this.useDiskCache) {
       const frameInfo = this.frames[frameIndex];
-      if (frameInfo && frameInfo.path) {
-        return readFileSync(frameInfo.path);
+      if (frameInfo && frameInfo.pngPath) {
+        // For PNG files, we could decode them back to RGBA if needed
+        // For now, return null since most usage is direct PNG->ffmpeg
+        console.warn('Reading PNG cache not yet implemented - consider using PNG path directly');
+        return null;
       }
     } else {
       return this.frames[frameIndex]?.data;
@@ -211,24 +260,36 @@ class Tape extends HeadlessAC {
       
       this.sixelRenderer.clear(0, 0, 0); // Clear to black
       
-      // frameData is a Uint8Array of RGBA pixel data
-      const pixelData = frameData instanceof Uint8Array ? frameData : frameData.data;
-      
-      if (!pixelData) {
-        console.log(`\n🎬 Frame ${frameIndex + 1}/${totalFrames} (no pixel data)`);
+      // Handle different frame data formats consistently
+      let pixelData;
+      if (frameData instanceof Uint8Array) {
+        pixelData = frameData;
+      } else if (frameData && frameData.data instanceof Uint8Array) {
+        pixelData = frameData.data;
+      } else {
+        console.log(`\n🎬 Frame ${frameIndex + 1}/${totalFrames} (invalid pixel data format)`);
         return;
       }
       
-      // Simple nearest-neighbor scaling
+      // Validate pixel data size
+      const expectedSize = sourceWidth * sourceHeight * 4; // RGBA
+      if (pixelData.length < expectedSize) {
+        console.log(`\n🎬 Frame ${frameIndex + 1}/${totalFrames} (pixel data too small: ${pixelData.length} < ${expectedSize})`);
+        return;
+      }
+      
+      // Improved nearest-neighbor scaling with bounds checking
       for (let y = 0; y < targetHeight; y++) {
         for (let x = 0; x < targetWidth; x++) {
-          const sourceX = Math.floor((x / targetWidth) * sourceWidth);
-          const sourceY = Math.floor((y / targetHeight) * sourceHeight);
+          // Calculate source coordinates with bounds checking
+          const sourceX = Math.min(Math.floor((x / targetWidth) * sourceWidth), sourceWidth - 1);
+          const sourceY = Math.min(Math.floor((y / targetHeight) * sourceHeight), sourceHeight - 1);
           const sourceIdx = (sourceY * sourceWidth + sourceX) * 4; // RGBA
           
-          const r = pixelData[sourceIdx] || 0;
-          const g = pixelData[sourceIdx + 1] || 0;
-          const b = pixelData[sourceIdx + 2] || 0;
+          // Extract RGB with bounds checking
+          const r = sourceIdx < pixelData.length ? pixelData[sourceIdx] : 0;
+          const g = sourceIdx + 1 < pixelData.length ? pixelData[sourceIdx + 1] : 0;
+          const b = sourceIdx + 2 < pixelData.length ? pixelData[sourceIdx + 2] : 0;
           
           this.sixelRenderer.setPixel(x, y, r, g, b);
         }
@@ -238,6 +299,12 @@ class Tape extends HeadlessAC {
       const sixelData = this.sixelRenderer.render();
       console.log(`\n🎬 Frame ${frameIndex + 1}/${totalFrames}:`);
       process.stdout.write(sixelData);
+      process.stdout.write('\n'); // Add newline
+      
+      // Force immediate output to terminal
+      if (process.stdout.isTTY) {
+        process.stdout.write('\x1b[0m'); // Reset terminal formatting
+      }
       
     } catch (error) {
       console.log(`\n🎬 Frame ${frameIndex + 1}/${totalFrames} (sixel error: ${error.message})`);
@@ -671,17 +738,19 @@ class Tape extends HeadlessAC {
       
       console.log(`🎬 Recording animation... (sim: ${simFPS}fps, paint: ${paintFPS}fps)`);
       
-      // Calculate total frames needed
-      const totalFrames = Math.ceil((duration / 1000) * paintFPS);
+      // Calculate total frames needed - use explicit totalFrames if provided
+      const actualTotalFrames = totalFrames || Math.ceil((duration / 1000) * paintFPS);
       let progressUpdateCount = 0;
       this.frameCount = 0;
+      
+      console.log(`📊 Recording ${actualTotalFrames} frames (${totalFrames ? 'explicit count' : 'calculated from duration'})`);
       
       // Track deterministic simulation time
       let simulationTime = 0; // Start at time 0
       const frameTimeStep = 1000 / paintFPS; // Time per frame in ms
       
       // DETERMINISTIC LOOP: Frame-based instead of time-based
-      for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+      for (let frameIndex = 0; frameIndex < actualTotalFrames; frameIndex++) {
         try {
           // Calculate deterministic timestamp for this frame
           const frameTime = (frameIndex / paintFPS) * 1000; // Exact timestamp in ms
@@ -690,7 +759,6 @@ class Tape extends HeadlessAC {
           simulationTime = frameTime;
           
           // Inject deterministic time into the API for timeless rendering
-          const simulationTime = frameTime;
           this.setSimulationTime(simulationTime);
           
           // Single simulation step per frame at deterministic time
@@ -710,7 +778,7 @@ class Tape extends HeadlessAC {
           
           // Display frame as sixel in terminal
           const frameData = { data: this.pixelBuffer };
-          this.displayFrameSixel(frameData, frameIndex, totalFrames);
+          this.displayFrameSixel(frameData, frameIndex, actualTotalFrames);
           
         } catch (error) {
           console.error('\n💥 Error in simulation/paint:', error);
@@ -935,6 +1003,286 @@ class Tape extends HeadlessAC {
     }
   }
 
+  // MP4 export implementation using ffmpeg - optimized for social media
+  async exportMP4(filename, mp4FPS = 60, quality = 'instagram') {
+    if (this.frames.length === 0) {
+      throw new Error('No frames to export - record animation first');
+    }
+
+    const outputPath = filename; // filename is already a full path
+    console.log(`🎬 Exporting ${this.frames.length} frames to ${filename} @ ${mp4FPS}fps (${quality} quality)...`);
+    
+    // Social media optimized settings
+    const qualitySettings = {
+      instagram: { 
+        crf: 20, preset: 'medium', profile: 'main', 
+        maxrate: '3500k', bufsize: '7000k',
+        desc: 'Instagram optimized'
+      },
+      twitter: { 
+        crf: 22, preset: 'medium', profile: 'main', 
+        maxrate: '2500k', bufsize: '5000k',
+        desc: 'Twitter optimized'
+      },
+      studio: { 
+        crf: 15, preset: 'slower', profile: 'high',
+        desc: 'Studio quality (highest)'
+      },
+      high: { 
+        crf: 18, preset: 'slow', profile: 'high',
+        desc: 'High quality'
+      },
+      medium: { 
+        crf: 23, preset: 'medium', profile: 'main',
+        desc: 'Medium quality'
+      },
+      low: { 
+        crf: 28, preset: 'fast', profile: 'baseline',
+        desc: 'Low quality/fast encode'
+      }
+    };
+    
+    const settings = qualitySettings[quality] || qualitySettings.studio;
+    console.log(`🎯 Using ${settings.desc} settings`);
+    
+    try {
+      // Check if we have cached PNG files to use directly
+      const hasCachedPNGs = this.useDiskCache && this.frames.length > 0 && 
+                            this.frames[0].pngPath && existsSync(this.frames[0].pngPath);
+      
+      let tempDir;
+      if (hasCachedPNGs) {
+        // Use existing cache directory with PNG files
+        tempDir = this.frameCacheDir;
+        console.log(`📁 Using cached PNG frames from ${tempDir}...`);
+        console.log(`🚀 Memory-efficient export: Using ${this.frameCount} pre-cached PNG frames`);
+      } else {
+        // Fallback: Create temporary PNG files from frame data
+        tempDir = '/tmp/tape-frames';
+        const { execSync } = await import('child_process');
+        
+        // Clean up any existing temp directory
+        try {
+          execSync(`rm -rf ${tempDir}`, { stdio: 'pipe' });
+        } catch (e) {
+          // Ignore if directory doesn't exist
+        }
+        
+        execSync(`mkdir -p ${tempDir}`, { stdio: 'pipe' });
+        console.log(`📁 Creating temporary frames in ${tempDir}...`);
+        
+        // Export frames as individual PNG files with memory optimization
+        const { writeFileSync } = await import('fs');
+        
+        for (let i = 0; i < this.frameCount; i++) {
+          const frameData = this.readCachedFrame(i);
+          
+          // Convert RGBA to PNG using canvas (more memory efficient than sharp for large images)
+          const frameFilename = `${tempDir}/frame-${i.toString().padStart(6, '0')}.png`;
+          
+          const { createCanvas } = await import('canvas');
+          const canvas = createCanvas(this.width, this.height);
+          const ctx = canvas.getContext('2d');
+          
+          const imageData = ctx.createImageData(this.width, this.height);
+          imageData.data.set(frameData);
+          ctx.putImageData(imageData, 0, 0);
+          
+          const buffer = canvas.toBuffer('image/png');
+          writeFileSync(frameFilename, buffer);
+          
+          // Force garbage collection every 10 frames for large images
+          if (i % 10 === 0 && global.gc) {
+            global.gc();
+          }
+          
+          // Progress reporting
+          if (i % 5 === 0 || i === this.frameCount - 1) {
+            console.log(`🖼️ Exported frame ${i + 1}/${this.frameCount}`);
+          }
+        }
+      }
+      
+      console.log(`🎬 Converting ${this.frameCount} frames to MP4 with ffmpeg...`);
+      
+      // Build ffmpeg command with social media optimization
+      const { execSync } = await import('child_process');
+      const ffmpegArgs = [
+        'ffmpeg', '-y',  // Overwrite output
+        '-framerate', mp4FPS.toString(),
+        '-i', `${tempDir}/frame-%06d.png`,
+        '-c:v', 'libopenh264',  // H.264 for best compatibility (using libopenh264 codec)
+        '-pix_fmt', 'yuv420p',  // Required for social media compatibility
+        '-movflags', '+faststart',  // Optimize for web streaming
+        '-r', mp4FPS.toString()  // Output framerate
+      ];
+      
+      // Add quality settings (libopenh264 supports different parameters than libx264)
+      if (quality === 'instagram' || quality === 'twitter') {
+        ffmpegArgs.push('-b:v', '2M');  // Target bitrate for social media
+      } else if (quality === 'studio') {
+        ffmpegArgs.push('-b:v', '32M');  // Ultra high bitrate for studio quality
+      } else {
+        ffmpegArgs.push('-b:v', '4M');  // Higher bitrate for other quality levels
+      }
+      
+      // Add bitrate limiting for social media platforms
+      if (settings.maxrate) {
+        ffmpegArgs.push('-maxrate', settings.maxrate);
+        ffmpegArgs.push('-bufsize', settings.bufsize);
+      }
+      
+      // Add color space settings for better compatibility
+      ffmpegArgs.push('-colorspace', 'bt709');
+      ffmpegArgs.push('-color_primaries', 'bt709');
+      ffmpegArgs.push('-color_trc', 'bt709');
+      
+      ffmpegArgs.push(outputPath);
+      
+      const ffmpegCmd = ffmpegArgs.join(' ');
+      console.log(`🔧 Running: ${ffmpegCmd}`);
+      
+      try {
+        execSync(ffmpegCmd, { stdio: 'pipe' });
+        console.log(`✅ Successfully encoded with libopenh264`);
+      } catch (error) {
+        // Try mpeg4 as fallback
+        console.log(`❌ libopenh264 failed, trying mpeg4...`);
+        const basicCmd = [
+          'ffmpeg', '-y',
+          '-framerate', mp4FPS.toString(),
+          '-i', `${tempDir}/frame-%06d.png`,
+          '-c:v', 'mpeg4',
+          '-pix_fmt', 'yuv420p',
+          '-b:v', '3M',
+          outputPath
+        ].join(' ');
+        
+        try {
+          execSync(basicCmd, { stdio: 'pipe' });
+          console.log(`✅ Successfully encoded with mpeg4`);
+        } catch (error2) {
+          // Final fallback to libvpx (WebM format)
+          console.log(`❌ mpeg4 failed, trying libvpx_vp8 (WebM)...`);
+          const webmPath = outputPath.replace('.mp4', '.webm');
+          const webmCmd = [
+            'ffmpeg', '-y',
+            '-framerate', mp4FPS.toString(),
+            '-i', `${tempDir}/frame-%06d.png`,
+            '-c:v', 'libvpx_vp8',
+            '-b:v', '2M',
+            webmPath
+          ].join(' ');
+          
+          execSync(webmCmd, { stdio: 'pipe' });
+          console.log(`✅ Successfully encoded as WebM: ${webmPath}`);
+          
+          // Update the output path for the final reporting
+          outputPath = webmPath;
+        }
+      }
+
+      // Clean up temporary files only if we created them
+      if (!hasCachedPNGs) {
+        console.log('🧹 Cleaning up temporary frames...');
+        const { execSync } = await import('child_process');
+        execSync(`rm -rf ${tempDir}`, { stdio: 'pipe' });
+      } else {
+        console.log('💾 Keeping cached PNG frames for future use...');
+      }
+      
+      // Get file size
+      const { statSync } = await import('fs');
+      const stats = statSync(outputPath);
+      
+      console.log('✅ MP4 exported successfully!');
+      console.log(`📁 Output: ${outputPath}`);
+      console.log(`📊 File size: ${(stats.size / (1024 * 1024)).toFixed(1)} MB`);
+      
+      // Clean up frame cache after successful export
+      if (this.useDiskCache) {
+        this.cleanupFrameCache();
+      }
+      
+      return outputPath;
+      
+    } catch (error) {
+      console.error('💥 Error exporting MP4:', error);
+      throw error;
+    }
+  }
+
+  // Capture a single frame at a specific time/frame index
+  async captureSingleFrame(piecePath, frameIndex = 0, fps = 60, totalFrames = null) {
+    console.log(`🖼️ Capturing single frame ${frameIndex} from piece: ${piecePath}`);
+    
+    try {
+      // For static pieces (non-animated), just render once
+      if (!piecePath.startsWith('$')) {
+        console.log('🎨 Rendering static piece...');
+        const paintFn = await this.loadPiece(piecePath);
+        const api = this.createAPI();
+        await paintFn(api);
+        
+        const frameData = this.captureFrame();
+        console.log(`✅ Static frame captured`);
+        
+        return {
+          success: true,
+          frames: 1,
+          timestamp: timestamp(),
+          apiCalls: this.apiCalls.length,
+          uniqueAPIs: [...new Set(this.apiCalls.map(call => call.name))].length,
+          apis: [...new Set(this.apiCalls.map(call => call.name))]
+        };
+      }
+      
+      // For KidLisp pieces, simulate animation to the desired frame
+      console.log(`🎬 Simulating animation to frame ${frameIndex}...`);
+      
+      // Calculate timing for the specific frame
+      const frameTime = (frameIndex / fps) * 1000;
+      const duration = frameTime + (1000 / fps); // Simulate just enough to reach the frame
+      
+      // Record just enough frames to reach the target frame
+      const result = await this.record(piecePath, duration, fps, frameIndex + 1);
+      
+      if (result.success && this.frameCount > frameIndex) {
+        console.log(`✅ Frame ${frameIndex} captured from animation`);
+        
+        // Load the specific frame from cache
+        const frameData = this.readCachedFrame(frameIndex);
+        if (frameData) {
+          // Update pixel buffer with the captured frame
+          this.pixelBuffer = new Uint8Array(frameData);
+          return {
+            success: true,
+            frames: 1,
+            capturedFrame: frameIndex,
+            timestamp: timestamp(),
+            apiCalls: result.apiCalls,
+            uniqueAPIs: result.uniqueAPIs,
+            apis: result.apis
+          };
+        }
+      }
+      
+      throw new Error(`Failed to capture frame ${frameIndex}`);
+      
+    } catch (error) {
+      console.error('💥 Error capturing frame:', error);
+      return {
+        success: false,
+        error: error.message,
+        frames: 0,
+        timestamp: timestamp(),
+        apiCalls: 0,
+        uniqueAPIs: 0,
+        apis: []
+      };
+    }
+  }
+
   // TODO: Implement video export
   async exportVideo(filename, format = 'mp4', frameRate = 30) {
     console.log(`🎥 TODO: Export ${this.frameCount} frames to ${filename} (${format}) @ ${frameRate}fps`);
@@ -959,19 +1307,53 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const framesArg = getArgValue('--frames');
   const fpsArg = getArgValue('--fps');
   const resolutionArg = getArgValue('--resolution');
+  const frameArg = getArgValue('--frame'); // Single frame capture
+  const widthArg = getArgValue('--width');
+  const heightArg = getArgValue('--height');
+  const qualityArg = getArgValue('--quality'); // MP4 quality setting
   const shouldExportPng = args.includes('--png'); // PNG is now optional
-  const shouldExportGif = !args.includes('--png'); // GIF is now default (unless --png specified)
+  const shouldExportGif = args.includes('--gif') || (!args.includes('--png') && !args.includes('--mp4')); // GIF is default unless --png or --mp4 specified
+  const shouldExportMp4 = args.includes('--mp4'); // MP4 export option
   const detailedTiming = args.includes('--timing'); // Add timing flag
   const useBlockProcessing = args.includes('--blocks'); // 🧪 EXPERIMENTAL: Block-based processing
+  const singleFrameMode = frameArg !== null; // Single frame capture mode
   
   // Calculate duration and fps
   let duration = 1000; // default 1 second
   let fps = 60; // default fps - smooth 60fps animations by default!
   let resolution = 768; // default resolution
+  let width = 768; // default width
+  let height = 768; // default height
   let requestedFrames = null; // Track if frames were explicitly requested
+  let captureFrame = 0; // Default to first frame for single frame capture
   
+  // Handle custom resolution and dimensions
   if (resolutionArg) {
     resolution = parseInt(resolutionArg);
+    width = height = resolution; // Square by default
+  }
+  
+  if (widthArg) {
+    width = parseInt(widthArg);
+  }
+  
+  if (heightArg) {
+    height = parseInt(heightArg);
+  }
+  
+  if (frameArg) {
+    captureFrame = parseInt(frameArg);
+  }
+  
+  // Handle MP4 quality setting
+  let mp4Quality = 'studio'; // Default to studio quality for highest bitrate
+  if (qualityArg) {
+    const validQualities = ['instagram', 'twitter', 'studio', 'high', 'medium', 'low'];
+    if (validQualities.includes(qualityArg)) {
+      mp4Quality = qualityArg;
+    } else {
+      console.warn(`⚠️ Invalid quality "${qualityArg}". Using "studio". Valid options: ${validQualities.join(', ')}`);
+    }
   }
   
   if (framesArg && fpsArg) {
@@ -987,18 +1369,36 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     fps = parseInt(fpsArg);
   } else {
     // Fallback to positional arguments for backwards compatibility
-    duration = parseInt(args[1]) || 1000;
-    fps = parseInt(args[2]) || 60; // 60fps default for legacy mode too
+    // If just a number is provided, treat it as frame count (not duration)
+    if (args[1] && !args[2]) {
+      // Single numeric argument = frame count (maintain 60fps)
+      requestedFrames = parseInt(args[1]);
+      fps = 60; // Keep default 60fps
+    } else {
+      // Legacy mode: duration (ms) and fps
+      duration = parseInt(args[1]) || 1000;
+      fps = parseInt(args[2]) || 60; // 60fps default for legacy mode too
+    }
   }
   
   if (!piecePath) {
-    console.error(chalk.red('Usage: node tape.mjs <piece-path> [--frames N] [--fps N] [--resolution N] [--png] [--timing] [--blocks] [--simd]'));
-    console.log(chalk.gray('Example: node tape.mjs $cow --frames 10 --resolution 1024 --timing'));
-    console.log(chalk.gray('         node tape.mjs $rose --png  # Export PNG instead of default GIF'));
-    console.log(chalk.gray('         node tape.mjs $piece --fps 30  # Override default 60fps'));
-    console.log(chalk.gray('         node tape.mjs $roz --blocks  # 🧪 Experimental block-based processing'));
-    console.log(chalk.gray('         node tape.mjs $roz --simd    # 🚀 Experimental SIMD processing'));
-    console.log(chalk.gray('Legacy: node tape.mjs test-complex.mjs 2000 30'));
+    console.error(chalk.red('Usage: node tape.mjs <piece-path> [OPTIONS]'));
+    console.log(chalk.gray('\nAnimation mode:'));
+    console.log(chalk.gray('  node tape.mjs <piece> [--frames N] [--fps N] [--resolution N] [--png|--gif|--mp4] [--quality instagram|twitter|studio|high|medium|low] [--timing] [--blocks]'));
+    console.log(chalk.gray('\nSingle frame mode:'));
+    console.log(chalk.gray('  node tape.mjs <piece> --frame N [--width W] [--height H] [--resolution N]'));
+    console.log(chalk.gray('\nExamples:'));
+    console.log(chalk.gray('  node tape.mjs $cow 240  # 240 frames at 60fps'));
+    console.log(chalk.gray('  node tape.mjs $cow --frames 10 --resolution 1024 --timing'));
+    console.log(chalk.gray('  node tape.mjs $rose --png  # Export PNG instead of default GIF'));
+    console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --mp4 --frames 60 --quality instagram  # Export MP4 for Instagram'));
+    console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --mp4 --quality twitter  # Export MP4 for Twitter'));
+    console.log(chalk.gray('  node tape.mjs $piece --fps 30  # Override default 60fps'));
+    console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --frame 0 --width 1920 --height 1080  # High-res flyer'));
+    console.log(chalk.gray('  node tape.mjs $roz --frame 30 --resolution 2048  # Capture 30th frame at 2048x2048'));
+    console.log(chalk.gray('  node tape.mjs $roz --blocks  # 🧪 Experimental block-based processing'));
+    console.log(chalk.gray('  node tape.mjs $roz --simd    # 🚀 Experimental SIMD processing'));
+    console.log(chalk.gray('\nLegacy: node tape.mjs test-complex.mjs 2000 30  # 2000ms duration, 30fps'));
     process.exit(1);
   }
 
@@ -1015,38 +1415,61 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   
   console.log(chalk.blue(`🎬 Target piece: ${piecePath}`));
-  console.log(chalk.blue(`⏱️  Duration: ${duration}ms @ ${fps}fps`));
-  console.log(chalk.blue(`📐 Resolution: ${resolution}x${resolution}\n`));
+  
+  if (singleFrameMode) {
+    console.log(chalk.blue(`🖼️  Single frame capture: frame ${captureFrame}`));
+    console.log(chalk.blue(`📐 Resolution: ${width}x${height}\n`));
+  } else {
+    console.log(chalk.blue(`⏱️  Duration: ${duration}ms @ ${fps}fps`));
+    console.log(chalk.blue(`📐 Resolution: ${resolution}x${resolution}\n`));
+  }
   
   try {
-    // Create tape recorder with larger canvas for better starfield projection
-    const tape = new Tape(resolution, resolution, { 
+    // Create tape recorder with specified dimensions
+    const tape = new Tape(width, height, { 
       detailedTiming,
       useBlockProcessing
-    }); // Pass timing and block processing options
+    });
     
     // Initialize AC system
     await tape.initializeAC();
     
-    // Record the animation
-    const result = await tape.record(piecePath, duration, fps, requestedFrames);
+    let result;
     
-    // Export GIF by default (unless --png is specified)
-    let gifPath = null;
-    let pngPath = null;
-    
-    if (shouldExportGif && result.success) {
-      console.log('\n' + chalk.blue('🎞️ Exporting GIF...'));
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const gifFilename = `/workspaces/aesthetic-computer/reference/tools/output/tape-${timestamp}.gif`;
-      gifPath = await tape.exportGIF(gifFilename, fps); // Use same fps as recording
+    if (singleFrameMode) {
+      // Single frame capture mode
+      result = await tape.captureSingleFrame(piecePath, captureFrame, fps, requestedFrames);
+    } else {
+      // Animation recording mode
+      result = await tape.record(piecePath, duration, fps, requestedFrames);
     }
     
-    // Save PNG only if requested
-    if (shouldExportPng && result.success) {
+    // Handle exports
+    let gifPath = null;
+    let pngPath = null;
+    let mp4Path = null;
+    
+    if (singleFrameMode || shouldExportPng) {
+      // Always export PNG for single frame mode, or when --png is specified
       console.log('\n' + chalk.blue('🖼️ Exporting PNG...'));
       const saveResult = tape.savePNG('/workspaces/aesthetic-computer/reference/tools/output/tape');
       pngPath = saveResult.filename;
+    }
+    
+    if (!singleFrameMode && shouldExportGif && result.success) {
+      // Export GIF for animation mode (unless single frame)
+      console.log('\n' + chalk.blue('🎞️ Exporting GIF...'));
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const gifFilename = `/workspaces/aesthetic-computer/reference/tools/output/tape-${timestamp}.gif`;
+      gifPath = await tape.exportGIF(gifFilename, fps);
+    }
+
+    if (!singleFrameMode && shouldExportMp4 && result.success) {
+      // Export MP4 for animation mode (unless single frame)
+      console.log('\n' + chalk.blue('🎬 Exporting MP4...'));
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const mp4Filename = `/workspaces/aesthetic-computer/reference/tools/output/tape-${timestamp}.mp4`;
+      mp4Path = await tape.exportMP4(mp4Filename, fps, mp4Quality);
     }
     
     // Clean up frame cache (both formats handle their own cleanup)
@@ -1058,23 +1481,35 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     let summaryLines = [
       `${chalk.cyan('Success:')} ${result.success}`,
       `${chalk.cyan('Frames:')} ${result.frames}`,
-      `${chalk.cyan('Duration:')} ${result.duration}ms`,
-      `${chalk.cyan('Target FPS:')} ${result.targetFPS}`,
-      `${chalk.cyan('Actual FPS:')} ${result.actualFPS?.toFixed(1) || 'N/A'}`,
-      `${chalk.cyan('API Calls:')} ${result.apiCalls}`,
-      `${chalk.cyan('Unique APIs:')} ${result.uniqueAPIs}`,
-      `${chalk.cyan('APIs Used:')} ${result.apis.join(', ') || 'none'}`
     ];
+    
+    if (singleFrameMode) {
+      summaryLines.push(`${chalk.cyan('Captured Frame:')} ${result.capturedFrame || captureFrame}`);
+      summaryLines.push(`${chalk.cyan('Resolution:')} ${width}x${height}`);
+    } else {
+      summaryLines.push(`${chalk.cyan('Duration:')} ${result.duration}ms`);
+      summaryLines.push(`${chalk.cyan('Target FPS:')} ${result.targetFPS}`);
+      summaryLines.push(`${chalk.cyan('Actual FPS:')} ${result.actualFPS?.toFixed(1) || 'N/A'}`);
+    }
+    
+    summaryLines.push(`${chalk.cyan('API Calls:')} ${result.apiCalls}`);
+    summaryLines.push(`${chalk.cyan('Unique APIs:')} ${result.uniqueAPIs}`);
+    summaryLines.push(`${chalk.cyan('APIs Used:')} ${result.apis.join(', ') || 'none'}`);
     
     if (gifPath) {
       summaryLines.push(`${chalk.cyan('GIF Export:')} ${gifPath}`);
+    }
+    
+    if (mp4Path) {
+      summaryLines.push(`${chalk.cyan('MP4 Export:')} ${mp4Path}`);
     }
     
     if (pngPath) {
       summaryLines.push(`${chalk.cyan('PNG Export:')} ${pngPath}`);
     }
     
-    const summary = `${chalk.green('✅ Recording Complete!')}\n\n` + summaryLines.join('\n');
+    const modeText = singleFrameMode ? 'Frame Capture' : 'Recording';
+    const summary = `${chalk.green(`✅ ${modeText} Complete!`)}\n\n` + summaryLines.join('\n');
     
     const boxedSummary = boxen(summary, { 
       padding: 1, 
@@ -1084,11 +1519,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     
     console.log('\n' + boxedSummary);
     
-    // Show TODO message for future features
-    console.log(chalk.yellow('\n🚧 Coming Soon:'));
-    console.log(chalk.gray('   • Video export: tape.exportVideo("animation.mp4", "mp4", 30)'));
-    console.log(chalk.gray('   • Audio integration with speaker.mjs'));
-    console.log(chalk.gray('   • Synth.mjs support for musical pieces'));
+    // Show appropriate TODO message based on mode
+    if (!singleFrameMode) {
+      console.log(chalk.yellow('\n🚧 Coming Soon:'));
+      console.log(chalk.gray('   • Audio integration with speaker.mjs'));
+      console.log(chalk.gray('   • Synth.mjs support for musical pieces'));
+      console.log(chalk.gray('   • Advanced video codecs (AV1, HEVC)'));
+    } else {
+      console.log(chalk.yellow('\n💡 Pro Tips:'));
+      console.log(chalk.gray('   • Use --width and --height for custom aspect ratios'));
+      console.log(chalk.gray('   • Combine with animation: --frame 30 to capture mid-animation'));
+      console.log(chalk.gray('   • High-res flyers: --resolution 2048 or --width 1920 --height 1080'));
+    }
     
     if (!result.success) {
       console.log(`\n${chalk.red('💥 Error:')} ${result.error}`);
