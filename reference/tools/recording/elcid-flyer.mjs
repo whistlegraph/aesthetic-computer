@@ -4,7 +4,7 @@
 // [-] Finish copy editing / typography
 // [ ] Add flair
 
-// Track frame count for animation
+// Track frame count for animation - will be injected by frame renderer
 let frameCount = 0;
 let marqueeOffset = 0; // For scrolling text
 
@@ -90,11 +90,11 @@ function writeVHS(text, options, api) {
     [150, 50, 255]     // Blue-magenta
   ];
   
-  // CONCENTRATED thickness spread - SIZE-SCALED but TIGHT around origin (1-5 pixels max)
+  // CONCENTRATED thickness spread - SIZE-SCALED but MUCH THICKER for intense overdraw
   const sizeScale = size / 12; // Scale factor based on size (12 is baseline)
-  const maxThickness = Math.min(5, 1 + sizeScale); // 1-5 pixels max, scales with size
+  const maxThickness = Math.min(12, 3 + sizeScale * 2); // 3-12 pixels max, much thicker, scales with size
   
-  // Tight thickness offsets - BOTH X and Y directions, very close to origin
+  // Tight thickness offsets - BOTH X and Y directions, extended for thicker text
   const baseThickness = [
     [0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [0, -1], [-1, -1],
     [2, 0], [0, 2], [-2, 0], [0, -2], [2, 1], [1, 2], [-2, -1], [-1, -2],
@@ -104,7 +104,18 @@ function writeVHS(text, options, api) {
     [4, 0], [0, 4], [-4, 0], [0, -4], [4, 1], [1, 4], [-4, -1], [-1, -4],
     [4, 2], [2, 4], [-4, 2], [2, -4], [4, -2], [-2, 4], [-4, -2], [-2, -4],
     [5, 0], [0, 5], [-5, 0], [0, -5], [5, 1], [1, 5], [-5, -1], [-1, -5],
-    [5, 2], [2, 5], [-5, 2], [2, -5], [5, -2], [-2, 5], [-5, -2], [-2, -5]
+    [5, 2], [2, 5], [-5, 2], [2, -5], [5, -2], [-2, 5], [-5, -2], [-2, -5],
+    [6, 0], [0, 6], [-6, 0], [0, -6], [6, 1], [1, 6], [-6, -1], [-1, -6],
+    [6, 2], [2, 6], [-6, 2], [2, -6], [6, -2], [-2, 6], [-6, -2], [-2, -6],
+    [6, 3], [3, 6], [-6, 3], [3, -6], [6, -3], [-3, 6], [-6, -3], [-3, -6],
+    [7, 0], [0, 7], [-7, 0], [0, -7], [7, 1], [1, 7], [-7, -1], [-1, -7],
+    [7, 2], [2, 7], [-7, 2], [2, -7], [7, -2], [-2, 7], [-7, -2], [-2, -7],
+    [8, 0], [0, 8], [-8, 0], [0, -8], [8, 1], [1, 8], [-8, -1], [-1, -8],
+    [8, 2], [2, 8], [-8, 2], [2, -8], [8, -2], [-2, 8], [-8, -2], [-2, -8],
+    [9, 0], [0, 9], [-9, 0], [0, -9], [9, 1], [1, 9], [-9, -1], [-1, -9],
+    [10, 0], [0, 10], [-10, 0], [0, -10], [10, 1], [1, 10], [-10, -1], [-1, -10],
+    [11, 0], [0, 11], [-11, 0], [0, -11], [11, 1], [1, 11], [-11, -1], [-1, -11],
+    [12, 0], [0, 12], [-12, 0], [0, -12], [12, 1], [1, 12], [-12, -1], [-1, -12]
   ];
   
   // Filter and scale offsets to stay within maxThickness
@@ -112,11 +123,11 @@ function writeVHS(text, options, api) {
     .filter(([x, y]) => Math.abs(x) <= maxThickness && Math.abs(y) <= maxThickness)
     .map(([x, y]) => [x, y]); // Keep as-is, already tight
   
-  // SIMPLIFIED OVERDRAW - fewer layers, more concentrated
-  const numLayers = Math.max(2, Math.min(4, Math.floor(1 + sizeScale))); // 2-4 layers max
+  // LIGHTWEIGHT OVERDRAW for performance testing - MUCH REDUCED
+  const numLayers = 2; // Reduced from 3-6 to just 2 layers
   
   for (let layer = 0; layer < numLayers; layer++) {
-    const copiesPerLayer = Math.max(3, Math.min(8, Math.floor(3 + sizeScale))); // 3-8 copies max
+    const copiesPerLayer = 3; // Reduced from 6-12 to just 3 copies
     
     for (let i = 0; i < copiesPerLayer; i++) {
       // Mix base neon color with random colors
@@ -137,9 +148,9 @@ function writeVHS(text, options, api) {
       
       ink(r, g, b, glitchAlpha);
       
-      // TIGHT thickness - use only a subset of available offsets
-      const maxOffsets = Math.min(12, thicknessOffsets.length); // Use at most 12 offsets
-      const numOffsets = Math.max(4, Math.min(maxOffsets, 4 + Math.floor(sizeScale * 2))); // 4-12 offsets
+      // LIGHTWEIGHT thickness - use fewer offsets for performance
+      const maxOffsets = Math.min(5, thicknessOffsets.length); // Use up to 5 offsets (was 20)
+      const numOffsets = Math.max(3, Math.min(maxOffsets, 3 + Math.floor(sizeScale * 1))); // 3-5 offsets for lighter text
       
       // Select offsets randomly from the tight set
       const selectedOffsets = [];
@@ -260,28 +271,29 @@ function drawDynamicStar(x, y, size, frame, api) {
   }
 }
 
-export function paint({ api }) {
+export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   const { wipe, ink, line, box, circle, write, point, blur, scroll, zoom, spin, text, gizmo } = api;
 
-  frameCount++;
+  // Use injected frame data for continuity
+  frameCount = frameIndex;
 
   // Clean gradient background with cyberpunk aesthetic
   if (frameCount <= 1) {
-    wipe(0, 0, 0); // Complete black for first 30 frames
+    // wipe(0, 0, 0); // Complete black for first 30 frames
   }
   //} else if (frameCount === 31) {
   //  wipe(5, 10, 15); // Very dark blue-black base
   // }
 
-  // Subtle animated background gradient with cyberpunk dark tones
-  const gradientShift = Math.sin(frameCount * 0.01) * 8;
+  // Background persistence mode - no gradient to preserve previous frames
+  // const gradientShift = Math.sin(frameCount * 0.01) * 8;
   
-  // Only draw gradient in the middle area, avoiding top and bottom borders
-  for (let y = 80; y < (2048 - 80); y += 4) {
-    const intensity = 5 + gradientShift + (y / 2048) * 10;
-    ink(intensity, intensity + 3, intensity + 12, 8);
-    line(0, y, 2048, y);
-  }
+  // Gradient disabled for background persistence
+  // for (let y = 80; y < (2048 - 80); y += 4) {
+  //   const intensity = 5 + gradientShift + (y / 2048) * 10;
+  //   ink(intensity, intensity + 3, intensity + 12, 8);
+  //   line(0, y, 2048, y);
+  // }
 
   // CYBERPUNK COLOR BAR at top - neo-matrix themed!
   const colorBarHeight = 80; // Height of the color strip
@@ -501,15 +513,16 @@ export function paint({ api }) {
     }
   }
 
-  // 3D Starfield background - flying through space!
-  const numStars = 1024;
+  // 3D Starfield background - flying through space! (Reduced for performance)
+  const numStars = 256; // Reduced from 1024 for performance
   const speed = 32; // Movement speed through space
   
-  // Initialize stars on first frame
-  if (frameCount === 1) {
-    api.stars = [];
+  // Initialize stars on first frame if not in state
+  if (!global.stars) {
+    // console.log('🌟 Initializing starfield...'); // Commented for recording performance
+    global.stars = [];
     for (let i = 0; i < numStars; i++) {
-      api.stars.push({
+      global.stars.push({
         x: (Math.random() - 0.5) * 4000, // Random X position in 3D space
         y: (Math.random() - 0.5) * 4000, // Random Y position in 3D space  
         z: Math.random() * 2000 + 100,   // Random Z depth
@@ -520,7 +533,7 @@ export function paint({ api }) {
   
   // Update and render each star
   for (let i = 0; i < numStars; i++) {
-    const star = api.stars[i];
+    const star = global.stars[i];
     
     // Move star towards camera
     star.z -= speed;
@@ -619,14 +632,15 @@ export function paint({ api }) {
     }
   }
 
-  // Bouncing Colorful Star Instances around the screen
-  const numBouncingStars = 25;
+  // Bouncing Colorful Star Instances around the screen (Reduced for performance)
+  const numBouncingStars = 25; // Reduced from 25 for performance
   
-  // Initialize bouncing stars on first frame
-  if (frameCount === 1) {
-    api.bouncingStars = [];
+  // Initialize bouncing stars if not in state
+  if (!global.bouncingStars) {
+    // console.log('🌈 Initializing bouncing stars...'); // Commented for recording performance
+    global.bouncingStars = [];
     for (let i = 0; i < numBouncingStars; i++) {
-      api.bouncingStars.push({
+      global.bouncingStars.push({
         x: Math.random() * 2048,
         y: Math.random() * 2048,
         vx: (Math.random() - 0.5) * 8, // Velocity X: -4 to +4
@@ -642,7 +656,7 @@ export function paint({ api }) {
   
   // Update and render bouncing stars
   for (let i = 0; i < numBouncingStars; i++) {
-    const star = api.bouncingStars[i];
+    const star = global.bouncingStars[i];
     
     // Update position
     star.x += star.vx;
@@ -752,13 +766,13 @@ export function paint({ api }) {
   }
 
   if (Math.random() > 0.98) {
-    ink("rainbow", 4).box(0, 0, 2048, 2048); // Clear with black ink to prevent trails
-  } else if (Math.random() > 0.99) {
-    ink(0, 12).box(256, 256, 2048-512, 2048-512);
+    ink("rainbow", 8).box(0, 0, 2048, 2048); // Clear with black ink to prevent trails
+  } else if (Math.random() > 0.94) {
+    ink(0, 24).box(256, 256, 2048-512, 2048-512);
   }
 
   // Apply subtle blur for polish
-  if (frameCount % 2 === 0) blur(24); // Reduced blur strength to reduce processing load
+  if (frameCount % 2 === 0) blur(8); // Reduced blur strength to reduce processing load
 
   // Spin and scroll effects
   // if (Math.random() > 0.5) {
@@ -771,7 +785,7 @@ export function paint({ api }) {
   const scrollCycle = Math.floor(frameCount / 60) % 4; // 4 directions, 1 second each
   
   switch (scrollCycle) {
-    case 0: scroll(0, -2); break;  // Up
+    case 0: scroll(0, 2); break;  // Up
     case 1: scroll(2, 0); break;   // Right  
     case 2: scroll(0, 2); break;   // Down
     case 3: scroll(-2, 0); break;  // Left
@@ -1084,29 +1098,29 @@ export function paint({ api }) {
     const elCidFlash = Math.sin(frameCount * 0.19 + 3.0) > 0.6;
     if (elCidFlash) {
       ink(255, 0, 255, 60); // Magenta
-      const elCidWidth = elCidText.length * 32 * 0.6; // Size 32
-      const elCidHeight = 32 * 1.2;
+      const elCidWidth = text.width(elCidText, 32); // Use actual text width
+      const elCidHeight = text.height(elCidText, 32); // Use actual text height
       const elCidBoxX = centerX - elCidWidth / 2;
-      box(elCidBoxX, elCidY - elCidHeight * 0.3, elCidWidth, elCidHeight);
+      box(elCidBoxX, elCidY - elCidHeight * 0.1, elCidWidth, elCidHeight);
     }
     
     // Address box - Purple flash
     const addressFlash = Math.sin(frameCount * 0.13 + 3.5) > 0.6;
     if (addressFlash) {
       ink(128, 0, 255, 60); // Purple
-      const addressWidth = addressText.length * 12 * 0.6; // Size 12
-      const addressHeight = 12 * 1.2;
+      const addressWidth = text.width(addressText, 12); // Use actual text width
+      const addressHeight = text.height(addressText, 12); // Use actual text height
       const addressBoxX = centerX - addressWidth / 2;
-      box(addressBoxX, addressY - addressHeight * 0.3, addressWidth, addressHeight);
+      box(addressBoxX, addressY - addressHeight * 0.1, addressWidth, addressHeight);
     }
     
     // Catalyst LA box - Pink flash
     const hostedFlash = Math.sin(frameCount * 0.17 + 4.0) > 0.6;
     if (hostedFlash) {
       ink(255, 0, 128, 60); // Pink
-      const hostedWidth = hostedText.length * 6 * 0.6; // Size 6
-      const hostedHeight = 6 * 1.2;
-      box(hostedX, hostedY - hostedHeight * 0.3, hostedWidth, hostedHeight);
+      const hostedWidth = text.width(hostedText, 6); // Use actual text width
+      const hostedHeight = text.height(hostedText, 6); // Use actual text height
+      box(hostedX, hostedY - hostedHeight * 0.1, hostedWidth, hostedHeight);
     }
   }
 }
