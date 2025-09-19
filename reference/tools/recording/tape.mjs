@@ -33,7 +33,7 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 import figlet from 'figlet';
 import readline from 'readline';
-import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, readdirSync, unlinkSync, rmdirSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, readdirSync, unlinkSync, rmdirSync, appendFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createCanvas } from 'canvas';
@@ -140,15 +140,29 @@ class Tape extends HeadlessAC {
     this.frames = [];
     this.frameCount = 0;
     this.sixelRenderer = new SixelRenderer(128, 128); // Fixed 128x128 sixel display
-    this.exportFormat = options.exportFormat || 'png'; // 'png' or 'raw'
+    this.exportFormat = options.exportFormat || 'raw'; // 'png' or 'raw' - default to raw for memory efficiency
     
     // Disk-based frame caching for scalable rendering
     this.frameCacheDir = join(process.cwd(), '.tape-frames-cache');
     this.useDiskCache = true; // Enable disk caching by default for scalability
     
-    // Reuse single canvas for PNG generation to prevent memory bloat
+    // Only initialize PNG canvas if using PNG format (memory optimization)
     this.pngCanvas = null;
     this.pngCtx = null;
+    
+    // SHARED BUFFER OPTIMIZATION: Pre-allocate RGB conversion buffer for raw format
+    this.sharedRGBBuffer = null;
+    this.sharedFrameBuffer = null; // For frame capture - avoids 16MB allocation per frame
+    this.rawVideoFile = null; // For concatenated raw video output
+    
+    if (this.exportFormat === 'raw') {
+      this.sharedRGBBuffer = new Uint8Array(this.width * this.height * 3);
+      // Option: Create single concatenated raw video file
+      this.rawVideoPath = join(this.frameCacheDir, 'video.raw');
+      console.log('🚀 Raw format selected - maximum memory efficiency + shared buffer');
+    } else if (this.exportFormat === 'png') {
+      console.log('📦 PNG format selected - will initialize canvas on first frame');
+    }
     
     this.setupFrameCache();
   }
@@ -256,31 +270,53 @@ class Tape extends HeadlessAC {
     }
   }
 
-  // Save raw RGB data to disk - extremely memory efficient
+  // Save raw RGB data to disk - EXTREMELY memory efficient (no compression, direct binary write, shared buffer)
   saveToRaw(frameData, rawPath) {
     try {
-      // Convert RGBA to RGB if needed
+      // Fast RGBA→RGB conversion using SHARED BUFFER - no new allocations!
       let rgbData;
       if (frameData.length === this.width * this.height * 4) {
-        // RGBA data - convert to RGB
-        rgbData = new Uint8Array(this.width * this.height * 3);
+        // RGBA data - convert to RGB using pre-allocated shared buffer
+        if (!this.sharedRGBBuffer) {
+          // Fallback if shared buffer wasn't initialized
+          this.sharedRGBBuffer = new Uint8Array(this.width * this.height * 3);
+        }
+        
+        // Reuse the same buffer - zero allocations per frame!
+        rgbData = this.sharedRGBBuffer;
         for (let i = 0; i < this.width * this.height; i++) {
           const srcIdx = i * 4; // RGBA
           const dstIdx = i * 3; // RGB
           rgbData[dstIdx] = frameData[srcIdx];     // R
           rgbData[dstIdx + 1] = frameData[srcIdx + 1]; // G
           rgbData[dstIdx + 2] = frameData[srcIdx + 2]; // B
-          // Skip alpha channel
+          // Skip alpha channel (srcIdx + 3)
         }
       } else {
-        // Assume already RGB data
+        // Already RGB data - write directly
         rgbData = frameData;
       }
       
-      // Write raw binary data directly - no compression overhead
+      // Direct binary write - no compression, no canvas, no ImageData objects
       writeFileSync(rawPath, rgbData);
+      
+      // OPTIONAL: Also append to concatenated raw video file for single-file ffmpeg input
+      this.appendToRawVideo(rgbData);
+      
+      // Shared buffer means ZERO allocations per frame - maximum memory efficiency!
     } catch (error) {
       console.warn(`⚠️ Could not create raw RGB cache: ${error.message}`);
+    }
+  }
+
+  // Append frame to single concatenated raw video file
+  appendToRawVideo(rgbData) {
+    try {
+      if (this.rawVideoPath) {
+        appendFileSync(this.rawVideoPath, rgbData); // Use existing appendFileSync import
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not append to raw video file: ${error.message}`);
     }
   }
 
@@ -496,6 +532,11 @@ class Tape extends HeadlessAC {
     const framesText = totalFrames ? `${totalFrames} frames` : `duration: ${duration}ms`;
     console.log(`🎬 Recording via disk.mjs KidLisp system... (${framesText} @ ${fps}fps)`);
     
+    // MEMORY CONFIGURATION - Increase Node.js heap limit for video processing
+    if (!process.execArgv.some(arg => arg.includes('--max-old-space-size'))) {
+      console.log('💡 Tip: For large videos, restart with: node --max-old-space-size=10240 tape.mjs ...');
+    }
+    
     // Initialize API first
     const api = this.createAPI();
     
@@ -610,16 +651,28 @@ class Tape extends HeadlessAC {
     // The embed function in $code evaluation uses globalEnv.embed which needs access to the API
     kidlispInstance.api = kidlispAPI;
     
-    // Main recording loop using disk.mjs-style painting
-    for (let frameIndex = 0; frameIndex < calculatedFrames; frameIndex++) {
+    // OPTIMIZED TIME FUNCTION OVERRIDES - reuse functions instead of creating new ones per frame
+    const simulationTimeGetter = () => this.simulationTime;
+    const simulationDateGetter = () => new Date(this.simulationTime);
+    const originalDateNow = Date.now;
+    const originalPerfNow = performance.now;
+    
+    // Main recording loop using disk.mjs-style painting with BATCHED PROCESSING
+    const BATCH_SIZE = 50; // Process frames in smaller batches for memory efficiency
+    const totalBatches = Math.ceil(calculatedFrames / BATCH_SIZE);
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const batchStart = batchIndex * BATCH_SIZE;
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, calculatedFrames);
+      
+      console.log(`📦 Processing batch ${batchIndex + 1}/${totalBatches} (frames ${batchStart + 1}-${batchEnd})`);
+      
+      for (let frameIndex = batchStart; frameIndex < batchEnd; frameIndex++) {
       try {
         const frameStartTime = performance.now();
         
         // Calculate base frame time
         const baseFrameTime = (frameIndex / paintFPS) * 1000;
-        
-        // Don't clear screen - let disk.mjs background system handle it
-        // this.graph.clear();
         
         // Run simulation steps for smooth animation with incremental timing
         const simStepsThisFrame = Math.round(simRatio);
@@ -630,17 +683,13 @@ class Tape extends HeadlessAC {
             // Calculate precise simulation time for this step
             const simulationTime = baseFrameTime + (simStep * simTimeStep);
             
-            // COMPREHENSIVE TIME ISOLATION: Override global time functions before each frame
-            const originalDateNow = Date.now;
-            const originalPerfNow = performance.now;
-            
-            // Override global time functions to prevent KidLisp from accessing real system time
-            Date.now = () => this.simulationTime;
-            performance.now = () => this.simulationTime;
+            // OPTIMIZED TIME ISOLATION: Use pre-created functions instead of creating new ones
+            Date.now = simulationTimeGetter;
+            performance.now = simulationTimeGetter;
             
             // Set simulation time in API and ensure KidLisp API has updated clock
             this.setSimulationTime(simulationTime);
-            kidlispAPI.clock.time = () => new Date(this.simulationTime || simulationTime);
+            kidlispAPI.clock.time = simulationDateGetter;
             
             try {
               // Paint using the KidLisp piece with completely isolated timing
@@ -665,8 +714,31 @@ class Tape extends HeadlessAC {
         this.cacheFrame(frameIndex, frameData, baseFrameTime);
         this.frameCount++;
         
-        // Log frame completion
-        console.log(`🎬 Frame ${frameIndex + 1}/${calculatedFrames} rendered`);
+        // AGGRESSIVE MEMORY MONITORING AND CLEANUP
+        const currentMem = process.memoryUsage();
+        const heapUsedMB = Math.round(currentMem.heapUsed / 1024 / 1024);
+        const rssMB = Math.round(currentMem.rss / 1024 / 1024);
+        
+        // Force garbage collection every 10 frames or when heap exceeds 6GB
+        if (frameIndex % 10 === 0 || heapUsedMB > 6000) {
+          if (global.gc) {
+            global.gc();
+            const afterGC = process.memoryUsage();
+            console.log(`🧹 Forced GC: Heap ${heapUsedMB}MB → ${Math.round(afterGC.heapUsed / 1024 / 1024)}MB`);
+          }
+        }
+        
+        // Emergency brake if memory gets too high
+        if (heapUsedMB > 7000) {
+          console.error(`💥 MEMORY EMERGENCY: Heap usage ${heapUsedMB}MB exceeds 7GB limit!`);
+          console.error(`🛑 Stopping recording at frame ${frameIndex} to prevent crash`);
+          break;
+        }
+        
+        // Log frame completion with memory info
+        console.log(`🎬 Frame ${frameIndex + 1}/${calculatedFrames} rendered | RSS: ${rssMB}MB (+${rssMB - Math.round(this.lastRSS || 0)}) | Heap: ${heapUsedMB}MB (+${heapUsedMB - Math.round(this.lastHeap || 0)})`);
+        this.lastRSS = rssMB;
+        this.lastHeap = heapUsedMB;
         
         const frameEndTime = performance.now();
         const frameRenderTime = frameEndTime - frameStartTime;
@@ -676,7 +748,23 @@ class Tape extends HeadlessAC {
         console.error('\n💥 Error in KidLisp recording:', error);
         break;
       }
+    } // End of frame loop
+    
+    // BATCH CLEANUP - Force garbage collection after each batch
+    if (global.gc) {
+      console.log(`🧹 Batch ${batchIndex + 1} complete - forcing garbage collection`);
+      global.gc();
     }
+    
+    // Brief pause between batches to allow system cleanup
+    if (batchIndex < totalBatches - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  } // End of batch loop
+    
+    // RESTORE ORIGINAL TIME FUNCTIONS after all recording is complete
+    Date.now = originalDateNow;
+    performance.now = originalPerfNow;
     
     const actualFPS = (this.frameCount / (duration / 1000));
     console.log(`✅ KidLisp animation recorded • ${this.frameCount} frames • ${actualFPS.toFixed(1)} avg fps`);
@@ -946,10 +1034,16 @@ class Tape extends HeadlessAC {
     }
   }
 
-  // TODO: Implement frame capture for GIF/video export
+  // SHARED FRAME CAPTURE - reuse buffer to prevent 16MB allocations per frame
   captureFrame() {
-    // Return copy of current pixel buffer
-    return new Uint8Array(this.pixelBuffer);
+    // Use shared buffer instead of allocating new one every frame
+    if (!this.sharedFrameBuffer) {
+      this.sharedFrameBuffer = new Uint8Array(this.pixelBuffer.length);
+    }
+    
+    // Copy current pixel buffer to shared buffer
+    this.sharedFrameBuffer.set(this.pixelBuffer);
+    return this.sharedFrameBuffer;
   }
 
   // Real GIF export implementation using gifenc (BIOS-style)
@@ -1184,12 +1278,22 @@ class Tape extends HeadlessAC {
     console.log(`🎯 Using ${settings.desc} settings`);
     
     try {
-      // Check if we have cached PNG files to use directly
+      // Check format of cached frames and handle accordingly
+      const hasRawFiles = this.exportFormat === 'raw' && this.useDiskCache && this.frames.length > 0 && 
+                          this.frames[0].rawPath && existsSync(this.frames[0].rawPath);
       const hasCachedPNGs = this.useDiskCache && this.frames.length > 0 && 
                             this.frames[0].pngPath && existsSync(this.frames[0].pngPath);
       
       let tempDir;
-      if (hasCachedPNGs) {
+      let useRawInput = false;
+      
+      if (hasRawFiles) {
+        // Use raw RGB files directly with ffmpeg - most memory efficient!
+        tempDir = this.frameCacheDir;
+        useRawInput = true;
+        console.log(`📁 Using cached RAW RGB frames from ${tempDir}...`);
+        console.log(`🚀 Ultra memory-efficient export: Using ${this.frameCount} pre-cached RAW frames`);
+      } else if (hasCachedPNGs) {
         // Use existing cache directory with PNG files
         tempDir = this.frameCacheDir;
         console.log(`📁 Using cached PNG frames from ${tempDir}...`);
@@ -1251,35 +1355,67 @@ class Tape extends HeadlessAC {
       
       // Build ffmpeg command with social media optimization
       const { execSync } = await import('child_process');
-      const ffmpegArgs = [
-        'ffmpeg', '-y',  // Overwrite output
-        '-framerate', mp4FPS.toString(),
-        '-i', `${tempDir}/frame-%06d.png`,
-        '-c:v', 'libopenh264',  // H.264 for best compatibility (using libopenh264 codec)
-        '-pix_fmt', 'yuv420p',  // Required for social media compatibility
-        '-movflags', '+faststart',  // Optimize for web streaming
-        '-r', mp4FPS.toString()  // Output framerate
-      ];
+      let ffmpegArgs;
       
-      // Add quality settings (libopenh264 supports different parameters than libx264)
+      if (useRawInput) {
+        // RAW RGB INPUT: Use ffmpeg's rawvideo format for maximum efficiency
+        let inputArg;
+        if (this.frameCount === 1) {
+          // Single frame: use specific filename
+          inputArg = `${tempDir}/frame-000000.rgb`;
+        } else {
+          // Multiple frames: use pattern
+          inputArg = `${tempDir}/frame-%06d.rgb`;
+        }
+        
+        ffmpegArgs = [
+          'ffmpeg', '-y',  // Overwrite output
+          '-f', 'rawvideo',  // Input format is raw video
+          '-pix_fmt', 'rgb24',  // Pixel format: 24-bit RGB (3 bytes per pixel)
+          '-s', `${this.width}x${this.height}`,  // Frame size
+          '-r', mp4FPS.toString(),  // Input framerate
+          '-i', inputArg,  // Input files
+          '-c:v', 'libx264',  // H.264 for best compatibility (changed from libopenh264)
+          '-pix_fmt', 'yuv420p',  // Required for social media compatibility
+          '-movflags', '+faststart',  // Optimize for web streaming
+          '-r', mp4FPS.toString()  // Output framerate
+        ];
+        console.log(`🎯 Using RAW RGB input: ${this.width}x${this.height} @ ${mp4FPS}fps`);
+      } else {
+        // PNG INPUT: Traditional PNG sequence input
+        ffmpegArgs = [
+          'ffmpeg', '-y',  // Overwrite output
+          '-framerate', mp4FPS.toString(),
+          '-i', `${tempDir}/frame-%06d.png`,
+          '-c:v', 'libopenh264',  // H.264 for best compatibility
+          '-pix_fmt', 'yuv420p',  // Required for social media compatibility
+          '-movflags', '+faststart',  // Optimize for web streaming
+          '-r', mp4FPS.toString()  // Output framerate
+        ];
+        console.log(`🎯 Using PNG input sequence`);
+      }
+      
+      // Add quality settings (simplified for better codec compatibility)
       if (quality === 'instagram' || quality === 'twitter') {
         ffmpegArgs.push('-b:v', '2M');  // Target bitrate for social media
       } else if (quality === 'studio') {
-        ffmpegArgs.push('-b:v', '32M');  // Ultra high bitrate for studio quality
+        ffmpegArgs.push('-b:v', '8M');  // Reduced from 32M for better compatibility
       } else {
         ffmpegArgs.push('-b:v', '4M');  // Higher bitrate for other quality levels
       }
       
+      // Temporarily disabled for codec compatibility testing
       // Add bitrate limiting for social media platforms
-      if (settings.maxrate) {
-        ffmpegArgs.push('-maxrate', settings.maxrate);
-        ffmpegArgs.push('-bufsize', settings.bufsize);
-      }
+      // if (settings.maxrate) {
+      //   ffmpegArgs.push('-maxrate', settings.maxrate);
+      //   ffmpegArgs.push('-bufsize', settings.bufsize);
+      // }
       
+      // Temporarily disabled for codec compatibility testing  
       // Add color space settings for better compatibility
-      ffmpegArgs.push('-colorspace', 'bt709');
-      ffmpegArgs.push('-color_primaries', 'bt709');
-      ffmpegArgs.push('-color_trc', 'bt709');
+      // ffmpegArgs.push('-colorspace', 'bt709');
+      // ffmpegArgs.push('-color_primaries', 'bt709');
+      // ffmpegArgs.push('-color_trc', 'bt709');
       
       ffmpegArgs.push(outputPath);
       
@@ -1288,15 +1424,26 @@ class Tape extends HeadlessAC {
       
       try {
         execSync(ffmpegCmd, { stdio: 'pipe' });
-        console.log(`✅ Successfully encoded with libopenh264`);
+        console.log(`✅ Successfully encoded with libx264`);
       } catch (error) {
-        // Try mpeg4 as fallback
-        console.log(`❌ libopenh264 failed, trying mpeg4...`);
+        // Try libopenh264 as fallback with same input format
+        console.log(`❌ libx264 failed, trying libopenh264...`);
+        
+        let fallbackInputArg;
+        if (useRawInput) {
+          if (this.frameCount === 1) {
+            fallbackInputArg = ['-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${this.width}x${this.height}`, '-r', mp4FPS.toString(), '-i', `${tempDir}/frame-000000.rgb`];
+          } else {
+            fallbackInputArg = ['-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${this.width}x${this.height}`, '-r', mp4FPS.toString(), '-i', `${tempDir}/frame-%06d.rgb`];
+          }
+        } else {
+          fallbackInputArg = ['-framerate', mp4FPS.toString(), '-i', `${tempDir}/frame-%06d.png`];
+        }
+        
         const basicCmd = [
           'ffmpeg', '-y',
-          '-framerate', mp4FPS.toString(),
-          '-i', `${tempDir}/frame-%06d.png`,
-          '-c:v', 'mpeg4',
+          ...fallbackInputArg,
+          '-c:v', 'libopenh264',
           '-pix_fmt', 'yuv420p',
           '-b:v', '3M',
           outputPath
@@ -1304,16 +1451,15 @@ class Tape extends HeadlessAC {
         
         try {
           execSync(basicCmd, { stdio: 'pipe' });
-          console.log(`✅ Successfully encoded with mpeg4`);
+          console.log(`✅ Successfully encoded with libopenh264`);
         } catch (error2) {
-          // Final fallback to libvpx (WebM format)
-          console.log(`❌ mpeg4 failed, trying libvpx_vp8 (WebM)...`);
+          // Final fallback to libvpx (WebM format) - corrected codec name
+          console.log(`❌ libopenh264 failed, trying libvpx (WebM)...`);
           const webmPath = outputPath.replace('.mp4', '.webm');
           const webmCmd = [
             'ffmpeg', '-y',
-            '-framerate', mp4FPS.toString(),
-            '-i', `${tempDir}/frame-%06d.png`,
-            '-c:v', 'libvpx_vp8',
+            ...fallbackInputArg,
+            '-c:v', 'libvpx',
             '-b:v', '2M',
             webmPath
           ].join(' ');
@@ -1458,7 +1604,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const shouldExportPng = args.includes('--png'); // PNG is now optional
   const shouldExportGif = args.includes('--gif') || (!args.includes('--png') && !args.includes('--mp4') && !args.includes('--raw')); // GIF is default unless other format specified
   const shouldExportMp4 = args.includes('--mp4'); // MP4 export option
-  const shouldExportRaw = args.includes('--raw'); // Raw RGB export option (memory efficient)
+  const shouldExportRaw = args.includes('--raw') || shouldExportMp4; // Raw RGB export option (memory efficient) - DEFAULT for MP4!
   const detailedTiming = args.includes('--timing'); // Add timing flag
   const useBlockProcessing = args.includes('--blocks'); // 🧪 EXPERIMENTAL: Block-based processing
   const singleFrameMode = frameArg !== null; // Single frame capture mode
@@ -1573,6 +1719,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     // Create tape recorder with specified dimensions
     const exportFormat = shouldExportRaw ? 'raw' : 'png';
+    console.log(chalk.green(`📁 Using ${exportFormat.toUpperCase()} format for frame storage (${exportFormat === 'raw' ? 'memory efficient' : 'compressed'})`));
+    
     const tape = new Tape(width, height, { 
       detailedTiming,
       useBlockProcessing,
@@ -1696,3 +1844,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   }
 }
+
+// Export the Tape class for use in other modules
+export { Tape };
