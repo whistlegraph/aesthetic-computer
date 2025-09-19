@@ -1536,6 +1536,13 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     return;
   }
 
+  // 🚨 ROBOT FIX: Ensure destination pixels buffer is available
+  if (!pixels) {
+    console.warn('🚨 paste: No destination pixels buffer available, skipping paste operation');
+    graphPerf.track('paste', 0);
+    return;
+  }
+
   destX += panTranslation.x;
   destY += panTranslation.y;
 
