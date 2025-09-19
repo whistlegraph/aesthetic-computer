@@ -3794,6 +3794,12 @@ const $paintApiUnwrapped = {
     // should already have the correct buffer set via setBuffer()
     return graph.blur(radius);
   },
+  sharpen: function(strength = 1) {
+    // Apply sharpening filter to enhance edges and details
+    // When called from within a painting() context, the graph module
+    // should already have the correct buffer set via setBuffer()
+    return graph.sharpen(strength);
+  },
   contrast: graph.contrast,
   shear: graph.shear,
   noise16: graph.noise16,
