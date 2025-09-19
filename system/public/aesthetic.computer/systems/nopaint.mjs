@@ -173,7 +173,7 @@ function nopaint_act({
   debug,
 }) {
   // Debug logging: Log ALL events with device info to see what's actually happening
-  if (e.device && (e.device === "touch" || e.device === "pen" || e.device !== "mouse")) {
+  if (e.device && (e.device === "touch" || e.device === "pen" || e.device === "robot" || e.device !== "mouse")) {
     log(api, 'RAW_EVENT', {
       device: e.device,
       eventType: e.type || 'unknown',
@@ -249,10 +249,13 @@ function nopaint_act({
 
     const rec = system.nopaint.gestureRecord;
 
-    if (
-      system.nopaint.brush.x !== rec[rec.length - 1][2] ||
-      system.nopaint.brush.y !== rec[rec.length - 1][3]
-    ) {
+    // Safe check for gesture record to prevent undefined access
+    const lastRecord = rec.length > 0 ? rec[rec.length - 1] : null;
+    const shouldAddPoint = !lastRecord || 
+      system.nopaint.brush.x !== lastRecord[2] ||
+      system.nopaint.brush.y !== lastRecord[3];
+
+    if (shouldAddPoint) {
       // Increment stroke-specific point count
       currentStrokePointCount++;
 
@@ -281,7 +284,7 @@ function nopaint_act({
   if (
     nopaint_is("painting") &&
     e.is("lift:1") &&
-    (e.device === "mouse" || e.device === "pen" || e.device === "touch")
+    (e.device === "mouse" || e.device === "pen" || e.device === "touch" || e.device === "robot")
   ) {
     const timestamp = performance.now();
     
@@ -347,7 +350,13 @@ function nopaint_act({
     if (nopaint_is("painting")) {
       system.nopaint.updateBrush(api, "move");
     }
-    api.needsPaint();
+    
+    // 🚫 ROBOT FIX: Don't call needsPaint() if everything is already complete
+    // After robot completes, needsBake=false and needsPresent=false, so no need to trigger more painting
+    // BUT: Also call needsPaint() if needsPresent=true to process pending display updates
+    if (nopaint_is("painting") || system.nopaint.needsBake || system.nopaint.needsPresent) {
+      api.needsPaint();
+    }
   }
 
   if (e.is("keyboard:down:arrowup")) {
