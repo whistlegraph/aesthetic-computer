@@ -33,7 +33,7 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 import figlet from 'figlet';
 import readline from 'readline';
-import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, readdirSync, unlinkSync, rmdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createCanvas } from 'canvas';
@@ -140,6 +140,7 @@ class Tape extends HeadlessAC {
     this.frames = [];
     this.frameCount = 0;
     this.sixelRenderer = new SixelRenderer(128, 128); // Fixed 128x128 sixel display
+    this.exportFormat = options.exportFormat || 'png'; // 'png' or 'raw'
     
     // Disk-based frame caching for scalable rendering
     this.frameCacheDir = join(process.cwd(), '.tape-frames-cache');
@@ -155,8 +156,24 @@ class Tape extends HeadlessAC {
   // Setup frame cache directory
   setupFrameCache() {
     if (this.useDiskCache) {
+      // More robust cleanup - handle non-empty directories
       if (existsSync(this.frameCacheDir)) {
-        rmSync(this.frameCacheDir, { recursive: true, force: true });
+        try {
+          rmSync(this.frameCacheDir, { recursive: true, force: true });
+        } catch (error) {
+          console.log(`⚠️ Could not remove cache directory: ${error.message}`);
+          // Try manual cleanup
+          try {
+            const files = readdirSync(this.frameCacheDir);
+            for (const file of files) {
+              const filePath = join(this.frameCacheDir, file);
+              unlinkSync(filePath);
+            }
+            rmdirSync(this.frameCacheDir);
+          } catch (manualError) {
+            console.log(`⚠️ Manual cleanup failed: ${manualError.message}`);
+          }
+        }
       }
       mkdirSync(this.frameCacheDir, { recursive: true });
       console.log(`📁 Frame cache directory: ${this.frameCacheDir}`);
@@ -170,26 +187,32 @@ class Tape extends HeadlessAC {
     }
   }
 
-  // Cache frame to disk as PNG only for memory efficiency and direct ffmpeg use
+  // Cache frame to disk as PNG or raw RGB for memory efficiency
   cacheFrame(frameIndex, frameData, timestamp) {
     if (this.useDiskCache) {
-      const framePngPath = join(this.frameCacheDir, `frame-${frameIndex.toString().padStart(6, '0')}.png`);
+      const fileExt = this.exportFormat === 'raw' ? 'rgb' : 'png';
+      const framePath = join(this.frameCacheDir, `frame-${frameIndex.toString().padStart(6, '0')}.${fileExt}`);
       
-      // Memory monitoring for PNG generation debugging
+      // Memory monitoring for debugging
       const beforeMem = process.memoryUsage();
-      console.log(`Frame ${frameIndex} - Before PNG: RSS ${Math.round(beforeMem.rss / 1024 / 1024)}MB, Heap ${Math.round(beforeMem.heapUsed / 1024 / 1024)}MB`);
+      console.log(`Frame ${frameIndex} - Before ${fileExt.toUpperCase()}: RSS ${Math.round(beforeMem.rss / 1024 / 1024)}MB, Heap ${Math.round(beforeMem.heapUsed / 1024 / 1024)}MB`);
       
-      // Save as PNG only - compressed, memory efficient, and directly usable by ffmpeg
-      this.saveToPNG(frameData, framePngPath);
+      if (this.exportFormat === 'raw') {
+        // Save raw RGB data - much more memory efficient!
+        this.saveToRaw(frameData, framePath);
+      } else {
+        // Save as PNG - compressed, memory efficient, and directly usable by ffmpeg
+        this.saveToPNG(frameData, framePath);
+      }
       
       const afterMem = process.memoryUsage();
-      console.log(`Frame ${frameIndex} - After PNG: RSS ${Math.round(afterMem.rss / 1024 / 1024)}MB, Heap ${Math.round(afterMem.heapUsed / 1024 / 1024)}MB`);
+      console.log(`Frame ${frameIndex} - After ${fileExt.toUpperCase()}: RSS ${Math.round(afterMem.rss / 1024 / 1024)}MB, Heap ${Math.round(afterMem.heapUsed / 1024 / 1024)}MB`);
       console.log(`Frame ${frameIndex} - Delta: RSS +${Math.round((afterMem.rss - beforeMem.rss) / 1024 / 1024)}MB, Heap +${Math.round((afterMem.heapUsed - beforeMem.heapUsed) / 1024 / 1024)}MB`);
       
       // Store metadata in memory
       this.frames.push({
         index: frameIndex,
-        pngPath: framePngPath,
+        [this.exportFormat === 'raw' ? 'rawPath' : 'pngPath']: framePath,
         timestamp: timestamp,
         width: this.width,
         height: this.height
@@ -233,7 +256,35 @@ class Tape extends HeadlessAC {
     }
   }
 
-  // Read frame from disk cache (PNG format only)
+  // Save raw RGB data to disk - extremely memory efficient
+  saveToRaw(frameData, rawPath) {
+    try {
+      // Convert RGBA to RGB if needed
+      let rgbData;
+      if (frameData.length === this.width * this.height * 4) {
+        // RGBA data - convert to RGB
+        rgbData = new Uint8Array(this.width * this.height * 3);
+        for (let i = 0; i < this.width * this.height; i++) {
+          const srcIdx = i * 4; // RGBA
+          const dstIdx = i * 3; // RGB
+          rgbData[dstIdx] = frameData[srcIdx];     // R
+          rgbData[dstIdx + 1] = frameData[srcIdx + 1]; // G
+          rgbData[dstIdx + 2] = frameData[srcIdx + 2]; // B
+          // Skip alpha channel
+        }
+      } else {
+        // Assume already RGB data
+        rgbData = frameData;
+      }
+      
+      // Write raw binary data directly - no compression overhead
+      writeFileSync(rawPath, rgbData);
+    } catch (error) {
+      console.warn(`⚠️ Could not create raw RGB cache: ${error.message}`);
+    }
+  }
+
+  // Read frame from disk cache (PNG or raw format)
   readCachedFrame(frameIndex) {
     if (this.useDiskCache) {
       const frameInfo = this.frames[frameIndex];
@@ -242,6 +293,14 @@ class Tape extends HeadlessAC {
         // For now, return null since most usage is direct PNG->ffmpeg
         console.warn('Reading PNG cache not yet implemented - consider using PNG path directly');
         return null;
+      } else if (frameInfo && frameInfo.rawPath) {
+        // For raw RGB files, we can easily read them back
+        try {
+          return readFileSync(frameInfo.rawPath);
+        } catch (error) {
+          console.warn(`⚠️ Could not read raw cache: ${error.message}`);
+          return null;
+        }
       }
     } else {
       return this.frames[frameIndex]?.data;
@@ -711,6 +770,13 @@ class Tape extends HeadlessAC {
   }
 
   async record(piecePath, duration = 3000, fps = 60, totalFrames = null) {
+    // Start heap profiling for tape recording performance analysis
+    if (process.writeHeapSnapshot) {
+      const heapStartPath = `./tape-recording-start.heapsnapshot`;
+      process.writeHeapSnapshot(heapStartPath);
+      console.log(`📊 Heap snapshot (start): ${heapStartPath}`);
+    }
+    
     // Check if this is a KidLisp $code
     if (piecePath.startsWith('$')) {
       return await this.recordKidLispPiece(piecePath, duration, fps, totalFrames);
@@ -752,6 +818,9 @@ class Tape extends HeadlessAC {
       // DETERMINISTIC LOOP: Frame-based instead of time-based
       for (let frameIndex = 0; frameIndex < actualTotalFrames; frameIndex++) {
         try {
+          // Memory monitoring before each frame
+          const memBefore = process.memoryUsage();
+          
           // Calculate deterministic timestamp for this frame
           const frameTime = (frameIndex / paintFPS) * 1000; // Exact timestamp in ms
           
@@ -776,12 +845,51 @@ class Tape extends HeadlessAC {
           // Store frame data for GIF/video export with exact timestamp
           this.cacheFrame(frameIndex, new Uint8Array(this.pixelBuffer), frameTime);
           
-          // Display frame as sixel in terminal
-          const frameData = { data: this.pixelBuffer };
-          console.log(`🎬 Frame ${frameIndex + 1}/${actualTotalFrames} rendered`);
+          // Memory monitoring after each frame
+          const memAfter = process.memoryUsage();
+          const memDelta = {
+            rss: ((memAfter.rss - memBefore.rss) / 1024 / 1024).toFixed(1),
+            heapUsed: ((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024).toFixed(1),
+            heapTotal: ((memAfter.heapTotal - memBefore.heapTotal) / 1024 / 1024).toFixed(1),
+            external: ((memAfter.external - memBefore.external) / 1024 / 1024).toFixed(1)
+          };
+          
+          // Display frame progress with memory delta
+          console.log(`🎬 Frame ${frameIndex + 1}/${actualTotalFrames} rendered | RSS: ${(memAfter.rss / 1024 / 1024).toFixed(1)}MB (+${memDelta.rss}) | Heap: ${(memAfter.heapUsed / 1024 / 1024).toFixed(1)}MB (+${memDelta.heapUsed})`);
+          
+          // Force garbage collection every 10 frames if available
+          if (frameIndex % 10 === 0 && global.gc) {
+            global.gc();
+            const memAfterGC = process.memoryUsage();
+            console.log(`🗑️ GC triggered at frame ${frameIndex + 1} | Heap after GC: ${(memAfterGC.heapUsed / 1024 / 1024).toFixed(1)}MB`);
+          }
+          
+          // Take heap snapshot at key intervals for performance analysis
+          if (frameIndex === Math.floor(actualTotalFrames / 4) || frameIndex === Math.floor(actualTotalFrames / 2) || frameIndex === Math.floor(actualTotalFrames * 3 / 4)) {
+            if (process.writeHeapSnapshot) {
+              const snapshotPath = `./tape-recording-frame-${frameIndex + 1}.heapsnapshot`;
+              process.writeHeapSnapshot(snapshotPath);
+              console.log(`📸 Mid-recording heap snapshot: ${snapshotPath} (${Math.round((frameIndex + 1) / actualTotalFrames * 100)}% complete)`);
+            }
+          }
+          
+          // Critical memory monitoring for the problematic final frames
+          if (frameIndex >= actualTotalFrames - 10) {
+            console.log(`🚨 Critical frame ${frameIndex + 1}: RSS=${(memAfter.rss / 1024 / 1024).toFixed(1)}MB | Heap=${(memAfter.heapUsed / 1024 / 1024).toFixed(1)}MB | External=${(memAfter.external / 1024 / 1024).toFixed(1)}MB`);
+            
+            // Take heap snapshot for the final frames
+            if (process.writeHeapSnapshot) {
+              const snapshotPath = `./heap-snapshot-frame-${frameIndex + 1}.heapsnapshot`;
+              process.writeHeapSnapshot(snapshotPath);
+              console.log(`📸 Heap snapshot saved: ${snapshotPath}`);
+            }
+          }
           
         } catch (error) {
-          console.error('\n💥 Error in simulation/paint:', error);
+          console.error(`\n💥 Error in frame ${frameIndex + 1} simulation/paint:`, error);
+          console.error('💥 Stack trace:', error.stack);
+          const memError = process.memoryUsage();
+          console.error(`💥 Memory at error: RSS=${(memError.rss / 1024 / 1024).toFixed(1)}MB | Heap=${(memError.heapUsed / 1024 / 1024).toFixed(1)}MB`);
           break;
         }
       }
@@ -791,6 +899,13 @@ class Tape extends HeadlessAC {
       const stats = this.getStats();
       
       console.log(`✅ Animation recorded • ${this.frameCount} frames • ${actualFPS.toFixed(1)} avg fps`);
+      
+      // Take final heap snapshot for performance analysis
+      if (process.writeHeapSnapshot) {
+        const heapEndPath = `./tape-recording-end.heapsnapshot`;
+        process.writeHeapSnapshot(heapEndPath);
+        console.log(`📊 Heap snapshot (end): ${heapEndPath}`);
+      }
       
       // Note: Frame cache cleanup is deferred until after GIF export (if requested)
       
@@ -1312,8 +1427,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const heightArg = getArgValue('--height');
   const qualityArg = getArgValue('--quality'); // MP4 quality setting
   const shouldExportPng = args.includes('--png'); // PNG is now optional
-  const shouldExportGif = args.includes('--gif') || (!args.includes('--png') && !args.includes('--mp4')); // GIF is default unless --png or --mp4 specified
+  const shouldExportGif = args.includes('--gif') || (!args.includes('--png') && !args.includes('--mp4') && !args.includes('--raw')); // GIF is default unless other format specified
   const shouldExportMp4 = args.includes('--mp4'); // MP4 export option
+  const shouldExportRaw = args.includes('--raw'); // Raw RGB export option (memory efficient)
   const detailedTiming = args.includes('--timing'); // Add timing flag
   const useBlockProcessing = args.includes('--blocks'); // 🧪 EXPERIMENTAL: Block-based processing
   const singleFrameMode = frameArg !== null; // Single frame capture mode
@@ -1384,7 +1500,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!piecePath) {
     console.error(chalk.red('Usage: node tape.mjs <piece-path> [OPTIONS]'));
     console.log(chalk.gray('\nAnimation mode:'));
-    console.log(chalk.gray('  node tape.mjs <piece> [--frames N] [--fps N] [--resolution N] [--png|--gif|--mp4] [--quality instagram|twitter|studio|high|medium|low] [--timing] [--blocks]'));
+    console.log(chalk.gray('  node tape.mjs <piece> [--frames N] [--fps N] [--resolution N] [--png|--gif|--mp4|--raw] [--quality instagram|twitter|studio|high|medium|low] [--timing] [--blocks]'));
     console.log(chalk.gray('\nSingle frame mode:'));
     console.log(chalk.gray('  node tape.mjs <piece> --frame N [--width W] [--height H] [--resolution N]'));
     console.log(chalk.gray('\nExamples:'));
@@ -1393,6 +1509,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(chalk.gray('  node tape.mjs $rose --png  # Export PNG instead of default GIF'));
     console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --mp4 --frames 60 --quality instagram  # Export MP4 for Instagram'));
     console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --mp4 --quality twitter  # Export MP4 for Twitter'));
+    console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --raw --frames 180  # Raw RGB export (memory efficient)'));
     console.log(chalk.gray('  node tape.mjs $piece --fps 30  # Override default 60fps'));
     console.log(chalk.gray('  node tape.mjs elcid-flyer.mjs --frame 0 --width 1920 --height 1080  # High-res flyer'));
     console.log(chalk.gray('  node tape.mjs $roz --frame 30 --resolution 2048  # Capture 30th frame at 2048x2048'));
@@ -1426,9 +1543,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   
   try {
     // Create tape recorder with specified dimensions
+    const exportFormat = shouldExportRaw ? 'raw' : 'png';
     const tape = new Tape(width, height, { 
       detailedTiming,
-      useBlockProcessing
+      useBlockProcessing,
+      exportFormat
     });
     
     // Initialize AC system

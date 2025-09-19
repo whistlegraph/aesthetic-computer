@@ -9,7 +9,7 @@
 import { spawn } from 'child_process';
 import { Dashboard } from './dashboard.mjs';
 import { initLogger, logInfo, logError, logWarning, updateStatus, updateProgress } from './logger.mjs';
-import { existsSync, readdirSync, writeFileSync, appendFileSync } from 'fs';
+import { existsSync, readdirSync, writeFileSync, appendFileSync, unlinkSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 class DashboardMain {
@@ -191,6 +191,13 @@ Status: ${exitCode === 0 ? 'SUCCESS' : 'FAILED'}
       return;
     }
 
+    // Clean up any orphaned processes before starting new recording
+    logInfo('🧹 Checking for orphaned recording processes...');
+    this.cleanupOrphanedProcesses();
+    
+    // Wait a moment for cleanup to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     this.isRecording = true;
     this.updateDashboardStatus('Starting recording...');
     
@@ -209,12 +216,20 @@ Status: ${exitCode === 0 ? 'SUCCESS' : 'FAILED'}
     // Spawn the tape.mjs process with --no-tui flag to disable its TUI
     const recordingArgs = [...args, '--no-tui'];
     
-    // Add Node.js debug flags for detailed performance and memory tracking
+    // Add Node.js debug flags for comprehensive memory profiling and debugging
     const nodeArgs = [
-      '--trace-warnings',           // Show full stack traces for warnings
-      '--trace-uncaught',          // Show stack traces for uncaught exceptions
-      '--max-old-space-size=8192', // Increase memory limit to 8GB
-      '--expose-gc',               // Allow manual garbage collection
+      '--trace-warnings',                    // Show full stack traces for warnings
+      '--trace-uncaught',                   // Show stack traces for uncaught exceptions
+      '--max-old-space-size=8192',          // Increase memory limit to 8GB
+      '--expose-gc',                        // Allow manual garbage collection
+      '--heap-prof',                        // Enable heap profiling
+      '--heap-prof-interval=1000',          // Heap profile every 1 second
+      '--heap-prof-name=tape-recording.heapprofile',  // Heap profile filename
+      '--trace-gc',                         // Log garbage collection events
+      '--trace-gc-verbose',                 // Verbose GC logging
+      '--track-heap-objects',               // Track heap object allocations
+      '--max-semi-space-size=512',          // Increase semi-space size
+      '--optimize-for-size',                // Optimize for memory usage over speed
       'tape.mjs',
       ...recordingArgs
     ];
@@ -227,9 +242,23 @@ Status: ${exitCode === 0 ? 'SUCCESS' : 'FAILED'}
       env: { 
         ...process.env, 
         NODE_OPTIONS: '--trace-warnings --trace-uncaught',
-        DEBUG: '*'  // Enable debug output
+        DEBUG: '*',  // Enable debug output
+        UV_THREADPOOL_SIZE: '16'  // Increase thread pool for better I/O performance
       }
     });
+
+    // Store the PID for reliable cleanup
+    if (this.recordingProcess.pid) {
+      this.recordingPID = this.recordingProcess.pid;
+      logInfo(`📝 Recording process started with PID: ${this.recordingPID}`);
+      
+      // Write PID to file for external cleanup if needed
+      try {
+        writeFileSync('.recording-pid', this.recordingPID.toString());
+      } catch (err) {
+        logWarning('Could not write PID file');
+      }
+    }
 
     logInfo(`Recording process spawned with PID: ${this.recordingProcess.pid}`);
 
@@ -422,13 +451,51 @@ Status: ${exitCode === 0 ? 'SUCCESS' : 'FAILED'}
         this.printSessionSummary();
       }
       
+      // Enhanced process cleanup - kill recording process and any children
       if (this.recordingProcess && !this.recordingProcess.killed) {
+        logInfo('🛑 Terminating recording process...');
+        
+        // First try graceful SIGTERM
         this.recordingProcess.kill('SIGTERM');
+        
+        // Give process 2 seconds to exit gracefully, then force kill
+        setTimeout(() => {
+          if (this.recordingProcess && !this.recordingProcess.killed) {
+            logInfo('⚡ Force killing recording process...');
+            this.recordingProcess.kill('SIGKILL');
+            
+            // Also try to kill by stored PID to catch any missed processes
+            if (this.recordingPID) {
+              try {
+                process.kill(this.recordingPID, 'SIGKILL');
+                logInfo(`⚡ Force killed PID ${this.recordingPID}`);
+              } catch (err) {
+                // Process probably already dead, ignore
+              }
+            }
+          }
+        }, 2000);
       }
+      
+      // Clean up PID file
+      try {
+        if (existsSync('.recording-pid')) {
+          const { unlinkSync } = require('fs');
+          unlinkSync('.recording-pid');
+        }
+      } catch (err) {
+        // Ignore cleanup errors
+      }
+      
+      // Kill any orphaned Node.js processes that might be related to tape recording
+      this.cleanupOrphanedProcesses();
       
       this.dashboard.destroy();
       
-      process.exit(0);
+      // Give a moment for cleanup to complete
+      setTimeout(() => {
+        process.exit(0);
+      }, 500);
     };
 
     process.on('SIGINT', this.gracefulExit);
@@ -442,6 +509,54 @@ Status: ${exitCode === 0 ? 'SUCCESS' : 'FAILED'}
           this.gracefulExit();
         }
       });
+    }
+  }
+
+  // Clean up any orphaned Node.js processes that might be running tape.mjs
+  cleanupOrphanedProcesses() {
+    try {
+      const { execSync } = require('child_process');
+      
+      // Check if there's a PID file from a previous session
+      if (existsSync('.recording-pid')) {
+        try {
+          const oldPID = parseInt(readFileSync('.recording-pid', 'utf8').trim());
+          logInfo(`🧹 Found old PID file: ${oldPID}`);
+          try {
+            process.kill(oldPID, 'SIGKILL');
+            logInfo(`⚡ Killed old process: PID ${oldPID}`);
+          } catch (err) {
+            logInfo(`ℹ️ Old process ${oldPID} already dead`);
+          }
+          unlinkSync('.recording-pid');
+        } catch (err) {
+          logWarning('Could not process old PID file');
+        }
+      }
+      
+      // Find any Node.js processes running tape.mjs
+      const psOutput = execSync('ps aux | grep "node.*tape.mjs" | grep -v grep', { 
+        encoding: 'utf8',
+        timeout: 5000 
+      }).trim();
+      
+      if (psOutput) {
+        const lines = psOutput.split('\n');
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            const pid = parts[1];
+            logInfo(`🧹 Cleaning up orphaned tape.mjs process: PID ${pid}`);
+            try {
+              process.kill(parseInt(pid), 'SIGKILL');
+            } catch (err) {
+              // Process might already be dead
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // ps command failed or no processes found - that's fine
     }
   }
 

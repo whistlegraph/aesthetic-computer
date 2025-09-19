@@ -1043,6 +1043,10 @@ function calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, angle) {
 // 2. 2D Drawing
 function clear() {
   // 🚀 OPTIMIZED CLEAR FUNCTION - Up to 10x faster!
+  
+  // Clean up blur buffers to prevent memory accumulation
+  cleanupBlurBuffers();
+  
   // Determine the area to clear (mask or full screen)
   let minX = 0,
     minY = 0,
@@ -4846,6 +4850,13 @@ let blurAccumulator = 0.0;
 let blurTempBuffer = null;
 let blurTempBufferSize = 0;
 
+// Function to clean up blur buffers and reset state
+function cleanupBlurBuffers() {
+  blurTempBuffer = null;
+  blurTempBufferSize = 0;
+  blurAccumulator = 0.0;
+}
+
 // Efficient Gaussian blur using separable filtering with linear sampling optimization
 // Creates smooth blur effect by applying horizontal then vertical Gaussian convolution
 function blur(strength = 1, quality = "medium") {
@@ -6266,6 +6277,7 @@ export {
   zoom,
   suck,
   blur,
+  cleanupBlurBuffers,
   sort,
   shear,
   setBlockProcessing,
