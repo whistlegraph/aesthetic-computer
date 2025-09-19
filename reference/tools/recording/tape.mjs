@@ -233,23 +233,23 @@ class Tape extends HeadlessAC {
       if (!this.pngCanvas) {
         this.pngCanvas = createCanvas(this.width, this.height);
         this.pngCtx = this.pngCanvas.getContext('2d');
+        // Pre-allocate reusable ImageData object to avoid repeated allocations
+        this.reuseableImageData = this.pngCtx.createImageData(this.width, this.height);
         console.log(`📦 Initialized reusable PNG canvas: ${this.width}x${this.height}`);
       }
       
-      // Reuse existing canvas and context - much more memory efficient
-      const imageData = this.pngCtx.createImageData(this.width, this.height);
-      imageData.data.set(frameData);
-      this.pngCtx.putImageData(imageData, 0, 0);
+      // Reuse existing ImageData object instead of creating new one each frame
+      this.reuseableImageData.data.set(frameData);
+      this.pngCtx.putImageData(this.reuseableImageData, 0, 0);
       
       // Generate PNG buffer and save immediately
       const buffer = this.pngCanvas.toBuffer('image/png');
       writeFileSync(pngPath, buffer);
       
-      // Force garbage collection hint for large buffers
-      if (buffer.length > 1024 * 1024) { // > 1MB
-        if (global.gc) {
-          global.gc();
-        }
+      // Aggressive memory management for large PNG buffers
+      // Clear buffer reference immediately and force GC for every PNG to prevent accumulation
+      if (global.gc) {
+        global.gc();
       }
     } catch (error) {
       console.warn(`⚠️ Could not create PNG cache: ${error.message}`);
@@ -285,14 +285,23 @@ class Tape extends HeadlessAC {
   }
 
   // Read frame from disk cache (PNG or raw format)
-  readCachedFrame(frameIndex) {
+  async readCachedFrame(frameIndex) {
     if (this.useDiskCache) {
       const frameInfo = this.frames[frameIndex];
       if (frameInfo && frameInfo.pngPath) {
-        // For PNG files, we could decode them back to RGBA if needed
-        // For now, return null since most usage is direct PNG->ffmpeg
-        console.warn('Reading PNG cache not yet implemented - consider using PNG path directly');
-        return null;
+        // For PNG files, decode them back to RGBA data
+        try {
+          const { createCanvas, loadImage } = await import('canvas');
+          const image = await loadImage(frameInfo.pngPath);
+          const canvas = createCanvas(image.width, image.height);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(image, 0, 0);
+          const imageData = ctx.getImageData(0, 0, image.width, image.height);
+          return new Uint8ClampedArray(imageData.data);
+        } catch (error) {
+          console.warn(`⚠️ Could not read PNG cache: ${error.message}`);
+          return null;
+        }
       } else if (frameInfo && frameInfo.rawPath) {
         // For raw RGB files, we can easily read them back
         try {
@@ -857,11 +866,13 @@ class Tape extends HeadlessAC {
           // Display frame progress with memory delta
           console.log(`🎬 Frame ${frameIndex + 1}/${actualTotalFrames} rendered | RSS: ${(memAfter.rss / 1024 / 1024).toFixed(1)}MB (+${memDelta.rss}) | Heap: ${(memAfter.heapUsed / 1024 / 1024).toFixed(1)}MB (+${memDelta.heapUsed})`);
           
-          // Force garbage collection every 10 frames if available
-          if (frameIndex % 10 === 0 && global.gc) {
+          // Force garbage collection every 5 frames for PNG export (more frequent due to larger buffers)
+          // or every 10 frames for RAW export
+          const gcInterval = this.exportFormat === 'png' ? 5 : 10;
+          if (frameIndex % gcInterval === 0 && global.gc) {
             global.gc();
             const memAfterGC = process.memoryUsage();
-            console.log(`🗑️ GC triggered at frame ${frameIndex + 1} | Heap after GC: ${(memAfterGC.heapUsed / 1024 / 1024).toFixed(1)}MB`);
+            console.log(`🗑️ GC triggered at frame ${frameIndex + 1} (${this.exportFormat.toUpperCase()}) | Heap after GC: ${(memAfterGC.heapUsed / 1024 / 1024).toFixed(1)}MB | RSS after GC: ${(memAfterGC.rss / 1024 / 1024).toFixed(1)}MB`);
           }
           
           // Take heap snapshot at key intervals for performance analysis
@@ -973,7 +984,13 @@ class Tape extends HeadlessAC {
       const samplePixels = [];
       
       for (let i = 0; i < this.frameCount; i += sampleStep) {
-        const frameData = this.readCachedFrame(i);
+        const frameData = await this.readCachedFrame(i);
+        
+        // Skip if frame data is unavailable
+        if (!frameData) {
+          console.warn(`⚠️ Skipping frame ${i} for palette - no data available`);
+          continue;
+        }
         
         // Create much smaller sample for palette generation
         const sampleSize = Math.floor((paletteWidth * paletteHeight) / (pixelStep * pixelStep)) * 4;
@@ -1047,7 +1064,13 @@ class Tape extends HeadlessAC {
       console.log('🎨 Processing frames individually for GIF...');
       for (let i = 0; i < this.frameCount; i++) {
         // Read one frame at a time
-        const frameData = this.readCachedFrame(i);
+        const frameData = await this.readCachedFrame(i);
+        
+        // Skip if frame data is unavailable
+        if (!frameData) {
+          console.warn(`⚠️ Skipping frame ${i} for GIF - no data available`);
+          continue;
+        }
         
         // Process frame in chunks to avoid large memory allocation
         const chunkSize = this.width * 100 * 4; // Process 100 rows at a time
@@ -1190,7 +1213,13 @@ class Tape extends HeadlessAC {
         const { writeFileSync } = await import('fs');
         
         for (let i = 0; i < this.frameCount; i++) {
-          const frameData = this.readCachedFrame(i);
+          const frameData = await this.readCachedFrame(i);
+          
+          // Skip if frame data is unavailable
+          if (!frameData) {
+            console.warn(`⚠️ Skipping frame ${i} - no data available`);
+            continue;
+          }
           
           // Convert RGBA to PNG using canvas (more memory efficient than sharp for large images)
           const frameFilename = `${tempDir}/frame-${i.toString().padStart(6, '0')}.png`;
@@ -1366,7 +1395,7 @@ class Tape extends HeadlessAC {
         console.log(`✅ Frame ${frameIndex} captured from animation`);
         
         // Load the specific frame from cache
-        const frameData = this.readCachedFrame(frameIndex);
+        const frameData = await this.readCachedFrame(frameIndex);
         if (frameData) {
           // Update pixel buffer with the captured frame
           this.pixelBuffer = new Uint8Array(frameData);
