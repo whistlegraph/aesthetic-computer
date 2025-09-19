@@ -1372,6 +1372,6 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
       box(boxX, boxY, boxW, boxH);
     }
 
-    if (frameCount % 8 === 0) contrast(1.05); // Reduced blur strength to reduce processing load
+    // if (frameCount % 8 === 0) contrast(1.05); // Reduced blur strength to reduce processing load
   }
 }
