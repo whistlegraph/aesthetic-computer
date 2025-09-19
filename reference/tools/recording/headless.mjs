@@ -133,8 +133,8 @@ export class HeadlessAC {
       logInfo('💫 V8 optimizations: Garbage collection available');
     }
     
-    // Pre-allocate some objects to avoid GC pressure
-    this.scratchBuffer = new Uint8Array(this.width * this.height * 4);
+    // REDUCED ALLOCATIONS: Only allocate scratch buffers if really needed
+    // this.scratchBuffer = new Uint8Array(this.width * this.height * 4);
     this.colorCache = new Map();
     
     logInfo(`🚀 Performance mode: Pixel buffer ${this.width}x${this.height} (${(this.pixelBuffer.length / 1024 / 1024).toFixed(2)}MB)`);
@@ -322,34 +322,22 @@ export class HeadlessAC {
     const self = this;
     
     function logCall(name, args) {
-      self.apiCalls.push({ name, args: Array.from(args), timestamp: Date.now() });
+      // DISABLED: Skip API call logging during video recording to reduce memory pressure
+      // self.apiCalls.push({ name, args: Array.from(args), timestamp: Date.now() });
     }
 
     // Performance timing wrapper for graph operations
     function timeGraphOperation(operationName, graphFunc, ...args) {
-      const startTime = process.hrtime.bigint(); // Use high-resolution time
       const result = graphFunc(...args);
-      const endTime = process.hrtime.bigint();
-      const duration = Number(endTime - startTime) / 1000000; // Convert nanoseconds to milliseconds
       
-      // Log if operation takes longer than 0.01ms or if detailed logging is enabled
-      if (duration > 0.01 || self.detailedTiming) {
-        const logMessage = `${operationName}: ${duration.toFixed(3)}ms`;
-        if (self.logger && typeof self.logger === 'function') {
-          self.logger('line', logMessage, duration);
-        } else {
-          console.log(`⚡ ${logMessage}`);
-        }
+      // DISABLED: Skip timing logs during video recording to save memory
+      // Only track for critical operations or debugging
+      if (self.detailedTiming && operationName === 'critical_debug_only') {
+        const startTime = process.hrtime.bigint();
+        const endTime = process.hrtime.bigint();
+        const duration = Number(endTime - startTime) / 1000000;
+        console.log(`⚡ ${operationName}: ${duration.toFixed(3)}ms`);
       }
-      
-      // Track total time per operation type
-      if (!self.operationTimings) self.operationTimings = new Map();
-      const existing = self.operationTimings.get(operationName) || { total: 0, count: 0, max: 0, min: Infinity };
-      existing.total += duration;
-      existing.count += 1;
-      existing.max = Math.max(existing.max, duration);
-      existing.min = Math.min(existing.min, duration);
-      self.operationTimings.set(operationName, existing);
       
       return result;
     }
@@ -709,7 +697,7 @@ export class HeadlessAC {
         if (self.logger && typeof self.logger === 'function') {
           self.logger('write', logMessage);
         } else {
-          console.log(`📝 ${logMessage}`);
+          // console.log(`📝 ${logMessage}`); // Commented out for performance during recording
         }
         
         // Use the real AC typeface system if available
