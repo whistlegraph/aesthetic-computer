@@ -1842,6 +1842,7 @@ class KidLisp {
   }
 
   parseFadeString(fadeString) {
+    console.log("🔍 Parsing fade string:", fadeString);
     if (!fadeString.startsWith("fade:")) return null;
     
     const parts = fadeString.split(":");
@@ -1849,7 +1850,9 @@ class KidLisp {
     
     // Extract colors part (skip "fade" and optional direction)
     const colorPart = parts[1]; // The part after "fade:"
+    console.log("🎨 Color part:", colorPart);
     const colorNames = colorPart.split("-");
+    console.log("🎨 Color names:", colorNames);
     
     if (colorNames.length < 2) return null;
     
@@ -1857,26 +1860,35 @@ class KidLisp {
     
     // Validate each color in the fade
     for (const colorName of colorNames) {
+      console.log("🔍 Validating color:", colorName, "isValid:", this.isValidColorString(colorName));
       if (this.isValidColorString(colorName)) {
         // Get the actual RGB values
         if (cssColors[colorName]) {
+          console.log("✅ Found CSS color:", colorName, "->", cssColors[colorName]);
           validColors.push(cssColors[colorName]);
         } else if (colorName.match(/^c\d+$/)) {
           const index = parseInt(colorName.substring(1));
           if (staticColorMap[index]) {
+            console.log("✅ Found color code:", colorName, "->", staticColorMap[index]);
             validColors.push(staticColorMap[index]);
           }
         } else if (colorName === "rainbow") {
+          console.log("✅ Found rainbow color");
           validColors.push([255, 0, 0]); // Just use red as representative
         } else if (colorName === "zebra") {
+          console.log("✅ Found zebra color");
           validColors.push([0, 0, 0]); // Just use black as representative
         }
       } else {
+        console.log("❌ Invalid color:", colorName);
         return null; // Invalid color
       }
     }
     
-    return validColors.length >= 2 ? validColors : null;
+    console.log("🎨 Final valid colors:", validColors);
+    const result = validColors.length >= 2 ? validColors : null;
+    console.log("🎨 Fade parsing result:", result);
+    return result;
   }
 
   // Get the background fill color for reframe operations
@@ -5448,8 +5460,11 @@ class KidLisp {
           
           // Always paste cached layers that have buffers - they contain valuable content even if they didn't render this frame
           if (existingLayer.buffer && api.paste) {
+            console.log(`🔄 embed() calling pasteWithAlpha: buffer=${existingLayer.buffer.width}x${existingLayer.buffer.height}, pos=(${x},${y}), alpha=${existingLayer.alpha}`);
             // Always use alpha blending to properly handle pixels with alpha channels
             this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
+          } else {
+            console.log(`🚫 embed() NOT calling pasteWithAlpha: hasBuffer=${!!existingLayer.buffer}, hasPaste=${!!api.paste}`);
           }
           
           return existingLayer;
@@ -5468,10 +5483,13 @@ class KidLisp {
         // Check if we already have the source code cached
         if (this.embeddedSourceCache.has(cacheId)) {
           const cachedSource = this.embeddedSourceCache.get(cacheId);
+          console.log(`🎯 Found cached source for ${cacheId}:`, cachedSource.substring(0, 50) + '...');
           // Mark as loaded since we have cached source
           this.loadingEmbeddedLayers.delete(cacheId);
           this.loadedEmbeddedLayers.add(cacheId);
           return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, alpha, api);
+        } else {
+          console.log(`❌ No cached source found for ${cacheId}, cache has:`, Array.from(this.embeddedSourceCache.keys()));
         }
         
         // Check if we're already fetching this source to prevent duplicates
@@ -6099,36 +6117,72 @@ class KidLisp {
       
       if (colorName) {
         const globalEnv = this.getGlobalEnv();
+        let isValidFirstLineColor = false;
         
         // Check if it's a color name in cssColors (not just any function)
         if (cssColors && cssColors[colorName]) {
+          isValidFirstLineColor = true;
+        }
+        // Also check if it's a fade string directly (like "fade:initial-atom-background")
+        else if (colorName.startsWith("fade:")) {
+          console.log("🎨 First-line fade detected:", colorName);
+          // Validate the fade string by trying to parse it
+          const fadeColors = this.parseFadeString(colorName);
+          console.log("🎨 Parsed fade colors:", fadeColors);
+          if (fadeColors && fadeColors.length >= 2) {
+            isValidFirstLineColor = true;
+            console.log("✅ First-line fade validated successfully");
+          } else {
+            console.log("❌ First-line fade validation failed");
+          }
+        }
+        
+        if (isValidFirstLineColor) {
+          console.log("🎨 First-line color is valid, entering try block");
           try {
-            // Test if this is a color function by calling it
-            if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+            // Test if this is a color function by calling it (only for non-fade strings)
+            if (!colorName.startsWith("fade:") && globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+              console.log("🎨 Testing color function:", colorName);
               globalEnv[colorName]();
             }
             
+            console.log("🎨 Color function test passed, proceeding to backdrop");
             // If we get here without error, it's a color function
             // For color shortcuts, apply backdrop only once per call location
             const position = api.kidlispCallPosition || "";
             const backdropKey = `first_line_backdrop_${colorName}_${position}`;
-            
+            console.log("🎨 Backdrop key:", backdropKey);
+            console.log("🎨 Position:", position);
+            console.log("🎨 Color name:", colorName);
+            console.log("🎨 Once executed cache size:", this.onceExecuted.size);
+            console.log("🎨 Once executed cache contents:", Array.from(this.onceExecuted));
+            console.log("🎨 Once executed has key:", this.onceExecuted.has(backdropKey));
             if (!this.onceExecuted.has(backdropKey)) {
+              console.log("🎨 First-line backdrop not yet executed, adding to once cache");
               this.onceExecuted.add(backdropKey);
               
               // Set the background fill color for reframe operations
               if (api.backgroundFill) {
+                console.log("🎨 Setting background fill color:", colorName);
                 api.backgroundFill(colorName);
               }
               
               // Apply wipe once for first-line color shorthand
               if (api.wipe) {
+                console.log("🎨 Applying first-line color wipe:", colorName);
                 api.wipe(colorName);
+                console.log("✅ First-line wipe completed");
+              } else {
+                console.log("❌ No api.wipe function available");
               }
+            } else {
+              console.log("🎨 First-line backdrop already executed for key:", backdropKey);
             }
             // Remove the first item so it doesn't get evaluated again
+            console.log("🎨 Removing first item from body");
             body = body.slice(1);
           } catch (e) {
+            console.log("❌ Error in first-line color processing:", e);
             // Not a color function, proceed normally
           }
         }
@@ -8616,10 +8670,10 @@ class KidLisp {
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
-    // console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
+    console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
     
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
-      // console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
+      console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
       return; // Silent fail for performance
     }
     
@@ -8777,12 +8831,22 @@ class KidLisp {
 
   // Fallback manual alpha blending for when graph.paste is not available
   fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha) {
+    console.log(`🎨 fallbackPasteWithAlpha called: ${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y}) with alpha=${alpha}`);
+    
     const srcPixels = sourceBuffer.pixels;
     const dstPixels = api.screen.pixels;
     const srcWidth = sourceBuffer.width;
     const srcHeight = sourceBuffer.height;
     const dstWidth = api.screen.width;
     const dstHeight = api.screen.height;
+
+    console.log(`🎨 fallbackPasteWithAlpha: src=${srcWidth}x${srcHeight}, dst=${dstWidth}x${dstHeight}`);
+    console.log(`🎨 fallbackPasteWithAlpha: srcPixels length=${srcPixels.length}, dstPixels length=${dstPixels.length}`);
+    
+    // Sample a few pixels from the source buffer to see what we're working with
+    console.log(`🎨 fallbackPasteWithAlpha: source pixel 0:`, srcPixels[0], srcPixels[1], srcPixels[2], srcPixels[3]);
+    console.log(`🎨 fallbackPasteWithAlpha: source pixel 100:`, srcPixels[400], srcPixels[401], srcPixels[402], srcPixels[403]);
+    console.log(`🎨 fallbackPasteWithAlpha: source pixel 1000:`, srcPixels[4000], srcPixels[4001], srcPixels[4002], srcPixels[4003]);
 
     // Normalize alpha to 0-1 range
     const alphaFactor = alpha / 255.0;
@@ -9907,32 +9971,63 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
-  // Use relative URL that works in both local and production
-  const fullUrl = `/api/store-kidlisp?code=${nanoidCode}`;
+  // Use full HTTPS URL to match our tape.mjs fetchKidLispSource method
+  const fullUrl = `https://localhost:8888/.netlify/functions/store-kidlisp?code=${nanoidCode}`;
   
-  try {
-    // Try to fetch from the actual API with HTTPS
-    const response = await fetch(fullUrl);
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.source) {
-        return data.source;
-      }
-      return data.source;
+  // Use Node.js https module with SSL bypass like tape.mjs does
+  return new Promise(async (resolve, reject) => {
+    // Check if we're in Node.js environment
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      // Import https module dynamically for Node.js environment
+      const https = await import('https');
+      const options = { rejectUnauthorized: false }; // Allow self-signed certificates
+      
+      https.get(fullUrl, options, (res) => {
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed && parsed.source) {
+              resolve(parsed.source);
+            } else {
+              console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`);
+              resolve(null);
+            }
+          } catch (err) {
+            console.error(`❌ Failed to parse JSON for cached code: ${nanoidCode}`, err);
+            resolve(null);
+          }
+        });
+      }).on('error', (err) => {
+        console.error(`❌ Network error loading cached code: ${nanoidCode}`, err);
+        resolve(null);
+      });
     } else {
-      console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText}`);
-      return null;
+      // Browser environment - fallback to fetch
+      fetch(fullUrl).then(response => {
+        if (response.ok) {
+          return response.json().then(data => {
+            if (data && data.source) {
+              resolve(data.source);
+            } else {
+              resolve(null);
+            }
+          });
+        } else {
+          console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText}`);
+          resolve(null);
+        }
+      }).catch(error => {
+        console.error(`❌ Network error loading cached code: ${nanoidCode}`, error);
+        resolve(null);
+      });
     }
-  } catch (error) {
-    console.error(`❌ Network error loading cached code: ${nanoidCode}`, error);
-    console.error("Error details:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    return null;
-  }
+  });
 }
 
 // Export function to get syntax highlighting colors for progress bars
@@ -10047,4 +10142,5 @@ export {
   getCachedCodeMultiLevel,
   clearAllCaches,
   saveCodeToAllCaches,
+  globalCodeCache,
 };
