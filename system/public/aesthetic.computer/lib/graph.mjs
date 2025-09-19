@@ -5079,6 +5079,95 @@ function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY
   }
 }
 
+// Apply sharpening filter to enhance edges and details
+// strength: 0 = no sharpening, 1 = normal sharpening, >1 = aggressive sharpening
+function sharpen(strength = 1) {
+  if (strength <= 0) return; // No sharpening needed
+  
+  // Start timing for performance monitoring
+  const sharpenStartTime = performance.now();
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in sharpen, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  try {
+    // Create temporary buffer for sharpen operation
+    const tempBuffer = new Uint8ClampedArray(pixels.length);
+    
+    // Copy original pixels to temp buffer
+    tempBuffer.set(pixels);
+    
+    // Unsharp mask convolution kernel (center weight adjusted by strength)
+    // This is a 3x3 kernel that subtracts a blurred version from the original
+    const centerWeight = 1 + (4 * strength);
+    const edgeWeight = -strength;
+    
+    // Apply sharpening convolution
+    for (let y = minY + 1; y < maxY - 1; y++) {
+      for (let x = minX + 1; x < maxX - 1; x++) {
+        const centerIdx = (y * width + x) * 4;
+        
+        // Skip transparent pixels
+        if (tempBuffer[centerIdx + 3] === 0) continue;
+        
+        // Apply 3x3 unsharp mask kernel for each color channel
+        for (let channel = 0; channel < 3; channel++) { // RGB only, preserve alpha
+          let sum = 0;
+          
+          // Center pixel (enhanced)
+          sum += tempBuffer[centerIdx + channel] * centerWeight;
+          
+          // Surrounding pixels (subtracted)
+          sum += tempBuffer[((y - 1) * width + x) * 4 + channel] * edgeWeight; // top
+          sum += tempBuffer[((y + 1) * width + x) * 4 + channel] * edgeWeight; // bottom
+          sum += tempBuffer[(y * width + (x - 1)) * 4 + channel] * edgeWeight; // left
+          sum += tempBuffer[(y * width + (x + 1)) * 4 + channel] * edgeWeight; // right
+          
+          // Clamp result to valid range
+          pixels[centerIdx + channel] = Math.max(0, Math.min(255, Math.round(sum)));
+        }
+        // Alpha channel stays unchanged
+      }
+    }
+    
+  } catch (error) {
+    console.warn('🚨 Sharpen operation failed:', error);
+  }
+  
+  // Log timing information for performance monitoring
+  const sharpenEndTime = performance.now();
+  graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
+}
+
 // Sort pixels by color within the masked area (or entire screen if no mask)
 // Sorts by luminance (brightness) - darker pixels first, lighter pixels last
 function sort() {
@@ -6284,6 +6373,7 @@ export {
   zoom,
   suck,
   blur,
+  sharpen,
   cleanupBlurBuffers,
   sort,
   shear,
