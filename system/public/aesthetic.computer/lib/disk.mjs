@@ -1025,6 +1025,103 @@ let clockFetching = false;
 let lastServerTime = undefined;
 let clockOffset = 0; // Smoothed offset from server
 
+// 🤖 Robo Class - For sending synthetic events through the act system
+class Robo {
+  constructor() {
+    this.currentAPI = null;
+  }
+
+  // Set the current API context (called from makeFrame)
+  setAPI(api) {
+    this.currentAPI = api;
+  }
+
+  // Send synthetic events directly to the nopaint system
+  async sendEvent(eventType, coordinates = {}) {
+    if (!this.currentAPI) {
+      console.warn("🤖 Robo: No API context available");
+      return;
+    }
+
+    // Ensure pen object exists and initialize if needed
+    if (!this.currentAPI.pen) {
+      this.currentAPI.pen = { x: 0, y: 0, px: 0, py: 0, pressure: 0.5, device: "robot", delta: { x: 0, y: 0 } };
+      console.log("🤖 Robo: Initialized pen object for robot events");
+    }
+
+    // Update the pen object with robot event data including pressure
+    this.currentAPI.pen.x = coordinates.x || 0;
+    this.currentAPI.pen.y = coordinates.y || 0;
+    this.currentAPI.pen.px = coordinates.px || coordinates.x || 0;
+    this.currentAPI.pen.py = coordinates.py || coordinates.y || 0;
+    this.currentAPI.pen.pressure = coordinates.pressure || 0.5;
+    this.currentAPI.pen.device = "robot";
+    
+    // Update delta if it exists
+    if (this.currentAPI.pen.delta) {
+      this.currentAPI.pen.delta.x = (coordinates.x || 0) - (coordinates.px || coordinates.x || 0);
+      this.currentAPI.pen.delta.y = (coordinates.y || 0) - (coordinates.py || coordinates.y || 0);
+    }
+
+    // Create proper nopaint event structure with all required fields
+    const nopaintEvent = {
+      is: (type) => type === eventType,
+      device: "robot",
+      x: coordinates.x || 0,
+      y: coordinates.y || 0,
+      px: coordinates.px || coordinates.x || 0,
+      py: coordinates.py || coordinates.y || 0,
+      pressure: coordinates.pressure || 0.5, // Add default pressure
+      delta: {
+        x: (coordinates.x || 0) - (coordinates.px || coordinates.x || 0),
+        y: (coordinates.y || 0) - (coordinates.py || coordinates.y || 0)
+      }
+    };
+
+    // Import and call nopaint_act directly from here where module resolution works
+    try {
+      const { nopaint_act } = await import("../systems/nopaint.mjs");
+      
+      nopaint_act({
+        event: nopaintEvent,
+        screen: this.currentAPI.screen,
+        system: this.currentAPI.system,
+        painting: this.currentAPI.system.painting,
+        loading: false,
+        store: this.currentAPI.store,
+        pens: () => [], // pens should be a function that returns an array
+        pen: this.currentAPI.pen,
+        api: this.currentAPI,
+        num: this.currentAPI.num,
+        jump: this.currentAPI.jump,
+        debug: false
+      });
+      
+      console.log(`🤖 Robo: Sent ${eventType} event to nopaint system at (${coordinates.x}, ${coordinates.y})`);
+    } catch (error) {
+      console.error("🤖 Robo: Error sending event to nopaint:", error);
+    }
+  }
+
+  // Convenience methods for common events
+  touch(x, y) {
+    this.sendEvent("touch:1", { x, y, pressure: 0.5 });
+  }
+
+  draw(x, y, px, py) {
+    this.sendEvent("draw:1", { x, y, px, py, pressure: 0.5 });
+  }
+
+  lift(x, y) {
+    this.sendEvent("lift:1", { x, y, pressure: 0.5 });
+  }
+
+  // Generic method for any event type
+  act(eventType, coordinates) {
+    this.sendEvent(eventType, coordinates);
+  }
+}
+
 const $commonApi = {
   lisp, //  A global reference to the `kidlisp` evalurator.
   undef: undefined, // A global api shorthand for undefined.
@@ -1718,7 +1815,7 @@ const $commonApi = {
           y - system.nopaint.startDrag.y,
         );
 
-        system.nopaint.brush = { x, y, dragBox, pressure: pen.pressure };
+        system.nopaint.brush = { x, y, dragBox, pressure: pen?.pressure || 0.5 };
         
         // Call needsPaint during any pen movement to ensure continuous painting and HUD updates
         $commonApi.needsPaint();
@@ -2168,6 +2265,7 @@ const $commonApi = {
   },
   gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker, Ticker: gizmo.Ticker },
   rec: new Recorder(),
+  robo: new Robo(),
   net: {
     signup: () => {
       send({ type: "signup" });
@@ -2321,7 +2419,9 @@ const $commonApi = {
   },
   needsPaint: () => {
     noPaint = false;
-    if (system === "nopaint") $commonApi.system.nopaint.needsPresent = true;
+    if (system === "nopaint") {
+      $commonApi.system.nopaint.needsPresent = true;
+    }
   }, // TODO: Does "paint" needs this?
   
   store,
@@ -5574,7 +5674,9 @@ async function load(
         
         if (module.paint) {
           painted = module.paint($);
-          $.system.nopaint.needsPresent = true;
+          if ($.system?.nopaint) {
+            $.system.nopaint.needsPresent = true;
+          }
         }
 
         // 🎨 OVERLAY SUPPORT: Call overlay function for preview rendering with painting coordinates
@@ -5639,8 +5741,8 @@ async function load(
         nopaint_act($); // Inherit base functionality.
         
         // 🎯 IMMEDIATE BAKING: Fix race condition by triggering bake immediately after lift
-        const np = $.system.nopaint;
-        if (np.needsBake === true && bake) {
+        const np = $.system?.nopaint;
+        if (np?.needsBake === true && bake) {
           // 📊 Trigger bake flash effect and beep sound
           nopaint_triggerBakeFlash();
           
@@ -7805,6 +7907,9 @@ async function makeFrame({ data: { type, content } }) {
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
 
+      // Set the robo API context so it can send events
+      $api.robo.setAPI($api);
+
       $api.inFocus = inFocus;
 
       $api.screen = {
@@ -8287,6 +8392,9 @@ async function makeFrame({ data: { type, content } }) {
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
 
+      // Set the robo API context so it can send events
+      $api.robo.setAPI($api);
+
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);
 
@@ -8566,7 +8674,7 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           // 📓 Bake any painting from the nopaint system before anything else.
-          if (system === "nopaint") {
+          if (system === "nopaint" && $api.system?.nopaint) {
             const np = $api.system.nopaint;
             // No Paint: baking
 
@@ -8576,9 +8684,9 @@ async function makeFrame({ data: { type, content } }) {
             ) {
               const brushFilterApi = { ...$api };
               // Add top-level 'color' word that maps to system.nopaint.color
-              brushFilterApi.color = $api.system.nopaint.color;
+              brushFilterApi.color = np.color;
               if (currentHUDButton.down === false) {
-                brushFilterApi.pen = $api.system.nopaint.brush;
+                brushFilterApi.pen = np.brush;
                 if (brush) {
                   // $api.page($api.system.nopaint.buffer);
                   $api.page($api.system.painting);
@@ -8736,7 +8844,7 @@ async function makeFrame({ data: { type, content } }) {
         // 🔴 Show a cross-piece "Recording" indicator.
         //    Currently only implemented for `painting:record`. 23.08.20.21.36
         if (
-          $api.system.nopaint.recording &&
+          $api.system?.nopaint?.recording &&
           !hideLabel &&
           pieceHistoryIndex > -1 &&
           !loading
