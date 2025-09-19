@@ -825,8 +825,7 @@ export function paint({ api }) {
   
   // Draw the top scrolling text
   const topChars = topMarqueeText.split('');
-  // TEMPORARILY DISABLED TOP MARQUEE TEXT TO DEBUG MEMORY ISSUE
-  /*
+  
   // Subtle blinking for top marquee
   const topMarqueeBlink = Math.sin(frameCount * 0.2) * 0.2 + 0.8; // 0.6-1.0 intensity
   
@@ -862,13 +861,10 @@ export function paint({ api }) {
       }
     }
   });
-  */
 
   // INTELLIGENT LAYOUT for 2048x2048 canvas
   // Vertical sections: Top marquee (0-200), Main titles (200-600), Date (600-900), Time (900-1200), Venue (1200-1600), Footer (1600-2048)
   
-  // TEMPORARILY DISABLED ALL TEXT RENDERING TO DEBUG MEMORY ISSUE
-  /*
   // MAIN TITLE - AESTHETIC COMPUTER - most prominent with white/black/neon oscillation
   
   // AESTHETIC with white/black/neon color scheme
@@ -1003,10 +999,7 @@ export function paint({ api }) {
   const hostedX = 100; // Left margin above rainbow border
   const hostedY = 1880; // Above the bottom rainbow border margin (2048 - 80 - some padding)
   writeVHS(hostedText, { x: hostedX, y: hostedY, size: 6 }, api);
-  */
 
-  // TEMPORARILY DISABLED DEBUG BOXES TO AVOID UNDEFINED VARIABLE ERRORS
-  /*
   // OPTIONAL DEBUG LAYOUT BOXES - separate flashing with different colors
   const showDebug = DEBUG_MODE || (Math.sin(frameCount * 0.1) > 0.8); // Flicker occasionally
   if (showDebug) {
@@ -1116,5 +1109,4 @@ export function paint({ api }) {
       box(hostedX, hostedY - hostedHeight * 0.3, hostedWidth, hostedHeight);
     }
   }
-  */
 }
