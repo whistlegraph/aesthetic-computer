@@ -102,7 +102,7 @@ class RenderOrchestrator {
       execSync(
         `ffmpeg -y -f rawvideo -pix_fmt rgb24 -s ${width}x${height} -r 60 ` +
         `-i ${allFramesFile} -c:v libx264 -pix_fmt yuv420p ` +
-        `-movflags +faststart -r 60 -b:v 16M ${outputMP4}`,
+        `-movflags +faststart -r 60 -b:v 32M ${outputMP4}`,
         { stdio: 'inherit' }
       );
       
