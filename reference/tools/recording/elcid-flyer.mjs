@@ -1,5 +1,6 @@
 // Build Instructions:
-// cd /workspaces/aesthetic-computer/reference/tools/recording && node tape.mjs elcid-flyer.mjs 240 --mp4 --resolution 2048
+// cd /workspaces/aesthetic-computer/reference/tools/recording && node orchestrator.mjs elcid-flyer 30000
+// 30 second version (30000 milliseconds)
 // TODO:
 // [-] Finish copy editing / typography
 // [ ] Add flair
@@ -8,7 +9,7 @@
 let frameCount = 0;
 
 // Debug mode toggle
-const DEBUG_MODE = true; // ENABLED for debugging text.box sizing issues
+const DEBUG_MODE = true; // ENABLED - to show blinking debug boxes
 
 // Helper function for VHS-style rainbow overdraw text with SIZE-SCALED thickness and fast opacity blinking
 function writeVHS(text, options, api) {
@@ -24,11 +25,11 @@ function writeVHS(text, options, api) {
   const megaBlink = Math.sin(frameCount * 1.2 + blinkSeed * 0.2) * 0.5 + 0.5; // Mega fast cycle  
   const superBlink = Math.sin(frameCount * 0.6 + blinkSeed * 0.1) * 0.5 + 0.5; // Super cycle
   const hyperBlink = Math.sin(frameCount * 1.8 + blinkSeed * 0.25) * 0.5 + 0.5; // Hyper fast
-  
+
   // Combine all blink cycles for MAXIMUM fluorescent effect
   const combinedBlink = (ultraFastBlink + megaBlink + superBlink + hyperBlink) / 4;
   const intenseBlink = Math.max(ultraFastBlink, megaBlink, superBlink, hyperBlink); // Take the brightest
-  
+
   // Enhanced opacity blinking - much more dramatic
   const opacityBlink = Math.sin(frameCount * 0.35 + blinkSeed * 0.08) * 0.4 + 0.6; // 0.2-1.0 range - more dramatic!
   const baseOpacity = 200 + (blinkChance * 55) + (intenseBlink * 50); // 200-305 base opacity - ULTRA BRIGHT!
@@ -192,21 +193,21 @@ function writeVHS(text, options, api) {
       const fluorBoost = (intenseBlink > 0.8) ? 100 : 0; // Extra boost for peak blinks
       const megaBoost = (combinedBlink > 0.7) ? 80 : 0; // Combined blink boost
       const ultraBoost = (ultraFastBlink > 0.9 || hyperBlink > 0.95) ? 120 : 0; // Ultra peak boost
-      
+
       const baseAlpha = (50 + Math.random() * 100) * opacityBlink + fluorBoost + megaBoost + ultraBoost; // 50-150 base + boosts
       const layerAlpha = baseAlpha * (1 - layer * 0.03); // Much less fade between layers
       const glitchAlpha = glitchIntensity > 0.6 ? layerAlpha * (0.8 + Math.random() * 0.4) : layerAlpha;
 
       // ENHANCED COLOR CYCLING for extreme fluorescent effect
       let finalR = r, finalG = g, finalB = b;
-      
+
       if (intenseBlink > 0.999) {
         // Ultra bright white flash - much rarer (only ~2% of time)
         finalR = 255; finalG = 255; finalB = 255;
       } else if (combinedBlink > 0.99) {
         // Electric fluorescent boost - rare (only ~5% of time)
         finalR = Math.min(255, r + 100);
-        finalG = Math.min(255, g + 100); 
+        finalG = Math.min(255, g + 100);
         finalB = Math.min(255, b + 100);
       } else if (ultraFastBlink > 0.98 || hyperBlink > 0.97) {
         // Neon boost - less frequent (only ~8-10% of time)
@@ -215,7 +216,17 @@ function writeVHS(text, options, api) {
         finalB = Math.min(255, b + 80);
       }
 
-      ink(finalR, finalG, finalB, glitchAlpha);
+      if (Math.random() > 0.99) {
+        if (Math.random() > 0.5) {
+          ink(255, 0, 0, glitchAlpha);
+        } else if (Math.random() > 0.5) {
+          ink(0, 255, 0, glitchAlpha);
+        } else {
+          ink(0, 0, 255, glitchAlpha);
+        }
+      } else {
+        ink(finalR, finalG, finalB, glitchAlpha);
+      }
 
       // MASSIVE THICKNESS SPREAD - use MANY more offsets for extreme doubling
       const maxOffsets = Math.min(15, thicknessOffsets.length); // Use up to 15 offsets (was 5) - MASSIVE increase!
@@ -240,7 +251,7 @@ function writeVHS(text, options, api) {
         const distanceFade = Math.max(0.3, 1 - (distanceFromCenter / 20)); // Fade based on distance from center
         const flickerAlpha = Math.sin(frameCount * 0.2 + offsetX + offsetY) * 0.3 + 0.7; // Flicker effect
         const individualAlpha = glitchAlpha * thicknessAlphaVariation * distanceFade * flickerAlpha;
-        
+
         // Apply individual alpha for this thickness layer
         ink(finalR, finalG, finalB, individualAlpha);
 
@@ -257,13 +268,13 @@ function writeVHS(text, options, api) {
   const ultraRapidBlink = Math.sin(frameCount * 0.6 + blinkSeed * 0.15) * 0.4 + 0.6; // 0.2-1.0 range - more dramatic
   const megaRapidBlink = Math.sin(frameCount * 1.0 + blinkSeed * 0.2) * 0.5 + 0.5; // Secondary blink cycle
   const hyperRapidBlink = Math.sin(frameCount * 1.4 + blinkSeed * 0.25) * 0.5 + 0.5; // Tertiary super fast
-  
+
   // Extreme clean alpha - never disappears but pulses wildly
   const cleanAlpha = (180 + Math.random() * 75) * ultraRapidBlink * opacityBlink + (intenseBlink * 100); // 180-255 + boost
-  
+
   // EXTREME COLOR CYCLING for final copy
   let finalCleanR = baseNeonColor[0], finalCleanG = baseNeonColor[1], finalCleanB = baseNeonColor[2];
-  
+
   if (megaRapidBlink > 0.95 || hyperRapidBlink > 0.98) {
     // Ultra bright white fluorescent flash
     finalCleanR = 255; finalCleanG = 255; finalCleanB = 255;
@@ -278,7 +289,7 @@ function writeVHS(text, options, api) {
     finalCleanG = Math.min(255, baseNeonColor[1] * (1 + ultraRapidBlink * 0.8));
     finalCleanB = Math.min(255, baseNeonColor[2] * (1 + ultraRapidBlink * 0.8));
   }
-  
+
   // REMOVED: Final clean copy that was overriding all the colorful layers
   // This was making all text appear as a single color instead of the rainbow effect
   // ink(finalCleanR, finalCleanG, finalCleanB, cleanAlpha);
@@ -324,24 +335,24 @@ function drawDynamicStar(x, y, size, frame, api) {
       const colorIndex = (i + layer + Math.floor(time * 3)) % 16; // 16 colors instead of 9
       const colorShift = Math.sin(time * 0.8 + i * 0.3) * 127 + 128; // Color shifting
       const layerFade = 255 - (layer * 30); // Layer fade effect
-      
+
       switch (colorIndex) {
-        case 0: ink(255, 80 + colorShift*0.3, 150, layerFade); break;  // Hot Pink
-        case 1: ink(255, 180 + colorShift*0.2, 80, layerFade); break;  // Orange
-        case 2: ink(255, 255, 80 + colorShift*0.4, layerFade); break;  // Electric Yellow
-        case 3: ink(150 + colorShift*0.3, 255, 80, layerFade); break;  // Lime
-        case 4: ink(80, 255, 180 + colorShift*0.2, layerFade); break;  // Spring Green
+        case 0: ink(255, 80 + colorShift * 0.3, 150, layerFade); break;  // Hot Pink
+        case 1: ink(255, 180 + colorShift * 0.2, 80, layerFade); break;  // Orange
+        case 2: ink(255, 255, 80 + colorShift * 0.4, layerFade); break;  // Electric Yellow
+        case 3: ink(150 + colorShift * 0.3, 255, 80, layerFade); break;  // Lime
+        case 4: ink(80, 255, 180 + colorShift * 0.2, layerFade); break;  // Spring Green
         case 5: ink(80, 255, 255, layerFade); break;                   // Cyan
-        case 6: ink(80 + colorShift*0.3, 180, 255, layerFade); break;  // Sky Blue
+        case 6: ink(80 + colorShift * 0.3, 180, 255, layerFade); break;  // Sky Blue
         case 7: ink(150, 80, 255, layerFade); break;                   // Electric Purple
         case 8: ink(255, 80, 255, layerFade); break;                   // Magenta
-        case 9: ink(255, 150 + colorShift*0.2, 200, layerFade); break; // Rose
-        case 10: ink(255, 200, 80 + colorShift*0.4, layerFade); break; // Gold
+        case 9: ink(255, 150 + colorShift * 0.2, 200, layerFade); break; // Rose
+        case 10: ink(255, 200, 80 + colorShift * 0.4, layerFade); break; // Gold
         case 11: ink(200, 255, 120, layerFade); break;                 // Yellow-Green
-        case 12: ink(120, 255, 200 + colorShift*0.2, layerFade); break; // Aqua
-        case 13: ink(120, 200 + colorShift*0.3, 255, layerFade); break; // Light Blue
-        case 14: ink(180 + colorShift*0.2, 120, 255, layerFade); break; // Lavender
-        case 15: ink(255, 120, 180 + colorShift*0.3, layerFade); break; // Pink
+        case 12: ink(120, 255, 200 + colorShift * 0.2, layerFade); break; // Aqua
+        case 13: ink(120, 200 + colorShift * 0.3, 255, layerFade); break; // Light Blue
+        case 14: ink(180 + colorShift * 0.2, 120, 255, layerFade); break; // Lavender
+        case 15: ink(255, 120, 180 + colorShift * 0.3, layerFade); break; // Pink
       }
 
       // Draw main ray
@@ -365,7 +376,7 @@ function drawDynamicStar(x, y, size, frame, api) {
 
         // More varied trail alpha
         const trailAlpha = 80 + Math.random() * 120;
-        line(x + (Math.random()-0.5)*4, y + (Math.random()-0.5)*4, trailX, trailY); // Slightly offset origin for more chaos
+        line(x + (Math.random() - 0.5) * 4, y + (Math.random() - 0.5) * 4, trailX, trailY); // Slightly offset origin for more chaos
       }
     }
   }
@@ -374,28 +385,28 @@ function drawDynamicStar(x, y, size, frame, api) {
 // Helper function to draw animated robot faces with different emotions
 function drawRobotFace(x, y, size, emotion, frame, api) {
   const { ink, circle, box, line } = api;
-  
+
   // Calculate face dimensions
   const faceSize = size * 0.8; // Face takes up 80% of the square
   const centerX = x + size / 2;
   const centerY = y + size / 2;
-  
+
   // Eye dimensions
   const eyeSize = faceSize * 0.15;
   const eyeY = centerY - faceSize * 0.15;
   const leftEyeX = centerX - faceSize * 0.2;
   const rightEyeX = centerX + faceSize * 0.2;
-  
+
   // Mouth dimensions
   const mouthWidth = faceSize * 0.4;
   const mouthHeight = faceSize * 0.1;
   const mouthY = centerY + faceSize * 0.2;
-  
+
   // Colorful blinking effect - each face has unique timing
   const blinkSeed = x + y;
   const blinkTime = frame * 0.3 + blinkSeed * 0.1;
   const colorShift = frame * 0.2 + blinkSeed * 0.05;
-  
+
   // Convert emotion to numeric value for calculations
   let emotionValue = 0;
   switch (emotion) {
@@ -405,25 +416,25 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
     case 'sad': emotionValue = 3; break;
     default: emotionValue = 0; break;
   }
-  
+
   // Dynamic color cycling for robot features
   const hue = (colorShift + emotionValue * 90) % 360;
   const eyeR = Math.max(0, Math.min(255, 128 + Math.sin(hue * Math.PI / 180) * 127));
   const eyeG = Math.max(0, Math.min(255, 128 + Math.sin((hue + 120) * Math.PI / 180) * 127));
   const eyeB = Math.max(0, Math.min(255, 128 + Math.sin((hue + 240) * Math.PI / 180) * 127));
-  
+
   // Blinking alpha animation with safety checks
   const blinkPhase = Math.sin(blinkTime);
   const eyeAlpha = Math.max(45, Math.min(255, 150 + blinkPhase * 105)); // 45-255 range for dramatic blinking
-  
+
   // Ensure no NaN values
   if (isNaN(eyeR) || isNaN(eyeG) || isNaN(eyeB) || isNaN(eyeAlpha)) {
     return; // Skip drawing if invalid values
   }
-  
+
   // Draw eyes based on emotion
   ink(eyeR, eyeG, eyeB, eyeAlpha);
-  
+
   switch (emotion) {
     case 'happy':
       // Round happy eyes
@@ -432,46 +443,46 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
       break;
     case 'angry':
       // Angular angry eyes
-      box(leftEyeX - eyeSize/2, eyeY - eyeSize/2, eyeSize, eyeSize);
-      box(rightEyeX - eyeSize/2, eyeY - eyeSize/2, eyeSize, eyeSize);
+      box(leftEyeX - eyeSize / 2, eyeY - eyeSize / 2, eyeSize, eyeSize);
+      box(rightEyeX - eyeSize / 2, eyeY - eyeSize / 2, eyeSize, eyeSize);
       // Angry eyebrows
       ink(255, 0, 0, eyeAlpha);
-      line(leftEyeX - eyeSize, eyeY - eyeSize, leftEyeX + eyeSize/2, eyeY - eyeSize/2);
-      line(rightEyeX + eyeSize, eyeY - eyeSize, rightEyeX - eyeSize/2, eyeY - eyeSize/2);
+      line(leftEyeX - eyeSize, eyeY - eyeSize, leftEyeX + eyeSize / 2, eyeY - eyeSize / 2);
+      line(rightEyeX + eyeSize, eyeY - eyeSize, rightEyeX - eyeSize / 2, eyeY - eyeSize / 2);
       break;
     case 'sad':
       // Droopy sad eyes
-      circle(leftEyeX, eyeY + eyeSize/4, eyeSize * 0.8);
-      circle(rightEyeX, eyeY + eyeSize/4, eyeSize * 0.8);
+      circle(leftEyeX, eyeY + eyeSize / 4, eyeSize * 0.8);
+      circle(rightEyeX, eyeY + eyeSize / 4, eyeSize * 0.8);
       break;
     case 'medium':
     default:
       // Neutral rectangular eyes
-      box(leftEyeX - eyeSize/2, eyeY - eyeSize/3, eyeSize, eyeSize * 0.6);
-      box(rightEyeX - eyeSize/2, eyeY - eyeSize/3, eyeSize, eyeSize * 0.6);
+      box(leftEyeX - eyeSize / 2, eyeY - eyeSize / 3, eyeSize, eyeSize * 0.6);
+      box(rightEyeX - eyeSize / 2, eyeY - eyeSize / 3, eyeSize, eyeSize * 0.6);
       break;
   }
-  
+
   // Draw mouth based on emotion with animated colors
   const mouthR = Math.max(0, Math.min(255, 128 + Math.sin((hue + 60) * Math.PI / 180) * 127));
   const mouthG = Math.max(0, Math.min(255, 128 + Math.sin((hue + 180) * Math.PI / 180) * 127));
   const mouthB = Math.max(0, Math.min(255, 128 + Math.sin((hue + 300) * Math.PI / 180) * 127));
   const mouthAlpha = Math.max(0, Math.min(255, eyeAlpha * 0.9));
-  
+
   // Ensure no NaN values for mouth
   if (isNaN(mouthR) || isNaN(mouthG) || isNaN(mouthB) || isNaN(mouthAlpha)) {
     return; // Skip mouth drawing if invalid values
   }
-  
+
   ink(mouthR, mouthG, mouthB, mouthAlpha);
-  
+
   switch (emotion) {
     case 'happy':
       // Smiling mouth (arc)
       for (let i = 0; i < mouthWidth; i++) {
         const progress = i / mouthWidth;
         const curve = Math.sin(progress * Math.PI) * mouthHeight;
-        const mouthX = centerX - mouthWidth/2 + i;
+        const mouthX = centerX - mouthWidth / 2 + i;
         circle(mouthX, mouthY - curve, 2);
       }
       break;
@@ -480,19 +491,19 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
       for (let i = 0; i < mouthWidth; i++) {
         const progress = i / mouthWidth;
         const curve = Math.sin(progress * Math.PI) * mouthHeight;
-        const mouthX = centerX - mouthWidth/2 + i;
+        const mouthX = centerX - mouthWidth / 2 + i;
         circle(mouthX, mouthY + curve, 2);
       }
       break;
     case 'sad':
       // Downturned mouth
-      line(centerX - mouthWidth/2, mouthY, centerX, mouthY + mouthHeight);
-      line(centerX, mouthY + mouthHeight, centerX + mouthWidth/2, mouthY);
+      line(centerX - mouthWidth / 2, mouthY, centerX, mouthY + mouthHeight);
+      line(centerX, mouthY + mouthHeight, centerX + mouthWidth / 2, mouthY);
       break;
     case 'medium':
     default:
       // Straight line mouth
-      line(centerX - mouthWidth/2, mouthY, centerX + mouthWidth/2, mouthY);
+      line(centerX - mouthWidth / 2, mouthY, centerX + mouthWidth / 2, mouthY);
       break;
   }
 }
@@ -500,7 +511,7 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
 // Helper function to draw a border square with background color and robot face
 function drawBorderSquare(x, y, squareSize, colorIndex, segmentIndex, frame, api) {
   const { ink, box } = api;
-  
+
   // Color palettes for different border sides
   const colorPalettes = {
     top: [
@@ -520,7 +531,7 @@ function drawBorderSquare(x, y, squareSize, colorIndex, segmentIndex, frame, api
       [100, 128, 50], [128, 128, 0], [128, 100, 50], [75, 50, 0]
     ]
   };
-  
+
   // Determine which border this square belongs to
   let palette, borderType;
   if (y <= 80) {
@@ -536,60 +547,64 @@ function drawBorderSquare(x, y, squareSize, colorIndex, segmentIndex, frame, api
     palette = colorPalettes.bottom;
     borderType = 'bottom';
   }
-  
+
   // Get base color from palette
   const [r, g, b] = palette[colorIndex % palette.length];
-  
+
   // Apply hue rotation and oscillating opacity
   const hueRotation = (frame * 0.05 + segmentIndex * 0.3) % (Math.PI * 2);
   const rotatedR = Math.max(0, Math.min(255, r * Math.cos(hueRotation) - g * Math.sin(hueRotation)));
   const rotatedG = Math.max(0, Math.min(255, r * Math.sin(hueRotation) + g * Math.cos(hueRotation)));
-  
+
   // Individual square opacity animation
   const opacityPhase = frame * 0.25 + segmentIndex * 0.4;
   const opacity = Math.max(0, Math.min(255, 60 + Math.sin(opacityPhase) * 90));
-  
+
   // Ensure no NaN values before drawing
   if (isNaN(rotatedR) || isNaN(rotatedG) || isNaN(b) || isNaN(opacity)) {
     return; // Skip drawing if invalid values
   }
-  
+
   // Draw background square
   ink(rotatedR, rotatedG, b, opacity);
   box(x, y, squareSize, squareSize);
-  
+
   // Choose emotion based on square position and time for variety
   const emotions = ['happy', 'angry', 'medium', 'sad'];
   const emotionIndex = (segmentIndex + Math.floor(frame * 0.05)) % emotions.length;
   const emotion = emotions[emotionIndex];
-  
+
   // Draw robot face on top of background
   drawRobotFace(x, y, squareSize, emotion, frame, api);
 }
 
 export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
-  const { wipe, ink, line, box, circle, write, point, blur, scroll, zoom, spin, text, contrast, gizmo } = api;
+  const { wipe, ink, line, box, circle, write, point, blur, scroll, zoom, spin, text, contrast, sharpen, gizmo } = api;
 
   // Use injected frame data for continuity
   frameCount = frameIndex;
 
   // Clean gradient background with cyberpunk aesthetic
   if (frameCount <= 1) {
-    // wipe(0, 0, 0); // Complete black for first 30 frames
+    wipe(0, 0, 255); // Complete black for first 30 frames
+  } else {
+    blur(24); // Reduced blur strength to reduce processing load
   }
   //} else if (frameCount === 31) {
   //  wipe(5, 10, 15); // Very dark blue-black base
   // }
 
   // Background persistence mode - no gradient to preserve previous frames
-  // const gradientShift = Math.sin(frameCount * 0.01) * 8;
+  const gradientShift = Math.sin(frameCount * 0.01) * 8;
 
-  // Gradient disabled for background persistence
-  // for (let y = 80; y < (2048 - 80); y += 4) {
-  //   const intensity = 5 + gradientShift + (y / 2048) * 10;
-  //   ink(intensity, intensity + 3, intensity + 12, 8);
-  //   line(0, y, 2048, y);
-  // }
+  if (frameCount % 8 === 0) {
+    // Gradient disabled for background persistence
+    for (let y = 80; y < (2048 - 80); y += 4) {
+      const intensity = 5 + gradientShift + (y / 2048) * 10;
+      ink(intensity, intensity + 3, intensity + 12, 8);
+      line(0, y, 2048, y);
+    }
+  }
 
   // CYBERPUNK ROBOT FACE BORDER at top - neo-matrix themed!
   const colorBarHeight = 80; // Height of the color strip
@@ -604,7 +619,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   for (let square = 0; square < numSquares; square++) {
     const x = square * squareSize;
     const colorIndex = (square + Math.floor(colorShift)) % 8;
-    
+
     // Draw border square with robot face
     drawBorderSquare(x, 0, squareSize, colorIndex, square, frameCount, api);
   }
@@ -629,7 +644,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   for (let square = 0; square < leftNumSquares; square++) {
     const y = square * leftSquareSize;
     const colorIndex = (square + Math.floor(frameCount * 0.1)) % 8;
-    
+
     // Draw border square with robot face
     drawBorderSquare(0, y, leftSquareSize, colorIndex, square, frameCount, api);
   }
@@ -644,7 +659,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   for (let square = 0; square < rightNumSquares; square++) {
     const y = square * rightSquareSize;
     const colorIndex = (square + Math.floor(frameCount * 0.12)) % 8;
-    
+
     // Draw border square with robot face
     drawBorderSquare(rightX, y, rightSquareSize, colorIndex, square, frameCount, api);
   }
@@ -659,7 +674,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   for (let square = 0; square < bottomNumSquares; square++) {
     const x = square * bottomSquareSize;
     const colorIndex = (square + Math.floor(frameCount * 0.11)) % 8;
-    
+
     // Draw border square with robot face
     drawBorderSquare(x, bottomY, bottomSquareSize, colorIndex, square, frameCount, api);
   }
@@ -875,7 +890,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     const colorCycle = Math.sin(frameCount * 0.08 + star.colorShift) * 0.5 + 0.5;
     const brightness = 180 + Math.sin(frameCount * 0.1 + i * 0.3) * 75; // 105-255 - brighter!
     const saturation = 0.8 + Math.sin(frameCount * 0.06 + i * 0.8) * 0.2; // 0.6-1.0 saturation variation
-    
+
     let r, g, b;
     switch (star.colorIndex % 20) { // 20 colors instead of 12
       case 0: [r, g, b] = [255, 50, 150]; break;  // Hot Pink
@@ -981,7 +996,6 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   }
 
   // Apply subtle blur for polish
-  blur(8); // Reduced blur strength to reduce processing load
 
   // Spin and scroll effects
   // if (Math.random() > 0.5) {
@@ -994,22 +1008,22 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   const scrollCycle = Math.floor(frameCount / 240) % 4; // 4 directions, 1 second each
 
   switch (scrollCycle) {
-    case 0: scroll(0, 1); break;  // Up
-    case 1: scroll(1, 0); break;   // Right  
-    case 2: scroll(0, -1); break;   // Down
-    case 3: scroll(-1, 0); break;  // Left
+    case 0: scroll(0, 3); break;  // Up
+    case 1: scroll(3, 0); break;   // Right  
+    case 2: scroll(0, -3); break;   // Down
+    case 3: scroll(-3, 0); break;  // Left
   }
 
-  const spinCycle = Math.floor(frameCount / 80) % 4; // 4 directions, 1 second each
+  const spinCycle = Math.floor(frameCount / 60) % 4; // 4 directions, 1 second each
 
   switch (spinCycle) {
-    case 0: break; 
+    case 0: break;
     case 1: spin(-1); break;
-    case 2: break; 
+    case 2: break;
     case 3: spin(1); break;
   }
 
-  zoom(0.999);
+  zoom(0.99);
 
   // Center point for all text
   const centerX = 1024; // Half of 2048 for proper centering
@@ -1056,6 +1070,10 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   // Write AESTHETIC with extra thickness for prominence
   const aestheticOptions = { center: "x", y: aestheticY, size: aestheticSizeOscillation };
 
+  // Add subtle wiggle to AESTHETIC text
+  const aestheticWiggleX = Math.sin(frameCount * 0.03 + 0.2) * 2.5; // Gentle horizontal wiggle
+  const aestheticWiggleY = Math.sin(frameCount * 0.05 + 1.1) * 1.8; // Gentle vertical wiggle
+
   // Multiple overlapping layers for extra thickness and glow
   for (let layer = 0; layer < 5; layer++) {
     const layerOffset = layer * 0.8;
@@ -1065,8 +1083,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     // Slight offset for thickness effect
     writeVHS(aestheticText, {
       center: "x",
-      y: aestheticY + layerOffset,
-      x: centerX + layerOffset,
+      y: aestheticY + layerOffset + aestheticWiggleY,
+      x: centerX + layerOffset + aestheticWiggleX,
       size: aestheticSizeOscillation
     }, api);
   }
@@ -1103,56 +1121,98 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   ink(computerR, computerG, computerB);
   const computerText = "COMPUTER";
   const computerY = 420; // Moved down from 380 for more spacing
-  writeVHS(computerText, { center: "x", y: computerY, size: computerSizeOscillation }, api);
+
+  // Add subtle wiggle to COMPUTER text
+  const computerWiggleX = Math.sin(frameCount * 0.04 + 2.3) * 2.2; // Different phase from AESTHETIC
+  const computerWiggleY = Math.sin(frameCount * 0.037 + 3.7) * 1.5;
+
+  writeVHS(computerText, { center: "x", y: computerY + computerWiggleY, x: centerX + computerWiggleX, size: computerSizeOscillation }, api);
 
   // DATE SECTION - bigger text sizes and moved up
   ink(255, 200, 100); // Warm gold
   const septemberText = "SEPTEMBER";
   const septemberY = 700; // Moved up from 750 to give more space for 30
-  writeVHS(septemberText, { center: "x", y: septemberY, size: 24 }, api); // Increased from size 20 to 24
+
+  // Add subtle wiggle to SEPTEMBER text
+  const septemberWiggleX = Math.sin(frameCount * 0.025 + 4.1) * 1.8;
+  const septemberWiggleY = Math.sin(frameCount * 0.032 + 0.7) * 1.3;
+
+  writeVHS(septemberText, { center: "x", y: septemberY + septemberWiggleY, x: centerX + septemberWiggleX, size: 24 }, api); // Increased from size 20 to 24
 
   ink(255, 255, 255);
   const dayText = "30";
   const dayY = 800; // Moved up closer to September (700 + 100 = 800)
-  writeVHS(dayText, { center: "x", y: dayY, size: 56 }, api); // Increased from size 48 to 56
+
+  // Add subtle wiggle to 30 text
+  const dayWiggleX = Math.sin(frameCount * 0.028 + 1.9) * 2.1;
+  const dayWiggleY = Math.sin(frameCount * 0.041 + 5.2) * 1.6;
+
+  writeVHS(dayText, { center: "x", y: dayY + dayWiggleY, x: centerX + dayWiggleX, size: 56 }, api); // Increased from size 48 to 56
 
   // TIME SECTION - moved down more and bigger text
-  const leftCenter = centerX / 2; // Center of left half (512)
-  const rightCenter = centerX + (centerX / 2); // Center of right half (1536)
+  const leftCenter = centerX / 2.5; // Move closer to center (410 instead of 341)
+  const rightCenter = centerX + (centerX / 1.6); // Move further right (1664 instead of 1638)
 
   ink(150, 150, 150);
   const doorsText = "DOORS";
   const programText = "PROGRAM";
-  const timeY = 990; // Moved up slightly to create more space below
-  writeVHS(doorsText, { x: leftCenter, center: "x", y: timeY, size: 14 }, api); // Increased from size 10 to 14
-  writeVHS(programText, { x: rightCenter, center: "x", y: timeY, size: 14 }, api); // Increased from size 10 to 14
+  const timeY = 970; // Move DOORS/PROGRAM up (was 990)
+
+  // Add subtle wiggle to DOORS and PROGRAM text
+  const doorsWiggleX = Math.sin(frameCount * 0.031 + 2.8) * 1.5;
+  const doorsWiggleY = Math.sin(frameCount * 0.026 + 4.4) * 1.2;
+  const programWiggleX = Math.sin(frameCount * 0.029 + 1.3) * 1.4;
+  const programWiggleY = Math.sin(frameCount * 0.035 + 2.9) * 1.1;
+
+  writeVHS(doorsText, { x: leftCenter + doorsWiggleX, center: "x", y: timeY + doorsWiggleY, size: 14 }, api); // Increased from size 10 to 14
+  writeVHS(programText, { x: rightCenter + programWiggleX, center: "x", y: timeY + programWiggleY, size: 14 }, api); // Increased from size 10 to 14
 
   ink(255, 255, 255);
   const time7Text = "7PM";
   const time8Text = "8PM";
-  const timesY = timeY + 80; // Increased gap from 60 to 80 pixels
-  writeVHS(time7Text, { x: leftCenter, center: "x", y: timesY, size: 20 }, api); // Increased from size 16 to 20
-  writeVHS(time8Text, { x: rightCenter, center: "x", y: timesY, size: 20 }, api); // Increased from size 16 to 20
+  const timesY = timeY + 90; // Increase gap to prevent overlap (was 80)
+
+  // Add subtle wiggle to 7PM and 8PM text
+  const time7WiggleX = Math.sin(frameCount * 0.033 + 0.6) * 1.7;
+  const time7WiggleY = Math.sin(frameCount * 0.039 + 3.1) * 1.3;
+  const time8WiggleX = Math.sin(frameCount * 0.027 + 5.8) * 1.6;
+  const time8WiggleY = Math.sin(frameCount * 0.042 + 1.7) * 1.4;
+
+  writeVHS(time7Text, { x: leftCenter + time7WiggleX, center: "x", y: timesY + time7WiggleY, size: 20 }, api); // Increased from size 16 to 20
+  writeVHS(time8Text, { x: rightCenter + time8WiggleX, center: "x", y: timesY + time8WiggleY, size: 20 }, api); // Increased from size 16 to 20
 
   // VENUE SECTION - EL CID moved up and bigger text
   ink(255, 100, 100); // Red accent
   const elCidText = "EL CID";
-  const elCidY = 1350; // Moved up from 1450 
-  writeVHS(elCidText, { center: "x", y: elCidY, size: 32 }, api); // Increased from size 28 to 32
+  const elCidY = 1300; // Moved up further (was 1350)
+
+  // Add subtle wiggle to EL CID text
+  const elCidWiggleX = Math.sin(frameCount * 0.024 + 3.4) * 2.0;
+  const elCidWiggleY = Math.sin(frameCount * 0.036 + 0.9) * 1.5;
+
+  writeVHS(elCidText, { center: "x", y: elCidY + elCidWiggleY, x: centerX + elCidWiggleX, size: 32 }, api); // Increased from size 28 to 32
 
   ink(200, 200, 200);
   const addressText = "4212 W Sunset Blvd";
-  const addressY = 1650; // Moved down from 1600
-  writeVHS(addressText, { center: "x", y: addressY, size: 12 }, api); // Increased from size 10 to 12
+  const addressY = 1600; // Moved up (was 1650)
 
-  // FOOTER SECTION - above bottom left rainbow border (which starts at bottom 80px)
+  // Add subtle wiggle to address text
+  const addressWiggleX = Math.sin(frameCount * 0.022 + 4.7) * 1.3;
+  const addressWiggleY = Math.sin(frameCount * 0.044 + 2.2) * 1.0;
+
+  writeVHS(addressText, { center: "x", y: addressY + addressWiggleY, x: centerX + addressWiggleX, size: 12 }, api); // Increased from size 10 to 12
+
+  // FOOTER SECTION - centered and positioned above robot faces
   ink(150, 150, 150);
   const hostedText = "Hosted by Catalyst LA";
-  const hostedX = 100; // Left margin above rainbow border
-  const hostedY = 1880; // Above the bottom rainbow border margin (2048 - 80 - some padding)
-  writeVHS(hostedText, { x: hostedX, y: hostedY, size: 10 }, api); // Increased from size 6 to 10
-
-  // OPTIONAL DEBUG LAYOUT BOXES - CHAOTIC BLINKING with constantly changing colors
+  const hostedY = 1880; // Above the bottom border of robot faces (2048 - 80 - 68 = 1900)
+  
+  // Add subtle wiggle to hosted text
+  const hostedWiggleX = Math.sin(frameCount * 0.019 + 5.5) * 1.1;
+  const hostedWiggleY = Math.sin(frameCount * 0.047 + 3.8) * 0.9;
+  
+  // Left-aligned with size just a bit smaller than address (address is 12, this is 10)
+  writeVHS(hostedText, { y: hostedY + hostedWiggleY, x: 120 + hostedWiggleX, size: 10 }, api);  // OPTIONAL DEBUG LAYOUT BOXES - CHAOTIC BLINKING with constantly changing colors
   const showDebug = DEBUG_MODE; // Always show when debug mode is on
   if (showDebug) {
     ink(100, 100, 100, 30); // Semi-transparent gray for section dividers
@@ -1169,209 +1229,181 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     ink(0, 255, 0, 80); // Green midpoint line - low opacity
     box(0, 1024, 2048, 1); // Screen midpoint (1024)
 
-    // CHAOTIC COLOR-CHANGING TEXT BOUNDING BOXES - mostly invisible with rare bright flashes
-    // AESTHETIC box - Chaotic rainbow colors - mostly invisible with rare bright flashes
-    const aestheticChaos = Math.sin(frameCount * 0.05 + 0.1) * 0.5 + 0.5; // Much slower
-    const aestheticFlash = Math.sin(frameCount * 0.3 + 0.7) * 0.5 + 0.5; // Flash cycle
-    const aestheticRareBlink = aestheticFlash > 0.95 ? 25 : 1; // Rare bright flash or nearly invisible
-    const aestheticR = Math.floor(128 + Math.sin(frameCount * 0.04) * 127);
-    const aestheticG = Math.floor(128 + Math.sin(frameCount * 0.06 + 1.2) * 127);
-    const aestheticB = Math.floor(128 + Math.sin(frameCount * 0.07 + 2.4) * 127);
-    ink(aestheticR, aestheticG, aestheticB, aestheticRareBlink); // 1 or 25 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: AESTHETIC text="${aestheticText}" size=${aestheticSizeOscillation}`);
-    const aestheticTextBox = text.box(aestheticText, { x: centerX, y: aestheticY }, undefined, aestheticSizeOscillation);
-    console.log(`🔍 DEBUG: AESTHETIC text.box result:`, aestheticTextBox);
+    // CHAOTIC COLOR-CHANGING TEXT BOUNDING BOXES - active blinking with staggered patterns
+    // AESTHETIC box - Chaotic rainbow colors - active blinking
+    const aestheticChaos = Math.sin(frameCount * 0.02 + 0.1) * 0.5 + 0.5; // Much slower (was 0.05)
+    const aestheticFlash = Math.sin(frameCount * 0.08 + 0.7) * 0.5 + 0.5; // Active flash cycle
+    const aestheticBlink = aestheticFlash > 0.3 ? (15 + Math.floor(aestheticFlash * 40)) : 3; // More active blinking (3-55 opacity)
+    const aestheticR = Math.floor(128 + Math.sin(frameCount * 0.02) * 127); // Slower color change (was 0.04)
+    const aestheticG = Math.floor(128 + Math.sin(frameCount * 0.03 + 1.2) * 127); // Slower (was 0.06)
+    const aestheticB = Math.floor(128 + Math.sin(frameCount * 0.035 + 2.4) * 127); // Slower (was 0.07)
+    ink(aestheticR, aestheticG, aestheticB, aestheticBlink); // 3-55 opacity - much more visible!
+    const aestheticTextBox = text.box(aestheticText, { x: centerX + aestheticWiggleX, y: aestheticY + aestheticWiggleY }, undefined, aestheticSizeOscillation);
     if (aestheticTextBox && aestheticTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = aestheticTextBox.box;
       // Center the box horizontally since we're using center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: AESTHETIC drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // COMPUTER box - Chaotic magenta/cyan colors - mostly invisible with rare bright flashes
-    const computerChaos = Math.sin(frameCount * 0.06 + 1.5) * 0.5 + 0.5; // Much slower
-    const computerFlash = Math.sin(frameCount * 0.25 + 2.3) * 0.5 + 0.5; // Flash cycle
-    const computerRareBlink = computerFlash > 0.92 ? 28 : 1; // Rare bright flash or nearly invisible
-    const computerR = Math.floor(64 + Math.sin(frameCount * 0.035 + 3.1) * 191);
-    const computerG = Math.floor(64 + Math.sin(frameCount * 0.055 + 4.7) * 191);
-    const computerB = Math.floor(128 + Math.sin(frameCount * 0.075 + 1.8) * 127);
-    ink(computerR, computerG, computerB, computerRareBlink); // 1 or 28 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: COMPUTER text="${computerText}" size=${computerSizeOscillation}`);
-    const computerTextBox = text.box(computerText, { x: centerX, y: computerY }, undefined, computerSizeOscillation);
-    console.log(`🔍 DEBUG: COMPUTER text.box result:`, computerTextBox);
+    // COMPUTER box - Chaotic magenta/cyan colors - different blinking phase
+    const computerChaos = Math.sin(frameCount * 0.03 + 1.5) * 0.5 + 0.5; // Slower (was 0.06)
+    const computerFlash = Math.sin(frameCount * 0.11 + 3.8) * 0.5 + 0.5; // Different phase from aesthetic
+    const computerBlink = computerFlash > 0.2 ? (20 + Math.floor(computerFlash * 35)) : 5; // More active (5-55 opacity)
+    const computerR = Math.floor(64 + Math.sin(frameCount * 0.017 + 3.1) * 191); // Slower (was 0.035)
+    const computerG = Math.floor(64 + Math.sin(frameCount * 0.027 + 4.7) * 191); // Slower (was 0.055)
+    const computerB = Math.floor(128 + Math.sin(frameCount * 0.037 + 1.8) * 127); // Slower (was 0.075)
+    ink(computerR, computerG, computerB, computerBlink); // 5-55 opacity - much more visible!
+    const computerTextBox = text.box(computerText, { x: centerX + computerWiggleX, y: computerY + computerWiggleY }, undefined, computerSizeOscillation);
     if (computerTextBox && computerTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = computerTextBox.box;
       // Center the box horizontally since we're using center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: COMPUTER drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // SEPTEMBER box - Chaotic yellow/purple colors - mostly invisible with rare bright flashes
-    const septemberChaos = Math.sin(frameCount * 0.07 + 2.8) * 0.5 + 0.5; // Much slower
-    const septemberFlash = Math.sin(frameCount * 0.35 + 4.1) * 0.5 + 0.5; // Flash cycle
-    const septemberRareBlink = septemberFlash > 0.93 ? 22 : 1; // Rare bright flash or nearly invisible
-    const septemberR = Math.floor(128 + Math.sin(frameCount * 0.045 + 5.2) * 127);
-    const septemberG = Math.floor(100 + Math.sin(frameCount * 0.065 + 0.9) * 155);
-    const septemberB = Math.floor(64 + Math.sin(frameCount * 0.055 + 3.7) * 191);
-    ink(septemberR, septemberG, septemberB, septemberRareBlink); // 1 or 22 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: SEPTEMBER text="${septemberText}" size=24`);
-    const septemberTextBox = text.box(septemberText, { x: centerX, y: septemberY }, undefined, 24);
-    console.log(`🔍 DEBUG: SEPTEMBER text.box result:`, septemberTextBox);
+    // SEPTEMBER box - Chaotic yellow/purple colors - active blinking with different phase
+    const septemberChaos = Math.sin(frameCount * 0.035 + 2.8) * 0.5 + 0.5; // Slower (was 0.07)
+    const septemberFlash = Math.sin(frameCount * 0.09 + 1.4) * 0.5 + 0.5; // Different phase from others
+    const septemberBlink = septemberFlash > 0.25 ? (12 + Math.floor(septemberFlash * 30)) : 4; // Active blinking (4-42 opacity)
+    const septemberR = Math.floor(128 + Math.sin(frameCount * 0.022 + 5.2) * 127); // Slower (was 0.045)
+    const septemberG = Math.floor(100 + Math.sin(frameCount * 0.032 + 0.9) * 155); // Slower (was 0.065)
+    const septemberB = Math.floor(64 + Math.sin(frameCount * 0.027 + 3.7) * 191); // Slower (was 0.055)
+    ink(septemberR, septemberG, septemberB, septemberBlink); // 4-42 opacity - much more visible!
+    const septemberTextBox = text.box(septemberText, { x: centerX + septemberWiggleX, y: septemberY + septemberWiggleY }, undefined, 24);
     if (septemberTextBox && septemberTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = septemberTextBox.box;
       // Center the box horizontally since we're using center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: SEPTEMBER drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // Day "30" box - Chaotic orange/blue colors - mostly invisible with rare bright flashes
+    // Day "30" box - Chaotic orange/blue colors - active blinking with another phase
     const dayChaos = Math.sin(frameCount * 0.045 + 1.7) * 0.5 + 0.5; // Much slower
-    const dayFlash = Math.sin(frameCount * 0.28 + 3.6) * 0.5 + 0.5; // Flash cycle
-    const dayRareBlink = dayFlash > 0.94 ? 30 : 1; // Rare bright flash or nearly invisible
+    const dayFlash = Math.sin(frameCount * 0.07 + 5.1) * 0.5 + 0.5; // Yet another phase
+    const dayBlink = dayFlash > 0.4 ? (25 + Math.floor(dayFlash * 25)) : 8; // Active blinking (8-50 opacity)
     const dayR = Math.floor(200 + Math.sin(frameCount * 0.025 + 2.4) * 55);
     const dayG = Math.floor(100 + Math.sin(frameCount * 0.075 + 1.1) * 155);
     const dayB = Math.floor(50 + Math.sin(frameCount * 0.065 + 4.9) * 205);
-    ink(dayR, dayG, dayB, dayRareBlink); // 1 or 30 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: DAY text="${dayText}" size=56`);
-    const dayTextBox = text.box(dayText, { x: centerX, y: dayY }, undefined, 56);
-    console.log(`🔍 DEBUG: DAY text.box result:`, dayTextBox);
+    ink(dayR, dayG, dayB, dayBlink); // 8-50 opacity - much more visible!
+    const dayTextBox = text.box(dayText, { x: centerX + dayWiggleX, y: dayY + dayWiggleY }, undefined, 56);
     if (dayTextBox && dayTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = dayTextBox.box;
       // Center the box horizontally since we're using center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: DAY drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // DOORS/PROGRAM boxes - Chaotic teal/pink colors - mostly invisible with rare bright flashes
+    // DOORS/PROGRAM boxes - Chaotic teal/pink colors - active blinking
     const doorsChaos = Math.sin(frameCount * 0.065 + 0.8) * 0.5 + 0.5; // Much slower
-    const doorsFlash = Math.sin(frameCount * 0.32 + 5.2) * 0.5 + 0.5; // Flash cycle
-    const doorsBlink = doorsFlash > 0.91 ? 26 : 1; // Rare bright flash or nearly invisible
+    const doorsFlash = Math.sin(frameCount * 0.06 + 2.9) * 0.5 + 0.5; // Another unique phase
+    const doorsBlink = doorsFlash > 0.35 ? (10 + Math.floor(doorsFlash * 35)) : 2; // Active blinking (2-45 opacity)
     const doorsR = Math.floor(80 + Math.sin(frameCount * 0.035 + 1.6) * 175);
     const doorsG = Math.floor(150 + Math.sin(frameCount * 0.078 + 3.2) * 105);
     const doorsB = Math.floor(120 + Math.sin(frameCount * 0.058 + 2.1) * 135);
-    ink(doorsR, doorsG, doorsB, doorsBlink); // 1 or 26 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: DOORS text="${doorsText}" size=10 at leftCenter=${leftCenter}`);
-    const doorsTextBox = text.box(doorsText, { x: leftCenter, y: timeY }, undefined, 10);
-    console.log(`🔍 DEBUG: DOORS text.box result:`, doorsTextBox);
+    ink(doorsR, doorsG, doorsB, doorsBlink); // 2-45 opacity - much more visible!
+    const doorsTextBox = text.box(doorsText, { x: leftCenter + doorsWiggleX, y: timeY + doorsWiggleY }, undefined, 10);
     if (doorsTextBox && doorsTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = doorsTextBox.box;
       // Center the box horizontally since DOORS uses center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: DOORS drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
-    
-    // PROGRAM uses same chaotic colors but different phase - subtle opacity
+
+    // PROGRAM uses same chaotic colors but different phase - different blinking
+    const programFlash = Math.sin(frameCount * 0.055 + 4.7) * 0.5 + 0.5; // Different phase from DOORS
+    const programBlink = programFlash > 0.3 ? (18 + Math.floor(programFlash * 32)) : 6; // Active blinking (6-50 opacity)
     const programR = Math.floor(150 + Math.sin(frameCount * 0.042 + 0.5) * 105);
     const programG = Math.floor(80 + Math.sin(frameCount * 0.072 + 5.1) * 175);
     const programB = Math.floor(60 + Math.sin(frameCount * 0.052 + 2.8) * 195);
-    ink(programR, programG, programB, doorsBlink); // 1 or 26 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: PROGRAM text="${programText}" size=10 at rightCenter=${rightCenter}`);
-    const programTextBox = text.box(programText, { x: rightCenter, y: timeY }, undefined, 10);
-    console.log(`🔍 DEBUG: PROGRAM text.box result:`, programTextBox);
+    ink(programR, programG, programB, programBlink); // 6-50 opacity - much more visible!
+    const programTextBox = text.box(programText, { x: rightCenter + programWiggleX, y: timeY + programWiggleY }, undefined, 10);
     if (programTextBox && programTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = programTextBox.box;
       // Center the box horizontally since PROGRAM uses center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: PROGRAM drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // 7PM/8PM boxes - Chaotic violet/lime colors - mostly invisible with rare bright flashes
+    // 7PM/8PM boxes - Chaotic violet/lime colors - active blinking with staggered phases
     const timesChaos = Math.sin(frameCount * 0.075 + 3.4) * 0.5 + 0.5; // Much slower
-    const timesFlash = Math.sin(frameCount * 0.27 + 0.3) * 0.5 + 0.5; // Flash cycle
-    const timesBlink = timesFlash > 0.92 ? 24 : 1; // Rare bright flash or nearly invisible
+    const timesFlash = Math.sin(frameCount * 0.085 + 0.3) * 0.5 + 0.5; // Active flash cycle
+    const timesBlink = timesFlash > 0.45 ? (14 + Math.floor(timesFlash * 28)) : 5; // Active blinking (5-42 opacity)
     const times7R = Math.floor(120 + Math.sin(frameCount * 0.03 + 4.6) * 135);
     const times7G = Math.floor(200 + Math.sin(frameCount * 0.08 + 2.3) * 55);
     const times7B = Math.floor(180 + Math.sin(frameCount * 0.05 + 1.4) * 75);
-    ink(times7R, times7G, times7B, timesBlink); // 1 or 24 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: 7PM text="${time7Text}" size=20 at leftCenter=${leftCenter}`);
-    const time7TextBox = text.box(time7Text, { x: leftCenter, y: timesY }, undefined, 20);
-    console.log(`🔍 DEBUG: 7PM text.box result:`, time7TextBox);
+    ink(times7R, times7G, times7B, timesBlink); // 5-42 opacity - much more visible!
+    const time7TextBox = text.box(time7Text, { x: leftCenter + time7WiggleX, y: timesY + time7WiggleY }, undefined, 20);
     if (time7TextBox && time7TextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = time7TextBox.box;
       // Center the box horizontally since 7PM uses center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: 7PM drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
-    
-    // 8PM uses different chaotic color phase - subtle opacity
+
+    // 8PM uses different chaotic color phase and different blinking
+    const times8Flash = Math.sin(frameCount * 0.095 + 2.8) * 0.5 + 0.5; // Different phase from 7PM
+    const times8Blink = times8Flash > 0.4 ? (22 + Math.floor(times8Flash * 26)) : 7; // Active blinking (7-48 opacity)
     const times8R = Math.floor(200 + Math.sin(frameCount * 0.032 + 1.8) * 55);
     const times8G = Math.floor(80 + Math.sin(frameCount * 0.068 + 4.2) * 175);
     const times8B = Math.floor(160 + Math.sin(frameCount * 0.048 + 3.1) * 95);
-    ink(times8R, times8G, times8B, timesBlink); // 1 or 24 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: 8PM text="${time8Text}" size=20 at rightCenter=${rightCenter}`);
-    const time8TextBox = text.box(time8Text, { x: rightCenter, y: timesY }, undefined, 20);
-    console.log(`🔍 DEBUG: 8PM text.box result:`, time8TextBox);
+    ink(times8R, times8G, times8B, times8Blink); // 7-48 opacity - much more visible!
+    const time8TextBox = text.box(time8Text, { x: rightCenter + time8WiggleX, y: timesY + time8WiggleY }, undefined, 20);
     if (time8TextBox && time8TextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = time8TextBox.box;
       // Center the box horizontally since 8PM uses center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: 8PM drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // EL CID box - Chaotic electric blue/hot pink colors - mostly invisible with rare bright flashes
+    // EL CID box - Chaotic electric blue/hot pink colors - active blinking
     const elCidChaos = Math.sin(frameCount * 0.055 + 4.2) * 0.5 + 0.5; // Much slower
-    const elCidFlash = Math.sin(frameCount * 0.29 + 1.9) * 0.5 + 0.5; // Flash cycle
-    const elCidBlink = elCidFlash > 0.93 ? 28 : 1; // Rare bright flash or nearly invisible
+    const elCidFlash = Math.sin(frameCount * 0.075 + 6.1) * 0.5 + 0.5; // Active flash cycle
+    const elCidBlink = elCidFlash > 0.35 ? (16 + Math.floor(elCidFlash * 34)) : 3; // Active blinking (3-50 opacity)
     const elCidR = Math.floor(100 + Math.sin(frameCount * 0.028 + 6.1) * 155);
     const elCidG = Math.floor(50 + Math.sin(frameCount * 0.082 + 2.7) * 205);
     const elCidB = Math.floor(200 + Math.sin(frameCount * 0.062 + 4.8) * 55);
-    ink(elCidR, elCidG, elCidB, elCidBlink); // 1 or 28 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: EL CID text="${elCidText}" size=32`);
-    const elCidTextBox = text.box(elCidText, { x: centerX, y: elCidY }, undefined, 32);
-    console.log(`🔍 DEBUG: EL CID text.box result:`, elCidTextBox);
+    ink(elCidR, elCidG, elCidB, elCidBlink); // 3-50 opacity - much more visible!
+    const elCidTextBox = text.box(elCidText, { x: centerX + elCidWiggleX, y: elCidY + elCidWiggleY }, undefined, 32);
     if (elCidTextBox && elCidTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = elCidTextBox.box;
       // Center the box horizontally since EL CID uses center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: EL CID drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // Address box - Chaotic neon green/purple colors - mostly invisible with rare bright flashes
+    // Address box - Chaotic neon green/purple colors - active blinking
     const addressChaos = Math.sin(frameCount * 0.085 + 5.7) * 0.5 + 0.5; // Much slower
-    const addressFlash = Math.sin(frameCount * 0.31 + 2.4) * 0.5 + 0.5; // Flash cycle
-    const addressBlink = addressFlash > 0.94 ? 27 : 1; // Rare bright flash or nearly invisible
+    const addressFlash = Math.sin(frameCount * 0.065 + 4.9) * 0.5 + 0.5; // Active flash cycle
+    const addressBlink = addressFlash > 0.5 ? (11 + Math.floor(addressFlash * 29)) : 4; // Active blinking (4-40 opacity)
     const addressR = Math.floor(50 + Math.sin(frameCount * 0.038 + 3.9) * 205);
     const addressG = Math.floor(180 + Math.sin(frameCount * 0.058 + 1.2) * 75);
     const addressB = Math.floor(100 + Math.sin(frameCount * 0.078 + 5.6) * 155);
-    ink(addressR, addressG, addressB, addressBlink); // 1 or 27 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: ADDRESS text="${addressText}" size=12`);
-    const addressTextBox = text.box(addressText, { x: centerX, y: addressY }, undefined, 12);
-    console.log(`🔍 DEBUG: ADDRESS text.box result:`, addressTextBox);
+    ink(addressR, addressG, addressB, addressBlink); // 4-40 opacity - much more visible!
+    const addressTextBox = text.box(addressText, { x: centerX + addressWiggleX, y: addressY + addressWiggleY }, undefined, 12);
     if (addressTextBox && addressTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = addressTextBox.box;
       // Center the box horizontally since address uses center: "x"
       const centeredBoxX = boxX - boxW / 2;
-      console.log(`🔍 DEBUG: ADDRESS drawing box at (${centeredBoxX}, ${boxY}) size ${boxW}x${boxH}`);
       box(centeredBoxX, boxY, boxW, boxH);
     }
 
-    // Catalyst LA box - Chaotic fire colors (red/orange/yellow) - mostly invisible with rare bright flashes
+    // Catalyst LA box - Chaotic fire colors (red/orange/yellow) - active blinking
     const hostedChaos = Math.sin(frameCount * 0.095 + 6.3) * 0.5 + 0.5; // Much slower
-    const hostedFlash = Math.sin(frameCount * 0.33 + 4.7) * 0.5 + 0.5; // Flash cycle
-    const hostedBlink = hostedFlash > 0.95 ? 20 : 1; // Rare bright flash or nearly invisible
+    const hostedFlash = Math.sin(frameCount * 0.045 + 1.2) * 0.5 + 0.5; // Active flash cycle with unique phase
+    const hostedBlink = hostedFlash > 0.42 ? (13 + Math.floor(hostedFlash * 27)) : 6; // Active blinking (6-40 opacity)
     const hostedR = Math.floor(200 + Math.sin(frameCount * 0.04 + 2.1) * 55);
     const hostedG = Math.floor(80 + Math.sin(frameCount * 0.066 + 4.3) * 175);
     const hostedB = Math.floor(20 + Math.sin(frameCount * 0.052 + 1.7) * 100);
-    ink(hostedR, hostedG, hostedB, hostedBlink); // 1 or 20 opacity - mostly invisible!
-    console.log(`🔍 DEBUG: HOSTED text="${hostedText}" size=10 at position (${hostedX}, ${hostedY})`);
-    const hostedTextBox = text.box(hostedText, { x: hostedX, y: hostedY }, undefined, 10);
-    console.log(`🔍 DEBUG: HOSTED text.box result:`, hostedTextBox);
+    ink(hostedR, hostedG, hostedB, hostedBlink); // 6-40 opacity - much more visible!
+    const hostedTextBox = text.box(hostedText, { x: 120 + hostedWiggleX, y: hostedY + hostedWiggleY }, undefined, 10);
     if (hostedTextBox && hostedTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = hostedTextBox.box;
-      // Note: hostedText doesn't use center: "x", so use the actual x position
-      console.log(`🔍 DEBUG: HOSTED drawing box at (${boxX}, ${boxY}) size ${boxW}x${boxH}`);
+      // Left-aligned, no centering needed
       box(boxX, boxY, boxW, boxH);
     }
 
     // if (frameCount % 8 === 0) contrast(1.05); // Reduced blur strength to reduce processing load
+    // sharpen(20.5);
   }
 }
