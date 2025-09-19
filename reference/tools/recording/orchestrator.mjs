@@ -31,11 +31,14 @@ class RenderOrchestrator {
     let consecutiveFailures = 0;
     const maxRetries = 3;
     
+    // Clear screen and hide cursor for progress bar
+    process.stdout.write('\x1b[2J\x1b[H\x1b[?25l');
+    
     while (!complete && consecutiveFailures < maxRetries) {
       try {
         // Run one frame in fresh process
         const result = execSync(
-          `node ${this.frameRendererPath} ${this.piece} ${this.duration} _ ${this.outputDir}`,
+          `node ${this.frameRendererPath} ${this.piece} ${this.duration} ${this.outputDir}`,
           { encoding: 'utf8', stdio: 'inherit' } // Changed to inherit to show frame timing output
         );
         
@@ -48,10 +51,8 @@ class RenderOrchestrator {
           const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
           complete = state.frameIndex >= state.totalFrames;
           
-          if (frameCount % 5 === 0) {
-            const avgFrameTime = frameCount > 0 ? Math.round((Date.now() - startTime) / frameCount) : 0;
-            console.log(`📊 Progress: ${state.frameIndex}/${state.totalFrames} frames (${Math.round(state.frameIndex/state.totalFrames*100)}%) | Avg: ${avgFrameTime}ms/frame`);
-          }
+          // Update static progress bar
+          this.updateProgressBar(state.frameIndex, state.totalFrames, startTime);
         }
         
       } catch (error) {
@@ -81,8 +82,13 @@ class RenderOrchestrator {
       const allFramesFile = path.join(this.outputDir, 'all-frames.rgb');
       execSync(`cat ${this.outputDir}/frame-*.rgb > ${allFramesFile}`, { stdio: 'inherit' });
       
-      // Convert the concatenated RGB file to MP4
-      const outputMP4 = path.join(this.outputDir, 'video.mp4');
+      // Generate proper filename using AC naming scheme
+      const pieceName = path.basename(this.piece, '.mjs');
+      const timestamp = this.generateTimestamp();
+      const durationSeconds = Math.round(this.duration / 1000 * 10) / 10; // Round to 1 decimal place
+      const filename = `${pieceName}-${timestamp}-${durationSeconds}s.mp4`;
+      // Save MP4 one level up from the artifacts directory for better organization
+      const outputMP4 = path.join(path.dirname(this.outputDir), filename);
       
       // Get frame dimensions from state file for proper resolution
       const stateFile = path.join(this.outputDir, 'state.json');
@@ -100,10 +106,58 @@ class RenderOrchestrator {
         { stdio: 'inherit' }
       );
       
-      console.log(`✅ MP4 created: ${outputMP4}`);
+      console.log(`✅ MP4 created: ${filename}`);
       
     } catch (error) {
       console.error(`💥 MP4 conversion failed:`, error.message);
+    }
+  }
+
+  // Generate timestamp in AC format: YYYY.MM.DD.HH.MM.SS.mmm (no zero-padding except milliseconds)
+  generateTimestamp() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1; // getMonth() returns 0-11
+    const day = d.getDate();
+    const hour = d.getHours();
+    const minute = d.getMinutes();
+    const second = d.getSeconds();
+    const millisecond = d.getMilliseconds();
+    
+    // Match AC timestamp format exactly: no zero-padding except for milliseconds
+    return `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+  }
+
+  updateProgressBar(currentFrame, totalFrames, startTime) {
+    const progress = currentFrame / totalFrames;
+    const barWidth = 20;
+    const filled = Math.floor(progress * barWidth);
+    const empty = barWidth - filled;
+    
+    const bar = '█'.repeat(filled) + '░'.repeat(empty);
+    const percentage = (progress * 100).toFixed(1);
+    
+    // Calculate elapsed time and estimated remaining time
+    const elapsed = Date.now() - startTime;
+    const estimatedTotal = elapsed / progress;
+    const remaining = estimatedTotal - elapsed;
+    
+    const formatTime = (ms) => {
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      
+      if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+      if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+      return `${seconds}s`;
+    };
+    
+    // Clear line and print progress
+    process.stdout.write('\r');
+    process.stdout.write(`🎬 ${bar} ${percentage}% (${currentFrame}/${totalFrames} frames) `);
+    process.stdout.write(`⏱️ ${formatTime(elapsed)} elapsed`);
+    if (progress > 0.01) { // Only show ETA after 1% progress
+      process.stdout.write(` | ETA: ${formatTime(remaining)}`);
     }
   }
 }
