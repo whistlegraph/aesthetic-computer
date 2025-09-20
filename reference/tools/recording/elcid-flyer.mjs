@@ -9,7 +9,173 @@
 let frameCount = 0;
 
 // Debug mode toggle
-const DEBUG_MODE = true; // ENABLED - to show blinking debug boxes
+const DEBUG_MODE = true; // ENABLED - to show section divider boxes
+
+// PALETTE CYCLING SYSTEM - 12 themed color palettes that cycle every 1 second
+const COLOR_PALETTES = {
+  // 1. Super Brights - Extreme fluorescent colors
+  superBrights: {
+    primary: [255, 0, 255],      // Hot magenta
+    secondary: [0, 255, 0],      // Electric green
+    accent1: [255, 255, 0],      // Electric yellow
+    accent2: [0, 255, 255],      // Cyan
+    accent3: [255, 0, 0],        // Pure red
+    background: [255, 255, 255], // White
+    dim: [200, 200, 200]         // Light gray
+  },
+  
+  // 2. Black & White - High contrast monochrome
+  blackWhite: {
+    primary: [255, 255, 255],    // White
+    secondary: [0, 0, 0],        // Black
+    accent1: [200, 200, 200],    // Light gray
+    accent2: [100, 100, 100],    // Medium gray
+    accent3: [50, 50, 50],       // Dark gray
+    background: [0, 0, 0],       // Black
+    dim: [128, 128, 128]         // Gray
+  },
+  
+  // 3. Dims - Muted earth tones
+  dims: {
+    primary: [120, 100, 80],     // Muted brown
+    secondary: [80, 100, 120],   // Muted blue
+    accent1: [100, 120, 80],     // Muted green
+    accent2: [120, 80, 100],     // Muted purple
+    accent3: [100, 100, 100],    // Gray
+    background: [40, 40, 40],    // Dark gray
+    dim: [60, 60, 60]            // Medium dark
+  },
+  
+  // 4. Autumn - Warm fall colors
+  autumn: {
+    primary: [180, 100, 40],     // Orange
+    secondary: [150, 80, 30],    // Brown
+    accent1: [200, 150, 50],     // Gold
+    accent2: [120, 60, 40],      // Deep brown
+    accent3: [160, 40, 40],      // Burgundy
+    background: [60, 40, 30],    // Dark brown
+    dim: [100, 70, 50]           // Warm gray
+  },
+  
+  // 5. Spring - Fresh green and pink tones
+  spring: {
+    primary: [100, 200, 100],    // Fresh green
+    secondary: [255, 150, 200],  // Pink
+    accent1: [150, 255, 150],    // Light green
+    accent2: [200, 100, 150],    // Rose
+    accent3: [100, 150, 200],    // Sky blue
+    background: [240, 255, 240], // Very light green
+    dim: [150, 180, 150]         // Soft green
+  },
+  
+  // 6. Cyberpunk - Neon pinks and blues
+  cyberpunk: {
+    primary: [255, 0, 150],      // Hot pink
+    secondary: [0, 150, 255],    // Electric blue
+    accent1: [150, 0, 255],      // Purple
+    accent2: [255, 50, 0],       // Orange-red
+    accent3: [0, 255, 200],      // Cyan
+    background: [20, 20, 40],    // Dark blue
+    dim: [80, 40, 80]            // Dark purple
+  },
+  
+  // 7. Neon 80s - Classic 80s neon palette
+  neon80s: {
+    primary: [255, 20, 147],     // Deep pink
+    secondary: [0, 255, 255],    // Cyan
+    accent1: [255, 255, 0],      // Yellow
+    accent2: [148, 0, 211],      // Dark violet
+    accent3: [255, 69, 0],       // Red orange
+    background: [25, 25, 112],   // Midnight blue
+    dim: [75, 0, 130]            // Indigo
+  },
+  
+  // 8. Pastel Dreams - Soft, dreamy colors
+  pastelDreams: {
+    primary: [255, 182, 193],    // Light pink
+    secondary: [173, 216, 230],  // Light blue
+    accent1: [221, 160, 221],    // Plum
+    accent2: [144, 238, 144],    // Light green
+    accent3: [255, 218, 185],    // Peach
+    background: [248, 248, 255], // Ghost white
+    dim: [211, 211, 211]         // Light gray
+  },
+  
+  // 9. Fire/Lava - Hot reds, oranges, yellows
+  fireLava: {
+    primary: [255, 69, 0],       // Red orange
+    secondary: [255, 140, 0],    // Dark orange
+    accent1: [255, 215, 0],      // Gold
+    accent2: [220, 20, 60],      // Crimson
+    accent3: [255, 99, 71],      // Tomato
+    background: [139, 0, 0],     // Dark red
+    dim: [160, 82, 45]           // Saddle brown
+  },
+  
+  // 10. Ocean Depths - Deep blues and teals
+  oceanDepths: {
+    primary: [0, 191, 255],      // Deep sky blue
+    secondary: [64, 224, 208],   // Turquoise
+    accent1: [0, 206, 209],      // Dark turquoise
+    accent2: [72, 61, 139],      // Dark slate blue
+    accent3: [95, 158, 160],     // Cadet blue
+    background: [25, 25, 112],   // Midnight blue
+    dim: [70, 130, 180]          // Steel blue
+  },
+  
+  // 11. Sunset/Sunrise - Warm gradient colors
+  sunsetSunrise: {
+    primary: [255, 94, 77],      // Coral
+    secondary: [255, 154, 0],    // Orange
+    accent1: [255, 206, 84],     // Yellow
+    accent2: [255, 71, 87],      // Pink red
+    accent3: [142, 68, 173],     // Purple
+    background: [253, 121, 168], // Pink
+    dim: [189, 195, 199]         // Light gray
+  },
+  
+  // 12. Rainbow Spectrum - Full spectrum cycling
+  rainbowSpectrum: {
+    primary: [255, 0, 0],        // Red
+    secondary: [255, 127, 0],    // Orange
+    accent1: [255, 255, 0],      // Yellow
+    accent2: [0, 255, 0],        // Green
+    accent3: [0, 0, 255],        // Blue
+    background: [75, 0, 130],    // Indigo
+    dim: [238, 130, 238]         // Violet
+  }
+};
+
+// Get current active palette based on frameCount (cycles every 60 frames = 1 second)
+function getCurrentPalette() {
+  const paletteNames = Object.keys(COLOR_PALETTES);
+  const currentPaletteIndex = Math.floor(frameCount / 60) % paletteNames.length;
+  const paletteName = paletteNames[currentPaletteIndex];
+  return COLOR_PALETTES[paletteName];
+}
+
+// Helper functions to get specific colors from current palette
+function getPrimaryColor() { return getCurrentPalette().primary; }
+function getSecondaryColor() { return getCurrentPalette().secondary; }
+function getAccent1Color() { return getCurrentPalette().accent1; }
+function getAccent2Color() { return getCurrentPalette().accent2; }
+function getAccent3Color() { return getCurrentPalette().accent3; }
+function getBackgroundColor() { return getCurrentPalette().background; }
+function getDimColor() { return getCurrentPalette().dim; }
+
+// Get random accent color from current palette
+function getRandomAccentColor() {
+  const palette = getCurrentPalette();
+  const accents = [palette.accent1, palette.accent2, palette.accent3];
+  return accents[Math.floor(Math.random() * accents.length)];
+}
+
+// Get random color from current palette (excluding background)
+function getRandomPaletteColor() {
+  const palette = getCurrentPalette();
+  const colors = [palette.primary, palette.secondary, palette.accent1, palette.accent2, palette.accent3];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
 
 // Helper function for VHS-style rainbow overdraw text with SIZE-SCALED thickness and fast opacity blinking
 function writeVHS(text, options, api) {
@@ -37,23 +203,17 @@ function writeVHS(text, options, api) {
   // Glitch intensity affects how crazy the effect gets - FASTER!
   const glitchIntensity = Math.sin(frameCount * 0.08 + blinkSeed * 0.05) * 0.5 + 0.5; // Much faster
 
-  // Assign distinct neon base color per text element
+  // Assign distinct neon base color per text element using current palette
   const textHash = text.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-  const neonColors = [
-    [255, 0, 100],     // Hot Pink
-    [0, 255, 150],     // Neon Green
-    [100, 0, 255],     // Electric Purple
-    [255, 150, 0],     // Neon Orange
-    [0, 200, 255],     // Electric Blue
-    [255, 255, 0],     // Electric Yellow
-    [255, 0, 255],     // Magenta
-    [0, 255, 255],     // Cyan
-    [255, 100, 200],   // Pink
-    [150, 255, 0],     // Lime
-    [255, 0, 0],       // Red
-    [0, 100, 255],     // Blue
+  const palette = getCurrentPalette();
+  const paletteColors = [
+    palette.primary,
+    palette.secondary, 
+    palette.accent1,
+    palette.accent2,
+    palette.accent3
   ];
-  const baseNeonColor = neonColors[textHash % neonColors.length];
+  const baseNeonColor = paletteColors[textHash % paletteColors.length];
 
   // ENHANCED SINE WAVE WIGGLE - seed-based randomness for each text block
   const wiggleSeedX = (textHash * 17) % 1000;
@@ -66,39 +226,23 @@ function writeVHS(text, options, api) {
   const wiggleX = Math.sin(frameCount * wiggleSpeedX + wiggleSeedX * 0.01) * wiggleAmplitudeX;
   const wiggleY = Math.sin(frameCount * wiggleSpeedY + wiggleSeedY * 0.01) * wiggleAmplitudeY;
 
-  // Much more varied colors for maximum psychedelic effect - BRIGHTER!
-  const colors = [
-    [255, 80, 80],     // Brighter hot red
-    [255, 140, 0],     // Brighter orange  
-    [255, 240, 0],     // Brighter gold
-    [240, 255, 80],    // Brighter lime green
-    [0, 255, 140],     // Brighter spring green
-    [0, 240, 255],     // Brighter sky blue
-    [140, 180, 255],   // Brighter blue
-    [180, 80, 255],    // Brighter purple
-    [255, 80, 240],    // Brighter hot pink
-    [255, 140, 255],   // Brighter magenta
-    [255, 255, 140],   // Brighter electric yellow
-    [140, 255, 255],   // Brighter cyan
-    [255, 180, 240],   // Brighter pink
-    [240, 255, 180],   // Brighter light green
-    [180, 240, 255],   // Brighter light blue
-    [255, 240, 180],   // Brighter peach
-    [255, 80, 140],    // Brighter deep pink
-    [140, 255, 80],    // Brighter neon green
-    [80, 140, 255],    // Brighter electric blue
-    [255, 255, 80],    // Brighter bright yellow
-    [255, 80, 255],    // Brighter electric magenta
-    [80, 255, 255],    // Brighter bright cyan
-    [255, 140, 140],   // Brighter red
-    [140, 255, 140],   // Brighter green
-    [140, 140, 255],   // Brighter blue
-    [255, 180, 80],    // Brighter orange
-    [180, 255, 80],    // Brighter yellow-green
-    [80, 180, 255],    // Brighter blue-cyan
-    [255, 80, 180],    // Brighter red-magenta
-    [180, 80, 255]     // Brighter blue-magenta
-  ];
+  // Generate palette-based color variations for psychedelic effect
+  const currentPalette = getCurrentPalette();
+  const colors = [];
+  
+  // Create variations of each palette color with brightness modulation
+  [currentPalette.primary, currentPalette.secondary, currentPalette.accent1, currentPalette.accent2, currentPalette.accent3].forEach(baseColor => {
+    const [r, g, b] = baseColor;
+    // Original color
+    colors.push([r, g, b]);
+    // Brighter variations
+    colors.push([Math.min(255, r * 1.2), Math.min(255, g * 1.2), Math.min(255, b * 1.2)]);
+    colors.push([Math.min(255, r * 1.5), Math.min(255, g * 1.5), Math.min(255, b * 1.5)]);
+    // Color-shifted variations
+    colors.push([Math.min(255, r + 60), Math.min(255, g + 40), Math.min(255, b + 80)]);
+    colors.push([Math.min(255, r + 40), Math.min(255, g + 80), Math.min(255, b + 60)]);
+    colors.push([Math.min(255, r + 80), Math.min(255, g + 60), Math.min(255, b + 40)]);
+  });
 
   // MASSIVE THICKNESS SPREAD - EXTREME DOUBLING for fluorescent effect!
   const sizeScale = size / 12; // Scale factor based on size (12 is baseline)
@@ -217,12 +361,16 @@ function writeVHS(text, options, api) {
       }
 
       if (Math.random() > 0.99) {
+        const palette = getCurrentPalette();
         if (Math.random() > 0.5) {
-          ink(255, 0, 0, glitchAlpha);
+          const [r, g, b] = palette.primary;
+          ink(r, g, b, glitchAlpha);
         } else if (Math.random() > 0.5) {
-          ink(0, 255, 0, glitchAlpha);
+          const [r, g, b] = palette.secondary;
+          ink(r, g, b, glitchAlpha);
         } else {
-          ink(0, 0, 255, glitchAlpha);
+          const [r, g, b] = palette.accent1;
+          ink(r, g, b, glitchAlpha);
         }
       } else {
         ink(finalR, finalG, finalB, glitchAlpha);
@@ -331,29 +479,40 @@ function drawDynamicStar(x, y, size, frame, api) {
       const innerX = x + Math.cos(innerAngle) * currentInner;
       const innerY = y + Math.sin(innerAngle) * currentInner;
 
-      // MASSIVELY EXPANDED polychromatic color system
-      const colorIndex = (i + layer + Math.floor(time * 3)) % 16; // 16 colors instead of 9
+      // PALETTE-BASED polychromatic color system
+      const currentPalette = getCurrentPalette();
+      const paletteColors = [
+        currentPalette.primary,
+        currentPalette.secondary,
+        currentPalette.accent1,
+        currentPalette.accent2,
+        currentPalette.accent3,
+        // Generate additional variations for more colors
+        [Math.min(255, currentPalette.primary[0] * 1.3), Math.min(255, currentPalette.primary[1] * 0.8), Math.min(255, currentPalette.primary[2] * 1.1)],
+        [Math.min(255, currentPalette.secondary[0] * 0.9), Math.min(255, currentPalette.secondary[1] * 1.2), Math.min(255, currentPalette.secondary[2] * 1.1)],
+        [Math.min(255, currentPalette.accent1[0] * 1.1), Math.min(255, currentPalette.accent1[1] * 1.3), Math.min(255, currentPalette.accent1[2] * 0.8)],
+        [Math.min(255, currentPalette.accent2[0] * 1.2), Math.min(255, currentPalette.accent2[1] * 0.9), Math.min(255, currentPalette.accent2[2] * 1.2)],
+        [Math.min(255, currentPalette.accent3[0] * 0.8), Math.min(255, currentPalette.accent3[1] * 1.1), Math.min(255, currentPalette.accent3[2] * 1.3)],
+        // Mix colors for even more variety
+        [(currentPalette.primary[0] + currentPalette.secondary[0]) / 2, (currentPalette.primary[1] + currentPalette.secondary[1]) / 2, (currentPalette.primary[2] + currentPalette.secondary[2]) / 2],
+        [(currentPalette.accent1[0] + currentPalette.accent2[0]) / 2, (currentPalette.accent1[1] + currentPalette.accent2[1]) / 2, (currentPalette.accent1[2] + currentPalette.accent2[2]) / 2],
+        [(currentPalette.accent2[0] + currentPalette.accent3[0]) / 2, (currentPalette.accent2[1] + currentPalette.accent3[1]) / 2, (currentPalette.accent2[2] + currentPalette.accent3[2]) / 2],
+        currentPalette.dim,
+        [Math.min(255, currentPalette.dim[0] * 1.5), Math.min(255, currentPalette.dim[1] * 1.5), Math.min(255, currentPalette.dim[2] * 1.5)],
+        [Math.min(255, currentPalette.background[0] * 0.8), Math.min(255, currentPalette.background[1] * 0.8), Math.min(255, currentPalette.background[2] * 0.8)]
+      ];
+      
+      const colorIndex = (i + layer + Math.floor(time * 3)) % paletteColors.length;
+      const [baseR, baseG, baseB] = paletteColors[colorIndex];
       const colorShift = Math.sin(time * 0.8 + i * 0.3) * 127 + 128; // Color shifting
       const layerFade = 255 - (layer * 30); // Layer fade effect
 
-      switch (colorIndex) {
-        case 0: ink(255, 80 + colorShift * 0.3, 150, layerFade); break;  // Hot Pink
-        case 1: ink(255, 180 + colorShift * 0.2, 80, layerFade); break;  // Orange
-        case 2: ink(255, 255, 80 + colorShift * 0.4, layerFade); break;  // Electric Yellow
-        case 3: ink(150 + colorShift * 0.3, 255, 80, layerFade); break;  // Lime
-        case 4: ink(80, 255, 180 + colorShift * 0.2, layerFade); break;  // Spring Green
-        case 5: ink(80, 255, 255, layerFade); break;                   // Cyan
-        case 6: ink(80 + colorShift * 0.3, 180, 255, layerFade); break;  // Sky Blue
-        case 7: ink(150, 80, 255, layerFade); break;                   // Electric Purple
-        case 8: ink(255, 80, 255, layerFade); break;                   // Magenta
-        case 9: ink(255, 150 + colorShift * 0.2, 200, layerFade); break; // Rose
-        case 10: ink(255, 200, 80 + colorShift * 0.4, layerFade); break; // Gold
-        case 11: ink(200, 255, 120, layerFade); break;                 // Yellow-Green
-        case 12: ink(120, 255, 200 + colorShift * 0.2, layerFade); break; // Aqua
-        case 13: ink(120, 200 + colorShift * 0.3, 255, layerFade); break; // Light Blue
-        case 14: ink(180 + colorShift * 0.2, 120, 255, layerFade); break; // Lavender
-        case 15: ink(255, 120, 180 + colorShift * 0.3, layerFade); break; // Pink
-      }
+      ink(
+        Math.min(255, baseR + colorShift * 0.3), 
+        Math.min(255, baseG + colorShift * 0.2), 
+        Math.min(255, baseB + colorShift * 0.4), 
+        layerFade
+      );
 
       // Draw main ray
       line(x, y, outerX, outerY);
@@ -417,11 +576,17 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
     default: emotionValue = 0; break;
   }
 
-  // Dynamic color cycling for robot features
-  const hue = (colorShift + emotionValue * 90) % 360;
-  const eyeR = Math.max(0, Math.min(255, 128 + Math.sin(hue * Math.PI / 180) * 127));
-  const eyeG = Math.max(0, Math.min(255, 128 + Math.sin((hue + 120) * Math.PI / 180) * 127));
-  const eyeB = Math.max(0, Math.min(255, 128 + Math.sin((hue + 240) * Math.PI / 180) * 127));
+  // Dynamic color cycling for robot features using current palette
+  const currentPalette = getCurrentPalette();
+  const paletteColorIndex = emotionValue % 5; // Use emotion to select palette color
+  const paletteColors = [currentPalette.primary, currentPalette.secondary, currentPalette.accent1, currentPalette.accent2, currentPalette.accent3];
+  const baseEyeColor = paletteColors[paletteColorIndex];
+  
+  // Apply hue shifting to the base palette color for animation
+  const hueShift = Math.sin((colorShift + emotionValue * 90) * Math.PI / 180) * 0.3;
+  const eyeR = Math.max(0, Math.min(255, baseEyeColor[0] * (1 + hueShift)));
+  const eyeG = Math.max(0, Math.min(255, baseEyeColor[1] * (1 + hueShift * 0.8)));
+  const eyeB = Math.max(0, Math.min(255, baseEyeColor[2] * (1 + hueShift * 1.2)));
 
   // Blinking alpha animation with safety checks
   const blinkPhase = Math.sin(blinkTime);
@@ -445,8 +610,9 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
       // Angular angry eyes
       box(leftEyeX - eyeSize / 2, eyeY - eyeSize / 2, eyeSize, eyeSize);
       box(rightEyeX - eyeSize / 2, eyeY - eyeSize / 2, eyeSize, eyeSize);
-      // Angry eyebrows
-      ink(255, 0, 0, eyeAlpha);
+      // Angry eyebrows using secondary palette color
+      const [angryR, angryG, angryB] = currentPalette.secondary;
+      ink(angryR, angryG, angryB, eyeAlpha);
       line(leftEyeX - eyeSize, eyeY - eyeSize, leftEyeX + eyeSize / 2, eyeY - eyeSize / 2);
       line(rightEyeX + eyeSize, eyeY - eyeSize, rightEyeX - eyeSize / 2, eyeY - eyeSize / 2);
       break;
@@ -463,10 +629,13 @@ function drawRobotFace(x, y, size, emotion, frame, api) {
       break;
   }
 
-  // Draw mouth based on emotion with animated colors
-  const mouthR = Math.max(0, Math.min(255, 128 + Math.sin((hue + 60) * Math.PI / 180) * 127));
-  const mouthG = Math.max(0, Math.min(255, 128 + Math.sin((hue + 180) * Math.PI / 180) * 127));
-  const mouthB = Math.max(0, Math.min(255, 128 + Math.sin((hue + 300) * Math.PI / 180) * 127));
+  // Draw mouth based on emotion with animated palette colors
+  const mouthColorIndex = (emotionValue + 2) % 5; // Offset from eye color
+  const baseMouthColor = paletteColors[mouthColorIndex];
+  const mouthHueShift = Math.sin((colorShift + 60) * Math.PI / 180) * 0.3;
+  const mouthR = Math.max(0, Math.min(255, baseMouthColor[0] * (1 + mouthHueShift)));
+  const mouthG = Math.max(0, Math.min(255, baseMouthColor[1] * (1 + mouthHueShift * 0.9)));
+  const mouthB = Math.max(0, Math.min(255, baseMouthColor[2] * (1 + mouthHueShift * 1.1)));
   const mouthAlpha = Math.max(0, Math.min(255, eyeAlpha * 0.9));
 
   // Ensure no NaN values for mouth
@@ -599,17 +768,20 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
 
   if (frameCount % 8 === 0) {
     // Gradient disabled for background persistence
+    // Note: Horizontal line drawing removed to eliminate debug stripes
+    /*
     for (let y = 80; y < (2048 - 80); y += 4) {
       const intensity = 5 + gradientShift + (y / 2048) * 10;
       ink(intensity, intensity + 3, intensity + 12, 8);
       line(0, y, 2048, y);
     }
+    */
   }
 
   // CYBERPUNK ROBOT FACE BORDER at top - neo-matrix themed!
-  const colorBarHeight = 80; // Height of the color strip
-  const squareSize = 80; // Size of each square (same as height for perfect squares)
-  const numSquares = Math.floor(2048 / squareSize); // Number of squares that fit
+  const numSquares = 25; // Perfect division: 25 squares
+  const squareSize = 2048 / numSquares; // 81.92px per square for perfect alignment
+  const colorBarHeight = squareSize; // Height matches square size
 
   // Color animation - shift colors over time
   const colorTime = frameCount * 0.02;
@@ -631,14 +803,15 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     const sparkleSize = 1 + Math.random() * 3;
 
     // Green matrix sparkles
-    ink(0, 255, 100, 180 + Math.random() * 75);
+    const [sparkleR, sparkleG, sparkleB] = getRandomAccentColor();
+    ink(sparkleR, sparkleG, sparkleB, 180 + Math.random() * 75);
     circle(sparkleX, sparkleY, sparkleSize);
   }
 
   // LEFT SIDE Cyberpunk robot face border - warmer color palette (oranges, reds, yellows)
-  const leftBorderWidth = 80; // Match the top border height
-  const leftSquareSize = 80; // Square size same as width
-  const leftNumSquares = Math.floor(2048 / leftSquareSize); // Number of squares vertically
+  const leftBorderWidth = squareSize; // Match the calculated square size
+  const leftSquareSize = squareSize; // Use the same perfectly-aligned square size
+  const leftNumSquares = numSquares; // Same number of squares as top
 
   // LEFT border - robot face squares
   for (let square = 0; square < leftNumSquares; square++) {
@@ -650,10 +823,10 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   }
 
   // RIGHT SIDE Cyberpunk robot face border - warmer color palette (reds, pinks, oranges)
-  const rightBorderWidth = 80; // Match the top border height
+  const rightBorderWidth = squareSize; // Match the calculated square size
   const rightX = 2048 - rightBorderWidth;
-  const rightSquareSize = 80; // Square size same as width
-  const rightNumSquares = Math.floor(2048 / rightSquareSize); // Number of squares vertically
+  const rightSquareSize = squareSize; // Use the same perfectly-aligned square size
+  const rightNumSquares = numSquares; // Same number of squares as top
 
   // RIGHT border - robot face squares
   for (let square = 0; square < rightNumSquares; square++) {
@@ -665,10 +838,10 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   }
 
   // BOTTOM Cyberpunk robot face border - warmer color palette (yellows, oranges, reds)
-  const bottomBorderHeight = 80; // Match the top border height
+  const bottomBorderHeight = squareSize; // Match the calculated square size
   const bottomY = 2048 - bottomBorderHeight;
-  const bottomSquareSize = 80; // Square size same as height
-  const bottomNumSquares = Math.floor(2048 / bottomSquareSize); // Number of squares horizontally
+  const bottomSquareSize = squareSize; // Use the same perfectly-aligned square size
+  const bottomNumSquares = numSquares; // Same number of squares as top
 
   // BOTTOM border - robot face squares
   for (let square = 0; square < bottomNumSquares; square++) {
@@ -686,17 +859,19 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
 
     // Left border sparkles - Electric Blue theme
     if (sparkle < 8) {
-      const sparkleX = Math.random() * 80; // leftBorderWidth = 80
+      const sparkleX = Math.random() * leftBorderWidth;
       const sparkleY = Math.random() * 2048;
-      ink(0, 200, 255, sparkleAlpha);
+      const [sparkleR, sparkleG, sparkleB] = getRandomPaletteColor();
+      ink(sparkleR, sparkleG, sparkleB, sparkleAlpha);
       circle(sparkleX, sparkleY, sparkleSize);
     }
 
     // Right border sparkles - Hot Pink theme
     if (sparkle >= 8 && sparkle < 16) {
-      const sparkleX = rightX + Math.random() * 80; // rightBorderWidth = 80
+      const sparkleX = rightX + Math.random() * rightBorderWidth;
       const sparkleY = Math.random() * 2048;
-      ink(255, 0, 200, sparkleAlpha);
+      const [sparkleR, sparkleG, sparkleB] = getSecondaryColor();
+      ink(sparkleR, sparkleG, sparkleB, sparkleAlpha);
       circle(sparkleX, sparkleY, sparkleSize);
     }
 
@@ -704,7 +879,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     if (sparkle >= 16) {
       const sparkleX = Math.random() * 2048;
       const sparkleY = bottomY + Math.random() * bottomBorderHeight;
-      ink(0, 255, 100, sparkleAlpha);
+      const [sparkleR, sparkleG, sparkleB] = getAccent1Color();
+      ink(sparkleR, sparkleG, sparkleB, sparkleAlpha);
       circle(sparkleX, sparkleY, sparkleSize);
     }
   }
@@ -990,7 +1166,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   }
 
   if (Math.random() > 0.98) {
-    ink("rainbow", 12).box(0, 0, 2048, 2048); // Clear with black ink to prevent trails
+    const [bgR, bgG, bgB] = getBackgroundColor();
+    ink(bgR, bgG, bgB, 12).box(0, 0, 2048, 2048); // Clear with palette background color to prevent trails
   } else if (Math.random() > 0.90) {
     ink(0, 24).box(128, 128, 2048 - 256, 2048 - 256);
   }
@@ -1033,37 +1210,40 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
 
   // MAIN TITLE - AESTHETIC COMPUTER - most prominent with white/black/neon oscillation
 
-  // AESTHETIC with white/black/neon color scheme
+  // AESTHETIC with palette-based color scheme
   const aestheticSizeOscillation = 32 + Math.sin(frameCount * 0.08) * 6; // Size 26-38
   const aestheticColorPhase = frameCount * 0.1;
 
-  // Cycle between white, neon green, black, neon cyan
+  // Cycle through current palette colors
   let aestheticR, aestheticG, aestheticB;
   const colorCycle = Math.sin(aestheticColorPhase);
+  const currentPalette = getCurrentPalette();
 
   if (colorCycle > 0.5) {
-    // Neon green
-    aestheticR = 0 + Math.sin(aestheticColorPhase * 2) * 100;
-    aestheticG = 255;
-    aestheticB = 0 + Math.sin(aestheticColorPhase * 2) * 150;
+    // Primary palette color
+    [aestheticR, aestheticG, aestheticB] = currentPalette.primary;
+    aestheticR += Math.sin(aestheticColorPhase * 2) * 50;
+    aestheticG = Math.min(255, aestheticG * 1.2);
+    aestheticB += Math.sin(aestheticColorPhase * 2) * 50;
   } else if (colorCycle > 0) {
-    // White
+    // Secondary palette color  
+    [aestheticR, aestheticG, aestheticB] = currentPalette.secondary;
     aestheticR = 255;
     aestheticG = 255;
     aestheticB = 255;
   } else if (colorCycle > -0.5) {
-    // Neon cyan
-    aestheticR = 0 + Math.sin(aestheticColorPhase * 2) * 100;
-    aestheticG = 255;
-    aestheticB = 255;
+    // Accent1 palette color
+    [aestheticR, aestheticG, aestheticB] = currentPalette.accent1;
+    aestheticR = Math.min(255, aestheticR * 1.1);
+    aestheticG = Math.min(255, aestheticG * 1.1);
+    aestheticB += Math.sin(aestheticColorPhase * 2) * 50;
   } else {
-    // Black with white outline
-    aestheticR = 0;
-    aestheticG = 0;
-    aestheticB = 0;
+    // Background/dim palette color for contrast
+    [aestheticR, aestheticG, aestheticB] = currentPalette.background;
   }
 
-  ink(aestheticR, aestheticG, aestheticB);
+  const [paletteR, paletteG, paletteB] = getPrimaryColor();
+  ink(paletteR, paletteG, paletteB);
   const aestheticText = "AESTHETIC";
   const aestheticY = 250; // Moved up from 400 to prevent overlap
 
@@ -1097,25 +1277,19 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   const computerColorCycle = Math.sin(computerColorPhase);
 
   if (computerColorCycle > 0.5) {
-    // White
-    computerR = 255;
-    computerG = 255;
-    computerB = 255;
+    // Secondary palette color
+    [computerR, computerG, computerB] = currentPalette.secondary;
   } else if (computerColorCycle > 0) {
-    // Neon magenta
-    computerR = 255;
-    computerG = 0 + Math.sin(computerColorPhase * 2) * 100;
-    computerB = 255;
+    // Accent2 palette color with animation
+    [computerR, computerG, computerB] = currentPalette.accent2;
+    computerG = Math.min(255, computerG + Math.sin(computerColorPhase * 2) * 50);
   } else if (computerColorCycle > -0.5) {
-    // Neon yellow
-    computerR = 255;
-    computerG = 255;
-    computerB = 0 + Math.sin(computerColorPhase * 2) * 100;
+    // Accent3 palette color with animation
+    [computerR, computerG, computerB] = currentPalette.accent3;
+    computerB = Math.min(255, computerB + Math.sin(computerColorPhase * 2) * 50);
   } else {
-    // Black with white outline
-    computerR = 0;
-    computerG = 0;
-    computerB = 0;
+    // Background palette color for contrast
+    [computerR, computerG, computerB] = currentPalette.background;
   }
 
   ink(computerR, computerG, computerB);
@@ -1129,7 +1303,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   writeVHS(computerText, { center: "x", y: computerY + computerWiggleY, x: centerX + computerWiggleX, size: computerSizeOscillation }, api);
 
   // DATE SECTION - bigger text sizes and moved up
-  ink(255, 200, 100); // Warm gold
+  const [warmR, warmG, warmB] = getPrimaryColor();
+  ink(warmR, warmG, warmB); // Use primary palette color
   const septemberText = "SEPTEMBER";
   const septemberY = 700; // Moved up from 750 to give more space for 30
 
@@ -1139,7 +1314,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
 
   writeVHS(septemberText, { center: "x", y: septemberY + septemberWiggleY, x: centerX + septemberWiggleX, size: 24 }, api); // Increased from size 20 to 24
 
-  ink(255, 255, 255);
+  const [dayR, dayG, dayB] = getSecondaryColor();
+  ink(dayR, dayG, dayB);
   const dayText = "30";
   const dayY = 800; // Moved up closer to September (700 + 100 = 800)
 
@@ -1167,7 +1343,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   writeVHS(doorsText, { x: leftCenter + doorsWiggleX, center: "x", y: timeY + doorsWiggleY, size: 14 }, api); // Increased from size 10 to 14
   writeVHS(programText, { x: rightCenter + programWiggleX, center: "x", y: timeY + programWiggleY, size: 14 }, api); // Increased from size 10 to 14
 
-  ink(255, 255, 255);
+  const [timeR, timeG, timeB] = getAccent1Color();
+  ink(timeR, timeG, timeB);
   const time7Text = "7PM";
   const time8Text = "8PM";
   const timesY = timeY + 90; // Increase gap to prevent overlap (was 80)
@@ -1182,7 +1359,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   writeVHS(time8Text, { x: rightCenter + time8WiggleX, center: "x", y: timesY + time8WiggleY, size: 20 }, api); // Increased from size 16 to 20
 
   // VENUE SECTION - EL CID moved up and bigger text
-  ink(255, 100, 100); // Red accent
+  const [elCidR, elCidG, elCidB] = getAccent2Color();
+  ink(elCidR, elCidG, elCidB); // Use accent2 palette color
   const elCidText = "EL CID";
   const elCidY = 1300; // Moved up further (was 1350)
 
@@ -1192,7 +1370,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
 
   writeVHS(elCidText, { center: "x", y: elCidY + elCidWiggleY, x: centerX + elCidWiggleX, size: 32 }, api); // Increased from size 28 to 32
 
-  ink(200, 200, 200);
+  const [addressR, addressG, addressB] = getDimColor();
+  ink(addressR, addressG, addressB);
   const addressText = "4212 W Sunset Blvd";
   const addressY = 1600; // Moved up (was 1650)
 
@@ -1203,9 +1382,10 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   writeVHS(addressText, { center: "x", y: addressY + addressWiggleY, x: centerX + addressWiggleX, size: 12 }, api); // Increased from size 10 to 12
 
   // FOOTER SECTION - centered and positioned above robot faces
-  ink(150, 150, 150);
+  const [footerR, footerG, footerB] = getDimColor();
+  ink(footerR, footerG, footerB);
   const hostedText = "Hosted by Catalyst LA";
-  const hostedY = 1880; // Above the bottom border of robot faces (2048 - 80 - 68 = 1900)
+  const hostedY = 1880; // Above the bottom border of robot faces (2048 - squareSize - 68)
   
   // Add subtle wiggle to hosted text
   const hostedWiggleX = Math.sin(frameCount * 0.019 + 5.5) * 1.1;
@@ -1215,7 +1395,8 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
   writeVHS(hostedText, { y: hostedY + hostedWiggleY, x: 120 + hostedWiggleX, size: 10 }, api);  // OPTIONAL DEBUG LAYOUT BOXES - CHAOTIC BLINKING with constantly changing colors
   const showDebug = DEBUG_MODE; // Always show when debug mode is on
   if (showDebug) {
-    ink(100, 100, 100, 30); // Semi-transparent gray for section dividers
+    const [grayR, grayG, grayB] = getDimColor();
+    ink(grayR, grayG, grayB, 30); // Semi-transparent dim color for section dividers
 
     // Section dividers
     box(0, 200, 2048, 2); // Top section boundary
@@ -1226,17 +1407,19 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     box(0, 1850, 2048, 2); // Footer section boundary
 
     // Midpoint reference line
-    ink(0, 255, 0, 80); // Green midpoint line - low opacity
+    const [midR, midG, midB] = getAccent1Color();
+    ink(midR, midG, midB, 80); // Accent1 midpoint line - low opacity
     box(0, 1024, 2048, 1); // Screen midpoint (1024)
 
-    // CHAOTIC COLOR-CHANGING TEXT BOUNDING BOXES - active blinking with staggered patterns
-    // AESTHETIC box - Chaotic rainbow colors - active blinking
+    // CHAOTIC COLOR-CHANGING TEXT BOUNDING BOXES - active blinking with staggered patterns using current palette
+    // AESTHETIC box - Chaotic palette colors - active blinking
     const aestheticChaos = Math.sin(frameCount * 0.02 + 0.1) * 0.5 + 0.5; // Much slower (was 0.05)
     const aestheticFlash = Math.sin(frameCount * 0.08 + 0.7) * 0.5 + 0.5; // Active flash cycle
     const aestheticBlink = aestheticFlash > 0.3 ? (15 + Math.floor(aestheticFlash * 40)) : 3; // More active blinking (3-55 opacity)
-    const aestheticR = Math.floor(128 + Math.sin(frameCount * 0.02) * 127); // Slower color change (was 0.04)
-    const aestheticG = Math.floor(128 + Math.sin(frameCount * 0.03 + 1.2) * 127); // Slower (was 0.06)
-    const aestheticB = Math.floor(128 + Math.sin(frameCount * 0.035 + 2.4) * 127); // Slower (was 0.07)
+    const palette = getCurrentPalette();
+    const aestheticR = Math.floor(palette.primary[0] * (0.5 + Math.sin(frameCount * 0.02) * 0.5)); // Slower color change (was 0.04)
+    const aestheticG = Math.floor(palette.primary[1] * (0.5 + Math.sin(frameCount * 0.03 + 1.2) * 0.5)); // Slower (was 0.06)
+    const aestheticB = Math.floor(palette.primary[2] * (0.5 + Math.sin(frameCount * 0.035 + 2.4) * 0.5)); // Slower (was 0.07)
     ink(aestheticR, aestheticG, aestheticB, aestheticBlink); // 3-55 opacity - much more visible!
     const aestheticTextBox = text.box(aestheticText, { x: centerX + aestheticWiggleX, y: aestheticY + aestheticWiggleY }, undefined, aestheticSizeOscillation);
     if (aestheticTextBox && aestheticTextBox.box) {
@@ -1250,9 +1433,9 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     const computerChaos = Math.sin(frameCount * 0.03 + 1.5) * 0.5 + 0.5; // Slower (was 0.06)
     const computerFlash = Math.sin(frameCount * 0.11 + 3.8) * 0.5 + 0.5; // Different phase from aesthetic
     const computerBlink = computerFlash > 0.2 ? (20 + Math.floor(computerFlash * 35)) : 5; // More active (5-55 opacity)
-    const computerR = Math.floor(64 + Math.sin(frameCount * 0.017 + 3.1) * 191); // Slower (was 0.035)
-    const computerG = Math.floor(64 + Math.sin(frameCount * 0.027 + 4.7) * 191); // Slower (was 0.055)
-    const computerB = Math.floor(128 + Math.sin(frameCount * 0.037 + 1.8) * 127); // Slower (was 0.075)
+    const computerR = Math.floor(palette.secondary[0] * (0.25 + Math.sin(frameCount * 0.017 + 3.1) * 0.75)); // Slower (was 0.035)
+    const computerG = Math.floor(palette.secondary[1] * (0.25 + Math.sin(frameCount * 0.027 + 4.7) * 0.75)); // Slower (was 0.055)
+    const computerB = Math.floor(palette.secondary[2] * (0.5 + Math.sin(frameCount * 0.037 + 1.8) * 0.5)); // Slower (was 0.075)
     ink(computerR, computerG, computerB, computerBlink); // 5-55 opacity - much more visible!
     const computerTextBox = text.box(computerText, { x: centerX + computerWiggleX, y: computerY + computerWiggleY }, undefined, computerSizeOscillation);
     if (computerTextBox && computerTextBox.box) {
@@ -1266,9 +1449,9 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     const septemberChaos = Math.sin(frameCount * 0.035 + 2.8) * 0.5 + 0.5; // Slower (was 0.07)
     const septemberFlash = Math.sin(frameCount * 0.09 + 1.4) * 0.5 + 0.5; // Different phase from others
     const septemberBlink = septemberFlash > 0.25 ? (12 + Math.floor(septemberFlash * 30)) : 4; // Active blinking (4-42 opacity)
-    const septemberR = Math.floor(128 + Math.sin(frameCount * 0.022 + 5.2) * 127); // Slower (was 0.045)
-    const septemberG = Math.floor(100 + Math.sin(frameCount * 0.032 + 0.9) * 155); // Slower (was 0.065)
-    const septemberB = Math.floor(64 + Math.sin(frameCount * 0.027 + 3.7) * 191); // Slower (was 0.055)
+    const septemberR = Math.floor(palette.accent1[0] * (0.5 + Math.sin(frameCount * 0.022 + 5.2) * 0.5)); // Slower (was 0.045)
+    const septemberG = Math.floor(palette.accent1[1] * (0.4 + Math.sin(frameCount * 0.032 + 0.9) * 0.6)); // Slower (was 0.065)
+    const septemberB = Math.floor(palette.accent1[2] * (0.25 + Math.sin(frameCount * 0.027 + 3.7) * 0.75)); // Slower (was 0.055)
     ink(septemberR, septemberG, septemberB, septemberBlink); // 4-42 opacity - much more visible!
     const septemberTextBox = text.box(septemberText, { x: centerX + septemberWiggleX, y: septemberY + septemberWiggleY }, undefined, 24);
     if (septemberTextBox && septemberTextBox.box) {
@@ -1302,7 +1485,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     const doorsG = Math.floor(150 + Math.sin(frameCount * 0.078 + 3.2) * 105);
     const doorsB = Math.floor(120 + Math.sin(frameCount * 0.058 + 2.1) * 135);
     ink(doorsR, doorsG, doorsB, doorsBlink); // 2-45 opacity - much more visible!
-    const doorsTextBox = text.box(doorsText, { x: leftCenter + doorsWiggleX, y: timeY + doorsWiggleY }, undefined, 10);
+    const doorsTextBox = text.box(doorsText, { x: leftCenter + doorsWiggleX, y: timeY + doorsWiggleY }, undefined, 14);
     if (doorsTextBox && doorsTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = doorsTextBox.box;
       // Center the box horizontally since DOORS uses center: "x"
@@ -1317,7 +1500,7 @@ export function paint({ api, frameIndex = 0, frameTime = 0, simCount = 0n }) {
     const programG = Math.floor(80 + Math.sin(frameCount * 0.072 + 5.1) * 175);
     const programB = Math.floor(60 + Math.sin(frameCount * 0.052 + 2.8) * 195);
     ink(programR, programG, programB, programBlink); // 6-50 opacity - much more visible!
-    const programTextBox = text.box(programText, { x: rightCenter + programWiggleX, y: timeY + programWiggleY }, undefined, 10);
+    const programTextBox = text.box(programText, { x: rightCenter + programWiggleX, y: timeY + programWiggleY }, undefined, 14);
     if (programTextBox && programTextBox.box) {
       const { x: boxX, y: boxY, width: boxW, height: boxH } = programTextBox.box;
       // Center the box horizontally since PROGRAM uses center: "x"
