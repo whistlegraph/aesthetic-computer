@@ -16,15 +16,17 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
-    shell.log(`🔐 Authorizing \`${tenant}\` user.`);
-    return (
+    shell.log(`🔐 Attempting to authorize \`${tenant}\` user...`);
+    const result = (
       await got(`${baseURI}/userinfo`, {
         headers: { Authorization: authorization },
         responseType: "json",
       })
     ).body;
+    shell.log(`✅ Authorization successful for \`${tenant}\` user: ${result?.sub}`);
+    return result;
   } catch (err) {
-    shell.error("Authorization error:", err, err?.code);
+    shell.error("❌ Authorization failed:", err?.message || err, err?.code);
     return undefined;
   }
 }

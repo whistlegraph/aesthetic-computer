@@ -9971,8 +9971,31 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
-  // Use full HTTPS URL to match our tape.mjs fetchKidLispSource method
-  const fullUrl = `https://localhost:8888/.netlify/functions/store-kidlisp?code=${nanoidCode}`;
+  // Determine the correct base URL based on environment
+  let baseUrl;
+  
+  if (typeof window !== 'undefined' && window.location) {
+    // Browser environment - use current origin
+    const { protocol, hostname, port } = window.location;
+    
+    // Check if we're in development (localhost with port)
+    if (hostname === 'localhost' && port) {
+      baseUrl = `${protocol}//${hostname}:${port}`;
+    } else if (hostname.includes('aesthetic.computer')) {
+      // Production or any aesthetic.computer subdomain
+      baseUrl = `${protocol}//${hostname}`;
+    } else {
+      // Fallback to production
+      baseUrl = 'https://aesthetic.computer';
+    }
+  } else {
+    // Node.js environment or no window - use production
+    baseUrl = 'https://aesthetic.computer';
+  }
+  
+  const fullUrl = `${baseUrl}/.netlify/functions/store-kidlisp?code=${nanoidCode}`;
+  
+  console.log(`🌐 Fetching KidLisp code ${nanoidCode} from: ${fullUrl}`);
   
   // Use Node.js https module with SSL bypass like tape.mjs does
   return new Promise(async (resolve, reject) => {
@@ -9993,13 +10016,14 @@ async function fetchCachedCode(nanoidCode, api = null) {
           try {
             const parsed = JSON.parse(data);
             if (parsed && parsed.source) {
+              console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} (${parsed.source.length} chars)`);
               resolve(parsed.source);
             } else {
-              console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`);
+              console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`, parsed);
               resolve(null);
             }
           } catch (err) {
-            console.error(`❌ Failed to parse JSON for cached code: ${nanoidCode}`, err);
+            console.error(`❌ Failed to parse JSON for cached code: ${nanoidCode}`, err, 'Raw response:', data);
             resolve(null);
           }
         });
@@ -10013,8 +10037,10 @@ async function fetchCachedCode(nanoidCode, api = null) {
         if (response.ok) {
           return response.json().then(data => {
             if (data && data.source) {
+              console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} (${data.source.length} chars)`);
               resolve(data.source);
             } else {
+              console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`, data);
               resolve(null);
             }
           });
@@ -10023,7 +10049,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
           resolve(null);
         }
       }).catch(error => {
-        console.error(`❌ Network error loading cached code: ${nanoidCode}`, error);
+        console.error(`❌ Network error loading cached code: ${nanoidCode} from ${fullUrl}`, error);
         resolve(null);
       });
     }
