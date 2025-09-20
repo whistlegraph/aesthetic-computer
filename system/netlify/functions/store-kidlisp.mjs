@@ -115,13 +115,19 @@ export async function handler(event, context) {
         return respond(400, { error: 'Invalid source' });
       }
 
-      // Extract user from authorization (optional)
+      // Extract user from authorization (optional, with timeout)
       let user;
       try {
-        user = await authorize(event.headers);
+        // Add timeout to prevent Auth0 issues from slowing down caching
+        const authPromise = authorize(event.headers);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth timeout')), 3000)
+        );
+        
+        user = await Promise.race([authPromise, timeoutPromise]);
         console.log(`👤 User authorized: ${user ? user.sub : 'none'}`);
       } catch (error) {
-        console.log(`🔓 No user authorization (anonymous cache)`);
+        console.log(`🔓 No user authorization (anonymous cache): ${error.message}`);
       }
 
       const hash = crypto.createHash('sha256').update(source.trim()).digest('hex');
