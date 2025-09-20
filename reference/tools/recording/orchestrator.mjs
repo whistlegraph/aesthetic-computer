@@ -164,8 +164,16 @@ class RenderOrchestrator {
 
 // CLI usage
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const piece = process.argv[2] || 'reference/tools/recording/elcid-flyer.mjs';
+  let piece = process.argv[2] || 'elcid-flyer';
   const duration = parseInt(process.argv[3]) || 1000;
+  
+  // Auto-resolve piece paths: if it's just a name, look in pieces/ folder
+  if (piece && !piece.includes('/') && !piece.endsWith('.mjs')) {
+    piece = path.join(__dirname, 'pieces', `${piece}.mjs`);
+  } else if (piece && !piece.includes('/') && piece.endsWith('.mjs')) {
+    piece = path.join(__dirname, 'pieces', piece);
+  }
+  // Otherwise use the piece path as-is (for absolute/relative paths)
   
   // Create project-specific directory with piece name and timestamp in /output directory
   let outputDir = process.argv[4];

@@ -1,71 +1,76 @@
 # Recording Tools
 
-Professional animation recording system for Aesthetic Computer pieces.
+Professional offline rendering system for Aesthetic Computer pieces.
 
 ## Directory Structure
 
 ```
 recording/
-├── tape.mjs          # Main animation recorder with GIF export
-├── headless.mjs      # Shared AC system initialization
-└── README.md         # This file
+├── orchestrator.mjs     # Main render coordinator
+├── frame-renderer.mjs   # Individual frame renderer
+├── headless.mjs         # AC system initialization
+├── logger.mjs           # Logging utility
+├── cleanup-*.sh         # Cleanup utilities
+├── pieces/              # Pieces to be recorded
+│   └── elcid-flyer.mjs  # Example event flyer piece
+└── deprecated/          # Legacy tools (tape.mjs, etc.)
 
-../output/            # Generated animation files
-├── *.gif             # Exported GIF animations
-└── *.png             # Final frame captures
-
-../test-pieces/       # Sample pieces for testing
-└── *.mjs             # Test animation pieces
+../output/               # Generated video files  
+└── *.mp4               # Rendered MP4 videos
 ```
 
 ## Usage
 
-### Basic Recording
+### Basic Rendering
 
 ```bash
 # From the recording directory
 cd /workspaces/aesthetic-computer/reference/tools/recording
 
-# Record a piece for 3 seconds at 60fps and export as GIF
-node tape.mjs ../../../system/public/aesthetic.computer/disks/starfield.mjs 3000 60 --gif
+# Render elcid-flyer for 30 seconds (1800 frames at 60fps)
+node orchestrator.mjs elcid-flyer 30000
 
-# Record for 2 seconds at 60fps (no GIF export)
-node tape.mjs ../../../system/public/aesthetic.computer/disks/starfield.mjs 2000 60
+# Render any piece for custom duration
+node orchestrator.mjs piece-name 10000  # 10 seconds
+
+# You can also use explicit paths if needed
+node orchestrator.mjs pieces/elcid-flyer.mjs 30000
 ```
 
 ### Parameters
 
-- **piece**: Path to the AC piece (relative to recording directory)
+- **piece**: Name of the piece (e.g., "elcid-flyer" looks for pieces/elcid-flyer.mjs)
 - **duration**: Recording duration in milliseconds
-- **fps**: Target frames per second for recording
-- **--gif**: Optional flag to export as GIF
+- **output-dir**: Optional custom output directory
+
+The orchestrator automatically looks for pieces in the `pieces/` subfolder when you provide just a name.
 
 ### Technical Details
 
-- **Simulation Rate**: 120fps for smooth animation
-- **Recording Rate**: User-specified (typically 60fps)
-- **GIF Export**: 125fps (8ms frame delay) to match simulation rate
-- **Pixel Accuracy**: Manual color mapping for perfect pixel fidelity
-- **Canvas Size**: 256×256 pixels
+- **Frame Rate**: 60fps output
+- **Resolution**: 2048×2048 pixels (configurable in piece)
+- **Format**: Raw RGB frames → MP4 conversion
+- **Memory**: Stateless rendering (zero memory leaks)
+- **Resume**: Automatically resumes from state.json if interrupted
 
 ## Features
 
-✅ Dual-rate animation system (120fps sim, 60fps recording)  
-✅ Professional GIF export with optimized timing  
-✅ Manual color mapping for pixel-perfect output  
-✅ Terminal progress monitoring  
-✅ Comprehensive frame statistics  
-✅ PNG final frame capture  
+✅ **Stateless Rendering**: Each frame in fresh process (no memory leaks)  
+✅ **Resumable**: Crashes/interruptions resume automatically  
+✅ **High Resolution**: 2048×2048 default (piece-configurable)  
+✅ **Progress Tracking**: Real-time progress bar with ETA  
+✅ **MP4 Export**: Professional video output with H.264  
+✅ **Background Continuity**: Preserves inter-frame state  
 
 ## Output Files
 
-All generated files are saved to `../output/`:
-- `tape-YYYY-MM-DDTHH-MM-SS.gif` - Exported GIF animation
-- `tape-YYYY.MM.DD.HH.MM.SS.SSS.png` - Final frame capture
+Generated in `../output/`:
+- `piece-timestamp-duration.mp4` - Final rendered video
+- Artifacts directory with RGB frames and state (auto-cleaned)
 
 ## Performance
 
-- Memory-efficient frame buffering
-- Optimized color palette generation
-- Fast manual pixel mapping
-- Professional animation timing
+- Zero memory leaks (stateless process-per-frame)
+- Automatic resume from any point
+- Efficient background buffer preservation
+- High-quality H.264 encoding
