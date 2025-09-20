@@ -26,7 +26,6 @@
 
 import { nopaint_generateColoredLabel } from "../systems/nopaint.mjs";
 import { isFadeColor } from "../lib/num.mjs";
-import { setFadeAlpha } from "../lib/fade-state.mjs";
 
 let rect,
   color,
@@ -107,11 +106,7 @@ function paint({
     
     // Handle fade colors vs traditional colors
     if (isFadeColor(color)) {
-      // For fade colors, set alpha if specified and use the fadeString directly
-      if (color.alpha !== undefined) {
-        setFadeAlpha(color.alpha);
-      }
-      ink(color.fadeString).box(r, mode);
+      ink(color).box(r, mode);
     } else {
       ink(color).box(r, mode); // UI: Paint a preview to the screen.
     }

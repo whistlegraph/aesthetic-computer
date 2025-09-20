@@ -31,7 +31,8 @@ import {
 } from "./helpers.mjs";
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
-import { nopaint_boot, nopaint_act, nopaint_is } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act, nopaint_is, nopaint_renderPerfHUD, nopaint_triggerBakeFlash } from "../systems/nopaint.mjs";
+import { getPreserveFadeAlpha, setPreserveFadeAlpha } from "./fade-state.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
 import { headers } from "./headers.mjs";
@@ -130,6 +131,7 @@ let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
+let nopaintPerf = true; // Performance panel for nopaint system debugging - enabled for testing
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 let TEIA_MODE = false; // Will be set during init-from-bios
 
@@ -335,7 +337,7 @@ let boot = defaults.boot;
 let sim = defaults.sim;
 let paint = defaults.paint;
 let beat = defaults.beat;
-let brush, filter; // Only set in the `nopaint` system.
+let brush, lift, filter; // Only set in the `nopaint` system.
 let act = defaults.act;
 let leave = defaults.leave;
 let receive = defaults.receive; // Handle messages from BIOS
@@ -354,6 +356,70 @@ let iconMode = false; // Detects ?icon on a piece and yields its
 let previewOrIconMode;
 let hideLabel = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
+
+// Helper function to toggle HUD visibility (used by Tab key and center tap)
+function toggleHUDVisibility(isDoubleTap = false) {
+  const currentTime = performance.now();
+  
+  if (hudAnimationState.animating) {
+    // Animation in progress: reverse direction and continue from current position
+    const elapsed = currentTime - hudAnimationState.startTime;
+    const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
+    
+    // Flip the target state
+    hudAnimationState.visible = !hudAnimationState.visible;
+    
+    // Update the remembered state for when QR fullscreen is turned off
+    if (hudAnimationState.qrFullscreen) {
+      hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+    }
+    
+    // Restart animation from current position by adjusting the start time
+    // If we were 30% through a hide animation, start the show animation at 70% progress
+    const remainingProgress = 1.0 - progress;
+    hudAnimationState.startTime = currentTime - (remainingProgress * hudAnimationState.duration);
+    
+    // Special double-tap: immediately show HUD if hiding
+    if (isDoubleTap && !hudAnimationState.visible) {
+      hudAnimationState.animating = false;
+      hudAnimationState.visible = true;
+      hudAnimationState.opacity = 1.0;
+      hudAnimationState.slideOffset = { x: 0, y: 0 };
+      hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
+      
+      // Update remembered state
+      if (hudAnimationState.qrFullscreen) {
+        hudAnimationState.cornersVisibleBeforeFullscreen = true;
+      }
+    }
+    
+    $commonApi.sound.synth({
+      tone: hudAnimationState.visible ? 1200 : 800,
+      duration: 0.15,
+      attack: 0.01,
+      decay: 0.3,
+      volume: 0.2,
+    });
+  } else {
+    // No animation in progress: start new animation
+    hudAnimationState.animating = true;
+    hudAnimationState.startTime = currentTime;
+    hudAnimationState.visible = !hudAnimationState.visible;
+    
+    // Update the remembered state for when QR fullscreen is turned off
+    if (hudAnimationState.qrFullscreen) {
+      hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+    }
+    
+    $commonApi.sound.synth({
+      tone: hudAnimationState.visible ? 1200 : 800,
+      duration: 0.15,
+      attack: 0.01,
+      decay: 0.3,
+      volume: 0.2,
+    });
+  }
+}
 let hudAnimationState = {
   visible: true,
   animating: false,
@@ -392,19 +458,26 @@ function enableFrameBasedMonitoring() {
         height: $commonApi.system.painting.height
       };
       
+      // Add detailed logging for nopaint interference detection
+      const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+      const nopaintBuffer = $commonApi.system?.nopaint?.buffer;
+      
       if (lastPaintingHash !== null && currentHash !== lastPaintingHash) {
-        console.log(`🎨 FRAME-DETECTED: Painting change (${lastPaintingHash?.substr(0,6)} → ${currentHash?.substr(0,6)})`);
-        
         // Check if this is a dimension change (resize operation)
         const isDimensionChange = lastDimensions && 
           (lastDimensions.width !== currentDimensions.width || 
            lastDimensions.height !== currentDimensions.height);
         
-        // Immediate broadcast with appropriate source
-        $commonApi.broadcastPaintingUpdateImmediate("frame_update", {
-          source: isDimensionChange ? "resize" : "frame_monitor",
-          hash: currentHash.substr(0,8)
-        });
+        // Skip broadcasting during active nopaint operations to prevent interference
+        if (isNopaintActive) {
+          console.log(`🚫 SKIPPING broadcast during nopaint operation to prevent live preview interference`);
+        } else {
+          // Immediate broadcast with appropriate source
+          $commonApi.broadcastPaintingUpdateImmediate("frame_update", {
+            source: isDimensionChange ? "resize" : "frame_monitor",
+            hash: currentHash.substr(0,8)
+          });
+        }
       }
       
       lastPaintingHash = currentHash;
@@ -417,7 +490,7 @@ function enableFrameBasedMonitoring() {
   }
   
   requestAnimationFrame(checkPaintingChanges);
-  // Frame-based painting monitoring enabled silently
+  console.log(`🎨 Frame-based painting monitoring enabled with nopaint interference protection`);
 }
 
 // 🎨 Broadcast throttling to prevent infinite loops
@@ -433,6 +506,7 @@ let currentPath,
   currentCode,
   currentHUDTxt,
   currentHUDPlainTxt,  // Plain text version without color codes
+  currentOriginalCodeId, // Track original $code identifier for sharing
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
@@ -951,6 +1025,103 @@ let clockFetching = false;
 let lastServerTime = undefined;
 let clockOffset = 0; // Smoothed offset from server
 
+// 🤖 Robo Class - For sending synthetic events through the act system
+class Robo {
+  constructor() {
+    this.currentAPI = null;
+  }
+
+  // Set the current API context (called from makeFrame)
+  setAPI(api) {
+    this.currentAPI = api;
+  }
+
+  // Send synthetic events directly to the nopaint system
+  async sendEvent(eventType, coordinates = {}) {
+    if (!this.currentAPI) {
+      console.warn("🤖 Robo: No API context available");
+      return;
+    }
+
+    // Ensure pen object exists and initialize if needed
+    if (!this.currentAPI.pen) {
+      this.currentAPI.pen = { x: 0, y: 0, px: 0, py: 0, pressure: 0.5, device: "robot", delta: { x: 0, y: 0 } };
+      console.log("🤖 Robo: Initialized pen object for robot events");
+    }
+
+    // Update the pen object with robot event data including pressure
+    this.currentAPI.pen.x = coordinates.x || 0;
+    this.currentAPI.pen.y = coordinates.y || 0;
+    this.currentAPI.pen.px = coordinates.px || coordinates.x || 0;
+    this.currentAPI.pen.py = coordinates.py || coordinates.y || 0;
+    this.currentAPI.pen.pressure = coordinates.pressure || 0.5;
+    this.currentAPI.pen.device = "robot";
+    
+    // Update delta if it exists
+    if (this.currentAPI.pen.delta) {
+      this.currentAPI.pen.delta.x = (coordinates.x || 0) - (coordinates.px || coordinates.x || 0);
+      this.currentAPI.pen.delta.y = (coordinates.y || 0) - (coordinates.py || coordinates.y || 0);
+    }
+
+    // Create proper nopaint event structure with all required fields
+    const nopaintEvent = {
+      is: (type) => type === eventType,
+      device: "robot",
+      x: coordinates.x || 0,
+      y: coordinates.y || 0,
+      px: coordinates.px || coordinates.x || 0,
+      py: coordinates.py || coordinates.y || 0,
+      pressure: coordinates.pressure || 0.5, // Add default pressure
+      delta: {
+        x: (coordinates.x || 0) - (coordinates.px || coordinates.x || 0),
+        y: (coordinates.y || 0) - (coordinates.py || coordinates.y || 0)
+      }
+    };
+
+    // Import and call nopaint_act directly from here where module resolution works
+    try {
+      const { nopaint_act } = await import("../systems/nopaint.mjs");
+      
+      nopaint_act({
+        event: nopaintEvent,
+        screen: this.currentAPI.screen,
+        system: this.currentAPI.system,
+        painting: this.currentAPI.system.painting,
+        loading: false,
+        store: this.currentAPI.store,
+        pens: () => [], // pens should be a function that returns an array
+        pen: this.currentAPI.pen,
+        api: this.currentAPI,
+        num: this.currentAPI.num,
+        jump: this.currentAPI.jump,
+        debug: false
+      });
+      
+      console.log(`🤖 Robo: Sent ${eventType} event to nopaint system at (${coordinates.x}, ${coordinates.y})`);
+    } catch (error) {
+      console.error("🤖 Robo: Error sending event to nopaint:", error);
+    }
+  }
+
+  // Convenience methods for common events
+  touch(x, y) {
+    this.sendEvent("touch:1", { x, y, pressure: 0.5 });
+  }
+
+  draw(x, y, px, py) {
+    this.sendEvent("draw:1", { x, y, px, py, pressure: 0.5 });
+  }
+
+  lift(x, y) {
+    this.sendEvent("lift:1", { x, y, pressure: 0.5 });
+  }
+
+  // Generic method for any event type
+  act(eventType, coordinates) {
+    this.sendEvent(eventType, coordinates);
+  }
+}
+
 const $commonApi = {
   lisp, //  A global reference to the `kidlisp` evalurator.
   undef: undefined, // A global api shorthand for undefined.
@@ -1030,6 +1201,11 @@ const $commonApi = {
     if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
     glazeAfterReframe = { type: "glaze", content };
+  },
+  
+  // Toggle HUD visibility (same as Tab key functionality)
+  toggleHUD: function (isDoubleTap = false) {
+    toggleHUDVisibility(isDoubleTap);
   },
 
   jump: function jump(to, ahistorical = false, alias = false) {
@@ -1623,20 +1799,26 @@ const $commonApi = {
         const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
         const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
 
-        if (act === "touch") system.nopaint.startDrag = { x, y };
+        if (act === "touch") {
+          system.nopaint.startDrag = { x, y };
+        }
+
+        // Ensure startDrag exists before creating dragBox
+        if (!system.nopaint.startDrag) {
+          system.nopaint.startDrag = { x, y };
+        }
 
         const dragBox = new geo.Box(
           system.nopaint.startDrag.x,
           system.nopaint.startDrag.y,
-          x -
-            system.nopaint.startDrag.x +
-            (x >= system.nopaint.startDrag.x ? 1 : -1),
-          y -
-            system.nopaint.startDrag.y +
-            (y >= system.nopaint.startDrag.y ? 1 : -1),
+          x - system.nopaint.startDrag.x,
+          y - system.nopaint.startDrag.y,
         );
 
-        system.nopaint.brush = { x, y, dragBox, pressure: pen.pressure };
+        system.nopaint.brush = { x, y, dragBox, pressure: pen?.pressure || 0.5 };
+        
+        // Call needsPaint during any pen movement to ensure continuous painting and HUD updates
+        $commonApi.needsPaint();
       },
 
       // Helper to display the existing painting on the screen, with an
@@ -1646,7 +1828,7 @@ const $commonApi = {
       //       - [] And Rotation!
 
       present: (
-        { system, screen, wipe, paste, ink, slug, dark, theme },
+        { system, screen, wipe, paste, ink, slug, dark, theme, blend },
         tx,
         ty,
       ) => {
@@ -1665,14 +1847,18 @@ const $commonApi = {
 
         if (fullbleed) {
           // If we are not panned and the painting fills the screen.
-          paste(system.painting).paste(system.nopaint.buffer);
+          paste(system.painting);
+          paste(system.nopaint.buffer);
         } else {
           // If we are panned or the painting is a custom resolution.
 
           wipe(theme[dark ? "dark" : "light"].wipeBG)
-            .paste(system.painting, x, y, system.nopaint.zoomLevel)
-            .paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel)
-            .ink(128)
+            .paste(system.painting, x, y, system.nopaint.zoomLevel);
+            
+          // Normal alpha blending for overlay buffer
+          paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel);
+          
+          ink(128)
             .box(
               x,
               y,
@@ -1681,6 +1867,41 @@ const $commonApi = {
               "outline",
             );
         }
+
+        // 🎯 DEBUG: Draw dragBox overlay if one exists (COMMENTED OUT)
+        /*
+        if (system.nopaint.brush?.dragBox) {
+          const dragBox = system.nopaint.brush.dragBox;
+          
+          // Apply zoom and translation to the dragBox coordinates
+          const overlayX = (dragBox.x * system.nopaint.zoomLevel) + x;
+          const overlayY = (dragBox.y * system.nopaint.zoomLevel) + y;
+          const overlayW = dragBox.w * system.nopaint.zoomLevel;
+          const overlayH = dragBox.h * system.nopaint.zoomLevel;
+          
+          // Draw the dragBox outline in bright green with some transparency
+          ink(0, 255, 0, 180).box(overlayX, overlayY, overlayW, overlayH, "outline");
+          
+          // Draw corner indicators
+          const cornerSize = 4;
+          ink(0, 255, 0, 220);
+          // Top-left corner
+          ink().box(overlayX - cornerSize/2, overlayY - cornerSize/2, cornerSize, cornerSize);
+          // Top-right corner  
+          ink().box(overlayX + overlayW - cornerSize/2, overlayY - cornerSize/2, cornerSize, cornerSize);
+          // Bottom-left corner
+          ink().box(overlayX - cornerSize/2, overlayY + overlayH - cornerSize/2, cornerSize, cornerSize);
+          // Bottom-right corner
+          ink().box(overlayX + overlayW - cornerSize/2, overlayY + overlayH - cornerSize/2, cornerSize, cornerSize);
+          
+          // Display coordinate info
+          const coordText = `${dragBox.x},${dragBox.y} ${dragBox.w}x${dragBox.h}`;
+          ink(0, 255, 0, 200).write(coordText, { 
+            x: overlayX, 
+            y: Math.max(overlayY - 15, 5) // Position above the box, but not off screen
+          }, undefined, undefined, false, "MatrixChunky8");
+        }
+        */
 
         // Graph `zoomLevel`
         if (system.nopaint.zoomLevel !== 1 && slug !== "prompt")
@@ -2044,6 +2265,7 @@ const $commonApi = {
   },
   gizmo: { Hourglass: gizmo.Hourglass, EllipsisTicker: gizmo.EllipsisTicker, Ticker: gizmo.Ticker },
   rec: new Recorder(),
+  robo: new Robo(),
   net: {
     signup: () => {
       send({ type: "signup" });
@@ -2147,10 +2369,7 @@ const $commonApi = {
         const filename = levelOrFilename;
         const content = args[0];
         
-        // Always log locally first
-        console.log(`📝 File log ${filename}:`, content);
-        
-        // Send to session server if socket is available
+        // Send to session server if socket is available (removed verbose console log)
         if (socket && socket.send) {
           socket.send("dev-log", {
             level: "INFO",
@@ -2200,13 +2419,16 @@ const $commonApi = {
   },
   needsPaint: () => {
     noPaint = false;
-    if (system === "nopaint") $commonApi.system.nopaint.needsPresent = true;
+    if (system === "nopaint") {
+      $commonApi.system.nopaint.needsPresent = true;
+    }
   }, // TODO: Does "paint" needs this?
   
   store,
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
   debug,
+  nopaintPerf,
 };
 
 // Convenience methods for different log levels
@@ -2234,6 +2456,13 @@ async function processMessage(msg) {
   
   // 🎨 Handle painting updates (both new JSON format and legacy string format)
   if (msg.startsWith("painting:") || (msg.startsWith("{") && msg.includes('"type":"painting:updated"'))) {
+    const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+    if (isNopaintActive) {
+      console.log(`🚫 CROSS-TAB INTERFERENCE: Receiving painting update during nopaint operation - this may disrupt live preview!`, {
+        msgPreview: msg.substring(0, 100) + '...',
+        nopaintState: 'painting'
+      });
+    }
     await handlePaintingUpdate(msg);
     return;
   }
@@ -2471,6 +2700,16 @@ $commonApi.broadcast = (msg) => {
 $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
   if (!$commonApi.system?.painting) return;
   
+  // Check if we're in a nopaint operation and log it
+  const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+  if (isNopaintActive) {
+    console.log(`🚫 NOPAINT INTERFERENCE: Attempting to broadcast "${action}" during nopaint operation - this may disrupt live preview!`, {
+      action,
+      source: data.source,
+      nopaintState: 'painting'
+    });
+  }
+  
   // Throttle broadcasts to prevent excessive messages
   const now = Date.now();
   if (now - lastBroadcastTime < broadcastThrottleDelay) {
@@ -2495,8 +2734,6 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
     ...data
   };
   
-  // Broadcasting silently
-  
   // Only send to other tabs (exclude self)
   channel.postMessage(JSON.stringify(message));
 };
@@ -2504,6 +2741,16 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
 // 🚀 Immediate painting broadcast - bypasses throttling for instant sync
 $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
   if (!$commonApi.system?.painting || $commonApi._processingBroadcast) return;
+  
+  // Check for nopaint interference
+  const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
+  if (isNopaintActive) {
+    console.log(`🚫 IMMEDIATE NOPAINT INTERFERENCE: Attempting immediate broadcast "${action}" during nopaint operation!`, {
+      action,
+      source: data.source,
+      nopaintState: 'painting'
+    });
+  }
   
   // Performance: Skip if we just broadcasted very recently (debounce)
   const now = Date.now();
@@ -2559,12 +2806,6 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       });
     }
     
-    console.log(`🎨 STORED painting:`, {
-      width: $commonApi.system.painting.width,
-      height: $commonApi.system.painting.height,
-      pixelCount: $commonApi.system.painting.pixels.length,
-      firstPixels: Array.from($commonApi.system.painting.pixels.slice(0, 12)) // First 3 pixels (RGBA)
-    });
   }, 0);
   
   // Update hash to prevent duplicate detection
@@ -3422,10 +3663,27 @@ const $paintApiUnwrapped = {
   // 2D
   wipe: function () {
     const cc = graph.c.slice(0);
-    ink(...arguments);
+    
+    // Preserve fade alpha during wipe operations to prevent clearing it
+    const preserveFadeAlpha = getPreserveFadeAlpha?.() || false;
+    if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+      setPreserveFadeAlpha(true);
+    }
+    
+    // Default to white if no arguments provided
+    if (arguments.length === 0) {
+      ink(255, 255, 255);
+    } else {
+      ink(...arguments);
+    }
     graph.clear();
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
+    
+    // Restore previous preservation state
+    if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+      setPreserveFadeAlpha(false);
+    }
   },
   // Erase the screen.
   clear: function () {
@@ -3535,6 +3793,12 @@ const $paintApiUnwrapped = {
     // When called from within a painting() context, the graph module
     // should already have the correct buffer set via setBuffer()
     return graph.blur(radius);
+  },
+  sharpen: function(strength = 1) {
+    // Apply sharpening filter to enhance edges and details
+    // When called from within a painting() context, the graph module
+    // should already have the correct buffer set via setBuffer()
+    return graph.sharpen(strength);
   },
   contrast: graph.contrast,
   shear: graph.shear,
@@ -4504,6 +4768,8 @@ async function load(
           if (!sourceToRun) {
             throw new Error(`Cached code not found: ${cacheId}`);
           }
+          // Track the original $code identifier for sharing
+          currentOriginalCodeId = slug; // Keep the full $code format
           if (logs.loading) console.log("✅ Successfully loaded cached code:", cacheId);
         } catch (error) {
           console.error("❌ Failed to load cached code:", cacheId, error);
@@ -4713,7 +4979,7 @@ async function load(
 
   if (!debug && !firstLoad) {
     // console.clear();
-    headers(); // Clear console and re-print headers if we are in production.
+    headers($commonApi.dark); // Clear console and re-print headers if we are in production.
   }
 
   // console.log("🧩", path, "🌐", host);
@@ -5269,6 +5535,11 @@ async function load(
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
   // Initialize MatrixChunky8 font for QR code text rendering
+  // TEMP: Clear MatrixChunky8 cache to force reload with new J advance width
+  if (typefaceCache.has("MatrixChunky8")) {
+    typefaceCache.delete("MatrixChunky8");
+  }
+  
   if (!typefaceCache.has("MatrixChunky8")) {
     // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
@@ -5372,6 +5643,7 @@ async function load(
     if (
       module.system?.startsWith("nopaint") ||
       typeof module?.brush === "function" ||
+      typeof module?.lift === "function" ||
       typeof module?.filter === "function"
     ) {
       // If there is no painting is in ram, then grab it from the local store,
@@ -5404,28 +5676,146 @@ async function load(
 
       sim = module.sim || defaults.sim;
       paint = async ($) => {
+        let painted = false;
+        
         if (module.paint) {
-          const painted = module.paint($);
-          $.system.nopaint.needsPresent = true;
-
-          // TODO: Pass in extra arguments here that flag the wipe.
-          if (chatEnabled) {
-            try {
-              const chatModule = await import("../disks/chat.mjs");
-              chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
-            } catch (err) {
-              console.log("💬 Chat disabled in TEIA mode");
-            }
+          painted = module.paint($);
+          if ($.system?.nopaint) {
+            $.system.nopaint.needsPresent = true;
           }
+        }
 
+        // 🎨 OVERLAY SUPPORT: Call overlay function for preview rendering with painting coordinates
+        if (module.overlay && $.system.nopaint?.brush?.dragBox) {
+          // Transform painting coordinates to screen coordinates for direct screen rendering
+          const originalDragBox = $.system.nopaint.brush.dragBox;
+          const zoom = $.system.nopaint.zoomLevel;
+          const tx = $.system.nopaint.translation.x;
+          const ty = $.system.nopaint.translation.y;
+          
+          // Create screen-space dragBox
+          const screenDragBox = {
+            x: originalDragBox.x * zoom + tx,
+            y: originalDragBox.y * zoom + ty,
+            w: originalDragBox.w * zoom,
+            h: originalDragBox.h * zoom
+          };
+          
+          // Temporarily replace the dragBox with screen coordinates
+          const originalBrush = $.system.nopaint.brush;
+          $.system.nopaint.brush = { ...originalBrush, dragBox: screenDragBox };
+          
+          // Add color word for overlay function
+          $.color = $.system.nopaint.color;
+          
+          // Add mark word for overlay function (preview dragBox)
+          $.mark = $.system.nopaint.brush?.dragBox;
+          
+          // Render overlay directly to screen buffer 
+          module.overlay($);
+          
+          // Restore original dragBox
+          $.system.nopaint.brush = originalBrush;
+        }
+
+        // 📊 Always render nopaint performance HUD if enabled (regardless of module.paint result)
+        if (system === "nopaint" && nopaintPerf) {
+          nopaint_renderPerfHUD($);
+          // Force continuous painting for nopaint system when perf HUD is enabled
+          painted = true;
+        }
+
+        if (painted) {
           return painted;
+        }
+
+        // TODO: Pass in extra arguments here that flag the wipe.
+        if (chatEnabled) {
+          try {
+            const chatModule = await import("../disks/chat.mjs");
+            chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
+          } catch (err) {
+            console.log("💬 Chat disabled in TEIA mode");
+          }
         }
       };
       beat = module.beat || defaults.beat;
       brush = module.brush;
+      lift = module.lift;
       filter = module.filter;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.
+        
+        // 🎯 IMMEDIATE BAKING: Fix race condition by triggering bake immediately after lift
+        const np = $.system?.nopaint;
+        if (np?.needsBake === true && bake) {
+          // 📊 Trigger bake flash effect and beep sound
+          nopaint_triggerBakeFlash();
+          
+          // 🔊 Microwave-style beep for bake completion
+          $commonApi.sound.synth({
+            tone: 800, // Higher pitched beep like a microwave
+            duration: 0.1,
+            attack: 0.01,
+            decay: 0.5,
+            volume: 0.3,
+          });
+          
+          // 🎨 ELEGANT BRUSH PATTERN: Call brush or lift function for final painting
+          if (brush || lift) {
+            const finalBrushApi = { ...$ };
+            // Add top-level 'color' word that maps to system.nopaint.color
+            finalBrushApi.color = $.system.nopaint.color;
+            
+            // Add top-level 'mark' word that maps to finalDragBox for brush
+            finalBrushApi.mark = $.system.nopaint.finalDragBox;
+            
+            // 🎯 Use preserved coordinates since brush is null at bake time
+            const preservedDragBox = $.system.nopaint.finalDragBox;
+            const preservedStartDrag = $.system.nopaint.finalStartDrag;
+            
+            if (preservedDragBox) {
+              // Create a pen object with the preserved coordinates
+              finalBrushApi.pen = {
+                dragBox: preservedDragBox,
+                x: preservedStartDrag?.x || preservedDragBox.x,
+                y: preservedStartDrag?.y || preservedDragBox.y
+              };
+            } else {
+              finalBrushApi.pen = $.system.nopaint.brush; // Fallback to original (likely null)
+            }
+            
+            finalBrushApi.lift = true; // 🎯 Single clean flag for final brush call
+            
+            $.page($.system.painting); // Set context to painting surface
+            
+            // Call lift function if it exists, otherwise fall back to brush
+            if (lift) {
+              lift(finalBrushApi); // Call lift for final painting
+            } else if (brush) {
+              brush(finalBrushApi); // Call brush for final painting (legacy)
+            }
+            
+            $.page($.screen); // Reset context
+          }
+          
+          $.page($.system.painting);
+          bake($);
+          
+          // 🧹 CLEAR BUFFER: Prevent flickering by clearing buffer BEFORE presentation
+          $.page($.system.nopaint.buffer).wipe(255, 255, 255, 0);
+          
+          $.page($.screen);
+          np.present($);
+          np.needsBake = false;
+          
+          // 🚀 Broadcast bake completion
+          $commonApi.broadcastPaintingUpdateImmediate("baked", {
+            source: "immediate_bake",
+            piece: loadedModule?.meta?.()?.title || "unknown"
+          });
+        }
+        
         if (module.act) {
           return module.act($);
         } else {
@@ -5590,7 +5980,17 @@ async function load(
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
       receive = module.receive || defaults.receive; // Handle messages from BIOS
-      system = module.system || null;
+      
+      // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush or lift function, automatically use nopaint system
+      system = module.system || (module.brush || module.lift ? "nopaint" : null);
+      
+      // 🎨 AUTO-GENERATE BAKE: If using brush/lift but no explicit bake function, create a default one
+      if ((module.brush || module.lift) && !module.bake) {
+        bake = ({ paste, system, page }) => {
+          paste(system.nopaint.buffer);
+          page(system.nopaint.buffer).wipe(255, 255, 255, 0);
+        };
+      }
 
       // delete $commonApi.system.name; // No system in use.
     }
@@ -5698,6 +6098,10 @@ async function load(
     if (module.nohud || system === "prompt") {
       currentHUDTxt = undefined;
       currentHUDPlainTxt = undefined;
+    }
+    // Clear original code ID for non-$code pieces (unless this was a $code load)
+    if (!slug?.startsWith("$")) {
+      currentOriginalCodeId = undefined;
     }
     currentHUDOffset = undefined; // Always reset these to the defaults.
     currentHUDTextColor = undefined;
@@ -5974,6 +6378,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // Capture the browser scroll wheel / scroll effect.
   if (type === "scroll") {
+    if (!cachedAPI) return; // Guard against undefined cachedAPI
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
@@ -6865,65 +7270,7 @@ async function makeFrame({ data: { type, content } }) {
           const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
           
           hudAnimationState.lastTabTime = currentTime;
-          
-          if (hudAnimationState.animating) {
-            // Animation in progress: reverse direction and continue from current position
-            const elapsed = currentTime - hudAnimationState.startTime;
-            const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
-            
-            // Flip the target state
-            hudAnimationState.visible = !hudAnimationState.visible;
-            
-            // Update the remembered state for when QR fullscreen is turned off
-            if (hudAnimationState.qrFullscreen) {
-              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
-            }
-            
-            // Restart animation from current position by adjusting the start time
-            // If we were 30% through a hide animation, start the show animation at 70% progress
-            const remainingProgress = 1.0 - progress;
-            hudAnimationState.startTime = currentTime - (remainingProgress * hudAnimationState.duration);
-            
-            // Special double-tap: immediately show HUD if hiding
-            if (isDoubleTap && !hudAnimationState.visible) {
-              hudAnimationState.animating = false;
-              hudAnimationState.visible = true;
-              hudAnimationState.opacity = 1.0;
-              hudAnimationState.slideOffset = { x: 0, y: 0 };
-              hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
-              
-              // Update remembered state
-              if (hudAnimationState.qrFullscreen) {
-                hudAnimationState.cornersVisibleBeforeFullscreen = true;
-              }
-            }
-            
-            $commonApi.sound.synth({
-              tone: hudAnimationState.visible ? 1200 : 800,
-              duration: 0.15,
-              attack: 0.01,
-              decay: 0.3,
-              volume: 0.2,
-            });
-          } else {
-            // No animation in progress: start new animation
-            hudAnimationState.animating = true;
-            hudAnimationState.startTime = currentTime;
-            hudAnimationState.visible = !hudAnimationState.visible;
-            
-            // Update the remembered state for when QR fullscreen is turned off
-            if (hudAnimationState.qrFullscreen) {
-              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
-            }
-            
-            $commonApi.sound.synth({
-              tone: hudAnimationState.visible ? 1200 : 800,
-              duration: 0.15,
-              attack: 0.01,
-              decay: 0.3,
-              volume: 0.2,
-            });
-          }
+          toggleHUDVisibility(isDoubleTap);
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
@@ -7566,6 +7913,9 @@ async function makeFrame({ data: { type, content } }) {
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
 
+      // Set the robo API context so it can send events
+      $api.robo.setAPI($api);
+
       $api.inFocus = inFocus;
 
       $api.screen = {
@@ -7863,7 +8213,12 @@ async function makeFrame({ data: { type, content } }) {
                     volume: 0.1,
                   });
                   // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                  $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                  // If this was originally loaded from $code, use that format for sharing instead of full source
+                  if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
+                    $api.jump("share~" + currentOriginalCodeId);
+                  } else {
+                    $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                  }
                   return;
                 }
 
@@ -8042,6 +8397,9 @@ async function makeFrame({ data: { type, content } }) {
 
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
+
+      // Set the robo API context so it can send events
+      $api.robo.setAPI($api);
 
       // Object.assign($api, $commonApi);
       // Object.assign($api, painting.api);
@@ -8231,7 +8589,7 @@ async function makeFrame({ data: { type, content } }) {
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
           
-          if (system === "nopaint") nopaint_boot($api);
+          if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           booted = true;
         } catch (e) {
@@ -8312,7 +8670,7 @@ async function makeFrame({ data: { type, content } }) {
       if (
         previewMode === false &&
         iconMode === false &&
-        (noPaint === false || scream || fairies.length > 0) &&
+        (noPaint === false || scream || fairies.length > 0 || (system === "nopaint" && nopaintPerf)) &&
         booted
       ) {
         let paintOut;
@@ -8322,7 +8680,7 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           // 📓 Bake any painting from the nopaint system before anything else.
-          if (system === "nopaint") {
+          if (system === "nopaint" && $api.system?.nopaint) {
             const np = $api.system.nopaint;
             // No Paint: baking
 
@@ -8331,8 +8689,10 @@ async function makeFrame({ data: { type, content } }) {
               $api.pen?.drawing /*&& currentHUDButton.down === false*/
             ) {
               const brushFilterApi = { ...$api };
+              // Add top-level 'color' word that maps to system.nopaint.color
+              brushFilterApi.color = np.color;
               if (currentHUDButton.down === false) {
-                brushFilterApi.pen = $api.system.nopaint.brush;
+                brushFilterApi.pen = np.brush;
                 if (brush) {
                   // $api.page($api.system.nopaint.buffer);
                   $api.page($api.system.painting);
@@ -8355,19 +8715,9 @@ async function makeFrame({ data: { type, content } }) {
               }
             }
 
-            if (np.needsBake === true && bake) {
-              $api.page($api.system.painting);
-              bake($api);
-              $api.page($api.screen);
-              np.present($api);
-              np.needsBake = false;
-              
-              // 🚀 Immediately broadcast bake completion for instant sync
-              $commonApi.broadcastPaintingUpdateImmediate("baked", {
-                source: "immediate_bake",
-                piece: loadedModule?.meta?.()?.title || "unknown"
-              });
-            } else if (np.is("painting") || np.needsPresent) {
+            // 🎯 BAKING MOVED TO ACT PHASE: Removed duplicate baking logic
+            // Baking now happens immediately in act() to fix race conditions
+            if (np.is("painting") || np.needsPresent) {
               np.present($api); // No Paint: prepaint
             }
           } // All: Paint
@@ -8500,7 +8850,7 @@ async function makeFrame({ data: { type, content } }) {
         // 🔴 Show a cross-piece "Recording" indicator.
         //    Currently only implemented for `painting:record`. 23.08.20.21.36
         if (
-          $api.system.nopaint.recording &&
+          $api.system?.nopaint?.recording &&
           !hideLabel &&
           pieceHistoryIndex > -1 &&
           !loading
