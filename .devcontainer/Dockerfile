@@ -2,7 +2,7 @@ FROM fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=2.4.5
+ENV NETLIFY_DENO_VERSION=1.45.0
 
 # Update all packages and install core tools in one layer
 RUN dnf update -y && \
