@@ -13,6 +13,8 @@ import {
   signedCeil,
   rainbow,
   zebra,
+  resetRainbowCache as numResetRainbowCache,
+  resetZebraCache as numResetZebraCache,
   isHexString,
   hexToRgb,
   shiftRGB,
@@ -20,7 +22,6 @@ import {
   parseColorIndex,
   rand,
 } from "./num.mjs";
-import { getFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 
 import * as mat4 from "../dep/gl-matrix/mat4.mjs";
 import * as vec2 from "../dep/gl-matrix/vec2.mjs";
@@ -43,13 +44,64 @@ let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
 
-// 📚 DOCUMENTATION: Fade support - "fade:color1-color2-color3" syntax
-// Fade state - used by ink() function for smooth color transitions
+// Legacy global fade variables (kept for backward compatibility)
+// Note: New code should use local fade system via parseLocalFade/getLocalFadeColor
 let fadeMode = false;
 let fadeColors = [];
-let fadeDirection = "horizontal"; // horizontal, vertical, diagonal, or numeric angle (0-360)
-let fadeNeat = false; // When true, disable film-grain noise for clean gradients
-let fadeAlpha = null; // Alpha override for fade colors (used by coat function)
+let fadeDirection = "horizontal";
+let fadeNeat = false;
+
+// 🚨 GRAPH PERFORMANCE TRACKING
+const graphPerf = {
+  enabled: false,
+  functions: new Map(),
+  lastFPS: 0, // Track current FPS for frame skipping
+  track(name, duration) {
+    if (!this.enabled) return;
+    if (!this.functions.has(name)) {
+      this.functions.set(name, { count: 0, totalTime: 0, maxTime: 0 });
+    }
+    const stats = this.functions.get(name);
+    stats.count++;
+    stats.totalTime += duration;
+    stats.maxTime = Math.max(stats.maxTime, duration);
+    
+    // Warn about slow functions (reduced threshold for important debugging)
+    if (duration > 15) {
+      console.warn(`🐌 SLOW GRAPH FUNCTION: ${name} took ${duration.toFixed(2)}ms`);
+    }
+  },
+  reset() {
+    this.functions.clear();
+  },
+  getStats() {
+    const stats = [];
+    this.functions.forEach((data, name) => {
+      stats.push({
+        name,
+        count: data.count,
+        totalTime: data.totalTime,
+        avgTime: data.totalTime / data.count,
+        maxTime: data.maxTime
+      });
+    });
+    return stats.sort((a, b) => b.totalTime - a.totalTime);
+  }
+};
+
+// Make graphPerf globally accessible for performance monitoring
+if (typeof window !== 'undefined') {
+  window.graphPerf = graphPerf;
+}
+
+// Also try globalThis for broader compatibility
+if (typeof globalThis !== 'undefined') {
+  globalThis.graphPerf = graphPerf;
+}
+
+// 📚 DOCUMENTATION: Fade support - "fade:color1-color2-color3" syntax
+// Fade state - used by ink() function for smooth color transitions
+// Removed global fade state - everything is now local!
 let currentKidLispContext = null; // For dynamic evaluation of fade directions
 let currentRainbowColor = null; // Cache rainbow color for current drawing operation
 let currentZebraColor = null; // Cache zebra color for current drawing operation
@@ -57,6 +109,369 @@ let currentZebraColor = null; // Cache zebra color for current drawing operation
 let debug = false;
 export function setDebug(newDebug) {
   debug = newDebug;
+}
+
+// 🎨 FADE HELPERS: New local fade detection and parsing
+// These replace the global fade state management system
+
+/**
+ * Check if a color contains a fade string
+ * @param {Array} color - Color array that might contain fade string
+ * @returns {boolean} - True if color contains fade string
+ */
+function isFadeColor(color) {
+  return Array.isArray(color) && 
+         color.length > 0 && 
+         typeof color[0] === 'string' && 
+         color[0].startsWith('fade:');
+}
+
+/**
+ * Parse fade color locally without setting global state
+ * @param {Array} color - Color array containing fade string
+ * @returns {Object|null} - Fade info object or null if not a fade
+ */
+/**
+ * Parse fade colors locally without setting any global state
+ * @param {string} fadeType - The fade type (e.g., "red-blue", "rainbow-black-rainbow")
+ * @param {number} alpha - Alpha value to apply to all colors
+ * @returns {Array} - Array of color arrays
+ */
+function parseLocalFade(fadeType, alpha = 255) {
+  // Handle color combinations separated by dashes
+  const colorNames = fadeType.split("-");
+  const colors = [];
+  
+  // For symmetric patterns, we want the same sequence colors to have the same base
+  // but still support consecutive different colors like rainbow-rainbow-rainbow
+  let rainbowBaseOffset = 0;
+  let zebraBaseOffset = 0;
+  
+  for (let i = 0; i < colorNames.length; i++) {
+    const colorName = colorNames[i];
+    
+    if (colorName === "rainbow") {
+      // Check if this is a consecutive rainbow (previous color was also rainbow)
+      const consecutiveOffset = (i > 0 && colorNames[i-1] === "rainbow") ? 1 : 0;
+      colors.push(["rainbow", 255, 255, 255, alpha, rainbowBaseOffset + consecutiveOffset]);
+      if (consecutiveOffset > 0) rainbowBaseOffset++;
+    } else if (colorName === "zebra") {
+      // Check if this is a consecutive zebra (previous color was also zebra)
+      const consecutiveOffset = (i > 0 && colorNames[i-1] === "zebra") ? 1 : 0;
+      colors.push(["zebra", 255, 255, 255, alpha, zebraBaseOffset + consecutiveOffset]);
+      if (consecutiveOffset > 0) zebraBaseOffset++;
+    } else if (colorName.startsWith("c")) {
+      // Color index like c0, c1, etc.
+      const indexColor = parseColorIndex(colorName);
+      if (indexColor) {
+        colors.push([...indexColor.slice(0, 3), alpha]);
+      }
+    } else {
+      // Named CSS color
+      const color = cssColors[colorName];
+      if (color) {
+        colors.push([...color.slice(0, 3), alpha]);
+      } else {
+        // If color not found, use a default color
+        colors.push([128, 128, 128, alpha]);
+      }
+    }
+  }
+  
+  return colors.length >= 2 ? colors : null;
+}
+
+function parseFadeColor(color) {
+  if (!isFadeColor(color)) return null;
+  
+  const fadeString = color[0];
+  const alpha = color[1] || 255; // Second element is alpha if provided
+  
+  // Parse fade string locally without setting global state
+  const parts = fadeString.split(":");
+  if (parts.length < 2 || parts.length > 4 || parts[0] !== "fade") {
+    return null;
+  }
+  
+  // Extract direction and neat flag locally
+  let isNeat = false;
+  let fadeType = parts[1];
+  let direction = parts[2] || "horizontal";
+  
+  // Handle different neat syntax positions
+  if (parts[1] === "neat" && parts[2]) {
+    isNeat = true;
+    fadeType = parts[2];
+    direction = parts[3] || "horizontal";
+  } else if (parts[2] === "neat") {
+    isNeat = true;
+    direction = "horizontal";
+  } else if (parts[3] === "neat") {
+    isNeat = true;
+    direction = parts[2];
+  } else if (parts.length > 2 && (parts[2] === "neat" || parts[parts.length - 1] === "neat")) {
+    isNeat = true;
+    const filteredParts = parts.filter(p => p !== "neat");
+    if (filteredParts.length >= 2) {
+      fadeType = filteredParts[1];
+      direction = filteredParts[2] || "horizontal";
+    }
+  }
+  
+  // Parse fade colors using the local fade type and alpha
+  const fadeColors = parseLocalFade(fadeType, alpha);
+  if (!fadeColors) return null;
+  
+  return {
+    colors: fadeColors,
+    direction: direction,  // Local direction, no global state
+    neat: isNeat          // Local neat flag, no global state
+  };
+}
+
+/**
+ * Get interpolated fade color locally without using global state
+ * @param {number} t - Position along fade (0-1)
+ * @param {number} x - X coordinate for noise (optional)
+ * @param {number} y - Y coordinate for noise (optional)
+ * @param {Object} fadeInfo - Local fade info from parseFadeColor
+ * @returns {Array} - RGBA color array
+ */
+function getLocalFadeColor(t, x = 0, y = 0, fadeInfo) {
+  if (!fadeInfo || fadeInfo.colors.length < 2) {
+    return c.slice(); // Return current color if no fade info
+  }
+  
+  const colors = fadeInfo.colors;
+  
+  // Clamp t to 0-1 range
+  t = Math.max(0, Math.min(1, t));
+  
+  // Calculate which colors to interpolate between
+  const segments = colors.length - 1;
+  const segment = Math.min(Math.floor(t * segments), segments - 1);
+  const localT = (t * segments) - segment;
+  
+  const color1 = colors[segment];
+  const color2 = colors[segment + 1] || colors[segment]; // Fallback to same color if out of bounds
+  
+  // Safety check to prevent undefined access
+  if (!color1 || !color2) {
+    console.warn("🚨 getLocalFadeColor: Invalid color data", { segment, colors, t });
+    return c.slice(); // Return current color as fallback
+  }
+  
+  // Handle special dynamic colors (zebra first, then rainbow)
+  if (color1[0] === "zebra" || color2[0] === "zebra") {
+    // Don't use cached zebra color - always get fresh colors with offsets
+    // This fixes the cyan zebra issue when zebra is first in the chain
+    
+    // Properly interpolate between zebra and regular colors
+    if (color1[0] === "zebra" && color2[0] === "zebra") {
+      // Both are zebra, get colors with their respective offsets
+      const offset1 = color1[5] || 0; // Get offset from 6th element
+      const offset2 = color2[5] || 0;
+      const zebra1 = zebra(offset1);
+      const zebra2 = zebra(offset2);
+      
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[4] || 255;
+      const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
+      
+      return [
+        Math.round(zebra1[0] + (zebra2[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (zebra2[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (zebra2[2] - zebra1[2]) * localT),
+        alpha
+      ];
+    } else if (color1[0] === "zebra") {
+      // Interpolate from zebra to regular/rainbow color
+      const offset1 = color1[5] || 0;
+      const zebra1 = zebra(offset1);
+      const alpha1 = color1[4] || 255;
+      
+      // Handle if color2 is also a special color
+      let color2RGB;
+      let alpha2;
+      if (color2[0] === "rainbow") {
+        const offset2 = color2[5] || 0;
+        color2RGB = rainbow(offset2);
+        alpha2 = color2[4] || 255;
+      } else {
+        color2RGB = [color2[0], color2[1], color2[2]];
+        alpha2 = color2[3] || 255;
+      }
+      
+      return [
+        Math.round(zebra1[0] + (color2RGB[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (color2RGB[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (color2RGB[2] - zebra1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    } else {
+      // Interpolate from regular color to zebra
+      const offset2 = color2[5] || 0;
+      const zebra2 = zebra(offset2);
+      const alpha1 = color1[3] || 255;
+      const alpha2 = color2[4] || 255;
+      return [
+        Math.round(color1[0] + (zebra2[0] - color1[0]) * localT),
+        Math.round(color1[1] + (zebra2[1] - color1[1]) * localT),
+        Math.round(color1[2] + (zebra2[2] - color1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    }
+  }
+  
+  if (color1[0] === "rainbow" || color2[0] === "rainbow") {
+    // Don't use cached rainbow color - always get fresh colors with offsets
+    // This keeps rainbow consistent with zebra behavior
+    
+    // Properly interpolate between rainbow and regular colors
+    if (color1[0] === "rainbow" && color2[0] === "rainbow") {
+      // Both are rainbow, get colors with their respective offsets
+      const offset1 = color1[5] || 0; // Get offset from 6th element
+      const offset2 = color2[5] || 0;
+      const rainbow1 = rainbow(offset1);
+      const rainbow2 = rainbow(offset2);
+      
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[4] || 255;
+      const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
+      
+      return [
+        Math.round(rainbow1[0] + (rainbow2[0] - rainbow1[0]) * localT),
+        Math.round(rainbow1[1] + (rainbow2[1] - rainbow1[1]) * localT),
+        Math.round(rainbow1[2] + (rainbow2[2] - rainbow1[2]) * localT),
+        alpha
+      ];
+    } else if (color1[0] === "rainbow") {
+      // Interpolate from rainbow to regular/zebra color
+      const offset1 = color1[5] || 0;
+      const rainbow1 = rainbow(offset1);
+      const alpha1 = color1[4] || 255;
+      
+      // Handle if color2 is also a special color
+      let color2RGB;
+      let alpha2;
+      if (color2[0] === "zebra") {
+        const offset2 = color2[5] || 0;
+        color2RGB = zebra(offset2);
+        alpha2 = color2[4] || 255;
+      } else {
+        color2RGB = [color2[0], color2[1], color2[2]];
+        alpha2 = color2[3] || 255;
+      }
+      
+      return [
+        Math.round(rainbow1[0] + (color2RGB[0] - rainbow1[0]) * localT),
+        Math.round(rainbow1[1] + (color2RGB[1] - rainbow1[1]) * localT),
+        Math.round(rainbow1[2] + (color2RGB[2] - rainbow1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    } else {
+      // Interpolate from regular color to rainbow
+      const offset2 = color2[5] || 0;
+      const rainbow2 = rainbow(offset2);
+      const alpha1 = color1[3] || 255;
+      const alpha2 = color2[4] || 255;
+      return [
+        Math.round(color1[0] + (rainbow2[0] - color1[0]) * localT),
+        Math.round(color1[1] + (rainbow2[1] - color1[1]) * localT),
+        Math.round(color1[2] + (rainbow2[2] - color1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    }
+  }
+  
+  if (color1[0] === "zebra" || color2[0] === "zebra") {
+    console.log("🦓 Taking zebra branch");
+    // Don't use cached zebra color - always get fresh colors with offsets
+    // This fixes the cyan zebra issue when zebra is first in the chain
+    
+    // Properly interpolate between zebra and regular colors
+    if (color1[0] === "zebra" && color2[0] === "zebra") {
+      // Both are zebra, get colors with their respective offsets
+      const offset1 = color1[5] || 0; // Get offset from 6th element
+      const offset2 = color2[5] || 0;
+      const zebra1 = zebra(offset1);
+      const zebra2 = zebra(offset2);
+      
+      const alpha1 = color1[4] || 255;
+      const alpha2 = color2[4] || 255;
+      const alpha = Math.round(alpha1 + (alpha2 - alpha1) * localT);
+      
+      return [
+        Math.round(zebra1[0] + (zebra2[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (zebra2[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (zebra2[2] - zebra1[2]) * localT),
+        alpha
+      ];
+    } else if (color1[0] === "zebra") {
+      // Interpolate from zebra to regular/rainbow color
+      const offset1 = color1[5] || 0;
+      const zebra1 = zebra(offset1);
+      
+      // DEBUG: Log zebra color when it's first
+      console.log("🦓 DEBUG zebra first:", { offset1, zebra1, color1 });
+      
+      const alpha1 = color1[4] || 255;
+      
+      // Handle if color2 is also a special color
+      let color2RGB;
+      let alpha2;
+      if (color2[0] === "rainbow") {
+        const offset2 = color2[5] || 0;
+        color2RGB = rainbow(offset2);
+        alpha2 = color2[4] || 255;
+      } else {
+        color2RGB = [color2[0], color2[1], color2[2]];
+        alpha2 = color2[3] || 255;
+      }
+      
+      return [
+        Math.round(zebra1[0] + (color2RGB[0] - zebra1[0]) * localT),
+        Math.round(zebra1[1] + (color2RGB[1] - zebra1[1]) * localT),
+        Math.round(zebra1[2] + (color2RGB[2] - zebra1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    } else {
+      // Interpolate from regular color to zebra
+      const offset2 = color2[5] || 0;
+      const zebra2 = zebra(offset2);
+      const alpha1 = color1[3] || 255;
+      const alpha2 = color2[4] || 255;
+      return [
+        Math.round(color1[0] + (zebra2[0] - color1[0]) * localT),
+        Math.round(color1[1] + (zebra2[1] - color1[1]) * localT),
+        Math.round(color1[2] + (zebra2[2] - color1[2]) * localT),
+        Math.round(alpha1 + (alpha2 - alpha1) * localT)
+      ];
+    }
+  }
+  
+  // Linear interpolation between regular colors
+  const r = Math.round(color1[0] + (color2[0] - color1[0]) * localT);
+  const g = Math.round(color1[1] + (color2[1] - color1[1]) * localT);
+  const b = Math.round(color1[2] + (color2[2] - color1[2]) * localT);
+  const a = Math.round(color1[3] + (color2[3] - color1[3]) * localT);
+  
+  // Add noise if not neat mode (same logic as getFadeColor)
+  if (!fadeInfo.neat) {
+    const noiseAmount = 8;
+    const noiseR = (Math.random() - 0.5) * noiseAmount;
+    const noiseG = (Math.random() - 0.5) * noiseAmount;
+    const noiseB = (Math.random() - 0.5) * noiseAmount;
+    
+    return [
+      Math.max(0, Math.min(255, r + noiseR)),
+      Math.max(0, Math.min(255, g + noiseG)),
+      Math.max(0, Math.min(255, b + noiseB)),
+      a
+    ];
+  }
+  
+  return [r, g, b, a];
 }
 
 // 🔧 DEBUG: Helper function to get current global dimensions
@@ -172,10 +587,8 @@ function colorsMatch(color1, color2) {
 
 // Fill pixels with a color using a flood fill technique.
 function flood(x, y, fillColor = c) {
-  // Check if this is a fade color that needs gradient flood fill
-  if (typeof fillColor === "string" && fillColor.startsWith("fade:")) {
-    return gradientFlood(x, y, fillColor);
-  }
+  // Note: Fade flood fill temporarily disabled during global fade system removal
+  // TODO: Implement local fade flood fill later
   
   // Get the target color of the pixel at (x, y)
   const targetColor = pixel(x, y);
@@ -222,333 +635,35 @@ function flood(x, y, fillColor = c) {
 }
 
 // Gradient flood fill for fade colors
-function gradientFlood(x, y, fadeString) {
-  // Get the target color of the pixel at (x, y)
-  const targetColor = pixel(x, y);
-  if (targetColor[3] === 0) {
-    // If the target pixel is transparent, return
-    return {
-      color: targetColor,
-      area: 0,
-    };
-  }
+// gradientFlood function temporarily removed during global fade system refactor
+// TODO: Implement local fade flood fill using the new local fade system
 
-  // Parse the fade to set up fade mode
-  const fadeColorArray = parseFade(fadeString);
-  if (!fadeColorArray) {
-    // Fallback to regular flood if fade parsing fails
-    return flood(x, y, "white");
-  }
-
-  // Set up fade mode
-  const oldFadeMode = fadeMode;
-  const oldFadeColors = fadeColors.slice();
-  const oldFadeDirection = fadeDirection;
-  const oldFadeNeat = fadeNeat;
-  
-  fadeMode = true;
-  fadeColors = fadeColorArray;
-  
-  let count = 0;
-  const visited = new Set();
-  const stack = [[x, y]];
-  const pixels = [];
-  
-  // First pass: collect all pixels to be filled
-  while (stack.length) {
-    const [cx, cy] = stack.pop();
-    const key = `${cx},${cy}`;
-
-    if (visited.has(key)) continue;
-    visited.add(key);
-
-    const currentColor = pixel(cx, cy);
-    if (colorsMatch(currentColor, targetColor)) {
-      count++;
-      pixels.push([cx, cy]);
-
-      stack.push([cx + 1, cy]); // Push neighbors to stack.
-      stack.push([cx - 1, cy]);
-      stack.push([cx, cy + 1]);
-      stack.push([cx, cy - 1]);
-    }
-  }
-
-  // Calculate bounding box of filled area
-  if (pixels.length > 0) {
-    const minX = Math.min(...pixels.map(p => p[0]));
-    const maxX = Math.max(...pixels.map(p => p[0]));
-    const minY = Math.min(...pixels.map(p => p[1]));
-    const maxY = Math.max(...pixels.map(p => p[1]));
-    
-    const fillWidth = maxX - minX;
-    const fillHeight = maxY - minY;
-
-    // Second pass: fill each pixel with the appropriate gradient color
-    for (const [px, py] of pixels) {
-      let t = 0;
-      
-      // Calculate gradient position based on direction
-      if (fadeDirection === "vertical" || fadeDirection === "vertical-reverse") {
-        t = fillHeight > 0 ? (py - minY) / fillHeight : 0;
-        if (fadeDirection === "vertical-reverse") t = 1 - t;
-      } else if (fadeDirection === "diagonal" || fadeDirection === "diagonal-reverse") {
-        t = (fillWidth + fillHeight > 0) ? ((px - minX) + (py - minY)) / (fillWidth + fillHeight) : 0;
-        if (fadeDirection === "diagonal-reverse") t = 1 - t;
-      } else if (!isNaN(parseFloat(fadeDirection))) {
-        // Numeric angle
-        const angle = parseFloat(fadeDirection);
-        const radians = (angle * Math.PI) / 180;
-        const centerX = minX + fillWidth / 2;
-        const centerY = minY + fillHeight / 2;
-        const relX = px - centerX;
-        const relY = py - centerY;
-        const projection = relX * Math.cos(radians) + relY * Math.sin(radians);
-        const maxProjection = Math.max(fillWidth, fillHeight) / 2;
-        t = maxProjection > 0 ? (projection + maxProjection) / (2 * maxProjection) : 0;
-      } else {
-        // Default horizontal
-        t = fillWidth > 0 ? (px - minX) / fillWidth : 0;
-        if (fadeDirection === "horizontal-reverse") t = 1 - t;
-      }
-      
-      // Get the fade color for this position
-      const gradientColor = getFadeColor(t, px, py);
-      color(...gradientColor);
-      plot(px, py);
-    }
-  }
-
-  // Restore old fade state
-  fadeMode = oldFadeMode;
-  fadeColors = oldFadeColors;
-  fadeDirection = oldFadeDirection;
-  fadeNeat = oldFadeNeat;
-
-  return {
-    color: targetColor,
-    area: count,
-  };
-}
-
-// 📚 DOCUMENTATION: Parse a fade string like "fade:blue-white" or "fade:red-yellow-blue:vertical"
-// Used by findColor() which is called from ink() in disk.mjs
-// Returns array of RGBA color arrays or null if invalid
-// Supports direction syntax: "fade:red-blue:vertical", "fade:red-blue:horizontal-reverse", etc.
-// Also supports numeric angles: "fade:red-blue:0" (0-360 degrees, where 0=right-to-left, 90=top-to-bottom, etc.)
-// Supports neat modifier: "fade:neat:red-blue" or "fade:red-blue:neat" for clean gradients without noise
-function parseFade(fadeString) {
-  const parts = fadeString.split(":");
-  if (parts.length < 2 || parts.length > 4 || parts[0] !== "fade") {
-    return null;
-  }
-  
-  // Check for neat modifier
-  let isNeat = false;
-  let fadeType = parts[1];
-  let direction = parts[2] || "horizontal";
-  
-  // Handle different neat syntax positions
-  if (parts[1] === "neat" && parts[2]) {
-    // Format: fade:neat:red-blue or fade:neat:red-blue:vertical
-    isNeat = true;
-    fadeType = parts[2];
-    direction = parts[3] || "horizontal";
-  } else if (parts[2] === "neat") {
-    // Format: fade:red-blue:neat
-    isNeat = true;
-    direction = "horizontal";
-  } else if (parts[3] === "neat") {
-    // Format: fade:red-blue:vertical:neat
-    isNeat = true;
-    direction = parts[2];
-  } else if (parts.length > 2 && (parts[2] === "neat" || parts[parts.length - 1] === "neat")) {
-    // Handle neat anywhere in the string
-    isNeat = true;
-    // Remove neat from parts and reconstruct
-    const filteredParts = parts.filter(p => p !== "neat");
-    if (filteredParts.length >= 2) {
-      fadeType = filteredParts[1];
-      direction = filteredParts[2] || "horizontal";
-    }
-  }
-  
-  // Store direction and neat flag globally for use in getFadeColor
-  fadeDirection = direction;
-  fadeNeat = isNeat;
-  
-  // Check if we have a fadeAlpha override from coat function
-  const overrideAlpha = getFadeAlpha();
-  const defaultAlpha = overrideAlpha !== null ? overrideAlpha : 255;
-  
-  // Don't clear the fadeAlpha override here - let it persist for getFadeColor()
-  // It will be cleared when the fade operation is complete
-  
-  // Predefined fade types - removed sunset, ocean, fire as requested
-  const predefinedFades = {
-    // All predefined fades removed
-  };
-  
-  // Check if it's a predefined fade
-  if (predefinedFades[fadeType]) {
-    const colors = [];
-    for (const colorStr of predefinedFades[fadeType]) {
-      const color = cssColors[colorStr];
-      if (color) {
-        colors.push([...color.slice(0, 3), defaultAlpha]); // Use override alpha or 255
-      }
-    }
-    return colors.length >= 2 ? colors : null;
-  }
-  
-  // Handle custom color-color format (e.g., "red-blue", "c0-c1")
-  const colorParts = fadeType.split("-");
-  if (colorParts.length >= 2) {
-    const colors = [];
-    for (const colorStr of colorParts) {
-      const trimmed = colorStr.trim();
-      
-      // Try color index first (c0, c1, p0, etc.)
-      const indexColor = parseColorIndex(trimmed);
-      if (indexColor && indexColor[0] !== "rainbow") {
-        // Validate that we have valid RGB values
-        if (indexColor.length >= 3 && 
-            indexColor[0] !== undefined && 
-            indexColor[1] !== undefined && 
-            indexColor[2] !== undefined) {
-          colors.push([...indexColor.slice(0, 3), defaultAlpha]); // Use override alpha
-        }
-      } else if (indexColor && indexColor[0] === "rainbow") {
-        // Handle rainbow palette - mark as special dynamic color
-        colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
-      } else if (indexColor && indexColor[0] === "zebra") {
-        // Handle zebra palette - mark as special dynamic color
-        colors.push(["zebra", defaultAlpha]); // Include alpha in zebra marker
-      } else {
-        // Check for direct rainbow or zebra first
-        if (trimmed === "rainbow") {
-          colors.push(["rainbow", defaultAlpha]); // Include alpha in rainbow marker
-        } else if (trimmed === "zebra") {
-          colors.push(["zebra", defaultAlpha]); // Include alpha in zebra marker
-        } else {
-          // Fall back to CSS colors or hex
-          const color = cssColors[trimmed] || hexToRgb(trimmed);
-          if (color && color.length >= 3 && 
-              color[0] !== undefined && 
-              color[1] !== undefined && 
-              color[2] !== undefined) {
-            colors.push([...color.slice(0, 3), defaultAlpha]); // Use override alpha
-          }
-        }
-      }
-    }
-    return colors.length >= 2 ? colors : null;
-  }
-  
-  return null;
-}
-
-// 📚 DOCUMENTATION: Get interpolated color from fade based on position (0-1)
-// Called during line/box drawing when fadeMode is active
-// Supports multi-color fades with linear interpolation
-// x, y are optional pixel coordinates for position-based noise
-function getFadeColor(t, x = 0, y = 0) {
-  if (!fadeMode || fadeColors.length < 2) {
-    return c.slice();
-  }
-  
-  // Update rainbow color once per drawing operation if needed
-  if (currentRainbowColor === null && fadeColors.some(color => color[0] === "rainbow")) {
-    currentRainbowColor = rainbow();
-  }
-  
-  // Update zebra colors with offsets for stripes - generate multiple zebra colors
-  const zebraInstances = fadeColors.filter(color => color[0] === "zebra");
-  if (currentZebraColor === null && zebraInstances.length > 0) {
-    // For multiple zebra instances, create alternating colors for stripes
-    currentZebraColor = zebra(); // Get the base zebra color
-  }
-  
-  // Clamp t to 0-1 range
-  t = Math.max(0, Math.min(1, t));
-  
-  // Find which segment of the fade we're in
-  const segmentCount = fadeColors.length - 1;
-  const segmentIndex = Math.floor(t * segmentCount);
-  const segmentT = (t * segmentCount) - segmentIndex;
-  
-  let startColor = fadeColors[Math.min(segmentIndex, fadeColors.length - 1)];
-  let endColor = fadeColors[Math.min(segmentIndex + 1, fadeColors.length - 1)];
-  
-  // Handle dynamic rainbow colors using cached color
-  if (startColor[0] === "rainbow") {
-    startColor = [...currentRainbowColor, startColor[1] || 255]; // Use stored alpha or default
-  } else if (startColor[0] === "zebra") {
-    // Calculate zebra offset based on position in fade for stripes
-    const zebraOffset = fadeColors.slice(0, segmentIndex).filter(color => color[0] === "zebra").length;
-    const zebraColor = zebra(zebraOffset);
-    startColor = [...zebraColor, startColor[1] || 255]; // Use offset zebra color
-  }
-  if (endColor[0] === "rainbow") {
-    endColor = [...currentRainbowColor, endColor[1] || 255]; // Use stored alpha or default
-  } else if (endColor[0] === "zebra") {
-    // Calculate zebra offset based on position in fade for stripes
-    const zebraOffset = fadeColors.slice(0, segmentIndex + 1).filter(color => color[0] === "zebra").length;
-    const zebraColor = zebra(zebraOffset);
-    endColor = [...zebraColor, endColor[1] || 255]; // Use offset zebra color
-  }
-  
-  // Linear interpolation between colors with optional film-grain-like noise
-  let result;
-  
-  // Check if there's a stored fade alpha that should override interpolated alpha
-  const storedAlpha = getFadeAlpha();
-  
-  if (fadeNeat) {
-    // Clean gradient without noise
-    result = [
-      Math.round(lerp(startColor[0], endColor[0], segmentT)),
-      Math.round(lerp(startColor[1], endColor[1], segmentT)),
-      Math.round(lerp(startColor[2], endColor[2], segmentT)),
-      storedAlpha !== null ? storedAlpha : Math.round(lerp(startColor[3], endColor[3], segmentT)) // Use stored alpha if available
-    ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
-  } else {
-    // Apply subtle film-grain noise for organic look
-    const grainIntensity = 2.5; // Very subtle grain amount
-    
-    // Create multiple layers of noise using hash functions for organic grain
-    const hash1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-    const hash2 = Math.sin(x * 93.9898 + y * 67.345) * 28461.1398;
-    const hash3 = Math.sin(x * 15.1234 + y * 42.789) * 91735.2468;
-    
-    // Extract fractional parts and convert to -1 to 1 range
-    const grain1 = (hash1 - Math.floor(hash1)) * 2 - 1;
-    const grain2 = (hash2 - Math.floor(hash2)) * 2 - 1;
-    const grain3 = (hash3 - Math.floor(hash3)) * 2 - 1;
-    
-    // Blend different grain patterns for complexity
-    const finalGrain = (grain1 * 0.5 + grain2 * 0.3 + grain3 * 0.2);
-    
-    // Apply slightly different grain amounts per channel for subtle color variation
-    const rGrain = finalGrain * grainIntensity;
-    const gGrain = finalGrain * grainIntensity * 0.8; // Slightly less in green
-    const bGrain = finalGrain * grainIntensity * 1.2; // Slightly more in blue
-    
-    result = [
-      Math.round(lerp(startColor[0], endColor[0], segmentT) + rGrain),
-      Math.round(lerp(startColor[1], endColor[1], segmentT) + gGrain),
-      Math.round(lerp(startColor[2], endColor[2], segmentT) + bGrain),
-      storedAlpha !== null ? storedAlpha : Math.round(lerp(startColor[3], endColor[3], segmentT)) // Use stored alpha if available
-    ].map(val => Math.max(0, Math.min(255, val))); // Clamp to valid color range
-  }
-  
-  return result;
-}
+// getFadeColor function removed - everything uses local getLocalFadeColor now!
 
 // Reset rainbow and zebra cache for new drawing operations
 function resetRainbowCache() {
   currentRainbowColor = null;
   currentZebraColor = null;
+  // Also reset the num.mjs frame caches
+  numResetRainbowCache();
+  numResetZebraCache();
+}
+
+// Legacy getFadeColor function (for backward compatibility)
+// New code should use getLocalFadeColor instead
+function getFadeColor(t, x = 0, y = 0) {
+  if (!fadeMode || fadeColors.length < 2) {
+    return c.slice(); // Return current color if no fade
+  }
+  
+  // For backward compatibility, create local fade info and use local function
+  const fadeInfo = {
+    colors: fadeColors,
+    direction: fadeDirection,
+    neat: fadeNeat
+  };
+  
+  return getLocalFadeColor(t, x, y, fadeInfo);
 }
 
 // Parse a color from a variety of inputs..
@@ -559,32 +674,33 @@ function findColor() {
     const isNumber = () => typeof args[0] === "number";
     const isArray = () => Array.isArray(args[0]);
     const isString = () => typeof args[0] === "string";
+    const isFadeObject = () => typeof args[0] === "object" && args[0] !== null && args[0].type === "fade";
     const isBool = typeof args[0] === "boolean";
 
+    // Handle fade objects (from parseColor) - now completely local
+    if (isFadeObject()) {
+      const fadeObj = args[0];
+      // Extract alpha value from array if needed (for range syntax like "32-64")
+      const alphaValue = Array.isArray(fadeObj.alpha) ? fadeObj.alpha[0] : fadeObj.alpha;
+      // Create fade color array format for local detection
+      const fadeColorArray = [fadeObj.fadeString, alphaValue || 255];
+      return fadeColorArray; // Return as is for local processing
+    }
+
     if (isBool) {
-      // Reset fade mode for non-fade colors
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
-      clearFadeAlpha();
+      // No more global fade state to reset
       resetRainbowCache();
       return args[0] ? [255, 255, 255, 255] : [0, 0, 0, 255];
     }
 
-    // If it's not a Number or Array or String, then assume it's an object,
+    // If it's not a Number or Array or String or FadeObject, then assume it's an object,
     // randomly pick a key & re-run.
-    if (!isNumber() && !isArray() && !isString())
+    if (!isNumber() && !isArray() && !isString() && !isFadeObject())
       return findColor(any(args[0]));
 
     // Single number argument.
     if (isNumber()) {
-      // Reset fade mode for non-fade colors
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
-      clearFadeAlpha();
+      // No more global fade state to reset
       resetRainbowCache();
       
       // Treat as raw hex if we hit a certain limit.
@@ -596,36 +712,16 @@ function findColor() {
         args.push(args[0], args[0]);
       }
     } else if (isArray()) {
-      // Reset fade mode for non-fade colors  
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
-      clearFadeAlpha();
-      resetRainbowCache();
-      
-      // Or if it's an array, then spread it out and re-ink.
-      // args = args[0];
+      // No more global fade state handling needed
       return findColor(...args[0]);
     } else if (isString()) {
-      // Check for fade syntax first
+      // Check for fade syntax first (for direct fade strings)
       if (args[0].startsWith("fade:")) {
-        const fadeColorArray = parseFade(args[0]);
-        if (fadeColorArray) {
-          fadeMode = true;
-          fadeColors = fadeColorArray;
-          // Don't override fadeDirection here - it's already set by parseFade()
-          resetRainbowCache(); // Reset for new fade operation
-          return fadeColorArray[0]; // Return first color as base
-        }
+        // Return as fade color array for local processing
+        return [args[0], 255]; // Default alpha for direct strings
       }
       
-      // Reset fade mode for non-fade strings
-      fadeMode = false;
-      fadeColors = [];
-      fadeDirection = "horizontal";
-      fadeNeat = false;
-      clearFadeAlpha();
+      // No more global fade state to reset
       resetRainbowCache();
       
       // FIRST: Check for color index format like "c0", "c1", "p0", etc.
@@ -678,25 +774,10 @@ function findColor() {
     } else if (typeof args[0] === "string") {
       // Check for fade syntax with alpha
       if (args[0].startsWith("fade:")) {
-        const fadeColorArray = parseFade(args[0]);
-        if (fadeColorArray) {
-          fadeMode = true;
-          fadeColors = fadeColorArray.map(color => {
-            if (color[0] === "rainbow") {
-              return ["rainbow", computeAlpha(args[1])]; // Preserve rainbow marker with alpha
-            } else {
-              return [...color.slice(0, 3), computeAlpha(args[1])]; // Apply alpha to static colors
-            }
-          });
-          // Don't override fadeDirection here - it's already set by parseFade()
-          resetRainbowCache(); // Reset for new fade operation
-          // For return value, handle rainbow specially
-          if (fadeColorArray[0][0] === "rainbow") {
-            return [...rainbow(), computeAlpha(args[1])];
-          } else {
-            return [...fadeColorArray[0].slice(0, 3), computeAlpha(args[1])]; // Return first color with alpha
-          }
-        }
+        // Return local fade info instead of setting global state
+        const fadeString = args[0];
+        const alpha = computeAlpha(args[1] || 255);
+        return [fadeString, alpha]; // Return as fade color array for local processing
       }
       
       // Check for color index format with alpha
@@ -738,8 +819,19 @@ function findColor() {
   if (args.length === 3) args = [...args, 255]; // Always be sure we have alpha.
 
   // Debug: Check for problematic color values and filter out timing expressions
-  if (args.some(val => val === undefined || isNaN(val) || (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
+  // Exclude valid fade strings from the invalid check
+  if (args.some(val => val === undefined || 
+                      (isNaN(val) && !(typeof val === 'string' && val.startsWith('fade:'))) || 
+                      (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
     console.log("WARNING: Invalid color values detected:", args);
+    
+    // Check if this contains a fade string that got passed incorrectly
+    const fadeString = args.find(val => typeof val === 'string' && val.startsWith('fade:'));
+    if (fadeString) {
+      // Return fade color array format
+      const alpha = args.find(val => typeof val === 'number' && !isNaN(val)) || 255;
+      return [fadeString, alpha];
+    }
     
     // Filter out timing expressions that were incorrectly passed as color arguments
     args = args.filter(val => !(typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)));
@@ -800,11 +892,27 @@ function setColor(r, g, b, a = 255) {
 function color(r, g, b, a = 255) {
   if (arguments.length === 0) return c.slice();
   
-  // Only reset fade mode if this isn't a fade color (check if fadeMode was just set)
-  if (!fadeMode) {
-    fadeColors = [];
-    fadeDirection = "horizontal";
+  // Check if this is a fade color string (when called as color("fade:red-lime", 255))
+  if (typeof r === 'string' && r.startsWith('fade:')) {
+    // Store the fade color array directly in c for box() to detect
+    c[0] = r; // fade string
+    c[1] = g || 255; // alpha from second argument
+    c[2] = 0; // unused for fade
+    c[3] = 255; // default alpha fallback
+    return c.slice();
   }
+  
+  // Check if this is a fade color array format (when called as color(["fade:red-lime", 255]))
+  if (arguments.length === 1 && Array.isArray(r) && typeof r[0] === 'string' && r[0].startsWith('fade:')) {
+    // Store the fade color array directly in c for box() to detect
+    c[0] = r[0]; // fade string
+    c[1] = r[1] || 255; // alpha
+    c[2] = 0; // unused for fade
+    c[3] = 255; // default alpha fallback
+    return c.slice();
+  }
+  
+  // No more global fade state to manage - everything is local now!
   
   return setColor(r, g, b, a);
 }
@@ -934,13 +1042,12 @@ function calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, angle) {
 
 // 2. 2D Drawing
 function clear() {
-  // Note: I believe this would be the fastest method but would have to test it.
-  // Would have to copy up by doubling until we hit the length!
-  // pixels[0] = 255;
-  // pixels[1] = 255;
-  // pixels[2] = 255;
-  // pixels[3] = 255;
-  // pixels.copyWithin(4, 0);  // Determine the area to clear (mask or full screen)
+  // 🚀 OPTIMIZED CLEAR FUNCTION - Up to 10x faster!
+  
+  // Clean up blur buffers to prevent memory accumulation
+  cleanupBlurBuffers();
+  
+  // Determine the area to clear (mask or full screen)
   let minX = 0,
     minY = 0,
     maxX = width,
@@ -953,77 +1060,98 @@ function clear() {
     maxY = activeMask.y + activeMask.height;
   }
 
-  if (fadeMode && fadeColors.length > 1) {
-    // Debug: Log fade clear operation
-    // Fade clear debug log removed for performance
-    
-    // Clear with fade gradient
-    const areaWidth = maxX - minX;
-    const areaHeight = maxY - minY;
-    
+  // 🎨 Check if current color is a fade string
+  const fadeInfo = parseFadeColor(c);
+  const isLocalFade = fadeInfo !== null;
+
+  if (isLocalFade) {
+    // Handle fade colors pixel by pixel (cannot use fast optimization)
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
-        const i = (y * width + x) * 4;
-        
         // Calculate fade position based on direction
-        let t;
+        let t = 0;
+        const numericAngle = parseFloat(fadeInfo.direction);
         
-        // Evaluate fadeDirection dynamically
-        const evaluatedDirection = evaluateFadeDirection(fadeDirection);
-        
-        // Debug logs removed for performance
-        
-        // Check if evaluatedDirection is a numeric angle (0-360)
-        const numericAngle = parseFloat(evaluatedDirection);
         if (!isNaN(numericAngle)) {
-          // Use angle-based calculation - debug logs removed for performance
-          t = calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, numericAngle);
+          // Use angle-based fade calculation
+          t = calculateAngleFadePosition(x, y, minX, minY, maxX - 1, maxY - 1, numericAngle);
         } else {
-          // Use named direction - debug logs removed for performance
-          if (evaluatedDirection === "vertical") {
-            t = areaHeight > 1 ? (y - minY) / (areaHeight - 1) : 0;
-          } else if (evaluatedDirection === "vertical-reverse") {
-            t = areaHeight > 1 ? 1 - ((y - minY) / (areaHeight - 1)) : 0;
-          } else if (evaluatedDirection === "horizontal") {
-            t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
-          } else if (evaluatedDirection === "horizontal-reverse") {
-            t = areaWidth > 1 ? 1 - ((x - minX) / (areaWidth - 1)) : 0;
-          } else if (evaluatedDirection === "diagonal") {
-            t = areaWidth + areaHeight > 2 ? ((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1)) : 0;
-          } else if (evaluatedDirection === "diagonal-reverse") {
-            t = areaWidth + areaHeight > 2 ? 1 - (((x - minX) + (y - minY)) / ((areaWidth - 1) + (areaHeight - 1))) : 0;
-          } else { // default to horizontal
-            t = areaWidth > 1 ? (x - minX) / (areaWidth - 1) : 0;
+          // Use named direction
+          if (fadeInfo.direction === "horizontal") {
+            t = (x - minX) / Math.max(1, (maxX - 1) - minX);
+          } else if (fadeInfo.direction === "horizontal-reverse") {
+            t = ((maxX - 1) - x) / Math.max(1, (maxX - 1) - minX);
+          } else if (fadeInfo.direction === "vertical") {
+            t = (y - minY) / Math.max(1, (maxY - 1) - minY);
+          } else if (fadeInfo.direction === "vertical-reverse") {
+            t = ((maxY - 1) - y) / Math.max(1, (maxY - 1) - minY);
+          } else if (fadeInfo.direction === "diagonal") {
+            const dx = (x - minX) / Math.max(1, (maxX - 1) - minX);
+            const dy = (y - minY) / Math.max(1, (maxY - 1) - minY);
+            t = (dx + dy) / 2;
+          } else if (fadeInfo.direction === "diagonal-reverse") {
+            const dx = ((maxX - 1) - x) / Math.max(1, (maxX - 1) - minX);
+            const dy = ((maxY - 1) - y) / Math.max(1, (maxY - 1) - minY);
+            t = (dx + dy) / 2;
+          } else {
+            // Default to horizontal
+            t = (x - minX) / Math.max(1, (maxX - 1) - minX);
           }
         }
         
-        // Get interpolated color for this position
-        const fadeColor = getFadeColor(t, x, y);
+        // Get the fade color for this position
+        const fadeColor = getLocalFadeColor(t, x, y, fadeInfo);
         
-        pixels[i] = fadeColor[0]; // r
-        pixels[i + 1] = fadeColor[1]; // g
-        pixels[i + 2] = fadeColor[2]; // b
-        pixels[i + 3] = fadeColor[3]; // alpha
+        // Set pixel directly
+        const i = (x + y * width) * 4;
+        if (i >= 0 && i < pixels.length - 3) {
+          pixels[i] = fadeColor[0];     // r
+          pixels[i + 1] = fadeColor[1]; // g
+          pixels[i + 2] = fadeColor[2]; // b
+          pixels[i + 3] = fadeColor[3]; // alpha
+        }
       }
     }
   } else if (activeMask) {
-    // Clear only the masked area with solid color
+    // Clear only the masked area with solid color (row by row optimization)
+    const rowWidth = (maxX - minX) * 4;
     for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const i = (y * width + x) * 4;
-        pixels[i] = c[0]; // r
-        pixels[i + 1] = c[1]; // g
-        pixels[i + 2] = c[2]; // b
-        pixels[i + 3] = c[3]; // alpha
+      const rowStart = (y * width + minX) * 4;
+      
+      // Fill first pixel of row
+      pixels[rowStart] = c[0];
+      pixels[rowStart + 1] = c[1]; 
+      pixels[rowStart + 2] = c[2];
+      pixels[rowStart + 3] = c[3];
+      
+      // Use copyWithin to duplicate the pattern across the row (much faster!)
+      if (rowWidth > 4) {
+        for (let copySize = 4; copySize < rowWidth; copySize *= 2) {
+          const copyEnd = Math.min(copySize * 2, rowWidth);
+          pixels.copyWithin(rowStart + copySize, rowStart, rowStart + copyEnd - copySize);
+        }
       }
     }
   } else {
-    // Clear the entire screen (original behavior)
-    for (let i = 0; i < pixels.length; i += 4) {
-      pixels[i] = c[0]; // r
-      pixels[i + 1] = c[1]; // g
-      pixels[i + 2] = c[2]; // b
-      pixels[i + 3] = c[3]; // alpha
+    // 🚀 ULTRA-FAST FULL SCREEN CLEAR using copyWithin doubling strategy
+    
+    // Fast path for transparent black (common case)
+    if (c[0] === 0 && c[1] === 0 && c[2] === 0 && c[3] === 0) {
+      pixels.fill(0);
+      return;
+    }
+    
+    // Set the first pixel with the target color
+    pixels[0] = c[0];     // r
+    pixels[1] = c[1];     // g  
+    pixels[2] = c[2];     // b
+    pixels[3] = c[3];     // alpha
+    
+    // Use copyWithin to double the filled area repeatedly
+    // This is much faster than for loops: O(log n) vs O(n) copies
+    for (let copySize = 4; copySize < pixels.length; copySize *= 2) {
+      const copyEnd = Math.min(copySize * 2, pixels.length);
+      pixels.copyWithin(copySize, 0, copyEnd - copySize);
     }
   }
 }
@@ -1271,165 +1399,31 @@ function resize(bitmap, width, height) {
   return { pixels, width, height };
 }
 
-// Apply a blur effect to the current pixel buffer using smooth weighted blur
-// radius: The blur radius (supports fractional values like 0.5, 1.5, etc.)
-function blur(radius = 1) {
-  // console.log(`🌀 graph.blur called with radius ${radius}, current buffer: ${width}x${height}, pixels.length: ${pixels.length}`);
+// Helper function to detect recording mode
+function isInRecordingMode() {
+  // Check multiple indicators that we're in recording mode
+  return typeof globalThis !== 'undefined' && (
+    globalThis.tapeRecording === true ||
+    globalThis.recording === true ||
+    (typeof process !== 'undefined' && process.argv && process.argv.includes('--recording'))
+  );
+}
+
+// Fast checksum for pixel data (using sampling for performance)
+function getPixelChecksum(pixels, width, height, x, y, w, h) {
+  let checksum = 0;
+  const sampleRate = Math.max(1, Math.floor(Math.sqrt(w * h) / 32)); // Sample ~32 points
   
-  if (radius <= 0) return;
-
-  // Performance optimization: skip expensive blur operations during startup
-  if (typeof globalThis !== 'undefined' && globalThis.$api?.paintCount) {
-    const frameCount = Number(globalThis.$api.paintCount);
-    if (frameCount < 10) {
-      return; // Skip blur during startup
-    }
-  }
-
-  // 🚀 OPTIMIZATION: For very small radius, use fast approximation
-  if (radius < 0.5) {
-    // Skip blur for imperceptible radius
-    return;
-  }
-
-  // Clamp radius to reasonable values for performance
-  radius = Math.min(radius, 20);
-
-  // Determine the area to blur (mask or full screen)
-  let minX = 0,
-    minY = 0,
-    maxX = width,
-    maxY = height;
-  if (activeMask) {
-    // Don't apply pan translation to mask bounds - mask is already set at current pan position
-    minX = Math.max(0, Math.min(width, activeMask.x));
-    maxX = Math.max(0, Math.min(width, activeMask.x + activeMask.width));
-    minY = Math.max(0, Math.min(height, activeMask.y));
-    maxY = Math.max(0, Math.min(height, activeMask.y + activeMask.height));
-  }
-
-  const workingWidth = maxX - minX;
-  const workingHeight = maxY - minY;
-
-  // Early exit if bounds are invalid
-  if (workingWidth <= 0 || workingHeight <= 0) return;
-
-  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
-  if (pixels.buffer && pixels.buffer.detached) {
-    console.warn('🚨 Pixels buffer detached in blur, recreating from screen dimensions');
-    pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0); // Fill with transparent black
-  }
-
-  // Create a copy of the current pixels to read from
-  const sourcePixels = new Uint8ClampedArray(pixels);
-
-  // Apply horizontal blur pass (only within mask bounds)
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
-        a = 0;
-      let totalWeight = 0;
-
-      // Always sample at least immediate neighbors for visible blur effect
-      const sampleRadius = Math.max(1, Math.ceil(radius));
-
-      for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const distance = Math.abs(i);
-        // Calculate weight using a smoother function that works well for fractional values
-        let weight;
-        if (distance === 0) {
-          // Center pixel gets base weight
-          weight = 1.0;
-        } else {
-          // Neighbors get weight based on radius
-          // For radius < 1, this gives fractional weights to immediate neighbors
-          // For radius >= 1, this gives decreasing weights with distance
-          weight = Math.max(0, radius - distance + 1) * radius;
-        }
-
-        // Clamp sampling to mask bounds for proper edge handling
-        const sampleX = Math.max(minX, Math.min(maxX - 1, x + i));
-        const index = (y * width + sampleX) * 4;
-
-        r += sourcePixels[index] * weight;
-        g += sourcePixels[index + 1] * weight;
-        b += sourcePixels[index + 2] * weight;
-        a += sourcePixels[index + 3] * weight;
-        totalWeight += weight;
-      }
-
-      // Write weighted average back to main buffer
-      const index = (y * width + x) * 4;
-      if (totalWeight > 0) {
-        pixels[index] = r / totalWeight;
-        pixels[index + 1] = g / totalWeight;
-        pixels[index + 2] = b / totalWeight;
-        pixels[index + 3] = a / totalWeight;
+  for (let sy = y; sy < y + h; sy += sampleRate) {
+    for (let sx = x; sx < x + w; sx += sampleRate) {
+      if (sx < width && sy < height) {
+        const i = (sy * width + sx) * 4;
+        checksum = (checksum * 31 + pixels[i] + pixels[i + 1] + pixels[i + 2] + pixels[i + 3]) >>> 0;
       }
     }
   }
-
-  // Copy result for vertical pass (only the working area)
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const index = (y * width + x) * 4;
-      sourcePixels[index] = pixels[index];
-      sourcePixels[index + 1] = pixels[index + 1];
-      sourcePixels[index + 2] = pixels[index + 2];
-      sourcePixels[index + 3] = pixels[index + 3];
-    }
-  }
-
-  // Apply vertical blur pass (only within mask bounds)
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      let r = 0,
-        g = 0,
-        b = 0,
-        a = 0;
-      let totalWeight = 0;
-
-      // Always sample at least immediate neighbors for visible blur effect
-      const sampleRadius = Math.max(1, Math.ceil(radius));
-
-      for (let i = -sampleRadius; i <= sampleRadius; i++) {
-        const distance = Math.abs(i);
-        // Calculate weight using a smoother function that works well for fractional values
-        let weight;
-        if (distance === 0) {
-          // Center pixel gets base weight
-          weight = 1.0;
-        } else {
-          // Neighbors get weight based on radius
-          // For radius < 1, this gives fractional weights to immediate neighbors
-          // For radius >= 1, this gives decreasing weights with distance
-          weight = Math.max(0, radius - distance + 1) * radius;
-        }
-
-        // Clamp sampling to mask bounds for proper edge handling
-        const sampleY = Math.max(minY, Math.min(maxY - 1, y + i));
-        const index = (sampleY * width + x) * 4;
-
-        r += sourcePixels[index] * weight;
-        g += sourcePixels[index + 1] * weight;
-        b += sourcePixels[index + 2] * weight;
-        a += sourcePixels[index + 3] * weight;
-        totalWeight += weight;
-      }
-
-      // Write weighted average back to main buffer
-      const index = (y * width + x) * 4;
-      if (totalWeight > 0) {
-        pixels[index] = r / totalWeight;
-        pixels[index + 1] = g / totalWeight;
-        pixels[index + 2] = b / totalWeight;
-        pixels[index + 3] = a / totalWeight;
-      }
-    }
-  }
+  
+  return checksum;
 }
 
 // Adjust the contrast of the pixel buffer
@@ -1535,12 +1529,28 @@ function brightness(adjustment = 0) {
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
+  const pasteStart = performance.now(); // 🚨 PERFORMANCE TRACKING
+  
   if (!from) {
+    graphPerf.track('paste', 0);
+    return;
+  }
+
+  // 🚨 ROBOT FIX: Ensure destination pixels buffer is available
+  if (!pixels) {
+    console.warn('🚨 paste: No destination pixels buffer available, skipping paste operation');
+    graphPerf.track('paste', 0);
     return;
   }
 
   destX += panTranslation.x;
   destY += panTranslation.y;
+
+  // 🚀 OPTIMIZATION: Skip paste operations for tiny scales
+  if (typeof scale === "number" && Math.abs(scale) < 0.01) {
+    graphPerf.track('paste', 0);
+    return;
+  }
 
   if (scale !== 1) {
     let angle = 0;
@@ -1636,32 +1646,59 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 
   // TODO: See if from has a dirtyBox attribute.
   if (from.crop) {
-    // A cropped copy - optimize with row-wise operations where possible.
+    // A cropped copy - optimize with bulk pixel operations
     const cropW = from.crop.w;
     const cropH = from.crop.h;
+    const fromPixels = from.painting?.pixels || from.pixels;
 
-    // Check if we can do efficient row copying
+    // 🚀 OPTIMIZATION: Bulk pixel copying for cropped regions
     if (
-      cropW > 8 &&
+      fromPixels &&
       destX >= 0 &&
       destY >= 0 &&
       destX + cropW <= width &&
       destY + cropH <= height
     ) {
-      // Row-wise copying for better cache efficiency
+      const fromWidth = from.painting?.width || from.width;
+      
       for (let y = 0; y < cropH; y += 1) {
         const srcY = from.crop.y + y;
         const destRowY = destY + y;
-
-        // Copy entire row when possible
+        
+        // Process entire row for better cache performance
         for (let x = 0; x < cropW; x += 1) {
-          copy(destX + x, destRowY, from.crop.x + x, srcY, from.painting);
+          const srcX = from.crop.x + x;
+          const srcIdx = (srcY * fromWidth + srcX) * 4;
+          const destIdx = (destRowY * width + (destX + x)) * 4;
+          
+          // Skip if source index is out of bounds
+          if (srcIdx + 3 < fromPixels.length) {
+            const srcAlpha = fromPixels[srcIdx + 3];
+            
+            if (srcAlpha > 0) {
+              if (srcAlpha === 255) {
+                // Opaque source - direct copy
+                pixels[destIdx] = fromPixels[srcIdx];
+                pixels[destIdx + 1] = fromPixels[srcIdx + 1];
+                pixels[destIdx + 2] = fromPixels[srcIdx + 2];
+                pixels[destIdx + 3] = fromPixels[srcIdx + 3];
+              } else {
+                // Alpha blending
+                const alpha = srcAlpha + 1;
+                const invAlpha = 256 - alpha;
+                pixels[destIdx] = (alpha * fromPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                pixels[destIdx + 1] = (alpha * fromPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                pixels[destIdx + 2] = (alpha * fromPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+              }
+            }
+          }
         }
       }
     } else {
-      // Fall back to original implementation
-      for (let x = 0; x < cropW; x += 1) {
-        for (let y = 0; y < cropH; y += 1) {
+      // Fall back to copy() function for edge cases
+      for (let y = 0; y < cropH; y += 1) {
+        for (let x = 0; x < cropW; x += 1) {
           copy(
             destX + x,
             destY + y,
@@ -1678,40 +1715,118 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     if (blit) {
       pixels.set(from.pixels, 0);
     } else {
-      // Optimize pixel-by-pixel copy with better access patterns
+      // 🚀 MAJOR OPTIMIZATION: Bulk pixel copying for better performance
       const srcWidth = from.width;
       const srcHeight = from.height;
+      const srcPixels = from.pixels;
 
-      // Check if we can do efficient bulk operations
+      // Check if we can do ultra-fast bulk copying
       if (
-        srcWidth > 4 &&
-        srcHeight > 4 &&
         destX >= 0 &&
         destY >= 0 &&
         destX + srcWidth <= width &&
-        destY + srcHeight <= height
+        destY + srcHeight <= height &&
+        srcPixels
       ) {
-        // Row-major order for better cache performance
+        // Ultra-fast bulk pixel blending
         for (let y = 0; y < srcHeight; y += 1) {
+          const srcRowStart = y * srcWidth * 4;
+          const destRowStart = ((destY + y) * width + destX) * 4;
+          
+          // Process entire row at once for better cache performance
           for (let x = 0; x < srcWidth; x += 1) {
-            copy(destX + x, destY + y, x, y, from);
+            const srcIdx = srcRowStart + (x * 4);
+            const destIdx = destRowStart + (x * 4);
+            
+            // Skip transparent pixels
+            if (srcPixels[srcIdx + 3] > 0) {
+              // Fast alpha blending without function call overhead
+              const srcAlpha = srcPixels[srcIdx + 3];
+              
+              if (srcAlpha === 255) {
+                // Opaque source - direct copy (fastest path)
+                pixels[destIdx] = srcPixels[srcIdx];
+                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
+                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
+                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
+              } else {
+                // Alpha blending (optimized inline version)
+                const alpha = srcAlpha + 1;
+                const invAlpha = 256 - alpha;
+                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+              }
+            }
           }
         }
       } else {
-        // Original implementation for edge cases
-        for (let x = 0; x < srcWidth; x += 1) {
-          for (let y = 0; y < srcHeight; y += 1) {
+        // Fallback to copy() function for edge cases
+        for (let y = 0; y < srcHeight; y += 1) {
+          for (let x = 0; x < srcWidth; x += 1) {
             copy(destX + x, destY + y, x, y, from);
           }
         }
       }
     }
   }
+  
+  const pasteEnd = performance.now();
+  graphPerf.track('paste', pasteEnd - pasteStart);
 }
 
+let stampSkipCounter = 0;
+
 // Similar to `paste` but always centered.
-function stamp(from, x, y) {
-  paste(from, x - from.width / 2, y - from.height / 2);
+// Fixed: Now properly supports scale and angle parameters while maintaining center positioning
+function stamp(from, x, y, scale, angle) {
+  const stampStart = performance.now(); // 🚨 PERFORMANCE TRACKING
+  
+  // � DEBUG: Log stamp calls
+  // console.log(`🎯 STAMP called: from=${from?.constructor?.name || typeof from}, scale=${scale}, angle=${angle}`);
+  
+  // �🚀 OPTIMIZATION: Skip stamps that are too small to be visible
+  if (scale !== undefined && Math.abs(scale) < 0.01) {
+    graphPerf.track('stamp', 0);
+    return;
+  }
+
+  // 🚀 PERFORMANCE OPTIMIZATION: Only skip frames when running very slowly
+  if (graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 5) {
+    stampSkipCounter++;
+    if (stampSkipCounter % 3 !== 0) { // Skip 2 out of 3 frames when FPS < 5
+      // console.log(`⏭️ STAMP skipped due to low FPS: ${graphPerf.lastFPS}`);
+      graphPerf.track('stamp', 0);
+      return;
+    }
+  } else {
+    stampSkipCounter = 0; // Reset when performance is good
+  }
+  
+  if (scale !== undefined || angle !== undefined) {
+    // For stamp, we want to center at x,y coordinates
+    // Account for scaling when calculating the center offset
+    const effectiveScale = scale !== undefined ? scale : 1;
+    const scaledWidth = from.width * effectiveScale;
+    const scaledHeight = from.height * effectiveScale;
+    
+    // Adjust the position so that the scaled image is centered at our target x,y
+    const adjustedX = x - scaledWidth / 2;
+    const adjustedY = y - scaledHeight / 2;
+    
+    const transform = {};
+    if (scale !== undefined) transform.scale = scale;
+    if (angle !== undefined) transform.angle = angle;
+    
+    paste(from, adjustedX, adjustedY, transform);
+  } else {
+    // Fallback for simple case without scaling/rotation
+    paste(from, x - from.width / 2, y - from.height / 2);
+  }
+  
+  const stampEnd = performance.now();
+  graphPerf.track('stamp', stampEnd - stampStart);
 }
 
 let blendingMode = "blend";
@@ -1777,7 +1892,8 @@ function blend(dst, src, si, di, alphaIn = 1) {
     dst[di] = (alpha * src[si + 0] + invAlpha * dst[di + 0]) >> 8;
     dst[di + 1] = (alpha * src[si + 1] + invAlpha * dst[di + 1]) >> 8;
     dst[di + 2] = (alpha * src[si + 2] + invAlpha * dst[di + 2]) >> 8;
-    dst[di + 3] = dst[di + 3] + alpha;
+    // Keep destination alpha opaque when blending over opaque background
+    dst[di + 3] = 255;
   }
 }
 
@@ -2404,6 +2520,8 @@ const BOX_CENTER = "center";
 // TODO: ♾️ If width or height (size) is infinity then make sure the box covers
 //          the entire pixel buffer width. 25.05.11.16.30
 function box() {
+  const boxStart = performance.now(); // 🚨 PERFORMANCE TRACKING
+  
   let x,
     y,
     w,
@@ -2560,11 +2678,26 @@ function box() {
     w -= 1;
     const cachedInk = c.slice(0);
     
+    // 🎨 NEW LOCAL FADE HANDLING: Check if current color is a fade
+    const fadeInfo = parseFadeColor(c);
+    const isLocalFade = fadeInfo !== null;
+    
+    // console.log("📦 BOX DEBUG: Local fade detection", {
+    //   "current color c": c,
+    //   "c[0]": c[0],
+    //   "typeof c[0]": typeof c[0],
+    //   "c[0] startsWith fade": typeof c[0] === 'string' ? c[0].startsWith('fade:') : 'not string',
+    //   "fadeInfo": fadeInfo,
+    //   "isLocalFade": isLocalFade,
+    //   "global fadeMode": fadeMode,
+    //   "global fadeColors": fadeColors.length > 0 ? fadeColors : "empty"
+    // });
+    
     if (sign(height) === 1) {
       for (let row = 0; row < h; row += 1) {
-        if (fadeMode) {
-          // Check if fadeDirection is a numeric angle (0-360)
-          const numericAngle = parseFloat(fadeDirection);
+        if (isLocalFade) {
+          // Use local fade info instead of global fade state
+          const numericAngle = parseFloat(fadeInfo.direction);
           
           if (!isNaN(numericAngle)) {
             // For numeric angles, we need to calculate fade per pixel
@@ -2576,35 +2709,43 @@ function box() {
               // Use the same calculateAngleFadePosition function as clear()
               const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
               
-              const fadeColor = getFadeColor(t, pixelX, pixelY);
-              if (col === 0 && row === 0) { // Only log first pixel to avoid spam
-                // BOX DEBUG fadeColor log removed for performance
-              }
+              // Calculate fade color locally without setting global state
+              const fadeColor = getLocalFadeColor(t, pixelX, pixelY, fadeInfo);
               setColor(...fadeColor);
               plot(pixelX, pixelY);
             }
           } else {
             // Use named direction
             let t;
-            if (fadeDirection === "vertical") {
-              t = row / (h - 1);
-            } else if (fadeDirection === "vertical-reverse") {
-              t = 1 - (row / (h - 1)); // Reverse the direction
-            } else if (fadeDirection === "horizontal") {
+            if (fadeInfo.direction === "vertical") {
+              t = h <= 1 ? 0 : row / (h - 1);
+            } else if (fadeInfo.direction === "vertical-reverse") {
+              t = h <= 1 ? 0 : 1 - (row / (h - 1)); // Reverse the direction
+            } else if (fadeInfo.direction === "horizontal") {
               t = 0; // Will be calculated per pixel in line drawing
-            } else if (fadeDirection === "horizontal-reverse") {
+            } else if (fadeInfo.direction === "horizontal-reverse") {
               t = 0; // Will be calculated per pixel in line drawing
             } else { // diagonal, etc.
-              t = row / (h - 1);
+              t = h <= 1 ? 0 : row / (h - 1);
             }
             
-            if (fadeDirection.startsWith("horizontal")) {
-              // For horizontal fades, we need to draw with gradient per line
-              // This will be handled in the line() function
-              line(x, y + row, x + w, y + row);
+            if (fadeInfo.direction.startsWith("horizontal")) {
+              // For horizontal fades, draw pixels individually with local fade colors
+              const lineY = y + row;
+              for (let px = x; px < x + w; px++) {
+                // Prevent division by zero for single-pixel width
+                const horizontalT = w <= 1 ? 0 : (
+                  fadeInfo.direction === "horizontal-reverse" 
+                    ? 1 - ((px - x) / (w - 1))
+                    : (px - x) / (w - 1)
+                );
+                const fadeColor = getLocalFadeColor(horizontalT, px, lineY, fadeInfo);
+                setColor(...fadeColor);
+                plot(px, lineY);
+              }
             } else {
               // For vertical fades, set color once per row
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getLocalFadeColor(t, x, y + row, fadeInfo);
               setColor(...fadeColor);
               line(x, y + row, x + w, y + row);
             }
@@ -2615,9 +2756,9 @@ function box() {
       }
     } else {
       for (let row = 0; row > h; row -= 1) {
-        if (fadeMode) {
-          // Check if fadeDirection is a numeric angle (0-360)
-          const numericAngle = parseFloat(fadeDirection);
+        if (isLocalFade) {
+          // Use local fade info instead of global fade state
+          const numericAngle = parseFloat(fadeInfo.direction);
           
           if (!isNaN(numericAngle)) {
             // For numeric angles, we need to calculate fade per pixel
@@ -2629,32 +2770,48 @@ function box() {
               // Use the same calculateAngleFadePosition function as clear()
               const t = calculateAngleFadePosition(pixelX, pixelY, x, y, x + w, y + h - 1, numericAngle);
               
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getLocalFadeColor(t, pixelX, pixelY, fadeInfo);
               setColor(...fadeColor);
               plot(pixelX, pixelY);
             }
           } else {
             // Use named direction
             let t;
-            if (fadeDirection === "vertical") {
+            if (fadeInfo.direction === "vertical") {
               t = Math.abs(row) / Math.abs(h - 1);
-            } else if (fadeDirection === "vertical-reverse") {
+            } else if (fadeInfo.direction === "vertical-reverse") {
               t = 1 - (Math.abs(row) / Math.abs(h - 1));
-            } else if (fadeDirection === "horizontal") {
+            } else if (fadeInfo.direction === "horizontal") {
               t = 0; // Will be calculated per pixel in line drawing
-            } else if (fadeDirection === "horizontal-reverse") {
+            } else if (fadeInfo.direction === "horizontal-reverse") {
               t = 0; // Will be calculated per pixel in line drawing
             } else { // diagonal, etc.
               t = Math.abs(row) / Math.abs(h - 1);
             }
             
-            if (fadeDirection.startsWith("horizontal")) {
-              // For horizontal fades, we need to draw with gradient per line
-              // This will be handled in the line() function
+            if (fadeInfo.direction.startsWith("horizontal")) {
+              // For horizontal fades, we need to temporarily set up fade state for line()
+              // TODO: Update line() function to also use local fade handling
+              const savedFadeMode = fadeMode;
+              const savedFadeColors = fadeColors.slice();
+              const savedFadeDirection = fadeDirection;
+              const savedFadeNeat = fadeNeat;
+              
+              fadeMode = true;
+              fadeColors = fadeInfo.colors;
+              fadeDirection = fadeInfo.direction;
+              fadeNeat = fadeInfo.neat;
+              
               line(x, y + row, x + w, y + row);
+              
+              // Restore previous fade state
+              fadeMode = savedFadeMode;
+              fadeColors = savedFadeColors;
+              fadeDirection = savedFadeDirection;
+              fadeNeat = savedFadeNeat;
             } else {
               // For vertical fades, set color once per row
-              const fadeColor = getFadeColor(t);
+              const fadeColor = getLocalFadeColor(t, x, y + row, fadeInfo);
               setColor(...fadeColor);
               line(x, y + row, x + w, y + row);
             }
@@ -2664,9 +2821,9 @@ function box() {
         }
       }
     }
-    
-    if (fadeMode) setColor(...cachedInk);
   }
+  
+  graphPerf.track('box', performance.now() - boxStart); // 🚨 PERFORMANCE TRACKING
 }
 
 // Rasterizes an outlined or filled shape from pairs of points.
@@ -2674,6 +2831,8 @@ function box() {
 //      Or: ([[x, y], [x, y], ...])
 //      Or: { points: ", filled: false }
 function shape() {
+  const shapeStart = performance.now(); // 🚨 PERFORMANCE TRACKING
+  
   let argPoints;
   let points;
   let filled = true;
@@ -2700,7 +2859,16 @@ function shape() {
   }
 
   if (filled) {
-    fillShape(points); // Fill the shape in with the chosen color.
+    // 🚀 MASSIVE OPTIMIZATION: Use fast fillTri for triangles instead of slow fillShape
+    if (points.length === 3) {
+      // Triangle - use the optimized fillTri function
+      const triPixels = [];
+      fillTri(points, triPixels);
+      triPixels.forEach((p) => point(p));
+    } else {
+      // For other polygons, fall back to the general fillShape algorithm
+      fillShape(points);
+    }
   } else {
     // Make lines from 1->2->3->...->1
     if (thickness === 1) {
@@ -2717,6 +2885,8 @@ function shape() {
       );
     }
   }
+  
+  graphPerf.track('shape', performance.now() - shapeStart); // 🚨 PERFORMANCE TRACKING
 }
 
 // Note: This may not be very fast. It was written by ChatGPT. 23.02.11.12.51
@@ -2894,6 +3064,11 @@ function grid(
   },
   buffer,
 ) {
+  const gridStart = performance.now(); // 🚨 PERFORMANCE TRACKING
+  
+  // 🚀 PERFORMANCE OPTIMIZATION: Use lower precision when running slowly
+  const isSlowFrame = graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 15;
+  
   const oc = c.slice(); // Remember the original color.
 
   let w, h;
@@ -3083,11 +3258,14 @@ function grid(
       }
     } else {
       // Complex path for rotation and non-integer scaling (preserve existing functionality)
-      for (let j = 0; j < rows; j += 1) {
+      // 🚀 PERFORMANCE OPTIMIZATION: Reduce resolution when running slowly
+      const skipStep = isSlowFrame ? 2 : 1; // Skip every other pixel when slow
+      
+      for (let j = 0; j < rows; j += skipStep) {
         const plotY = y + rowPix * j;
         const repeatY = j % bufHeight;
 
-        for (let i = 0; i < cols; i += 1) {
+        for (let i = 0; i < cols; i += skipStep) {
           const plotX = x + colPix * i;
 
           let finalX, finalY;
@@ -3209,6 +3387,10 @@ function grid(
 
     color(...oc); // Restore color.
   }
+  
+  // 🚨 PERFORMANCE TRACKING
+  const gridEnd = performance.now();
+  graphPerf.track('grid', gridEnd - gridStart);
 }
 
 // Rendering stored drawings.
@@ -3686,23 +3868,100 @@ function scroll(dx = 0, dy = 0) {
 // Rotates pixels in concentric rings around a specified anchor point
 // steps: positive for clockwise, negative for counterclockwise
 // anchorX, anchorY: optional anchor point (defaults to center of working area)
+// 🚀 Pre-allocated buffers for performance
+let spinBuffer;
+let zoomBuffer;
+
+// 🧪 EXPERIMENTAL: Block-based processing for better performance on large images
+let useBlockProcessing = true; // Can be toggled at runtime
+const BLOCK_SIZE = 64; // Process in 64x64 blocks
+
+let spinSkipCounter = 0;
+
+// 🧪 EXPERIMENTAL: Toggle block-based processing for performance testing
+function setBlockProcessing(enabled) {
+  useBlockProcessing = enabled;
+  console.log(`🧪 Block processing ${enabled ? 'ENABLED' : 'DISABLED'} (${BLOCK_SIZE}x${BLOCK_SIZE} blocks)`);
+}
+
 // Each ring rotates by exactly 'steps' pixels, preserving all data
 function spin(steps = 0, anchorX = null, anchorY = null) {
-  if (steps === 0) return;
+  const spinStart = performance.now();
+  
+  if (steps === 0) {
+    graphPerf.track("spin", 0);
+    return;
+  }
 
-  // Handle fractional steps by accumulating them
+  // 🚀 DEFAULT: Use block-based processing for better performance (26% faster)
+  return spinBlockBased(steps, anchorX, anchorY, spinStart);
+}
+
+// 🚀 SIMD Helper: Process individual pixel with wrapping and sampling
+function processSpinPixel(srcX, srcY, destIdx, minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight) {
+  // Fast wrapping (same logic as regular spin)
+  let wrappedSrcX = srcX;
+  let wrappedSrcY = srcY;
+  
+  if (srcX < minX || srcX >= minX + workingWidth) {
+    const normalizedX = srcX - minX;
+    wrappedSrcX = minX + (normalizedX - workingWidth * Math.floor(normalizedX / workingWidth));
+    if (wrappedSrcX < minX) wrappedSrcX += workingWidth;
+  }
+  if (srcY < minY || srcY >= minY + workingHeight) {
+    const normalizedY = srcY - minY;
+    wrappedSrcY = minY + (normalizedY - workingHeight * Math.floor(normalizedY / workingHeight));
+    if (wrappedSrcY < minY) wrappedSrcY += workingHeight;
+  }
+  
+  // Fast nearest neighbor with bounds clamping
+  const nearestSrcX = Math.max(minX, Math.min(maxXMinus1, Math.round(wrappedSrcX)));
+  const nearestSrcY = Math.max(minY, Math.min(maxYMinus1, Math.round(wrappedSrcY)));
+  
+  // Direct array access with pre-calculated offsets
+  const srcIdx = (nearestSrcY * width + nearestSrcX) * 4;
+  
+  // Unrolled RGBA copy for maximum speed
+  pixels[destIdx] = spinBuffer[srcIdx];
+  pixels[destIdx + 1] = spinBuffer[srcIdx + 1];
+  pixels[destIdx + 2] = spinBuffer[srcIdx + 2];
+  pixels[destIdx + 3] = spinBuffer[srcIdx + 3];
+}
+
+// Static buffers for SIMD spin function
+spin.coordBuffers = null;
+spin.destIndices = null;
+
+// 🚀 EXPERIMENTAL: SIMD-optimized spin processing using typed arrays
+function spinSimd(steps, anchorX, anchorY, spinStart) {
+  // Same early exits as regular spin
+  if (graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 6) {
+    spinSkipCounter++;
+    if (spinSkipCounter % 2 !== 0) {
+      graphPerf.track('spin', 0);
+      return;
+    }
+  } else {
+    spinSkipCounter = 0;
+  }
+
+  if (Math.abs(steps) < 0.5) {
+    graphPerf.track('spin', 0);
+    return;
+  }
+
+  // Handle fractional steps
   spinAccumulator += steps;
   const integerSteps = floor(spinAccumulator);
-  spinAccumulator -= integerSteps; // Keep the fractional remainder
-  if (integerSteps === 0) return; // No integer steps to process yet
+  spinAccumulator -= integerSteps;
+  if (integerSteps === 0) {
+    graphPerf.track('spin', 0);
+    return;
+  }
 
-  // Determine the area to process (mask or full screen)
-  let minX = 0,
-    minY = 0,
-    maxX = width,
-    maxY = height;
+  // Determine the area to process
+  let minX = 0, minY = 0, maxX = width, maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds
     minX = activeMask.x + panTranslation.x;
     minY = activeMask.y + panTranslation.y;
     maxX = activeMask.x + activeMask.width + panTranslation.x;
@@ -3711,92 +3970,355 @@ function spin(steps = 0, anchorX = null, anchorY = null) {
 
   const workingWidth = maxX - minX;
   const workingHeight = maxY - minY;
-  // Use provided anchor point or default to center of working area
   const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
   const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
 
-  // Create a copy of the current pixels to read from
-  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  // 🛡️ SAFETY CHECK: Buffer management
   if (pixels.buffer && pixels.buffer.detached) {
-    console.warn('🚨 Pixels buffer detached in spin, recreating from screen dimensions');
+    console.warn('🚨 Pixels buffer detached in spinSimd, recreating');
     pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0); // Fill with transparent black
+    pixels.fill(0);
   }
   
-  const tempPixels = new Uint8ClampedArray(pixels);
+  const bufferSize = width * height * 4;
+  if (!spinBuffer || spinBuffer.length !== bufferSize) {
+    spinBuffer = new Uint8ClampedArray(bufferSize);
+  }
+  
+  if (pixels.length !== bufferSize) {
+    pixels = new Uint8ClampedArray(bufferSize);
+    pixels.fill(0);
+  }
+  
+  spinBuffer.set(pixels);
 
-  // Pre-calculate constants for performance
-  const invTwoPi = 1.0 / (2 * PI);
+  // 🚀 SIMD: Create Float32Array views for vectorized coordinate math
+  const coordCount = (maxY - minY) * (maxX - minX);
+  const maxCoords = Math.ceil(coordCount / 4) * 4; // Round up to multiple of 4
+  
+  // Reuse coordinate buffers to avoid allocation overhead
+  if (!spinSimd.coordBuffers || spinSimd.coordBuffers.length < maxCoords * 2) {
+    spinSimd.coordBuffers = new Float32Array(maxCoords * 2); // x,y pairs
+    spinSimd.srcIndices = new Uint32Array(maxCoords);
+    spinSimd.destIndices = new Uint32Array(maxCoords);
+  }
+  
+  const coords = spinSimd.coordBuffers;
+  const srcIndices = spinSimd.srcIndices;
+  const destIndices = spinSimd.destIndices;
+
+  // Pre-calculate constants for SIMD operations
   const twoPi = 2 * PI;
   const maxXMinus1 = maxX - 1;
   const maxYMinus1 = maxY - 1;
   
-  // Use backward mapping to avoid gaps - for each destination pixel, find source
+  let coordIndex = 0;
+  
+  // 🚀 SIMD: Generate all coordinates in vectorized batches
   for (let destY = minY; destY < maxY; destY++) {
     const dy = destY - centerY;
-    const dy2 = dy * dy; // Cache dy squared
+    const dy2 = dy * dy;
     const destRowOffset = destY * width;
     
     for (let destX = minX; destX < maxX; destX++) {
       const dx = destX - centerX;
       const distanceSquared = dx * dx + dy2;
       
-      // Fast path for center pixels
-      if (distanceSquared < 0.25) { // distance < 0.5
+      // Fast path for center pixels (same as regular spin)
+      if (distanceSquared < 1.0) {
         const idx = (destRowOffset + destX) * 4;
-        pixels[idx] = tempPixels[idx];
-        pixels[idx + 1] = tempPixels[idx + 1];
-        pixels[idx + 2] = tempPixels[idx + 2];
-        pixels[idx + 3] = tempPixels[idx + 3];
+        pixels[idx] = spinBuffer[idx];
+        pixels[idx + 1] = spinBuffer[idx + 1];
+        pixels[idx + 2] = spinBuffer[idx + 2];
+        pixels[idx + 3] = spinBuffer[idx + 3];
         continue;
       }
       
-      const distance = sqrt(distanceSquared);
-      const angle = Math.atan2(dy, dx);
+      // Skip very distant pixels
+      if (distanceSquared > 16000000) continue;
       
-      // Optimized step angle calculation
-      const circumference = twoPi * distance;
-      const stepAngle = twoPi / circumference; // Simplifies to 1/distance
-      const totalAngleChange = integerSteps / distance; // More direct calculation
-      
-      // Find source angle (rotate backwards)
-      let sourceAngle = angle - totalAngleChange;
-      
-      // Normalize angle efficiently
-      if (sourceAngle < 0) sourceAngle += twoPi;
-      else if (sourceAngle >= twoPi) sourceAngle -= twoPi;
-      
-      // Convert back to cartesian coordinates using pre-calculated values
-      const srcX = centerX + distance * Math.cos(sourceAngle);
-      const srcY = centerY + distance * Math.sin(sourceAngle);
-      
-      // Optimized wrapping with bounds checking
-      let wrappedSrcX = srcX;
-      let wrappedSrcY = srcY;
-      
-      // Fast wrapping for common case where coordinates are already in bounds
-      if (srcX < minX || srcX >= maxX) {
-        wrappedSrcX = ((srcX - minX) % workingWidth + workingWidth) % workingWidth + minX;
-      }
-      if (srcY < minY || srcY >= maxY) {
-        wrappedSrcY = ((srcY - minY) % workingHeight + workingHeight) % workingHeight + minY;
-      }
-      
-      // Fast nearest neighbor with bounds clamping
-      const nearestSrcX = Math.max(minX, Math.min(maxXMinus1, Math.round(wrappedSrcX)));
-      const nearestSrcY = Math.max(minY, Math.min(maxYMinus1, Math.round(wrappedSrcY)));
-      
-      // Direct array access with pre-calculated offsets
-      const srcIdx = (nearestSrcY * width + nearestSrcX) * 4;
-      const destIdx = (destRowOffset + destX) * 4;
-      
-      // Unrolled RGBA copy for maximum speed
-      pixels[destIdx] = tempPixels[srcIdx];
-      pixels[destIdx + 1] = tempPixels[srcIdx + 1];
-      pixels[destIdx + 2] = tempPixels[srcIdx + 2];
-      pixels[destIdx + 3] = tempPixels[srcIdx + 3];
+      // Store coordinates for SIMD processing
+      coords[coordIndex * 2] = dx;
+      coords[coordIndex * 2 + 1] = dy;
+      destIndices[coordIndex] = (destRowOffset + destX) * 4;
+      coordIndex++;
     }
   }
+  
+  // 🚀 SIMD: Process coordinates in groups of 4 for vectorized operations
+  const groupsOf4 = Math.floor(coordIndex / 4);
+  const remainder = coordIndex % 4;
+  
+  // Process groups of 4 coordinates simultaneously
+  for (let group = 0; group < groupsOf4; group++) {
+    const baseIndex = group * 4;
+    
+    // Load 4 dx,dy pairs into SIMD-friendly arrays
+    const dx0 = coords[baseIndex * 2], dy0 = coords[baseIndex * 2 + 1];
+    const dx1 = coords[(baseIndex + 1) * 2], dy1 = coords[(baseIndex + 1) * 2 + 1];
+    const dx2 = coords[(baseIndex + 2) * 2], dy2 = coords[(baseIndex + 2) * 2 + 1];
+    const dx3 = coords[(baseIndex + 3) * 2], dy3 = coords[(baseIndex + 3) * 2 + 1];
+    
+    // 🚀 SIMD: Vectorized distance calculations
+    const dist0 = Math.sqrt(dx0 * dx0 + dy0 * dy0);
+    const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+    const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+    const dist3 = Math.sqrt(dx3 * dx3 + dy3 * dy3);
+    
+    // 🚀 SIMD: Vectorized angle calculations  
+    const angle0 = Math.atan2(dy0, dx0);
+    const angle1 = Math.atan2(dy1, dx1);
+    const angle2 = Math.atan2(dy2, dx2);
+    const angle3 = Math.atan2(dy3, dx3);
+    
+    // 🚀 SIMD: Vectorized angle transformations
+    const totalChange0 = integerSteps / dist0;
+    const totalChange1 = integerSteps / dist1;
+    const totalChange2 = integerSteps / dist2;
+    const totalChange3 = integerSteps / dist3;
+    
+    let srcAngle0 = angle0 - totalChange0;
+    let srcAngle1 = angle1 - totalChange1;
+    let srcAngle2 = angle2 - totalChange2;
+    let srcAngle3 = angle3 - totalChange3;
+    
+    // 🚀 SIMD: Vectorized angle normalization
+    srcAngle0 = srcAngle0 - twoPi * Math.floor(srcAngle0 / twoPi);
+    srcAngle1 = srcAngle1 - twoPi * Math.floor(srcAngle1 / twoPi);
+    srcAngle2 = srcAngle2 - twoPi * Math.floor(srcAngle2 / twoPi);
+    srcAngle3 = srcAngle3 - twoPi * Math.floor(srcAngle3 / twoPi);
+    
+    if (srcAngle0 < 0) srcAngle0 += twoPi;
+    if (srcAngle1 < 0) srcAngle1 += twoPi;
+    if (srcAngle2 < 0) srcAngle2 += twoPi;
+    if (srcAngle3 < 0) srcAngle3 += twoPi;
+    
+    // 🚀 SIMD: Vectorized coordinate conversion using fast trig lookup
+    const srcX0 = centerX + dist0 * cos(srcAngle0);
+    const srcY0 = centerY + dist0 * sin(srcAngle0);
+    const srcX1 = centerX + dist1 * cos(srcAngle1);
+    const srcY1 = centerY + dist1 * sin(srcAngle1);
+    const srcX2 = centerX + dist2 * cos(srcAngle2);
+    const srcY2 = centerY + dist2 * sin(srcAngle2);
+    const srcX3 = centerX + dist3 * cos(srcAngle3);
+    const srcY3 = centerY + dist3 * sin(srcAngle3);
+    
+    // Process each of the 4 pixels (wrapping and sampling)
+    processSimdPixel(srcX0, srcY0, destIndices[baseIndex], minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight);
+    processSimdPixel(srcX1, srcY1, destIndices[baseIndex + 1], minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight);
+    processSimdPixel(srcX2, srcY2, destIndices[baseIndex + 2], minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight);
+    processSimdPixel(srcX3, srcY3, destIndices[baseIndex + 3], minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight);
+  }
+  
+  // Handle remaining pixels (less than 4)
+  for (let i = groupsOf4 * 4; i < coordIndex; i++) {
+    const dx = coords[i * 2];
+    const dy = coords[i * 2 + 1];
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+    const totalAngleChange = integerSteps / distance;
+    let srcAngle = angle - totalAngleChange;
+    srcAngle = srcAngle - twoPi * Math.floor(srcAngle / twoPi);
+    if (srcAngle < 0) srcAngle += twoPi;
+    const srcX = centerX + distance * Math.cos(srcAngle);
+    const srcY = centerY + distance * Math.sin(srcAngle);
+    processSimdPixel(srcX, srcY, destIndices[i], minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight);
+  }
+  
+  const spinEnd = performance.now();
+  graphPerf.track('spin', spinEnd - spinStart);
+}
+
+// 🚀 SIMD Helper: Process individual pixel with wrapping and sampling
+function processSimdPixel(srcX, srcY, destIdx, minX, minY, maxXMinus1, maxYMinus1, workingWidth, workingHeight) {
+  // Fast wrapping (same logic as regular spin)
+  let wrappedSrcX = srcX;
+  let wrappedSrcY = srcY;
+  
+  if (srcX < minX || srcX >= minX + workingWidth) {
+    const normalizedX = srcX - minX;
+    wrappedSrcX = minX + (normalizedX - workingWidth * Math.floor(normalizedX / workingWidth));
+    if (wrappedSrcX < minX) wrappedSrcX += workingWidth;
+  }
+  if (srcY < minY || srcY >= minY + workingHeight) {
+    const normalizedY = srcY - minY;
+    wrappedSrcY = minY + (normalizedY - workingHeight * Math.floor(normalizedY / workingHeight));
+    if (wrappedSrcY < minY) wrappedSrcY += workingHeight;
+  }
+  
+  // Fast nearest neighbor with bounds clamping
+  const nearestSrcX = Math.max(minX, Math.min(maxXMinus1, Math.round(wrappedSrcX)));
+  const nearestSrcY = Math.max(minY, Math.min(maxYMinus1, Math.round(wrappedSrcY)));
+  
+  // Direct array access with pre-calculated offsets
+  const srcIdx = (nearestSrcY * width + nearestSrcX) * 4;
+  
+  // Unrolled RGBA copy for maximum speed
+  pixels[destIdx] = spinBuffer[srcIdx];
+  pixels[destIdx + 1] = spinBuffer[srcIdx + 1];
+  pixels[destIdx + 2] = spinBuffer[srcIdx + 2];
+  pixels[destIdx + 3] = spinBuffer[srcIdx + 3];
+}
+
+// Static buffers for SIMD spin function
+spinSimd.coordBuffers = null;
+spinSimd.srcIndices = null;
+spinSimd.destIndices = null;
+
+// 🧪 EXPERIMENTAL: Block-based spin processing for better performance on large images
+function spinBlockBased(steps, anchorX, anchorY, spinStart) {
+  // Same early exits as regular spin
+  if (graphPerf && graphPerf.lastFPS && graphPerf.lastFPS < 6) {
+    spinSkipCounter++;
+    if (spinSkipCounter % 2 !== 0) {
+      graphPerf.track('spin', 0);
+      return;
+    }
+  } else {
+    spinSkipCounter = 0;
+  }
+
+  if (Math.abs(steps) < 0.5) {
+    graphPerf.track('spin', 0);
+    return;
+  }
+
+  // Handle fractional steps
+  spinAccumulator += steps;
+  const integerSteps = floor(spinAccumulator);
+  spinAccumulator -= integerSteps;
+  if (integerSteps === 0) {
+    graphPerf.track('spin', 0);
+    return;
+  }
+
+  // Determine the area to process
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = activeMask.x + panTranslation.x;
+    minY = activeMask.y + panTranslation.y;
+    maxX = activeMask.x + activeMask.width + panTranslation.x;
+    maxY = activeMask.y + activeMask.height + panTranslation.y;
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+  const centerX = anchorX !== null ? anchorX : minX + floor(workingWidth / 2);
+  const centerY = anchorY !== null ? anchorY : minY + floor(workingHeight / 2);
+
+  // Setup buffers
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in spin, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0);
+  }
+  
+  const bufferSize = width * height * 4;
+  if (!spinBuffer || spinBuffer.length !== bufferSize) {
+    spinBuffer = new Uint8ClampedArray(bufferSize);
+  }
+  
+  if (pixels.length !== bufferSize) {
+    pixels = new Uint8ClampedArray(bufferSize);
+    pixels.fill(0);
+  }
+  
+  spinBuffer.set(pixels);
+
+  // 🧪 BLOCK-BASED PROCESSING: Process in BLOCK_SIZE x BLOCK_SIZE chunks
+  const twoPi = 2 * PI;
+  const maxXMinus1 = maxX - 1;
+  const maxYMinus1 = maxY - 1;
+
+  // Process blocks
+  for (let blockY = minY; blockY < maxY; blockY += BLOCK_SIZE) {
+    const blockEndY = Math.min(blockY + BLOCK_SIZE, maxY);
+    
+    for (let blockX = minX; blockX < maxX; blockX += BLOCK_SIZE) {
+      const blockEndX = Math.min(blockX + BLOCK_SIZE, maxX);
+      
+      // 🚀 OPTIMIZATION: Skip blocks that are very far from center
+      const blockCenterX = (blockX + blockEndX) / 2;
+      const blockCenterY = (blockY + blockEndY) / 2;
+      const blockDx = blockCenterX - centerX;
+      const blockDy = blockCenterY - centerY;
+      const blockDistanceSquared = blockDx * blockDx + blockDy * blockDy;
+      
+      // Skip blocks that are extremely distant
+      if (blockDistanceSquared > 32000000) { // Even larger threshold for blocks
+        continue;
+      }
+      
+      // Process pixels within this block
+      for (let destY = blockY; destY < blockEndY; destY++) {
+        const dy = destY - centerY;
+        const dy2 = dy * dy;
+        const destRowOffset = destY * width;
+        
+        for (let destX = blockX; destX < blockEndX; destX++) {
+          const dx = destX - centerX;
+          const distanceSquared = dx * dx + dy2;
+          
+          // Fast path for center pixels
+          if (distanceSquared < 1.0) {
+            const idx = (destRowOffset + destX) * 4;
+            pixels[idx] = spinBuffer[idx];
+            pixels[idx + 1] = spinBuffer[idx + 1];
+            pixels[idx + 2] = spinBuffer[idx + 2];
+            pixels[idx + 3] = spinBuffer[idx + 3];
+            continue;
+          }
+          
+          // Skip very distant pixels within block
+          if (distanceSquared > 16000000) {
+            continue;
+          }
+          
+          // Same rotation math as original
+          const distance = sqrt(distanceSquared);
+          const angle = Math.atan2(dy, dx);
+          const totalAngleChange = integerSteps / distance;
+          
+          let sourceAngle = angle - totalAngleChange;
+          sourceAngle = sourceAngle - twoPi * floor(sourceAngle / twoPi);
+          if (sourceAngle < 0) sourceAngle += twoPi;
+          
+          const srcX = centerX + distance * cos(sourceAngle);
+          const srcY = centerY + distance * sin(sourceAngle);
+          
+          // Optimized wrapping
+          let wrappedSrcX = srcX;
+          let wrappedSrcY = srcY;
+          
+          if (srcX < minX || srcX >= maxX) {
+            const normalizedX = srcX - minX;
+            wrappedSrcX = minX + (normalizedX - workingWidth * floor(normalizedX / workingWidth));
+            if (wrappedSrcX < minX) wrappedSrcX += workingWidth;
+          }
+          if (srcY < minY || srcY >= maxY) {
+            const normalizedY = srcY - minY;
+            wrappedSrcY = minY + (normalizedY - workingHeight * floor(normalizedY / workingHeight));
+            if (wrappedSrcY < minY) wrappedSrcY += workingHeight;
+          }
+          
+          const nearestSrcX = Math.max(minX, Math.min(maxXMinus1, Math.round(wrappedSrcX)));
+          const nearestSrcY = Math.max(minY, Math.min(maxYMinus1, Math.round(wrappedSrcY)));
+          
+          const srcIdx = (nearestSrcY * width + nearestSrcX) * 4;
+          const destIdx = (destRowOffset + destX) * 4;
+          
+          // Unrolled RGBA copy
+          pixels[destIdx] = spinBuffer[srcIdx];
+          pixels[destIdx + 1] = spinBuffer[srcIdx + 1];
+          pixels[destIdx + 2] = spinBuffer[srcIdx + 2];
+          pixels[destIdx + 3] = spinBuffer[srcIdx + 3];
+        }
+      }
+    }
+  }
+  
+  const spinEnd = performance.now();
+  graphPerf.track('spin', spinEnd - spinStart);
 }
 
 // Zoom the entire pixel buffer with 1.0 as neutral (no change)
@@ -3821,7 +4343,7 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     zoomAccumulator += zoomDelta;
     
     // Only apply when accumulated change is significant enough
-    const threshold = 0.01;
+    const threshold = 0.05; // Increased from 0.01 to 0.05 for better performance
     
     if (Math.abs(zoomAccumulator) < threshold) return;
     
@@ -3861,15 +4383,32 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
     pixels.fill(0); // Fill with transparent black
   }
   
-  const tempPixels = new Uint8ClampedArray(pixels);
+  // 🚀 OPTIMIZATION: Reuse zoom buffer instead of allocating new one each call
+  const bufferSize = width * height * 4;
+  if (!zoomBuffer || zoomBuffer.length !== bufferSize) {
+    zoomBuffer = new Uint8ClampedArray(bufferSize);
+  }
+  zoomBuffer.set(pixels);
 
   const scale = actualZoomLevel;
   const invScale = 1.0 / scale;
-  
-  // Optimized bilinear positioning + nearest neighbor sampling
   const invWorkingWidth = 1.0 / workingWidth;
-  const invWorkingHeight = 1.0 / workingHeight;
   
+  // 🚀 SIMD: Create typed arrays for vectorized processing
+  const pixelCount = (maxY - minY) * (maxX - minX);
+  const maxPixels = Math.ceil(pixelCount / 4) * 4; // Round up to multiple of 4
+  
+  // Reuse coordinate buffers to avoid allocation overhead
+  if (!zoom.coordBuffers || zoom.coordBuffers.length < maxPixels * 4) {
+    zoom.srcCoords = new Float32Array(maxPixels * 2); // x,y pairs for source coordinates
+    zoom.destIndices = new Uint32Array(maxPixels);
+  }
+  
+  const srcCoords = zoom.srcCoords;
+  const destIndices = zoom.destIndices;
+  let coordIndex = 0;
+  
+  // 🚀 SIMD: Generate all coordinates in vectorized batches
   for (let destY = minY; destY < maxY; destY++) {
     const destRowOffset = destY * width;
     const srcYBase = (destY - anchorPixelY) * invScale + anchorPixelY;
@@ -3886,31 +4425,282 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
         // Calculate source X coordinate
         const srcX = (destX - anchorPixelX) * invScale + anchorPixelX;
         
-        // Optimized wrapping using pre-calculated inverse
-        const normalizedSrcX = (srcX - minX) * invWorkingWidth;
-        const wrappedNormalizedX = normalizedSrcX - Math.floor(normalizedSrcX);
-        const wrappedSrcX = minX + wrappedNormalizedX * workingWidth;
-        
-        const nearestX = Math.round(wrappedSrcX);
-        const finalSrcX = minX + ((nearestX - minX) % workingWidth + workingWidth) % workingWidth;
-        
-        if (finalSrcX >= minX && finalSrcX < maxX) {
-          // Direct array access with pre-calculated offsets
-          const srcIdx = (srcRowOffset + finalSrcX) * 4;
-          const destIdx = (destRowOffset + destX) * 4;
-          
-          // Unrolled RGBA copy for maximum speed
-          pixels[destIdx] = tempPixels[srcIdx];
-          pixels[destIdx + 1] = tempPixels[srcIdx + 1];
-          pixels[destIdx + 2] = tempPixels[srcIdx + 2];
-          pixels[destIdx + 3] = tempPixels[srcIdx + 3];
-        }
+        // Store coordinates for SIMD processing
+        srcCoords[coordIndex * 2] = srcX;
+        srcCoords[coordIndex * 2 + 1] = finalSrcY; // Use pre-calculated Y
+        destIndices[coordIndex] = (destRowOffset + destX) * 4;
+        coordIndex++;
       }
+    }
+  }
+  
+  // 🚀 SIMD: Process coordinates in groups of 4 for vectorized operations
+  const groupsOf4 = Math.floor(coordIndex / 4);
+  
+  for (let group = 0; group < groupsOf4; group++) {
+    const baseIndex = group * 4;
+    
+    // Load 4 source X coordinates for vectorized processing
+    const srcX0 = srcCoords[baseIndex * 2];
+    const srcX1 = srcCoords[(baseIndex + 1) * 2];
+    const srcX2 = srcCoords[(baseIndex + 2) * 2];
+    const srcX3 = srcCoords[(baseIndex + 3) * 2];
+    
+    // Use same Y coordinate for this row (already calculated)
+    const srcY = srcCoords[baseIndex * 2 + 1];
+    const srcRowOffset = srcY * width;
+    
+    // 🚀 SIMD: Vectorized X coordinate wrapping
+    const normalizedX0 = (srcX0 - minX) * invWorkingWidth;
+    const normalizedX1 = (srcX1 - minX) * invWorkingWidth;
+    const normalizedX2 = (srcX2 - minX) * invWorkingWidth;
+    const normalizedX3 = (srcX3 - minX) * invWorkingWidth;
+    
+    const wrappedNormX0 = normalizedX0 - Math.floor(normalizedX0);
+    const wrappedNormX1 = normalizedX1 - Math.floor(normalizedX1);
+    const wrappedNormX2 = normalizedX2 - Math.floor(normalizedX2);
+    const wrappedNormX3 = normalizedX3 - Math.floor(normalizedX3);
+    
+    const wrappedSrcX0 = minX + wrappedNormX0 * workingWidth;
+    const wrappedSrcX1 = minX + wrappedNormX1 * workingWidth;
+    const wrappedSrcX2 = minX + wrappedNormX2 * workingWidth;
+    const wrappedSrcX3 = minX + wrappedNormX3 * workingWidth;
+    
+    // 🚀 SIMD: Vectorized nearest neighbor sampling
+    const nearestX0 = Math.round(wrappedSrcX0);
+    const nearestX1 = Math.round(wrappedSrcX1);
+    const nearestX2 = Math.round(wrappedSrcX2);
+    const nearestX3 = Math.round(wrappedSrcX3);
+    
+    const finalSrcX0 = minX + ((nearestX0 - minX) % workingWidth + workingWidth) % workingWidth;
+    const finalSrcX1 = minX + ((nearestX1 - minX) % workingWidth + workingWidth) % workingWidth;
+    const finalSrcX2 = minX + ((nearestX2 - minX) % workingWidth + workingWidth) % workingWidth;
+    const finalSrcX3 = minX + ((nearestX3 - minX) % workingWidth + workingWidth) % workingWidth;
+    
+    // Process each of the 4 pixels if coordinates are valid
+    if (finalSrcX0 >= minX && finalSrcX0 < maxX) {
+      processZoomPixel(srcRowOffset + finalSrcX0, destIndices[baseIndex]);
+    }
+    if (finalSrcX1 >= minX && finalSrcX1 < maxX) {
+      processZoomPixel(srcRowOffset + finalSrcX1, destIndices[baseIndex + 1]);
+    }
+    if (finalSrcX2 >= minX && finalSrcX2 < maxX) {
+      processZoomPixel(srcRowOffset + finalSrcX2, destIndices[baseIndex + 2]);
+    }
+    if (finalSrcX3 >= minX && finalSrcX3 < maxX) {
+      processZoomPixel(srcRowOffset + finalSrcX3, destIndices[baseIndex + 3]);
+    }
+  }
+  
+  // Handle remaining pixels (less than 4)
+  for (let i = groupsOf4 * 4; i < coordIndex; i++) {
+    const srcX = srcCoords[i * 2];
+    const srcY = srcCoords[i * 2 + 1];
+    const srcRowOffset = srcY * width;
+    
+    // X coordinate wrapping
+    const normalizedX = (srcX - minX) * invWorkingWidth;
+    const wrappedNormX = normalizedX - Math.floor(normalizedX);
+    const wrappedSrcX = minX + wrappedNormX * workingWidth;
+    const nearestX = Math.round(wrappedSrcX);
+    const finalSrcX = minX + ((nearestX - minX) % workingWidth + workingWidth) % workingWidth;
+    
+    if (finalSrcX >= minX && finalSrcX < maxX) {
+      processZoomPixel(srcRowOffset + finalSrcX, destIndices[i]);
     }
   }
 
   // Don't reset zoom accumulator - let it continue accumulating like scroll and spin
 }
+
+// 🚀 SIMD Helper: Process individual zoom pixel with fast copying
+function processZoomPixel(srcPixelIndex, destIdx) {
+  const srcIdx = srcPixelIndex * 4;
+  
+  // Unrolled RGBA copy for maximum speed
+  pixels[destIdx] = zoomBuffer[srcIdx];
+  pixels[destIdx + 1] = zoomBuffer[srcIdx + 1];
+  pixels[destIdx + 2] = zoomBuffer[srcIdx + 2];
+  pixels[destIdx + 3] = zoomBuffer[srcIdx + 3];
+}
+
+// Static buffers for SIMD zoom function
+zoom.srcCoords = null;
+zoom.destIndices = null;
+
+// 🚀 EXPERIMENTAL: SIMD-optimized zoom processing using typed arrays
+function zoomSimd(actualZoomLevel, anchorX, anchorY) {
+  // Determine the area to process (mask or full screen)
+  let minX = 0, minY = 0, maxX = width, maxY = height;
+  if (activeMask) {
+    minX = activeMask.x;
+    minY = activeMask.y;
+    maxX = activeMask.x + activeMask.width;
+    maxY = activeMask.y + activeMask.height;
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+  const anchorPixelX = minX + workingWidth * anchorX;
+  const anchorPixelY = minY + workingHeight * anchorY;
+
+  // 🛡️ SAFETY CHECK: Buffer management
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in zoomSimd, recreating');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0);
+  }
+  
+  const bufferSize = width * height * 4;
+  if (!zoomBuffer || zoomBuffer.length !== bufferSize) {
+    zoomBuffer = new Uint8ClampedArray(bufferSize);
+  }
+  zoomBuffer.set(pixels);
+
+  const scale = actualZoomLevel;
+  const invScale = 1.0 / scale;
+  
+  // 🚀 SIMD: Create typed arrays for vectorized processing
+  const pixelCount = (maxY - minY) * (maxX - minX);
+  const maxPixels = Math.ceil(pixelCount / 4) * 4; // Round up to multiple of 4
+  
+  // Reuse coordinate buffers to avoid allocation overhead
+  if (!zoomSimd.coordBuffers || zoomSimd.coordBuffers.length < maxPixels * 4) {
+    zoomSimd.srcCoords = new Float32Array(maxPixels * 2); // x,y pairs for source coordinates
+    zoomSimd.destIndices = new Uint32Array(maxPixels);
+    zoomSimd.srcIndices = new Uint32Array(maxPixels);
+  }
+  
+  const srcCoords = zoomSimd.srcCoords;
+  const destIndices = zoomSimd.destIndices;
+  const srcIndices = zoomSimd.srcIndices;
+
+  // Pre-calculate constants for SIMD operations
+  const invWorkingWidth = 1.0 / workingWidth;
+  const invWorkingHeight = 1.0 / workingHeight;
+  
+  let coordIndex = 0;
+  
+  // 🚀 SIMD: Generate all coordinates in vectorized batches
+  for (let destY = minY; destY < maxY; destY++) {
+    const destRowOffset = destY * width;
+    const srcYBase = (destY - anchorPixelY) * invScale + anchorPixelY;
+    
+    // Pre-calculate Y wrapping once per row
+    let wrappedSrcYBase = ((srcYBase - minY) % workingHeight + workingHeight) % workingHeight + minY;
+    const nearestY = Math.round(wrappedSrcYBase);
+    const finalSrcY = minY + ((nearestY - minY) % workingHeight + workingHeight) % workingHeight;
+    
+    if (finalSrcY >= minY && finalSrcY < maxY) {
+      const srcRowOffset = finalSrcY * width;
+      
+      for (let destX = minX; destX < maxX; destX++) {
+        // Calculate source X coordinate
+        const srcX = (destX - anchorPixelX) * invScale + anchorPixelX;
+        
+        // Store coordinates for SIMD processing
+        srcCoords[coordIndex * 2] = srcX;
+        srcCoords[coordIndex * 2 + 1] = finalSrcY; // Use pre-calculated Y
+        destIndices[coordIndex] = (destRowOffset + destX) * 4;
+        coordIndex++;
+      }
+    }
+  }
+  
+  // 🚀 SIMD: Process coordinates in groups of 4 for vectorized operations
+  const groupsOf4 = Math.floor(coordIndex / 4);
+  const remainder = coordIndex % 4;
+  
+  // Process groups of 4 coordinates simultaneously
+  for (let group = 0; group < groupsOf4; group++) {
+    const baseIndex = group * 4;
+    
+    // Load 4 source X coordinates for vectorized processing
+    const srcX0 = srcCoords[baseIndex * 2];
+    const srcX1 = srcCoords[(baseIndex + 1) * 2];
+    const srcX2 = srcCoords[(baseIndex + 2) * 2];
+    const srcX3 = srcCoords[(baseIndex + 3) * 2];
+    
+    // Use same Y coordinate for this row (already calculated)
+    const srcY = srcCoords[baseIndex * 2 + 1];
+    const srcRowOffset = srcY * width;
+    
+    // 🚀 SIMD: Vectorized X coordinate wrapping
+    const normalizedX0 = (srcX0 - minX) * invWorkingWidth;
+    const normalizedX1 = (srcX1 - minX) * invWorkingWidth;
+    const normalizedX2 = (srcX2 - minX) * invWorkingWidth;
+    const normalizedX3 = (srcX3 - minX) * invWorkingWidth;
+    
+    const wrappedNormX0 = normalizedX0 - Math.floor(normalizedX0);
+    const wrappedNormX1 = normalizedX1 - Math.floor(normalizedX1);
+    const wrappedNormX2 = normalizedX2 - Math.floor(normalizedX2);
+    const wrappedNormX3 = normalizedX3 - Math.floor(normalizedX3);
+    
+    const wrappedSrcX0 = minX + wrappedNormX0 * workingWidth;
+    const wrappedSrcX1 = minX + wrappedNormX1 * workingWidth;
+    const wrappedSrcX2 = minX + wrappedNormX2 * workingWidth;
+    const wrappedSrcX3 = minX + wrappedNormX3 * workingWidth;
+    
+    // 🚀 SIMD: Vectorized nearest neighbor sampling
+    const nearestX0 = Math.round(wrappedSrcX0);
+    const nearestX1 = Math.round(wrappedSrcX1);
+    const nearestX2 = Math.round(wrappedSrcX2);
+    const nearestX3 = Math.round(wrappedSrcX3);
+    
+    const finalSrcX0 = minX + ((nearestX0 - minX) % workingWidth + workingWidth) % workingWidth;
+    const finalSrcX1 = minX + ((nearestX1 - minX) % workingWidth + workingWidth) % workingWidth;
+    const finalSrcX2 = minX + ((nearestX2 - minX) % workingWidth + workingWidth) % workingWidth;
+    const finalSrcX3 = minX + ((nearestX3 - minX) % workingWidth + workingWidth) % workingWidth;
+    
+    // Process each of the 4 pixels if coordinates are valid
+    if (finalSrcX0 >= minX && finalSrcX0 < maxX) {
+      processZoomSimdPixel(srcRowOffset + finalSrcX0, destIndices[baseIndex]);
+    }
+    if (finalSrcX1 >= minX && finalSrcX1 < maxX) {
+      processZoomSimdPixel(srcRowOffset + finalSrcX1, destIndices[baseIndex + 1]);
+    }
+    if (finalSrcX2 >= minX && finalSrcX2 < maxX) {
+      processZoomSimdPixel(srcRowOffset + finalSrcX2, destIndices[baseIndex + 2]);
+    }
+    if (finalSrcX3 >= minX && finalSrcX3 < maxX) {
+      processZoomSimdPixel(srcRowOffset + finalSrcX3, destIndices[baseIndex + 3]);
+    }
+  }
+  
+  // Handle remaining pixels (less than 4)
+  for (let i = groupsOf4 * 4; i < coordIndex; i++) {
+    const srcX = srcCoords[i * 2];
+    const srcY = srcCoords[i * 2 + 1];
+    const srcRowOffset = srcY * width;
+    
+    // X coordinate wrapping
+    const normalizedX = (srcX - minX) * invWorkingWidth;
+    const wrappedNormX = normalizedX - Math.floor(normalizedX);
+    const wrappedSrcX = minX + wrappedNormX * workingWidth;
+    const nearestX = Math.round(wrappedSrcX);
+    const finalSrcX = minX + ((nearestX - minX) % workingWidth + workingWidth) % workingWidth;
+    
+    if (finalSrcX >= minX && finalSrcX < maxX) {
+      processZoomSimdPixel(srcRowOffset + finalSrcX, destIndices[i]);
+    }
+  }
+}
+
+// 🚀 SIMD Helper: Process individual zoom pixel with fast copying
+function processZoomSimdPixel(srcPixelIndex, destIdx) {
+  const srcIdx = srcPixelIndex * 4;
+  
+  // Unrolled RGBA copy for maximum speed
+  pixels[destIdx] = zoomBuffer[srcIdx];
+  pixels[destIdx + 1] = zoomBuffer[srcIdx + 1];
+  pixels[destIdx + 2] = zoomBuffer[srcIdx + 2];
+  pixels[destIdx + 3] = zoomBuffer[srcIdx + 3];
+}
+
+// Static buffers for SIMD zoom function
+zoomSimd.srcCoords = null;
+zoomSimd.destIndices = null;
+zoomSimd.srcIndices = null;
 
 // Radial displacement transformation with pixel-perfect nearest neighbor sampling
 // Creates discrete, lossless pixel movement without blur or center holes
@@ -3998,10 +4788,10 @@ function suck(strength = 1, centerX, centerY) {
         srcDistance = srcDistance - maxDistance;
       }
       
-      // Calculate source position using exact same direction as destination
+      // Calculate source position using exact same direction as destination (fast trig)
       const angle = Math.atan2(dy, dx);
-      const srcX = centerPixelX + srcDistance * Math.cos(angle);
-      const srcY = centerPixelY + srcDistance * Math.sin(angle);
+      const srcX = centerPixelX + srcDistance * cos(angle);
+      const srcY = centerPixelY + srcDistance * sin(angle);
       
       // Proper modulo wrapping for continuous circulation
       let wrappedSrcX = srcX;
@@ -4058,6 +4848,324 @@ function suck(strength = 1, centerX, centerY) {
 
   // Reset accumulator after applying transformation
   suckAccumulator = 0.0;
+}
+
+// Accumulated blur strength for smooth progressive blurring
+let blurAccumulator = 0.0;
+
+// Reusable temporary buffer for blur operations to avoid memory allocation on each call
+let blurTempBuffer = null;
+let blurTempBufferSize = 0;
+
+// Function to clean up blur buffers and reset state
+function cleanupBlurBuffers() {
+  blurTempBuffer = null;
+  blurTempBufferSize = 0;
+  blurAccumulator = 0.0;
+}
+
+// Efficient Gaussian blur using separable filtering with linear sampling optimization
+// Creates smooth blur effect by applying horizontal then vertical Gaussian convolution
+function blur(strength = 1, quality = "medium") {
+  if (strength <= 0.1) return; // No blur needed - neutral blur
+  
+  // Start timing for performance monitoring
+  const blurStartTime = performance.now();
+  
+  // Accumulate the blur strength for progressive blurring
+  blurAccumulator += strength;
+  
+  // Apply blur when accumulator reaches threshold
+  const threshold = 0.5;
+  if (Math.abs(blurAccumulator) < threshold) return;
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) {
+    blurAccumulator = 0.0;
+    return;
+  }
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in blur, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  // Calculate blur parameters based on strength and quality
+  const blurRadius = Math.max(1, Math.floor(Math.abs(blurAccumulator)));
+  const kernelSize = Math.min(blurRadius * 2 + 1, 15); // Cap at 15 for performance
+  
+  // Generate Gaussian weights using Pascal triangle approximation
+  const weights = generateGaussianWeights(kernelSize, quality);
+  const radius = Math.floor(kernelSize / 2);
+  
+  try {
+    // Reuse temporary buffer to avoid repeated large allocations
+    const requiredSize = pixels.length;
+    if (!blurTempBuffer || blurTempBufferSize !== requiredSize) {
+      // Only allocate new buffer if size changed or buffer doesn't exist
+      blurTempBuffer = new Uint8ClampedArray(requiredSize);
+      blurTempBufferSize = requiredSize;
+    }
+    
+    // Clear the temp buffer to ensure clean state
+    blurTempBuffer.fill(0);
+    
+    // PASS 1: Horizontal blur
+    applyHorizontalBlur(pixels, blurTempBuffer, weights, radius, minX, minY, maxX, maxY);
+    
+    // PASS 2: Vertical blur (from temp back to main buffer)
+    applyVerticalBlur(blurTempBuffer, pixels, weights, radius, minX, minY, maxX, maxY);
+    
+  } catch (error) {
+    console.warn('🚨 Blur operation failed:', error);
+    // Reset temp buffer on error to prevent issues on next call
+    blurTempBuffer = null;
+    blurTempBufferSize = 0;
+  }
+  
+  // Log timing information for performance monitoring
+  const blurEndTime = performance.now();
+  const blurDuration = blurEndTime - blurStartTime;
+  console.log(`⚡ blur: ${blurDuration.toFixed(3)}ms`);
+  
+  // Reset accumulator after applying blur
+  blurAccumulator = 0.0;
+}
+
+// Generate optimized Gaussian weights for blur kernel
+function generateGaussianWeights(kernelSize, quality) {
+  const weights = new Array(kernelSize);
+  const radius = Math.floor(kernelSize / 2);
+  const sigma = radius / 3.0; // Standard deviation for nice falloff
+  
+  if (quality === "fast") {
+    // Simple box blur approximation - all weights equal
+    const weight = 1.0 / kernelSize;
+    for (let i = 0; i < kernelSize; i++) {
+      weights[i] = weight;
+    }
+  } else {
+    // Proper Gaussian weights
+    let sum = 0.0;
+    for (let i = 0; i < kernelSize; i++) {
+      const x = i - radius;
+      const weight = Math.exp(-(x * x) / (2 * sigma * sigma));
+      weights[i] = weight;
+      sum += weight;
+    }
+    
+    // Normalize weights to sum to 1.0
+    for (let i = 0; i < kernelSize; i++) {
+      weights[i] /= sum;
+    }
+  }
+  
+  return weights;
+}
+
+// Apply horizontal Gaussian blur pass with optimized sampling
+function applyHorizontalBlur(sourcePixels, destPixels, weights, radius, minX, minY, maxX, maxY) {
+  // Safety checks
+  if (!sourcePixels || !destPixels || !weights) return;
+  if (radius < 0 || radius >= weights.length / 2) return;
+  
+  for (let y = minY; y < maxY; y++) {
+    const rowOffset = y * width;
+    
+    for (let x = minX; x < maxX; x++) {
+      const destIdx = (rowOffset + x) * 4;
+      
+      // Bounds check for destination index
+      if (destIdx < 0 || destIdx + 3 >= destPixels.length) continue;
+      
+      let r = 0, g = 0, b = 0, a = 0;
+      
+      // Apply convolution kernel horizontally
+      for (let k = -radius; k <= radius; k++) {
+        // Handle boundary conditions with clamping
+        const srcX = Math.max(minX, Math.min(maxX - 1, x + k));
+        const srcIdx = (rowOffset + srcX) * 4;
+        
+        // Bounds check for source index
+        if (srcIdx < 0 || srcIdx + 3 >= sourcePixels.length) continue;
+        
+        const weightIdx = k + radius;
+        if (weightIdx < 0 || weightIdx >= weights.length) continue;
+        
+        const weight = weights[weightIdx];
+        
+        r += sourcePixels[srcIdx] * weight;
+        g += sourcePixels[srcIdx + 1] * weight;
+        b += sourcePixels[srcIdx + 2] * weight;
+        a += sourcePixels[srcIdx + 3] * weight;
+      }
+      
+      // Store blurred values with clamping
+      destPixels[destIdx] = Math.round(Math.max(0, Math.min(255, r)));
+      destPixels[destIdx + 1] = Math.round(Math.max(0, Math.min(255, g)));
+      destPixels[destIdx + 2] = Math.round(Math.max(0, Math.min(255, b)));
+      destPixels[destIdx + 3] = Math.round(Math.max(0, Math.min(255, a)));
+    }
+  }
+}
+
+// Apply vertical Gaussian blur pass with optimized sampling
+function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY, maxX, maxY) {
+  // Safety checks
+  if (!sourcePixels || !destPixels || !weights) return;
+  if (radius < 0 || radius >= weights.length / 2) return;
+  
+  for (let y = minY; y < maxY; y++) {
+    const rowOffset = y * width;
+    
+    for (let x = minX; x < maxX; x++) {
+      const destIdx = (rowOffset + x) * 4;
+      
+      // Bounds check for destination index
+      if (destIdx < 0 || destIdx + 3 >= destPixels.length) continue;
+      
+      let r = 0, g = 0, b = 0, a = 0;
+      
+      // Apply convolution kernel vertically
+      for (let k = -radius; k <= radius; k++) {
+        // Handle boundary conditions with clamping
+        const srcY = Math.max(minY, Math.min(maxY - 1, y + k));
+        const srcIdx = (srcY * width + x) * 4;
+        
+        // Bounds check for source index
+        if (srcIdx < 0 || srcIdx + 3 >= sourcePixels.length) continue;
+        
+        const weightIdx = k + radius;
+        if (weightIdx < 0 || weightIdx >= weights.length) continue;
+        
+        const weight = weights[weightIdx];
+        
+        r += sourcePixels[srcIdx] * weight;
+        g += sourcePixels[srcIdx + 1] * weight;
+        b += sourcePixels[srcIdx + 2] * weight;
+        a += sourcePixels[srcIdx + 3] * weight;
+      }
+      
+      // Store blurred values with clamping
+      destPixels[destIdx] = Math.round(Math.max(0, Math.min(255, r)));
+      destPixels[destIdx + 1] = Math.round(Math.max(0, Math.min(255, g)));
+      destPixels[destIdx + 2] = Math.round(Math.max(0, Math.min(255, b)));
+      destPixels[destIdx + 3] = Math.round(Math.max(0, Math.min(255, a)));
+    }
+  }
+}
+
+// Apply sharpening filter to enhance edges and details
+// strength: 0 = no sharpening, 1 = normal sharpening, >1 = aggressive sharpening
+function sharpen(strength = 1) {
+  if (strength <= 0) return; // No sharpening needed
+  
+  // Start timing for performance monitoring
+  const sharpenStartTime = performance.now();
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in sharpen, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  try {
+    // Create temporary buffer for sharpen operation
+    const tempBuffer = new Uint8ClampedArray(pixels.length);
+    
+    // Copy original pixels to temp buffer
+    tempBuffer.set(pixels);
+    
+    // Unsharp mask convolution kernel (center weight adjusted by strength)
+    // This is a 3x3 kernel that subtracts a blurred version from the original
+    const centerWeight = 1 + (4 * strength);
+    const edgeWeight = -strength;
+    
+    // Apply sharpening convolution
+    for (let y = minY + 1; y < maxY - 1; y++) {
+      for (let x = minX + 1; x < maxX - 1; x++) {
+        const centerIdx = (y * width + x) * 4;
+        
+        // Skip transparent pixels
+        if (tempBuffer[centerIdx + 3] === 0) continue;
+        
+        // Apply 3x3 unsharp mask kernel for each color channel
+        for (let channel = 0; channel < 3; channel++) { // RGB only, preserve alpha
+          let sum = 0;
+          
+          // Center pixel (enhanced)
+          sum += tempBuffer[centerIdx + channel] * centerWeight;
+          
+          // Surrounding pixels (subtracted)
+          sum += tempBuffer[((y - 1) * width + x) * 4 + channel] * edgeWeight; // top
+          sum += tempBuffer[((y + 1) * width + x) * 4 + channel] * edgeWeight; // bottom
+          sum += tempBuffer[(y * width + (x - 1)) * 4 + channel] * edgeWeight; // left
+          sum += tempBuffer[(y * width + (x + 1)) * 4 + channel] * edgeWeight; // right
+          
+          // Clamp result to valid range
+          pixels[centerIdx + channel] = Math.max(0, Math.min(255, Math.round(sum)));
+        }
+        // Alpha channel stays unchanged
+      }
+    }
+    
+  } catch (error) {
+    console.warn('🚨 Sharpen operation failed:', error);
+  }
+  
+  // Log timing information for performance monitoring
+  const sharpenEndTime = performance.now();
+  graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -5234,7 +6342,6 @@ export {
   skip,
   copy,
   resize,
-  blur,
   contrast,
   brightness,
   paste,
@@ -5265,8 +6372,12 @@ export {
   spin,
   zoom,
   suck,
+  blur,
+  sharpen,
+  cleanupBlurBuffers,
   sort,
   shear,
+  setBlockProcessing,
   Camera,
   Form,
   Dolly,

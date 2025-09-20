@@ -45,24 +45,14 @@ let bounceCount = 1;
 let calcItemPositions; // Function to calculate item positions
 
 // Helper function to get day color theme
-function getDayColorTheme(dateString) {
+function getDayColorTheme(dateString, isDark = true) {
   // Create a simple hash from the date string for consistent colors
   let hash = 0;
   for (let i = 0; i < dateString.length; i++) {
     hash = ((hash << 5) - hash + dateString.charCodeAt(i)) & 0xffffffff;
   }
   
-  // Define color themes for different days
-  const themes = [
-    { header: [100, 120, 180], bg: [40, 45, 65] },   // Blue theme
-    { header: [180, 100, 120], bg: [65, 40, 45] },   // Red theme  
-    { header: [120, 180, 100], bg: [45, 65, 40] },   // Green theme
-    { header: [180, 160, 100], bg: [65, 60, 40] },   // Yellow theme
-    { header: [160, 100, 180], bg: [60, 40, 65] },   // Purple theme
-    { header: [100, 180, 160], bg: [40, 65, 60] },   // Cyan theme
-    { header: [180, 140, 100], bg: [65, 55, 40] },   // Orange theme
-  ];
-  
+  const themes = isDark ? scheme.dark.dayThemes : scheme.light.dayThemes;
   return themes[Math.abs(hash) % themes.length];
 }
 
@@ -70,6 +60,68 @@ const { floor, min, abs, ceil, sin } = Math;
 
 // Track current day theme for mood backgrounds
 let currentDayTheme = null;
+
+// Color schemes for light and dark modes
+const scheme = {
+  dark: {
+    background: [0],
+    retrievingText: [64, 127],
+    failedText: "red",
+    moodBackgroundDefault: [64, 64, 80],
+    moodBackgroundFocal: [200, 180, 60],
+    labelBackground: [230, 230, 230],
+    labelBackgroundFocal: [255, 255, 100],
+    timestampDefault: [160, 160, 160],
+    timestampFocal: [220, 220, 220],
+    handleDefault: [180, 200, 255],
+    handleFocal: [200, 220, 255],
+    moodTextDefault: "red",
+    moodTextFocal: undefined,
+    dateBackground: [0, 0, 0],
+    dateText: [64, 64, 64],
+    scrollBarTrack: [64, 64, 64],
+    scrollBarThumb: [128, 128, 255],
+    divider: [48, 48, 48],
+    dayThemes: [
+      { header: [100, 120, 180], bg: [40, 45, 65] },   // Blue theme
+      { header: [180, 100, 120], bg: [65, 40, 45] },   // Red theme  
+      { header: [120, 180, 100], bg: [45, 65, 40] },   // Green theme
+      { header: [180, 160, 100], bg: [65, 60, 40] },   // Yellow theme
+      { header: [160, 100, 180], bg: [60, 40, 65] },   // Purple theme
+      { header: [100, 180, 160], bg: [40, 65, 60] },   // Cyan theme
+      { header: [180, 140, 100], bg: [65, 55, 40] },   // Orange theme
+    ]
+  },
+  light: {
+    background: [240, 240, 240],
+    retrievingText: [80, 80, 80],
+    failedText: "darkred",
+    moodBackgroundDefault: [200, 200, 220],
+    moodBackgroundFocal: [255, 255, 150],
+    labelBackground: [240, 240, 240],
+    labelBackgroundFocal: [255, 255, 255],
+    timestampDefault: [60, 60, 60],
+    timestampFocal: [20, 20, 20],
+    handleDefault: [80, 100, 160],
+    handleFocal: [40, 60, 120],
+    moodTextDefault: "darkblue",
+    moodTextFocal: "black",
+    dateBackground: [255, 255, 255],
+    dateText: [120, 120, 120],
+    scrollBarTrack: [180, 180, 180],
+    scrollBarThumb: [100, 100, 200],
+    divider: [200, 200, 200],
+    dayThemes: [
+      { header: [200, 220, 255], bg: [220, 225, 240] },   // Light Blue theme
+      { header: [255, 200, 220], bg: [240, 220, 225] },   // Light Red theme  
+      { header: [220, 255, 200], bg: [225, 240, 220] },   // Light Green theme
+      { header: [255, 240, 200], bg: [240, 235, 220] },   // Light Yellow theme
+      { header: [240, 200, 255], bg: [235, 220, 240] },   // Light Purple theme
+      { header: [200, 255, 240], bg: [220, 240, 235] },   // Light Cyan theme
+      { header: [255, 220, 200], bg: [240, 230, 220] },   // Light Orange theme
+    ]
+  }
+};
 
 // 🥾 Boot
 function boot({ wipe, screen, colon, params, typeface, gizmo }) {
@@ -142,19 +194,21 @@ function boot({ wipe, screen, colon, params, typeface, gizmo }) {
 }
 
 // 🎨 Paint - NEW VIRTUAL VIEWPORT ARCHITECTURE
-function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose, repeat }, painting, paste, net, clock }) {
-  scale > 1 ? ink(0, 64).box(screen) : wipe(0);
+function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose, repeat }, painting, paste, net, clock, dark }) {
+  const currentScheme = dark ? scheme.dark : scheme.light;
+  
+  scale > 1 ? ink(0, 64).box(screen) : wipe(...currentScheme.background);
   if (retrieving) {
     const ellipsis = ellipsisTicker ? ellipsisTicker.text(repeat) : "...";
-    ink(choose(64, 127)).write(`Retrieving${ellipsis}`, { center: "xy" });
+    ink(...currentScheme.retrievingText).write(`Retrieving${ellipsis}`, { center: "xy" });
   }
-  if (failed) ink("red").write("failed", { center: "xy" });
+  if (failed) ink(currentScheme.failedText).write("failed", { center: "xy" });
   if (allItems.length > 0) {
     // NEW: Update viewport based on scroll position
     updateViewport(screen);
     
     // NEW: Render only visible items using smooth transforms
-    renderVisibleItems({ ink, text, screen, painting, paste, num });
+    renderVisibleItems({ ink, text, screen, painting, paste, num, dark });
     
     // NEW: Smooth continuous scrolling
     scroll += 0.25; // Constant scroll speed
@@ -178,13 +232,11 @@ function paint({ wipe, ink, text, pan, unpan, screen, num, help: { choose, repea
     const availableThumbSpace = progressHeight - thumbHeight;
     const thumbPosition = Math.floor(scrollProgress * availableThumbSpace);
     
-
-    
     const progressX = screen.width - 4;
     const progressY = 0;
     
-    ink(64, 64, 64).box(progressX, progressY, 4, progressHeight);
-    ink(128, 128, 255).box(progressX, progressY + thumbPosition, 4, thumbHeight);
+    ink(...currentScheme.scrollBarTrack).box(progressX, progressY, 4, progressHeight);
+    ink(...currentScheme.scrollBarThumb).box(progressX, progressY + thumbPosition, 4, thumbHeight);
   }
 }
 
@@ -216,7 +268,7 @@ function updateViewport(screen) {
   viewport.lastVisibleIndex = Math.min(allItems.length - 1, viewport.lastVisibleIndex + 2);
 }
 
-function renderVisibleItems({ ink, text, screen, painting, paste, num }) {
+function renderVisibleItems({ ink, text, screen, painting, paste, num, dark }) {
   const screenCenter = screen.height / 2;
   let closestMoodIndex = -1;
   let closestDistance = Infinity;
@@ -246,16 +298,18 @@ function renderVisibleItems({ ink, text, screen, painting, paste, num }) {
     if (itemY + itemHeight < 0 || itemY > screen.height) continue;
     
     if (item.type === 'date') {
-      renderDateItem(item, itemY, { ink, text, screen });
+      renderDateItem(item, itemY, { ink, text, screen, dark });
     } else {
-      renderMoodItem(item, itemY, i === closestMoodIndex, { ink, text, screen, painting, paste, num });
+      renderMoodItem(item, itemY, i === closestMoodIndex, { ink, text, screen, painting, paste, num, dark });
     }
   }
 }
 
-function renderDateItem(item, y, { ink, text, screen }) {
+function renderDateItem(item, y, { ink, text, screen, dark }) {
+  const currentScheme = dark ? scheme.dark : scheme.light;
+  
   // Get color theme for this day
-  const dayTheme = getDayColorTheme(item.date);
+  const dayTheme = getDayColorTheme(item.date, dark);
   
   // Calculate dimensions
   const dateHeaderHeight = 16 * scale;
@@ -263,13 +317,13 @@ function renderDateItem(item, y, { ink, text, screen }) {
   const fullBackgroundWidth = screen.width - 4;
   const fullDateHeight = itemRowHeight + dateHeaderHeight + dateSpacing;
   
-  // Draw black background
-  ink(0, 0, 0).box(0, y, fullBackgroundWidth, fullDateHeight);
+  // Draw background
+  ink(...currentScheme.dateBackground).box(0, y, fullBackgroundWidth, fullDateHeight);
   
   // Draw centered date text
   const tabHeight = 20;
   const tabY = y + fullDateHeight - tabHeight;
-  ink(64, 64, 64).write(item.date, { 
+  ink(...currentScheme.dateText).write(item.date, { 
     x: screen.width / 2, 
     y: tabY - 6, 
     size: 2, 
@@ -277,7 +331,8 @@ function renderDateItem(item, y, { ink, text, screen }) {
   }, undefined, undefined, false, "MatrixChunky8");
 }
 
-function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, num }) {
+function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, num, dark }) {
+  const currentScheme = dark ? scheme.dark : scheme.light;
   const mood = item.mood.trim().replace(/\n/g, ' ').replace(/\r/g, '');
   const timestamp = new Date(item.when).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
@@ -294,7 +349,7 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
   const timeX = labelStartX + 4;
   
   // Create or get cached buffer
-  const moodKey = `${item.handle}_${item.when}_${mood.substring(0, 50)}`;
+  const moodKey = `${item.handle}_${item.when}_${mood.substring(0, 50)}_${dark}`;
   let moodBuffer = itemBuffers.get(moodKey);
   
   if (!moodBuffer) {
@@ -302,7 +357,7 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
     const bufferHeight = (12 * scale) + (6 * scale) + labelPadding;
     
     moodBuffer = painting(moodWidth, bufferHeight, (api) => {
-      api.wipe(32, 32, 48); // Default background
+      api.wipe(...currentScheme.moodBackgroundDefault); // Themed background
     });
     
     itemBuffers.set(moodKey, moodBuffer);
@@ -322,13 +377,13 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
   const bufferHeight = (12 * scale) + (6 * scale) + labelPadding;
   
   const animatedBuffer = painting(moodWidth, bufferHeight, (api) => {
-    const moodColor = isFocal ? undefined : "red";
+    const moodColor = isFocal ? currentScheme.moodTextFocal : currentScheme.moodTextDefault;
     api.ink(moodColor).write(mood, { x: textX, y: 2, size: scale }, undefined, undefined, false, "unifont");
   });
   
   // Background colors
-  const bgColor = isFocal ? [200, 180, 60] : [64, 64, 80];
-  const labelBgColor = isFocal ? [255, 255, 100] : [230, 230, 230];
+  const bgColor = isFocal ? currentScheme.moodBackgroundFocal : currentScheme.moodBackgroundDefault;
+  const labelBgColor = isFocal ? currentScheme.labelBackgroundFocal : currentScheme.labelBackground;
   
   // Draw backgrounds
   const moodBackgroundWidth = labelStartX;
@@ -336,14 +391,18 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
   ink(...labelBgColor).box(labelStartX, y, labelWidth, bufferHeight);
   
   // Draw text
-  const timestampColor = isFocal ? [64, 64, 64] : [96, 96, 96];
-  const handleColor = isFocal ? [100, 100, 200] : [120, 150, 200];
+  const timestampColor = isFocal ? currentScheme.timestampFocal : currentScheme.timestampDefault;
+  const handleColor = isFocal ? currentScheme.handleFocal : currentScheme.handleDefault;
   
   ink(...timestampColor).write(timestamp, { x: timeX, y: y + 2, size: scale });
   ink(...handleColor).write(item.handle, { x: timeX, y: y + 1 + (12 * scale) }, undefined, undefined, false, "MatrixChunky8");
   
   // Paste mood buffer
   paste(animatedBuffer, moodStartX, y);
+  
+  // Draw horizontal divider at the bottom
+  const dividerY = y + bufferHeight - 1;
+  ink(...currentScheme.divider).box(0, dividerY, screen.width - 4, 1);
 }
 
 // 🎪 Act

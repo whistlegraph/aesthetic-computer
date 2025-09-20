@@ -15,13 +15,6 @@
   "terminal.integrated.smoothScrolling": true,
   "notebook.lineNumbers": "off",
   "editor.minimap.autohide": "mouseover",
-  
-  // Rust-analyzer performance optimizations
-  "rust-analyzer.checkOnSave.enable": false,
-  "rust-analyzer.cargo.loadOutDirsFromCheck": false,
-  "rust-analyzer.procMacro.enable": false,
-  "rust-analyzer.diagnostics.enable": false,
-  "rust-analyzer.completion.autoimport.enable": false,
-  "rust-analyzer.hover.actions.enable": false,
-  "rust-analyzer.lens.enable": false
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python-envs.pythonProjects": []
 }
