@@ -1,6 +1,0 @@
-import smartpy as sp
-
-tstorage = sp.record(administrator = sp.address, balances = sp.big_map(sp.pair(sp.address, sp.nat), sp.nat), code_hashes = sp.big_map(sp.nat, sp.string), creators = sp.big_map(sp.nat, sp.address), hash_to_token = sp.big_map(sp.string, sp.nat), metadata = sp.big_map(sp.string, sp.bytes), next_token_id = sp.nat, operators = sp.big_map(sp.record(operator = sp.address, owner = sp.address, token_id = sp.nat).layout(("operator", ("owner", "token_id"))), sp.unit), token_metadata = sp.big_map(sp.nat, sp.bytes)).layout(("administrator", ("balances", ("code_hashes", ("creators", ("hash_to_token", ("metadata", ("next_token_id", ("operators", "token_metadata")))))))))
-tparameter = sp.variant(mint_kidlisp_token = sp.record(code_hash = sp.string, creator = sp.address, metadata = sp.bytes).layout(("code_hash", ("creator", "metadata"))), transfer = sp.list(sp.record(from_ = sp.address, txs = sp.list(sp.record(amount = sp.nat, to_ = sp.address, token_id = sp.nat).layout(("amount", ("to_", "token_id"))))).layout(("from_", "txs")))).layout(("mint_kidlisp_token", "transfer"))
-tprivates = { }
-tviews = { "get_token_for_hash": (sp.string, sp.nat), "get_balance": (sp.record(owner = sp.address, token_id = sp.nat).layout(("owner", "token_id")), sp.nat) }

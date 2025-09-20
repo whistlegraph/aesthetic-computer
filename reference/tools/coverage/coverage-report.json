@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-09-16T17:40:23.026Z",
+  "apiAnalysis": {
+    "totalFunctions": 60,
+    "exportedFunctions": 0,
+    "asyncFunctions": 9,
+    "categories": {
+      "graphics": 15,
+      "input": 0,
+      "audio": 2,
+      "networking": 3,
+      "utilities": 0,
+      "uncategorized": 40
+    }
+  },
+  "documentedCount": 13,
+  "coverage": {
+    "percentage": null,
+    "missing": [],
+    "extra": [
+      "api",
+      "paint",
+      "act",
+      "sim",
+      "beat",
+      "meta",
+      "preview",
+      "icon",
+      "brush",
+      "filter",
+      "curtain",
+      "background"
+    ]
+  }
+}
