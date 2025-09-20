@@ -54,8 +54,6 @@ external_node_modules = ["puppeteer-core", "@sparticuz/chromium"]
 external_node_modules = ["got", "redis"]
 [functions.reload]
 external_node_modules = ["got", "redis"]
-[functions.sotce-blog]
-external_node_modules = ["got", "crypto", "patreon"]
 [functions.vary]
 external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
@@ -216,11 +214,6 @@ from = "https://sundarakarma.com/oscar"
 to = "https://aesthetic.computer/sundarakarma.com/oscar.html"
 status = 200
 force = true
-[[redirects]]
-from = "https://sotce.aesthetic.computer"
-to = "https://aesthetic.computer/sotce-blog"
-status = 200
-force = false
 [[redirects]]
 from = "https://pals.aesthetic.computer/*"
 to = "https://aesthetic.computer/api/logo/:splat"
