@@ -30,45 +30,10 @@ node teia/ac-pack.mjs "$@"
 
 if [ $? -eq 0 ]; then
     echo ""
-    echo "🎉 Package assets generated successfully!"
-    echo "📁 Directory: teia/output/$1/"
-    echo ""
-    echo "🚀 Starting local server for testing..."
-    echo "🌐 Opening at: http://localhost:8001"
-    echo ""
-    
-    # Kill any existing servers on port 8001
-    pkill -f "python3 -m http.server 8001" 2>/dev/null || true
-    pkill -f "caddy file-server.*:8001" 2>/dev/null || true
-    
-    # Change to the output directory and start server
-    cd "teia/output/$1"
-    
-    # Start Caddy server in background
-    caddy file-server --listen :8001 --root . > /dev/null 2>&1 &
-    SERVER_PID=$!
-    
-    echo "🔍 Testing your piece..."
-    echo "   • Check if the piece loads correctly"
-    echo "   • Verify animations and interactions work"
-    echo "   • Test in different browser window sizes"
-    echo ""
-    echo "📋 Teia simulation:"
-    echo "   • Viewer parameter: ?viewer=tz1abc..."
-    echo "   • Creator parameter: ?creator=tz1def..."
-    echo ""
-    
-    # Wait for user input
-    echo "✅ Does everything look good? (y/N)"
-    read -r response
-    
-    # Kill the server
-    kill $SERVER_PID 2>/dev/null || true
-    
-    # Go back to original directory
-    cd - > /dev/null
-    
-    # Note: Zip creation is now handled by ac-pack.mjs - no need to duplicate here
+    echo "🎉 Package completed successfully!"
+    echo "   • Zip file created with timestamp"
+    echo "   • Build artifacts cleaned up"
+    echo "   • Ready for Teia upload"
 else
     echo ""
     echo "❌ Packing failed. Check the error messages above."
