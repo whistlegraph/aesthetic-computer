@@ -8,6 +8,7 @@ import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
+import { extractCodes, fetchAllCodes, generateCacheCode } from "./kidlisp-extractor.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,12 @@ class AcPacker {
     try {
       await this.createOutputDir();
       const pieceData = await this.loadPiece();
+      
+      // Handle KidLisp dependencies if this is a KidLisp piece
+      if (pieceData.isKidLispCode) {
+        await this.bundleKidLispDependencies(pieceData);
+      }
+      
       await this.generateIndexHtml(pieceData);
       await this.bundleSystemFiles();
       await this.bundleLibFiles();
@@ -70,6 +77,29 @@ class AcPacker {
   }
 
   async loadPiece() {
+    // First check if this is a KidLisp $code
+    if (this.pieceName.startsWith('$')) {
+      const codeId = this.pieceName.slice(1); // Remove $ prefix
+      console.log(`🔍 Detected KidLisp code: ${this.pieceName}`);
+      
+      // Fetch the code and all its dependencies
+      const { fetchCode } = await import("./kidlisp-extractor.mjs");
+      const result = await fetchCode(codeId);
+      
+      if (result) {
+        console.log(`📜 Loaded KidLisp code: ${this.pieceName}`);
+        return { 
+          sourceCode: result.source, 
+          language: "kidlisp", 
+          metadata: {},
+          isKidLispCode: true,
+          codeId: codeId
+        };
+      } else {
+        throw new Error(`KidLisp code not found: ${this.pieceName}`);
+      }
+    }
+    
     // Try to load JavaScript piece first
     const jsPath = path.join(DISKS_DIR, `${this.pieceName}.mjs`);
     try {
@@ -84,8 +114,31 @@ class AcPacker {
         console.log(`📜 Loaded lisp piece: ${this.pieceName}`);
         return { sourceCode, language: "lisp", metadata: {} };
       } catch (lispErr) {
-        throw new Error(`Piece not found: ${this.pieceName} (tried both .mjs and .lisp)`);
+        throw new Error(`Piece not found: ${this.pieceName} (tried .mjs, .lisp, and $code API)`);
       }
+    }
+  }
+
+  async bundleKidLispDependencies(pieceData) {
+    console.log(`🔗 Fetching KidLisp dependencies for ${this.pieceName}...`);
+    
+    // Fetch all nested dependencies
+    const codesMap = await fetchAllCodes(pieceData.sourceCode);
+    
+    if (codesMap.size > 0) {
+      console.log(`📚 Found ${codesMap.size} KidLisp dependencies`);
+      
+      // Generate cache preload code
+      const cacheCode = generateCacheCode(codesMap);
+      
+      // Save cache file
+      const cacheFilePath = path.join(this.options.outputDir, "kidlisp-cache.js");
+      await fs.writeFile(cacheFilePath, cacheCode);
+      this.bundledFiles.add("kidlisp-cache.js");
+      
+      console.log(`💾 Saved KidLisp cache to kidlisp-cache.js`);
+    } else {
+      console.log(`ℹ️ No KidLisp dependencies found`);
     }
   }
 
@@ -99,7 +152,7 @@ class AcPacker {
     <base href="./" />
     <title>${metadata.title || this.options.title}</title>
     <meta property="og:image" content="${this.options.coverImage}" />
-    <link rel="icon" href="aesthetic.computer/favicon.png" type="image/png" />
+    <link rel="icon" href="./aesthetic.computer/favicon.png" type="image/png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="${this.options.description}" />
     <meta name="og:title" content="${metadata.title || this.options.title}" />
@@ -136,9 +189,9 @@ console.log('🎭 Teia mode activated:', {
   nogapMode: window.acNOGAP_MODE
 });
     </script>
-    
-    <script src="aesthetic.computer/boot.mjs" type="module" defer></script>
-    <link rel="stylesheet" href="aesthetic.computer/style.css" />
+    ${pieceData.isKidLispCode ? '<script src="./kidlisp-cache.js"></script>' : ''}
+    <script src="./aesthetic.computer/boot.mjs" type="module" defer></script>
+    <link rel="stylesheet" href="./aesthetic.computer/style.css" />
   </head>
   <body class="native-cursor">
     <div id="console" class="hidden">booting...</div>
@@ -218,6 +271,12 @@ console.log('🎭 Teia mode activated:', {
         if (libFile === 'type.mjs') {
           content = this.patchTypeJsForTeia(content);
           console.log(`🔧 Patched type.mjs for teia mode`);
+        }
+        
+        // Patch kidlisp.mjs for teia mode - reduce verbose logging
+        if (libFile === 'kidlisp.mjs') {
+          content = this.patchKidLispJsForTeia(content);
+          console.log(`🔧 Patched kidlisp.mjs for teia mode`);
         }
         
         // Patch disk.mjs for teia mode - prevent session connections
@@ -349,7 +408,26 @@ console.log('🎭 Teia mode activated:', {
     const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
     await fs.mkdir(disksOutputDir, { recursive: true });
 
-    // Copy the current piece to the disks directory
+    // Handle KidLisp $codes - create a stub piece that jumps to the cached code
+    if (this.pieceName.startsWith('$')) {
+      const stubContent = `// KidLisp $code stub for Teia mode
+export function boot({ wipe, ink, help }) {
+  // Load the cached KidLisp code
+  wipe("black");
+  ink("white");
+  help.choose("Load ${this.pieceName} from cache...").then(() => {
+    help.system.nopaint.load("${this.pieceName}");
+  });
+}`;
+      
+      const destPath = path.join(disksOutputDir, `${this.pieceName}.mjs`);
+      await fs.writeFile(destPath, stubContent);
+      this.bundledFiles.add(`KidLisp stub: ${this.pieceName}.mjs`);
+      console.log(`🔗 Created KidLisp stub for: ${this.pieceName}`);
+      return;
+    }
+
+    // Copy the current piece to the disks directory (regular pieces)
     const extensions = [".mjs", ".lisp"];
     for (const ext of extensions) {
       const srcPath = path.join(DISKS_DIR, `${this.pieceName}${ext}`);
@@ -551,102 +629,56 @@ console.log('🎭 Teia mode activated:', {
   }
 
   patchTypeJsForTeia(content) {
-    // Add debugging for local font loading and disable API calls
     console.log("🔧 Patching type.mjs for teia mode...");
     
-    // Add debugging around the teia mode detection
-    const teiaCheckPattern = /const isTeiaMode = \(typeof window !== 'undefined' && window\.acTEIA_MODE\) \|\|\s*\(typeof globalThis !== 'undefined' && globalThis\.acTEIA_MODE\) \|\|\s*\(location && location\.pathname && !location\.pathname\.includes\('\/api\/'\)\);/;
+    // The original type.mjs already has proper TEIA mode handling for MatrixChunky8 fonts
+    // We just need to fix the filename format to not strip leading zeros since our bundled files keep them
+    let patched = content;
     
-    let patched = content.replace(teiaCheckPattern, 
-      `const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-                         (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE) ||
-                         (location && location.pathname && !location.pathname.includes('/api/'));`
-    );
-    
-    // Add URL logging before local fetch
-    const localPathPattern = /const localPath = `\/assets\/type\/MatrixChunky8\/\$\{codePointStr\}\.json`;/;
-    patched = patched.replace(localPathPattern, 
-      `const localPath = \`/assets/type/MatrixChunky8/\${codePointStr}.json\`;`
-    );
-    
-    // Enhanced debugging for local fetch - replace the .then() chain pattern
-    const localFetchPattern = /(fetch\(localPath\)\s*\.then\(\(response\) => \{[\s\S]*?\}\)\s*\.then\(\(glyphData\) => \{[\s\S]*?\}\)\s*\.catch\(\(error\) => \{[\s\S]*?\}\);)/;
-    patched = patched.replace(localFetchPattern, 
-      `(async () => {
-        try {
-          const response = await fetch(localPath);
-          
-          if (!response.ok) {
-            throw new Error(\`Local glyph not found: \${response.status}\`);
-          }
-          
-          const glyphData = await response.json();
-          
-          // Store the loaded glyph
-          target[char] = glyphData;
-          loadingGlyphs.delete(char);
-          
-          // Trigger a re-render if this is for QR text
-          if (fontName === "MatrixChunky8") {
-            
-            // Invalidate QR cache so it regenerates with new characters
-            if (typeof window !== 'undefined' && window.qrOverlayCache) {
-              window.qrOverlayCache.clear();
-            }
-            
-            // Force a repaint by calling needsPaint if available
-            if (typeof needsPaint === 'function') {
-              needsPaint();
-            } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
-              window.$activePaintApi.needsPaint();
-            }
-          }
-          
-          // Trigger a repaint to show the newly loaded glyph
-          if (needsPaintCallback && typeof needsPaintCallback === "function") {
-            needsPaintCallback();
-          }
-        } catch (error) {
-          // If local loading fails in teia mode, use fallback glyph
-          loadingGlyphs.delete(char);
-          failedGlyphs.add(char);
-          // Glyph fallback logging reduced for cleaner console
-        }
-      })();`
-    );
-    
-    // Replace API calls with teia mode check
-    const apiPattern = /fetch\(`\/api\/bdf-glyph\?char=\$\{codePointStr\}&font=\$\{fontName\}`\)/g;
-    patched = patched.replace(apiPattern, 
-      '(typeof window !== "undefined" && !window.acTEIA_MODE) ? fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`) : Promise.reject(new Error("API disabled in teia mode"))'
-    );
-    
-    // Add early return for teia mode after local loading attempt
-    const teiaReturnPattern = /\/\/ Still try API as fallback \(don't return early\)\s*\}/;
-    patched = patched.replace(teiaReturnPattern, 
-      `// In teia mode, return early - don't try API
-            return this.getEmojiFallback(char, target);
-          }`
-    );
-    
-    // Update local loading error handling to not mention API
-    const localErrorPattern = /\/\/ If local loading fails, fall back to API[\s\S]*?\/\/ Don't store undefined here, let it fall through to API call/;
-    patched = patched.replace(localErrorPattern, 
-      `// If local loading fails in teia mode, use fallback glyph
-          loadingGlyphs.delete(char);
-          failedGlyphs.add(char);
-          // Glyph fallback logging reduced for cleaner console`
-    );
-    
-    // Ensure local loading properly handles success
-    const localSuccessPattern = /(\/\/ Store the loaded glyph\s*target\[char\] = glyphData;)/;
-    patched = patched.replace(localSuccessPattern, 
-      `// Store the loaded glyph
-          target[char] = glyphData;
-          loadingGlyphs.delete(char);`
+    // Update the filename generation to keep leading zeros for bundled files
+    const localFileNamePattern = /const localFileName = codePointStr\.split\('_'\)\.map\(code => \{\s*\/\/ Remove leading zeros but keep at least one digit\s*return code\.replace\(\/\^0\+\/, ''\) \|\| '0';\s*\}\)\.join\('_'\);/;
+    patched = patched.replace(localFileNamePattern, 
+      `// For bundled files, keep the original hex format with leading zeros
+      const localFileName = codePointStr;`
     );
     
     return patched;
+  }
+
+  async patchBootJsForTeia(content) {
+    console.log('🎨 Patching boot.mjs for teia dependency URLs and TV mode...');
+    
+    let patched = content;
+    
+    // Force TV mode (non-interactive) when in TEIA mode
+    const tvParamPattern = /const tv = tvParam === true \|\| tvParam === "true";/;
+    patched = patched.replace(tvParamPattern, 
+      `const tv = tvParam === true || tvParam === "true" || window.acTEIA_MODE;`
+    );
+    
+    // Fix auth0 script URL to use relative path in teia mode
+    const auth0Pattern = /script\.src = "\/aesthetic\.computer\/dep\/auth0-spa-js\.production\.js";/;
+    patched = patched.replace(auth0Pattern, 
+      `// Check if we're in teia mode for relative path
+      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
+                       (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      
+      if (isTeiaMode) {
+        script.src = "./aesthetic.computer/dep/auth0-spa-js.production.js";
+      } else {
+        script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
+      }`
+    );
+    
+    return patched;
+  }
+
+  patchKidLispJsForTeia(content) {
+    console.log("🔧 Patching kidlisp.mjs for teia mode...");
+    
+    // Since we've already cleaned up the original source files, 
+    // this function can now be simplified or removed entirely
+    return content;
   }
 
   async patchDiskJsForTeia(content) {
@@ -752,28 +784,6 @@ console.log('🎭 Teia mode activated:', {
     return patched;
   }
 
-  async patchBootJsForTeia(content) {
-    console.log('🎨 Patching boot.mjs for teia dependency URLs...');
-    
-    let patched = content;
-    
-    // Fix auth0 script URL to use relative path in teia mode
-    const auth0Pattern = /script\.src = "\/aesthetic\.computer\/dep\/auth0-spa-js\.production\.js";/;
-    patched = patched.replace(auth0Pattern, 
-      `// Check if we're in teia mode for relative path
-      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-                       (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
-      
-      if (isTeiaMode) {
-        script.src = "./aesthetic.computer/dep/auth0-spa-js.production.js";
-      } else {
-        script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
-      }`
-    );
-    
-    return patched;
-  }
-
   async patchParseJsForTeia(content) {
     console.log('🎨 Patching parse.mjs for teia mode piece override...');
     
@@ -863,7 +873,7 @@ async function main() {
   console.log(`📁 Directory: ${packer.options.outputDir}`);
   console.log("");
   
-  // Direct zip prompt without server
+  // Auto-create zip with timestamp
   console.log("� Package ready for Teia deployment!");
   console.log("   • All assets bundled locally");
   console.log("   • Font loading fixed for offline use");
@@ -871,108 +881,47 @@ async function main() {
   console.log("   • TEIA mode styling enabled");
   console.log("");
   
-  // Interactive prompt without server
-  await promptUserForZip(packer);
+  // Automatically create zip with timestamp
+  console.log("📦 Creating zip file...");
+  try {
+    const zipPath = await createZipWithTimestamp(packer.options.outputDir, packer.pieceName);
+    console.log("");
+    console.log("🎉 Success! Your package is ready for Teia:");
+    console.log(`📁 Directory: ${packer.options.outputDir}`);
+    console.log(`📦 Zip file: ${zipPath}`);
+    console.log("");
+    console.log("🚀 Next steps:");
+    console.log("1. Go to https://teia.art/mint");
+    console.log(`2. Upload ${path.basename(zipPath)}`);
+    console.log("3. Preview and test your interactive OBJKT");
+    console.log("4. Mint when ready!");
+    console.log("");
+    
+    // Clean up build artifacts (keep only the zip)
+    console.log("🧹 Cleaning up build artifacts...");
+    await fs.rm(packer.options.outputDir, { recursive: true, force: true });
+    console.log("✅ Build directory cleaned up");
+  } catch (error) {
+    console.error("❌ Failed to create zip:", error.message);
+    process.exit(1);
+  }
 }
 
-async function promptUser(packer, caddy) {
-  const readline = await import('readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  rl.question("✅ Does everything look good? (y/N) ", async (response) => {
-    // Kill the server
-    caddy.kill();
-    
-    if (response.toLowerCase() === 'y' || response.toLowerCase() === 'yes') {
-      console.log("");
-      console.log("📦 Creating zip file...");
-      
-      try {
-        await createZip(packer.options.outputDir);
-        console.log("");
-        console.log("🎉 Success! Your package is ready for Teia:");
-        console.log(`📁 Directory: ${packer.options.outputDir}`);
-        console.log(`📦 Zip file: ${packer.options.outputDir}.zip`);
-        console.log("");
-        console.log("🚀 Next steps:");
-        console.log("1. Go to https://teia.art/mint");
-        console.log(`2. Upload ${packer.options.outputDir}.zip`);
-        console.log("3. Preview and test your interactive OBJKT");
-        console.log("4. Mint when ready!");
-      } catch (error) {
-        console.error("❌ Failed to create zip:", error.message);
-      }
-    } else {
-      console.log("");
-      console.log("🔧 Package not zipped. You can:");
-      console.log("   • Make changes to your piece");
-      console.log("   • Run the pack script again");
-      console.log(`   • Manually test at: ${packer.options.outputDir}`);
-      console.log("");
-      console.log(`💡 To create zip later: cd ${path.dirname(packer.options.outputDir)} && zip -r ${path.basename(packer.options.outputDir)}.zip ${path.basename(packer.options.outputDir)}/`);
-    }
-    
-    rl.close();
-    process.exit(0);
-  });
-}
-
-async function promptUserForZip(packer) {
-  const readline = (await import('readline')).default;
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  rl.question('🤔 Create zip file for Teia upload? (Y/n): ', async (response) => {
-    if (response.toLowerCase() === 'y' || response.toLowerCase() === 'yes' || response.trim() === '') {
-      console.log("");
-      console.log("📦 Creating zip file...");
-      
-      try {
-        await createZip(packer.options.outputDir);
-        console.log("");
-        console.log("🎉 Success! Your package is ready for Teia:");
-        console.log(`📁 Directory: ${packer.options.outputDir}`);
-        console.log(`📦 Zip file: ${packer.options.outputDir}.zip`);
-        console.log("");
-        console.log("🚀 Next steps:");
-        console.log("1. Go to https://teia.art/mint");
-        console.log(`2. Upload ${path.basename(packer.options.outputDir)}.zip`);
-        console.log("3. Preview and test your interactive OBJKT");
-        console.log("4. Mint when ready!");
-      } catch (error) {
-        console.error("❌ Failed to create zip:", error.message);
-      }
-    } else {
-      console.log("");
-      console.log("🔧 Package not zipped. You can:");
-      console.log("   • Make changes to your piece");
-      console.log("   • Run the pack script again");
-      console.log(`   • Manually test at: ${packer.options.outputDir}`);
-      console.log("");
-      console.log(`💡 To create zip later: cd ${path.dirname(packer.options.outputDir)} && zip -r ${path.basename(packer.options.outputDir)}.zip ${path.basename(packer.options.outputDir)}/`);
-    }
-    
-    rl.close();
-    process.exit(0);
-  });
-}
-
-async function createZip(outputDir) {
+async function createZipWithTimestamp(outputDir, pieceName) {
   const archiver = (await import('archiver')).default;
   
-  const zipPath = `${outputDir}.zip`;
+  // Create timestamp for the zip filename
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').split('.')[0]; // Format: YYYY-MM-DDTHH-MM-SS
+  const zipPath = `${outputDir}-${timestamp}.zip`;
+  
   const output = fsSync.createWriteStream(zipPath);
   const archive = archiver('zip', { zlib: { level: 9 } });
 
   return new Promise((resolve, reject) => {
     output.on('close', () => {
       console.log(`📦 Created zip: ${zipPath} (${archive.pointer()} bytes)`);
-      resolve();
+      resolve(zipPath);
     });
 
     archive.on('error', reject);
