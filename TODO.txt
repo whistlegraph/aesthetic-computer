@@ -21,20 +21,6 @@
    with h264 and aac codecs like setup right now for exporting mp4s, but this would
    use the zip path first then hit a netlify endpoint function (can we do this in netlify?)
 
- * `kidlisp` *
- - Get $bez working with proper syntax highlighting.
- - Future proof URL sharing and attribution.
- - [] Any kidlisp that runs successfully should automatically be added to the
-      database and given a unique UTC timestamp identifier or other meaningful
-      identifier.
- - [] Uploaded kidlisp's uniqueness should be enforced somehow similar to how
-      handles must be unique. If another record is found just return or use that.
- - [] Uploaded kidlisp should automatically be attributed to the user who uploaded it
-      or be treated as anonymous contributions otherwise.
- - [] If the kidlisp was generated from a prompt, that prompt should be recorded
-      as was the model used to generate it and a git hash reference to the
-      pre-prompt file so it could be regenerated under various conditions.
-
  * `clock` syntax * 
   - [] Take the melody syntax from kidlisp.mjs and develop it further.
   - [] Record `clock` tutorial audio for `laer-klokken` radio show.
