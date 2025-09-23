@@ -1,5 +1,19 @@
 🪦 Completed Tasks (dumped from `README.txt`)
 
+ * `kidlisp` *
+ - Get $bez working with proper syntax highlighting.
+ - Future proof URL sharing and attribution.
+ - [x] Any kidlisp that runs successfully should automatically be added to the
+      database and given a unique UTC timestamp identifier or other meaningful
+      identifier.
+ - [x] Uploaded kidlisp's uniqueness should be enforced somehow similar to how
+      handles must be unique. If another record is found just return or use that.
+ - [x] Uploaded kidlisp should automatically be attributed to the user who uploaded it
+      or be treated as anonymous contributions otherwise.
+ - [c] If the kidlisp was generated from a prompt, that prompt should be recorded
+      as was the model used to generate it and a git hash reference to the
+      pre-prompt file so it could be regenerated under various conditions.
+
  * Regressions *
  - [x] `painting` ... no longer is tappable because of
       new multiline label hitboxes?
