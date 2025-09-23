@@ -294,7 +294,7 @@ function inferTitleDesc(source) {
 }
 
 // Generates some metadata fields that are shared both on the client and server.
-function metadata(host, slug, pieceMetadata) {
+function metadata(host, slug, pieceMetadata, protocol = "https:") {
   // Use a default title if there is no override.
   const notAesthetic =
     host.indexOf("sotce") > -1 ||
@@ -325,7 +325,7 @@ function metadata(host, slug, pieceMetadata) {
     twitterImage = `https://${host}/preview/1800x900/${slug}.png`;
   }
 
-  icon = pieceMetadata?.icon_url || `https://${host}/icon/128x128/${slug}.png`;
+  icon = pieceMetadata?.icon_url || `${protocol}//${host}/icon/128x128/${slug}.png`;
 
   const manifest = `https://${host}/manifest.json`;
   return { title, desc, ogImage, twitterImage, icon, manifest };

@@ -9,6 +9,7 @@ import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
+import { checkTeiaMode } from "./teia-mode.mjs";
 
 /* #region 🤖 LLM API SPECIFICATION
    This section provides a structured specification for Large Language Models
@@ -377,7 +378,7 @@ const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
 
 // 🗄️ Global $code caching system (shared across all KidLisp instances)
-// This provides multi-level caching: RAM → IndexedDB → Network
+// This provides multi-level caching: RAM → IndexedDB → Network → TEIA
 const globalCodeCache = new Map(); // In-memory cache for current session
 let persistentStoreRef = null; // Reference to the persistent store system
 
@@ -421,11 +422,27 @@ async function saveToPersistentCache(cacheId, source) {
   }
 }
 
-// Multi-level cache retrieval: RAM → IndexedDB → Network
+// Multi-level cache retrieval: RAM → IndexedDB → Network → TEIA
 async function getCachedCodeMultiLevel(cacheId) {
   // Level 1: Check RAM cache (fastest)
   if (globalCodeCache.has(cacheId)) {
     return globalCodeCache.get(cacheId);
+  }
+  
+  // Level 1.5: Check TEIA pre-cached codes (for offline packages)
+  const globalScope = (function() {
+    if (typeof window !== 'undefined') return window;
+    if (typeof globalThis !== 'undefined') return globalThis;
+    if (typeof global !== 'undefined') return global;
+    if (typeof self !== 'undefined') return self;
+    return {};
+  })();
+  
+  if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
+    const teiaSource = globalScope.teiaKidlispCodes[cacheId];
+    // Cache in RAM for future access
+    globalCodeCache.set(cacheId, teiaSource);
+    return teiaSource;
   }
   
   // Level 2: Check IndexedDB (fast)
@@ -1842,7 +1859,6 @@ class KidLisp {
   }
 
   parseFadeString(fadeString) {
-    console.log("🔍 Parsing fade string:", fadeString);
     if (!fadeString.startsWith("fade:")) return null;
     
     const parts = fadeString.split(":");
@@ -1850,9 +1866,7 @@ class KidLisp {
     
     // Extract colors part (skip "fade" and optional direction)
     const colorPart = parts[1]; // The part after "fade:"
-    console.log("🎨 Color part:", colorPart);
     const colorNames = colorPart.split("-");
-    console.log("🎨 Color names:", colorNames);
     
     if (colorNames.length < 2) return null;
     
@@ -1860,11 +1874,9 @@ class KidLisp {
     
     // Validate each color in the fade
     for (const colorName of colorNames) {
-      console.log("🔍 Validating color:", colorName, "isValid:", this.isValidColorString(colorName));
       if (this.isValidColorString(colorName)) {
         // Get the actual RGB values
         if (cssColors[colorName]) {
-          console.log("✅ Found CSS color:", colorName, "->", cssColors[colorName]);
           validColors.push(cssColors[colorName]);
         } else if (colorName.match(/^c\d+$/)) {
           const index = parseInt(colorName.substring(1));
@@ -1885,9 +1897,7 @@ class KidLisp {
       }
     }
     
-    console.log("🎨 Final valid colors:", validColors);
     const result = validColors.length >= 2 ? validColors : null;
-    console.log("🎨 Fade parsing result:", result);
     return result;
   }
 
@@ -2138,6 +2148,24 @@ class KidLisp {
     try {
       // console.log("🚀 Starting cache request for:", source.substring(0, 50));
       
+      // Skip API calls in TEIA mode (offline packages)
+      const isTeiaMode = checkTeiaMode();
+      
+      // Force console logging to debug TEIA mode detection
+      if (isTeiaMode) {
+        // Generate a simple hash-based code for TEIA mode
+        const simpleHash = source.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0);
+        const teiaCode = Math.abs(simpleHash).toString(36).substring(0, 8);
+        this.shortUrl = `teia/$${teiaCode}`;
+        this.cachedCode = teiaCode;
+        setCachedCode(source, teiaCode);
+        this.cachingInProgress = false; // Reset the flag
+        return;
+      }
+
       // Use standard fetch with proper headers (like other API calls)
       const headers = { "Content-Type": "application/json" };
       
@@ -6125,64 +6153,39 @@ class KidLisp {
         }
         // Also check if it's a fade string directly (like "fade:initial-atom-background")
         else if (colorName.startsWith("fade:")) {
-          console.log("🎨 First-line fade detected:", colorName);
           // Validate the fade string by trying to parse it
           const fadeColors = this.parseFadeString(colorName);
-          console.log("🎨 Parsed fade colors:", fadeColors);
           if (fadeColors && fadeColors.length >= 2) {
             isValidFirstLineColor = true;
-            console.log("✅ First-line fade validated successfully");
-          } else {
-            console.log("❌ First-line fade validation failed");
           }
         }
         
         if (isValidFirstLineColor) {
-          console.log("🎨 First-line color is valid, entering try block");
           try {
             // Test if this is a color function by calling it (only for non-fade strings)
             if (!colorName.startsWith("fade:") && globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
-              console.log("🎨 Testing color function:", colorName);
               globalEnv[colorName]();
             }
-            
-            console.log("🎨 Color function test passed, proceeding to backdrop");
             // If we get here without error, it's a color function
             // For color shortcuts, apply backdrop only once per call location
             const position = api.kidlispCallPosition || "";
             const backdropKey = `first_line_backdrop_${colorName}_${position}`;
-            console.log("🎨 Backdrop key:", backdropKey);
-            console.log("🎨 Position:", position);
-            console.log("🎨 Color name:", colorName);
-            console.log("🎨 Once executed cache size:", this.onceExecuted.size);
-            console.log("🎨 Once executed cache contents:", Array.from(this.onceExecuted));
-            console.log("🎨 Once executed has key:", this.onceExecuted.has(backdropKey));
             if (!this.onceExecuted.has(backdropKey)) {
-              console.log("🎨 First-line backdrop not yet executed, adding to once cache");
               this.onceExecuted.add(backdropKey);
               
               // Set the background fill color for reframe operations
               if (api.backgroundFill) {
-                console.log("🎨 Setting background fill color:", colorName);
                 api.backgroundFill(colorName);
               }
               
               // Apply wipe once for first-line color shorthand
               if (api.wipe) {
-                console.log("🎨 Applying first-line color wipe:", colorName);
                 api.wipe(colorName);
-                console.log("✅ First-line wipe completed");
-              } else {
-                console.log("❌ No api.wipe function available");
               }
-            } else {
-              console.log("🎨 First-line backdrop already executed for key:", backdropKey);
             }
             // Remove the first item so it doesn't get evaluated again
-            console.log("🎨 Removing first item from body");
             body = body.slice(1);
           } catch (e) {
-            console.log("❌ Error in first-line color processing:", e);
             // Not a color function, proceed normally
           }
         }
@@ -9924,6 +9927,13 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
     return {};
   }
   
+  // Skip API calls in TEIA mode (offline packages)
+  const isTeiaMode = checkTeiaMode();
+  
+  if (isTeiaMode) {
+    return {}; // Return empty results in TEIA mode
+  }
+  
   console.log("🔧 fetchMultipleCachedCodes called with:", codeArray, "- attempting batch HTTPS fetch");
   
   // Use relative URL that works in both local and production
@@ -9971,6 +9981,13 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
+  // Skip API calls in TEIA mode (offline packages)
+  const isTeiaMode = checkTeiaMode();
+  
+  if (isTeiaMode) {
+    return null; // Return null in TEIA mode
+  }
+  
   // Determine the correct base URL based on environment
   let baseUrl;
   
