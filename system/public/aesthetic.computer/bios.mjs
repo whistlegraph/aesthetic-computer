@@ -1558,6 +1558,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
       teiaMode: window.acTEIA_MODE || false,
+      teiaKidlispCodes: window.teiaKidlispCodes || globalThis.teiaKidlispCodes || {},
       microphonePermission,
       resolution,
       embeddedSource,

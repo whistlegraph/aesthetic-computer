@@ -9,6 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { extractCodes, fetchAllCodes, generateCacheCode } from "./kidlisp-extractor.mjs";
+import { timestamp } from "../system/public/aesthetic.computer/lib/num.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,16 +43,18 @@ class AcPacker {
       const pieceData = await this.loadPiece();
       
       // Handle KidLisp dependencies if this is a KidLisp piece
+      let hasDependencies = false;
       if (pieceData.isKidLispCode) {
-        await this.bundleKidLispDependencies(pieceData);
+        hasDependencies = await this.bundleKidLispDependencies(pieceData);
       }
       
-      await this.generateIndexHtml(pieceData);
+      await this.generateIndexHtml(pieceData, hasDependencies);
       await this.bundleSystemFiles();
       await this.bundleLibFiles();
       await this.bundleSystemsFiles();
       await this.bundleDepFiles();
       await this.bundleCommonDiskFiles();
+      await this.bundleFontDrawings(); // Add font drawings bundling
       await this.bundleCurrentPiece();
       await this.createDiskStubs();
       await this.createAssets();
@@ -122,27 +125,33 @@ class AcPacker {
   async bundleKidLispDependencies(pieceData) {
     console.log(`🔗 Fetching KidLisp dependencies for ${this.pieceName}...`);
     
-    // Fetch all nested dependencies
+    // Create a codes map that includes the main code itself
     const codesMap = await fetchAllCodes(pieceData.sourceCode);
     
+    // Always include the main piece code in the cache
+    const mainCodeId = pieceData.codeId; // "roz" from "$roz"
+    codesMap.set(mainCodeId, {
+      source: pieceData.sourceCode,
+      when: new Date().toISOString(),
+      hits: 1,
+      user: "teia-package"
+    });
+    
+    console.log(`📚 Found ${codesMap.size} KidLisp codes (including main: ${mainCodeId})`);
+    
+    // Always generate cache code if we have any codes (including main)
     if (codesMap.size > 0) {
-      console.log(`📚 Found ${codesMap.size} KidLisp dependencies`);
-      
-      // Generate cache preload code
-      const cacheCode = generateCacheCode(codesMap);
-      
-      // Save cache file
-      const cacheFilePath = path.join(this.options.outputDir, "kidlisp-cache.js");
-      await fs.writeFile(cacheFilePath, cacheCode);
-      this.bundledFiles.add("kidlisp-cache.js");
-      
-      console.log(`💾 Saved KidLisp cache to kidlisp-cache.js`);
+      // Store the cache data for inline injection into HTML
+      this.kidlispCacheData = { codesMap, count: codesMap.size };
+      console.log(`💾 Prepared KidLisp cache for inline injection with ${codesMap.size} codes`);
+      return true; // Dependencies + main code bundled
     } else {
-      console.log(`ℹ️ No KidLisp dependencies found`);
+      console.log(`ℹ️ No KidLisp codes to bundle`);
+      return false; // No codes at all
     }
   }
 
-  async generateIndexHtml(pieceData) {
+  async generateIndexHtml(pieceData, hasDependencies = false) {
     const { metadata } = pieceData;
     
     const indexHtml = `<!doctype html>
@@ -181,15 +190,29 @@ window.acDISABLE_SESSION = true;
 // Enable nogap mode by default for teia
 window.acNOGAP_MODE = true;
 
+// Set TEIA mode on both window and globalThis for maximum compatibility
+window.acTEIA_MODE = true;
+globalThis.acTEIA_MODE = true;
+
 console.log('🎭 Teia mode activated:', {
   startingPiece: window.acSTARTING_PIECE,
   viewer: window.acTEIA_VIEWER,
   creator: window.acTEIA_CREATOR,
   disableSession: window.acDISABLE_SESSION,
-  nogapMode: window.acNOGAP_MODE
+  nogapMode: window.acNOGAP_MODE,
+  teiaMode: window.acTEIA_MODE
 });
+
+// Periodically ensure TEIA mode stays enabled
+setInterval(() => {
+  if (!window.acTEIA_MODE || !globalThis.acTEIA_MODE) {
+    console.log('� Restoring TEIA mode flags');
+    window.acTEIA_MODE = true;
+    globalThis.acTEIA_MODE = true;
+  }
+}, 100);
     </script>
-    ${pieceData.isKidLispCode ? '<script src="./kidlisp-cache.js"></script>' : ''}
+    ${this.generateKidLispCacheScript()}
     <script src="./aesthetic.computer/boot.mjs" type="module" defer></script>
     <link rel="stylesheet" href="./aesthetic.computer/style.css" />
   </head>
@@ -209,6 +232,19 @@ console.log('🎭 Teia mode activated:', {
 
     await fs.writeFile(path.join(this.options.outputDir, "index.html"), indexHtml);
     console.log("📄 Generated index.html");
+  }
+
+  generateKidLispCacheScript() {
+    // Return empty string if no cache data
+    if (!this.kidlispCacheData || !this.kidlispCacheData.codesMap) {
+      return '';
+    }
+
+    // Generate the inline cache script
+    const cacheCode = generateCacheCode(this.kidlispCacheData.codesMap);
+    return `<script type="text/javascript">
+${cacheCode}
+    </script>`;
   }
 
   async bundleSystemFiles() {
@@ -404,6 +440,66 @@ console.log('🎭 Teia mode activated:', {
     }
   }
 
+  async bundleFontDrawings() {
+    const drawingsDir = path.join(DISKS_DIR, "drawings");
+    const drawingsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks", "drawings");
+
+    try {
+      await fs.mkdir(drawingsOutputDir, { recursive: true });
+      
+      // Bundle font_1 directory
+      const font1Dir = path.join(drawingsDir, "font_1");
+      const font1OutputDir = path.join(drawingsOutputDir, "font_1");
+      
+      if (await this.directoryExists(font1Dir)) {
+        await fs.mkdir(font1OutputDir, { recursive: true });
+        
+        // Copy all subdirectories and files
+        const font1Subdirs = await fs.readdir(font1Dir);
+        let totalGlyphs = 0;
+        
+        for (const subdir of font1Subdirs) {
+          const srcSubdirPath = path.join(font1Dir, subdir);
+          const destSubdirPath = path.join(font1OutputDir, subdir);
+          
+          const stat = await fs.stat(srcSubdirPath);
+          if (stat.isDirectory()) {
+            await fs.mkdir(destSubdirPath, { recursive: true });
+            
+            // Copy all .json files in this subdirectory
+            const files = await fs.readdir(srcSubdirPath);
+            const jsonFiles = files.filter(file => file.endsWith(".json"));
+            
+            for (const jsonFile of jsonFiles) {
+              const srcFilePath = path.join(srcSubdirPath, jsonFile);
+              const destFilePath = path.join(destSubdirPath, jsonFile);
+              const content = await fs.readFile(srcFilePath, "utf8");
+              await fs.writeFile(destFilePath, content);
+              totalGlyphs++;
+            }
+          }
+        }
+        
+        this.bundledFiles.add(`font_1 glyphs: ${totalGlyphs} files`);
+        console.log(`🔤 Bundled font_1: ${totalGlyphs} glyph files`);
+      } else {
+        console.log("ℹ️ font_1 directory not found, skipping");
+      }
+      
+    } catch (error) {
+      console.warn("⚠️ Warning: Could not bundle font drawings:", error.message);
+    }
+  }
+
+  async directoryExists(dir) {
+    try {
+      const stat = await fs.stat(dir);
+      return stat.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
   async bundleCurrentPiece() {
     const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
     await fs.mkdir(disksOutputDir, { recursive: true });
@@ -477,7 +573,7 @@ export function boot({ wipe, ink, help }) {
   }
 
   async bundleWebfonts() {
-    const webfontsDir = path.join(__dirname, "..", "system", "public", "assets", "type", "webfonts");
+    const webfontsDir = path.join(__dirname, "..", "system", "public", "type", "webfonts");
     const webfontsOutputDir = path.join(this.options.outputDir, "type", "webfonts");
 
     try {
@@ -512,50 +608,57 @@ export function boot({ wipe, ink, help }) {
       const matrixFontDir = path.join(fontsDir, "MatrixChunky8");
       const matrixOutputDir = path.join(assetsOutputDir, "MatrixChunky8");
       
-      await fs.mkdir(matrixOutputDir, { recursive: true });
-      
-      const glyphFiles = await fs.readdir(matrixFontDir);
-      const jsonFiles = glyphFiles.filter(file => file.endsWith(".json"));
-      
-      console.log(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
-      
-      let bundledCount = 0;
-      for (const glyphFile of jsonFiles) {
-        const srcPath = path.join(matrixFontDir, glyphFile);
+      // Check if MatrixChunky8 directory exists before trying to read it
+      try {
+        await fs.access(matrixFontDir);
+        await fs.mkdir(matrixOutputDir, { recursive: true });
         
-        // Convert 2-digit hex filename to 4-digit hex for consistency with code expectations
-        const hexCode = glyphFile.replace('.json', '');
-        const paddedHexCode = hexCode.padStart(4, '0').toUpperCase();
-        const destFileName = `${paddedHexCode}.json`;
-        const destPath = path.join(matrixOutputDir, destFileName);
+        const glyphFiles = await fs.readdir(matrixFontDir);
+        const jsonFiles = glyphFiles.filter(file => file.endsWith(".json"));
         
-        const content = await fs.readFile(srcPath, "utf8");
-        await fs.writeFile(destPath, content);
-        bundledCount++;
+        console.log(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
+        
+        let bundledCount = 0;
+        for (const glyphFile of jsonFiles) {
+          const srcPath = path.join(matrixFontDir, glyphFile);
+          
+          // Convert 2-digit hex filename to 4-digit hex for consistency with code expectations
+          const hexCode = glyphFile.replace('.json', '');
+          const paddedHexCode = hexCode.padStart(4, '0').toUpperCase();
+          const destFileName = `${paddedHexCode}.json`;
+          const destPath = path.join(matrixOutputDir, destFileName);
+          
+          const content = await fs.readFile(srcPath, "utf8");
+          await fs.writeFile(destPath, content);
+          bundledCount++;
+        }
+        
+        console.log(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
+        
+        // Also create a font manifest for easier debugging
+        const fontManifest = {
+          font: "MatrixChunky8",
+          bundledGlyphs: jsonFiles.map(file => {
+            const hexCode = file.replace('.json', '');
+            const charCode = parseInt(hexCode, 16);
+            return {
+              hex: hexCode,
+              decimal: charCode,
+              char: String.fromCharCode(charCode),
+              file: file
+            };
+          }),
+          totalGlyphs: bundledCount,
+          bundledAt: new Date().toISOString()
+        };
+        
+        const manifestPath = path.join(matrixOutputDir, "_manifest.json");
+        await fs.writeFile(manifestPath, JSON.stringify(fontManifest, null, 2));
+        console.log(`📋 Created font manifest: _manifest.json`);
+        
+      } catch (matrixError) {
+        console.log("ℹ️ MatrixChunky8 font directory not found, skipping font bundling");
       }
-      
-      console.log(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
-      
-      // Also create a font manifest for easier debugging
-      const fontManifest = {
-        font: "MatrixChunky8",
-        bundledGlyphs: jsonFiles.map(file => {
-          const hexCode = file.replace('.json', '');
-          const charCode = parseInt(hexCode, 16);
-          return {
-            hex: hexCode,
-            decimal: charCode,
-            char: String.fromCharCode(charCode),
-            file: file
-          };
-        }),
-        totalGlyphs: bundledCount,
-        bundledAt: new Date().toISOString()
-      };
-      
-      const manifestPath = path.join(matrixOutputDir, "_manifest.json");
-      await fs.writeFile(manifestPath, JSON.stringify(fontManifest, null, 2));
-      console.log(`📋 Created font manifest: _manifest.json`);
       
     } catch (error) {
       console.error("❌ Error bundling font assets:", error.message);
@@ -574,6 +677,55 @@ export function boot({ wipe, ink, help }) {
   }
 
   async copyAssets() {
+    // Copy cursor files
+    try {
+      const cursorsSourceDir = path.join(AC_DIR, "cursors");
+      const cursorsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "cursors");
+      
+      await fs.mkdir(cursorsOutputDir, { recursive: true });
+      
+      // Copy all cursor files
+      const cursorFiles = await fs.readdir(cursorsSourceDir);
+      for (const file of cursorFiles) {
+        if (file.endsWith('.svg')) {
+          const sourcePath = path.join(cursorsSourceDir, file);
+          const outputPath = path.join(cursorsOutputDir, file);
+          await fs.copyFile(sourcePath, outputPath);
+          console.log(`📎 Bundled cursor: ${file}`);
+        }
+      }
+    } catch (error) {
+      console.log("ℹ️ Cursor directory not found, skipping cursor bundling");
+    }
+    
+    // Generate stub icon (128x128 PNG)
+    try {
+      const iconDir = path.join(this.options.outputDir, "icon", "128x128");
+      await fs.mkdir(iconDir, { recursive: true });
+      
+      const iconPath = path.join(iconDir, `${this.pieceName}.png`);
+      
+      // Create a minimal 128x128 PNG placeholder (same structure as favicon but 128x128)
+      console.log(`🖼️ Generating stub icon for ${this.pieceName}...`);
+      console.log("   ℹ️ Icon generation will be outsourced to another process");
+      
+      // For now, create a minimal 1x1 PNG (proper 128x128 generation would need image library)
+      const minimalPng = Buffer.from([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+        0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+      ]);
+      
+      await fs.writeFile(iconPath, minimalPng);
+      console.log(`🖼️ Created stub icon: icon/128x128/${this.pieceName}.png`);
+      
+    } catch (error) {
+      console.log("ℹ️ Error creating icon stub:", error.message);
+    }
+    
     console.log("📎 Asset copying complete (minimal set)");
   }
 
@@ -631,18 +783,9 @@ export function boot({ wipe, ink, help }) {
   patchTypeJsForTeia(content) {
     console.log("🔧 Patching type.mjs for teia mode...");
     
-    // The original type.mjs already has proper TEIA mode handling for MatrixChunky8 fonts
-    // We just need to fix the filename format to not strip leading zeros since our bundled files keep them
-    let patched = content;
-    
-    // Update the filename generation to keep leading zeros for bundled files
-    const localFileNamePattern = /const localFileName = codePointStr\.split\('_'\)\.map\(code => \{\s*\/\/ Remove leading zeros but keep at least one digit\s*return code\.replace\(\/\^0\+\/, ''\) \|\| '0';\s*\}\)\.join\('_'\);/;
-    patched = patched.replace(localFileNamePattern, 
-      `// For bundled files, keep the original hex format with leading zeros
-      const localFileName = codePointStr;`
-    );
-    
-    return patched;
+    // The original type.mjs already has proper TEIA mode handling for fonts
+    // No additional patching needed as of the latest source code
+    return content;
   }
 
   async patchBootJsForTeia(content) {
@@ -674,14 +817,10 @@ export function boot({ wipe, ink, help }) {
   }
 
   patchKidLispJsForTeia(content) {
-    console.log("🔧 Patching kidlisp.mjs for teia mode...");
-    
-    // Since we've already cleaned up the original source files, 
-    // this function can now be simplified or removed entirely
+    // kidlisp.mjs now has built-in TEIA support via getCachedCodeMultiLevel
+    // No patching needed anymore
     return content;
-  }
-
-  async patchDiskJsForTeia(content) {
+  }  async patchDiskJsForTeia(content) {
     console.log('🔧 Patching disk.mjs for Teia mode...');
     
     let patched = content;
@@ -910,10 +1049,9 @@ async function main() {
 async function createZipWithTimestamp(outputDir, pieceName) {
   const archiver = (await import('archiver')).default;
   
-  // Create timestamp for the zip filename
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[:.]/g, '-').split('.')[0]; // Format: YYYY-MM-DDTHH-MM-SS
-  const zipPath = `${outputDir}-${timestamp}.zip`;
+  // Create timestamp for the zip filename using num.timestamp
+  const timeStr = timestamp(); // Returns format like: 2025.09.22.04.18.30.123
+  const zipPath = `${outputDir}-${timeStr}.zip`;
   
   const output = fsSync.createWriteStream(zipPath);
   const archive = archiver('zip', { zlib: { level: 9 } });
