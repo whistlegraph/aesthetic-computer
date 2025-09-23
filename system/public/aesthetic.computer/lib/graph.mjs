@@ -3437,6 +3437,40 @@ function draw() {
     y += yOffset * scale; // Use baseline-relative positioning
   }
 
+  // 🖼️ Handle BDF pixel-based fonts (MatrixChunky8, etc.)
+  if (drawing.pixels && drawing.resolution && !drawing.commands) {
+    const [charWidth, charHeight] = drawing.resolution;
+    
+    // 🐛 Debug BDF rendering
+    // Convert BDF pixel data to screen coordinates and render
+    for (let row = 0; row < drawing.pixels.length; row++) {
+      const pixelRow = drawing.pixels[row];
+      if (!Array.isArray(pixelRow)) continue;
+      
+      for (let col = 0; col < pixelRow.length; col++) {
+        if (pixelRow[col] === 1) { // Only render "on" pixels
+          const pixelX = x + (col * scale);
+          const pixelY = y + (row * scale);
+          
+          // Render pixel as a small rectangle scaled appropriately
+          if (scale === 1) {
+            point(pixelX, pixelY);
+          } else {
+            // For larger scales, render as a filled rectangle
+            for (let sy = 0; sy < scale; sy++) {
+              for (let sx = 0; sx < scale; sx++) {
+                point(pixelX + sx, pixelY + sy);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    pan(-x, -y); // Restore pan offset
+    return; // Exit early for BDF fonts
+  }
+
   // TODO: Eventually make this the call: rotatePoint(args[0], args[1], 0, 0);
   angle = radians(angle);
   const s = sin(angle);
@@ -3543,6 +3577,7 @@ function printLine(
 
   // Check if font supports proportional spacing using passed metadata instead of glyph object
   // This avoids triggering the BDF proxy when checking font properties
+  
   const isProportional = fontMetadata?.proportional === true || 
                          fontMetadata?.bdfFont === "MatrixChunky8" ||
                          fontMetadata?.name === "MatrixChunky8";
@@ -4950,7 +4985,7 @@ function blur(strength = 1, quality = "medium") {
   // Log timing information for performance monitoring
   const blurEndTime = performance.now();
   const blurDuration = blurEndTime - blurStartTime;
-  console.log(`⚡ blur: ${blurDuration.toFixed(3)}ms`);
+  // console.log(`⚡ blur: ${blurDuration.toFixed(3)}ms`);
   
   // Reset accumulator after applying blur
   blurAccumulator = 0.0;
