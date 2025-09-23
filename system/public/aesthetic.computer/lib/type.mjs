@@ -8,6 +8,7 @@ endregion */
 
 import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
+import { checkTeiaMode } from "./teia-mode.mjs";
 
 const { floor, min } = Math;
 const { keys, entries } = Object;
@@ -22,7 +23,27 @@ class Typeface {
 
   constructor(name = "font_1") {
     this.name = name;
-    this.data = fonts[name] || fonts.font_1;
+    
+    // Special handling for MatrixChunky8 if not found in fonts object
+    if (name === "MatrixChunky8" && !fonts[name]) {
+      this.data = {
+        glyphHeight: 8,
+        baseline: 0,
+        bdfFont: "MatrixChunky8",
+        proportional: true,
+        advances: {
+          'A': 4, 'B': 4, 'C': 4, 'D': 4, 'E': 4, 'F': 4, 'G': 4, 'H': 5, 'I': 4, 'J': 4, 'K': 4, 'L': 4, 'M': 6, 'N': 5, 'O': 5, 'P': 4, 'Q': 4, 'R': 4, 'S': 4, 'T': 4, 'U': 4, 'V': 4, 'W': 6, 'X': 4, 'Y': 4, 'Z': 4,
+          'a': 4, 'b': 4, 'c': 4, 'd': 4, 'e': 4, 'f': 4, 'g': 4, 'h': 4, 'i': 4, 'j': 4, 'k': 4, 'l': 4, 'm': 6, 'n': 4, 'o': 4, 'p': 4, 'q': 4, 'r': 4, 's': 4, 't': 4, 'u': 4, 'v': 4, 'w': 6, 'x': 4, 'y': 4, 'z': 4,
+          '0': 4, '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4,
+          ' ': 2, '.': 2, ',': 2, '!': 2, '?': 4, ':': 2, ';': 2, '-': 4, '+': 4, '=': 4, '<': 4, '>': 4, '/': 4, '\\': 4, '|': 2, '"': 4, "'": 2, '(': 4, ')': 4, '[': 4, ']': 2, '{': 2, '}': 2, '@': 5, '#': 5, '$': 4, '%': 5, '^': 4, '&': 5, '*': 4, '_': 4, '~': 5
+        },
+        bdfOverrides: {
+          'y': { y: 2 }
+        }
+      };
+    } else {
+      this.data = fonts[name] || fonts.font_1;
+    }
   }
 
   // Return only the character index from the data.
@@ -85,11 +106,55 @@ class Typeface {
           });
       });
       await Promise.all(promises);
-      console.log(`✅ microtype loaded with ${Object.keys(this.glyphs).length} glyphs`);
     } else if (this.name === "unifont" || this.data.bdfFont) {
       // 🗺️ BDF Font support - includes UNIFONT and other BDF fonts
       // Determine which font to use - for unifont use the name, for others use bdfFont property
       const fontName = this.data.bdfFont || "unifont";
+      
+      // Check if we're in TEIA mode and this is MatrixChunky8
+      const { checkTeiaMode } = await import("./teia-mode.mjs");
+      const isTeiaMode = checkTeiaMode();
+      
+      if (isTeiaMode && this.name === "MatrixChunky8") {
+        // Set essential font metadata properties for proportional font detection
+        this.data.proportional = true;
+        this.data.bdfFont = "MatrixChunky8";
+        this.data.name = "MatrixChunky8";
+        // Import advance values from fonts.mjs for fallback
+        const { MatrixChunky8 } = await import("../disks/common/fonts.mjs");
+        this.data.advances = MatrixChunky8.advances || {}; // Character advance widths from fonts.mjs
+        this.data.bdfOverrides = MatrixChunky8.bdfOverrides || {}; // Position overrides from fonts.mjs
+        
+        // Define the characters we want to preload from the bundled assets using hex codes
+        const chars = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                      ' ', '.', ',', '!', '?', ':', ';', '-', '+', '=', '<', '>', '/', '\\', '|', '"', "'", '(', ')', '[', ']', '{', '}', '@', '#', '$', '%', '^', '&', '*', '_', '~'];
+        
+        // Load glyph data from bundled assets using hex-encoded filenames
+        const promises = chars.map(async (char) => {
+          try {
+            // Convert character to hex code for filename
+            const charCode = char.charCodeAt(0);
+            const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
+            
+            // In TEIA mode, access bundled assets with relative path
+            const glyphPath = `../../assets/type/MatrixChunky8/${hexCode}.json`;
+            
+            const response = await fetch(glyphPath);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const glyphData = await response.json();
+            this.data[char] = glyphData; // Store in font data for proxy access
+            return glyphData;
+          } catch (err) {
+            return null;
+          }
+        });
+        
+        await Promise.all(promises);
+      }
       
       // Add a basic placeholder glyph for "?" character
       this.glyphs["?"] = {
@@ -215,64 +280,35 @@ class Typeface {
 
           // Make API call to load the glyph using code points
           
-          // Only try local assets in actual TEIA mode (not just any non-API location)
-          const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) || 
-                           (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+          // Enhanced TEIA mode detection using shared teia-mode module
+          const isTeiaMode = checkTeiaMode();
           
-          if (isTeiaMode && fontName === "MatrixChunky8") {
-            // Try to load from local bundled assets
-            // Convert padded hex codes to the format used by actual font files (no leading zeros)
-            const localFileName = codePointStr.split('_').map(code => {
-              // Remove leading zeros but keep at least one digit
-              return code.replace(/^0+/, '') || '0';
-            }).join('_');
-            const localPath = `./assets/type/MatrixChunky8/${localFileName}.json`;
-            fetch(localPath)
-              .then((response) => {
-                if (!response.ok) {
-                  throw new Error(`Local glyph not found: ${response.status}`);
-                }
-                return response.json();
-              })
-              .then((glyphData) => {
-                // Store the loaded glyph
-                target[char] = glyphData;
-                
-                // Trigger a re-render if this is for QR text
-                if (fontName === "MatrixChunky8") {
-                  
-                  // Invalidate QR cache so it regenerates with new characters
-                  if (typeof window !== 'undefined' && window.qrOverlayCache) {
-                    window.qrOverlayCache.clear();
-                  }
-                  
-                  // Force a repaint by calling needsPaint if available
-                  if (typeof needsPaint === 'function') {
-                    needsPaint();
-                  } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
-                    window.$activePaintApi.needsPaint();
-                  }
-                }
-              })
-              .catch((error) => {
-                // If local loading fails in TEIA mode, use fallback glyph
-                loadingGlyphs.delete(char);
-                failedGlyphs.add(char);
-                // Glyph fallback logging reduced for cleaner console
-              });
+          if (isTeiaMode && this.name === "MatrixChunky8") {
+            // In TEIA mode, first check if glyph is directly on target
+            if (target[char] && target[char].pixels && target[char].resolution) {
+              return target[char];
+            }
             
-            // In TEIA mode, return early - don't try API
-            return this.getEmojiFallback(char, target);
+            // In TEIA mode, the bundled data might be in the font object's data
+            // Access through this.data (the original font data object)
+            if (this.data && this.data[char]) {
+              // Store it in target for faster access next time
+              target[char] = this.data[char];
+              return this.data[char];
+            }
+            
+            // If not found in bundled data, we're in TEIA mode so no API calls
+            return null;
           }
           
           // Only make API calls when NOT in TEIA mode
           if (!isTeiaMode) {
-            fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`)
+            fetch(`/api/bdf-glyph?char=${codePointStr}&font=${this.name}`)
               .then((response) => {
                 if (!response.ok) {
                   if (response.status === 404) {
                     console.info(
-                      `Glyph "${char}" (${codePointStr}) not available in ${fontName}`,
+                      `Glyph "${char}" (${codePointStr}) not available in ${this.name}`,
                     );
                   } else {
                     console.warn(
@@ -288,7 +324,7 @@ class Typeface {
                 target[char] = glyphData;
                 
                 // Trigger a re-render if this is for QR text
-                if (fontName === "MatrixChunky8") {
+                if (this.name === "MatrixChunky8") {
                   
                   // Invalidate QR cache so it regenerates with new characters
                   if (typeof window !== 'undefined' && window.qrOverlayCache) {
@@ -326,8 +362,21 @@ class Typeface {
                 }
               });
           } else {
-            // In TEIA mode, just mark as failed to avoid repeated attempts
-            failedGlyphs.add(char);
+            // In TEIA mode for non-MatrixChunky8 fonts, create simple fallback
+            const simpleFallback = {
+              resolution: [6, 8],
+              pixels: [
+                [0, 1, 1, 1, 1, 0],
+                [1, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 0, 1],
+                [1, 0, 1, 1, 0, 1],
+                [1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 1],
+                [0, 1, 1, 1, 1, 0],
+                [0, 0, 0, 0, 0, 0]
+              ]
+            };
+            target[char] = simpleFallback;
             loadingGlyphs.delete(char);
           }
 
@@ -365,6 +414,12 @@ class Typeface {
       return target["?"] || null;
     }
   }
+  
+  // Get a glyph for a specific character
+  getGlyph(char) {
+    return this.glyphs[char];
+  }
+  
   // 📓 tf.print
   print(
     $,
@@ -407,7 +462,9 @@ class Typeface {
       
       w = 0;
       [...text.toString()].forEach((char) => {
-        const charAdvance = advances[char] || blockWidth;
+        const glyph = this.getGlyph(char);
+        const glyphAdvance = glyph?.advance; // Check individual glyph advance first
+        const charAdvance = glyphAdvance || advances[char] || blockWidth;
         w += charAdvance * size;
       });
     } else {
@@ -490,8 +547,10 @@ class Typeface {
           if (typeof charColor === 'object' && charColor.foreground !== undefined && charColor.background !== undefined) {
             // Draw background first
             if (charColor.background) {
+              const glyph = this.getGlyph(char);
+              const glyphAdvance = glyph?.advance; // Check individual glyph advance first
               const charWidth = isProportional ? 
-                (this.data?.advances?.[char] || blockWidth) * size : 
+                (glyphAdvance || this.data?.advances?.[char] || blockWidth) * size : 
                 blockWidth * size;
               if (Array.isArray(charColor.background)) {
                 $.ink(...charColor.background);
@@ -537,8 +596,10 @@ class Typeface {
         // Move to next character position using proper advance width
         if (isProportional) {
           // Use character-specific advance width for proportional fonts
+          const glyph = this.getGlyph(char);
+          const glyphAdvance = glyph?.advance; // Check individual glyph advance first
           const advances = this.data?.advances || {};
-          const charAdvance = advances[char] || blockWidth;
+          const charAdvance = glyphAdvance || advances[char] || blockWidth;
           currentX += charAdvance * size;
         } else {
           // Use fixed width for monospace fonts
