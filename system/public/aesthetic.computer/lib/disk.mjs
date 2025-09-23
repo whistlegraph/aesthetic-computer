@@ -133,7 +133,6 @@ let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let nopaintPerf = true; // Performance panel for nopaint system debugging - enabled for testing
 let visible = true; // Is aesthetic.computer visibly rendering or not?
-let TEIA_MODE = false; // Will be set during init-from-bios
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
@@ -142,6 +141,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
+import { setTeiaMode, getTeiaMode } from "./teia-mode.mjs";
 // import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -421,7 +421,7 @@ function toggleHUDVisibility(isDoubleTap = false) {
   }
 }
 let hudAnimationState = {
-  visible: true,
+  visible: !getTeiaMode(), // Hidden by default in TEIA mode, visible otherwise
   animating: false,
   startTime: 0,
   duration: 500, // 500ms animation
@@ -490,7 +490,6 @@ function enableFrameBasedMonitoring() {
   }
   
   requestAnimationFrame(checkPaintingChanges);
-  console.log(`🎨 Frame-based painting monitoring enabled with nopaint interference protection`);
 }
 
 // 🎨 Broadcast throttling to prevent infinite loops
@@ -1128,6 +1127,12 @@ const $commonApi = {
   clock: {
     offset: function () {
       if (clockFetching) return;
+
+      // Skip API calls in TEIA mode
+      if (getTeiaMode()) {
+        clockFetching = false;
+        return;
+      }
 
       clockFetching = true;
       const t0 = Date.now();
@@ -2838,7 +2843,6 @@ function startPaintingChangeMonitoring() {
   // Initialize hash baseline if painting exists
   if ($commonApi.system?.painting) {
     lastPaintingHash = generatePaintingHash($commonApi.system.painting);
-    console.log(`🎨 Initialized painting hash: ${lastPaintingHash?.substr(0,8)}...`);
   }
   
   // Enable frame-based monitoring for immediate detection
@@ -2854,8 +2858,6 @@ function startPaintingChangeMonitoring() {
     if (lastPaintingHash !== null && 
         currentHash !== lastPaintingHash && 
         !$commonApi._processingBroadcast) {
-      
-      console.log(`🎨 INTERVAL-DETECTED: Painting change via monitoring (hash: ${currentHash.substr(0,8)}...)`);
       
       // Set flag to prevent feedback loops during broadcast processing
       $commonApi._processingBroadcast = true;
@@ -2890,7 +2892,6 @@ function stopPaintingChangeMonitoring() {
     clearInterval(paintingChangeCheckInterval);
     paintingChangeCheckInterval = null;
   }
-  console.log(`🎨 Stopped painting change monitoring`);
 }
 
 // Spawn a session backend for a piece.
@@ -3371,7 +3372,9 @@ const $paintApi = {
         });
       } else {
         //if (text === "POW") console.log($activePaintApi.screen); 24.12.10.07.26 - Get write working with deferred rendering and page.
-        (customTypeface || tf)?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
+        
+        const actualFont = customTypeface || tf;
+        actualFont?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
       }
     }
 
@@ -4649,7 +4652,7 @@ async function load(
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
       // Check if we're in TEIA mode - use local bundled files
-      if (TEIA_MODE) {
+      if (getTeiaMode()) {
         // In TEIA mode, use relative paths to load bundled pieces
         baseUrl = ".";
       } else {
@@ -4674,7 +4677,7 @@ async function load(
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
-    if (TEIA_MODE && path.startsWith('aesthetic.computer/')) {
+    if (getTeiaMode() && path.startsWith('aesthetic.computer/')) {
       // In TEIA mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
     } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
@@ -4685,14 +4688,14 @@ async function load(
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
-      if (TEIA_MODE) {
+      if (getTeiaMode()) {
         // In TEIA mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "#" + Date.now();
       } else {
         fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
       }
     } else {
-      if (TEIA_MODE) {
+      if (getTeiaMode()) {
         // In TEIA mode, navigate up from lib directory to aesthetic.computer root, then to target
         const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
           ? resolvedPath.substring('aesthetic.computer/'.length)
@@ -4781,7 +4784,7 @@ async function load(
         const urlWithoutHash = fullUrl.split('#')[0];
         const filename = urlWithoutHash.split('/').pop();
         
-        if (TEIA_MODE && filename.endsWith('.mjs')) {
+        if (getTeiaMode() && filename.endsWith('.mjs')) {
           // In TEIA mode, skip dynamic import and use fetch directly since files are bundled locally
           // Will proceed to fetch() below
         }
@@ -5075,7 +5078,7 @@ async function load(
   // Requests a session-backend and connects via websockets.
   function startSocket() {
     // Skip socket connections in TEIA mode
-    if (TEIA_MODE) {
+    if (getTeiaMode()) {
       return;
     }
     
@@ -5213,6 +5216,7 @@ async function load(
         num: $commonApi.num,
         store: $commonApi.store,
       }) || inferTitleDesc(originalCode),
+      location.protocol, // Pass the current protocol
     );
 
     meta = {
@@ -5541,14 +5545,12 @@ async function load(
   }
   
   if (!typefaceCache.has("MatrixChunky8")) {
-    // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
-    // console.log("🔤 MatrixChunky8 font data:", matrixFont.data?.advances?.['[']);
+    
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
     
     // Pre-load common QR code characters to avoid fallback during rendering
     const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
-    // console.log("🔤 Pre-loading MatrixChunky8 glyphs for QR codes...");
     
     // Access each character to trigger the Proxy loading mechanism
     for (const char of commonQRChars) {
@@ -6032,6 +6034,11 @@ async function load(
       hideLabel = searchParams.has("nolabel");
     }
     
+    // Also hide label by default in TEIA mode (like nolabel)
+    if (getTeiaMode()) {
+      hideLabel = true;
+    }
+    
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -6209,7 +6216,19 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
     VSCODE = content.vscode;
-    TEIA_MODE = content.teiaMode || false;
+    setTeiaMode(content.teiaMode || false);
+    
+    // Store TEIA KidLisp cache in worker global scope
+    if (content.teiaKidlispCodes) {
+      const globalScope = (function() {
+        if (typeof globalThis !== 'undefined') return globalThis;
+        if (typeof self !== 'undefined') return self;
+        if (typeof global !== 'undefined') return global;
+        return {};
+      })();
+      globalScope.teiaKidlispCodes = content.teiaKidlispCodes;
+    }
+    
     TV_MODE = content.resolution?.tv === true;
     
     // Parse highlight parameter
@@ -7190,7 +7209,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if (data.key === "$" || data.key === "Home") {
+        if ((data.key === "$" || data.key === "Home") && !getTeiaMode()) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -7214,6 +7233,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
+          !getTeiaMode() && // Disable navigation keys in TEIA mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -7274,7 +7294,7 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
-        if (data.key === "Shift") {
+        if (data.key === "Shift" && !getTeiaMode()) {
           // Only allow QR fullscreen for KidLisp pieces that have QR codes
           const sourceCode = currentText || currentHUDTxt;
           const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
@@ -7346,7 +7366,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
-        if (data.key === "x" && data.ctrl && currentText !== "notepat") {
+        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getTeiaMode()) {
           send({ type: "fullscreen-enable" });
         }
       }
@@ -9648,20 +9668,7 @@ async function makeFrame({ data: { type, content } }) {
                              // Use the centralized KidLisp detection that includes comma syntax
                              (sourceCode && lisp.isKidlispSource(sourceCode));
       
-      // Debug QR detection (only when issues occur)
-      if (!isInlineKidlispPiece && (sourceCode?.startsWith("$") || sourceCode?.startsWith("("))) {
-        console.log("🔍 QR Debug:", {
-          isInlineKidlispPiece,
-          sourceCode,
-          visible: hudAnimationState.visible,
-          animating: hudAnimationState.animating,
-          currentPath,
-          currentText,
-          currentHUDTxt
-        });
-      }
-      
-      if (isInlineKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
+      if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
@@ -9748,7 +9755,7 @@ async function makeFrame({ data: { type, content } }) {
                 startY = Math.floor((screen.height - canvasHeight) / 2);
                 
                 // Create scaled QR overlay with styled code text
-                qrOverlay = $api.painting(canvasWidth, canvasHeight, ($) => {
+                qrOverlay = $api.painting(canvasWidth, canvasHeight, async ($) => {
                   // Draw scaled QR with integer scaling (centered in canvas)
                   const qrOffsetX = Math.floor((canvasWidth - overlayWidth) / 2);
                   
@@ -9774,7 +9781,7 @@ async function makeFrame({ data: { type, content } }) {
                   
                   // Draw white text on black background using built-in bg parameter
                   $.ink("white");
-                  $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                  $.write(codeText, { x: textX, y: textY, size: 2 }, "black", undefined, false, "MatrixChunky8");
                 });
               } else {
                 // Normal mode: use original positioning
@@ -9827,7 +9834,7 @@ async function makeFrame({ data: { type, content } }) {
               const textAreaHeight = 9;
               const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
               const canvasHeight = qrOffsetY + qrSize + 2; // Ensure room for bottom shadow
-              const generatedQR = $api.painting(qrSize + 1, canvasHeight, ($) => {
+              const generatedQR = $api.painting(qrSize + 1, canvasHeight, async ($) => {
                 // Draw QR code at offset position to make room for text above
                 for (let y = 0; y < cells.length; y++) {
                   for (let x = 0; x < cells.length; x++) {
@@ -9880,24 +9887,107 @@ async function makeFrame({ data: { type, content } }) {
                   
                   // Render white text (no rotation for now)
                   $.ink("white"); // White text on black background
-                  // console.log("🔤 QR Text Rendering (backdrop):", { codeToRender, textX, textY });
-                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                  
+                  if (getTeiaMode()) {
+                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                    let matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont) {
+                      
+                      // Check if this is a proper Typeface instance with all methods
+                      if (!matrixFont.getGlyph || typeof matrixFont.getGlyph !== 'function') {
+                        // Create a new proper Typeface instance
+                        const newMatrixFont = new Typeface("MatrixChunky8");
+                        await newMatrixFont.load($commonApi.net.preload);
+                        // Copy over existing glyphs data if any
+                        if (matrixFont.glyphs) {
+                          Object.assign(newMatrixFont.glyphs, matrixFont.glyphs);
+                        }
+                        matrixFont = newMatrixFont;
+                        typefaceCache.set("MatrixChunky8", matrixFont);
+                      }
+                      
+                      // Check if glyphs actually work by testing a specific character
+                      const testGlyph = matrixFont.glyphs['$'];
+                      // MatrixChunky8 uses BDF structure: {resolution, offset, baselineOffset, advance, commands, bbx}
+                      const glyphsWorking = testGlyph && typeof testGlyph === 'object' && 
+                                          (testGlyph.pixels || testGlyph.commands || testGlyph.resolution);
+                      
+                      if (!glyphsWorking) {
+                        // Create simple fallback glyphs for common characters
+                        const fallbackGlyph = {
+                          resolution: [6, 8],
+                          pixels: [
+                            [0, 1, 1, 1, 1, 0],
+                            [1, 0, 0, 0, 0, 1],
+                            [1, 0, 1, 1, 0, 1],
+                            [1, 0, 1, 1, 0, 1],
+                            [1, 0, 0, 0, 0, 1],
+                            [1, 0, 0, 0, 0, 1],
+                            [0, 1, 1, 1, 1, 0],
+                            [0, 0, 0, 0, 0, 0]
+                          ]
+                        };
+                        
+                        // Ensure glyphs object exists
+                        if (!matrixFont.glyphs) {
+                          matrixFont.glyphs = {};
+                        }
+                        
+                        // Populate common characters used in QR codes
+                        const commonChars = '$rozeabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        for (const char of commonChars) {
+                          if (!matrixFont.glyphs[char]) {
+                            matrixFont.glyphs[char] = fallbackGlyph;
+                            matrixFont[char] = fallbackGlyph; // Also set directly on font object
+                          }
+                        }
+                      }
+                      
+                      $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                    } else {
+                      $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                    }
+                  } else {
+                    // Use MatrixChunky8 font in normal mode
+                    $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                  }
                 } else {
                   // Shadow style: black shadow first, then white text
                   // Draw black shadow (1px offset) - no rotation for now
                   $.ink("black");
-                  try {
-                    $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
-                  } catch (error) {
-                    $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                  
+                  if (getTeiaMode()) {
+                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont) {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                    } else {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                    }
+                  } else {
+                    try {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                    } catch (error) {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                    }
                   }
                   
                   // Draw white text on top - no rotation for now
                   $.ink("white");
-                  try {
-                    $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                  } catch (error) {
-                    $.write(codeToRender, { x: textX, y: textY });
+                  if (getTeiaMode()) {
+                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont) {
+                      $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                    } else {
+                      $.write(codeToRender, { x: textX, y: textY });
+                    }
+                  } else {
+                    try {
+                      $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                    } catch (error) {
+                      $.write(codeToRender, { x: textX, y: textY });
+                    }
                   }
                 }
                 
@@ -10241,7 +10331,6 @@ function maybeLeave() {
 // Debug utility for HUD hitbox visualization
 globalThis.toggleHudHitboxDebug = () => {
   globalThis.debugHudHitbox = !globalThis.debugHudHitbox;
-  console.log(`🎯 HUD Hitbox Debug: ${globalThis.debugHudHitbox ? 'ON' : 'OFF'}`);
   $commonApi.needsPaint(); // Force repaint to show/hide the debug visualization
 };
 
