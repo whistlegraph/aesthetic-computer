@@ -146,10 +146,22 @@ end
 cd /home/me/aesthetic-computer/ssl-dev
 
 # Check if the files exist in ssl-dev directory
-#if not test -f localhost.pem; or not test -f localhost-key.pem
-# Generate SSL certificates
-sudo fish ssl-install.fish --install-only
-#end
+if not test -f localhost.pem; or not test -f localhost-key.pem
+    # Initialize mkcert CA if not already done
+    if not test -d /home/me/.local/share/mkcert
+        mkcert -install
+        # Install nss-tools for browser support if not already installed
+        if not command -v certutil >/dev/null
+            sudo dnf install -y nss-tools
+            mkcert -install
+    
+    end
+    # Generate SSL certificates (without --install-only flag)
+    fish ssl-install.fish
+else
+    # Install existing certificates
+    fish ssl-install.fish --install-only
+end
 
 # Check if the nanos/ssl directory exists, and transfer the ssl certs over.
 #if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem
