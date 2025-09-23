@@ -100,8 +100,8 @@ end
 # Add aesthetic-computer as the "safe" directory.
 git config --global --add safe.directory /home/me/aesthetic-computer
 
-# Set merge strategy.
-git config pull.rebase false
+# Set rebase as default for pull operations.
+git config --global pull.rebase true
 
 # Make sure git is setup and authorized for making commits via `gh`.
 gh auth setup-git
