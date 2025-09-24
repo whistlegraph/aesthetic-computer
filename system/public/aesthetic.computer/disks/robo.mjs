@@ -682,20 +682,8 @@ function lift(api) {
         }, 16); // ~1 frame at 60fps
       }, 8); // ~half frame delay
       
-      // Also manually trigger nopaint present to force immediate display
-      if (api.system?.nopaint?.present) {
-        console.log("🔍 ROBO LIFT: About to call nopaint.present() with nopaint state:", {
-          needsPresent: api.system.nopaint.needsPresent,
-          needsBake: api.system.nopaint.needsBake,
-          bufferExists: !!api.system.nopaint.buffer
-        });
-        api.system.nopaint.present(api);
-        console.log("🤖 ROBO: Manually called nopaint present for immediate display");
-        console.log("🔍 ROBO LIFT: Post-present nopaint state:", {
-          needsPresent: api.system.nopaint.needsPresent,
-          needsBake: api.system.nopaint.needsBake
-        });
-      }
+      // Let the nopaint system handle present() naturally
+      console.log("🤖 ROBO: Letting nopaint system handle display update naturally");
       
       // Now that lift is complete, transition state back to idle and check for next path
       robotState.state = "idle";
@@ -739,8 +727,21 @@ function bake({ paste, system, page, needsPaint }) {
     
     // 🎯 FORCE IMMEDIATE BAKE COMPLETION - Call nopaint present with full API context
     // NOTE: Don't call needsPaint() here as it sets needsPresent=true, creating a race condition
-    const fullApi = { paste, system, page, needsPaint, screen: system.painting };
-    system.nopaint.present(fullApi);
+    const presentParams = {
+      system,
+      screen: system.painting,
+      wipe: (color) => page(system.painting).wipe(color),
+      paste,
+      ink: (color) => page(system.painting).ink(color),
+      slug: null,
+      dark: false, // Default to light theme
+      theme: {
+        light: { wipeBG: 150, wipeNum: 200 },
+        dark: { wipeBG: 32, wipeNum: 64 }
+      },
+      blend: null
+    };
+    system.nopaint.present(presentParams);
     system.nopaint.needsBake = false;
     system.nopaint.needsPresent = false;
     console.log("🤖 Robo bake: Manually processed bake completion - forced present() and cleared flags");
