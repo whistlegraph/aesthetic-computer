@@ -3314,6 +3314,9 @@ class KidLisp {
               const numericValue = parseFloat(direction);
               if (!isNaN(numericValue)) {
                 evaluatedDirection = direction; // Keep as string
+              } else if (direction === "frame") {
+                // Special case: use the current frame count directly
+                evaluatedDirection = String(this.frameCount || 0);
               } else {
                 // Try to evaluate as KidLisp expression/variable
                 let evalResult;
@@ -6175,12 +6178,15 @@ class KidLisp {
               } else {
                 console.log("❌ No api.wipe function available");
               }
+              
+              // Only remove the first item when backdrop is actually applied
+              console.log("🎨 Removing first item from body (backdrop applied)");
+              body = body.slice(1);
             } else {
               console.log("🎨 First-line backdrop already executed for key:", backdropKey);
+              console.log("🎨 Keeping full body for subsequent frame execution");
+              // Don't remove the first item - let it be processed normally in subsequent frames
             }
-            // Remove the first item so it doesn't get evaluated again
-            console.log("🎨 Removing first item from body");
-            body = body.slice(1);
           } catch (e) {
             console.log("❌ Error in first-line color processing:", e);
             // Not a color function, proceed normally
@@ -6383,14 +6389,20 @@ class KidLisp {
               }
             }
           } else {
-            const clockResult = api.clock.time(); // Get time (Date object)
+            const clockResult = api.clock.time(); // Get time (should be simulation time for deterministic rendering)
             if (!clockResult) continue;
 
             // Convert Date object to milliseconds, then to seconds
+            // In simulation mode, this should be deterministic time based on frame number
             const currentTimeMs = clockResult.getTime
               ? clockResult.getTime()
               : Date.now();
             const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
+
+            // DEBUG: Log simulation time for 0.3s expressions
+            if (head === "0.3s") {
+              console.log(`🔍 TIMING DEBUG: ${head} - simulation currentTime=${currentTime.toFixed(3)}s`);
+            }
 
             // Create a unique key for this timing expression - use simpler key generation
             const timingKey = head + "_" + args.length;
@@ -6398,38 +6410,50 @@ class KidLisp {
 
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
-            this.lastSecondExecutions[timingKey] = currentTime;
-
-            // Execute immediately on first call if this is the first expression in the program
-            if (bodyIndex === 0) {
-                // Mark timing as triggered for blink effect first
-                this.markTimingTriggered(head); // Trigger blink
-                this.markDelayTimerActive(head); // Mark as active for display period
+              this.lastSecondExecutions[timingKey] = currentTime;
+              
+              // First-line timer rule: If this is the first expression (bodyIndex === 0),
+              // execute it immediately on the first frame
+              if (bodyIndex === 0) {
+                console.log(`🚀 FIRST-LINE TIMER: ${head} executing immediately (bodyIndex=${bodyIndex})`);
                 
-                // Execute immediately - no setTimeout needed for frame-based timing!
+                // Mark timing as triggered for blink effect
+                this.markTimingTriggered(head);
+                this.markDelayTimerActive(head);
+                
+                // Execute immediately
+                const wasInEmbedPhase = this.inEmbedPhase;
+                this.inEmbedPhase = true;
+                
                 let timingResult;
                 for (const arg of args) {
-                  timingResult = this.evaluate([arg], api, env, undefined, true);
+                  timingResult = this.fastEval(arg, api, env);
                 }
                 
-                // Return a placeholder result
-                result = "delayed-execution";
+                this.inEmbedPhase = wasInEmbedPhase;
+                result = timingResult;
+                continue; // Skip normal timing logic for this first execution
               }
-            } else {
-              // Normal timing logic for subsequent calls
-              const lastExecution = this.lastSecondExecutions[timingKey];
-              const diff = currentTime - lastExecution;
+            }
+            
+            {
+            // Normal timing logic for subsequent calls
+            const lastExecution = this.lastSecondExecutions[timingKey];
+            const diff = currentTime - lastExecution;
 
-              // Add small tolerance for floating-point precision issues
-              // Use a 5ms tolerance to prevent rapid fire due to precision errors
-              const tolerance = 0.005; // 5 milliseconds in seconds
-              const adjustedSeconds = Math.max(seconds, tolerance);
+            // DEBUG: Log timing calculations for 0.3s expressions
+            if (head === "0.3s") {
+              console.log(`🔍 TIMING DEBUG: ${head} - currentTime=${currentTime.toFixed(3)}s, lastExecution=${lastExecution.toFixed(3)}s, diff=${diff.toFixed(3)}s, needed=${seconds}s`);
+            }
 
-              // Check if enough time has passed since last execution
-              if (diff >= adjustedSeconds) {
-                this.lastSecondExecutions[timingKey] = currentTime;
+            // Add small tolerance for floating-point precision issues
+            // Use a 5ms tolerance to prevent rapid fire due to precision errors
+            const tolerance = 0.005; // 5 milliseconds in seconds
+            const adjustedSeconds = Math.max(seconds, tolerance);
 
-                // console.log(`⏰ TIMING EXECUTE: ${head} executing after ${diff}s (needed ${adjustedSeconds}s)`);
+            // Check if enough time has passed since last execution
+            if (diff >= adjustedSeconds) {
+              this.lastSecondExecutions[timingKey] = currentTime;                // console.log(`⏰ TIMING EXECUTE: ${head} executing after ${diff}s (needed ${adjustedSeconds}s)`);
 
                 // Mark timing as triggered for blink effect first
                 this.markTimingTriggered(head); // Trigger blink
