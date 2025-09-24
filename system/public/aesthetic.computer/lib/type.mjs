@@ -391,7 +391,16 @@ class Typeface {
   // Helper method to get appropriate fallback for different character types
   getEmojiFallback(char, target) {
     if (!char || char.length === 0) {
+      // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
+      if (this.name === "MatrixChunky8") {
+        return null;
+      }
       return target["?"] || null;
+    }
+
+    // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
+    if (this.name === "MatrixChunky8") {
+      return null;
     }
 
     const codePoint = char.codePointAt(0);
