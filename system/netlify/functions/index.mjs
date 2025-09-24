@@ -358,6 +358,7 @@ async function fun(event, context) {
     event.headers["host"],
     slug,
     meta,
+    "https:", // Server-side defaults to HTTPS
   );
 
   // TODO: Not sure if 'location' is correct here, but I wan tto skip rendering the link rel icon and og:image if the icon or preview parameter is present

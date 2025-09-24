@@ -294,19 +294,8 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 const params = extractLegitimateParams(window.location.href);
 const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 
-// Check for nolabel parameter with localStorage persistence
-const nolabelParam = params.has("nolabel") || location.search.includes("nolabel");
-let nolabel;
-
-if (nolabelParam) {
-  // URL parameter provided - use it and save to localStorage
-  nolabel = true;
-  safeLocalStorageSet("ac-nolabel", "true");
-} else {
-  // No URL parameter - check localStorage for saved nolabel
-  const savedNolabel = safeLocalStorageGet("ac-nolabel");
-  nolabel = savedNolabel === "true";
-}
+// Check for nolabel parameter (no localStorage persistence)
+const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 
 // Check for density parameter with localStorage persistence
 const densityParam = params.get("density");
@@ -728,9 +717,6 @@ try {
     "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js"
   );
 
-  // Call the setup function
-  setupNotifications();
-  
   function setupNotifications() {
     // Your web app's Firebase configuration
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -764,7 +750,7 @@ try {
                 return response.json(); // Parse the JSON in the response
               })
               .then((data) => {
-                console.log("📶 Subscribed to:", data.topic);
+                // console.log("Subcribed to:", data.topic);
                 then?.(); // Subscribe to another topic if necessary.
               })
               .catch((error) => {

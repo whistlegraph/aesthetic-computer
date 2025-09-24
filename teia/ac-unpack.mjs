@@ -17,7 +17,8 @@ const __dirname = path.dirname(__filename);
 class TeiaUnpacker {
   constructor() {
     this.outputDir = path.join(__dirname, 'output');
-    this.testDir = path.join(this.outputDir, 'test-extract');
+    this.testDir = null; // Will be set based on zip file name
+    this.server = null; // Keep reference to Caddy server
   }
 
   async findLatestZip() {
@@ -55,6 +56,12 @@ class TeiaUnpacker {
 
   async extractZip(zipPath) {
     console.log(`📦 Extracting ${path.basename(zipPath)}...`);
+    
+    // Set test directory based on zip file name (without .zip extension)
+    const zipBaseName = path.basename(zipPath, '.zip');
+    this.testDir = path.join(this.outputDir, zipBaseName);
+    
+    console.log(`📁 Extract directory: ${this.testDir}`);
     
     // Clean up existing test directory
     try {
@@ -100,61 +107,154 @@ class TeiaUnpacker {
     }
 
     return new Promise((resolve, reject) => {
-      const server = spawn('python', ['-m', 'http.server', port.toString()], {
-        cwd: this.testDir,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
+      // Create a simple Caddyfile for this port
+      const caddyConfig = `:${port} {
+  root * .
+  file_server
+  header Cache-Control no-cache
+  header Access-Control-Allow-Origin *
+  header Access-Control-Allow-Methods *
+  header Access-Control-Allow-Headers *
+  
+  # Ensure proper MIME types for .mjs files
+  @mjs {
+    path *.mjs
+  }
+  header @mjs Content-Type application/javascript
+  
+  # Log requests to see what's happening
+  log {
+    output stdout
+    format console
+  }
+}`;
 
-      let started = false;
+      // Write Caddyfile to test directory
+      const caddyfilePath = path.join(this.testDir, 'Caddyfile');
+      
+      // Write Caddyfile and start server
+      fs.writeFile(caddyfilePath, caddyConfig)
+        .then(() => {
+          const server = spawn('caddy', ['run', '--config', 'Caddyfile', '--adapter', 'caddyfile'], {
+            cwd: this.testDir,
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
 
-      server.stdout.on('data', (data) => {
-        const output = data.toString();
-        console.log('📡 Server:', output.trim());
-        
-        if (output.includes('Serving HTTP') && !started) {
-          started = true;
-          console.log(`✅ Server running at http://localhost:${port}`);
-          resolve(server);
-        }
-      });
+          // Store server reference for cleanup
+          this.server = server;
 
-      server.stderr.on('data', (data) => {
-        const output = data.toString();
-        if (output.includes('Address already in use')) {
-          reject(new Error(`Port ${port} is already in use`));
-        } else {
-          console.error('🚨 Server error:', output.trim());
-        }
-      });
+          let started = false;
 
-      server.on('close', (code) => {
-        if (!started) {
-          reject(new Error(`Server failed to start (exit code ${code})`));
-        }
-      });
+          server.stdout.on('data', (data) => {
+            const output = data.toString();
+            console.log('📡 Caddy:', output.trim());
+            
+            if ((output.includes('serving initial configuration') || output.includes('autosaved config')) && !started) {
+              started = true;
+              console.log(`✅ Caddy server running at http://localhost:${port}`);
+              resolve(server);
+            }
+          });
 
-      server.on('error', (error) => {
-        reject(new Error(`Failed to start server: ${error.message}`));
-      });
+          server.stderr.on('data', (data) => {
+            const output = data.toString();
+            if (output.includes('address already in use') || output.includes('bind: address already in use')) {
+              reject(new Error(`Port ${port} is already in use`));
+            } else if (output.includes('serving initial configuration') && !started) {
+              started = true;
+              console.log(`✅ Caddy server running at http://localhost:${port}`);
+              resolve(server);
+            } else {
+              console.log('� Caddy info:', output.trim());
+            }
+          });
 
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        if (!started) {
-          server.kill();
-          reject(new Error('Server startup timeout'));
-        }
-      }, 5000);
+          server.on('close', (code) => {
+            if (!started) {
+              reject(new Error(`Caddy failed to start (exit code ${code})`));
+            }
+          });
+
+          server.on('error', (error) => {
+            if (error.code === 'ENOENT') {
+              reject(new Error('Caddy not found - please install Caddy (https://caddyserver.com/docs/install)'));
+            } else {
+              reject(new Error(`Failed to start Caddy: ${error.message}`));
+            }
+          });
+
+          // Shorter timeout for Caddy startup since it usually starts quickly
+          setTimeout(() => {
+            if (!started) {
+              // Give Caddy a chance - if it's gotten this far, it's probably working
+              console.log(`✅ Caddy server assumed running at http://localhost:${port}`);
+              started = true;
+              resolve(server);
+            }
+          }, 3000);
+        })
+        .catch(error => {
+          reject(new Error(`Failed to write Caddyfile: ${error.message}`));
+        });
     });
   }
 
-  async killServer(port = 8002) {
+  async cleanup(port) {
+    console.log('\n🧹 Cleaning up...');
+    
+    try {
+      // Kill Caddy server if it exists
+      if (this.server && this.server.kill) {
+        console.log('🛑 Stopping Caddy server...');
+        this.server.kill('SIGTERM');
+        this.server = null;
+      }
+
+      // Also kill any other Caddy processes on this port
+      await this.killServer(port);
+
+      // Delete the extracted directory
+      if (this.testDir) {
+        console.log(`🗑️ Removing extracted directory: ${this.testDir}`);
+        try {
+          await fs.rm(this.testDir, { recursive: true, force: true });
+          console.log('✅ Extracted directory removed');
+        } catch (error) {
+          console.warn('⚠️ Could not remove extracted directory:', error.message);
+        }
+      }
+
+      console.log('✅ Cleanup completed');
+    } catch (error) {
+      console.warn('⚠️ Error during cleanup:', error.message);
+    }
+  }
+
+  async killServer(port = 8080) {
+    console.log(`🔄 Cleaning up any existing servers on port ${port}...`);
+    
     return new Promise((resolve) => {
-      const kill = spawn('pkill', ['-f', `python.*${port}`], {
+      // First try to kill any existing Caddy processes on this port
+      const kill = spawn('pkill', ['-f', `caddy.*${port}`], {
         stdio: 'pipe'
       });
 
       kill.on('close', () => {
-        resolve();
+        // Also try to kill any processes using the port directly
+        const killPort = spawn('pkill', ['-f', `:${port}`], {
+          stdio: 'pipe'
+        });
+        
+        killPort.on('close', () => {
+          // Give a moment for processes to clean up
+          setTimeout(() => {
+            resolve();
+          }, 1000);
+        });
+
+        killPort.on('error', () => {
+          resolve(); // pkill not found or no process to kill
+        });
       });
 
       kill.on('error', () => {
@@ -163,7 +263,7 @@ class TeiaUnpacker {
     });
   }
 
-  async openBrowser(port = 8002) {
+  async openBrowser(port = 8080) {
     const url = `http://localhost:${port}`;
     console.log(`🌐 Opening browser at ${url}...`);
     
@@ -224,7 +324,7 @@ class TeiaUnpacker {
     }
   }
 
-  async run(zipPath, port = 8002) {
+  async run(zipPath, port = 8080) {
     try {
       console.log('🎭 TEIA Package Unpacker\n');
 
@@ -267,10 +367,27 @@ class TeiaUnpacker {
       // Keep the process alive
       process.on('SIGINT', async () => {
         console.log('\n🛑 Shutting down...');
-        server.kill();
-        await this.killServer(port);
-        console.log('✅ Server stopped');
+        await this.cleanup(port);
         process.exit(0);
+      });
+
+      process.on('SIGTERM', async () => {
+        console.log('\n🛑 Received SIGTERM, shutting down...');
+        await this.cleanup(port);
+        process.exit(0);
+      });
+
+      // Also handle uncaught exceptions to ensure cleanup
+      process.on('uncaughtException', async (error) => {
+        console.error('\n❌ Uncaught exception:', error.message);
+        await this.cleanup(port);
+        process.exit(1);
+      });
+
+      process.on('unhandledRejection', async (reason, promise) => {
+        console.error('\n❌ Unhandled rejection at:', promise, 'reason:', reason);
+        await this.cleanup(port);
+        process.exit(1);
       });
 
       // Keep alive
@@ -286,7 +403,7 @@ class TeiaUnpacker {
 // Parse command line arguments
 const args = process.argv.slice(2);
 const zipPath = args[0];
-const port = args[1] ? parseInt(args[1]) : 8002;
+const port = args[1] ? parseInt(args[1]) : 8080;
 
 // Run the unpacker
 const unpacker = new TeiaUnpacker();

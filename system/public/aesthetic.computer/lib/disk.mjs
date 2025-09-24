@@ -133,15 +133,53 @@ let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
 let nopaintPerf = true; // Performance panel for nopaint system debugging - enabled for testing
 let visible = true; // Is aesthetic.computer visibly rendering or not?
-let TEIA_MODE = false; // Will be set during init-from-bios
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
 let globalKidLispInstance = null;
+
+// 🎨 Persistent first line color storage - survives instance resets
+let persistentFirstLineColor = null;
+
+// 🎨 Global function to store background color from KidLisp (worker-safe)
+function storePersistentFirstLineColor(color) {
+  persistentFirstLineColor = color;
+  // Also store in window if available
+  if (typeof window !== "undefined" && window.setPersistentFirstLineColor) {
+    window.setPersistentFirstLineColor(color);
+  }
+}
+
+// 🎨 Global function to get background color for reframe (worker-safe)
+function getPersistentFirstLineColor() {
+  console.log("🎨 Getting persistent first line color from disk.mjs:", persistentFirstLineColor);
+  return persistentFirstLineColor;
+}
+
+// 🎨 Make storage function globally available for KidLisp
+if (typeof globalThis !== "undefined") {
+  globalThis.storePersistentFirstLineColor = storePersistentFirstLineColor;
+  globalThis.getPersistentFirstLineColor = getPersistentFirstLineColor;
+}
+
+// Global function to set persistent first line color
+if (typeof window !== "undefined") {
+  window.setPersistentFirstLineColor = function(color) {
+    console.log("🎨 Setting persistent first line color:", color);
+    persistentFirstLineColor = color;
+  };
+
+  // Global function to get persistent first line color
+  window.getPersistentFirstLineColor = function() {
+    console.log("🎨 Getting persistent first line color:", persistentFirstLineColor);
+    return persistentFirstLineColor;
+  };
+}
 
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
+import { setTeiaMode, getTeiaMode, checkTeiaMode } from "./teia-mode.mjs";
 // import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -394,10 +432,11 @@ function toggleHUDVisibility(isDoubleTap = false) {
     }
     
     $commonApi.sound.synth({
-      tone: hudAnimationState.visible ? 1200 : 800,
+      type: "sine",
+      tone: hudAnimationState.visible ? 600 : 400,
       duration: 0.15,
-      attack: 0.01,
-      decay: 0.3,
+      attack: 0.1,
+      decay: 0.8,
       volume: 0.2,
     });
   } else {
@@ -412,16 +451,17 @@ function toggleHUDVisibility(isDoubleTap = false) {
     }
     
     $commonApi.sound.synth({
-      tone: hudAnimationState.visible ? 1200 : 800,
+      type: "sine",
+      tone: hudAnimationState.visible ? 600 : 400,
       duration: 0.15,
-      attack: 0.01,
-      decay: 0.3,
+      attack: 0.1,
+      decay: 0.8,
       volume: 0.2,
     });
   }
 }
 let hudAnimationState = {
-  visible: true,
+  visible: !getTeiaMode(), // Hidden by default in TEIA mode, visible otherwise
   animating: false,
   startTime: 0,
   duration: 500, // 500ms animation
@@ -490,7 +530,6 @@ function enableFrameBasedMonitoring() {
   }
   
   requestAnimationFrame(checkPaintingChanges);
-  console.log(`🎨 Frame-based painting monitoring enabled with nopaint interference protection`);
 }
 
 // 🎨 Broadcast throttling to prevent infinite loops
@@ -1128,6 +1167,12 @@ const $commonApi = {
   clock: {
     offset: function () {
       if (clockFetching) return;
+
+      // Skip API calls in TEIA mode
+      if (getTeiaMode()) {
+        clockFetching = false;
+        return;
+      }
 
       clockFetching = true;
       const t0 = Date.now();
@@ -2447,7 +2492,6 @@ startPaintingChangeMonitoring();
 const channel = new BroadcastChannel("aesthetic.computer");
 
 channel.onmessage = (event) => {
-  console.log(`🗼 Got broadcast: ${event.data}`);
   processMessage(event.data);
 };
 
@@ -2503,8 +2547,6 @@ async function handlePaintingUpdate(msg) {
       console.log(`🎨 SKIPPED: Own message (${data.action})`);
       return;
     }
-    
-    console.log(`🎨 HANDLING: ${data.action} from tab ${data.tabId?.substr(0, 4)}...`);
     
     if (!$commonApi.system) {
       console.log(`🎨 SKIPPED: No system available`);
@@ -2588,8 +2630,6 @@ async function handlePaintingUpdate(msg) {
     // Set processing flag to prevent feedback loops
     $commonApi._processingBroadcast = true;
     
-    console.log(`🎨 Loading painting from storage...`);
-    
     try {
       // Load painting from storage (lightweight messages don't contain pixel data)
       const storedPainting = await store.retrieve("painting", "local:db");
@@ -2638,7 +2678,7 @@ async function handlePaintingUpdate(msg) {
           firstPixels: Array.from($commonApi.system.painting.pixels.slice(0, 12)) // First 3 pixels (RGBA)
         });
       } else {
-        console.log(`🎨 WARNING: No painting found in storage`);
+        // No painting found in storage
       }
     } catch (storageError) {
       console.error(`🎨 ERROR loading from storage:`, storageError);
@@ -2838,7 +2878,6 @@ function startPaintingChangeMonitoring() {
   // Initialize hash baseline if painting exists
   if ($commonApi.system?.painting) {
     lastPaintingHash = generatePaintingHash($commonApi.system.painting);
-    console.log(`🎨 Initialized painting hash: ${lastPaintingHash?.substr(0,8)}...`);
   }
   
   // Enable frame-based monitoring for immediate detection
@@ -2854,8 +2893,6 @@ function startPaintingChangeMonitoring() {
     if (lastPaintingHash !== null && 
         currentHash !== lastPaintingHash && 
         !$commonApi._processingBroadcast) {
-      
-      console.log(`🎨 INTERVAL-DETECTED: Painting change via monitoring (hash: ${currentHash.substr(0,8)}...)`);
       
       // Set flag to prevent feedback loops during broadcast processing
       $commonApi._processingBroadcast = true;
@@ -2890,7 +2927,6 @@ function stopPaintingChangeMonitoring() {
     clearInterval(paintingChangeCheckInterval);
     paintingChangeCheckInterval = null;
   }
-  console.log(`🎨 Stopped painting change monitoring`);
 }
 
 // Spawn a session backend for a piece.
@@ -3371,7 +3407,9 @@ const $paintApi = {
         });
       } else {
         //if (text === "POW") console.log($activePaintApi.screen); 24.12.10.07.26 - Get write working with deferred rendering and page.
-        (customTypeface || tf)?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
+        
+        const actualFont = customTypeface || tf;
+        actualFont?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
       }
     }
 
@@ -3676,7 +3714,17 @@ const $paintApiUnwrapped = {
     } else {
       ink(...arguments);
     }
-    graph.clear();
+    
+    // 🎨 REFRAME FIX: Use explicit canvas fill to ensure extended areas are covered
+    // For reframe operations, graph.clear() may not cover new extended areas
+    if (screen && screen.width && screen.height) {
+      // Fill the entire canvas area explicitly to ensure reframe extensions are covered
+      $paintApiUnwrapped.box(0, 0, screen.width, screen.height);
+    } else {
+      // Fallback to standard clear if screen dimensions unavailable
+      graph.clear();
+    }
+    
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
     
@@ -3684,6 +3732,28 @@ const $paintApiUnwrapped = {
     if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
       setPreserveFadeAlpha(false);
     }
+  },
+  // Set background fill color for reframe operations (especially for KidLisp pieces)
+  backgroundFill: function (color) {
+    // This function should fill transparent areas with the background color
+    // without clearing existing painted content.
+    // 
+    // For now, we use a simple approach: only do a full wipe during initial boot,
+    // but skip it during reframe to preserve content.
+    
+    const cc = graph.c.slice(0); // Save current ink color
+    
+    if (arguments.length === 0) {
+      ink(255, 255, 255); // Default to white
+    } else {
+      ink(...arguments);
+    }
+    
+    // TODO: Implement proper transparent-area-only filling
+    // For now, always do a full clear
+    graph.clear();
+    twoDCommands.push(["backgroundFill", ...graph.c]);
+    ink(...cc); // Restore previous ink color
   },
   // Erase the screen.
   clear: function () {
@@ -4188,6 +4258,12 @@ const $paintApiUnwrapped = {
   // glaze: ...
 };
 
+// 🎨 Expose wipe function globally for KidLisp reframe operations
+if (typeof globalThis !== "undefined") {
+  globalThis.$paintApiUnwrapped = $paintApiUnwrapped;
+  globalThis.wipe = $paintApiUnwrapped.wipe;
+}
+
 // Helper function to execute KidLisp code
 function executeLispCode(source, api, isAccumulating = false) {
   try {
@@ -4195,6 +4271,7 @@ function executeLispCode(source, api, isAccumulating = false) {
     // console.log(`🔍 Parsing KidLisp source:`, source);
     
     // Clear previous first-line color state for fresh detection
+    console.log("🎨 executeLispCode: Clearing globalKidLispInstance.firstLineColor");
     globalKidLispInstance.firstLineColor = null;
     
     globalKidLispInstance.parse(source);
@@ -4203,6 +4280,7 @@ function executeLispCode(source, api, isAccumulating = false) {
     if (globalKidLispInstance.ast) {
       // Detect first-line color but only apply it if not accumulating
       globalKidLispInstance.detectFirstLineColor();
+      console.log("🎨 executeLispCode: After detectFirstLineColor, globalKidLispInstance.firstLineColor:", globalKidLispInstance.firstLineColor);
       if (globalKidLispInstance.firstLineColor && !isAccumulating) {
         // console.log(`🎨 Applying first-line color background: ${globalKidLispInstance.firstLineColor}`);
         api.wipe(globalKidLispInstance.firstLineColor);
@@ -4447,6 +4525,101 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     painting: oldScreen,
     crop: new geo.Box(0, 0, oldScreen.width, oldScreen.height),
   });
+  
+  // 🎨 Fill any new pixels with background color after screen expansion
+  if (width > oldScreen.width || height > oldScreen.height) {
+    const persistentColor = getPersistentFirstLineColor();
+    console.log("🎨 Resolution function: Screen expansion detected");
+    console.log("🎨 Resolution function: Old screen:", oldScreen.width, "x", oldScreen.height);
+    console.log("🎨 Resolution function: New screen:", width, "x", height);
+    console.log("🎨 Resolution function: Persistent color found:", persistentColor);
+    
+    if (persistentColor) {
+      console.log("🎨 Post-reframe: Filling expanded pixels with:", persistentColor);
+      
+      // Convert color to RGB values for direct pixel manipulation
+      const colorResult = graph.color.coerce(persistentColor);
+      console.log("🎨 Resolution function: Coerced color result:", colorResult);
+      const [r, g, b] = colorResult;
+      console.log("🎨 Resolution function: RGB values:", r, g, b);
+      
+      // Fill right expansion (new columns)
+      if (width > oldScreen.width) {
+        console.log("🎨 Resolution function: Filling right expansion columns");
+        for (let y = 0; y < height; y++) {
+          for (let x = oldScreen.width; x < width; x++) {
+            const i = (y * width + x) * 4;
+            screen.pixels[i] = r;     // Red
+            screen.pixels[i + 1] = g; // Green  
+            screen.pixels[i + 2] = b; // Blue
+            screen.pixels[i + 3] = 255; // Alpha
+          }
+        }
+        console.log("🎨 Resolution function: Completed right expansion fill");
+      }
+      
+      // Fill bottom expansion (new rows)
+      if (height > oldScreen.height) {
+        console.log("🎨 Resolution function: Filling bottom expansion rows");
+        for (let y = oldScreen.height; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            screen.pixels[i] = r;     // Red
+            screen.pixels[i + 1] = g; // Green
+            screen.pixels[i + 2] = b; // Blue
+            screen.pixels[i + 3] = 255; // Alpha
+          }
+        }
+        console.log("🎨 Resolution function: Completed bottom expansion fill");
+      }
+      
+      console.log("🎨 Post-reframe: Filled expanded pixels directly");
+    } else {
+      console.log("🎨 Post-reframe: No persistent color found for expansion");
+      console.log("🎨 Post-reframe: Attempting fallback color retrieval...");
+      
+      // Try to get color from KidLisp instance as fallback
+      if (typeof globalKidLispInstance?.getBackgroundFillColor === 'function') {
+        const fallbackColor = globalKidLispInstance.getBackgroundFillColor();
+        console.log("🎨 Post-reframe: KidLisp fallback color:", fallbackColor);
+        
+        if (fallbackColor) {
+          const colorResult = graph.color.coerce(fallbackColor);
+          const [r, g, b] = colorResult;
+          console.log("🎨 Post-reframe: Using fallback RGB:", r, g, b);
+          
+          // Fill expansions with fallback color
+          if (width > oldScreen.width) {
+            for (let y = 0; y < height; y++) {
+              for (let x = oldScreen.width; x < width; x++) {
+                const i = (y * width + x) * 4;
+                screen.pixels[i] = r;
+                screen.pixels[i + 1] = g;
+                screen.pixels[i + 2] = b;
+                screen.pixels[i + 3] = 255;
+              }
+            }
+          }
+          
+          if (height > oldScreen.height) {
+            for (let y = oldScreen.height; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                const i = (y * width + x) * 4;
+                screen.pixels[i] = r;
+                screen.pixels[i + 1] = g;
+                screen.pixels[i + 2] = b;
+                screen.pixels[i + 3] = 255;
+              }
+            }
+          }
+          
+          console.log("🎨 Post-reframe: Applied fallback color fill");
+        }
+      }
+    }
+  } else {
+    console.log("🎨 Resolution function: No screen expansion needed");
+  }
 };
 
 // Add new content to the DOM.
@@ -4649,7 +4822,7 @@ async function load(
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
       // Check if we're in TEIA mode - use local bundled files
-      if (TEIA_MODE) {
+      if (getTeiaMode()) {
         // In TEIA mode, use relative paths to load bundled pieces
         baseUrl = ".";
       } else {
@@ -4674,7 +4847,7 @@ async function load(
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
-    if (TEIA_MODE && path.startsWith('aesthetic.computer/')) {
+    if (getTeiaMode() && path.startsWith('aesthetic.computer/')) {
       // In TEIA mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
     } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
@@ -4685,14 +4858,14 @@ async function load(
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
-      if (TEIA_MODE) {
+      if (getTeiaMode()) {
         // In TEIA mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "#" + Date.now();
       } else {
         fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
       }
     } else {
-      if (TEIA_MODE) {
+      if (getTeiaMode()) {
         // In TEIA mode, navigate up from lib directory to aesthetic.computer root, then to target
         const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
           ? resolvedPath.substring('aesthetic.computer/'.length)
@@ -4781,7 +4954,7 @@ async function load(
         const urlWithoutHash = fullUrl.split('#')[0];
         const filename = urlWithoutHash.split('/').pop();
         
-        if (TEIA_MODE && filename.endsWith('.mjs')) {
+        if (getTeiaMode() && filename.endsWith('.mjs')) {
           // In TEIA mode, skip dynamic import and use fetch directly since files are bundled locally
           // Will proceed to fetch() below
         }
@@ -5075,7 +5248,7 @@ async function load(
   // Requests a session-backend and connects via websockets.
   function startSocket() {
     // Skip socket connections in TEIA mode
-    if (TEIA_MODE) {
+    if (getTeiaMode()) {
       return;
     }
     
@@ -5205,6 +5378,13 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
+    
+    // Check if we're in TEIA mode and have colophon data
+    let teiaContext = null;
+    if (checkTeiaMode() && typeof window !== 'undefined' && window.acTEIA_COLOPHON) {
+      teiaContext = { author: window.acTEIA_COLOPHON.build.author };
+    }
+    
     const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
       slug,
@@ -5213,6 +5393,8 @@ async function load(
         num: $commonApi.num,
         store: $commonApi.store,
       }) || inferTitleDesc(originalCode),
+      location.protocol, // Pass the current protocol
+      teiaContext // Pass TEIA context if available
     );
 
     meta = {
@@ -5541,20 +5723,33 @@ async function load(
   }
   
   if (!typefaceCache.has("MatrixChunky8")) {
-    // console.log("🔤 Initializing MatrixChunky8 font...");
     const matrixFont = new Typeface("MatrixChunky8");
-    // console.log("🔤 MatrixChunky8 font data:", matrixFont.data?.advances?.['[']);
+    
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
     
     // Pre-load common QR code characters to avoid fallback during rendering
     const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
-    // console.log("🔤 Pre-loading MatrixChunky8 glyphs for QR codes...");
     
-    // Access each character to trigger the Proxy loading mechanism
+    // Access each character to trigger the Proxy loading mechanism and collect promises
+    const glyphPromises = [];
+    
     for (const char of commonQRChars) {
       // Accessing the glyph triggers the Proxy to start loading it
       const glyph = matrixFont.glyphs[char];
-      // We don't need to wait for these to load, just trigger the requests
+      
+      // If it's a Promise, collect it to wait for loading
+      if (glyph && typeof glyph.then === 'function') {
+        glyphPromises.push(glyph);
+      }
+    }
+    
+    // Wait for all common glyphs to finish loading
+    if (glyphPromises.length > 0) {
+      try {
+        await Promise.all(glyphPromises);
+      } catch (e) {
+        console.warn("🔤 Some MatrixChunky8 glyphs failed to preload:", e);
+      }
     }
     
     typefaceCache.set("MatrixChunky8", matrixFont);
@@ -6025,14 +6220,17 @@ async function load(
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
     
-    // Parse search parameters properly to check for nolabel
-    hideLabel = false;
-    if (parsed.search) {
-      const searchParams = new URLSearchParams(parsed.search);
-      hideLabel = searchParams.has("nolabel");
-    }
-    
-    currentColon = colon;
+  // Parse search parameters properly to check for nolabel
+  hideLabel = false;
+  if (parsed.search) {
+    const searchParams = new URLSearchParams(parsed.search);
+    hideLabel = searchParams.has("nolabel");
+  }
+  
+  // Also hide label by default in TEIA mode (like nolabel)
+  if (getTeiaMode()) {
+    hideLabel = true;
+  }    currentColon = colon;
     currentParams = params;
     currentHash = hash;
     // sound = null;
@@ -6208,8 +6406,18 @@ async function makeFrame({ data: { type, content } }) {
     LAN_HOST = content.lanHost;
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
-    VSCODE = content.vscode;
-    TEIA_MODE = content.teiaMode || false;
+  VSCODE = content.vscode;
+  setTeiaMode(content.teiaMode || false);    // Store TEIA KidLisp cache in worker global scope
+    if (content.teiaKidlispCodes) {
+      const globalScope = (function() {
+        if (typeof globalThis !== 'undefined') return globalThis;
+        if (typeof self !== 'undefined') return self;
+        if (typeof global !== 'undefined') return global;
+        return {};
+      })();
+      globalScope.teiaKidlispCodes = content.teiaKidlispCodes;
+    }
+    
     TV_MODE = content.resolution?.tv === true;
     
     // Parse highlight parameter
@@ -7190,7 +7398,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if (data.key === "$" || data.key === "Home") {
+        if ((data.key === "$" || data.key === "Home") && !getTeiaMode()) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -7214,6 +7422,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
+          !getTeiaMode() && // Disable navigation keys in TEIA mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -7274,7 +7483,7 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
-        if (data.key === "Shift") {
+        if (data.key === "Shift" && !getTeiaMode()) {
           // Only allow QR fullscreen for KidLisp pieces that have QR codes
           const sourceCode = currentText || currentHUDTxt;
           const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
@@ -7335,10 +7544,11 @@ async function makeFrame({ data: { type, content } }) {
             
             // Play sound feedback
             $commonApi.sound.synth({
-              tone: hudAnimationState.qrFullscreen ? 1500 : 1000,
+              type: "sine",
+              tone: hudAnimationState.qrFullscreen ? 500 : 250,
               duration: 0.12,
-              attack: 0.01,
-              decay: 0.2,
+              attack: 0.1,
+              decay: 0.9,
               volume: 0.25,
             });
           }
@@ -7346,7 +7556,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
-        if (data.key === "x" && data.ctrl && currentText !== "notepat") {
+        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getTeiaMode()) {
           send({ type: "fullscreen-enable" });
         }
       }
@@ -7977,6 +8187,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // Reframing the piece... (resizing the window).
       if (reframed === true) {
+        
         $api.event = {
           device: "none",
           is: (e) => e === "reframed",
@@ -9144,31 +9355,64 @@ async function makeFrame({ data: { type, content } }) {
             
             const shadowText = createShadowText(text);
             
-            // SIMPLIFIED: Simple positioning without complex highlight mode offsets
-            $.ink([0, 0, 0]).write( // Default ink for shadow rendering (color codes in shadowText will override)
-              shadowText,
-              { x: 1 + currentHUDScrub, y: 1 },
-              undefined,
-              $api.screen.width - $api.typeface.blockWidth,
-            );
-            $.ink(c).write(
-              text,
-              { x: 0 + currentHUDScrub, y: 0 },
-              undefined,
-              $api.screen.width - $api.typeface.blockWidth,
-            );
+            // Tiny hud label option - set this to true to use MatrixChunky8 font for corner labels
+            const useTinyHudLabel = false; // Change to true to enable tiny pixel font for HUD labels
+            
+            // Only check MatrixChunky8 font loading if tiny hud label is requested
+            let renderText = true;
+            
+            if (useTinyHudLabel) {
+              const cornerFont = typefaceCache.get("MatrixChunky8");
+              renderText = false;
+              
+              if (cornerFont && cornerFont.glyphs) {
+                // Check if font has valid glyphs for common characters used in corner labels
+                const testChars = ['a', 'A', '0', 'r', 'o', 'z', 'e'];
+                let validGlyphCount = 0;
+                
+                for (const char of testChars) {
+                  const glyph = cornerFont.glyphs[char];
+                  if (glyph && (glyph.pixels || glyph.commands || glyph.resolution)) {
+                    validGlyphCount++;
+                  }
+                }
+                
+                // Only render if we have most of the common glyphs loaded
+                renderText = validGlyphCount >= 5;
+              }
+            }
+            
+            if (renderText) {
+              // SIMPLIFIED: Simple positioning without complex highlight mode offsets
+              $.ink([0, 0, 0]).write( // Default ink for shadow rendering (color codes in shadowText will override)
+                shadowText,
+                { x: 1 + currentHUDScrub, y: 1 },
+                undefined,
+                $api.screen.width - $api.typeface.blockWidth,
+                false,
+                useTinyHudLabel ? "MatrixChunky8" : undefined
+              );
+              $.ink(c).write(
+                text,
+                { x: 0 + currentHUDScrub, y: 0 },
+                undefined,
+                $api.screen.width - $api.typeface.blockWidth,
+                false,
+                useTinyHudLabel ? "MatrixChunky8" : undefined
+              );
 
-            if (currentHUDScrub > 0) {
-              const shareWidth = tf.blockWidth * "share ".length;
-              const shadowShareText = "share"; // No color codes in "share"
-              $.ink(0).write(shadowShareText, {
-                x: 1 + currentHUDScrub - shareWidth,
-                y: 1,
-              });
-              $.ink(c).write("share", {
-                x: 0 + currentHUDScrub - shareWidth,
-                y: 0,
-              });
+              if (currentHUDScrub > 0) {
+                const shareWidth = tf.blockWidth * "share ".length;
+                const shadowShareText = "share"; // No color codes in "share"
+                $.ink(0).write(shadowShareText, {
+                  x: 1 + currentHUDScrub - shareWidth,
+                  y: 1,
+                }, undefined, undefined, false, useTinyHudLabel ? "MatrixChunky8" : undefined);
+                $.ink(c).write("share", {
+                  x: 0 + currentHUDScrub - shareWidth,
+                  y: 0,
+                }, undefined, undefined, false, useTinyHudLabel ? "MatrixChunky8" : undefined);
+              }
             }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
@@ -9648,20 +9892,7 @@ async function makeFrame({ data: { type, content } }) {
                              // Use the centralized KidLisp detection that includes comma syntax
                              (sourceCode && lisp.isKidlispSource(sourceCode));
       
-      // Debug QR detection (only when issues occur)
-      if (!isInlineKidlispPiece && (sourceCode?.startsWith("$") || sourceCode?.startsWith("("))) {
-        console.log("🔍 QR Debug:", {
-          isInlineKidlispPiece,
-          sourceCode,
-          visible: hudAnimationState.visible,
-          animating: hudAnimationState.animating,
-          currentPath,
-          currentText,
-          currentHUDTxt
-        });
-      }
-      
-      if (isInlineKidlispPiece && sourceCode && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
+      if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
@@ -9748,7 +9979,7 @@ async function makeFrame({ data: { type, content } }) {
                 startY = Math.floor((screen.height - canvasHeight) / 2);
                 
                 // Create scaled QR overlay with styled code text
-                qrOverlay = $api.painting(canvasWidth, canvasHeight, ($) => {
+                qrOverlay = $api.painting(canvasWidth, canvasHeight, async ($) => {
                   // Draw scaled QR with integer scaling (centered in canvas)
                   const qrOffsetX = Math.floor((canvasWidth - overlayWidth) / 2);
                   
@@ -9768,13 +9999,10 @@ async function makeFrame({ data: { type, content } }) {
                     }
                   }
                   
-                  // Add styled code text positioned at bottom-left corner of QR with padding
-                  const textX = qrOffsetX + 4; // Add 4px left padding from QR edge
-                  const textY = overlayHeight + 4; // Add 2px more gap (was 2, now 4) for extra top padding
-                  
-                  // Draw white text on black background using built-in bg parameter
-                  $.ink("white");
-                  $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                  // Temporarily disable text rendering to prevent ? characters
+                  // TODO: Fix glyph loading pipeline to avoid fallback question marks
+                  console.log("🔤 QR text rendering temporarily disabled to prevent ? characters");
+                  // The rest of the text rendering code is commented out until the glyph loading is fixed
                 });
               } else {
                 // Normal mode: use original positioning
@@ -9827,7 +10055,7 @@ async function makeFrame({ data: { type, content } }) {
               const textAreaHeight = 9;
               const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
               const canvasHeight = qrOffsetY + qrSize + 2; // Ensure room for bottom shadow
-              const generatedQR = $api.painting(qrSize + 1, canvasHeight, ($) => {
+              const generatedQR = $api.painting(qrSize + 1, canvasHeight, async ($) => {
                 // Draw QR code at offset position to make room for text above
                 for (let y = 0; y < cells.length; y++) {
                   for (let x = 0; x < cells.length; x++) {
@@ -9880,24 +10108,161 @@ async function makeFrame({ data: { type, content } }) {
                   
                   // Render white text (no rotation for now)
                   $.ink("white"); // White text on black background
-                  // console.log("🔤 QR Text Rendering (backdrop):", { codeToRender, textX, textY });
-                  $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                  
+                  if (getTeiaMode()) {
+                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                    let matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont) {
+                      
+                      // Check if this is a proper Typeface instance with all methods
+                      if (!matrixFont.getGlyph || typeof matrixFont.getGlyph !== 'function') {
+                        // Create a new proper Typeface instance
+                        const newMatrixFont = new Typeface("MatrixChunky8");
+                        await newMatrixFont.load($commonApi.net.preload);
+                        // Copy over existing glyphs data if any
+                        if (matrixFont.glyphs) {
+                          Object.assign(newMatrixFont.glyphs, matrixFont.glyphs);
+                        }
+                        matrixFont = newMatrixFont;
+                        typefaceCache.set("MatrixChunky8", matrixFont);
+                      }
+                      
+                      // Check if glyphs actually work by testing a specific character
+                      const testGlyph = matrixFont.glyphs['$'];
+                      // MatrixChunky8 uses BDF structure: {resolution, offset, baselineOffset, advance, commands, bbx}
+                      const glyphsWorking = testGlyph && typeof testGlyph === 'object' && 
+                                          (testGlyph.pixels || testGlyph.commands || testGlyph.resolution);
+                      
+                      if (!glyphsWorking) {
+                        // Create simple fallback glyphs for common characters
+                        const fallbackGlyph = {
+                          resolution: [6, 8],
+                          pixels: [
+                            [0, 1, 1, 1, 1, 0],
+                            [1, 0, 0, 0, 0, 1],
+                            [1, 0, 1, 1, 0, 1],
+                            [1, 0, 1, 1, 0, 1],
+                            [1, 0, 0, 0, 0, 1],
+                            [1, 0, 0, 0, 0, 1],
+                            [0, 1, 1, 1, 1, 0],
+                            [0, 0, 0, 0, 0, 0]
+                          ]
+                        };
+                        
+                        // Ensure glyphs object exists
+                        if (!matrixFont.glyphs) {
+                          matrixFont.glyphs = {};
+                        }
+                        
+                        // Populate common characters used in QR codes
+                        const commonChars = '$rozeabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                        for (const char of commonChars) {
+                          if (!matrixFont.glyphs[char]) {
+                            matrixFont.glyphs[char] = fallbackGlyph;
+                            matrixFont[char] = fallbackGlyph; // Also set directly on font object
+                          }
+                        }
+                      }
+                      
+                      // Check if font has reasonable glyph data before rendering
+                      const testChar = matrixFont.glyphs && (matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a']);
+                      const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
+                      if (hasValidGlyphs) {
+                        $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                      } else {
+                        // Fallback to default font if MatrixChunky8 isn't ready
+                        $.write(codeToRender, { x: textX, y: textY });
+                      }
+                    } else {
+                      // Fallback to default font if MatrixChunky8 not available
+                      $.write(codeToRender, { x: textX, y: textY });
+                    }
+                  } else {
+                    // Use MatrixChunky8 font in normal mode - with fallback
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont && matrixFont.glyphs) {
+                      const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
+                      const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
+                      if (hasValidGlyphs) {
+                        $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                      } else {
+                        $.write(codeToRender, { x: textX, y: textY });
+                      }
+                    } else {
+                      $.write(codeToRender, { x: textX, y: textY });
+                    }
+                  }
                 } else {
                   // Shadow style: black shadow first, then white text
                   // Draw black shadow (1px offset) - no rotation for now
                   $.ink("black");
-                  try {
-                    $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
-                  } catch (error) {
-                    $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                  
+                  if (getTeiaMode()) {
+                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont && matrixFont.glyphs) {
+                      const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
+                      const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
+                      if (hasValidGlyphs) {
+                        $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                      } else {
+                        $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                      }
+                    } else {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                    }
+                  } else {
+                    try {
+                      const matrixFont = typefaceCache.get("MatrixChunky8");
+                      if (matrixFont && matrixFont.glyphs) {
+                        const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
+                        const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
+                        if (hasValidGlyphs) {
+                          $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                        } else {
+                          $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                        }
+                      } else {
+                        $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                      }
+                    } catch (error) {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                    }
                   }
                   
                   // Draw white text on top - no rotation for now
                   $.ink("white");
-                  try {
-                    $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                  } catch (error) {
-                    $.write(codeToRender, { x: textX, y: textY });
+                  if (getTeiaMode()) {
+                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont && matrixFont.glyphs) {
+                      const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
+                      const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
+                      if (hasValidGlyphs) {
+                        $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                      } else {
+                        $.write(codeToRender, { x: textX, y: textY });
+                      }
+                    } else {
+                      $.write(codeToRender, { x: textX, y: textY });
+                    }
+                  } else {
+                    try {
+                      const matrixFont = typefaceCache.get("MatrixChunky8");
+                      if (matrixFont && matrixFont.glyphs) {
+                        const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
+                        const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
+                        if (hasValidGlyphs) {
+                          $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                        } else {
+                          $.write(codeToRender, { x: textX, y: textY });
+                        }
+                      } else {
+                        $.write(codeToRender, { x: textX, y: textY });
+                      }
+                    } catch (error) {
+                      $.write(codeToRender, { x: textX, y: textY });
+                    }
                   }
                 }
                 
@@ -9954,19 +10319,21 @@ async function makeFrame({ data: { type, content } }) {
                 const textWidth = actualTextWidth + textPadding * 2; // Add padding
                 const textHeight = fontSize + textPadding * 2;
                 
-                // Expand canvas to include text space
-                const canvasHeight = finalQrSize + textHeight;
-                const canvasWidth = finalQrSize; // Keep QR width only
+                // Use full screen canvas to position QR code (centered) and text (top-left)
+                const canvasHeight = screen.height;
+                const canvasWidth = screen.width;
                 
-                // Center everything on screen (ensure integer coordinates)
-                startX = Math.floor((screen.width - canvasWidth) / 2);
-                startY = Math.floor((screen.height - canvasHeight) / 2);
+                // Position QR code in center of screen
+                const qrX = Math.floor((screen.width - finalQrSize) / 2);
+                const qrY = Math.floor((screen.height - finalQrSize) / 2);
                 
-                // Generate fullscreen QR with styled code text
+                // Position starts at top-left of screen since we're using full screen canvas
+                startX = 0;
+                startY = 0;
+                
+                // Generate fullscreen canvas with centered QR and top-left text
                 const fullscreenQR = $api.painting(canvasWidth, canvasHeight, ($) => {
-                  // Draw QR code with integer scaling (centered in canvas)
-                  const qrOffsetX = Math.floor((canvasWidth - finalQrSize) / 2);
-                  
+                  // Draw QR code centered on screen
                   for (let y = 0; y < cells.length; y++) {
                     for (let x = 0; x < cells.length; x++) {
                       const isBlack = cells[y][x];
@@ -9975,17 +10342,22 @@ async function makeFrame({ data: { type, content } }) {
                       } else {
                         $.ink("white");
                       }
-                      $.box(qrOffsetX + x * cellSize, y * cellSize, cellSize, cellSize);
+                      $.box(qrX + x * cellSize, qrY + y * cellSize, cellSize, cellSize);
                     }
                   }
                   
-                  // Add styled code text positioned at bottom-left corner of QR with padding
-                  const textX = qrOffsetX + 4; // Add 4px left padding from QR edge
-                  const textY = finalQrSize + 4; // Add 2px more gap (was 2, now 4) for extra top padding
+                  // Draw text in absolute top-left corner of screen
+                  const codeText = `$${cachedCode}`;
+                  const textX = 10; // Small margin from left edge of screen
+                  const textY = 10; // Small margin from top edge of screen
                   
-                  // Draw white text on black background using built-in bg parameter
+                  // Draw black shadow offset by 1px
+                  $.ink("black");
+                  $.write(codeText, { x: textX + 1, y: textY + 1, size: 2 }); // 2x scale for shadow
+                  
+                  // Draw white text on top
                   $.ink("white");
-                  $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                  $.write(codeText, { x: textX, y: textY, size: 2 }); // 2x scale for main text
                 });
                 
                 // Update qrData for fullscreen
@@ -10089,6 +10461,12 @@ async function makeFrame({ data: { type, content } }) {
         // 🛡️ Create a copy for transfer to avoid detaching the QR overlay buffer
         const qrPixelsCopy = new Uint8ClampedArray(sendData.qrOverlay.img.pixels);
         transferredObjects.push(qrPixelsCopy.buffer);
+      }
+
+      if (sendData.qrCornerText) {
+        // 🛡️ Create a copy for transfer to avoid detaching the QR corner text buffer
+        const qrCornerPixelsCopy = new Uint8ClampedArray(sendData.qrCornerText.img.pixels);
+        transferredObjects.push(qrCornerPixelsCopy.buffer);
       }
 
       if (sendData.tapeProgressBar) {
@@ -10241,7 +10619,6 @@ function maybeLeave() {
 // Debug utility for HUD hitbox visualization
 globalThis.toggleHudHitboxDebug = () => {
   globalThis.debugHudHitbox = !globalThis.debugHudHitbox;
-  console.log(`🎯 HUD Hitbox Debug: ${globalThis.debugHudHitbox ? 'ON' : 'OFF'}`);
   $commonApi.needsPaint(); // Force repaint to show/hide the debug visualization
 };
 

@@ -15,8 +15,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class FrameRenderer extends HeadlessAC {
-  constructor(outputDir, width = 2048, height = 2048) {
-    super(width, height); // Initialize with passed resolution
+  constructor(outputDir) {
+    // Allow custom resolution from environment variables (for GIF generation)
+    const width = parseInt(process.env.WIDTH) || 2048;
+    const height = parseInt(process.env.HEIGHT) || 2048;
+    super(width, height);
     this.outputDir = outputDir;
     this.stateFile = path.join(outputDir, 'state.json');
     this.backgroundBufferFile = path.join(outputDir, 'background-buffer.bin');
@@ -59,13 +62,12 @@ class FrameRenderer extends HeadlessAC {
       return state;
     } else {
       console.log(`🆕 Starting new render sequence`);
-      const width = parseInt(process.argv[5]) || 1024;
-      const height = parseInt(process.argv[6]) || 1024;
-      const totalFrames = parseInt(process.argv[3]) || 30; // Duration parameter is actually frame count
+      const pieceArg = process.argv[2] || 'test-piece.mjs';
+      
       return {
         frameIndex: 0,
         startTime: Date.now(),
-        piece: process.argv[2] || 'test-piece.mjs',
+        piece: pieceArg,
         duration: totalFrames * (1000/60), // Convert frames to milliseconds for compatibility
         fps: 60,
         width: width,
@@ -217,14 +219,48 @@ class FrameRenderer extends HeadlessAC {
     let pieceLoadTime = 0;
     if (!this.pieceModule) {
       const pieceStartTime = Date.now();
-      // Try to import the piece - handle both with and without .mjs extension
-      let piecePath = state.piece;
-      if (!piecePath.endsWith('.mjs') && !piecePath.endsWith('.js')) {
-        piecePath = `${piecePath}.mjs`;
+      
+      // Check if this is a KidLisp code (starts with $)
+      console.log(`🔍 Debug: piece="${state.piece}", GIF_MODE=${process.env.GIF_MODE}`);
+      if (state.piece.startsWith('$') && process.env.GIF_MODE) {
+        console.log(`🤖 KidLisp code detected: ${state.piece}`);
+        
+        // Check if temp file already exists (for subsequent frames)
+        const tempPath = path.join(this.outputDir, 'temp-kidlisp.mjs');
+        if (fs.existsSync(tempPath)) {
+          console.log(`🔄 Reusing existing KidLisp wrapper`);
+          this.pieceModule = await import(path.resolve(tempPath) + '?t=' + Date.now());
+        } else {
+          // Create a temporary wrapper piece for KidLisp code
+          const kidlispWrapper = `
+// Temporary KidLisp wrapper for ${state.piece}
+export const paint = ($) => {
+  // TODO: Resolve KidLisp code and execute it
+  // For now, create a simple animated visual
+  const t = $.api.frame / 60;
+  $.wipe('purple');
+  $.ink('white');
+  $.line(200 + Math.sin(t) * 100, 200, 200 + Math.cos(t) * 100, 200);
+};
+`;
+          
+          // Write temporary file
+          fs.writeFileSync(tempPath, kidlispWrapper);
+          this.pieceModule = await import(path.resolve(tempPath));
+          console.log(`🤖 Created KidLisp wrapper: ${Object.keys(this.pieceModule).join(', ')}`);
+        }
+        
+      } else {
+        // Try to import the piece - handle both with and without .mjs extension
+        let piecePath = state.piece;
+        if (!piecePath.endsWith('.mjs') && !piecePath.endsWith('.js')) {
+          piecePath = `${piecePath}.mjs`;
+        }
+        this.pieceModule = await import(path.resolve(piecePath));
+        console.log(`📦 Loaded piece with functions: ${Object.keys(this.pieceModule).join(', ')}`);
       }
-      this.pieceModule = await import(path.resolve(piecePath));
+      
       pieceLoadTime = Date.now() - pieceStartTime;
-      console.log(`📦 Loaded piece with functions: ${Object.keys(this.pieceModule).join(', ')}`);
     }
     
     // Load and run the piece
