@@ -28,6 +28,7 @@ import {
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
 import { logs } from "./lib/logs.mjs";
+import { checkTeiaMode } from "./lib/teia-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import { UDP } from "./lib/udp.mjs";
@@ -500,6 +501,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Restore the clean pixels onto the resized canvas
     ctx.drawImage(tempCanvas, 0, 0);
 
+    // 🎨 REFRAME BACKGROUND FIX: Fill any new extended areas with background color
+    // But skip during very early initialization to prevent purple flash
+    const now = performance.now();
+    const isVeryEarlyLoad = !globalThis.pageLoadTime || (now - globalThis.pageLoadTime) < 100;
+    
+    // Initialize page load time on first run
+    if (!globalThis.pageLoadTime) {
+      globalThis.pageLoadTime = now;
+    }
+    
+    if ((width > tempCanvas.width || height > tempCanvas.height) && !isVeryEarlyLoad) {
+      // Default to purple for KidLisp pieces (most common case)
+      let bgColor = 'purple';
+      let r = 128, g = 0, b = 128;
+      
+      // Try to get actual background color from persistent storage
+      try {
+        if (typeof globalThis.getPersistentFirstLineColor === 'function') {
+          const persistentColor = globalThis.getPersistentFirstLineColor();
+          if (persistentColor) {
+            bgColor = persistentColor;
+            if (typeof globalThis.graph?.color?.coerce === 'function') {
+              const rgbValues = globalThis.graph.color.coerce(bgColor);
+              [r, g, b] = rgbValues;
+            }
+          }
+        }
+      } catch (e) {
+        // Use default purple values
+      }
+      
+      // Fill new areas with background color
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      
+      if (width > tempCanvas.width) {
+        ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
+      }
+      
+      if (height > tempCanvas.height) {
+        ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
+      }
+    }
+
     tempCanvas.width = glazeComposite.width;
     tempCanvas.height = glazeComposite.height;
 
@@ -742,7 +786,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //       (Like in `hell_-world` or `freaky-flowers`) 23.10.25.20.32
   function setMetatags(meta) {
     if (meta?.title) {
-      document.title = meta.title;
+      // Don't override title in TEIA mode - let the pack-time title remain
+      if (!checkTeiaMode()) {
+        document.title = meta.title;
+      }
       const ogTitle = document.querySelector('meta[name="og:title"]');
       if (ogTitle) ogTitle.content = meta.title;
       const twitterTitle = document.querySelector('meta[name="twitter:title"]');
@@ -10849,7 +10896,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       // Only log reframe operations to debug flicker
-      const isHudOverlay = name === "label" || name === "qrOverlay";
+      const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel";
 
       // Apply breathing pattern to tapeProgressBar - hide it when both stamps are off
       if (name === "tapeProgressBar" && window.currentTapeProgress !== undefined) {
@@ -10891,7 +10938,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
         // EXCEPT for tapeProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay") {
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -10947,6 +10994,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         delete window.framePersistentOverlayCache[name]; // Clear persistent cache
         currentKey += `_${performance.now()}`; // Force unique key every time
       }
+      
+      // For QR corner label, completely disable ALL caching to allow text label font loading
+      if (name === "qrCornerLabel") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For QR fullscreen label, completely disable ALL caching to allow text label font loading
+      if (name === "qrFullscreenLabel") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
 
       // Only rebuild if overlay actually changed
       // Force rebuild every frame for tape progress bar, duration progress bar, duration timecode and QR overlay (no caching)
@@ -10955,6 +11016,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         name !== "durationProgressBar" &&
         name !== "durationTimecode" &&
         name !== "qrOverlay" &&
+        name !== "qrCornerLabel" &&
+        name !== "qrFullscreenLabel" &&
         overlayCache.lastKey === currentKey &&
         window.framePersistentOverlayCache[name]
       ) {
@@ -10968,6 +11031,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       overlayCache.lastKey = currentKey;
+
+      // Debug: Log when creating paint function for qrFullscreenLabel
+      if (name === "qrFullscreenLabel") {
+        console.log(`🔍 Creating paint function for qrFullscreenLabel`);
+      }
 
       paintOverlays[name] = () => {
         const canvas = overlayCache.canvas;
@@ -10986,6 +11054,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Add debug logging for durationTimecode
           if (name === "durationTimecode") {
             console.log(`🕐 Creating ImageData for timecode:`, {
+              pixelsType: typeof o.img.pixels,
+              pixelsLength: o.img.pixels.length,
+              width: o.img.width,
+              height: o.img.height,
+              expectedLength: o.img.width * o.img.height * 4
+            });
+          }
+          
+          // Add debug logging for qrFullscreenLabel
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Creating ImageData for qrFullscreenLabel:`, {
               pixelsType: typeof o.img.pixels,
               pixelsLength: o.img.pixels.length,
               width: o.img.width,
@@ -11013,6 +11092,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (name === "durationTimecode") {
             console.log(`🕐 Successfully created and painted ImageData for timecode`);
           }
+          
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Successfully created and painted ImageData for qrFullscreenLabel`);
+          }
         } catch (error) {
           console.error(`❌ Error creating ImageData for ${name}:`, error);
           return;
@@ -11028,9 +11111,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (name === "durationTimecode") {
             console.log(`🕐 Drawing durationTimecode to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
           }
+          
+          // Add debug logging for qrFullscreenLabel
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Drawing qrFullscreenLabel to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
+          }
+          
           ctx.drawImage(canvas, o.x, o.y);
+          
           if (name === "durationTimecode") {
             console.log(`🕐 Finished drawing durationTimecode`);
+          }
+          
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Finished drawing qrFullscreenLabel`);
           }
         }
       };
@@ -11045,13 +11139,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Don't cache QR overlay painters to allow animation
       // Don't cache tapeProgressBar or durationProgressBar painters either - force regeneration every frame
-      if (isHudOverlay && name !== "qrOverlay" && name !== "tapeProgressBar" && name !== "durationProgressBar") {
+      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "tapeProgressBar" && name !== "durationProgressBar") {
         window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
 
     buildOverlay("label", content.label);
     buildOverlay("qrOverlay", content.qrOverlay);
+    buildOverlay("qrCornerLabel", content.qrCornerLabel);
+    buildOverlay("qrFullscreenLabel", content.qrFullscreenLabel);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
     buildOverlay("durationProgressBar", content.durationProgressBar);
     buildOverlay("durationTimecode", content.durationTimecode);
@@ -11147,6 +11243,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Paint overlays after async rendering completes
                 if (paintOverlays["label"]) paintOverlays["label"]();
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
+                if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
+                if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                 if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
                 if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                 if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
@@ -11189,6 +11287,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     // Paint overlays after async fallback rendering completes
                     if (paintOverlays["label"]) paintOverlays["label"]();
                     if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
+                    if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
+                    if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                     if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
                     if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                     if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
@@ -13305,10 +13405,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         sfx[sound] = null;
         
         if (buf && audioContext) {
-          console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
+          // console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
-          console.log("🎵 BIOS decode successful:", sound, "audioBuffer:", !!audioBuffer);
+          // console.log("🎵 BIOS decode successful:", sound, "audioBuffer:", !!audioBuffer);
           sfx[sound] = audioBuffer;
 
           // Process any queued sounds that might be waiting for this file

@@ -3426,7 +3426,7 @@ function draw() {
     thickness = args[4] || thickness;
   }
 
-  if (drawing === undefined) return;
+  if (drawing === undefined || drawing === null) return;
 
   // Apply BDF offset if present (for proper baseline positioning)
   if (drawing.offset) {

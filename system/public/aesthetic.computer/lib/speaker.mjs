@@ -1,7 +1,8 @@
 /* global currentFrame, sampleRate, currentTime */
 
 // import * as sine from "./sound/sine.js";
-import * as volume from "./sound/volume.mjs";
+import { volume } from "./sound/volume.mjs";
+import { checkTeiaMode } from "./teia-mode.mjs";
 import Synth from "./sound/synth.mjs";
 import Bubble from "./sound/bubble.mjs";
 import { lerp, within, clamp } from "./num.mjs";
@@ -435,15 +436,17 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           }
         }
         
-        // Log buffer sizes and memory usage
-        console.log(`🧠 Memory Check:
-        FFT Buffer Left: ${this.#fftBufferLeft?.length || 0}
-        FFT Buffer Right: ${this.#fftBufferRight?.length || 0}
-        Energy History: ${this.#energyHistory?.length || 0}
-        Queue length: ${this.#queue?.length || 0}
-        Running instruments: ${Object.keys(this.#running || {}).length}
-        Performance mode: ${this.#performanceMode}
-        Avg processing time: ${this.#processingTimeHistory.length > 0 ? (this.#processingTimeHistory.reduce((a, b) => a + b, 0) / this.#processingTimeHistory.length).toFixed(3) : 0}ms`);
+        // Log buffer sizes and memory usage (skip in TEIA mode)
+        // if (!checkTeiaMode()) {
+        //   console.log(`🧠 Memory Check:
+        // FFT Buffer Left: ${this.#fftBufferLeft?.length || 0}
+        // FFT Buffer Right: ${this.#fftBufferRight?.length || 0}
+        // Energy History: ${this.#energyHistory?.length || 0}
+        // Queue length: ${this.#queue?.length || 0}
+        // Running instruments: ${Object.keys(this.#running || {}).length}
+        // Performance mode: ${this.#performanceMode}
+        // Avg processing time: ${this.#processingTimeHistory.length > 0 ? (this.#processingTimeHistory.reduce((a, b) => a + b, 0) / this.#processingTimeHistory.length).toFixed(3) : 0}ms`);
+        // }
           
         // Check for memory leaks in buffers
         if (this.#fftBufferLeft?.length > this.#fftSize * 2) {

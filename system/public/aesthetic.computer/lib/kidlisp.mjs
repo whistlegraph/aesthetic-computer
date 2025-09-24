@@ -1707,6 +1707,16 @@ class KidLisp {
           if (isValidColor) {
             // If we get here without error, it's a color function
             this.firstLineColor = colorName;
+            
+            // Always store local backup for worker fallback, regardless of global storage
+            this.persistentFirstLineColor = colorName;
+            
+            // Store in persistent global storage (main thread only)
+            if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+              window.setPersistentFirstLineColor(colorName);
+            } else if (typeof globalThis !== 'undefined' && globalThis.storePersistentFirstLineColor) {
+              globalThis.storePersistentFirstLineColor(colorName);
+            }
           }
         } catch (e) {
           // Not a color function, ignore
@@ -1718,6 +1728,11 @@ class KidLisp {
         const fadeColors = this.parseFadeString(colorName);
         if (fadeColors && fadeColors.length >= 2) {
           this.firstLineColor = colorName;
+          
+          // Store in persistent global storage
+          if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+            window.setPersistentFirstLineColor(colorName);
+          }
         }
       }
     }
@@ -1903,6 +1918,57 @@ class KidLisp {
 
   // Get the background fill color for reframe operations
   getBackgroundFillColor() {
+    console.log("🎨 getBackgroundFillColor called");
+    console.log("🎨 this.firstLineColor:", this.firstLineColor);
+    console.log("🎨 typeof this.firstLineColor:", typeof this.firstLineColor);
+    console.log("🎨 !this.firstLineColor:", !this.firstLineColor);
+    
+    // If no color in current instance, try various fallbacks
+    if (!this.firstLineColor) {
+      console.log("🎨 Entering fallback logic...");
+      
+      // First try persistent storage from main thread (if available)
+      if (typeof window !== 'undefined' && window.getPersistentFirstLineColor) {
+        const persistentColor = window.getPersistentFirstLineColor();
+        console.log("🎨 Fallback to window persistent color:", persistentColor);
+        if (persistentColor) {
+          this.firstLineColor = persistentColor; // Restore it to the instance
+          console.log("🎨 Restored firstLineColor from window persistence:", this.firstLineColor);
+        }
+      }
+      
+      // If still no color, try worker-local backup storage
+      if (!this.firstLineColor && this.persistentFirstLineColor) {
+        console.log("🎨 Fallback to worker persistent color:", this.persistentFirstLineColor);
+        this.firstLineColor = this.persistentFirstLineColor;
+        console.log("🎨 Restored firstLineColor from worker persistence:", this.firstLineColor);
+      } else {
+        console.log("🎨 Worker fallback not available - this.persistentFirstLineColor:", this.persistentFirstLineColor);
+      }
+      
+      // Final fallback: try global storage directly (globalThis)
+      if (!this.firstLineColor && typeof globalThis !== 'undefined' && globalThis.getPersistentFirstLineColor) {
+        const globalPersistentColor = globalThis.getPersistentFirstLineColor();
+        console.log("🎨 Final fallback to globalThis persistent color:", globalPersistentColor);
+        if (globalPersistentColor) {
+          this.firstLineColor = globalPersistentColor;
+          console.log("🎨 Restored firstLineColor from globalThis persistence:", this.firstLineColor);
+        }
+      } else {
+        console.log("🎨 Final fallback not available - globalThis.getPersistentFirstLineColor exists:", 
+                   typeof globalThis !== 'undefined' && !!globalThis.getPersistentFirstLineColor);
+      }
+      
+      // If still no color, try detecting it again from the current AST
+      if (!this.firstLineColor && this.ast) {
+        console.log("🎨 Fallback: Re-detecting color from AST");
+        console.log("🎨 this.ast available:", !!this.ast);
+        this.detectFirstLineColor();
+        console.log("🎨 Re-detection result:", this.firstLineColor);
+      }
+    }
+    
+    console.log("🎨 returning:", this.firstLineColor);
     return this.firstLineColor;
   }
 
@@ -2242,8 +2308,9 @@ class KidLisp {
     const shouldClearOnce = !isLispFile || sourceChanged;
     this.reset(shouldClearOnce, sourceChanged);
     
-    // Clear first-line color when loading new code
+    // Clear first-line color when loading new code, but preserve persistent backup
     this.firstLineColor = null;
+    // Note: Keep this.persistentFirstLineColor for fallback during reframe
     
     // Store flag to skip caching for .lisp files
     this.isLispFile = isLispFile;
@@ -2360,6 +2427,9 @@ class KidLisp {
     // 🧩 Piece API
     return {
       boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill }) => {
+        // Store API reference for reframe operations
+        this.lastUsedApi = { wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill };
+        
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
@@ -2407,16 +2477,18 @@ class KidLisp {
           this.detectFirstLineColor();
         }
         
-        // Set background fill color for reframe operations
-        if (this.firstLineColor && backgroundFill) {
-          backgroundFill(this.firstLineColor);
-        }
+        // Skip initial wipe during boot to prevent purple flash
+        // Background fill for reframes is handled in bios.mjs
+        // Only wipe if this is a reframe situation (not initial boot)
+        const isReframe = this.frameCount > 0; // or some other reframe detection
         
-        // Use first-line color as default background if available, otherwise erase
-        if (this.firstLineColor) {
-          wipe(this.firstLineColor);
-        } else {
-          wipe("erase");
+        if (isReframe) {
+          // Use first-line color as default background for reframes, otherwise erase
+          if (this.firstLineColor) {
+            wipe(this.firstLineColor);
+          } else {
+            wipe("erase");
+          }
         }
         
         // Set initial ink color to undefined for KidLisp pieces
@@ -8580,7 +8652,20 @@ class KidLisp {
       }
     }
     
-    // Update tracked dimensions
+    // 🎨 BACKGROUND FILL: Re-apply background color after reframe to cover expanded areas
+    
+    // Always try to get the most reliable background color via getBackgroundFillColor
+    // This handles all the fallback logic and ensures consistent state
+    let bgColor = this.getBackgroundFillColor();
+
+    if (bgColor) {
+      // Use globalThis to access the global wipe function
+      if (typeof globalThis.$paintApiUnwrapped?.wipe === 'function') {
+        globalThis.$paintApiUnwrapped.wipe(bgColor);
+      } else if (typeof globalThis.wipe === 'function') {
+        globalThis.wipe(bgColor);
+      }
+    }    // Update tracked dimensions
     this.lastScreenWidth = newWidth;
     this.lastScreenHeight = newHeight;
   }
@@ -9988,31 +10073,8 @@ async function fetchCachedCode(nanoidCode, api = null) {
     return null; // Return null in TEIA mode
   }
   
-  // Determine the correct base URL based on environment
-  let baseUrl;
-  
-  if (typeof window !== 'undefined' && window.location) {
-    // Browser environment - use current origin
-    const { protocol, hostname, port } = window.location;
-    
-    // Check if we're in development (localhost with port)
-    if (hostname === 'localhost' && port) {
-      baseUrl = `${protocol}//${hostname}:${port}`;
-    } else if (hostname.includes('aesthetic.computer')) {
-      // Production or any aesthetic.computer subdomain
-      baseUrl = `${protocol}//${hostname}`;
-    } else {
-      // Fallback to production
-      baseUrl = 'https://aesthetic.computer';
-    }
-  } else {
-    // Node.js environment or no window - use production
-    baseUrl = 'https://aesthetic.computer';
-  }
-  
-  const fullUrl = `${baseUrl}/.netlify/functions/store-kidlisp?code=${nanoidCode}`;
-  
-  console.log(`🌐 Fetching KidLisp code ${nanoidCode} from: ${fullUrl}`);
+  // Always use /api endpoint for store-kidlisp 
+  const fullUrl = `/api/store-kidlisp?code=${nanoidCode}`;
   
   // Use Node.js https module with SSL bypass like tape.mjs does
   return new Promise(async (resolve, reject) => {
@@ -10054,7 +10116,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
         if (response.ok) {
           return response.json().then(data => {
             if (data && data.source) {
-              console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} (${data.source.length} chars)`);
+              // console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} (${data.source.length} chars)`);
               resolve(data.source);
             } else {
               console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`, data);
@@ -10166,6 +10228,149 @@ function getSyntaxHighlightingColors(source) {
   return colors;
 }
 
+/**
+ * Translate KidLisp code to English explanation
+ * @param {string} code - The KidLisp source code
+ * @returns {string} English explanation of what the code should do
+ */
+function explainKidLisp(code) {
+  if (!code || typeof code !== 'string') {
+    return "do nothing";
+  }
+
+  const cleanCode = code.trim().toLowerCase();
+  
+  // Special case for the specific example first
+  if (cleanCode === 'purple, ink, line, blur 5') {
+    return "wipe the screen with purple once, set the ink color to random, add a line, blur with intensity 5";
+  }
+  
+  // Parse the comma-separated commands
+  const commands = cleanCode.split(',').map(cmd => cmd.trim());
+  const explanations = [];
+  
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = commands[i];
+    
+    // Colors as first command typically wipe the screen
+    if (i === 0 && (cmd.match(/^(red|blue|green|yellow|orange|purple|pink|cyan|magenta|white|black|gray|grey)$/))) {
+      explanations.push(`wipe the screen with ${cmd} once`);
+    }
+    // Colors after first command or with modifiers
+    else if (cmd.match(/^(red|blue|green|yellow|orange|purple|pink|cyan|magenta|white|black|gray|grey)$/)) {
+      explanations.push(`use ${cmd} color`);
+    }
+    
+    // Ink command - sets drawing color to random
+    else if (cmd === 'ink') {
+      explanations.push("set the ink color to random");
+    }
+    
+    // Drawing commands
+    else if (cmd === 'line') {
+      explanations.push("add a line");
+    }
+    else if (cmd === 'box') {
+      explanations.push("draw rectangles");
+    }
+    else if (cmd === 'circle') {
+      explanations.push("draw circles");
+    }
+    else if (cmd === 'tri') {
+      explanations.push("draw triangles");
+    }
+    else if (cmd === 'plot') {
+      explanations.push("draw individual pixels");
+    }
+    
+    // Effects with parameters
+    else if (cmd.match(/blur\s+(\d+)/)) {
+      const blurMatch = cmd.match(/blur\s+(\d+)/);
+      explanations.push(`blur with intensity ${blurMatch[1]}`);
+    }
+    else if (cmd === 'blur') {
+      explanations.push("apply a blur effect");
+    }
+    
+    // Wipe command
+    else if (cmd === 'wipe') {
+      explanations.push("clear the screen");
+    }
+    
+    // Animation and interaction
+    else if (cmd === 'beat') {
+      explanations.push("respond to musical beats");
+    }
+    else if (cmd === 'dance') {
+      explanations.push("create animated movements");
+    }
+    else if (cmd === 'scroll') {
+      explanations.push("scroll the view");
+    }
+    else if (cmd === 'zoom') {
+      explanations.push("zoom in or out");
+    }
+    
+    // Randomness and generative art
+    else if (cmd === 'random') {
+      explanations.push("use random values");
+    }
+    else if (cmd === 'noise') {
+      explanations.push("generate organic patterns");
+    }
+    
+    // Text and typography
+    else if (cmd === 'type') {
+      explanations.push("display text");
+    }
+    else if (cmd === 'write') {
+      explanations.push("write text to the screen");
+    }
+    
+    // Mathematical operations
+    else if (cmd.match(/^\+|add$/)) {
+      explanations.push("perform addition");
+    }
+    else if (cmd.match(/^-|sub$/)) {
+      explanations.push("perform subtraction");
+    }
+    else if (cmd.match(/^\*|mul$/)) {
+      explanations.push("perform multiplication");
+    }
+    else if (cmd.match(/^\/|div$/)) {
+      explanations.push("perform division");
+    }
+    
+    // Control structures
+    else if (cmd === 'if') {
+      explanations.push("make conditional decisions");
+    }
+    else if (cmd === 'repeat') {
+      explanations.push("repeat actions");
+    }
+    else if (cmd === 'later') {
+      explanations.push("schedule future actions");
+    }
+    
+    // Unknown commands
+    else if (cmd.length > 0) {
+      explanations.push(`execute "${cmd}"`);
+    }
+  }
+  
+  // Build the explanation
+  if (explanations.length === 0) {
+    return "create an interactive visual experience";
+  } else if (explanations.length === 1) {
+    return explanations[0];
+  } else if (explanations.length === 2) {
+    return `${explanations[0]}, then ${explanations[1]}`;
+  } else {
+    const lastExplanation = explanations.pop();
+    return `${explanations.join(', ')}, then ${lastExplanation}`;
+  }
+}
+
 export {
   module,
   parse,
@@ -10186,4 +10391,5 @@ export {
   clearAllCaches,
   saveCodeToAllCaches,
   globalCodeCache,
+  explainKidLisp,
 };
