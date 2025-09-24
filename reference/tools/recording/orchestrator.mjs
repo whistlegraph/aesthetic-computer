@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class RenderOrchestrator {
-  constructor(piece, duration, outputDir, width = 2048, height = 2048) {
+  constructor(piece, duration, outputDir, width = 2048, height = 2048, options = {}) {
     this.piece = piece;
     this.duration = duration;
     this.outputDir = outputDir;
@@ -25,6 +25,7 @@ class RenderOrchestrator {
     this.height = height;
     this.frameRendererPath = path.join(__dirname, 'frame-renderer.mjs');
     this.isKidlispPiece = piece.startsWith('$');
+    this.gifMode = options.gifMode || false;
   }
 
   // Fetch KidLisp source code from the localhost API (similar to tape.mjs)
@@ -135,8 +136,11 @@ export async function paint(api) {
     while (!complete && consecutiveFailures < maxRetries) {
       try {
         // Run one frame in fresh process
+        // Use single quotes to prevent shell variable expansion of $ceo, etc.
+        const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}`;
+        console.log(`🔧 Executing: ${command}`);
         const result = execSync(
-          `node ${this.frameRendererPath} ${actualPiece} ${this.duration} ${this.outputDir} ${this.width} ${this.height}`,
+          command,
           { encoding: 'utf8', stdio: 'inherit' } // Changed to inherit to show frame timing output
         );
         
@@ -166,8 +170,12 @@ export async function paint(api) {
     
     if (complete) {
       console.log(`🎯 Render complete! ${frameCount} frames rendered with zero memory leaks.`);
-      // Now convert to MP4
-      await this.convertToMP4();
+      // Convert to requested format
+      if (this.gifMode) {
+        await this.convertToGIF();
+      } else {
+        await this.convertToMP4();
+      }
       
       // Cleanup temporary kidlisp piece file if it was created
       if (this.isKidlispPiece && actualPiece !== this.piece) {
@@ -221,6 +229,95 @@ export async function paint(api) {
     }
   }
 
+  async convertToGIF() {
+    console.log(`🎞️ Converting frames to GIF with ffmpeg Floyd-Steinberg dithering...`);
+    
+    try {
+      // Get frame dimensions from state file
+      const stateFile = path.join(this.outputDir, 'state.json');
+      let width = 2048, height = 2048; // defaults
+      if (fs.existsSync(stateFile)) {
+        const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        width = state.width || 2048;
+        height = state.height || 2048;
+      }
+
+      // Get all RGB frame files
+      const rgbFiles = fs.readdirSync(this.outputDir)
+        .filter(file => file.endsWith('.rgb'))
+        .sort((a, b) => {
+          const aFrame = parseInt(a.match(/frame-(\d+)\.rgb/)[1]);
+          const bFrame = parseInt(b.match(/frame-(\d+)\.rgb/)[1]);
+          return aFrame - bFrame;
+        });
+
+      if (rgbFiles.length === 0) {
+        throw new Error("No RGB frames found for conversion");
+      }
+
+      console.log(`🎨 Converting ${rgbFiles.length} RGB frames to PNG for ffmpeg...`);
+      
+      // Create temporary directory for PNG frames
+      const tempDir = path.join(this.outputDir, 'png_frames');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir);
+      }
+
+      // Convert RGB files to PNG files using ffmpeg
+      for (let i = 0; i < rgbFiles.length; i++) {
+        const rgbFile = path.join(this.outputDir, rgbFiles[i]);
+        const frameNumber = String(i).padStart(6, '0');
+        const pngFile = path.join(tempDir, `frame_${frameNumber}.png`);
+        
+        // Use ffmpeg to convert RGB to PNG directly
+        const ffmpegCmd = `ffmpeg -f rawvideo -pix_fmt rgb24 -s ${width}x${height} -i "${rgbFile}" -y "${pngFile}" 2>/dev/null`;
+        execSync(ffmpegCmd);
+
+        // Progress indicator
+        if (i % 10 === 0) {
+          process.stdout.write(`\r🖼️ Converting frame ${i + 1}/${rgbFiles.length} to PNG`);
+        }
+      }
+
+      console.log(`\n🎬 Creating GIF with ffmpeg Floyd-Steinberg dithering...`);
+
+      // Generate proper filename
+      const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
+      const timestampStr = timestamp();
+      const durationSeconds = Math.round(this.duration / 60 * 10) / 10;
+      const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.gif`;
+      const outputGIF = path.join(path.dirname(this.outputDir), filename);
+
+      // Calculate frame rate (max 50fps for GIF, faster looks choppy)
+      const fps = Math.min(50, Math.round(rgbFiles.length / (this.duration / 60)));
+      
+      // Create optimal palette first
+      console.log(`🎨 Generating optimal palette for smooth gradients...`);
+      const paletteCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -vf "fps=${fps},scale=-1:-1:flags=lanczos,palettegen=reserve_transparent=0:max_colors=256" "${tempDir}/palette.png" 2>/dev/null`;
+      execSync(paletteCmd);
+
+      // Create final GIF with Floyd-Steinberg dithering
+      console.log(`🌈 Applying Floyd-Steinberg dithering for smooth gradients...`);
+      const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},scale=-1:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
+      execSync(gifCmd);
+
+      // Clean up temporary files
+      console.log(`🧹 Cleaning up temporary files...`);
+      execSync(`rm -rf "${tempDir}"`);
+
+      // Get final file size and log success
+      const stats = fs.statSync(outputGIF);
+      const fileSizeKB = Math.round(stats.size / 1024);
+      console.log(`✅ GIF created: ${filename}`);
+      console.log(`📊 File size: ${fileSizeKB}KB`);
+      console.log(`🎨 High-quality animation with smooth gradients!`);
+      
+    } catch (error) {
+      console.error(`💥 GIF conversion failed:`, error.message);
+      throw error;
+    }
+  }
+
   updateProgressBar(currentFrame, totalFrames, startTime) {
     const progress = currentFrame / totalFrames;
     const barWidth = 20;
@@ -262,6 +359,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const width = parseInt(process.argv[4]) || 1024;
   const height = parseInt(process.argv[5]) || 1024;
   
+  // Check for --gif flag
+  const gifMode = process.argv.includes('--gif');
+  
   // Handle kidlisp pieces (starting with $)
   if (piece.startsWith('$')) {
     console.log(`🎨 KidLisp piece detected: ${piece}`);
@@ -296,7 +396,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`📁 Created output directory: ${outputDir}`);
   }
   
-  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height);
+  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height, { gifMode });
   orchestrator.renderAll().catch(console.error);
 }
 
