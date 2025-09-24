@@ -3,6 +3,7 @@
 // that appears after `aesthetic.computer/` in the address bar of the browser.
 
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
+import { checkTeiaMode } from "./teia-mode.mjs";
 
 // TODO:
 // [] This should eventually have tests that run?
@@ -294,7 +295,7 @@ function inferTitleDesc(source) {
 }
 
 // Generates some metadata fields that are shared both on the client and server.
-function metadata(host, slug, pieceMetadata) {
+function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = null) {
   // Use a default title if there is no override.
   const notAesthetic =
     host.indexOf("sotce") > -1 ||
@@ -305,7 +306,31 @@ function metadata(host, slug, pieceMetadata) {
   const isStandaloneTitle = pieceMetadata?.standaloneTitle === true;
   
   let title;
-  if (pieceMetadata?.title) {
+  
+  // Check for TEIA mode and generate custom title format
+  if (checkTeiaMode()) {
+    try {
+      const colophon = (typeof window !== 'undefined' && window.acTEIA_COLOPHON) || 
+                      (typeof globalThis !== 'undefined' && globalThis.acTEIA_COLOPHON);
+      
+      if (colophon?.piece?.name && colophon?.build?.author) {
+        title = `${colophon.piece.name} by ${colophon.build.author}`;
+      } else if (teiaContext?.author) {
+        // Use teiaContext if provided (for pack pipeline)
+        title = `${slug} by ${teiaContext.author}`;
+      } else {
+        // Fallback for TEIA mode without colophon
+        title = slug;
+      }
+    } catch (e) {
+      // Fallback if there's any issue accessing TEIA data
+      if (teiaContext?.author) {
+        title = `${slug} by ${teiaContext.author}`;
+      } else {
+        title = slug;
+      }
+    }
+  } else if (pieceMetadata?.title) {
     // Use the piece's custom title, with or without suffix based on standaloneTitle flag
     title = pieceMetadata.title + (notAesthetic || isStandaloneTitle ? "" : " · Aesthetic Computer");
   } else {
@@ -325,7 +350,7 @@ function metadata(host, slug, pieceMetadata) {
     twitterImage = `https://${host}/preview/1800x900/${slug}.png`;
   }
 
-  icon = pieceMetadata?.icon_url || `https://${host}/icon/128x128/${slug}.png`;
+  icon = pieceMetadata?.icon_url || `${protocol}//${host}/icon/128x128/${slug}.png`;
 
   const manifest = `https://${host}/manifest.json`;
   return { title, desc, ogImage, twitterImage, icon, manifest };

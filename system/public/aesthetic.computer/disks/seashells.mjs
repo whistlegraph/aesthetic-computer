@@ -1,4 +1,4 @@
-// Seashell, 2025.6.13.01.41.06.896
+// Seashells, 2025.6.13.01.41.06.896
 // Bytebeat algorithmic synthesis.
 
 /* 📝 Engineering Notes
