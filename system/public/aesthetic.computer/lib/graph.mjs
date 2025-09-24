@@ -138,8 +138,14 @@ function isFadeColor(color) {
  * @returns {Array} - Array of color arrays
  */
 function parseLocalFade(fadeType, alpha = 255) {
+  // Replace :frame with current frame count if available
+  let processedFadeType = fadeType;
+  if (fadeType.includes("frame") && currentKidLispContext && currentKidLispContext.frameCount !== undefined) {
+    processedFadeType = fadeType.replace(/frame/g, currentKidLispContext.frameCount.toString());
+  }
+  
   // Handle color combinations separated by dashes
-  const colorNames = fadeType.split("-");
+  const colorNames = processedFadeType.split("-");
   const colors = [];
   
   // For symmetric patterns, we want the same sequence colors to have the same base
@@ -1031,6 +1037,11 @@ function calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, angle) {
   // Project current position onto the direction vector
   const dotProduct = relX * dirX + relY * dirY;
   
+  // Debug logging for angle calculation (only once per frame)
+  // if (x === minX && y === minY) {
+  //   console.log(`🔄 ANGLE DEBUG: angle=${angle}°, radians=${radians.toFixed(3)}, dirX=${dirX.toFixed(3)}, dirY=${dirY.toFixed(3)}`);
+  // }
+  
   // Normalize to 0-1 range (dotProduct ranges from -sqrt(2) to sqrt(2))
   const maxDot = Math.sqrt(2); // Maximum possible dot product
   const t = (dotProduct + maxDot) / (2 * maxDot);
@@ -1077,7 +1088,9 @@ function clear() {
         
         if (!isNaN(numericAngle)) {
           // Use angle-based fade calculation
-          console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade`);
+          if (x === minX && y === minY) {
+            console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade at (${x},${y})`);
+          }
           t = calculateAngleFadePosition(x, y, minX, minY, maxX - 1, maxY - 1, numericAngle);
         } else {
           // Use named direction
@@ -4427,7 +4440,21 @@ function zoom(level = 1, anchorX = 0.5, anchorY = 0.5) {
   if (!zoomBuffer || zoomBuffer.length !== bufferSize) {
     zoomBuffer = new Uint8ClampedArray(bufferSize);
   }
-  zoomBuffer.set(pixels);
+  
+  // 🛡️ SAFETY CHECK: Ensure pixels buffer size matches expected dimensions before copying
+  if (pixels.length !== bufferSize) {
+    console.error(`🚨 ZOOM ERROR: Buffer size mismatch - pixels=${pixels.length}, expected=${bufferSize} (${width}x${height})`);
+    
+    // Defensive handling: only copy what fits to prevent RangeError
+    const copySize = Math.min(pixels.length, bufferSize);
+    zoomBuffer.fill(0); // Clear buffer first
+    if (copySize > 0) {
+      zoomBuffer.set(pixels.subarray(0, copySize));
+      console.warn(`🚨 ZOOM RECOVERY: Partial copy of ${copySize} bytes to prevent crash`);
+    }
+  } else {
+    zoomBuffer.set(pixels);
+  }
 
   const scale = actualZoomLevel;
   const invScale = 1.0 / scale;
@@ -6357,7 +6384,8 @@ function setKidLispContext(kidlispInstance, api, env) {
   currentKidLispContext = {
     evaluate: kidlispInstance.evaluate.bind(kidlispInstance),
     api,
-    env
+    env,
+    frameCount: kidlispInstance.frameCount
   };
 }
 

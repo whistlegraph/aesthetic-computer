@@ -15,10 +15,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class FrameRenderer extends HeadlessAC {
-  constructor(outputDir) {
-    // Allow custom resolution from environment variables (for GIF generation)
-    const width = parseInt(process.env.WIDTH) || 2048;
-    const height = parseInt(process.env.HEIGHT) || 2048;
+  constructor(outputDir, width = 2048, height = 2048) {
+    // Use provided dimensions or fall back to environment variables
+    width = width || parseInt(process.env.WIDTH) || 2048;
+    height = height || parseInt(process.env.HEIGHT) || 2048;
     super(width, height);
     this.outputDir = outputDir;
     this.stateFile = path.join(outputDir, 'state.json');
@@ -63,6 +63,7 @@ class FrameRenderer extends HeadlessAC {
     } else {
       console.log(`🆕 Starting new render sequence`);
       const pieceArg = process.argv[2] || 'test-piece.mjs';
+      const totalFrames = parseInt(process.argv[3]) || 300; // Default to 300 frames if not provided
       
       return {
         frameIndex: 0,
@@ -70,8 +71,8 @@ class FrameRenderer extends HeadlessAC {
         piece: pieceArg,
         duration: totalFrames * (1000/60), // Convert frames to milliseconds for compatibility
         fps: 60,
-        width: width,
-        height: height,
+        width: this.width,
+        height: this.height,
         totalFrames: totalFrames,
         pieceState: {},
         storeData: {},
