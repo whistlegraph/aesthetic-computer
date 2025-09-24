@@ -58,8 +58,10 @@ class AcPacker {
   constructor(pieceName, options = {}) {
     this.pieceName = pieceName;
     this.zipTimestamp = timestamp(); // Generate timestamp once for consistent naming
+    // Sanitize piece name for directory creation (remove $ and other shell-problematic characters)
+    const sanitizedPieceName = pieceName.replace(/[$]/g, '');
     this.options = {
-      outputDir: path.join(TOKENS_DIR, pieceName),
+      outputDir: path.join(TOKENS_DIR, sanitizedPieceName),
       coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
@@ -795,86 +797,58 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   async generateCover() {
     // Try to generate an animated GIF cover using the piece
     try {
-      const { GifRenderer } = await import("../reference/tools/recording/gif-renderer.mjs");
+      const { RenderOrchestrator } = await import("../reference/tools/recording/orchestrator.mjs");
       const coverPath = path.join(this.options.outputDir, "cover.gif");
       
-      // Create a temporary piece file if this is KidLisp code
-      let pieceToRender = this.pieceName;
-      let tempPieceFile = null;
-      
-      if (this.pieceName.startsWith('$')) {
-        // For KidLisp pieces, create a temporary .mjs file
-        const piecesDir = path.join(__dirname, "../reference/tools/recording/pieces");
-        await fs.mkdir(piecesDir, { recursive: true });
-        
-        tempPieceFile = path.join(piecesDir, `${this.pieceName.replace('$', 'temp-')}.mjs`);
-        
-        // Create a simple animated piece for GIF generation
-        // For now, create a generic animation since KidLisp execution is complex
-        const pieceCode = `// Temporary piece for GIF generation
-export const system = "nopaint";
-
-export function paint({ wipe, ink, line, api, frameTime = 0 }) {
-  // Create a simple animation based on the piece name
-  const t = frameTime / 1000;
-  
-  // Background with piece-specific hue
-  const baseHue = "${this.pieceName}".charCodeAt(1) || 200;
-  wipe(baseHue % 360, 20, 5);
-  
-  // Draw animated elements
-  ink(baseHue % 360, 80, 50);
-  
-  // Create some movement
-  const centerX = 200;
-  const centerY = 200;
-  const radius = 50 + Math.sin(t * 2) * 20;
-  
-  for (let i = 0; i < 6; i++) {
-    const angle = (t + i * Math.PI / 3) % (Math.PI * 2);
-    const x = centerX + Math.cos(angle) * radius;
-    const y = centerY + Math.sin(angle) * radius;
-    line(centerX, centerY, x, y);
-  }
-  
-  // Add some blur effect by drawing smaller lines around
-  ink((baseHue + 60) % 360, 60, 70);
-  for (let i = 0; i < 3; i++) {
-    const angle = t + i * Math.PI / 1.5;
-    const x = centerX + Math.cos(angle) * 30;
-    const y = centerY + Math.sin(angle) * 30;
-    line(x - 10, y - 10, x + 10, y + 10);
-  }
-}`;
-        
-        await fs.writeFile(tempPieceFile, pieceCode);
-        pieceToRender = tempPieceFile;
-      }
+      // Create a temporary output directory for GIF generation
+      const tempOutputDir = path.join(this.options.outputDir, ".temp-gif");
+      await fs.mkdir(tempOutputDir, { recursive: true });
       
       console.log("🎞️ Generating animated GIF cover...");
-      const renderer = new GifRenderer(pieceToRender, coverPath, {
-        duration: 500,  // 0.5 seconds for very fast testing
-        fps: 8,         // 8 fps for smaller file size
-        width: 200,     // Smaller size for faster rendering
-        height: 200
-      });
+      console.log(`📁 Using piece: ${this.pieceName}`);
+      console.log(`📁 Base outputDir: ${this.options.outputDir}`);
+      console.log(`📁 Temp outputDir: ${tempOutputDir}`);
       
-      console.log(`🎞️ Using piece file: ${pieceToRender}`);
-      const success = await renderer.generateGif();
-      console.log(`🎞️ GIF generation result: ${success}`);
+      // Use the RenderOrchestrator to generate GIF
+      const orchestrator = new RenderOrchestrator(
+        this.pieceName,     // piece (supports KidLisp $code or .mjs files)
+        360,                // 6 seconds at 60fps (360 frames) for cover
+        tempOutputDir,      // temporary output directory
+        400,                // width
+        400,                // height
+        { gifMode: true }   // enable GIF mode
+      );
       
-      // Clean up temp file if created
-      if (tempPieceFile && await fs.access(tempPieceFile).then(() => true).catch(() => false)) {
-        await fs.unlink(tempPieceFile);
-      }
+      // Run the rendering
+      await orchestrator.renderAll();
       
-      if (success) {
+      // Find the generated GIF file and move it to cover.gif  
+      // The GIF will be created in the same directory as tempOutputDir
+      const searchDir = this.options.outputDir;
+      const tempFiles = await fs.readdir(searchDir);
+      const gifFile = tempFiles.find(file => file.endsWith('.gif') && file.includes(this.pieceName.replace('$', '')));
+      
+      if (gifFile) {
+        const sourcePath = path.join(searchDir, gifFile);
+        await fs.copyFile(sourcePath, coverPath);
+        
+        // Create external copy with zip naming pattern
+        const externalCoverFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}-cover.gif`;
+        const externalCoverPath = path.join(path.dirname(this.options.outputDir), externalCoverFilename);
+        await fs.copyFile(sourcePath, externalCoverPath);
+        
+        // Clean up temporary files
+        await fs.rm(tempOutputDir, { recursive: true, force: true });
+        await fs.unlink(sourcePath).catch(() => {}); // Ignore errors
+        
         console.log("🎞️ Generated animated cover: cover.gif");
-        this.options.coverImage = "cover.gif"; // Update the cover image reference
+        console.log(`🖼️ External cover created: ${externalCoverFilename}`);
+        this.options.coverImage = "cover.gif";
         return;
       }
     } catch (error) {
       console.warn("⚠️ GIF generation failed, falling back to SVG:", error.message);
+      console.warn("   Error details:", error.stack);
     }
     
     // Fallback to SVG cover if GIF generation fails

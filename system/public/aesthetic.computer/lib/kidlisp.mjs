@@ -7,7 +7,7 @@
 
 import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
-import { cssColors, rainbow, zebra, resetZebraCache, staticColorMap } from "./num.mjs";
+import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 import { checkTeiaMode } from "./teia-mode.mjs";
 
@@ -393,7 +393,7 @@ function initPersistentCache(store) {
 // Get from persistent cache (IndexedDB)
 async function getFromPersistentCache(cacheId) {
   if (!persistentStoreRef) return null;
-  
+
   try {
     const data = await persistentStoreRef.retrieve(`kidlisp-code:${cacheId}`, "local:db");
     if (data && data.source) {
@@ -408,7 +408,7 @@ async function getFromPersistentCache(cacheId) {
 // Save to persistent cache (IndexedDB)
 async function saveToPersistentCache(cacheId, source) {
   if (!persistentStoreRef) return;
-  
+
   try {
     persistentStoreRef[`kidlisp-code:${cacheId}`] = {
       source,
@@ -428,23 +428,23 @@ async function getCachedCodeMultiLevel(cacheId) {
   if (globalCodeCache.has(cacheId)) {
     return globalCodeCache.get(cacheId);
   }
-  
+
   // Level 1.5: Check TEIA pre-cached codes (for offline packages)
-  const globalScope = (function() {
+  const globalScope = (function () {
     if (typeof window !== 'undefined') return window;
     if (typeof globalThis !== 'undefined') return globalThis;
     if (typeof global !== 'undefined') return global;
     if (typeof self !== 'undefined') return self;
     return {};
   })();
-  
+
   if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
     const teiaSource = globalScope.teiaKidlispCodes[cacheId];
     // Cache in RAM for future access
     globalCodeCache.set(cacheId, teiaSource);
     return teiaSource;
   }
-  
+
   // Level 2: Check IndexedDB (fast)
   const persistentSource = await getFromPersistentCache(cacheId);
   if (persistentSource) {
@@ -452,7 +452,7 @@ async function getCachedCodeMultiLevel(cacheId) {
     globalCodeCache.set(cacheId, persistentSource);
     return persistentSource;
   }
-  
+
   // Level 3: Network fetch (slowest)
   const networkSource = await fetchCachedCode(cacheId);
   if (networkSource) {
@@ -461,7 +461,7 @@ async function getCachedCodeMultiLevel(cacheId) {
     await saveToPersistentCache(cacheId, networkSource);
     return networkSource;
   }
-  
+
   return null;
 }
 
@@ -577,23 +577,23 @@ function readFromTokens(tokens) {
     if (tokens[0] === ")") {
       throw new Error("Unexpected ')'");
     }
-    
+
     // Check if the current token is a timing expression (both simple like "1.5s" and repeating like "2s...")
     const currentToken = tokens[0];
-    
+
     if (/^\d*\.?\d+s\.\.\.?$/.test(currentToken) || /^\d*\.?\d+s!?$/.test(currentToken)) {
       // This is a timing token, collect it and all following expressions until we hit another timing token or end
       const timingExpr = [readExpression(tokens)]; // Read the timing token itself
-      
+
       // Collect all following expressions until we hit another timing token or run out
-      while (tokens.length > 0 && 
-             tokens[0] !== ")" && 
-             !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0]) &&
-             !/^\d*\.?\d+s!?$/.test(tokens[0])) {
+      while (tokens.length > 0 &&
+        tokens[0] !== ")" &&
+        !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0]) &&
+        !/^\d*\.?\d+s!?$/.test(tokens[0])) {
         const nextExpr = readExpression(tokens);
         timingExpr.push(nextExpr);
       }
-      
+
       result.push(timingExpr);
     } else {
       const expr = readExpression(tokens);
@@ -679,14 +679,14 @@ class KidLisp {
     this.ast = null; // Abstract syntax tree.
     this.networkCache = { sources: {} };
     this.globalDef = {};
-    
+
     // Initialize audio-related global variables
     this.globalDef.amp = 0; // Current audio amplitude (0-10 scale)
     this.globalDef.leftAmp = 0; // Left channel amplitude (0-10 scale) 
     this.globalDef.rightAmp = 0; // Right channel amplitude (0-10 scale)
     this.globalDef.beat = 0; // Beat detection (0 or 1)
     this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
-    
+
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
@@ -700,40 +700,40 @@ class KidLisp {
     this.shortUrl = null; // Store cached short URL
     this.cachedCode = null; // Store cached code
     this.cachingInProgress = false; // Flag to prevent multiple cache requests
-    
+
     // Embedded layers system
     this.embeddedLayers = [];
     this.embeddedLayerCache = new Map();
     this.embeddedSourceCache = new Map(); // Cache source code by cacheId to avoid duplicate fetches
-    
+
     // Embedded layer loading state tracking
     this.loadingEmbeddedLayers = new Set(); // Track which $codes are currently loading
     this.loadedEmbeddedLayers = new Set();  // Track which $codes have finished loading
-    
+
     // Performance optimizations
     this.functionCache = new Map(); // Cache function lookups
     this.globalEnvCache = null; // Cache global environment
     this.embeddedApiCache = new Map(); // Cache embedded layer API objects
-    
+
     // Screen dimension tracking for responsive cache invalidation
     this.lastScreenWidth = null;
     this.lastScreenHeight = null;
-    
+
     // 🚀 ALPHA BUFFER CACHING: Cache alpha-adjusted buffers to avoid repeated allocations
     this.alphaBufferCache = new Map(); // size_alpha -> buffer
-    
+
     // � BLEND CACHING: Cache final composite to avoid redundant alpha blending
     this.cachedComposite = null; // Cache final blended result
     this.compositeInvalidated = false; // Track when composite needs updating
-    
+
     // �🔄 BUFFER POOLING: Reuse buffers to reduce GC pressure
     this.bufferPool = new Map(); // size -> [buffer1, buffer2, ...]
     this.maxPooledBuffers = 8; // Limit pool size to avoid memory bloat
-    
+
     // 🔍 CONTRAST CACHING: Cache contrast operations to avoid redundant processing
     this.lastContrastArgs = null; // Track last contrast arguments
     this.contrastCacheInvalidated = true; // Track when contrast needs reapplication
-    
+
     // Clear embedded layer cache on initialization/reload (after caches are initialized)
     this.clearEmbeddedLayerCache();
 
@@ -790,26 +790,26 @@ class KidLisp {
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
     this.currentSource = null; // Track current source code to detect changes
-    
+
     // Timing blink state tracking
     this.timingBlinks = new Map(); // Track timing expressions that should blink
     this.blinkDuration = 200; // Duration for timing blinks in milliseconds
-    
+
     // Delay timer active periods tracking
     this.delayTimerActivePeriods = new Map(); // Track delay timers in their active display period
     this.delayTimerActiveDuration = 280; // Duration for delay timer active display in milliseconds (5 frames red + 12 frames colored = ~280ms at 60fps)
-    
+
     // Active timing expressions tracking for syntax highlighting
     this.activeTimingExpressions = new Map(); // Track which timing expressions are currently active
-    
+
     // Current timing context for conditional execution
     this.currentTimingContext = null; // Track timing context for embedded layer conditional execution
-    
+
     // Syntax highlighting signals from execution
     this.syntaxSignals = new Map(); // Direct signals from evaluation: expressionId -> color
     this.expressionRegistry = new Map(); // Map AST expressions to unique IDs
     this.nextExpressionId = 0; // Counter for expression IDs
-    
+
     // 🎯 Performance monitoring system
     this.perf = {
       enabled: false, // Toggle for performance monitoring
@@ -818,7 +818,7 @@ class KidLisp {
       lastLogTime: 0, // Last time we logged to console
       logInterval: 1000, // Log every 1 second
       history: [], // Historical snapshots for bar graph (keep last 20)
-      
+
       // Timing categories
       timings: {
         parse: [], // Parse time samples
@@ -826,17 +826,17 @@ class KidLisp {
         render: [], // Render time samples (if available)
         total: [], // Total frame time samples
       },
-      
+
       // Function call tracking
       functions: new Map(), // functionName -> { count, totalTime, avgTime }
-      
+
       // Memory usage tracking
       memory: {
         ast: 0, // AST size estimate
         env: 0, // Environment size estimate
         cache: 0, // Cache size estimate
       },
-      
+
       // Current frame stats
       current: {
         parseTime: 0,
@@ -845,7 +845,7 @@ class KidLisp {
         totalTime: 0,
         frameStart: 0,
       },
-      
+
       // Rolling averages (calculated from samples)
       avg: {
         parse: 0,
@@ -855,15 +855,15 @@ class KidLisp {
         fps: 0,
       }
     };
-    
+
     // Ink state management
     this.inkState = undefined; // Track KidLisp ink color (starts undefined)
     this.inkStateSet = false; // Track if ink has been explicitly set
-    
+
     // Bake functionality state
     this.bakedLayers = []; // Store baked pixel buffers
     this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
-    
+
     // Performance monitoring
     this.performanceEnabled = false; // Enable/disable performance monitoring
     this.frameTimings = []; // Store recent frame timings
@@ -876,7 +876,7 @@ class KidLisp {
   startPerformanceMonitoring() {
     this.perf.enabled = true;
     this.perf.showHUD = true;
-    
+
     // Also enable graph performance tracking - try multiple approaches
     if (typeof window !== 'undefined') {
       // Try direct window access
@@ -887,13 +887,13 @@ class KidLisp {
         // console.log("🎯 KidLisp performance monitoring enabled (window.graphPerf not found)");
       }
     }
-    
+
     // Try global scope access
     if (typeof globalThis !== 'undefined' && globalThis.graphPerf) {
       globalThis.graphPerf.enabled = true;
       // console.log("🎯 Graph performance monitoring enabled (globalThis)");
     }
-    
+
     // Try importing graph.mjs directly if available
     try {
       // Enable graph performance through module system if possible
@@ -909,7 +909,7 @@ class KidLisp {
   stopPerformanceMonitoring() {
     this.perf.enabled = false;
     this.perf.showHUD = false;
-    
+
     // Also disable graph performance tracking
     if (typeof window !== 'undefined' && window.graphPerf) {
       window.graphPerf.enabled = false;
@@ -927,6 +927,8 @@ class KidLisp {
   startFrame() {
     if (!this.perf.enabled) return;
     this.perf.current.frameStart = performance.now();
+    // Reset rainbow cache for new frame to ensure color cycling
+    resetRainbowCache();
   }
 
   endFrame() {
@@ -963,11 +965,11 @@ class KidLisp {
         this.perf.avg[category] = samples.reduce((a, b) => a + b, 0) / samples.length;
       }
     });
-    
+
     // Calculate FPS from total time
     if (this.perf.avg.total > 0) {
       this.perf.avg.fps = 1000 / this.perf.avg.total;
-      
+
       // 🚀 PERFORMANCE: Share FPS with graph performance tracking for frame skipping
       if (globalThis.graphPerf) {
         globalThis.graphPerf.lastFPS = this.perf.avg.fps;
@@ -984,7 +986,7 @@ class KidLisp {
     stats.count++;
     stats.totalTime += duration;
     stats.avgTime = stats.totalTime / stats.count;
-    
+
     // 🚨 Hot function detection - warn about excessive calls (disabled)
     if (false && stats.count > 0 && stats.count % 1000 === 0) {
       console.warn(`🔥 HOT FUNCTION: ${name} called ${stats.count} times (${stats.avgTime.toFixed(3)}ms avg)`);
@@ -1007,77 +1009,77 @@ class KidLisp {
     const hudHeight = 45; // Reduced for simplified stats display
     const x = screen.width - hudWidth - 2;
     const y = 2;
-    
+
     // Semi-transparent background
     api.ink(0, 0, 0, 200);
     api.box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "fill");
-    
+
     // Border
     api.ink(100, 255, 100, 255);
     api.box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "outline");
-    
+
     // Performance stats text - simplified version
     let lineY = y + 1;
     const lineHeight = 8;
-    
+
     // FPS with health color coding
     const fps = this.perf.avg.fps;
     const totalTime = this.perf.avg.total;
-    
+
     // Color code FPS based on 60fps target: green >= 55, yellow >= 45, orange >= 30, red < 30
     let fpsColor = fps >= 55 ? [0, 255, 0] : fps >= 45 ? [255, 255, 0] : fps >= 30 ? [255, 165, 0] : [255, 0, 0];
     api.ink(fpsColor[0], fpsColor[1], fpsColor[2]);
     api.write(`FPS:${fps.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     // Logic time (parse + evaluate combined)
     api.ink(100, 200, 255);
     const logicTime = (this.perf.avg.parse || 0) + (this.perf.avg.evaluate || 0);
     api.write(`LOGIC:${logicTime.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     this.drawPerfBar(api, x + 48, lineY, logicTime, 8.0, 50, [100, 200, 255]); // 8ms max for logic
     lineY += lineHeight;
-    
+
     // Paint time (render)
     api.ink(255, 100, 200);
     api.write(`PAINT:${this.perf.avg.render.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     this.drawPerfBar(api, x + 48, lineY, this.perf.avg.render, 6.0, 50, [255, 100, 200]); // 6ms max for painting
     lineY += lineHeight;
-    
+
     // Memory usage
     const memEstimate = this.estimateMemoryUsage();
     api.ink(150, 150, 255);
     api.write(`MEMORY:${(memEstimate / 1024).toFixed(1)}KB`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     // Overall health bar (simplified single indicator)
     api.ink(200, 200, 200);
     api.write(`HEALTH`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-    
+
     // Calculate overall health score (0-100)
     const fpsHealth = Math.min(100, (fps / 60) * 100);
     const timeHealth = Math.max(0, 100 - ((totalTime - 16.67) / 16.67) * 100);
     const memHealth = Math.max(0, 100 - Math.max(0, (memEstimate - 1024 * 1024) / (1024 * 1024)) * 100);
     const overallHealth = (fpsHealth + timeHealth + memHealth) / 3;
-    
+
     // Color code health: green >= 80, yellow >= 60, orange >= 40, red < 40
     let healthColor = overallHealth >= 80 ? [0, 255, 0] : overallHealth >= 60 ? [255, 255, 0] : overallHealth >= 40 ? [255, 165, 0] : [255, 0, 0];
     this.drawPerfBar(api, x + 48, lineY, overallHealth, 100, 50, healthColor);
     lineY += lineHeight;
-    
+
     // Historical performance bar graph (mini sparkline)
     if (this.perf.history.length > 1) {
       api.ink(80, 80, 80);
       api.write(`HIST`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
-      
+
       const graphX = x + 20;
       const graphY = lineY + 2;
       const graphWidth = 70;
       const graphHeight = 6;
-      
+
       // Draw background
       api.ink(20, 20, 20);
       api.box(graphX, graphY, graphWidth, graphHeight, "fill");
-      
+
       // Draw FPS history bars (normalized to 60fps target)
       const barWidth = Math.max(1, Math.floor(graphWidth / this.perf.history.length));
       for (let i = 0; i < this.perf.history.length; i++) {
@@ -1087,7 +1089,7 @@ class KidLisp {
         const barHeight = Math.min(graphHeight, Math.max(1, (normalizedFps / 75) * graphHeight));
         const barX = graphX + (i * barWidth);
         const barY = graphY + graphHeight - barHeight;
-        
+
         // 60fps-targeted color thresholds: green >= 55fps, yellow >= 45fps, orange >= 30fps, red < 30fps
         if (snapshot.fps >= 55) {
           api.ink(0, 255, 0);      // Green: excellent performance
@@ -1098,10 +1100,10 @@ class KidLisp {
         } else {
           api.ink(255, 0, 0);      // Red: poor performance
         }
-        
+
         api.box(barX, barY, Math.max(1, barWidth - 1), barHeight, "fill");
       }
-      
+
       // Draw 60fps target line
       const targetY = graphY + graphHeight - Math.floor((60 / 75) * graphHeight);
       api.ink(128, 128, 128);
@@ -1113,11 +1115,11 @@ class KidLisp {
   drawPerfBar(api, x, y, value, maxValue, width, baseColor) {
     const fillWidth = Math.min(width, (value / maxValue) * width);
     const fillRatio = value / maxValue;
-    
+
     // Background bar
     api.ink(50, 50, 50);
     api.box(x, y + 2, width, 3, "fill");
-    
+
     // Fill bar with health-based coloring
     if (fillWidth > 0) {
       let barColor;
@@ -1134,11 +1136,11 @@ class KidLisp {
         // Red zone: over budget is critical
         barColor = [255, 0, 0];
       }
-      
+
       api.ink(barColor[0], barColor[1], barColor[2]);
       api.box(x, y + 2, fillWidth, 3, "fill");
     }
-    
+
     // Overflow indicator if over max
     if (value > maxValue) {
       api.ink(255, 0, 0);
@@ -1149,16 +1151,16 @@ class KidLisp {
   // Estimate memory usage
   estimateMemoryUsage() {
     let size = 0;
-    
+
     // AST size estimate (rough)
     size += JSON.stringify(this.localEnv || {}).length;
-    
+
     // Timing data
     size += this.perf.timings.total.length * 8; // rough estimate
-    
+
     // Function tracking
     size += this.perf.functions.size * 64; // rough estimate
-    
+
     return size;
   }
 
@@ -1169,7 +1171,7 @@ class KidLisp {
     let apiCalls = 0;
     let userCalls = 0;
     let optCalls = 0;
-    
+
     // Categorize function calls
     this.perf.functions.forEach((stats, name) => {
       totalFunctionCalls += stats.count;
@@ -1184,10 +1186,10 @@ class KidLisp {
         graphCalls += stats.count;
       }
     });
-    
+
     const parseTime = this.perf.avg.parse || this.perf.current.parseTime || 0;
     const evalTime = this.perf.avg.evaluate || this.perf.current.evaluateTime || 0;
-    
+
     const snapshot = {
       time: new Date().toLocaleTimeString(),
       fps: this.perf.avg.fps,
@@ -1198,39 +1200,39 @@ class KidLisp {
       functions: totalFunctionCalls,
       memory: (this.estimateMemoryUsage() / 1024).toFixed(1)
     };
-    
+
     // Log basic performance metrics
     // console.log(`🎯 PERF [${snapshot.time}]: FPS=${snapshot.fps.toFixed(1)} TOT=${snapshot.total.toFixed(1)}ms PAR=${snapshot.parse.toFixed(1)}ms EVL=${snapshot.evaluate.toFixed(1)}ms REN=${snapshot.render.toFixed(1)}ms`);
-    
+
     // Log categorized function calls
     // console.log(`📊 CALLS: TOT=${totalFunctionCalls} GRAPH=${graphCalls} API=${apiCalls} USER=${userCalls} OPT=${optCalls} MEM=${snapshot.memory}KB`);
-    
+
     // Log top function hotspots if we have many calls
     if (false && totalFunctionCalls > 1000) { // Disabled logging
       const sortedFunctions = Array.from(this.perf.functions.entries())
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 8); // Top 8 most called functions
-      
+
       console.log(`🔥 TOP HOTSPOTS:`);
       sortedFunctions.forEach(([name, stats], i) => {
         const callsPerSecond = Math.round(stats.count);
         const totalTime = stats.totalTime.toFixed(1);
         const category = name.startsWith('api:') ? '📱' : name.startsWith('user:') ? '👤' : name.startsWith('opt:') ? '⚡' : '🎨';
-        console.log(`   ${i+1}. ${category} ${name}: ${callsPerSecond} calls (${totalTime}ms total, ${stats.avgTime.toFixed(3)}ms avg)`);
+        console.log(`   ${i + 1}. ${category} ${name}: ${callsPerSecond} calls (${totalTime}ms total, ${stats.avgTime.toFixed(3)}ms avg)`);
       });
-      
+
       // Log evaluation loop stats if we have them
       if (this.perf.evalCallCount > 0 || this.perf.bodyProcessCount > 0) {
         console.log(`🔄 LOOPS: evaluate() called ${this.perf.evalCallCount || 0} times, body processing ${this.perf.bodyProcessCount || 0} times`);
       }
-      
+
       // Log graph performance if available (check global scope)
       if (false && typeof window !== 'undefined' && window.graphPerf) { // Disabled logging
         if (window.graphPerf.functions.size > 0) {
           const graphStats = window.graphPerf.getStats();
           console.log(`🎨 GRAPH HOTSPOTS:`);
           graphStats.slice(0, 5).forEach((stat, i) => {
-            console.log(`   ${i+1}. ${stat.name}: ${stat.count} calls (${stat.totalTime.toFixed(1)}ms total, ${stat.avgTime.toFixed(2)}ms avg, ${stat.maxTime.toFixed(2)}ms max)`);
+            console.log(`   ${i + 1}. ${stat.name}: ${stat.count} calls (${stat.totalTime.toFixed(1)}ms total, ${stat.avgTime.toFixed(2)}ms avg, ${stat.maxTime.toFixed(2)}ms max)`);
           });
           window.graphPerf.reset();
         } else {
@@ -1240,13 +1242,13 @@ class KidLisp {
       } else {
         // console.log(`🎨 GRAPH DEBUG: window.graphPerf not available`);
       }
-      
+
       // Reset counters after logging to get per-second rates
       this.perf.functions.clear();
       this.perf.evalCallCount = 0;
       this.perf.bodyProcessCount = 0;
     }
-    
+
     // Store in history (keep last 20 snapshots)
     this.perf.history.push(snapshot);
     if (this.perf.history.length > 20) {
@@ -1289,63 +1291,63 @@ class KidLisp {
     // Reset core state
     this.ast = null;
     this.globalDef = {};
-    
+
     // Initialize audio-related global variables
     this.globalDef.amp = 0; // Current audio amplitude (0-10 scale)
     this.globalDef.leftAmp = 0; // Left channel amplitude (0-10 scale) 
     this.globalDef.rightAmp = 0; // Right channel amplitude (0-10 scale)
     this.globalDef.beat = 0; // Beat detection (0 or 1)
     this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
-    
+
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
     this.tapper = null;
     this.drawer = null;
     this.frameCount = 0;
-    
+
     // Keep first-line color state during reset (preserve for resize/reframe)
     // this.firstLineColor = null; // Don't reset - keep for background persistence
-    
+
     // Reset timing state
     this.lastSecondExecutions = {};
     this.instantTriggersExecuted = {};
-    
+
     // Reset cache state
     this.cachedCode = null;
     this.cachingInProgress = false;
     this.shortUrl = null;
-    
+
     // Reset microphone state
     this.microphoneConnected = false;
     this.microphoneApi = null;
-    
+
     // Reset performance caches
     this.functionCache.clear();
     this.globalEnvCache = null;
     this.mathCache.clear();
     this.sequenceCounters.clear();
-    
+
     // Clear choice cache to prevent memory leaks
     if (this.choiceCache) {
       this.choiceCache.clear();
     }
-    
+
     // Clear global function cache
     if (this.globalFunctionCache) {
       this.globalFunctionCache.clear();
     }
-    
+
     // ⚡ PERFORMANCE: Don't automatically clear embedded layer cache on reset
     // This will be handled conditionally in module() based on source change
     // this.clearEmbeddedLayerCache(); // Moved to module() for conditional clearing
-    
+
     // Reset embedded layer loading state only if source changed
     if (sourceChanged) {
       this.loadingEmbeddedLayers.clear();
       this.loadedEmbeddedLayers.clear();
     }
-    
+
     // Reset syntax highlighting state
     this.syntaxHighlightSource = null;
     this.expressionPositions = [];
@@ -1353,44 +1355,44 @@ class KidLisp {
     this.executionHistory = [];
     this.currentExecutingExpression = null;
     this.lastExecutionTime = 0;
-    
+
     // Reset handle attribution cache
     this.cachedOwnerHandle = null;
     this.cachedOwnerSub = null;
-    
+
     // Reset melody state
     this.melodies.clear();
     this.melodyTimers.clear();
-    
+
     // Reset resolution state
     this.halfResolutionApplied = false;
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
-    
+
     // Clear onceExecuted only when explicitly requested (when source changes)
     if (clearOnceExecuted) {
       this.onceExecuted.clear();
     }
-    
+
     // Reset timing blink tracking
     this.timingBlinks.clear();
-    
+
     // Reset delay timer active periods tracking
     this.delayTimerActivePeriods.clear();
-    
+
     // Reset active timing expressions tracking
     this.activeTimingExpressions.clear();
-    
+
     // Reset baked layers state
     this.bakedLayers = [];
     this.bakeCallCount = 0;
-    
+
     // Reset deferred commands state
     this.postEmbedCommands = [];
-    
+
     // Reset buffer pool state
     this.bufferPool.clear();
-    
+
     // Don't reset ink state during reset - preserve across frame transitions
     // this.inkState = undefined;
     // this.inkStateSet = false;
@@ -1410,7 +1412,7 @@ class KidLisp {
   signalSyntaxHighlight(expr, color) {
     const id = this.registerExpression(expr);
     this.syntaxSignals.set(id, color);
-    
+
     // Debug logging
     if (this.frameCount % 60 === 0) {
       // console.log(`📡 SYNTAX SIGNAL: expr ${id} -> ${color}`, expr);
@@ -1440,41 +1442,41 @@ class KidLisp {
       // console.log("🔬 KidLisp performance monitoring disabled");
     }
   }
-  
+
   startFrameTiming() {
     if (!this.performanceEnabled) return;
     this.currentFrameStart = performance.now();
     this.totalEvaluations = 0;
     this.evaluationCounts.clear();
   }
-  
+
   endFrameTiming() {
     if (!this.performanceEnabled) return;
     const frameDuration = performance.now() - this.currentFrameStart;
     this.frameTimings.push(frameDuration);
-    
+
     // Keep only last 60 frames for rolling average
     if (this.frameTimings.length > 60) {
       this.frameTimings.shift();
     }
-    
+
     // Log performance stats every 60 frames (roughly 1 second at 60fps)
     if (this.frameTimings.length === 60) {
       const avgFrameTime = this.frameTimings.reduce((a, b) => a + b) / 60;
       const maxFrameTime = Math.max(...this.frameTimings);
       const minFrameTime = Math.min(...this.frameTimings);
-      
+
       console.log(`🔬 KidLisp Performance (60 frames):
         Avg: ${avgFrameTime.toFixed(2)}ms, Min: ${minFrameTime.toFixed(2)}ms, Max: ${maxFrameTime.toFixed(2)}ms
         Total evaluations: ${this.totalEvaluations}
         Top expressions:`, Array.from(this.evaluationCounts.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5));
-      
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5));
+
       this.frameTimings = []; // Reset for next cycle
     }
   }
-  
+
   trackEvaluation(type) {
     if (!this.performanceEnabled) return;
     this.totalEvaluations++;
@@ -1484,11 +1486,11 @@ class KidLisp {
   // Mark a timing expression as triggered for blinking
   markTimingTriggered(timingToken) {
     const now = performance.now();
-    
+
     // For delay timers, use shorter flash duration (1 frame)
     const isDelayTimer = /^\d*\.?\d+s!?$/.test(timingToken);
     const flashDuration = isDelayTimer ? 200 : this.blinkDuration; // 200ms to make it visible
-    
+
     this.timingBlinks.set(timingToken, {
       triggerTime: now,
       duration: flashDuration
@@ -1498,24 +1500,24 @@ class KidLisp {
   // Check if a timing token should be blinking
   isTimingBlinking(timingToken) {
     if (!this.timingBlinks.has(timingToken)) return false;
-    
+
     const blinkInfo = this.timingBlinks.get(timingToken);
     const now = performance.now();
     const elapsed = now - blinkInfo.triggerTime;
-    
+
     if (elapsed > blinkInfo.duration) {
       // Blink has expired, remove it
       this.timingBlinks.delete(timingToken);
       return false;
     }
-    
+
     // For delay timers (non-cycling), implement the red flash + hold pattern
     const isDelayTimer = /^\d*\.?\d+s!?$/.test(timingToken);
     if (isDelayTimer) {
       const isBlinking = elapsed < 80; // Red flash for first 80ms (~5 frames at 60fps) - longer so it's not missed
       return isBlinking;
     }
-    
+
     // For cycle timers, return true if we're in a brief lime flash period (like delay timers)
     return elapsed < 80; // 80ms lime flash for cycle timers (matches delay timer duration)
   }
@@ -1533,7 +1535,7 @@ class KidLisp {
           this.loadingEmbeddedLayers.add(cacheId);
         }
       });
-      
+
       // Start preloading all $codes in parallel for faster loading
       this.preloadEmbeddedCodes(codeMatches);
     }
@@ -1543,7 +1545,7 @@ class KidLisp {
   preloadEmbeddedCodes(codeMatches) {
     // Get unique cache IDs 
     const uniqueCacheIds = [...new Set(codeMatches.map(code => code.substring(1)))];
-    
+
     // Filter out codes that are already cached or being fetched
     const needsFetching = uniqueCacheIds.filter(cacheId => {
       // Check instance cache first
@@ -1552,7 +1554,7 @@ class KidLisp {
         this.loadedEmbeddedLayers.add(cacheId);
         return false;
       }
-      
+
       // Check global RAM cache
       if (globalCodeCache.has(cacheId)) {
         // Copy to instance cache for fast access
@@ -1561,37 +1563,37 @@ class KidLisp {
         this.loadedEmbeddedLayers.add(cacheId);
         return false;
       }
-      
+
       const fetchKey = `${cacheId}_fetching_source`;
       if (this.embeddedLayerCache.has(fetchKey)) {
         return false; // Already being fetched
       }
-      
+
       return true;
     });
-    
+
     if (needsFetching.length === 0) {
       // Cache status debug log removed for performance
       return;
     }
-    
+
     // Parallel preloading debug log removed for performance
-    
+
     // Use individual multi-level cache calls for better cache utilization
     // This allows each code to check IndexedDB individually before falling back to network
     needsFetching.forEach(cacheId => {
       const fetchKey = `${cacheId}_fetching_source`;
       this.embeddedLayerCache.set(fetchKey, true); // Mark as being fetched
-      
+
       getCachedCodeMultiLevel(cacheId)
         .then(source => {
           // Clean up fetch marker
           this.embeddedLayerCache.delete(fetchKey);
-          
+
           // Mark as loaded
           this.loadingEmbeddedLayers.delete(cacheId);
           this.loadedEmbeddedLayers.add(cacheId);
-          
+
           // Cache the source if we got it
           if (source) {
             this.embeddedSourceCache.set(cacheId, source);
@@ -1622,17 +1624,17 @@ class KidLisp {
     if (!this.delayTimerActivePeriods.has(timingToken)) {
       return false;
     }
-    
+
     const activeInfo = this.delayTimerActivePeriods.get(timingToken);
     const now = performance.now();
     const elapsed = now - activeInfo.activateTime;
-    
+
     if (elapsed > activeInfo.duration) {
       // Active period has expired, remove it
       this.delayTimerActivePeriods.delete(timingToken);
       return false;
     }
-    
+
     return true;
   }
 
@@ -1648,11 +1650,11 @@ class KidLisp {
       // Convert array expressions to readable format like "(ink white)" or "(line)"
       if (expr.length === 0) return "()";
       if (expr.length === 1) return `(${expr[0]})`;
-      
+
       // Format common patterns nicely
       const head = expr[0];
       const args = expr.slice(1);
-      
+
       if (head === "ink" && args.length === 1) {
         return `(ink ${args[0]})`;
       }
@@ -1662,14 +1664,14 @@ class KidLisp {
       if (head === "line" && args.length > 0) {
         return `(line ${args.join(" ")})`;
       }
-      
+
       // Generic formatting: show first few items to keep it concise
       const displayArgs = args.slice(0, 3);
       const argsText = displayArgs.join(" ");
       const ellipsis = args.length > 3 ? "..." : "";
       return `(${head} ${argsText}${ellipsis})`;
     }
-    
+
     // Fallback for other types
     return String(expr);
   }
@@ -1677,11 +1679,11 @@ class KidLisp {
   // Detect first-line color from AST without executing code
   detectFirstLineColor() {
     if (!this.ast) return;
-    
+
     // Get the first item from the AST
     const firstItem = Array.isArray(this.ast) && this.ast.length > 0 ? this.ast[0] : this.ast;
     let colorName = null;
-    
+
     // Check if it's a bare string color name
     if (typeof firstItem === "string") {
       colorName = firstItem;
@@ -1690,27 +1692,27 @@ class KidLisp {
     else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
       colorName = firstItem[0];
     }
-    
+
     if (colorName) {
       const globalEnv = this.getGlobalEnv();
-      
+
       // Check if it's a direct color name, fade string, or color code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
         try {
           // Test if this is a color function by calling it
           const result = globalEnv[colorName]();
-          
+
           // Check if the result is a valid color (array of RGB values, fade string, or rainbow/zebra)
-          const isValidColor = Array.isArray(result) || 
-                               typeof result === "string" && (result.startsWith("fade:") || result === "rainbow" || result === "zebra");
-          
+          const isValidColor = Array.isArray(result) ||
+            typeof result === "string" && (result.startsWith("fade:") || result === "rainbow" || result === "zebra");
+
           if (isValidColor) {
             // If we get here without error, it's a color function
             this.firstLineColor = colorName;
-            
+
             // Always store local backup for worker fallback, regardless of global storage
             this.persistentFirstLineColor = colorName;
-            
+
             // Store in persistent global storage (main thread only)
             if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
               window.setPersistentFirstLineColor(colorName);
@@ -1728,7 +1730,7 @@ class KidLisp {
         const fadeColors = this.parseFadeString(colorName);
         if (fadeColors && fadeColors.length >= 2) {
           this.firstLineColor = colorName;
-          
+
           // Store in persistent global storage
           if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
             window.setPersistentFirstLineColor(colorName);
@@ -1748,12 +1750,12 @@ class KidLisp {
     if (parts.length < 2) {
       return fadeToken; // Invalid fade syntax
     }
-    
+
     // Check for neat modifier and handle different positions
     let isNeat = false;
     let colorPart = parts[1];
     let direction = parts[2];
-    
+
     if (parts[1] === "neat" && parts[2]) {
       // Format: fade:neat:red-blue or fade:neat:red-blue:vertical
       isNeat = true;
@@ -1777,22 +1779,22 @@ class KidLisp {
         direction = filteredParts[2];
       }
     }
-    
+
     const colorNames = colorPart.split("-");
-    
+
     let result = "\\mediumseagreen\\fade\\lime\\:"; // "fade" in emerald, ":" in green
-    
+
     // Add neat modifier if present
     if (isNeat) {
       result += "\\cyan\\neat\\lime\\:"; // "neat" in cyan, ":" in green
     }
-    
+
     for (let i = 0; i < colorNames.length; i++) {
       const colorName = colorNames[i];
-      
+
       // Get the color for this color name
       let colorValue = "white"; // Default fallback
-      
+
       if (cssColors && cssColors[colorName]) {
         // Use the actual color if it's a valid CSS color
         const rgbColor = cssColors[colorName];
@@ -1813,7 +1815,7 @@ class KidLisp {
       } else if (colorName === "zebra") {
         colorValue = "ZEBRA"; // Special case for zebra
       }
-      
+
       // Add the colored color name
       if (colorValue === "RAINBOW") {
         // Special rainbow handling
@@ -1832,17 +1834,17 @@ class KidLisp {
       } else {
         result += `\\${colorValue}\\${colorName}`;
       }
-      
+
       // Add the dash separator in emerald (except for the last color)
       if (i < colorNames.length - 1) {
         result += "\\mediumseagreen\\-";
       }
     }
-    
+
     // Add direction part if present
     if (direction) {
       result += "\\lime\\:"; // ":" in green
-      
+
       // Check if direction is numeric (angle)
       const numericAngle = parseFloat(direction);
       if (!isNaN(numericAngle)) {
@@ -1851,7 +1853,7 @@ class KidLisp {
         result += `\\cyan\\${direction}`; // Named direction in cyan
       }
     }
-    
+
     return result;
   }
 
@@ -1860,33 +1862,33 @@ class KidLisp {
   isValidColorString(colorStr) {
     // Check CSS colors
     if (cssColors[colorStr]) return true;
-    
+
     // Check color codes (c0, c1, etc.) using standardized mapping
     if (colorStr.match(/^c\d+$/)) {
       const index = parseInt(colorStr.substring(1));
       return staticColorMap[index] !== undefined;
     }
-    
+
     // Check if it's rainbow or zebra
     if (colorStr === "rainbow" || colorStr === "zebra") return true;
-    
+
     return false;
   }
 
   parseFadeString(fadeString) {
     if (!fadeString.startsWith("fade:")) return null;
-    
+
     const parts = fadeString.split(":");
     if (parts.length < 2) return null;
-    
+
     // Extract colors part (skip "fade" and optional direction)
     const colorPart = parts[1]; // The part after "fade:"
     const colorNames = colorPart.split("-");
-    
+
     if (colorNames.length < 2) return null;
-    
+
     const validColors = [];
-    
+
     // Validate each color in the fade
     for (const colorName of colorNames) {
       if (this.isValidColorString(colorName)) {
@@ -1911,7 +1913,7 @@ class KidLisp {
         return null; // Invalid color
       }
     }
-    
+
     const result = validColors.length >= 2 ? validColors : null;
     return result;
   }
@@ -1922,11 +1924,11 @@ class KidLisp {
     console.log("🎨 this.firstLineColor:", this.firstLineColor);
     console.log("🎨 typeof this.firstLineColor:", typeof this.firstLineColor);
     console.log("🎨 !this.firstLineColor:", !this.firstLineColor);
-    
+
     // If no color in current instance, try various fallbacks
     if (!this.firstLineColor) {
       console.log("🎨 Entering fallback logic...");
-      
+
       // First try persistent storage from main thread (if available)
       if (typeof window !== 'undefined' && window.getPersistentFirstLineColor) {
         const persistentColor = window.getPersistentFirstLineColor();
@@ -1936,7 +1938,7 @@ class KidLisp {
           console.log("🎨 Restored firstLineColor from window persistence:", this.firstLineColor);
         }
       }
-      
+
       // If still no color, try worker-local backup storage
       if (!this.firstLineColor && this.persistentFirstLineColor) {
         console.log("🎨 Fallback to worker persistent color:", this.persistentFirstLineColor);
@@ -1945,7 +1947,7 @@ class KidLisp {
       } else {
         console.log("🎨 Worker fallback not available - this.persistentFirstLineColor:", this.persistentFirstLineColor);
       }
-      
+
       // Final fallback: try global storage directly (globalThis)
       if (!this.firstLineColor && typeof globalThis !== 'undefined' && globalThis.getPersistentFirstLineColor) {
         const globalPersistentColor = globalThis.getPersistentFirstLineColor();
@@ -1955,10 +1957,10 @@ class KidLisp {
           console.log("🎨 Restored firstLineColor from globalThis persistence:", this.firstLineColor);
         }
       } else {
-        console.log("🎨 Final fallback not available - globalThis.getPersistentFirstLineColor exists:", 
-                   typeof globalThis !== 'undefined' && !!globalThis.getPersistentFirstLineColor);
+        console.log("🎨 Final fallback not available - globalThis.getPersistentFirstLineColor exists:",
+          typeof globalThis !== 'undefined' && !!globalThis.getPersistentFirstLineColor);
       }
-      
+
       // If still no color, try detecting it again from the current AST
       if (!this.firstLineColor && this.ast) {
         console.log("🎨 Fallback: Re-detecting color from AST");
@@ -1967,7 +1969,7 @@ class KidLisp {
         console.log("🎨 Re-detection result:", this.firstLineColor);
       }
     }
-    
+
     console.log("🎨 returning:", this.firstLineColor);
     return this.firstLineColor;
   }
@@ -2165,7 +2167,7 @@ class KidLisp {
       if (typeof window !== 'undefined' && window.history && window.location && !api.net?.iframe) {
         const currentPath = window.location.pathname;
         const newPath = `/$${shortCode}`; // Add $ prefix for cached codes
-        
+
         // Only update if the path is different to avoid unnecessary history entries
         if (currentPath !== newPath) {
           // Use replaceState to avoid creating a new history entry
@@ -2184,15 +2186,15 @@ class KidLisp {
     if (this.isLispFile) {
       return;
     }
-    
+
     // Skip if already cached or caching is in progress
     if (this.cachedCode || this.cachingInProgress) {
       return;
     }
-    
+
     // Check if caching is enabled from store (default: true)
     const cacheEnabled = api.store?.["kidlisp:cache-enabled"] !== false;
-    
+
     // console.log("🔍 Cache Debug:", {
     //   cacheEnabled,
     //   source: source?.substring(0, 50),
@@ -2201,22 +2203,22 @@ class KidLisp {
     //   alreadyCached: this.cachedCode,
     //   cachingInProgress: this.cachingInProgress
     // });
-    
+
     // Skip caching if disabled or no source
     if (!cacheEnabled || !source || source.trim().length === 0) {
       // console.log("❌ Skipping cache - disabled or no source");
       return;
     }
-    
+
     // Set flag to prevent multiple requests
     this.cachingInProgress = true;
-    
+
     try {
       // console.log("🚀 Starting cache request for:", source.substring(0, 50));
-      
+
       // Skip API calls in TEIA mode (offline packages)
       const isTeiaMode = checkTeiaMode();
-      
+
       // Force console logging to debug TEIA mode detection
       if (isTeiaMode) {
         // Generate a simple hash-based code for TEIA mode
@@ -2234,40 +2236,40 @@ class KidLisp {
 
       // Use standard fetch with proper headers (like other API calls)
       const headers = { "Content-Type": "application/json" };
-      
+
       try {
         // Include authorization token if logged in (like the print API)
         const token = await api.authorize(); // Get user token
         if (token) headers.Authorization = `Bearer ${token}`;
-      } catch (err) {} // Handled up-stream
-      
+      } catch (err) { } // Handled up-stream
+
       const response = await fetch('/api/store-kidlisp', {
         method: 'POST',
         headers,
         body: JSON.stringify({ source })
       });
-      
+
       // console.log("📥 Cache response:", response);
-      
+
       if (response.ok) {
         const data = await response.json();
         // console.log("📥 Cache data:", data);
-        
+
         this.shortUrl = `aesthetic.computer/$${data.code}`;
-        
+
         // Store the short URL for QR generation
         this.cachedCode = data.code;
-        
+
         // Store in global registry for access from disk.mjs
         setCachedCode(source, data.code);
-        
+
         // console.log("✅ Cache successful, stored code:", data.code);
-        
+
         // Use the day-themed logging from headers.mjs
         const { logKidlispCode } = await import('./headers.mjs');
         logKidlispCode(source, data.code, api.dark);
-        
-        
+
+
         // Update browser URL to show the short code
         this.updateBrowserUrl(response.code, api);
       } else {
@@ -2294,35 +2296,35 @@ class KidLisp {
       console.warn(`❌ KidLisp: Maximum $code substitution depth exceeded, preventing infinite recursion`);
       return null;
     }
-    
+
     // Reset zebra cache at the start of each module execution
     resetZebraCache();
-    
+
     // Check if source has changed - if so, reset once state
     const sourceChanged = this.currentSource !== source;
     this.currentSource = source;
-    
+
     // Reset all state for fresh instance when loading a new module
     // For prompt executions (!isLispFile), always clear onceExecuted for fresh runs
     // For file executions (isLispFile), only clear onceExecuted when source changes
     const shouldClearOnce = !isLispFile || sourceChanged;
     this.reset(shouldClearOnce, sourceChanged);
-    
+
     // Clear first-line color when loading new code, but preserve persistent backup
     this.firstLineColor = null;
     // Note: Keep this.persistentFirstLineColor for fallback during reframe
-    
+
     // Store flag to skip caching for .lisp files
     this.isLispFile = isLispFile;
-    
+
     // Always clear embedded layer cache when loading a module
     // This ensures fresh state when entering/re-entering a piece
     this.clearEmbeddedLayerCache();
-    
+
     // Source logging removed for performance
     // console.log("🟪");
     // console.log(source);
-    
+
     // Log source with square brackets for easy copying
     // console.log("�");
     // console.log(source);
@@ -2338,18 +2340,18 @@ class KidLisp {
     if (parsed.length === 1) {
       // console.log(`🔍 Single expression detected:`, parsed[0]);
     }
-    
-    if (!this.isEmbeddedContext && 
-        parsed.length === 1 && 
-        ((typeof parsed[0] === 'string' && parsed[0].startsWith('$')) ||
-         (Array.isArray(parsed[0]) && parsed[0].length >= 1 && 
+
+    if (!this.isEmbeddedContext &&
+      parsed.length === 1 &&
+      ((typeof parsed[0] === 'string' && parsed[0].startsWith('$')) ||
+        (Array.isArray(parsed[0]) && parsed[0].length >= 1 &&
           typeof parsed[0][0] === 'string' && parsed[0][0].startsWith('$')))) {
-      
+
       const cacheCode = typeof parsed[0] === 'string' ? parsed[0] : parsed[0][0];
       const cacheId = cacheCode.slice(1); // Remove $ prefix
-      
+
       console.log(`🔗 KidLisp: Detected single $code (${cacheCode}), fetching cached source...`);
-      
+
       // Validate cache ID pattern (relaxed for development - 3+ chars, alphanumeric)
       if (/^[0-9A-Za-z]{3,12}$/.test(cacheId)) {
         try {
@@ -2380,7 +2382,7 @@ class KidLisp {
               }).catch(error => {
                 console.warn(`❌ Failed to load cached source for ${cacheCode}:`, error);
               });
-              
+
               // For now, fall back to navigation behavior
               if (typeof window !== 'undefined') {
                 window.location.href = `/${cacheCode}`;
@@ -2429,7 +2431,7 @@ class KidLisp {
       boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill }) => {
         // Store API reference for reframe operations
         this.lastUsedApi = { wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill };
-        
+
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
@@ -2471,17 +2473,17 @@ class KidLisp {
 
         // Just set up initial state, don't execute program here
         // console.log(pieceCount);
-        
+
         // Detect first-line color from AST if not already set (e.g., during resize)
         if (!this.firstLineColor && this.ast) {
           this.detectFirstLineColor();
         }
-        
+
         // Skip initial wipe during boot to prevent purple flash
         // Background fill for reframes is handled in bios.mjs
         // Only wipe if this is a reframe situation (not initial boot)
         const isReframe = this.frameCount > 0; // or some other reframe detection
-        
+
         if (isReframe) {
           // Use first-line color as default background for reframes, otherwise erase
           if (this.firstLineColor) {
@@ -2490,7 +2492,7 @@ class KidLisp {
             wipe("erase");
           }
         }
-        
+
         // Set initial ink color to undefined for KidLisp pieces
         // This ensures a clean slate for each piece instead of inheriting system colors
         if (!this.inkStateSet) {
@@ -2502,17 +2504,17 @@ class KidLisp {
       paint: ($) => {
         // 🎯 Start performance frame tracking
         this.startFrame();
-        
+
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         // 🕐 Timing updates moved to sim() for consistent framerate
-        
+
         // Cache kidlisp source for QR code generation instantly
         // This prevents caching work-in-progress code and saves server space
         // BUT: Skip caching in embedded contexts to prevent interference
         const cacheDelayFrames = 0; // Instant caching
-        
-        if (!this.isEmbeddedContext && 
-            this.frameCount >= cacheDelayFrames && !this.cachedCode) {
+
+        if (!this.isEmbeddedContext &&
+          this.frameCount >= cacheDelayFrames && !this.cachedCode) {
           this.cacheKidlispSource(source, $);
         }
 
@@ -2548,13 +2550,13 @@ class KidLisp {
           // Set up command queue to defer final drawing commands
           this.postEmbedCommands = [];
           this.inEmbedPhase = false;
-          
+
           // Scan for $codes and pre-mark them as loading for syntax highlighting
           this.scanAndMarkEmbeddedCodes(source);
-          
+
           // 🔍 TOTAL FRAME TIMING: Start measuring complete execution cycle
           const totalFrameStart = performance.now();
-          
+
           // Performance mode: disable logging when FPS is low
           if (!this.performanceMode) this.performanceMode = { enabled: false, lastCheck: 0 };
           if (performance.now() - this.performanceMode.lastCheck > 1000) {
@@ -2566,42 +2568,42 @@ class KidLisp {
               // console.log("🚀 PERFORMANCE MODE: Enabled due to low FPS:", fps);
             }
           }
-          
+
           // Clear frame cache for new frame
           this.frameCache = new Map();
-          
+
           // Execute the full program first (draws current content and creates embedded layers)
           this.localEnvLevel = 0; // Reset state per program evaluation.
           this.localEnv = this.localEnvStore[this.localEnvLevel];
-          
+
           const mainEvalStart = performance.now();
           // console.log("🔍 About to evaluate AST for embedded KidLisp");
           /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
           // console.log("✅ Finished evaluating AST for embedded KidLisp");
           const mainEvalTime = performance.now() - mainEvalStart;
-          
+
           // Mark that we're now in the embed rendering phase
           this.inEmbedPhase = true;
-          
+
           // Then composite baked layers underneath current content
           const bakedStart = performance.now();
           this.renderBakedLayers($);
           const bakedTime = performance.now() - bakedStart;
-          
+
           // Then render and update embedded layers
           const embedStart = performance.now();
           this.renderEmbeddedLayers($);
           const embedTime = performance.now() - embedStart;
-          
+
           // 🔍 TOTAL FRAME TIMING: Disabled for cleaner console
           const totalFrameTime = performance.now() - totalFrameStart;
           // if (totalFrameTime > 10) { // Only log very slow frames
           //   console.log(`🔍 TOTAL FRAME: ${totalFrameTime.toFixed(2)}ms | main=${mainEvalTime.toFixed(2)}ms, baked=${bakedTime.toFixed(2)}ms, embed=${embedTime.toFixed(2)}ms`);
           // }
-          
+
           // Finally execute any drawing commands that should be on top
           this.inEmbedPhase = false;
-          
+
           // Execute accumulated post-embed commands
           this.postEmbedCommands.forEach((cmd, i) => {
             try {
@@ -2611,12 +2613,12 @@ class KidLisp {
             }
           });
           this.postEmbedCommands = [];
-          
+
           // 🎯 Render performance HUD overlay (always rendered last)
           if (this.perf.showHUD) {
             this.renderPerformanceHUD($);
           }
-          
+
         } catch (err) {
           console.error("⛔ Evaluation failure:", err);
         }
@@ -2639,14 +2641,15 @@ class KidLisp {
 
         // TODO: Add haltability to paint with a shortcut that triggers the below.
         // return false;
-        
+
         // 🎯 End performance frame tracking
         this.endFrame();
       },
       sim: ({ sound }) => {
         // 🕐 Handle timing updates in sim (runs at consistent 120fps)
         this.frameCount++; // Increment frame counter for timing functions
-        
+        resetRainbowCache(); // Reset rainbow cache for new frame to ensure color cycling
+
         // Poll speaker for audio amplitude data (like clock.mjs does)
         sound.speaker?.poll();
 
@@ -2678,17 +2681,17 @@ class KidLisp {
         // Check for center tap to hide UI (only if no custom tap/draw handlers)
         if (e.is("touch")) {
           // console.log("🫵 Touch event detected in kidlisp piece");
-          
+
           const hasTapHandler = this.tapper !== null;
           const hasDrawHandler = this.drawer !== null;
-          
+
           // console.log("🔍 Handler check:", { 
           //   hasTapHandler, 
           //   hasDrawHandler,
           //   tapper: this.tapper,
           //   drawer: this.drawer
           // });
-          
+
           // If piece has custom interaction handlers, use them normally
           if (hasTapHandler || hasDrawHandler) {
             // console.log("📝 Using custom handlers");
@@ -2700,7 +2703,7 @@ class KidLisp {
             api.toggleHUD();
           }
         }
-        
+
         if (e.is("draw")) {
           const hasDrawHandler = this.drawer !== null;
           if (hasDrawHandler) {
@@ -2729,7 +2732,7 @@ class KidLisp {
     if (input.includes(",") && !input.includes("\n")) {
       // Only process comma syntax for single-line input to avoid conflicts with multi-line
       const expressions = input.split(",").map(expr => expr.trim()).filter(expr => expr.length > 0);
-      
+
       // Auto-wrap each comma-separated expression in parentheses if needed
       const wrappedExpressions = expressions.map(expr => {
         // Skip if already wrapped in parentheses or is just a single token
@@ -2743,7 +2746,7 @@ class KidLisp {
         // For other cases (like just numbers or strings), leave as-is
         return expr;
       });
-      
+
       // Join them with spaces for normal parsing
       input = wrappedExpressions.join(" ");
     }
@@ -2772,7 +2775,7 @@ class KidLisp {
           // Previous line ends with an incomplete expression (has opening paren or is incomplete)
           lines[index - 1].includes("(") &&
           lines[index - 1].split("(").length >
-            lines[index - 1].split(")").length;
+          lines[index - 1].split(")").length;
 
         // Check if line starts with a timing expression like "1.5s" or "2s..."
         const timingMatch = line.match(/^(\d*\.?\d+s\.\.\.?)\s+(.+)$/);
@@ -2921,10 +2924,10 @@ class KidLisp {
     // Create a new Form using the same geometry data (like CUBEL) but fresh transform state
     // Determine the geometry type from the template form
     let geometryData = api.CUBEL; // Default to CUBEL
-    
+
     // If we want to support other geometry types in the future, we could check templateForm.type
     // For now, all cube:N instances use CUBEL geometry
-    
+
     const copy = new api.Form(
       geometryData,  // Use the appropriate geometry data
       {
@@ -2937,14 +2940,14 @@ class KidLisp {
         scale: [1, 1, 1]
       }
     );
-    
+
     // Copy other properties that might be needed
     copy.primitive = templateForm.primitive;
     copy.type = templateForm.type;
     copy.texture = templateForm.texture;
     copy.colorModifier = templateForm.colorModifier;
     copy.gradients = templateForm.gradients;
-    
+
     return copy;
   }
 
@@ -3102,16 +3105,16 @@ class KidLisp {
           console.error("❗ Invalid `not`. Wrong number of arguments.");
           return false;
         }
-        
+
         const evaled = this.evaluate(args[0], api, env);
-        
+
         if (!evaled) {
           // Execute body expressions
           args.slice(1).forEach((expr) => {
             this.evaluate(expr, api, env);
           });
         }
-        
+
         return !evaled;
       },
       range: (api, args) => {
@@ -3308,10 +3311,10 @@ class KidLisp {
       "ready?": (api, args) => {
         // (ready? url) - returns true if image is loaded, false otherwise
         if (args.length === 0) return false;
-        
+
         const url = unquoteString(args[0]?.toString() || "");
         if (!url) return false;
-        
+
         // Access the global paintings cache from disk.mjs
         // We need to get this from the API context
         const paintings = api.paintings || {};
@@ -3395,18 +3398,30 @@ class KidLisp {
           console.error("❗ coat requires at least a color argument");
           return;
         }
-        
+
         let color = args[0];
         const alpha = args.length >= 2 ? args[1] : 128; // Default to 50% alpha
-        
-        // Preprocess fade strings to evaluate dynamic parts (like frame)
+
+        // Skip preprocessing fade strings - let the gradient system handle dynamic evaluation
+        // This allows :frame keywords to be evaluated during each rendering frame
+
+        // Store current ink state to restore later
+        const previousInk = this.inkState;
+        const previousInkSet = this.inkStateSet;
+
+        // Set ink to the coat color
         if (typeof color === "string" && color.startsWith("fade:")) {
+          // Handle fade strings with alpha - follow neobrush pattern
+          // But first, evaluate any frame expressions in the fade string
+          let evaluatedColor = color;
+          
+          // Check if fade string contains frame-based direction
           const fadeParts = color.split(":");
           if (fadeParts.length >= 3) {
             const fadePrefix = fadeParts[0]; // "fade"
             const colors = fadeParts[1]; // "black-red-rainbow-red-black"
             const direction = fadeParts[2]; // "frame" or expression
-            
+
             // Try to evaluate the direction part
             let evaluatedDirection = direction;
             try {
@@ -3414,23 +3429,22 @@ class KidLisp {
               const numericValue = parseFloat(direction);
               if (!isNaN(numericValue)) {
                 evaluatedDirection = direction; // Keep as string
-              } else if (direction === "frame") {
-                // Special case: use the current frame count directly
-                evaluatedDirection = String(this.frameCount || 0);
               } else {
                 // Try to evaluate as KidLisp expression/variable
                 let evalResult;
-                
+
                 // Special handling for function names like "frame"
                 const globalEnv = this.getGlobalEnv();
                 if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
                   // It's a function, call it with the API
                   evalResult = globalEnv[direction](api);
+                  // console.log(`🎬 COAT DEBUG: Evaluated ${direction} as function = ${evalResult}`);
                 } else {
                   // Try to evaluate as expression or variable
                   evalResult = this.evaluate(direction, api, env);
+                  // console.log(`🎬 COAT DEBUG: Evaluated ${direction} as expression = ${evalResult}`);
                 }
-                
+
                 // Convert result to string for the fade string
                 evaluatedDirection = String(evalResult);
               }
@@ -3438,28 +3452,21 @@ class KidLisp {
               console.warn("Failed to evaluate fade direction in coat:", direction, error);
               evaluatedDirection = direction; // Fallback to original
             }
-            
+
             // Reconstruct the fade string with evaluated direction
-            color = `${fadePrefix}:${colors}:${evaluatedDirection}`;
+            evaluatedColor = `${fadePrefix}:${colors}:${evaluatedDirection}`;
+            // console.log(`🎬 COAT DEBUG: Original fade="${color}" -> Evaluated fade="${evaluatedColor}"`);
           }
-        }
-        
-        // Store current ink state to restore later
-        const previousInk = this.inkState;
-        const previousInkSet = this.inkStateSet;
-        
-        // Set ink to the coat color
-        if (typeof color === "string" && color.startsWith("fade:")) {
-          // Handle fade strings with alpha - follow neobrush pattern
+          
           // Create fade color array that triggers local fade detection
-          const fadeColorArray = [color, alpha];
+          const fadeColorArray = [evaluatedColor, alpha];
           api.ink?.(fadeColorArray);
         } else {
           // Handle regular colors with alpha
           const processedColor = processArgStringTypes([color]);
           api.ink?.(...processedColor, alpha);
         }
-        
+
         // Draw a full-screen box to coat the screen
         if (api.box) {
           // Get screen dimensions, defaulting to common values if not available
@@ -3468,7 +3475,7 @@ class KidLisp {
           // COAT DEBUG logs removed for performance
           api.box(0, 0, screenWidth, screenHeight);
         }
-        
+
         // Restore previous ink state
         if (previousInkSet) {
           this.inkState = previousInk;
@@ -3482,35 +3489,35 @@ class KidLisp {
       },
       ink: (api, args) => {
         // 🚀 FAST PATH: For performance mode, handle simple numeric cases quickly
-        if (this.performanceMode?.enabled && args && Array.isArray(args) && 
-            args.length >= 3 && typeof args[0] === 'number' && typeof args[1] === 'number' && typeof args[2] === 'number') {
+        if (this.performanceMode?.enabled && args && Array.isArray(args) &&
+          args.length >= 3 && typeof args[0] === 'number' && typeof args[1] === 'number' && typeof args[2] === 'number') {
           this.inkState = [args[0], args[1], args[2]];
           this.inkStateSet = true;
           api.ink?.(args[0], args[1], args[2]);
           return;
         }
-        
+
         // console.log("🖋️ Ink called with args:", args);
         // Handle different ink invocation patterns
         // Ensure args is always an array
         if (!args || !Array.isArray(args)) {
           args = args ? [args] : [];
         }
-        
+
         const processedArgs = processArgStringTypes(args);
         // console.log("🖋️ Ink processed args:", processedArgs);
         // console.log("🖋️ Ink api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
-        
+
         if (args.length === 0) {
           // Called with no arguments - set a random ink color
           const randomColor = [
             Math.floor(Math.random() * 256),
-            Math.floor(Math.random() * 256), 
+            Math.floor(Math.random() * 256),
             Math.floor(Math.random() * 256)
           ];
           this.inkState = randomColor;
           this.inkStateSet = true;
-          
+
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
             this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3521,7 +3528,7 @@ class KidLisp {
             });
             return;
           }
-          
+
           api.ink?.(...randomColor);
           return;
         } else if (args.length === 1 && (args[0] === null || args[0] === undefined)) {
@@ -3533,7 +3540,7 @@ class KidLisp {
           if (args.length === 1 && typeof args[0] === "string" && args[0].startsWith("fade:")) {
             this.inkState = [args[0]];
             this.inkStateSet = true;
-            
+
             // Check if we should defer this command
             if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
               this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3545,16 +3552,16 @@ class KidLisp {
               // Ink deferred debug log removed for performance
               return;
             }
-            
+
             api.ink?.(args[0]);
             return;
           }
-          
+
           // Called with color arguments - store and apply the new ink state
           const processedArgs = processArgStringTypes(args);
           this.inkState = processedArgs;
           this.inkStateSet = true;
-          
+
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
             this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3566,7 +3573,7 @@ class KidLisp {
             // Ink deferred debug log removed for performance
             return;
           }
-          
+
           api.ink?.(...processedArgs);
           // console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
@@ -3579,15 +3586,15 @@ class KidLisp {
         if (args.length < 2) {
           return "fade:red-blue"; // Default fade if not enough args
         }
-        
+
         // Check if last argument is a direction
         const lastArg = args[args.length - 1];
         const validDirections = [
-          "horizontal", "horizontal-reverse", 
+          "horizontal", "horizontal-reverse",
           "vertical", "vertical-reverse",
           "diagonal", "diagonal-reverse"
         ];
-        
+
         let colors, direction;
         if (typeof lastArg === "string" && validDirections.includes(lastArg)) {
           // Last argument is a named direction
@@ -3602,7 +3609,7 @@ class KidLisp {
         } else if (args.length >= 3) {
           // Last argument might be a variable/expression - evaluate it
           colors = processArgStringTypes(args.slice(0, -1)).join("-");
-          
+
           // Try to evaluate the last argument to see if it's a number
           try {
             const evaluated = typeof lastArg === "string" ? parseFloat(lastArg) : lastArg;
@@ -3629,7 +3636,7 @@ class KidLisp {
           const seconds = this.evaluate(args[0], api, env);
           const color1 = args[1];
           const color2 = args[2];
-          
+
           // Construct repeating timing expression and evaluate it directly
           const timingStr = `${seconds}s...`;
           return this.evaluate([timingStr, color1, color2], api, env);
@@ -3641,7 +3648,7 @@ class KidLisp {
         if (args.length >= 2) {
           const seconds = this.evaluate(args[0], api, env);
           const action = args[1];
-          
+
           // Construct one-time timing expression and evaluate it directly
           const timingStr = `${seconds}s`;
           return this.evaluate([timingStr, action], api, env);
@@ -3655,7 +3662,7 @@ class KidLisp {
         //   inEmbedPhase: this.inEmbedPhase,
         //   screenSize: `${api.screen?.width || 'unknown'}x${api.screen?.height || 'unknown'}`
         // });
-        
+
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           console.log("📏 DEFERRING line command");
@@ -3668,7 +3675,7 @@ class KidLisp {
           // Line deferred debug log removed for performance
           return;
         }
-        
+
         // console.log("📏 EXECUTING line command immediately");
         api.line(...args);
       },
@@ -3694,7 +3701,7 @@ class KidLisp {
           console.warn('⚠️ box function received non-array args, converting to array');
           args = Array.isArray(args) ? args : [args];
         }
-        
+
         // Handle undefined (?) values with contextual logic
         const processedArgs = args.map((arg, index) => {
           if (arg === undefined) {
@@ -3715,7 +3722,7 @@ class KidLisp {
           }
           return arg;
         });
-        
+
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3727,7 +3734,7 @@ class KidLisp {
           // Box deferred debug log removed for performance
           return;
         }
-        
+
         api.box(...processedArgs);
       },
       circle: (api, args = []) => {
@@ -3741,13 +3748,13 @@ class KidLisp {
           });
           return;
         }
-        
+
         api.circle(...args);
       },
       tri: (api, args = []) => {
         // Triangle function with 6 coordinates and optional mode
         // Usage: (tri x1 y1 x2 y2 x3 y3) or (tri x1 y1 x2 y2 x3 y3 mode)
-        
+
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3758,7 +3765,7 @@ class KidLisp {
           });
           return;
         }
-        
+
         api.tri(...args);
       },
       flood: (api, args = []) => {
@@ -3768,7 +3775,7 @@ class KidLisp {
           const x = args[0];
           const y = args[1];
           const fillColor = args[2]; // Optional color, defaults to current ink
-          
+
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
             this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3786,7 +3793,7 @@ class KidLisp {
             // Flood deferred debug log removed for performance
             return;
           }
-          
+
           if (fillColor !== undefined) {
             api.flood(x, y, processArgStringTypes(fillColor));
           } else {
@@ -3799,8 +3806,8 @@ class KidLisp {
         if (args.length === 0) return;
 
         // 🚀 FAST PATH: For performance mode with simple numeric triangles
-        if (this.performanceMode?.enabled && args.length === 6 && 
-            args.every(arg => typeof arg === 'number')) {
+        if (this.performanceMode?.enabled && args.length === 6 &&
+          args.every(arg => typeof arg === 'number')) {
           api.shape({ points: args, filled: true, thickness: 1 });
           return;
         }
@@ -3834,10 +3841,10 @@ class KidLisp {
       },
       scroll: (api, args = []) => {
         // console.log(`📜 Scroll function called with args:`, args);
-        
+
         // Handle different scroll argument formats
         let dx = 0, dy = 0;
-        
+
         // If no arguments are provided, fuzz and choose a random direction (but stick to it)
         if (!args || args.length === 0) {
           // Check if we've already chosen a direction for this session
@@ -3855,15 +3862,15 @@ class KidLisp {
           dy = this.scrollFuzzDirection[1];
           // console.log(`🎲 SCROLL fuzzing: using cached direction dx=${dx}, dy=${dy}`);
         }
-        
+
         // NEW: Check if we have a single timing expression argument like ['2s...', 1, 0, -1]
-        else if (Array.isArray(args) && args.length === 1 && Array.isArray(args[0]) && 
-            args[0].length > 0 && typeof args[0][0] === 'string' && args[0][0].endsWith('...')) {
+        else if (Array.isArray(args) && args.length === 1 && Array.isArray(args[0]) &&
+          args[0].length > 0 && typeof args[0][0] === 'string' && args[0][0].endsWith('...')) {
           // This is a timing expression like ['2s...', 1, 0, -1]
           // We need to evaluate it to get the current values
           const timingExpr = args[0];
           const result = this.evaluate([timingExpr], api);
-          
+
           // If result is an array, use it as dx, dy
           if (Array.isArray(result) && result.length >= 2) {
             dx = parseFloat(result[0]) || 0;
@@ -3878,17 +3885,17 @@ class KidLisp {
         // Check for timing pattern arrays like [["2s...", 1, 0, -1], ["3s...", -1, 0, 1]]
         else if (Array.isArray(args) && args.length > 0 && Array.isArray(args[0])) {
           // This is a timing pattern - need to evaluate which timing phase is active
-          
+
           // For now, let's see what the structure looks like and handle it properly
           const timingPhases = args;
           let activePhase = null;
-          
+
           // Evaluate each timing phase to see which one should be active
           for (let i = 0; i < timingPhases.length; i++) {
             const phase = timingPhases[i];
             if (Array.isArray(phase) && phase.length > 0) {
               const timingToken = phase[0];
-              
+
               // Check if this timing phase should be active
               if (typeof timingToken === 'string' && /^\d*\.?\d+s\.\.\.?$/.test(timingToken)) {
                 // This is a timing expression - check if it should execute
@@ -3901,7 +3908,7 @@ class KidLisp {
               }
             }
           }
-          
+
           if (activePhase && activePhase.length > 1) {
             // Extract scroll values from active phase
             const values = activePhase.slice(1);
@@ -3931,9 +3938,9 @@ class KidLisp {
             dy = parseFloat(args[1]) || 0;
           }
         }
-        
+
         //console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
-        
+
         // Only defer scroll commands from main code, not from embedded layers
         // Execute immediately if we're a nested instance or in embed phase
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
@@ -3953,7 +3960,7 @@ class KidLisp {
           });
           return;
         }
-        
+
         //console.log(`🖱️ SCROLL executing immediately: dx=${dx}, dy=${dy}`);
         if (typeof api.scroll === 'function') {
           api.scroll(dx, dy);
@@ -4008,7 +4015,7 @@ class KidLisp {
           });
           return;
         }
-        
+
         // Execute zoom immediately
         api.zoom(...args);
       },
@@ -4016,7 +4023,7 @@ class KidLisp {
         // console.log(`🌪️ Suck function called with args:`, args);
         // console.log(`🌪️ Embedded layers length:`, this.embeddedLayers?.length);
         // console.log(`🌪️ In embed phase:`, this.inEmbedPhase);
-        
+
         // Defer suck execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
           // console.log(`⏸️ Deferring suck execution due to embedded layers`);
@@ -4030,7 +4037,7 @@ class KidLisp {
           });
           return;
         }
-        
+
         // Execute suck immediately
         // console.log(`🚀 Executing suck immediately with args:`, args);
         api.suck(...args);
@@ -4052,7 +4059,7 @@ class KidLisp {
           });
           return;
         }
-        
+
         // Apply contrast immediately
         api.contrast(...args);
       },
@@ -4282,9 +4289,9 @@ class KidLisp {
         } else {
           cubeId = "0"; // Default to cube:0
         }
-        
+
         const templateKey = `cubeTemplate_${cubeId}`;
-        
+
         // Create a template cube for this ID if it doesn't exist (immutable reference)
         if (!api.system[templateKey]) {
           api.system[templateKey] = new api.Form(api.CUBEL, { pos: [0, 0, 2], rot: [0, 0, 0], scale: 1 });
@@ -4321,10 +4328,10 @@ class KidLisp {
           const transformCmd = args[i];
           if (Array.isArray(transformCmd) && transformCmd.length > 0) {
             const [cmd, ...params] = transformCmd;
-            
+
             // Evaluate ONLY the parameters, not the command itself
             const evaluatedParams = params.map(param => this.evaluate(param, api, env));
-            
+
             switch (cmd) {
               case "move":
               case "pos":
@@ -4334,7 +4341,7 @@ class KidLisp {
                   workingForm.position[2] = evaluatedParams[2] || 0;
                 }
                 break;
-                
+
               case "scale":
                 if (evaluatedParams.length === 1) {
                   const s = evaluatedParams[0] || 1;
@@ -4347,7 +4354,7 @@ class KidLisp {
                   workingForm.scale[2] = evaluatedParams[2] || 1;
                 }
                 break;
-                
+
               case "rotate":
                 if (evaluatedParams.length >= 3) {
                   workingForm.rotation[0] = evaluatedParams[0] || 0;
@@ -4355,7 +4362,7 @@ class KidLisp {
                   workingForm.rotation[2] = evaluatedParams[2] || 0;
                 }
                 break;
-                
+
               case "spin":
                 // Frame-based rotation for animation (accumulates over time)
                 if (evaluatedParams.length >= 3) {
@@ -4365,7 +4372,7 @@ class KidLisp {
                   workingForm.rotation[2] = (evaluatedParams[2] || 0) * frameCount;
                 }
                 break;
-                
+
               default:
                 console.warn(`❗ Unknown transform command: ${cmd}`);
                 break;
@@ -4375,7 +4382,7 @@ class KidLisp {
 
         // Mark as transformed for GPU
         workingForm.gpuTransformed = true;
-        
+
         return workingForm;
       },
       // Render a form
@@ -4390,7 +4397,7 @@ class KidLisp {
         const xSpeed = args[0] || 0;
         const ySpeed = args[1] || 0;
         const zSpeed = args[2] || 0;
-        
+
         const cube = api.system.cube;
         if (cube) {
           // Just increment rotation - let the graphics system handle the rest
@@ -4406,33 +4413,33 @@ class KidLisp {
         const xSpeed = args[0] || 0;
         const ySpeed = args[1] || 0;
         const zSpeed = args[2] || 0;
-        
+
         const cube = api.system.cube;
         if (cube && cube.vertices) {
           // Manually rotate vertices around cube center
           const centerX = cube.position[0];
-          const centerY = cube.position[1]; 
+          const centerY = cube.position[1];
           const centerZ = cube.position[2];
-          
+
           // Simple Y-axis rotation for now
           const rotY = ySpeed;
           const cos = Math.cos(rotY);
           const sin = Math.sin(rotY);
-          
+
           cube.vertices.forEach(vertex => {
             // Translate to origin relative to cube center
             const x = vertex.pos[0] - centerX;
             const z = vertex.pos[2] - centerZ;
-            
+
             // Rotate around Y-axis
             const newX = x * cos - z * sin;
             const newZ = x * sin + z * cos;
-            
+
             // Translate back
             vertex.pos[0] = newX + centerX;
             vertex.pos[2] = newZ + centerZ;
           });
-          
+
           cube.gpuTransformed = true;
         }
         return cube;
@@ -4442,7 +4449,7 @@ class KidLisp {
         const x = args[0] || 0;
         const y = args[1] || 0;
         const z = args[2] || -4;
-        
+
         const cube = api.system.cube;
         if (cube) {
           cube.position[0] = x;
@@ -4455,7 +4462,7 @@ class KidLisp {
       // Scale cube
       cubescale: (api, args = []) => {
         const scale = args[0] || 1;
-        
+
         const cube = api.system.cube;
         if (cube) {
           cube.scale[0] = scale;
@@ -4470,7 +4477,7 @@ class KidLisp {
         const x = args[0] || 0;
         const y = args[1] || 0;
         const z = args[2] || 0;
-        
+
         const cube = api.system.cube;
         if (cube) {
           cube.rotation[0] = x;
@@ -4541,12 +4548,12 @@ class KidLisp {
       perf: (api, args = []) => {
         // Always use singleton behavior - only execute once per module load
         const perfKey = `perf_singleton_${args.join('_')}`;
-        
+
         if (this.onceExecuted.has(perfKey)) {
           return this.perf.showHUD; // Already executed, return current state
         }
         this.onceExecuted.add(perfKey);
-        
+
         if (args.length === 0) {
           // Default: enable and show HUD
           this.startPerformanceMonitoring();
@@ -4575,19 +4582,19 @@ class KidLisp {
             // Store in window for tape system access
             if (typeof window !== 'undefined') {
               window.currentKidlispFps = targetFps;
-              
+
               // Initialize FPS timeline if it doesn't exist
               if (!window.kidlispFpsTimeline) {
                 window.kidlispFpsTimeline = [];
               }
-              
+
               // Add FPS change to timeline with current timestamp
               const timestamp = performance.now();
               window.kidlispFpsTimeline.push({
                 timestamp: timestamp,
                 fps: targetFps
               });
-              
+
               // Also update recording options if they exist (for backward compatibility)
               if (window.currentRecordingOptions) {
                 window.currentRecordingOptions.kidlispFps = targetFps;
@@ -4621,7 +4628,7 @@ class KidLisp {
           );
           return undefined;
         }
-        
+
         // 🚨 SAFETY: Prevent performance-killing massive repeat loops
         if (count > 10000) {
           console.error(
@@ -4941,29 +4948,29 @@ class KidLisp {
       // 🎲 Random selection (optimized with caching for performance)
       choose: (api, args = []) => {
         if (args.length === 0) return undefined;
-        
+
         // 🚀 PERFORMANCE: Cache small choice sets to avoid repeated array access
         if (args.length <= 8) {
           const cacheKey = JSON.stringify(args);
           if (!this.choiceCache) this.choiceCache = new Map();
-          
+
           let cachedArgs = this.choiceCache.get(cacheKey);
           if (!cachedArgs) {
             cachedArgs = [...args]; // Copy args for caching
             this.choiceCache.set(cacheKey, cachedArgs);
-            
+
             // Limit cache size to prevent memory bloat
             if (this.choiceCache.size > 100) {
               const firstKey = this.choiceCache.keys().next().value;
               this.choiceCache.delete(firstKey);
             }
           }
-          
+
           // Fast random selection from cached args
           const randomIndex = Math.floor(Math.random() * cachedArgs.length);
           return cachedArgs[randomIndex];
         }
-        
+
         // Use the help.choose function from the common API if available
         if (api.help?.choose) {
           return api.help.choose(...args);
@@ -4984,7 +4991,7 @@ class KidLisp {
           const randomIndex = Math.floor(Math.random() * args.length);
           return args[randomIndex];
         }
-        
+
         // If no arguments, return undefined (like JavaScript undefined)
         // Functions can detect this and apply their own contextual logic
         return undefined;
@@ -5074,20 +5081,20 @@ class KidLisp {
           console.warn("❗ cache function requires a nanoid argument");
           return undefined;
         }
-        
+
         let cacheId = unquoteString(args[0].toString());
-        
+
         // Strip $ prefix if present (allow both $OrqM and OrqM formats)
         if (cacheId.startsWith("$")) {
           cacheId = cacheId.slice(1);
         }
-        
+
         // Simple validation - just check it's not empty and alphanumeric
         if (!cacheId || !/^[0-9A-Za-z]+$/.test(cacheId)) {
           console.warn("❗ Invalid cache code:", cacheId);
           return cacheId; // Return as-is if not valid
         }
-        
+
         // Return a promise that fetches and evaluates the cached code
         return getCachedCodeMultiLevel(cacheId).then(source => {
           if (source) {
@@ -5234,23 +5241,23 @@ class KidLisp {
         return api.sound?.enabled?.() || false;
         // Cache speaker result across multiple frames to avoid expensive repeated calls
         if (!this.speakerCache) this.speakerCache = { result: null, timestamp: 0 };
-        
+
         const now = performance.now();
         // Use cached result if it's less than 2000ms old (ultra-aggressive caching)
         if (this.speakerCache.result !== null && (now - this.speakerCache.timestamp) < 2000) {
           return this.speakerCache.result;
         }
-        
+
         const soundEnabled = api.sound?.enabled?.() || false;
         console.log("� SPEAKER: First call this frame, sound enabled:", soundEnabled);
-        
+
         // Cache the result
         this.speakerCache.result = soundEnabled;
         this.speakerCache.timestamp = now;
-        
+
         return soundEnabled;
       },
-      
+
       // 🎨 Backdrop - shorthand for (once (wipe color)) to set background once
       backdrop: (api, args = []) => {
         if (args.length === 0) {
@@ -5264,7 +5271,7 @@ class KidLisp {
         // Only execute if this exact backdrop hasn't been executed before
         if (!this.onceExecuted.has(backdropKey)) {
           this.onceExecuted.add(backdropKey);
-          
+
           // Call wipe with the provided arguments
           if (api.wipe) {
             if (args.length === 1) {
@@ -5290,48 +5297,48 @@ class KidLisp {
 
         return undefined;
       },
-      
+
       // Programmatically add all CSS color constants to the global environment.
       ...Object.keys(cssColors).reduce((acc, colorName) => {
         acc[colorName] = () => cssColors[colorName];
         return acc;
       }, {}),
-      
+
       // Add static color codes (c0, c1, c2, etc.) using standardized mapping
       ...Object.keys(staticColorMap).reduce((acc, index) => {
         acc[`c${index}`] = () => staticColorMap[index];
         return acc;
       }, {}),
-      
+
       // Add palette codes (p0, p1, etc.)
       p0: () => "rainbow",
       p1: () => "zebra",
-      
+
       // 🍞 Bake function - creates a new painting layer by capturing current buffer state
       // Automatically prevents repeated calls within the same program execution
       bake: (api, args = []) => {
         // Create a simple key for this bake call (not using counter to avoid unique keys each time)
         const bakeKey = "bake_call";
-        
+
         // Check if bake has already been executed in this program run
         if (this.onceExecuted.has(bakeKey)) {
           return this.bakedLayers?.length || 0;
         }
-        
+
         // Mark bake as executed for this program run
         this.onceExecuted.add(bakeKey);
-        
+
         console.log("🍞 Baking current layer...");
-        
+
         // Initialize baked layers if not already done
         if (!this.bakedLayers) {
           this.bakedLayers = [];
         }
-        
+
         // Get current screen buffer dimensions
         const currentWidth = api.screen?.width || 256;
         const currentHeight = api.screen?.height || 256;
-        
+
         // Create a snapshot of the current buffer state
         if (api.screen?.pixels) {
           // Clone the current pixel buffer to preserve the "baked" state
@@ -5340,13 +5347,13 @@ class KidLisp {
             height: currentHeight,
             pixels: new Uint8ClampedArray(api.screen.pixels)
           };
-          
+
           // Store this baked layer
           this.bakedLayers.push(bakedBuffer);
           this.bakeCallCount = this.bakedLayers.length;
-          
+
           console.log(`🍞 Baked layer ${this.bakedLayers.length} (${currentWidth}x${currentHeight})`);
-          
+
           // Clear the current buffer to start fresh (optional - could be configurable)
           if (args.length === 0 || args[0] !== "keep") {
             // Manually clear the screen buffer to transparent instead of using wipe
@@ -5357,10 +5364,10 @@ class KidLisp {
         } else {
           console.warn("🍞 No screen buffer available to bake");
         }
-        
+
         return this.bakedLayers.length;
       },
-      
+
       // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
       // Usage: (embed $pie) - loads cached code in default 256x256 layer (fixed size for cache efficiency)
       //        (embed $pie 128 128) - loads cached code in 128x128 layer  
@@ -5371,37 +5378,37 @@ class KidLisp {
           console.warn("❗ embed function requires a cached code argument");
           return undefined;
         }
-        
+
         let cacheId = unquoteString(args[0].toString());
-        
+
         // Strip $ prefix if present (allow both $OrqM and OrqM formats)
         if (cacheId.startsWith("$")) {
           cacheId = cacheId.slice(1);
         }
-        
+
         // Simple validation - just check it's not empty and alphanumeric
         if (!cacheId || !/^[0-9A-Za-z]+$/.test(cacheId)) {
           console.warn("❗ Invalid cache code:", cacheId);
           return undefined;
         }
-        
+
         // Parse dimensions, position, and alpha from arguments
         // ⚡ PERFORMANCE: Use fixed default size to avoid cache invalidation on screen resize
         let width = 256, height = 256, x = 0, y = 0, alpha = 255; // Default to 256x256 and opaque
         let usesScreenDimensions = false; // Track if w/h are used for responsive sizing
-        
+
         if (args.length >= 3) {
           if (args.length === 3) {
             // (embed $pie width height)
             const widthArg = args[1];
             const heightArg = args[2];
-            
+
             // Check if using screen dimensions
-            if ((typeof widthArg === 'string' && widthArg === 'w') || 
-                (typeof heightArg === 'string' && heightArg === 'h')) {
+            if ((typeof widthArg === 'string' && widthArg === 'w') ||
+              (typeof heightArg === 'string' && heightArg === 'h')) {
               usesScreenDimensions = true;
             }
-            
+
             width = this.evaluate(args[1], api, this.localEnv) || 256;
             height = this.evaluate(args[2], api, this.localEnv) || 256;
           } else if (args.length === 4) {
@@ -5415,13 +5422,13 @@ class KidLisp {
             // (embed $pie x y width height)
             const widthArg = args[3];
             const heightArg = args[4];
-            
+
             // Check if using screen dimensions
-            if ((typeof widthArg === 'string' && widthArg === 'w') || 
-                (typeof heightArg === 'string' && heightArg === 'h')) {
+            if ((typeof widthArg === 'string' && widthArg === 'w') ||
+              (typeof heightArg === 'string' && heightArg === 'h')) {
               usesScreenDimensions = true;
             }
-            
+
             x = this.evaluate(args[1], api, this.localEnv) || 0;
             y = this.evaluate(args[2], api, this.localEnv) || 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
@@ -5430,13 +5437,13 @@ class KidLisp {
             // (embed $pie x y width height alpha)
             const widthArg = args[3];
             const heightArg = args[4];
-            
+
             // Check if using screen dimensions
-            if ((typeof widthArg === 'string' && widthArg === 'w') || 
-                (typeof heightArg === 'string' && heightArg === 'h')) {
+            if ((typeof widthArg === 'string' && widthArg === 'w') ||
+              (typeof heightArg === 'string' && heightArg === 'h')) {
               usesScreenDimensions = true;
             }
-            
+
             x = this.evaluate(args[1], api, this.localEnv) || 0;
             y = this.evaluate(args[2], api, this.localEnv) || 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
@@ -5453,14 +5460,14 @@ class KidLisp {
             }
           }
         }
-        
+
         // Ensure dimensions are positive numbers and alpha is in valid range
         width = Math.max(1, Math.floor(width));
         height = Math.max(1, Math.floor(height));
         x = Math.floor(x);
         y = Math.floor(y);
         alpha = Math.max(0, Math.min(255, Math.floor(alpha)));
-        
+
         // 🚀 PERFORMANCE OPTIMIZATION: Normalize dimensions to reduce cache fragmentation during reframe
         // Use size buckets to allow cache reuse for similar dimensions
         // BUT: Skip normalization if using screen dimensions to ensure proper responsive behavior
@@ -5473,16 +5480,16 @@ class KidLisp {
           normalizedWidth = width <= 128 ? 128 : width <= 256 ? 256 : width <= 512 ? 512 : width;
           normalizedHeight = height <= 128 ? 128 : height <= 256 ? 256 : height <= 512 ? 512 : height;
         }
-        
+
         // Include screen dimensions in cache key for responsive embeds
         const screenSuffix = usesScreenDimensions ? `_screen${api.screen.width}x${api.screen.height}` : '';
         const layerKey = `${cacheId}_${normalizedWidth}x${normalizedHeight}_${x},${y}_${alpha}${screenSuffix}`;
-        
+
         // 🔄 RESPONSIVE CACHE: Clear outdated screen-dependent entries before checking cache
         if (this.embeddedLayerCache && usesScreenDimensions) {
           const currentScreenKey = `_screen${api.screen.width}x${api.screen.height}`;
           const entriesToDelete = [];
-          
+
           for (const [key, layer] of this.embeddedLayerCache.entries()) {
             // Look for cache keys that include screen dimensions but don't match current screen
             if (key.includes('_screen') && !key.includes(currentScreenKey)) {
@@ -5493,7 +5500,7 @@ class KidLisp {
               }
             }
           }
-          
+
           // Delete the outdated screen-dependent entries
           if (entriesToDelete.length > 0) {
             entriesToDelete.forEach(key => {
@@ -5503,31 +5510,31 @@ class KidLisp {
             console.log(`✨ Cleared ${entriesToDelete.length} outdated responsive cache entries`);
           }
         }
-        
+
         // Check if this embedded layer already exists - RETURN IMMEDIATELY if found
         if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
           const existingLayer = this.embeddedLayerCache.get(layerKey);
-          
+
           // If dimensions don't match exactly, we need to handle the scaling
           if (existingLayer.width !== width || existingLayer.height !== height) {
             // Update position and alpha for this specific call
             existingLayer.x = x;
-            existingLayer.y = y; 
+            existingLayer.y = y;
             existingLayer.alpha = alpha;
-            
+
             // For performance, we'll render at the cached size but paste at the requested position
             // This avoids recreating buffers during reframe operations
           }
-        // console.log("♻️ Using existing embedded layer:", layerKey);
-          
+          // console.log("♻️ Using existing embedded layer:", layerKey);
+
           // Check if we're in a timing context (like 3s...) and if this embed should be active
           if (this.currentTimingContext) {
             const timingCtx = this.currentTimingContext;
-            
+
             // Check if this embed call matches the currently selected argument
             const selectedArg = timingCtx.selectedArg;
             let isCurrentlySelected = false;
-            
+
             if (Array.isArray(selectedArg) && selectedArg.length > 0) {
               // Check if the selected argument starts with this cache ID
               isCurrentlySelected = selectedArg[0] === `$${cacheId}`;
@@ -5535,7 +5542,7 @@ class KidLisp {
               // Check if the selected argument is this cache ID directly
               isCurrentlySelected = selectedArg === `$${cacheId}`;
             }
-            
+
             // If this embed is not the currently selected argument, skip ALL rendering and pasting
             if (!isCurrentlySelected) {
               console.log(`⏸️ SKIPPING EMBED ${cacheId} - not selected. Current:`, JSON.stringify(selectedArg));
@@ -5544,23 +5551,23 @@ class KidLisp {
               console.log(`✅ ALLOWING EMBED ${cacheId} - is selected`);
             }
           }
-          
+
           // Check if layer's timing condition should execute this frame
           // Parse the layer's source to find timing expressions like (3s... ) or (0.25s... )
           // console.log(`🔍 About to check timing for ${layerKey}`);
           // TEMPORARILY DISABLED: const shouldExecute = this.shouldLayerExecuteThisFrame(api, existingLayer);
           const shouldExecute = true; // Always execute for now
           // console.log(`🔍 Timing check result for ${layerKey}: ${shouldExecute}`);
-          
+
           if (!shouldExecute) {
             // Skipped execution debug log removed for performance
             return existingLayer;
           }
-          
+
           // Always render nested embedded layers when called from within another embedded layer
           // This ensures nested embeds like ($pie ...) and ($febs ...) actually execute
           const shouldRender = this.updateEmbeddedLayer(api, existingLayer);
-          
+
           // Always paste cached layers that have buffers - they contain valuable content even if they didn't render this frame
           if (existingLayer.buffer && api.paste) {
             console.log(`🔄 embed() calling pasteWithAlpha: buffer=${existingLayer.buffer.width}x${existingLayer.buffer.height}, pos=(${x},${y}), alpha=${existingLayer.alpha}`);
@@ -5569,20 +5576,20 @@ class KidLisp {
           } else {
             console.log(`🚫 embed() NOT calling pasteWithAlpha: hasBuffer=${!!existingLayer.buffer}, hasPaste=${!!api.paste}`);
           }
-          
+
           return existingLayer;
         }
-        
+
         // Initialize cache if needed
         if (!this.embeddedLayerCache) {
           this.embeddedLayerCache = new Map();
         }
-        
+
         // Embedded layer creation debug log removed for performance
-        
+
         // Mark this $code as loading for syntax highlighting
         this.loadingEmbeddedLayers.add(cacheId);
-        
+
         // Check if we already have the source code cached
         if (this.embeddedSourceCache.has(cacheId)) {
           const cachedSource = this.embeddedSourceCache.get(cacheId);
@@ -5594,35 +5601,35 @@ class KidLisp {
         } else {
           console.log(`❌ No cached source found for ${cacheId}, cache has:`, Array.from(this.embeddedSourceCache.keys()));
         }
-        
+
         // Check if we're already fetching this source to prevent duplicates
         const fetchKey = `${cacheId}_fetching_source`;
         if (this.embeddedLayerCache.has(fetchKey)) {
           return this.embeddedLayerCache.get(fetchKey);
         }
-        
+
         // 🚀 NON-BLOCKING APPROACH: Create placeholder layer immediately, fetch source in background
-        
+
         // Create a placeholder layer with loading indicator for immediate rendering
         const placeholderSource = `(fps 24)
 (wipe 32 32 32 128)
 (ink 200 200 200)
 (write (+ "Loading " ${JSON.stringify(cacheId)} "...") 4 4)`;
-        
+
         const placeholderLayer = this.createEmbeddedLayerFromSource(
-          placeholderSource, 
-          cacheId, 
-          layerKey, 
-          width, 
-          height, 
-          x, 
-          y, 
-          alpha, 
+          placeholderSource,
+          cacheId,
+          layerKey,
+          width,
+          height,
+          x,
+          y,
+          alpha,
           api
         );
-        
+
         console.log(`✅ Placeholder layer created for ${cacheId}:`, placeholderLayer ? 'success' : 'failed');
-        
+
         // Start background fetch without blocking the render
         const backgroundFetch = Promise.race([
           getCachedCodeMultiLevel(cacheId),
@@ -5634,11 +5641,11 @@ class KidLisp {
         ]).then(source => {
           // Remove fetch marker
           this.embeddedLayerCache.delete(fetchKey);
-          
+
           // Mark as no longer loading and now loaded
           this.loadingEmbeddedLayers.delete(cacheId);
           this.loadedEmbeddedLayers.add(cacheId);
-          
+
           if (!source) {
             source = `(fps 24)
 (wipe red)
@@ -5647,10 +5654,10 @@ class KidLisp {
 (ink green)  
 (line 64 0 64 128)`;
           }
-          
+
           // Cache the source code for future use
           this.embeddedSourceCache.set(cacheId, source);
-          
+
           // Update the existing layer with real source code
           if (placeholderLayer && this.embeddedLayerCache.has(layerKey)) {
             const existingLayer = this.embeddedLayerCache.get(layerKey);
@@ -5659,21 +5666,21 @@ class KidLisp {
               if (existingLayer.buffer && existingLayer.buffer.pixels) {
                 existingLayer.buffer.pixels.fill(0);
               }
-              
+
               // Update with real source and reparse
               existingLayer.source = source;
               existingLayer.sourceCode = source;
               existingLayer.kidlispInstance.source = source; // Store in instance for dynamic content detection
               existingLayer.parsedCode = existingLayer.kidlispInstance.parse(source);
-              
+
               // Reset timing for fresh start
               existingLayer.localFrameCount = 0;
               existingLayer.timingPattern = this.extractTimingPattern(source);
-              
+
               console.log(`🔄 Updated embedded layer ${cacheId} with real source code`);
             }
           }
-          
+
           return placeholderLayer;
         }).catch(error => {
           console.error("❌ Error fetching embedded layer source:", cacheId, error);
@@ -5681,24 +5688,24 @@ class KidLisp {
           this.embeddedLayerCache.delete(fetchKey);
           return placeholderLayer; // Return placeholder even on error
         });
-        
+
         // Store the background fetch promise but don't wait for it
         this.embeddedLayerCache.set(fetchKey, backgroundFetch);
-        
+
         // Return the placeholder layer immediately for non-blocking render
         return placeholderLayer;
       },
-      
+
       // 🚀 Navigation function - jump to another piece
       jump: (api, args = [], env) => {
         if (args.length === 0) {
           console.warn("❗ jump function requires a destination argument");
           return;
         }
-        
+
         // Special handling for $code arguments - don't evaluate them, use as strings
         let destination = args[0];
-        
+
         // If it's a $code token (string starting with $), use it directly
         if (typeof destination === "string" && destination.startsWith("$")) {
           // Keep the $code as-is for the jump
@@ -5709,7 +5716,7 @@ class KidLisp {
         } else {
           // For other types, evaluate them first
           destination = this.evaluate(destination, api, env);
-          
+
           // Handle the result of evaluation
           if (typeof destination === "object" && destination !== null) {
             // If it's an object (like from $code evaluation), convert to string
@@ -5724,11 +5731,11 @@ class KidLisp {
             destination = String(destination);
           }
         }
-        
+
         // 🚀 Optimization: Check cache for $code destinations
         if (typeof destination === "string" && destination.startsWith("$")) {
           const cacheId = destination.slice(1); // Remove $ prefix
-          
+
           // Check if we have the code cached locally
           if (globalCodeCache.has(cacheId)) {
             console.log(`🚀 KidLisp fast-jumping to cached code: ${destination} (no network request needed)`);
@@ -5736,11 +5743,11 @@ class KidLisp {
             console.log(`🚀 KidLisp jumping to ${destination} (will check IndexedDB and network if needed)`);
           }
         }
-        
+
         // Optional parameters for jump function
         const ahistorical = args.length > 1 ? args[1] : false;
         const alias = args.length > 2 ? args[2] : false;
-        
+
         // Call the underlying jump API function
         if (api.jump) {
           console.log("🚀 KidLisp jumping to:", destination);
@@ -5758,7 +5765,7 @@ class KidLisp {
   contextAwareRandom(functionName, argIndex, api) {
     const width = api.screen?.width || 256;
     const height = api.screen?.height || 256;
-    
+
     // Define context-aware ranges for different functions and argument positions
     const contextRanges = {
       box: [
@@ -5806,14 +5813,14 @@ class KidLisp {
         { min: 32, max: 512 },    // height (arg 6 in 5-arg version)
       ],
     };
-    
+
     // Get the range for this function and argument index
     const functionRanges = contextRanges[functionName];
     if (functionRanges && functionRanges[argIndex]) {
       const range = functionRanges[argIndex];
       return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
     }
-    
+
     // Default range if no specific context is defined
     return Math.floor(Math.random() * 256);
   }
@@ -5907,31 +5914,31 @@ class KidLisp {
     // 🚀 ULTRA-PERFORMANCE: Optimize complex positioning expressions like (mod (+ (* i 67) (* frame 0.5)) width)
     if (Array.isArray(expr) && expr.length === 3 && expr[0] === "mod") {
       const [, innerExpr, modulus] = expr;
-      
+
       // Handle (mod (+ (* i N) (* frame M)) dimension) pattern
       if (Array.isArray(innerExpr) && innerExpr.length === 3 && innerExpr[0] === "+") {
         const [, leftTerm, rightTerm] = innerExpr;
-        
+
         // Check if both terms are multiplication expressions
         if (Array.isArray(leftTerm) && leftTerm.length === 3 && leftTerm[0] === "*" &&
-            Array.isArray(rightTerm) && rightTerm.length === 3 && rightTerm[0] === "*") {
-          
+          Array.isArray(rightTerm) && rightTerm.length === 3 && rightTerm[0] === "*") {
+
           // Fast evaluation of both multiplication terms
           const leftResult = this.fastEval(leftTerm[1], api, env) * this.fastEval(leftTerm[2], api, env);
           const rightResult = this.fastEval(rightTerm[1], api, env) * this.fastEval(rightTerm[2], api, env);
           const sum = leftResult + rightResult;
           const modValue = this.fastEval(modulus, api, env);
-          
+
           if (typeof sum === "number" && typeof modValue === "number" && modValue !== 0) {
             return sum % modValue;
           }
         }
       }
-      
+
       // Fallback: evaluate inner expression and apply modulo
       const innerValue = this.fastEval(innerExpr, api, env);
       const modValue = this.fastEval(modulus, api, env);
-      
+
       if (typeof innerValue === "number" && typeof modValue === "number" && modValue !== 0) {
         return innerValue % modValue;
       }
@@ -5941,19 +5948,19 @@ class KidLisp {
     // Patterns like (- (/ width 2) 8), (+ (/ width 2) 8), etc.
     if (Array.isArray(expr) && expr.length === 3) {
       const [op, left, right] = expr;
-      
+
       // Pattern: (- (/ width 2) offset) or (+ (/ width 2) offset)
       if ((op === "+" || op === "-") && Array.isArray(left) && left.length === 3) {
         const [innerOp, innerLeft, innerRight] = left;
-        
+
         // Check for (/ width 2) or (/ height 2) pattern
-        if (innerOp === "/" && typeof innerLeft === "string" && 
-            (innerLeft === "width" || innerLeft === "height") && 
-            typeof innerRight === "number" && innerRight === 2) {
-          
+        if (innerOp === "/" && typeof innerLeft === "string" &&
+          (innerLeft === "width" || innerLeft === "height") &&
+          typeof innerRight === "number" && innerRight === 2) {
+
           const dimension = this.fastEval(innerLeft, api, env);
           const offset = this.fastEval(right, api, env);
-          
+
           if (typeof dimension === "number" && typeof offset === "number") {
             const halfDimension = dimension / 2;
             return op === "+" ? halfDimension + offset : halfDimension - offset;
@@ -5971,30 +5978,30 @@ class KidLisp {
     // � ULTRA-PERFORMANCE: Pre-cache common functions to avoid repeated lookups
     if (!this.globalFunctionCache) {
       this.globalFunctionCache = new Map();
-      
+
       // Pre-populate cache with most common functions to avoid expensive lookups
       const globalEnv = this.getGlobalEnv();
       const commonFunctions = ['ink', 'box', 'line', 'circle', 'write', 'repeat', 'choose', 'blur', 'shape', 'tri', 'wipe'];
-      
+
       for (const funcName of commonFunctions) {
         if (globalEnv[funcName]) {
           this.globalFunctionCache.set(funcName, { type: "global", value: globalEnv[funcName] });
         }
       }
-      
+
       // console.log(`🚀 Pre-cached ${this.globalFunctionCache.size} common functions for performance`);
     }
-    
+
     // 🚀 FAST PATH: Check global function cache first for common functions
     if (this.globalFunctionCache.has(head)) {
       return this.globalFunctionCache.get(head);
     }
-    
+
     // �🔍 DEBUG: Log function resolution for performance tracking (only for uncached functions now)
     // if (['repeat', 'blur', 'shape', 'write', 'choose', 'ink'].includes(head)) {
-      // console.log(`🔍 RESOLVE: Function '${head}' being resolved (cache miss)`);
+    // console.log(`🔍 RESOLVE: Function '${head}' being resolved (cache miss)`);
     // }
-    
+
     // Check local cache
     const cacheKey = `${head}_${this.localEnvLevel}`;
     if (this.functionCache.has(cacheKey)) {
@@ -6038,9 +6045,9 @@ class KidLisp {
         result = { type: "global", value: this.getGlobalEnv()[head] };
       }
       // SPECIAL CASE: In embedded layers, prioritize embedded API for certain functions
-      else if (this.isNestedInstance && api && typeof api[head] === "function" && 
-          (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'suck' ||
-           head === 'contrast' || head === 'shear' || head === 'brightness' || head === 'line')) {
+      else if (this.isNestedInstance && api && typeof api[head] === "function" &&
+        (head === 'scroll' || head === 'spin' || head === 'zoom' || head === 'suck' ||
+          head === 'contrast' || head === 'shear' || head === 'brightness' || head === 'line')) {
         result = { type: "api", value: api[head] };
       } else if (existing(this.localEnv[head])) {
         result = { type: "local", value: this.localEnv[head] };
@@ -6070,17 +6077,17 @@ class KidLisp {
 
     // 🔍 DEBUG: Track expensive evaluations - disabled for performance
     const shouldLog = false;  // Completely disable evaluation logging for performance
-    
+
     // 🔍 PERFORMANCE DEBUG: Log slow operations  
     let perfTimer;
     if (shouldLog) {
-      const exprName = Array.isArray(parsed) ? 
-        `${parsed[0]}${parsed.length > 1 ? '(...)' : ''}` : 
+      const exprName = Array.isArray(parsed) ?
+        `${parsed[0]}${parsed.length > 1 ? '(...)' : ''}` :
         String(parsed).substring(0, 20);
       // console.log(`🔍 EVAL START: ${exprName}`);
       perfTimer = performance.now();
     }
-    
+
     if (shouldLog) {
       // console.log(`🐌 EVAL START: ${Array.isArray(parsed) ? parsed[0] : 'primitive'} (depth: ${this.evalDepth || 0})`);
     }
@@ -6088,7 +6095,7 @@ class KidLisp {
     // �🚨 RECURSION LIMITER: Prevent runaway evaluation loops
     if (!this.evalDepth) this.evalDepth = 0;
     this.evalDepth++;
-    
+
     // 🚀 PERFORMANCE: Simple frame-level caching for expensive expressions
     const needsCaching = Array.isArray(parsed) && parsed.length > 0;
     let cacheKey = null;
@@ -6096,18 +6103,18 @@ class KidLisp {
       // Create a simple cache key from the expression structure
       const head = parsed[0];
       // Only cache mathematical operations that are pure and don't contain time-varying variables
-      if (typeof head === 'string' && 
-          (head === 'sin' || head === 'cos' || head === 'mod' || head === '+' || head === '-' || 
-           head === '*' || head === '/' || head === 'min' || head === 'max' || head === 'abs')) {
-        
+      if (typeof head === 'string' &&
+        (head === 'sin' || head === 'cos' || head === 'mod' || head === '+' || head === '-' ||
+          head === '*' || head === '/' || head === 'min' || head === 'max' || head === 'abs')) {
+
         // Check if expression contains time-varying variables that shouldn't be cached
         const exprString = JSON.stringify(parsed);
-        const hasTimeVars = exprString.includes('frame') || exprString.includes('amplitude') || 
-                           exprString.includes('clock') || exprString.includes('speaker') ||
-                           exprString.includes('"i"') || exprString.includes('"j"') || 
-                           exprString.includes('"n"') || exprString.includes('"x"') || 
-                           exprString.includes('"y"') || exprString.includes('random');
-        
+        const hasTimeVars = exprString.includes('frame') || exprString.includes('amplitude') ||
+          exprString.includes('clock') || exprString.includes('speaker') ||
+          exprString.includes('"i"') || exprString.includes('"j"') ||
+          exprString.includes('"n"') || exprString.includes('"x"') ||
+          exprString.includes('"y"') || exprString.includes('random');
+
         // Only cache if it doesn't contain time-varying variables
         if (!hasTimeVars) {
           cacheKey = exprString + '_' + this.frameCount;
@@ -6121,7 +6128,7 @@ class KidLisp {
         }
       }
     }
-    
+
     // Set KidLisp context for dynamic fade evaluation
     if (api.setKidLispContext) {
       api.setKidLispContext(this, api, env);
@@ -6208,7 +6215,7 @@ class KidLisp {
     if (body.length > 0 && !parsed.body) {
       const firstItem = body[0];
       let colorName = null;
-      
+
       // Check if it's a bare string color name (first-line shorthand)
       if (typeof firstItem === "string") {
         colorName = firstItem;
@@ -6217,11 +6224,11 @@ class KidLisp {
       else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
         colorName = firstItem[0];
       }
-      
+
       if (colorName) {
         const globalEnv = this.getGlobalEnv();
         let isValidFirstLineColor = false;
-        
+
         // Check if it's a color name in cssColors (not just any function)
         if (cssColors && cssColors[colorName]) {
           isValidFirstLineColor = true;
@@ -6234,7 +6241,7 @@ class KidLisp {
             isValidFirstLineColor = true;
           }
         }
-        
+
         if (isValidFirstLineColor) {
           try {
             // Test if this is a color function by calling it (only for non-fade strings)
@@ -6247,17 +6254,17 @@ class KidLisp {
             const backdropKey = `first_line_backdrop_${colorName}_${position}`;
             if (!this.onceExecuted.has(backdropKey)) {
               this.onceExecuted.add(backdropKey);
-              
+
               // Set the background fill color for reframe operations
               if (api.backgroundFill) {
                 api.backgroundFill(colorName);
               }
-              
+
               // Apply wipe once for first-line color shorthand
               if (api.wipe) {
                 api.wipe(colorName);
               }
-              
+
               // Only remove the first item when backdrop is actually applied
               console.log("🎨 Removing first item from body (backdrop applied)");
               body = body.slice(1);
@@ -6297,7 +6304,7 @@ class KidLisp {
     if (this.pendingTimingTriggers && this.pendingTimingTriggers.size > 0) {
       const toTrigger = [];
       const toKeep = new Map();
-      
+
       for (const [timingKey, pending] of this.pendingTimingTriggers) {
         pending.frameDelay--;
         if (pending.frameDelay <= 0) {
@@ -6308,9 +6315,9 @@ class KidLisp {
           toKeep.set(timingKey, pending);
         }
       }
-      
+
       this.pendingTimingTriggers = toKeep;
-      
+
       // Trigger the pending timing expressions
       for (const pending of toTrigger) {
         this.markTimingTriggered(pending.head);
@@ -6324,7 +6331,7 @@ class KidLisp {
       if (this.perf.bodyProcessCount % 500 === 0) {
         console.warn(`🔥 BODY PROCESSING ${this.perf.bodyProcessCount} TIMES! Body length: ${body.length}`);
       }
-      
+
       // Only stop in truly pathological cases
       if (this.perf.bodyProcessCount > 5000) {
         console.error(`🚨 PATHOLOGICAL BODY PROCESSING: ${this.perf.bodyProcessCount} calls! Likely infinite recursion.`);
@@ -6339,17 +6346,17 @@ class KidLisp {
       const item = body[bodyIndex];
       // console.log("🥡 Processing item:", JSON.stringify(item), "type:", Array.isArray(item) ? "array" : typeof item);
       /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
-      
+
       // Handle optimized functions first
       if (item && typeof item === "object" && item.optimized) {
         perfStart("optimized-execution");
-        
+
         // Track function call performance
         const optFuncStart = performance.now();
         result = item.func(api);
         const optFuncEnd = performance.now();
         this.trackFunction(`opt:${item.name || 'anonymous'}`, optFuncEnd - optFuncStart);
-        
+
         perfEnd("optimized-execution");
         continue;
       }
@@ -6357,7 +6364,7 @@ class KidLisp {
       if (Array.isArray(item)) {
         // The first element indicates the function to call
         let [head, ...args] = item;
-        
+
         // Preprocess arguments to evaluate any fade strings
         args = args.map(arg => {
           if (typeof arg === "string" && arg.startsWith("fade:")) {
@@ -6367,7 +6374,7 @@ class KidLisp {
               const fadePrefix = fadeParts[0]; // "fade"
               const colors = fadeParts[1]; // "red-blue"
               const direction = fadeParts[2]; // "frame" or "30" or expression
-              
+
               // Try to evaluate the direction part
               let evaluatedDirection = direction;
               try {
@@ -6378,17 +6385,22 @@ class KidLisp {
                 } else {
                   // Try to evaluate as KidLisp expression/variable
                   let evalResult;
-                  
-                  // Special handling for function names like "frame"
-                  const globalEnv = this.getGlobalEnv();
-                  if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
-                    // It's a function, call it with the API
-                    evalResult = globalEnv[direction](api);
+
+                  // Special handling for "frame" keyword
+                  if (direction === "frame") {
+                    evalResult = this.frameCount;
                   } else {
-                    // Try to evaluate as expression or variable
-                    evalResult = this.evaluate(direction, api, env);
+                    // Special handling for function names
+                    const globalEnv = this.getGlobalEnv();
+                    if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                      // It's a function, call it with the API
+                      evalResult = globalEnv[direction](api);
+                    } else {
+                      // Try to evaluate as expression or variable
+                      evalResult = this.evaluate(direction, api, env);
+                    }
                   }
-                  
+
                   // Convert result to string for the fade string
                   evaluatedDirection = String(evalResult);
                 }
@@ -6396,7 +6408,7 @@ class KidLisp {
                 console.warn("Failed to evaluate fade direction:", direction, error);
                 evaluatedDirection = direction; // Fallback to original
               }
-              
+
               // Return the evaluated fade string
               return `${fadePrefix}:${colors}:${evaluatedDirection}`;
             }
@@ -6421,12 +6433,12 @@ class KidLisp {
         } else if (typeof head === "string" && /^\d*\.?\d+s!?$/.test(head)) {
           // Handle second-based timing like "0s", "1s", "2s", "5s", "1.5s", "0.3s"
           // Also handle instant trigger modifier like "0.25s!", "1s!", "2s!"
-          
+
           // console.log(`⏰ TIMING DETECTED: ${head}, isTopLevel: ${isTopLevel}, args:`, args);
-          
+
           // Note: We process timing expressions at any level in embedded layers, 
           // but only top-level timers get immediate first execution
-          
+
           const hasInstantTrigger = head.endsWith("!");
           const timeString = hasInstantTrigger ? head.slice(0, -1) : head;
           const seconds = parseFloat(timeString.slice(0, -1)); // Remove 's' and parse as float
@@ -6480,9 +6492,9 @@ class KidLisp {
             const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
 
             // DEBUG: Log simulation time for 0.3s expressions
-            if (head === "0.3s") {
-              console.log(`🔍 TIMING DEBUG: ${head} - simulation currentTime=${currentTime.toFixed(3)}s`);
-            }
+            // if (head === "0.3s") {
+            //   console.log(`🔍 TIMING DEBUG: ${head} - simulation currentTime=${currentTime.toFixed(3)}s`);
+            // }
 
             // Create a unique key for this timing expression - use simpler key generation
             const timingKey = head + "_" + args.length;
@@ -6491,73 +6503,71 @@ class KidLisp {
             // Initialize lastExecution to current time if not set
             if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
               this.lastSecondExecutions[timingKey] = currentTime;
-              
+
               // First-line timer rule: If this is the first expression (bodyIndex === 0),
               // execute it immediately on the first frame
               if (bodyIndex === 0) {
-                console.log(`🚀 FIRST-LINE TIMER: ${head} executing immediately (bodyIndex=${bodyIndex})`);
-                
                 // Mark timing as triggered for blink effect
                 this.markTimingTriggered(head);
                 this.markDelayTimerActive(head);
-                
+
                 // Execute immediately
                 const wasInEmbedPhase = this.inEmbedPhase;
                 this.inEmbedPhase = true;
-                
+
                 let timingResult;
                 for (const arg of args) {
                   timingResult = this.fastEval(arg, api, env);
                 }
-                
+
                 this.inEmbedPhase = wasInEmbedPhase;
                 result = timingResult;
                 continue; // Skip normal timing logic for this first execution
               }
             }
-            
+
             {
-            // Normal timing logic for subsequent calls
-            const lastExecution = this.lastSecondExecutions[timingKey];
-            const diff = currentTime - lastExecution;
+              // Normal timing logic for subsequent calls
+              const lastExecution = this.lastSecondExecutions[timingKey];
+              const diff = currentTime - lastExecution;
 
-            // DEBUG: Log timing calculations for 0.3s expressions
-            if (head === "0.3s") {
-              console.log(`🔍 TIMING DEBUG: ${head} - currentTime=${currentTime.toFixed(3)}s, lastExecution=${lastExecution.toFixed(3)}s, diff=${diff.toFixed(3)}s, needed=${seconds}s`);
-            }
+              // DEBUG: Log timing calculations for 0.3s expressions
+              // if (head === "0.3s") {
+              //   console.log(`🔍 TIMING DEBUG: ${head} - currentTime=${currentTime.toFixed(3)}s, lastExecution=${lastExecution.toFixed(3)}s, diff=${diff.toFixed(3)}s, needed=${seconds}s`);
+              // }
 
-            // Add small tolerance for floating-point precision issues
-            // Use a 5ms tolerance to prevent rapid fire due to precision errors
-            const tolerance = 0.005; // 5 milliseconds in seconds
-            const adjustedSeconds = Math.max(seconds, tolerance);
+              // Add small tolerance for floating-point precision issues
+              // Use a 5ms tolerance to prevent rapid fire due to precision errors
+              const tolerance = 0.005; // 5 milliseconds in seconds
+              const adjustedSeconds = Math.max(seconds, tolerance);
 
-            // Check if enough time has passed since last execution
-            if (diff >= adjustedSeconds) {
-              this.lastSecondExecutions[timingKey] = currentTime;                // console.log(`⏰ TIMING EXECUTE: ${head} executing after ${diff}s (needed ${adjustedSeconds}s)`);
+              // Check if enough time has passed since last execution
+              if (diff >= adjustedSeconds) {
+                this.lastSecondExecutions[timingKey] = currentTime;                // console.log(`⏰ TIMING EXECUTE: ${head} executing after ${diff}s (needed ${adjustedSeconds}s)`);
 
                 // Mark timing as triggered for blink effect first
                 this.markTimingTriggered(head); // Trigger blink
                 this.markDelayTimerActive(head); // Mark as active for display period
-                
+
                 // Execute immediately - no setTimeout needed for frame-based timing!
                 // console.log(`🔥 TIMING EXECUTION: ${head} starting with args:`, args);
                 // console.log(`🔥 TIMING CONTEXT: isEmbeddedContext=${this.isEmbeddedContext}, inEmbedPhase=${this.inEmbedPhase}`);
-                
+
                 // Preserve embedded context for timing execution
                 const wasInEmbedPhase = this.inEmbedPhase;
                 this.inEmbedPhase = true; // Force embed phase during timing execution
-                
+
                 let timingResult;
                 for (const arg of args) {
                   // console.log(`🔥 TIMING ARG: evaluating`, arg);
                   timingResult = this.fastEval(arg, api, env);
                   // console.log(`🔥 TIMING ARG RESULT:`, timingResult);
                 }
-                
+
                 // Restore previous embed phase
                 this.inEmbedPhase = wasInEmbedPhase;
                 // console.log(`🔥 TIMING EXECUTION: ${head} completed`);
-                
+
                 // Return the result directly instead of placeholder
                 result = timingResult;
               }
@@ -6569,9 +6579,9 @@ class KidLisp {
           /^\d*\.?\d+s\.\.\.?$/.test(head)
         ) {
           // Handle timed iteration like "1s...", "2s...", "1.5s..."
-          
+
           // ✅ Allow timing expressions to work both at top-level and as function arguments
-          
+
           const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
           // Get current time directly using Date.now() instead of evaluating clock function
@@ -6590,7 +6600,7 @@ class KidLisp {
               this.sequenceCounters = new Map();
             }
             this.sequenceCounters.set(timingKey, 0);
-            
+
             // Only mark as triggered for immediate execution if this is the first expression
             if (bodyIndex === 0) {
               // Schedule the blink trigger after a delay to let syntax highlighting show
@@ -6610,7 +6620,7 @@ class KidLisp {
           // Check if enough time has passed to advance to next item
           if (diff >= seconds) {
             this.lastSecondExecutions[timingKey] = currentTime;
-            
+
             // Mark timing as triggered for red blink effect
             this.markTimingTriggered(head);
 
@@ -6623,10 +6633,10 @@ class KidLisp {
           // Always return the current item (not just when advancing)
           if (args.length > 0) {
             const currentIndex = this.sequenceCounters.get(timingKey) || 0;
-            
+
             // 🐛 DEBUG: Log timing execution details for debugging zoom issues
-            if (head === "0.1s" && args.some(arg => 
-              (Array.isArray(arg) && arg[0] === "zoom") || 
+            if (head === "0.1s" && args.some(arg =>
+              (Array.isArray(arg) && arg[0] === "zoom") ||
               (typeof arg === "string" && arg.includes("zoom"))
             )) {
               console.log(`⏰ DEBUG TIMER [${head}]: executing arg ${currentIndex} of ${args.length}`, {
@@ -6639,7 +6649,7 @@ class KidLisp {
                 shouldAdvance: diff >= seconds
               });
             }
-            
+
             // Track the active timing expression for syntax highlighting
             this.activeTimingExpressions.set(timingKey, {
               currentIndex,
@@ -6647,13 +6657,13 @@ class KidLisp {
               timingToken: head,
               args: args
             });
-            
+
             // Signal syntax highlighting for timing expressions
             for (let i = 0; i < args.length; i++) {
               const color = i === currentIndex ? "olive" : "255,255,255,0"; // Active: olive, Inactive: transparent
               this.signalSyntaxHighlight(args[i], color);
             }
-            
+
             // Store the current timing context for embed functions to access
             this.currentTimingContext = {
               timingKey,
@@ -6662,12 +6672,12 @@ class KidLisp {
               args: args,
               selectedArg: args[currentIndex] // Add the currently selected argument for easy comparison
             };
-            
+
             // Evaluate the selected argument instead of just returning it
             const selectedArg = args[currentIndex];
-            
+
             // Timing sequences work correctly now
-            
+
             // For timing expressions, handle bare strings as potential function calls
             let result;
             if (typeof selectedArg === "string") {
@@ -6684,7 +6694,7 @@ class KidLisp {
                   const fadePrefix = fadeParts[0]; // "fade"
                   const colors = fadeParts[1]; // "red-blue"
                   const direction = fadeParts[2]; // "frame" or "30" or expression
-                  
+
                   // Try to evaluate the direction part
                   let evaluatedDirection = direction;
                   try {
@@ -6695,7 +6705,7 @@ class KidLisp {
                     } else {
                       // Try to evaluate as KidLisp expression/variable
                       let evalResult;
-                      
+
                       // Special handling for function names like "frame"
                       const globalEnv = this.getGlobalEnv();
                       if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
@@ -6705,7 +6715,7 @@ class KidLisp {
                         // Try to evaluate as expression or variable
                         evalResult = this.evaluate(direction, api, env);
                       }
-                      
+
                       // Convert result to string for the fade string
                       evaluatedDirection = String(evalResult);
                     }
@@ -6713,10 +6723,10 @@ class KidLisp {
                     console.warn("Failed to evaluate fade direction:", direction, error);
                     evaluatedDirection = direction; // Fallback to original
                   }
-                  
+
                   // Reconstruct the fade string with evaluated direction
                   const evaluatedFadeString = `${fadePrefix}:${colors}:${evaluatedDirection}`;
-                  
+
                   // Call ink() with the evaluated fade string
                   if (api.ink && typeof api.ink === "function") {
                     api.ink(evaluatedFadeString);
@@ -6748,18 +6758,18 @@ class KidLisp {
             } else {
               // Evaluate the selected argument - this should return the actual value
               result = this.evaluate(selectedArg, api, env);
-              
+
               // IMPORTANT: Make sure we return a valid value, not undefined
               if (result === undefined || result === null) {
                 result = selectedArg;
               }
             }
-            
+
             // Clear timing context after evaluation
             this.currentTimingContext = null;
-            
+
             // Timing results work correctly now
-            
+
             // IMPORTANT: Return result if this is the only expression being evaluated (function argument context)
             // Otherwise, store result and continue processing for top-level timing expressions
             if (body.length === 1) {
@@ -6768,7 +6778,7 @@ class KidLisp {
             }
             // Multiple expressions context - continue processing
           }
-          
+
           continue; // Skip normal function processing
         }
 
@@ -6843,12 +6853,12 @@ class KidLisp {
 
         if (resolved) {
           const { type, value } = resolved;
-          
+
           // Debug logging for zoom function specifically
           if (head === "zoom") {
             // console.log("🎯 Zoom function resolved:", { type, valueType: typeof value });
           }
-          
+
           // Debug logging for scroll function specifically
           if (head === "scroll") {
             // console.log("📜 Scroll function resolved:", { type, valueType: typeof value });
@@ -6910,14 +6920,14 @@ class KidLisp {
                     if (arg === "?") {
                       return this.contextAwareRandom(head, index, api);
                     }
-                    
+
                     if (
                       Array.isArray(arg) ||
                       (typeof arg === "string" && !/^".*"$/.test(arg))
                     ) {
                       // Check if this is a timing expression that needs full evaluation
-                      if (Array.isArray(arg) && arg.length > 0 && 
-                          typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
+                      if (Array.isArray(arg) && arg.length > 0 &&
+                        typeof arg[0] === "string" && /^\d*\.?\d+s\.\.\.?$/.test(arg[0])) {
                         // Use full evaluation for timing expressions
                         const result = this.evaluate([arg], api, this.localEnv);
                         return result;
@@ -6942,7 +6952,7 @@ class KidLisp {
                   if (head === "suck") {
                     // console.log("🌪️ Executing global suck function with args:", processedArgs);
                   }
-                  
+
                   // Track function call performance
                   const funcStart = performance.now();
                   result = value(api, processedArgs, env, colon);
@@ -6962,7 +6972,7 @@ class KidLisp {
               // User-defined functions - use fast evaluation for arguments
               const evaluatedArgs = args.map((arg) =>
                 Array.isArray(arg) ||
-                (typeof arg === "string" && !/^".*"$/.test(arg))
+                  (typeof arg === "string" && !/^".*"$/.test(arg))
                   ? this.fastEval(arg, api, this.localEnv)
                   : arg,
               );
@@ -6981,23 +6991,23 @@ class KidLisp {
               // API functions - use fast evaluation for arguments
               const apiArgs = args.map((arg) =>
                 Array.isArray(arg) ||
-                (typeof arg === "string" && !/^".*"$/.test(arg))
+                  (typeof arg === "string" && !/^".*"$/.test(arg))
                   ? this.fastEval(arg, api, this.localEnv)
                   : arg,
               );
-              
+
               // Debug logging for zoom API execution
               if (head === "zoom") {
                 // console.log("🚀 Executing API zoom function with args:", apiArgs);
                 // console.log("🚀 API zoom function:", typeof value, value.toString().substring(0, 100));
               }
-              
+
               // Debug logging for scroll API execution  
               if (head === "scroll") {
                 // console.log("📜 Executing API scroll function with args:", apiArgs);
                 // console.log("📜 API scroll function:", typeof value, value.toString().substring(0, 100));
               }
-              
+
               // Track function call performance
               const apiFuncStart = performance.now();
               result = value(...apiArgs);
@@ -7009,7 +7019,7 @@ class KidLisp {
               // Cached function calls (like $pie) - use fast evaluation for arguments
               const cacheArgs = args.map((arg) =>
                 Array.isArray(arg) ||
-                (typeof arg === "string" && !/^".*"$/.test(arg))
+                  (typeof arg === "string" && !/^".*"$/.test(arg))
                   ? this.fastEval(arg, api, this.localEnv)
                   : arg,
               );
@@ -7052,7 +7062,7 @@ class KidLisp {
               const colonSplit = item.split(":");
               const head = colonSplit[0];
               const colon = colonSplit[1];
-              
+
               // Look up the function and call it with the colon parameter
               const globalEnv = this.getGlobalEnv();
               if (globalEnv[head] && typeof globalEnv[head] === "function") {
@@ -7106,8 +7116,8 @@ class KidLisp {
     if (shouldLog && perfTimer) {
       const totalTime = performance.now() - perfTimer;
       if (totalTime > 5.0) {  // Only log operations taking more than 5ms
-        const exprName = Array.isArray(parsed) ? 
-          `${parsed[0]}${parsed.length > 1 ? '(...)' : ''}` : 
+        const exprName = Array.isArray(parsed) ?
+          `${parsed[0]}${parsed.length > 1 ? '(...)' : ''}` :
           String(parsed).substring(0, 20);
         // console.log(`🔍 EVAL END: ${exprName} took ${totalTime.toFixed(2)}ms`);
       }
@@ -7263,7 +7273,7 @@ class KidLisp {
           const exprText = source.substring(i, j);
 
           // Only add top-level expressions to avoid overlaps
-          const isNested = positions.some(pos => 
+          const isNested = positions.some(pos =>
             exprStart > pos.start && exprStart < pos.end
           );
 
@@ -7275,7 +7285,7 @@ class KidLisp {
               isExpression: true,
             });
           }
-          
+
           i = j; // Skip past this expression
         } else {
           i++; // Unmatched opening paren, move forward
@@ -7314,7 +7324,7 @@ class KidLisp {
     try {
       // Tokenize the source code for proper syntax highlighting
       const tokens = tokenize(this.syntaxHighlightSource);
-      
+
       if (tokens.length === 0) {
         return `\\white\\${this.syntaxHighlightSource}`;
       }
@@ -7323,31 +7333,31 @@ class KidLisp {
       let result = "";
       let sourceIndex = 0;
       let lastColor = null;
-      
+
       for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i];
         const color = this.getTokenColor(token, tokens, i);
-        
+
         // Safety check: ensure color is defined
         if (!color) {
           console.warn(`⚠️ getTokenColor returned undefined for token:`, token, `at index:`, i);
           continue; // Skip this token if color is undefined
         }
-        
+
         // Find the token in the original source starting from our current position
         const tokenIndex = this.syntaxHighlightSource.indexOf(token, sourceIndex);
-        
+
         if (tokenIndex !== -1) {
           // Add any whitespace/formatting between the last token and this one
           const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
           result += whitespace;
-          
+
           // Special handling for compound colors (like $codes)
           if (color.startsWith("COMPOUND:")) {
             const parts = color.split(":");
             const prefixColor = parts[1]; // Color for $ symbol
             const identifierColor = parts[2]; // Color for identifier part
-            
+
             // Apply prefix color to $ symbol
             result += `\\${prefixColor}\\$`;
             // Apply identifier color to rest of token
@@ -7373,7 +7383,7 @@ class KidLisp {
               result += `\\${charColor}\\${token[charIndex]}`;
             }
             lastColor = null; // Reset so next token gets proper color
-          } 
+          }
           // Special handling for fade expressions like "fade:red-blue-yellow"
           else if (token.startsWith("fade:") && color === "mediumseagreen") {
             // Parse the fade expression and color each part
@@ -7389,17 +7399,17 @@ class KidLisp {
             // Add the token itself normally
             result += token;
           }
-          
+
           // Update our position in the source
           sourceIndex = tokenIndex + token.length;
         }
       }
-      
+
       // Add any remaining whitespace at the end
       if (sourceIndex < this.syntaxHighlightSource.length) {
         result += this.syntaxHighlightSource.substring(sourceIndex);
       }
-      
+
       return result;
     } catch (error) {
       console.warn("Error building colored kidlisp string:", error);
@@ -7426,7 +7436,7 @@ class KidLisp {
           };
         }
       }
-      
+
       // Fallback to sequence counters if not in active expressions
       for (const [timingKey, currentIndex] of this.sequenceCounters) {
         if (timingKey.startsWith(token + "_")) {
@@ -7456,7 +7466,7 @@ class KidLisp {
     // Check if this token is inside a timing expression's arguments
     for (let i = 0; i < index; i++) {
       const prevToken = tokens[i];
-      
+
       // Handle cycle timer arguments
       if (/^\d*\.?\d+s\.\.\.?$/.test(prevToken)) {
         // Try to find this timing key in our active tracking
@@ -7464,7 +7474,7 @@ class KidLisp {
           if (timingKey.startsWith(prevToken + "_")) {
             // Check if current token is within one of the timing arguments
             const argInfo = this.getTokenArgPosition(tokens, i, index);
-            
+
             if (argInfo && argInfo.argIndex < data.totalArgs) {
               const isActive = argInfo.argIndex === data.currentIndex;
               return {
@@ -7477,7 +7487,7 @@ class KidLisp {
             }
           }
         }
-        
+
         // Fallback to sequence counters
         for (const [timingKey, currentIndex] of this.sequenceCounters) {
           if (timingKey.startsWith(prevToken + "_")) {
@@ -7498,7 +7508,7 @@ class KidLisp {
         // Handle delay timer arguments - always return state to control visibility
         const isBlinking = this.isTimingBlinking(prevToken);
         const isActive = this.isDelayTimerActive(prevToken);
-        
+
         const argInfo = this.getTokenArgPosition(tokens, i, index);
         if (argInfo !== null) {
           return {
@@ -7522,10 +7532,10 @@ class KidLisp {
     let argIndex = -1; // Start at -1, will increment to 0 for first argument
     let parenDepth = 0;
     let currentTokenPos = timingIndex + 1;
-    
+
     while (currentTokenPos < tokens.length && currentTokenPos <= tokenIndex) {
       const token = tokens[currentTokenPos];
-      
+
       if (token === "(") {
         parenDepth++;
         if (parenDepth === 1) {
@@ -7539,14 +7549,14 @@ class KidLisp {
           break;
         }
       }
-      
+
       if (currentTokenPos === tokenIndex) {
         return { argIndex, tokenDepth: parenDepth };
       }
-      
+
       currentTokenPos++;
     }
-    
+
     return null; // Token not found in timing arguments
   }
 
@@ -7554,10 +7564,10 @@ class KidLisp {
   getTimingArgsCount(tokens, timingIndex) {
     let argCount = 0;
     let parenDepth = 0;
-    
+
     for (let i = timingIndex + 1; i < tokens.length; i++) {
       const token = tokens[i];
-      
+
       if (token === "(") {
         parenDepth++;
         if (parenDepth === 1) {
@@ -7572,7 +7582,7 @@ class KidLisp {
         }
       }
     }
-    
+
     return argCount;
   }
 
@@ -7582,10 +7592,10 @@ class KidLisp {
     let parenDepth = 0;
     let currentArg = [];
     let foundArgs = false;
-    
+
     for (let i = timingIndex + 1; i < tokens.length; i++) {
       const token = tokens[i];
-      
+
       if (token === "(") {
         parenDepth++;
         currentArg.push(token);
@@ -7595,7 +7605,7 @@ class KidLisp {
       } else if (token === ")") {
         parenDepth--;
         currentArg.push(token);
-        
+
         if (parenDepth === 0) {
           if (foundArgs && currentArg.length > 0) {
             args.push(currentArg);
@@ -7610,7 +7620,7 @@ class KidLisp {
         currentArg.push(token);
       }
     }
-    
+
     return args;
   }
 
@@ -7620,20 +7630,20 @@ class KidLisp {
     // if ((token === "box" || token === "line") && this.frameCount % 60 === 0) {
     //   console.log(`🕐 DEBUG: Active timing expressions:`, Array.from(this.activeTimingExpressions.entries()));
     // }
-    
+
     // Check if we're inside any active timing expression
     for (const [timingKey, timingData] of this.activeTimingExpressions) {
       // For each active timing expression, check if this token is part of it
       const tokenPosition = this.findTokenInTimingArgs(token, index, tokens, timingData);
-      
+
       if (tokenPosition.found) {
         const isInActiveArg = tokenPosition.argIndex === timingData.currentIndex;
-        
+
         // Debug: Log timing state for tokens we care about (only when frame count is divisible by 30 to reduce spam)
         if ((token === "line" || token === "box" || token === "(" || token === ")") && this.frameCount % 30 === 0) {
           // console.log(`🕐 Token "${token}" timing state: argIndex=${tokenPosition.argIndex}, currentIndex=${timingData.currentIndex}, isInActiveArg=${isInActiveArg}`);
         }
-        
+
         return {
           isInActiveArg: isInActiveArg,
           currentArgIndex: tokenPosition.argIndex,
@@ -7643,7 +7653,7 @@ class KidLisp {
         };
       }
     }
-    
+
     return null; // Not in any timing expression
   }
 
@@ -7651,21 +7661,21 @@ class KidLisp {
     // Instead of manually parsing tokens, let's use the fact that we already have
     // the parsed AST structure. Find the timing expression in the AST and check
     // which argument contains our token.
-    
+
     // Debug: log what we're looking for (commented out - too frequent)
     // if (token === "box") {
     //   console.log(`🔍🔍 findTokenInTimingArgs for "${token}" at index ${tokenIndex}`);
     //   console.log(`🔍🔍 Looking for timingData.timingToken:`, timingData.timingToken);
     //   console.log(`🔍🔍 Available tokens:`, tokens);
     // }
-    
+
     // Find the timing expression AST node that corresponds to this timing token
     const timingExpressions = this.findTimingExpressionsInAST(this.ast, timingData.timingToken);
-    
+
     // if (token === "box") {
     //   console.log(`🔍🔍 Found timing expressions in AST:`, timingExpressions);
     // }
-    
+
     // For each timing expression, check if our token is part of its arguments
     for (const timingExpr of timingExpressions) {
       // First check if the token is directly inside an argument
@@ -7676,7 +7686,7 @@ class KidLisp {
         // }
         return { found: true, argIndex };
       }
-      
+
       // For parentheses, we need to check if they bound a timing argument s-expression
       if (token === "(" || token === ")") {
         const parenArgIndex = this.findParenthesesInTimingArgs(tokenIndex, tokens, timingExpr);
@@ -7685,26 +7695,26 @@ class KidLisp {
         }
       }
     }
-    
+
     return { found: false };
   }
 
   // Find timing expressions in the AST that match the given timing token
   findTimingExpressionsInAST(ast, timingToken) {
     const results = [];
-    
+
     if (Array.isArray(ast)) {
       // Check if this array is a timing expression
       if (ast.length > 1 && ast[0] === timingToken) {
         results.push(ast);
       }
-      
+
       // Recursively search sub-expressions
       for (const item of ast) {
         results.push(...this.findTimingExpressionsInAST(item, timingToken));
       }
     }
-    
+
     return results;
   }
 
@@ -7713,9 +7723,9 @@ class KidLisp {
     // Find the position range of the timing expression in the token stream
     const timingToken = timingExpr[0]; // e.g., "2s..."
     const timingStartIndex = tokens.indexOf(timingToken);
-    
+
     if (timingStartIndex === -1) return -1;
-    
+
     // Find the matching closing parenthesis for the timing expression
     let parenCount = 0;
     let timingEndIndex = -1;
@@ -7734,35 +7744,35 @@ class KidLisp {
         }
       }
     }
-    
+
     if (timingEndIndex === -1) return -1;
-    
+
     // Check if our parenthesis is within the timing expression range
     if (parenIndex <= timingStartIndex || parenIndex >= timingEndIndex) {
       return -1; // Parenthesis is outside the timing expression
     }
-    
+
     // Now we need to figure out which argument this parenthesis belongs to
     // by analyzing the structure between timingStartIndex and timingEndIndex
     const args = timingExpr.slice(1); // Skip the timing token
     let currentArgIndex = 0;
     let currentTokenPos = timingStartIndex + 1; // Start after timing token
-    
+
     for (let argIndex = 0; argIndex < args.length; argIndex++) {
       const arg = args[argIndex];
-      
+
       // Calculate how many tokens this argument should consume
       const argTokenCount = this.countTokensInExpression(arg);
       const argEndPos = currentTokenPos + argTokenCount - 1;
-      
+
       // Check if our parenthesis falls within this argument's range
       if (parenIndex >= currentTokenPos && parenIndex <= argEndPos) {
         return argIndex;
       }
-      
+
       currentTokenPos = argEndPos + 1;
     }
-    
+
     return -1; // Parenthesis not found in any argument
   }
 
@@ -7786,14 +7796,14 @@ class KidLisp {
   findTokenInTimingExpressionArgs(token, tokenIndex, tokens, timingExpr) {
     // timingExpr is like ["2s...", [["line"], ["line"]], ["box", 0, 0, 25, 25]]
     // We need to find which argument (index 1, 2, etc.) contains our token
-    
+
     // Debug: log the structure for tokens we care about
     // if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
-      // console.log(`🔍 findTokenInTimingExpressionArgs for "${token}":`, JSON.stringify(timingExpr, null, 2));
+    // console.log(`🔍 findTokenInTimingExpressionArgs for "${token}":`, JSON.stringify(timingExpr, null, 2));
     // }
-    
+
     const args = timingExpr.slice(1); // Skip the timing token itself
-    
+
     for (let argIndex = 0; argIndex < args.length; argIndex++) {
       if (this.doesExpressionContainToken(args[argIndex], token)) {
         if ((token === "line" || token === "box") && this.frameCount % 60 === 0) {
@@ -7802,7 +7812,7 @@ class KidLisp {
         return argIndex;
       }
     }
-    
+
     return -1; // Token not found in any argument
   }
 
@@ -7825,26 +7835,26 @@ class KidLisp {
   getTokenColor(token, tokens, index) {
     // First check if this token is affected by timing expressions
     const timingExprState = this.getTimingExpressionState(token, tokens, index);
-    
+
     // Check for timing patterns that should blink when triggered
     if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
       const timingState = this.getTimingTokenState(token, tokens, index);
       if (timingState && timingState.isBlinking) {
         return "red"; // Bright red flash when timing first triggers
       }
-      
+
       // Check if cycle timer is in its brief lime flash period (similar to delay timers)
       if (this.isTimingBlinking(token)) {
         return "lime"; // Brief lime flash when cycle timer triggers
       }
-      
+
       // Check if this timing token has an active expression running
       if (timingState && (timingState.currentIndex !== undefined)) {
         return "yellow"; // Show yellow when timing expression is actively running (matches delay timers)
       }
       return "yellow"; // Yellow for inactive timing tokens like "1s...", "2s..."
     }
-    
+
     // Check for delay timing patterns (1.25s, 0.5s, etc.)
     if (/^\d*\.?\d+s!?$/.test(token)) {
       const timingState = this.getTimingTokenState(token, tokens, index);
@@ -7856,7 +7866,7 @@ class KidLisp {
       }
       return "yellow"; // Yellow for inactive delay timing tokens like "1s", "0.5s"
     }
-    
+
     // If this token is inside a timing expression, color it based on active state
     if (timingExprState) {
       if (timingExprState.isInActiveArg) {
@@ -7873,15 +7883,15 @@ class KidLisp {
         return "255,255,255,0"; // White with 0 alpha (transparent)
       }
     }
-    
+
     // Check if this token is inside a delay timer
     const delayTimerState = this.getTimingTokenState(token, tokens, index);
-    
+
     // Debug: Log delay timer state detection
     if (token === "zoom" || token === "?" || token === "0.25" || token === "1.5") {
       // console.log(`🔍 Token "${token}" delayTimerState:`, delayTimerState);
     }
-    
+
     if (delayTimerState && delayTimerState.isDelayTimer) {
       if (delayTimerState.isBlinking) {
         // console.log(`� Token "${token}" returning MAGENTA (blinking)`);
@@ -7897,16 +7907,16 @@ class KidLisp {
         return "255,255,255,0"; // White with 0 alpha (transparent)
       }
     }
-    
+
     // For all other tokens, use normal coloring
     const normalColor = this.getNormalTokenColor(token, tokens, index);
-    
+
     // Safety check: ensure we always return a valid color
     if (!normalColor) {
       console.warn(`⚠️ getNormalTokenColor returned undefined for token:`, token);
       return "orange"; // Fallback color
     }
-    
+
     return normalColor;
   }
 
@@ -7925,7 +7935,7 @@ class KidLisp {
     // Check for $codes (embedded layer references) - handle loading states
     if (token.startsWith("$") && token.length > 1 && /^[$][0-9A-Za-z]+$/.test(token)) {
       const cacheId = token.substring(1); // Remove $ prefix
-      
+
       if (this.loadingEmbeddedLayers.has(cacheId)) {
         // Show red blinking for loading $codes - return compound color
         const now = performance.now();
@@ -7986,7 +7996,7 @@ class KidLisp {
         return rgbColor;
       }
     }
-    
+
     // Check if this is a color code like "c0", "c1", etc.
     if (token.match(/^c\d+$/)) {
       const index = parseInt(token.substring(1));
@@ -8016,32 +8026,32 @@ class KidLisp {
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "zebra", "mic", "amplitude",
-      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"
     ];
-    
+
     // Special case for "rainbow" - return special marker for rainbow coloring
     if (token === "rainbow") {
       return "RAINBOW";
     }
-    
+
     // Special case for "zebra" - return special marker for zebra coloring
     if (token === "zebra") {
       return "ZEBRA";
     }
-    
+
     // Special case for "fade" function - give it a distinct color
     if (token === "fade") {
       return "mediumseagreen"; // Use emerald/medium sea green for the fade function
     }
-    
+
     // Math operators get special green color
     if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
       return "lime";
     }
-    
+
     if (knownFunctions.includes(token)) {
       return "cyan"; // Changed from blue to cyan (teal)
     }
@@ -8075,7 +8085,7 @@ class KidLisp {
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "?", "...", "..", "overtone", "rainbow", "mic", "amplitude",
-      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "bake", "jump"
@@ -8089,7 +8099,7 @@ class KidLisp {
     // Check for $codes first (they can be used as function calls)
     if (token.startsWith("$") && token.length > 1 && /^[$][0-9A-Za-z]+$/.test(token)) {
       const cacheId = token.substring(1); // Remove $ prefix
-      
+
       if (this.loadingEmbeddedLayers.has(cacheId)) {
         // Show red blinking for loading $codes
         const now = performance.now();
@@ -8105,22 +8115,22 @@ class KidLisp {
         return "COMPOUND:green:teal"; // $ is green, identifier is teal
       }
     }
-    
+
     // Math operators get special green color
     if (["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"].includes(token)) {
       return "lime";
     }
-    
+
     // Special forms and control flow
     if (["def", "if", "cond", "later", "once", "lambda", "let", "do"].includes(token)) {
       return "purple";
     }
-    
+
     // Repeat gets its own lighter color for better readability
     if (token === "repeat") {
       return "magenta"; // Lighter than purple, more readable
     }
-     
+
     // All other functions should be teal instead of blue
     return "cyan";
   }
@@ -8136,15 +8146,15 @@ class KidLisp {
         depth--;
       }
     }
-    
+
     // Adjust depth for closing parentheses
     if (tokens[index] === ")") {
       depth--;
     }
-    
+
     // Ensure depth is not negative
     depth = Math.max(0, depth);
-    
+
     // Rainbow colors for different nesting depths
     const parenColors = [
       "192,192,192", // Light gray (depth 0)
@@ -8155,17 +8165,17 @@ class KidLisp {
       "0,191,255",   // Deep sky blue (depth 5)
       "50,205,50"    // Lime green (depth 6)
     ];
-    
+
     // Cycle through colors for deeper nesting
     const colorIndex = depth % parenColors.length;
     const color = parenColors[colorIndex];
-    
+
     // Safety check
     if (!color) {
       console.warn(`⚠️ getParenthesesColor returning undefined. depth=${depth}, colorIndex=${colorIndex}, token=${tokens[index]}`);
       return "192,192,192"; // Fallback to light gray
     }
-    
+
     return color;
   }
 
@@ -8260,11 +8270,11 @@ class KidLisp {
         // Set HUD to support inline colors AND disable piece name color override
         api.hud.supportsInlineColor = true;
         api.hud.disablePieceNameColoring = true; // Disable automatic piece name coloring
-        
+
         // Always force cache invalidation for syntax highlighting by updating frame hash
         // This ensures that color changes in KidLisp syntax highlighting are detected
         api.hud.frameHash = performance.now();
-        
+
         // Call HUD label with colored string plus attribution if available
         api.hud.label(coloredString + attributionText, undefined, 0);
       } else {
@@ -8272,7 +8282,7 @@ class KidLisp {
         // This will show the plain piece name with normal coloring
         api.hud.supportsInlineColor = false;
         api.hud.disablePieceNameColoring = false;
-        
+
         // Don't call hud.label() for .lisp files - let the normal HUD system handle it
       }
     }
@@ -8296,7 +8306,7 @@ class KidLisp {
     } catch (error) {
       console.warn("Error fetching handle:", error);
     }
-    
+
     // Clear cache if fetch failed
     this.cachedOwnerHandle = null;
     this.cachedOwnerSub = null;
@@ -8345,16 +8355,16 @@ class KidLisp {
       for (let x = 0; x < width; x++) {
         const currentIndex = (y * currentWidth + x) * 4;
         const bakedIndex = (y * bakedWidth + x) * 4;
-        
+
         // Get current pixel (foreground)
         const currentA = currentPixels[currentIndex + 3];
-        
+
         // Get baked pixel (background)
         const bakedR = bakedPixels[bakedIndex];
         const bakedG = bakedPixels[bakedIndex + 1];
         const bakedB = bakedPixels[bakedIndex + 2];
         const bakedA = bakedPixels[bakedIndex + 3];
-        
+
         // Only show baked pixel if current pixel is transparent and baked pixel has content
         if (currentA === 0 && bakedA > 0) {
           currentPixels[currentIndex] = bakedR;
@@ -8372,11 +8382,11 @@ class KidLisp {
     const existingLayer = this.embeddedLayerCache.get(layerKey);
     if (existingLayer) {
       // Updating existing layer - log removed for performance
-      
+
       // Check if source code has changed
       if (existingLayer.source !== source) {
         // Source changed, clearing buffer - log removed for performance
-        
+
         // Clear the buffer when source changes
         if (existingLayer.buffer && existingLayer.buffer.pixels) {
           // Fast buffer clear using fill
@@ -8384,16 +8394,16 @@ class KidLisp {
           // Buffer cleared - log removed for performance
         }
       }
-      
+
       // 🔄 REUSE existing KidLisp instance but reset execution state
       const embeddedKidLisp = existingLayer.kidlispInstance;
       console.log(`🎭 REUSING nested KidLisp instance for embedded layer: ${layerKey}`);
-      
+
       // 🚨 CRITICAL: Clear onceExecuted to allow re-execution of once blocks
       // This was causing scroll commands to not execute on second load
       embeddedKidLisp.onceExecuted.clear();
       console.log(`🔄 CLEARED onceExecuted for re-execution`);
-      
+
       // Reset timing states for fresh execution
       embeddedKidLisp.frameCount = 0;
       embeddedKidLisp.frameCounter = 0;
@@ -8403,16 +8413,16 @@ class KidLisp {
       // IMPORTANT: Share sequence counters for timing expressions
       embeddedKidLisp.sequenceCounters = this.sequenceCounters || new Map();
       embeddedKidLisp.localEnv = { ...this.localEnv };
-      
+
       // Ensure it remains marked as a nested instance
       embeddedKidLisp.isNestedInstance = true;
       console.log(`🎭 MARKED as nested instance: isNestedInstance = true`);
-      
+
       // Update the alpha value
       existingLayer.alpha = alpha;
       // Reset local frame count for fresh timing on reload
       existingLayer.localFrameCount = 0;
-      
+
       return existingLayer;
     }
 
@@ -8427,48 +8437,48 @@ class KidLisp {
     // IMPORTANT: Share sequence counters for timing expressions
     embeddedKidLisp.sequenceCounters = this.sequenceCounters || new Map();
     embeddedKidLisp.localEnv = { ...this.localEnv };
-    
+
     // Mark this as a nested instance to enable immediate mode for commands like blur/scroll
     embeddedKidLisp.isNestedInstance = true;
-    
+
     // IMPORTANT: Share the source cache with embedded instances
     // This allows nested embeds to use already-cached KidLisp source code
     embeddedKidLisp.embeddedSourceCache = this.embeddedSourceCache;
     embeddedKidLisp.embeddedLayerCache = this.embeddedLayerCache;
-    
+
     // Preprocess source to fix scroll syntax
     let processedSource = source;
-    
+
     // Convert bare scroll expressions to proper function calls
     // Pattern 1: "scroll 0.1" -> "(scroll 0.1)"
     processedSource = processedSource.replace(/^scroll\s+([\d.]+)$/gm, '(scroll $1)');
-    
+
     // Pattern 2: "scroll 0 (? 1 -1)" -> "(scroll 0 (? 1 -1))"
     processedSource = processedSource.replace(/^scroll\s+(.+)$/gm, '(scroll $1)');
-    
+
     const parsedCode = embeddedKidLisp.parse(processedSource);
-    
+
     // Apply the same precompilation as the main instance
     const precompiledCode = embeddedKidLisp.precompileAST(parsedCode);
-    
+
     // Set the AST for the embedded instance so detectFirstLineColor can work
     embeddedKidLisp.ast = JSON.parse(JSON.stringify(precompiledCode));
     // Embedded AST debug log removed for performance
-    
+
     // Detect and store first-line color for embedded layer (like fade strings)
     embeddedKidLisp.detectFirstLineColor();
     // New embedded layer firstLineColor debug log removed for performance
     // Source code debug log removed for performance
-    
+
     // Check if we already have a buffer for this layer (for persistence)
     let embeddedBuffer;
-    
+
     // Ensure embeddedLayers is initialized
     if (!this.embeddedLayers) {
       console.log("🚨 embeddedLayers was null, reinitializing to empty array");
       this.embeddedLayers = [];
     }
-    
+
     const persistentLayer = this.embeddedLayers.find(layer => layer.cacheId === layerKey);
     if (persistentLayer && persistentLayer.buffer) {
       // Check if the source code has changed
@@ -8477,14 +8487,14 @@ class KidLisp {
         embeddedBuffer = persistentLayer.buffer;
       } else {
         // Source changed, clearing buffer - logs removed for performance
-        
+
         // Source changed, clear the buffer and create a new one
         if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
           // Fast buffer clear using fill
           persistentLayer.buffer.pixels.fill(0);
         }
         embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
-        
+
         // Update the layer's source code
         persistentLayer.source = source;
         persistentLayer.parsedCode = precompiledCode;
@@ -8496,14 +8506,14 @@ class KidLisp {
       if (existingLayer && existingLayer.buffer) {
         const currentSize = existingLayer.buffer.width * existingLayer.buffer.height;
         const newSize = width * height;
-        
+
         // If the new size is smaller or equal, reuse the existing buffer
         // This prevents buffer recreation during reframe operations
         if (newSize <= currentSize && existingLayer.buffer.width >= width && existingLayer.buffer.height >= height) {
           embeddedBuffer = existingLayer.buffer;
           foundCompatibleBuffer = true;
           console.log(`🔄 Reusing existing buffer during reframe: ${width}x${height} fits in ${existingLayer.buffer.width}x${existingLayer.buffer.height}`);
-          
+
           // Clear only the used area
           if (embeddedBuffer.pixels) {
             const totalPixels = width * height * 4; // RGBA
@@ -8511,16 +8521,16 @@ class KidLisp {
           }
         }
       }
-      
+
       // �🔄 BUFFER POOLING: Try to get a buffer from the pool first
       if (!foundCompatibleBuffer) {
         const bufferSizeKey = `${width}x${height}`;
         const pooledBuffers = this.bufferPool.get(bufferSizeKey);
-        
+
         if (pooledBuffers && pooledBuffers.length > 0) {
           embeddedBuffer = pooledBuffers.pop();
           // console.log(`🔄 Reused pooled buffer ${bufferSizeKey} (${pooledBuffers.length} remaining)`);
-          
+
           // Clear the reused buffer
           if (embeddedBuffer.pixels) {
             embeddedBuffer.pixels.fill(0);
@@ -8566,7 +8576,7 @@ class KidLisp {
       console.log("🚨 embeddedLayers was null during push, reinitializing to empty array");
       this.embeddedLayers = [];
     }
-    
+
     this.embeddedLayers.push(embeddedLayer);
     this.embeddedLayerCache.set(layerKey, embeddedLayer);
 
@@ -8586,18 +8596,18 @@ class KidLisp {
         }
       });
     }
-    
+
     // Clear all caches
     this.embeddedLayers = [];
     this.embeddedLayerCache.clear();
     this.embeddedSourceCache.clear();
     this.embeddedApiCache.clear();
-    
+
     // 🚀 CLEAR ALPHA CACHE: Clean up alpha-adjusted buffers
     if (this.alphaBufferCache) {
       this.alphaBufferCache.clear();
     }
-    
+
     // 🛡️ CLEAN POOLS: Remove any potentially detached buffers from pools
     this.cleanBufferPools();
   }
@@ -8605,18 +8615,18 @@ class KidLisp {
   // 🔄 RESPONSIVE CACHE: Check if screen dimensions changed and clear responsive entries
   checkAndClearResponsiveCacheOnReframe(api) {
     if (!api || !api.screen) return false;
-    
+
     const currentWidth = api.screen.width;
     const currentHeight = api.screen.height;
-    
+
     // Check if this is the first time or if dimensions have changed significantly
     // Add a small threshold to avoid clearing cache for tiny changes during resize
     const widthChanged = this.lastScreenWidth === null || Math.abs(this.lastScreenWidth - currentWidth) > 2;
     const heightChanged = this.lastScreenHeight === null || Math.abs(this.lastScreenHeight - currentHeight) > 2;
-    
+
     if (widthChanged || heightChanged) {
       console.log(`📐 Screen dimensions changed significantly: ${this.lastScreenWidth}x${this.lastScreenHeight} → ${currentWidth}x${currentHeight}`);
-      
+
       // Clear cache entries that depend on screen dimensions
       if (this.embeddedLayerCache) {
         const entriesToDelete = [];
@@ -8630,32 +8640,32 @@ class KidLisp {
             }
           }
         }
-        
+
         // Delete the screen-dependent entries
         entriesToDelete.forEach(key => {
           this.embeddedLayerCache.delete(key);
           console.log(`🗑️ Cleared responsive cache entry: ${key}`);
         });
-        
+
         if (entriesToDelete.length > 0) {
           console.log(`✨ Cleared ${entriesToDelete.length} responsive cache entries for screen resize`);
         }
       }
-      
+
       // Update tracked dimensions
       this.lastScreenWidth = currentWidth;
       this.lastScreenHeight = currentHeight;
-      
+
       return true; // Dimensions changed
     }
-    
+
     return false; // No significant change
   }
 
   // 🖼️ REFRAME HANDLER: Called when screen dimensions change (called from disk systems)
   onReframe(newWidth, newHeight) {
     console.log(`🖼️ KidLisp received reframe event: ${newWidth}x${newHeight}`);
-    
+
     // Force clear responsive cache entries regardless of threshold
     if (this.embeddedLayerCache) {
       const entriesToDelete = [];
@@ -8669,20 +8679,20 @@ class KidLisp {
           }
         }
       }
-      
+
       // Delete the screen-dependent entries
       entriesToDelete.forEach(key => {
         this.embeddedLayerCache.delete(key);
         console.log(`🗑️ Cleared responsive cache entry on reframe: ${key}`);
       });
-      
+
       if (entriesToDelete.length > 0) {
         console.log(`✨ Cleared ${entriesToDelete.length} responsive cache entries for reframe`);
       }
     }
-    
+
     // 🎨 BACKGROUND FILL: Re-apply background color after reframe to cover expanded areas
-    
+
     // Always try to get the most reliable background color via getBackgroundFillColor
     // This handles all the fallback logic and ensures consistent state
     let bgColor = this.getBackgroundFillColor();
@@ -8702,16 +8712,16 @@ class KidLisp {
   // 🛡️ SAFETY: Clean buffer pools of any detached buffers
   cleanBufferPools() {
     if (!this.bufferPool) return;
-    
+
     for (const [sizeKey, buffers] of this.bufferPool.entries()) {
       const validBuffers = buffers.filter(buffer => {
         return buffer && buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached;
       });
-      
+
       if (validBuffers.length !== buffers.length) {
         console.log(`🧹 Cleaned ${buffers.length - validBuffers.length} detached buffers from ${sizeKey} pool`);
       }
-      
+
       if (validBuffers.length > 0) {
         this.bufferPool.set(sizeKey, validBuffers);
       } else {
@@ -8723,28 +8733,28 @@ class KidLisp {
   // 🔄 BUFFER POOLING: Return a buffer to the pool for reuse
   returnBufferToPool(buffer, width, height) {
     if (!buffer || !buffer.pixels) return;
-    
+
     // 🛡️ SAFETY CHECK: Don't pool detached buffers
     if (buffer.pixels.buffer && buffer.pixels.buffer.detached) {
       console.warn('🚨 Refusing to pool detached buffer');
       return;
     }
-    
+
     const bufferSizeKey = `${width}x${height}`;
     if (!this.bufferPool) {
       this.bufferPool = new Map();
     }
-    
+
     let pooledBuffers = this.bufferPool.get(bufferSizeKey);
-    
+
     if (!pooledBuffers) {
       pooledBuffers = [];
       this.bufferPool.set(bufferSizeKey, pooledBuffers);
     }
-    
+
     // Increase pool size for commonly used buffer sizes
     const maxPoolSize = (width * height > 100000) ? 2 : 8; // Larger buffers get smaller pools
-    
+
     if (pooledBuffers.length < maxPoolSize) {
       // Fast buffer clear using fill
       try {
@@ -8760,10 +8770,10 @@ class KidLisp {
   createOrReuseBuffer(width, height) {
     const bufferSizeKey = `${width}x${height}`;
     const pooledBuffers = this.bufferPool?.get(bufferSizeKey);
-    
+
     if (pooledBuffers && pooledBuffers.length > 0) {
       const buffer = pooledBuffers.pop();
-      
+
       // 🛡️ SAFETY CHECK: Ensure buffer is not detached
       if (buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached) {
         // Buffer is safe to reuse - clear it
@@ -8774,7 +8784,7 @@ class KidLisp {
         console.warn('🚨 Discarded detached buffer from pool');
       }
     }
-    
+
     // Create new buffer with pre-zeroed memory for faster allocation
     const pixelCount = width * height * 4;
     return {
@@ -8788,12 +8798,12 @@ class KidLisp {
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
     console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
-    
+
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
       console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
       return; // Silent fail for performance
     }
-    
+
     // 🛡️ SAFETY CHECK: Ensure source buffer is not detached
     if (sourceBuffer.pixels.buffer && sourceBuffer.pixels.buffer.detached) {
       console.warn('🚨 Attempted to paste from detached buffer, skipping');
@@ -8813,15 +8823,15 @@ class KidLisp {
       }
       return;
     }
-    
+
     // 🚀 CACHE ALPHA BUFFERS: Reuse alpha-adjusted buffers to avoid repeated allocations
     const alphaBufferKey = `${sourceBuffer.width}x${sourceBuffer.height}_${alpha}`;
     if (!this.alphaBufferCache) {
       this.alphaBufferCache = new Map();
     }
-    
+
     let cachedAlphaBuffer = this.alphaBufferCache.get(alphaBufferKey);
-    
+
     // Only create new buffer if not cached or source changed
     if (!cachedAlphaBuffer || this.needsAlphaBufferUpdate(sourceBuffer, cachedAlphaBuffer)) {
       // Reuse buffer if possible, otherwise create new one
@@ -8841,7 +8851,7 @@ class KidLisp {
         this.alphaBufferCache.set(alphaBufferKey, cachedAlphaBuffer);
       }
     }
-    
+
     // Use proper alpha blending - force fallback for true alpha compositing
     this.fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha);
   }
@@ -8849,12 +8859,12 @@ class KidLisp {
   // 🚀 Check if alpha buffer needs updating (avoids expensive pixel operations)
   needsAlphaBufferUpdate(sourceBuffer, cachedBuffer) {
     if (!cachedBuffer || !cachedBuffer.sourceHash) return true;
-    
+
     // 🛡️ SAFETY CHECK: Ensure cached buffer is not detached
     if (!cachedBuffer.pixels || !cachedBuffer.pixels.buffer || cachedBuffer.pixels.buffer.detached) {
       return true; // Force recreation if buffer is detached
     }
-    
+
     // Use quick hash comparison instead of full pixel comparison
     const currentHash = this.quickPixelHash(sourceBuffer.pixels);
     return currentHash !== cachedBuffer.sourceHash;
@@ -8866,7 +8876,7 @@ class KidLisp {
     const src = sourceBuffer.pixels;
     const dst = targetBuffer.pixels;
     const len = src.length;
-    
+
     // Process 4 pixels at a time for better cache efficiency
     let i = 0;
     for (; i < len - 15; i += 16) {
@@ -8875,26 +8885,26 @@ class KidLisp {
       dst[i + 1] = src[i + 1];
       dst[i + 2] = src[i + 2];
       dst[i + 3] = src[i + 3] * alphaFactor;
-      
+
       // Pixel 2
       dst[i + 4] = src[i + 4];
       dst[i + 5] = src[i + 5];
       dst[i + 6] = src[i + 6];
       dst[i + 7] = src[i + 7] * alphaFactor;
-      
+
       // Pixel 3
       dst[i + 8] = src[i + 8];
       dst[i + 9] = src[i + 9];
       dst[i + 10] = src[i + 10];
       dst[i + 11] = src[i + 11] * alphaFactor;
-      
+
       // Pixel 4
       dst[i + 12] = src[i + 12];
       dst[i + 13] = src[i + 13];
       dst[i + 14] = src[i + 14];
       dst[i + 15] = src[i + 15] * alphaFactor;
     }
-    
+
     // Handle remaining pixels
     for (; i < len; i += 4) {
       dst[i] = src[i];
@@ -8902,7 +8912,7 @@ class KidLisp {
       dst[i + 2] = src[i + 2];
       dst[i + 3] = src[i + 3] * alphaFactor;
     }
-    
+
     // Update metadata
     targetBuffer.sourceHash = this.quickPixelHash(src);
     targetBuffer.alpha = alpha;
@@ -8916,27 +8926,27 @@ class KidLisp {
     const srcH = sourceBuffer.height;
     const dstW = api.screen.width;
     const dstH = api.screen.height;
-    
+
     // Calculate bounds once
     const startX = Math.max(0, x);
     const startY = Math.max(0, y);
     const endX = Math.min(dstW, x + srcW);
     const endY = Math.min(dstH, y + srcH);
-    
+
     // Early exit for out-of-bounds
     if (startX >= endX || startY >= endY) return;
-    
+
     // Row-wise copying for better cache performance
     for (let dy = startY; dy < endY; dy++) {
       const srcY = dy - y;
       const srcRowStart = srcY * srcW * 4;
       const dstRowStart = dy * dstW * 4;
-      
+
       for (let dx = startX; dx < endX; dx++) {
         const srcX = dx - x;
         const srcIdx = srcRowStart + srcX * 4;
         const dstIdx = dstRowStart + dx * 4;
-        
+
         // Copy RGBA values
         dst[dstIdx] = src[srcIdx];
         dst[dstIdx + 1] = src[srcIdx + 1];
@@ -8949,7 +8959,7 @@ class KidLisp {
   // Fallback manual alpha blending for when graph.paste is not available
   fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha) {
     console.log(`🎨 fallbackPasteWithAlpha called: ${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y}) with alpha=${alpha}`);
-    
+
     const srcPixels = sourceBuffer.pixels;
     const dstPixels = api.screen.pixels;
     const srcWidth = sourceBuffer.width;
@@ -8959,7 +8969,7 @@ class KidLisp {
 
     console.log(`🎨 fallbackPasteWithAlpha: src=${srcWidth}x${srcHeight}, dst=${dstWidth}x${dstHeight}`);
     console.log(`🎨 fallbackPasteWithAlpha: srcPixels length=${srcPixels.length}, dstPixels length=${dstPixels.length}`);
-    
+
     // Sample a few pixels from the source buffer to see what we're working with
     console.log(`🎨 fallbackPasteWithAlpha: source pixel 0:`, srcPixels[0], srcPixels[1], srcPixels[2], srcPixels[3]);
     console.log(`🎨 fallbackPasteWithAlpha: source pixel 100:`, srcPixels[400], srcPixels[401], srcPixels[402], srcPixels[403]);
@@ -8978,7 +8988,7 @@ class KidLisp {
     for (let dy = startY; dy < endY; dy++) {
       const srcY = dy - y;
       if (srcY < 0 || srcY >= srcHeight) continue;
-      
+
       for (let dx = startX; dx < endX; dx++) {
         const srcX = dx - x;
         if (srcX < 0 || srcX >= srcWidth) continue;
@@ -8987,7 +8997,7 @@ class KidLisp {
         const dstIndex = (dy * dstWidth + dx) * 4;
 
         const srcA = srcPixels[srcIndex + 3];
-        
+
         // Skip transparent pixels
         if (srcA === 0) continue;
 
@@ -9001,7 +9011,7 @@ class KidLisp {
           // Alpha blend using bit shifts for performance (similar to graph.mjs)
           const effectiveAlpha = (srcA * alphaFactor + 1) | 0; // Convert to int
           const invAlpha = 256 - effectiveAlpha;
-          
+
           dstPixels[dstIndex] = (effectiveAlpha * srcPixels[srcIndex] + invAlpha * dstPixels[dstIndex]) >> 8;
           dstPixels[dstIndex + 1] = (effectiveAlpha * srcPixels[srcIndex + 1] + invAlpha * dstPixels[dstIndex + 1]) >> 8;
           dstPixels[dstIndex + 2] = (effectiveAlpha * srcPixels[srcIndex + 2] + invAlpha * dstPixels[dstIndex + 2]) >> 8;
@@ -9014,15 +9024,15 @@ class KidLisp {
   // Fast pixel hash for change detection (samples key pixels to avoid full buffer comparison)
   quickPixelHash(pixels) {
     if (!pixels || pixels.length === 0) return 0;
-    
+
     let hash = 0;
     const len = pixels.length;
-    
+
     // Sample every 64th pixel for speed (still gives good change detection)
     for (let i = 0; i < len; i += 64) {
       hash = ((hash << 5) - hash + pixels[i]) | 0; // Simple hash combining sampled pixels
     }
-    
+
     return hash;
   }
 
@@ -9033,9 +9043,9 @@ class KidLisp {
       // console.log("🎬 renderEmbeddedLayers: No embedded layers to render");
       return;
     }
-    
+
     // console.log(`🎬 renderEmbeddedLayers: Processing ${this.embeddedLayers.length} embedded layers`);
-    
+
     // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
     if (this.lastScreenSize && this.lastScreenSize !== currentScreenSize) {
@@ -9054,14 +9064,14 @@ class KidLisp {
     }
     this.lastScreenSize = currentScreenSize;
     this.lastResizeTime = performance.now();
-    
+
     // � FRAME-BASED OPTIMIZATION: Skip complex renders when too frequent
     const layerCount = this.embeddedLayers.length;
     if (layerCount > 3 && performance.now() - (this.lastComplexRender || 0) < 16) {
       // For multiple layers, limit to 60fps to prevent slowdown
       return;
     }
-    
+
     if (layerCount > 3) {
       this.lastComplexRender = performance.now();
     }
@@ -9078,32 +9088,32 @@ class KidLisp {
     if (this.embeddedLayers) {
       this.embeddedLayers.forEach((embeddedLayer, index) => {
         if (embeddedLayer && embeddedLayer.kidlispInstance && embeddedLayer.buffer) {
-        
-        // Check timing context visibility (fast path)
-        if (embeddedLayer.timingContext) {
-          const timingCtx = embeddedLayer.timingContext;
-          const currentIndex = this.sequenceCounters.get(timingCtx.timingKey);
-          if (currentIndex !== undefined && currentIndex !== timingCtx.argumentIndex) {
-            console.log(`🎨 Skipping layer ${index} due to timing context`);
-            return; // Skip invisible layers
+
+          // Check timing context visibility (fast path)
+          if (embeddedLayer.timingContext) {
+            const timingCtx = embeddedLayer.timingContext;
+            const currentIndex = this.sequenceCounters.get(timingCtx.timingKey);
+            if (currentIndex !== undefined && currentIndex !== timingCtx.argumentIndex) {
+              console.log(`🎨 Skipping layer ${index} due to timing context`);
+              return; // Skip invisible layers
+            }
           }
-        }
-        
-        // 🚀 DIRTY CHECK: Skip unnecessary evaluation for static content
-        const shouldEvaluate = this.shouldLayerEvaluate(embeddedLayer, frameValue);
-        
-        try {
-          this.renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate);
-        } catch (error) {
-          // Silent error recovery - just ensure we switch back to main screen
+
+          // 🚀 DIRTY CHECK: Skip unnecessary evaluation for static content
+          const shouldEvaluate = this.shouldLayerEvaluate(embeddedLayer, frameValue);
+
           try {
-            api.page(api.screen);
-          } catch (e) {
-            // Ignore switch errors
+            this.renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate);
+          } catch (error) {
+            // Silent error recovery - just ensure we switch back to main screen
+            try {
+              api.page(api.screen);
+            } catch (e) {
+              // Ignore switch errors
+            }
           }
         }
-      }
-    });
+      });
     }
   }
 
@@ -9124,16 +9134,16 @@ class KidLisp {
     // Check for dynamic content in source (check multiple places)
     const source = embeddedLayer.kidlispInstance.source || embeddedLayer.sourceCode || embeddedLayer.source || '';
     // console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.id}:`, source);
-    
-    const hasDynamicContent = source.includes('frame') || 
-                             source.includes('scroll') ||
-                             source.includes('clock') ||
-                             source.includes('pen') ||
-                             source.includes('mouse') ||
-                             source.includes('key') ||
-                             source.includes('touch') ||
-                             source.includes('tap') ||
-                             source.includes('random');
+
+    const hasDynamicContent = source.includes('frame') ||
+      source.includes('scroll') ||
+      source.includes('clock') ||
+      source.includes('pen') ||
+      source.includes('mouse') ||
+      source.includes('key') ||
+      source.includes('touch') ||
+      source.includes('tap') ||
+      source.includes('random');
 
     // console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.id}`);
 
@@ -9156,11 +9166,11 @@ class KidLisp {
   // 🚀 OPTIMIZED: Render single layer with minimal overhead
   renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate) {
     // console.log(`🎬 renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
-    
+
     // 🔥 REFRAME PERFORMANCE: Skip expensive re-evaluation during rapid screen changes
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
     const timeSinceLastRender = performance.now() - (embeddedLayer.lastRenderTime || 0);
-    
+
     if (this.lastScreenSize && this.lastScreenSize !== currentScreenSize && timeSinceLastRender < 50) {
       // During rapid screen size changes, just re-paste existing buffer
       if (embeddedLayer.buffer && api.paste) {
@@ -9168,21 +9178,21 @@ class KidLisp {
       }
       return;
     }
-    
+
     embeddedLayer.lastRenderTime = performance.now();
-    
+
     // Switch to embedded buffer
     api.page(embeddedLayer.buffer);
-    
+
     // Update frame counters
     if (!embeddedLayer.localFrameCount) {
       embeddedLayer.localFrameCount = 0;
     }
     embeddedLayer.localFrameCount += 1;
-    
+
     embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
     embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
-    
+
     // Ensure timing state
     if (!embeddedLayer.kidlispInstance.timingStates) {
       embeddedLayer.kidlispInstance.timingStates = new Map();
@@ -9191,7 +9201,7 @@ class KidLisp {
     if (shouldEvaluate) {
       // Get optimized API for this layer
       const embeddedApi = this.getOptimizedLayerApi(embeddedLayer, api);
-      
+
       // Update frame-dependent properties
       embeddedApi.frame = embeddedLayer.localFrameCount;
       embeddedApi.screen.pixels = embeddedLayer.buffer.pixels;
@@ -9208,14 +9218,14 @@ class KidLisp {
       }
 
       // Execute the code
-      const scrollNodesInAST = Array.isArray(embeddedLayer.parsedCode) ? 
+      const scrollNodesInAST = Array.isArray(embeddedLayer.parsedCode) ?
         embeddedLayer.parsedCode.filter(node => {
           // Check for direct scroll function calls (lists with 'scroll' as first element)
-          if (node && typeof node === 'object' && node.type === 'list' && 
-              node.value && node.value[0] && node.value[0].value === 'scroll') {
+          if (node && typeof node === 'object' && node.type === 'list' &&
+            node.value && node.value[0] && node.value[0].value === 'scroll') {
             return true;
           }
-          
+
           // Check for timing expressions containing scroll
           if (Array.isArray(node)) {
             // Check if this is a timing expression like ["2s...", ["scroll", 1, 0, -1]]
@@ -9228,29 +9238,29 @@ class KidLisp {
                 return false;
               });
             }
-            
+
             // Check for scroll function calls directly in arrays
             if (node.length > 0 && node[0] === 'scroll') {
               return true;
             }
           }
-          
+
           return false;
         }).length : 0;
 
       embeddedLayer.kidlispInstance.evaluate(
-        embeddedLayer.parsedCode, 
-        embeddedApi, 
+        embeddedLayer.parsedCode,
+        embeddedApi,
         localEnv
       );
-      
+
       embeddedLayer.hasBeenEvaluated = true;
       embeddedLayer.lastFrameEvaluated = frameValue;
     }
 
     // Switch back to main screen
     api.page(api.screen);
-    
+
     // Paste with optimized alpha compositing
     this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
   }
@@ -9258,7 +9268,7 @@ class KidLisp {
   // 🚀 CACHE OPTIMIZED API: Minimal API object creation
   getOptimizedLayerApi(embeddedLayer, api) {
     const cacheKey = `${embeddedLayer.width}x${embeddedLayer.height}`;
-    
+
     // SIMPLIFIED: Don't use complex caching, just create a working API each time
     // Create a simple API that just passes through to the main API
     // This is much simpler than the complex wrapper system
@@ -9266,10 +9276,10 @@ class KidLisp {
     const embeddedApi = {
       // Include KidLisp functions from global environment
       ...globalEnv,
-      
+
       // Include system context for functions like 'painting'
       system: api.system,
-      
+
       // Direct passthrough of most functions to main API
       line: (...args) => api.line(...args),
       ink: (...args) => api.ink(...args),
@@ -9283,7 +9293,7 @@ class KidLisp {
       stamp: (...args) => api.stamp(...args),
       write: (...args) => api.write(...args),
       flood: (...args) => api.flood(...args),
-      
+
       // IMPORTANT: For scroll, call the main API function directly
       // No complex wrapper system - just execute scroll immediately
       scroll: (...args) => {
@@ -9291,7 +9301,7 @@ class KidLisp {
           return api.scroll(...args);
         }
       },
-      
+
       // IMPORTANT: Add missing transform functions that embedded pieces need
       spin: (...args) => {
         if (typeof api.spin === "function") {
@@ -9323,7 +9333,7 @@ class KidLisp {
           return api.contrast(...args);
         }
       },
-      
+
       // Screen properties
       screen: {
         width: embeddedLayer.width,
@@ -9334,28 +9344,28 @@ class KidLisp {
       height: embeddedLayer.height,
       frame: 0 // Updated per render
     };
-    
+
     return embeddedApi;
   }
 
   // Check if an embedded layer should execute this frame based on its timing patterns
   shouldLayerExecuteThisFrame(api, embeddedLayer) {
     console.log(`🔍 shouldLayerExecuteThisFrame called for ${embeddedLayer.cacheId}`);
-    
+
     if (!embeddedLayer.sourceCode) {
       console.log(`🔍 No sourceCode for ${embeddedLayer.cacheId}, executing`);
       return true; // No source code, always execute
     }
-    
+
     // Parse the source to find timing expressions
     const timingExpressions = this.extractTimingExpressions(embeddedLayer.sourceCode);
     console.log(`🔍 Found timing expressions for ${embeddedLayer.cacheId}:`, timingExpressions);
-    
+
     if (timingExpressions.length === 0) {
       console.log(`🔍 No timing expressions for ${embeddedLayer.cacheId}, executing`);
       return true; // No timing expressions, always execute
     }
-    
+
     // Check each timing expression to see if any should execute this frame
     for (const timingExpr of timingExpressions) {
       if (this.evaluateTimingExpression(api, timingExpr)) {
@@ -9363,7 +9373,7 @@ class KidLisp {
         return true;
       }
     }
-    
+
     return false; // No timing conditions were met
   }
 
@@ -9373,11 +9383,11 @@ class KidLisp {
     // Match patterns like (3s...) or (0.25s... something)
     const timingRegex = /\(\s*(\d+(?:\.\d+)?s\.\.\.)/g;
     let match;
-    
+
     while ((match = timingRegex.exec(sourceCode)) !== null) {
       expressions.push(match[1]); // Extract the timing part like "3s..."
     }
-    
+
     return expressions;
   }
 
@@ -9402,31 +9412,31 @@ class KidLisp {
       isNestedInstance: this.isNestedInstance,
       hasClock: !!api.clock
     });
-    
+
     // Extract the interval from expressions like "3s..." or "0.25s..."
     const match = timingExpr.match(/^(\d+(?:\.\d+)?)s\.\.\.$/);
     if (!match) {
       console.log(`⏰ TIMING EVALUATION: Invalid pattern, returning true`);
       return true; // Invalid pattern, default to execute
     }
-    
+
     const interval = parseFloat(match[1]);
     const timingKey = timingExpr + "_1"; // Use same key format as main timing system
-    
+
     console.log(`⏰ TIMING EVALUATION: Parsed interval=${interval}, timingKey=${timingKey}`);
-    
+
     // Get current time
     const clockResult = api.clock?.time();
     if (!clockResult) {
       console.log(`⏰ TIMING EVALUATION: No clock available, returning true`);
       return true; // No clock, default to execute
     }
-    
+
     const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
     const currentTime = currentTimeMs / 1000;
-    
+
     console.log(`⏰ TIMING EVALUATION: Current time=${currentTime}`);
-    
+
     // Use the parent KidLisp instance's timing state
     if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
       // First execution - always execute and record time
@@ -9434,19 +9444,19 @@ class KidLisp {
       console.log(`⏰ TIMING EVALUATION: First execution, recording time and returning true`);
       return true;
     }
-    
+
     const lastExecution = this.lastSecondExecutions[timingKey];
     const diff = currentTime - lastExecution;
-    
+
     console.log(`⏰ TIMING EVALUATION: Last execution=${lastExecution}, diff=${diff}, interval=${interval}`);
-    
+
     // Check if enough time has passed for this timing interval
     if (diff >= interval) { // No tolerance - exact timing
       this.lastSecondExecutions[timingKey] = currentTime;
       console.log(`⏰ TIMING EVALUATION: Time passed, updating and returning true`);
       return true;
     }
-    
+
     console.log(`⏰ TIMING EVALUATION: Not enough time passed, returning false`);
     return false;
   }
@@ -9461,7 +9471,7 @@ class KidLisp {
   // Extract timing pattern from embedded layer source code
   extractTimingPattern(sourceCode) {
     if (!sourceCode) return null;
-    
+
     // Look for timing patterns like "3s...", "1s...", "0.25s..."
     const timingMatch = sourceCode.match(/(\d+(?:\.\d+)?s\.\.\.)/);
     return timingMatch ? timingMatch[1] : null;
@@ -9473,24 +9483,24 @@ class KidLisp {
   createProgrammaticEmbeddedLayer(source, x, y, width, height, options = {}) {
     // Generate a unique cache ID for this programmatic layer
     const cacheId = `prog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     console.log(`🔧 Creating programmatic embedded layer: ${cacheId}`, {
       bounds: `${x},${y} ${width}x${height}`,
       sourceLength: source.length,
       options
     });
-    
+
     // Initialize embedded layers array if needed
     if (!this.embeddedLayers) {
       this.embeddedLayers = [];
     }
-    
+
     // Create a new KidLisp instance for this layer
     const kidlispInstance = new KidLisp();
     kidlispInstance.isEmbeddedContext = true;
     kidlispInstance.isNestedInstance = options.isNestedInstance !== false; // Default to true
     kidlispInstance.embeddedContext = { x, y, width, height };
-    
+
     // Parse the source code
     let parsedCode;
     try {
@@ -9499,14 +9509,14 @@ class KidLisp {
       console.error(`❌ Failed to parse programmatic layer ${cacheId}:`, error);
       return null;
     }
-    
+
     // Create a buffer for this layer
     const buffer = {
       width: width,
       height: height,
       pixels: new Uint8ClampedArray(width * height * 4)
     };
-    
+
     // Create the embedded layer object using same structure as $code layers
     const embeddedLayer = {
       id: `prog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID for each layer
@@ -9526,35 +9536,35 @@ class KidLisp {
       timingPattern: this.extractTimingPattern(source),
       isProgrammatic: true // Mark as programmatically created
     };
-    
+
     // Ensure embeddedLayers is initialized before pushing
     if (!this.embeddedLayers) {
       console.log("🚨 embeddedLayers was null during programmatic push, reinitializing to empty array");
       this.embeddedLayers = [];
     }
-    
+
     // Add to embedded layers array
     this.embeddedLayers.push(embeddedLayer);
-    
+
     console.log(`✅ Created programmatic embedded layer ${cacheId}, total layers: ${this.embeddedLayers.length}`);
-    
+
     return cacheId;
   }
 
   // Remove a programmatic embedded layer
   removeProgrammaticEmbeddedLayer(cacheId) {
     if (!this.embeddedLayers) return false;
-    
+
     const initialLength = this.embeddedLayers.length;
-    this.embeddedLayers = this.embeddedLayers.filter(layer => 
+    this.embeddedLayers = this.embeddedLayers.filter(layer =>
       !(layer.isProgrammatic && layer.cacheId === cacheId)
     );
-    
+
     const removed = this.embeddedLayers.length < initialLength;
     if (removed) {
       console.log(`🗑️ Removed programmatic embedded layer ${cacheId}`);
     }
-    
+
     return removed;
   }
 
@@ -9564,7 +9574,7 @@ class KidLisp {
     if (!embeddedLayer || !embeddedLayer.kidlispInstance || !embeddedLayer.buffer) {
       console.log("❌ Cannot update embedded layer - missing components:", {
         hasLayer: !!embeddedLayer,
-        hasInstance: !!embeddedLayer?.kidlispInstance, 
+        hasInstance: !!embeddedLayer?.kidlispInstance,
         hasBuffer: !!embeddedLayer?.buffer
       });
       return false;
@@ -9575,22 +9585,22 @@ class KidLisp {
 
     try {
       // console.log(`🎯 Updating nested embedded layer: ${embeddedLayer.cacheId}`);
-      
+
       // Switch to drawing on the embedded buffer using page()
       const originalPage = api.screen;
       api.page(embeddedLayer.buffer);
       // console.log(`📄 Switched to nested buffer: ${embeddedLayer.cacheId}`);
-      
+
       // Give embedded layer its own incrementing frame counter for smooth animations
       if (!embeddedLayer.localFrameCount) {
         embeddedLayer.localFrameCount = 0;
       }
       embeddedLayer.localFrameCount += 1;
-      
+
       // Update the embedded KidLisp instance's frame counter
       embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
       embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
-      
+
       // Ensure timing state is preserved for the embedded instance
       if (!embeddedLayer.kidlispInstance.timingStates) {
         embeddedLayer.kidlispInstance.timingStates = new Map();
@@ -9599,11 +9609,11 @@ class KidLisp {
       // ⚡ PERFORMANCE: Cache expensive API object creation for nested updates
       const nestedApiCacheKey = `nested_${embeddedLayer.cacheId}_${embeddedLayer.width}x${embeddedLayer.height}`;
       let embeddedApi = this.embeddedApiCache.get(nestedApiCacheKey);
-      
+
       if (!embeddedApi) {
         // Create API context with proper frame, width, height and KidLisp commands
         const globalEnv = this.getGlobalEnv();
-        
+
         embeddedApi = {
           ...globalEnv,
           ...api,
@@ -9670,7 +9680,7 @@ class KidLisp {
         };
         this.embeddedApiCache.set(nestedApiCacheKey, embeddedApi);
       }
-      
+
       // Update frame-specific properties
       const frameValue = api.frame || this.frameCount || 0;
       const smoothFrameValue = embeddedLayer.localFrameCount;
@@ -9691,7 +9701,7 @@ class KidLisp {
       const modScrollValue = frameValue % (embeddedLayer.width + embeddedLayer.height);
       const embeddedEnv = localEnv; // Reuse instead of spreading
       embeddedEnv.scroll = modScrollValue;
-      
+
       // Apply the detected fade string as background if available (only once when layer is created)
       if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
         embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
@@ -9701,10 +9711,10 @@ class KidLisp {
       // Execute the KidLisp code (it will draw to the embedded buffer via page())
       // console.log(`🎮 Executing embedded layer: ${embeddedLayer.originalCacheId}`);
       // console.log(`📝 Source code: ${embeddedLayer.source || 'No source available'}`);
-      
+
       embeddedLayer.kidlispInstance.evaluate(
-        embeddedLayer.parsedCode, 
-        embeddedApi, 
+        embeddedLayer.parsedCode,
+        embeddedApi,
         embeddedEnv
       );
       // console.log(`✅ Embedded layer execution complete: ${embeddedLayer.originalCacheId}`);
@@ -9713,15 +9723,15 @@ class KidLisp {
       api.page(originalPage);
       // console.log(`📄 Switched back from nested buffer: ${embeddedLayer.cacheId}`);
 
-      } catch (error) {
-        console.error(`❌ Error updating nested embedded layer ${embeddedLayer.cacheId}:`, error);
-        // Make sure we switch back to original page even on error
-        try {
-          api.page(api.screen);
-        } catch (e) {
-          console.error("❌ Error switching back to original page:", e);
-        }
-      }    // Return whether any drawing commands were executed
+    } catch (error) {
+      console.error(`❌ Error updating nested embedded layer ${embeddedLayer.cacheId}:`, error);
+      // Make sure we switch back to original page even on error
+      try {
+        api.page(api.screen);
+      } catch (e) {
+        console.error("❌ Error switching back to original page:", e);
+      }
+    }    // Return whether any drawing commands were executed
     return didRender;
   }
 
@@ -9743,7 +9753,7 @@ class KidLisp {
     // Optimized bounds checking - calculate once
     const maxX = Math.min(layerWidth, currentWidth - x);
     const maxY = Math.min(layerHeight, currentHeight - y);
-    
+
     // Early exit for completely out-of-bounds layers
     if (x >= currentWidth || y >= currentHeight || x + layerWidth <= 0 || y + layerHeight <= 0) {
       return;
@@ -9753,25 +9763,25 @@ class KidLisp {
     for (let ly = 0; ly < maxY; ly++) {
       const screenY = y + ly;
       if (screenY < 0) continue; // Skip negative Y
-      
+
       const layerRowStart = ly * layerWidth * 4;
       const screenRowStart = screenY * currentWidth * 4;
-      
+
       for (let lx = 0; lx < maxX; lx++) {
         const screenX = x + lx;
         if (screenX < 0) continue; // Skip negative X
-        
+
         const layerIndex = layerRowStart + (lx * 4);
         const screenIndex = screenRowStart + (screenX * 4);
 
         const layerA = layerPixels[layerIndex + 3];
-        
+
         // Skip transparent pixels for performance
         if (layerA > 0) {
           const layerR = layerPixels[layerIndex];
           const layerG = layerPixels[layerIndex + 1];
           const layerB = layerPixels[layerIndex + 2];
-          
+
           if (layerA === 255) {
             // Fully opaque - direct copy (faster)
             currentPixels[screenIndex] = layerR;
@@ -9849,19 +9859,19 @@ function isKidlispSource(text) {
 
   // Check for JavaScript syntax indicators that should override KidLisp detection
   // This must happen BEFORE the newline check since JS files are also multi-line
-  if (text.includes("//") || 
-      text.includes("function ") || 
-      text.includes("const ") || 
-      text.includes("let ") || 
-      text.includes("var ") ||
-      text.includes("=>") ||
-      text.includes("console.") ||
-      text.includes("import ") ||
-      text.includes("export ") ||
-      text.includes(".mjs") ||
-      text.includes(".js") ||
-      text.match(/\w+\.\w+/) // Method calls like object.method
-     ) {
+  if (text.includes("//") ||
+    text.includes("function ") ||
+    text.includes("const ") ||
+    text.includes("let ") ||
+    text.includes("var ") ||
+    text.includes("=>") ||
+    text.includes("console.") ||
+    text.includes("import ") ||
+    text.includes("export ") ||
+    text.includes(".mjs") ||
+    text.includes(".js") ||
+    text.match(/\w+\.\w+/) // Method calls like object.method
+  ) {
     return false; // Definitely JavaScript, not KidLisp
   }
 
@@ -9873,10 +9883,10 @@ function isKidlispSource(text) {
 
   // Check for first-line color indicators (fade strings and color codes)
   const trimmedText = text.trim();
-  if (trimmedText.startsWith("fade:") || 
-      trimmedText.match(/^c\d+$/) || 
-      cssColors[trimmedText] || 
-      trimmedText === "rainbow") {
+  if (trimmedText.startsWith("fade:") ||
+    trimmedText.match(/^c\d+$/) ||
+    cssColors[trimmedText] ||
+    trimmedText === "rainbow") {
     return true;
   }
 
@@ -9888,12 +9898,12 @@ function isKidlispSource(text) {
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
       "noise", "choose", "overtone", "rainbow", "zebra", "mic", "amplitude",
-      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", 
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat", "jump"
     ];
-    
+
     // Split by commas and check if any part contains KidLisp functions or colors
     const parts = text.split(",").map(part => part.trim());
     const hasKidlispElements = parts.some(part => {
@@ -9905,15 +9915,15 @@ function isKidlispSource(text) {
       if (part.match(/^c\d+$/)) return true;
       return false;
     });
-    
+
     // Also check if it has a high ratio of KidLisp elements to total parts
     const kidlispElementCount = parts.filter(part => {
       return kidlispFunctions.some(fn => part.includes(fn)) ||
-             (cssColors && cssColors[part]) ||
-             part.match(/^c\d+$/) ||
-             part.match(/^\d+(\.\d+)?$/); // Numbers are common in KidLisp
+        (cssColors && cssColors[part]) ||
+        part.match(/^c\d+$/) ||
+        part.match(/^\d+(\.\d+)?$/); // Numbers are common in KidLisp
     }).length;
-    
+
     // Require at least 1 KidLisp function/color AND either multiple KidLisp elements 
     // or a high ratio of KidLisp elements
     if (hasKidlispElements && (kidlispElementCount >= 2 || kidlispElementCount / parts.length >= 0.5)) {
@@ -10040,21 +10050,21 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
   if (!codeArray || codeArray.length === 0) {
     return {};
   }
-  
+
   // Skip API calls in TEIA mode (offline packages)
   const isTeiaMode = checkTeiaMode();
-  
+
   if (isTeiaMode) {
     return {}; // Return empty results in TEIA mode
   }
-  
+
   console.log("🔧 fetchMultipleCachedCodes called with:", codeArray, "- attempting batch HTTPS fetch");
-  
+
   // Use relative URL that works in both local and production
   const codesParam = encodeURIComponent(codeArray.join(','));
   const fullUrl = `/api/store-kidlisp?codes=${codesParam}`;
   console.log("🌐 Batch fetch URL:", fullUrl);
-  
+
   try {
     console.log("🌐 About to fetch batch...");
     const response = await fetch(fullUrl);
@@ -10065,11 +10075,11 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
       statusText: response.statusText,
       ok: response.ok
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       console.log(`✅ Successfully loaded batch of ${codeArray.length} codes`, data.summary);
-      
+
       // Extract just the sources from the results
       const sources = {};
       Object.entries(data.results).forEach(([code, result]) => {
@@ -10081,7 +10091,7 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
           sources[code] = null;
         }
       });
-      
+
       return sources;
     } else {
       console.error(`❌ Failed to load batch of cached codes: HTTP ${response.status}: ${response.statusText}`);
@@ -10097,14 +10107,14 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 async function fetchCachedCode(nanoidCode, api = null) {
   // Skip API calls in TEIA mode (offline packages)
   const isTeiaMode = checkTeiaMode();
-  
+
   if (isTeiaMode) {
     return null; // Return null in TEIA mode
   }
-  
+
   // Always use /api endpoint for store-kidlisp 
   const fullUrl = `/api/store-kidlisp?code=${nanoidCode}`;
-  
+
   // Use Node.js https module with SSL bypass like tape.mjs does
   return new Promise(async (resolve, reject) => {
     // Check if we're in Node.js environment
@@ -10112,14 +10122,14 @@ async function fetchCachedCode(nanoidCode, api = null) {
       // Import https module dynamically for Node.js environment
       const https = await import('https');
       const options = { rejectUnauthorized: false }; // Allow self-signed certificates
-      
+
       https.get(fullUrl, options, (res) => {
         let data = '';
-        
+
         res.on('data', (chunk) => {
           data += chunk;
         });
-        
+
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
@@ -10169,24 +10179,24 @@ function getSyntaxHighlightingColors(source) {
   if (!source) {
     return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
   }
-  
+
   // Use existing tokenizer
   const tokens = tokenize(source);
   if (tokens.length === 0) {
     return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
   }
-  
+
   // Create a temporary KidLisp instance to access color methods
   const tempInstance = new KidLisp();
-  
+
   // Map tokens to colors using existing syntax highlighting system
   const colors = tokens.map(token => {
     const weight = Math.max(0.01, token.length / source.length);
     const colorStr = tempInstance.getTokenColor(token, tokens, tokens.indexOf(token));
-    
+
     // Convert color string to RGB values
     let r, g, b;
-    
+
     // Handle RGB format colors (like "192,192,192")
     if (colorStr.includes(',')) {
       const parts = colorStr.split(',').map(p => parseInt(p.trim()));
@@ -10232,7 +10242,7 @@ function getSyntaxHighlightingColors(source) {
           r = 220; g = 80; b = 80; // Fallback red
       }
     }
-    
+
     // Classify token type for semantic information
     let type = "default";
     if (token === "(" || token === ")" || token === ",") {
@@ -10250,10 +10260,10 @@ function getSyntaxHighlightingColors(source) {
     } else {
       type = "function";
     }
-    
+
     return { type, r, g, b, weight, token };
   });
-  
+
   return colors;
 }
 
@@ -10268,19 +10278,19 @@ function explainKidLisp(code) {
   }
 
   const cleanCode = code.trim().toLowerCase();
-  
+
   // Special case for the specific example first
   if (cleanCode === 'purple, ink, line, blur 5') {
     return "wipe the screen with purple once, set the ink color to random, add a line, blur with intensity 5";
   }
-  
+
   // Parse the comma-separated commands
   const commands = cleanCode.split(',').map(cmd => cmd.trim());
   const explanations = [];
-  
+
   for (let i = 0; i < commands.length; i++) {
     const cmd = commands[i];
-    
+
     // Colors as first command typically wipe the screen
     if (i === 0 && (cmd.match(/^(red|blue|green|yellow|orange|purple|pink|cyan|magenta|white|black|gray|grey)$/))) {
       explanations.push(`wipe the screen with ${cmd} once`);
@@ -10289,12 +10299,12 @@ function explainKidLisp(code) {
     else if (cmd.match(/^(red|blue|green|yellow|orange|purple|pink|cyan|magenta|white|black|gray|grey)$/)) {
       explanations.push(`use ${cmd} color`);
     }
-    
+
     // Ink command - sets drawing color to random
     else if (cmd === 'ink') {
       explanations.push("set the ink color to random");
     }
-    
+
     // Drawing commands
     else if (cmd === 'line') {
       explanations.push("add a line");
@@ -10311,7 +10321,7 @@ function explainKidLisp(code) {
     else if (cmd === 'plot') {
       explanations.push("draw individual pixels");
     }
-    
+
     // Effects with parameters
     else if (cmd.match(/blur\s+(\d+)/)) {
       const blurMatch = cmd.match(/blur\s+(\d+)/);
@@ -10320,12 +10330,12 @@ function explainKidLisp(code) {
     else if (cmd === 'blur') {
       explanations.push("apply a blur effect");
     }
-    
+
     // Wipe command
     else if (cmd === 'wipe') {
       explanations.push("clear the screen");
     }
-    
+
     // Animation and interaction
     else if (cmd === 'beat') {
       explanations.push("respond to musical beats");
@@ -10339,7 +10349,7 @@ function explainKidLisp(code) {
     else if (cmd === 'zoom') {
       explanations.push("zoom in or out");
     }
-    
+
     // Randomness and generative art
     else if (cmd === 'random') {
       explanations.push("use random values");
@@ -10347,7 +10357,7 @@ function explainKidLisp(code) {
     else if (cmd === 'noise') {
       explanations.push("generate organic patterns");
     }
-    
+
     // Text and typography
     else if (cmd === 'type') {
       explanations.push("display text");
@@ -10355,7 +10365,7 @@ function explainKidLisp(code) {
     else if (cmd === 'write') {
       explanations.push("write text to the screen");
     }
-    
+
     // Mathematical operations
     else if (cmd.match(/^\+|add$/)) {
       explanations.push("perform addition");
@@ -10369,7 +10379,7 @@ function explainKidLisp(code) {
     else if (cmd.match(/^\/|div$/)) {
       explanations.push("perform division");
     }
-    
+
     // Control structures
     else if (cmd === 'if') {
       explanations.push("make conditional decisions");
@@ -10380,13 +10390,13 @@ function explainKidLisp(code) {
     else if (cmd === 'later') {
       explanations.push("schedule future actions");
     }
-    
+
     // Unknown commands
     else if (cmd.length > 0) {
       explanations.push(`execute "${cmd}"`);
     }
   }
-  
+
   // Build the explanation
   if (explanations.length === 0) {
     return "create an interactive visual experience";
