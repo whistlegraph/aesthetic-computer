@@ -814,8 +814,8 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         this.pieceName,     // piece (supports KidLisp $code or .mjs files)
         360,                // 6 seconds at 60fps (360 frames) for cover
         tempOutputDir,      // temporary output directory
-        400,                // width
-        400,                // height
+        512,                // width
+        512,                // height
         { gifMode: true }   // enable GIF mode
       );
       
@@ -853,9 +853,9 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     
     // Fallback to SVG cover if GIF generation fails
     const coverPath = path.join(this.options.outputDir, "cover.svg");
-    const coverSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <rect width="400" height="400" fill="#000"/>
-  <text x="200" y="200" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="monospace" font-size="20">${this.pieceName}</text>
+    const coverSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#000"/>
+  <text x="256" y="256" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="monospace" font-size="20">${this.pieceName}</text>
 </svg>`;
     await fs.writeFile(coverPath, coverSvg);
     console.log("🖼️ Generated fallback cover: cover.svg");
