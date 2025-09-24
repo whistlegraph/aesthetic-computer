@@ -815,10 +815,46 @@ export function resetZebraCache() {
   frameZebraColor = null;
 }
 
+// Get current zebra state for persistence
+export function getZebraState() {
+  return {
+    currentZebraIndex,
+    zebraFrameAdvanced,
+    frameZebraColor: frameZebraColor ? frameZebraColor.slice() : null
+  };
+}
+
+// Set zebra state from persistence
+export function setZebraState(state) {
+  if (state) {
+    currentZebraIndex = state.currentZebraIndex || 0;
+    zebraFrameAdvanced = state.zebraFrameAdvanced || false;
+    frameZebraColor = state.frameZebraColor ? state.frameZebraColor.slice() : null;
+  }
+}
+
 // Reset rainbow frame cache - should be called once per frame/execution
 export function resetRainbowCache() {
   rainbowFrameAdvanced = false;
   frameRainbowColor = null;
+}
+
+// Get current rainbow state for persistence
+export function getRainbowState() {
+  return {
+    currentRainbowIndex,
+    rainbowFrameAdvanced,
+    frameRainbowColor: frameRainbowColor ? frameRainbowColor.slice() : null
+  };
+}
+
+// Set rainbow state from persistence
+export function setRainbowState(state) {
+  if (state) {
+    currentRainbowIndex = state.currentRainbowIndex || 0;
+    rainbowFrameAdvanced = state.rainbowFrameAdvanced || false;
+    frameRainbowColor = state.frameRainbowColor ? state.frameRainbowColor.slice() : null;
+  }
 }
 
 // Find a color inside of `cssColors` by value.

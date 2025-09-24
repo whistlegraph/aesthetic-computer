@@ -46,7 +46,7 @@ function fish_greeting
     printf "🧩 Hi @$AESTHETIC!\n\n"
     
     # Show the new KidLisp source tree shortcut
-    printf "💡 New: Use 'st cow' or 'st \$cow' to analyze KidLisp pieces from anywhere!\n\n"
+
 
     # printf "Ask with 'umm' and forget with 'nvm'\n"
     # printf "or use 'code' and 'done' with 'copy'\n"
@@ -102,6 +102,57 @@ end
 # Alternative function for those who prefer the $ syntax
 function dollarpiece
     st $argv
+end
+
+# AC Pack - Package pieces for Teia with cover GIF generation
+# Usage: ac-pack '$ceo' or ac-pack 'ceo' (from any directory)
+function ac-pack
+    if test (count $argv) -ne 1
+        echo "Usage: ac-pack PIECE_NAME"
+        echo "Example: ac-pack '\$ceo' or ac-pack 'ceo'"
+        return 1
+    end
+    
+    set -l piece_name $argv[1]
+    set -l current_dir (pwd)
+    
+    # Store original directory
+    echo "📂 Packaging $piece_name from $current_dir"
+    
+    # Run the ac-pack.mjs script from the teia directory
+    cd /workspaces/aesthetic-computer/teia
+    
+    # Run the packaging with the piece name
+    node ac-pack.mjs $piece_name
+    
+    # Check if packaging was successful
+    if test $status -eq 0
+        # Find the generated zip file and cover GIF
+        set -l zip_files (find /workspaces/aesthetic-computer/teia/output -name "*.zip" -newer /workspaces/aesthetic-computer/teia/ac-pack.mjs 2>/dev/null)
+        set -l cover_files (find /workspaces/aesthetic-computer/teia/output -name "*-cover.gif" -newer /workspaces/aesthetic-computer/teia/ac-pack.mjs 2>/dev/null)
+        
+        # Copy files to the original directory
+        for zip_file in $zip_files
+            if test -f $zip_file
+                cp $zip_file $current_dir/
+                echo "📦 Copied (basename $zip_file) to $current_dir"
+            end
+        end
+        
+        for cover_file in $cover_files
+            if test -f $cover_file
+                cp $cover_file $current_dir/
+                echo "🖼️ Copied (basename $cover_file) to $current_dir"
+            end
+        end
+        
+        echo "✅ AC Pack complete! Files copied to $current_dir"
+    else
+        echo "❌ AC Pack failed with exit code $status"
+    end
+    
+    # Return to original directory
+    cd $current_dir
 end
 
 # always start in aesthetic-computer directory if there was a greeting

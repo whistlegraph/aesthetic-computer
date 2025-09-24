@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "canvas": "^3.2.0",
+    "gif.js": "^0.2.0"
+  }
+}
