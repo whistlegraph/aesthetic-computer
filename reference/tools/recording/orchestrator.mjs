@@ -3,27 +3,125 @@
 /**
  * Orchestrator Script
  * Manages the stateless frame-by-frame rendering
+ * Supports both .mjs pieces and kidlisp $code pieces
  */
 
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import https from 'https';
+import { timestamp } from '../../../system/public/aesthetic.computer/lib/num.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class RenderOrchestrator {
-  constructor(piece, duration, outputDir) {
+  constructor(piece, duration, outputDir, width = 2048, height = 2048) {
     this.piece = piece;
     this.duration = duration;
     this.outputDir = outputDir;
+    this.width = width;
+    this.height = height;
     this.frameRendererPath = path.join(__dirname, 'frame-renderer.mjs');
+    this.isKidlispPiece = piece.startsWith('$');
+  }
+
+  // Fetch KidLisp source code from the localhost API (similar to tape.mjs)
+  async fetchKidLispSource(code) {
+    const cleanCode = code.replace(/^\$/, '');
+    const url = `https://localhost:8888/.netlify/functions/store-kidlisp?code=${cleanCode}`;
+    
+    return new Promise((resolve, reject) => {
+      const options = { rejectUnauthorized: false }; // Allow self-signed certificates
+      
+      https.get(url, options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          try {
+            const response = JSON.parse(data);
+            if (response.error) {
+              reject(new Error(`KidLisp piece '${code}' not found`));
+              return;
+            }
+            if (!response.source) {
+              reject(new Error("Could not parse source code from response"));
+              return;
+            }
+            resolve(response.source);
+          } catch (error) {
+            reject(new Error("Could not parse JSON response"));
+          }
+        });
+      }).on('error', (error) => {
+        reject(new Error(`Could not connect to localhost:8888 - make sure dev server is running`));
+      });
+    });
+  }
+
+  // Create a temporary kidlisp piece file for rendering
+  async createKidlispPieceFile(source) {
+    const pieceName = this.piece.replace('$', '');
+    const pieceFilePath = path.resolve(this.outputDir, `${pieceName}-kidlisp.mjs`);
+    
+    // Create a piece file that uses the existing kidlisp() function
+    const pieceContent = `
+// Auto-generated kidlisp piece for recording: ${this.piece}
+// Uses built-in kidlisp() function
+
+export async function boot({ screen }) {
+  console.log("🎨 Booting kidlisp piece: ${this.piece}");
+}
+
+export async function paint(api) {
+  console.log("🔍 API object keys:", Object.keys(api));
+  console.log("🔍 Has kidlisp?", typeof api.kidlisp);
+  console.log("🔍 Has wipe?", typeof api.wipe);
+  console.log("🔍 Has screen?", !!api.screen);
+  
+  try {
+    // Use the built-in kidlisp() function with the actual source code
+    // Note: Width and height will be auto-detected by the kidlisp function
+    const source = \`${source.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+    api.kidlisp(0, 0, undefined, undefined, source);
+  } catch (error) {
+    console.error("❌ KidLisp execution error:", error);
+    // Show error visually
+    if (api.wipe && api.ink && api.write) {
+      api.wipe('red');
+      api.ink('white');
+      api.write(\`Error: \${error.message}\`, 10, 10);
+    } else {
+      console.error("❌ Cannot show error visually - missing API functions");
+    }
+  }
+}
+`;
+    
+    fs.writeFileSync(pieceFilePath, pieceContent);
+    console.log(`📝 Created temporary kidlisp piece: ${pieceFilePath}`);
+    return pieceFilePath;
   }
 
   async renderAll() {
     console.log(`🎬 Starting stateless render: ${this.piece} for ${this.duration}ms`);
     console.log(`📁 Output: ${this.outputDir}`);
+    
+    let actualPiece = this.piece;
+    
+    // Handle kidlisp pieces
+    if (this.isKidlispPiece) {
+      console.log(`🎨 Detected kidlisp piece: ${this.piece}`);
+      try {
+        const source = await this.fetchKidLispSource(this.piece);
+        console.log(`📄 Fetched kidlisp source (${source.length} chars)`);
+        actualPiece = await this.createKidlispPieceFile(source);
+      } catch (error) {
+        console.error(`❌ Failed to fetch kidlisp source: ${error.message}`);
+        return;
+      }
+    }
     
     const startTime = Date.now();
     let frameCount = 0;
@@ -38,7 +136,7 @@ class RenderOrchestrator {
       try {
         // Run one frame in fresh process
         const result = execSync(
-          `node ${this.frameRendererPath} ${this.piece} ${this.duration} ${this.outputDir}`,
+          `node ${this.frameRendererPath} ${actualPiece} ${this.duration} ${this.outputDir} ${this.width} ${this.height}`,
           { encoding: 'utf8', stdio: 'inherit' } // Changed to inherit to show frame timing output
         );
         
@@ -70,6 +168,16 @@ class RenderOrchestrator {
       console.log(`🎯 Render complete! ${frameCount} frames rendered with zero memory leaks.`);
       // Now convert to MP4
       await this.convertToMP4();
+      
+      // Cleanup temporary kidlisp piece file if it was created
+      if (this.isKidlispPiece && actualPiece !== this.piece) {
+        try {
+          fs.unlinkSync(actualPiece);
+          console.log(`🗑️ Cleaned up temporary kidlisp piece file`);
+        } catch (error) {
+          console.warn(`⚠️ Could not cleanup temporary file: ${error.message}`);
+        }
+      }
     }
   }
 
@@ -83,10 +191,10 @@ class RenderOrchestrator {
       execSync(`cat ${this.outputDir}/frame-*.rgb > ${allFramesFile}`, { stdio: 'inherit' });
       
       // Generate proper filename using AC naming scheme
-      const pieceName = path.basename(this.piece, '.mjs');
-      const timestamp = this.generateTimestamp();
-      const durationSeconds = Math.round(this.duration / 1000 * 10) / 10; // Round to 1 decimal place
-      const filename = `${pieceName}-${timestamp}-${durationSeconds}s.mp4`;
+      const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
+      const timestampStr = timestamp();
+      const durationSeconds = Math.round(this.duration / 60 * 10) / 10; // Convert frames to seconds at 60fps, round to 1 decimal place
+      const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.mp4`;
       // Save MP4 one level up from the artifacts directory for better organization
       const outputMP4 = path.join(path.dirname(this.outputDir), filename);
       
@@ -111,21 +219,6 @@ class RenderOrchestrator {
     } catch (error) {
       console.error(`💥 MP4 conversion failed:`, error.message);
     }
-  }
-
-  // Generate timestamp in AC format: YYYY.MM.DD.HH.MM.SS.mmm (no zero-padding except milliseconds)
-  generateTimestamp() {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1; // getMonth() returns 0-11
-    const day = d.getDate();
-    const hour = d.getHours();
-    const minute = d.getMinutes();
-    const second = d.getSeconds();
-    const millisecond = d.getMilliseconds();
-    
-    // Match AC timestamp format exactly: no zero-padding except for milliseconds
-    return `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
   }
 
   updateProgressBar(currentFrame, totalFrames, startTime) {
@@ -165,24 +258,37 @@ class RenderOrchestrator {
 // CLI usage
 if (import.meta.url === `file://${process.argv[1]}`) {
   let piece = process.argv[2] || 'elcid-flyer';
-  const duration = parseInt(process.argv[3]) || 1000;
+  const duration = parseInt(process.argv[3]) || 30; // Duration is frame count, not milliseconds
+  const width = parseInt(process.argv[4]) || 1024;
+  const height = parseInt(process.argv[5]) || 1024;
   
-  // Auto-resolve piece paths: if it's just a name, look in pieces/ folder
-  if (piece && !piece.includes('/') && !piece.endsWith('.mjs')) {
-    piece = path.join(__dirname, 'pieces', `${piece}.mjs`);
-  } else if (piece && !piece.includes('/') && piece.endsWith('.mjs')) {
-    piece = path.join(__dirname, 'pieces', piece);
+  // Handle kidlisp pieces (starting with $)
+  if (piece.startsWith('$')) {
+    console.log(`🎨 KidLisp piece detected: ${piece}`);
+    // Keep piece as-is for kidlisp pieces
+  } else {
+    // Auto-resolve piece paths: if it's just a name, look in pieces/ folder
+    if (piece && !piece.includes('/') && !piece.endsWith('.mjs')) {
+      piece = path.join(__dirname, 'pieces', `${piece}.mjs`);
+    } else if (piece && !piece.includes('/') && piece.endsWith('.mjs')) {
+      piece = path.join(__dirname, 'pieces', piece);
+    }
+    // Otherwise use the piece path as-is (for absolute/relative paths)
   }
-  // Otherwise use the piece path as-is (for absolute/relative paths)
   
-  // Create project-specific directory with piece name and timestamp in /output directory
-  let outputDir = process.argv[4];
-  if (!outputDir) {
-    // Extract piece name from path (e.g., "elcid-flyer" from "reference/tools/recording/elcid-flyer.mjs")
-    const pieceName = path.basename(piece, '.mjs');
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-'); // YYYY-MM-DDTHH-MM-SS
-    outputDir = `../output/${pieceName}-${timestamp}`;
+  // Create project-specific directory with piece name automatically  
+  let outputDir;
+  // Extract piece name from path, handling kidlisp pieces specially
+  let pieceName;
+  if (piece.startsWith('$')) {
+    pieceName = piece.replace('$', ''); // Remove $ for directory name
+  } else {
+    pieceName = path.basename(piece, '.mjs');
   }
+  // Create proper output directory with timestamp matching MP4 naming pattern
+  const timestampStr = timestamp(); // Use AC timestamp format: YYYY.MM.DD.HH.MM.SS.mmm
+  const durationSeconds = Math.round(duration / 60 * 10) / 10; // Convert frames to seconds at 60fps, round to 1 decimal place
+  outputDir = path.resolve(__dirname, `../output/${pieceName}-${timestampStr}-${durationSeconds}s`);
   
   // Ensure output directory exists
   if (!fs.existsSync(outputDir)) {
@@ -190,7 +296,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`📁 Created output directory: ${outputDir}`);
   }
   
-  const orchestrator = new RenderOrchestrator(piece, duration, outputDir);
+  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height);
   orchestrator.renderAll().catch(console.error);
 }
 

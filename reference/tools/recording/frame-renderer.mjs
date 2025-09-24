@@ -15,8 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class FrameRenderer extends HeadlessAC {
-  constructor(outputDir) {
-    super(256, 256); // Initialize with default resolution
+  constructor(outputDir, width = 2048, height = 2048) {
+    super(width, height); // Initialize with passed resolution
     this.outputDir = outputDir;
     this.stateFile = path.join(outputDir, 'state.json');
     this.backgroundBufferFile = path.join(outputDir, 'background-buffer.bin');
@@ -24,6 +24,7 @@ class FrameRenderer extends HeadlessAC {
     // State containers for serialization/deserialization
     this.pieceState = {}; // Variables from the piece itself
     this.storeData = {}; // AC store data
+    this.kidlispState = {}; // KidLisp instance state including onceExecuted
     this.pieceModule = null; // Cache the piece module
     this.diskState = null; // State from AC disk lifecycle
     this.backgroundBuffer = null; // Previous frame's pixel buffer for continuity
@@ -47,28 +48,39 @@ class FrameRenderer extends HeadlessAC {
         this.storeData = state.storeData;
       }
       
+      // Restore KidLisp state if it exists
+      if (state.kidlispState) {
+        console.log(`🎨 Restoring KidLisp state with ${Object.keys(state.kidlispState).length} properties`);
+        this.kidlispState = state.kidlispState;
+      }
+      
       // Note: Background buffer will be loaded in renderFrame after canvas is sized
       
       return state;
     } else {
       console.log(`🆕 Starting new render sequence`);
+      const width = parseInt(process.argv[5]) || 1024;
+      const height = parseInt(process.argv[6]) || 1024;
+      const totalFrames = parseInt(process.argv[3]) || 30; // Duration parameter is actually frame count
       return {
         frameIndex: 0,
         startTime: Date.now(),
         piece: process.argv[2] || 'test-piece.mjs',
-        duration: parseInt(process.argv[3]) || 1000,
+        duration: totalFrames * (1000/60), // Convert frames to milliseconds for compatibility
         fps: 60,
-        width: 2048,
-        height: 2048,
-        totalFrames: Math.ceil((parseInt(process.argv[3]) || 1000) / (1000/60)),
+        width: width,
+        height: height,
+        totalFrames: totalFrames,
         pieceState: {},
-        storeData: {}
+        storeData: {},
+        kidlispState: {}
       };
     }
   }
 
   // Load background buffer from previous frame
   loadBackgroundBuffer() {
+    this.backgroundBufferRestored = false; // Reset flag
     if (fs.existsSync(this.backgroundBufferFile)) {
       console.log(`🖼️ Restoring background buffer from previous frame`);
       try {
@@ -78,6 +90,7 @@ class FrameRenderer extends HeadlessAC {
         // Ensure the buffer is the right size
         if (bufferData.length === this.pixelBuffer.length) {
           this.pixelBuffer.set(bufferData);
+          this.backgroundBufferRestored = true; // Set flag when successfully restored
           const loadTime = Date.now() - startTime;
           console.log(`✅ Background buffer restored (${bufferData.length} bytes in ${loadTime}ms)`);
         } else {
@@ -103,11 +116,12 @@ class FrameRenderer extends HeadlessAC {
 
   // Save state for next frame
   saveState(state) {
-    // Include piece state and store data in the state object
+    // Include piece state, store data, and KidLisp state in the state object
     const completeState = {
       ...state,
       pieceState: this.pieceState || {},
-      storeData: this.storeData || {}
+      storeData: this.storeData || {},
+      kidlispState: this.getKidlispState()
     };
     
     fs.writeFileSync(this.stateFile, JSON.stringify(completeState, null, 2));
@@ -125,6 +139,9 @@ class FrameRenderer extends HeadlessAC {
     
     // Calculate frame time
     const frameTimeMs = (state.frameIndex / state.fps) * 1000;
+    
+    // Set the simulation time for timing-based expressions
+    this.setSimulationTime(frameTimeMs);
     
     // Update canvas size if needed
     if (this.width !== state.width || this.height !== state.height) {
@@ -151,6 +168,18 @@ class FrameRenderer extends HeadlessAC {
       const bgStartTime = Date.now();
       this.loadBackgroundBuffer();
       backgroundLoadTime = Date.now() - bgStartTime;
+      
+      // CRITICAL: Update graph buffer reference after loading background buffer
+      // The graph.mjs system needs to point to the updated pixelBuffer with restored pixels
+      if (this.graph && this.graph.setBuffer) {
+        const buffer = {
+          width: this.width,
+          height: this.height,
+          pixels: this.pixelBuffer  // This now contains the restored background pixels
+        };
+        this.graph.setBuffer(buffer);
+        console.log('🎨 Updated graph buffer reference with restored background pixels');
+      }
     }
     
     // Initialize AC system if not already done
@@ -161,9 +190,27 @@ class FrameRenderer extends HeadlessAC {
       await this.initializeAC();
       acInitTime = Date.now() - acStartTime;
       
+      // Set KidLisp state BEFORE creating API so it's available when KidLisp instance is created
+      if (state.kidlispState) {
+        this.setKidlispState(state.kidlispState);
+        console.log('🔄 Pre-set KidLisp state before API creation');
+      }
+      
       const apiStartTime = Date.now();
-      this.api = this.createAPI(); // Create the API after initialization - screen.pixels will now reference the loaded background buffer
+      this.api = await this.createAPI(); // Create the API after initialization - screen.pixels will now reference the loaded background buffer
       apiCreateTime = Date.now() - apiStartTime;
+        
+      // CRITICAL: Synchronize KidLisp frameCount with current frame index
+      // This ensures timing expressions work correctly across frames
+      if (this.kidlispInstance) {
+        this.kidlispInstance.frameCount = state.frameIndex;
+        console.log(`🎯 Synchronized KidLisp frameCount to ${state.frameIndex}`);
+        
+        // CRITICAL: Ensure simulation time is properly set for KidLisp timing calculations
+        // Force update the time after API creation to ensure consistent timing
+        this.setSimulationTime(frameTimeMs);
+        console.log(`🕐 Re-synchronized simulation time after API creation: ${frameTimeMs}ms`);
+      }
     }
     
     // Load the piece module if not cached
@@ -195,8 +242,10 @@ class FrameRenderer extends HeadlessAC {
       const enhancedAPI = {
         ...this.api,
         
-        // Frame context for pieces
+        // Frame context for pieces (both frameIndex and frame for compatibility)
         frameIndex: state.frameIndex,
+        frame: state.frameIndex, // KidLisp expects api.frame
+        paintCount: state.frameIndex, // KidLisp frame function expects api.paintCount
         frameTime: frameTimeMs,
         totalFrames: state.totalFrames,
         
@@ -318,6 +367,12 @@ class FrameRenderer extends HeadlessAC {
       // Capture the frame
       const frameData = this.captureFrame();
       
+      // CRITICAL: Sync API screen buffer back to our pixel buffer to preserve KidLisp changes
+      if (this.api && this.api.screen && this.api.screen.pixels) {
+        console.log('🔄 Syncing API screen buffer to pixel buffer for persistence');
+        this.pixelBuffer.set(this.api.screen.pixels);
+      }
+      
       // Convert RGBA to RGB for ffmpeg
       const rgbData = new Uint8Array(state.width * state.height * 3);
       for (let i = 0; i < frameData.length; i += 4) {
@@ -396,7 +451,9 @@ class FrameRenderer extends HeadlessAC {
 // CLI usage
 if (import.meta.url === `file://${process.argv[1]}`) {
   const outputDir = process.argv[4] || './frame-output';
-  const renderer = new FrameRenderer(outputDir);
+  const width = parseInt(process.argv[5]) || 2048;
+  const height = parseInt(process.argv[6]) || 2048;
+  const renderer = new FrameRenderer(outputDir, width, height);
   
   renderer.run().then(result => {
     if (result.complete) {
