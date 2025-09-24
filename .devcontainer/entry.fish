@@ -111,6 +111,9 @@ git config --global --add safe.directory /home/me/aesthetic-computer
 # Set rebase as default for pull operations.
 git config --global pull.rebase true
 
+# Disable GPG signing to prevent commit issues in dev environment
+git config --global commit.gpgsign false
+
 # Make sure git is setup and authorized for making commits via `gh`.
 gh auth setup-git
 
