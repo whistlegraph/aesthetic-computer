@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { PNG } from 'pngjs';
-import { timestamp } from "../../../system/public/aesthetic.computer/lib/num.mjs";
+import { timestamp, resetRainbowCache, resetZebraCache, getRainbowState, setRainbowState, getZebraState, setZebraState } from "../../../system/public/aesthetic.computer/lib/num.mjs";
 import chalk from 'chalk';
 import ora from 'ora';
 import { logInfo, logError, logWarning } from './logger.mjs';
@@ -108,6 +108,9 @@ export class HeadlessAC {
     this.typeface = null;
     this.typeModule = null;
     this.apiCalls = [];
+    this.firstLineColorApplied = false; // Track if first-line color has been applied
+    this.kidlispInstance = null; // Will be initialized when API is created
+    this.kidlispState = null; // Will hold state to restore
     
     // Performance tracking options
     this.detailedTiming = options.detailedTiming || false;
@@ -124,6 +127,120 @@ export class HeadlessAC {
       this.pixelBuffer[i + 2] = 0; // B
       this.pixelBuffer[i + 3] = 255; // A (opaque)
     }
+  }
+
+  // Set KidLisp state for restoration
+  setKidlispState(state) {
+    this.kidlispState = state;
+    
+    // If we have a KidLisp instance, restore the state immediately
+    if (this.kidlispInstance && state) {
+      // Basic state restoration
+      if (state.onceExecuted) {
+        this.kidlispInstance.onceExecuted = new Set(state.onceExecuted);
+      }
+      if (state.currentSource !== undefined) {
+        this.kidlispInstance.currentSource = state.currentSource;
+      }
+      if (state.firstLineColor !== undefined) {
+        this.kidlispInstance.firstLineColor = state.firstLineColor;
+      }
+      if (state.scrollFuzzDirection !== undefined) {
+        this.kidlispInstance.scrollFuzzDirection = state.scrollFuzzDirection;
+      }
+      
+      // Critical timing state restoration
+      if (state.lastSecondExecutions) {
+        this.kidlispInstance.lastSecondExecutions = { ...state.lastSecondExecutions };
+      }
+      if (state.sequenceCounters) {
+        this.kidlispInstance.sequenceCounters = new Map(Object.entries(state.sequenceCounters));
+      }
+      if (state.frameCount !== undefined) {
+        this.kidlispInstance.frameCount = state.frameCount;
+      }
+      if (state.instantTriggersExecuted) {
+        this.kidlispInstance.instantTriggersExecuted = { ...state.instantTriggersExecuted };
+      }
+      
+      // Advanced timing state restoration
+      if (state.timingStates) {
+        this.kidlispInstance.timingStates = new Map(Object.entries(state.timingStates));
+      }
+      if (state.activeTimingExpressions) {
+        this.kidlispInstance.activeTimingExpressions = new Map(Object.entries(state.activeTimingExpressions));
+      }
+      
+      // Ink and visual state restoration
+      if (state.inkState !== undefined) {
+        this.kidlispInstance.inkState = state.inkState;
+      }
+      if (state.inkStateSet !== undefined) {
+        this.kidlispInstance.inkStateSet = state.inkStateSet;
+      }
+      
+      // Baked layers state restoration
+      if (state.bakedLayers) {
+        this.kidlispInstance.bakedLayers = [...state.bakedLayers];
+      }
+      if (state.bakeCallCount !== undefined) {
+        this.kidlispInstance.bakeCallCount = state.bakeCallCount;
+      }
+      
+      // Local environment restoration
+      if (state.localEnv) {
+        this.kidlispInstance.localEnv = { ...state.localEnv };
+      }
+      
+      // Rainbow and zebra state restoration
+      if (state.rainbowState) {
+        setRainbowState(state.rainbowState);
+      }
+      if (state.zebraState) {
+        setZebraState(state.zebraState);
+      }
+      
+      console.log(`🔄 Restored KidLisp state: frame=${this.kidlispInstance.frameCount}, timing entries=${Object.keys(this.kidlispInstance.lastSecondExecutions).length}, sequence counters=${this.kidlispInstance.sequenceCounters.size}`);
+    }
+  }
+  
+  // Get current KidLisp state for saving
+  getKidlispState() {
+    if (this.kidlispInstance) {
+      return {
+        // Basic state (already captured)
+        onceExecuted: Array.from(this.kidlispInstance.onceExecuted), // Convert Set to Array for JSON
+        currentSource: this.kidlispInstance.currentSource,
+        firstLineColor: this.kidlispInstance.firstLineColor,
+        scrollFuzzDirection: this.kidlispInstance.scrollFuzzDirection,
+        
+        // Critical timing state for frame continuity
+        lastSecondExecutions: this.kidlispInstance.lastSecondExecutions || {},
+        sequenceCounters: this.kidlispInstance.sequenceCounters ? Object.fromEntries(this.kidlispInstance.sequenceCounters) : {},
+        frameCount: this.kidlispInstance.frameCount || 0,
+        instantTriggersExecuted: this.kidlispInstance.instantTriggersExecuted || {},
+        
+        // Advanced timing state
+        timingStates: this.kidlispInstance.timingStates ? Object.fromEntries(this.kidlispInstance.timingStates) : {},
+        activeTimingExpressions: this.kidlispInstance.activeTimingExpressions ? Object.fromEntries(this.kidlispInstance.activeTimingExpressions) : {},
+        
+        // Ink and visual state
+        inkState: this.kidlispInstance.inkState,
+        inkStateSet: this.kidlispInstance.inkStateSet || false,
+        
+        // Baked layers state
+        bakedLayers: this.kidlispInstance.bakedLayers || [],
+        bakeCallCount: this.kidlispInstance.bakeCallCount || 0,
+        
+        // Local environment
+        localEnv: this.kidlispInstance.localEnv || {},
+        
+        // Rainbow and zebra color cycling state
+        rainbowState: getRainbowState(),
+        zebraState: getZebraState()
+      };
+    }
+    return {};
   }
 
   // Enable V8 optimizations for performance
@@ -318,7 +435,7 @@ export class HeadlessAC {
     }
   }
   
-  createAPI() {
+  async createAPI() {
     const self = this;
     
     function logCall(name, args) {
@@ -363,7 +480,13 @@ export class HeadlessAC {
           const foundColor = timeGraphOperation('findColor', self.graph.findColor.bind(self.graph), ...args);
           timeGraphOperation('color', self.graph.color.bind(self.graph), ...foundColor);
         }
-        timeGraphOperation('clear', self.graph.clear.bind(self.graph));
+        // Only clear if we haven't restored a background buffer
+        // This prevents wiping out the accumulated frame buffer during multi-frame rendering
+        if (!self.backgroundBufferRestored) {
+          timeGraphOperation('clear', self.graph.clear.bind(self.graph));
+        } else {
+          console.log('🎨 Skipping clear - background buffer was restored');
+        }
         return api;
       };
       
@@ -916,6 +1039,93 @@ export class HeadlessAC {
       
       console.log('✅ Text API exposed using actual text module functions: capitalize, reverse, width, height, box');
       
+      // Add KidLisp integration by creating a direct instance
+      try {
+        // Import KidLisp directly from the kidlisp module
+        const { KidLisp } = await import("../../../system/public/aesthetic.computer/lib/kidlisp.mjs");
+        
+        if (!self.kidlispInstance) {
+          self.kidlispInstance = new KidLisp();
+          
+          // Restore KidLisp state if available - use the enhanced state restoration
+          if (self.kidlispState) {
+            console.log('🔄 Restoring comprehensive KidLisp state from previous frame');
+            
+            // Use the setKidlispState method which handles all state restoration
+            self.setKidlispState(self.kidlispState);
+            
+            console.log('✅ Complete KidLisp state restored');
+          }
+          
+          // Note: setAPI will be called in the kidlisp function with the current API
+        }
+        
+        api.kidlisp = function(x = 0, y = 0, width, height, source, options = {}) {
+          logCall('kidlisp', [x, y, width, height, source, options]);
+          
+          console.log('DEBUG: API object keys:', Object.keys(api));
+          console.log('DEBUG: API screen:', api.screen);
+          console.log('DEBUG: Self width/height:', self.width, self.height);
+          
+          // Set default width/height to screen dimensions if not provided
+          if (width === undefined) width = self.width;
+          if (height === undefined) height = self.height;
+          
+          // Update the KidLisp instance with the current API before evaluation
+          self.kidlispInstance.setAPI(api);
+          
+          // Simulate KidLisp sim function behavior to properly advance frame count and rainbow cache
+          // This MUST happen before any KidLisp evaluation to ensure proper color cycling
+          self.kidlispInstance.frameCount++; // Increment frame counter for timing functions
+          resetRainbowCache(); // Reset rainbow cache for new frame to ensure color cycling
+          
+          // Set KidLisp context in graph system for dynamic fade evaluation
+          if (self.graph && self.graph.setKidLispContext) {
+            self.graph.setKidLispContext(self.kidlispInstance, api, self.kidlispInstance.localEnv);
+          }
+          
+          // Execute the KidLisp code with proper first-line color detection
+          try {
+            // Parse the source code first
+            console.log(`DEBUG: KidLisp source before parsing:`, JSON.stringify(source));
+            self.kidlispInstance.parse(source);
+            console.log(`DEBUG: KidLisp AST after parsing:`, self.kidlispInstance.ast);
+            
+            if (self.kidlispInstance.ast) {
+              // Detect and apply first-line color if needed (only on frame 0, like "once wipe purple")
+              self.kidlispInstance.detectFirstLineColor();
+              if (self.kidlispInstance.firstLineColor && (api.frameIndex === undefined || api.frameIndex === 0)) {
+                console.log(`🎨 Detected first-line color: ${self.kidlispInstance.firstLineColor} (applying on frame 0 only)`);
+                api.wipe(self.kidlispInstance.firstLineColor);
+              } else if (self.kidlispInstance.firstLineColor) {
+                console.log(`🎨 First-line color ${self.kidlispInstance.firstLineColor} detected but skipping wipe (frame ${api.frameIndex})`);
+              }
+              
+              // Evaluate using the main KidLisp evaluation system
+              
+              // Pass the AST directly - if it's already an array, use it as the body
+              const astToEvaluate = self.kidlispInstance.ast.body || self.kidlispInstance.ast;
+              
+              const result = self.kidlispInstance.evaluate(
+                astToEvaluate, 
+                api, 
+                self.kidlispInstance.localEnv
+              );
+              
+              console.log(`🎯 KidLisp evaluation result:`, result);
+              return result;
+            }
+          } catch (error) {
+            console.error('KidLisp execution error:', error);
+            return null;
+          }
+        };
+        
+        console.log('✅ KidLisp API exposed using direct KidLisp instance');
+      } catch (error) {
+        console.warn('⚠️ Failed to load KidLisp module:', error.message);
+      }
+      
       // Add direct references for destructuring patterns used by some disks
       api.api = api; // Self reference for when destructured as { api }
       
@@ -1022,7 +1232,10 @@ export class HeadlessAC {
       
       // Add clock utilities for timing-based animations
       clock: {
-        time: () => new Date()
+        time: () => {
+          const simulationTime = this.api?.simulationTime || Date.now();
+          return new Date(simulationTime);
+        }
       },
       
       // Add num utilities
@@ -1265,7 +1478,7 @@ export class HeadlessAC {
       
       // Initialize the disk with boot function
       if (pieceModule.boot) {
-        const api = this.createAPI();
+        const api = await this.createAPI();
         pieceModule.boot(api);
       }
       
@@ -1357,7 +1570,9 @@ export class HeadlessAC {
       this.api.time = () => new Date(this.simulationTime);
     }
     if (this.api && this.api.clock) {
-      this.api.clock = () => this.simulationTime;
+      // KidLisp expects api.clock.time() to return a Date object
+      this.api.clock.time = () => new Date(this.simulationTime);
+      console.log(`🕐 Clock API updated with simulation time: ${this.simulationTime}ms -> ${new Date(this.simulationTime).toISOString()}`);
     }
     if (this.api && this.api.perf) {
       this.api.perf = () => this.simulationTime;
