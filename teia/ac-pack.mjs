@@ -9,9 +9,43 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { extractCodes, fetchAllCodes, generateCacheCode } from "./kidlisp-extractor.mjs";
+import { timestamp } from "../system/public/aesthetic.computer/lib/num.mjs";
+import { execSync } from "child_process";
+import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Get git information for colophonic data
+function getGitInfo() {
+  try {
+    const gitDir = path.join(__dirname, "..");
+    const commit = execSync("git rev-parse HEAD", { cwd: gitDir, encoding: "utf8" }).trim();
+    const shortCommit = commit.substring(0, 7);
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: gitDir, encoding: "utf8" }).trim();
+    const commitDate = execSync("git show -s --format=%ci HEAD", { cwd: gitDir, encoding: "utf8" }).trim();
+    const isDirty = execSync("git status --porcelain", { cwd: gitDir, encoding: "utf8" }).trim().length > 0;
+    
+    return {
+      commit,
+      shortCommit,
+      branch,
+      commitDate,
+      isDirty,
+      repoUrl: "https://github.com/digitpain/aesthetic.computer"
+    };
+  } catch (error) {
+    console.log("ℹ️ Could not retrieve git information:", error.message);
+    return {
+      commit: "unknown",
+      shortCommit: "unknown",
+      branch: "unknown", 
+      commitDate: "unknown",
+      isDirty: false,
+      repoUrl: "https://github.com/digitpain/aesthetic.computer"
+    };
+  }
+}
 
 // Configuration
 const SYSTEM_DIR = path.join(__dirname, "..", "system");
@@ -23,12 +57,13 @@ const TOKENS_DIR = path.join(__dirname, "output");
 class AcPacker {
   constructor(pieceName, options = {}) {
     this.pieceName = pieceName;
+    this.zipTimestamp = timestamp(); // Generate timestamp once for consistent naming
     this.options = {
       outputDir: path.join(TOKENS_DIR, pieceName),
-      coverImage: options.coverImage || "cover.svg",
+      coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
-      author: options.author || "aesthetic.computer",
+      author: options.author || "@jeffrey",
       ...options,
     };
     this.bundledFiles = new Set();
@@ -42,16 +77,17 @@ class AcPacker {
       const pieceData = await this.loadPiece();
       
       // Handle KidLisp dependencies if this is a KidLisp piece
+      let hasDependencies = false;
       if (pieceData.isKidLispCode) {
-        await this.bundleKidLispDependencies(pieceData);
+        hasDependencies = await this.bundleKidLispDependencies(pieceData);
       }
       
-      await this.generateIndexHtml(pieceData);
       await this.bundleSystemFiles();
       await this.bundleLibFiles();
       await this.bundleSystemsFiles();
       await this.bundleDepFiles();
       await this.bundleCommonDiskFiles();
+      await this.bundleFontDrawings(); // Add font drawings bundling
       await this.bundleCurrentPiece();
       await this.createDiskStubs();
       await this.createAssets();
@@ -59,6 +95,9 @@ class AcPacker {
       await this.bundleFontAssets();
       await this.generateCover();
       await this.copyAssets();
+      
+      // Generate index.html after all bundling is complete so we have accurate file count
+      await this.generateIndexHtml(pieceData, hasDependencies);
       
       console.log("✅ Successfully generated assets for", this.pieceName);
       console.log("📁 Files bundled:", this.bundledFiles.size);
@@ -122,43 +161,110 @@ class AcPacker {
   async bundleKidLispDependencies(pieceData) {
     console.log(`🔗 Fetching KidLisp dependencies for ${this.pieceName}...`);
     
-    // Fetch all nested dependencies
+    // Create a codes map that includes the main code itself
     const codesMap = await fetchAllCodes(pieceData.sourceCode);
     
+    // Always include the main piece code in the cache
+    const mainCodeId = pieceData.codeId; // "roz" from "$roz"
+    codesMap.set(mainCodeId, {
+      source: pieceData.sourceCode,
+      when: new Date().toISOString(),
+      hits: 1,
+      user: "teia-package"
+    });
+    
+    console.log(`📚 Found ${codesMap.size} KidLisp codes (including main: ${mainCodeId})`);
+    
+    // Always generate cache code if we have any codes (including main)
     if (codesMap.size > 0) {
-      console.log(`📚 Found ${codesMap.size} KidLisp dependencies`);
-      
-      // Generate cache preload code
-      const cacheCode = generateCacheCode(codesMap);
-      
-      // Save cache file
-      const cacheFilePath = path.join(this.options.outputDir, "kidlisp-cache.js");
-      await fs.writeFile(cacheFilePath, cacheCode);
-      this.bundledFiles.add("kidlisp-cache.js");
-      
-      console.log(`💾 Saved KidLisp cache to kidlisp-cache.js`);
+      // Store the cache data for inline injection into HTML
+      this.kidlispCacheData = { codesMap, count: codesMap.size };
+      console.log(`💾 Prepared KidLisp cache for inline injection with ${codesMap.size} codes`);
+      return true; // Dependencies + main code bundled
     } else {
-      console.log(`ℹ️ No KidLisp dependencies found`);
+      console.log(`ℹ️ No KidLisp codes to bundle`);
+      return false; // No codes at all
     }
   }
 
-  async generateIndexHtml(pieceData) {
-    const { metadata } = pieceData;
+  async generateIndexHtml(pieceData, hasDependencies = false) {
+    // Set up TEIA mode environment before generating metadata
+    global.window = global.window || {};
+    global.window.acTEIA_MODE = true;
+    global.globalThis = global.globalThis || {};
+    global.globalThis.acTEIA_MODE = true;
+    
+    // Import and call metadata with TEIA context
+    const { metadata } = await import("../system/public/aesthetic.computer/lib/parse.mjs");
+    const teiaContext = { author: this.options.author };
+    const generatedMetadata = metadata("localhost", this.pieceName, {}, "https:", teiaContext);
+    
+    // Override metadata URLs to use relative paths for static packaging
+    if (generatedMetadata) {
+      generatedMetadata.icon = `./icon/128x128/${this.pieceName}.png`;
+      // Also override any preview/cover images to use our static cover
+      generatedMetadata.ogImage = this.options.coverImage;
+      generatedMetadata.twitterImage = this.options.coverImage;
+      // Use relative manifest path for standalone packages
+      generatedMetadata.manifest = "./manifest.json";
+    }
+    
+    const gitInfo = getGitInfo();
+    console.log("🔧 Git info retrieved:", gitInfo);
+    const packTime = new Date().toISOString();
+    
+    // Get system information
+    const systemInfo = {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      hostname: os.hostname(),
+      userInfo: os.userInfo().username
+    };
+    
+    // Prepare colophonic information
+    const zipFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}.zip`;
+    
+    const colophonData = {
+      piece: {
+        name: this.pieceName,
+        isKidLisp: pieceData.isKidLispCode,
+        sourceCode: pieceData.sourceCode || null,
+        hasDependencies,
+        codeLength: pieceData.sourceCode ? pieceData.sourceCode.length : 0
+      },
+      build: {
+        packTime,
+        author: this.options.author,
+        gitCommit: gitInfo.shortCommit,
+        gitCommitFull: gitInfo.commit,
+        gitBranch: gitInfo.branch,
+        gitCommitDate: gitInfo.commitDate,
+        gitIsDirty: gitInfo.isDirty,
+        repoUrl: gitInfo.repoUrl,
+        systemInfo,
+        fileCount: this.bundledFiles.size,
+        zipFilename: zipFilename
+      },
+      metadata: generatedMetadata || {}
+    };
+    
+    console.log("📋 Colophon data prepared:", JSON.stringify(colophonData, null, 2));
     
     const indexHtml = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <base href="./" />
-    <title>${metadata.title || this.options.title}</title>
+    <title>${generatedMetadata.title || this.options.title}</title>
     <meta property="og:image" content="${this.options.coverImage}" />
     <link rel="icon" href="./aesthetic.computer/favicon.png" type="image/png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="${this.options.description}" />
-    <meta name="og:title" content="${metadata.title || this.options.title}" />
+    <meta name="og:title" content="${generatedMetadata.title || this.options.title}" />
     <meta name="og:description" content="${this.options.description}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${metadata.title || this.options.title}" />
+    <meta name="twitter:title" content="${generatedMetadata.title || this.options.title}" />
     <meta name="twitter:site" content="${this.options.author}" />
     <meta name="twitter:image" content="${this.options.coverImage}" />
     
@@ -166,6 +272,9 @@ class AcPacker {
 // Teia mode configuration - simple starting piece override
 window.acTEIA_MODE = true;
 window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piece
+
+// Colophonic information for provenance and debugging
+window.acTEIA_COLOPHON = ${JSON.stringify(colophonData, null, 2)};
 
 // Extract Teia URL parameters
 const urlParams = new URLSearchParams(window.location.search);
@@ -181,15 +290,29 @@ window.acDISABLE_SESSION = true;
 // Enable nogap mode by default for teia
 window.acNOGAP_MODE = true;
 
+// Set TEIA mode on both window and globalThis for maximum compatibility
+window.acTEIA_MODE = true;
+globalThis.acTEIA_MODE = true;
+
 console.log('🎭 Teia mode activated:', {
   startingPiece: window.acSTARTING_PIECE,
   viewer: window.acTEIA_VIEWER,
   creator: window.acTEIA_CREATOR,
   disableSession: window.acDISABLE_SESSION,
-  nogapMode: window.acNOGAP_MODE
+  nogapMode: window.acNOGAP_MODE,
+  teiaMode: window.acTEIA_MODE
 });
+
+// Periodically ensure TEIA mode stays enabled
+setInterval(() => {
+  if (!window.acTEIA_MODE || !globalThis.acTEIA_MODE) {
+    console.log('� Restoring TEIA mode flags');
+    window.acTEIA_MODE = true;
+    globalThis.acTEIA_MODE = true;
+  }
+}, 100);
     </script>
-    ${pieceData.isKidLispCode ? '<script src="./kidlisp-cache.js"></script>' : ''}
+    ${this.generateKidLispCacheScript()}
     <script src="./aesthetic.computer/boot.mjs" type="module" defer></script>
     <link rel="stylesheet" href="./aesthetic.computer/style.css" />
   </head>
@@ -209,6 +332,39 @@ console.log('🎭 Teia mode activated:', {
 
     await fs.writeFile(path.join(this.options.outputDir, "index.html"), indexHtml);
     console.log("📄 Generated index.html");
+    
+    // Generate a basic manifest.json for the packaged piece
+    const manifest = {
+      name: generatedMetadata.title || this.options.title,
+      short_name: this.pieceName,
+      start_url: "./",
+      display: "standalone",
+      background_color: "#000000",
+      theme_color: "#0084FF",
+      icons: [
+        {
+          src: `./icon/128x128/${this.pieceName}.png`,
+          sizes: "128x128",
+          type: "image/png"
+        }
+      ]
+    };
+    
+    await fs.writeFile(path.join(this.options.outputDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+    console.log("📄 Generated manifest.json");
+  }
+
+  generateKidLispCacheScript() {
+    // Return empty string if no cache data
+    if (!this.kidlispCacheData || !this.kidlispCacheData.codesMap) {
+      return '';
+    }
+
+    // Generate the inline cache script
+    const cacheCode = generateCacheCode(this.kidlispCacheData.codesMap);
+    return `<script type="text/javascript">
+${cacheCode}
+    </script>`;
   }
 
   async bundleSystemFiles() {
@@ -277,6 +433,12 @@ console.log('🎭 Teia mode activated:', {
         if (libFile === 'kidlisp.mjs') {
           content = this.patchKidLispJsForTeia(content);
           console.log(`🔧 Patched kidlisp.mjs for teia mode`);
+        }
+        
+        // Patch headers.mjs for teia mode - fix import statements
+        if (libFile === 'headers.mjs') {
+          content = this.patchHeadersJsForTeia(content);
+          console.log(`🔧 Patched headers.mjs for teia mode`);
         }
         
         // Patch disk.mjs for teia mode - prevent session connections
@@ -404,6 +566,66 @@ console.log('🎭 Teia mode activated:', {
     }
   }
 
+  async bundleFontDrawings() {
+    const drawingsDir = path.join(DISKS_DIR, "drawings");
+    const drawingsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks", "drawings");
+
+    try {
+      await fs.mkdir(drawingsOutputDir, { recursive: true });
+      
+      // Bundle font_1 directory
+      const font1Dir = path.join(drawingsDir, "font_1");
+      const font1OutputDir = path.join(drawingsOutputDir, "font_1");
+      
+      if (await this.directoryExists(font1Dir)) {
+        await fs.mkdir(font1OutputDir, { recursive: true });
+        
+        // Copy all subdirectories and files
+        const font1Subdirs = await fs.readdir(font1Dir);
+        let totalGlyphs = 0;
+        
+        for (const subdir of font1Subdirs) {
+          const srcSubdirPath = path.join(font1Dir, subdir);
+          const destSubdirPath = path.join(font1OutputDir, subdir);
+          
+          const stat = await fs.stat(srcSubdirPath);
+          if (stat.isDirectory()) {
+            await fs.mkdir(destSubdirPath, { recursive: true });
+            
+            // Copy all .json files in this subdirectory
+            const files = await fs.readdir(srcSubdirPath);
+            const jsonFiles = files.filter(file => file.endsWith(".json"));
+            
+            for (const jsonFile of jsonFiles) {
+              const srcFilePath = path.join(srcSubdirPath, jsonFile);
+              const destFilePath = path.join(destSubdirPath, jsonFile);
+              const content = await fs.readFile(srcFilePath, "utf8");
+              await fs.writeFile(destFilePath, content);
+              totalGlyphs++;
+            }
+          }
+        }
+        
+        this.bundledFiles.add(`font_1 glyphs: ${totalGlyphs} files`);
+        console.log(`🔤 Bundled font_1: ${totalGlyphs} glyph files`);
+      } else {
+        console.log("ℹ️ font_1 directory not found, skipping");
+      }
+      
+    } catch (error) {
+      console.warn("⚠️ Warning: Could not bundle font drawings:", error.message);
+    }
+  }
+
+  async directoryExists(dir) {
+    try {
+      const stat = await fs.stat(dir);
+      return stat.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
   async bundleCurrentPiece() {
     const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
     await fs.mkdir(disksOutputDir, { recursive: true });
@@ -411,7 +633,7 @@ console.log('🎭 Teia mode activated:', {
     // Handle KidLisp $codes - create a stub piece that jumps to the cached code
     if (this.pieceName.startsWith('$')) {
       const stubContent = `// KidLisp $code stub for Teia mode
-export function boot({ wipe, ink, help }) {
+export function boot({ wipe, ink, help, backgroundFill }) {
   // Load the cached KidLisp code
   wipe("black");
   ink("white");
@@ -477,7 +699,7 @@ export function boot({ wipe, ink, help }) {
   }
 
   async bundleWebfonts() {
-    const webfontsDir = path.join(__dirname, "..", "system", "public", "assets", "type", "webfonts");
+    const webfontsDir = path.join(__dirname, "..", "system", "public", "type", "webfonts");
     const webfontsOutputDir = path.join(this.options.outputDir, "type", "webfonts");
 
     try {
@@ -512,50 +734,57 @@ export function boot({ wipe, ink, help }) {
       const matrixFontDir = path.join(fontsDir, "MatrixChunky8");
       const matrixOutputDir = path.join(assetsOutputDir, "MatrixChunky8");
       
-      await fs.mkdir(matrixOutputDir, { recursive: true });
-      
-      const glyphFiles = await fs.readdir(matrixFontDir);
-      const jsonFiles = glyphFiles.filter(file => file.endsWith(".json"));
-      
-      console.log(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
-      
-      let bundledCount = 0;
-      for (const glyphFile of jsonFiles) {
-        const srcPath = path.join(matrixFontDir, glyphFile);
+      // Check if MatrixChunky8 directory exists before trying to read it
+      try {
+        await fs.access(matrixFontDir);
+        await fs.mkdir(matrixOutputDir, { recursive: true });
         
-        // Convert 2-digit hex filename to 4-digit hex for consistency with code expectations
-        const hexCode = glyphFile.replace('.json', '');
-        const paddedHexCode = hexCode.padStart(4, '0').toUpperCase();
-        const destFileName = `${paddedHexCode}.json`;
-        const destPath = path.join(matrixOutputDir, destFileName);
+        const glyphFiles = await fs.readdir(matrixFontDir);
+        const jsonFiles = glyphFiles.filter(file => file.endsWith(".json"));
         
-        const content = await fs.readFile(srcPath, "utf8");
-        await fs.writeFile(destPath, content);
-        bundledCount++;
+        console.log(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
+        
+        let bundledCount = 0;
+        for (const glyphFile of jsonFiles) {
+          const srcPath = path.join(matrixFontDir, glyphFile);
+          
+          // Convert 2-digit hex filename to 4-digit hex for consistency with code expectations
+          const hexCode = glyphFile.replace('.json', '');
+          const paddedHexCode = hexCode.padStart(4, '0').toUpperCase();
+          const destFileName = `${paddedHexCode}.json`;
+          const destPath = path.join(matrixOutputDir, destFileName);
+          
+          const content = await fs.readFile(srcPath, "utf8");
+          await fs.writeFile(destPath, content);
+          bundledCount++;
+        }
+        
+        console.log(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
+        
+        // Also create a font manifest for easier debugging
+        const fontManifest = {
+          font: "MatrixChunky8",
+          bundledGlyphs: jsonFiles.map(file => {
+            const hexCode = file.replace('.json', '');
+            const charCode = parseInt(hexCode, 16);
+            return {
+              hex: hexCode,
+              decimal: charCode,
+              char: String.fromCharCode(charCode),
+              file: file
+            };
+          }),
+          totalGlyphs: bundledCount,
+          bundledAt: new Date().toISOString()
+        };
+        
+        const manifestPath = path.join(matrixOutputDir, "_manifest.json");
+        await fs.writeFile(manifestPath, JSON.stringify(fontManifest, null, 2));
+        console.log(`📋 Created font manifest: _manifest.json`);
+        
+      } catch (matrixError) {
+        console.log("ℹ️ MatrixChunky8 font directory not found, skipping font bundling");
       }
-      
-      console.log(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
-      
-      // Also create a font manifest for easier debugging
-      const fontManifest = {
-        font: "MatrixChunky8",
-        bundledGlyphs: jsonFiles.map(file => {
-          const hexCode = file.replace('.json', '');
-          const charCode = parseInt(hexCode, 16);
-          return {
-            hex: hexCode,
-            decimal: charCode,
-            char: String.fromCharCode(charCode),
-            file: file
-          };
-        }),
-        totalGlyphs: bundledCount,
-        bundledAt: new Date().toISOString()
-      };
-      
-      const manifestPath = path.join(matrixOutputDir, "_manifest.json");
-      await fs.writeFile(manifestPath, JSON.stringify(fontManifest, null, 2));
-      console.log(`📋 Created font manifest: _manifest.json`);
       
     } catch (error) {
       console.error("❌ Error bundling font assets:", error.message);
@@ -564,16 +793,184 @@ export function boot({ wipe, ink, help }) {
   }
 
   async generateCover() {
+    // Try to generate an animated GIF cover using the piece
+    try {
+      const { GifRenderer } = await import("../reference/tools/recording/gif-renderer.mjs");
+      const coverPath = path.join(this.options.outputDir, "cover.gif");
+      
+      // Create a temporary piece file if this is KidLisp code
+      let pieceToRender = this.pieceName;
+      let tempPieceFile = null;
+      
+      if (this.pieceName.startsWith('$')) {
+        // For KidLisp pieces, create a temporary .mjs file
+        const piecesDir = path.join(__dirname, "../reference/tools/recording/pieces");
+        await fs.mkdir(piecesDir, { recursive: true });
+        
+        tempPieceFile = path.join(piecesDir, `${this.pieceName.replace('$', 'temp-')}.mjs`);
+        
+        // Create a simple animated piece for GIF generation
+        // For now, create a generic animation since KidLisp execution is complex
+        const pieceCode = `// Temporary piece for GIF generation
+export const system = "nopaint";
+
+export function paint({ wipe, ink, line, api, frameTime = 0 }) {
+  // Create a simple animation based on the piece name
+  const t = frameTime / 1000;
+  
+  // Background with piece-specific hue
+  const baseHue = "${this.pieceName}".charCodeAt(1) || 200;
+  wipe(baseHue % 360, 20, 5);
+  
+  // Draw animated elements
+  ink(baseHue % 360, 80, 50);
+  
+  // Create some movement
+  const centerX = 200;
+  const centerY = 200;
+  const radius = 50 + Math.sin(t * 2) * 20;
+  
+  for (let i = 0; i < 6; i++) {
+    const angle = (t + i * Math.PI / 3) % (Math.PI * 2);
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+    line(centerX, centerY, x, y);
+  }
+  
+  // Add some blur effect by drawing smaller lines around
+  ink((baseHue + 60) % 360, 60, 70);
+  for (let i = 0; i < 3; i++) {
+    const angle = t + i * Math.PI / 1.5;
+    const x = centerX + Math.cos(angle) * 30;
+    const y = centerY + Math.sin(angle) * 30;
+    line(x - 10, y - 10, x + 10, y + 10);
+  }
+}`;
+        
+        await fs.writeFile(tempPieceFile, pieceCode);
+        pieceToRender = tempPieceFile;
+      }
+      
+      console.log("🎞️ Generating animated GIF cover...");
+      const renderer = new GifRenderer(pieceToRender, coverPath, {
+        duration: 500,  // 0.5 seconds for very fast testing
+        fps: 8,         // 8 fps for smaller file size
+        width: 200,     // Smaller size for faster rendering
+        height: 200
+      });
+      
+      console.log(`🎞️ Using piece file: ${pieceToRender}`);
+      const success = await renderer.generateGif();
+      console.log(`🎞️ GIF generation result: ${success}`);
+      
+      // Clean up temp file if created
+      if (tempPieceFile && await fs.access(tempPieceFile).then(() => true).catch(() => false)) {
+        await fs.unlink(tempPieceFile);
+      }
+      
+      if (success) {
+        console.log("🎞️ Generated animated cover: cover.gif");
+        this.options.coverImage = "cover.gif"; // Update the cover image reference
+        return;
+      }
+    } catch (error) {
+      console.warn("⚠️ GIF generation failed, falling back to SVG:", error.message);
+    }
+    
+    // Fallback to SVG cover if GIF generation fails
     const coverPath = path.join(this.options.outputDir, "cover.svg");
     const coverSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
   <rect width="400" height="400" fill="#000"/>
   <text x="200" y="200" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="monospace" font-size="20">${this.pieceName}</text>
 </svg>`;
     await fs.writeFile(coverPath, coverSvg);
-    console.log("🖼️ Generated placeholder cover: cover.svg");
+    console.log("🖼️ Generated fallback cover: cover.svg");
+    this.options.coverImage = "cover.svg";
   }
 
   async copyAssets() {
+    // Copy cursor files
+    try {
+      const cursorsSourceDir = path.join(AC_DIR, "cursors");
+      const cursorsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "cursors");
+      
+      await fs.mkdir(cursorsOutputDir, { recursive: true });
+      
+      // Copy all cursor files
+      const cursorFiles = await fs.readdir(cursorsSourceDir);
+      
+      for (const file of cursorFiles) {
+        if (file.endsWith('.svg')) {
+          const sourcePath = path.join(cursorsSourceDir, file);
+          const outputPath = path.join(cursorsOutputDir, file);
+          await fs.copyFile(sourcePath, outputPath);
+          console.log(`📎 Bundled cursor: ${file}`);
+        }
+      }
+    } catch (error) {
+      console.log("ℹ️ Cursor directory error:", error.message);
+    }
+    
+    // Generate stub icon (128x128 PNG)
+    try {
+      const iconDir = path.join(this.options.outputDir, "icon", "128x128");
+      await fs.mkdir(iconDir, { recursive: true });
+      
+      const iconPath = path.join(iconDir, `${this.pieceName}.png`);
+      
+      // Create a proper 128x128 PNG with transparent background
+      console.log(`🖼️ Generating stub icon for ${this.pieceName}...`);
+      
+      // Create a simple 128x128 PNG with aesthetic.computer-style colors
+      const width = 128;
+      const height = 128;
+      
+      // PNG file signature + IHDR chunk + simple transparent image data + IEND
+      const pngHeader = Buffer.from([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+        0x00, 0x00, 0x00, 0x0D, // IHDR chunk length
+        0x49, 0x48, 0x44, 0x52, // IHDR chunk type
+        0x00, 0x00, 0x00, 0x80, // Width: 128
+        0x00, 0x00, 0x00, 0x80, // Height: 128
+        0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA, no compression/filter/interlace
+        0xC3, 0x3E, 0x61, 0xCB // IHDR CRC
+      ]);
+      
+      // Create minimal IDAT chunk with solid color (aesthetic blue: #0084FF)
+      const pixelData = Buffer.alloc(width * height * 4); // RGBA
+      for (let i = 0; i < pixelData.length; i += 4) {
+        pixelData[i] = 0x00;     // R
+        pixelData[i + 1] = 0x84; // G  
+        pixelData[i + 2] = 0xFF; // B
+        pixelData[i + 3] = 0xFF; // A (fully opaque)
+      }
+      
+      // For simplicity, create a minimal transparent PNG
+      const simpleTransparentPng = Buffer.from([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+        0x00, 0x00, 0x00, 0x0D, // IHDR length
+        0x49, 0x48, 0x44, 0x52, // IHDR
+        0x00, 0x00, 0x00, 0x80, // width: 128
+        0x00, 0x00, 0x00, 0x80, // height: 128
+        0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
+        0xC3, 0x3E, 0x61, 0xCB, // CRC
+        0x00, 0x00, 0x00, 0x17, // IDAT length
+        0x49, 0x44, 0x41, 0x54, // IDAT
+        0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+        0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+        0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
+        0x00, 0x00, 0x00, 0x00, // IEND length
+        0x49, 0x45, 0x4E, 0x44, // IEND
+        0xAE, 0x42, 0x60, 0x82  // IEND CRC
+      ]);
+      
+      await fs.writeFile(iconPath, simpleTransparentPng);
+      console.log(`🖼️ Created stub icon: icon/128x128/${this.pieceName}.png (128x128px transparent PNG)`);
+      
+    } catch (error) {
+      console.log("ℹ️ Error creating icon stub:", error.message);
+    }
+    
     console.log("📎 Asset copying complete (minimal set)");
   }
 
@@ -631,18 +1028,9 @@ export function boot({ wipe, ink, help }) {
   patchTypeJsForTeia(content) {
     console.log("🔧 Patching type.mjs for teia mode...");
     
-    // The original type.mjs already has proper TEIA mode handling for MatrixChunky8 fonts
-    // We just need to fix the filename format to not strip leading zeros since our bundled files keep them
-    let patched = content;
-    
-    // Update the filename generation to keep leading zeros for bundled files
-    const localFileNamePattern = /const localFileName = codePointStr\.split\('_'\)\.map\(code => \{\s*\/\/ Remove leading zeros but keep at least one digit\s*return code\.replace\(\/\^0\+\/, ''\) \|\| '0';\s*\}\)\.join\('_'\);/;
-    patched = patched.replace(localFileNamePattern, 
-      `// For bundled files, keep the original hex format with leading zeros
-      const localFileName = codePointStr;`
-    );
-    
-    return patched;
+    // The original type.mjs already has proper TEIA mode handling for fonts
+    // No additional patching needed as of the latest source code
+    return content;
   }
 
   async patchBootJsForTeia(content) {
@@ -674,14 +1062,10 @@ export function boot({ wipe, ink, help }) {
   }
 
   patchKidLispJsForTeia(content) {
-    console.log("🔧 Patching kidlisp.mjs for teia mode...");
-    
-    // Since we've already cleaned up the original source files, 
-    // this function can now be simplified or removed entirely
+    // kidlisp.mjs now has built-in TEIA support via getCachedCodeMultiLevel
+    // No patching needed anymore
     return content;
-  }
-
-  async patchDiskJsForTeia(content) {
+  }  async patchDiskJsForTeia(content) {
     console.log('🔧 Patching disk.mjs for Teia mode...');
     
     let patched = content;
@@ -701,28 +1085,43 @@ export function boot({ wipe, ink, help }) {
     return patched;
   }
 
-  async patchHeadersJsForTeia(content) {
-    console.log('🎨 Adding TEIA mode console styling...');
+  patchHeadersJsForTeia(content) {
+    console.log('🎨 Patching headers.mjs for teia import statements...');
     
     let patched = content;
     
-    // Add TEIA console log after the entire console.log statement for Aesthetic Computer
-    const headerPattern = /(console\.log\(\s*"%cAesthetic Computer",\s*`[^`]*`\s*\);\s*\/\/ Print a pretty title in the console\.)/;
-    patched = patched.replace(headerPattern, 
-      '$1\n\n  // Add TEIA mode indicator if enabled\n' +
-      '  if ((typeof window !== "undefined" && window.acTEIA_MODE) ||\n' +
-      '      (typeof globalThis !== "undefined" && globalThis.acTEIA_MODE)) {\n' +
-      '    console.log(\n' +
-      '      "%cTEIA",\n' +
-      '      "background: rgba(40, 40, 40);" +\n' +
-      '      "color: rgb(200, 220, 200);" +\n' +
-      '      "font-size: 14px;" +\n' +
-      '      "padding: 0 0.5em;" +\n' +
-      '      "border-radius: 0.15em;" +\n' +
-      '      "border: 1px solid rgb(120, 150, 120);" +\n' +
-      '      "margin-left: 0.25em;"\n' +
-      '    );\n' +
-      '  }'
+    // Replace the import statement with stub functions that preserve functionality
+    // but don't rely on external module loading
+    const stubFunctions = `
+// Inlined color-highlighting functions for TEIA mode (to avoid import 404s)
+function colorizeColorName(colorName) {
+  // Simple colorization - just return the color name for now in TEIA mode
+  return colorName;
+}
+
+function getColorTokenHighlight(token) {
+  // Basic color highlighting for common KidLisp tokens
+  const colorMap = {
+    'purple': '#9575cd',
+    'blue': '#42a5f5',
+    'red': '#ef5350',
+    'green': '#66bb6a',
+    'yellow': '#ffee58',
+    'orange': '#ff7043',
+    'pink': '#ec407a',
+    'cyan': '#26c6da',
+    'ink': '#90a4ae',
+    'line': '#78909c',
+    'blur': '#607d8b'
+  };
+  
+  return colorMap[token] || null;
+}`;
+    
+    // Replace the import statement with the stub functions
+    patched = patched.replace(
+      /^import\s+\{[^}]+\}\s+from\s+"\.\/color-highlighting\.mjs";?\s*$/m,
+      '// Import replaced with inline functions for TEIA mode' + stubFunctions
     );
     
     return patched;
@@ -884,15 +1283,15 @@ async function main() {
   // Automatically create zip with timestamp
   console.log("📦 Creating zip file...");
   try {
-    const zipPath = await createZipWithTimestamp(packer.options.outputDir, packer.pieceName);
+    const zipResult = await createZipWithTimestamp(packer.options.outputDir, packer.pieceName, packer.zipTimestamp, packer.options.author);
     console.log("");
     console.log("🎉 Success! Your package is ready for Teia:");
     console.log(`📁 Directory: ${packer.options.outputDir}`);
-    console.log(`📦 Zip file: ${zipPath}`);
+    console.log(`📦 Zip file: ${zipResult.zipPath}`);
     console.log("");
     console.log("🚀 Next steps:");
     console.log("1. Go to https://teia.art/mint");
-    console.log(`2. Upload ${path.basename(zipPath)}`);
+    console.log(`2. Upload ${path.basename(zipResult.zipPath)}`);
     console.log("3. Preview and test your interactive OBJKT");
     console.log("4. Mint when ready!");
     console.log("");
@@ -907,21 +1306,21 @@ async function main() {
   }
 }
 
-async function createZipWithTimestamp(outputDir, pieceName) {
+async function createZipWithTimestamp(outputDir, pieceName, timeStr, author = "@jeffrey") {
   const archiver = (await import('archiver')).default;
   
-  // Create timestamp for the zip filename
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[:.]/g, '-').split('.')[0]; // Format: YYYY-MM-DDTHH-MM-SS
-  const zipPath = `${outputDir}-${timestamp}.zip`;
+  // Use the provided timestamp for consistency and construct path properly
+  const zipPath = path.join(path.dirname(outputDir), `${author}-${pieceName}-${timeStr}.zip`);
   
   const output = fsSync.createWriteStream(zipPath);
   const archive = archiver('zip', { zlib: { level: 9 } });
 
   return new Promise((resolve, reject) => {
     output.on('close', () => {
-      console.log(`📦 Created zip: ${zipPath} (${archive.pointer()} bytes)`);
-      resolve(zipPath);
+      const sizeBytes = archive.pointer();
+      const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
+      console.log(`📦 Created zip: ${zipPath} (${sizeBytes} bytes / ${sizeMB} MB)`);
+      resolve({ zipPath, sizeBytes });
     });
 
     archive.on('error', reject);
