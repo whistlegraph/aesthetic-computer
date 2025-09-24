@@ -222,9 +222,12 @@ function parseFadeColor(color) {
   const fadeColors = parseLocalFade(fadeType, alpha);
   if (!fadeColors) return null;
   
+  // Evaluate the direction (handles dynamic expressions like frame numbers)
+  const evaluatedDirection = evaluateFadeDirection(direction);
+
   return {
     colors: fadeColors,
-    direction: direction,  // Local direction, no global state
+    direction: evaluatedDirection,  // Use evaluated direction (can be numeric angle)
     neat: isNeat          // Local neat flag, no global state
   };
 }
@@ -1074,6 +1077,7 @@ function clear() {
         
         if (!isNaN(numericAngle)) {
           // Use angle-based fade calculation
+          console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade`);
           t = calculateAngleFadePosition(x, y, minX, minY, maxX - 1, maxY - 1, numericAngle);
         } else {
           // Use named direction
