@@ -60,7 +60,7 @@ class AcPacker {
     this.zipTimestamp = timestamp(); // Generate timestamp once for consistent naming
     this.options = {
       outputDir: path.join(TOKENS_DIR, pieceName),
-      coverImage: options.coverImage || "cover.svg",
+      coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
       author: options.author || "@jeffrey",
@@ -199,6 +199,16 @@ class AcPacker {
     const teiaContext = { author: this.options.author };
     const generatedMetadata = metadata("localhost", this.pieceName, {}, "https:", teiaContext);
     
+    // Override metadata URLs to use relative paths for static packaging
+    if (generatedMetadata) {
+      generatedMetadata.icon = `./icon/128x128/${this.pieceName}.png`;
+      // Also override any preview/cover images to use our static cover
+      generatedMetadata.ogImage = this.options.coverImage;
+      generatedMetadata.twitterImage = this.options.coverImage;
+      // Use relative manifest path for standalone packages
+      generatedMetadata.manifest = "./manifest.json";
+    }
+    
     const gitInfo = getGitInfo();
     console.log("🔧 Git info retrieved:", gitInfo);
     const packTime = new Date().toISOString();
@@ -322,6 +332,26 @@ setInterval(() => {
 
     await fs.writeFile(path.join(this.options.outputDir, "index.html"), indexHtml);
     console.log("📄 Generated index.html");
+    
+    // Generate a basic manifest.json for the packaged piece
+    const manifest = {
+      name: generatedMetadata.title || this.options.title,
+      short_name: this.pieceName,
+      start_url: "./",
+      display: "standalone",
+      background_color: "#000000",
+      theme_color: "#0084FF",
+      icons: [
+        {
+          src: `./icon/128x128/${this.pieceName}.png`,
+          sizes: "128x128",
+          type: "image/png"
+        }
+      ]
+    };
+    
+    await fs.writeFile(path.join(this.options.outputDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+    console.log("📄 Generated manifest.json");
   }
 
   generateKidLispCacheScript() {
@@ -763,13 +793,99 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   }
 
   async generateCover() {
+    // Try to generate an animated GIF cover using the piece
+    try {
+      const { GifRenderer } = await import("../reference/tools/recording/gif-renderer.mjs");
+      const coverPath = path.join(this.options.outputDir, "cover.gif");
+      
+      // Create a temporary piece file if this is KidLisp code
+      let pieceToRender = this.pieceName;
+      let tempPieceFile = null;
+      
+      if (this.pieceName.startsWith('$')) {
+        // For KidLisp pieces, create a temporary .mjs file
+        const piecesDir = path.join(__dirname, "../reference/tools/recording/pieces");
+        await fs.mkdir(piecesDir, { recursive: true });
+        
+        tempPieceFile = path.join(piecesDir, `${this.pieceName.replace('$', 'temp-')}.mjs`);
+        
+        // Create a simple animated piece for GIF generation
+        // For now, create a generic animation since KidLisp execution is complex
+        const pieceCode = `// Temporary piece for GIF generation
+export const system = "nopaint";
+
+export function paint({ wipe, ink, line, api, frameTime = 0 }) {
+  // Create a simple animation based on the piece name
+  const t = frameTime / 1000;
+  
+  // Background with piece-specific hue
+  const baseHue = "${this.pieceName}".charCodeAt(1) || 200;
+  wipe(baseHue % 360, 20, 5);
+  
+  // Draw animated elements
+  ink(baseHue % 360, 80, 50);
+  
+  // Create some movement
+  const centerX = 200;
+  const centerY = 200;
+  const radius = 50 + Math.sin(t * 2) * 20;
+  
+  for (let i = 0; i < 6; i++) {
+    const angle = (t + i * Math.PI / 3) % (Math.PI * 2);
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+    line(centerX, centerY, x, y);
+  }
+  
+  // Add some blur effect by drawing smaller lines around
+  ink((baseHue + 60) % 360, 60, 70);
+  for (let i = 0; i < 3; i++) {
+    const angle = t + i * Math.PI / 1.5;
+    const x = centerX + Math.cos(angle) * 30;
+    const y = centerY + Math.sin(angle) * 30;
+    line(x - 10, y - 10, x + 10, y + 10);
+  }
+}`;
+        
+        await fs.writeFile(tempPieceFile, pieceCode);
+        pieceToRender = tempPieceFile;
+      }
+      
+      console.log("🎞️ Generating animated GIF cover...");
+      const renderer = new GifRenderer(pieceToRender, coverPath, {
+        duration: 500,  // 0.5 seconds for very fast testing
+        fps: 8,         // 8 fps for smaller file size
+        width: 200,     // Smaller size for faster rendering
+        height: 200
+      });
+      
+      console.log(`🎞️ Using piece file: ${pieceToRender}`);
+      const success = await renderer.generateGif();
+      console.log(`🎞️ GIF generation result: ${success}`);
+      
+      // Clean up temp file if created
+      if (tempPieceFile && await fs.access(tempPieceFile).then(() => true).catch(() => false)) {
+        await fs.unlink(tempPieceFile);
+      }
+      
+      if (success) {
+        console.log("🎞️ Generated animated cover: cover.gif");
+        this.options.coverImage = "cover.gif"; // Update the cover image reference
+        return;
+      }
+    } catch (error) {
+      console.warn("⚠️ GIF generation failed, falling back to SVG:", error.message);
+    }
+    
+    // Fallback to SVG cover if GIF generation fails
     const coverPath = path.join(this.options.outputDir, "cover.svg");
     const coverSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
   <rect width="400" height="400" fill="#000"/>
   <text x="200" y="200" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="monospace" font-size="20">${this.pieceName}</text>
 </svg>`;
     await fs.writeFile(coverPath, coverSvg);
-    console.log("🖼️ Generated placeholder cover: cover.svg");
+    console.log("🖼️ Generated fallback cover: cover.svg");
+    this.options.coverImage = "cover.svg";
   }
 
   async copyAssets() {
