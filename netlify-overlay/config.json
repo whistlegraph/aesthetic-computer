@@ -1,6 +1,0 @@
-{
-  "overlay_url": "https://your-netlify-site.netlify.app",
-  "fallback_url": "file:///tmp/ac-overlay.html",
-  "default_duration": 3000,
-  "supported_types": ["success", "error", "info", "warning", "default"]
-}

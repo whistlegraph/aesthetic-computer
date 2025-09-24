@@ -154,7 +154,7 @@ if not test -f localhost.pem; or not test -f localhost-key.pem
         if not command -v certutil >/dev/null
             sudo dnf install -y nss-tools
             mkcert -install
-    
+        end
     end
     # Generate SSL certificates (without --install-only flag)
     fish ssl-install.fish
