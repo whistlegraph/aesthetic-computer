@@ -46,7 +46,7 @@ function fish_greeting
     printf "🧩 Hi @$AESTHETIC!\n\n"
     
     # Show the new KidLisp source tree shortcut
-    printf "💡 New: Use 'st cow' or 'st \$cow' to analyze KidLisp pieces from anywhere!\n\n"
+
 
     # printf "Ask with 'umm' and forget with 'nvm'\n"
     # printf "or use 'code' and 'done' with 'copy'\n"

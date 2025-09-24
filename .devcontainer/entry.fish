@@ -61,9 +61,17 @@ else
     echo "Docker daemon already running."
 end
 
+# Ensure the envs directory exists and is accessible (fallback if mount fails)
+if not test -d /home/me/envs
+    echo "Creating missing /home/me/envs directory and linking to .devcontainer/envs"
+    mkdir -p /home/me/envs
+    ln -sf /workspaces/aesthetic-computer/.devcontainer/envs/* /home/me/envs/
+end
+
 if test -d /home/me/envs
     source /home/me/envs/load_envs.fish
     load_envs # Load devcontainer envs conditionally.
+    echo "🔧 Environment variables loaded from devcontainer.env"
 end
 
 # Set environment variables to prevent ETXTBSY errors and disable telemetry
@@ -193,21 +201,50 @@ if test -f /home/me/aesthetic-computer/ssl-dev/localhost.pem; and test -f /home/
     install_and_trust_certificate /home/me/aesthetic-computer/ssl-dev/localhost.pem /home/me/aesthetic-computer/ssl-dev/localhost-key.pem
 end
 
-# Check if node_modules directory exists and is not empty
+# Function to check and install npm dependencies in a directory
+function install_npm_deps
+    set -l dir $argv[1]
+    set -l dir_name (basename $dir)
+    
+    if test -f $dir/package.json
+        if not test -d $dir/node_modules || not count $dir/node_modules/* >/dev/null 2>/dev/null
+            echo "📦 Installing dependencies in $dir_name..."
+            cd $dir
+            npm ci --no-fund --no-audit --silent
+            if test $status -ne 0
+                echo "⚠️  Failed to install dependencies in $dir_name, trying npm install..."
+                npm install --no-fund --no-audit --silent
+            end
+        else
+            echo "✅ $dir_name already has node_modules"
+        end
+    end
+end
+
+# Check and install dependencies in key directories
+cd /home/me/aesthetic-computer
+
+# Install root dependencies first
 if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/aesthetic-computer/node_modules/* >/dev/null
-    # Move to the project directory
-    cd /home/me/aesthetic-computer
-    # Informing about the empty or missing node_modules directory
-    echo "node_modules directory is empty or missing, running npm install."
-    # Install the latest npm version
+    echo "📦 Installing root dependencies..."
     npm install -g npm@latest --no-fund --no-audit
     npm ci --no-fund --no-audit
-    # Run additional installation scripts
-    npm run install:everything-else
 else
-    # Notify that installation steps are being skipped
-    echo "node_modules directory is present and not empty, skipping npm install."
+    echo "✅ Root directory already has node_modules"
 end
+
+# Install dependencies in critical subdirectories (archive intentionally excluded)
+set -l critical_dirs system session-server vscode-extension nanos daemon utilities shared
+
+for dir in $critical_dirs
+    if test -d /home/me/aesthetic-computer/$dir
+        install_npm_deps /home/me/aesthetic-computer/$dir
+    end
+end
+
+# Run the comprehensive install script for any remaining directories
+echo "🔄 Running comprehensive install script for remaining directories..."
+npm run install:everything-else
 
 # Make sure this user owns the emacs directory.
 sudo chown -R me:me ~/.emacs.d
