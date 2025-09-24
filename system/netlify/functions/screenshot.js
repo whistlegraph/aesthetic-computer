@@ -12,12 +12,263 @@ const { setTimeout } = require("node:timers/promises"); // Added import for prom
 const crypto = require("crypto"); // Added for ETag generation
 const fs = require("fs"); // Added for file system operations
 const path = require("path"); // Added for path manipulation
+const { qrcode, ErrorCorrectLevel } = require("@akamfoad/qr"); // Added for QR code generation
+const sharp = require("sharp"); // Added for image processing
 const dev = process.env.CONTEXT === "dev";
+
+// Try to load canvas with fallback
+let canvasAvailable = false;
+let createCanvas, registerFont;
+try {
+  const canvas = require("canvas");
+  createCanvas = canvas.createCanvas;
+  registerFont = canvas.registerFont;
+  canvasAvailable = true;
+  shell.log("✅ Canvas module loaded successfully");
+} catch (error) {
+  shell.log("⚠️ Canvas module not available, will use SVG fallback:", error.message);
+  canvasAvailable = false;
+}
+
+// Font registration for node-canvas
+function registerProcessingFont() {
+  if (!canvasAvailable) {
+    shell.log("⚠️ Canvas not available, cannot register Processing font");
+    return false;
+  }
+  
+  try {
+    // Try multiple paths for different environments
+    const possiblePaths = [
+      // Local development (from system/netlify/functions/)
+      path.join(__dirname, "../../public/assets/type/webfonts/ywft-processing-regular.ttf"),
+      // Netlify Functions environment - included files are in function directory
+      path.join(__dirname, "public/assets/type/webfonts/ywft-processing-regular.ttf"),
+      // Alternative: from process working directory
+      path.join(process.cwd(), "public/assets/type/webfonts/ywft-processing-regular.ttf"),
+      // Netlify alternative: relative to build directory
+      "./public/assets/type/webfonts/ywft-processing-regular.ttf",
+      // Absolute fallback for system directory
+      "/workspaces/aesthetic-computer/system/public/assets/type/webfonts/ywft-processing-regular.ttf"
+    ];
+    
+    shell.log("🔍 Searching for Processing font in multiple locations...");
+    shell.log("🔍 __dirname:", __dirname);
+    shell.log("🔍 process.cwd():", process.cwd());
+    
+    for (const fontPath of possiblePaths) {
+      shell.log("🔍 Checking font path:", fontPath);
+      if (fs.existsSync(fontPath)) {
+        shell.log("✅ Processing font found at:", fontPath);
+        registerFont(fontPath, { family: 'Processing' });
+        shell.log("✅ Processing font registered successfully");
+        return true;
+      } else {
+        shell.log("❌ Font not found at:", fontPath);
+      }
+    }
+    
+    shell.log("⚠️ Processing font not found at any path, using fallback");
+    return false;
+  } catch (error) {
+    shell.log("⚠️ Error registering Processing font:", error.message);
+    return false;
+  }
+}
 
 // Only allow a few given resolutions to prevent spam.
 const acceptedResolutions = ["128x128", "1200x630", "1800x900"]; // icon, og:image, twitter:image
 const resolutionTypes = ["icon", "preview", "preview"];
 let resolutionType;
+
+// Generate QR code PNG for icon requests
+async function generateQRCodePNG(url, targetWidth, targetHeight, isIcon = false, promptText = "") {
+  try {
+    shell.log("🎯 Generating QR code for:", url);
+    
+    // Generate QR code with lowest error correction for smallest size
+    const qr = qrcode(url, { errorCorrectLevel: ErrorCorrectLevel.L });
+    const size = qr.modules.length;
+    
+    if (isIcon) {
+      // Icons: Use readable scale for small displays
+      const scale = 4;
+      const finalSize = size * scale;
+      shell.log(`� Icon QR: ${size}x${size} modules, scaled to ${finalSize}x${finalSize} (${scale}x)`);
+
+      // Create RGB buffer at scaled size
+      const channels = 3;
+      const buffer = Buffer.alloc(finalSize * finalSize * channels);
+
+      // Fill buffer with QR data
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const isBlack = qr.modules[y][x];
+          const color = isBlack ? 0 : 255;
+          
+          for (let py = 0; py < scale; py++) {
+            for (let px = 0; px < scale; px++) {
+              const imgX = x * scale + px;
+              const imgY = y * scale + py;
+              const pixelIndex = (imgY * finalSize + imgX) * channels;
+              
+              buffer[pixelIndex] = color;
+              buffer[pixelIndex + 1] = color;
+              buffer[pixelIndex + 2] = color;
+            }
+          }
+        }
+      }
+
+      // Convert to PNG - center in target size
+      const pngBuffer = await sharp(buffer, {
+        raw: { width: finalSize, height: finalSize, channels: channels }
+      })
+      .extend({
+        top: Math.floor((targetHeight - finalSize) / 2),
+        bottom: Math.ceil((targetHeight - finalSize) / 2),
+        left: Math.floor((targetWidth - finalSize) / 2),
+        right: Math.ceil((targetWidth - finalSize) / 2),
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
+      })
+      .png()
+      .toBuffer();
+
+      shell.log(`✅ Icon QR generated: ${targetWidth}x${targetHeight} pixels, ${pngBuffer.length} bytes`);
+      return pngBuffer;
+      
+    } else {
+      // Thumbnails: Large QR + simple text
+      shell.log(`🖼️ Thumbnail QR: ${size}x${size} modules with large scale + simple text`);
+      
+      // Responsive QR code sizing for both 1200x630 and 1800x900
+      const margin = Math.floor(Math.min(targetWidth, targetHeight) * 0.08); // 8% margin
+      const availableHeight = targetHeight - margin * 3; // Extra margin for text
+      const maxQRSize = Math.min(targetWidth - margin * 2, availableHeight * 0.75); // 75% of available height
+      const qrScale = Math.floor(maxQRSize / size);
+      const qrSize = size * qrScale;
+      
+      // Create light purple background
+      const canvas = sharp({
+        create: {
+          width: targetWidth,
+          height: targetHeight,
+          channels: 3,
+          background: { r: 240, g: 230, b: 255 } // Light purple
+        }
+      });
+      
+      // Generate QR code buffer
+      const qrChannels = 3;
+      const qrBuffer = Buffer.alloc(qrSize * qrSize * qrChannels);
+      
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const isBlack = qr.modules[y][x];
+          const color = isBlack ? 0 : 255;
+          
+          for (let py = 0; py < qrScale; py++) {
+            for (let px = 0; px < qrScale; px++) {
+              const imgX = x * qrScale + px;
+              const imgY = y * qrScale + py;
+              const pixelIndex = (imgY * qrSize + imgX) * qrChannels;
+              
+              qrBuffer[pixelIndex] = color;
+              qrBuffer[pixelIndex + 1] = color;
+              qrBuffer[pixelIndex + 2] = color;
+            }
+          }
+        }
+      }
+      
+      // Center the QR code with space for text below
+      const qrX = Math.floor((targetWidth - qrSize) / 2);
+      const textSpace = Math.floor(targetHeight * 0.2); // Reserve 20% for text
+      const qrY = Math.floor((targetHeight - qrSize - textSpace) / 2);
+      
+      // Responsive text sizing
+      const baseFontSize = Math.floor(targetHeight / 12); // Base size relative to height
+      const maxFontSize = Math.floor(targetWidth / Math.max(promptText.length * 0.8, 8)); // Prevent overflow
+      const fontSize = Math.min(baseFontSize, maxFontSize, 120); // Cap at 120px
+      
+      const textY = qrY + qrSize + Math.floor(textSpace * 0.3);
+      
+      let textBuffer;
+      
+      if (canvasAvailable) {
+        // Use node-canvas for text rendering with custom font support
+        const processingFontAvailable = registerProcessingFont();
+        const fontFamily = processingFontAvailable ? 'Processing' : 'monospace';
+        
+        shell.log(`🎨 Rendering text with ${fontFamily} font using node-canvas`);
+        
+        // Create canvas for text rendering
+        const textCanvas = createCanvas(targetWidth, textSpace);
+        const textCtx = textCanvas.getContext('2d');
+        
+        // Configure text rendering
+        textCtx.fillStyle = '#4a4a4a';
+        textCtx.font = `bold ${fontSize}px ${fontFamily}`;
+        textCtx.textAlign = 'center';
+        textCtx.textBaseline = 'middle';
+        
+        // Clear background (transparent)
+        textCtx.clearRect(0, 0, targetWidth, textSpace);
+        
+        // Draw text
+        textCtx.fillText(promptText, targetWidth / 2, textSpace * 0.6);
+        
+        // Convert canvas to buffer
+        textBuffer = textCanvas.toBuffer('image/png');
+        
+      } else {
+        // Fallback to SVG text rendering
+        shell.log("📝 Using SVG fallback for text rendering");
+        
+        const textSvg = `
+          <svg width="${targetWidth}" height="${textSpace}" xmlns="http://www.w3.org/2000/svg">
+            <text x="${targetWidth / 2}" y="${Math.floor(textSpace * 0.6)}" 
+                  font-family="'Courier New', 'Liberation Mono', 'DejaVu Sans Mono', 'Ubuntu Mono', monospace" 
+                  font-size="${fontSize}" 
+                  font-weight="bold" 
+                  fill="#4a4a4a"
+                  text-anchor="middle"
+                  dominant-baseline="central">
+              ${promptText}
+            </text>
+          </svg>
+        `;
+        
+        textBuffer = Buffer.from(textSvg);
+      }
+      
+      // Composite QR code and text onto canvas
+      const pngBuffer = await canvas
+        .composite([
+          {
+            input: qrBuffer,
+            raw: { width: qrSize, height: qrSize, channels: qrChannels },
+            left: qrX,
+            top: qrY
+          },
+          {
+            input: textBuffer,
+            left: 0,
+            top: textY
+          }
+        ])
+        .png()
+        .toBuffer();
+
+      shell.log(`✅ Thumbnail QR generated: ${targetWidth}x${targetHeight} pixels, ${pngBuffer.length} bytes`);
+      return pngBuffer;
+    }
+    
+  } catch (error) {
+    shell.log("❌ QR code generation failed:", error.message);
+    throw error;
+  }
+}
 
 async function handler(event, context) {
   // Handle both icon and preview paths
@@ -96,7 +347,11 @@ async function handler(event, context) {
     };
   }
 
-  shell.log("🐠 Getting screenshot...", joinedFilepath);
+  if (resolutionType === "icon") {
+    shell.log("� Processing icon request...", joinedFilepath);
+  } else {
+    shell.log("🖼️ Processing preview request...", joinedFilepath);
+  }
 
   // Ditch if we don't hit the accepted resolution whitelist.
   if (
@@ -111,6 +366,58 @@ async function handler(event, context) {
 
   // Parse "IntxInt" to get the correct resolution to take a screenshot by.
   const [width, height] = resolution.split("x").map((n) => parseInt(n));
+
+  // 🎯 QR Code Generation for both Icon and Preview Routes
+  if (resolutionType === "icon" || resolutionType === "preview") {
+    const isIcon = resolutionType === "icon";
+    shell.log(`${isIcon ? "📱 Icon" : "🖼️ Thumbnail"} route detected, generating QR code instead of screenshot`);
+    
+    try {
+      // Always use prompt.ac for shorter QR codes (works in both dev and prod)
+      const qrUrl = `https://prompt.ac/${joinedFilepath.replace(".png", "") || ""}`;
+      const promptText = joinedFilepath.replace(".png", "") || "prompt";
+      shell.log("🔗 QR URL:", qrUrl);
+      shell.log("📝 Prompt text:", promptText);
+      
+      // Generate QR code PNG
+      const buffer = await generateQRCodePNG(qrUrl, width, height, isIcon, promptText);
+      
+      // --- Write to Development File Cache if applicable ---
+      if (dev && devCacheFilePath && buffer && buffer.length > 0) {
+        try {
+          const cacheDir = path.dirname(devCacheFilePath);
+          if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+            shell.log(`✅ DEV CACHE: Created directory ${cacheDir}`);
+          }
+          fs.writeFileSync(devCacheFilePath, buffer);
+          shell.log(`✅ DEV CACHE: Wrote QR icon to ${devCacheFilePath}`);
+        } catch (cacheErr) {
+          shell.log(`⚠️ DEV CACHE: Could not write to cache: ${cacheErr.message}`);
+        }
+      }
+      // --- End Development File Cache ---
+      
+      // Return the QR code PNG response
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Content-Length": buffer.length.toString(),
+          ETag: currentEtag,
+          "X-QR-Generated": "true",
+          "Netlify-CDN-Cache-Control": dev
+            ? "public, durable, max-age=60"
+            : "public, durable, max-age=1800",
+        },
+        body: buffer.toString("base64"),
+        isBase64Encoded: true,
+      };
+    } catch (qrError) {
+      shell.log("❌ QR generation failed, falling back to screenshot:", qrError.message);
+      // Continue to Puppeteer screenshot as fallback
+    }
+  }
 
   const launchArgs = [
     //  "--autoplay-policy=no-user-gesture-required",
@@ -149,7 +456,7 @@ async function handler(event, context) {
   //   ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
   // }
 
-  shell.log("🥰 Launching puppeteer...", ops);
+  shell.log("🥰 Launching puppeteer for preview/screenshot...", ops);
 
   let browser;
   let page;
