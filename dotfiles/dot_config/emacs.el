@@ -1,11 +1,34 @@
 ;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
 
+;; Debug logging
+(defvar ac-debug-log-file "/tmp/emacs-debug.log")
+(defun ac-debug-log (message)
+  (with-temp-buffer
+    (insert (format "[%s] %s\n" (current-time-string) message))
+    (append-to-file (point-min) (point-max) ac-debug-log-file)))
+
+(ac-debug-log "=== Starting Emacs Configuration Load ===")
+
 ;; Performance settings
+;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
+
+;; Debug logging for race condition detection
+(defun aesthetic-debug-log (message)
+  (with-temp-buffer
+    (insert (format "[%s] %s\n" (format-time-string "%Y-%m-%d %H:%M:%S.%3N") message))
+    (append-to-file (point-min) (point-max) "/tmp/emacs-debug.log")))
+
+(aesthetic-debug-log "=== EMACS CONFIG START ===")
+
+;; Performance settings
+(aesthetic-debug-log "Setting performance options...")
 (setq native-comp-async-report-warnings-errors nil
       native-comp-deferred-compilation nil
       x-gtk-use-system-tooltips nil
       mac-option-modifier 'meta
       warning-minimum-level :emergency)
+
+(ac-debug-log "Performance settings loaded")
 
 (global-set-key [C-down-mouse-1] 'ignore)
 
@@ -140,6 +163,7 @@
 (setq package-enable-at-startup nil)
 
 ;; Straight.el bootstrap with timeout
+(ac-debug-log "Starting straight.el bootstrap")
 (defvar bootstrap-version)
 (let ((bootstrap-file
        (expand-file-name
@@ -148,25 +172,32 @@
             user-emacs-directory)))
       (bootstrap-version 7))
   (unless (file-exists-p bootstrap-file)
+    (ac-debug-log "Bootstrap file not found, downloading...")
     (condition-case err
-        (with-timeout (30 (error "Bootstrap download timed out"))
+        (with-timeout (10 (error "Bootstrap download timed out"))  ; Reduced timeout
           (with-current-buffer
               (url-retrieve-synchronously
                "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
                'silent 'inhibit-cookies)
             (goto-char (point-max))
             (eval-print-last-sexp)))
-      (error (message "Failed to bootstrap straight.el: %s" err))))
+      (error (ac-debug-log (format "Failed to bootstrap straight.el: %s" err))
+             (message "Failed to bootstrap straight.el: %s" err))))
   (when (file-exists-p bootstrap-file)
+    (ac-debug-log "Loading bootstrap file")
     (load bootstrap-file nil 'nomessage)))
 
 (setq straight-use-package-by-default t
       straight-vc-git-default-clone-depth 1)  ; Shallow clones for faster setup
 
+(ac-debug-log "Straight.el configured, starting package loads")
+
 ;; Completion
+(ac-debug-log "Loading vertico")
 (use-package vertico
   :init
   (vertico-mode))
+(ac-debug-log "Vertico loaded")
 
 (use-package savehist
   :init
@@ -366,6 +397,7 @@
 ;; Main backend function
 (defun aesthetic-backend (target-tab)
   (interactive)
+  (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
   
   (let ((directory-path "~/aesthetic-computer")
         (emoji-for-command
@@ -395,6 +427,7 @@
 
     ;; Helper function to create split tabs safely
     (defun create-split-tab (tab-name commands)
+      (ac-debug-log (format "Creating tab: %s with commands: %s" tab-name commands))
       (condition-case err
           (progn
             (tab-new)
@@ -437,6 +470,7 @@
                   (setq first nil)
                   
                   (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
+                    (ac-debug-log (format "Running command: ac-%s" actual-cmd))
                     (eat (format "fish -c 'ac-%s'" actual-cmd)))
                   
                   (when (get-buffer "*eat*")
@@ -469,3 +503,5 @@
 ;;; ===================================================================
 ;;; END OF AESTHETIC COMPUTER EMACS CONFIGURATION
 ;;; ===================================================================
+
+(ac-debug-log "=== Emacs Configuration Load Complete ===")
