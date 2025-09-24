@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { PNG } from 'pngjs';
-import { timestamp } from "../../../system/public/aesthetic.computer/lib/num.mjs";
+import { timestamp, resetRainbowCache, resetZebraCache, getRainbowState, setRainbowState, getZebraState, setZebraState } from "../../../system/public/aesthetic.computer/lib/num.mjs";
 import chalk from 'chalk';
 import ora from 'ora';
 import { logInfo, logError, logWarning } from './logger.mjs';
@@ -192,6 +192,14 @@ export class HeadlessAC {
         this.kidlispInstance.localEnv = { ...state.localEnv };
       }
       
+      // Rainbow and zebra state restoration
+      if (state.rainbowState) {
+        setRainbowState(state.rainbowState);
+      }
+      if (state.zebraState) {
+        setZebraState(state.zebraState);
+      }
+      
       console.log(`🔄 Restored KidLisp state: frame=${this.kidlispInstance.frameCount}, timing entries=${Object.keys(this.kidlispInstance.lastSecondExecutions).length}, sequence counters=${this.kidlispInstance.sequenceCounters.size}`);
     }
   }
@@ -225,7 +233,11 @@ export class HeadlessAC {
         bakeCallCount: this.kidlispInstance.bakeCallCount || 0,
         
         // Local environment
-        localEnv: this.kidlispInstance.localEnv || {}
+        localEnv: this.kidlispInstance.localEnv || {},
+        
+        // Rainbow and zebra color cycling state
+        rainbowState: getRainbowState(),
+        zebraState: getZebraState()
       };
     }
     return {};
@@ -1061,6 +1073,16 @@ export class HeadlessAC {
           
           // Update the KidLisp instance with the current API before evaluation
           self.kidlispInstance.setAPI(api);
+          
+          // Simulate KidLisp sim function behavior to properly advance frame count and rainbow cache
+          // This MUST happen before any KidLisp evaluation to ensure proper color cycling
+          self.kidlispInstance.frameCount++; // Increment frame counter for timing functions
+          resetRainbowCache(); // Reset rainbow cache for new frame to ensure color cycling
+          
+          // Set KidLisp context in graph system for dynamic fade evaluation
+          if (self.graph && self.graph.setKidLispContext) {
+            self.graph.setKidLispContext(self.kidlispInstance, api, self.kidlispInstance.localEnv);
+          }
           
           // Execute the KidLisp code with proper first-line color detection
           try {
