@@ -1,5 +1,7 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
-FROM fedora:latest
+# Use build arg to allow fallback between registries
+ARG FEDORA_IMAGE=quay.io/fedora/fedora:latest
+FROM ${FEDORA_IMAGE}
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
