@@ -23,17 +23,29 @@ class TeiaUnpacker {
 
   async findLatestZip() {
     try {
-      const files = await fs.readdir(this.outputDir);
-      const zipFiles = files
-        .filter(file => file.endsWith('.zip'))
-        .map(file => ({
-          name: file,
-          path: path.join(this.outputDir, file),
-          stats: null
-        }));
+      // Look in current working directory first, then fallback to output directory
+      const searchDirs = [process.cwd(), this.outputDir];
+      let allZipFiles = [];
+      
+      for (const searchDir of searchDirs) {
+        try {
+          const files = await fs.readdir(searchDir);
+          const zipFiles = files
+            .filter(file => file.endsWith('.zip'))
+            .map(file => ({
+              name: file,
+              path: path.join(searchDir, file),
+              stats: null,
+              source: searchDir === process.cwd() ? 'current' : 'output'
+            }));
+          allZipFiles.push(...zipFiles);
+        } catch (error) {
+          console.log(`📁 Could not read directory ${searchDir}: ${error.message}`);
+        }
+      }
 
       // Get file stats to sort by modification time
-      for (const file of zipFiles) {
+      for (const file of allZipFiles) {
         try {
           file.stats = await fs.stat(file.path);
         } catch (error) {
@@ -41,14 +53,23 @@ class TeiaUnpacker {
         }
       }
 
-      // Sort by modification time (newest first)
-      const validFiles = zipFiles.filter(f => f.stats);
+      // Sort by modification time (newest first), preferring current directory
+      const validFiles = allZipFiles.filter(f => f.stats);
       if (validFiles.length === 0) {
-        throw new Error('No valid zip files found');
+        throw new Error('No valid zip files found in current directory or output directory');
       }
 
-      validFiles.sort((a, b) => b.stats.mtime - a.stats.mtime);
-      return validFiles[0].path;
+      validFiles.sort((a, b) => {
+        // Prefer files from current directory
+        if (a.source === 'current' && b.source !== 'current') return -1;
+        if (b.source === 'current' && a.source !== 'current') return 1;
+        // Then sort by modification time (newest first)
+        return b.stats.mtime - a.stats.mtime;
+      });
+
+      const selectedFile = validFiles[0];
+      console.log(`📍 Found in ${selectedFile.source} directory: ${selectedFile.name}`);
+      return selectedFile.path;
     } catch (error) {
       throw new Error(`Failed to find zip files: ${error.message}`);
     }

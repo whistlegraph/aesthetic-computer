@@ -111,6 +111,7 @@ export class HeadlessAC {
     this.firstLineColorApplied = false; // Track if first-line color has been applied
     this.kidlispInstance = null; // Will be initialized when API is created
     this.kidlispState = null; // Will hold state to restore
+    this.density = options.density || null; // Custom density parameter
     
     // Performance tracking options
     this.detailedTiming = options.detailedTiming || false;
@@ -309,13 +310,15 @@ export class HeadlessAC {
         }
       }
       
+      // Set up global.location with optional density parameter
+      const searchParams = this.density ? `?density=${this.density}` : '';
       global.location = global.location || {
-        href: 'http://localhost:8888',
+        href: `http://localhost:8888${searchParams}`,
         origin: 'http://localhost:8888',
         protocol: 'http:',
         host: 'localhost:8888',
         pathname: '/',
-        search: '',
+        search: searchParams,
         hash: ''
       };
 
