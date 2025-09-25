@@ -5547,11 +5547,11 @@ class KidLisp {
 
           // Always paste cached layers that have buffers - they contain valuable content even if they didn't render this frame
           if (existingLayer.buffer && api.paste) {
-            console.log(`🔄 embed() calling pasteWithAlpha: buffer=${existingLayer.buffer.width}x${existingLayer.buffer.height}, pos=(${x},${y}), alpha=${existingLayer.alpha}`);
+            // console.log(`🔄 embed() calling pasteWithAlpha: buffer=${existingLayer.buffer.width}x${existingLayer.buffer.height}, pos=(${x},${y}), alpha=${existingLayer.alpha}`);
             // Always use alpha blending to properly handle pixels with alpha channels
             this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
           } else {
-            console.log(`🚫 embed() NOT calling pasteWithAlpha: hasBuffer=${!!existingLayer.buffer}, hasPaste=${!!api.paste}`);
+            // console.log(`🚫 embed() NOT calling pasteWithAlpha: hasBuffer=${!!existingLayer.buffer}, hasPaste=${!!api.paste}`);
           }
 
           return existingLayer;
