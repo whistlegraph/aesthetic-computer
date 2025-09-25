@@ -179,6 +179,7 @@ RUN mkdir -p /home/me/.ipython/profile_default/startup && \
 
 # --- GYP shim (legacy consumers) ---------------------------------------------
 RUN sudo mkdir -p /home/me/.local/lib/python3.10/site-packages && \
+    sudo chown -R me:me /home/me/.local/lib/python3.10/site-packages && \
     git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp || true
 
 # Optional: default shell session
