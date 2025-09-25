@@ -554,6 +554,12 @@ setInterval(() => {
       
       // Handle module loading errors (CORS issues with file:// protocol)
       function handleModuleLoadError() {
+        // Skip CORS error overlay if running in Electron
+        if (window.navigator.userAgent.includes('Electron')) {
+          console.log('🔌 Running in Electron - suppressing CORS error overlay');
+          return;
+        }
+        
         console.error('❌ Failed to load boot.mjs - likely due to CORS policy with file:// protocol');
         document.body.classList.add('file-protocol-error');
         document.querySelector('#console .boot-message').style.display = 'none';
@@ -569,8 +575,9 @@ setInterval(() => {
       });
       
       // Timeout fallback - if nothing loads after 3 seconds, assume CORS error
+      // BUT skip this check if we're running in Electron
       setTimeout(function() {
-        if (!window.acBOOTED && location.protocol === 'file:') {
+        if (!window.acBOOTED && location.protocol === 'file:' && !window.navigator.userAgent.includes('Electron')) {
           handleModuleLoadError();
         }
       }, 3000);
@@ -582,7 +589,33 @@ setInterval(() => {
     console.log("📄 Generated index.html");
     
     // Generate a basic manifest.json for the packaged piece
-    // Use specific formats for each icon size
+    // Check for 256x256 icon (preferred) or fallback to 128x128
+    const icon256Dir = path.join(this.options.outputDir, "icon", "256x256");
+    const icon128Dir = path.join(this.options.outputDir, "icon", "128x128");
+    const png256Icon = path.join(icon256Dir, `${this.pieceName}.png`);
+    const png128Icon = path.join(icon128Dir, `${this.pieceName}.png`);
+    const gif128Icon = path.join(icon128Dir, `${this.pieceName}.gif`);
+    
+    let iconSrc, iconType, iconSize;
+    if (fsSync.existsSync(png256Icon)) {
+      iconSrc = `./icon/256x256/${this.pieceName}.png`;
+      iconType = "image/png";
+      iconSize = "256x256";
+    } else if (fsSync.existsSync(png128Icon)) {
+      iconSrc = `./icon/128x128/${this.pieceName}.png`;
+      iconType = "image/png";
+      iconSize = "128x128";
+    } else if (fsSync.existsSync(gif128Icon)) {
+      iconSrc = `./icon/128x128/${this.pieceName}.gif`;
+      iconType = "image/gif";
+      iconSize = "128x128";
+    } else {
+      // Fallback to 256x256 PNG (even if it doesn't exist)
+      iconSrc = `./icon/256x256/${this.pieceName}.png`;
+      iconType = "image/png";
+      iconSize = "256x256";
+    }
+
     const manifest = {
       name: finalMetadata.title || this.options.title,
       short_name: this.pieceName,
@@ -1872,6 +1905,7 @@ async function main() {
   // Parse command line arguments
   const options = {};
   let analyzeOnly = false;
+  let autoShip = false;
   
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--density' && i + 1 < args.length) {
@@ -1890,6 +1924,8 @@ async function main() {
       i++; // Skip the next argument since we consumed it
     } else if (args[i] === '--analyze') {
       analyzeOnly = true;
+    } else if (args[i] === '--auto-ship') {
+      autoShip = true;
     }
   }
   
@@ -1947,12 +1983,36 @@ async function main() {
     console.log(`📁 Directory: ${packer.options.outputDir}`);
     console.log(`📦 Zip file: ${zipResult.zipPath}`);
     console.log("");
-    console.log("🚀 Next steps:");
-    console.log("1. Go to https://teia.art/mint");
-    console.log(`2. Upload ${path.basename(zipResult.zipPath)}`);
-    console.log("3. Preview and test your interactive OBJKT");
-    console.log("4. Mint when ready!");
-    console.log("");
+    
+    // Auto-ship to Electron if requested
+    if (autoShip) {
+      console.log("🚀 Auto-shipping to Electron...");
+      try {
+        const { ElectronShipper } = await import('./ac-ship.mjs');
+        const shipper = new ElectronShipper();
+        
+        // Use the run method which is the main entry point
+        await shipper.run(zipResult.zipPath, ['linux']); // Start with Linux only for testing
+        
+        console.log("✅ Electron apps built successfully!");
+        console.log("📱 Desktop apps ready for distribution");
+        console.log("");
+        console.log("🚀 Next steps:");
+        console.log("1. Test your desktop app");
+        console.log("2. Distribute to users");
+        console.log("3. Also consider uploading to Teia for web access");
+      } catch (error) {
+        console.log("❌ Auto-ship failed:", error.message);
+      }
+      console.log("");
+    } else {
+      console.log("🚀 Next steps:");
+      console.log("1. Go to https://teia.art/mint");
+      console.log(`2. Upload ${path.basename(zipResult.zipPath)}`);
+      console.log("3. Preview and test your interactive OBJKT");
+      console.log("4. Mint when ready!");
+      console.log("");
+    }
     
     // Clean up build artifacts (keep only the zip)
     await packer.cleanup();

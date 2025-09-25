@@ -521,18 +521,41 @@ export async function paint(api) {
       const midpointFrame = pngFiles[midpointIndex];
       const sourcePath = path.join(tempDir, midpointFrame);
       
-      // Create icon directory if it doesn't exist
-      const iconDir = path.join(outputDir, 'icon');
-      if (!fs.existsSync(iconDir)) {
-        fs.mkdirSync(iconDir, { recursive: true });
+      // Create icon directories for different sizes
+      // Get piece name for icon filename
+      const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
+      
+      // Create both 256x256 and 512x512 versions for better compatibility
+      const iconDir256 = path.join(outputDir, 'icon', '256x256');
+      const iconDir512 = path.join(outputDir, 'icon', '512x512');
+      
+      if (!fs.existsSync(iconDir256)) {
+        fs.mkdirSync(iconDir256, { recursive: true });
+      }
+      if (!fs.existsSync(iconDir512)) {
+        fs.mkdirSync(iconDir512, { recursive: true });
       }
       
-      const iconPath = path.join(iconDir, 'icon-from-frame.png');
+      // Create 256x256 PNG using piece name
+      const iconPath256 = path.join(iconDir256, `${pieceName}.png`);
+      const iconPath512 = path.join(iconDir512, `${pieceName}.png`);
       
-      // Copy the midpoint frame as the icon
-      fs.copyFileSync(sourcePath, iconPath);
-      
-      console.log(`✅ Icon extracted from frame ${midpointIndex + 1}/${pngFiles.length}: ${path.basename(iconPath)}`);
+      try {
+        // Create 256x256 version
+        const ffmpegCmd256 = `ffmpeg -i "${sourcePath}" -vf "scale=256:256:flags=neighbor" -y "${iconPath256}" 2>/dev/null`;
+        execSync(ffmpegCmd256);
+        
+        // Create 512x512 version
+        const ffmpegCmd512 = `ffmpeg -i "${sourcePath}" -vf "scale=512:512:flags=neighbor" -y "${iconPath512}" 2>/dev/null`;
+        execSync(ffmpegCmd512);
+        
+        console.log(`✅ Icon extracted from frame ${midpointIndex + 1}/${pngFiles.length}: icon/256x256/${pieceName}.png and icon/512x512/${pieceName}.png created`);
+      } catch (error) {
+        // Fallback: copy original and create basic versions
+        fs.copyFileSync(sourcePath, iconPath256);
+        fs.copyFileSync(sourcePath, iconPath512);
+        console.log(`✅ Icon extracted from frame ${midpointIndex + 1}/${pngFiles.length}: icon/256x256/${pieceName}.png and icon/512x512/${pieceName}.png created (fallback)`);
+      }
       
     } catch (error) {
       console.warn(`⚠️ Could not extract icon frame: ${error.message}`);
