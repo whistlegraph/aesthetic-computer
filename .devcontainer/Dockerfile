@@ -145,7 +145,7 @@ RUN mkdir -p /home/me/.config/fish/conf.d && \
     /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
-    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli dmg-license && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
 
 # --- SBCL / Quicklisp ---------------------------------------------------------
