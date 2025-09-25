@@ -315,6 +315,23 @@ class AcPacker {
 window.acTEIA_MODE = true;
 window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piece
 
+// Suppress console errors for missing font files in TEIA mode
+(function() {
+  const originalError = console.error;
+  console.error = function(...args) {
+    const message = args.join(' ');
+    // Skip MatrixChunky8 font loading 404 errors
+    if (message.includes('Failed to load resource') && 
+        (message.includes('MatrixChunky8') || 
+         message.includes('assets/type/') ||
+         message.includes('.json')) && 
+        message.includes('404')) {
+      return; // Silently ignore these font loading errors
+    }
+    originalError.apply(console, args);
+  };
+})();
+
 // Colophonic information for provenance and debugging
 window.acTEIA_COLOPHON = ${JSON.stringify(colophonData, null, 2)};
 
@@ -1504,9 +1521,19 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   patchTypeJsForTeia(content) {
     console.log("🔧 Patching type.mjs for teia mode...");
     
-    // The original type.mjs already has proper TEIA mode handling for fonts
-    // No additional patching needed as of the latest source code
-    return content;
+    let patched = content;
+    
+    // Suppress fetch errors for missing MatrixChunky8 font files in TEIA mode
+    const fetchPattern = /const response = await fetch\(glyphPath\);[\s\S]*?if \(!response\.ok\) \{\s*throw new Error\(`HTTP \$\{response\.status\}: \$\{response\.statusText\}`\);\s*\}/;
+    patched = patched.replace(fetchPattern, 
+      `const response = await fetch(glyphPath);
+            if (!response.ok) {
+              // Silently fail for missing font files in TEIA mode to avoid console errors
+              throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+            }`
+    );
+    
+    return patched;
   }
 
   async patchBootJsForTeia(content) {
@@ -1731,6 +1758,27 @@ function getColorTokenHighlight(token) {
     workersEnabled = false;
     if (debug) console.log("🚫 Workers disabled due to sandboxed/null origin environment");
   }`
+    );
+    
+    // Suppress console errors for missing MatrixChunky8 font files in TEIA mode
+    const consoleInitPattern = /\/\/ Boot\s*let bootTime/;
+    patched = patched.replace(consoleInitPattern, 
+      `// Boot - suppress font loading errors in TEIA mode
+    if (typeof window !== 'undefined' && window.acTEIA_MODE) {
+      const originalError = console.error;
+      console.error = function(...args) {
+        const message = args.join(' ');
+        // Skip MatrixChunky8 font loading errors
+        if (message.includes('Failed to load resource') && 
+            message.includes('MatrixChunky8') && 
+            message.includes('404')) {
+          return; // Silently ignore these errors
+        }
+        originalError.apply(console, args);
+      };
+    }
+    
+    let bootTime`
     );
     
     return patched;
