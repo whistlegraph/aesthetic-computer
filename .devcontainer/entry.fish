@@ -283,6 +283,10 @@ rm -rf /home/me/aesthetic-computer/.github
 ln -s /home/me/aesthetic-computer/modes /home/me/aesthetic-computer/.github
 echo "✨ Modes directory linked to .github for VSCode chatmodes"
 
+# Source the devcontainer config to load AC development functions
+source /workspaces/aesthetic-computer/.devcontainer/config.fish
+echo "✨ AC development functions loaded (ac-pack, ac-unpack, etc.)"
+
 # Note: .waiter file creation is handled by postAttachCommand in devcontainer.json
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
