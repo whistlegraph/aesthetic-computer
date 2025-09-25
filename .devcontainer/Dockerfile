@@ -1,7 +1,5 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
-# Use build arg to allow fallback between registries
-ARG FEDORA_IMAGE=quay.io/fedora/fedora:latest
-FROM ${FEDORA_IMAGE}
+FROM fedora:latest
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
@@ -32,7 +30,6 @@ RUN dnf update -y && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
-      cairo-devel pango-devel libjpeg-turbo-devel giflib-devel librsvg2-devel pixman-devel \
       caddy \
     && dnf clean all
 
@@ -179,7 +176,6 @@ RUN mkdir -p /home/me/.ipython/profile_default/startup && \
 
 # --- GYP shim (legacy consumers) ---------------------------------------------
 RUN sudo mkdir -p /home/me/.local/lib/python3.10/site-packages && \
-    sudo chown -R me:me /home/me/.local/lib/python3.10/site-packages && \
     git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp || true
 
 # Optional: default shell session
