@@ -6555,8 +6555,8 @@ class KidLisp {
 
           const seconds = parseFloat(head.slice(0, head.indexOf("s"))); // Extract seconds part
 
-          // Get current time directly using Date.now() instead of evaluating clock function
-          const currentTimeMs = Date.now();
+          // Get current time - use simulation time if available (for headless rendering), otherwise real time
+          const currentTimeMs = this.getSimulationTime ? this.getSimulationTime() : Date.now();
           const currentTime = currentTimeMs / 1000; // Convert to seconds (keep as float)
 
           // Create a unique key for this timed iteration expression - use simpler key generation
