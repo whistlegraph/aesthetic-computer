@@ -244,9 +244,10 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
 } else if (
   window.location.hostname === "aesthetic.computer" ||
   window.location.hostname.endsWith(".ac") ||
-  window.location.hostname === "m2w2.whistlegraph.com"
+  window.location.hostname === "m2w2.whistlegraph.com" ||
+  window.acTEIA_MODE // Disable debug mode in TEIA packages
 ) {
-  debug = false; // Turn debugging off by default in production.
+  debug = false; // Turn debugging off by default in production and TEIA mode.
   window.production = true;
 } else {
   debug = true; // Turn debuging on by default everywhere else.

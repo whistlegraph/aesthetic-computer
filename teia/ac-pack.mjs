@@ -63,6 +63,7 @@ class AcPacker {
     this.options = {
       outputDir: path.join(TOKENS_DIR, sanitizedPieceName),
       coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
+      faviconImage: "./aesthetic.computer/favicon.png", // Default favicon, updated to GIF if available
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
       author: options.author || "@jeffrey",
@@ -78,6 +79,9 @@ class AcPacker {
       await this.createOutputDir();
       const pieceData = await this.loadPiece();
       
+      // Store piece data for dependency analysis
+      this.pieceData = pieceData;
+      
       // Handle KidLisp dependencies if this is a KidLisp piece
       let hasDependencies = false;
       if (pieceData.isKidLispCode) {
@@ -92,10 +96,10 @@ class AcPacker {
       await this.bundleFontDrawings(); // Add font drawings bundling
       await this.bundleCurrentPiece();
       await this.createDiskStubs();
-      await this.createAssets();
       await this.bundleWebfonts();
       await this.bundleFontAssets();
       await this.generateCover();
+      await this.createAssets(); // Moved after generateCover to check for GIF favicon first
       await this.copyAssets();
       
       // Generate index.html after all bundling is complete so we have accurate file count
@@ -248,7 +252,10 @@ class AcPacker {
         fileCount: this.bundledFiles.size,
         zipFilename: zipFilename
       },
-      metadata: generatedMetadata || {}
+      metadata: {
+        ...generatedMetadata,
+        favicon: this.options.faviconImage || './aesthetic.computer/favicon.png'
+      }
     };
     
     console.log("📋 Colophon data prepared:", JSON.stringify(colophonData, null, 2));
@@ -260,7 +267,7 @@ class AcPacker {
     <base href="./" />
     <title>${generatedMetadata.title || this.options.title}</title>
     <meta property="og:image" content="${this.options.coverImage}" />
-    <link rel="icon" href="./aesthetic.computer/favicon.png" type="image/png" />
+    <link rel="icon" href="${this.options.faviconImage || './aesthetic.computer/favicon.png'}" type="${this.options.faviconImage && this.options.faviconImage.endsWith('.gif') ? 'image/gif' : 'image/png'}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="${this.options.description}" />
     <meta name="og:title" content="${generatedMetadata.title || this.options.title}" />
@@ -329,22 +336,128 @@ setInterval(() => {
     <script src="./aesthetic.computer/boot.mjs" type="module" defer onerror="handleModuleLoadError()"></script>
     <link rel="stylesheet" href="./aesthetic.computer/style.css" />
     <style>
-      /* Override transparent background for TEIA mode */
+      /* Keep transparent background for TEIA mode */
       body.nogap {
-        background-color: #000000 !important;
+        background-color: transparent !important;
       }
       
       /* Show console div for file:// protocol errors */
       .file-protocol-error #console {
         display: block !important;
-        background: rgba(0, 0, 0, 0.9);
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
         color: #ffffff;
-        font-family: monospace;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 14px;
-        line-height: 1.4;
-        padding: 20px;
+        line-height: 1.5;
+        padding: 30px;
         box-sizing: border-box;
         z-index: 9999;
+        border: 2px solid #4a9eff;
+        border-radius: 12px;
+        margin: 20px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+      
+      .file-protocol-error #console h3 {
+        color: #ff6b6b;
+        margin-top: 0;
+        font-size: 20px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+      
+      .file-protocol-error #console h4 {
+        color: #4ecdc4;
+        font-size: 18px;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #4ecdc4;
+        padding-bottom: 8px;
+      }
+      
+      .file-protocol-error #console code {
+        background: #2a2a4a;
+        color: #ffd93d;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-family: inherit;
+      }
+      
+      .file-protocol-error #console ul {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 15px 20px;
+        border-radius: 8px;
+        border-left: 4px solid #4a9eff;
+      }
+      
+      .source-code-section {
+        margin-top: 30px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        border: 1px solid #4ecdc4;
+      }
+      
+      .source-code-container {
+        position: relative;
+        margin: 15px 0;
+      }
+      
+      .source-code {
+        background: #0f0f23;
+        color: #a6e22e;
+        padding: 20px;
+        border-radius: 8px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 13px;
+        line-height: 1.4;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        border: 1px solid #4a9eff;
+        user-select: text;
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      
+      .copy-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #4a9eff;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
+      }
+      
+      .copy-button:hover {
+        background: #357abd;
+        transform: translateY(-1px);
+      }
+      
+      .piece-info {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
+        border-left: 4px solid #a6e22e;
+      }
+      
+      .piece-info p {
+        margin: 5px 0;
+        color: #e0e0e0;
+      }
+      
+      .piece-info strong {
+        color: #4ecdc4;
       }
     </style>
   </head>
@@ -362,6 +475,22 @@ setInterval(() => {
         </ul>
         <p>Then open <code>http://localhost:8000</code> in your browser.</p>
         <p><em>Reason: Browsers block ES modules when opened directly as files (file:// protocol) due to CORS security policy.</em></p>
+        
+        ${colophonData.piece.sourceCode ? `
+        <div class="source-code-section">
+          <h4>📜 Source Code</h4>
+          <div class="source-code-container">
+            <pre class="source-code">${colophonData.piece.sourceCode}</pre>
+            <button class="copy-button" onclick="copySourceCode()">📋 Copy</button>
+          </div>
+          <div class="piece-info">
+            <p><strong>Piece:</strong> ${colophonData.piece.name}</p>
+            <p><strong>Author:</strong> ${colophonData.build.author}</p>
+            <p><strong>Created:</strong> ${new Date(colophonData.build.packTime).toLocaleDateString()}</p>
+            <p><strong>Type:</strong> ${colophonData.piece.isKidLisp ? 'KidLisp' : 'JavaScript'} (${colophonData.piece.codeLength} characters)</p>
+          </div>
+        </div>
+        ` : ''}
       </div>
     </div>
     <script>
@@ -593,9 +722,43 @@ ${cacheCode}
       await fs.mkdir(depOutputDir, { recursive: true });
       const depFiles = await this.getAllFilesRecursively(depDir);
       
-      console.log(`📦 Bundling ${depFiles.length} dependency files...`);
+      // Analyze piece dependencies to determine what can be excluded
+      let exclusionPatterns = [];
+      if (this.pieceData) {
+        const { DependencyAnalyzer } = await import('./dependency-analyzer.mjs');
+        const analyzer = new DependencyAnalyzer();
+        
+        const pieceCode = this.pieceData.sourceCode || '';
+        const pieceSystem = this.pieceData.system || '';
+        const analysis = analyzer.analyzePiece(pieceCode, pieceSystem);
+        
+        console.log(`🔍 Dependency Analysis:`);
+        console.log(`   💾 Potential savings: ${analysis.savings.toFixed(1)}MB`);
+        console.log(`   🚫 Excluding: ${analysis.exclusions.join(', ')}`);
+        console.log(`   ✅ Required: ${analysis.required.join(', ')}`);
+        
+        exclusionPatterns = analyzer.generateExclusionPatterns(analysis.exclusions);
+      }
+      
+      // Filter files based on exclusion patterns
+      const filteredFiles = depFiles.filter(file => {
+        const relativePath = path.relative(depDir, file);
+        
+        // Check if file matches any exclusion pattern
+        for (const pattern of exclusionPatterns) {
+          const globPattern = pattern.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*');
+          const regex = new RegExp(`^${globPattern}`, 'i');
+          if (regex.test(relativePath)) {
+            console.log(`🚫 Excluding: ${relativePath} (matched ${pattern})`);
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      console.log(`📦 Bundling ${filteredFiles.length} of ${depFiles.length} dependency files (saved ${depFiles.length - filteredFiles.length} files)...`);
 
-      for (const file of depFiles) {
+      for (const file of filteredFiles) {
         const relativePath = path.relative(depDir, file);
         const destPath = path.join(depOutputDir, relativePath);
         const destDir = path.dirname(destPath);
@@ -752,19 +915,26 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   }
 
   async createAssets() {
-    // Create favicon
-    const faviconPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.png");
-    // Create a minimal 1x1 PNG as placeholder
-    const minimalPng = Buffer.from([
-      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
-      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-      0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
-      0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-      0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
-      0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
-    ]);
-    await fs.writeFile(faviconPath, minimalPng);
-    console.log("🖼️ Created favicon.png");
+    // Check if we already have a GIF favicon, if not create PNG
+    const faviconGifPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.gif");
+    const faviconPngPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.png");
+    
+    try {
+      await fs.access(faviconGifPath);
+      console.log("🎯 Using existing GIF favicon, skipping PNG creation");
+    } catch (error) {
+      // No GIF favicon exists, create PNG fallback
+      const minimalPng = Buffer.from([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+        0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+      ]);
+      await fs.writeFile(faviconPngPath, minimalPng);
+      console.log("🖼️ Created fallback favicon.png");
+    }
   }
 
   async bundleWebfonts() {
@@ -877,24 +1047,20 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       console.log(`📁 Temp outputDir: ${tempOutputDir}`);
       
       // Calculate render dimensions based on density
-      // Base canvas resolution when density=2 is typically 512x512 
-      // Higher density = larger pixels = lower resolution for same visual size
-      const baseDensity = 2;
-      const currentDensity = this.options.density || baseDensity;
-      const baseResolution = 512;
+      // Base canvas resolution is 128x128 for crisp pixel art - this is the RECORDING resolution
+      // The final GIF will be scaled up by the orchestrator based on density
+      const currentDensity = this.options.density || 2; // Default density is 2
+      const baseRecordingResolution = 128; // Always record at base resolution
       
-      // Scale resolution inversely with density - higher density = fewer actual pixels needed
-      const scaledResolution = Math.round(baseResolution * (baseDensity / currentDensity));
-      
-      console.log(`🔍 Density: ${currentDensity}, Resolution: ${scaledResolution}x${scaledResolution}`);
+      console.log(`🔍 Density: ${currentDensity}, Recording at: ${baseRecordingResolution}x${baseRecordingResolution}, GIF output will be scaled by orchestrator`);
       
       // Use the RenderOrchestrator to generate GIF
       const orchestrator = new RenderOrchestrator(
         this.pieceName,     // piece (supports KidLisp $code or .mjs files)
-        360,                // 6 seconds at 60fps (360 frames) for cover
+        180,                // 3 seconds at 60fps (180 frames) for cover
         tempOutputDir,      // temporary output directory
-        scaledResolution,   // width - adjusted for density
-        scaledResolution,   // height - adjusted for density
+        baseRecordingResolution,   // width - small recording resolution
+        baseRecordingResolution,   // height - small recording resolution
         { 
           gifMode: true,    // enable GIF mode
           density: currentDensity, // pass density parameter
@@ -920,6 +1086,50 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         const externalCoverPath = path.join(path.dirname(this.options.outputDir), externalCoverFilename);
         await fs.copyFile(sourcePath, externalCoverPath);
         
+        // Generate 64x64 favicon from the GIF
+        try {
+          const faviconPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.gif");
+          
+          console.log("🔍 Favicon debug - Source path:", sourcePath);
+          console.log("🔍 Favicon debug - Output path:", faviconPath);
+          console.log("🔍 Favicon debug - Source exists:", fsSync.existsSync(sourcePath));
+          
+          await new Promise((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", [
+              "-i", sourcePath,
+              "-vf", "scale=64:64:flags=neighbor",
+              "-y", // Overwrite output file
+              faviconPath
+            ], { stdio: ["pipe", "pipe", "pipe"] });
+            
+            let stderr = "";
+            ffmpeg.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+            
+            ffmpeg.on("close", (code) => {
+              if (code === 0) {
+                console.log("🪄 Generated favicon: favicon.gif (64x64)");
+                this.options.faviconImage = "./aesthetic.computer/favicon.gif";
+                resolve();
+              } else {
+                console.warn("⚠️ Favicon generation failed with code:", code);
+                console.warn("⚠️ FFmpeg stderr:", stderr);
+                reject(new Error(`ffmpeg exited with code ${code}`));
+              }
+            });
+            
+            ffmpeg.on("error", (err) => {
+              console.warn("⚠️ Favicon generation failed:", err.message);
+              reject(err);
+            });
+          });
+        } catch (error) {
+          console.warn("⚠️ Could not generate GIF favicon, will use PNG fallback");
+          console.warn("⚠️ Error details:", error.message);
+          this.options.faviconImage = "./aesthetic.computer/favicon.png";
+        }
+        
         // Clean up temporary files
         await fs.rm(tempOutputDir, { recursive: true, force: true });
         await fs.unlink(sourcePath).catch(() => {}); // Ignore errors
@@ -943,6 +1153,11 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     await fs.writeFile(coverPath, coverSvg);
     console.log("🖼️ Generated fallback cover: cover.svg");
     this.options.coverImage = "cover.svg";
+    
+    // Only use PNG favicon if GIF favicon wasn't already created
+    if (!this.options.faviconImage.endsWith('.gif')) {
+      this.options.faviconImage = "./aesthetic.computer/favicon.png";
+    }
   }
 
   async copyAssets() {
@@ -968,64 +1183,92 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       console.log("ℹ️ Cursor directory error:", error.message);
     }
     
-    // Generate stub icon (128x128 PNG)
+    // Generate stub icon (128x128 animated GIF)
     try {
       const iconDir = path.join(this.options.outputDir, "icon", "128x128");
       await fs.mkdir(iconDir, { recursive: true });
       
-      const iconPath = path.join(iconDir, `${this.pieceName}.png`);
+      const iconPath = path.join(iconDir, `${this.pieceName}.gif`);
       
-      // Create a proper 128x128 PNG with transparent background
-      console.log(`🖼️ Generating stub icon for ${this.pieceName}...`);
+      console.log(`🖼️ Generating animated stub icon for ${this.pieceName}...`);
       
-      // Create a simple 128x128 PNG with aesthetic.computer-style colors
-      const width = 128;
-      const height = 128;
+      // Try to generate from the cover GIF if available
+      const coverPath = path.join(this.options.outputDir, "cover.gif");
       
-      // PNG file signature + IHDR chunk + simple transparent image data + IEND
-      const pngHeader = Buffer.from([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-        0x00, 0x00, 0x00, 0x0D, // IHDR chunk length
-        0x49, 0x48, 0x44, 0x52, // IHDR chunk type
-        0x00, 0x00, 0x00, 0x80, // Width: 128
-        0x00, 0x00, 0x00, 0x80, // Height: 128
-        0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA, no compression/filter/interlace
-        0xC3, 0x3E, 0x61, 0xCB // IHDR CRC
-      ]);
-      
-      // Create minimal IDAT chunk with solid color (aesthetic blue: #0084FF)
-      const pixelData = Buffer.alloc(width * height * 4); // RGBA
-      for (let i = 0; i < pixelData.length; i += 4) {
-        pixelData[i] = 0x00;     // R
-        pixelData[i + 1] = 0x84; // G  
-        pixelData[i + 2] = 0xFF; // B
-        pixelData[i + 3] = 0xFF; // A (fully opaque)
+      if (fsSync.existsSync(coverPath)) {
+        try {
+          await new Promise((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", [
+              "-i", coverPath,
+              "-vf", "scale=128:128:flags=neighbor",
+              "-y", // Overwrite output file
+              iconPath
+            ], { stdio: ["pipe", "pipe", "pipe"] });
+            
+            let stderr = "";
+            ffmpeg.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+            
+            ffmpeg.on("close", (code) => {
+              if (code === 0) {
+                console.log(`🪄 Generated animated stub icon: icon/128x128/${this.pieceName}.gif (128x128px animated GIF)`);
+                resolve();
+              } else {
+                console.warn("⚠️ Animated stub icon generation failed with code:", code);
+                console.warn("⚠️ FFmpeg stderr:", stderr);
+                reject(new Error(`FFmpeg failed with code ${code}`));
+              }
+            });
+            
+            ffmpeg.on("error", (err) => {
+              console.warn("⚠️ FFmpeg error:", err.message);
+              reject(err);
+            });
+          });
+        } catch (ffmpegError) {
+          console.warn('⚠️ Failed to generate animated stub icon:', ffmpegError.message);
+          throw ffmpegError; // Re-throw to trigger PNG fallback
+        }
+      } else {
+        throw new Error("No cover GIF available for animated stub icon generation");
       }
       
-      // For simplicity, create a minimal transparent PNG
-      const simpleTransparentPng = Buffer.from([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-        0x00, 0x00, 0x00, 0x0D, // IHDR length
-        0x49, 0x48, 0x44, 0x52, // IHDR
-        0x00, 0x00, 0x00, 0x80, // width: 128
-        0x00, 0x00, 0x00, 0x80, // height: 128
-        0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
-        0xC3, 0x3E, 0x61, 0xCB, // CRC
-        0x00, 0x00, 0x00, 0x17, // IDAT length
-        0x49, 0x44, 0x41, 0x54, // IDAT
-        0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
-        0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
-        0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
-        0x00, 0x00, 0x00, 0x00, // IEND length
-        0x49, 0x45, 0x4E, 0x44, // IEND
-        0xAE, 0x42, 0x60, 0x82  // IEND CRC
-      ]);
-      
-      await fs.writeFile(iconPath, simpleTransparentPng);
-      console.log(`🖼️ Created stub icon: icon/128x128/${this.pieceName}.png (128x128px transparent PNG)`);
-      
     } catch (error) {
-      console.log("ℹ️ Error creating icon stub:", error.message);
+      console.log("ℹ️ Animated stub icon generation failed, creating static PNG fallback:", error.message);
+      
+      // Fallback: create static PNG as before
+      try {
+        const iconDir = path.join(this.options.outputDir, "icon", "128x128");
+        await fs.mkdir(iconDir, { recursive: true });
+        
+        const iconPath = path.join(iconDir, `${this.pieceName}.png`);
+        
+        // For simplicity, create a minimal transparent PNG
+        const simpleTransparentPng = Buffer.from([
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+          0x00, 0x00, 0x00, 0x0D, // IHDR length
+          0x49, 0x48, 0x44, 0x52, // IHDR
+          0x00, 0x00, 0x00, 0x80, // width: 128
+          0x00, 0x00, 0x00, 0x80, // height: 128
+          0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
+          0xC3, 0x3E, 0x61, 0xCB, // CRC
+          0x00, 0x00, 0x00, 0x17, // IDAT length
+          0x49, 0x44, 0x41, 0x54, // IDAT
+          0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+          0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+          0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
+          0x00, 0x00, 0x00, 0x00, // IEND length
+          0x49, 0x45, 0x4E, 0x44, // IEND
+          0xAE, 0x42, 0x60, 0x82  // IEND CRC
+        ]);
+        
+        await fs.writeFile(iconPath, simpleTransparentPng);
+        console.log(`🖼️ Created fallback stub icon: icon/128x128/${this.pieceName}.png (128x128px transparent PNG)`);
+        
+      } catch (fallbackError) {
+        console.log("ℹ️ Error creating fallback icon stub:", fallbackError.message);
+      }
     }
     
     console.log("📎 Asset copying complete (minimal set)");
@@ -1312,13 +1555,21 @@ async function main() {
   const args = process.argv.slice(3);
   
   if (!pieceName) {
-    console.error("Usage: node ac-pack.mjs <piece-name> [--density <value>]");
-    console.error("Example: node ac-pack.mjs '$bop' --density 8");
+    console.error("Usage: node ac-pack.mjs <piece-name> [options]");
+    console.error("Options:");
+    console.error("  --density <value>  Set GIF output density scaling");
+    console.error("  --analyze         Show dependency analysis without building");
+    console.error("");
+    console.error("Examples:");
+    console.error("  node ac-pack.mjs '$bop' --density 8");
+    console.error("  node ac-pack.mjs '$bop' --analyze");
     process.exit(1);
   }
 
   // Parse command line arguments
   const options = {};
+  let analyzeOnly = false;
+  
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--density' && i + 1 < args.length) {
       const densityValue = parseFloat(args[i + 1]);
@@ -1330,6 +1581,31 @@ async function main() {
         process.exit(1);
       }
       i++; // Skip the next argument since we consumed it
+    } else if (args[i] === '--analyze') {
+      analyzeOnly = true;
+    }
+  }
+  
+  // If analyze-only mode, just show dependency analysis
+  if (analyzeOnly) {
+    console.log(`🔍 Analyzing dependencies for ${pieceName}...`);
+    
+    try {
+      const tempPacker = new AcPacker(pieceName, options);
+      const pieceData = await tempPacker.loadPiece();
+      
+      const { DependencyAnalyzer } = await import('./dependency-analyzer.mjs');
+      const analyzer = new DependencyAnalyzer();
+      
+      const pieceCode = pieceData.sourceCode || '';
+      const pieceSystem = pieceData.system || '';
+      const analysis = analyzer.analyzePiece(pieceCode, pieceSystem);
+      
+      console.log('\n' + analyzer.generateReport(analysis));
+      return;
+    } catch (error) {
+      console.error("❌ Analysis failed:", error.message);
+      process.exit(1);
     }
   }
 
