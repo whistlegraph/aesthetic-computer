@@ -2,18 +2,19 @@
 // Automates brush drawing by loading and executing brushes with synthetic pen data
 
 // Global robot state
-let robotState = {
+const robotState = {
   active: false,
   state: "idle", // "idle", "painting", "lift"
   brushName: null,
-  pathQueue: [],
   currentPath: null,
+  pathQueue: [],
   completedPaths: [],
   frameCounter: 0,
   speed: 1.0,
   loadedBrush: null,
   painting: null,
-  lastCompletedPath: null
+  lastCompletedPath: null,
+  allowMultipleLift: false // Flag to control duplicate lift calls
 };
 
 // Robot path generator - creates drawing paths
@@ -285,20 +286,19 @@ async function boot($api) {
 
     console.log(`🤖 Generated ${paths.length} path for execution (forced to 1 for debugging)`);
 
-    // Initialize robot state
-    robotState = {
-      active: true,
-      state: "idle", // Start in idle state
-      brushName: brushName,
-      pathQueue: [...paths],
-      currentPath: null,
-      completedPaths: [],
-      frameCounter: 0,
-      speed: roboParams.speed,
-      loadedBrush: brush,
-      painting: painting,
-      lastCompletedPath: null
-    };
+    // Initialize robot state (modify properties instead of reassigning const)
+    robotState.active = true;
+    robotState.state = "idle"; // Start in idle state
+    robotState.brushName = brushName;
+    robotState.pathQueue = [...paths];
+    robotState.currentPath = null;
+    robotState.completedPaths = [];
+    robotState.frameCounter = 0;
+    robotState.speed = roboParams.speed;
+    robotState.loadedBrush = brush;
+    robotState.painting = painting;
+    robotState.lastCompletedPath = null;
+    robotState.allowMultipleLift = false;
 
     console.log("🤖 Robot initialized and ready for execution");
     
@@ -342,10 +342,8 @@ function paint($api) {
     }
   }
   
-  // Draw the robot's painting buffer to the screen if available
-  if (robotState.painting) {
-    $api.paste(robotState.painting);
-  }
+  // Note: Display is handled by nopaint system, not by manual paste
+  // The nopaint system will handle presenting the final result after baking
 }
 
 // Sim function - 120fps locked timing for robot execution
@@ -408,6 +406,7 @@ function advanceRobotLogic($api) {
       // Path complete - store path data for lift function and send lift event
       const path = robotState.currentPath;
       robotState.state = "lift"; // Set state to lift when path completes
+      robotState.allowMultipleLift = true; // Allow lift to be called once
       console.log(`🤖 Path completed, sending lift event through robo API - state: lift`);
       
       // Store the completed path data for the lift function to access
@@ -446,17 +445,20 @@ function advanceRobotLogic($api) {
 function act($api) {
   const { event: e } = $api;
   
-  // Monitor pen/mouse events that might trigger nopaint processing
-  if (e && (e.device === "mouse" || e.device === "pen" || e.device === "touch")) {
-    console.log(`🔍 ACT EVENT DETECTED: ${e.type} from ${e.device} - this might trigger nopaint processing!`);
+  // Monitor ALL events to debug synthetic robo events
+  if (e) {
+    console.log(`🔍 ACT EVENT: type="${e.type}" device="${e.device}" x=${e.x} y=${e.y} pressure=${e.pressure}`);
     
-    // Log nopaint state when real pen events occur
-    if ($api.system?.nopaint) {
-      const np = $api.system.nopaint;
-      console.log("🔍 Real pen event - nopaint state:", {
-        needsPresent: np.needsPresent,
-        needsBake: np.needsBake,
-        bufferExists: !!np.buffer
+    // Special logging for robot events
+    if (e.device === "robot") {
+      console.log("🤖 ROBOT EVENT DETECTED:", {
+        type: e.type,
+        hasIs: typeof e.is === 'function',
+        isLift: e.is ? e.is('lift:1') : 'no is function',
+        nopaintState: $api.system?.nopaint ? {
+          needsPresent: $api.system.nopaint.needsPresent,
+          needsBake: $api.system.nopaint.needsBake
+        } : 'no nopaint'
       });
     }
   }
@@ -521,19 +523,24 @@ function overlay(api) {
       hasPenDrawing: !!(api.pen && api.pen.drawing)
     });
     
-    if (robotState.currentPath && api.pen && api.pen.drawing) {
+    if (robotState.currentPath && robotState.state === "painting") {
       const path = robotState.currentPath;
-      const progress = robotState.frameCounter / path.duration;
+      const progress = Math.min(1.0, robotState.frameCounter / path.duration);
       
-      // Create a progressive box that grows from start point to current position
+      // Create a progressive box that grows during painting
+      // Calculate current position based on robot's drawing progress
+      const currentX = path.startPoint.x + (path.endPoint.x - path.startPoint.x) * progress;
+      const currentY = path.startPoint.y + (path.endPoint.y - path.startPoint.y) * progress;
+      
+      // Progressive box that shows the drawing as it happens
       progressiveMark = {
-        x: path.boxDimensions.x,
-        y: path.boxDimensions.y,
-        w: Math.max(1, (api.pen.x - path.boxDimensions.x) + 1),
-        h: Math.max(1, (api.pen.y - path.boxDimensions.y) + 1)
+        x: Math.min(path.boxDimensions.x, currentX),
+        y: Math.min(path.boxDimensions.y, currentY), 
+        w: Math.max(1, Math.abs(currentX - path.boxDimensions.x) + 1),
+        h: Math.max(1, Math.abs(currentY - path.boxDimensions.y) + 1)
       };
       
-      console.log(`📦 Progressive box at progress ${(progress * 100).toFixed(1)}%:`, progressiveMark);
+      console.log(`📦 Progressive box at progress ${(progress * 100).toFixed(1)}%: currentPos(${currentX.toFixed(1)}, ${currentY.toFixed(1)}) box:`, progressiveMark);
     } else {
       console.log("📦 ROBO: No progressive box - using api.mark:", progressiveMark);
     }
@@ -594,6 +601,13 @@ function overlay(api) {
 function lift(api) {
   console.log("🤖🤖🤖 ROBO LIFT FUNCTION CALLED! 🤖🤖🤖");
   console.log(`🤖 ROBO LIFT CALLED - current state: ${robotState.state} - this should trigger box drawing!`);
+  
+  // Prevent multiple lift calls when already in idle state (fix for duplicate calls)
+  if (robotState.state === "idle" && !robotState.allowMultipleLift) {
+    console.log("🤖 ROBO LIFT: Already in idle state, ignoring duplicate lift call");
+    return;
+  }
+  
   console.log("🤖 Lift API context:", {
     hasInk: !!api.ink,
     inkType: typeof api.ink,
@@ -632,7 +646,8 @@ function lift(api) {
       ...api,
       ink: api.ink,
       color: finalColor,
-      mark: finalBox
+      mark: finalBox,
+      system: api.system // Make sure to pass the system context to lift
     };
     
     console.log("📦 ROBO: Calling box brush lift with:", {
@@ -657,36 +672,20 @@ function lift(api) {
       // Even if the lift function doesn't return true, we know it drew something
       console.log("🤖 ROBO: Lift function completed - forcing display update regardless of return value");
       
-      // Set nopaint flags to ensure display update happens
-      if (api.system?.nopaint) {
-        api.system.nopaint.needsPresent = true;
-        api.system.nopaint.needsBake = true;
-        console.log("🤖 ROBO: Set nopaint flags - needsPresent=true, needsBake=true");
-      }
-      
-      // Force multiple needsPaint calls to ensure the render loop keeps running
+      // Force immediate display like manual drawing - bypass nopaint baking
       api.needsPaint();
-      console.log("🤖 ROBO: Called needsPaint() after lift to trigger screen update");
+      console.log("🤖 ROBO: Called needsPaint() after lift - bypassing nopaint baking like manual drawing");
       
-      // Use setTimeout to force additional paint cycles on subsequent frames
-      setTimeout(() => {
-        api.needsPaint();
-        console.log("🤖 ROBO: Called delayed needsPaint() to continue render loop");
-        
-        // Force another update after a short delay
-        setTimeout(() => {
-          if (api.system?.nopaint?.needsPresent) {
-            api.needsPaint();
-            console.log("🤖 ROBO: Called second delayed needsPaint() - persistent needsPresent detected");
-          }
-        }, 16); // ~1 frame at 60fps
-      }, 8); // ~half frame delay
-      
-      // Let the nopaint system handle present() naturally
-      console.log("🤖 ROBO: Letting nopaint system handle display update naturally");
+      // Reset nopaint flags to prevent automatic baking
+      if (api.system?.nopaint) {
+        api.system.nopaint.needsBake = false;
+        api.system.nopaint.needsPresent = false;
+        console.log("🤖 ROBO: Disabled nopaint baking - robot will draw directly like manual");
+      }
       
       // Now that lift is complete, transition state back to idle and check for next path
       robotState.state = "idle";
+      robotState.allowMultipleLift = false; // Reset flag to prevent duplicate calls
       console.log("🤖 Lift completed - state set to idle");
       
       // If there are more paths in the queue, they will be started on the next sim cycle
@@ -701,64 +700,53 @@ function lift(api) {
       console.error("📦 ROBO: Error calling box brush lift:", error);
       // Even on error, transition back to idle
       robotState.state = "idle";
+      robotState.allowMultipleLift = false; // Reset flag on error too
       console.log("🤖 Lift error - state set to idle");
     }
   } else {
     console.warn("🤖 ROBO: No lift function in loaded brush!");
     // If no lift function, still transition back to idle
     robotState.state = "idle";
+    robotState.allowMultipleLift = false; // Reset flag here too
     console.log("🤖 No lift function - state set to idle");
   }
 }
 
 // 🍪 Bake - Transfer drawn content to the final painting
 function bake({ paste, system, page, needsPaint }) {
-  console.log("🤖 Robo bake called");
+  console.log("🤖🍪 ROBO BAKE CALLED! 🍪🤖");
   console.log("🤖 Robo bake: Current nopaint state:", {
     hasBuffer: !!system.nopaint.buffer,
     needsPresent: system.nopaint.needsPresent,
+    needsBake: system.nopaint.needsBake,
     bufferSize: system.nopaint.buffer ? `${system.nopaint.buffer.width}x${system.nopaint.buffer.height}` : "none"
   });
   
   if (system.nopaint.buffer) {
-    paste(system.nopaint.buffer);
-    page(system.nopaint.buffer).wipe(255, 255, 255, 0);
-    console.log("🤖 Robo bake completed - pasted nopaint buffer to final painting");
+    console.log("🤖 BAKING: About to paste nopaint buffer to final painting");
     
-    // 🎯 FORCE IMMEDIATE BAKE COMPLETION - Call nopaint present with full API context
-    // NOTE: Don't call needsPaint() here as it sets needsPresent=true, creating a race condition
-    const presentParams = {
-      system,
-      screen: system.painting,
-      wipe: (color) => page(system.painting).wipe(color),
-      paste,
-      ink: (color) => page(system.painting).ink(color),
-      slug: null,
-      dark: false, // Default to light theme
-      theme: {
-        light: { wipeBG: 150, wipeNum: 200 },
-        dark: { wipeBG: 32, wipeNum: 64 }
-      },
-      blend: null
-    };
-    system.nopaint.present(presentParams);
+    // Try direct paste to main painting buffer
+    const result = paste(system.nopaint.buffer);
+    console.log("🤖 BAKING: Paste result:", result);
+    
+    console.log("🤖 BAKING: Pasted buffer, now wiping nopaint buffer");
+    page(system.nopaint.buffer).wipe(255, 255, 255, 0);
+    console.log("🤖🍪 ROBO BAKE COMPLETED - Successfully transferred to final painting! 🍪🤖");
+    
+    // Reset nopaint flags to indicate baking is done
     system.nopaint.needsBake = false;
     system.nopaint.needsPresent = false;
-    console.log("🤖 Robo bake: Manually processed bake completion - forced present() and cleared flags");
-    console.log("🤖 Robo bake: Post-force nopaint state:", {
-      needsPresent: system.nopaint.needsPresent,
-      needsBake: system.nopaint.needsBake
-    });
+    console.log("🤖 BAKING: Reset nopaint flags after baking");
     
-    // 🔍 DIAGNOSTIC: Check flags after a short delay to see if something else sets them
-    setTimeout(() => {
-      console.log("🔍 ROBO BAKE: Flags after 10ms delay:", {
-        needsPresent: system.nopaint.needsPresent,
-        needsBake: system.nopaint.needsBake
-      });
-    }, 10);
+    // Force immediate display update of the main painting
+    needsPaint();
+    console.log("🤖 BAKING: Called needsPaint() to display final result");
+    
+    // Signal that baking is complete and changes were made
+    return true;
   } else {
-    console.warn("🤖 Robo bake: No nopaint buffer to paste");
+    console.warn("🤖 Robo bake: No nopaint buffer to paste - nothing to bake");
+    return false;
   }
 }
 

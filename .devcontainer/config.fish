@@ -105,11 +105,12 @@ function dollarpiece
 end
 
 # AC Pack - Package pieces for Teia with cover GIF generation
-# Usage: ac-pack '$ceo' or ac-pack 'ceo' (from any directory)
+# Usage: ac-pack '$ceo' or ac-pack 'ceo' [--density N] (from any directory)
 function ac-pack
-    if test (count $argv) -ne 1
-        echo "Usage: ac-pack PIECE_NAME"
+    if test (count $argv) -lt 1
+        echo "Usage: ac-pack PIECE_NAME [--density N]"
         echo "Example: ac-pack '\$ceo' or ac-pack 'ceo'"
+        echo "         ac-pack '\$bop' --density 8"
         return 1
     end
     
@@ -122,8 +123,8 @@ function ac-pack
     # Run the ac-pack.mjs script from the teia directory
     cd /workspaces/aesthetic-computer/teia
     
-    # Run the packaging with the piece name
-    node ac-pack.mjs $piece_name
+    # Run the packaging with all arguments (piece name + any options)
+    node ac-pack.mjs $argv
     
     # Check if packaging was successful
     if test $status -eq 0
@@ -153,6 +154,42 @@ function ac-pack
     
     # Return to original directory
     cd $current_dir
+end
+
+# Usage: ac-unpack [zip-file] [port] - unpacks and tests TEIA packages locally
+# If no zip file specified, finds the most recent one in current directory
+function ac-unpack
+    set -l current_dir (pwd)
+    set -l zip_file $argv[1]
+    set -l port (test (count $argv) -ge 2; and echo $argv[2]; or echo "8080")
+    
+    echo "📦 Unpacking TEIA package from $current_dir"
+    
+    # Run the ac-unpack.mjs script from the teia directory
+    cd /workspaces/aesthetic-computer/teia
+    
+    if test -n "$zip_file"
+        # Zip file specified - use full path if it's in the original directory
+        if not test -f "$zip_file"
+            set zip_file "$current_dir/$zip_file"
+        end
+        echo "📂 Using specified file: $zip_file"
+        node ac-unpack.mjs "$zip_file" $port
+    else
+        # No zip file specified - let ac-unpack find the latest one
+        echo "🔍 Looking for latest zip file in $current_dir..."
+        node ac-unpack.mjs "" $port
+    end
+    
+    # Return to original directory
+    cd $current_dir
+    
+    if test $status -eq 0
+        echo "✅ AC Unpack complete! Server running on port $port"
+        echo "🌐 Open http://localhost:$port in your browser to test"
+    else
+        echo "❌ AC Unpack failed with exit code $status"
+    end
 end
 
 # always start in aesthetic-computer directory if there was a greeting

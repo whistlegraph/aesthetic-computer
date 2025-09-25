@@ -150,7 +150,7 @@ if (typeof self !== 'undefined') {
   self.teiaKidlispCodes = teiaKidlispCodes;
 }
 
-console.log('🎯 TEIA cache defined with ${codesMap.size} codes:', Object.keys(teiaKidlispCodes));`;
+console.log('🎯 TEIA cache defined with ${codesMap.size} codes');`;
 }
 
 // Main function

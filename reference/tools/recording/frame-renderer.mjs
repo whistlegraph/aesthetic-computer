@@ -15,14 +15,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class FrameRenderer extends HeadlessAC {
-  constructor(outputDir, width = 2048, height = 2048) {
+  constructor(outputDir, width = 2048, height = 2048, density = null) {
     // Use provided dimensions or fall back to environment variables
     width = width || parseInt(process.env.WIDTH) || 2048;
     height = height || parseInt(process.env.HEIGHT) || 2048;
-    super(width, height);
+    super(width, height, { density });
     this.outputDir = outputDir;
     this.stateFile = path.join(outputDir, 'state.json');
     this.backgroundBufferFile = path.join(outputDir, 'background-buffer.bin');
+    this.density = density;
     
     // State containers for serialization/deserialization
     this.pieceState = {}; // Variables from the piece itself
@@ -490,7 +491,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const outputDir = process.argv[4] || './frame-output';
   const width = parseInt(process.argv[5]) || 2048;
   const height = parseInt(process.argv[6]) || 2048;
-  const renderer = new FrameRenderer(outputDir, width, height);
+  const density = process.argv[7] ? parseFloat(process.argv[7]) : null;
+  const renderer = new FrameRenderer(outputDir, width, height, density);
   
   renderer.run().then(result => {
     if (result.complete) {
