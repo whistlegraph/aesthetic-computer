@@ -1,9 +1,11 @@
 // Headless AC - Shared functionality for bake.mjs and tape.mjs
 // Provides common AC system initialization, API creation, and utilities
 
-import { writeFileSync, readFileSync } from 'fs';
-import { resolve } from 'path';
-import { pathToFileURL } from 'url';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { resolve, dirname, join } from 'path';
+import fs from 'fs';
+import path from 'path';
+import { pathToFileURL, fileURLToPath } from 'url';
 import { PNG } from 'pngjs';
 import { timestamp, resetRainbowCache, resetZebraCache, getRainbowState, setRainbowState, getZebraState, setZebraState } from "../../../system/public/aesthetic.computer/lib/num.mjs";
 import chalk from 'chalk';
@@ -112,10 +114,14 @@ export class HeadlessAC {
     this.kidlispInstance = null; // Will be initialized when API is created
     this.kidlispState = null; // Will hold state to restore
     this.density = options.density || null; // Custom density parameter
+    this.outputDir = options.outputDir || null; // Directory for saving embedded layer buffers
     
     // Performance tracking options
     this.detailedTiming = options.detailedTiming || false;
     this.operationTimings = new Map();
+    
+    // Embedded layer restoration
+    this.deferredEmbeddedLayers = null; // Will hold embedded layers for restoration after KidLisp setup
     
     // Performance optimizations
     this.enableV8Optimizations();
@@ -128,6 +134,120 @@ export class HeadlessAC {
       this.pixelBuffer[i + 2] = 0; // B
       this.pixelBuffer[i + 3] = 255; // A (opaque)
     }
+  }
+
+  // Restore embedded layers after KidLisp API is set up
+  restoreEmbeddedLayers() {
+    if (!this.deferredEmbeddedLayers || !this.kidlispInstance || !this.KidLisp) {
+      console.log(`🎬 HEADLESS DEBUG: Skipping embedded layer restoration - not ready yet`);
+      return;
+    }
+
+    console.log(`🎬 HEADLESS DEBUG: Restoring ${this.deferredEmbeddedLayers.length} embedded layer definitions from previous frame`);
+    
+    // FIXED: Properly restore layers with their rendered content and KidLisp instances
+    this.kidlispInstance.embeddedLayers = this.deferredEmbeddedLayers.map(layerMeta => {
+      // Restore the pixel buffer from disk if available
+      const buffer = layerMeta.buffer ? {
+        width: layerMeta.buffer.width,
+        height: layerMeta.buffer.height,
+        pixels: layerMeta.buffer.filename ? 
+          this.loadEmbeddedLayerBuffer(layerMeta.buffer.filename) : 
+          new Uint8ClampedArray(layerMeta.buffer.width * layerMeta.buffer.height * 4) // Empty buffer
+      } : null;
+      
+      // Create a minimal KidLisp instance for the embedded layer
+      // This is required for updateEmbeddedLayer to work properly
+      let kidlispInstance = null;
+      console.log(`🔧 HEADLESS DEBUG: Attempting to restore KidLisp instance for ${layerMeta.cacheId}, hasMetaState=${!!layerMeta.kidlispInstanceState}, hasKidLispClass=${!!this.KidLisp}`);
+      
+      if (this.KidLisp) {
+        // Create a new KidLisp instance for the embedded layer
+        kidlispInstance = new this.KidLisp();
+        
+        // Restore minimal state for embedded layer instance
+        if (layerMeta.kidlispInstanceState) {
+          kidlispInstance.frameCount = layerMeta.kidlispInstanceState.frameCount || 0;
+          kidlispInstance.localFrameCount = layerMeta.kidlispInstanceState.localFrameCount || 0;
+        }
+        
+        // Set the source code for the layer
+        if (layerMeta.sourceCode) {
+          kidlispInstance.currentSource = layerMeta.sourceCode;
+          // Parse the source code to create the parsedCode structure
+          try {
+            kidlispInstance.parsedCode = kidlispInstance.parse(layerMeta.sourceCode);
+          } catch (parseError) {
+            console.warn(`⚠️ Could not parse source code for layer ${layerMeta.cacheId}:`, parseError.message);
+          }
+        }
+        
+        console.log(`✅ HEADLESS DEBUG: Successfully restored KidLisp instance for layer: ${layerMeta.cacheId}`);
+      } else {
+        console.log(`❌ HEADLESS DEBUG: Could not restore KidLisp instance for ${layerMeta.cacheId} - missing requirements`);
+      }
+      
+      return {
+        ...layerMeta,
+        buffer: buffer,
+        kidlispInstance: kidlispInstance,
+        // Restore parsed code if available
+        parsedCode: kidlispInstance ? kidlispInstance.parsedCode : layerMeta.parsedCode
+      };
+    });
+
+    // Populate cache with references to the restored layers
+    // This is CRITICAL - without this, the system will recreate layers every frame
+    if (this.kidlispInstance.embeddedLayers) {
+      for (const layer of this.kidlispInstance.embeddedLayers) {
+        if (layer.layerKey || layer.cacheId) {
+          const cacheKey = layer.layerKey || layer.cacheId;
+          this.kidlispInstance.embeddedLayerCache.set(cacheKey, layer);
+          console.log(`🎯 HEADLESS DEBUG: Restored layer cache entry: ${cacheKey}`);
+        }
+      }
+    }
+
+    // Clear deferred layers
+    this.deferredEmbeddedLayers = null;
+  }
+
+  // Save embedded layer buffer to disk (similar to background buffer)
+  saveEmbeddedLayerBuffer(layerId, pixelData) {
+    if (!this.outputDir) {
+      console.warn('⚠️ No output directory set for saving embedded layer buffers');
+      return null;
+    }
+    
+    try {
+      const filename = `embedded-layer-${layerId}.bin`;
+      const filepath = path.join(this.outputDir, filename);
+      fs.writeFileSync(filepath, pixelData);
+      console.log(`💾 Saved embedded layer buffer: ${filename} (${pixelData.length} bytes)`);
+      return filename;
+    } catch (error) {
+      console.warn(`⚠️ Failed to save embedded layer buffer for ${layerId}:`, error.message);
+      return null;
+    }
+  }
+
+  // Load embedded layer buffer from disk
+  loadEmbeddedLayerBuffer(filename) {
+    if (!this.outputDir || !filename) {
+      return null;
+    }
+    
+    try {
+      const filepath = path.join(this.outputDir, filename);
+      if (fs.existsSync(filepath)) {
+        const bufferData = fs.readFileSync(filepath);
+        console.log(`📥 Loaded embedded layer buffer: ${filename} (${bufferData.length} bytes)`);
+        return new Uint8ClampedArray(bufferData);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to load embedded layer buffer ${filename}:`, error.message);
+    }
+    return null;
   }
 
   // Set KidLisp state for restoration
@@ -171,6 +291,15 @@ export class HeadlessAC {
       if (state.activeTimingExpressions) {
         this.kidlispInstance.activeTimingExpressions = new Map(Object.entries(state.activeTimingExpressions));
       }
+      
+      // Store embedded layers for later restoration (after KidLisp class is available)
+      if (state.embeddedLayers) {
+        console.log(`🎬 HEADLESS DEBUG: Deferring restoration of ${state.embeddedLayers.length} embedded layer definitions (will restore after KidLisp API setup)`);
+        this.deferredEmbeddedLayers = state.embeddedLayers;
+      }
+      
+      // Initialize empty cache - will be populated by restoreEmbeddedLayers
+      this.kidlispInstance.embeddedLayerCache = new Map();
       
       // Ink and visual state restoration
       if (state.inkState !== undefined) {
@@ -232,6 +361,39 @@ export class HeadlessAC {
         // Baked layers state
         bakedLayers: this.kidlispInstance.bakedLayers || [],
         bakeCallCount: this.kidlispInstance.bakeCallCount || 0,
+        
+        // Embedded layers state (CRITICAL for multi-frame rendering)
+        // FIXED: Serialize layers WITH pixel buffers to maintain rendered content
+        embeddedLayers: this.kidlispInstance.embeddedLayers ? this.kidlispInstance.embeddedLayers.map(layer => ({
+          id: layer.id,
+          x: layer.x,
+          y: layer.y,
+          width: layer.width,
+          height: layer.height,
+          alpha: layer.alpha,
+          source: layer.source,
+          sourceCode: layer.sourceCode,
+          hasBeenEvaluated: layer.hasBeenEvaluated,
+          lastFrameEvaluated: layer.lastFrameEvaluated,
+          lastRenderTime: layer.lastRenderTime,
+          cacheId: layer.cacheId,
+          layerKey: layer.layerKey,
+          localFrameCount: layer.localFrameCount || 0,
+          timingPattern: layer.timingPattern,
+          // Save buffer to disk and store metadata only
+          buffer: layer.buffer ? {
+            width: layer.buffer.width,
+            height: layer.buffer.height,
+            filename: this.saveEmbeddedLayerBuffer(layer.cacheId || layer.id || `layer_${Date.now()}`, layer.buffer.pixels)
+          } : null,
+          // Save minimal KidLisp instance state - mainly for frame counting
+          kidlispInstanceState: layer.kidlispInstance ? {
+            frameCount: layer.kidlispInstance.frameCount || 0,
+            localFrameCount: layer.localFrameCount || 0
+          } : null
+        })) : [],
+        // Save embedded layer cache structure with full layer references
+        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ? Object.fromEntries(this.kidlispInstance.embeddedLayerCache) : {},
         
         // Local environment
         localEnv: this.kidlispInstance.localEnv || {},
@@ -396,8 +558,10 @@ export class HeadlessAC {
         // Create a mock $preload function for loading glyph data
         const mockPreload = async (path) => {
           try {
-            // Convert AC path to actual file path
-            const actualPath = path.replace('aesthetic.computer/', '../../../system/public/aesthetic.computer/');
+            // Convert AC path to actual file path using absolute path resolution
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = dirname(__filename);
+            const actualPath = resolve(__dirname, '../../../system/public', path);
             
             // Read JSON file directly
             const jsonData = readFileSync(actualPath, 'utf8');
@@ -733,7 +897,9 @@ export class HeadlessAC {
         
         // Basic flood fill implementation
         if (self.graph && self.graph.flood) {
+          console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample before:`, Array.from(api.screen.pixels.slice(0, 20)));
           self.graph.flood(...args);
+          console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample after:`, Array.from(api.screen.pixels.slice(0, 20)));
         } else {
           console.log('⚠️ Graph flood not available, using simple fill');
           // Simple fill the entire screen as fallback
@@ -809,8 +975,10 @@ export class HeadlessAC {
           // Update the graph drawing context
           if (self.graph && self.graph.setBuffer) {
             self.graph.setBuffer(buffer);
+            console.log(`🔧 PAGE DEBUG: Graph setBuffer called, buffer sample:`, Array.from(buffer.pixels.slice(0, 20)));
           }
           console.log(`📄 Switched to buffer: ${buffer.width}x${buffer.height}`);
+          console.log(`🔍 PAGE DEBUG: api.screen.pixels sample:`, Array.from(api.screen.pixels.slice(0, 20)));
         } else {
           console.warn('⚠️ page() called with invalid buffer:', buffer);
         }
@@ -1047,6 +1215,9 @@ export class HeadlessAC {
         // Import KidLisp directly from the kidlisp module
         const { KidLisp } = await import("../../../system/public/aesthetic.computer/lib/kidlisp.mjs");
         
+        // Store KidLisp class for use in embedded layer restoration
+        self.KidLisp = KidLisp;
+        
         if (!self.kidlispInstance) {
           self.kidlispInstance = new KidLisp();
           
@@ -1090,6 +1261,9 @@ export class HeadlessAC {
           
           // Update the KidLisp instance with the current API before evaluation
           self.kidlispInstance.setAPI(api);
+          
+          // Now that KidLisp API is set up, restore any deferred embedded layers
+          self.restoreEmbeddedLayers();
           
           // Simulate KidLisp sim function behavior to properly advance frame count and rainbow cache
           // This MUST happen before any KidLisp evaluation to ensure proper color cycling

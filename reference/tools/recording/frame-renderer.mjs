@@ -19,7 +19,7 @@ class FrameRenderer extends HeadlessAC {
     // Use provided dimensions or fall back to environment variables
     width = width || parseInt(process.env.WIDTH) || 2048;
     height = height || parseInt(process.env.HEIGHT) || 2048;
-    super(width, height, { density });
+    super(width, height, { density, outputDir });
     this.outputDir = outputDir;
     this.stateFile = path.join(outputDir, 'state.json');
     this.backgroundBufferFile = path.join(outputDir, 'background-buffer.bin');
@@ -402,14 +402,30 @@ export const paint = ($) => {
       pieceExecutionTime = Date.now() - pieceExecStartTime;
       console.log(`📊 Captured ${Object.keys(capturedState).length} piece variables`);
       
-      // Capture the frame
-      const frameData = this.captureFrame();
-      
-      // CRITICAL: Sync API screen buffer back to our pixel buffer to preserve KidLisp changes
+      // CRITICAL: Sync API screen buffer back to our pixel buffer BEFORE capturing frame
       if (this.api && this.api.screen && this.api.screen.pixels) {
         console.log('🔄 Syncing API screen buffer to pixel buffer for persistence');
+        // Debug: Check a few pixels to see if there's actual content
+        const samplePixels = [];
+        for (let i = 0; i < Math.min(20, this.api.screen.pixels.length); i += 4) {
+          samplePixels.push(`[${this.api.screen.pixels[i]},${this.api.screen.pixels[i+1]},${this.api.screen.pixels[i+2]},${this.api.screen.pixels[i+3]}]`);
+        }
+        console.log('🔍 API screen buffer sample pixels:', samplePixels.slice(0, 5).join(', '));
+        
+        // Also check if graph buffer has different content
+        if (this.graph && this.graph.pixels) {
+          const graphSamplePixels = [];
+          for (let i = 0; i < Math.min(20, this.graph.pixels.length); i += 4) {
+            graphSamplePixels.push(`[${this.graph.pixels[i]},${this.graph.pixels[i+1]},${this.graph.pixels[i+2]},${this.graph.pixels[i+3]}]`);
+          }
+          console.log('🔍 Graph buffer sample pixels:', graphSamplePixels.slice(0, 5).join(', '));
+        }
+        
         this.pixelBuffer.set(this.api.screen.pixels);
       }
+      
+      // Capture the frame AFTER syncing the screen buffer
+      const frameData = this.captureFrame();
       
       // Convert RGBA to RGB for ffmpeg
       const rgbData = new Uint8Array(state.width * state.height * 3);

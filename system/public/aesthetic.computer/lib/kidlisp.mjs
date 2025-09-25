@@ -440,6 +440,7 @@ async function getCachedCodeMultiLevel(cacheId) {
 
   if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
     const teiaSource = globalScope.teiaKidlispCodes[cacheId];
+    console.log(`🎯 Found TEIA cached code for ${cacheId}`);
     // Cache in RAM for future access
     globalCodeCache.set(cacheId, teiaSource);
     return teiaSource;
@@ -2569,9 +2570,11 @@ class KidLisp {
           const bakedTime = performance.now() - bakedStart;
 
           // Then render and update embedded layers
+          console.log(`🎬 HEADLESS DEBUG: About to call renderEmbeddedLayers with ${this.embeddedLayers?.length || 0} layers`);
           const embedStart = performance.now();
           this.renderEmbeddedLayers($);
           const embedTime = performance.now() - embedStart;
+          console.log(`🎬 HEADLESS DEBUG: renderEmbeddedLayers completed in ${embedTime.toFixed(2)}ms`);
 
           // 🔍 TOTAL FRAME TIMING: Disabled for cleaner console
           const totalFrameTime = performance.now() - totalFrameStart;
@@ -5576,6 +5579,26 @@ class KidLisp {
           return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, alpha, api);
         }
 
+        // 🎯 TEIA CACHE CHECK: Try to get source from global TEIA cache synchronously
+        const globalScope = (function() {
+          if (typeof window !== 'undefined') return window;
+          if (typeof globalThis !== 'undefined') return globalThis;
+          if (typeof global !== 'undefined') return global;
+          if (typeof self !== 'undefined') return self;
+          return {};
+        })();
+
+        if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
+          const teiaSource = globalScope.teiaKidlispCodes[cacheId];
+          console.log(`🎯 Using TEIA cached code for embedded layer: ${cacheId}`);
+          // Cache it in embeddedSourceCache for future use
+          this.embeddedSourceCache.set(cacheId, teiaSource);
+          // Mark as loaded since we have the source
+          this.loadingEmbeddedLayers.delete(cacheId);
+          this.loadedEmbeddedLayers.add(cacheId);
+          return this.createEmbeddedLayerFromSource(teiaSource, cacheId, layerKey, width, height, x, y, alpha, api);
+        }
+
         // Check if we're already fetching this source to prevent duplicates
         const fetchKey = `${cacheId}_fetching_source`;
         if (this.embeddedLayerCache.has(fetchKey)) {
@@ -8349,6 +8372,8 @@ class KidLisp {
 
   // Helper method to create embedded layer from source code
   createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, alpha, api) {
+    console.log(`🎬 HEADLESS DEBUG: createEmbeddedLayerFromSource: ${cacheId} (${width}x${height}) at (${x}, ${y}) alpha=${alpha}`);
+    
     // Check if there's already an existing layer for this key
     const existingLayer = this.embeddedLayerCache.get(layerKey);
     if (existingLayer) {
@@ -8768,9 +8793,24 @@ class KidLisp {
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
+    console.log(`🎬 HEADLESS DEBUG: pasteWithAlpha called with buffer ${sourceBuffer?.width}x${sourceBuffer?.height}, alpha=${alpha}, api.screen=${!!api.screen}, api.paste=${!!api.paste}`);
+    
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
+      console.warn('⚠️ HEADLESS DEBUG: pasteWithAlpha: Missing required components', {
+        sourceBuffer: !!sourceBuffer,
+        sourcePixels: !!sourceBuffer?.pixels,
+        apiScreen: !!api.screen,
+        screenPixels: !!api.screen?.pixels
+      });
       return; // Silent fail for performance
     }
+
+    // Debug: Check what's in the source buffer being pasted
+    const samplePixels = [];
+    for (let i = 0; i < Math.min(20, sourceBuffer.pixels.length); i += 4) {
+      samplePixels.push(`[${sourceBuffer.pixels[i]},${sourceBuffer.pixels[i+1]},${sourceBuffer.pixels[i+2]},${sourceBuffer.pixels[i+3]}]`);
+    }
+    console.log('🔍 HEADLESS DEBUG: Source buffer sample pixels:', samplePixels.slice(0, 5).join(', '));
 
     // 🛡️ SAFETY CHECK: Ensure source buffer is not detached
     if (sourceBuffer.pixels.buffer && sourceBuffer.pixels.buffer.detached) {
@@ -8994,11 +9034,11 @@ class KidLisp {
   renderEmbeddedLayers(api) {
     // 🔍 DEBUG: Log embedded layers status
     if (!this.embeddedLayers || this.embeddedLayers.length === 0) {
-      // console.log("🎬 renderEmbeddedLayers: No embedded layers to render");
+      console.log("🎬 HEADLESS DEBUG: No embedded layers to render");
       return;
     }
 
-    // console.log(`🎬 renderEmbeddedLayers: Processing ${this.embeddedLayers.length} embedded layers`);
+    console.log(`🎬 HEADLESS DEBUG: Processing ${this.embeddedLayers.length} embedded layers`);
 
     // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
@@ -9118,7 +9158,7 @@ class KidLisp {
 
   // 🚀 OPTIMIZED: Render single layer with minimal overhead
   renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate) {
-    // console.log(`🎬 renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
+    console.log(`🎬 HEADLESS DEBUG: renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
 
     // 🔥 REFRAME PERFORMANCE: Skip expensive re-evaluation during rapid screen changes
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
@@ -9215,6 +9255,7 @@ class KidLisp {
     api.page(api.screen);
 
     // Paste with optimized alpha compositing
+    console.log(`🎬 HEADLESS DEBUG: About to pasteWithAlpha buffer ${embeddedLayer.buffer?.width}x${embeddedLayer.buffer?.height} at (${embeddedLayer.x},${embeddedLayer.y})`);
     this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
   }
 
@@ -9665,6 +9706,11 @@ class KidLisp {
         embeddedApi,
         embeddedEnv
       );
+      
+      // DEBUG: Check embedded layer buffer after execution
+      const bufferSample = embeddedLayer.buffer.pixels.slice(0, 20);
+      console.log(`🔍 EMBEDDED LAYER DEBUG: After execution, buffer sample pixels:`, Array.from(bufferSample));
+      
       // console.log(`✅ Embedded layer execution complete: ${embeddedLayer.originalCacheId}`);
 
       // Switch back to the original page
