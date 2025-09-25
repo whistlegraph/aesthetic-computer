@@ -164,13 +164,11 @@ if (typeof globalThis !== "undefined") {
 // Global function to set persistent first line color
 if (typeof window !== "undefined") {
   window.setPersistentFirstLineColor = function(color) {
-    console.log("🎨 Setting persistent first line color:", color);
     persistentFirstLineColor = color;
   };
 
   // Global function to get persistent first line color
   window.getPersistentFirstLineColor = function() {
-    console.log("🎨 Getting persistent first line color:", persistentFirstLineColor);
     return persistentFirstLineColor;
   };
 }
