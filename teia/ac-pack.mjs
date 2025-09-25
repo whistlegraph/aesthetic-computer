@@ -675,6 +675,12 @@ ${cacheCode}
           console.log(`🔧 Patched disk.mjs for teia mode`);
         }
         
+        // Patch udp.mjs for teia mode - disable networking functionality
+        if (libFile === 'udp.mjs') {
+          content = this.patchUdpJsForTeia(content);
+          console.log(`🔧 Patched udp.mjs for teia mode`);
+        }
+        
         await fs.writeFile(destPath, content);
         this.bundledFiles.add(`lib/${libFile}`);
         console.log(`📚 Bundled lib: ${libFile}`);
@@ -710,7 +716,7 @@ ${cacheCode}
       { name: "uniforms.js", content: "// Uniform stub for Teia mode\nexport default {};" },
       { name: "vec4.mjs", content: "// Vec4 stub for Teia mode\nexport default {};" },
       { name: "idb.js", content: "// IndexedDB stub for Teia mode" },
-      { name: "geckos.io-client.2.3.2.min.js", content: "// Geckos stub for Teia mode" }
+      { name: "geckos.io-client.2.3.2.min.js", content: "// Geckos stub for Teia mode\nexport default null;\nmodule.exports = null;" }
     ];
 
     for (const stub of stubs) {
@@ -1423,6 +1429,49 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     );
     
     return patched;
+  }
+
+  patchUdpJsForTeia(content) {
+    console.log('🔧 Patching udp.mjs for Teia mode...');
+    
+    // Replace the entire UDP module with a stub that provides the same API
+    // but doesn't try to import geckos or establish network connections
+    const teiaStub = `// UDP stub for Teia mode - networking disabled for offline use
+
+const logs = { udp: false }; // Disable UDP logging in Teia mode
+
+let connected = false;
+
+// Stub functions that match the original UDP API but don't do networking
+function connect(port = 8889, url = undefined, send) {
+  if (logs.udp) console.log("🩰 UDP disabled in Teia mode");
+  connected = false; // Always stay disconnected in Teia mode
+  return;
+}
+
+function disconnect() {
+  if (logs.udp) console.log("🩰 UDP disconnect (Teia mode)");
+  connected = false;
+}
+
+function send(data, options = {}) {
+  if (logs.udp) console.log("🩰 UDP send disabled in Teia mode:", data);
+  // No-op in Teia mode
+}
+
+function isConnected() {
+  return false; // Always disconnected in Teia mode
+}
+
+// Create UDP object that matches the expected API structure
+const UDP = { connect, disconnect, send, isConnected };
+
+// Export the same API as the original UDP module
+export { connect, disconnect, send, isConnected, UDP };
+export default { connect, disconnect, send, isConnected, UDP };
+`;
+    
+    return teiaStub;
   }
 
   patchHeadersJsForTeia(content) {
