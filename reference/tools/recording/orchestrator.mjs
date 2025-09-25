@@ -28,6 +28,8 @@ class RenderOrchestrator {
     this.gifMode = options.gifMode || false;
     this.density = options.density || null; // Custom density parameter
     this.kidlispCache = options.kidlispCache || null; // KidLisp dependency cache
+    this.extractIconFrame = options.extractIconFrame || false; // Extract midpoint frame as icon
+    this.iconOutputDir = options.iconOutputDir || null; // Custom directory for icon output
   }
 
   // Fetch KidLisp source code from the localhost API (similar to tape.mjs)
@@ -403,6 +405,12 @@ export async function paint(api) {
       const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},${scaleFilter}[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
       execSync(gifCmd);
 
+      // Extract icon frame if requested
+      if (this.extractIconFrame) {
+        const iconOutputDir = this.iconOutputDir || this.outputDir;
+        await this.extractMidpointFrameAsIcon(tempDir, iconOutputDir);
+      }
+
       // Clean up temporary files
       console.log(`🧹 Cleaning up temporary files...`);
       execSync(`rm -rf "${tempDir}"`);
@@ -417,6 +425,47 @@ export async function paint(api) {
     } catch (error) {
       console.error(`💥 GIF conversion failed:`, error.message);
       throw error;
+    }
+  }
+
+  async extractMidpointFrameAsIcon(tempDir, outputDir) {
+    try {
+      console.log(`🎨 Extracting midpoint frame as icon...`);
+      
+      // Find all PNG files in temp directory
+      const pngFiles = fs.readdirSync(tempDir)
+        .filter(file => file.endsWith('.png') && file.startsWith('frame_'))
+        .sort((a, b) => {
+          const aFrame = parseInt(a.match(/frame_(\d+)\.png/)[1]);
+          const bFrame = parseInt(b.match(/frame_(\d+)\.png/)[1]);
+          return aFrame - bFrame;
+        });
+
+      if (pngFiles.length === 0) {
+        console.warn(`⚠️ No PNG frames found for icon extraction`);
+        return;
+      }
+
+      // Get midpoint frame
+      const midpointIndex = Math.floor(pngFiles.length / 2);
+      const midpointFrame = pngFiles[midpointIndex];
+      const sourcePath = path.join(tempDir, midpointFrame);
+      
+      // Create icon directory if it doesn't exist
+      const iconDir = path.join(outputDir, 'icon');
+      if (!fs.existsSync(iconDir)) {
+        fs.mkdirSync(iconDir, { recursive: true });
+      }
+      
+      const iconPath = path.join(iconDir, 'icon-from-frame.png');
+      
+      // Copy the midpoint frame as the icon
+      fs.copyFileSync(sourcePath, iconPath);
+      
+      console.log(`✅ Icon extracted from frame ${midpointIndex + 1}/${pngFiles.length}: ${path.basename(iconPath)}`);
+      
+    } catch (error) {
+      console.warn(`⚠️ Could not extract icon frame: ${error.message}`);
     }
   }
 

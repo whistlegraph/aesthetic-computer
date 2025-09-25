@@ -532,6 +532,24 @@ setInterval(() => {
     console.log("📄 Generated index.html");
     
     // Generate a basic manifest.json for the packaged piece
+    // Check which icon file actually exists
+    const iconDir = path.join(this.options.outputDir, "icon", "128x128");
+    const pngIcon = path.join(iconDir, `${this.pieceName}.png`);
+    const gifIcon = path.join(iconDir, `${this.pieceName}.gif`);
+    
+    let iconSrc, iconType;
+    if (fsSync.existsSync(pngIcon)) {
+      iconSrc = `./icon/128x128/${this.pieceName}.png`;
+      iconType = "image/png";
+    } else if (fsSync.existsSync(gifIcon)) {
+      iconSrc = `./icon/128x128/${this.pieceName}.gif`;
+      iconType = "image/gif";
+    } else {
+      // Fallback to PNG (even if it doesn't exist)
+      iconSrc = `./icon/128x128/${this.pieceName}.png`;
+      iconType = "image/png";
+    }
+
     const manifest = {
       name: generatedMetadata.title || this.options.title,
       short_name: this.pieceName,
@@ -541,9 +559,9 @@ setInterval(() => {
       theme_color: "#0084FF",
       icons: [
         {
-          src: `./icon/128x128/${this.pieceName}.png`,
+          src: iconSrc,
           sizes: "128x128",
-          type: "image/png"
+          type: iconType
         }
       ]
     };
@@ -1038,7 +1056,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       const coverPath = path.join(this.options.outputDir, "cover.gif");
       
       // Create a temporary output directory for GIF generation
-      const tempOutputDir = path.join(this.options.outputDir, ".temp-gif");
+      const tempOutputDir = path.join(this.options.outputDir, "temp-gif");
       await fs.mkdir(tempOutputDir, { recursive: true });
       
       console.log("🎞️ Generating animated GIF cover...");
@@ -1058,13 +1076,15 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       const orchestrator = new RenderOrchestrator(
         this.pieceName,     // piece (supports KidLisp $code or .mjs files)
         180,                // 3 seconds at 60fps (180 frames) for cover
-        tempOutputDir,      // temporary output directory
+        tempOutputDir,      // temporary directory for frame rendering
         baseRecordingResolution,   // width - small recording resolution
         baseRecordingResolution,   // height - small recording resolution
         { 
           gifMode: true,    // enable GIF mode
           density: currentDensity, // pass density parameter
-          kidlispCache: this.kidlispCacheData // pass KidLisp cache for dependencies
+          kidlispCache: this.kidlispCacheData, // pass KidLisp cache for dependencies
+          extractIconFrame: true, // extract midpoint frame as icon
+          iconOutputDir: this.options.outputDir // output icon to main directory, not temp
         }
       );
       
@@ -1128,6 +1148,14 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           console.warn("⚠️ Could not generate GIF favicon, will use PNG fallback");
           console.warn("⚠️ Error details:", error.message);
           this.options.faviconImage = "./aesthetic.computer/favicon.png";
+        }
+        
+        // Save extracted icon frame before cleanup
+        const extractedIcon = path.join(tempOutputDir, "icon-from-frame.png");
+        if (await fs.access(extractedIcon).then(() => true).catch(() => false)) {
+          const iconDestination = path.join(this.options.outputDir, "icon-from-frame.png");
+          await fs.copyFile(extractedIcon, iconDestination);
+          console.log("📎 Saved extracted icon frame for Electron builds");
         }
         
         // Clean up temporary files

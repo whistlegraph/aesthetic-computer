@@ -192,6 +192,41 @@ function ac-unpack
     end
 end
 
+# Usage: ac-ship [zip-file] [--platforms mac,windows,linux] - packages TEIA zips as Electron desktop apps
+# If no zip file specified, finds the most recent one in current directory
+function ac-ship
+    set -l current_dir (pwd)
+    set -l args $argv
+    
+    echo "🚢 Shipping Electron apps from $current_dir"
+    
+    # Run the ac-ship.mjs script from the teia directory
+    cd /workspaces/aesthetic-computer/teia
+    
+    # Process arguments to handle relative paths
+    set -l processed_args
+    for arg in $args
+        if not string match -q -- '--*' $arg; and test -f "$current_dir/$arg"
+            # This looks like a zip file in the original directory
+            set processed_args $processed_args "$current_dir/$arg"
+        else
+            set processed_args $processed_args $arg
+        end
+    end
+    
+    node ac-ship.mjs $processed_args
+    
+    # Return to original directory
+    cd $current_dir
+    
+    if test $status -eq 0
+        echo "✅ AC Ship complete! Electron apps built successfully"
+        echo "📱 Check the output for app locations"
+    else
+        echo "❌ AC Ship failed with exit code $status"
+    end
+end
+
 # always start in aesthetic-computer directory if there was a greeting
 if not test "$nogreet" = true
     cd ~/aesthetic-computer
