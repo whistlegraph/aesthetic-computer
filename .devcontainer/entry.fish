@@ -117,6 +117,10 @@ git config --global commit.gpgsign false
 # Make sure git is setup and authorized for making commits via `gh`.
 gh auth setup-git
 
+# Ensure GPG signing is disabled at both global and local levels (GitHub CLI might re-enable it)
+git config --global commit.gpgsign false
+git config --local commit.gpgsign false
+
 # Disable Netlify CLI telemetry to prevent ETXTBSY errors
 echo "Disabling Netlify CLI telemetry..."
 cd /home/me/aesthetic-computer/system && netlify --telemetry-disable 2>/dev/null || echo "Netlify telemetry disable completed"
