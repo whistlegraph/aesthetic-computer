@@ -283,6 +283,16 @@ const urlParams = new URLSearchParams(window.location.search);
 window.acTEIA_VIEWER = urlParams.get('viewer') || null;
 window.acTEIA_CREATOR = urlParams.get('creator') || null;
 
+// Add custom density parameter to URL if specified
+${this.options.density ? `
+if (!urlParams.has('density')) {
+  urlParams.set('density', '${this.options.density}');
+  // Update the URL without page reload to include density parameter
+  const newUrl = window.location.pathname + '?' + urlParams.toString();
+  history.replaceState(null, '', newUrl);
+  console.log('🔍 Applied custom density: ${this.options.density}');
+}` : '// No custom density specified'}
+
 // Force sandbox mode for Teia
 window.acSANDBOX_MODE = true;
 
@@ -302,7 +312,8 @@ console.log('🎭 Teia mode activated:', {
   creator: window.acTEIA_CREATOR,
   disableSession: window.acDISABLE_SESSION,
   nogapMode: window.acNOGAP_MODE,
-  teiaMode: window.acTEIA_MODE
+  teiaMode: window.acTEIA_MODE,
+  customDensity: ${this.options.density ? `'${this.options.density}'` : 'null'}
 });
 
 // Periodically ensure TEIA mode stays enabled
@@ -315,11 +326,44 @@ setInterval(() => {
 }, 100);
     </script>
     ${this.generateKidLispCacheScript()}
-    <script src="./aesthetic.computer/boot.mjs" type="module" defer></script>
+    <script src="./aesthetic.computer/boot.mjs" type="module" defer onerror="handleModuleLoadError()"></script>
     <link rel="stylesheet" href="./aesthetic.computer/style.css" />
+    <style>
+      /* Override transparent background for TEIA mode */
+      body.nogap {
+        background-color: #000000 !important;
+      }
+      
+      /* Show console div for file:// protocol errors */
+      .file-protocol-error #console {
+        display: block !important;
+        background: rgba(0, 0, 0, 0.9);
+        color: #ffffff;
+        font-family: monospace;
+        font-size: 14px;
+        line-height: 1.4;
+        padding: 20px;
+        box-sizing: border-box;
+        z-index: 9999;
+      }
+    </style>
   </head>
   <body class="native-cursor">
-    <div id="console" class="hidden">booting...</div>
+    <div id="console" class="hidden">
+      <div class="boot-message">booting...</div>
+      <div class="error-message" style="display: none;">
+        <h3>🚫 Module Loading Error (CORS)</h3>
+        <p>This TEIA package needs to be served from an HTTP server to work properly.</p>
+        <p><strong>Quick Solutions:</strong></p>
+        <ul>
+          <li><strong>Python:</strong> <code>python -m http.server 8000</code></li>
+          <li><strong>Node.js:</strong> <code>npx serve .</code></li>
+          <li><strong>PHP:</strong> <code>php -S localhost:8000</code></li>
+        </ul>
+        <p>Then open <code>http://localhost:8000</code> in your browser.</p>
+        <p><em>Reason: Browsers block ES modules when opened directly as files (file:// protocol) due to CORS security policy.</em></p>
+      </div>
+    </div>
     <script>
       if (window.self !== window.top) document.body.classList.add("embed");
       
@@ -328,6 +372,29 @@ setInterval(() => {
       if (window.acNOGAP_MODE || params.has("nogap") || location.search.includes("nogap")) {
         document.body.classList.add("nogap");
       }
+      
+      // Handle module loading errors (CORS issues with file:// protocol)
+      function handleModuleLoadError() {
+        console.error('❌ Failed to load boot.mjs - likely due to CORS policy with file:// protocol');
+        document.body.classList.add('file-protocol-error');
+        document.querySelector('#console .boot-message').style.display = 'none';
+        document.querySelector('#console .error-message').style.display = 'block';
+        document.getElementById('console').classList.remove('hidden');
+      }
+      
+      // Also catch any other module loading errors
+      window.addEventListener('error', function(e) {
+        if (e.message && e.message.includes('Failed to resolve module specifier')) {
+          handleModuleLoadError();
+        }
+      });
+      
+      // Timeout fallback - if nothing loads after 3 seconds, assume CORS error
+      setTimeout(function() {
+        if (!window.acBOOTED && location.protocol === 'file:') {
+          handleModuleLoadError();
+        }
+      }, 3000);
     </script>
   </body>
 </html>`;
@@ -809,14 +876,30 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       console.log(`📁 Base outputDir: ${this.options.outputDir}`);
       console.log(`📁 Temp outputDir: ${tempOutputDir}`);
       
+      // Calculate render dimensions based on density
+      // Base canvas resolution when density=2 is typically 512x512 
+      // Higher density = larger pixels = lower resolution for same visual size
+      const baseDensity = 2;
+      const currentDensity = this.options.density || baseDensity;
+      const baseResolution = 512;
+      
+      // Scale resolution inversely with density - higher density = fewer actual pixels needed
+      const scaledResolution = Math.round(baseResolution * (baseDensity / currentDensity));
+      
+      console.log(`🔍 Density: ${currentDensity}, Resolution: ${scaledResolution}x${scaledResolution}`);
+      
       // Use the RenderOrchestrator to generate GIF
       const orchestrator = new RenderOrchestrator(
         this.pieceName,     // piece (supports KidLisp $code or .mjs files)
         360,                // 6 seconds at 60fps (360 frames) for cover
         tempOutputDir,      // temporary output directory
-        512,                // width
-        512,                // height
-        { gifMode: true }   // enable GIF mode
+        scaledResolution,   // width - adjusted for density
+        scaledResolution,   // height - adjusted for density
+        { 
+          gifMode: true,    // enable GIF mode
+          density: currentDensity, // pass density parameter
+          kidlispCache: this.kidlispCacheData // pass KidLisp cache for dependencies
+        }
       );
       
       // Run the rendering
@@ -1226,13 +1309,31 @@ function getColorTokenHighlight(token) {
 // Main execution
 async function main() {
   const pieceName = process.argv[2];
+  const args = process.argv.slice(3);
   
   if (!pieceName) {
-    console.error("Usage: node ac-pack-simple.mjs <piece-name>");
+    console.error("Usage: node ac-pack.mjs <piece-name> [--density <value>]");
+    console.error("Example: node ac-pack.mjs '$bop' --density 8");
     process.exit(1);
   }
 
-  const packer = new AcPacker(pieceName);
+  // Parse command line arguments
+  const options = {};
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--density' && i + 1 < args.length) {
+      const densityValue = parseFloat(args[i + 1]);
+      if (!isNaN(densityValue) && densityValue > 0) {
+        options.density = densityValue;
+        console.log(`🔍 Custom density: ${densityValue}`);
+      } else {
+        console.error("❌ Invalid density value. Must be a positive number.");
+        process.exit(1);
+      }
+      i++; // Skip the next argument since we consumed it
+    }
+  }
+
+  const packer = new AcPacker(pieceName, options);
   const result = await packer.pack();
   
   if (!result.success) {
