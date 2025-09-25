@@ -82,6 +82,7 @@
   "dependencies": {
     "archiver": "^7.0.1",
     "gbasm": "^0.0.21",
-    "ntp-client": "^0.5.3"
+    "ntp-client": "^0.5.3",
+    "obscenity": "^0.4.3"
   }
 }

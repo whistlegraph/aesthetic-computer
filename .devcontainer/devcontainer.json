@@ -31,6 +31,9 @@
   // },
   "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345],
   "customizations": {
+    "codespaces": {
+      "machine": "largePremiumLinux"
+    },
     "vscode": {
       "extensions": [
         "aesthetic-computer.aesthetic-computer-code",
