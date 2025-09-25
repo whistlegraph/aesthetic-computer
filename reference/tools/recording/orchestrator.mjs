@@ -389,17 +389,18 @@ export async function paint(api) {
       // Create final GIF with Floyd-Steinberg dithering
       console.log(`🌈 Applying Floyd-Steinberg dithering for smooth gradients...`);
       
-      // Handle density scaling - scale up from base 128px to ensure minimum 512px output
-      let scaleFilter = "scale=-1:-1:flags=lanczos";
+      // Always output 1024x1024 GIFs - use density to control pixel chunkiness
+      const finalOutputSize = 1024;
+      let scaleFilter = `scale=${finalOutputSize}:${finalOutputSize}:flags=lanczos`;
+      
       if (this.density) {
-        const baseResolution = 128;
-        const minOutputResolution = 512;
-        const baseScaleFactor = minOutputResolution / baseResolution; // 4x for 128→512
-        const totalScaleFactor = baseScaleFactor * this.density;
-        const targetWidth = Math.round(baseResolution * totalScaleFactor);
-        const targetHeight = Math.round(baseResolution * totalScaleFactor);
-        scaleFilter = `scale=${targetWidth}:${targetHeight}:flags=neighbor`; // Use nearest neighbor for crisp pixels
-        console.log(`🔍 Scaling GIF for density ${this.density}: ${width}x${height} → ${targetWidth}x${targetHeight} (${totalScaleFactor}x total scale)`);
+        // Calculate the render resolution based on density
+        // Higher density = smaller render resolution = chunkier pixels when scaled to 1024x1024
+        const baseRenderSize = Math.round(finalOutputSize / this.density);
+        scaleFilter = `scale=${baseRenderSize}:${baseRenderSize}:flags=neighbor,scale=${finalOutputSize}:${finalOutputSize}:flags=neighbor`;
+        console.log(`🔍 Density ${this.density}: Rendering at ${width}x${height} → chunky ${baseRenderSize}x${baseRenderSize} → final 1024x1024 (${this.density}x pixel chunks)`);
+      } else {
+        console.log(`🔍 No density specified: Scaling ${width}x${height} → 1024x1024 with smooth interpolation`);
       }
       
       const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},${scaleFilter}[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
