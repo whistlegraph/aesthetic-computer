@@ -599,6 +599,11 @@ function flood(x, y, fillColor = c) {
   // Note: Fade flood fill temporarily disabled during global fade system removal
   // TODO: Implement local fade flood fill later
   
+  // Bounds check
+  if (x < 0 || y < 0 || x >= width || y >= height) {
+    return { color: [0, 0, 0, 0], area: 0 };
+  }
+  
   // Get the target color of the pixel at (x, y)
   const targetColor = pixel(x, y);
   if (targetColor[3] === 0) {
@@ -610,28 +615,32 @@ function flood(x, y, fillColor = c) {
   }
 
   let count = 0;
-  const visited = new Set();
+  // Use a more efficient visited tracking with numeric keys
+  const visited = new Uint8Array(width * height);
   const stack = [[x, y]];
 
   color(...findColor(fillColor));
   const oldColor = c;
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    const key = `${cx},${cy}`;
-
-    if (visited.has(key)) continue;
-    visited.add(key);
+    
+    // Bounds check
+    if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
+    
+    const index = cy * width + cx;
+    if (visited[index]) continue;
+    visited[index] = 1;
 
     const currentColor = pixel(cx, cy);
     if (colorsMatch(currentColor, targetColor)) {
       count++;
-
       plot(cx, cy);
 
-      stack.push([cx + 1, cy]); // Push neighbors to stack.
-      stack.push([cx - 1, cy]);
-      stack.push([cx, cy + 1]);
-      stack.push([cx, cy - 1]);
+      // Push neighbors to stack only if they're in bounds
+      if (cx + 1 < width) stack.push([cx + 1, cy]);
+      if (cx > 0) stack.push([cx - 1, cy]);
+      if (cy + 1 < height) stack.push([cx, cy + 1]);
+      if (cy > 0) stack.push([cx, cy - 1]);
     }
   }
 
