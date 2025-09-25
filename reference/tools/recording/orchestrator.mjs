@@ -104,6 +104,68 @@ class RenderOrchestrator {
     });
   }
 
+  // Extract KidLisp dependencies from source code
+  extractDependencies(source) {
+    const dependencies = new Set();
+    // Match patterns like ($code ...) where code starts with a letter/number
+    const matches = source.match(/\(\$[a-zA-Z0-9][a-zA-Z0-9]*\b/g);
+    if (matches) {
+      for (const match of matches) {
+        // Extract just the code part without the opening parenthesis and $
+        const code = match.slice(2); // Remove "($"
+        dependencies.add(code);
+      }
+    }
+    return Array.from(dependencies);
+  }
+
+  // Fetch all dependencies and build a cache
+  async fetchDependencies(source) {
+    console.log(`🔍 Scanning for dependencies in KidLisp source...`);
+    const dependencies = this.extractDependencies(source);
+    
+    if (dependencies.length === 0) {
+      console.log(`📝 No dependencies found`);
+      return null;
+    }
+
+    console.log(`📦 Found ${dependencies.length} dependencies: ${dependencies.join(', ')}`);
+    
+    const codesMap = new Map();
+    const errors = [];
+    
+    for (const dep of dependencies) {
+      try {
+        console.log(`🔄 Fetching dependency: $${dep}`);
+        const depSource = await this.fetchKidLispSource(`$${dep}`);
+        codesMap.set(dep, { source: depSource });
+        console.log(`✅ Cached dependency: $${dep} (${depSource.length} chars)`);
+        
+        // Recursively fetch dependencies of dependencies
+        const subDeps = await this.fetchDependencies(depSource);
+        if (subDeps && subDeps.codesMap) {
+          for (const [subCode, subData] of subDeps.codesMap) {
+            if (!codesMap.has(subCode)) {
+              codesMap.set(subCode, subData);
+              console.log(`✅ Cached sub-dependency: $${subCode} (${subData.source.length} chars)`);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch dependency $${dep}: ${error.message}`);
+        errors.push(`$${dep}: ${error.message}`);
+      }
+    }
+
+    if (codesMap.size === 0) {
+      console.warn(`❌ No dependencies could be fetched. Errors: ${errors.join(', ')}`);
+      return null;
+    }
+
+    console.log(`🎯 Built dependency cache with ${codesMap.size} codes`);
+    return { codesMap };
+  }
+
   // Create a temporary kidlisp piece file for rendering with dependencies
   async createKidlispPieceFile(source) {
     const pieceName = this.piece.replace('$', '');
@@ -125,14 +187,13 @@ class RenderOrchestrator {
 // Auto-generated kidlisp piece for recording: ${this.piece}
 // Uses built-in kidlisp() function with dependency cache
 
+${cacheScript ? `
+// Initialize KidLisp cache at module level (before any KidLisp instances are created)
+${cacheScript}
+` : '// No KidLisp cache available'}
+
 export async function boot({ screen }) {
   console.log("🎨 Booting kidlisp piece: ${this.piece}");
-  
-  // Set up the KidLisp cache if provided
-  ${cacheScript ? `
-  // Initialize KidLisp cache
-  ${cacheScript}
-  ` : '// No KidLisp cache available'}
 }
 
 export async function paint(api) {
@@ -164,6 +225,8 @@ export async function paint(api) {
       const pieceContent = `
 // Auto-generated kidlisp piece for recording: ${this.piece}
 // Simple fallback without dependency resolution
+
+// No KidLisp cache available
 
 export async function boot({ screen }) {
   console.log("🎨 Booting kidlisp piece: ${this.piece}");
@@ -201,6 +264,12 @@ export async function paint(api) {
       try {
         const source = await this.fetchKidLispSource(this.piece);
         console.log(`📄 Fetched kidlisp source (${source.length} chars)`);
+        
+        // Fetch dependencies and build cache if not already provided
+        if (!this.kidlispCache) {
+          this.kidlispCache = await this.fetchDependencies(source);
+        }
+        
         actualPiece = await this.createKidlispPieceFile(source);
       } catch (error) {
         console.error(`❌ Failed to fetch kidlisp source: ${error.message}`);
