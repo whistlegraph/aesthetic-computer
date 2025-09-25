@@ -1257,6 +1257,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Sound Synthesis Processor
     try {
+      // Skip worklet loading in TEIA mode to prevent AbortError
+      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
+                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      
+      if (isTeiaMode) {
+        if (debug) console.log("🎭 Skipping audio worklet loading in TEIA mode");
+        return;
+      }
+      
       (async () => {
         const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
         const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
@@ -1643,10 +1652,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     workersEnabled = false;
   }
   
-  // Override: force disable workers only for specific problematic environments
-  if (sandboxed && window.origin === "null" && !window.acTEIA_MODE) {
-    // Only disable for truly sandboxed non-TEIA environments
+  // Override: force disable workers for OBJKT and other sandboxed environments
+  if (sandboxed || window.origin === "null") {
+    // Disable workers in any sandboxed environment, including OBJKT
     workersEnabled = false;
+    if (debug) console.log("🚫 Workers disabled due to sandboxed/null origin environment");
   }
   
   // Workers enabled logging removed for cleaner console
