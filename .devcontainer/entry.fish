@@ -264,7 +264,7 @@ ln -s /home/me/aesthetic-computer/modes /home/me/aesthetic-computer/.github
 echo "✨ Modes directory linked to .github for VSCode chatmodes"
 
 # Trigger the 'waiter' alias to boot the platform.
-# touch /home/me/.waiter
+touch /home/me/.waiter
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
