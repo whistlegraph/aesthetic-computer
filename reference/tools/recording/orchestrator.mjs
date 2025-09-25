@@ -26,24 +26,57 @@ class RenderOrchestrator {
     this.frameRendererPath = path.join(__dirname, 'frame-renderer.mjs');
     this.isKidlispPiece = piece.startsWith('$');
     this.gifMode = options.gifMode || false;
+    this.density = options.density || null; // Custom density parameter
+    this.kidlispCache = options.kidlispCache || null; // KidLisp dependency cache
   }
 
   // Fetch KidLisp source code from the localhost API (similar to tape.mjs)
   async fetchKidLispSource(code) {
     const cleanCode = code.replace(/^\$/, '');
-    const url = `https://localhost:8888/.netlify/functions/store-kidlisp?code=${cleanCode}`;
     
-    return new Promise((resolve, reject) => {
-      const options = { rejectUnauthorized: false }; // Allow self-signed certificates
+    // Try localhost first, then fallback to production
+    const urls = [
+      `https://localhost:8888/.netlify/functions/store-kidlisp?code=${cleanCode}`,
+      `https://aesthetic.computer/.netlify/functions/store-kidlisp?code=${cleanCode}`
+    ];
+    
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      const isLocalhost = url.includes('localhost');
+      const serverName = isLocalhost ? 'localhost:8888' : 'aesthetic.computer';
       
-      https.get(url, options, (res) => {
+      try {
+        const source = await this.tryFetchFromUrl(url, isLocalhost);
+        if (i > 0) {
+          console.log(`🌐 Fetched from ${serverName} (localhost unavailable)`);
+        }
+        return source;
+      } catch (error) {
+        if (i === urls.length - 1) {
+          // Last attempt failed
+          throw new Error(`Could not fetch KidLisp piece '${code}' from any server`);
+        }
+        // Continue to next server
+        if (isLocalhost) {
+          console.log(`🔄 localhost:8888 unavailable, trying aesthetic.computer...`);
+        }
+      }
+    }
+  }
+
+  // Helper method to try fetching from a specific URL
+  async tryFetchFromUrl(url, isLocalhost) {
+    return new Promise((resolve, reject) => {
+      const options = isLocalhost ? { rejectUnauthorized: false, timeout: 5000 } : { timeout: 10000 }; // 5s for localhost, 10s for production
+      
+      const req = https.get(url, options, (res) => {
         let data = '';
         res.on('data', (chunk) => data += chunk);
         res.on('end', () => {
           try {
             const response = JSON.parse(data);
             if (response.error) {
-              reject(new Error(`KidLisp piece '${code}' not found`));
+              reject(new Error(`KidLisp piece not found`));
               return;
             }
             if (!response.source) {
@@ -56,31 +89,51 @@ class RenderOrchestrator {
           }
         });
       }).on('error', (error) => {
-        reject(new Error(`Could not connect to localhost:8888 - make sure dev server is running`));
+        const serverName = isLocalhost ? 'localhost:8888' : 'aesthetic.computer';
+        reject(new Error(`Could not connect to ${serverName}`));
+      }).on('timeout', () => {
+        req.destroy();
+        const serverName = isLocalhost ? 'localhost:8888' : 'aesthetic.computer';
+        reject(new Error(`Timeout connecting to ${serverName}`));
       });
+      
+      // Set timeout
+      req.setTimeout(isLocalhost ? 5000 : 10000);
     });
   }
 
-  // Create a temporary kidlisp piece file for rendering
+  // Create a temporary kidlisp piece file for rendering with dependencies
   async createKidlispPieceFile(source) {
     const pieceName = this.piece.replace('$', '');
     const pieceFilePath = path.resolve(this.outputDir, `${pieceName}-kidlisp.mjs`);
     
-    // Create a piece file that uses the existing kidlisp() function
-    const pieceContent = `
+    try {
+      // Generate cache code if we have cached dependencies
+      let cacheScript = '';
+      if (this.kidlispCache && this.kidlispCache.codesMap) {
+        console.log(`🎯 Using provided KidLisp cache with ${this.kidlispCache.codesMap.size} codes`);
+        const { generateCacheCode } = await import('../../../teia/kidlisp-extractor.mjs');
+        cacheScript = generateCacheCode(this.kidlispCache.codesMap);
+      } else {
+        console.log(`⚠️ No KidLisp cache provided - dependencies may not render correctly`);
+      }
+      
+      // Create a piece file that uses the kidlisp() function with cache setup
+      const pieceContent = `
 // Auto-generated kidlisp piece for recording: ${this.piece}
-// Uses built-in kidlisp() function
+// Uses built-in kidlisp() function with dependency cache
 
 export async function boot({ screen }) {
   console.log("🎨 Booting kidlisp piece: ${this.piece}");
+  
+  // Set up the KidLisp cache if provided
+  ${cacheScript ? `
+  // Initialize KidLisp cache
+  ${cacheScript}
+  ` : '// No KidLisp cache available'}
 }
 
 export async function paint(api) {
-  console.log("🔍 API object keys:", Object.keys(api));
-  console.log("🔍 Has kidlisp?", typeof api.kidlisp);
-  console.log("🔍 Has wipe?", typeof api.wipe);
-  console.log("🔍 Has screen?", !!api.screen);
-  
   try {
     // Use the built-in kidlisp() function with the actual source code
     // Note: Width and height will be auto-detected by the kidlisp function
@@ -100,9 +153,38 @@ export async function paint(api) {
 }
 `;
     
-    fs.writeFileSync(pieceFilePath, pieceContent);
-    console.log(`📝 Created temporary kidlisp piece: ${pieceFilePath}`);
-    return pieceFilePath;
+      fs.writeFileSync(pieceFilePath, pieceContent);
+      console.log(`📝 Created temporary kidlisp piece: ${pieceFilePath}`);
+      return pieceFilePath;
+    } catch (error) {
+      console.error(`❌ Failed to resolve KidLisp dependencies: ${error.message}`);
+      // Fallback to simple version without dependencies
+      const pieceContent = `
+// Auto-generated kidlisp piece for recording: ${this.piece}
+// Simple fallback without dependency resolution
+
+export async function boot({ screen }) {
+  console.log("🎨 Booting kidlisp piece: ${this.piece}");
+}
+
+export async function paint(api) {
+  try {
+    const source = \`${source.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+    api.kidlisp(0, 0, undefined, undefined, source);
+  } catch (error) {
+    console.error("❌ KidLisp execution error:", error);
+    if (api.wipe && api.ink && api.write) {
+      api.wipe('red');
+      api.ink('white');
+      api.write(\`Error: \${error.message}\`, 10, 10);
+    }
+  }
+}
+`;
+      fs.writeFileSync(pieceFilePath, pieceContent);
+      console.log(`📝 Created fallback kidlisp piece: ${pieceFilePath}`);
+      return pieceFilePath;
+    }
   }
 
   async renderAll() {
@@ -137,7 +219,8 @@ export async function paint(api) {
       try {
         // Run one frame in fresh process
         // Use single quotes to prevent shell variable expansion of $ceo, etc.
-        const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}`;
+        const densityArg = this.density ? ` ${this.density}` : '';
+        const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}${densityArg}`;
         console.log(`🔧 Executing: ${command}`);
         const result = execSync(
           command,
@@ -289,7 +372,17 @@ export async function paint(api) {
       const outputGIF = path.join(path.dirname(this.outputDir), filename);
 
       // Calculate frame rate (max 50fps for GIF, faster looks choppy)
-      const fps = Math.min(50, Math.round(rgbFiles.length / (this.duration / 60)));
+      // For short cover GIFs, use higher frame rates for smoother animation
+      let fps = Math.round(rgbFiles.length / (this.duration / 60));
+      
+      // Optimize frame rate based on duration
+      if (this.duration <= 6000) { // 6 seconds or less (covers)
+        fps = Math.min(24, Math.max(12, fps)); // 12-24 fps for covers
+      } else {
+        fps = Math.min(50, fps); // Up to 50fps for longer recordings
+      }
+      
+      console.log(`🎬 Using ${fps}fps for ${(this.duration/1000).toFixed(1)}s animation`);
       
       // Create optimal palette first
       console.log(`🎨 Generating optimal palette for smooth gradients...`);
@@ -298,7 +391,19 @@ export async function paint(api) {
 
       // Create final GIF with Floyd-Steinberg dithering
       console.log(`🌈 Applying Floyd-Steinberg dithering for smooth gradients...`);
-      const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},scale=-1:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
+      
+      // Handle density scaling - scale up for higher density to show larger pixels
+      let scaleFilter = "scale=-1:-1:flags=lanczos";
+      if (this.density && this.density > 2) {
+        // Scale up by density factor to show larger pixels
+        const scaleFactor = Math.max(1, Math.floor(this.density / 2));
+        const targetWidth = width * scaleFactor;
+        const targetHeight = height * scaleFactor;
+        scaleFilter = `scale=${targetWidth}:${targetHeight}:flags=neighbor`; // Use nearest neighbor for crisp pixels
+        console.log(`🔍 Scaling GIF ${scaleFactor}x for density ${this.density} (${width}x${height} → ${targetWidth}x${targetHeight})`);
+      }
+      
+      const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},${scaleFilter}[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
       execSync(gifCmd);
 
       // Clean up temporary files
