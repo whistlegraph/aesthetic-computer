@@ -283,8 +283,7 @@ rm -rf /home/me/aesthetic-computer/.github
 ln -s /home/me/aesthetic-computer/modes /home/me/aesthetic-computer/.github
 echo "✨ Modes directory linked to .github for VSCode chatmodes"
 
-# Trigger the 'waiter' alias to boot the platform.
-touch /home/me/.waiter
+# Note: .waiter file creation is handled by postAttachCommand in devcontainer.json
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
