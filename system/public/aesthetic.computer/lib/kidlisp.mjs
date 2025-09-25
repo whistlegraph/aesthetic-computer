@@ -1920,57 +1920,35 @@ class KidLisp {
 
   // Get the background fill color for reframe operations
   getBackgroundFillColor() {
-    console.log("🎨 getBackgroundFillColor called");
-    console.log("🎨 this.firstLineColor:", this.firstLineColor);
-    console.log("🎨 typeof this.firstLineColor:", typeof this.firstLineColor);
-    console.log("🎨 !this.firstLineColor:", !this.firstLineColor);
-
     // If no color in current instance, try various fallbacks
     if (!this.firstLineColor) {
-      console.log("🎨 Entering fallback logic...");
-
       // First try persistent storage from main thread (if available)
       if (typeof window !== 'undefined' && window.getPersistentFirstLineColor) {
         const persistentColor = window.getPersistentFirstLineColor();
-        console.log("🎨 Fallback to window persistent color:", persistentColor);
         if (persistentColor) {
           this.firstLineColor = persistentColor; // Restore it to the instance
-          console.log("🎨 Restored firstLineColor from window persistence:", this.firstLineColor);
         }
       }
 
       // If still no color, try worker-local backup storage
       if (!this.firstLineColor && this.persistentFirstLineColor) {
-        console.log("🎨 Fallback to worker persistent color:", this.persistentFirstLineColor);
         this.firstLineColor = this.persistentFirstLineColor;
-        console.log("🎨 Restored firstLineColor from worker persistence:", this.firstLineColor);
-      } else {
-        console.log("🎨 Worker fallback not available - this.persistentFirstLineColor:", this.persistentFirstLineColor);
       }
 
       // Final fallback: try global storage directly (globalThis)
       if (!this.firstLineColor && typeof globalThis !== 'undefined' && globalThis.getPersistentFirstLineColor) {
         const globalPersistentColor = globalThis.getPersistentFirstLineColor();
-        console.log("🎨 Final fallback to globalThis persistent color:", globalPersistentColor);
         if (globalPersistentColor) {
           this.firstLineColor = globalPersistentColor;
-          console.log("🎨 Restored firstLineColor from globalThis persistence:", this.firstLineColor);
         }
-      } else {
-        console.log("🎨 Final fallback not available - globalThis.getPersistentFirstLineColor exists:",
-          typeof globalThis !== 'undefined' && !!globalThis.getPersistentFirstLineColor);
       }
 
       // If still no color, try detecting it again from the current AST
       if (!this.firstLineColor && this.ast) {
-        console.log("🎨 Fallback: Re-detecting color from AST");
-        console.log("🎨 this.ast available:", !!this.ast);
         this.detectFirstLineColor();
-        console.log("🎨 Re-detection result:", this.firstLineColor);
       }
     }
 
-    console.log("🎨 returning:", this.firstLineColor);
     return this.firstLineColor;
   }
 
@@ -5098,12 +5076,11 @@ class KidLisp {
         // Return a promise that fetches and evaluates the cached code
         return getCachedCodeMultiLevel(cacheId).then(source => {
           if (source) {
-            console.log("🎯 Loading cached KidLisp code:", cacheId);
             // Parse and evaluate the cached source
             const parsed = this.parse(source);
             return this.evaluate(parsed, api, this.localEnv);
           } else {
-            console.warn("❌ No cached code found for:", cacheId);
+            // Silent fallback - no need to warn about missing cache
             return undefined;
           }
         }).catch(error => {
@@ -5593,13 +5570,10 @@ class KidLisp {
         // Check if we already have the source code cached
         if (this.embeddedSourceCache.has(cacheId)) {
           const cachedSource = this.embeddedSourceCache.get(cacheId);
-          console.log(`🎯 Found cached source for ${cacheId}:`, cachedSource.substring(0, 50) + '...');
           // Mark as loaded since we have cached source
           this.loadingEmbeddedLayers.delete(cacheId);
           this.loadedEmbeddedLayers.add(cacheId);
           return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, alpha, api);
-        } else {
-          console.log(`❌ No cached source found for ${cacheId}, cache has:`, Array.from(this.embeddedSourceCache.keys()));
         }
 
         // Check if we're already fetching this source to prevent duplicates
@@ -6266,11 +6240,8 @@ class KidLisp {
               }
 
               // Only remove the first item when backdrop is actually applied
-              console.log("🎨 Removing first item from body (backdrop applied)");
               body = body.slice(1);
             } else {
-              console.log("🎨 First-line backdrop already executed for key:", backdropKey);
-              console.log("🎨 Keeping full body for subsequent frame execution");
               // Don't remove the first item - let it be processed normally in subsequent frames
             }
             // Remove the first item so it doesn't get evaluated again
@@ -8797,10 +8768,7 @@ class KidLisp {
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
-    console.log(`🎨 pasteWithAlpha called: buffer=${sourceBuffer?.width}x${sourceBuffer?.height}, pos=(${x},${y}), alpha=${alpha}`);
-
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
-      console.log(`🚫 pasteWithAlpha failed: sourceBuffer=${!!sourceBuffer}, pixels=${!!sourceBuffer?.pixels}, screen=${!!api.screen}, screen.pixels=${!!api.screen?.pixels}`);
       return; // Silent fail for performance
     }
 
@@ -8813,12 +8781,8 @@ class KidLisp {
     // 🎯 ULTRA-FAST PATH: Direct paste for opaque layers
     if (alpha === 255) {
       if (api.paste) {
-        console.log(`🎨 pasteWithAlpha: Using api.paste for buffer ${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y})`);
-        console.log(`🎨 pasteWithAlpha: sourceBuffer first pixel:`, sourceBuffer.pixels[0], sourceBuffer.pixels[1], sourceBuffer.pixels[2], sourceBuffer.pixels[3]);
         api.paste(sourceBuffer, x, y);
-        console.log(`🎨 pasteWithAlpha: api.paste completed`);
       } else {
-        console.log(`🎨 pasteWithAlpha: Using fastDirectPaste fallback`);
         this.fastDirectPaste(api, sourceBuffer, x, y);
       }
       return;
@@ -8958,22 +8922,12 @@ class KidLisp {
 
   // Fallback manual alpha blending for when graph.paste is not available
   fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha) {
-    console.log(`🎨 fallbackPasteWithAlpha called: ${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y}) with alpha=${alpha}`);
-
     const srcPixels = sourceBuffer.pixels;
     const dstPixels = api.screen.pixels;
     const srcWidth = sourceBuffer.width;
     const srcHeight = sourceBuffer.height;
     const dstWidth = api.screen.width;
     const dstHeight = api.screen.height;
-
-    console.log(`🎨 fallbackPasteWithAlpha: src=${srcWidth}x${srcHeight}, dst=${dstWidth}x${dstHeight}`);
-    console.log(`🎨 fallbackPasteWithAlpha: srcPixels length=${srcPixels.length}, dstPixels length=${dstPixels.length}`);
-
-    // Sample a few pixels from the source buffer to see what we're working with
-    console.log(`🎨 fallbackPasteWithAlpha: source pixel 0:`, srcPixels[0], srcPixels[1], srcPixels[2], srcPixels[3]);
-    console.log(`🎨 fallbackPasteWithAlpha: source pixel 100:`, srcPixels[400], srcPixels[401], srcPixels[402], srcPixels[403]);
-    console.log(`🎨 fallbackPasteWithAlpha: source pixel 1000:`, srcPixels[4000], srcPixels[4001], srcPixels[4002], srcPixels[4003]);
 
     // Normalize alpha to 0-1 range
     const alphaFactor = alpha / 255.0;
@@ -9094,7 +9048,6 @@ class KidLisp {
             const timingCtx = embeddedLayer.timingContext;
             const currentIndex = this.sequenceCounters.get(timingCtx.timingKey);
             if (currentIndex !== undefined && currentIndex !== timingCtx.argumentIndex) {
-              console.log(`🎨 Skipping layer ${index} due to timing context`);
               return; // Skip invisible layers
             }
           }
@@ -9350,19 +9303,14 @@ class KidLisp {
 
   // Check if an embedded layer should execute this frame based on its timing patterns
   shouldLayerExecuteThisFrame(api, embeddedLayer) {
-    console.log(`🔍 shouldLayerExecuteThisFrame called for ${embeddedLayer.cacheId}`);
-
     if (!embeddedLayer.sourceCode) {
-      console.log(`🔍 No sourceCode for ${embeddedLayer.cacheId}, executing`);
       return true; // No source code, always execute
     }
 
     // Parse the source to find timing expressions
     const timingExpressions = this.extractTimingExpressions(embeddedLayer.sourceCode);
-    console.log(`🔍 Found timing expressions for ${embeddedLayer.cacheId}:`, timingExpressions);
 
     if (timingExpressions.length === 0) {
-      console.log(`🔍 No timing expressions for ${embeddedLayer.cacheId}, executing`);
       return true; // No timing expressions, always execute
     }
 
