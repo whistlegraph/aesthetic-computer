@@ -1050,6 +1050,20 @@ export class HeadlessAC {
         if (!self.kidlispInstance) {
           self.kidlispInstance = new KidLisp();
           
+          // Override Date.now() for the KidLisp instance to use simulation time
+          const originalDateNow = Date.now;
+          self.kidlispInstance.getSimulationTime = () => {
+            return self.simulationTime || originalDateNow();
+          };
+          
+          // Patch the KidLisp instance to use simulation time
+          self.kidlispInstance.originalDateNow = originalDateNow;
+          
+          // Reset timing state since we're switching to simulation time
+          self.kidlispInstance.lastSecondExecutions = {};
+          self.kidlispInstance.sequenceCounters = new Map();
+          console.log('🔄 Reset KidLisp timing state for simulation mode');
+          
           // Restore KidLisp state if available - use the enhanced state restoration
           if (self.kidlispState) {
             console.log('🔄 Restoring comprehensive KidLisp state from previous frame');
