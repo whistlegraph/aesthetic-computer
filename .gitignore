@@ -17,6 +17,8 @@ reference/tools/recording/.tape-frames-cache
 reference/tools/recording/_
 reference/tools/output
 !reference/tools/output/.gitkeep
+packed
+packed/*/
 
 # assets (ignore all subdirectories but readme)
 system/public/assets/*/
