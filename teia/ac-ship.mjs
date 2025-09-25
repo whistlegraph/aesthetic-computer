@@ -149,6 +149,10 @@ class ElectronShipper {
       main: 'main.js',
       author: author,
       license: 'MIT',
+      repository: {
+        type: 'git',
+        url: 'https://github.com/digitpain/aesthetic.computer.git'
+      },
       scripts: {
         start: 'electron .',
         build: 'electron-builder',
@@ -162,7 +166,7 @@ class ElectronShipper {
       },
       build: {
         appId: `computer.aesthetic.${pieceName}`,
-        productName: `${pieceName} - aesthetic.computer`,
+        productName: `${rawPieceName}`,
         directories: {
           output: 'dist'
         },
@@ -170,6 +174,7 @@ class ElectronShipper {
           'main.js',
           'app/**/*'
         ],
+        publish: null, // Disable publishing
         mac: {
           category: 'public.app-category.entertainment',
           target: [
@@ -213,6 +218,18 @@ class ElectronShipper {
     const mainJs = `const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
+// Suppress common Node.js warnings in Electron
+process.removeAllListeners('warning');
+process.on('warning', (warning) => {
+  // Suppress specific warnings that are common and harmless in Electron
+  if (warning.name === 'DeprecationWarning' || 
+      warning.message.includes('child process with shell') ||
+      warning.message.includes('experimental')) {
+    return; // Suppress these warnings
+  }
+  console.warn(warning.name + ': ' + warning.message);
+});
+
 function createWindow() {
   // Create the browser window
   const mainWindow = new BrowserWindow({
@@ -226,6 +243,20 @@ function createWindow() {
     icon: path.join(__dirname, 'build/icon.png'),
     show: false, // Don't show until ready-to-show
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default'
+  });
+
+  // Suppress protocol errors and other console warnings
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    // Suppress specific protocol and CORS errors that are common in Electron
+    if (message.includes('ERR_UNKNOWN_URL_SCHEME') || 
+        message.includes('protocol') || 
+        message.includes('CORS') ||
+        message.includes('Mixed Content') ||
+        message.includes('net::')) {
+      return; // Suppress these messages
+    }
+    // Let other console messages through
+    console.log('Renderer:', message);
   });
 
   // Load the ac-pack HTML directly
@@ -330,38 +361,64 @@ app.on('web-contents-created', (event, contents) => {
   async createIcons(buildDir, pieceName) {
     // Look for existing icons in the app directory
     const appDir = path.join(this.electronDir, 'app');
-    const frameIcon = path.join(appDir, 'icon', 'icon-from-frame.png'); // New frame-extracted icon
-    const existingIcon = path.join(appDir, 'icon', '128x128', `${pieceName}.png`);
+    const pieceIcon512 = path.join(appDir, 'icon', '512x512', `${pieceName}.png`); // Preferred piece-named 512x512 icon
+    const pieceIcon256 = path.join(appDir, 'icon', '256x256', `${pieceName}.png`); // Fallback piece-named 256x256 icon
+    const pieceIcon128 = path.join(appDir, 'icon', '128x128', `${pieceName}.png`); // Legacy piece-named 128x128 icon
     const faviconIcon = path.join(appDir, 'aesthetic.computer', 'favicon.png');
     
     let sourceIcon = null;
+    let needsUpscaling = false;
     
-    // Try to find an existing icon to use (prioritize frame-extracted icon)
+    // Try to find an existing icon to use (prioritize piece-named 512x512 icon)
     try {
-      await fs.access(frameIcon);
-      sourceIcon = frameIcon;
-      console.log(`🎨 Found frame-extracted icon: ${path.basename(frameIcon)}`);
+      await fs.access(pieceIcon512);
+      sourceIcon = pieceIcon512;
+      console.log(`🎨 Found 512x512 piece icon: ${path.basename(pieceIcon512)}`);
     } catch {
       try {
-        await fs.access(existingIcon);
-        sourceIcon = existingIcon;
-        console.log(`📎 Found existing icon: ${path.basename(existingIcon)}`);
+        await fs.access(pieceIcon256);
+        sourceIcon = pieceIcon256;
+        needsUpscaling = true;
+        console.log(`🎨 Found 256x256 piece icon: ${path.basename(pieceIcon256)}`);
       } catch {
         try {
-          await fs.access(faviconIcon);
-          sourceIcon = faviconIcon;
-          console.log(`📎 Using favicon as icon: ${path.basename(faviconIcon)}`);
+          await fs.access(pieceIcon128);
+          sourceIcon = pieceIcon128;
+          needsUpscaling = true;
+          console.log(`🎨 Found 128x128 piece icon: ${path.basename(pieceIcon128)}`);
         } catch {
-          console.log(`⚠️ No existing icons found, skipping icon creation`);
-          return;
+          try {
+            await fs.access(faviconIcon);
+            sourceIcon = faviconIcon;
+            needsUpscaling = true;
+            console.log(`📎 Using favicon as fallback icon: ${path.basename(faviconIcon)}`);
+          } catch {
+            console.log(`⚠️ No existing icons found, skipping icon creation`);
+            return;
+          }
         }
       }
     }
     
     if (sourceIcon) {
-      // Copy the source icon to build directory with proper names
-      await fs.copyFile(sourceIcon, path.join(buildDir, 'icon.png'));
-      console.log(`✅ Icon prepared for building`);
+      const outputIcon = path.join(buildDir, 'icon.png');
+      
+      if (needsUpscaling) {
+        // Upscale to 512x512 for Mac compatibility using ffmpeg
+        try {
+          const { execSync } = await import('child_process');
+          execSync(`ffmpeg -i "${sourceIcon}" -vf scale=512:512:flags=neighbor -y "${outputIcon}"`, { stdio: 'pipe' });
+          console.log(`✅ Icon upscaled to 512x512 for Mac compatibility`);
+        } catch (error) {
+          console.log(`⚠️ Failed to upscale icon with ffmpeg, using original: ${error.message}`);
+          await fs.copyFile(sourceIcon, outputIcon);
+          console.log(`✅ Icon prepared for building (original size)`);
+        }
+      } else {
+        // Use 512x512 icon directly - no upscaling needed
+        await fs.copyFile(sourceIcon, outputIcon);
+        console.log(`✅ Using 512x512 icon directly - perfect for Mac compatibility`);
+      }
     }
   }
 
@@ -574,7 +631,12 @@ function parseArgs() {
   return { zipPath, platforms };
 }
 
-// Run the shipper
-const { zipPath, platforms } = parseArgs();
-const shipper = new ElectronShipper();
-shipper.run(zipPath, platforms);
+// Export the class for use as a module
+export { ElectronShipper };
+
+// Run the shipper if executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const { zipPath, platforms } = parseArgs();
+  const shipper = new ElectronShipper();
+  shipper.run(zipPath, platforms);
+}
