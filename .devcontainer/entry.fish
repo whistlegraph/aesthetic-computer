@@ -140,11 +140,25 @@ if test -d /home/me/aesthetic-computer
         gh repo clone whistlegraph/aesthetic-computer-vault /home/me/aesthetic-computer/aesthetic-computer-vault
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         sudo fish devault.fish
+        
+        # Load environment variables after initial vault setup
+        if test -d /home/me/envs
+            source /home/me/envs/load_envs.fish
+            load_envs # Load envs after initial vault setup
+            echo "🔧 Environment variables loaded after initial vault setup"
+        end
     else
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         git pull
         sudo fish devault.fish
         echo "🔓 Vault mounted."
+    end
+    
+    # Reload environment variables after vault is mounted
+    if test -d /home/me/envs
+        source /home/me/envs/load_envs.fish
+        load_envs # Reload envs after vault mount
+        echo "🔧 Environment variables reloaded after vault mount"
     end
 else
     echo "⚠️🔒 Vault unmounted!"
@@ -251,7 +265,9 @@ end
 
 # Run the comprehensive install script for any remaining directories
 echo "🔄 Running comprehensive install script for remaining directories..."
+pushd /home/me/aesthetic-computer
 npm run install:everything-else
+popd
 
 # Make sure this user owns the emacs directory.
 sudo chown -R me:me ~/.emacs.d
@@ -267,8 +283,7 @@ rm -rf /home/me/aesthetic-computer/.github
 ln -s /home/me/aesthetic-computer/modes /home/me/aesthetic-computer/.github
 echo "✨ Modes directory linked to .github for VSCode chatmodes"
 
-# Trigger the 'waiter' alias to boot the platform.
-touch /home/me/.waiter
+# Note: .waiter file creation is handled by postAttachCommand in devcontainer.json
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
