@@ -314,10 +314,15 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = 
                       (typeof globalThis !== 'undefined' && globalThis.acTEIA_COLOPHON);
       
       if (colophon?.piece?.name && colophon?.build?.author) {
-        title = `${colophon.piece.name} by ${colophon.build.author}`;
+        // Extract year from packTime or zipFilename for title
+        const year = colophon.build.packTime ? new Date(colophon.build.packTime).getFullYear() : 
+                     colophon.build.zipFilename ? colophon.build.zipFilename.match(/(\d{4})/)?.[1] :
+                     new Date().getFullYear();
+        title = `${colophon.piece.name} by ${colophon.build.author}, ${year}`;
       } else if (teiaContext?.author) {
-        // Use teiaContext if provided (for pack pipeline)
-        title = `${slug} by ${teiaContext.author}`;
+        // Use teiaContext if provided (for pack pipeline)  
+        const year = new Date().getFullYear();
+        title = `${slug} by ${teiaContext.author}, ${year}`;
       } else {
         // Fallback for TEIA mode without colophon
         title = slug;
@@ -325,7 +330,8 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = 
     } catch (e) {
       // Fallback if there's any issue accessing TEIA data
       if (teiaContext?.author) {
-        title = `${slug} by ${teiaContext.author}`;
+        const year = new Date().getFullYear();
+        title = `${slug} by ${teiaContext.author}, ${year}`;
       } else {
         title = slug;
       }

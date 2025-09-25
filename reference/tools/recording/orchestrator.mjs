@@ -371,16 +371,11 @@ export async function paint(api) {
       const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.gif`;
       const outputGIF = path.join(path.dirname(this.outputDir), filename);
 
-      // Calculate frame rate (max 50fps for GIF, faster looks choppy)
-      // For short cover GIFs, use higher frame rates for smoother animation
+      // Calculate frame rate - allow up to 60fps for maximum smoothness
       let fps = Math.round(rgbFiles.length / (this.duration / 60));
       
-      // Optimize frame rate based on duration
-      if (this.duration <= 6000) { // 6 seconds or less (covers)
-        fps = Math.min(24, Math.max(12, fps)); // 12-24 fps for covers
-      } else {
-        fps = Math.min(50, fps); // Up to 50fps for longer recordings
-      }
+      // Allow up to 60fps for all GIFs
+      fps = Math.min(60, Math.max(1, fps)); // 1-60 fps range
       
       console.log(`🎬 Using ${fps}fps for ${(this.duration/1000).toFixed(1)}s animation`);
       
@@ -392,15 +387,17 @@ export async function paint(api) {
       // Create final GIF with Floyd-Steinberg dithering
       console.log(`🌈 Applying Floyd-Steinberg dithering for smooth gradients...`);
       
-      // Handle density scaling - scale up for higher density to show larger pixels
+      // Handle density scaling - scale up from base 128px to ensure minimum 512px output
       let scaleFilter = "scale=-1:-1:flags=lanczos";
-      if (this.density && this.density > 2) {
-        // Scale up by density factor to show larger pixels
-        const scaleFactor = Math.max(1, Math.floor(this.density / 2));
-        const targetWidth = width * scaleFactor;
-        const targetHeight = height * scaleFactor;
+      if (this.density) {
+        const baseResolution = 128;
+        const minOutputResolution = 512;
+        const baseScaleFactor = minOutputResolution / baseResolution; // 4x for 128→512
+        const totalScaleFactor = baseScaleFactor * this.density;
+        const targetWidth = Math.round(baseResolution * totalScaleFactor);
+        const targetHeight = Math.round(baseResolution * totalScaleFactor);
         scaleFilter = `scale=${targetWidth}:${targetHeight}:flags=neighbor`; // Use nearest neighbor for crisp pixels
-        console.log(`🔍 Scaling GIF ${scaleFactor}x for density ${this.density} (${width}x${height} → ${targetWidth}x${targetHeight})`);
+        console.log(`🔍 Scaling GIF for density ${this.density}: ${width}x${height} → ${targetWidth}x${targetHeight} (${totalScaleFactor}x total scale)`);
       }
       
       const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},${scaleFilter}[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
