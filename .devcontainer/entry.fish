@@ -140,11 +140,25 @@ if test -d /home/me/aesthetic-computer
         gh repo clone whistlegraph/aesthetic-computer-vault /home/me/aesthetic-computer/aesthetic-computer-vault
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         sudo fish devault.fish
+        
+        # Load environment variables after initial vault setup
+        if test -d /home/me/envs
+            source /home/me/envs/load_envs.fish
+            load_envs # Load envs after initial vault setup
+            echo "🔧 Environment variables loaded after initial vault setup"
+        end
     else
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         git pull
         sudo fish devault.fish
         echo "🔓 Vault mounted."
+    end
+    
+    # Reload environment variables after vault is mounted
+    if test -d /home/me/envs
+        source /home/me/envs/load_envs.fish
+        load_envs # Reload envs after vault mount
+        echo "🔧 Environment variables reloaded after vault mount"
     end
 else
     echo "⚠️🔒 Vault unmounted!"
