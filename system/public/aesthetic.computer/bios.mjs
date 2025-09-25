@@ -31,7 +31,6 @@ import { logs } from "./lib/logs.mjs";
 import { checkTeiaMode } from "./lib/teia-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
-import { UDP } from "./lib/udp.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -915,6 +914,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       document.head.appendChild(script);
     });
+  }
+
+  // UDP / Geckos Networking
+  let UDP;
+  async function loadUDP() {
+    if (!UDP) {
+      if (debug) console.log("🌐 Loading UDP networking library...");
+      const udpModule = await import('./lib/udp.mjs');
+      UDP = udpModule.UDP;
+      if (debug) console.log("🌐 UDP Ready...");
+    }
+    return UDP;
   }
 
   // 2. 🔈 Audio
@@ -2271,17 +2282,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
-      UDP.connect(content.port, content.url, send);
+      const udp = await loadUDP();
+      udp.connect(content.port, content.url, send);
       return;
     }
 
     // Send a message to the UDP server.
     if (type === "udp:send") {
-      UDP.send(content);
+      const udp = await loadUDP();
+      udp.send(content);
       return;
     } // Disconect from the UDP server.
     if (type === "udp:disconnect") {
-      UDP.disconnect(content.outageSeconds);
+      const udp = await loadUDP();
+      udp.disconnect(content.outageSeconds);
       return;
     }
 
