@@ -577,12 +577,12 @@ if (typeof window !== 'undefined') {
   // Clear caches if they are disabled from BIOS
   if (isQROverlayCacheDisabled()) {
     qrOverlayCache.clear();
-    console.log("🚫 QR overlay cache disabled and cleared from BIOS");
+    // console.log("🚫 QR overlay cache disabled and cleared from BIOS");
   }
   
-  if (isHUDLabelCacheDisabled()) {
-    console.log("🚫 HUD label cache disabled from BIOS");
-  }
+  // if (isHUDLabelCacheDisabled()) {
+  //   console.log("🚫 HUD label cache disabled from BIOS");
+  // }
 }
 //currentPromptButton;
 
