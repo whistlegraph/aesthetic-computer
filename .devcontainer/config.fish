@@ -735,6 +735,9 @@ function ac-tunnel
                 sleep 5
                 if not curl --silent --max-time 2 --output /dev/null https://local.aesthetic.computer
                     echo "🔁 tunnel down, restarting..."
+                    # Kill any existing ngrok processes to ensure clean restart
+                    pkill -f ngrok 2>/dev/null
+                    sleep 2
                     ac-tunnel
                     return
                 end
@@ -743,6 +746,8 @@ function ac-tunnel
             echo "❌ ngrok error:"
             echo $err
         end
+    else
+        echo "🚀 tunnel started successfully!"
     end
 end
 
