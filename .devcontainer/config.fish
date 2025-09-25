@@ -411,7 +411,7 @@ end
 function ac-site
     echo "🐱 Starting online mode..."
     ac
-    npm run site
+    cd system && npm run codespaces-dev && env nogreet=true fish
 end
 
 function ac-offline
