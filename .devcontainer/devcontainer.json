@@ -7,7 +7,8 @@
     "dockerfile": "Dockerfile",
     "args": { 
       "BUILDKIT_INLINE_CACHE": "1",
-      "DOCKER_BUILDKIT": "1"
+      "DOCKER_BUILDKIT": "1",
+      "FEDORA_IMAGE": "quay.io/fedora/fedora:latest"
     }
   },
   "containerEnv": {
@@ -90,7 +91,7 @@
     // "--network",
     // "host"
   ],
-  "initializeCommand": "touch .devcontainer/fish_history",
+  "initializeCommand": "mkdir -p .devcontainer/tezos-node .devcontainer/tezos-data .devcontainer/envs .devcontainer/.emacs.d && touch .devcontainer/fish_history",
   "postStartCommand": "fish /entry.fish",
   "postAttachCommand": "sudo touch /home/me/.waiter && sudo chmod 777 /home/me/.waiter && sudo chmod +w /home/me"
 }
