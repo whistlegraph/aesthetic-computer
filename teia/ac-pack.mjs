@@ -258,6 +258,18 @@ class AcPacker {
       }
     };
     
+    // Set colophon in global context for metadata generation
+    globalThis.acTEIA_COLOPHON = colophonData;
+    
+    // Regenerate metadata with complete colophon data (including zipFilename) for proper title
+    const finalMetadata = metadata("localhost", this.pieceName, colophonData, "https:", teiaContext);
+    
+    // Update colophon with final metadata
+    colophonData.metadata = {
+      ...finalMetadata,
+      favicon: this.options.faviconImage || './aesthetic.computer/favicon.png'
+    };
+    
     console.log("📋 Colophon data prepared:", JSON.stringify(colophonData, null, 2));
     
     const indexHtml = `<!doctype html>
@@ -265,15 +277,15 @@ class AcPacker {
   <head>
     <meta charset="utf-8" />
     <base href="./" />
-    <title>${generatedMetadata.title || this.options.title}</title>
+    <title>${finalMetadata.title || this.options.title}</title>
     <meta property="og:image" content="${this.options.coverImage}" />
     <link rel="icon" href="${this.options.faviconImage || './aesthetic.computer/favicon.png'}" type="${this.options.faviconImage && this.options.faviconImage.endsWith('.gif') ? 'image/gif' : 'image/png'}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="${this.options.description}" />
-    <meta name="og:title" content="${generatedMetadata.title || this.options.title}" />
+    <meta name="og:title" content="${finalMetadata.title || this.options.title}" />
     <meta name="og:description" content="${this.options.description}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${generatedMetadata.title || this.options.title}" />
+    <meta name="twitter:title" content="${finalMetadata.title || this.options.title}" />
     <meta name="twitter:site" content="${this.options.author}" />
     <meta name="twitter:image" content="${this.options.coverImage}" />
     
@@ -551,7 +563,7 @@ setInterval(() => {
     }
 
     const manifest = {
-      name: generatedMetadata.title || this.options.title,
+      name: finalMetadata.title || this.options.title,
       short_name: this.pieceName,
       start_url: "./",
       display: "standalone",
