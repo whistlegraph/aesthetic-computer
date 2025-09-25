@@ -247,7 +247,9 @@ end
 
 # Run the comprehensive install script for any remaining directories
 echo "🔄 Running comprehensive install script for remaining directories..."
+pushd /home/me/aesthetic-computer
 npm run install:everything-else
+popd
 
 # Make sure this user owns the emacs directory.
 sudo chown -R me:me ~/.emacs.d
