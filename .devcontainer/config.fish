@@ -123,31 +123,12 @@ function ac-pack
     # Run the ac-pack.mjs script from the teia directory
     cd /workspaces/aesthetic-computer/teia
     
-    # Run the packaging with all arguments (piece name + any options)
-    node ac-pack.mjs $argv
+    # Run the packaging with all arguments plus target directory
+    command node ac-pack.mjs $argv --target-dir "$current_dir"
     
     # Check if packaging was successful
     if test $status -eq 0
-        # Find the generated zip file and cover GIF
-        set -l zip_files (find /workspaces/aesthetic-computer/teia/output -name "*.zip" -newer /workspaces/aesthetic-computer/teia/ac-pack.mjs 2>/dev/null)
-        set -l cover_files (find /workspaces/aesthetic-computer/teia/output -name "*-cover.gif" -newer /workspaces/aesthetic-computer/teia/ac-pack.mjs 2>/dev/null)
-        
-        # Copy files to the original directory
-        for zip_file in $zip_files
-            if test -f $zip_file
-                cp $zip_file $current_dir/
-                echo "📦 Copied (basename $zip_file) to $current_dir"
-            end
-        end
-        
-        for cover_file in $cover_files
-            if test -f $cover_file
-                cp $cover_file $current_dir/
-                echo "🖼️ Copied (basename $cover_file) to $current_dir"
-            end
-        end
-        
-        echo "✅ AC Pack complete! Files copied to $current_dir"
+        echo "✅ AC Pack complete! Files created in $current_dir"
     else
         echo "❌ AC Pack failed with exit code $status"
     end
@@ -174,11 +155,11 @@ function ac-unpack
             set zip_file "$current_dir/$zip_file"
         end
         echo "📂 Using specified file: $zip_file"
-        node ac-unpack.mjs "$zip_file" $port
+        node ac-unpack.mjs "$zip_file" $port "$current_dir"
     else
         # No zip file specified - let ac-unpack find the latest one
         echo "🔍 Looking for latest zip file in $current_dir..."
-        node ac-unpack.mjs "" $port
+        node ac-unpack.mjs "" $port "$current_dir"
     end
     
     # Return to original directory
