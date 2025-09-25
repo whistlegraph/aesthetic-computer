@@ -314,11 +314,19 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = 
                       (typeof globalThis !== 'undefined' && globalThis.acTEIA_COLOPHON);
       
       if (colophon?.piece?.name && colophon?.build?.author) {
-        // Extract year from packTime or zipFilename for title
-        const year = colophon.build.packTime ? new Date(colophon.build.packTime).getFullYear() : 
-                     colophon.build.zipFilename ? colophon.build.zipFilename.match(/(\d{4})/)?.[1] :
-                     new Date().getFullYear();
-        title = `${colophon.piece.name} by ${colophon.build.author}, ${year}`;
+        // Extract timestamp starting with 2025 from zipFilename (format: @author-$piece-2025.09.25.04.22.12.938.zip)
+        let timestamp = new Date().getFullYear(); // fallback
+        if (colophon.build.zipFilename) {
+          const timestampMatch = colophon.build.zipFilename.match(/(2025\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{3})/);
+          if (timestampMatch) {
+            timestamp = timestampMatch[1];
+          }
+        } else if (colophon.build.packTime) {
+          // Format packTime to match zip filename format
+          const date = new Date(colophon.build.packTime);
+          timestamp = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}.${String(date.getHours()).padStart(2, '0')}.${String(date.getMinutes()).padStart(2, '0')}.${String(date.getSeconds()).padStart(2, '0')}.${String(date.getMilliseconds()).padStart(3, '0')}`;
+        }
+        title = `${colophon.piece.name} by ${colophon.build.author}, ${timestamp}`;
       } else if (teiaContext?.author) {
         // Use teiaContext if provided (for pack pipeline)  
         const year = new Date().getFullYear();
