@@ -61,7 +61,8 @@ class AcPacker {
     // Sanitize piece name for directory creation (remove $ and other shell-problematic characters)
     const sanitizedPieceName = pieceName.replace(/[$]/g, '');
     this.options = {
-      outputDir: path.join(TOKENS_DIR, sanitizedPieceName),
+      outputDir: path.join(options.targetDir || TOKENS_DIR, sanitizedPieceName),
+      targetDir: options.targetDir || TOKENS_DIR, // Directory where final artifacts should be placed
       coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
       faviconImage: "./aesthetic.computer/favicon.png", // Default favicon, updated to GIF if available
       title: options.title || pieceName,
@@ -113,6 +114,18 @@ class AcPacker {
     } catch (error) {
       console.error("❌ Packing failed:", error);
       return { success: false, error };
+    }
+  }
+
+  async cleanup() {
+    // Only clean up if we're using a different target directory than teia/output
+    if (this.options.targetDir !== TOKENS_DIR) {
+      try {
+        await fs.rm(this.options.outputDir, { recursive: true, force: true });
+        console.log(`🧹 Cleaned up temporary directory: ${this.options.outputDir}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to clean up temporary directory: ${error.message}`);
+      }
     }
   }
 
@@ -264,6 +277,14 @@ class AcPacker {
     // Regenerate metadata with complete colophon data (including zipFilename) for proper title
     const finalMetadata = metadata("localhost", this.pieceName, colophonData, "https:", teiaContext);
     
+    // Override metadata URLs to use relative paths for static packaging
+    if (finalMetadata) {
+      finalMetadata.icon = `./icon/256x256/${this.pieceName}.png`;
+      finalMetadata.ogImage = this.options.coverImage;
+      finalMetadata.twitterImage = this.options.coverImage;
+      finalMetadata.manifest = "./manifest.json";
+    }
+    
     // Update colophon with final metadata
     colophonData.metadata = {
       ...finalMetadata,
@@ -293,6 +314,23 @@ class AcPacker {
 // Teia mode configuration - simple starting piece override
 window.acTEIA_MODE = true;
 window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piece
+
+// Suppress console errors for missing font files in TEIA mode
+(function() {
+  const originalError = console.error;
+  console.error = function(...args) {
+    const message = args.join(' ');
+    // Skip MatrixChunky8 font loading 404 errors
+    if (message.includes('Failed to load resource') && 
+        (message.includes('MatrixChunky8') || 
+         message.includes('assets/type/') ||
+         message.includes('.json')) && 
+        message.includes('404')) {
+      return; // Silently ignore these font loading errors
+    }
+    originalError.apply(console, args);
+  };
+})();
 
 // Colophonic information for provenance and debugging
 window.acTEIA_COLOPHON = ${JSON.stringify(colophonData, null, 2)};
@@ -587,9 +625,19 @@ setInterval(() => {
       theme_color: "#0084FF",
       icons: [
         {
-          src: iconSrc,
-          sizes: iconSize,
-          type: iconType
+          src: `./icon/128x128/${this.pieceName}.png`,
+          sizes: "128x128",
+          type: "image/png"
+        },
+        {
+          src: `./icon/256x256/${this.pieceName}.png`,
+          sizes: "256x256",
+          type: "image/png"
+        },
+        {
+          src: `./icon/512x512/${this.pieceName}.png`,
+          sizes: "512x512", 
+          type: "image/png"
         }
       ]
     };
@@ -615,13 +663,16 @@ ${cacheCode}
     const acOutputDir = path.join(this.options.outputDir, "aesthetic.computer");
     await fs.mkdir(acOutputDir, { recursive: true });
 
-    const coreFiles = ["boot.mjs", "style.css", "bios.mjs"];
+    const coreFiles = ["boot.mjs", "style.css", "bios.mjs", "lib/parse.mjs"];
 
     for (const file of coreFiles) {
       const srcPath = path.join(AC_DIR, file);
       const destPath = path.join(acOutputDir, file);
       
       try {
+        // Create directory for files in subdirectories
+        await fs.mkdir(path.dirname(destPath), { recursive: true });
+        
         let content = await fs.readFile(srcPath, "utf8");
         
         // Patch style.css for better nogap support in teia mode
@@ -640,6 +691,12 @@ ${cacheCode}
         if (file === 'boot.mjs') {
           content = await this.patchBootJsForTeia(content);
           console.log(`🎨 Patched boot.mjs for teia mode`);
+        }
+        
+        // Patch parse.mjs for teia mode - handle piece overrides
+        if (file === 'lib/parse.mjs') {
+          content = await this.patchParseJsForTeia(content);
+          console.log(`🎨 Patched parse.mjs for teia mode`);
         }
         
         await fs.writeFile(destPath, content);
@@ -691,6 +748,12 @@ ${cacheCode}
           console.log(`🔧 Patched disk.mjs for teia mode`);
         }
         
+        // Patch udp.mjs for teia mode - disable networking functionality
+        if (libFile === 'udp.mjs') {
+          content = this.patchUdpJsForTeia(content);
+          console.log(`🔧 Patched udp.mjs for teia mode`);
+        }
+        
         await fs.writeFile(destPath, content);
         this.bundledFiles.add(`lib/${libFile}`);
         console.log(`📚 Bundled lib: ${libFile}`);
@@ -726,7 +789,7 @@ ${cacheCode}
       { name: "uniforms.js", content: "// Uniform stub for Teia mode\nexport default {};" },
       { name: "vec4.mjs", content: "// Vec4 stub for Teia mode\nexport default {};" },
       { name: "idb.js", content: "// IndexedDB stub for Teia mode" },
-      { name: "geckos.io-client.2.3.2.min.js", content: "// Geckos stub for Teia mode" }
+      { name: "geckos.io-client.2.3.2.min.js", content: "// Geckos stub for Teia mode\nexport default null;\nmodule.exports = null;" }
     ];
 
     for (const stub of stubs) {
@@ -1111,7 +1174,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           gifMode: true,    // enable GIF mode
           density: currentDensity, // pass density parameter
           kidlispCache: this.kidlispCacheData, // pass KidLisp cache for dependencies
-          extractIconFrame: true, // extract midpoint frame as icon
+          extractIconFrame: false, // disable icon extraction - we handle icons separately
           iconOutputDir: this.options.outputDir // output icon to main directory, not temp
         }
       );
@@ -1131,60 +1194,10 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         
         // Create external copy with zip naming pattern
         const externalCoverFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}-cover.gif`;
-        const externalCoverPath = path.join(path.dirname(this.options.outputDir), externalCoverFilename);
+        const externalCoverPath = path.join(this.options.targetDir, externalCoverFilename);
         await fs.copyFile(sourcePath, externalCoverPath);
         
-        // Generate 64x64 favicon from the GIF
-        try {
-          const faviconPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.gif");
-          
-          console.log("🔍 Favicon debug - Source path:", sourcePath);
-          console.log("🔍 Favicon debug - Output path:", faviconPath);
-          console.log("🔍 Favicon debug - Source exists:", fsSync.existsSync(sourcePath));
-          
-          await new Promise((resolve, reject) => {
-            const ffmpeg = spawn("ffmpeg", [
-              "-i", sourcePath,
-              "-vf", "scale=64:64:flags=neighbor",
-              "-y", // Overwrite output file
-              faviconPath
-            ], { stdio: ["pipe", "pipe", "pipe"] });
-            
-            let stderr = "";
-            ffmpeg.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-            
-            ffmpeg.on("close", (code) => {
-              if (code === 0) {
-                console.log("🪄 Generated favicon: favicon.gif (64x64)");
-                this.options.faviconImage = "./aesthetic.computer/favicon.gif";
-                resolve();
-              } else {
-                console.warn("⚠️ Favicon generation failed with code:", code);
-                console.warn("⚠️ FFmpeg stderr:", stderr);
-                reject(new Error(`ffmpeg exited with code ${code}`));
-              }
-            });
-            
-            ffmpeg.on("error", (err) => {
-              console.warn("⚠️ Favicon generation failed:", err.message);
-              reject(err);
-            });
-          });
-        } catch (error) {
-          console.warn("⚠️ Could not generate GIF favicon, will use PNG fallback");
-          console.warn("⚠️ Error details:", error.message);
-          this.options.faviconImage = "./aesthetic.computer/favicon.png";
-        }
-        
-        // Save extracted icon frame before cleanup
-        const extractedIcon = path.join(tempOutputDir, "icon-from-frame.png");
-        if (await fs.access(extractedIcon).then(() => true).catch(() => false)) {
-          const iconDestination = path.join(this.options.outputDir, "icon-from-frame.png");
-          await fs.copyFile(extractedIcon, iconDestination);
-          console.log("📎 Saved extracted icon frame for Electron builds");
-        }
+        // Favicon will be set by the icon generation process
         
         // Clean up temporary files
         await fs.rm(tempOutputDir, { recursive: true, force: true });
@@ -1239,26 +1252,33 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       console.log("ℹ️ Cursor directory error:", error.message);
     }
     
-    // Generate stub icon (128x128 animated GIF)
+    // Generate stub icons (128x128 animated GIF, 256x256 and 512x512 static PNGs)
     try {
-      const iconDir = path.join(this.options.outputDir, "icon", "128x128");
-      await fs.mkdir(iconDir, { recursive: true });
+      const icon128Dir = path.join(this.options.outputDir, "icon", "128x128");
+      const icon256Dir = path.join(this.options.outputDir, "icon", "256x256");
+      const icon512Dir = path.join(this.options.outputDir, "icon", "512x512");
+      await fs.mkdir(icon128Dir, { recursive: true });
+      await fs.mkdir(icon256Dir, { recursive: true });
+      await fs.mkdir(icon512Dir, { recursive: true });
       
-      const iconPath = path.join(iconDir, `${this.pieceName}.gif`);
+      const icon128Path = path.join(icon128Dir, `${this.pieceName}.gif`);
+      const icon256Path = path.join(icon256Dir, `${this.pieceName}.png`);
+      const icon512Path = path.join(icon512Dir, `${this.pieceName}.png`);
       
-      console.log(`🖼️ Generating animated stub icon for ${this.pieceName}...`);
+      console.log(`🖼️ Generating stub icons for ${this.pieceName}...`);
       
       // Try to generate from the cover GIF if available
       const coverPath = path.join(this.options.outputDir, "cover.gif");
       
       if (fsSync.existsSync(coverPath)) {
         try {
+          // Generate 128x128 animated icon (for favicon)
           await new Promise((resolve, reject) => {
             const ffmpeg = spawn("ffmpeg", [
               "-i", coverPath,
               "-vf", "scale=128:128:flags=neighbor",
               "-y", // Overwrite output file
-              iconPath
+              icon128Path
             ], { stdio: ["pipe", "pipe", "pipe"] });
             
             let stderr = "";
@@ -1268,10 +1288,109 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated animated stub icon: icon/128x128/${this.pieceName}.gif (128x128px animated GIF)`);
+                console.log(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
+                // Set favicon to use the 128x128 animated icon
+                this.options.faviconImage = `./icon/128x128/${this.pieceName}.gif`;
                 resolve();
               } else {
-                console.warn("⚠️ Animated stub icon generation failed with code:", code);
+                console.warn("⚠️ 128x128 animated stub icon generation failed with code:", code);
+                console.warn("⚠️ FFmpeg stderr:", stderr);
+                reject(new Error(`FFmpeg failed with code ${code}`));
+              }
+            });
+            
+            ffmpeg.on("error", (err) => {
+              console.warn("⚠️ FFmpeg error:", err.message);
+              reject(err);
+            });
+          });
+          
+          // Generate 128x128 static PNG icon (for PWA manifest)
+          const icon128PngPath = path.join(icon128Dir, `${this.pieceName}.png`);
+          await new Promise((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", [
+              "-i", coverPath,
+              "-vf", "scale=128:128:flags=neighbor,select=eq(n\\,90)",
+              "-vframes", "1", // Extract only the middle frame
+              "-y", // Overwrite output file
+              icon128PngPath
+            ], { stdio: ["pipe", "pipe", "pipe"] });
+            
+            let stderr = "";
+            ffmpeg.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+            
+            ffmpeg.on("close", (code) => {
+              if (code === 0) {
+                console.log(`🪄 Generated 128x128 static PNG icon (middle frame): icon/128x128/${this.pieceName}.png`);
+                resolve();
+              } else {
+                console.warn("⚠️ 128x128 static PNG icon generation failed with code:", code);
+                console.warn("⚠️ FFmpeg stderr:", stderr);
+                reject(new Error(`FFmpeg failed with code ${code}`));
+              }
+            });
+            
+            ffmpeg.on("error", (err) => {
+              console.warn("⚠️ FFmpeg error:", err.message);
+              reject(err);
+            });
+          });
+          
+          // Generate 256x256 static PNG icon (from middle frame)
+          await new Promise((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", [
+              "-i", coverPath,
+              "-vf", "scale=256:256:flags=neighbor,select=eq(n\\,90)",
+              "-vframes", "1", // Extract only the middle frame
+              "-y", // Overwrite output file
+              icon256Path
+            ], { stdio: ["pipe", "pipe", "pipe"] });
+            
+            let stderr = "";
+            ffmpeg.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+            
+            ffmpeg.on("close", (code) => {
+              if (code === 0) {
+                console.log(`🪄 Generated 256x256 static PNG icon (middle frame): icon/256x256/${this.pieceName}.png`);
+                resolve();
+              } else {
+                console.warn("⚠️ 256x256 static PNG icon generation failed with code:", code);
+                console.warn("⚠️ FFmpeg stderr:", stderr);
+                reject(new Error(`FFmpeg failed with code ${code}`));
+              }
+            });
+            
+            ffmpeg.on("error", (err) => {
+              console.warn("⚠️ FFmpeg error:", err.message);
+              reject(err);
+            });
+          });
+          
+          // Generate 512x512 static PNG icon (from middle frame)
+          await new Promise((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", [
+              "-i", coverPath,
+              "-vf", "scale=512:512:flags=neighbor,select=eq(n\\,90)",
+              "-vframes", "1", // Extract only the middle frame
+              "-y", // Overwrite output file
+              icon512Path
+            ], { stdio: ["pipe", "pipe", "pipe"] });
+            
+            let stderr = "";
+            ffmpeg.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+            
+            ffmpeg.on("close", (code) => {
+              if (code === 0) {
+                console.log(`🪄 Generated 512x512 static PNG icon (middle frame): icon/512x512/${this.pieceName}.png`);
+                resolve();
+              } else {
+                console.warn("⚠️ 512x512 static PNG icon generation failed with code:", code);
                 console.warn("⚠️ FFmpeg stderr:", stderr);
                 reject(new Error(`FFmpeg failed with code ${code}`));
               }
@@ -1283,25 +1402,31 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             });
           });
         } catch (ffmpegError) {
-          console.warn('⚠️ Failed to generate animated stub icon:', ffmpegError.message);
+          console.warn('⚠️ Failed to generate stub icons:', ffmpegError.message);
           throw ffmpegError; // Re-throw to trigger PNG fallback
         }
       } else {
-        throw new Error("No cover GIF available for animated stub icon generation");
+        throw new Error("No cover GIF available for stub icon generation");
       }
       
     } catch (error) {
-      console.log("ℹ️ Animated stub icon generation failed, creating static PNG fallback:", error.message);
+      console.log("ℹ️ Stub icon generation failed, creating static PNG fallbacks:", error.message);
       
-      // Fallback: create static PNG as before
+      // Fallback: create static PNGs in all sizes
       try {
-        const iconDir = path.join(this.options.outputDir, "icon", "128x128");
-        await fs.mkdir(iconDir, { recursive: true });
+        const icon128Dir = path.join(this.options.outputDir, "icon", "128x128");
+        const icon256Dir = path.join(this.options.outputDir, "icon", "256x256");
+        const icon512Dir = path.join(this.options.outputDir, "icon", "512x512");
+        await fs.mkdir(icon128Dir, { recursive: true });
+        await fs.mkdir(icon256Dir, { recursive: true });
+        await fs.mkdir(icon512Dir, { recursive: true });
         
-        const iconPath = path.join(iconDir, `${this.pieceName}.png`);
+        const icon128Path = path.join(icon128Dir, `${this.pieceName}.png`);
+        const icon256Path = path.join(icon256Dir, `${this.pieceName}.png`);
+        const icon512Path = path.join(icon512Dir, `${this.pieceName}.png`);
         
-        // For simplicity, create a minimal transparent PNG
-        const simpleTransparentPng = Buffer.from([
+        // Create minimal transparent PNG for 128x128
+        const transparent128Png = Buffer.from([
           0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
           0x00, 0x00, 0x00, 0x0D, // IHDR length
           0x49, 0x48, 0x44, 0x52, // IHDR
@@ -1319,11 +1444,54 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           0xAE, 0x42, 0x60, 0x82  // IEND CRC
         ]);
         
-        await fs.writeFile(iconPath, simpleTransparentPng);
-        console.log(`🖼️ Created fallback stub icon: icon/128x128/${this.pieceName}.png (128x128px transparent PNG)`);
+        // Create minimal transparent PNG for 256x256
+        const transparent256Png = Buffer.from([
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+          0x00, 0x00, 0x00, 0x0D, // IHDR length
+          0x49, 0x48, 0x44, 0x52, // IHDR
+          0x00, 0x00, 0x01, 0x00, // width: 256
+          0x00, 0x00, 0x01, 0x00, // height: 256
+          0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
+          0x5C, 0x72, 0x9C, 0x91, // CRC
+          0x00, 0x00, 0x00, 0x17, // IDAT length
+          0x49, 0x44, 0x41, 0x54, // IDAT
+          0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+          0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+          0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
+          0x00, 0x00, 0x00, 0x00, // IEND length
+          0x49, 0x45, 0x4E, 0x44, // IEND
+          0xAE, 0x42, 0x60, 0x82  // IEND CRC
+        ]);
+        
+        // Create minimal transparent PNG for 512x512
+        const transparent512Png = Buffer.from([
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+          0x00, 0x00, 0x00, 0x0D, // IHDR length
+          0x49, 0x48, 0x44, 0x52, // IHDR
+          0x00, 0x00, 0x02, 0x00, // width: 512
+          0x00, 0x00, 0x02, 0x00, // height: 512
+          0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
+          0xF4, 0x78, 0xD4, 0xFA, // CRC
+          0x00, 0x00, 0x00, 0x17, // IDAT length
+          0x49, 0x44, 0x41, 0x54, // IDAT
+          0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+          0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+          0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
+          0x00, 0x00, 0x00, 0x00, // IEND length
+          0x49, 0x45, 0x4E, 0x44, // IEND
+          0xAE, 0x42, 0x60, 0x82  // IEND CRC
+        ]);
+        
+        await fs.writeFile(icon128Path, transparent128Png);
+        await fs.writeFile(icon256Path, transparent256Png);
+        await fs.writeFile(icon512Path, transparent512Png);
+        console.log(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
+        
+        // Set favicon to use the 128x128 PNG icon as fallback
+        this.options.faviconImage = `./icon/128x128/${this.pieceName}.png`;
         
       } catch (fallbackError) {
-        console.log("ℹ️ Error creating fallback icon stub:", fallbackError.message);
+        console.log("ℹ️ Error creating fallback icon stubs:", fallbackError.message);
       }
     }
     
@@ -1334,10 +1502,16 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     // Enhance nogap mode for full viewport coverage
     console.log("🔧 Patching style.css for enhanced nogap support...");
     
+    // Replace precise.svg cursor with viewpoint.svg for TEIA mode
+    let patched = content.replace(
+      /cursor:\s*url\(['"]?cursors\/precise\.svg['"]?\)\s*12\s*12,\s*auto;/g,
+      "cursor: url('cursors/viewpoint.svg') 12 12, auto;"
+    );
+    
     // Find the existing nogap rules and enhance them
     const nogapBodyPattern = /body\.nogap \{[^}]*\}/;
     const nogapComputerPattern = /body\.nogap #aesthetic-computer \{[^}]*\}/;
-    
+
     // Enhanced nogap body rules
     const enhancedNogapBody = `body.nogap {
   background-image: none;
@@ -1359,11 +1533,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   height: 100vh !important;
   margin: 0 !important;
   padding: 0 !important;
-}`;
-
-    let patched = content;
-    
-    // Replace existing nogap rules or add them if they don't exist
+}`;    // Replace existing nogap rules or add them if they don't exist
     if (nogapBodyPattern.test(content)) {
       patched = patched.replace(nogapBodyPattern, enhancedNogapBody);
     } else {
@@ -1384,9 +1554,19 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   patchTypeJsForTeia(content) {
     console.log("🔧 Patching type.mjs for teia mode...");
     
-    // The original type.mjs already has proper TEIA mode handling for fonts
-    // No additional patching needed as of the latest source code
-    return content;
+    let patched = content;
+    
+    // Suppress fetch errors for missing MatrixChunky8 font files in TEIA mode
+    const fetchPattern = /const response = await fetch\(glyphPath\);[\s\S]*?if \(!response\.ok\) \{\s*throw new Error\(`HTTP \$\{response\.status\}: \$\{response\.statusText\}`\);\s*\}/;
+    patched = patched.replace(fetchPattern, 
+      `const response = await fetch(glyphPath);
+            if (!response.ok) {
+              // Silently fail for missing font files in TEIA mode to avoid console errors
+              throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+            }`
+    );
+    
+    return patched;
   }
 
   async patchBootJsForTeia(content) {
@@ -1441,6 +1621,49 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     return patched;
   }
 
+  patchUdpJsForTeia(content) {
+    console.log('🔧 Patching udp.mjs for Teia mode...');
+    
+    // Replace the entire UDP module with a stub that provides the same API
+    // but doesn't try to import geckos or establish network connections
+    const teiaStub = `// UDP stub for Teia mode - networking disabled for offline use
+
+const logs = { udp: false }; // Disable UDP logging in Teia mode
+
+let connected = false;
+
+// Stub functions that match the original UDP API but don't do networking
+function connect(port = 8889, url = undefined, send) {
+  if (logs.udp) console.log("🩰 UDP disabled in Teia mode");
+  connected = false; // Always stay disconnected in Teia mode
+  return;
+}
+
+function disconnect() {
+  if (logs.udp) console.log("🩰 UDP disconnect (Teia mode)");
+  connected = false;
+}
+
+function send(data, options = {}) {
+  if (logs.udp) console.log("🩰 UDP send disabled in Teia mode:", data);
+  // No-op in Teia mode
+}
+
+function isConnected() {
+  return false; // Always disconnected in Teia mode
+}
+
+// Create UDP object that matches the expected API structure
+const UDP = { connect, disconnect, send, isConnected };
+
+// Export the same API as the original UDP module
+export { connect, disconnect, send, isConnected, UDP };
+export default { connect, disconnect, send, isConnected, UDP };
+`;
+    
+    return teiaStub;
+  }
+
   patchHeadersJsForTeia(content) {
     console.log('🎨 Patching headers.mjs for teia import statements...');
     
@@ -1488,6 +1711,12 @@ function getColorTokenHighlight(token) {
     
     let patched = content;
     
+    // Replace precise.svg cursor references with viewpoint.svg for TEIA mode
+    patched = patched.replace(
+      /\/aesthetic\.computer\/cursors\/precise\.svg/g,
+      './aesthetic.computer/cursors/viewpoint.svg'
+    );
+    
     // Replace the font URL logic to use relative paths in teia mode
     const fontUrlPattern = /\/\/ Use origin-aware font loading\s*let fontUrl;\s*try \{[\s\S]*?link\.href = fontUrl;/;
     patched = patched.replace(fontUrlPattern, 
@@ -1534,6 +1763,55 @@ function getColorTokenHighlight(token) {
       `const parsed = parse((typeof window !== 'undefined' && window.acTEIA_MODE && window.acSTARTING_PIECE) ? 
         window.acSTARTING_PIECE : 
         (sluggy || window.acSTARTING_PIECE));`
+    );
+    
+    // Patch the worklet loading to skip in TEIA mode to prevent AbortError
+    const workletPattern = /\/\/ Sound Synthesis Processor\s*try \{\s*\(async \(\) => \{/;
+    patched = patched.replace(workletPattern, 
+      `// Sound Synthesis Processor
+    try {
+      // Skip worklet loading in TEIA mode to prevent AbortError
+      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
+                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      
+      if (isTeiaMode) {
+        if (debug) console.log("🎭 Skipping audio worklet loading in TEIA mode");
+        return;
+      }
+      
+      (async () => {`
+    );
+    
+    // Patch worker detection to disable workers in sandboxed environments like OBJKT
+    const workerDetectionPattern = /\/\/ Override: force disable workers only for specific problematic environments\s*if \(sandboxed && window\.origin === "null" && !window\.acTEIA_MODE\) \{\s*\/\/ Only disable for truly sandboxed non-TEIA environments\s*workersEnabled = false;\s*\}/;
+    patched = patched.replace(workerDetectionPattern,
+      `// Override: force disable workers for OBJKT and other sandboxed environments
+  if (sandboxed || window.origin === "null") {
+    // Disable workers in any sandboxed environment, including OBJKT
+    workersEnabled = false;
+    if (debug) console.log("🚫 Workers disabled due to sandboxed/null origin environment");
+  }`
+    );
+    
+    // Suppress console errors for missing MatrixChunky8 font files in TEIA mode
+    const consoleInitPattern = /\/\/ Boot\s*let bootTime/;
+    patched = patched.replace(consoleInitPattern, 
+      `// Boot - suppress font loading errors in TEIA mode
+    if (typeof window !== 'undefined' && window.acTEIA_MODE) {
+      const originalError = console.error;
+      console.error = function(...args) {
+        const message = args.join(' ');
+        // Skip MatrixChunky8 font loading errors
+        if (message.includes('Failed to load resource') && 
+            message.includes('MatrixChunky8') && 
+            message.includes('404')) {
+          return; // Silently ignore these errors
+        }
+        originalError.apply(console, args);
+      };
+    }
+    
+    let bootTime`
     );
     
     return patched;
@@ -1613,14 +1891,14 @@ async function main() {
   if (!pieceName) {
     console.error("Usage: node ac-pack.mjs <piece-name> [options]");
     console.error("Options:");
-    console.error("  --density <value>  Set GIF output density scaling");
-    console.error("  --analyze         Show dependency analysis without building");
-    console.error("  --auto-ship       Automatically build Electron apps after packing");
+    console.error("  --density <value>    Set GIF output density scaling");
+    console.error("  --target-dir <path>  Directory where ZIP and cover should be created");
+    console.error("  --analyze           Show dependency analysis without building");
     console.error("");
     console.error("Examples:");
     console.error("  node ac-pack.mjs '$bop' --density 8");
     console.error("  node ac-pack.mjs '$bop' --analyze");
-    console.error("  node ac-pack.mjs line --auto-ship");
+    console.error("  node ac-pack.mjs '$bop' --target-dir /path/to/output");
     process.exit(1);
   }
 
@@ -1639,6 +1917,10 @@ async function main() {
         console.error("❌ Invalid density value. Must be a positive number.");
         process.exit(1);
       }
+      i++; // Skip the next argument since we consumed it
+    } else if (args[i] === '--target-dir' && i + 1 < args.length) {
+      options.targetDir = args[i + 1];
+      console.log(`🎯 Target directory: ${options.targetDir}`);
       i++; // Skip the next argument since we consumed it
     } else if (args[i] === '--analyze') {
       analyzeOnly = true;
@@ -1695,7 +1977,7 @@ async function main() {
   // Automatically create zip with timestamp
   console.log("📦 Creating zip file...");
   try {
-    const zipResult = await createZipWithTimestamp(packer.options.outputDir, packer.pieceName, packer.zipTimestamp, packer.options.author);
+    const zipResult = await createZipWithTimestamp(packer.options.outputDir, packer.pieceName, packer.zipTimestamp, packer.options.author, packer.options.targetDir);
     console.log("");
     console.log("🎉 Success! Your package is ready for Teia:");
     console.log(`📁 Directory: ${packer.options.outputDir}`);
@@ -1733,20 +2015,18 @@ async function main() {
     }
     
     // Clean up build artifacts (keep only the zip)
-    console.log("🧹 Cleaning up build artifacts...");
-    await fs.rm(packer.options.outputDir, { recursive: true, force: true });
-    console.log("✅ Build directory cleaned up");
+    await packer.cleanup();
   } catch (error) {
     console.error("❌ Failed to create zip:", error.message);
     process.exit(1);
   }
 }
 
-async function createZipWithTimestamp(outputDir, pieceName, timeStr, author = "@jeffrey") {
+async function createZipWithTimestamp(outputDir, pieceName, timeStr, author = "@jeffrey", targetDir = null) {
   const archiver = (await import('archiver')).default;
   
-  // Use the provided timestamp for consistency and construct path properly
-  const zipPath = path.join(path.dirname(outputDir), `${author}-${pieceName}-${timeStr}.zip`);
+  // Use targetDir if provided, otherwise use parent of outputDir
+  const zipPath = path.join(targetDir || path.dirname(outputDir), `${author}-${pieceName}-${timeStr}.zip`);
   
   const output = fsSync.createWriteStream(zipPath);
   const archive = archiver('zip', { zlib: { level: 9 } });

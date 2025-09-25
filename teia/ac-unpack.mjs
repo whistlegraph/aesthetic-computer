@@ -21,26 +21,26 @@ class TeiaUnpacker {
     this.server = null; // Keep reference to Caddy server
   }
 
-  async findLatestZip() {
+  async findLatestZip(searchDir = null) {
     try {
-      // Look in current working directory first, then fallback to output directory
-      const searchDirs = [process.cwd(), this.outputDir];
+      // Look in provided search directory first, then current working directory, then fallback to output directory
+      const searchDirs = searchDir ? [searchDir, this.outputDir] : [process.cwd(), this.outputDir];
       let allZipFiles = [];
       
-      for (const searchDir of searchDirs) {
+      for (const currentDir of searchDirs) {
         try {
-          const files = await fs.readdir(searchDir);
+          const files = await fs.readdir(currentDir);
           const zipFiles = files
             .filter(file => file.endsWith('.zip'))
             .map(file => ({
               name: file,
-              path: path.join(searchDir, file),
+              path: path.join(currentDir, file),
               stats: null,
-              source: searchDir === process.cwd() ? 'current' : 'output'
+              source: currentDir === (searchDir || process.cwd()) ? 'current' : 'output'
             }));
           allZipFiles.push(...zipFiles);
         } catch (error) {
-          console.log(`📁 Could not read directory ${searchDir}: ${error.message}`);
+          console.log(`📁 Could not read directory ${currentDir}: ${error.message}`);
         }
       }
 
@@ -345,14 +345,17 @@ class TeiaUnpacker {
     }
   }
 
-  async run(zipPath, port = 8080) {
+  async run(zipPath, port = 8080, searchDir = null) {
     try {
       console.log('🎭 TEIA Package Unpacker\n');
 
       // Find zip file if not provided
       if (!zipPath) {
         console.log('🔍 Finding latest zip file...');
-        zipPath = await this.findLatestZip();
+        if (searchDir) {
+          console.log(`📁 Looking in: ${searchDir}`);
+        }
+        zipPath = await this.findLatestZip(searchDir);
         console.log(`📦 Using: ${path.basename(zipPath)}`);
       }
 
@@ -425,7 +428,8 @@ class TeiaUnpacker {
 const args = process.argv.slice(2);
 const zipPath = args[0];
 const port = args[1] ? parseInt(args[1]) : 8080;
+const searchDir = args[2]; // Optional search directory
 
 // Run the unpacker
 const unpacker = new TeiaUnpacker();
-unpacker.run(zipPath, port);
+unpacker.run(zipPath, port, searchDir);
