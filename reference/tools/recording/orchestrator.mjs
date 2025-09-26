@@ -226,8 +226,24 @@ export async function paint(api) {
         console.log(`🔧 Executing: ${command}`);
         const result = execSync(
           command,
-          { encoding: 'utf8', stdio: 'inherit' } // Changed to inherit to show frame timing output
+          { encoding: 'utf8', stdio: 'pipe' } // Use pipe to capture output cleanly
         );
+        
+        // Show frame renderer output in a controlled way
+        if (result && result.length > 0) {
+          // Only show important messages, filter out verbose output
+          const lines = result.split('\n');
+          const importantLines = lines.filter(line => 
+            line.includes('FRAME') || 
+            line.includes('ERROR') || 
+            line.includes('WARNING') ||
+            line.includes('✅') || 
+            line.includes('❌')
+          );
+          if (importantLines.length > 0) {
+            console.log(importantLines.join('\n'));
+          }
+        }
         
         frameCount++;
         consecutiveFailures = 0; // Reset on success
@@ -237,6 +253,9 @@ export async function paint(api) {
         if (fs.existsSync(stateFile)) {
           const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
           complete = state.frameIndex >= state.totalFrames;
+          
+          // Display current frame as full-screen sixel
+          await this.displayLastFrameAsSixel();
           
           // Update static progress bar
           this.updateProgressBar(state.frameIndex, state.totalFrames, startTime);
@@ -255,10 +274,13 @@ export async function paint(api) {
     
     if (complete) {
       console.log(`🎯 Render complete! ${frameCount} frames rendered with zero memory leaks.`);
+      
       // Convert to requested format
       if (this.gifMode) {
+        console.log(`🎬 Converting frames to GIF...`);
         await this.convertToGIF();
       } else {
+        console.log(`🎬 Converting frames to MP4...`);
         await this.convertToMP4();
       }
       
@@ -524,6 +546,163 @@ export async function paint(api) {
     if (progress > 0.01) { // Only show ETA after 1% progress
       process.stdout.write(` | ETA: ${formatTime(remaining)}`);
     }
+  }
+
+  // Display last frame as sixel image inline in terminal
+  async displayLastFrameAsSixel() {
+    try {
+      // Find the last individual RGB frame file (exclude all-frames.rgb)
+      const rgbFiles = fs.readdirSync(this.outputDir)
+        .filter(f => f.endsWith('.rgb') && f.startsWith('frame-'))
+        .sort();
+      
+      if (rgbFiles.length === 0) {
+        return; // No frames yet, skip silently
+      }
+      
+      const lastFrame = rgbFiles[rgbFiles.length - 1];
+      const framePath = path.join(this.outputDir, lastFrame);
+      
+      // Read the RGB data
+      const rgbData = fs.readFileSync(framePath);
+      
+      // Get terminal dimensions
+      const termWidth = process.stdout.columns || 80;
+      const termHeight = process.stdout.rows || 24;
+      
+      // Calculate optimal size to fill most of the terminal
+      // Use very aggressive scaling for large, visually prominent images
+      const maxWidth = Math.floor(termWidth * 2.5); // Even wider (sixel pixels are very narrow)
+      const maxHeight = Math.floor(termHeight * 4.0); // Much taller for visual impact
+      
+      // Generate and display sixel at large terminal size
+      const sixelData = this.generateSixel(rgbData, this.width, this.height, maxWidth, maxHeight);
+      
+      // Calculate actual sixel display dimensions (we want it large!)
+      const aspectRatio = this.height / this.width;
+      const displayWidth = maxWidth; // Use the full available width
+      const displayHeight = Math.floor(displayWidth * aspectRatio);
+      const sixelHeight = Math.ceil(displayHeight / 6); // Sixel is 6 pixels per line
+      
+      // Enter alternative screen buffer for clean full-screen display
+      process.stdout.write('\x1b[?1049h'); // Enter alt screen buffer
+      process.stdout.write('\x1b[2J\x1b[H'); // Clear screen and move to top-left
+      
+      // Calculate optical centering
+      const imageHeightInLines = Math.ceil(displayHeight / 6); // Sixel uses 6-pixel bands
+      const verticalPadding = Math.max(1, Math.floor((termHeight - imageHeightInLines) / 2));
+      
+      // Better horizontal centering calculation
+      // Sixel pixels are about 1/2 the width of a character cell in most terminals
+      const estimatedSixelWidthInChars = Math.floor(displayWidth / 12); // More accurate estimate
+      const horizontalPadding = Math.max(1, Math.floor((termWidth - estimatedSixelWidthInChars) / 2));
+      
+      // Position cursor for optically centered display
+      process.stdout.write(`\x1b[${verticalPadding};${horizontalPadding}H`);
+      
+      // Display the sixel image
+      process.stdout.write(sixelData);
+      
+      // Hold the frame for half a second
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Return to main screen buffer
+      process.stdout.write('\x1b[?1049l'); // Exit alt screen buffer
+      
+    } catch (error) {
+      console.error('🚨 Sixel display error:', error.message);
+    }
+  }
+
+  // Generate sixel data from RGB buffer (based on ultra-fast-sixel.mjs)
+  generateSixel(rgbBuffer, width, height, maxWidth = 128, maxHeight = 128) {
+    // Scale to fit within terminal dimensions while maintaining aspect ratio
+    const aspectRatio = height / width;
+    let targetWidth = Math.min(maxWidth, width);
+    let targetHeight = Math.floor(targetWidth * aspectRatio);
+    
+    // If height is too large, scale based on height instead
+    if (targetHeight > maxHeight) {
+      targetHeight = maxHeight;
+      targetWidth = Math.floor(targetHeight / aspectRatio);
+    }
+    
+    const scaledWidth = targetWidth;
+    const scaledHeight = targetHeight;
+    
+    // Calculate scaling factors
+    const scaleX = width / scaledWidth;
+    const scaleY = height / scaledHeight;
+    
+    // Create scaled buffer
+    const scaledBuffer = new Uint8Array(scaledWidth * scaledHeight * 3);
+    
+    for (let y = 0; y < scaledHeight; y++) {
+      for (let x = 0; x < scaledWidth; x++) {
+        const srcX = Math.floor(x * scaleX);
+        const srcY = Math.floor(y * scaleY);
+        const srcIdx = (srcY * width + srcX) * 3;
+        const dstIdx = (y * scaledWidth + x) * 3;
+        
+        scaledBuffer[dstIdx] = rgbBuffer[srcIdx];
+        scaledBuffer[dstIdx + 1] = rgbBuffer[srcIdx + 1];
+        scaledBuffer[dstIdx + 2] = rgbBuffer[srcIdx + 2];
+      }
+    }
+    
+    // Generate sixel without automatic positioning (let caller handle positioning)
+    let output = '\x1bPq';
+    
+    const colors = new Map();
+    let colorIndex = 0;
+    
+    // Process pixels in sixel bands (6 pixels high)
+    for (let band = 0; band < Math.ceil(scaledHeight / 6); band++) {
+      const bandData = new Map();
+      
+      // Collect colors for this band
+      for (let x = 0; x < scaledWidth; x++) {
+        for (let dy = 0; dy < 6; dy++) {
+          const y = band * 6 + dy;
+          if (y >= scaledHeight) break;
+          
+          const idx = (y * scaledWidth + x) * 3;
+          const r = scaledBuffer[idx];
+          const g = scaledBuffer[idx + 1];
+          const b = scaledBuffer[idx + 2];
+          
+          const colorKey = `${r},${g},${b}`;
+          
+          if (!colors.has(colorKey)) {
+            colors.set(colorKey, colorIndex);
+            // Define color in sixel format
+            output += `#${colorIndex};2;${Math.round(r * 100 / 255)};${Math.round(g * 100 / 255)};${Math.round(b * 100 / 255)}`;
+            colorIndex++;
+          }
+          
+          const color = colors.get(colorKey);
+          
+          if (!bandData.has(color)) {
+            bandData.set(color, new Array(scaledWidth).fill(0));
+          }
+          
+          // Set the bit for this pixel in the sixel band
+          bandData.get(color)[x] |= (1 << dy);
+        }
+      }
+      
+      // Output band data
+      for (const [color, pixels] of bandData) {
+        output += `#${color}`;
+        for (let x = 0; x < scaledWidth; x++) {
+          output += String.fromCharCode(63 + pixels[x]);
+        }
+        output += '$';
+      }
+      output += '-'; // New line
+    }
+    
+    return output + '\x1b\\'; // End sixel sequence
   }
 }
 
