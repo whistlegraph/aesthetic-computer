@@ -1,9 +1,4 @@
 // Build Instructions:
-// cd /workspaces/aesthetic-computer/reference/tools/recording && node orchestrator.mjs elcid-flyer 30000
-// 30 second version (30000 milliseconds)
-// TODO:
-// [-] Finish copy editing / typography
-// [ ] Add flair
 
 // Track frame count for animation - will be injected by frame renderer
 let frameCount = 0;
