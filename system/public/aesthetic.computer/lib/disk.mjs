@@ -2277,7 +2277,31 @@ const $commonApi = {
     // Get the pixel width of a string of characters.
     width: (text) => {
       if (Array.isArray(text)) text = text.join(" ");
-      return text.length * 6;
+      
+      // Use the current typeface for accurate width calculation
+      const useTypeface = tf;
+      if (!useTypeface) {
+        return text.length * DEFAULT_TYPEFACE_BLOCK_WIDTH;
+      }
+
+      const isProportional =
+        useTypeface?.data?.proportional === true ||
+        !!useTypeface?.data?.advances ||
+        !!useTypeface?.data?.bdfFont;
+
+      if (isProportional && typeof useTypeface.getAdvance === "function") {
+        let totalWidth = 0;
+        for (const char of text) {
+          if (char === "\n" || char === "\r") continue;
+          const advance = useTypeface.getAdvance(char);
+          totalWidth += typeof advance === "number" ? advance : useTypeface.blockWidth;
+        }
+        return totalWidth;
+      } else {
+        // For monospace fonts, use the typeface's block width
+        const blockWidth = useTypeface.blockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH;
+        return text.length * blockWidth;
+      }
     },
     height: (text) => {
       // Get the pixel height of a string of characters.
