@@ -125,14 +125,14 @@ export class HeadlessAC {
     // Embedded layer restoration
     this.deferredEmbeddedLayers = null; // Will hold embedded layers for restoration after KidLisp setup
 
-  // Deterministic random management (persisted across frames)
-  this.originalMathRandom = Math.random;
-  this.mathRandomOverrideInstalled = false;
-  this.randomState = null;
-    
+    // Deterministic random management (persisted across frames)
+    this.originalMathRandom = Math.random;
+    this.mathRandomOverrideInstalled = false;
+    this.randomState = null;
+
     // Performance optimizations
     this.enableV8Optimizations();
-  this.initializeRandomSystem();
+    this.initializeRandomSystem();
     
     // Initialize with opaque black (like normal AC environment)
     // This ensures proper alpha blending behavior for semi-transparent elements
@@ -394,17 +394,44 @@ export class HeadlessAC {
             height: layer.buffer.height,
             filename: this.saveEmbeddedLayerBuffer(layer.cacheId || layer.id || `layer_${Date.now()}`, layer.buffer.pixels)
           } : null,
-          // Save minimal KidLisp instance state - mainly for frame counting
+          // Save complete KidLisp instance state including timing for persistence
           kidlispInstanceState: layer.kidlispInstance ? {
             frameCount: layer.kidlispInstance.frameCount || 0,
-            localFrameCount: layer.localFrameCount || 0
+            localFrameCount: layer.localFrameCount || 0,
+            lastSecondExecutions: layer.kidlispInstance.lastSecondExecutions || [],
+            sequenceCounters: layer.kidlispInstance.sequenceCounters ?
+              Object.fromEntries(layer.kidlispInstance.sequenceCounters) : {},
+            timingStates: layer.kidlispInstance.timingStates ?
+              Object.fromEntries(layer.kidlispInstance.timingStates) : {}
           } : null
         })) : [],
-        // Save embedded layer cache structure with full layer references
-        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ? Object.fromEntries(this.kidlispInstance.embeddedLayerCache) : {},
-        
-        // Local environment
-        localEnv: this.kidlispInstance.localEnv || {},
+        // Save embedded layer cache structure WITHOUT pixel data but with metadata
+        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ?
+          Object.fromEntries(
+            Array.from(this.kidlispInstance.embeddedLayerCache.entries()).map(([key, layer]) => [
+              key,
+              {
+                ...layer,
+                buffer: layer.buffer ? {
+                  width: layer.buffer.width,
+                  height: layer.buffer.height,
+                  filename: layer.buffer.filename || `${key}.bin`
+                } : null,
+                kidlispInstance: layer.kidlispInstance ? {
+                  frameCount: layer.kidlispInstance.frameCount || 0,
+                  localFrameCount: layer.kidlispInstance.localFrameCount || 0,
+                  lastSecondExecutions: layer.kidlispInstance.lastSecondExecutions || [],
+                  sequenceCounters: layer.kidlispInstance.sequenceCounters ?
+                    Object.fromEntries(layer.kidlispInstance.sequenceCounters) : {},
+                  timingStates: layer.kidlispInstance.timingStates ?
+                    Object.fromEntries(layer.kidlispInstance.timingStates) : {}
+                } : null
+              }
+            ])
+          ) : {},
+
+        // Local environment (cleaned of pixel buffers)
+        localEnv: this.cleanEnvForSerialization(this.kidlispInstance.localEnv || {}),
         
         // Rainbow and zebra color cycling state
         rainbowState: getRainbowState(),
@@ -478,6 +505,27 @@ export class HeadlessAC {
       this.randomState = this.normalizeRandomState();
     }
     return { ...this.randomState };
+  }
+
+  // Clean environment objects of pixel buffer data for serialization
+  cleanEnvForSerialization(env) {
+    if (!env || typeof env !== 'object') return env;
+
+    const cleaned = {};
+    for (const [key, value] of Object.entries(env)) {
+      if (key === 'screen' && value && value.pixels) {
+        cleaned[key] = {
+          width: value.width,
+          height: value.height
+          // Exclude pixel buffer to avoid massive serialization payloads
+        };
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        cleaned[key] = this.cleanEnvForSerialization(value);
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
   }
 
   // Enable V8 optimizations for performance
