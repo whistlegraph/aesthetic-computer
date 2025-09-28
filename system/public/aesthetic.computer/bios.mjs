@@ -920,10 +920,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let UDP;
   async function loadUDP() {
     if (!UDP) {
-      if (debug) console.log("🌐 Loading UDP networking library...");
+      // if (debug) console.log("🌐 Loading UDP networking library...");
       const udpModule = await import('./lib/udp.mjs');
       UDP = udpModule.UDP;
-      if (debug) console.log("🌐 UDP Ready...");
+      // if (debug) console.log("🌐 UDP Ready...");
     }
     return UDP;
   }
