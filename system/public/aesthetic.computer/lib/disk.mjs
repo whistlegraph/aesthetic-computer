@@ -131,7 +131,7 @@ let HIGHLIGHT_MODE = false; // Whether HUD highlighting is enabled
 let HIGHLIGHT_COLOR = "64,64,64"; // Default highlight color (gray)
 let AUDIO_SAMPLE_RATE = 0;
 let debug = false; // This can be overwritten on boot.
-let nopaintPerf = true; // Performance panel for nopaint system debugging - enabled for testing
+let nopaintPerf = false; // Performance panel for nopaint system debugging (disabled by default)
 let visible = true; // Is aesthetic.computer visibly rendering or not?
 
 // 🎯 Global KidLisp Instance - Single source of truth for all KidLisp operations
@@ -1074,7 +1074,7 @@ class Robo {
   }
 
   // Send synthetic events directly to the nopaint system
-  async sendEvent(eventType, coordinates = {}) {
+  sendEvent(eventType, coordinates = {}) {
     if (!this.currentAPI) {
       console.warn("🤖 Robo: No API context available");
       return;
@@ -1087,56 +1087,45 @@ class Robo {
     }
 
     // Update the pen object with robot event data including pressure
-    this.currentAPI.pen.x = coordinates.x || 0;
-    this.currentAPI.pen.y = coordinates.y || 0;
-    this.currentAPI.pen.px = coordinates.px || coordinates.x || 0;
-    this.currentAPI.pen.py = coordinates.py || coordinates.y || 0;
-    this.currentAPI.pen.pressure = coordinates.pressure || 0.5;
+    const x = coordinates.x ?? 0;
+    const y = coordinates.y ?? 0;
+    const px = coordinates.px ?? coordinates.x ?? 0;
+    const py = coordinates.py ?? coordinates.y ?? 0;
+    const pressure = coordinates.pressure ?? 0.5;
+
+    this.currentAPI.pen.x = x;
+    this.currentAPI.pen.y = y;
+    this.currentAPI.pen.px = px;
+    this.currentAPI.pen.py = py;
+    this.currentAPI.pen.pressure = pressure;
     this.currentAPI.pen.device = "robot";
     
     // Update delta if it exists
     if (this.currentAPI.pen.delta) {
-      this.currentAPI.pen.delta.x = (coordinates.x || 0) - (coordinates.px || coordinates.x || 0);
-      this.currentAPI.pen.delta.y = (coordinates.y || 0) - (coordinates.py || coordinates.y || 0);
+      this.currentAPI.pen.delta.x = x - px;
+      this.currentAPI.pen.delta.y = y - py;
     }
 
-    // Create proper nopaint event structure with all required fields
-    const nopaintEvent = {
-      is: (type) => type === eventType,
+    // Create event payload that mirrors real input events
+    const eventPayload = {
       device: "robot",
-      x: coordinates.x || 0,
-      y: coordinates.y || 0,
-      px: coordinates.px || coordinates.x || 0,
-      py: coordinates.py || coordinates.y || 0,
-      pressure: coordinates.pressure || 0.5, // Add default pressure
+      type: eventType,
+      x,
+      y,
+      px,
+      py,
+      pressure,
       delta: {
-        x: (coordinates.x || 0) - (coordinates.px || coordinates.x || 0),
-        y: (coordinates.y || 0) - (coordinates.py || coordinates.y || 0)
-      }
+        x: x - px,
+        y: y - py,
+      },
     };
 
-    // Import and call nopaint_act directly from here where module resolution works
     try {
-      const { nopaint_act } = await import("../systems/nopaint.mjs");
-      
-      nopaint_act({
-        event: nopaintEvent,
-        screen: this.currentAPI.screen,
-        system: this.currentAPI.system,
-        painting: this.currentAPI.system.painting,
-        loading: false,
-        store: this.currentAPI.store,
-        pens: () => [], // pens should be a function that returns an array
-        pen: this.currentAPI.pen,
-        api: this.currentAPI,
-        num: this.currentAPI.num,
-        jump: this.currentAPI.jump,
-        debug: false
-      });
-      
-      console.log(`🤖 Robo: Sent ${eventType} event to nopaint system at (${coordinates.x}, ${coordinates.y})`);
+      this.currentAPI.act(eventType, eventPayload);
+      console.log(`🤖 Robo: Dispatched ${eventType} via act() at (${x}, ${y})`);
     } catch (error) {
-      console.error("🤖 Robo: Error sending event to nopaint:", error);
+      console.error("🤖 Robo: Error dispatching event:", error);
     }
   }
 
