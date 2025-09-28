@@ -994,3 +994,47 @@ function parseMessageElements(message) {
 
   return elements;
 }
+
+// Calculate the rendered position of an interactive element in the text layout
+function calculateElementPosition(element, fullMessage, textLines, text) {
+  // Find which line(s) and character positions this element spans
+  let charCount = 0;
+  
+  for (let lineIndex = 0; lineIndex < textLines.length; lineIndex++) {
+    const lineText = textLines[lineIndex]; // This is already a string
+    const lineStart = charCount;
+    const lineEnd = charCount + lineText.length;
+    
+    // Check if element starts in this line
+    if (element.start >= lineStart && element.start <= lineEnd) {
+      const startInLine = element.start - lineStart;
+      const endInLine = Math.min(element.end - lineStart, lineText.length);
+      
+      // Calculate pixel position
+      const startX = text.width(lineText.substring(0, startInLine));
+      const width = text.width(lineText.substring(startInLine, endInLine));
+      
+      return {
+        x: startX,
+        y: lineIndex * rowHeight,
+        width: width,
+        height: rowHeight,
+        lineIndex: lineIndex
+      };
+    }
+    
+    charCount += lineText.length + 1; // +1 for space between lines
+  }
+  
+  return null; // Element not found in layout
+}
+
+// Check if a click position is inside an element's bounds
+function isClickInsideElement(clickX, clickY, elementPosition) {
+  return (
+    clickX >= elementPosition.x &&
+    clickX <= elementPosition.x + elementPosition.width &&
+    clickY >= elementPosition.y &&
+    clickY <= elementPosition.y + elementPosition.height
+  );
+}
