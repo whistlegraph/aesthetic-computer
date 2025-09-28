@@ -33,14 +33,14 @@
 #endregion */
 
 let btn;
-// let framesBtn;     // Hidden export button
+let framesBtn;     // ZIP/Frames export button
 // let webpBtn;       // Hidden export button  
 // let animWebpBtn;   // Hidden export button
 // let apngBtn;       // Hidden export button
 let gifBtn;
 // let clearBtn;      // Hidden clear button
 let isPrinting = false;
-// let isExportingFrames = false;  // Hidden export type
+let isExportingFrames = false;  // ZIP/Frames export type
 // let isExportingWebP = false;    // Hidden export type
 // let isExportingAnimWebP = false; // Hidden export type
 // let isExportingAPNG = false;    // Hidden export type
@@ -51,9 +51,18 @@ let exportStatusMessage = ""; // Detailed status message
 let printProgress = 0; // Export progress (0-1)
 let ellipsisTicker;
 
+// Enhanced progress tracking
+let exportStartTime = 0; // When export started
+let progressHistory = []; // Track progress over time for ETA calculation
+let currentStatusAlert = null; // Track current status alert for updates
+
+// Completion message display
+let completionMessage = ""; // Message to show when export completes
+let completionMessageTimer = 0; // Timer for how long to show completion message
+
 // Progress bar mode configuration
 // true = Use native extended progress bar (old mode)
-// false = Use red overlay progress bar (new tape-style mode)
+// false = Use baked-in VHS progress bar (new tape-style mode with disk.mjs rendering)
 const useExtendedProgressBar = true;
 
 // Request WebP creation from main thread (document not available in worker)
@@ -116,7 +125,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store }) {
   
   // Reset all export states on boot
   isPrinting = false;
-  // isExportingFrames = false;  // Hidden export type
+  isExportingFrames = false;  // ZIP/Frames export type
   // isExportingWebP = false;    // Hidden export type
   // isExportingAnimWebP = false; // Hidden export type
   // isExportingAPNG = false;    // Hidden export type
@@ -150,24 +159,26 @@ function paint({
   if (presenting) {
     // Always wipe to prevent UI elements from accumulating
     // During playback, use transparent wipe so tape video shows through
-    if (playing) {
-      wipe(0, 0, 0, 0); // Transparent wipe during playback
+    // BUT prevent video playback during exports to improve performance
+    if (playing && !isPrinting) {
+      wipe(0, 0, 0, 0); // Transparent wipe during playback (only when not exporting)
       // Override corner label to show "|" when playing video
       hud.label("|");
     } else {
-      wipe(0, 100).ink(255, 200).write("||", { center: "xy " });
+      wipe(0, 100).ink(255, 200).write(isPrinting ? "EXPORTING" : "||", { center: "xy " });
       ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
 
-    if (presentProgress) {
-      ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
-      ink(playing ? "red" : 64).box(
-        0,
-        screen.height - 1,
-        screen.width * presentProgress,
-        screen.height - 1,
-      ); // Present a progress bar.
-    }
+    // Commented out plain progress bar - now using VHS-style progress bar from disk.mjs
+    // if (presentProgress) {
+    //   ink(0).box(0, screen.height - 1, screen.width, screen.height - 1);
+    //   ink(playing ? "red" : 64).box(
+    //     0,
+    //     screen.height - 1,
+    //     screen.width * presentProgress,
+    //     screen.height - 1,
+    //   ); // Present a progress bar.
+    // }
   }
 
   // Export progress display (outside of presenting block so it shows during exports)
@@ -211,6 +222,17 @@ function paint({
           text = "FINALIZING GIF";
           phaseProgress = (printProgress - 0.9) / 0.1;
         }
+      } else if (currentExportType === "frames") {
+        if (printProgress < 0.5) {
+          text = "PROCESSING FRAMES";
+          phaseProgress = printProgress / 0.5;
+        } else if (printProgress < 0.9) {
+          text = "CREATING ZIP";
+          phaseProgress = (printProgress - 0.5) / 0.4;
+        } else {
+          text = "FINALIZING ZIP";
+          phaseProgress = (printProgress - 0.9) / 0.1;
+        }
       // Hidden export types - keeping for future use
       /*
       } else if (currentExportType === "webp") {
@@ -219,8 +241,6 @@ function paint({
         } else {
           text = "CREATING ZIP";
         }
-      } else if (currentExportType === "frames") {
-        text = "EXPORTING FRAMES";
       } else if (currentExportType === "animwebp") {
         text = "CREATING ANIMATED WEBP";
       } else if (currentExportType === "apng") {
@@ -252,6 +272,26 @@ function paint({
         barWidth = screen.width;
       }
 
+      // Calculate ETA if we have progress history
+      let etaText = "";
+      if (progressHistory.length > 1 && printProgress > 0.05) {
+        const now = performance.now();
+        const elapsed = (now - exportStartTime) / 1000; // seconds
+        const remainingProgress = 1 - printProgress;
+        const progressRate = printProgress / elapsed; // progress per second
+        
+        if (progressRate > 0) {
+          const eta = Math.ceil(remainingProgress / progressRate);
+          if (eta < 60) {
+            etaText = ` • ${eta}s remaining`;
+          } else {
+            const minutes = Math.floor(eta / 60);
+            const seconds = eta % 60;
+            etaText = ` • ${minutes}m ${seconds}s remaining`;
+          }
+        }
+      }
+
       // Draw main progress bar (overall progress)
       wipe(0, 0, 80, 180)
         .ink(0)
@@ -271,13 +311,15 @@ function paint({
         .write(`${percentage}%`, { x: 8, y: screen.height / 2 - h / 2 + 4 });
         
       // Draw status text centered
+      ink(255)
+        .write(text + etaText, { center: "x", y: screen.height / 2 - h / 2 - 8 });
       ink(255, 200)
         .write(text, { center: "xy" });
     } else {
-      // Red overlay progress bar mode (tape-style)
-      // Progress bar will be rendered by the tape progress system in disk.mjs
+      // Baked-in VHS progress bar mode (rendered in disk.mjs during recording)
+      // Progress bar will be rendered by the VHS tape progress system in disk.mjs
       // We just need to send the progress to the recording system
-      // The progress bar overlay is handled automatically by the tapeProgress system
+      // The VHS flickering progress bar overlay is handled automatically by the tapeProgress system
     }
   }
 
@@ -294,11 +336,13 @@ function paint({
     gifBtn.reposition({ right: 40, bottom: 6, screen });
     gifBtn.paint(api);
     
-    // Hidden export options (framesBtn, webpBtn, animWebpBtn, apngBtn, clearBtn) - keeping for future use
-    // if (!framesBtn)
-    //   framesBtn = new ui.TextButton("Frames", { right: 6, bottom: 40, screen });
-    // framesBtn.reposition({ right: 6, bottom: 40, screen });
-    // framesBtn.paint(api);
+    // ZIP/Frames export option for high-resolution frames
+    if (!framesBtn)
+      framesBtn = new ui.TextButton("ZIP", { right: 6, bottom: 40, screen });
+    framesBtn.reposition({ right: 6, bottom: 40, screen });
+    framesBtn.paint(api);
+    
+    // Hidden export options (webpBtn, animWebpBtn, apngBtn, clearBtn) - keeping for future use
     
     // if (!webpBtn)
     //   webpBtn = new ui.TextButton("WebP", { right: 6, bottom: 74, screen });
@@ -321,6 +365,27 @@ function paint({
     // clearBtn.paint(api);
   } else if (paintCount > 16n) {
     wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
+  }
+  
+  // Show completion message if active
+  if (completionMessage && completionMessageTimer > 0) {
+    // Create a box for the completion message
+    const msgWidth = completionMessage.length * 6 + 20; // Approximate text width
+    const msgHeight = 24;
+    const x = (screen.width - msgWidth) / 2;
+    const y = screen.height / 2 - 60; // Above center
+    
+    // Background box with slight transparency
+    ink(0, 200).box(x - 5, y - 5, msgWidth + 10, msgHeight + 10);
+    ink(0, 150).box(x, y, msgWidth, msgHeight, "outline");
+    
+    // Success message text
+    ink(0, 255, 0).write(completionMessage, { center: "x", y: y + 8 });
+    
+    completionMessageTimer--;
+    if (completionMessageTimer <= 0) {
+      completionMessage = "";
+    }
   }
 }
 
@@ -350,31 +415,78 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
           duration: 0.001,
         });
       },
-      push: () => {
-        if (!printed) {
-          isPrinting = true;
-          currentExportType = "video"; // Set export type
-          btn.disabled = true;
-          
-          // Immediately set initial progress and status for instant feedback
-          printProgress = 0.01; // Start with minimal progress to trigger display
-          exportStatusMessage = "STARTING VIDEO EXPORT";
-          currentExportPhase = "preparing";
-          
-          // Initialize tape progress for red overlay mode
-          if (!useExtendedProgressBar) {
-            rec.tapeProgress = 0.01; // Start with minimal progress
-          }
-          
-          rec.print(() => {
-            printed = true;
-            btn.disabled = false;
-            isPrinting = false;
-            currentExportType = ""; // Clear export type
-          });
-        } else {
-          download(`tape-${num.timestamp()}.mp4`);
+      push: async () => {
+        isPrinting = true; // Show progress bar
+        currentExportType = "video"; // Set export type
+        btn.disabled = true;
+        
+        // Immediately set initial progress and status for instant feedback
+        printProgress = 0.01; // Start with minimal progress to trigger display
+        exportStatusMessage = "STARTING MP4 EXPORT";
+        currentExportPhase = "preparing";
+        
+        // Initialize tape progress for red overlay mode
+        if (!useExtendedProgressBar) {
+          rec.tapeProgress = 0.01; // Start with minimal progress
         }
+        
+        try {
+          // Request frames from the recording system (same as GIF)
+          rec.requestFrames(async (frameData) => {
+            if (frameData.frames && frameData.frames.length > 0) {
+              console.log("Creating MP4 from", frameData.frames.length, "frames");
+              
+              // Process all frames - no frame limit restrictions (same as GIF)
+              let framesToProcess = frameData.frames;
+              
+              // Prepare all frames for single MP4 creation request (same format as GIF)
+              const processedFrames = framesToProcess.map((frame, index) => {
+                const [timestamp, imageData, penData] = frame; // Extract pen data for future use
+                
+                // Use actual recorded frame duration for perfect timing
+                let duration = frame.duration || 16.67; // Use captured duration, fallback to 60fps
+                
+                // Only calculate from timestamps if no duration was recorded
+                if (!frame.duration && index < framesToProcess.length - 1) {
+                  const nextTimestamp = framesToProcess[index + 1][0];
+                  duration = Math.max(8.33, Math.min(50, nextTimestamp - timestamp)); // Clamp between 120fps and 20fps
+                }
+                
+                return {
+                  timestamp: timestamp,
+                  originalTimestamp: timestamp,
+                  duration: duration,
+                  width: imageData.width,
+                  height: imageData.height,
+                  // Use the original Uint8ClampedArray (same as GIF)
+                  data: imageData.data
+                };
+              });
+              
+              // Send single request to main thread for MP4 creation (same pattern as GIF)
+              send({
+                type: "create-animated-mp4",
+                content: {
+                  frames: processedFrames
+                }
+              });
+              
+              console.log("MP4 creation request sent");
+              // DON'T reset flags here - wait for completion message (same as GIF)
+            } else {
+              console.warn("No frames available for MP4 export");
+              // Reset flags if no frames available
+              isPrinting = false;
+              btn.disabled = false;
+            }
+          });
+        } catch (error) {
+          console.error("Error exporting MP4:", error);
+          // Reset flags on error
+          isPrinting = false;
+          btn.disabled = false;
+        }
+        
         synth({
           type: "sine",
           tone: 800,
@@ -386,9 +498,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
     });
 
-    // Hidden export options - keeping action handlers for future use
-    /*
-    // Export frames as ZIP
+    // Export ZIP of high-resolution frames
     framesBtn?.act(e, {
       down: () => {
         synth({
@@ -412,28 +522,39 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         }
         
         try {
-          // Request frames from the recording system
+          // Request frames from the recording system for ZIP export
           rec.requestFrames(async (frameData) => {
             if (frameData.frames && frameData.frames.length > 0) {
-              // Create frame content for zip
+              // Convert frames to format expected by create-animated-frames-zip
               const frameRecord = [];
               
               frameData.frames.forEach((frame, index) => {
-                const [timestamp, imageData] = frame;
-                // Create a record entry for each frame
+                const [timestamp, imageData, penData] = frame; // Extract pen data for future use
+                
+                // Calculate duration until next frame (or default to 16.67ms for 60fps if last frame)
+                let duration = 16.67; // Default ~60fps
+                if (index < frameData.frames.length - 1) {
+                  duration = frameData.frames[index + 1][0] - timestamp;
+                }
+                
                 frameRecord.push({
                   timestamp: timestamp,
-                  label: `frame-${index.toString().padStart(6, '0')}`,
-                  painting: imageData
+                  duration: Math.max(10, duration), // Minimum 10ms duration
+                  width: imageData.width,
+                  height: imageData.height,
+                  data: imageData.data // Keep as Uint8ClampedArray
                 });
               });
               
-              // Use the zip function to create a download
-              const zipped = await zip({ destination: "download", painting: { record: frameRecord } }, (p) => {
-                // Progress callback if needed
+              // Send to main thread for ZIP creation with 6x scaling
+              send({
+                type: "create-animated-frames-zip",
+                content: {
+                  frames: frameRecord
+                }
               });
               
-              // Reset flags on successful completion
+              // Reset flags - download happens asynchronously via main thread
               isPrinting = false;
               currentExportType = "";
             } else {
@@ -446,7 +567,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             framesBtn.disabled = false;
           });
         } catch (error) {
-          console.error("Error exporting frames:", error);
+          console.error("Error exporting ZIP frames:", error);
           isExportingFrames = false;
           isPrinting = false;
           currentExportType = "";
@@ -464,6 +585,8 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
       },
     });
 
+    // Hidden export options - keeping action handlers for future use
+    /*
     // Export WebP animation
     webpBtn?.act(e, {
       down: () => {
@@ -563,7 +686,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               // Apply frame reduction for very long recordings
               let framesToProcess = frameData.frames;
-              const MAX_FRAMES_FOR_WEBP = 800; // Higher limit for WebP as it's more efficient
+              const MAX_FRAMES_FOR_WEBP = 1500; // Increased limit - WebP is more efficient than GIF
               
               if (frameData.frames.length > MAX_FRAMES_FOR_WEBP) {
                 const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_WEBP;
@@ -579,7 +702,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                 type: "create-animated-webp-only",
                 content: {
                   frames: framesToProcess.map((frame, index) => {
-                    const [timestamp, imageData] = frame;
+                    const [timestamp, imageData, penData] = frame; // Extract pen data for future use
                     let duration = 100; // Default 100ms
                     
                     if (index < framesToProcess.length - 1) {
@@ -589,6 +712,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                     
                     return {
                       timestamp: timestamp,
+                      originalTimestamp: timestamp, // Add this field for timestamp display in WebP overlay
                       duration: duration,
                       width: imageData.width,
                       height: imageData.height,
@@ -660,7 +784,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               
               // Apply frame reduction for very long recordings
               let framesToProcess = frameData.frames;
-              const MAX_FRAMES_FOR_APNG = 600; // Reasonable limit for APNG
+              const MAX_FRAMES_FOR_APNG = 1000; // Increased limit for APNG
               
               if (frameData.frames.length > MAX_FRAMES_FOR_APNG) {
                 const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_APNG;
@@ -676,7 +800,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                 type: "create-single-animated-apng",
                 content: {
                   frames: framesToProcess.map((frame, index) => {
-                    const [timestamp, imageData] = frame;
+                    const [timestamp, imageData, penData] = frame; // Extract pen data for future use
                     let duration = 100; // Default 100ms
                     
                     if (index < framesToProcess.length - 1) {
@@ -686,6 +810,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
                     
                     return {
                       timestamp: timestamp,
+                      originalTimestamp: timestamp, // Add this field for timestamp display in APNG overlay
                       duration: duration,
                       width: imageData.width,
                       height: imageData.height,
@@ -761,37 +886,35 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
             if (frameData.frames && frameData.frames.length > 0) {
               console.log("Creating GIF from", frameData.frames.length, "frames");
               
-              // Apply frame reduction for very long recordings to prevent memory issues
+              // Process all frames - no frame limit restrictions
               let framesToProcess = frameData.frames;
-              const MAX_FRAMES_FOR_GIF = 500; // Reasonable limit for GIFs
-              
-              if (frameData.frames.length > MAX_FRAMES_FOR_GIF) {
-                console.log(`Reducing frames from ${frameData.frames.length} to ${MAX_FRAMES_FOR_GIF} for GIF optimization`);
-                const skipRatio = frameData.frames.length / MAX_FRAMES_FOR_GIF;
-                framesToProcess = [];
-                for (let i = 0; i < frameData.frames.length; i += skipRatio) {
-                  framesToProcess.push(frameData.frames[Math.floor(i)]);
-                }
-                framesToProcess = framesToProcess.slice(0, MAX_FRAMES_FOR_GIF);
-              }
               
               // Prepare all frames for single GIF creation request
               const processedFrames = framesToProcess.map((frame, index) => {
-                const [timestamp, imageData] = frame;
-                let duration = 100; // Default 100ms
+                const [timestamp, imageData, penData] = frame; // Extract pen data too
+                let duration = 16.67; // Default 16.67ms for 60fps (same as WebP export)
                 
                 if (index < framesToProcess.length - 1) {
                   const nextTimestamp = framesToProcess[index + 1][0];
                   duration = Math.max(10, nextTimestamp - timestamp);
                 }
                 
+                // Debug: Log pen data for first few frames and last few frames
+                if (index < 5 || index >= framesToProcess.length - 5) {
+                  console.log(`🖱️ Frame ${index}: pen data =`, penData ? 
+                    `{x: ${penData.x}, y: ${penData.y}, device: ${penData.device}}` : 
+                    'null');
+                }
+                
                 return {
                   timestamp: timestamp,
+                  originalTimestamp: timestamp, // Add this field for timestamp display in GIF overlay
                   duration: duration,
                   width: imageData.width,
                   height: imageData.height,
                   // Use the original Uint8ClampedArray instead of converting to Array
-                  data: imageData.data // Keep as Uint8ClampedArray for transfer efficiency
+                  data: imageData.data, // Keep as Uint8ClampedArray for transfer efficiency
+                  penData: penData // Preserve pen data for crosshair rendering
                 };
               });
               
@@ -871,7 +994,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
     });
     */
 
-    if (!btn?.down && !btn?.disabled && !gifBtn?.down && !gifBtn?.disabled) {
+    if (!btn?.down && !btn?.disabled && !gifBtn?.down && !gifBtn?.disabled && !isPrinting) {
       if (e.is("touch:1") && !rec.playing) rec.play();
       if (e.is("touch:1") && rec.playing) rec.pause();
     }
@@ -904,31 +1027,37 @@ function signal(content) {
 function handleSystemMessage({ event: e, rec }) {
   // Handle detailed export status messages
   if (e.is("recorder:export-status")) {
-    if (e.message) {
-      exportStatusMessage = e.message;
+    console.log("🎯 Video piece received status:", e.content);
+    
+    if (e.content?.message) {
+      exportStatusMessage = e.content.message;
     }
-    if (e.phase) {
-      currentExportPhase = e.phase;
+    
+    if (e.content?.phase) {
+      currentExportPhase = e.content.phase;
     }
+    
     return true;
   }
 
   // Handle export progress updates for all export types
   if (e.is("recorder:export-progress") || e.is("recorder:transcode-progress")) {
     console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
+    console.log("🎯 Current export state - isPrinting:", isPrinting, "isExportingGIF:", isExportingGIF, "currentExportType:", currentExportType);
+    
     if (e.progress !== undefined || (e.is("recorder:transcode-progress") && typeof e.content === "number")) {
       // Handle both message formats: {progress, type} and direct number content
-      const progress = e.progress !== undefined ? e.progress : e.content;
-      const exportType = e.type || "video"; // Default to video for transcode progress
+      const progress = e.progress !== undefined ? e.progress : (typeof e.content === "object" ? e.content.progress : e.content);
+      const exportType = e.is("recorder:export-progress") ? (e.content?.type || "gif") : "video"; // For export-progress, get type from content
       
       console.log("🎯 Processing progress update:", progress, "for type:", exportType);
       
       // Update status message if provided
-      if (e.message) {
-        exportStatusMessage = e.message;
+      if (e.message || e.content?.message) {
+        exportStatusMessage = e.message || e.content.message;
       }
-      if (e.phase) {
-        currentExportPhase = e.phase;
+      if (e.phase || e.content?.phase) {
+        currentExportPhase = e.phase || e.content.phase;
       }
       
       const isValidExport = 
@@ -941,16 +1070,29 @@ function handleSystemMessage({ event: e, rec }) {
         // Handle transcode progress for any active export
         (e.is("recorder:transcode-progress") && (isPrinting || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames));
         
+      console.log("🎯 isValidExport check:", isValidExport, "- conditions:", {
+        videoAndPrinting: exportType === "video" && isPrinting,
+        gifAndExporting: exportType === "gif" && isExportingGIF,
+        transcodeAndAnyExport: e.is("recorder:transcode-progress") && (isPrinting || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames)
+      });
+        
       if (isValidExport) {
+        const oldProgress = printProgress;
         printProgress = progress;
         
-        // If using tape-style progress bar, also update the tape progress system
-        if (!useExtendedProgressBar) {
-          // Feed export progress into the tape progress system for overlay display
-          rec.tapeProgress = progress;
+        console.log(`📊 Export progress updated: ${Math.floor(progress * 100)}% (was ${Math.floor(oldProgress * 100)}%) - type: ${exportType}`);
+        
+        // Track progress history for ETA calculation
+        const now = performance.now();
+        if (exportStartTime === 0) {
+          exportStartTime = now;
         }
         
-        // Don't call needsPaint here as it's handled by the main paint loop
+        progressHistory.push({ time: now, progress: progress });
+        // Keep only recent history (last 10 seconds)
+        progressHistory = progressHistory.filter(h => now - h.time < 10000);
+        
+        console.log(`📊 Export progress: ${Math.floor(progress * 100)}% (${exportType}) - ${exportStatusMessage}`);
       }
     }
     return true;
@@ -977,6 +1119,12 @@ function handleSystemMessage({ event: e, rec }) {
     });
       
     if (isValidExportComplete) {
+      console.log(`✅ ${exportType?.toUpperCase() || "Export"} completed successfully!`, e.content?.filename || "");
+      
+      // Set completion message to show briefly
+      completionMessage = `${exportType?.toUpperCase() || "EXPORT"} COMPLETED!`;
+      completionMessageTimer = 180; // Show for 3 seconds at 60fps
+      
       // Reset UI flags when export actually completes
       isPrinting = false;
       isExportingGIF = false;
@@ -987,6 +1135,10 @@ function handleSystemMessage({ event: e, rec }) {
       currentExportType = "";
       currentExportPhase = "";
       exportStatusMessage = "";
+      
+      // Reset progress tracking
+      exportStartTime = 0;
+      progressHistory = [];
       
       // Re-enable all buttons
       if (gifBtn) gifBtn.disabled = false;

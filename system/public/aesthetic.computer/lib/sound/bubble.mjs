@@ -5,6 +5,9 @@
 export default class Bubble {
   // Generic for all instruments.
   playing = true;
+  fading = false; // If we are fading and then stopping playback.
+  fadeProgress;
+  fadeDuration;
 
   #volume = 1; // 0 to 1
   #pan = 0; // -1 to 1
@@ -86,7 +89,13 @@ export default class Bubble {
     //this.#maxOut = 1;
   }
 
-  update({ radius, rise, volume, pan, duration = 0.1 }) {
+  update({ radius, rise, volume, pan, sustain, duration = 0.1 }) {
+    // Sustain updates (immediate change, no interpolation needed)
+    if (typeof sustain === "boolean") {
+      this.#sustain = sustain;
+      console.log(`🧋 UPDATE: Sustain set to ${sustain} for bubble ${this.id || 'unknown'}`);
+    }
+    
     // Radius updates (affects fundamental frequency and timbre)
     if (typeof radius === "number" && radius > 0) {
       this.#futureRadius = radius * 0.001;
@@ -127,14 +136,17 @@ export default class Bubble {
   // Sustain control methods
   setSustain(sustain) {
     this.#sustain = sustain;
+    console.log(`🧋 setSustain(${sustain}) for bubble ${this.id || 'unknown'}`);
   }
   
   enableSustain() {
     this.#sustain = true;
+    console.log(`🧋 enableSustain() for bubble ${this.id || 'unknown'}`);
   }
   
   disableSustain() {
     this.#sustain = false;
+    console.log(`🧋 disableSustain() for bubble ${this.id || 'unknown'}`);
   }
 
   next() {
@@ -188,20 +200,39 @@ export default class Bubble {
       alpha * this.#amp * Math.sin(Math.PI * 2 * this.#phase);
     this.#phase += this.#phaseStep;
     this.#phaseStep += this.#phaseRise;
-    this.#amp *= this.#gain;
+    
+    // Only apply amplitude decay if not in sustain mode
+    if (!this.#sustain) {
+      this.#amp *= this.#gain;
+    }
 
     this.#progress += 1;
 
     // *** Normalization to a max of 1 / -1
     // TODO: Keep track of a normalization curve. 2022.02.04.16.42
-    const out = this.#out * this.#volume * 1000;
+    let out = this.#out * this.#volume * 1000;
     if (out > this.#maxOut) this.#maxOut = out;
 
     // if (Math.abs(out) > 1 && this.#progress % 100 === 0) {
     //  console.error("Bubble clipped!", out);
     //}
 
-    return out / this.#maxOut;
+    out = out / this.#maxOut;
+
+    // ➰💀 "Fade 2 kill." - Apply fading if necessary
+    if (this.fading) {
+      if (this.fadeProgress < this.fadeDuration) {
+        this.fadeProgress += 1;
+        // Apply the fade envelope to the output.
+        out *= 1 - this.fadeProgress / this.fadeDuration;
+      } else {
+        this.fading = false;
+        this.playing = false;
+        return 0;
+      }
+    }
+
+    return out;
   }
 
   // Stereo
@@ -218,5 +249,17 @@ export default class Bubble {
       }
     }
     return frame;
+  }
+
+  // Use a 25ms fade by default.
+  kill(fade = 0.025) {
+    if (!fade) {
+      this.playing = false;
+    } else {
+      // Fade over 'fade' seconds, before stopping playback.
+      this.fading = true;
+      this.fadeProgress = 0;
+      this.fadeDuration = fade * sampleRate; // Convert seconds to samples.
+    }
   }
 }

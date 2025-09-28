@@ -30,4 +30,4 @@ SETUVAR fish_pager_color_description:B3A06D\x1eyellow\x1e\x2di\x0d
 SETUVAR fish_pager_color_prefix:cyan\x1e\x2d\x2dbold\x1e\x2d\x2dunderline\x0d
 SETUVAR fish_pager_color_progress:brwhite\x1e\x2d\x2dbackground\x3dcyan\x0d
 SETUVAR fish_pager_color_selected_background:\x2dr\x0d
-SETUVAR fish_user_paths:/home/me/\x2ecargo/bin\x1e/opt/android\x2dstudio/bin\x1e/home/jas/\x2ecargo/bin\x1e/home/jas/\x2elocal/bin\x1e/Users/jas/\x2ecargo/bin\x1e/Users/jas/Library/Preferences/netlify/helper/bin\x1e/opt/homebrew/bin\x0d
+SETUVAR fish_user_paths:/home/me/\x2elocal/bin\x1e/home/me/\x2ecargo/bin\x1e/opt/android\x2dstudio/bin\x1e/home/jas/\x2ecargo/bin\x1e/home/jas/\x2elocal/bin\x1e/Users/jas/\x2ecargo/bin\x1e/Users/jas/Library/Preferences/netlify/helper/bin\x1e/opt/homebrew/bin\x0d

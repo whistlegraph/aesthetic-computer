@@ -9,6 +9,14 @@ const mongoDBName = process.env.MONGODB_NAME;
 let client;
 
 async function connect() {
+  // Validate environment variables
+  if (!mongoDBConnectionString) {
+    throw new Error('MONGODB_CONNECTION_STRING environment variable is not set');
+  }
+  if (!mongoDBName) {
+    throw new Error('MONGODB_NAME environment variable is not set');
+  }
+
   client = await MongoClient.connect(mongoDBConnectionString, {
     serverApi: {
       version: ServerApiVersion.v1,

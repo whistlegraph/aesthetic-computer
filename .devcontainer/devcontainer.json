@@ -5,12 +5,18 @@
   "name": "Default",
   "build": {
     "dockerfile": "Dockerfile",
-    "args": { "BUILDKIT_INLINE_CACHE": "1" },
-    "platform": "linux/amd64"
+    "args": { 
+      "BUILDKIT_INLINE_CACHE": "1",
+      "DOCKER_BUILDKIT": "1",
+      "FEDORA_IMAGE": "quay.io/fedora/fedora:latest"
+    }
   },
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
-    "HOST_IP": "${localEnv:HOST_IP}"
+    "HOST_IP": "${localEnv:HOST_IP}",
+    "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1"
   },
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
@@ -20,8 +26,14 @@
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
   ],
+  // "features": {
+  //   "ghcr.io/devcontainers/features/python:1": "none"
+  // },
   "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345],
   "customizations": {
+    "codespaces": {
+      "machine": "largePremiumLinux"
+    },
     "vscode": {
       "extensions": [
         "aesthetic-computer.aesthetic-computer-code",
@@ -50,7 +62,7 @@
         "ms-toolsai.vscode-jupyter-cell-tags",
         "ms-toolsai.jupyter-keymap",
         "ms-toolsai.jupyter-renderers",
-        "rust-lang.rust-analyzer",
+        // "rust-lang.rust-analyzer", // Temporarily disabled to reduce startup load
         "jinxdash.prettier-rust",
         "ms-python.black-formatter"
       ]
@@ -61,16 +73,18 @@
     "-v",
     "/tmp/.X11-unix:/tmp/.X11-unix",
     "-q",
-    "--privileged",
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=apparmor=unconfined",
     "--name",
     "aesthetic",
     "--hostname",
     "aesthetic",
-    "--security-opt",
-    "seccomp=unconfined",
     "--init",
     "--memory=12g",
     "--memory-swap=12g",
+    "--shm-size=2g",
+    "--cgroupns=host",
+    "--tmpfs=/tmp:noexec,nosuid,size=2g",
     "-p",
     "0.0.0.0:8888:8888",
     "-p",
@@ -79,10 +93,8 @@
     "nofile=131072:131072"
     // "--network",
     // "host"
-    //    "--platform",
-    //    "linux/amd64"
   ],
-  "initializeCommand": "touch .devcontainer/fish_history",
+  "initializeCommand": "mkdir -p .devcontainer/tezos-node .devcontainer/tezos-data .devcontainer/envs .devcontainer/.emacs.d && touch .devcontainer/fish_history",
   "postStartCommand": "fish /entry.fish",
   "postAttachCommand": "sudo touch /home/me/.waiter && sudo chmod 777 /home/me/.waiter && sudo chmod +w /home/me"
 }
