@@ -5,6 +5,8 @@
 /* #region 🏁 todo
 #endregion */
 
+import { checkTeiaMode } from "./teia-mode.mjs";
+
 const logs = { socket: false };
 const { min } = Math;
 
@@ -33,6 +35,12 @@ export class Socket {
     connectCallback,
     disconnectCallback,
   ) {
+    // Don't connect sockets in TEIA mode
+    if (typeof window !== 'undefined' && window.acTEIA_MODE) {
+      if (this.#debug && logs.socket) console.log("🧦 Sockets disabled in TEIA mode.");
+      return;
+    }
+
     if (this.connected) {
       console.warn("🧦 Already connected...");
       return;
@@ -43,7 +51,10 @@ export class Socket {
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
-      console.log('%cconnection failed, retrying in ' + (this.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
+      // Only log and retry if not in TEIA mode
+      if (!checkTeiaMode()) {
+        console.log('%cconnection failed, retrying in ' + (this.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
+      }
       return;
     }
 
@@ -73,8 +84,8 @@ export class Socket {
       clearTimeout(this.pingTimeout);
 
       socket.connected = false;
-      // Only reconnect if we are not killing the socket and not in development mode.
-      if (socket.#killSocket === false) {
+      // Only reconnect if we are not killing the socket and not in development mode and not in TEIA mode.
+      if (socket.#killSocket === false && !checkTeiaMode()) {
         console.log('%cconnection failed, retrying in ' + (socket.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
         this.#reconnectTimeout = setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
@@ -87,8 +98,13 @@ export class Socket {
 
     // Close on error.
     ws.onerror = (err) => {
-      console.log('%cconnection failed, retrying...', 'color: orange; background: black; padding: 2px;');
-      ws.close();
+      if (checkTeiaMode()) {
+        // In TEIA mode, just close without retrying
+        ws.close();
+      } else {
+        console.log('%cconnection failed, retrying...', 'color: orange; background: black; padding: 2px;');
+        ws.close();
+      }
     };
   }
 

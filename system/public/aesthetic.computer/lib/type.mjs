@@ -8,6 +8,7 @@ endregion */
 
 import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
+import { checkTeiaMode } from "./teia-mode.mjs";
 
 const { floor, min } = Math;
 const { keys, entries } = Object;
@@ -22,7 +23,27 @@ class Typeface {
 
   constructor(name = "font_1") {
     this.name = name;
-    this.data = fonts[name] || fonts.font_1;
+    
+    // Special handling for MatrixChunky8 if not found in fonts object
+    if (name === "MatrixChunky8" && !fonts[name]) {
+      this.data = {
+        glyphHeight: 8,
+        baseline: 0,
+        bdfFont: "MatrixChunky8",
+        proportional: true,
+        advances: {
+          'A': 4, 'B': 4, 'C': 4, 'D': 4, 'E': 4, 'F': 4, 'G': 4, 'H': 5, 'I': 4, 'J': 4, 'K': 4, 'L': 4, 'M': 6, 'N': 5, 'O': 5, 'P': 4, 'Q': 4, 'R': 4, 'S': 4, 'T': 4, 'U': 4, 'V': 4, 'W': 6, 'X': 4, 'Y': 4, 'Z': 4,
+          'a': 4, 'b': 4, 'c': 4, 'd': 4, 'e': 4, 'f': 4, 'g': 4, 'h': 4, 'i': 4, 'j': 4, 'k': 4, 'l': 4, 'm': 6, 'n': 4, 'o': 4, 'p': 4, 'q': 4, 'r': 4, 's': 4, 't': 4, 'u': 4, 'v': 4, 'w': 6, 'x': 4, 'y': 4, 'z': 4,
+          '0': 4, '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4,
+          ' ': 2, '.': 2, ',': 2, '!': 2, '?': 4, ':': 2, ';': 2, '-': 4, '+': 4, '=': 4, '<': 4, '>': 4, '/': 4, '\\': 4, '|': 2, '"': 4, "'": 2, '(': 4, ')': 4, '[': 4, ']': 2, '{': 2, '}': 2, '@': 5, '#': 5, '$': 4, '%': 5, '^': 4, '&': 5, '*': 4, '_': 4, '~': 5
+        },
+        bdfOverrides: {
+          'y': { y: 2 }
+        }
+      };
+    } else {
+      this.data = fonts[name] || fonts.font_1;
+    }
   }
 
   // Return only the character index from the data.
@@ -85,11 +106,55 @@ class Typeface {
           });
       });
       await Promise.all(promises);
-      console.log(`✅ microtype loaded with ${Object.keys(this.glyphs).length} glyphs`);
     } else if (this.name === "unifont" || this.data.bdfFont) {
       // 🗺️ BDF Font support - includes UNIFONT and other BDF fonts
       // Determine which font to use - for unifont use the name, for others use bdfFont property
       const fontName = this.data.bdfFont || "unifont";
+      
+      // Check if we're in TEIA mode and this is MatrixChunky8
+      const { checkTeiaMode } = await import("./teia-mode.mjs");
+      const isTeiaMode = checkTeiaMode();
+      
+      if (isTeiaMode && this.name === "MatrixChunky8") {
+        // Set essential font metadata properties for proportional font detection
+        this.data.proportional = true;
+        this.data.bdfFont = "MatrixChunky8";
+        this.data.name = "MatrixChunky8";
+        // Import advance values from fonts.mjs for fallback
+        const { MatrixChunky8 } = await import("../disks/common/fonts.mjs");
+        this.data.advances = MatrixChunky8.advances || {}; // Character advance widths from fonts.mjs
+        this.data.bdfOverrides = MatrixChunky8.bdfOverrides || {}; // Position overrides from fonts.mjs
+        
+        // Define the characters we want to preload from the bundled assets using hex codes
+        const chars = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                      ' ', '.', ',', '!', '?', ':', ';', '-', '+', '=', '<', '>', '/', '\\', '|', '"', "'", '(', ')', '[', ']', '{', '}', '@', '#', '$', '%', '^', '&', '*', '_', '~'];
+        
+        // Load glyph data from bundled assets using hex-encoded filenames
+        const promises = chars.map(async (char) => {
+          try {
+            // Convert character to hex code for filename
+            const charCode = char.charCodeAt(0);
+            const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
+            
+            // In TEIA mode, access bundled assets with relative path
+            const glyphPath = `../../assets/type/MatrixChunky8/${hexCode}.json`;
+            
+            const response = await fetch(glyphPath);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const glyphData = await response.json();
+            this.data[char] = glyphData; // Store in font data for proxy access
+            return glyphData;
+          } catch (err) {
+            return null;
+          }
+        });
+        
+        await Promise.all(promises);
+      }
       
       // Add a basic placeholder glyph for "?" character
       this.glyphs["?"] = {
@@ -214,64 +279,106 @@ class Typeface {
           const codePointStr = codePoints.join("_");
 
           // Make API call to load the glyph using code points
-          fetch(`/api/bdf-glyph?char=${codePointStr}&font=${fontName}`)
-            .then((response) => {
-              if (!response.ok) {
-                if (response.status === 404) {
-                  console.info(
-                    `Glyph "${char}" (${codePointStr}) not available in ${fontName}`,
-                  );
-                } else {
+          
+          // Enhanced TEIA mode detection using shared teia-mode module
+          const isTeiaMode = checkTeiaMode();
+          
+          if (isTeiaMode && this.name === "MatrixChunky8") {
+            // In TEIA mode, first check if glyph is directly on target
+            if (target[char] && target[char].pixels && target[char].resolution) {
+              return target[char];
+            }
+            
+            // In TEIA mode, the bundled data might be in the font object's data
+            // Access through this.data (the original font data object)
+            if (this.data && this.data[char]) {
+              // Store it in target for faster access next time
+              target[char] = this.data[char];
+              return this.data[char];
+            }
+            
+            // If not found in bundled data, we're in TEIA mode so no API calls
+            return null;
+          }
+          
+          // Only make API calls when NOT in TEIA mode
+          if (!isTeiaMode) {
+            fetch(`/api/bdf-glyph?char=${codePointStr}&font=${this.name}`)
+              .then((response) => {
+                if (!response.ok) {
+                  if (response.status === 404) {
+                    console.info(
+                      `Glyph "${char}" (${codePointStr}) not available in ${this.name}`,
+                    );
+                  } else {
+                    console.warn(
+                      `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
+                    );
+                  }
+                  throw new Error(`Failed to load glyph: ${response.status}`);
+                }
+                return response.json();
+              })
+              .then((glyphData) => {
+                // Store the loaded glyph
+                target[char] = glyphData;
+                
+                // Trigger a re-render if this is for QR text
+                if (this.name === "MatrixChunky8") {
+                  
+                  // Invalidate QR cache so it regenerates with new characters
+                  if (typeof window !== 'undefined' && window.qrOverlayCache) {
+                    window.qrOverlayCache.clear();
+                  }
+                  
+                  // Force a repaint by calling needsPaint if available
+                  if (typeof needsPaint === 'function') {
+                    needsPaint();
+                  } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
+                    window.$activePaintApi.needsPaint();
+                  }
+                }
+                loadingGlyphs.delete(char);
+
+                // Trigger a repaint to show the newly loaded glyph
+                if (
+                  needsPaintCallback &&
+                  typeof needsPaintCallback === "function"
+                ) {
+                  needsPaintCallback();
+                }
+              })
+              .catch((err) => {
+                // Mark this glyph as failed to avoid future requests
+                failedGlyphs.add(char);
+                loadingGlyphs.delete(char);
+
+                // Don't log as error for 404s, just info
+                if (!err.message.includes("404")) {
                   console.warn(
-                    `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
+                    `Failed to load glyph "${char}" (${codePointStr}):`,
+                    err,
                   );
                 }
-                throw new Error(`Failed to load glyph: ${response.status}`);
-              }
-              return response.json();
-            })
-            .then((glyphData) => {
-              // Store the loaded glyph
-              target[char] = glyphData;
-              
-              // Trigger a re-render if this is for QR text
-              if (fontName === "MatrixChunky8") {
-                
-                // Invalidate QR cache so it regenerates with new characters
-                if (typeof window !== 'undefined' && window.qrOverlayCache) {
-                  window.qrOverlayCache.clear();
-                }
-                
-                // Force a repaint by calling needsPaint if available
-                if (typeof needsPaint === 'function') {
-                  needsPaint();
-                } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
-                  window.$activePaintApi.needsPaint();
-                }
-              }
-              loadingGlyphs.delete(char);
-
-              // Trigger a repaint to show the newly loaded glyph
-              if (
-                needsPaintCallback &&
-                typeof needsPaintCallback === "function"
-              ) {
-                needsPaintCallback();
-              }
-            })
-            .catch((err) => {
-              // Mark this glyph as failed to avoid future requests
-              failedGlyphs.add(char);
-              loadingGlyphs.delete(char);
-
-              // Don't log as error for 404s, just info
-              if (!err.message.includes("404")) {
-                console.warn(
-                  `Failed to load glyph "${char}" (${codePointStr}):`,
-                  err,
-                );
-              }
-            });
+              });
+          } else {
+            // In TEIA mode for non-MatrixChunky8 fonts, create simple fallback
+            const simpleFallback = {
+              resolution: [6, 8],
+              pixels: [
+                [0, 1, 1, 1, 1, 0],
+                [1, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 0, 1],
+                [1, 0, 1, 1, 0, 1],
+                [1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 1],
+                [0, 1, 1, 1, 1, 0],
+                [0, 0, 0, 0, 0, 0]
+              ]
+            };
+            target[char] = simpleFallback;
+            loadingGlyphs.delete(char);
+          }
 
           // Return appropriate fallback immediately while loading
           return this.getEmojiFallback(char, target);
@@ -284,7 +391,16 @@ class Typeface {
   // Helper method to get appropriate fallback for different character types
   getEmojiFallback(char, target) {
     if (!char || char.length === 0) {
+      // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
+      if (this.name === "MatrixChunky8") {
+        return null;
+      }
       return target["?"] || null;
+    }
+
+    // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
+    if (this.name === "MatrixChunky8") {
+      return null;
     }
 
     const codePoint = char.codePointAt(0);
@@ -307,6 +423,12 @@ class Typeface {
       return target["?"] || null;
     }
   }
+  
+  // Get a glyph for a specific character
+  getGlyph(char) {
+    return this.glyphs[char];
+  }
+  
   // 📓 tf.print
   print(
     $,
@@ -349,7 +471,9 @@ class Typeface {
       
       w = 0;
       [...text.toString()].forEach((char) => {
-        const charAdvance = advances[char] || blockWidth;
+        const glyph = this.getGlyph(char);
+        const glyphAdvance = glyph?.advance; // Check individual glyph advance first
+        const charAdvance = glyphAdvance || advances[char] || blockWidth;
         w += charAdvance * size;
       });
     } else {
@@ -417,9 +541,6 @@ class Typeface {
     // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);    // Check if we have per-character colors
     // Apply baseline adjustment for fonts that need bottom alignment
     const baselineAdjustment = this.data.baseline || 0;
-    if (this.data.bdfFont && text === "He") {
-      console.log(`📏 TYPE.MJS: "${text}" baseline adjustment: ${baselineAdjustment} pixels (original y: ${y}, new y: ${y + baselineAdjustment})`);
-    }
     y += baselineAdjustment;
 
     if (charColors && charColors.length > 0) {
@@ -431,7 +552,34 @@ class Typeface {
 
         // Set color for this character
         if (charColor) {
-          if (Array.isArray(charColor)) {
+          // Handle background color syntax (object with foreground and background)
+          if (typeof charColor === 'object' && charColor.foreground !== undefined && charColor.background !== undefined) {
+            // Draw background first
+            if (charColor.background) {
+              const glyph = this.getGlyph(char);
+              const glyphAdvance = glyph?.advance; // Check individual glyph advance first
+              const charWidth = isProportional ? 
+                (glyphAdvance || this.data?.advances?.[char] || blockWidth) * size : 
+                blockWidth * size;
+              if (Array.isArray(charColor.background)) {
+                $.ink(...charColor.background);
+              } else {
+                $.ink(charColor.background);
+              }
+              $.box(currentX, y, charWidth, blockHeight);
+            }
+            
+            // Set foreground color
+            if (charColor.foreground) {
+              if (Array.isArray(charColor.foreground)) {
+                $.ink(...charColor.foreground);
+              } else {
+                $.ink(charColor.foreground);
+              }
+            } else {
+              $.ink(...rn); // Use original color if no foreground specified
+            }
+          } else if (Array.isArray(charColor)) {
             $.ink(...charColor);
           } else {
             $.ink(charColor);
@@ -457,8 +605,10 @@ class Typeface {
         // Move to next character position using proper advance width
         if (isProportional) {
           // Use character-specific advance width for proportional fonts
+          const glyph = this.getGlyph(char);
+          const glyphAdvance = glyph?.advance; // Check individual glyph advance first
           const advances = this.data?.advances || {};
-          const charAdvance = advances[char] || blockWidth;
+          const charAdvance = glyphAdvance || advances[char] || blockWidth;
           currentX += charAdvance * size;
         } else {
           // Use fixed width for monospace fonts
@@ -524,6 +674,7 @@ class TextInput {
   #manualDeactivationTime = 0;
   #manuallyActivated = false;
   #manualActivationTime = 0;
+  #preventDeactivation = false; // Flag to prevent unwanted deactivation during command execution
 
 
   typeface;
@@ -1449,6 +1600,11 @@ class TextInput {
         return;
       }
       
+      // Don't deactivate if we're preventing deactivation (during command execution)
+      if (this.#preventDeactivation || this._preventDeactivation) {
+        return;
+      }
+      
       // Only deactivate via keyboard:close if we haven't recently manually activated via touch
       const timeSinceManualDeactivation = Date.now() - this.#manualDeactivationTime;
       const timeSinceManualActivation = Date.now() - this.#manualActivationTime;
@@ -1549,6 +1705,11 @@ class TextInput {
 
     // Leave the prompt input mode.
     function deactivate(ti) {
+      // Prevent deactivation if the flag is set
+      if (ti.#preventDeactivation || ti._preventDeactivation) {
+        return;
+      }
+      
       if (ti.canType === false) {
         // Assume we are already deactivated.
         // (This redundancy check is because this behavior is tied to

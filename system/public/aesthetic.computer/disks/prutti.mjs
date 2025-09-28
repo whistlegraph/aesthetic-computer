@@ -1048,9 +1048,6 @@ function parseTimeString(timeStr) {
   console.log("🪄 Prutti:", lesson + 1);
   hud.label("prutti " + (lesson + 1));
 
-  // Preload unifont typeface for titles
-  net.preloadTypeface("unifont");
-
   // Reset audio state
   playingSfx = null;
   isPlaying = false;

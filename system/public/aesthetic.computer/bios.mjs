@@ -28,9 +28,9 @@ import {
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
 import { logs } from "./lib/logs.mjs";
+import { checkTeiaMode } from "./lib/teia-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
-import { UDP } from "./lib/udp.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -41,7 +41,12 @@ const { isFinite } = Number;
 
 // 🎬 GIF Encoder Configuration
 // Set to true to use gifenc by default, false for gif.js
-const DEFAULT_USE_GIFENC = false;
+const DEFAULT_USE_GIFENC = true;
+
+// 🚫 Cache Control Flags
+// Set these to true to disable caching for dynamic content updates
+window.acDISABLE_HUD_LABEL_CACHE = true; // Disable HUD label caching for dynamic coloring
+window.acDISABLE_QR_OVERLAY_CACHE = true; // Disable QR overlay caching for dynamic updates
 
 const diskSends = [];
 let diskSendsConsumed = false;
@@ -65,12 +70,20 @@ USB.initialize();
 
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
-  headers(); // Print console headers.
+  headers(); // Print console headers with auto-detected theme.
 
   // Store original URL parameters for refresh functionality from the resolution object
   preservedParams = {};
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
+  if (resolution.tv === true) preservedParams.tv = "true";
+  if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
+  
+  // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
+  const currentParams = new URLSearchParams(location.search);
+  if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
+  if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
+  if (currentParams.has("duration")) preservedParams.duration = currentParams.get("duration");
 
   if (debug) {
     if (window.isSecureContext) {
@@ -106,9 +119,128 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     mediaRecorderStartTime,
     mediaRecorderFrameCount = 0; // Frame counter for performance optimization
   let needs$creenshot = false; // Flag when a capture is requested.
+  
+  // Raw audio capture for tape playback
+  let rawAudioProcessor = null;
+  let rawAudioData = [];
+  let rawAudioSampleRate = 44100;
+  
+  // Dynamic FPS detection for display-rate independent recording
+  let detectedDisplayFPS = 60; // Default fallback
+  let lastFrameTime = 0;
+  let frameTimes = [];
+  const FPS_SAMPLE_SIZE = 30; // Number of frames to sample for FPS detection
+
+  // Duration Progress Bar (for timed pieces from query parameter)
+  let durationProgressStartTime = undefined;
+  let durationProgressDuration = resolution.duration; // Duration in seconds from query parameter
+  let durationProgressCompleted = false;
+
+  // 🎮 Game Boy Emulator (main thread)
+  let gameboyEmulator = null;
+  let currentGameboyPixels = null;
+  let currentGameboyROM = null;
 
   // Events
   let whens = {};
+
+  // Register core signal handlers
+  whens["recorder:cut"] = async function() {
+    
+    if (!mediaRecorder) {
+      console.warn(`No mediaRecorder available during cut - sending rolling:ended anyway`);
+      send({ type: "recorder:rolling:ended" });
+      return;
+    }
+    
+    if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
+    
+    try {
+      // Safety check to prevent NaN duration
+      if (mediaRecorderStartTime !== undefined) {
+        mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
+      } else {
+        console.warn("Warning: mediaRecorderStartTime is undefined during cut, cannot calculate duration");
+        // Set a minimal duration to prevent NaN
+        if (mediaRecorderDuration === undefined || isNaN(mediaRecorderDuration)) {
+          mediaRecorderDuration = 100; // Fallback to 100ms
+        }
+      }
+      
+      // mediaRecorder?.stop();
+      mediaRecorder?.pause(); // Single clips for now.
+
+      // Store the tape data to IndexedDB for persistence across page refreshes
+      const blob = new Blob(mediaRecorderChunks, {
+        type: mediaRecorder.mimeType,
+      });
+      
+      // Convert raw audio data to serializable format for storage
+      let rawAudioArrays = null;
+      if (rawAudioData.length > 0 && audioContext) {
+        try {
+          const totalSamples = rawAudioData.length * 4096; // 4096 samples per chunk
+          const leftChannelData = new Float32Array(totalSamples);
+          const rightChannelData = new Float32Array(totalSamples);
+          
+          let sampleIndex = 0;
+          for (let i = 0; i < rawAudioData.length; i++) {
+            const chunk = rawAudioData[i];
+            for (let j = 0; j < chunk.left.length; j++) {
+              if (sampleIndex < totalSamples) {
+                leftChannelData[sampleIndex] = chunk.left[j];
+                rightChannelData[sampleIndex] = chunk.right[j];
+                sampleIndex++;
+              }
+            }
+          }
+          
+          rawAudioArrays = {
+            left: leftChannelData,
+            right: rightChannelData,
+            sampleRate: rawAudioSampleRate,
+            totalSamples: totalSamples
+          };
+          
+          console.log(`🎵 Created raw audio arrays: ${totalSamples} samples, ${totalSamples / rawAudioSampleRate}s duration`);
+        } catch (error) {
+          console.error("Error creating raw audio arrays:", error);
+        }
+      }
+      
+      try {
+        await receivedChange({
+          data: {
+            type: "store:persist",
+            content: {
+              key: "tape",
+              method: "local:db",
+              data: {
+                blob,
+                duration: mediaRecorderDuration,
+                frames: recordedFrames, // Include frame data for WebP/Frame exports
+                timestamp: Date.now(),
+                rawAudio: rawAudioArrays, // Add raw audio arrays for playback
+              },
+            },
+          },
+        });
+
+        if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB");
+      } catch (storageError) {
+        console.error("Error storing tape to IndexedDB:", storageError);
+        // Continue despite storage error
+      }
+
+      // Ensure the rolling:ended signal is sent which triggers the cutCallback
+      send({ type: "recorder:rolling:ended" });
+      
+    } catch (error) {
+      console.error("Error in cut operation:", error);
+      // Still send the ended signal even if something fails
+      send({ type: "recorder:rolling:ended" });
+    }
+  };
 
   // Video storage
   const videos = [];
@@ -205,7 +337,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  let density = 2; // 1.333333; // window.acVSCODE ? 1.3333 : 2; // added to window.devicePixelRatio
+  let density = resolution.density !== undefined ? resolution.density : 2; // Use URL parameter or default to 2
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
@@ -368,6 +500,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Restore the clean pixels onto the resized canvas
     ctx.drawImage(tempCanvas, 0, 0);
 
+    // 🎨 REFRAME BACKGROUND FIX: Fill any new extended areas with background color
+    // But skip during very early initialization to prevent purple flash
+    const now = performance.now();
+    const isVeryEarlyLoad = !globalThis.pageLoadTime || (now - globalThis.pageLoadTime) < 100;
+    
+    // Initialize page load time on first run
+    if (!globalThis.pageLoadTime) {
+      globalThis.pageLoadTime = now;
+    }
+    
+    if ((width > tempCanvas.width || height > tempCanvas.height) && !isVeryEarlyLoad) {
+      // Default to purple for KidLisp pieces (most common case)
+      let bgColor = 'purple';
+      let r = 128, g = 0, b = 128;
+      
+      // Try to get actual background color from persistent storage
+      try {
+        if (typeof globalThis.getPersistentFirstLineColor === 'function') {
+          const persistentColor = globalThis.getPersistentFirstLineColor();
+          if (persistentColor) {
+            bgColor = persistentColor;
+            if (typeof globalThis.graph?.color?.coerce === 'function') {
+              const rgbValues = globalThis.graph.color.coerce(bgColor);
+              [r, g, b] = rgbValues;
+            }
+          }
+        }
+      } catch (e) {
+        // Use default purple values
+      }
+      
+      // Fill new areas with background color
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      
+      if (width > tempCanvas.width) {
+        ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
+      }
+      
+      if (height > tempCanvas.height) {
+        ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
+      }
+    }
+
     tempCanvas.width = glazeComposite.width;
     tempCanvas.height = glazeComposite.height;
 
@@ -450,7 +625,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
         link.crossOrigin = "anonymous";
-        link.href = "/type/webfonts/" + font;
+        
+        // Use origin-aware font loading
+        let fontUrl;
+        try {
+          // Check if we're in TEIA mode (sandboxed)
+          if (window.acTEIA_MODE) {
+            // In TEIA mode, use relative paths to bundled fonts
+            fontUrl = "./type/webfonts/" + font;
+          } else {
+            // Check if we're in development environment
+            const isDevelopment = location.hostname === 'localhost' && location.port;
+            if (isDevelopment) {
+              // In development, fonts are served from the root /type/webfonts/ path
+              fontUrl = "/type/webfonts/" + font;
+            } else {
+              // In production or sandboxed iframe, use the standard path
+              fontUrl = "/type/webfonts/" + font;
+            }
+          }
+        } catch (err) {
+          // Fallback to standard path if there's any error
+          fontUrl = "/type/webfonts/" + font;
+        }
+        
+        link.href = fontUrl;
         document.body.append(link);
       });
 
@@ -586,7 +785,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //       (Like in `hell_-world` or `freaky-flowers`) 23.10.25.20.32
   function setMetatags(meta) {
     if (meta?.title) {
-      document.title = meta.title;
+      // Don't override title in TEIA mode - let the pack-time title remain
+      if (!checkTeiaMode()) {
+        document.title = meta.title;
+      }
       const ogTitle = document.querySelector('meta[name="og:title"]');
       if (ogTitle) ogTitle.content = meta.title;
       const twitterTitle = document.querySelector('meta[name="twitter:title"]');
@@ -714,6 +916,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
+  // UDP / Geckos Networking
+  let UDP;
+  async function loadUDP() {
+    if (!UDP) {
+      if (debug) console.log("🌐 Loading UDP networking library...");
+      const udpModule = await import('./lib/udp.mjs');
+      UDP = udpModule.UDP;
+      if (debug) console.log("🌐 UDP Ready...");
+    }
+    return UDP;
+  }
+
   // 2. 🔈 Audio
   const sound = {
     bpm: new Float32Array(1),
@@ -743,6 +957,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     clearSoundSampleCache,
     requestSpeakerWaveforms,
     requestSpeakerAmplitudes,
+    requestSpeakerFrequencies,
     attachMicrophone,
     detachMicrophone,
     audioContext,
@@ -816,6 +1031,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function startSound() {
     if (navigator.audioSession) navigator.audioSession.type = "ambient";
 
+    // 🎵 AUDIO INITIALIZATION LOGGING - Critical for tracking audio timing setup
+    const audioStartTimestamp = performance.now();
+    // console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
+
     // Main audio feed
     audioContext = new AudioContext({
       latencyHint: "interactive",
@@ -825,6 +1044,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // sampleRate: 48000,
       sampleRate: 48000, //iOS || Aesthetic || Android ? 48000 : 192000,
     });
+
+    // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
+    // console.log(`🎵 AUDIO_CONTEXT_CREATED: sampleRate=${audioContext.sampleRate}, state=${audioContext.state}, baseLatency=${audioContext.baseLatency?.toFixed(6) || 'N/A'}s, outputLatency=${audioContext.outputLatency?.toFixed(6) || 'N/A'}s`);
+    // console.log(`🎵 AUDIO_TIMING_INIT: currentTime=${audioContext.currentTime.toFixed(6)}s, creation_delay=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
     acDISK_SEND({
       type: "audio:sample-rate",
@@ -1034,10 +1257,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Sound Synthesis Processor
     try {
+      // Skip worklet loading in TEIA mode to prevent AbortError
+      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
+                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      
+      if (isTeiaMode) {
+        if (debug) console.log("🎭 Skipping audio worklet loading in TEIA mode");
+        return;
+      }
+      
       (async () => {
         const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
         const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
+        
+        // 🎵 WORKLET LOADING LOGGING
+        const workletLoadStart = performance.now();
+        // console.log(`🎵 WORKLET_LOAD_START: Loading ${baseUrl}${cacheBuster}`);
+        
         await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
+        
+        const workletLoadTime = performance.now() - workletLoadStart;
+        // console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
 
         const speakerProcessor = new AudioWorkletNode(
           audioContext,
@@ -1047,6 +1287,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             processorOptions: { bpm: sound.bpm, debug: true },
           },
         );
+
+        // 🎵 WORKLET INITIALIZATION LOGGING
+        // console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
         beatSkip = function () {
           speakerProcessor.port.postMessage({ type: "beat:skip" });
@@ -1118,6 +1361,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speakerProcessor.port.postMessage({ type: "get-amplitudes" });
         };
 
+        requestSpeakerFrequencies = function () {
+          speakerProcessor.port.postMessage({ type: "get-frequencies" });
+        };
+
         speakerProcessor.port.onmessage = ({ data: msg }) => {
           if (msg.type === "waveforms") {
             send({ type: "waveforms", content: msg.content });
@@ -1126,6 +1373,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (msg.type === "amplitudes") {
             send({ type: "amplitudes", content: msg.content });
+            return;
+          }
+
+          if (msg.type === "frequencies") {
+            send({ type: "frequencies", content: msg.content });
             return;
           }
 
@@ -1172,11 +1424,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     function enableAudioPlayback(skip = false) {
-      if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
-        backgroundMusicEl.play();
-      }
-      if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
-        audioContext.resume();
+      try {
+        if (backgroundMusicEl.paused && currentBackgroundTrack !== null) {
+          backgroundMusicEl.play().catch(error => {
+            // Audio playback failed, probably due to browser policy
+            console.log("Background music play failed (user gesture required):", error.message);
+          });
+        }
+        if (!skip && ["suspended", "interrupted"].includes(audioContext.state)) {
+          audioContext.resume().catch(error => {
+            // AudioContext resume failed, probably due to browser policy  
+            console.log("AudioContext resume failed (user gesture required):", error.message);
+          });
+        }
+      } catch (error) {
+        console.log("Audio playback initialization failed:", error.message);
       }
     }
 
@@ -1192,20 +1454,46 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
+    // console.log("🎵 BIOS playSfx called:", {
+    //   id,
+    //   soundData,
+    //   options,
+    //   audioContextAvailable: !!audioContext,
+    //   sfxExists: !!sfx[soundData],
+    //   sfxType: sfx[soundData] ? typeof sfx[soundData] : "undefined"
+    // });
+    
     if (audioContext) {
       if (sfxCancel.includes(id)) {
+        // console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
         return;
       }
 
+      // Handle stream option - audio should be silent for streaming
+      if (options?.stream) {
+        console.log("🎵 BIOS stream option detected, audio will be silent:", soundData);
+        // Create a dummy playback object for tracking
+        sfxPlaying[id] = {
+          kill: () => {
+            // No-op for silent stream audio
+          }
+        };
+        return;
+      }
+
       // Instantly decode the audio before playback if it hasn't been already.
+      if (debug && logs.sound) console.log("🎵 BIOS attempting to decode sfx:", soundData);
       await decodeSfx(soundData);
+      if (debug && logs.sound) console.log("🎵 BIOS decode complete, sfx type now:", typeof sfx[soundData]);
 
       if (sfx[soundData] instanceof ArrayBuffer) {
+        console.log("🎵 BIOS sfx still ArrayBuffer, returning early");
         return;
       }
 
       if (!sfx[soundData]) {
+        // `console.log("🎵 BIOS sfx not found, queuing:", soundData);
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
           id,
@@ -1228,12 +1516,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         length: sfx[soundData].length,
       };
 
+      if (debug && logs.sound) {
+        console.log("🎵 BIOS sample prepared:", {
+          soundData,
+          sampleChannels: sample.channels.length,
+          sampleRate: sample.sampleRate,
+          length: sample.length,
+          triggerSoundAvailable: !!triggerSound
+        });
+      }
+
       // TODO: ⏰ Memoize the buffer data after first playback so it doesn't have to
       //          keep being sent on every playthrough. 25.02.15.08.22
 
       // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
-      sfxPlaying[id] = triggerSound?.({
+      const playResult = triggerSound?.({
         id,
         type: "sample",
         options: {
@@ -1251,6 +1549,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // attack: 0, // 🩷 TODO: These should have saner defaults.
         // decay: 0,
       });
+
+      // console.log("🎵 BIOS triggerSound result:", {
+      //   id,
+      //   playResult,
+      //   playResultType: typeof playResult
+      // });
+
+      sfxPlaying[id] = playResult;
 
       // Store the completion callback if provided
       if (completed) {
@@ -1284,13 +1590,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  type: "module",
   //});
   const fullPath =
-    "/aesthetic.computer/lib/disk.mjs" +
+    (window.acTEIA_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
     window.location.search +
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const sandboxed =
-    (window.origin === "null" || !window.origin) && !window.acVSCODE;
+    (window.origin === "null" || !window.origin || window.acTEIA_MODE) && !window.acVSCODE;
 
   const microphonePermission = await checkMicrophonePermission();
 
@@ -1318,6 +1624,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
+      teiaMode: window.acTEIA_MODE || false,
+      teiaKidlispCodes: window.teiaKidlispCodes || globalThis.teiaKidlispCodes || {},
       microphonePermission,
       resolution,
       embeddedSource,
@@ -1333,8 +1641,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  👷️ Always use workers if they are supported, except for
   //     when we are in VR (MetaBrowser).
   // Disable workers if we are in a sandboxed iframe.
-  const workersEnabled = !sandboxed;
-  // const workersEnabled = false;
+  // Test if workers are actually available instead of just checking sandboxed state
+  let workersEnabled = true;
+  try {
+    // Try to create a simple test worker to see if they're supported
+    if (typeof Worker === 'undefined') {
+      workersEnabled = false;
+    }
+  } catch (e) {
+    workersEnabled = false;
+  }
+  
+  // Override: force disable workers for OBJKT and other sandboxed environments
+  if (sandboxed || window.origin === "null") {
+    // Disable workers in any sandboxed environment, including OBJKT
+    workersEnabled = false;
+    if (debug) console.log("🚫 Workers disabled due to sandboxed/null origin environment");
+  }
+  
+  // Workers enabled logging removed for cleaner console
 
   if (/*!MetaBrowser &&*/ workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
@@ -1390,6 +1715,172 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // The initial message sends the path and host to load the disk.
   send(firstMessage);
   consumeDiskSends(send);
+
+  // 🎮 Initialize Game Boy emulator in main thread
+  // (Placed after worker setup so `send` is properly wired)
+  async function initGameboy() {
+    if (!window.WasmBoy) {
+      console.log("🎮 Loading wasmboy library...");
+      // Load wasmboy library dynamically
+      const wasmBoyModule = await import('./dep/wasmboy/wasmboy.ts.esm.js');
+      console.log("🎮 wasmBoyModule:", wasmBoyModule);
+      console.log("🎮 wasmBoyModule.WasmBoy:", wasmBoyModule.WasmBoy);
+      console.log("🎮 wasmBoyModule keys:", Object.keys(wasmBoyModule));
+      window.WasmBoy = wasmBoyModule.WasmBoy;
+    }
+    
+    if (!gameboyEmulator) {
+      console.log("🎮 Initializing Game Boy emulator with invisible canvas...");
+      
+      // Create a canvas but make it completely invisible
+      const hiddenCanvas = document.createElement('canvas');
+      hiddenCanvas.width = 160;
+      hiddenCanvas.height = 144;
+      hiddenCanvas.id = 'wasmboy-hidden-canvas';
+      
+      // Make canvas completely invisible using multiple methods
+      hiddenCanvas.style.cssText = `
+        position: fixed !important;
+        left: -99999px !important;
+        top: -99999px !important;
+        width: 1px !important;
+        height: 1px !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        z-index: -99999 !important;
+        display: none !important;
+      `;
+      
+      // Add comprehensive CSS to hide any wasmboy canvases
+      if (!document.getElementById('wasmboy-hide-style')) {
+        const style = document.createElement('style');
+        style.id = 'wasmboy-hide-style';
+        style.textContent = `
+          canvas[width="160"][height="144"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            position: fixed !important;
+            left: -99999px !important;
+            top: -99999px !important;
+            pointer-events: none !important;
+            z-index: -99999 !important;
+          }
+          #wasmboy-hidden-canvas {
+            display: none !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      document.body.appendChild(hiddenCanvas);
+      window.gameboyCanvas = hiddenCanvas; // Store reference for cleanup
+      
+      gameboyEmulator = window.WasmBoy; // It's a singleton, not a constructor
+      
+      await gameboyEmulator.config({
+        headless: false, // Must be false for updateGraphicsCallback to work
+        isAudioEnabled: true,
+        updateGraphicsCallback: (imageDataArray) => {
+          // Direct access to wasmboy's pixel buffer - much more efficient than canvas extraction
+          if (imageDataArray && imageDataArray.length === 92160) { // 160 * 144 * 4 = 92160 RGBA pixels
+            // Send the raw pixel data directly along with ROM metadata
+            acDISK_SEND({
+              type: "gameboy:frame-data", 
+              content: { 
+                pixels: imageDataArray,
+                romName: currentGameboyROM?.originalName || "unknown",
+                title: currentGameboyROM?.title || currentGameboyROM?.name || "unknown",
+                isGameBoyColor: currentGameboyROM?.isGameBoyColor || false
+              }
+            });
+          }
+        },
+        updateAudioCallback: (audioContext, audioBufferSourceNode) => {
+          // Route audio through AC's speaker system by connecting to sfxStreamGain
+          if (sfxStreamGain && audioBufferSourceNode) {
+            try {
+              // Check if audio contexts match
+              if (audioBufferSourceNode.context === sfxStreamGain.context) {
+                audioBufferSourceNode.connect(sfxStreamGain);
+              } else {
+                console.log("🎮 Audio context mismatch - Game Boy audio isolated");
+                // Let wasmboy handle its own audio output
+              }
+            } catch (error) {
+              console.log("🎮 Game Boy audio connection failed:", error.message);
+            }
+          }
+          return audioBufferSourceNode;
+        }
+      }, hiddenCanvas); // Pass the hidden canvas to setCanvas during config
+      
+      console.log("🎮 Game Boy emulator initialized");
+    }
+  }
+
+  // 🎮 Load a Game Boy ROM
+  async function loadGameboyROM(romData) {
+    try {
+      if (!gameboyEmulator) {
+        await initGameboy();
+      }
+      
+      console.log("🎮 Loading ROM:", romData.originalName);
+      
+      // Convert ArrayBuffer to Uint8Array for wasmboy
+      const romBytes = new Uint8Array(romData.romData);
+      await gameboyEmulator.loadROM(romBytes);
+      await gameboyEmulator.play();
+      
+      // Try to get cartridge info/metadata from wasmboy
+      try {
+        const cartridgeInfo = await gameboyEmulator.getCartridgeInfo();
+        console.log("🎮 Cartridge Info:", cartridgeInfo);
+        
+        // Add cartridge metadata to ROM data
+        romData.cartridgeInfo = cartridgeInfo;
+        romData.title = cartridgeInfo.titleAsString?.trim() || romData.name;
+        romData.isGameBoyColor = cartridgeInfo.isGameBoyColor || romData.isGameBoyColor;
+      } catch (error) {
+        console.log("🎮 Could not get cartridge info:", error);
+        romData.title = romData.name;
+      }
+      
+      currentGameboyROM = romData;
+      console.log("🎮 ROM loaded and playing:", romData.originalName);
+      
+      // Navigate to gameboy disk using AC's jump system
+      console.log("🎮 About to jump to gameboy piece");
+      send({ 
+        type: "jump", 
+        content: { 
+          piece: "gameboy",
+          ahistorical: false, // Add to history so user can go back
+          alias: true
+        }
+      });
+      console.log("🎮 Jump command sent to gameboy piece");
+      
+    } catch (error) {
+      console.error("🎮 Failed to load ROM:", error);
+    }
+  }
+
+  // 🎮 Handle Game Boy input from worker
+  function handleGameboyInput(joypadState) {
+    console.log("🎮 handleGameboyInput called with:", joypadState);
+    console.log("🎮 gameboyEmulator exists:", !!gameboyEmulator);
+    console.log("🎮 currentGameboyROM exists:", !!currentGameboyROM);
+    
+    if (gameboyEmulator && currentGameboyROM) {
+      console.log("🎮 Calling setJoypadState with:", joypadState);
+      gameboyEmulator.setJoypadState(joypadState);
+    } else {
+      console.warn("🎮 Cannot set joypad state - emulator or ROM not ready");
+    }
+  }
 
   // Beat
 
@@ -1499,7 +1990,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
         transferrableObjects = [pixelsBuffer];
       } catch (fallbackError) {
-        console.error("🎬 Failed to create fallback buffer:", fallbackError);
+        console.error("Failed to create fallback buffer:", fallbackError);
         // Create minimal empty buffer as absolute last resort
         const emptyPixels = new Uint8ClampedArray(64 * 64 * 4); // 64x64 fallback
         pixelsBuffer = emptyPixels.buffer;
@@ -1526,7 +2017,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           width: canvas.width,
           height: canvas.height,
           // TODO: Do all fields of `pointer` need to be sent? 22.09.19.23.30
-          pen: { events: pen?.events || [], pointers: pen?.pointers || {} },
+          pen: { 
+            events: resolution.tv ? [] : (pen?.events || []), // Skip pen events in TV mode
+            pointers: pen?.pointers || {} 
+          },
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
           keyboard: keyboard.events,
@@ -1587,26 +2081,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         originalCommand: ""
       };
       
-      let baseName = options.pieceName || "tape";
+      // Debug logging for filename issues
+      console.log("🎬 generateTapeFilename debug:", {
+        extension,
+        suffix,
+        options,
+        baseName: options.pieceName,
+        cachedCode: options.cachedCode,
+        HANDLE,
+        location: location?.host || "unknown"
+      });
       
+      let baseName = options.pieceName || "tape";
       // Handle special cases for kidlisp codes
       if (baseName === "$code") {
         // For kidlisp source code, use the cached code if available
         if (options.cachedCode) {
-          console.log(`🎬 Using cached code for filename: $${options.cachedCode}`);
           baseName = `$${options.cachedCode}`;
         } else {
           // Try to extract a $code from the original command as fallback
           const codeMatch = options.originalCommand.match(/\$([a-zA-Z0-9]+)/);
           if (codeMatch) {
-            console.log(`🎬 Using extracted code for filename: $${codeMatch[1]}`);
             baseName = `$${codeMatch[1]}`;
           } else {
             // No $code available, use "kidlisp" instead of literal "$code"
-            console.log(`🎬 No code available, using "kidlisp" for filename`);
             baseName = "kidlisp";
           }
         }
+      } else if (baseName.startsWith("$") && options.cachedCode) {
+        // If baseName is already a $code (like $erl) and we have cached code,
+        // don't apply the cached code again to avoid duplication
+      } else if (baseName === options.cachedCode) {
+        // If baseName matches cachedCode exactly (like "clock" === "clock"),
+        // don't apply cachedCode again to avoid duplication like "clockclock"
       }
       // Note: If pieceName already has $ prefix (from cached code), use it as-is
       
@@ -1614,18 +2121,137 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const params = options.pieceParams || "";
       const paramsStr = params ? params.replace(/~/g, "-") : "";
       
-      // Build filename: pieceName[params]-timestamp[suffix].extension
-      const parts = [
-        baseName + paramsStr,
-        timestamp() + suffix
-      ].filter(Boolean);
+      // Include user handle if available for personalized filenames
+      // Use cached computed timestamp for perfect filename/visual synchronization,
+      // otherwise fall back to recording start timestamp or current timestamp
+      let fileTimestamp;
+      let durationPart = "";
       
-      return parts.join("-") + "." + extension;
+      if (window.firstFrameComputedTimestamp && extension === "gif") {
+        // For GIF recordings, use the exact same computed timestamp as shown in the first frame
+        // Use the same formatting as the visual timestamp (no zero-padding except milliseconds)
+        const d = new Date(window.firstFrameComputedTimestamp);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1; // getMonth() returns 0-11
+        const day = d.getDate();
+        const hour = d.getHours();
+        const minute = d.getMinutes();
+        const second = d.getSeconds();
+        const millisecond = d.getMilliseconds();
+        
+        // Match visual timestamp format exactly: no zero-padding except for milliseconds
+        fileTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        
+        // Check if this was a frame-based recording (check frameMode first, then fallback to gifDurationMs)
+        const isFrameBased = window.currentRecordingOptions && 
+                            window.currentRecordingOptions.frameMode && 
+                            window.currentRecordingOptions.frameCount;
+        
+        if (isFrameBased) {
+          // For frame-based recordings, use frame count with 'f' suffix
+          const frameCount = window.currentRecordingOptions.frameCount;
+          durationPart = `-${frameCount}f`;
+        } else if (window.gifDurationMs) {
+          // For time-based recordings, use seconds with 's' suffix
+          const totalSeconds = Math.round(window.gifDurationMs / 1000 * 10) / 10; // Round to 1 decimal place
+          durationPart = `-${totalSeconds}s`;
+        }
+        
+        console.log(`🎬 Using cached computed timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
+      } else if (window.recordingStartTimestamp && extension === "gif") {
+        // Fallback to recording start timestamp if no cached computed timestamp
+        // Use the same formatting as the visual timestamp (no zero-padding except milliseconds)
+        const d = new Date(window.recordingStartTimestamp);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        const hour = d.getHours();
+        const minute = d.getMinutes();
+        const second = d.getSeconds();
+        const millisecond = d.getMilliseconds();
+        
+        // Match visual timestamp format exactly: no zero-padding except for milliseconds
+        fileTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        
+        // Check if this was a frame-based recording (check frameMode first, then fallback to gifDurationMs)
+        const isFrameBased = window.currentRecordingOptions && 
+                            window.currentRecordingOptions.frameMode && 
+                            window.currentRecordingOptions.frameCount;
+        
+        if (isFrameBased) {
+          // For frame-based recordings, use frame count with 'f' suffix
+          const frameCount = window.currentRecordingOptions.frameCount;
+          durationPart = `-${frameCount}f`;
+        } else if (window.gifDurationMs) {
+          // For time-based recordings, use seconds with 's' suffix
+          const totalSeconds = Math.round(window.gifDurationMs / 1000 * 10) / 10; // Round to 1 decimal place
+          durationPart = `-${totalSeconds}s`;
+        }
+        
+        console.log(`🎬 Using recording start timestamp for GIF filename: ${d.toISOString()}${durationPart ? ` (duration: ${durationPart})` : ''}`);
+      } else {
+        // For other files or when no recording timestamp is available
+        // Add safety check for longer recordings
+        try {
+          fileTimestamp = timestamp();
+        } catch (error) {
+          console.warn("⚠️ Timestamp generation failed, using simple fallback:", error.message);
+          const now = new Date();
+          fileTimestamp = `${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()}.${now.getHours()}.${now.getMinutes()}.${now.getSeconds()}`;
+        }
+      }
+      
+      // Assemble filename parts: [@handle-][pieceName[params]-]timestamp-duration[suffix].extension
+      // Skip command entirely in mystery mode
+      const parts = [];
+      
+      // Add handle prefix if user has one
+      if (HANDLE && typeof HANDLE === 'string' && HANDLE.length > 0) {
+        console.log(`🎬 Adding handle to filename: "${HANDLE}"`);
+        // Ensure handle doesn't already have @ prefix to avoid @@
+        const handlePrefix = HANDLE.startsWith('@') ? HANDLE : `@${HANDLE}`;
+        parts.push(handlePrefix);
+      }
+      
+      // Add piece name with parameters (skip entirely if mystery mode)
+      if (!options.mystery && baseName && typeof baseName === 'string') {
+        console.log(`🎬 Adding piece name to filename: "${baseName}" (params: "${paramsStr}")`);
+        parts.push(baseName + paramsStr);
+      } else if (options.mystery) {
+        console.log(`🎬 Skipping piece name due to mystery mode`);
+      } else {
+        console.log(`🎬 Skipping piece name - baseName: "${baseName}", type: ${typeof baseName}`);
+      }
+      
+      // Add timestamp with duration - ensure these are valid strings
+      if (fileTimestamp && typeof fileTimestamp === 'string') {
+        parts.push(fileTimestamp + durationPart + suffix);
+      } else {
+        // Emergency fallback timestamp
+        const emergency = Date.now().toString();
+        console.warn("⚠️ Using emergency timestamp fallback:", emergency);
+        parts.push(emergency + suffix);
+      }
+      
+      // Final safety check and assembly
+      const validParts = parts.filter(part => part && typeof part === 'string' && part.length > 0);
+      if (validParts.length === 0) {
+        console.warn("⚠️ No valid filename parts, using emergency fallback");
+        return `tape-${Date.now()}.${extension}`;
+      }
+      
+      return validParts.join("-") + "." + extension;
     }
 
     if (type === "pen:lock") {
       console.log("🖋️ Request pen lock...");
       wrapper.requestPointerLock();
+      return;
+    }
+
+    // 🎮 Handle Game Boy input from worker
+    if (type === "gameboy:input") {
+      handleGameboyInput(content);
       return;
     }
 
@@ -1666,17 +2292,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Connect to a UDP server,
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
-      UDP.connect(content.port, content.url, send);
+      const udp = await loadUDP();
+      udp.connect(content.port, content.url, send);
       return;
     }
 
     // Send a message to the UDP server.
     if (type === "udp:send") {
-      UDP.send(content);
+      const udp = await loadUDP();
+      udp.send(content);
       return;
     } // Disconect from the UDP server.
     if (type === "udp:disconnect") {
-      UDP.disconnect(content.outageSeconds);
+      const udp = await loadUDP();
+      udp.disconnect(content.outageSeconds);
       return;
     }
 
@@ -1789,17 +2418,58 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Handle export events forwarded from worker via send() fallback
+    if (type === "export-event-fallback") {
+      // Route export events to current piece through actEvents
+      if (actEvents && content && content.eventType && content.eventContent) {
+        const event = {
+          is: (eventType) => eventType === content.eventType,
+          type: content.eventType,
+          content: content.eventContent,
+          progress: content.eventType === "recorder:transcode-progress" ? content.eventContent : undefined
+        };
+        
+        console.log("🔗 ✅ Routed fallback export event to piece:", content.eventType);
+        actEvents.add(event);
+      } else {
+        console.log("🔗 ❌ Cannot route fallback event - missing actEvents or content:", !!actEvents, !!content);
+      }
+      return;
+    }
+
+    // Handle direct export events from worker (when actEvents unavailable during export)
+    if (
+      type === "recorder:export-status" ||
+      type === "recorder:export-progress" ||
+      type === "recorder:transcode-progress" ||
+      type === "recorder:export-complete"
+    ) {
+      // Route direct export events to current piece through actEvents
+      if (actEvents) {
+        const event = {
+          is: (eventType) => eventType === type,
+          type: type,
+          content: content,
+          progress: type === "recorder:transcode-progress" ? content : undefined
+        };
+        
+        console.log("🔗 ✅ Routed direct export event to piece:", type);
+        actEvents.add(event);
+      }
+      return;
+    }
+
     // Sync labelBack state between worker and main thread
     if (type === "labelBack:set") {
       mainThreadLabelBack = true;
-      sessionStorage.setItem("aesthetic-labelBack", "true");
+      window.safeSessionStorageSet("aesthetic-labelBack", "true");
       console.log("🔗 Main thread: Set labelBack in sessionStorage");
       return;
     }
 
     if (type === "labelBack:clear") {
       mainThreadLabelBack = false;
-      sessionStorage.removeItem("aesthetic-labelBack");
+      window.safeSessionStorageRemove("aesthetic-labelBack");
       console.log("🔗 Main thread: Cleared labelBack from sessionStorage");
       return;
     }
@@ -1853,21 +2523,206 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add the sideways AC stamp (same as video recording)
-    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null) {
+    async function addAestheticComputerStamp(ctx, canvasWidth, canvasHeight, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null) {
+      // Skip all stamps in clean mode
+      if (window.currentRecordingOptions?.cleanMode) {
+        console.log("🎬 🧹 Skipping Aesthetic Computer stamp in clean mode");
+        return;
+      }
+      
       // Ensure fonts are loaded before drawing
       await ensureFontsLoaded();
 
       // 2. Set up the font.
       const typeSize = Math.min(
-        16,
+        18,
         Math.max(12, Math.floor(canvasHeight / 40)),
       );
       const gap = typeSize * 0.75;
 
       ctx.save(); // Save the current state of the canvas
 
+      // Calculate stamp visibility for timestamp fade coordination
+      let bothStampsInvisible = false;
+      const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+      
+      if (isFrameBasedRecording) {
+        // For frame-based recordings longer than 60 frames: use alternating side timing logic
+        const frameCount = window.currentRecordingOptions?.frameCount || 0;
+        
+        if (frameCount > 60 && frameIndex !== null) {
+          const cyclesPerGif = 2;
+          const frameProgress = frameIndex / frameCount;
+          const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+          
+          // Check if we're in the "both off" phases (0-20% and 40-60%)
+          if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+            bothStampsInvisible = true;
+          }
+        }
+      } else {
+        // Time-based recordings
+        const cyclesPerGif = 2;
+        const cyclePosition = (progress * cyclesPerGif) % 1.0;
+        
+        // Check if we're in the "both off" phases (0-20% and 40-60%)
+        if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+          bothStampsInvisible = true;
+        }
+      }
+
       // Add film camera style timestamp at bottom-left corner
-      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData);
+      addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress, frameData, frameMetadata, frameIndex, totalFrames, bothStampsInvisible);
+
+      // Add Tezos watermark if enabled
+      if (window.currentRecordingOptions?.showTezosStamp) {
+        // Calculate both stamp visibility for Tezos blink sync
+        let showLeftStamp = false;
+        let showRightStamp = false;
+        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+        
+        if (isFrameBasedRecording) {
+          showLeftStamp = true;
+          showRightStamp = true;
+        } else {
+          const cyclesPerGif = 2;
+          const cyclePosition = (progress * cyclesPerGif) % 1.0;
+          
+          if (cyclePosition < 0.2) {
+            // Phase 1 (0-20%): Both off
+            showLeftStamp = false;
+            showRightStamp = false;
+          } else if (cyclePosition < 0.4) {
+            // Phase 2 (20-40%): Both on
+            showLeftStamp = true;
+            showRightStamp = true;
+          } else if (cyclePosition < 0.6) {
+            // Phase 3 (40-60%): Both off
+            showLeftStamp = false;
+            showRightStamp = false;
+          } else if (cyclePosition < 0.8) {
+            // Phase 4 (60-80%): Left only
+            showLeftStamp = true;
+            showRightStamp = false;
+          } else {
+            // Phase 5 (80-100%): Right only
+            showLeftStamp = false;
+            showRightStamp = true;
+          }
+        }
+        
+        // Removed addTezosStamp from top right - now positioned with timestamp
+      }
+
+      // Add Tezos watermark to top-right if enabled (but not when right stamp is showing)
+      if (window.currentRecordingOptions?.showTezosStamp) {
+        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+        
+        // Use the SAME visibility logic as the actual stamps to avoid conflicts
+        let showRightStamp = false;
+        
+        if (isFrameBasedRecording) {
+          // For frame-based recordings longer than 60 frames: use alternating side timing logic
+          const frameCount = window.currentRecordingOptions?.frameCount || 0;
+          
+          if (frameCount > 60 && frameIndex !== null) {
+            // 5-phase pattern across total frame count
+            const cyclesPerGif = 2;
+            const frameProgress = frameIndex / frameCount;
+            const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+            
+            if (cyclePosition < 0.2) {
+              showRightStamp = false;
+            } else if (cyclePosition < 0.4) {
+              showRightStamp = true;
+            } else if (cyclePosition < 0.6) {
+              showRightStamp = false;
+            } else if (cyclePosition < 0.8) {
+              showRightStamp = false; // Left only
+            } else {
+              showRightStamp = true; // Right only
+            }
+          } else {
+            // For shorter recordings: always show both stamps, so Tezos should never show
+            showRightStamp = true;
+          }
+        } else {
+          // Time-based recordings: use progress-based visibility (SAME as stamp logic)
+          const cyclesPerGif = 2;
+          const cyclePosition = (progress * cyclesPerGif) % 1.0;
+          
+          if (cyclePosition < 0.2) {
+            showRightStamp = false; // Both off
+          } else if (cyclePosition < 0.4) {
+            showRightStamp = true; // Both on
+          } else if (cyclePosition < 0.6) {
+            showRightStamp = false; // Both off
+          } else if (cyclePosition < 0.8) {
+            showRightStamp = false; // Left only
+          } else {
+            showRightStamp = true; // Right only
+          }
+        }
+        
+        // Calculate fade alpha for Tezos logo (inverse of right stamp)
+        let tezosFadeAlpha = 1.0;
+        
+        if (isFrameBasedRecording) {
+          const frameCount = window.currentRecordingOptions?.frameCount || 0;
+          
+          if (frameCount > 60 && frameIndex !== null) {
+            const cyclesPerGif = 2;
+            const frameProgress = frameIndex / frameCount;
+            const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+            
+            // Tezos is visible when right stamp is NOT visible, with longer fades
+            if (cyclePosition < 0.15) {
+              tezosFadeAlpha = 1.0; // Fully visible
+            } else if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+              tezosFadeAlpha = 1.0 - ((cyclePosition - 0.15) / 0.10); // Fade out as right stamp fades in
+            } else if (cyclePosition > 0.25 && cyclePosition < 0.35) {
+              tezosFadeAlpha = 0.0; // Hidden while both stamps on
+            } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+              tezosFadeAlpha = (cyclePosition - 0.35) / 0.10; // Fade in as stamps fade out
+            } else if (cyclePosition > 0.45 && cyclePosition < 0.75) {
+              tezosFadeAlpha = 1.0; // Visible during off phases and left-only
+            } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+              tezosFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10); // Fade out as right stamp fades in
+            } else {
+              tezosFadeAlpha = 0.0; // Hidden during right-only phase
+            }
+          } else {
+            tezosFadeAlpha = 0.0; // Hidden for shorter recordings
+          }
+        } else {
+          // Time-based recordings
+          const cyclesPerGif = 2;
+          const cyclePosition = (progress * cyclesPerGif) % 1.0;
+          
+          if (cyclePosition < 0.15) {
+            tezosFadeAlpha = 1.0;
+          } else if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+            tezosFadeAlpha = 1.0 - ((cyclePosition - 0.15) / 0.10);
+          } else if (cyclePosition > 0.25 && cyclePosition < 0.35) {
+            tezosFadeAlpha = 0.0;
+          } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+            tezosFadeAlpha = (cyclePosition - 0.35) / 0.10;
+          } else if (cyclePosition > 0.45 && cyclePosition < 0.75) {
+            tezosFadeAlpha = 1.0;
+          } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+            tezosFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10);
+          } else {
+            tezosFadeAlpha = 0.0;
+          }
+        }
+        
+        // Clamp alpha and show with fade
+        tezosFadeAlpha = Math.max(0.0, Math.min(1.0, tezosFadeAlpha));
+        
+        if (tezosFadeAlpha > 0.0) {
+          addTezosStamp(ctx, canvasWidth, canvasHeight, typeSize, isFrameBasedRecording, true, true, frameIndex, tezosFadeAlpha);
+        }
+      }
 
       drawTextAtPosition(0, 90); // Left
       drawTextAtPosition(canvasWidth, -90); // Right
@@ -1876,95 +2731,467 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ctx.globalAlpha = 1;
 
       function drawTextAtPosition(positionX, deg) {
+        // Skip fade animations for frame-based recordings
+        const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+        
+        // Debug logging
+        if (frameIndex === 0) {
+          console.log("🎬 Stamp visibility debug:", {
+            isFrameBasedRecording,
+            frameMode: window.currentRecordingOptions?.frameMode,
+            showTezosStamp: window.currentRecordingOptions?.showTezosStamp
+          });
+        }
+        
+        let showLeftStamp = false;
+        let showRightStamp = false;
+        
+        if (isFrameBasedRecording) {
+          // For frame-based recordings longer than 60 frames: use alternating side timing logic
+          const frameCount = window.currentRecordingOptions?.frameCount || 0;
+          
+          if (frameCount > 60 && frameIndex !== null) {
+            // 5-phase pattern across total frame count: both off, both on, both off, left only, right only
+            const cyclesPerGif = 2; // Pattern loops 2 times across the full recording
+            const frameProgress = frameIndex / frameCount; // 0-1 progress through recording
+            const cyclePosition = (frameProgress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+            
+            if (cyclePosition < 0.2) {
+              // Phase 1 (0-20%): Both off
+              showLeftStamp = false;
+              showRightStamp = false;
+            } else if (cyclePosition < 0.4) {
+              // Phase 2 (20-40%): Both on
+              showLeftStamp = true;
+              showRightStamp = true;
+            } else if (cyclePosition < 0.6) {
+              // Phase 3 (40-60%): Both off
+              showLeftStamp = false;
+              showRightStamp = false;
+            } else if (cyclePosition < 0.8) {
+              // Phase 4 (60-80%): Left only
+              showLeftStamp = true;
+              showRightStamp = false;
+            } else {
+              // Phase 5 (80-100%): Right only
+              showLeftStamp = false;
+              showRightStamp = true;
+            }
+          } else {
+            // For shorter frame recordings: always show both stamps
+            showLeftStamp = true;
+            showRightStamp = true;
+          }
+        } else {
+          // 5-phase pattern stretched across GIF duration: both off, both on, both off, left only, right only
+          // Use progress (0-1) to determine cycle position - allows multiple loops per GIF
+          const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
+          const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+          
+          if (cyclePosition < 0.2) {
+            // Phase 1 (0-20%): Both off
+            showLeftStamp = false;
+            showRightStamp = false;
+          } else if (cyclePosition < 0.4) {
+            // Phase 2 (20-40%): Both on
+            showLeftStamp = true;
+            showRightStamp = true;
+          } else if (cyclePosition < 0.6) {
+            // Phase 3 (40-60%): Both off
+            showLeftStamp = false;
+            showRightStamp = false;
+          } else if (cyclePosition < 0.8) {
+            // Phase 4 (60-80%): Left only
+            showLeftStamp = true;
+            showRightStamp = false;
+          } else {
+            // Phase 5 (80-100%): Right only
+            showLeftStamp = false;
+            showRightStamp = true;
+          }
+        }
+        
+        // Determine if this specific stamp should show with fade transitions
+        let stampFadeAlpha = 0.0;
+        
+        // Calculate fade alpha for smooth transitions instead of hard cuts
+        const fadeSpeed = 0.05; // How much of each phase is fade transition (5%)
+        
+        if (deg === 90) {
+          // Left side - calculate fade alpha
+          if (showLeftStamp) {
+            stampFadeAlpha = 1.0;
+          } else {
+            stampFadeAlpha = 0.0;
+          }
+          
+          // Add fade transitions at boundaries
+          if (isFrameBasedRecording) {
+            // For frame-based: add quick fades at phase transitions
+            const frameCount = window.currentRecordingOptions?.frameCount || 0;
+            if (frameCount > 60 && frameIndex !== null) {
+              const cyclesPerGif = 2;
+              const frameProgress = frameIndex / frameCount;
+              const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+              
+              // Quick fade in/out at transition points - longer fades for visibility
+              if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+                // Fade in to "both on" phase (10% fade period)
+                stampFadeAlpha = (cyclePosition - 0.15) / 0.10; // 0 to 1 over 10% of cycle
+              } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+                // Fade out from "both on" phase (10% fade period)
+                stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10); // 1 to 0 over 10% of cycle
+              } else if (cyclePosition >= 0.55 && cyclePosition <= 0.65) {
+                // Fade in to "left only" phase (10% fade period)
+                stampFadeAlpha = (cyclePosition - 0.55) / 0.10; // 0 to 1 over 10% of cycle
+              } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+                // Fade out from "left only" phase (10% fade period)
+                stampFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10); // 1 to 0 over 10% of cycle
+              }
+            }
+          } else {
+            // Time-based recordings: add fade transitions (longer fades)
+            const cyclesPerGif = 2;
+            const cyclePosition = (progress * cyclesPerGif) % 1.0;
+            
+            if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+              stampFadeAlpha = (cyclePosition - 0.15) / 0.10;
+            } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+              stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10);
+            } else if (cyclePosition >= 0.55 && cyclePosition <= 0.65) {
+              stampFadeAlpha = (cyclePosition - 0.55) / 0.10;
+            } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+              stampFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10);
+            }
+          }
+        } else if (deg === -90) {
+          // Right side - calculate fade alpha
+          if (showRightStamp) {
+            stampFadeAlpha = 1.0;
+          } else {
+            stampFadeAlpha = 0.0;
+          }
+          
+          // Add fade transitions at boundaries  
+          if (isFrameBasedRecording) {
+            const frameCount = window.currentRecordingOptions?.frameCount || 0;
+            if (frameCount > 60 && frameIndex !== null) {
+              const cyclesPerGif = 2;
+              const frameProgress = frameIndex / frameCount;
+              const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+              
+              if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+                stampFadeAlpha = (cyclePosition - 0.15) / 0.10;
+              } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+                stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10);
+              } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+                stampFadeAlpha = (cyclePosition - 0.75) / 0.10;
+              }
+            }
+          } else {
+            const cyclesPerGif = 2;
+            const cyclePosition = (progress * cyclesPerGif) % 1.0;
+            
+            if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+              stampFadeAlpha = (cyclePosition - 0.15) / 0.10;
+            } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+              stampFadeAlpha = 1.0 - ((cyclePosition - 0.35) / 0.10);
+            } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+              stampFadeAlpha = (cyclePosition - 0.75) / 0.10;
+            }
+          }
+        }
+        
+        // Clamp alpha to valid range
+        stampFadeAlpha = Math.max(0.0, Math.min(1.0, stampFadeAlpha));
+        
+        if (stampFadeAlpha <= 0.0) {
+          return; // Skip drawing this stamp
+        }
+
         ctx.save();
         ctx.translate(positionX, 0);
         ctx.rotate((deg * Math.PI) / 180); // Convert degrees to radians
-        const yDist = 0.25; // Move towards center (was 0.05)
+        
+        // Separate positioning for left and right sides for better spacing
+        const leftYDist = 0.10; // Closer to corner (was 0.18)
+        const rightYDist = 0.08; // Closer to corner, but still avoid Tezos overlap (was 0.15)
 
-        // Use same size as timestamp for consistency and sharpness
-        const stampSize = Math.min(
-          32,
-          Math.max(18, Math.floor(canvasHeight / 25)),
-        );
-        ctx.font = `${stampSize}px YWFTProcessing-Regular`;
-        const text = "aesthetic.computer";
+        // Use smaller size to match timestamp better  
+        ctx.font = `${typeSize * 1.4}px YWFTProcessing-Regular`;
+        
+        // Always use Aesthetic.Computer text
+        const text = "Aesthetic.Computer";
         const measured = ctx.measureText(text);
         const textWidth = measured.width;
 
+        // Helper function to render text with multicolored shooting star dot
+        function renderTextWithStarDot(ctx, fullText, x, y, baseColor, alpha, offsetX, offsetY, frameIndex) {
+          const parts = fullText.split('.');
+          if (parts.length !== 2) {
+            // Fallback to normal rendering if not split correctly
+            ctx.fillText(fullText, x + offsetX, y + offsetY);
+            return;
+          }
+          
+          const beforeDot = parts[0]; // "Aesthetic"
+          const afterDot = parts[1];  // "Computer"
+          
+          // Measure parts
+          const beforeWidth = ctx.measureText(beforeDot).width;
+          const dotWidth = ctx.measureText('.').width;
+          
+          // Render "Aesthetic"
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.fillText(beforeDot, x + offsetX, y + offsetY);
+          
+          // Render CRT-style piercing dot - bright, small, sharp like asteroids
+          const dotX = x + beforeWidth + offsetX;
+          const dotY = y + offsetY;
+          
+          // CRT cathode ray piercing colors - bright, sharp, high-contrast
+          const crtColors = ["#FFFFFF", "#00FFFF", "#FFFF00", "#FF0000", "#00FF00", "#FF00FF"];
+          let dotColor;
+          let dotAlpha = alpha;
+          
+          if (frameIndex !== null) {
+            // Frame-based CRT flicker animation - faster changes for piercing effect
+            const colorIndex = Math.floor(frameIndex / 1) % crtColors.length; // Change color every frame
+            dotColor = crtColors[colorIndex];
+            
+            // Sharp, bright pulse - no gentle curves, pure CRT intensity
+            dotAlpha = alpha * (frameIndex % 2 === 0 ? 1.0 : 0.9); // Sharp flicker between 90% and 100%
+          } else {
+            // Time-based fallback - faster CRT-style changes
+            const timeIndex = Math.floor(Date.now() / 100) % crtColors.length; // Change every 100ms
+            dotColor = crtColors[timeIndex];
+            dotAlpha = alpha * (Math.floor(Date.now() / 100) % 2 === 0 ? 1.0 : 0.9); // Sharp time-based flicker
+          }
+          
+          ctx.fillStyle = dotColor;
+          ctx.globalAlpha = dotAlpha;
+          ctx.fillText('.', dotX, dotY);
+          
+          // Render "Computer"
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = alpha;
+          ctx.fillText(afterDot, dotX + dotWidth, dotY);
+        }
+
         ["red", "lime", "blue", "white"].forEach((color) => {
+          // Skip fade animations for frame-based recordings
+          const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+          
+          // Frame-based glitch effects for frame recordings
+          let glitchAlpha = 1.0;
+          if (isFrameBasedRecording && frameIndex !== null) {
+            // Different glitch patterns for each color layer
+            if (color === "red") {
+              glitchAlpha = (frameIndex + 1) % 5 === 0 ? 0.2 : 1.0; // Dim every 5th frame
+            } else if (color === "lime") {
+              glitchAlpha = (frameIndex + 2) % 8 === 0 ? 0.0 : 1.0; // Off every 8th frame (offset)
+            } else if (color === "blue") {
+              glitchAlpha = (frameIndex + 3) % 6 === 0 ? 0.4 : 1.0; // Dim every 6th frame (offset)
+            } else if (color === "white") {
+              glitchAlpha = (frameIndex + 1) % 4 === 0 ? 0.6 : 1.0; // Dim every 4th frame
+            }
+          }
+          
           let offsetX, offsetY;
           if (color !== "white") {
-            ctx.globalAlpha = 0.45;
-            offsetX = choose([-1, -2, 0, 1, 2]); // Smaller offsets for sharper look
-            offsetY = choose([-1, -2, 0, 1, 2]); // Smaller offsets for sharper look
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.5 * glitchAlpha : 0.5) * stampFadeAlpha; // Restore multicolor balance
+            offsetX = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
+            offsetY = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
           } else {
-            ctx.globalAlpha = choose([0.5, 0.4, 0.6]);
-            offsetX = choose([-1, 0, 1]);
-            offsetY = choose([-1, 0, 1]);
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.85 * glitchAlpha : choose([0.75, 0.85, 0.95])) * stampFadeAlpha; // Brighter white for dot visibility
+            offsetX = choose([-1, 0, 1]); // Some offsets for multicolor effect
+            offsetY = choose([-1, 0, 1]); // Some offsets for multicolor effect
             color = choose(["white", "white", "white", "magenta", "yellow"]);
           }
 
           ctx.fillStyle = color;
 
           if (deg === 90) {
-            ctx.fillText(
+            // Left side - move lower (closer to bottom)
+            renderTextWithStarDot(
+              ctx,
               text,
-              floor(canvasHeight * (1 - yDist) - textWidth + offsetY),
-              -floor(offsetX + gap),
+              floor(canvasHeight * (1 - leftYDist) - textWidth),
+              -floor(gap),
+              color,
+              ctx.globalAlpha,
+              offsetX,
+              offsetY,
+              frameIndex
             );
           } else if (deg === -90) {
-            // Right side pushed higher up
-            // const rightSideYOffset = typeSize * 0.8; // Push higher up the side
-            ctx.fillText(
+            // Right side - move higher (closer to top)
+            renderTextWithStarDot(
+              ctx,
               text,
-              -Math.floor(canvasHeight * yDist + textWidth + offsetY),
-              Math.floor(offsetX - gap),
+              -Math.floor(canvasHeight * rightYDist + textWidth),
+              Math.floor(-gap),
+              color,
+              ctx.globalAlpha,
+              offsetX,
+              offsetY,
+              frameIndex
             );
           }
         });
 
         if (HANDLE) {
-          ctx.font = `${typeSize * 1.6}px YWFTProcessing-Light`; // Even larger handle text
+          ctx.font = `${typeSize * 1.3}px YWFTProcessing-Light`; // Smaller handle text (was 1.5)
           const handleWidth = textWidth / 2 + ctx.measureText(HANDLE).width / 2;
-          const handleSpace = typeSize * 1.35;
+          const handleSpace = typeSize * 2.0; // More spacing (was 1.5)
+          
+          // Skip fade animations for frame-based recordings
+          const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
           
           // Restore original 4-layer system with warmer color palette
           ["red", "lime", "blue", "white"].forEach((color) => {
+            // Frame-based glitch effects for frame recordings
+            let glitchAlpha = 1.0;
+            if (isFrameBasedRecording && frameIndex !== null) {
+              // Different glitch patterns for handle text (offset from main text)
+              if (color === "red") {
+                glitchAlpha = (frameIndex + 2) % 7 === 0 ? 0.1 : 1.0; // Off every 7th frame (offset)
+              } else if (color === "lime") {
+                glitchAlpha = (frameIndex + 3) % 5 === 0 ? 0.3 : 1.0; // Dim every 5th frame (offset)
+              } else if (color === "blue") {
+                glitchAlpha = (frameIndex + 4) % 9 === 0 ? 0.0 : 1.0; // Off every 9th frame (offset)
+              } else if (color === "white") {
+                glitchAlpha = (frameIndex + 2) % 3 === 0 ? 0.4 : 1.0; // Dim every 3rd frame (offset)
+              }
+            }
+            
             let offsetX, offsetY;
             if (color !== "white") {
-              ctx.globalAlpha = 0.6;
-              offsetX = choose([-2, -4, 0, 2, 4]);
-              offsetY = choose([-2, -4, 0, 2, 4]);
+              ctx.globalAlpha = (isFrameBasedRecording ? 0.6 * glitchAlpha : 0.6) * stampFadeAlpha; // Less bright to keep multicolor look
+              offsetX = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
+              offsetY = choose([-1, -2, 0, 1, 2]); // More offsets for multicolor flickering
             } else {
-              ctx.globalAlpha = choose([0.7, 0.8, 0.9]);
-              offsetX = choose([-1, 0, 1]);
-              offsetY = choose([-1, 0, 1]);
+              ctx.globalAlpha = (isFrameBasedRecording ? 0.8 * glitchAlpha : choose([0.7, 0.8, 0.9])) * stampFadeAlpha; // Keep bright white layer
+              offsetX = choose([-1, 0, 1]); // Some offsets for multicolor effect
+              offsetY = choose([-1, 0, 1]); // Some offsets for multicolor effect
               color = choose(["white", "white", "white", "magenta", "yellow"]); // Original warmer palette
             }
 
             ctx.fillStyle = color;
 
             if (deg === 90) {
-              // Handle - left side positioning unchanged
+              // Handle - left side positioning (lower)
               ctx.fillText(
                 HANDLE,
-                floor(canvasHeight * (1 - yDist) - handleWidth + offsetY),
+                floor(canvasHeight * (1 - leftYDist) - handleWidth + offsetY),
                 -floor(offsetX + handleSpace + gap),
               );
             } else if (deg === -90) {
-              // Handle - right side pushed higher up
-              // const rightSideYOffset = typeSize * 0.8; // Push higher up the side
+              // Handle - right side positioning (higher)
               ctx.fillText(
                 HANDLE,
-                -Math.floor(canvasHeight * yDist + handleWidth + offsetY),
+                -Math.floor(canvasHeight * rightYDist + handleWidth + offsetY),
                 Math.floor(offsetX - handleSpace - gap),
               );
             }
           });
         }
 
+        // Add Tezos stamp as a third element (only for frame-based recordings)
         // Remove the old timestamp code from here since it's now in addFilmTimestamp
 
+        ctx.restore();
+      }
+
+      // Helper function to add Tezos support stamp - Vegas-style magical watermark
+      function addTezosStamp(ctx, canvasWidth, canvasHeight, typeSize, isFrameBasedRecording, showLeftStamp = true, showRightStamp = true, frameIndex = null, fadeAlpha = 1.0) {
+        ctx.save();
+        
+        // Show Tezos when either stamp is visible (hide only when both are off)
+        if (!showLeftStamp && !showRightStamp) {
+          ctx.restore();
+          return;
+        }
+        
+        // Much smaller watermark size with thinner font
+        const billSize = Math.max(32, Math.floor(canvasHeight / 16)); // Bit smaller (was 44 and /11)
+        ctx.font = `${billSize}px YWFTProcessing-Light, Arial, "Segoe UI Symbol", "Apple Color Emoji", sans-serif`;
+        
+        // Use the official Tezos symbol
+        const tezosSymbol = "ꜩ"; // U+A729 (official Tezos symbol)
+        
+        const textWidth = ctx.measureText(tezosSymbol).width;
+        
+        // Position with more margin from edges
+        const marginX = Math.max(12, Math.floor(canvasHeight / 70)); // More margin (was /100)
+        const marginY = Math.max(15, Math.floor(canvasHeight / 60)); // More margin (was /80)
+        const x = Math.floor(canvasWidth - textWidth - marginX); // Pixel boundary
+        const y = Math.floor(marginY + billSize * 0.6); // More snug position (was 0.7), pixel boundary
+        
+        // Gentler shake animation for tiny logo
+        const billFrameSeed = Math.floor(Date.now() / 400); // Slower, calmer (was 200ms)
+        const billShakeX = Math.floor((billFrameSeed % 3) - 1); // Range -1 to 1, much gentler (was -3 to 3)
+        const billShakeY = Math.floor(((billFrameSeed + 4) % 3) - 1); // Range -1 to 1, much gentler (was -3 to 3)
+        
+        // Vegas-style magical color cycling
+        const colorCycle = Math.floor(Date.now() / 150) % 6; // Fast color cycling
+        let magicColors;
+        
+        switch (colorCycle) {
+          case 0: magicColors = ["gold", "yellow", "white"]; break;
+          case 1: magicColors = ["cyan", "blue", "white"]; break;
+          case 2: magicColors = ["magenta", "red", "white"]; break;
+          case 3: magicColors = ["lime", "green", "white"]; break;
+          case 4: magicColors = ["orange", "red", "yellow"]; break;
+          case 5: magicColors = ["purple", "blue", "cyan"]; break;
+        }
+        
+        // Draw with chaotic magical effects for maximum energy
+        magicColors.forEach((color, index) => {
+          let offsetX, offsetY;
+          
+          // Frame-based glitch effects for frame recordings
+          let glitchAlpha = 1.0;
+          if (isFrameBasedRecording && frameIndex !== null) {
+            // Different glitch patterns for Tezos watermark layers
+            if (index === 0) {
+              glitchAlpha = (frameIndex + 5) % 13 === 0 ? 0.0 : (frameIndex + 5) % 4 === 0 ? 0.2 : 1.0; // Off every 13th, dim every 4th
+            } else if (index === 1) {
+              glitchAlpha = (frameIndex + 6) % 11 === 0 ? 0.1 : (frameIndex + 6) % 6 === 0 ? 0.4 : 1.0; // Different pattern
+            } else {
+              glitchAlpha = (frameIndex + 7) % 7 === 0 ? 0.3 : (frameIndex + 7) % 15 === 0 ? 0.0 : 1.0; // Complex pattern
+            }
+          }
+          
+          // Set watermark blend mode for authentic look
+          ctx.globalCompositeOperation = index === 0 ? 'multiply' : index === 1 ? 'screen' : 'overlay';
+          
+          if (index < 2) {
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.35 * glitchAlpha : 0.35) * fadeAlpha; // Apply fade alpha
+            offsetX = Math.floor(choose([-1, 0, 1])); // Much gentler offsets (was chaotic -4 to 5)
+            offsetY = Math.floor(choose([-1, 0, 1])); // Much gentler offsets (was chaotic -4 to 5)
+          } else {
+            ctx.globalAlpha = (isFrameBasedRecording ? 0.45 * glitchAlpha : 0.45) * fadeAlpha; // Apply fade alpha
+            offsetX = Math.floor(choose([0, 1])); // Minimal offsets for readability (was -3 to 3)
+            offsetY = Math.floor(choose([0, 1])); // Minimal offsets for readability (was -3 to 3)
+            // Keep white layer more magical
+            if (color === "white") {
+              color = choose(["white", "white", "yellow", "cyan", "magenta", "lime"]); // More magical colors
+            }
+          }
+          
+          ctx.fillStyle = color;
+          ctx.fillText(
+            tezosSymbol, 
+            x + offsetX + billShakeX, 
+            y + offsetY + billShakeY
+          );
+          
+          // Reset blend mode after each layer
+          ctx.globalCompositeOperation = 'source-over';
+        });
+        
         ctx.restore();
       }
 
@@ -1990,65 +3217,251 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return colors;
       }
       
+      // Helper function to draw cyan crosshair cursor overlay
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // Cyan crosshair settings
+        const crosshairColor = "rgba(0, 255, 255, 0.8)"; // Bright cyan with slight transparency
+        const shadowColor = "rgba(0, 0, 0, 0.5)"; // Black shadow for visibility
+        const lineWidth = 2;
+        const shadowOffset = 1;
+        const crossSize = Math.max(8, Math.floor(Math.min(canvasWidth, canvasHeight) / 60)); // Responsive size
+        
+        // Draw shadow first
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = lineWidth + shadowOffset;
+        ctx.lineCap = "round";
+        
+        ctx.beginPath();
+        // Horizontal line shadow
+        ctx.moveTo(x - crossSize + shadowOffset, y + shadowOffset);
+        ctx.lineTo(x + crossSize + shadowOffset, y + shadowOffset);
+        // Vertical line shadow
+        ctx.moveTo(x + shadowOffset, y - crossSize + shadowOffset);
+        ctx.lineTo(x + shadowOffset, y + crossSize + shadowOffset);
+        ctx.stroke();
+        
+        // Draw main crosshair
+        ctx.strokeStyle = crosshairColor;
+        ctx.lineWidth = lineWidth;
+        
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        // Vertical line
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+
       // Helper function to get syntax color at a specific position in the progress bar
       function getSyntaxColorAtPosition(syntaxColors, position) {
         if (syntaxColors.length === 0) {
           return { r: 220, g: 60, b: 60 }; // Red fallback
         }
-        
+
         if (syntaxColors.length === 1) {
           return syntaxColors[0];
         }
-        
+
         // Calculate which color segment we're in based on cumulative weights
-        let totalWeight = syntaxColors.reduce((sum, color) => sum + color.weight, 0);
+        let totalWeight = syntaxColors.reduce(
+          (sum, color) => sum + color.weight,
+          0,
+        );
         let currentWeight = 0;
-        
+
         for (let i = 0; i < syntaxColors.length; i++) {
           const color = syntaxColors[i];
           const segmentStart = currentWeight / totalWeight;
           const segmentEnd = (currentWeight + color.weight) / totalWeight;
-          
+
           if (position >= segmentStart && position <= segmentEnd) {
             // Optionally blend with adjacent colors for smoother transitions
             if (i < syntaxColors.length - 1 && position > segmentEnd - 0.1) {
               const nextColor = syntaxColors[i + 1];
               const blendFactor = (position - (segmentEnd - 0.1)) / 0.1;
               return {
-                r: Math.floor(color.r * (1 - blendFactor) + nextColor.r * blendFactor),
-                g: Math.floor(color.g * (1 - blendFactor) + nextColor.g * blendFactor),
-                b: Math.floor(color.b * (1 - blendFactor) + nextColor.b * blendFactor)
+                r: Math.floor(
+                  color.r * (1 - blendFactor) + nextColor.r * blendFactor,
+                ),
+                g: Math.floor(
+                  color.g * (1 - blendFactor) + nextColor.g * blendFactor,
+                ),
+                b: Math.floor(
+                  color.b * (1 - blendFactor) + nextColor.b * blendFactor,
+                ),
               };
             }
             return color;
           }
-          
+
           currentWeight += color.weight;
         }
-        
-        // Fallback to last color if position is beyond the end
+
+        // Fallback to last color if position >is beyond the end
         return syntaxColors[syntaxColors.length - 1];
+      }
+      
+      // Helper function to draw cyan crosshair cursor overlay
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // Cyan crosshair settings
+        const crosshairColor = "rgba(0, 255, 255, 0.8)"; // Bright cyan with slight transparency
+        const shadowColor = "rgba(0, 0, 0, 0.5)"; // Black shadow for visibility
+        const lineWidth = 2;
+        const shadowOffset = 1;
+        const crossSize = Math.max(8, Math.floor(Math.min(canvasWidth, canvasHeight) / 60)); // Responsive size
+        
+        // Draw shadow first
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = lineWidth + shadowOffset;
+        ctx.lineCap = "round";
+        
+        ctx.beginPath();
+        // Horizontal line shadow
+        ctx.moveTo(x - crossSize + shadowOffset, y + shadowOffset);
+        ctx.lineTo(x + crossSize + shadowOffset, y + shadowOffset);
+        // Vertical line shadow
+        ctx.moveTo(x + shadowOffset, y - crossSize + shadowOffset);
+        ctx.lineTo(x + shadowOffset, y + crossSize + shadowOffset);
+        ctx.stroke();
+        
+        // Draw main crosshair
+        ctx.strokeStyle = crosshairColor;
+        ctx.lineWidth = lineWidth;
+        
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(x - crossSize, y);
+        ctx.lineTo(x + crossSize, y);
+        // Vertical line
+        ctx.moveTo(x, y - crossSize);
+        ctx.lineTo(x, y + crossSize);
+        ctx.stroke();
+        
+        ctx.restore();
       }
 
       // Film camera style timestamp at bottom-left corner
-      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null) {
+      function addFilmTimestamp(ctx, canvasWidth, canvasHeight, typeSize, progress = 0, frameData = null, frameMetadata = null, frameIndex = null, totalFrames = null, bothStampsInvisible = false) {
+        // Calculate smooth alpha fade based on progress - same for both frame and time recordings
+        let timestampAlpha = 1.0; // Default to fully visible
+        
+        // Smooth fade transitions: visible at start, fade out towards middle, visible at end
+        if (progress < 0.15) {
+          // Fully visible at start (0-15%)
+          timestampAlpha = 1.0;
+        } else if (progress >= 0.15 && progress <= 0.35) {
+          // Fade out from 15% to 35% (20% fade-out period)
+          const fadeProgress = (progress - 0.15) / 0.20;
+          timestampAlpha = 1.0 - Math.pow(fadeProgress, 2); // Smooth quadratic fade out
+        } else if (progress > 0.35 && progress < 0.65) {
+          // Fully hidden from 35% to 65% (30% hidden period)
+          timestampAlpha = 0.0;
+        } else if (progress >= 0.65 && progress <= 0.85) {
+          // Fade in from 65% to 85% (20% fade-in period)
+          const fadeProgress = (progress - 0.65) / 0.20;
+          timestampAlpha = Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+        } else {
+          // Fully visible at end (85%-100%)
+          timestampAlpha = 1.0;
+        }
+        
+        // Skip drawing timecode if it's completely transparent
+        if (timestampAlpha <= 0.0) {
+          return;
+        }
+        
         // Define progress bar height consistently across all contexts
-        const progressBarHeight = 6;
+        const progressBarHeight = 1;
         
         // Define timestamp margin for consistent spacing
         const timestampMargin = Math.max(8, Math.floor(canvasHeight / 50)); // Responsive margin
         
-        const now = new Date();
-        const year = now.getUTCFullYear();
-        const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-        const day = now.getUTCDate();
-        const hour = now.getUTCHours();
-        const minute = now.getUTCMinutes();
-        const second = now.getUTCSeconds();
-        const millisecond = now.getUTCMilliseconds();
-
-        // Include milliseconds for frame-by-frame uniqueness
-        const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        // NEW: Use actual real-world timestamp when this frame was originally captured
+        let timestamp;
+        if (frameMetadata && frameMetadata.originalTimestamp) {
+          // Display the actual time when this frame was captured
+          const frameDate = new Date(frameMetadata.originalTimestamp);
+          const year = frameDate.getFullYear();
+          const month = frameDate.getMonth() + 1; // getMonth() returns 0-11
+          const day = frameDate.getDate();
+          const hour = frameDate.getHours();
+          const minute = frameDate.getMinutes();
+          const second = frameDate.getSeconds();
+          const millisecond = frameDate.getMilliseconds();
+          
+          // Format as: year.month.day.hour.minute.second.milliseconds (no zero-padding except milliseconds)
+          timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        } else if (frameMetadata && frameMetadata.gifElapsedSeconds !== undefined) {
+          // For GIF playback: use actual GIF elapsed time
+          timestamp = `${frameMetadata.gifElapsedSeconds.toFixed(1)}s`;
+        } else if (mediaRecorderStartTime !== undefined) {
+          // During recording: show seconds elapsed since recording started
+          const elapsedMs = performance.now() - mediaRecorderStartTime;
+          const elapsedSeconds = elapsedMs / 1000;
+          timestamp = `${elapsedSeconds.toFixed(1)}s`;
+        } else if (window.recordingStartTimestamp && progress >= 0) {
+          // Use progress to map to intended recording duration
+          let actualRecordingDurationMs = 5000; // Default fallback
+          
+          // Prioritize intended duration for accurate real-time mapping
+          if (window.currentRecordingOptions?.intendedDuration) {
+            actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+          } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+            actualRecordingDurationMs = mediaRecorderDuration;
+          } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+            actualRecordingDurationMs = window.gifDurationMs;
+          }
+          
+          // Calculate elapsed seconds
+          const elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+          timestamp = `${elapsedSeconds.toFixed(1)}s`;
+        } else {
+          // Fallback: show current time
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          const day = now.getDate();
+          const hour = now.getHours();
+          const minute = now.getMinutes();
+          const second = now.getSeconds();
+          const millisecond = now.getMilliseconds();
+          
+          timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+        }
 
         ctx.save();
         
@@ -2057,38 +3470,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const shakeY = 0; // No more shaking
         
         // Position timestamp above the progress bar with proper margin, more flush left and larger
-        const timestampY = canvasHeight - progressBarHeight - timestampMargin; // Above progress bar
-        const timestampX = timestampMargin * 0.5; // More flush left (was timestampMargin * 2)
+        // Adjust margin to make room for Tezos logo if enabled
+        let adjustedMargin = timestampMargin * 0.5;
+        if (window.currentRecordingOptions?.showTezosStamp) {
+          const tezosSize = Math.max(20, Math.floor(typeSize * 1.5 * 1.2));
+          adjustedMargin = timestampMargin * 1.8; // Less space since we moved Tezos closer
+        }
+        const timestampY = Math.floor(canvasHeight - progressBarHeight - timestampMargin * 0.6 - (typeSize * 0.2) - 4); // Move UP 4px more
+        const timestampX = Math.floor(typeSize * 0.5); // Move back right a bit (was 0.3)
         
-        // Make timestamp much larger and more watermark-like, similar to aesthetic.computer stamps
-        const watermarkSize = Math.min(
-          32,
-          Math.max(18, Math.floor(canvasHeight / 25)), // Much larger base size
-        );
+        // Make timestamp smaller and more readable
+        const baseWatermarkSize = Math.floor(typeSize * 1.7); // Smaller timestamp (was 2.0)
+        // Keep timestamp same size for both frame and time recordings
+        const watermarkSize = baseWatermarkSize;
         
         // Draw multiple layered versions for that vibey aesthetic.computer stamp effect
         ["red", "lime", "blue", "white"].forEach((color, index) => {
-          // Calculate fade alpha for bouncy looping effect
-          // Fade out in last 10% and fade in during first 10%
-          let timestampAlpha = 1.0;
-          if (progress <= 0.1) {
-            // Fade in during first 10%
-            timestampAlpha = progress / 0.1;
-          } else if (progress >= 0.9) {
-            // Fade out during last 10%
-            timestampAlpha = (1.0 - progress) / 0.1;
-          }
-
           let offsetX, offsetY;
           if (color !== "white") {
-            ctx.globalAlpha = 0.45 * timestampAlpha; // Semi-transparent colored layers with fade
+            ctx.globalAlpha = 0.45 * timestampAlpha; // Simple multicolor layers
             offsetX = choose([-3, -5, 0, 3, 5]); // Larger offsets for bigger text
             offsetY = choose([-3, -5, 0, 3, 5]);
           } else {
-            ctx.globalAlpha = choose([0.6, 0.5, 0.7]) * timestampAlpha; // Main white layer with fade
+            ctx.globalAlpha = 0.65 * timestampAlpha; // Consistent white layer
             offsetX = choose([-1, 0, 1]);
             offsetY = choose([-1, 0, 1]);
-            color = choose(["white", "white", "white", "magenta", "yellow"]); // Occasional color pops
+            color = "white"; // Consistent white color, no blinking
           }
 
           ctx.fillStyle = color;
@@ -2100,33 +3507,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             timestampY + offsetY + shakeY,
           );
         });
-
-        // 🔴 Simple reddish flickering animated progress bar
-        const progressBarY = canvasHeight - progressBarHeight; // No gap - fully at bottom
         
-        // Reset context and draw dark grey background for full progress bar
-        ctx.globalAlpha = 1.0; // Full opacity for background
-        ctx.fillStyle = "rgba(48, 48, 48, 1.0)"; // Darker grey background
-        ctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
-        
-        // Simple reddish progress bar with subtle flicker
-        const progressBarWidth = Math.floor(progress * canvasWidth);
-        if (progressBarWidth > 0) {
-          // YouTube red color with subtle flicker
-          const flicker = Math.random() * 0.3 + 0.7; // Random between 0.7 and 1.0
-          const red = Math.floor(255 * flicker); // Pure red channel
-          const green = 0; // No green for pure YouTube red
-          const blue = 0; // No blue for pure YouTube red
-          
-          ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, 0.9)`;
-          ctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
-          
-          // Add a subtle bright edge for more flicker effect
-          if (progressBarWidth > 2) {
-            ctx.fillStyle = `rgba(255, 80, 80, ${0.7 * flicker})`; // Slightly lighter red edge
-            ctx.fillRect(progressBarWidth - 2, progressBarY, 2, progressBarHeight);
-          }
-        }
+        // Removed Tezos logo from timestamp area - moving back to top-right
 
         ctx.restore();
       }
@@ -2227,7 +3609,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Helper function to add stamp to pixel data by rendering to a canvas first
-    async function addStampToPixelData(pixelData, width, height, scale = 1, progress = 0) {
+    async function addStampToPixelData(pixelData, width, height, scale = 1, progress = 0, frameMetadata = null) {
       // Create a temporary canvas to render the stamp
       const tempCanvas = document.createElement("canvas");
       const tempCtx = tempCanvas.getContext("2d");
@@ -2245,7 +3627,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       tempCtx.putImageData(imageData, 0, 0);
 
       // Add the stamp (await to ensure fonts are loaded)
-      await addAestheticComputerStamp(tempCtx, width * scale, height * scale, progress, pixelData);
+      await addAestheticComputerStamp(tempCtx, width * scale, height * scale, progress, pixelData, frameMetadata);
 
       // Get the stamped image data back
       const stampedImageData = tempCtx.getImageData(
@@ -2328,7 +3710,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
           const currentProgress = (i + 1) / content.frames.length;
-          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data);
+          await addAestheticComputerStamp(ctx, frame.width, frame.height, currentProgress, frame.data, frame, i, content.frames.length);
 
           // Convert to WebP blob
           const webpBlob = await new Promise((resolve) => {
@@ -2427,7 +3809,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // Add sideways AC stamp like in other video recordings
           const currentProgress = (i + 1) / content.frames.length;
-          await addAestheticComputerStamp(tempCtx, frame.width, frame.height, currentProgress, frame.data);
+          await addAestheticComputerStamp(tempCtx, frame.width, frame.height, currentProgress, frame.data, frame);
 
           // Get the stamped image data back
           const stampedImageData = tempCtx.getImageData(
@@ -2821,6 +4203,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frame.height,
             optimalScale,
             currentProgress,
+            frame,
           );
 
           // Convert stamped pixel data back to RGBA Uint32Array
@@ -2936,6 +4319,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx,
             firstFrame.width,
             firstFrame.height,
+            0,
+            firstFrame.data,
+            firstFrame,
           );
 
           const webpBlob = await new Promise((resolve) => {
@@ -3084,6 +4470,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             frame.height,
             optimalScale,
             currentProgress,
+            frame,
           );
 
           // UPNG expects RGBA data as ArrayBuffer
@@ -3141,6 +4528,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             ctx,
             firstFrame.width,
             firstFrame.height,
+            0,
+            firstFrame.data,
+            firstFrame,
           );
 
           const pngBlob = await new Promise((resolve) => {
@@ -3158,6 +4548,273 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎬 Create ZIP of high-resolution frames
+    if (type === "create-animated-frames-zip") {
+      console.log(
+        "📦 Creating ZIP of high-resolution frames from",
+        content.frames.length,
+        "frames",
+      );
+
+      // Send initial progress to show the progress bar immediately
+      send({
+        type: "recorder:transcode-progress",
+        content: 0.01, // 1% to start
+      });
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for ZIP creation");
+          return;
+        }
+
+        // Load JSZip if not already loaded
+        if (!window.JSZip) await loadJSZip();
+        const zip = new window.JSZip();
+
+        // Use 6x scaling for ultra-high resolution frames
+        const scale = 6;
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+
+        console.log(
+          `📏 Using ${scale}x scaling: ${originalWidth}x${originalHeight} -> ${scaledWidth}x${scaledHeight}`,
+        );
+
+        // Create a canvas for frame processing
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = scaledWidth;
+        canvas.height = scaledHeight;
+
+        // Process each frame and add to ZIP
+        for (let i = 0; i < content.frames.length; i++) {
+          const frame = content.frames[i];
+
+          // Update progress
+          const progress = (i / content.frames.length) * 0.9 + 0.1; // 10-100%
+          send({
+            type: "recorder:transcode-progress",
+            content: progress,
+          });
+
+          if (i % 10 === 0 || i === content.frames.length - 1) {
+            console.log(
+              `🖼️ Processing frame ${i + 1}/${content.frames.length} (${Math.round(progress * 100)}%)`,
+            );
+          }
+
+          // Create ImageData from frame data
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height,
+          );
+
+          // Clear canvas and draw scaled frame
+          ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+          
+          // Create a temporary canvas for the original frame
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCanvas.width = frame.width;
+          tempCanvas.height = frame.height;
+          
+          // Put original image data on temp canvas
+          tempCtx.putImageData(imageData, 0, 0);
+          
+          // Add stamp to the original frame with correct frame metadata for timestamp
+          await addAestheticComputerStamp(
+            tempCtx,
+            frame.width,
+            frame.height,
+            0, // Progress is not used for individual frame timestamps
+            frame.data,
+            frame, // Frame metadata with timestamp
+            i, // Frame index for timestamp calculation
+            content.frames.length, // Total frames for timestamp calculation
+          );
+          
+          // Scale up the stamped frame using nearest neighbor
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(tempCanvas, 0, 0, scaledWidth, scaledHeight);
+
+          // Convert to PNG blob
+          const pngBlob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, "image/png");
+          });
+
+          // Add to ZIP with timestamp-based filename
+          let filename;
+          if (frame.timestamp !== undefined) {
+            // Create proper date/time timestamp from frame timestamp
+            const frameDate = new Date(frame.timestamp);
+            const year = frameDate.getFullYear();
+            const month = frameDate.getMonth() + 1;
+            const day = frameDate.getDate();
+            const hour = frameDate.getHours();
+            const minute = frameDate.getMinutes();
+            const second = frameDate.getSeconds();
+            const millisecond = frameDate.getMilliseconds();
+            
+            // Use same format as main tape filename: year.month.day.hour.minute.second.millisecond
+            const dateTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+            filename = `frame_${dateTimestamp}.png`;
+          } else {
+            // Fallback to index-based naming if timestamp is missing
+            const frameNumber = String(i).padStart(4, "0");
+            filename = `frame_${frameNumber}.png`;
+          }
+          zip.file(filename, pngBlob);
+        }
+
+        // Function to convert raw audio data to WAV format
+        function createWavFromRawAudio(rawAudioChunks, sampleRate = 48000) {
+          if (!rawAudioChunks || rawAudioChunks.length === 0) {
+            return null;
+          }
+
+          // Calculate total samples
+          const totalSamples = rawAudioChunks.length * 4096; // 4096 samples per chunk
+          const numChannels = 2; // Stereo
+          const bytesPerSample = 2; // 16-bit
+          const byteRate = sampleRate * numChannels * bytesPerSample;
+          const blockAlign = numChannels * bytesPerSample;
+          const dataSize = totalSamples * numChannels * bytesPerSample;
+          const fileSize = 36 + dataSize;
+
+          // Create WAV file buffer
+          const buffer = new ArrayBuffer(44 + dataSize);
+          const view = new DataView(buffer);
+
+          // WAV header
+          const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+              view.setUint8(offset + i, string.charCodeAt(i));
+            }
+          };
+
+          writeString(0, 'RIFF');
+          view.setUint32(4, fileSize, true);
+          writeString(8, 'WAVE');
+          writeString(12, 'fmt ');
+          view.setUint32(16, 16, true); // fmt chunk size
+          view.setUint16(20, 1, true); // PCM format
+          view.setUint16(22, numChannels, true);
+          view.setUint32(24, sampleRate, true);
+          view.setUint32(28, byteRate, true);
+          view.setUint16(32, blockAlign, true);
+          view.setUint16(34, 16, true); // bits per sample
+          writeString(36, 'data');
+          view.setUint32(40, dataSize, true);
+
+          // Convert float32 audio data to 16-bit PCM
+          let offset = 44;
+          for (let i = 0; i < rawAudioChunks.length; i++) {
+            const chunk = rawAudioChunks[i];
+            for (let j = 0; j < chunk.left.length; j++) {
+              // Left channel
+              const leftSample = Math.max(-1, Math.min(1, chunk.left[j]));
+              view.setInt16(offset, leftSample * 0x7FFF, true);
+              offset += 2;
+              
+              // Right channel
+              const rightSample = Math.max(-1, Math.min(1, chunk.right[j]));
+              view.setInt16(offset, rightSample * 0x7FFF, true);
+              offset += 2;
+            }
+          }
+
+          return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        // Add timing information as JSON
+        const timingInfo = content.frames.map((frame, i) => {
+          let filename;
+          if (frame.timestamp !== undefined) {
+            const frameDate = new Date(frame.timestamp);
+            const year = frameDate.getFullYear();
+            const month = frameDate.getMonth() + 1;
+            const day = frameDate.getDate();
+            const hour = frameDate.getHours();
+            const minute = frameDate.getMinutes();
+            const second = frameDate.getSeconds();
+            const millisecond = frameDate.getMilliseconds();
+            
+            const dateTimestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+            filename = `frame_${dateTimestamp}.png`;
+          } else {
+            filename = `frame_${String(i).padStart(4, "0")}.png`;
+          }
+          
+          return {
+            frame: i,
+            filename: filename,
+            duration: frame.duration,
+            timestamp: frame.timestamp,
+          };
+        });
+        
+        zip.file("timing.json", JSON.stringify(timingInfo, null, 2));
+        
+        // Add metadata
+        const metadata = {
+          originalSize: { width: originalWidth, height: originalHeight },
+          scaledSize: { width: scaledWidth, height: scaledHeight },
+          scale: scale,
+          frameCount: content.frames.length,
+          totalDuration: content.frames.reduce((sum, f) => sum + (f.duration || 100), 0),
+          exportedAt: new Date().toISOString(),
+        };
+        
+        zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+        // Add audio file if available - convert raw audio to WAV
+        try {
+          if (rawAudioData && rawAudioData.length > 0) {
+            console.log("🎵 Converting raw audio data to WAV for ZIP...");
+            const wavBlob = createWavFromRawAudio(rawAudioData, rawAudioSampleRate);
+            if (wavBlob) {
+              zip.file("soundtrack.wav", wavBlob);
+              console.log("🎵 Audio added to ZIP as soundtrack.wav");
+            } else {
+              console.log("🎵 Failed to create WAV from raw audio data");
+            }
+          } else {
+            console.log("🎵 No raw audio data available for ZIP export");
+          }
+        } catch (audioError) {
+          console.warn("🎵 Could not add audio to ZIP:", audioError);
+        }
+
+        console.log("🗜️ Generating ZIP file...");
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        
+        const filename = generateTapeFilename("zip");
+        
+        console.log(
+          `💾 ZIP file generated: ${filename} (${Math.round((zipBlob.size / 1024 / 1024) * 100) / 100} MB)`,
+        );
+
+        // Use the existing download function
+        receivedDownload({ filename, data: zipBlob });
+
+        console.log("📦 High-resolution frames ZIP exported successfully!");
+        
+        // Send completion
+        send({
+          type: "recorder:transcode-progress",
+          content: 1.0,
+        });
+        
+      } catch (error) {
+        console.error("Error creating frames ZIP:", error);
+      }
+      return;
+    }
+
     // 🎬 Create animated GIF
     if (type === "create-animated-gif") {
       console.log(
@@ -3166,18 +4823,138 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "frames",
       );
 
+      // Calculate GIF duration for filename - ALWAYS prioritize intended duration for real-time accuracy
+      // When user says "tape 15" they expect exactly 15 seconds of real wall-clock time
+      let totalDurationMs = 0;
+      if (window.currentRecordingOptions?.intendedDuration) {
+        // Use the EXACT duration specified in the tape command for perfect real-time mapping
+        totalDurationMs = window.currentRecordingOptions.intendedDuration * 1000; // Convert to milliseconds
+        console.log(`🎬 GIF duration from EXACT intended tape duration: ${window.currentRecordingOptions.intendedDuration}s (${totalDurationMs}ms) for real-time accuracy`);
+      } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+        // Fallback to actual recording duration if no intended duration available
+        totalDurationMs = mediaRecorderDuration; // mediaRecorderDuration is already in milliseconds
+        console.log(`🎬 GIF duration from measured recording duration: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+      } else if (content.frames && content.frames.length > 0) {
+        // Final fallback: sum frame durations if no recording duration available
+        totalDurationMs = content.frames.reduce((sum, frame) => {
+          return sum + (frame.duration || 100); // Default to 100ms if no duration
+        }, 0);
+        console.log(`🎬 GIF duration from frame durations: ${Math.round(totalDurationMs / 1000 * 10) / 10}s (${totalDurationMs}ms)`);
+      }
+      window.gifDurationMs = totalDurationMs;
+
+      // Set the recording start timestamp to match the first frame's visual timestamp
+      // so the filename matches the first frame timestamp exactly
+      // We'll cache the actual computed timestamp from the first frame
+      window.firstFrameComputedTimestamp = null; // Reset cache
+      
+      if (content.frames.length > 0) {
+        const firstFrame = content.frames[0];
+        console.log(`🎬 Will use computed timestamp from first frame processing for GIF filename`);
+        // Don't modify recordingStartTimestamp here - it's needed for proper video playback timing
+        // The filename timestamp will be calculated during frame processing instead
+      } else {
+        console.warn(`⚠️ No frames available, using current time for filename`);
+        window.recordingStartTimestamp = Date.now();
+      }
+
       // GIF encoder selection flag - set to true to use gifenc, false for gif.js
       const useGifenc = content.useGifenc !== false; // Default to gifenc (true), unless explicitly set to false
+
+      // Helper function to draw exact AC cursor overlay (matches pen.mjs "precise" cursor)
+      function addCyanCrosshair(ctx, canvasWidth, canvasHeight, penData, scale = 1) {
+        if (!penData || penData.x === undefined || penData.y === undefined) {
+          return; // No pen data available
+        }
+        
+        // Scale pen coordinates to match canvas size
+        const x = Math.round(penData.x * scale);
+        const y = Math.round(penData.y * scale);
+        
+        // Skip drawing if cursor is outside canvas bounds
+        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+          return;
+        }
+        
+        ctx.save();
+        
+        // AC cursor settings at 1.5x scale for good visibility without being too large
+        const cursorScale = 1.25; // Moderate scale for optimal visibility in GIFs
+        const radius = 2 * cursorScale;     // White center circle radius
+        const gap = 7.5 * cursorScale;      // Gap from center to crosshair start
+        const to = 10 * cursorScale;        // Length of crosshair lines
+        const lineWidth = 4 * cursorScale;  // Crosshair line width
+        
+        // Shadow offset for visibility
+        const offsetX = 2 * cursorScale;
+        const offsetY = 2 * cursorScale;
+        
+        ctx.lineCap = "round";
+        
+        // Draw shadow graphics first
+        ctx.save();
+        ctx.translate(x + offsetX, y + offsetY);
+        
+        // Shadow circle in center
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+        ctx.fill();
+        
+        // Shadow crosshair lines
+        ctx.beginPath();
+        ctx.moveTo(0, -gap);
+        ctx.lineTo(0, -to);
+        ctx.moveTo(0, gap);
+        ctx.lineTo(0, to);
+        ctx.moveTo(-gap, 0);
+        ctx.lineTo(-to, 0);
+        ctx.moveTo(gap, 0);
+        ctx.lineTo(to, 0);
+        
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"; // Half-opacity black shadow
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        // Draw main cursor graphics
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // White center circle
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        
+        // Cyan crosshair lines (exact AC color)
+        ctx.beginPath();
+        ctx.moveTo(0, -gap); // Top
+        ctx.lineTo(0, -to);
+        ctx.moveTo(0, gap);  // Bottom
+        ctx.lineTo(0, to);
+        ctx.moveTo(-gap, 0); // Left
+        ctx.lineTo(-to, 0);
+        ctx.moveTo(gap, 0);  // Right
+        ctx.lineTo(to, 0);
+        
+        ctx.strokeStyle = "rgb(0, 255, 255)"; // Exact AC cyan color
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        ctx.restore();
+      }
 
       try {
         // Load appropriate GIF library if not already loaded
         if (useGifenc) {
           if (!window.gifenc) {
             console.log("📦 Loading gifenc library...");
-            const { GIFEncoder, quantize, applyPalette } = await import(
+            const { GIFEncoder, quantize, applyPalette, prequantize } = await import(
               "/aesthetic.computer/dep/gifenc/gifenc.esm.js"
             );
-            window.gifenc = { GIFEncoder, quantize, applyPalette };
+            window.gifenc = { GIFEncoder, quantize, applyPalette, prequantize };
             console.log("✅ gifenc library loaded successfully");
           }
         } else {
@@ -3199,16 +4976,96 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
-        // Force 3x scaling for consistent, fast GIF output
+        // Smart scaling for GIF output based on final size
         const originalWidth = content.frames[0].width;
         const originalHeight = content.frames[0].height;
         const frameCount = content.frames.length;
 
-        const optimalScale = 3; // Always use 3x scaling for GIFs
+        // Calculate optimal scaling - if 3x would result in <400px, use 6x instead to get >700px
+        let optimalScale = 3; // Default 3x scaling
+        const finalWidth3x = originalWidth * 3;
+        const finalHeight3x = originalHeight * 3;
+        
+        if (finalWidth3x < 400 || finalHeight3x < 400) {
+          optimalScale = 6; // 2x the normal scaling to get into >700px range
+          console.log(
+            `📏 Small GIF detected (${finalWidth3x}x${finalHeight3x} would be <400px), using 6x scaling: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+          );
+        } else {
+          console.log(
+            `📏 Using standard 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+          );
+        }
 
-        console.log(
-          `📏 Using fixed 3x scaling for GIF (${useGifenc ? 'gifenc' : 'gif.js'}): ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
-        );
+        // 🎯 Properly resample frames to 30fps for optimal GIF size/quality balance
+        let processedFrames = content.frames;
+        const targetGifFPS = 30;
+        
+        if (content.frames.length > 0) {
+          const totalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+          const actualFrameRate = Math.round((content.frames.length / totalDuration) * 1000);
+          
+          // EARLY HIGH REFRESH RATE DETECTION - before resampling!
+          let shouldUseHighRefreshRateNormalization = false;
+          if (content.frames.length > 1) {
+            const avgOriginalTiming = totalDuration / (content.frames.length - 1);
+            console.log(`🎞️ EARLY TIMING ANALYSIS: ${content.frames.length} frames, totalDuration=${totalDuration.toFixed(2)}ms, avgTiming=${avgOriginalTiming.toFixed(2)}ms (${(1000/avgOriginalTiming).toFixed(1)}fps)`);
+            
+            // Detect high refresh rate from original capture (before resampling)
+            if (avgOriginalTiming < 13.5) { // Less than 13.5ms indicates >74fps
+              shouldUseHighRefreshRateNormalization = true;
+              window.earlyHighRefreshRateDetected = true;
+              console.log(`🎞️ EARLY HIGH REFRESH RATE DETECTED: ${(1000/avgOriginalTiming).toFixed(1)}fps capture - will normalize to 60fps timing`);
+            } else {
+              window.earlyHighRefreshRateDetected = false;
+              console.log(`🎞️ EARLY NORMAL REFRESH RATE: ${(1000/avgOriginalTiming).toFixed(1)}fps capture - will use original timing`);
+            }
+          }
+          
+          if (actualFrameRate > targetGifFPS && totalDuration > 0) {
+            // Calculate how many frames we need for 30fps
+            const targetFrameCount = Math.round((totalDuration / 1000) * targetGifFPS);
+            processedFrames = [];
+            
+            console.log(`🎬 Resampling GIF from ${actualFrameRate}fps to ${targetGifFPS}fps (${content.frames.length} -> ${targetFrameCount} frames)`);
+            
+            // Properly resample frames evenly across the entire duration
+            for (let i = 0; i < targetFrameCount; i++) {
+              // Calculate the exact timestamp we want for this frame
+              const targetTimestamp = content.frames[0].timestamp + (i / (targetFrameCount - 1)) * totalDuration;
+              
+              // Find the closest source frame to this timestamp
+              let closestIndex = 0;
+              let minDistance = Math.abs(content.frames[0].timestamp - targetTimestamp);
+              
+              for (let j = 1; j < content.frames.length; j++) {
+                const distance = Math.abs(content.frames[j].timestamp - targetTimestamp);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestIndex = j;
+                }
+              }
+              
+              // Create a copy of the frame with corrected originalTimestamp for proper GIF timing
+              const correctedFrame = { ...content.frames[closestIndex] };
+              correctedFrame.originalTimestamp = targetTimestamp;
+              
+              processedFrames.push(correctedFrame);
+            }
+            
+            console.log(`🎬 GIF frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
+          } else {
+            console.log(`🎬 No resampling needed: ${actualFrameRate}fps <= ${targetGifFPS}fps target`);
+            // Initialize early high refresh rate detection for non-resampled case
+            if (content.frames.length > 1) {
+              const avgOriginalTiming = totalDuration / (content.frames.length - 1);
+              window.earlyHighRefreshRateDetected = avgOriginalTiming < 13.5;
+              console.log(`🎞️ EARLY TIMING (no resampling): avgTiming=${avgOriginalTiming.toFixed(2)}ms, highRefresh=${window.earlyHighRefreshRateDetected}`);
+            } else {
+              window.earlyHighRefreshRateDetected = false;
+            }
+          }
+        }
 
         // Helper function to upscale pixels with nearest neighbor
         function upscalePixels(
@@ -3258,10 +5115,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          const { GIFEncoder, quantize, applyPalette } = window.gifenc;
-          const gif = GIFEncoder();
+          const { GIFEncoder, quantize, applyPalette, prequantize } = window.gifenc;
+          
+          // Calculate a better initial capacity based on frame count and size
+          const estimatedFrameSize = content.frames[0].width * content.frames[0].height * optimalScale * optimalScale;
+          const estimatedSize = content.frames.length * estimatedFrameSize * 0.5; // Rough estimate
+          const initialCapacity = Math.max(4096, Math.min(estimatedSize, 1024 * 1024)); // Between 4KB and 1MB
+          
+          const gif = GIFEncoder({
+            auto: true, // Auto mode for simpler usage
+            initialCapacity: initialCapacity // Pre-allocate buffer for better performance
+          });
           
           const finalFrames = [];
+          
+          // Check if cursor actually moved during recording to avoid static cursor overlay
+          let showCursor = false;
+          if (processedFrames.length > 1) {
+            const firstFrame = processedFrames[0];
+            const movementThreshold = 5; // pixels - minimum movement to show cursor
+            
+            if (firstFrame.penData && firstFrame.penData.x !== undefined && firstFrame.penData.y !== undefined) {
+              const startX = firstFrame.penData.x;
+              const startY = firstFrame.penData.y;
+              
+              // Check if cursor moved significantly from starting position in any frame
+              for (let i = 1; i < processedFrames.length; i++) {
+                const frame = processedFrames[i];
+                if (frame.penData && frame.penData.x !== undefined && frame.penData.y !== undefined) {
+                  const deltaX = Math.abs(frame.penData.x - startX);
+                  const deltaY = Math.abs(frame.penData.y - startY);
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  
+                  if (distance > movementThreshold) {
+                    showCursor = true;
+                    console.log(`🎯 Cursor moved ${distance.toFixed(1)}px from start - will show cursor overlay`);
+                    break;
+                  }
+                }
+              }
+              
+              if (!showCursor) {
+                console.log(`🎯 Cursor stayed within ${movementThreshold}px of start position - hiding cursor overlay`);
+              }
+            }
+          }
           
           // Send frame processing status
           send({
@@ -3273,9 +5171,97 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
+          // Calculate per-frame timing using KidLisp FPS timeline or fallback methods
+          console.log("🎞️ === GIFENC TIMING ANALYSIS START ===");
+          console.log(`🎬 GIF Encoding Debug - KidLisp FPS Timeline:`, window.currentRecordingOptions?.kidlispFpsTimeline);
+          console.log(`🎬 GIF Encoding Debug - Recording Options:`, window.currentRecordingOptions);
+          
+          // Helper function to get FPS at a specific timestamp
+          function getFpsAtTimestamp(timestamp, fpsTimeline, fallbackFps = 60) {
+            if (!fpsTimeline || fpsTimeline.length === 0) {
+              return fallbackFps;
+            }
+            
+            // Find the last FPS change before or at this timestamp
+            let activeFps = fallbackFps;
+            for (const fpsChange of fpsTimeline) {
+              if (fpsChange.timestamp <= timestamp) {
+                activeFps = fpsChange.fps;
+              } else {
+                break; // Timeline should be chronological
+              }
+            }
+            return activeFps;
+          }
+          
+          // Process each frame with individual timing
+          const frameDelays = [];
+          const fpsTimeline = window.currentRecordingOptions?.kidlispFpsTimeline;
+          let fallbackFps = window.currentRecordingOptions?.kidlispFps || 60;
+          
+          // Detect high refresh rate displays for non-KidLisp pieces
+          if (!fpsTimeline && processedFrames.length > 1) {
+            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
+            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
+            
+            console.log(`🎞️ GIFENC TIMING DEBUG: totalDuration=${totalOriginalDuration.toFixed(2)}ms, frames=${processedFrames.length}, avgTiming=${avgFrameTiming.toFixed(2)}ms (${(1000/avgFrameTiming).toFixed(1)}fps)`);
+            
+            // Check if early high refresh rate detection was triggered (stored in window)
+            const earlyHighRefreshDetected = window.earlyHighRefreshRateDetected;
+            console.log(`🎞️ Early high refresh rate detection result: ${earlyHighRefreshDetected}`);
+            
+            // Use early detection result or fallback to current detection
+            const isHighRefreshRate = earlyHighRefreshDetected || avgFrameTiming < 13.5;
+            
+            if (isHighRefreshRate) {
+              // For high refresh rate displays, normalize to 30fps instead of 60fps for proper playback speed
+              fallbackFps = 30; // Use 30fps for smoother, slower GIF playback on high refresh displays
+              console.log(`🎞️ HIGH REFRESH RATE DETECTED in gifenc (${earlyHighRefreshDetected ? 'early detection' : 'fallback detection'}), normalizing to 30fps instead of 60fps`);
+            } else {
+              console.log(`🎞️ Normal refresh rate detected in gifenc (${(1000/avgFrameTiming).toFixed(1)}fps), using original timing`);
+            }
+          }
+          
+          // Calculate frame delays with intended duration taking absolute priority
+          if (window.currentRecordingOptions?.intendedDuration && processedFrames.length > 0) {
+            // PRIORITY: Use intended duration for perfect real-time accuracy (e.g., "tape 5" = 5 second playback)
+            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
+            const uniformDelay = Math.round(totalIntendedMs / processedFrames.length);
+            console.log(`🎞️ USING INTENDED DURATION: ${window.currentRecordingOptions.intendedDuration}s for ${processedFrames.length} frames = ${uniformDelay}ms per frame`);
+            
+            // Set all frame delays to the uniform delay for real-time accuracy
+            for (let i = 0; i < processedFrames.length; i++) {
+              frameDelays.push(uniformDelay);
+            }
+          } else {
+            // FALLBACK: Use FPS-based timing only when no intended duration is specified
+            for (let i = 0; i < processedFrames.length; i++) {
+              const frame = processedFrames[i];
+              const frameTimestamp = frame.timestamp;
+              
+              // Get the active FPS for this specific frame
+              const activeFps = getFpsAtTimestamp(frameTimestamp, fpsTimeline, fallbackFps);
+              const frameDelay = Math.round(1000 / activeFps);
+              frameDelays.push(frameDelay);
+              
+              if (i < 5 || i % 20 === 0) { // Log first few frames and every 20th frame
+                console.log(`🎞️ Frame ${i}: timestamp=${frameTimestamp.toFixed(2)}ms, fps=${activeFps}, delay=${frameDelay}ms, fallbackFps=${fallbackFps}`);
+              }
+            }
+          }
+          
+          console.log(`🎞️ Using per-frame KidLisp timing. Frame delays range: ${Math.min(...frameDelays)}ms to ${Math.max(...frameDelays)}ms`);
+          console.log(`🎞️ All frame delays:`, frameDelays.slice(0, 10), frameDelays.length > 10 ? `... (${frameDelays.length} total)` : '');
+          console.log(`🎞️ DEFAULT DELAY: ${Math.round(1000 / fallbackFps)}ms (${fallbackFps}fps)`);
+          
+          // Default delay for frames without timeline data (fallback)
+          const defaultDelay = Math.round(1000 / fallbackFps);
+          
           // Process each frame
-          for (let index = 0; index < content.frames.length; index++) {
-            const frame = content.frames[index];
+          for (let index = 0; index < processedFrames.length; index++) {
+            const frame = processedFrames[index];
+            const frameDelay = frameDelays[index] || defaultDelay;
+            
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
 
@@ -3298,13 +5284,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             ctx.putImageData(imageData, 0, 0);
 
+            // Add cyan crosshair cursor overlay if pen data is available AND cursor moved during recording
+            if (showCursor && frame.penData) {
+              addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
+            }
+
             // Add sideways AC stamp like in video recordings
-            const progress = (index + 1) / content.frames.length;
+            const progress = (index + 1) / processedFrames.length;
+            
+            // For GIF: calculate elapsed time based on the actual delay being used in encoding
+            // This ensures timestamp matches the actual GIF playback speed
+            const gifElapsedSeconds = (index * frameDelay) / 1000;
+            const gifFrameMetadata = {
+              ...frame,
+              gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
+            };
+            
             await addAestheticComputerStamp(
               ctx,
               originalWidth * optimalScale,
               originalHeight * optimalScale,
               progress,
+              frame.data,
+              gifFrameMetadata, // Use enhanced metadata with GIF timing
+              index, // frameIndex
+              processedFrames.length // totalFrames
             );
 
             // Get RGBA data for gifenc
@@ -3317,57 +5321,97 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
 
             // Send detailed progress for frame processing (first 40% of total progress)
-            const frameProgress = (index + 1) / content.frames.length;
+            const frameProgress = (index + 1) / processedFrames.length;
             const totalProgress = frameProgress * 0.4; // Frames take up 40% of total progress
             
-            if ((index + 1) % 10 === 0 || index === content.frames.length - 1) {
+            if ((index + 1) % 10 === 0 || index === processedFrames.length - 1) {
               console.log(
-                `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(frameProgress * 100)}%)`,
+                `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(frameProgress * 100)}%)`,
               );
               
+              // Use the same progress mechanism as MP4 export for consistency
               send({
-                type: "recorder:export-progress",
-                content: { 
-                  progress: totalProgress, 
-                  type: "gif",
-                  message: `Processing frame ${index + 1}/${content.frames.length}`
-                }
+                type: "recorder:transcode-progress",
+                content: totalProgress
               });
             }
           }
           
           // Send color optimization status
           send({
-            type: "recorder:export-status",
-            content: { 
-              type: "gif", 
-              phase: "optimizing", 
-              message: "Optimizing colors" 
-            }
+            type: "recorder:transcode-progress",
+            content: 0.5
           });
           
-          send({
-            type: "recorder:export-progress",
-            content: { 
-              progress: 0.5, 
-              type: "gif",
-              message: "Analyzing color palette"
+          console.log("🔄 Encoding GIF with gifenc (optimized for file size)...");
+          
+          // Improved sampling strategy - prioritize quality over memory savings
+          // Sample all frames for recordings up to 8 seconds (typically ~240-480 frames at 30-60fps)
+          // Only use intelligent sampling for very long recordings (8+ seconds)
+          const maxFramesForFullSampling = 480; // About 8 seconds at 60fps
+          const shouldSampleAll = finalFrames.length <= maxFramesForFullSampling;
+          
+          let sampledPixels, actualSampleFrames;
+          const sampleSize = finalFrames[0].width * finalFrames[0].height * 4; // Single frame size
+          
+          console.log(`🎨 Sampling strategy: ${finalFrames.length} frames ${shouldSampleAll ? '(sampling ALL)' : '(intelligent sampling)'}`);
+          
+          if (shouldSampleAll) {
+            // Sample all frames for best quality - most recordings will use this path
+            actualSampleFrames = finalFrames.length;
+            sampledPixels = new Uint8ClampedArray(actualSampleFrames * sampleSize);
+            let sampleOffset = 0;
+            
+            for (let i = 0; i < finalFrames.length; i++) {
+              sampledPixels.set(finalFrames[i].data, sampleOffset);
+              sampleOffset += sampleSize;
             }
-          });
-          
-          console.log("🔄 Encoding GIF with gifenc...");
-          
-          // Use global palette for all frames for consistency and better compression
-          const allPixels = new Uint8ClampedArray(finalFrames.length * finalFrames[0].width * finalFrames[0].height * 4);
-          let offset = 0;
-          
-          for (const frame of finalFrames) {
-            allPixels.set(frame.data, offset);
-            offset += frame.data.length;
+            console.log(`🎨 Sampled ALL ${actualSampleFrames} frames for optimal palette quality`);
+          } else {
+            // Only for very long recordings: intelligent sampling to avoid memory issues
+            const maxSampleFrames = Math.min(Math.max(100, Math.ceil(finalFrames.length * 0.2)), 500); // 20% of frames, min 100, max 500
+            actualSampleFrames = maxSampleFrames;
+            sampledPixels = new Uint8ClampedArray(actualSampleFrames * sampleSize);
+            let sampleOffset = 0;
+            
+            // Intelligent sampling: include first, last, and evenly distributed middle frames
+            const keyFrames = [0, Math.floor(finalFrames.length / 4), Math.floor(finalFrames.length / 2), 
+                              Math.floor(finalFrames.length * 3 / 4), finalFrames.length - 1];
+            
+            // Add evenly distributed frames
+            const sampleInterval = Math.max(1, Math.floor(finalFrames.length / maxSampleFrames));
+            for (let i = 0; i < finalFrames.length; i += sampleInterval) {
+              keyFrames.push(i);
+            }
+            
+            // Remove duplicates and sort
+            const uniqueFrames = [...new Set(keyFrames)].sort((a, b) => a - b).slice(0, maxSampleFrames);
+            
+            console.log(`🎨 Long recording detected (${finalFrames.length} frames) - sampling ${uniqueFrames.length} key frames`);
+            
+            for (const frameIndex of uniqueFrames) {
+              if (sampleOffset + sampleSize <= sampledPixels.length && frameIndex < finalFrames.length) {
+                sampledPixels.set(finalFrames[frameIndex].data, sampleOffset);
+                sampleOffset += sampleSize;
+              }
+            }
           }
           
-          // Quantize to 256 colors for better quality - use rgba444 for better color fidelity
-          const palette = quantize(allPixels, 256, { format: "rgba444" });
+          // Apply prequantization to reduce color noise and improve palette quality
+          console.log(`🎨 Applying prequantization to reduce color noise...`);
+          prequantize(sampledPixels, {
+            roundRGB: 3,      // Round RGB values to nearest 3 (reduces similar colors)
+            roundAlpha: 10,   // Round alpha values to nearest 10
+            oneBitAlpha: null // Keep full alpha channel
+          });
+          
+          // Enhanced quantization with better quality settings
+          const palette = quantize(sampledPixels, 256, { 
+            format: "rgba4444", // Better color precision than rgb565 while still being efficient
+            clearAlpha: false, // Disable alpha processing since we don't need transparency
+            oneBitAlpha: false, // Disable alpha quantization for smaller files
+            colorSpace: "rgb" // Ensure we're working in RGB color space for better accuracy
+          });
           
           // Send encoding status
           send({
@@ -3379,15 +5423,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           });
           
-          // Encode frames
+          // Encode frames with per-frame timing
+          console.log(`🎞️ Encoding GIF with per-frame timing (${Math.min(...frameDelays)}ms to ${Math.max(...frameDelays)}ms delays)`);
+          
+          // Encode frames with optimized settings
           for (let i = 0; i < finalFrames.length; i++) {
             const frame = finalFrames[i];
-            const index = applyPalette(frame.data, palette);
+            const index = applyPalette(frame.data, palette, "rgba4444"); // Use same format as quantization
+            
+            // Use per-frame delay calculated from KidLisp FPS timeline
+            const delayInMilliseconds = frameDelays[i] || defaultDelay;
             
             gif.writeFrame(index, frame.width, frame.height, {
-              palette: i === 0 ? palette : undefined, // Only include palette for first frame
-              delay: 20, // 20ms = ~50fps for smoother playback
-              repeat: 0  // Loop forever
+              palette: i === 0 ? palette : undefined, // Only include palette for first frame (global palette)
+              delay: delayInMilliseconds, // Per-frame timing based on KidLisp FPS changes
+              repeat: i === 0 ? 0 : undefined, // Set infinite loop only on first frame
+              transparent: false, // Disable transparency for smaller file size
+              dispose: -1 // Use default dispose method for better compression
             });
             
             // Progress updates for encoding (40% to 90% of total progress)
@@ -3396,37 +5448,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const totalProgress = 0.4 + (encodingProgress * 0.5); // 40-90% of total
               console.log(`🔄 GIF encoding progress: ${Math.round(encodingProgress * 100)}%`);
               
+              // Use the same progress mechanism as MP4 export for consistency
               send({
-                type: "recorder:export-progress",
-                content: { 
-                  progress: totalProgress, 
-                  type: "gif",
-                  message: `Encoding frame ${i + 1}/${finalFrames.length}`
-                }
+                type: "recorder:transcode-progress",
+                content: totalProgress
               });
             }
           }
           
-          // Send finalization status
+          // Send 100% completion progress before generating the blob
           send({
-            type: "recorder:export-status",
-            content: { 
-              type: "gif", 
-              phase: "finalizing", 
-              message: "Finalizing GIF" 
-            }
+            type: "recorder:transcode-progress",
+            content: 1.0
           });
-          
-          send({
-            type: "recorder:export-progress",
-            content: { 
-              progress: 0.95, 
-              type: "gif",
-              message: "Finalizing file"
-            }
-          });
-          
-          gif.finish();
           
           const gifBytes = gif.bytes();
           const blob = new Blob([gifBytes], { type: "image/gif" });
@@ -3440,10 +5474,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           console.log("🎬 Animated GIF exported successfully with gifenc!");
 
-          // Send completion message to video piece
+          // Send completion signal like MP4 export does
           send({
-            type: "recorder:export-complete",
-            content: { type: "gif", filename }
+            type: "signal", 
+            content: "recorder:transcoding-done"
           });
           
         } else {
@@ -3451,11 +5485,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Add space for progress bar at bottom - but don't extend canvas, progress bar is built into stamp
           const progressBarHeight = 6;
 
-          // Create GIF instance with optimized compression settings for smaller files
+          // Create GIF instance with optimized quality settings for better color fidelity
           const gif = new window.GIF({
             workers: 4, // More workers for faster processing
-            quality: 30, // Ultra-low quality for smallest files (1-30, lower = better compression)
-            dither: 'Atkinson-serpentine', // Advanced dithering for better compression
+            quality: 5, // Higher quality for better colors (1-30, lower = better quality)
+            dither: 'FloydSteinberg', // Better dithering for color accuracy
             transparent: null, // No transparency to reduce file size
             width: originalWidth * optimalScale,
             height: originalHeight * optimalScale, // Use original height, progress bar is part of stamp
@@ -3463,6 +5497,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
 
           console.log("🎞️ Processing frames for GIF...");
+
+          // Check if cursor actually moved during recording to avoid static cursor overlay
+          let showCursor = false;
+          if (processedFrames.length > 1) {
+            const firstFrame = processedFrames[0];
+            const movementThreshold = 5; // pixels - minimum movement to show cursor
+            
+            if (firstFrame.penData && firstFrame.penData.x !== undefined && firstFrame.penData.y !== undefined) {
+              const startX = firstFrame.penData.x;
+              const startY = firstFrame.penData.y;
+              
+              // Check if cursor moved significantly from starting position in any frame
+              for (let i = 1; i < processedFrames.length; i++) {
+                const frame = processedFrames[i];
+                if (frame.penData && frame.penData.x !== undefined && frame.penData.y !== undefined) {
+                  const deltaX = Math.abs(frame.penData.x - startX);
+                  const deltaY = Math.abs(frame.penData.y - startY);
+                  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  
+                  if (distance > movementThreshold) {
+                    showCursor = true;
+                    console.log(`🎯 Cursor moved ${distance.toFixed(1)}px from start - will show cursor overlay`);
+                    break;
+                  }
+                }
+              }
+              
+              if (!showCursor) {
+                console.log(`🎯 Cursor stayed within ${movementThreshold}px of start position - hiding cursor overlay`);
+              }
+            }
+          }
 
           // Calculate timing statistics from recorded frames
           if (content.frames.length > 1) {
@@ -3487,9 +5553,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
           }
 
-          // Process each frame with real-time timing
-          for (let index = 0; index < content.frames.length; index++) {
-            const frame = content.frames[index];
+          // Process each frame with consistent timing - every frame gets the same duration
+          // Calculate consistent delay for all frames
+          let consistentDelay;
+          if (window.currentRecordingOptions?.intendedDuration && processedFrames.length > 0) {
+            // Distribute intended duration evenly - every frame gets same timing
+            const totalIntendedMs = window.currentRecordingOptions.intendedDuration * 1000;
+            consistentDelay = Math.round(totalIntendedMs / processedFrames.length);
+            consistentDelay = Math.max(consistentDelay, 20); // Minimum 20ms for browser compatibility
+          } else if (processedFrames.length > 1) {
+            // Calculate average frame timing from original recording
+            const totalOriginalDuration = processedFrames[processedFrames.length - 1].timestamp - processedFrames[0].timestamp;
+            const avgFrameTiming = totalOriginalDuration / (processedFrames.length - 1);
+            
+            console.log(`🎞️ GIF.JS TIMING DEBUG: totalDuration=${totalOriginalDuration.toFixed(2)}ms, frames=${processedFrames.length}, avgTiming=${avgFrameTiming.toFixed(2)}ms (${(1000/avgFrameTiming).toFixed(1)}fps)`);
+            
+            // Detect high refresh rate displays (120Hz = ~8.33ms, 90Hz = ~11.11ms)
+            // Be more aggressive: anything faster than 75fps (13.33ms) should be normalized
+            const isHighRefreshRate = avgFrameTiming < 13.5; // Less than 13.5ms indicates >74fps
+            
+            if (isHighRefreshRate) {
+              // For high refresh rate displays, normalize to 60fps equivalent timing
+              // Target 60fps = 16.67ms per frame, which gives smooth GIF playback
+              consistentDelay = Math.round(Math.max(16.67, 16)); // 60fps timing
+              console.log(`🎞️ HIGH REFRESH RATE DETECTED (${(1000/avgFrameTiming).toFixed(1)}fps capture), normalizing to 60fps: ${consistentDelay}ms delay`);
+            } else {
+              // For normal displays, apply modest speed up but not as aggressive
+              const speedMultiplier = 0.9; // Only 10% faster instead of 25%
+              consistentDelay = Math.round(Math.max(avgFrameTiming * speedMultiplier, 16)); // Minimum 16ms for 60fps max
+              console.log(`🎞️ NORMAL REFRESH RATE: Using slightly sped-up timing: ${consistentDelay}ms delay (${(1000/consistentDelay).toFixed(1)}fps) - ${Math.round((1/speedMultiplier - 1) * 100)}% faster`);
+            }
+          } else {
+            // Fallback for single frame or no timing data - also faster
+            consistentDelay = 67; // 15fps default (faster than 10fps)
+            console.log(`🎞️ Using fallback timing: ${consistentDelay}ms delay (10fps) for ${processedFrames.length} frames`);
+          }
+          
+          console.log(`🎞️ Using consistent ${consistentDelay}ms delay for all ${processedFrames.length} frames`);
+          
+          // Store frame count for timestamp mapping
+          window.lastGIFFrameCount = processedFrames.length;
+
+          for (let index = 0; index < processedFrames.length; index++) {
+            const frame = processedFrames[index];
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
 
@@ -3512,68 +5618,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             ctx.putImageData(imageData, 0, 0);
 
+            // Add cyan crosshair cursor overlay if pen data is available AND cursor moved during recording
+            if (showCursor && frame.penData) {
+              addCyanCrosshair(ctx, canvas.width, canvas.height, frame.penData, optimalScale);
+            }
+
             // Add sideways AC stamp like in video recordings (await to ensure fonts are loaded)
-            const progress = (index + 1) / content.frames.length;
+            const progress = (index + 1) / processedFrames.length;
+            
+            // For GIF: calculate elapsed time based on actual GIF playback timing
+            const gifElapsedMs = (index + 1) * consistentDelay; // Actual elapsed time in GIF playback
+            const gifElapsedSeconds = gifElapsedMs / 1000;
+            const gifFrameMetadata = {
+              ...frame,
+              gifElapsedSeconds: gifElapsedSeconds // Pass actual GIF timing
+            };
+            
             await addAestheticComputerStamp(
               ctx,
               originalWidth * optimalScale,
               originalHeight * optimalScale, // Use original height, progress bar is part of stamp
               progress,
+              frame.data,
+              gifFrameMetadata, // Use enhanced metadata with GIF timing
             );
 
-            // Calculate real-time delay between this frame and the next with GC pause smoothing
-            let frameDelay;
-            if (index < content.frames.length - 1) {
-              // Calculate actual time difference to next frame in milliseconds
-              const currentTimestamp = content.frames[index][0];
-              const nextTimestamp = content.frames[index + 1][0];
-              const rawDelay = nextTimestamp - currentTimestamp;
-              
-              // Calculate average timing for GC pause detection
-              let avgTiming = 33; // Default ~30fps fallback
-              if (content.frames.length > 5) {
-                const sampleSize = Math.min(10, content.frames.length - 1);
-                const recentTimings = [];
-                for (let i = Math.max(0, index - sampleSize); i < Math.min(content.frames.length - 1, index + sampleSize); i++) {
-                  if (i !== index) { // Skip current frame
-                    recentTimings.push(content.frames[i + 1][0] - content.frames[i][0]);
-                  }
-                }
-                if (recentTimings.length > 0) {
-                  avgTiming = recentTimings.reduce((a, b) => a + b, 0) / recentTimings.length;
-                }
-              }
-              
-              // Detect and smooth GC pauses (delays >3x average)
-              const gcPauseThreshold = avgTiming * 3;
-              if (rawDelay > gcPauseThreshold) {
-                // This looks like a GC pause - use average timing instead
-                frameDelay = Math.round(avgTiming);
-                console.log(`🗑️ Smoothed GC pause: ${rawDelay.toFixed(1)}ms → ${frameDelay}ms (frame ${index})`);
-              } else {
-                frameDelay = Math.round(rawDelay);
-              }
-              
-              // Clamp to reasonable GIF delay bounds (10ms to 200ms)
-              frameDelay = Math.max(10, Math.min(200, frameDelay));
-            } else {
-              // Last frame - use average delay or loop back to first frame timing
-              if (content.frames.length > 1) {
-                const firstTimestamp = content.frames[0][0];
-                const lastTimestamp = content.frames[content.frames.length - 1][0];
-                const totalDuration = lastTimestamp - firstTimestamp;
-                const averageDelay = Math.round(totalDuration / (content.frames.length - 1));
-                frameDelay = Math.max(10, Math.min(200, averageDelay));
-              } else {
-                frameDelay = 100; // Default 100ms for single frame
-              }
-            }
+            // Every frame gets the same consistent delay - no variation
+            gif.addFrame(canvas, { copy: true, delay: consistentDelay });
 
-            gif.addFrame(canvas, { copy: true, delay: frameDelay });
-
-            if ((index + 1) % 50 === 0 || index === content.frames.length - 1) {
+            if ((index + 1) % 50 === 0 || index === processedFrames.length - 1) {
               console.log(
-                `🎞️ Processed frame ${index + 1}/${content.frames.length} (${Math.round(((index + 1) / content.frames.length) * 100)}%) - delay: ${frameDelay}ms`,
+                `🎞️ Processed frame ${index + 1}/${processedFrames.length} (${Math.round(((index + 1) / processedFrames.length) * 100)}%) - consistent delay: ${consistentDelay}ms`,
               );
             }
           }
@@ -3640,11 +5715,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           ctx.putImageData(imageData, 0, 0);
 
+          // Add cyan crosshair cursor overlay if pen data is available
+          if (firstFrame.penData) {
+            addCyanCrosshair(ctx, canvas.width, canvas.height, firstFrame.penData, 1); // No scaling for fallback
+          }
+
           // Add sideways AC stamp to fallback GIF as well (await to ensure fonts are loaded)
           await addAestheticComputerStamp(
             ctx,
             firstFrame.width,
             firstFrame.height + progressBarHeight,
+            0,
+            firstFrame.data,
+            firstFrame,
           );
 
           const gifBlob = await new Promise((resolve) => {
@@ -3658,6 +5741,865 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         } catch (fallbackError) {
           console.error("Error in fallback GIF creation:", fallbackError);
         }
+      }
+      return;
+    }
+
+    // 🎬 Create animated MP4 from frame data (same pipeline as GIF)
+    if (type === "create-animated-mp4") {
+      console.log(
+        "🎞️ Creating animated MP4 from",
+        content.frames.length,
+        "frames",
+      );
+
+      try {
+        if (content.frames.length === 0) {
+          console.warn("No frames provided for MP4 creation");
+          return;
+        }
+
+        console.log("🔄 Creating MP4 with MediaRecorder API");
+
+        // Send initial progress to show the progress bar immediately
+        send({
+          type: "recorder:transcode-progress",
+          content: 0.01, // 1% to start
+        });
+
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "preparing", 
+            message: "Preparing MP4 export" 
+          }
+        });
+
+        // Use higher scaling for clean mode: 6x vs 3x for ultra crisp output
+        const originalWidth = content.frames[0].width;
+        const originalHeight = content.frames[0].height;
+        const optimalScale = window.currentRecordingOptions?.cleanMode ? 6 : 3;
+
+        console.log(
+          `📏 Using ${optimalScale}x scaling for ${window.currentRecordingOptions?.cleanMode ? 'ultra-crisp clean mode' : 'standard'} MP4: ${originalWidth}x${originalHeight} -> ${originalWidth * optimalScale}x${originalHeight * optimalScale}`,
+        );
+
+        // Create canvas for frame processing (same as GIF)
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = originalWidth * optimalScale;
+        canvas.height = originalHeight * optimalScale;
+        ctx.imageSmoothingEnabled = false;
+
+        // Use fixed 60fps for MP4 files to avoid timing issues
+        const targetFrameRate = 60;
+        const targetFrameInterval = 1000 / targetFrameRate; // 16.67ms per frame
+        
+        // Calculate original recording timing for reference
+        let totalOriginalDuration = 0;
+        if (content.frames.length > 1) {
+          totalOriginalDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+        } else if (content.frames.length === 1) {
+          totalOriginalDuration = 100; // Default 100ms for single frame
+        }
+        
+        // For MP4 export, we need to match the audio timing exactly
+        // Calculate the original recording frame rate and duration
+        const recordingDuration = content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp;
+        const originalFrameRate = Math.round((content.frames.length / recordingDuration) * 1000);
+        
+        // 🎯 Resample frames to target frame rate for optimal MP4 playback
+        // Use same logic as GIF to handle high refresh rate displays (120Hz -> 60fps)
+        let processedFrames = content.frames;
+        const targetMp4FPS = 60; // Target 60fps for smooth MP4 playback
+        
+        if (originalFrameRate > targetMp4FPS && recordingDuration > 0) {
+          // Calculate how many frames we need for target fps
+          const targetFrameCount = Math.round((recordingDuration / 1000) * targetMp4FPS);
+          processedFrames = [];
+          
+          console.log(`🎬 Resampling MP4 from ${originalFrameRate}fps to ${targetMp4FPS}fps (${content.frames.length} -> ${targetFrameCount} frames)`);
+          
+          // Properly resample frames evenly across the entire duration
+          for (let i = 0; i < targetFrameCount; i++) {
+            // Calculate the exact timestamp we want for this frame
+            // Ensure we span from first frame to last frame inclusive
+            let targetTimestamp;
+            if (i === targetFrameCount - 1) {
+              // For the last frame, use the actual last timestamp to ensure we capture the end
+              targetTimestamp = content.frames[content.frames.length - 1].timestamp;
+            } else {
+              // For all other frames, distribute evenly across the duration
+              targetTimestamp = content.frames[0].timestamp + (i / (targetFrameCount - 1)) * recordingDuration;
+            }
+            
+            // Find the closest source frame to this timestamp
+            let closestIndex = 0;
+            let minDistance = Math.abs(content.frames[0].timestamp - targetTimestamp);
+            
+            for (let j = 1; j < content.frames.length; j++) {
+              const distance = Math.abs(content.frames[j].timestamp - targetTimestamp);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestIndex = j;
+              }
+            }
+            
+            processedFrames.push(content.frames[closestIndex]);
+            
+            // Debug logging for first and last few frames
+            if (i < 3 || i >= targetFrameCount - 3) {
+              console.log(`🎬 Frame ${i}: target=${targetTimestamp.toFixed(1)}ms, closest=${content.frames[closestIndex].timestamp.toFixed(1)}ms, index=${closestIndex}`);
+            }
+          }
+          
+          console.log(`🎬 MP4 frame count: ${content.frames.length} -> ${processedFrames.length} frames`);
+        } else {
+          console.log(`🎬 No resampling needed: ${originalFrameRate}fps <= ${targetMp4FPS}fps target`);
+        }
+
+        // Use consistent 60fps timing for smooth playback
+        const totalFrames = processedFrames.length;
+        const exportFrameRate = 60; // 60fps for smooth playback
+        const frameDuration = 1000 / exportFrameRate; // 16.67ms per frame
+        
+        console.log(
+          `🎬 MP4 export timing: ${recordingDuration.toFixed(1)}ms original, ${totalFrames} frames`
+        );
+        console.log(
+          `🎬 Export frame rate: ${exportFrameRate}fps (${frameDuration.toFixed(1)}ms per frame)`
+        );
+
+        // Pre-render all scaled frames with stamps before encoding
+        console.log("🎨 Setting up streaming frame processing (render-on-demand)...");
+        
+        // Instead of pre-rendering all frames, we'll render them on-demand during encoding
+        // This saves massive amounts of memory for high-resolution exports
+        
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "rendering", 
+            message: "Pre-rendering frames" 
+          }
+        });
+
+        // Instead of pre-rendering all frames, we'll render them on-demand during encoding
+        // This saves massive amounts of memory for high-resolution exports
+        
+        // Function to render a specific frame on-demand
+        async function renderFrameOnDemand(frameIndex) {
+          const frame = processedFrames[frameIndex];
+          if (!frame) return null;
+
+          // Create ImageData from frame
+          const imageData = new ImageData(
+            new Uint8ClampedArray(frame.data),
+            frame.width,
+            frame.height
+          );
+
+          // Create a temporary canvas for processing this single frame
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCanvas.width = frame.width;
+          tempCanvas.height = frame.height;
+          tempCtx.putImageData(imageData, 0, 0);
+
+          // Add stamp to the frame
+          await addAestheticComputerStamp(
+            tempCtx,
+            frame.width,
+            frame.height,
+            0,
+            frame.data,
+            frame,
+            frameIndex,
+            processedFrames.length
+          );
+
+          // Scale up using nearest neighbor
+          const scaledCanvas = document.createElement("canvas");
+          const scaledCtx = scaledCanvas.getContext("2d");
+          scaledCanvas.width = originalWidth * optimalScale;
+          scaledCanvas.height = originalHeight * optimalScale;
+          scaledCtx.imageSmoothingEnabled = false;
+          scaledCtx.drawImage(
+            tempCanvas,
+            0, 0, frame.width, frame.height,
+            0, 0, scaledCanvas.width, scaledCanvas.height
+          );
+
+          // Get the final ImageData
+          const finalImageData = scaledCtx.getImageData(0, 0, scaledCanvas.width, scaledCanvas.height);
+          
+          // Clean up temporary canvases immediately
+          tempCanvas.width = 1;
+          tempCanvas.height = 1;
+          scaledCanvas.width = 1;
+          scaledCanvas.height = 1;
+          
+          return finalImageData;
+        }
+
+        const preRenderedFrames = null; // No longer pre-rendering frames
+        
+        console.log(`✅ Ready for streaming frame processing of ${processedFrames.length} frames`);
+
+        // Send encoding status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Encoding MP4" 
+          }
+        });
+
+        // Create MediaRecorder for MP4 export with H.264 codec
+        const canvasStream = canvas.captureStream(targetFrameRate);
+        
+        // For MP4 export, we'll create video-only first, then combine with audio using Web Audio API
+        // This avoids the sync issues of real-time recording
+        
+        let mimeType;
+        // Detect browser for codec selection
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isChrome = /chrome/i.test(navigator.userAgent) && !isSafari;
+        
+        console.log(`🔍 Browser detection: Safari=${isSafari}, Chrome=${isChrome}`);
+        
+        // Browser-specific codec candidates
+        let mp4Candidates;
+        
+        if (isSafari) {
+          // Safari on macOS has better codec support
+          mp4Candidates = [
+            "video/mp4; codecs=avc1.640028,mp4a.40.2", // H.264 High + AAC-LC (Twitter optimal)
+            "video/mp4; codecs=avc1.4D401E,mp4a.40.2", // H.264 Main + AAC-LC
+            "video/mp4; codecs=avc1.42E01E,mp4a.40.2", // H.264 Baseline + AAC-LC
+            "video/mp4; codecs=avc1.640028", // H.264 High only
+            "video/mp4; codecs=avc1.4D401E", // H.264 Main only
+            "video/mp4; codecs=avc1.42E01E", // H.264 Baseline only
+            "video/mp4", // Generic MP4
+          ];
+        } else {
+          // Chrome/Chromium - more conservative approach
+          mp4Candidates = [
+            "video/mp4; codecs=avc1.42E01E", // H.264 Baseline only (most compatible)
+            "video/mp4; codecs=avc1.4D401E", // H.264 Main Profile 
+            "video/mp4; codecs=avc1.42001E", // H.264 Baseline 3.0
+            "video/mp4", // Generic MP4 (let browser choose audio codec)
+            "video/mp4; codecs=avc1.42E01E,mp4a.40.5", // H.264 + AAC-HE (sometimes works)
+            "video/mp4; codecs=avc1.42E01E,mp4a.40.2", // H.264 + AAC-LC (often fails in Chrome)
+          ];
+        }
+        
+        let mp4Found = false;
+        for (const candidate of mp4Candidates) {
+          console.log(`🔍 Testing codec: ${candidate}`);
+          if (MediaRecorder.isTypeSupported(candidate)) {
+            mimeType = candidate;
+            mp4Found = true;
+            console.log(`✅ Using MP4 codec: ${candidate}`);
+            console.log(`🎯 Browser: ${isSafari ? 'Safari' : isChrome ? 'Chrome' : 'Unknown'}`);
+            break;
+          } else {
+            console.log(`❌ Codec not supported: ${candidate}`);
+          }
+        }
+        
+        // Fallback to WebM if no MP4 works
+        if (!mp4Found) {
+          if (MediaRecorder.isTypeSupported("video/webm; codecs=vp9,opus")) {
+            mimeType = "video/webm; codecs=vp9,opus"; // VP9 + Opus (high quality)
+            console.log("⚠️ MP4 not supported, using WebM VP9 + Opus");
+          } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8,opus")) {
+            mimeType = "video/webm; codecs=vp8,opus"; // VP8 + Opus (compatible)
+            console.log("⚠️ MP4 not supported, using WebM VP8 + Opus");
+          } else if (MediaRecorder.isTypeSupported("video/webm")) {
+            mimeType = "video/webm"; // WebM fallback
+            console.log("⚠️ Falling back to WebM (default codecs)");
+          } else if (MediaRecorder.isTypeSupported("video/webm; codecs=vp8")) {
+            mimeType = "video/webm; codecs=vp8"; // VP8 fallback (avoid VP9)
+            console.log("⚠️ Falling back to WebM VP8");
+          } else {
+            console.error("🔴 No supported video mimetypes found");
+            return;
+          }
+        }
+
+        // Check if we have recorded audio for combination
+        let hasRecordedAudio = false;
+        let audioBuffer = null;
+        
+        console.log("🔊 Checking for recorded audio...");
+        console.log("🔊 sfx[\"tape:audio\"] exists:", !!sfx["tape:audio"]);
+        console.log("🔊 sfx[\"tape:audio\"] type:", typeof sfx["tape:audio"]);
+        console.log("🔊 sfx[\"tape:audio\"] constructor:", sfx["tape:audio"]?.constructor?.name);
+        
+        if (sfx["tape:audio"]) {
+          try {
+            // Check if it's already an AudioBuffer
+            if (sfx["tape:audio"] instanceof AudioBuffer) {
+              console.log("🔊 ✅ Audio is already an AudioBuffer!");
+              audioBuffer = sfx["tape:audio"];
+              hasRecordedAudio = true;
+              console.log("🔊 Audio buffer duration:", audioBuffer.duration, "seconds");
+              console.log("🔊 Audio buffer channels:", audioBuffer.numberOfChannels);
+              console.log("🔊 Audio buffer sample rate:", audioBuffer.sampleRate);
+              console.log("🔊 Recorded audio available for MP4 export");
+            } else if (sfx["tape:audio"] instanceof ArrayBuffer || (sfx["tape:audio"] && sfx["tape:audio"].byteLength !== undefined)) {
+              console.log("🔊 Audio is ArrayBuffer, decoding...");
+              // Create a temporary audio context to decode the audio
+              const tempAudioContext = new AudioContext();
+              console.log("🔊 Temp audio context created, sample rate:", tempAudioContext.sampleRate);
+              
+              console.log("🔊 Starting audio decode...");
+              audioBuffer = await tempAudioContext.decodeAudioData(sfx["tape:audio"].slice());
+              hasRecordedAudio = true;
+              console.log("🔊 ✅ Audio decoded successfully!");
+              console.log("🔊 Audio buffer duration:", audioBuffer.duration, "seconds");
+              console.log("🔊 Audio buffer channels:", audioBuffer.numberOfChannels);
+              console.log("🔊 Audio buffer sample rate:", audioBuffer.sampleRate);
+              console.log("🔊 Recorded audio available for MP4 export");
+            } else {
+              console.log("🔊 ❌ Unknown audio format:", typeof sfx["tape:audio"], sfx["tape:audio"]?.constructor?.name);
+            }
+          } catch (error) {
+            console.error("🔊 ❌ Failed to process recorded audio:", error);
+            console.log("🔊 Error details:", error.message);
+          }
+        } else {
+          console.log("🔊 ❌ No recorded audio found in sfx[\"tape:audio\"]");
+        }
+
+        // If we have audio, create a combined stream; otherwise video-only
+        let finalStream = canvasStream;
+        let audioDestination = null;
+        
+        console.log("🔊 Setting up final stream...");
+        console.log("🔊 hasRecordedAudio:", hasRecordedAudio);
+        console.log("🔊 audioBuffer exists:", !!audioBuffer);
+        
+        if (hasRecordedAudio && audioBuffer) {
+          try {
+            console.log("🔊 Creating export audio context...");
+            // Create audio context for export
+            const exportAudioContext = new AudioContext();
+            console.log("🔊 Export audio context created, sample rate:", exportAudioContext.sampleRate);
+            console.log("🔊 Export audio context state:", exportAudioContext.state);
+            
+            // Resume audio context if suspended with timeout
+            if (exportAudioContext.state === 'suspended') {
+              console.log("🔊 Resuming suspended audio context...");
+              try {
+                // Add timeout to prevent hanging - increased for longer recordings
+                const resumePromise = exportAudioContext.resume();
+                const timeoutPromise = new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Audio context resume timeout')), 15000) // Increased to 15 seconds
+                );
+                
+                await Promise.race([resumePromise, timeoutPromise]);
+                console.log("🔊 Audio context resumed, state:", exportAudioContext.state);
+              } catch (error) {
+                console.warn("🔊 ⚠️ Audio context resume failed:", error.message);
+                // Continue without audio if resume fails
+                hasRecordedAudio = false;
+                audioBuffer = null;
+                exportAudioContext.close();
+              }
+            }
+            
+            if (hasRecordedAudio && audioBuffer) {
+              audioDestination = exportAudioContext.createMediaStreamDestination();
+              console.log("🔊 Audio destination created");
+              console.log("🔊 Audio destination stream:", audioDestination.stream);
+              console.log("🔊 Audio destination stream tracks:", audioDestination.stream.getTracks().length);
+            }
+            
+            // Create combined stream
+            finalStream = new MediaStream();
+            console.log("🔊 Combined stream created");
+            
+            // Add video tracks
+            const videoTracks = canvasStream.getVideoTracks();
+            console.log("🔊 Video tracks found:", videoTracks.length);
+            videoTracks.forEach((track, index) => {
+              finalStream.addTrack(track);
+              console.log(`🔊 Added video track ${index}:`, track.kind, track.enabled, track.readyState);
+            });
+            
+            // Add audio tracks from our export destination
+            const audioTracks = audioDestination.stream.getAudioTracks();
+            console.log("🔊 Audio tracks found:", audioTracks.length);
+            audioTracks.forEach((track, index) => {
+              finalStream.addTrack(track);
+              console.log(`🔊 Added audio track ${index}:`, track.kind, track.enabled, track.readyState);
+            });
+            
+            console.log("🔊 Final stream tracks:", finalStream.getTracks().length);
+            console.log("🔊 Final stream video tracks:", finalStream.getVideoTracks().length);
+            console.log("🔊 Final stream audio tracks:", finalStream.getAudioTracks().length);
+            
+            console.log("🔊 ✅ Created combined audio/video stream for MP4 export");
+          } catch (error) {
+            console.error("🔊 ❌ Failed to create combined stream, falling back to video-only:", error);
+            console.log("🔊 Error details:", error.message);
+            finalStream = canvasStream;
+            hasRecordedAudio = false;
+          }
+        } else {
+          console.log("🔊 Using video-only stream (no audio available)");
+        }
+
+
+        // Test codec support before creating MediaRecorder
+        console.log("🔊 Testing codec support...");
+        console.log("🔊 Original mimeType:", mimeType);
+        console.log("🔊 Codec support test:", MediaRecorder.isTypeSupported(mimeType));
+
+        let selectedMimeType = mimeType;
+        let mp4Supported = MediaRecorder.isTypeSupported(mimeType);
+        let webmVp8Opus = "video/webm; codecs=vp8,opus";
+        let webmVp9Opus = "video/webm; codecs=vp9,opus";
+        let webmBasic = "video/webm";
+        let fallbackUsed = false;
+
+        if (!mp4Supported) {
+          console.warn("🔴 MP4/H.264/AAC not supported for MediaRecorder in this browser. Falling back to WebM/VP8+Opus.");
+          if (MediaRecorder.isTypeSupported(webmVp8Opus)) {
+            selectedMimeType = webmVp8Opus;
+            fallbackUsed = true;
+            console.log("🔊 ✅ Using WebM/VP8+Opus");
+          } else if (MediaRecorder.isTypeSupported(webmVp9Opus)) {
+            selectedMimeType = webmVp9Opus;
+            fallbackUsed = true;
+            console.log("🔊 ✅ Using WebM/VP9+Opus");
+          } else if (MediaRecorder.isTypeSupported(webmBasic)) {
+            selectedMimeType = webmBasic;
+            fallbackUsed = true;
+            console.log("🔊 ✅ Using basic WebM");
+          } else {
+            selectedMimeType = "";
+            fallbackUsed = true;
+            console.warn("🔴 No supported codecs found for MediaRecorder. Browser default will be used (may fail).");
+          }
+        }
+
+        // Adaptive bitrate based on content and duration
+        // For shorter recordings, we can afford higher quality
+        // For longer recordings, reduce bitrate to keep file sizes manageable
+        const estimatedDuration = (mediaRecorderDuration || 5000) / 1000; // Convert to seconds
+        const frameCount = recordedFrames?.length || 300; // Estimate if not available
+        
+        // Analyze content complexity by sampling frame differences (only for shorter recordings)
+        let contentComplexity = 1.0; // Default complexity multiplier
+        
+        // Skip complex analysis for longer recordings to avoid issues
+        if (recordedFrames && recordedFrames.length > 10 && estimatedDuration <= 30) {
+          try {
+            let totalDifference = 0;
+            let samples = 0;
+            const sampleStep = Math.max(1, Math.floor(recordedFrames.length / 10)); // Sample every N frames
+            
+            for (let i = sampleStep; i < recordedFrames.length && samples < 10; i += sampleStep) {
+              const prevFrame = recordedFrames[i - sampleStep][1];
+              const currentFrame = recordedFrames[i][1];
+              
+              // Safety check for valid frame data
+              if (!prevFrame?.data || !currentFrame?.data) continue;
+              
+              // Quick difference check using a subset of pixels
+              let pixelDiff = 0;
+              const checkStep = 100; // Check every 100th pixel for speed
+              const maxPixels = Math.min(prevFrame.data.length, currentFrame.data.length);
+              
+              for (let p = 0; p < maxPixels; p += checkStep * 4) {
+                pixelDiff += Math.abs(prevFrame.data[p] - currentFrame.data[p]);
+              }
+              totalDifference += pixelDiff;
+              samples++;
+            }
+            
+            if (samples > 0) {
+              const avgDifference = totalDifference / samples;
+              // Normalize complexity (typical values range from 0-10000+)
+              contentComplexity = Math.min(2.0, Math.max(0.5, avgDifference / 5000));
+            }
+          } catch (error) {
+            console.warn("⚠️ Content complexity analysis failed, using default:", error.message);
+            contentComplexity = 1.0; // Fallback to default
+          }
+        }
+        
+        if (debug) console.log(`📊 Content complexity analysis: ${contentComplexity.toFixed(2)}x (1.0 = normal, >1.0 = high motion/detail)`);
+        
+        let videoBitrate;
+        let audioBitrate = 128000; // 128 kbps - good quality audio
+        
+        // Clean mode: Use highest quality settings regardless of duration
+        if (window.currentRecordingOptions?.cleanMode) {
+          videoBitrate = Math.round(100000000 * contentComplexity); // 100 Mbps base for clean mode (2x increase)
+          audioBitrate = 320000; // 320 kbps audio for clean mode (ultra high quality)
+          videoBitrate = Math.min(videoBitrate, 100000000); // Max 100 Mbps for clean mode (2x increase)
+          console.log(`🎬 🧹 Clean mode: Using ultra-high bitrate ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio`);
+        } else if (estimatedDuration <= 10) {
+          // Short recordings (≤10s): High quality
+          videoBitrate = Math.round(12000000 * contentComplexity); // 12 Mbps base
+        } else if (estimatedDuration <= 30) {
+          // Medium recordings (10-30s): Balanced quality  
+          videoBitrate = Math.round(8000000 * contentComplexity);  // 8 Mbps base
+        } else {
+          // Longer recordings (>30s): Use fixed conservative bitrates to avoid issues
+          if (estimatedDuration <= 60) {
+            videoBitrate = 4000000;  // Fixed 4 Mbps for 30-60s recordings
+          } else {
+            videoBitrate = 2500000;  // Fixed 2.5 Mbps for very long recordings
+            audioBitrate = 96000;    // 96 kbps audio to save more space
+          }
+        }
+        
+        // Cap maximum bitrate to prevent extremely large files (skip for clean mode)
+        if (!window.currentRecordingOptions?.cleanMode) {
+          videoBitrate = Math.min(videoBitrate, 15000000); // Max 15 Mbps (reduced)
+        }
+        
+        if (debug) console.log(`📊 Adaptive bitrate: ${(videoBitrate/1000000).toFixed(1)}Mbps video, ${audioBitrate/1000}kbps audio (duration: ${estimatedDuration.toFixed(1)}s)`);
+
+        const recorderOptions = selectedMimeType ? {
+          mimeType: selectedMimeType,
+          videoBitsPerSecond: videoBitrate,
+          audioBitsPerSecond: audioBitrate,
+        } : {
+          videoBitsPerSecond: videoBitrate,
+          audioBitsPerSecond: audioBitrate,
+        };
+
+        // Add frame rate constraint for consistent 60fps output
+        if (finalStream.getVideoTracks().length > 0) {
+          const videoTrack = finalStream.getVideoTracks()[0];
+          const settings = videoTrack.getSettings();
+          if (settings.frameRate && settings.frameRate > 60) {
+            console.log(`🎬 Constraining video track from ${settings.frameRate}fps to 60fps`);
+            videoTrack.applyConstraints({
+              frameRate: { ideal: 60, max: 60 }
+            }).catch(err => console.warn("Failed to apply frame rate constraint:", err));
+          }
+        }
+
+        if (fallbackUsed) {
+          console.warn("⚠️ Only WebM output is possible in this browser. If you need MP4, you must transcode after recording.");
+        }
+
+        console.log("🔊 Creating MediaRecorder with options:", recorderOptions);
+        const videoRecorder = new MediaRecorder(finalStream, recorderOptions);
+        
+        console.log("🔊 MediaRecorder created");
+        console.log("🔊 MediaRecorder mimeType:", videoRecorder.mimeType);
+        console.log("🔊 MediaRecorder stream:", videoRecorder.stream);
+        console.log("🔊 MediaRecorder stream tracks:", videoRecorder.stream.getTracks().length);
+        console.log("🔊 MediaRecorder stream video tracks:", videoRecorder.stream.getVideoTracks().length);
+        console.log("🔊 MediaRecorder stream audio tracks:", videoRecorder.stream.getAudioTracks().length);
+        
+        // Debug track states
+        finalStream.getTracks().forEach((track, index) => {
+          console.log(`🔊 Track ${index}: ${track.kind} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`);
+        });
+
+        const chunks = [];
+        videoRecorder.ondataavailable = function (e) {
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        // Add error handling 
+        videoRecorder.onerror = function (e) {
+          console.error("MediaRecorder error:", e);
+          console.error("Error details:", e.error);
+          console.error("Used mimeType:", selectedMimeType);
+          console.error("MediaRecorder state:", videoRecorder.state);
+        };
+
+        // Add state change monitoring
+        videoRecorder.onstart = function () {
+          // MediaRecorder started successfully
+        };
+
+        videoRecorder.onpause = function () {
+          // MediaRecorder paused
+        };
+
+        videoRecorder.onresume = function () {
+          console.log("🎬 ▶️ MediaRecorder resumed");
+        };
+
+        // Send encoding status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "encoding", 
+            message: "Encoding MP4" 
+          }
+        });
+
+        // Set up audio source if we have recorded audio
+        let audioSource = null;
+        let audioStarted = false;
+        
+        console.log("🔊 Setting up audio source...");
+        console.log("🔊 hasRecordedAudio:", hasRecordedAudio);
+        console.log("🔊 audioBuffer exists:", !!audioBuffer);
+        console.log("🔊 audioDestination exists:", !!audioDestination);
+        
+        if (hasRecordedAudio && audioBuffer && audioDestination) {
+          try {
+            console.log("🔊 Creating audio source from buffer...");
+            // Create audio source from the decoded buffer
+            audioSource = audioDestination.context.createBufferSource();
+            audioSource.buffer = audioBuffer;
+            audioSource.connect(audioDestination);
+            
+            console.log("🔊 Audio source created and connected");
+            console.log("🔊 Audio source buffer:", audioSource.buffer);
+            console.log("🔊 Audio source context:", audioSource.context);
+            console.log("🔊 Audio source context state:", audioSource.context.state);
+            console.log("🔊 ✅ Audio source prepared for synchronized playback");
+          } catch (error) {
+            console.error("🔊 ❌ Failed to create audio source:", error);
+            console.log("🔊 Error details:", error.message);
+            audioSource = null;
+          }
+        } else {
+          console.log("🔊 ❌ Cannot create audio source - missing requirements");
+          console.log("🔊   hasRecordedAudio:", hasRecordedAudio);
+          console.log("🔊   audioBuffer:", !!audioBuffer);
+          console.log("🔊   audioDestination:", !!audioDestination);
+        }
+
+        // Fast playback of pre-rendered frames with synchronized audio
+        let frameIndex = 0;
+        const audioBufferDuration = audioBuffer ? audioBuffer.duration * 1000 : processedFrames.length * frameDuration;
+        
+        // Use original frame timing for perfect sync instead of artificial even spacing
+        const useOriginalTiming = content.frames && content.frames.length > 0 && content.frames[0].timestamp !== undefined;
+        
+        if (useOriginalTiming) {
+          console.log("🔊 Using original frame timing for perfect audio sync");
+          console.log("🔊 Audio duration:", audioBufferDuration.toFixed(1), "ms");
+          console.log("🔊 Original recording duration:", (content.frames[content.frames.length - 1].timestamp - content.frames[0].timestamp).toFixed(1), "ms");
+        } else {
+          console.log("🔊 Using calculated frame timing - audioDuration:", audioBufferDuration.toFixed(1), "ms");
+          console.log("🔊 Frame timing setup - actualFrameDuration:", (audioBufferDuration / processedFrames.length).toFixed(3), "ms");
+        }
+        console.log("🔊 Frame timing setup - totalFrames:", processedFrames.length);
+        
+        // Track timing for frame synchronization
+        let startTime;
+        
+        // Define the frame rendering function with streaming approach
+        async function renderNextFrame() {
+          if (frameIndex >= processedFrames.length) {
+            try {
+              videoRecorder.stop();
+            } catch (error) {
+              console.error("Error stopping MediaRecorder:", error);
+            }
+            return;
+          }
+
+          // Start audio playback on first frame for perfect sync
+          if (!audioStarted && audioSource) {
+            try {
+              // Resume audio context if suspended
+              if (audioSource.context.state === 'suspended') {
+                audioSource.context.resume().then(() => {
+                  audioSource.start(0);
+                  audioStarted = true;
+                }).catch((resumeError) => {
+                  console.error("Failed to resume audio context:", resumeError);
+                  // Try to start anyway
+                  audioSource.start(0);
+                  audioStarted = true;
+                });
+              } else {
+                audioSource.start(0);
+                audioStarted = true;
+              }
+            } catch (error) {
+              console.error("Failed to start audio source:", error);
+            }
+          }
+
+          // Render frame on-demand to save memory
+          const frameImageData = await renderFrameOnDemand(frameIndex);
+          if (frameImageData) {
+            ctx.putImageData(frameImageData, 0, 0);
+          } else {
+            console.warn(`Failed to render frame ${frameIndex}, using blank frame`);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          
+          // Send progress update
+          if (frameIndex % 30 === 0 || frameIndex === processedFrames.length - 1) {
+            const progress = (frameIndex + 1) / processedFrames.length;
+            
+            send({
+              type: "recorder:transcode-progress",
+              content: 0.41 + (progress * 0.54), // 41% to 95%
+            });
+          }
+
+          frameIndex++;
+          
+          // Calculate next frame time - force 60fps output timing
+          const targetFrameRate = 60;
+          const frameDuration = 1000 / targetFrameRate; // 16.67ms per frame
+          
+          let targetTime;
+          if (useOriginalTiming && frameIndex < content.frames.length) {
+            // Use original timing but clamp to 60fps maximum
+            const baseTimestamp = content.frames[0].timestamp;
+            const currentFrameTimestamp = content.frames[Math.min(frameIndex, content.frames.length - 1)].timestamp;
+            const originalDelta = currentFrameTimestamp - baseTimestamp;
+            
+            // Ensure we don't exceed 60fps (minimum 16.67ms between frames)
+            const minFrameTime = frameIndex * frameDuration;
+            targetTime = Math.max(originalDelta, minFrameTime);
+          } else {
+            // Force exactly 60fps timing
+            targetTime = frameIndex * frameDuration;
+          }
+          
+          const currentTime = performance.now() - startTime;
+          const delay = Math.max(0, targetTime - currentTime);
+          
+          setTimeout(renderNextFrame, delay);
+        }
+
+        // Handle recording completion - define this before starting
+        videoRecorder.onstop = async function () {
+          // Clean up audio resources
+          if (audioSource) {
+            try {
+              audioSource.disconnect();
+            } catch (error) {
+              // Ignore disconnect errors as they're usually normal
+            }
+          }
+          if (audioDestination) {
+            try {
+              await audioDestination.context.close();
+            } catch (error) {
+              // Ignore close errors as they're usually normal
+            }
+          }
+          
+          send({
+            type: "recorder:export-status",
+            content: { 
+              type: "video", 
+              phase: "finalizing", 
+              message: "Finalizing MP4" 
+            }
+          });
+
+          const blob = new Blob(chunks, { type: mimeType });
+
+          // Determine file extension based on actual codec used
+          const extension = selectedMimeType.includes('webm') ? 'webm' : 'mp4';
+          const filename = generateTapeFilename(extension);
+          console.log("🎬 Animated MP4 Export - currentRecordingOptions:", JSON.stringify(window.currentRecordingOptions, null, 2));
+          
+          receivedDownload({ filename, data: blob });
+
+          console.log(`Animated ${extension.toUpperCase()} exported successfully!`);
+
+          // Send completion message to video piece
+          send({
+            type: "recorder:export-complete",
+            content: { type: "video", filename }
+          });
+        };
+        
+        // Start recording and begin frame rendering after a small delay
+        console.log("🎬 Starting MediaRecorder...");
+        console.log("🎬 MediaRecorder state before start:", videoRecorder.state);
+        console.log("🎬 Stream active before start:", finalStream.active);
+        console.log("🎬 Stream tracks before start:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+        
+        try {
+          console.log("🎬 About to start MediaRecorder with timeslice:", 100);
+          console.log("🎬 MediaRecorder mimeType:", videoRecorder.mimeType);
+          console.log("🎬 Final stream tracks before start:", finalStream.getTracks().length);
+          console.log("🎬 Final stream video tracks before start:", finalStream.getVideoTracks().length);
+          console.log("🎬 Final stream audio tracks before start:", finalStream.getAudioTracks().length);
+          
+          videoRecorder.start(100);
+          
+          console.log("🎬 MediaRecorder state after start():", videoRecorder.state);
+          console.log("🎬 Stream active after start:", finalStream.active);
+          
+          // Verify tracks are still active after MediaRecorder start
+          console.log("🎬 Final stream tracks after start:", finalStream.getTracks().length);
+          finalStream.getTracks().forEach((track, index) => {
+            console.log(`🎬 Track ${index} after start: ${track.kind} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`);
+          });
+          
+          // Wait for MediaRecorder to start before beginning frame rendering
+          setTimeout(() => {
+            console.log("🎬 Beginning frame rendering...");
+            console.log("🎬 MediaRecorder state at frame start:", videoRecorder.state);
+            console.log("🎬 Stream active at frame start:", finalStream.active);
+            console.log("🎬 Stream tracks at frame start:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+            
+            // Check if any data has been received yet
+            console.log("🎬 Chunks collected so far:", chunks.length);
+            
+            startTime = performance.now(); // Initialize timing reference
+            renderNextFrame();
+          }, 100); // 100ms delay to let MediaRecorder initialize
+          
+          // Add a longer timeout to check for data collection issues
+          setTimeout(() => {
+            console.log("🎬 🔍 DEBUG: 2 second check - chunks collected:", chunks.length);
+            console.log("🎬 🔍 MediaRecorder state:", videoRecorder.state);
+            console.log("🎬 🔍 Stream active:", finalStream.active);
+            console.log("🎬 🔍 Stream tracks:", finalStream.getTracks().map(t => `${t.kind}: ${t.readyState}`));
+          }, 2000);
+          
+        } catch (startError) {
+          console.error("🎬 ❌ Failed to start MediaRecorder:", startError);
+          
+          // Clean up audio resources
+          if (audioSource && !audioStarted) {
+            audioSource.disconnect();
+          }
+          if (exportAudioContext && exportAudioContext.state !== 'closed') {
+            exportAudioContext.close();
+          }
+          
+          console.warn("⚠️ MP4 recording failed to start. Please try again.");
+          return;
+        }
+
+      } catch (error) {
+        console.error("Error creating animated MP4:", error);
+        
+        // Send error status
+        send({
+          type: "recorder:export-status",
+          content: { 
+            type: "video", 
+            phase: "error", 
+            message: "MP4 export failed" 
+          }
+        });
       }
       return;
     }
@@ -3927,7 +6869,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (window.acTOKEN) {
         if (window.parent) {
           window.parent.postMessage({ type: "logout" }, "*");
-          localStorage.removeItem("session-aesthetic");
+          window.safeLocalStorageRemove("session-aesthetic");
         }
         // Just use the logout services of the host.
       } else {
@@ -4425,6 +7367,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.addEventListener("beforeunload", (e) => {
         send({ type: "before-unload" });
         wrapper.classList.add("reloading");
+        
+        // 🎮 Clean up GameBoy emulator on page unload
+        if (gameboyEmulator) {
+          try {
+            console.log("🎮 Cleaning up GameBoy emulator on page unload");
+            gameboyEmulator.pause();
+            // Remove the hidden canvas
+            if (window.gameboyCanvas) {
+              window.gameboyCanvas.remove();
+              window.gameboyCanvas = null;
+            }
+          } catch (error) {
+            console.log("🎮 Error during GameBoy cleanup:", error);
+          }
+        }
       });
 
       // Listen for resize events on the visual viewport
@@ -4549,8 +7506,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // if (currentPiece !== null) firstPiece = false;
+      // console.log("🎮 currentPiece CHANGING FROM:", currentPiece, "TO:", content.path);
+      
+      // 🎮 GameBoy emulator lifecycle management
+      if (gameboyEmulator) {
+        if (currentPiece && currentPiece.includes('gameboy') && !content.path.includes('gameboy')) {
+          // Leaving gameboy piece - pause emulator
+          console.log("🎮 Leaving gameboy piece - pausing emulator");
+          try {
+            gameboyEmulator.pause();
+          } catch (error) {
+            console.log("🎮 Error pausing emulator:", error);
+          }
+        } else if (!currentPiece?.includes('gameboy') && content.path.includes('gameboy')) {
+          // Entering gameboy piece - resume emulator if ROM is loaded
+          console.log("🎮 Entering gameboy piece - resuming emulator");
+          try {
+            if (currentGameboyROM) {
+              gameboyEmulator.play();
+            }
+          } catch (error) {
+            console.log("🎮 Error resuming emulator:", error);
+          }
+        }
+      }
+      
       currentPiece = content.path;
-      currentPieceHasKeyboard = false;
+      // console.log("🎮 currentPiece SET TO:", currentPiece);
+      
+      // Don't disable keyboard for prompt piece (check if path contains 'prompt')
+      if (content.path && !content.path.includes("prompt")) {
+        currentPieceHasKeyboard = false;
+      }
+      
       if (keyboard) keyboard.input.value = "";
 
       if (!content.taping) {
@@ -4659,8 +7647,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keyboard.events.length = 0; // Clear keyboard events.
       gamepad.events.length = 0; // Clear gamepad events.
 
-      // Clear when events.
-      whens = {};
+      // Clear when events but preserve core signal handlers.
+      const coreHandlers = {};
+      if (whens["recorder:cut"]) {
+        coreHandlers["recorder:cut"] = whens["recorder:cut"];
+        // console.log("📻 Preserving recorder:cut handler during reset");
+      }
+      whens = coreHandlers;
 
       // Close (defocus) software keyboard if we are NOT entering the prompt.
       if (content.text && content.text.split("~")[0] !== "prompt") {
@@ -4974,7 +7967,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "signal") {
       if (debug) console.log("📻 Signal received:", content);
       if (typeof content === "string") content = { type: content };
-      if (whens[content.type]) whens[content.type](content.content);
+      
+      console.log(`📻 Signal processing: type="${content.type}", handler exists:`, !!whens[content.type]);
+      
+      if (whens[content.type]) {
+        try {
+          console.log(`📻 Calling signal handler for: ${content.type}`);
+          await whens[content.type](content.content);
+          console.log(`📻 Signal handler completed for: ${content.type}`);
+        } catch (error) {
+          console.error(`📻 Error in signal handler for ${content.type}:`, error);
+          console.error(`📻 Stack trace:`, error.stack);
+        }
+      } else {
+        console.warn(`📻 No handler found for signal: ${content.type}`);
+      }
     }
 
     // 📦 Storage
@@ -4988,7 +7995,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Local Storage
       if (content.method === "local") {
         try {
-          localStorage.setItem(content.key, JSON.stringify(content.data));
+          window.safeLocalStorageSet(content.key, JSON.stringify(content.data));
         } catch (e) {
           // console.warn(e);
         }
@@ -5028,9 +8035,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.method === "local") {
         let data;
 
-        if (!sandboxed) {
+        if (!window.acLOCALSTORAGE_BLOCKED) {
           try {
-            data = JSON.parse(localStorage.getItem(content.key));
+            const item = window.safeLocalStorageGet(content.key);
+            if (item) data = JSON.parse(item);
           } catch (err) {
             console.warn("📦 Retrieval error:", err);
             // Probably in a sandboxed environment here...
@@ -5068,7 +8076,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (content.method === "local") {
         if (debug && logs.store)
           console.log("📦 Delete local data:", content.key);
-        localStorage.removeItem(content.key);
+        window.safeLocalStorageRemove(content.key);
         send({
           type: "store:deleted",
           content: { key: content.key, data: true },
@@ -5104,7 +8112,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      // Reconstruct URL with preserved parameters (nogap, nolabel)
+      // Reconstruct URL with preserved parameters (nogap, nolabel, duration)
       const currentUrl = new URL(window.location);
 
       // Add preserved parameters back to the URL
@@ -5113,6 +8121,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       if (preservedParams.nolabel) {
         currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
+      }
+      if (preservedParams.duration) {
+        currentUrl.searchParams.set("duration", preservedParams.duration);
       }
 
       // Update the URL and reload
@@ -5224,6 +8235,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "get-frequencies") {
+      requestSpeakerFrequencies?.();
+      return;
+    }
+
     if (type === "get-microphone-pitch") {
       requestMicrophonePitch?.();
       return;
@@ -5247,7 +8263,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       recordingOptions = {
         pieceName: content.pieceName || "tape",
         pieceParams: content.pieceParams || "",
-        originalCommand: content.originalCommand || ""
+        originalCommand: content.originalCommand || "",
+        intendedDuration: content.intendedDuration || null, // Store intended duration from tape command
+        mystery: content.mystery || false, // Store mystery flag to hide command in filename
+        frameMode: content.frameMode || false, // Store frame-based recording mode
+        frameCount: content.frameCount || null, // Store target frame count
+        kidlispFps: content.kidlispFps || null, // Store KidLisp framerate from fps function
+        cleanMode: content.cleanMode || false, // Store clean mode flag (no overlays, no progress bar)
+        showTezosStamp: content.showTezosStamp || false // Store Tezos stamp visibility
       };
       actualContent = content.type || "video";
     } else {
@@ -5255,13 +8278,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       recordingOptions = {
         pieceName: "tape",
         pieceParams: "",
-        originalCommand: ""
+        originalCommand: "",
+        intendedDuration: null,
+        mystery: false,
+        cleanMode: false, // Default to false for legacy recordings
+        kidlispFps: null // Initialize for KidLisp framerate updates
       };
       actualContent = content;
     }
     
     // Store for use during export
     window.currentRecordingOptions = recordingOptions;
+    console.log("🎬 Recording options set:", JSON.stringify(recordingOptions, null, 2));
 
     const colonSplit = actualContent.split(":");
     // tiktokVideo = colonSplit[1] === "tiktok";
@@ -5270,6 +8298,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (mediaRecorder && mediaRecorder.state === "paused") {
         mediaRecorder.resume();
         mediaRecorderStartTime = performance.now();
+        // Initialize recording start timestamp for frame recording if not already set
+        if (!window.recordingStartTimestamp) {
+          window.recordingStartTimestamp = Date.now();
+        }
         send({
           type: "recorder:rolling:resumed",
           content: {
@@ -5289,10 +8321,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       function stop() {
         recordedFrames.length = 0;
         startTapePlayback = undefined;
+        // Properly stop and clean up MediaRecorder before trashing it
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
         mediaRecorder = undefined; // ❌ Trash the recorder.
         mediaRecorderStartTime = undefined;
-        mediaRecorderDuration = null;
+        mediaRecorderDuration = undefined; // Reset to undefined for clean initialization
         mediaRecorderChunks.length = 0;
+        
+        // Clean up raw audio processor
+        if (rawAudioProcessor) {
+          try {
+            rawAudioProcessor.disconnect();
+            rawAudioProcessor = null;
+          } catch (error) {
+            console.warn("Error disconnecting raw audio processor:", error);
+          }
+        }
+        rawAudioData = [];
+        
+        // Clear recording timestamp for next recording
+        if (window.recordingStartTimestamp) {
+          delete window.recordingStartTimestamp;
+        }
         // Clear cached tape data when stopping to start a new recording
         Store.del("tape").catch(() => {}); // Clear cache, ignore errors
       }
@@ -5330,17 +8382,221 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Start recording audio.
         try {
           mediaRecorder = new MediaRecorder(audioStreamDest.stream, options);
+          console.log("🎬 MediaRecorder created successfully:", mediaRecorder.state);
         } catch (error) {
           console.error("MediaRecorder creation failed:", error);
           return;
+        }
+        
+        // Set up raw audio capture for playback - but don't connect yet
+        if (audioContext && sfxStreamGain) {
+          try {
+            rawAudioData = [];
+            rawAudioSampleRate = audioContext.sampleRate;
+            
+            // Create a script processor node to capture raw audio
+            rawAudioProcessor = audioContext.createScriptProcessor(4096, 2, 2);
+            let rawAudioStartOffset = 0; // Track when audio capture actually starts
+            
+            rawAudioProcessor.onaudioprocess = function(event) {
+              // Only start capturing after MediaRecorder has started
+              if (mediaRecorderStartTime === undefined) return;
+              
+              const inputBuffer = event.inputBuffer;
+              const leftChannel = inputBuffer.getChannelData(0);
+              const rightChannel = inputBuffer.getChannelData(1);
+              
+              // Store the audio data with timing information
+              rawAudioData.push({
+                left: new Float32Array(leftChannel),
+                right: new Float32Array(rightChannel),
+                timestamp: performance.now() - mediaRecorderStartTime // Relative to recording start
+              });
+            };
+            
+            console.log("🎵 Raw audio capture prepared (will connect when recording starts)");
+          } catch (error) {
+            console.error("Raw audio capture setup failed:", error);
+          }
         }
       }
 
       // 🗺️ mediaRecorder:Start
       if (mediaRecorder) {
+        console.log("🎬 Setting up MediaRecorder callbacks");
         mediaRecorder.onstart = function () {
           // mediaRecorderResized = false;
           mediaRecorderStartTime = performance.now();
+          // Initialize recording start timestamp for frame recording
+          window.recordingStartTimestamp = Date.now();
+          
+          // DON'T connect raw audio processor immediately anymore
+          // We'll connect it when we detect actual audio playback starting
+          // This accounts for pieces like wipppps that have audio start detection delays
+          if (rawAudioProcessor && sfxStreamGain) {
+            console.log("🎵 Raw audio processor ready - will connect when audio actually starts");
+            
+            // Set up audio start detection to sync raw audio capture properly
+            let audioConnected = false;
+            let audioStartDetectionInterval;
+            let audioStartDetectionTimeout;
+            let detectionStartTime = performance.now();
+            
+            // Monitor for actual audio playback by checking multiple indicators
+            audioStartDetectionInterval = setInterval(() => {
+              try {
+                if (!audioConnected) {
+                  let shouldConnect = false;
+                  
+                  // Method 1: Check if tape progress is advancing (indicates actual playback)
+                  if (window.currentTapeProgress && window.currentTapeProgress > 0) {
+                    shouldConnect = true;
+                    console.log("🎵 Audio detected via tape progress:", window.currentTapeProgress);
+                  }
+                  
+                  // Method 2: Check the sfxStreamGain for connected nodes (actual audio flow)
+                  if (!shouldConnect && sfxStreamGain && sfxStreamGain.numberOfOutputs > 0) {
+                    // Audio nodes are connected to sfxStreamGain, indicating audio is flowing
+                    shouldConnect = true;
+                    console.log("🎵 Audio detected via sfxStreamGain connections");
+                  }
+                  
+                  // Method 3: Simple delay-based fallback - after 100ms, assume audio is starting
+                  // This handles cases where we can't detect programmatically but need to stay close
+                  const detectionTime = performance.now() - detectionStartTime;
+                  if (!shouldConnect && detectionTime > 100) {
+                    shouldConnect = true;
+                    console.log("🎵 Audio connection triggered by 100ms fallback");
+                  }
+                  
+                  if (shouldConnect) {
+                    // Audio is actually playing - connect the processor now
+                    sfxStreamGain.connect(rawAudioProcessor);
+                    rawAudioProcessor.connect(audioContext.destination);
+                    audioConnected = true;
+                    
+                    const detectionDelay = performance.now() - mediaRecorderStartTime;
+                    console.log(`🎵 Raw audio capture connected after ${detectionDelay.toFixed(1)}ms detection delay`);
+                    
+                    // Clean up detection
+                    clearInterval(audioStartDetectionInterval);
+                    clearTimeout(audioStartDetectionTimeout);
+                  }
+                }
+              } catch (error) {
+                console.warn("Audio start detection error:", error);
+              }
+            }, 16);
+            
+            // Fallback: Connect after 1 second regardless to prevent lost audio
+            audioStartDetectionTimeout = setTimeout(() => {
+              if (!audioConnected && rawAudioProcessor && sfxStreamGain) {
+                try {
+                  sfxStreamGain.connect(rawAudioProcessor);
+                  rawAudioProcessor.connect(audioContext.destination);
+                  console.log("🎵 Raw audio capture connected after 1s timeout fallback");
+                } catch (error) {
+                  console.error("Fallback audio connection failed:", error);
+                }
+              }
+              clearInterval(audioStartDetectionInterval);
+            }, 1000);
+          }
+          
+          // Clear KidLisp FPS timeline for new recording
+          window.kidlispFpsTimeline = [];
+          console.log("🎬 Cleared KidLisp FPS timeline for new recording");
+          
+          // 🎵 ENSURE AUDIO CONTEXT IS ACTIVATED FOR PROGRAMMATIC PLAYBACK
+          // This is critical for pieces like wipppps that need to auto-play during recording
+          if (audioContext && audioContext.state !== 'running') {
+            console.log("🎵 TAPE_START: Activating audio context for programmatic playback, current state:", audioContext.state);
+            audioContext.resume().then(() => {
+              console.log("🎵 TAPE_START: Audio context resumed, new state:", audioContext.state);
+            }).catch(error => {
+              console.warn("🎵 TAPE_START: Audio context resume failed:", error.message);
+            });
+          } else if (audioContext) {
+            console.log("🎵 TAPE_START: Audio context already running, state:", audioContext.state);
+            // Even if running, explicitly call resume to ensure user gesture activation
+            audioContext.resume().catch(error => {
+              console.log("🎵 TAPE_START: Audio context re-resume (user gesture activation):", error.message);
+            });
+          }
+          
+          // 🎵 UNLOCK AUDIO SYSTEM WITH AUDIBLE TRIGGER
+          // Play a very short audible tone to ensure audio is fully unlocked for programmatic playback
+          if (audioContext && triggerSound) {
+            try {
+              console.log("🎵 TAPE_START: Triggering short audible tone to unlock system");
+              // Create a very short 50ms tone at low volume to unlock audio
+              const unlockBuffer = audioContext.createBuffer(2, Math.floor(audioContext.sampleRate * 0.05), audioContext.sampleRate);
+              const leftChannel = unlockBuffer.getChannelData(0);
+              const rightChannel = unlockBuffer.getChannelData(1);
+              
+              // Generate a very quiet 440Hz tone for 50ms
+              for (let i = 0; i < unlockBuffer.length; i++) {
+                const sample = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate) * 0.01; // Very low volume
+                leftChannel[i] = sample;
+                rightChannel[i] = sample;
+              }
+              
+              const unlockResult = triggerSound({
+                id: "tape_unlock_audible",
+                type: "sample", 
+                options: {
+                  buffer: {
+                    channels: [leftChannel, rightChannel],
+                    sampleRate: audioContext.sampleRate,
+                    length: unlockBuffer.length
+                  },
+                  label: "tape_unlock",
+                  from: 0,
+                  to: 1,
+                  speed: 1,
+                  loop: false
+                }
+              });
+              
+              // Stop the unlock sound after a short delay
+              setTimeout(() => {
+                if (unlockResult && unlockResult.kill) {
+                  unlockResult.kill(0.01); // Quick fade
+                }
+              }, 100);
+              
+              console.log("🎵 TAPE_START: Audible unlock trigger sent successfully");
+            } catch (error) {
+              console.log("🎵 TAPE_START: Audible unlock trigger failed:", error.message);
+            }
+          }
+          
+          // 🎵 PRELOAD AND DECODE PIECE AUDIO FOR INSTANT PLAYBACK
+          // For pieces like wipppps that need immediate audio, force decode their audio assets
+          if (actualContent.pieceName === 'wipppps') {
+            try {
+              console.log("🎵 TAPE_START: Pre-decoding wipppps audio for instant playback");
+              // Force decode the wipppps audio file to ensure it's ready as Web Audio buffer
+              const wippppsUrl = "https://assets.aesthetic.computer/wipppps/zzzZWAP.wav";
+              
+              // Check if already decoded, if not, trigger decode
+              if (!sfx[wippppsUrl] || typeof sfx[wippppsUrl] === 'string') {
+                console.log("🎵 TAPE_START: Triggering decode for", wippppsUrl);
+                decodeSfx(wippppsUrl).then(() => {
+                  console.log("🎵 TAPE_START: wipppps audio decoded successfully as Web Audio buffer");
+                }).catch(error => {
+                  console.log("🎵 TAPE_START: wipppps audio decode failed:", error);
+                });
+              } else {
+                console.log("🎵 TAPE_START: wipppps audio already decoded as Web Audio buffer");
+              }
+            } catch (error) {
+              console.log("🎵 TAPE_START: wipppps audio pre-decode error:", error.message);
+            }
+          }
+          
+          console.log(`🎬 🔴 Recording STARTED at ${mediaRecorderStartTime}, frame capture enabled, recordedFrames: ${recordedFrames.length}`);
+          
           send({
             type: "recorder:rolling:started",
             content: {
@@ -5495,42 +8751,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       mediaRecorderDuration = 0; // Reset duration for new recording
       mediaRecorderFrameCount = 0; // Reset frame capture counter for optimization
 
+      console.log("🎬 Starting MediaRecorder, state before start:", mediaRecorder.state);
       mediaRecorder.start(100);
+      console.log("🎬 MediaRecorder.start() called, state after start:", mediaRecorder.state);
       //}
-      return;
-    }
-
-    if (type === "recorder:cut") {
-      if (!mediaRecorder) return;
-      if (debug && logs.recorder) console.log("✂️ Recorder: Cut");
-      mediaRecorderDuration += performance.now() - mediaRecorderStartTime;
-      // mediaRecorder?.stop();
-      mediaRecorder?.pause(); // Single clips for now.
-
-      // Store the tape data to IndexedDB for persistence across page refreshes
-      const blob = new Blob(mediaRecorderChunks, {
-        type: mediaRecorder.mimeType,
-      });
-
-      await receivedChange({
-        data: {
-          type: "store:persist",
-          content: {
-            key: "tape",
-            method: "local:db",
-            data: {
-              blob,
-              duration: mediaRecorderDuration,
-              frames: recordedFrames, // Include frame data for WebP/Frame exports
-              timestamp: Date.now(),
-            },
-          },
-        },
-      });
-
-      if (debug && logs.recorder) console.log("📼 Stored tape to IndexedDB");
-
-      send({ type: "recorder:rolling:ended" });
       return;
     }
 
@@ -5541,13 +8765,38 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         recordedFrames.length === 0
       ) {
         const cachedTape = await Store.get("tape");
+        
+        console.log(`🎬 📼 Checking cached tape:`, cachedTape ? `found with ${cachedTape.frames?.length || 0} frames, ${cachedTape.blob?.size || 0} bytes audio` : 'not found');
+        
         if (cachedTape && cachedTape.blob) {
-          sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+          // Use raw audio arrays to create AudioBuffer for playback if available
+          if (cachedTape.rawAudio && audioContext) {
+            try {
+              console.log("🎬 📼 Creating AudioBuffer from raw audio data");
+              const rawAudio = cachedTape.rawAudio;
+              const audioBuffer = audioContext.createBuffer(2, rawAudio.totalSamples, rawAudio.sampleRate);
+              
+              audioBuffer.getChannelData(0).set(rawAudio.left);
+              audioBuffer.getChannelData(1).set(rawAudio.right);
+              
+              sfx["tape:audio"] = audioBuffer;
+              console.log(`🎬 📼 Successfully created AudioBuffer: ${rawAudio.totalSamples} samples, ${rawAudio.totalSamples / rawAudio.sampleRate}s duration`);
+            } catch (error) {
+              console.error("🎬 📼 Failed to create AudioBuffer from raw audio:", error);
+              // Fall back to blob for export only
+              sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+            }
+          } else {
+            console.log("🎬 📼 No raw audio available, storing blob for export only");
+            // Store the blob for export purposes but we won't be able to play it
+            sfx["tape:audio"] = await blobToArrayBuffer(cachedTape.blob);
+          }
 
           // Restore frame data if available
           if (cachedTape.frames) {
             recordedFrames.length = 0;
             recordedFrames.push(...cachedTape.frames);
+            console.log(`🎬 📼 Restored ${recordedFrames.length} frames from cache`);
           }
 
           // Set duration if available
@@ -5566,8 +8815,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const blob = new Blob(mediaRecorderChunks, {
             type: mediaRecorder.mimeType,
           });
-          sfx["tape:audio"] = await blobToArrayBuffer(blob);
-          // console.log("Update tape audio with new blob!");
+          
+          // Use raw audio data for live playback
+          if (rawAudioData.length > 0 && audioContext) {
+            try {
+              console.log("🎬 📼 Creating AudioBuffer from live raw audio data");
+              const totalSamples = rawAudioData.length * 4096; // 4096 samples per chunk
+              const audioBuffer = audioContext.createBuffer(2, totalSamples, rawAudioSampleRate);
+              
+              const leftChannelData = audioBuffer.getChannelData(0);
+              const rightChannelData = audioBuffer.getChannelData(1);
+              
+              let sampleIndex = 0;
+              for (let i = 0; i < rawAudioData.length; i++) {
+                const chunk = rawAudioData[i];
+                for (let j = 0; j < chunk.left.length; j++) {
+                  if (sampleIndex < totalSamples) {
+                    leftChannelData[sampleIndex] = chunk.left[j];
+                    rightChannelData[sampleIndex] = chunk.right[j];
+                    sampleIndex++;
+                  }
+                }
+              }
+              
+              sfx["tape:audio"] = audioBuffer;
+              console.log(`🎬 📼 Successfully created live AudioBuffer: ${totalSamples} samples, ${totalSamples / rawAudioSampleRate}s duration`);
+            } catch (error) {
+              console.error("🎬 📼 Failed to create live AudioBuffer:", error);
+              // Store compressed data as fallback for export
+              sfx["tape:audio"] = await blobToArrayBuffer(blob);
+            }
+          } else {
+            console.log("🎬 📼 No raw audio data available, storing compressed blob for export only");
+            sfx["tape:audio"] = await blobToArrayBuffer(blob);
+          }
         }
 
         underlayFrame = document.createElement("div");
@@ -5586,19 +8867,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           doneCb,
           stream,
           render,
+          overrideDurationMs = null, // Optional duration override for MP4 export
         ) => {
+          if (recordedFrames.length === 0) {
+            console.error("🎬 ❌ No recorded frames to play back!");
+            return;
+          }
+          
+          // Use overrideDurationMs if provided (for MP4 export), otherwise use mediaRecorderDuration
+          const playbackDurationMs = overrideDurationMs || mediaRecorderDuration;
+          console.log(`🎬 Tape playback using duration: ${playbackDurationMs}ms (${overrideDurationMs ? 'override' : 'default'})`);
+          
           let f = 0;
           let playbackStart;
           let playbackProgress = 0;
           let continuePlaying = true;
           let stopped = false;
+          
+          // Track total recording time for video export duration control
+          let totalRecordingStart = null;
 
           let tapeSoundId;
 
           stopTapePlayback = () => {
             continuePlaying = false;
             stopped = true;
-            sfxPlaying[tapeSoundId]?.kill();
+            // Kill all tape audio instances
+            Object.keys(sfxPlaying).forEach(id => {
+              if (id.startsWith("tape:audio_")) {
+                sfxPlaying[id]?.kill();
+                delete sfxPlaying[id];
+              }
+            });
+            console.log("🎵 All tape audio instances stopped");
           };
 
           let pauseStart;
@@ -5606,10 +8907,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
-            console.log("📼 Tape Sound:", tapeSoundId, sfxPlaying[tapeSoundId]);
-            // Kill the sound since pause is not available
-            sfxPlaying[tapeSoundId]?.kill();
-            delete sfxPlaying[tapeSoundId]; // Clean up reference
+            // Kill all tape audio instances since pause is not available
+            Object.keys(sfxPlaying).forEach(id => {
+              if (id.startsWith("tape:audio_")) {
+                sfxPlaying[id]?.kill();
+                delete sfxPlaying[id];
+              }
+            });
+            console.log("🎵 All tape audio instances paused");
             send({ type: "recorder:present-paused" });
           };
 
@@ -5626,28 +8931,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             playbackStart += pauseDuration;
 
             // Restart the audio from the correct position if it was killed during pause
-            if (!sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
+            if (!render && !sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
               const audioPosition =
                 (performance.now() - playbackStart) /
                 (mediaRecorderDuration * 1000);
               const clampedPosition = Math.max(0, Math.min(1, audioPosition));
 
+              // Kill any existing tape audio before starting new one
+              Object.keys(sfxPlaying).forEach(id => {
+                if (id.startsWith("tape:audio_")) {
+                  sfxPlaying[id]?.kill();
+                  delete sfxPlaying[id];
+                }
+              });
+
               tapeSoundId = "tape:audio_" + performance.now();
               playSfx(tapeSoundId, "tape:audio", {
-                stream,
                 from: clampedPosition, // Start from the paused position
               });
+              console.log("🎵 Audio restarted after pause at position:", clampedPosition);
             }
 
             send({ type: "recorder:present-playing" });
           };
 
           async function update() {
-            if (!continuePlaying || !underlayFrame) return;
+            if (!continuePlaying || !underlayFrame) {
+              return;
+            }
+
+            // Hang detection: track time spent in this update cycle
+            const updateStartTime = performance.now();
+            let frameProcessingTime = 0;
+            
+            // Update last activity time for watchdog
+            window.lastVideoUpdateTime = updateStartTime;
 
             if (f === 0) {
-              tapeSoundId = "tape:audio_" + performance.now();
-              await playSfx(tapeSoundId, "tape:audio", { stream });
+              // Only play audio if not rendering video export
+              if (!render) {
+                // Kill any existing tape audio before starting new one
+                Object.keys(sfxPlaying).forEach(id => {
+                  if (id.startsWith("tape:audio_")) {
+                    sfxPlaying[id]?.kill();
+                    delete sfxPlaying[id];
+                  }
+                });
+                
+                tapeSoundId = "tape:audio_" + performance.now();
+                await playSfx(tapeSoundId, "tape:audio");
+                console.log("🎵 Audio started for tape playback");
+              } else {
+                console.log("🎵 Skipping audio during video export");
+              }
               // Will be silent if stream is here. ^
               playbackStart = performance.now();
               playbackProgress = 0;
@@ -5666,29 +9002,174 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
 
-            render?.(frameCan, playbackProgress / mediaRecorderDuration); // Render a video as needed, using this canvas.
+            const renderStartTime = performance.now();
+            
+            try {
+              render?.(frameCan, playbackProgress / playbackDurationMs, f); // Render a video as needed, using this canvas and current frame index.
+              
+            } catch (error) {
+              console.error(`Render function failed at frame ${f} (${((f / (recordedFrames.length - 1)) * 100).toFixed(2)}%):`, error);
+              // Continue processing even if render fails
+            }
+            
+            frameProcessingTime = performance.now() - renderStartTime;
+            
+            // Enhanced warning for slow frame processing in critical zone
+            if (frameProcessingTime > 200) {
+              console.warn(`Slow frame processing: ${frameProcessingTime.toFixed(2)}ms for frame ${f}`);
+            }
+            
+            // Check for hang in critical 40% zone
+            const currentProgress = f / (recordedFrames.length - 1);
+            if (currentProgress > 0.35 && currentProgress < 0.45 && frameProcessingTime > 200) {
+              console.warn(`CRITICAL ZONE SLOW PROCESSING: ${frameProcessingTime.toFixed(2)}ms at ${(currentProgress * 100).toFixed(2)}% (frame ${f})`);
+            }
 
             playbackProgress = performance.now() - playbackStart;
 
             // Advance frames.
-            if (f === 0) f += 1;
-            while (playbackProgress > recordedFrames[f][0] && f !== 0) {
-              f = (f + 1) % recordedFrames.length;
-            } // Skip any necessary frames to better match the audio.
-
-            if (f === 0 && doneCb) {
-              send({ type: "recorder:present-progress", content: 1 });
-              return doneCb(); // Completed a cycle.
+            if (f === 0) {
+              f += 1;
+            }
+            
+            // Convert absolute timestamps back to relative timestamps for playback timing
+            const firstFrameTimestamp = recordedFrames[0][0];
+            
+            // Calculate how long we should wait for the current frame using original recorded timing
+            let targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+            
+            // Additional debug to check if timestamps look reasonable
+            if (f === 1) {
+              const frameDiff = recordedFrames[1][0] - recordedFrames[0][0];
+              if (frameDiff > 10000) {
+                console.warn(`🎬 ⚠️ Frame timestamps seem to be absolute timestamps (${frameDiff}ms gap), this will cause playback issues!`);
+              }
+            }
+            
+            // Advance frames while playback has progressed past the current frame's time
+            if (f >= recordedFrames.length - 1) {
+              // For video export, don't loop - complete when all frames are processed
+              if (doneCb && render) {
+                console.log(`🎬 📹 Video export reaching completion - final frame processed`);
+                send({ type: "recorder:present-progress", content: 1 });
+                return doneCb(); // Completed video export.
+              }
+              
+              // For normal playback, loop
+              f = 0;
+              // Reset playback timing for the loop
+              playbackStart = performance.now();
+              playbackProgress = 0;
+              
+              // Restart audio for the loop (only during normal playback)
+              if (!render) {
+                // Kill any existing tape audio before starting new one
+                Object.keys(sfxPlaying).forEach(id => {
+                  if (id.startsWith("tape:audio_")) {
+                    sfxPlaying[id]?.kill();
+                    delete sfxPlaying[id];
+                  }
+                });
+                
+                tapeSoundId = "tape:audio_" + performance.now();
+                await playSfx(tapeSoundId, "tape:audio");
+                console.log("🎵 Audio restarted for loop");
+              } else {
+                console.log("🎵 Skipping audio restart during video export");
+              }
+            } else {
+              // Improved frame advancement logic with better hang detection
+              const frameAdvancementStart = performance.now();
+              let frameAdvancementCount = 0;
+              const maxFrameJump = 10; // Limit frame jumps to prevent instability
+              
+              while (playbackProgress > targetFrameTime && f < recordedFrames.length - 1) {
+                f = f + 1;
+                frameAdvancementCount++;
+                
+                // Prevent infinite loops with smaller threshold
+                if (frameAdvancementCount > maxFrameJump) {
+                  console.warn(`🎬 ⚠️ Frame advancement limit reached: ${frameAdvancementCount} frames, breaking loop for stability`);
+                  break;
+                }
+                
+                // Recalculate target time for the new frame
+                targetFrameTime = recordedFrames[f][0] - firstFrameTimestamp;
+                
+                // Check for suspicious timestamp values
+                if (isNaN(targetFrameTime) || targetFrameTime < 0) {
+                  console.error(`🎬 🚨 INVALID TIMESTAMP at frame ${f}: ${targetFrameTime}, firstFrame: ${firstFrameTimestamp}, frameTime: ${recordedFrames[f][0]}`);
+                  break;
+                }
+                
+                // Additional safety: if we're jumping too far ahead, slow down
+                if (frameAdvancementCount > 5) {
+                  console.warn(`🎬 ⚠️ Large frame jump in progress: ${frameAdvancementCount} frames`);
+                  // Break early for large jumps to maintain stability
+                  break;
+                }
+              }
+              
+              const frameAdvancementTime = performance.now() - frameAdvancementStart;
+              if (frameAdvancementTime > 5 || frameAdvancementCount > 5) {
+                console.warn(`🎬 ⚠️ Frame advancement took ${frameAdvancementTime.toFixed(2)}ms, advanced ${frameAdvancementCount} frames`);
+              }
             }
 
             if (transmitProgress) {
+              // Use frame-based progress for video export, time-based for normal playback
+              let currentProgress;
+              if (render) {
+                // For video export, use stable frame-based progress
+                currentProgress = Math.max(0, Math.min(1, f / (recordedFrames.length - 1)));
+                // Ensure progress always advances
+                if (currentProgress <= (window.lastVideoProgress || 0)) {
+                  currentProgress = (window.lastVideoProgress || 0) + 0.001;
+                }
+                window.lastVideoProgress = currentProgress;
+              } else {
+                // For normal playback, use time-based progress
+                currentProgress = playbackProgress / playbackDurationMs;
+              }
+              
+              // Store global progress for overlay breathing pattern
+              window.currentTapeProgress = currentProgress;
+              
+              // Enhanced debugging for hang detection
+              if (render) {
+                console.log(`🎬 📊 Frame ${f}/${recordedFrames.length - 1}, Progress: ${(currentProgress * 100).toFixed(2)}%`);
+                
+                // Check for potential hang conditions
+                if (f > 0 && currentProgress > 0.35 && currentProgress < 0.45) {
+                  console.log(`🎬 ⚠️ Critical zone detected - frame timing: ${targetFrameTime}ms, playback: ${playbackProgress}ms`);
+                  console.log(`🎬 ⚠️ Frame timestamp: ${recordedFrames[f][0]}, First frame: ${firstFrameTimestamp}`);
+                  
+                  // Memory monitoring in critical zone
+                  if (performance.memory) {
+                    const memInfo = performance.memory;
+                    console.log(`🎬 💾 Memory: Used ${(memInfo.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB / ${(memInfo.totalJSHeapSize / 1024 / 1024).toFixed(2)}MB`);
+                  }
+                }
+                
+                // Log every 10% progress for general monitoring
+                if (f % Math.floor(recordedFrames.length / 10) === 0) {
+                  console.log(`🎬 🔄 Progress checkpoint: ${(currentProgress * 100).toFixed(1)}% (frame ${f})`);
+                }
+              }
+              
               send({
                 type: "recorder:present-progress",
-                content: playbackProgress / mediaRecorderDuration,
+                content: currentProgress,
               });
             }
 
             window.requestAnimationFrame(update);
+            
+            // Check total update time and warn if excessive
+            const totalUpdateTime = performance.now() - updateStartTime;
+            if (totalUpdateTime > 50) {
+              console.warn(`🎬 ⚠️ Very slow update cycle: ${totalUpdateTime.toFixed(2)}ms at frame ${f} (${((f / (recordedFrames.length - 1)) * 100).toFixed(2)}%)`);
+            }
           }
 
           update();
@@ -5807,7 +9288,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       sctx.imageSmoothingEnabled = false; // Must be set after resize.
 
-      const canvasStream = sctx.canvas.captureStream();
+      // Draw initial black frame to ensure canvas stream has content
+      sctx.fillStyle = 'black';
+      sctx.fillRect(0, 0, sctx.canvas.width, sctx.canvas.height);
+
+      const canvasStream = sctx.canvas.captureStream(30); // Specify framerate
       const tapeRenderStreamDest = audioContext.createMediaStreamDestination();
 
       tapeRenderStreamDest.stream.getAudioTracks().forEach((track) => {
@@ -5825,14 +9310,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const chunks = [];
 
       videoRecorder.ondataavailable = function (e) {
+        console.log("📹 Video data available:", e.data.size, "bytes");
         if (e.data && e.data.size > 0) chunks.push(e.data);
       };
 
       function startRendering() {
         stopTapePlayback?.();
         
-        // Initialize frame counter for detailed progress reporting
-        let framesRendered = 0;
+        console.log(`🎬 📹 Starting video export with ${recordedFrames.length} recorded frames`);
         
         // Send encoding start status
         send({
@@ -5845,19 +9330,92 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
         
         videoRecorder.start(100);
+        
+        // Enhanced MediaRecorder monitoring
+        let lastDataTime = performance.now();
+        const monitoringInterval = setInterval(() => {
+          const timeSinceLastData = performance.now() - lastDataTime;
+          console.log(`🎬 📊 MediaRecorder state: ${videoRecorder.state}, Time since last data: ${timeSinceLastData}ms`);
+          
+          if (timeSinceLastData > 5000 && videoRecorder.state === "recording") {
+            console.warn(`🎬 ⚠️ No data received for ${timeSinceLastData}ms - possible hang detected`);
+          }
+        }, 2000);
+        
+        // Add video export watchdog
+        window.lastVideoUpdateTime = performance.now();
+        window.videoExportWatchdog = setInterval(() => {
+          const timeSinceLastUpdate = performance.now() - (window.lastVideoUpdateTime || 0);
+          if (timeSinceLastUpdate > 10000) { // 10 second timeout
+            console.error(`🎬 🚨 VIDEO EXPORT HANG DETECTED! No update for ${timeSinceLastUpdate}ms`);
+            console.error(`🎬 🚨 Attempting to restart or abort export...`);
+            
+            // Try to stop the current process
+            try {
+              if (videoRecorder.state === "recording") {
+                console.log(`🎬 🚨 Force stopping MediaRecorder...`);
+                videoRecorder.stop();
+              }
+            } catch (e) {
+              console.error(`🎬 ❌ Failed to stop MediaRecorder:`, e);
+            }
+            
+            // Clear the watchdog to prevent spam
+            clearInterval(window.videoExportWatchdog);
+            window.videoExportWatchdog = null;
+          }
+        }, 5000);
+        
+        // Update last data time when data is received
+        const originalOnDataAvailable = videoRecorder.ondataavailable;
+        videoRecorder.ondataavailable = function(e) {
+          lastDataTime = performance.now();
+          console.log(`🎬 📊 Data received: ${e.data.size} bytes at progress ${window.currentTapeProgress || 0}`);
+          if (originalOnDataAvailable) originalOnDataAvailable.call(this, e);
+        };
+        
+        // Clear monitoring when done
+        const originalOnStop = videoRecorder.onstop;
+        videoRecorder.onstop = function(e) {
+          clearInterval(monitoringInterval);
+          if (window.videoExportWatchdog) {
+            clearInterval(window.videoExportWatchdog);
+            window.videoExportWatchdog = null;
+            console.log(`🎬 🐕 Watchdog cleared - MediaRecorder stopped`);
+          }
+          if (originalOnStop) originalOnStop.call(this, e);
+        };
+        
         startTapePlayback(
           true,
           () => {
-            setTimeout(function () {
-              videoRecorder.stop();
-            }, 500); // Seems like this is necessary or recordings get cut-off.
+            console.log(`🎬 📹 Video export completed, stopping recorder`);
+            // Clear watchdog when export completes
+            if (window.videoExportWatchdog) {
+              clearInterval(window.videoExportWatchdog);
+              window.videoExportWatchdog = null;
+              console.log(`🎬 🐕 Watchdog cleared - export completed normally`);
+            }
+            // Stop video recorder immediately when all frames are processed
+            videoRecorder.stop();
           },
           tapeRenderStreamDest,
           // 🎫 Renders and watermarks the frames for export.
-          function renderTape(can, progress) {
-            framesRendered++; // Increment frame counter
+          function renderTape(can, progress, frameIndex) {
+            // Helper function for choosing random values
+            function choose(options) {
+              return options[Math.floor(Math.random() * options.length)];
+            }
             
-            const progressBarHeight = 20;
+            // Use the actual frame index from playback instead of separate counter
+            const currentFrameIndex = frameIndex !== undefined ? frameIndex : f;
+            
+            // Log progress every 60 frames to reduce console spam
+            if (currentFrameIndex % 60 === 0 || currentFrameIndex <= 5) {
+              console.log(`🎬 📹 Rendering frame ${currentFrameIndex + 1}/${recordedFrames.length} (${(progress * 100).toFixed(1)}%)`);
+            }
+            
+            const progressBarHeight = 3;
             const frameWidth = sctx.canvas.width;
             const totalFrameHeight = sctx.canvas.height;
             const contentFrameHeight = totalFrameHeight - progressBarHeight; // Height for content area
@@ -5909,25 +9467,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   svgCursor.naturalHeight,
                 );
               } else {
-                // Draw a soft tap.
-                // const circleRadius = 16; // example value, adjust as needed
-                // shuffleInPlace(["magenta", "lime", "white"]).forEach((color) => {
-                //   const ox = choose(-4, -2, 0, 2, 4);
-                //   const oy = choose(-4, -2, 0, 2, 4);
-                //   sctx.globalAlpha = 0.15 + Math.random() * 0.25;
-                //   sctx.beginPath();
-                //   sctx.arc(
-                //     scaledX + ox,
-                //     scaledY + oy,
-                //     circleRadius,
-                //     0,
-                //     2 * Math.PI,
-                //   );
-                //   sctx.fillStyle = color; // or any desired color
-                //   sctx.fill();
-                //   sctx.closePath();
-                // });
-                // sctx.globalAlpha = 1;
+                // Draw cyan crosshair for touch devices
+                const crosshairSize = 16;
+                const crosshairThickness = 2;
+                
+                sctx.globalAlpha = 0.8;
+                sctx.strokeStyle = "cyan";
+                sctx.lineWidth = crosshairThickness;
+                sctx.lineCap = "round";
+                
+                // Draw crosshair lines
+                sctx.beginPath();
+                // Horizontal line
+                sctx.moveTo(scaledX - crosshairSize, scaledY);
+                sctx.lineTo(scaledX + crosshairSize, scaledY);
+                // Vertical line
+                sctx.moveTo(scaledX, scaledY - crosshairSize);
+                sctx.lineTo(scaledX, scaledY + crosshairSize);
+                sctx.stroke();
+                
+                // Draw center dot
+                sctx.fillStyle = "cyan";
+                sctx.beginPath();
+                sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
+                sctx.fill();
+                
+                sctx.globalAlpha = 1;
               }
             }
 
@@ -5942,7 +9507,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // }
 
             // 2. Set up the font.
-            const typeSize = min(16, max(12, floor(sctx.canvas.height / 40)));
+            const typeSize = min(18, max(12, floor(sctx.canvas.height / 40)));
             // const textHeight = typeSize;
             const gap = typeSize * 0.75;
 
@@ -5954,79 +9519,299 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               typeSize,
               progress, // Export progress for the progress bar
             ) {
+              // Always show timestamp and progress bar for the full duration of the work (no breathing pattern)
+              let showTimecodeAndProgressBar = true; // Always visible throughout the entire duration
+              
               // Progress bar height (should match what's set above)
               const progressBarHeight = 20;
               
               // Calculate the content area height (canvas height minus progress bar)
               const contentHeight = sctx.canvas.height - progressBarHeight;
               
-              const now = new Date();
-              const year = now.getUTCFullYear();
-              const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-              const day = now.getUTCDate();
-              const hour = now.getUTCHours();
-              const minute = now.getUTCMinutes();
-              const second = now.getUTCSeconds();
-              const millisecond = now.getUTCMilliseconds();
+              // Calculate simple second count starting from 0
+              let elapsedSeconds = 0;
+              
+              if (mediaRecorderStartTime !== undefined) {
+                // During recording: show seconds elapsed since recording started
+                const elapsedMs = performance.now() - mediaRecorderStartTime;
+                elapsedSeconds = elapsedMs / 1000;
+              } else if (window.recordingStartTimestamp && progress >= 0) {
+                // Use progress to map to intended recording duration
+                let actualRecordingDurationMs = 5000; // Default fallback
+                
+                // Prioritize intended duration for accurate real-time mapping
+                if (window.currentRecordingOptions?.intendedDuration) {
+                  actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+                } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+                  actualRecordingDurationMs = mediaRecorderDuration;
+                } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+                  actualRecordingDurationMs = window.gifDurationMs;
+                }
+                
+                // Calculate elapsed seconds
+                elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+              } else {
+                // Fallback: show 0 seconds (for non-recording contexts)
+                elapsedSeconds = 0;
+              }
 
-              // Include milliseconds for frame-by-frame uniqueness
-              const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+              // Format as simple seconds with one decimal place
+              const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
-              // Make timestamp more opaque and clearer
-              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
-              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
-              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
 
-              const timestampMargin = typeSize * 0.5; // Small margin from edges
+              // Only draw timecode and progress bar if they should be visible (breathing pattern)
+              if (showTimecodeAndProgressBar) {
+                // Use original typeSize for timestamp
+                sctx.font = `bold ${typeSize}px YWFTProcessing-Regular`;
+                
+                // Smooth fade transitions: visible at start, fade out towards middle, visible at end
+                let timestampAlpha = 1.0; // Default to fully visible
+                let timestampColor = "white"; // Consistent white color
+                
+                // Apply fade pattern based on progress (same as other addFilmTimestamp)
+                if (progress < 0.15) {
+                  // Fully visible at start (0-15%)
+                  timestampAlpha = 1.0;
+                } else if (progress >= 0.15 && progress <= 0.35) {
+                  // Fade out from 15% to 35% (20% fade-out period)
+                  const fadeProgress = (progress - 0.15) / 0.20;
+                  timestampAlpha = 1.0 - Math.pow(fadeProgress, 2); // Smooth quadratic fade out
+                } else if (progress > 0.35 && progress < 0.65) {
+                  // Fully hidden from 35% to 65% (30% hidden period)
+                  timestampAlpha = 0.0;
+                } else if (progress >= 0.65 && progress <= 0.85) {
+                  // Fade in from 65% to 85% (20% fade-in period)
+                  const fadeProgress = (progress - 0.65) / 0.20;
+                  timestampAlpha = Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+                } else {
+                  // Fully visible at end (85%-100%)
+                  timestampAlpha = 1.0;
+                }
+                
+                // Skip drawing if completely transparent
+                if (timestampAlpha <= 0.0) {
+                  sctx.restore();
+                  return;
+                }
+                
+                sctx.globalAlpha = timestampAlpha;
+                sctx.fillStyle = timestampColor;
 
-              // Smoother, gentler shake effect
-              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
-              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
-              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
+                const timestampMargin = typeSize * 0.5; // Small margin from edges
 
-              // Position timestamp in the content area (not in the progress bar area)
-              const timestampY = contentHeight - timestampMargin - typeSize * 0.5;
+                // Smoother, gentler shake effect
+                const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
+                const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
+                const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
 
-              sctx.fillText(
-                timestamp,
-                timestampMargin + shakeX,
-                timestampY + shakeY,
-              );
+                // Position timestamp in the content area (not in the progress bar area)
+                const timestampY = contentHeight - timestampMargin - typeSize * 0.5;
 
-              // Draw progress bar in the extended area at the bottom
-              const progressBarY = contentHeight; // Start right after content
-              const progressBarWidth = Math.floor(progress * canvasWidth);
-              
-              // Fill the entire progress bar area with a dark background
-              sctx.fillStyle = "#000000";
-              sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
-              
-              // Draw the actual progress bar
-              sctx.fillStyle = "#FF0000"; // Red progress bar
-              sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
-              
-              // Add a subtle border
-              sctx.strokeStyle = "#333333";
-              sctx.lineWidth = 1;
-              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+                sctx.fillText(
+                  timestamp,
+                  timestampMargin + shakeX,
+                  timestampY + shakeY,
+                );
+
+                // Draw progress bar in the extended area at the bottom
+                const progressBarY = contentHeight; // Start right after content
+                const progressBarWidth = Math.floor(progress * canvasWidth);
+                
+                // Fill the entire progress bar area with a dark background
+                sctx.fillStyle = "#000000";
+                sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
+                
+                // Sample colors from the source frame for the progress bar
+                let frameColors = []; // Start empty, no fallback yet
+                try {
+                  // Get frame data from the source canvas ('can' parameter)
+                  const tempCtx = can.getContext('2d');
+                  const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
+                  
+                  // Sample colors across the width of the progress bar for pixel-by-pixel variety
+                  const numSamples = Math.min(progressBarWidth, 50); // Cap at 50 samples for performance
+                  
+                  if (numSamples > 0 && frameImageData.data.length > 0) {
+                    for (let i = 0; i < numSamples; i++) {
+                      const xPos = Math.floor((i / Math.max(numSamples - 1, 1)) * (can.width - 1));
+                      const yPos = Math.floor(can.height * 0.5); // Sample from middle row
+                      const pixelIndex = (yPos * can.width + xPos) * 4;
+                      
+                      if (pixelIndex >= 0 && pixelIndex < frameImageData.data.length - 3) {
+                        const r = frameImageData.data[pixelIndex];
+                        const g = frameImageData.data[pixelIndex + 1];
+                        const b = frameImageData.data[pixelIndex + 2];
+                        
+                        // Very subtle enhancement - just barely brighten for visibility
+                        const subtleBoost = 1.05; // Very minimal boost (5% instead of 10-40%)
+                        const enhancedR = Math.min(255, Math.floor(r * subtleBoost));
+                        const enhancedG = Math.min(255, Math.floor(g * subtleBoost));
+                        const enhancedB = Math.min(255, Math.floor(b * subtleBoost));
+                        
+                        const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+                        frameColors.push(hexColor);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.warn("Failed to sample frame colors:", error);
+                }
+                
+                // Fallback to subtle natural colors if sampling failed or produced no colors
+                if (frameColors.length === 0) {
+                  // Use more natural, muted colors as fallback
+                  const naturalColors = ["#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"];
+                  const numFallbackSegments = Math.min(progressBarWidth, 20);
+                  for (let i = 0; i < numFallbackSegments; i++) {
+                    frameColors.push(choose(naturalColors));
+                  }
+                }
+                
+                // Draw the progress bar with frame-sampled colors
+                if (frameColors.length === 1) {
+                  // Single color fallback
+                  sctx.fillStyle = frameColors[0];
+                  sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+                } else {
+                  // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                  const segmentWidth = progressBarWidth / frameColors.length;
+                  for (let i = 0; i < frameColors.length; i++) {
+                    const segmentX = i * segmentWidth;
+                    const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                    
+                    sctx.fillStyle = frameColors[i];
+                    sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                  }
+                }
+                
+                // Add a subtle border
+                sctx.strokeStyle = "#333333";
+                sctx.lineWidth = 1;
+                sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+              }
 
               sctx.restore();
             }
 
             sctx.save(); // Save the current state of the canvas
 
-            // Add film camera style timestamp at bottom-left corner
-            addFilmTimestamp(
-              sctx,
-              sctx.canvas.width,
-              sctx.canvas.height,
-              typeSize,
-              progress, // Pass progress to the timestamp function
-            );
+            // Skip all stamp rendering in clean mode but still do frame processing
+            if (!window.currentRecordingOptions?.cleanMode) {
+              // Calculate stamp visibility for timestamp fade coordination
+              let bothStampsInvisible = false;
+              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              
+              if (isFrameBasedRecording) {
+                // For frame-based recordings longer than 60 frames: use alternating side timing logic
+                const frameCount = window.currentRecordingOptions?.frameCount || 0;
+                
+                if (frameCount > 60 && frameIndex !== null) {
+                  const cyclesPerGif = 2;
+                  const frameProgress = frameIndex / frameCount;
+                  const cyclePosition = (frameProgress * cyclesPerGif) % 1.0;
+                  
+                  // Check if we're in the "both off" phases (0-20% and 40-60%)
+                  if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+                    bothStampsInvisible = true;
+                  }
+                }
+              } else {
+                // Time-based recordings
+                const cyclesPerGif = 2;
+                const cyclePosition = (progress * cyclesPerGif) % 1.0;
+                
+                // Check if we're in the "both off" phases (0-20% and 40-60%)
+                if ((cyclePosition < 0.2) || (cyclePosition >= 0.4 && cyclePosition < 0.6)) {
+                  bothStampsInvisible = true;
+                }
+              }
+
+              // Add film camera style timestamp at bottom-left corner
+              addFilmTimestamp(
+                sctx,
+                sctx.canvas.width,
+                sctx.canvas.height,
+                typeSize,
+                progress, // Pass progress to the timestamp function
+                null, // frameData
+                null, // frameMetadata  
+                frameIndex, // frameIndex
+                null, // totalFrames
+                bothStampsInvisible, // bothStampsInvisible
+              );
+
+              // Removed Tezos watermark from top right - now positioned with timestamp
+              
+              // Add Tezos watermark to top-right if enabled (but not when right stamp is showing)
+              if (window.currentRecordingOptions?.showTezosStamp) {
+                const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              
+              // Use the SAME visibility logic as the actual stamps to avoid conflicts
+              let showRightStamp = false;
+              
+              if (isFrameBasedRecording) {
+                // For frame recordings: always show both stamps, so Tezos should never show
+                showRightStamp = true;
+              } else {
+                // Time-based recordings: use progress-based visibility (SAME as stamp logic)
+                const cyclesPerGif = 2;
+                const cyclePosition = (progress * cyclesPerGif) % 1.0;
+                
+                if (cyclePosition < 0.2) {
+                  showRightStamp = false; // Both off
+                } else if (cyclePosition < 0.4) {
+                  showRightStamp = true; // Both on
+                } else if (cyclePosition < 0.6) {
+                  showRightStamp = false; // Both off
+                } else if (cyclePosition < 0.8) {
+                  showRightStamp = false; // Left only
+                } else {
+                  showRightStamp = true; // Right only
+                }
+              }
+              
+              // Calculate fade alpha for Tezos logo (inverse of right stamp)
+              let tezosFadeAlpha = 1.0;
+              
+              if (isFrameBasedRecording) {
+                tezosFadeAlpha = 0.0; // Hidden for frame recordings
+              } else {
+                // Time-based recordings
+                const cyclesPerGif = 2;
+                const cyclePosition = (progress * cyclesPerGif) % 1.0;
+                
+                if (cyclePosition < 0.15) {
+                  tezosFadeAlpha = 1.0;
+                } else if (cyclePosition >= 0.15 && cyclePosition <= 0.25) {
+                  tezosFadeAlpha = 1.0 - ((cyclePosition - 0.15) / 0.10);
+                } else if (cyclePosition > 0.25 && cyclePosition < 0.35) {
+                  tezosFadeAlpha = 0.0;
+                } else if (cyclePosition >= 0.35 && cyclePosition <= 0.45) {
+                  tezosFadeAlpha = (cyclePosition - 0.35) / 0.10;
+                } else if (cyclePosition > 0.45 && cyclePosition < 0.75) {
+                  tezosFadeAlpha = 1.0;
+                } else if (cyclePosition >= 0.75 && cyclePosition <= 0.85) {
+                  tezosFadeAlpha = 1.0 - ((cyclePosition - 0.75) / 0.10);
+                } else {
+                  tezosFadeAlpha = 0.0;
+                }
+              }
+              
+              // Clamp alpha and show with fade
+              tezosFadeAlpha = Math.max(0.0, Math.min(1.0, tezosFadeAlpha));
+              
+              if (tezosFadeAlpha > 0.0) {
+                addTezosStamp(sctx, sctx.canvas.width, sctx.canvas.height, typeSize, isFrameBasedRecording, true, true, null, tezosFadeAlpha);
+              }
+            }
 
             drawTextAtPosition(0, 90); // Left side stamp (rotated 90 degrees)
             drawTextAtPosition(sctx.canvas.width, -90); // Right side stamp (rotated -90 degrees)
+            
+            } else {
+              console.log("🎬 🧹 Skipping all stamp rendering in clean mode");
+            }
 
             sctx.restore();
             sctx.globalAlpha = 1;
@@ -6035,24 +9820,81 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.save();
               sctx.translate(positionX, 0);
               sctx.rotate(radians(deg));
-              const yDist = 0.25; // Move towards center (was 0.05)
+            const leftYDist = 0.10; // Closer to corner (was 0.18)
+            const rightYDist = 0.08; // Closer to corner, but still avoid Tezos overlap (was 0.15)
 
-              // Make the stamps larger
-              sctx.font = `${typeSize * 1.2}px YWFTProcessing-Regular`;
-              const text = "aesthetic.computer";
+              // Use smaller size to match timestamp better
+              sctx.font = `${typeSize * 1.4}px YWFTProcessing-Regular`;
+              
+              // Always use Aesthetic.Computer text
+              const text = "Aesthetic.Computer";
               const measured = sctx.measureText(text);
               const textWidth = measured.width;
+
+              // Helper function to render text with multicolored shooting star dot
+              function renderTextWithStarDot(sctx, fullText, x, y, baseColor, alpha, offsetX, offsetY, frameIndex) {
+                const parts = fullText.split('.');
+                if (parts.length !== 2) {
+                  // Fallback to normal rendering if not split correctly
+                  sctx.fillText(fullText, x + offsetX, y + offsetY);
+                  return;
+                }
+                
+                const beforeDot = parts[0]; // "Aesthetic"
+                const afterDot = parts[1];  // "Computer"
+                
+                // Measure parts
+                const beforeWidth = sctx.measureText(beforeDot).width;
+                const dotWidth = sctx.measureText('.').width;
+                
+                // Render "Aesthetic"
+                sctx.fillStyle = baseColor;
+                sctx.globalAlpha = alpha;
+                sctx.fillText(beforeDot, x + offsetX, y + offsetY);
+                
+                // Render CRT-style piercing dot - bright, small, sharp like asteroids
+                const dotX = x + beforeWidth + offsetX;
+                const dotY = y + offsetY;
+                
+                // CRT cathode ray piercing colors - bright, sharp, high-contrast
+                const crtColors = ["#FFFFFF", "#00FFFF", "#FFFF00", "#FF0000", "#00FF00", "#FF00FF"];
+                let dotColor;
+                let dotAlpha = alpha;
+                
+                if (frameIndex !== null) {
+                  // Frame-based CRT flicker animation - faster changes for piercing effect
+                  const colorIndex = Math.floor(frameIndex / 1) % crtColors.length; // Change color every frame
+                  dotColor = crtColors[colorIndex];
+                  
+                  // Sharp, bright pulse - no gentle curves, pure CRT intensity
+                  dotAlpha = alpha * (frameIndex % 2 === 0 ? 1.0 : 0.9); // Sharp flicker between 90% and 100%
+                } else {
+                  // Time-based fallback - faster CRT-style changes
+                  const timeIndex = Math.floor(Date.now() / 100) % crtColors.length; // Change every 100ms
+                  dotColor = crtColors[timeIndex];
+                  dotAlpha = alpha * (Math.floor(Date.now() / 100) % 2 === 0 ? 1.0 : 0.9); // Sharp time-based flicker
+                }
+                
+                sctx.fillStyle = dotColor;
+                sctx.globalAlpha = dotAlpha;
+                sctx.fillText('.', dotX, dotY);
+                
+                // Render "Computer"
+                sctx.fillStyle = baseColor;
+                sctx.globalAlpha = alpha;
+                sctx.fillText(afterDot, dotX + dotWidth, dotY);
+              }
 
               ["red", "lime", "blue", "white"].forEach((color) => {
                 let offsetX, offsetY;
                 if (color !== "white") {
-                  sctx.globalAlpha = 0.45;
-                  offsetX = choose(-2, -4, 0, 2, 4);
-                  offsetY = choose(-2, -4, 0, 2, 4);
+                  sctx.globalAlpha = 0.5; // Restore multicolor balance (was 0.55)
+                  offsetX = choose(-1, -2, 0, 1, 2); // More offsets for multicolor flickering
+                  offsetY = choose(-1, -2, 0, 1, 2); // More offsets for multicolor flickering
                 } else {
-                  sctx.globalAlpha = choose(0.5, 0.4, 0.6);
-                  offsetX = choose(-1, 0, 1);
-                  offsetY = choose(-1, 0, 1);
+                  sctx.globalAlpha = choose(0.75, 0.85, 0.95); // Brighter white for dot visibility (was 0.55, 0.65, 0.75)
+                  offsetX = choose(-1, 0, 1); // Some offsets for multicolor effect
+                  offsetY = choose(-1, 0, 1); // Some offsets for multicolor effect
                   color = choose(
                     "white",
                     "white",
@@ -6066,30 +9908,40 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
                 if (deg === 90) {
                   // LEFT SIDE: Main text positioning
-                  sctx.fillText(
+                  renderTextWithStarDot(
+                    sctx,
                     text,
-                    floor(
-                      sctx.canvas.height * (1 - yDist) - textWidth + offsetY,
-                    ),
-                    -floor(offsetX + gap),
+                    floor(sctx.canvas.height * (1 - leftYDist) - textWidth),
+                    -floor(gap),
+                    color,
+                    sctx.globalAlpha,
+                    offsetX,
+                    offsetY,
+                    frameIndex
                   );
                 } else if (deg === -90) {
                   // RIGHT SIDE: Main text positioning
-                  sctx.fillText(
+                  renderTextWithStarDot(
+                    sctx,
                     text,
-                    -floor(sctx.canvas.height * 0.05 + offsetY),
-                    floor(offsetX + gap * 3),
+                    -floor(sctx.canvas.height * rightYDist),
+                    floor(gap * 3),
+                    color,
+                    sctx.globalAlpha,
+                    offsetX,
+                    offsetY,
+                    frameIndex
                   );
                 }
               });
 
               if (HANDLE) {
-                sctx.font = `${typeSize * 1.5}px YWFTProcessing-Light`; // Larger handle
+                sctx.font = `${typeSize * 1.3}px YWFTProcessing-Light`; // Smaller handle (was 1.5)
                 sctx.fillStyle = choose("yellow", "red", "blue");
                 let offsetX, offsetY;
                 const handleWidth =
                   textWidth / 2 + sctx.measureText(HANDLE).width / 2;
-                const handleSpace = typeSize * 1.35;
+                const handleSpace = typeSize * 2.0; // More spacing (was 1.5)
                 offsetX = choose(-1, 0, 1);
                 offsetY = choose(-1, 0, 1);
 
@@ -6098,7 +9950,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   sctx.fillText(
                     HANDLE,
                     floor(
-                      sctx.canvas.height * (1 - yDist) - handleWidth + offsetY,
+                      sctx.canvas.height * (1 - leftYDist) - handleWidth + offsetY,
                     ),
                     -floor(offsetX + handleSpace + gap),
                   );
@@ -6106,7 +9958,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                   // RIGHT SIDE: Handle positioning
                   sctx.fillText(
                     HANDLE,
-                    -floor(sctx.canvas.height * 0.05 + handleWidth + offsetY),
+                    -floor(sctx.canvas.height * rightYDist + handleWidth + offsetY),
                     floor(offsetX + handleSpace + gap * 3),
                   );
                 }
@@ -6124,6 +9976,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               canvasHeight,
               typeSize,
               progress, // Export progress for the progress bar
+              frameData = null,
+              frameMetadata = null,
+              frameIndex = null,
+              totalFrames = null,
+              bothStampsInvisible = false,
             ) {
               // Progress bar height (should match what's set in renderTape)
               const progressBarHeight = 20;
@@ -6131,39 +9988,92 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Calculate the original content area height
               const originalCanvasHeight = sctx.canvas.height - progressBarHeight;
               
-              const now = new Date();
-              const year = now.getUTCFullYear();
-              const month = now.getUTCMonth() + 1; // getUTCMonth() returns 0-11
-              const day = now.getUTCDate();
-              const hour = now.getUTCHours();
-              const minute = now.getUTCMinutes();
-              const second = now.getUTCSeconds();
-              const millisecond = now.getUTCMilliseconds();
+              // Calculate simple second count starting from 0
+              let elapsedSeconds = 0;
+              
+              if (mediaRecorderStartTime !== undefined) {
+                // During recording: show seconds elapsed since recording started
+                const elapsedMs = performance.now() - mediaRecorderStartTime;
+                elapsedSeconds = elapsedMs / 1000;
+              } else if (window.recordingStartTimestamp && progress >= 0) {
+                // Use progress to map to intended recording duration
+                let actualRecordingDurationMs = 5000; // Default fallback
+                
+                // Prioritize intended duration for accurate real-time mapping
+                if (window.currentRecordingOptions?.intendedDuration) {
+                  actualRecordingDurationMs = window.currentRecordingOptions.intendedDuration * 1000;
+                } else if (mediaRecorderDuration && mediaRecorderDuration > 0) {
+                  actualRecordingDurationMs = mediaRecorderDuration;
+                } else if (window.gifDurationMs && window.gifDurationMs > 0) {
+                  actualRecordingDurationMs = window.gifDurationMs;
+                }
+                
+                // Calculate elapsed seconds
+                elapsedSeconds = (progress * actualRecordingDurationMs) / 1000;
+              } else {
+                // Fallback: show 0 seconds (for non-recording contexts)
+                elapsedSeconds = 0;
+              }
 
-              // Include milliseconds for frame-by-frame uniqueness
-              const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${millisecond.toString().padStart(3, "0")}`;
+              // Format as simple seconds with one decimal place
+              const timestamp = `${elapsedSeconds.toFixed(1)}s`;
 
               sctx.save();
-              // Make timestamp more opaque and clearer
-              sctx.font = `bold ${typeSize * 1.8}px YWFTProcessing-Regular`;
-              sctx.globalAlpha = 0.8; // More opaque (was 0.45)
-              sctx.fillStyle = choose("white", "yellow", "red"); // White/yellow/red blinking
+              // Make timestamp smaller to match first system
+              const timestampSize = typeSize * 1.7; // Smaller timestamp (was 2.0)
+              sctx.font = `bold ${timestampSize}px YWFTProcessing-Regular`;
+              
+              // Adjust margin to make room for Tezos logo if enabled
+              let adjustedMargin = typeSize * 0.5;
+              if (window.currentRecordingOptions?.showTezosStamp) {
+                adjustedMargin = typeSize * 1.8; // Less space since we moved Tezos closer
+              }
+              
+              // Calculate timestamp alpha based on progress only, independent of side stamps
+              let timestampAlpha = 0.8; // Default to more opaque (was 0.45)
+              
+              // Add the same smooth fade logic as first system
+              const isFrameBasedRecording = window.currentRecordingOptions?.frameMode;
+              
+              if (!isFrameBasedRecording) {
+                // Smooth fade transitions with longer periods
+                if (progress < 0.15) {
+                  // Fully visible at start
+                  timestampAlpha = 0.8;
+                } else if (progress >= 0.15 && progress <= 0.35) {
+                  // Longer fade out from 15% to 35% (20% fade-out period)
+                  const fadeProgress = (progress - 0.15) / 0.20;
+                  timestampAlpha = 0.8 * (1.0 - Math.pow(fadeProgress, 2)); // Smooth quadratic fade out
+                } else if (progress > 0.35 && progress < 0.65) {
+                  // Fully hidden from 35% to 65% (30% hidden period)
+                  timestampAlpha = 0.0;
+                } else if (progress >= 0.65 && progress <= 0.85) {
+                  // Longer fade in from 65% to 85% (20% fade-in period)
+                  const fadeProgress = (progress - 0.65) / 0.20;
+                  timestampAlpha = 0.8 * Math.pow(fadeProgress, 2); // Smooth quadratic fade in
+                } else {
+                  // Fully visible at end (85%-100%)
+                  timestampAlpha = 0.8;
+                }
+              }
+              
+              sctx.globalAlpha = timestampAlpha;
+              sctx.fillStyle = "white"; // Clean white timestamp, no blinking
 
-              const timestampMargin = typeSize * 0.5; // Small margin from edges
+              // Remove shake effect - keep timestamp steady
+              const shakeX = 0; // No more shaking
+              const shakeY = 0; // No more shaking
 
-              // Smoother, gentler shake effect
-              const frameBasedSeed = Math.floor(Date.now() / 300); // Slower change (was 200ms)
-              const shakeX = (frameBasedSeed % 3) - 1; // Range -1 to 1 (was -3 to 3)
-              const shakeY = ((frameBasedSeed + 2) % 3) - 1; // Range -1 to 1, offset for variation
-
-              // Position timestamp in the main content area (not in the progress bar area)
-              const timestampY = originalCanvasHeight - timestampMargin - typeSize * 0.5;
+              // Position timestamp in the main content area - move up 4px more  
+              const timestampY = originalCanvasHeight - adjustedMargin * 0.6 - typeSize * 0.2 - 4; // Move UP 4px more
 
               sctx.fillText(
                 timestamp,
-                timestampMargin + shakeX,
+                typeSize * 0.5 + shakeX, // Move back right a bit (was 0.3)
                 timestampY + shakeY,
               );
+              
+              // Removed Tezos logo from timestamp area - moved back to top-right
 
               // Draw progress bar in the extended area at the bottom of the scaled content
               const progressBarY = originalCanvasHeight; // Start right after original content
@@ -6173,14 +10083,83 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               sctx.fillStyle = "#000000";
               sctx.fillRect(0, progressBarY, canvasWidth, progressBarHeight);
               
-              // Draw the actual progress bar
-              sctx.fillStyle = "#FF0000"; // Red progress bar
-              sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+              // Sample colors from the source frame for the progress bar
+              let frameColors = ["#FF0000"]; // Red fallback
+              try {
+                // Add timeout protection for this operation
+                const colorSamplingStart = performance.now();
+                
+                // Get frame data from the source canvas ('can' parameter)
+                const tempCtx = can.getContext('2d');
+                const frameImageData = tempCtx.getImageData(0, 0, can.width, can.height);
+                
+                const colorSamplingTime = performance.now() - colorSamplingStart;
+                if (colorSamplingTime > 50) {
+                  console.warn(`🎬 ⚠️ Slow color sampling: ${colorSamplingTime.toFixed(2)}ms at progress ${progress.toFixed(4)}`);
+                }
+                
+                // Sample colors across the width of the progress bar for pixel-by-pixel variety
+                const numSamples = Math.min(progressBarWidth, 50); // Reduced from 100 to 50 for performance
+                frameColors = [];
+                
+                for (let i = 0; i < numSamples; i++) {
+                  const xPos = Math.floor((i / numSamples) * can.width);
+                  const yPos = Math.floor(can.height * 0.5); // Sample from middle row
+                  const pixelIndex = (yPos * can.width + xPos) * 4;
+                  
+                  if (pixelIndex < frameImageData.data.length - 4) {
+                    const r = frameImageData.data[pixelIndex];
+                    const g = frameImageData.data[pixelIndex + 1];
+                    const b = frameImageData.data[pixelIndex + 2];
+                    
+                    // Enhance colors for visibility
+                    const enhancedR = Math.min(255, Math.floor(r * 1.3));
+                    const enhancedG = Math.min(255, Math.floor(g * 1.3));
+                    const enhancedB = Math.min(255, Math.floor(b * 1.3));
+                    
+                    const hexColor = `#${enhancedR.toString(16).padStart(2, '0')}${enhancedG.toString(16).padStart(2, '0')}${enhancedB.toString(16).padStart(2, '0')}`;
+                    frameColors.push(hexColor);
+                  } else {
+                    frameColors.push("#FF0000"); // Red fallback
+                  }
+                }
+              } catch (error) {
+                console.error("🎬 ❌ Frame color sampling failed at progress", progress.toFixed(4), error);
+                frameColors = ["#FF0000"]; // Red fallback
+              }
               
-              // Add a subtle border
-              sctx.strokeStyle = "#333333";
-              sctx.lineWidth = 1;
-              sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+              // Draw the progress bar with frame-sampled colors
+              try {
+                const progressBarDrawStart = performance.now();
+                
+                if (frameColors.length === 1) {
+                  // Single color fallback
+                  sctx.fillStyle = frameColors[0];
+                  sctx.fillRect(0, progressBarY, progressBarWidth, progressBarHeight);
+                } else {
+                  // Draw pixel-by-pixel or segment-by-segment with sampled colors
+                  const segmentWidth = progressBarWidth / frameColors.length;
+                  for (let i = 0; i < frameColors.length; i++) {
+                    const segmentX = i * segmentWidth;
+                    const actualSegmentWidth = Math.ceil(segmentWidth); // Ensure no gaps
+                    
+                    sctx.fillStyle = frameColors[i];
+                    sctx.fillRect(segmentX, progressBarY, actualSegmentWidth, progressBarHeight);
+                  }
+                }
+                
+                // Add a subtle border
+                sctx.strokeStyle = "#333333";
+                sctx.lineWidth = 1;
+                sctx.strokeRect(0, progressBarY, canvasWidth, progressBarHeight);
+                
+                const progressBarDrawTime = performance.now() - progressBarDrawStart;
+                if (progressBarDrawTime > 10) {
+                  console.warn(`🎬 ⚠️ Slow progress bar draw: ${progressBarDrawTime.toFixed(2)}ms at progress ${progress.toFixed(4)}`);
+                }
+              } catch (error) {
+                console.error(`🎬 ❌ Progress bar drawing failed at progress ${progress.toFixed(4)}:`, error);
+              }
 
               sctx.restore();
             }
@@ -6191,10 +10170,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             if (progress < 0.3) {
               phase = "preparing";
-              message = `Preparing frame ${framesRendered + 1}`;
+              message = `Preparing frame ${currentFrameIndex + 1}`;
             } else if (progress < 0.7) {
               phase = "encoding";
-              message = `Encoding frame ${framesRendered + 1}`;
+              message = `Encoding frame ${currentFrameIndex + 1}`;
             } else if (progress < 0.95) {
               phase = "transcoding";
               message = "Transcoding MP4";
@@ -6209,7 +10188,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
             
             // Send detailed status every few frames to avoid spam
-            if (framesRendered % 5 === 0 || progress >= 0.95) {
+            if (currentFrameIndex % 5 === 0 || progress >= 0.95) {
               send({
                 type: "recorder:export-status",
                 content: { 
@@ -6229,23 +10208,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Video rendered, now download...
       videoRecorder.onstop = async function (e) {
+        console.log("📹 Video recording stopped. Chunks collected:", chunks.length);
+        console.log("📹 Total video data size:", chunks.reduce((total, chunk) => total + chunk.size, 0), "bytes");
+        
         const blob = new Blob(chunks, { type: videoRecorder.mimeType });
+        console.log("📹 Final video blob size:", blob.size, "bytes, type:", blob.type);
+        
         const filename = generateTapeFilename("mp4");
+        console.log("🎬 MP4 Export - currentRecordingOptions:", JSON.stringify(window.currentRecordingOptions, null, 2));
 
         // Store video with frame data for complete persistence
+        const storeData = {
+          blob,
+          duration: mediaRecorderDuration,
+          frames: recordedFrames, // Include frame data for WebP/Frame exports
+          timestamp: Date.now(),
+          filename, // Store the generated filename
+        };
+        
+        // Debug: Check frame data before storage
+        if (recordedFrames.length > 0) {
+          const firstFrame = recordedFrames[0];
+          console.log("💾 Storing tape with frames:", {
+            frameCount: recordedFrames.length,
+            firstFrameTimestamp: firstFrame[0],
+            firstFrameTimestampType: typeof firstFrame[0],
+            firstFrameStructure: Array.isArray(firstFrame) ? `Array(${firstFrame.length})` : typeof firstFrame
+          });
+        }
+        
         await receivedChange({
           data: {
             type: "store:persist",
             content: {
               key: "tape",
               method: "local:db",
-              data: {
-                blob,
-                duration: mediaRecorderDuration,
-                frames: recordedFrames, // Include frame data for WebP/Frame exports
-                timestamp: Date.now(),
-                filename, // Store the generated filename
-              },
+              data: storeData,
             },
           },
         });
@@ -6593,7 +10591,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (mainThreadLabelBack) {
         // Clear the labelBack state since we're handling the navigation
         mainThreadLabelBack = false;
-        sessionStorage.removeItem("aesthetic-labelBack");
+        window.safeSessionStorageRemove("aesthetic-labelBack");
 
         // Navigate directly to the target piece from worker instead of using history.back()
         // This avoids the reload cycle for kidlisp pieces
@@ -6679,7 +10677,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (screen.pixels.length === expectedLength) {
               imageData = new ImageData(screen.pixels, width, height);
               if (underlayFrame) {
-                console.log("🎬 Fallback ImageData created during tape playback");
+                // console.log("🎬 Fallback ImageData created during tape playback");
               }
             }
             if (reframeJustCompleted) {
@@ -6916,13 +10914,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     function buildOverlay(name, o) {
+      // Skip ALL overlays in clean mode (no stamps, no progress bars, no labels)
+      if (window.currentRecordingOptions?.cleanMode) {
+        return;
+      }
+      
       // Only log reframe operations to debug flicker
-      const isHudOverlay = name === "label" || name === "qrOverlay";
+      const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel";
+
+      // Apply breathing pattern to tapeProgressBar - hide it when both stamps are off
+      if (name === "tapeProgressBar" && window.currentTapeProgress !== undefined) {
+        // Skip tape progress bar in clean mode
+        if (window.currentRecordingOptions?.cleanMode) {
+          console.log("🎬 📼 Skipping tape progress bar in clean mode");
+          return;
+        }
+        
+        const progress = window.currentTapeProgress;
+        const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
+        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+        
+        let showProgressBar = true; // Default to showing
+        
+        if (cyclePosition < 0.2) {
+          // Phase 1 (0-20%): Both stamps off - hide progress bar for breathing
+          showProgressBar = false;
+        } else if (cyclePosition < 0.4) {
+          // Phase 2 (20-40%): Both stamps on - show progress bar
+          showProgressBar = true;
+        } else if (cyclePosition < 0.6) {
+          // Phase 3 (40-60%): Both stamps off - hide progress bar for breathing
+          showProgressBar = false;
+        } else if (cyclePosition < 0.8) {
+          // Phase 4 (60-80%): Left stamp only - show progress bar
+          showProgressBar = true;
+        } else {
+          // Phase 5 (80-100%): Right stamp only - show progress bar
+          showProgressBar = true;
+        }
+        
+        // Skip building the overlay if it should be hidden
+        if (!showProgressBar) {
+          return;
+        }
+      }
 
       if (!o || !o.img) {
         // During reframes, if overlay data is missing but we have a cached version, use it
-        // EXCEPT for tapeProgressBar which should never use cached versions
-        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar") {
+        // EXCEPT for tapeProgressBar, durationProgressBar, durationTimecode and qrOverlay which should never use cached versions
+        if (content.reframe && window.framePersistentOverlayCache[name] && name !== "tapeProgressBar" && name !== "durationProgressBar" && name !== "durationTimecode" && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel") {
           paintOverlays[name] = window.framePersistentOverlayCache[name];
           return;
         }
@@ -6944,17 +10984,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Create a content-aware cache key that includes pixel data hash for HUD overlays
       let currentKey = `${o.img.width}x${o.img.height}_${o.x}_${o.y}`;
       
-      // For HUD overlays (like labels), include content hash to detect text/color changes
+      // For HUD overlays (like labels), disable caching to ensure real-time updates for KidLisp syntax highlighting
       if (isHudOverlay && name === "label") {
-        // Create a simple hash from a sampling of pixel data to detect content changes
-        const pixels = o.img.pixels;
-        let contentHash = 0;
-        // Sample every 100th pixel to create a lightweight content signature
-        for (let i = 0; i < pixels.length; i += 400) { // Every 100 pixels (4 bytes each)
-          contentHash = (contentHash << 5) - contentHash + pixels[i];
-          contentHash = contentHash & contentHash; // Convert to 32-bit integer
-        }
-        currentKey += `_${contentHash}`;
+        overlayCache.lastKey = null; // Force regeneration every frame like QR overlay
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
       }
       
       // For tape progress bar, completely disable ALL caching to ensure every frame is painted
@@ -6964,16 +10998,50 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         currentKey += `_${performance.now()}`; // Force unique key every time
       }
       
-      // For QR overlay, disable canvas caching to allow animation
+      // For duration progress bar, completely disable ALL caching to ensure every frame is painted
+      if (name === "durationProgressBar") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For duration timecode, completely disable ALL caching to ensure every frame is painted
+      if (name === "durationTimecode") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For QR overlay, completely disable ALL caching to allow text label font loading
       if (name === "qrOverlay") {
-        overlayCache.lastKey = null; // Force regeneration
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For QR corner label, completely disable ALL caching to allow text label font loading
+      if (name === "qrCornerLabel") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
+      }
+      
+      // For QR fullscreen label, completely disable ALL caching to allow text label font loading
+      if (name === "qrFullscreenLabel") {
+        overlayCache.lastKey = null; // Force regeneration every frame
+        delete window.framePersistentOverlayCache[name]; // Clear persistent cache
+        currentKey += `_${performance.now()}`; // Force unique key every time
       }
 
       // Only rebuild if overlay actually changed
-      // Force rebuild every frame for tape progress bar (like QR overlay)
+      // Force rebuild every frame for tape progress bar, duration progress bar, duration timecode and QR overlay (no caching)
       if (
         name !== "tapeProgressBar" &&
+        name !== "durationProgressBar" &&
+        name !== "durationTimecode" &&
         name !== "qrOverlay" &&
+        name !== "qrCornerLabel" &&
+        name !== "qrFullscreenLabel" &&
         overlayCache.lastKey === currentKey &&
         window.framePersistentOverlayCache[name]
       ) {
@@ -6987,6 +11055,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       overlayCache.lastKey = currentKey;
+
+      // Debug: Log when creating paint function for qrFullscreenLabel
+      if (name === "qrFullscreenLabel") {
+        console.log(`🔍 Creating paint function for qrFullscreenLabel`);
+      }
 
       paintOverlays[name] = () => {
         const canvas = overlayCache.canvas;
@@ -7002,6 +11075,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         try {
           let imageData;
+          // Add debug logging for durationTimecode
+          if (name === "durationTimecode") {
+            console.log(`🕐 Creating ImageData for timecode:`, {
+              pixelsType: typeof o.img.pixels,
+              pixelsLength: o.img.pixels.length,
+              width: o.img.width,
+              height: o.img.height,
+              expectedLength: o.img.width * o.img.height * 4
+            });
+          }
+          
+          // Add debug logging for qrFullscreenLabel
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Creating ImageData for qrFullscreenLabel:`, {
+              pixelsType: typeof o.img.pixels,
+              pixelsLength: o.img.pixels.length,
+              width: o.img.width,
+              height: o.img.height,
+              expectedLength: o.img.width * o.img.height * 4
+            });
+          }
+          
           // Use graphics optimizer if available, fallback to traditional method
           if (window.pixelOptimizer) {
             imageData = window.pixelOptimizer.createImageDataZeroCopy(
@@ -7017,6 +11112,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             );
           }
           overlayCtx.putImageData(imageData, 0, 0);
+          
+          if (name === "durationTimecode") {
+            console.log(`🕐 Successfully created and painted ImageData for timecode`);
+          }
+          
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Successfully created and painted ImageData for qrFullscreenLabel`);
+          }
         } catch (error) {
           console.error(`❌ Error creating ImageData for ${name}:`, error);
           return;
@@ -7028,7 +11131,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ctx.drawImage(canvas, o.x, o.y);
           // console.log(`📼 Finished drawing tape progress bar`);
         } else {
+          // Add debug logging for durationTimecode
+          if (name === "durationTimecode") {
+            console.log(`🕐 Drawing durationTimecode to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
+          }
+          
+          // Add debug logging for qrFullscreenLabel
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Drawing qrFullscreenLabel to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
+          }
+          
           ctx.drawImage(canvas, o.x, o.y);
+          
+          if (name === "durationTimecode") {
+            console.log(`🕐 Finished drawing durationTimecode`);
+          }
+          
+          if (name === "qrFullscreenLabel") {
+            console.log(`🔍 Finished drawing qrFullscreenLabel`);
+          }
         }
       };
 
@@ -7041,15 +11162,32 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Don't cache QR overlay painters to allow animation
-      // Don't cache tapeProgressBar painters either - force regeneration every frame
-      if (isHudOverlay && name !== "qrOverlay" && name !== "tapeProgressBar") {
+      // Don't cache tapeProgressBar or durationProgressBar painters either - force regeneration every frame
+      if (isHudOverlay && name !== "qrOverlay" && name !== "qrCornerLabel" && name !== "qrFullscreenLabel" && name !== "tapeProgressBar" && name !== "durationProgressBar") {
         window.framePersistentOverlayCache[name] = paintOverlays[name];
       }
     }
 
     buildOverlay("label", content.label);
     buildOverlay("qrOverlay", content.qrOverlay);
+    buildOverlay("qrCornerLabel", content.qrCornerLabel);
+    buildOverlay("qrFullscreenLabel", content.qrFullscreenLabel);
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
+    buildOverlay("durationProgressBar", content.durationProgressBar);
+    buildOverlay("durationTimecode", content.durationTimecode);
+    buildOverlay("hitboxDebug", content.hitboxDebug); // Debug overlay for HUD hitbox visualization
+    
+    // Debug: Log overlay data reception
+    if (content.durationTimecode) {
+      console.log("🕐 BIOS received durationTimecode:", {
+        x: content.durationTimecode.x,
+        y: content.durationTimecode.y,
+        width: content.durationTimecode.img?.width,
+        height: content.durationTimecode.img?.height,
+        pixelsLength: content.durationTimecode.img?.pixels?.length,
+        hasPixels: !!content.durationTimecode.img?.pixels
+      });
+    }
     // console.log("🖼️ Received overlay data:", {
     //   hasLabel: !!content.label,
     //   hasQR: !!content.qrOverlay,
@@ -7065,6 +11203,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // });
 
     function draw() {
+      // 🎯 Dynamic FPS Detection for display-rate independent recording
+      const currentTime = performance.now();
+      if (lastFrameTime > 0) {
+        const frameTime = currentTime - lastFrameTime;
+        frameTimes.push(frameTime);
+        
+        // Keep only recent frame timings for accurate FPS detection
+        if (frameTimes.length > FPS_SAMPLE_SIZE) {
+          frameTimes.shift();
+        }
+        
+        // Calculate actual display FPS after we have enough samples
+        if (frameTimes.length >= FPS_SAMPLE_SIZE) {
+          const averageFrameTime = frameTimes.reduce((sum, time) => sum + time, 0) / frameTimes.length;
+          detectedDisplayFPS = Math.round(1000 / averageFrameTime);
+          // console.log(`🎯 Detected display FPS: ${detectedDisplayFPS}`);
+        }
+      }
+      lastFrameTime = currentTime;
+      
       // During tape playback, render main canvas but make it semi-transparent so video shows through
       if (underlayFrame) {
         // Set canvas to be semi-transparent so the video shows underneath but UI is still visible
@@ -7109,7 +11267,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Paint overlays after async rendering completes
                 if (paintOverlays["label"]) paintOverlays["label"]();
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
+                if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
+                if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                 if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
+                if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
               }).catch(err => {
                 console.warn('🟡 Async rendering failed, falling back to sync:', err);
               });
@@ -7149,7 +11311,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     // Paint overlays after async fallback rendering completes
                     if (paintOverlays["label"]) paintOverlays["label"]();
                     if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
+                    if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
+                    if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                     if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                    if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
+                    if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
                   }).catch(err => {
                     console.warn('🟡 Fallback async rendering failed:', err);
                   });
@@ -7214,39 +11380,81 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // QR overlay painter not found (no logging)
         }
 
+        // Paint hitbox debug overlay immediately if debug is enabled
+        if (!skipImmediateOverlays && paintOverlays["hitboxDebug"]) {
+          paintOverlays["hitboxDebug"]();
+        }
+
         // Paint tape progress bar immediately (not affected by async skip)
         if (paintOverlays["tapeProgressBar"]) {
-          console.log("📼 Painting tape progress bar overlay (immediate)");
+          // console.log("📼 Painting tape progress bar overlay (immediate)");
           paintOverlays["tapeProgressBar"]();
         } else if (content.tapeProgressBar) {
-          console.log("📼 Rebuilding tape progress bar overlay due to timing issue");
+          // console.log("📼 Rebuilding tape progress bar overlay due to timing issue");
           buildOverlay("tapeProgressBar", content.tapeProgressBar);
           if (paintOverlays["tapeProgressBar"]) {
             paintOverlays["tapeProgressBar"]();
           }
         }
 
+        // Paint duration progress bar immediately (not affected by async skip)
+        if (paintOverlays["durationProgressBar"]) {
+          paintOverlays["durationProgressBar"]();
+        } else if (content.durationProgressBar) {
+          buildOverlay("durationProgressBar", content.durationProgressBar);
+          if (paintOverlays["durationProgressBar"]) {
+            paintOverlays["durationProgressBar"]();
+          }
+        }
+
+        // Paint duration timecode immediately (not affected by async skip)
+        if (paintOverlays["durationTimecode"]) {
+          paintOverlays["durationTimecode"]();
+        } else if (content.durationTimecode) {
+          buildOverlay("durationTimecode", content.durationTimecode);
+          if (paintOverlays["durationTimecode"]) {
+            paintOverlays["durationTimecode"]();
+          }
+        }
+
         // 📼 Capture frame data AFTER HUD overlays but BEFORE tape progress bar (including HUD in recording)
         if (isRecording) {
-          // 🚀 Performance optimization: Only capture every 2nd frame to reduce getImageData calls
-          // This maintains smooth 30fps playback while halving the expensive GPU->CPU transfers
+          // 🎯 Capture EVERY frame - no time-based throttling for maximum quality
+          // GIF export will downsample to 30fps, MP4 will use all frames
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
-          if (mediaRecorderFrameCount % 2 === 0) {
-            const frameTimestamp = performance.now() - mediaRecorderStartTime;
-            const frameDataWithHUD = ctx.getImageData(
-              0,
-              0,
-              ctx.canvas.width,
-              ctx.canvas.height,
-            );
-            recordedFrames.push([frameTimestamp, frameDataWithHUD]);
+          
+          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
+          const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+          const absoluteTimestamp = window.recordingStartTimestamp + relativeTimestamp;
+          const frameDataWithHUD = ctx.getImageData(
+            0,
+            0,
+            ctx.canvas.width,
+            ctx.canvas.height,
+          );
+          
+          // Capture pen position data for crosshair rendering during export
+          // Only capture pen data if cursor is within canvas bounds
+          const penData = pen?.pointers[1] ? (() => {
+            const pointer = pen.pointers[1];
+            const x = pointer.x;
+            const y = pointer.y;
+            const canvasWidth = ctx.canvas.width;
+            const canvasHeight = ctx.canvas.height;
             
-            // Log timing info every 60 frames (2 seconds at 30fps)
-            if (recordedFrames.length % 60 === 0) {
-              const timeSinceStart = frameTimestamp / 1000;
-              console.log(`📼 Frame ${recordedFrames.length} captured at ${timeSinceStart.toFixed(2)}s`);
+            // Check if pen is within canvas bounds
+            if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) {
+              return null; // Don't capture pen data when cursor is off-screen
             }
-          }
+            
+            return {
+              x: x,
+              y: y,
+              device: pointer.device
+            };
+          })() : null;
+          
+          recordedFrames.push([absoluteTimestamp, frameDataWithHUD, penData]);
         }
 
         //  Return clean screenshot data (without overlays)
@@ -7637,6 +11845,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Downloads both cached files via `data` and network stored files for
   // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
+    console.log("💾 📥 receivedDownload called!");
+    console.log("💾 📥 - filename:", filename);
+    console.log("💾 📥 - data type:", typeof data);
+    console.log("💾 📥 - data instanceof Blob:", data instanceof Blob);
+    if (data instanceof Blob) {
+      console.log("💾 📥 - blob size:", data.size);
+      console.log("💾 📥 - blob type:", data.type);
+    }
+    console.log("💾 📥 - modifiers:", modifiers);
+    
     console.log("💾 Downloading:", filename);
     // if (data) console.log("Data:", typeof data);
     // if (modifiers.sharing === true) presharingFile = true;
@@ -7689,16 +11907,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Or from the storage network.
         // Check to see if filename has user handle data.
         const hasEmailOrHandle = filename.split("/")[0].indexOf("@") > -1;
-        object = hasEmailOrHandle
-          ? `/media/${filename}`
-          : `https://art.aesthetic.computer/${filename}`;
+        if (hasEmailOrHandle) {
+          // Apply origin-aware URL construction for media files
+          try {
+            const isDevelopment = location.hostname === 'localhost' && location.port;
+            if (isDevelopment) {
+              object = `https://localhost:${location.port}/media/${filename}`;
+              if (debug) console.log("🖼️ Media URL (dev):", { filename, object, hostname: location.hostname, port: location.port });
+            } else {
+              object = `/media/${filename}`;
+              if (debug) console.log("🖼️ Media URL (prod):", { filename, object });
+            }
+          } catch (err) {
+            // Fallback if there's any error
+            object = `/media/${filename}`;
+            console.warn("🖼️ Media URL fallback:", { filename, object, err });
+          }
+        } else {
+          object = `https://art.aesthetic.computer/${filename}`;
+        }
       }
     } else if (ext === "mp4" || ext === "webm") {
       // TODO: ⚠️ `webm` could eventually mean audio here...
       // 🎥 Video
       // Use stored data from the global Media Recorder.
-      const tapeData = data || (await Store.get("tape"));
-      const tape = tapeData?.blob;
+      let tape;
+      let tapeData;
+      
+      console.log("💾 🎥 Processing video download:", { ext, filename, dataIsBlobAlready: data instanceof Blob });
+      
+      if (data instanceof Blob) {
+        // If data is already a blob (from video export), use it directly
+        tape = data;
+        tapeData = null;
+        console.log("💾 🎥 Using blob data directly:", { size: tape.size, type: tape.type });
+      } else {
+        // Otherwise get from storage
+        tapeData = data || (await Store.get("tape"));
+        tape = tapeData?.blob;
+        console.log("💾 🎥 Retrieved from storage:", { 
+          hasTapeData: !!tapeData, 
+          hasTape: !!tape, 
+          tapeSize: tape?.size,
+          tapeType: tape?.type 
+        });
+      }
 
       // Restore frame data if available for WebP/Frame exports
       if (tapeData?.frames && recordedFrames.length === 0) {
@@ -7709,6 +11962,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           recordedFrames.length,
           "frames from cached video",
         );
+        // Debug: Check what the loaded frames look like
+        if (recordedFrames.length > 0) {
+          const firstFrame = recordedFrames[0];
+          console.log("🔍 First loaded frame:", {
+            structure: Array.isArray(firstFrame) ? `Array(${firstFrame.length})` : typeof firstFrame,
+            timestamp: Array.isArray(firstFrame) ? firstFrame[0] : 'N/A',
+            timestampType: Array.isArray(firstFrame) ? typeof firstFrame[0] : 'N/A',
+            hasImageData: Array.isArray(firstFrame) && firstFrame[1] && typeof firstFrame[1] === 'object'
+          });
+        }
       }
 
       // Use stored filename if available, otherwise fall back to provided filename
@@ -7726,7 +11989,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (tape) {
         object = URL.createObjectURL(tape);
+        console.log("💾 🎥 Created object URL for video:", { 
+          objectUrlCreated: !!object,
+          tapeSize: tape.size,
+          tapeType: tape.type,
+          finalFilename: filename
+        });
       } else {
+        console.warn("💾 🎥 No tape blob available! This will cause download issues.");
         // console.warn(
         //   "🕸️ No local video available... Trying art bucket:",
         //   filename,
@@ -7745,12 +12015,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // don't already have a blob string.
 
     if (object && !object.startsWith("blob:")) {
+      console.log("💾 🌐 Fetching presigned download URL for:", filename);
+      console.log("💾 🌐 Current object URL:", object);
       try {
         const response = await fetch(`/presigned-download-url?for=${filename}`);
         const json = await response.json();
-        object = json.url;
+        console.log("💾 🌐 Presigned URL response:", json);
+        if (json.url && json.url !== "example.com") {
+          object = json.url;
+        } else {
+          console.warn("💾 🌐 Invalid presigned URL received, keeping original:", json);
+        }
       } catch (err) {
-        console.log(err);
+        console.warn("💾 🌐 Presigned URL fetch failed, keeping original object:", err);
       }
     }
 
@@ -7779,7 +12056,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         `💾 Triggering download: ${filename.split("/").pop()} (${blob ? `${Math.round((blob.size / 1024 / 1024) * 100) / 100} MB` : "unknown size"})`,
       );
 
-      a.click();
+      // Safari-specific handling
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      if (isSafari && (ext === "mp4" || ext === "webm")) {
+        console.log("🍎 Safari: Using enhanced video download handling");
+        
+        // Force user interaction for Safari
+        a.style.display = 'none';
+        a.rel = 'noopener';
+        
+        // Try click with user gesture
+        try {
+          a.click();
+        } catch (e) {
+          console.log("🍎 Safari: Standard click failed, trying workaround");
+          // Fallback: open in new tab for manual save
+          window.open(object, '_blank');
+        }
+      } else {
+        a.click();
+      }
 
       // Clean up after a delay to ensure download starts
       setTimeout(() => {
@@ -8314,10 +12610,81 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Pointer Lock 🔫
+  let pointerLockCursor = null;
+  
+  // Create the pointer lock cursor element
+  function createPointerLockCursor() {
+    // Remove any existing cursor first
+    const existing = document.getElementById("pointer-lock-cursor");
+    if (existing) existing.remove();
+    
+    const cursor = document.createElement("div");
+    cursor.id = "pointer-lock-cursor";
+    cursor.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 25 25">
+        <path d="
+            M 13,3 L 13,6 
+            M 13,20 L 13,23 
+            M 6,13 L 3,13 
+            M 20,13 L 23,13
+        " stroke="black" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="2" fill="black" />
+        <path d="
+            M 12,2 L 12,5 
+            M 12,19 L 12,22 
+            M 5,12 L 2,12 
+            M 19,12 L 22,12
+        " stroke="#00FFFF" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2" fill="#ffffff" />
+      </svg>
+    `;
+    
+    // Use setAttribute for better compatibility
+    cursor.setAttribute("style", `
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: 24px !important;
+      height: 24px !important;
+      transform: translate(-50%, -50%) !important;
+      pointer-events: none !important;
+      z-index: 999999 !important;
+      display: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    `.replace(/\s+/g, ' ').trim());
+    
+    document.body.appendChild(cursor);
+    console.log("🎯 Pointer lock cursor element created with inline SVG", cursor);
+    console.log("🎯 Cursor element styles:", cursor.getAttribute("style"));
+    console.log("🎯 Document body children count:", document.body.children.length);
+    return cursor;
+  }
+  
   document.addEventListener("pointerlockchange", () => {
+    const isLocked = document.pointerLockElement === wrapper;
+    console.log("🔒 Pointer lock change:", isLocked);
+    console.log("🔒 Pointer lock element:", document.pointerLockElement);
+    console.log("🔒 Wrapper element:", wrapper);
+    
+    // Create cursor element if it doesn't exist
+    if (!pointerLockCursor) {
+      pointerLockCursor = createPointerLockCursor();
+    }
+    
+    // Show/hide the cursor based on pointer lock state
+    if (isLocked) {
+      pointerLockCursor.style.setProperty("display", "block", "important");
+      console.log("🎯 Showing pointer lock cursor");
+      console.log("🎯 Cursor element display:", pointerLockCursor.style.display);
+      console.log("🎯 Cursor element in DOM:", document.getElementById("pointer-lock-cursor"));
+    } else {
+      pointerLockCursor.style.setProperty("display", "none", "important");
+      console.log("🎯 Hiding pointer lock cursor");
+    }
+    
     send({
-      type:
-        document.pointerLockElement === wrapper ? "pen:locked" : "pen:unlocked",
+      type: isLocked ? "pen:locked" : "pen:unlocked",
     });
   });
 
@@ -8384,7 +12751,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Track labelBack state in main thread (persists across worker reloads)
   let mainThreadLabelBack =
-    sessionStorage.getItem("aesthetic-labelBack") === "true";
+    window.safeSessionStorageGet("aesthetic-labelBack") === "true";
 
   window.onpopstate = function (e) {
     if (
@@ -8405,7 +12772,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       parsed.labelBack = true;
       // Clear the state after using it for navigation
       mainThreadLabelBack = false;
-      sessionStorage.removeItem("aesthetic-labelBack");
+      window.safeSessionStorageRemove("aesthetic-labelBack");
       console.log(
         "🔗 Main thread: Cleared labelBack after using it for history navigation",
       );
@@ -8475,13 +12842,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     e.stopPropagation();
     e.preventDefault();
     const files = e.dataTransfer.files; // Get the file(s).
-    // Check if a file was dropped and process only the first one.
+    
+    // Process multiple files if dropped together
     if (files.length > 0) {
-      const file = files[0];
-      const ext = extension(file.name);
-      console.log("💧 Dropped:", file.name, ext);
-      // 🗒️ Source code file.
-      if (ext === "mjs" || ext === "lisp") {
+      console.log(`💧 Dropped ${files.length} file(s)`);
+      
+      // Check for ALS + WAV combination
+      let alsFile = null;
+      let wavFile = null;
+      
+      // Scan all files to identify types
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = extension(file.name);
+        console.log(`💧 File ${i + 1}: ${file.name} (${ext})`);
+        
+        if (ext === "als" && !alsFile) {
+          alsFile = file;
+        } else if (ext === "wav" && !wavFile) {
+          wavFile = file;
+        }
+      }
+      
+      // If we have both ALS and WAV, process them as a pair
+      if (alsFile && wavFile) {
+        console.log("🎵🔊 Processing ALS + WAV combination:", alsFile.name, "+", wavFile.name);
+        
+        // Process ALS file first
+        await processDroppedFile(alsFile);
+        
+        // Then process WAV file
+        await processDroppedFile(wavFile);
+        
+        return; // Exit early - we've handled the multi-file drop
+      }
+      
+      // Otherwise, process files individually (existing behavior)
+      for (let i = 0; i < files.length; i++) {
+        await processDroppedFile(files[i]);
+      }
+    }
+  });
+
+  // Extract file processing logic into reusable function
+  async function processDroppedFile(file) {
+    const ext = extension(file.name);
+    console.log("💧 Processing:", file.name, ext);
+    
+    // 🗒️ Source code file.
+    if (ext === "mjs" || ext === "lisp") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
@@ -8510,50 +12919,532 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             source: bitmap,
           },
         });
-        // 🖼️⌛ Recorded Painting (or other complex media)
+        // 🖼️⌛ Recorded Painting (or other complex media) / 🎮 Game Boy ROMs in ZIP
       } else if (ext === "zip") {
         const reader = new FileReader();
         reader.onload = async function (e) {
           const data = e.target.result;
           if (!window.JSZip) await loadJSZip();
-          const record = await unzip(data);
-          if (record)
-            send({ type: "painting:record:dropped", content: record });
+          
+          try {
+            const zip = new window.JSZip();
+            const zipContent = await zip.loadAsync(data);
+            
+            // Look for Game Boy ROM files first
+            const romFiles = [];
+            zipContent.forEach((relativePath, file) => {
+              const ext = extension(file.name);
+              if (ext === "gb" || ext === "gbc") {
+                romFiles.push(file);
+              }
+            });
+            
+            if (romFiles.length > 0) {
+              // Handle Game Boy ROMs from zip
+              console.log(`🎮 Found ${romFiles.length} Game Boy ROM(s) in zip:`, romFiles.map(f => f.name));
+              
+              // If multiple ROMs, let user choose (for now, just take the first one)
+              const romFile = romFiles[0];
+              const romData = await romFile.async("arraybuffer");
+              const ext = extension(romFile.name);
+              
+              console.log("🎮 BIOS: Extracted Game Boy ROM from zip:", romFile.name, `(${romData.byteLength} bytes)`);
+              
+              const gameRomData = {
+                name: romFile.name.replace(/\.(gb|gbc)$/, ""),
+                originalName: romFile.name,
+                romData: romData, // ArrayBuffer
+                isGameBoyColor: ext === "gbc"
+              };
+              
+              // Handle ROM loading directly in main thread
+              loadGameboyROM(gameRomData);
+              return; // Exit early, we found a ROM
+            }
+            
+            // If no ROM files found, try processing as painting record
+            const record = await unzip(data);
+            if (record) {
+              send({ type: "painting:record:dropped", content: record });
+            }
+            
+          } catch (error) {
+            console.error("❌ Failed to process ZIP file:", error);
+          }
         };
         reader.readAsArrayBuffer(file);
-      }
+      // 🔊 Audio file (.wav)
+      } else if (ext === "wav") {
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            console.log("🔊 BIOS: Dropped WAV file:", file.name, `(${e.target.result.byteLength} bytes)`);
+            
+            // Create a unique ID for this WAV file
+            const wavId = "dropped-wav-" + file.name.replace(/\.wav$/, "") + "-" + performance.now();
+            const arrayBuffer = e.target.result;
+            const fileSize = arrayBuffer.byteLength; // Capture size before storing
+            
+            console.log("🔊 BIOS: Storing WAV in sfx cache with ID:", wavId);
+            // Store the WAV data in the sfx cache for decoding and playback
+            sfx[wavId] = arrayBuffer;
+            
+            console.log("🔊 BIOS: Starting immediate WAV decoding...");
+            // Trigger immediate decoding
+            await decodeSfx(wavId);
+            console.log("🔊 BIOS: WAV decoding complete, sending to piece...");
+            
+            send({
+              type: "dropped:wav",
+              content: {
+                name: file.name.replace(/\.wav$/, ""),
+                originalName: file.name,
+                size: fileSize,
+                id: wavId // Include the audio ID for playback
+              },
+            });
+            
+            console.log("🔊 BIOS: WAV processing complete for:", wavId);
+          } catch (error) {
+            console.error("❌ BIOS: Failed to process WAV file:", error);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      // 🎵 Ableton Live Set file (ZIP archive containing XML)
+      } else if (ext === "als") {
+        
+        // Parse XML and extract key project structure using robust regex patterns
+        function parseAbletonProject(xmlString) {
+          try {
+            console.log("🎵 BIOS parsing ALS XML data:", xmlString.length, "characters");
+            
+            const structure = {
+              version: "Unknown",
+              creator: "Unknown", 
+              tracks: [],
+              tempo: "Unknown",
+              sceneCount: 0,
+              sampleRate: "Unknown",
+              lastModDate: "Unknown"
+            };
+            
+            // Extract Ableton version info
+            const abletonMatch = xmlString.match(/<Ableton[^>]*MajorVersion="([^"]*)"[^>]*MinorVersion="([^"]*)"[^>]*Creator="([^"]*)"/);
+            if (abletonMatch) {
+              structure.version = `${abletonMatch[1]}.${abletonMatch[2]}`;
+              structure.creator = abletonMatch[3];
+            }
+            
+            // Extract sample rate for accurate timing calculations
+            const sampleRateMatch = xmlString.match(/<SampleRate[^>]*Value="([^"]*)"/);
+            if (sampleRateMatch) {
+              structure.sampleRate = parseFloat(sampleRateMatch[1]) || 44100;
+            }
+            
+            // Extract last modified date
+            const lastModMatch = xmlString.match(/<LastModDate[^>]*Value="([^"]*)"/);
+            if (lastModMatch) {
+              structure.lastModDate = lastModMatch[1];
+            }
+            
+            // Extract tempo - Enhanced with multiple strategies
+            let tempo = "Unknown";
+            
+            // Strategy 1: Look for global tempo in LiveSet
+            const globalTempoMatch = xmlString.match(/<LiveSet[^>]*>[\s\S]*?<MasterTrack[^>]*>[\s\S]*?<DeviceChain[^>]*>[\s\S]*?<Tempo[^>]*>[\s\S]*?<Manual[^>]*Value="([^"]*)"[\s\S]*?<\/Tempo>/);
+            if (globalTempoMatch) {
+              tempo = parseFloat(globalTempoMatch[1]) || "Unknown";
+              console.log(`🎵 BIOS found global tempo: ${tempo} BPM`);
+            }
+            
+            // Strategy 2: Manual tempo value (enhanced pattern)
+            if (tempo === "Unknown") {
+              const tempoMatch = xmlString.match(/<Manual[^>]*Value="([^"]*)"/);
+              if (tempoMatch) {
+                const tempoValue = parseFloat(tempoMatch[1]);
+                // Only accept reasonable tempo values (between 60-300 BPM)
+                if (tempoValue && tempoValue >= 60 && tempoValue <= 300) {
+                  tempo = tempoValue;
+                  console.log(`🎵 BIOS found manual tempo: ${tempo} BPM`);
+                }
+              }
+            }
+            
+            // Strategy 3: MasterTrack tempo (enhanced)
+            if (tempo === "Unknown") {
+              const masterTempoMatch = xmlString.match(/<MasterTrack[^>]*>[\s\S]*?<Tempo[^>]*>[\s\S]*?<Manual[^>]*Value="([^"]*)"[\s\S]*?<\/Tempo>/);
+              if (masterTempoMatch) {
+                tempo = parseFloat(masterTempoMatch[1]) || "Unknown";
+                console.log(`🎵 BIOS found MasterTrack tempo: ${tempo} BPM`);
+              }
+            }
+            
+            structure.tempo = tempo;
+            
+            // Count scenes
+            const sceneMatches = xmlString.match(/<Scene[^>]*>/g);
+            structure.sceneCount = sceneMatches ? sceneMatches.length : 0;
+            
+            // Extract tracks - simplified for now to avoid complexity
+            const trackTypes = ['GroupTrack', 'MidiTrack', 'AudioTrack', 'ReturnTrack'];
+            console.log("🎵 BIOS starting track detection...");
+            
+            trackTypes.forEach(trackType => {
+              const trackRegex = new RegExp(`<${trackType}[^>]*>([\\s\\S]*?)</${trackType}>`, 'g');
+              let match;
+              
+              while ((match = trackRegex.exec(xmlString)) !== null) {
+                const trackContent = match[1];
+                
+                // Extract track name
+                const nameMatch = trackContent.match(/<(?:EffectiveName|UserName)[^>]*Value="([^"]*)"/);
+                const trackName = nameMatch ? nameMatch[1] : `${trackType} ${structure.tracks.length + 1}`;
+                
+                console.log(`🎵 BIOS found track: "${trackName}" (${trackType})`);
+                
+                // Extract MIDI notes for MIDI tracks
+                let midiNotes = [];
+                let clips = [];
+                
+                if (trackType === "MidiTrack") {
+                  // Look for MIDI notes in clips
+                  const clipMatches = trackContent.match(/<MidiClip[^>]*>[\s\S]*?<\/MidiClip>/g);
+                  if (clipMatches) {
+                    clipMatches.forEach((clipContent, clipIndex) => {
+                      // Extract notes from this clip
+                      const noteMatches = clipContent.match(/<KeyTrack[^>]*>[\s\S]*?<Notes>[\s\S]*?<\/Notes>/g);
+                      if (noteMatches) {
+                        noteMatches.forEach(noteSection => {
+                          const individualNotes = noteSection.match(/<MidiNoteEvent[^>]*Time="([^"]*)"[^>]*Duration="([^"]*)"[^>]*Velocity="([^"]*)"[^>]*>/g);
+                          if (individualNotes) {
+                            individualNotes.forEach(noteEvent => {
+                              const timeMatch = noteEvent.match(/Time="([^"]*)"/);
+                              const durationMatch = noteEvent.match(/Duration="([^"]*)"/);
+                              const velocityMatch = noteEvent.match(/Velocity="([^"]*)"/);
+                              
+                              if (timeMatch && durationMatch && velocityMatch) {
+                                midiNotes.push({
+                                  time: parseFloat(timeMatch[1]) || 0,
+                                  duration: parseFloat(durationMatch[1]) || 0,
+                                  velocity: parseFloat(velocityMatch[1]) || 0,
+                                  clip: clipIndex
+                                });
+                              }
+                            });
+                          }
+                        });
+                      }
+                      
+                      // Extract clip info
+                      const clipNameMatch = clipContent.match(/<Name[^>]*Value="([^"]*)"/);
+                      const clipTimeMatch = clipContent.match(/<CurrentStart[^>]*Value="([^"]*)"/);
+                      const clipLengthMatch = clipContent.match(/<Length[^>]*Value="([^"]*)"/);
+                      
+                      clips.push({
+                        name: clipNameMatch ? clipNameMatch[1] : `Clip ${clipIndex + 1}`,
+                        start: clipTimeMatch ? parseFloat(clipTimeMatch[1]) : 0,
+                        length: clipLengthMatch ? parseFloat(clipLengthMatch[1]) : 0
+                      });
+                    });
+                  }
+                } else if (trackType === "AudioTrack") {
+                  // Look for audio clips
+                  const audioClipMatches = trackContent.match(/<AudioClip[^>]*>[\s\S]*?<\/AudioClip>/g);
+                  if (audioClipMatches) {
+                    audioClipMatches.forEach((clipContent, clipIndex) => {
+                      const clipNameMatch = clipContent.match(/<Name[^>]*Value="([^"]*)"/);
+                      const clipTimeMatch = clipContent.match(/<CurrentStart[^>]*Value="([^"]*)"/);
+                      const clipLengthMatch = clipContent.match(/<Length[^>]*Value="([^"]*)"/);
+                      
+                      clips.push({
+                        name: clipNameMatch ? clipNameMatch[1] : `Audio Clip ${clipIndex + 1}`,
+                        start: clipTimeMatch ? parseFloat(clipTimeMatch[1]) : 0,
+                        length: clipLengthMatch ? parseFloat(clipLengthMatch[1]) : 0
+                      });
+                    });
+                  }
+                }
+                
+                structure.tracks.push({
+                  name: trackName.replace(/^[#\s]*/, ''), // Remove leading # and spaces
+                  type: trackType,
+                  clipCount: clips.length,
+                  clips: clips,
+                  midiNotes: midiNotes,
+                  noteCount: midiNotes.length
+                });
+              }
+            });
+            
+            console.log(`🎵 BIOS ✅ Parsing complete: ${structure.tracks.length} tracks found`);
+            return structure;
+          } catch (e) {
+            console.warn("🎵 BIOS Failed to parse XML:", e);
+            return null;
+          }
+        }
+        
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            const data = e.target.result;
+            const uint8Data = new Uint8Array(data);
+            
+            console.log("🔍 ALS file signature:", Array.from(uint8Data.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+            
+            // Check if it's a ZIP file (signature: 50 4b 03 04)
+            if (uint8Data[0] === 0x50 && uint8Data[1] === 0x4b && uint8Data[2] === 0x03 && uint8Data[3] === 0x04) {
+              console.log("📦 ALS file is a ZIP archive, loading JSZip...");
+              
+              // Load JSZip if not already loaded
+              if (!window.JSZip) await loadJSZip();
+              
+              const zip = new window.JSZip();
+              const zipData = await zip.loadAsync(data);
+              
+              console.log("📂 ZIP contents:", Object.keys(zipData.files));
+              
+              // Look for the main ALS XML file (usually named after the project)
+              let xmlContent = null;
+              let xmlFileName = null;
+              
+              // Try to find XML files in the ZIP
+              for (const fileName of Object.keys(zipData.files)) {
+                const file = zipData.files[fileName];
+                if (!file.dir && (fileName.endsWith('.xml') || fileName.endsWith('.als') || fileName === 'Project.xml')) {
+                  console.log(`📄 Found XML file: ${fileName}`);
+                  try {
+                    // Try different extraction methods
+                    console.log("🔍 Trying string extraction...");
+                    xmlContent = await file.async("string");
+                    console.log(`🔍 String extraction result (first 200 chars): ${xmlContent.substring(0, 200)}`);
+                    
+                    // If the content looks binary/garbled, try extracting as uint8array and decompress
+                    if (xmlContent.charCodeAt(0) > 127 || !xmlContent.includes('<')) {
+                      console.log("🔍 Content appears binary, trying binary extraction and decompression...");
+                      const binaryData = await file.async("uint8array");
+                      console.log(`🔍 Binary data length: ${binaryData.length}`);
+                      
+                      try {
+                        // Try gzip decompression with pako
+                        console.log("🔍 Trying gzip decompression...");
+                        const decompressed = pako.inflate(binaryData, { to: 'string' });
+                        console.log(`🔍 Gzip decompression result (first 200 chars): ${decompressed.substring(0, 200)}`);
+                        if (decompressed.includes('<')) {
+                          xmlContent = decompressed;
+                        }
+                      } catch (e) {
+                        console.log("🔍 Gzip failed, trying deflate...");
+                        try {
+                          const decompressed = pako.inflateRaw(binaryData, { to: 'string' });
+                          console.log(`🔍 Deflate decompression result (first 200 chars): ${decompressed.substring(0, 200)}`);
+                          if (decompressed.includes('<')) {
+                            xmlContent = decompressed;
+                          }
+                        } catch (e2) {
+                          console.warn("❌ Both gzip and deflate decompression failed:", e2);
+                        }
+                      }
+                    }
+                    
+                    xmlFileName = fileName;
+                    break;
+                  } catch (e) {
+                    console.warn(`❌ Failed to extract ${fileName}:`, e);
+                  }
+                }
+              }
+              
+              // If no XML found, try the first non-directory file
+              if (!xmlContent) {
+                for (const fileName of Object.keys(zipData.files)) {
+                  const file = zipData.files[fileName];
+                  if (!file.dir) {
+                    console.log(`📄 Trying file: ${fileName}`);
+                    const content = await file.async("string");
+                    if (content.includes('<?xml') || content.includes('<Ableton')) {
+                      xmlContent = content;
+                      xmlFileName = fileName;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              if (xmlContent) {
+                console.log(`✅ Successfully extracted XML from ${xmlFileName} (${xmlContent.length} chars)`);
+                console.log("🎵 🚀 BIOS sending dropped:als event with content:", {
+                  name: file.name.replace(/\.als$/, ""),
+                  xmlData: xmlContent.length + " chars"
+                });
+                send({
+                  type: "dropped:als",
+                  content: {
+                    name: file.name.replace(/\.als$/, ""),
+                    xmlData: xmlContent,
+                  },
+                });
+              } else {
+                console.error("❌ No XML content found in ALS ZIP file");
+              }
+            } else {
+              // Fall back to compression methods for non-ZIP ALS files
+              // Load pako if not already loaded
+              if (!window.pako) {
+                console.log("📦 Loading pako compression library for ALS file...");
+                await new Promise((resolve, reject) => {
+                  const script = document.createElement("script");
+                  script.src =
+                    "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js";
+                  script.onload = resolve;
+                  script.onerror = reject;
+                  document.head.appendChild(script);
+                });
+              }
+              
+              let decompressedData = null;
+              
+              // Try different decompression methods
+              const methods = [
+                { name: 'zlib (inflate)', fn: () => pako.inflate(uint8Data, { to: 'string' }) },
+                { name: 'gzip (ungzip)', fn: () => pako.ungzip(uint8Data, { to: 'string' }) },
+                { name: 'raw deflate (inflateRaw)', fn: () => pako.inflateRaw(uint8Data, { to: 'string' }) }
+              ];
+              
+              for (const method of methods) {
+                try {
+                  console.log(`🧪 Trying ${method.name}...`);
+                  decompressedData = method.fn();
+                  console.log(`✅ Successfully decompressed using ${method.name}`);
+                  break;
+                } catch (err) {
+                  console.log(`❌ ${method.name} failed:`, err.message);
+                }
+              }
+              
+              if (decompressedData) {
+                // Parse the XML data into a structured object
+                const parsedProject = parseAbletonProject(decompressedData);
+                
+                console.log("🎵 🚀 BIOS sending dropped:als event with parsed content:", {
+                  name: file.name.replace(/\.als$/, ""),
+                  project: parsedProject ? `${parsedProject.tracks.length} tracks, ${parsedProject.tempo} BPM` : "parsing failed"
+                });
+                
+                send({
+                  type: "dropped:als",
+                  content: {
+                    name: file.name.replace(/\.als$/, ""),
+                    xmlData: decompressedData,
+                    project: parsedProject, // Send parsed structure
+                  },
+                });
+              } else {
+                console.error("❌ All decompression methods failed for ALS file");
+                // Try to read as plain text in case it's not compressed
+                try {
+                  const textData = new TextDecoder().decode(uint8Data);
+                  if (textData.includes('<?xml') || textData.includes('<Ableton')) {
+                    console.log("📄 File appears to be uncompressed XML");
+                    
+                    // Parse the XML data into a structured object
+                    const parsedProject = parseAbletonProject(textData);
+                    
+                    console.log("🎵 🚀 BIOS sending dropped:als event with uncompressed parsed content:", {
+                      name: file.name.replace(/\.als$/, ""),
+                      project: parsedProject ? `${parsedProject.tracks.length} tracks, ${parsedProject.tempo} BPM` : "parsing failed"
+                    });
+                    
+                    send({
+                      type: "dropped:als",
+                      content: {
+                        name: file.name.replace(/\.als$/, ""),
+                        xmlData: textData,
+                        project: parsedProject, // Send parsed structure
+                      },
+                    });
+                  } else {
+                    console.error("File doesn't appear to be XML either");
+                  }
+                } catch (textErr) {
+                  console.error("Failed to read as text:", textErr);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Failed to process ALS file:", error);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      // 🎮 Game Boy ROM file (.gb, .gbc)
+      } else if (ext === "gb" || ext === "gbc") {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          console.log("🎮 BIOS: Dropped Game Boy ROM:", file.name, `(${e.target.result.byteLength} bytes)`);
+          
+          const romData = {
+            name: file.name.replace(/\.(gb|gbc)$/, ""),
+            originalName: file.name,
+            romData: e.target.result, // ArrayBuffer
+            isGameBoyColor: ext === "gbc"
+          };
+          
+          // Handle ROM loading directly in main thread
+          loadGameboyROM(romData);
+        };
+        reader.readAsArrayBuffer(file);
     }
-  });
+  }
 
   // Instantly decode the audio before playback if it hasn't been already.
   async function decodeSfx(sound) {
+    // console.log("🎵 BIOS decodeSfx called for:", sound, "type:", typeof sfx[sound]);
+    
     // If sound is already being decoded, wait a bit and return
     if (decodingInProgress.has(sound)) {
+      // console.log("🎵 BIOS decodeSfx already in progress for:", sound);
       // Wait a moment and check again
       await new Promise((resolve) => setTimeout(resolve, 10));
       return sfx[sound];
     }
 
     if (sfx[sound] instanceof ArrayBuffer) {
+      // console.log("🎵 BIOS decodeSfx starting decode for ArrayBuffer:", sound);
       // Mark as being decoded to prevent concurrent decode attempts
       decodingInProgress.add(sound);
+
+      // Ensure audioContext is initialized before trying to decode
+      if (!audioContext) {
+        // console.log("🔊 Initializing audio context for WAV decoding...");
+        if (activateSound) {
+          activateSound();
+          // Wait a moment for audio context to initialize
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
 
       let audioBuffer;
       try {
         const buf = sfx[sound];
         sfx[sound] = null;
-        if (buf) {
+        
+        if (buf && audioContext) {
+          // console.log("🎵 BIOS decoding audio data for:", sound, "buffer size:", buf.byteLength);
           audioBuffer = await audioContext.decodeAudioData(buf);
           if (debug && logs.audio) console.log("🔈 Decoded:", sound);
+          // console.log("🎵 BIOS decode successful:", sound, "audioBuffer:", !!audioBuffer);
           sfx[sound] = audioBuffer;
 
           // Process any queued sounds that might be waiting for this file
           processPendingSfx();
 
           return sfx[sound];
+        } else {
+          console.error("🎵 BIOS decode failed - missing buffer or audioContext:", !!buf, !!audioContext);
         }
       } catch (err) {
         console.error("🔉 [DECODE] Decode error:", err, "➡️", sound);
+        sfx[sound] = null; // Clear the failed audio data
       } finally {
         // Always remove from decoding set when done
         decodingInProgress.delete(sound);

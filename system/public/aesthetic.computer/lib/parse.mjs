@@ -3,33 +3,7 @@
 // that appears after `aesthetic.computer/` in the address bar of the browser.
 
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
-
-// Helper function to distinguish actual kidlisp from music notation
-function isActualKidlisp(text) {
-  // Music notation typically contains note letters (a-g), octave numbers, and musical symbols
-  // Kidlisp typically contains function names like wipe, ink, line, etc.
-  
-  // If it contains clear kidlisp function names, it's kidlisp
-  if (/\b(wipe|ink|line|box|def|later|circle|poly|resolution|width|height|\+|\*|-|\/)\b/.test(text)) {
-    return true;
-  }
-  
-  // If it starts with parentheses and looks like music notation, it's probably not kidlisp
-  // Music notation patterns: (abc), (cdefg), (c*d), (eee*ggg), etc.
-  const musicPattern = /^\([a-g#\d\s\*\.\-\_\<\>]*\)$/i;
-  if (musicPattern.test(text.trim())) {
-    return false;
-  }
-  
-  // If it contains multiple music-like groups in parentheses, probably music
-  const multiMusicPattern = /\([a-g#\d\s\*\.\-\_\<\>]*\)\s*\([a-g#\d\s\*\.\-\_\<\>]*\)/i;
-  if (multiMusicPattern.test(text)) {
-    return false;
-  }
-  
-  // Default to treating it as kidlisp if we can't determine
-  return true;
-}
+import { checkTeiaMode } from "./teia-mode.mjs";
 
 // TODO:
 // [] This should eventually have tests that run?
@@ -48,6 +22,7 @@ function isActualKidlisp(text) {
 //          niki
 
 function parse(text, location = self?.location) {
+  // console.log("🐛 parse() called with text:", text);
   let path, host, params, search, hash;
 
   // Extract remote path from text if it begins with https and ends with `.mjs`.
@@ -71,20 +46,17 @@ function parse(text, location = self?.location) {
   // This prevents prompt~(wipe blue) from being treated as kidlisp function call
   if (text.startsWith("prompt~")) {
     const promptContent = text.slice(7); // Remove "prompt~" prefix
-    console.log("🔍 PARSE: Handling prompt~ slug. Original text:", text, "Prompt content:", promptContent);
     
-    // Check if this is actually kidlisp vs music notation or other content
+    // Only decode if it's actually kidlisp, otherwise use as-is
     let decodedContent;
-    if (isKidlispSource(promptContent) && isActualKidlisp(promptContent)) {
+    if (isKidlispSource(promptContent)) {
       decodedContent = decodeKidlispFromUrl(promptContent);
-      console.log("🔍 PARSE: Decoded as kidlisp:", decodedContent);
     } else {
-      // For music notation like (ccc*___) or regular piece names, use as-is
+      // For regular piece names, use as-is (tildes already converted to spaces)
       decodedContent = promptContent;
-      console.log("🔍 PARSE: Using as-is (not kidlisp):", decodedContent);
     }
     
-    const result = {
+    return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
       path: "aesthetic.computer/disks/prompt",
       piece: "prompt",
@@ -94,31 +66,21 @@ function parse(text, location = self?.location) {
       hash: undefined,
       text: text,
     };
-    console.log("🔍 PARSE: Returning prompt result:", result);
-    return result;
   }
   
   // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
-  // This catches cases like /(wipe_blue) or /wipe_blue_line from URL refresh
+  // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
   // BUT NOT regular multiline kidlisp input from the prompt
-  // AND NOT piece URLs like share~(wipe_blue) where "share" is the piece name
   const kidlispCheck = isKidlispSource(text);
   const hasSpecialChars = text.includes("§") ||
+    text.includes("~") ||
     text.includes("_") ||
+    text.includes(",") || // Comma-separated kidlisp syntax
     text.includes("\n") ||
     text.startsWith("(") ||
     text.startsWith(";");
-  // NOTE: Removed text.includes("~") from hasSpecialChars because ~ is used
-  // as a parameter separator in regular piece URLs like "line~red"
   
-  // Check if this looks like a piece with parameters (piece~params format)
-  const tildeIndex = text.indexOf("~");
-  const hasPiecePrefix = tildeIndex > 0 && tildeIndex < text.length - 1;
-  const firstPart = hasPiecePrefix ? text.substring(0, tildeIndex) : text;
-  
-  // Only treat as standalone kidlisp if it passes kidlisp detection, has special chars,
-  // AND doesn't look like a piece name with parameters
-  if (kidlispCheck && hasSpecialChars && !hasPiecePrefix) {
+  if (kidlispCheck && hasSpecialChars) {
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
@@ -228,21 +190,88 @@ function parse(text, location = self?.location) {
   return { host, path, piece, colon: colonParam, params, search, hash, text };
 }
 
+// List of legitimate query parameters that should be preserved
+const LEGITIMATE_PARAMS = [
+  'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
+  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight'
+];
+
+// Auth0 parameters that should be stripped from paths
+const AUTH0_PARAMS_TO_STRIP = ['state', 'code', 'error', 'error_description'];
+
+// Get clean path without legitimate query parameters
+function getCleanPath(fullUrl) {
+  // console.log("🐛 getCleanPath() input:", fullUrl);
+  let cleanPath = fullUrl;
+  
+  // Remove legitimate parameters from the end
+  for (const paramName of LEGITIMATE_PARAMS) {
+    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`, 'g');
+    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`, 'g');
+    const beforeClean = cleanPath;
+    cleanPath = cleanPath.replace(regexWithValue, '');
+    cleanPath = cleanPath.replace(regexBool, '');
+    if (beforeClean !== cleanPath) {
+      // console.log(`🐛 getCleanPath() removed '${paramName}':`, beforeClean, "->", cleanPath);
+    }
+  }
+  
+  // Remove Auth0 parameters from the end (these should always be stripped)
+  // Only remove 'code' if 'state' is also present (indicating Auth0 callback)
+  const hasState = /[?&]state=/.test(cleanPath);
+  const auth0ParamsToRemove = hasState 
+    ? AUTH0_PARAMS_TO_STRIP 
+    : AUTH0_PARAMS_TO_STRIP.filter(param => param !== 'code');
+    
+  for (const paramName of auth0ParamsToRemove) {
+    const regexWithValue = new RegExp(`[?&]${paramName}=([^&]*)`, 'g');
+    const regexBool = new RegExp(`[?&]${paramName}(?=[&]|$)`, 'g');
+    cleanPath = cleanPath.replace(regexWithValue, '');
+    cleanPath = cleanPath.replace(regexBool, '');
+  }
+  
+  // Clean up any remaining ? or & sequences
+  cleanPath = cleanPath.replace(/[?&]+$/, ''); // Remove trailing ? or &
+  cleanPath = cleanPath.replace(/\?&+/, '?'); // Fix ?& sequences
+  cleanPath = cleanPath.replace(/&+/g, '&'); // Collapse multiple &
+  cleanPath = cleanPath.replace(/\?$/, ''); // Remove trailing ?
+  
+  // console.log("🐛 getCleanPath() final result:", cleanPath);
+  return cleanPath;
+}
+
 // Cleans a url for feeding into `parse` as the text parameter.
 function slug(url) {
+  //console.log("🐛 slug() input:", url);
+  
   // Remove http protocol and host from current url before feeding it to parser.
   let cleanedUrl = url
     .replace(/^http(s?):\/\//i, "")
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
     .replace(window.location.hostname + "/", "")
-    .split("#")[0] // Remove any hash.
-    .split("?")[0]; // Remove any search params (important for kidlisp with session params)
+    .split("#")[0]; // Remove any hash.
+
+  //console.log("🐛 slug() after host removal:", cleanedUrl);
+
+  // Use safe parameter removal instead of .split("?")[0] 
+  cleanedUrl = getCleanPath(cleanedUrl);
+  
+  //console.log("🐛 slug() after getCleanPath:", cleanedUrl);
 
   // Decode URL-encoded characters first
   cleanedUrl = decodeURIComponent(cleanedUrl);
+  
+  //console.log("🐛 slug() after decodeURIComponent:", cleanedUrl);
 
-  // Use centralized kidlisp URL decoding
-  return decodeKidlispFromUrl(cleanedUrl);
+  // Only apply kidlisp URL decoding if this actually looks like kidlisp code
+  if (isKidlispSource(cleanedUrl)) {
+    //console.log("🐛 slug() detected as KidLisp, decoding...");
+    return decodeKidlispFromUrl(cleanedUrl);
+  }
+  
+  //console.log("🐛 slug() final result:", cleanedUrl);
+  return cleanedUrl;
 }
 
 // Read first two lines of JavaScript or Lisp source to pull off a title & desc.
@@ -266,7 +295,7 @@ function inferTitleDesc(source) {
 }
 
 // Generates some metadata fields that are shared both on the client and server.
-function metadata(host, slug, pieceMetadata) {
+function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = null) {
   // Use a default title if there is no override.
   const notAesthetic =
     host.indexOf("sotce") > -1 ||
@@ -277,7 +306,45 @@ function metadata(host, slug, pieceMetadata) {
   const isStandaloneTitle = pieceMetadata?.standaloneTitle === true;
   
   let title;
-  if (pieceMetadata?.title) {
+  
+  // Check for TEIA mode and generate custom title format
+  if (checkTeiaMode()) {
+    try {
+      const colophon = (typeof window !== 'undefined' && window.acTEIA_COLOPHON) || 
+                      (typeof globalThis !== 'undefined' && globalThis.acTEIA_COLOPHON);
+      
+      if (colophon?.piece?.name && colophon?.build?.author) {
+        // Extract timestamp starting with 2025 from zipFilename (format: @author-$piece-2025.09.25.04.22.12.938.zip)
+        let timestamp = new Date().getFullYear(); // fallback
+        if (colophon.build.zipFilename) {
+          const timestampMatch = colophon.build.zipFilename.match(/(2025\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{3})/);
+          if (timestampMatch) {
+            timestamp = timestampMatch[1];
+          }
+        } else if (colophon.build.packTime) {
+          // Format packTime to match zip filename format
+          const date = new Date(colophon.build.packTime);
+          timestamp = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}.${String(date.getHours()).padStart(2, '0')}.${String(date.getMinutes()).padStart(2, '0')}.${String(date.getSeconds()).padStart(2, '0')}.${String(date.getMilliseconds()).padStart(3, '0')}`;
+        }
+        title = `${colophon.piece.name} by ${colophon.build.author}, ${timestamp}`;
+      } else if (teiaContext?.author) {
+        // Use teiaContext if provided (for pack pipeline)  
+        const year = new Date().getFullYear();
+        title = `${slug} by ${teiaContext.author}, ${year}`;
+      } else {
+        // Fallback for TEIA mode without colophon
+        title = slug;
+      }
+    } catch (e) {
+      // Fallback if there's any issue accessing TEIA data
+      if (teiaContext?.author) {
+        const year = new Date().getFullYear();
+        title = `${slug} by ${teiaContext.author}, ${year}`;
+      } else {
+        title = slug;
+      }
+    }
+  } else if (pieceMetadata?.title) {
     // Use the piece's custom title, with or without suffix based on standaloneTitle flag
     title = pieceMetadata.title + (notAesthetic || isStandaloneTitle ? "" : " · Aesthetic Computer");
   } else {
@@ -297,7 +364,7 @@ function metadata(host, slug, pieceMetadata) {
     twitterImage = `https://${host}/preview/1800x900/${slug}.png`;
   }
 
-  icon = pieceMetadata?.icon_url || `https://${host}/icon/128x128/${slug}.png`;
+  icon = pieceMetadata?.icon_url || `${protocol}//${host}/icon/128x128/${slug}.png`;
 
   const manifest = `https://${host}/manifest.json`;
   return { title, desc, ogImage, twitterImage, icon, manifest };

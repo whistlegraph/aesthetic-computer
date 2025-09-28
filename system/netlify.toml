@@ -49,13 +49,11 @@ external_node_modules = [
 ]
 included_files = ["backend/**/*.mjs"]
 [functions.screenshot]
-external_node_modules = ["puppeteer-core", "@sparticuz/chromium"]
+external_node_modules = ["puppeteer-core"]
 [functions.session]
 external_node_modules = ["got", "redis"]
 [functions.reload]
 external_node_modules = ["got", "redis"]
-[functions.sotce-blog]
-external_node_modules = ["got", "crypto", "patreon"]
 [functions.vary]
 external_node_modules = ["got", "multiparty", "openai"]
 [functions.slash]
@@ -65,11 +63,13 @@ external_node_modules = ["discord-interactions"]
 [functions.clock]
 # No special config needed for clock
 [functions.store-kidlisp]
-external_node_modules = ["nanoid"]
+node_bundler = "esbuild"
+external_node_modules = ["nanoid", "@taquito/taquito", "@taquito/signer"]
+included_files = ["public/aesthetic.computer/lib/kidlisp.mjs"]
 [dev]
 NODE_ENV = "development"
 publish = "public/"
-command = "npm run media-server-caddy"
+command = "caddy run --config Caddyfile"
 targetPort = 8111
 #framework = "#static"
 autoLaunch = false
@@ -191,8 +191,8 @@ status = 200
 force = true
 [[redirects]]
 from = "https://www.wipppps.world"
-to = "https://aesthetic.computer/wipppps"
-status = 200
+to = "https://wipppps.world"
+status = 301
 force = true
 [[redirects]]
 from = "https://www.sundarakarma.com"
@@ -214,11 +214,6 @@ from = "https://sundarakarma.com/oscar"
 to = "https://aesthetic.computer/sundarakarma.com/oscar.html"
 status = 200
 force = true
-[[redirects]]
-from = "https://sotce.aesthetic.computer"
-to = "https://aesthetic.computer/sotce-blog"
-status = 200
-force = false
 [[redirects]]
 from = "https://pals.aesthetic.computer/*"
 to = "https://aesthetic.computer/api/logo/:splat"
@@ -536,6 +531,10 @@ status = 301
 [[redirects]]
 from = "/api/bdf-glyph"
 to = "/.netlify/functions/bdf-glyph"
+status = 200
+[[redirects]]
+from = "/disks/*"
+to = "/aesthetic.computer/disks/:splat"
 status = 200
 [[redirects]]
 from = "/*"

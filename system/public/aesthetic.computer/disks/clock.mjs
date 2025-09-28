@@ -34,6 +34,7 @@
     {noise-white} cdefg - White noise
     {sample} cdefg - Sample playback
     {custom} cdefg - Custom waveform generation
+    {bubble} cdefg - Physical bubble modeling (frequency controls bubble size)
     {0.5} cdefg - Set volume to 50% (keeps current waveform)
     {square:0.3} cdefg - Square wave at 30% volume
     {0.8} c{0.2}d{1.0}e - Volume changes during melody
@@ -49,6 +50,12 @@
     {50hz&} cdefg - Cumulative shift: +50Hz each cycle (+50, +100, +150...)
     The Hz shift is sticky and persists until changed
     Use & modifier for animated cumulative effects that build over time
+  
+  🎵 NEW: Visual Separators!
+  Use ~ or | for visual organization without affecting playback:
+    {noise-white} cdefg~abcd~efgh - Visual segments with preserved mode
+    cdef|gabc|defg - Measure bars for visual organization
+    Sticky values like {noise-white} persist across separators
   
   🎵 NEW: Sticky Duration Modifiers!
   Use suffix notation for duration that applies to all following notes:
@@ -68,6 +75,14 @@
     c^defg - c is held, defg are struck
     ^cd^efg - cd are struck, efg are held
     The ^ character is sticky and persists until changed, similar to + and - octave
+
+  🎵 NEW: Speech Synthesis Support!
+  Use quoted text for speech synthesis with random voice selection:
+    cde"hi"gab - Plays c, d, e, speaks "hi", then plays g, a, b
+    "hello world"defg - Speaks "hello world", then plays d, e, f, g
+    c"one"d"two"e - Plays c, speaks "one", plays d, speaks "two", plays e
+    {square} c"beep"d - Square wave notes with speech in between
+    Uses random male/female voices with prosody variation like textfence
 
   Examples:
     clock cdefg               - Play in octave 4 with 1s timing
@@ -151,12 +166,12 @@ function calculateFrequencyWithLowerBound(tone, hzShift = 0, sound, trackId = nu
     }
     
     // Debug logging for frequency calculation
-    console.log(`🎵 FREQ DEBUG: tone="${tone}" baseFreq=${baseFrequency.toFixed(2)}Hz hzShift=${hzShift}Hz`);
+    // console.log(`🎵 FREQ DEBUG: tone="${tone}" baseFreq=${baseFrequency.toFixed(2)}Hz hzShift=${hzShift}Hz`);
     
     // Apply Hz shift
     const shiftedFrequency = baseFrequency + hzShift;
     
-    console.log(`🎵 FREQ DEBUG: shiftedFreq=${shiftedFrequency.toFixed(2)}Hz`);
+    // console.log(`🎵 FREQ DEBUG: shiftedFreq=${shiftedFrequency.toFixed(2)}Hz`);
     
     // Check lower bound (20 Hz minimum)
     const minFrequency = 20;
@@ -223,6 +238,7 @@ const noteColorMap = {
 // Helper function to get note color
 function getNoteColor(noteName) {
   if (!noteName || noteName === "rest") return [102, 102, 102]; // Gray for rests
+  if (noteName === "speech") return [255, 200, 100]; // Orange for speech notes
   const cleanNote = noteName.toLowerCase().replace(/[0-9]/g, ""); // Remove octave numbers
   return noteColorMap[cleanNote] || [255, 255, 255]; // Default to white if not found
 }
@@ -257,6 +273,104 @@ function getDarkerColor(rgbArray) {
   const darkerB = Math.max(0, Math.round(grayB * 0.6));
 
   return [darkerR, darkerG, darkerB];
+}
+
+// Helper function to create speech utterance with SSML prosody (similar to textfence)
+function createSpeechUtterance(text, voiceType = "female", num) {
+  let rate, pitch;
+  if (voiceType === "female") {
+    rate = `${num.randIntRange(90, 105)}%`;
+    pitch = `+${num.randIntRange(10, 35)}%`;
+  } else {
+    rate = `${num.randIntRange(80, 105)}%`;
+    pitch = `${num.randIntRange(-15, 0)}%`;
+  }
+  return `
+  <speak>
+    <prosody rate="${rate}" pitch="${pitch}">${text}</prosody>
+  </speak>
+  `;
+}
+
+// Speak text with SFX system for instant playback (cached speech)
+function speakText(text, voice = "female:18", options = {}, num, speak) {
+  const speechLabel = `speech:${voice} - ${text}`;
+  
+  // Always use the speak function which handles caching internally
+  // The speech system will use cached audio if available
+  console.log(`🗣️ Playing speech: "${text}" with ${voice} voice`);
+  
+  const utterance = createSpeechUtterance(text, voice.split(":")[0], num);
+  speak(utterance, voice, "cloud", {
+    volume: options.volume || 1,
+    pan: options.pan || 0,
+    skipCompleted: true,
+    ...options
+  });
+}
+
+// Helper function to preload all speech in a melody for instant playback
+function preloadMelodySpeech(melodyState, speak, num, help) {
+  if (!melodyState || !speak) return;
+  
+  speechEnabled = false;
+  speechCache.clear(); // Clear previous cache entries
+  const speechToCache = [];
+  
+  // Collect all speech notes from all tracks
+  if (melodyState.type === "single" && melodyState.notes) {
+    melodyState.notes.forEach(note => {
+      if (note.isSpeech && note.text) {
+        speechToCache.push(note.text);
+      }
+    });
+  } else if (melodyState.tracks) {
+    melodyState.tracks.forEach(track => {
+      if (track && track.length > 0) {
+        track.forEach(note => {
+          if (note.isSpeech && note.text) {
+            speechToCache.push(note.text);
+          }
+        });
+      }
+    });
+  }
+  
+  // Remove duplicates
+  const uniqueSpeechTexts = [...new Set(speechToCache)];
+  
+  if (uniqueSpeechTexts.length === 0) {
+    speechEnabled = false;
+    return;
+  }
+  
+  console.log(`🗣️ Preloading ${uniqueSpeechTexts.length} speech samples for instant playback...`);
+  
+  // Generate speech for both male and female voices for variety
+  uniqueSpeechTexts.forEach(text => {
+    ['female', 'male'].forEach(voiceType => {
+      const voiceNumber = voiceType === "female" ? 18 : 22;
+      const voiceString = `${voiceType}:${voiceNumber}`;
+      const speechLabel = `speech:${voiceString} - ${text}`;
+      
+      // Pre-generate speech with silent playback to populate the cache
+      console.log(`🗣️ Pre-generating speech: "${text}" (${voiceString})`);
+      
+      const utterance = createSpeechUtterance(text, voiceType, num);
+      speak(utterance, voiceString, "cloud", {
+        volume: 0, // Silent generation for caching only
+        pan: 0,
+        skipCompleted: true // Don't send completion events during caching
+      });
+      
+      // Mark as cached in our tracking (the actual caching is handled by speech system)
+      speechCache.add(speechLabel);
+    });
+  });
+  
+  // Enable speech immediately since we've requested all samples
+  speechEnabled = true;
+  console.log(`🗣️ Speech enabled! Requested ${uniqueSpeechTexts.length * 2} speech samples for caching.`);
 }
 
 // Helper functions for managing per-track cumulative Hz states
@@ -348,6 +462,10 @@ let floatingHzDisplays = []; // Array of floating frequency displays
 const FLOATING_HZ_DURATION = 2000; // How long each display lasts (2 seconds)
 const FLOATING_HZ_SPEED = 30; // How fast they float up (pixels per second)
 const FLOATING_HZ_FADE_START = 0.7; // When to start fading (70% through duration)
+
+// Speech caching system for instant playback
+let speechEnabled = false; // Flag to indicate if speech is available in the melody
+let speechCache = new Set(); // Track which speech samples are cached as SFX
 
 // Helper function to get current note index for synchronization
 function getCurrentNoteIndex(melodyState, trackIndex = 0) {
@@ -467,7 +585,7 @@ function drawFloatingHzDisplays(ink, write, screen) {
   }
 }
 
-function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
+function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help }) {
   // Reset leaving flag when piece starts
   isLeavingPiece = false;
 
@@ -499,6 +617,9 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
   // Reset cumulative Hz states when starting a new melody
   cumulativeHzStates.clear();
+  
+  // Clear speech preloading state for new melody
+  speechEnabled = false;
 
   if (params[0]) {
     // Concatenate all params to handle cases like clock/(ceg) (dfa) where
@@ -532,6 +653,7 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
         startTime: performance.now(),
         timingMode: parseFloat(colon[0]) || 1.0,
         type: "single",
+        isFallback: false, // This is a real melody, not fallback
       };
 
       // Preserve mutation metadata if present
@@ -573,6 +695,7 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
         startTime: performance.now(),
         timingMode: parseFloat(colon[0]) || 1.0,
         type: "single",
+        isFallback: false, // This is a real melody, not fallback
       };
 
       // Preserve mutation metadata if present
@@ -605,6 +728,7 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
         timingMode: parseFloat(colon[0]) || 1.0,
         type: melodyTracks.type, // 'parallel' or 'multi'
         maxLength: melodyTracks.maxLength || 0,
+        isFallback: false, // This is a real melody, not fallback
         // Independent timing state for each parallel track
         trackStates: melodyTracks.tracks.map((track, trackIndex) => ({
           trackIndex: trackIndex,
@@ -671,6 +795,11 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api }) {
 
   // Build octave control buttons
   buildOctaveButtons(api);
+  
+  // Preload speech for instant playback if speak function is available
+  if (speak && melodyState) {
+    preloadMelodySpeech(melodyState, speak, num, help);
+  }
 }
 
 function paint({
@@ -864,15 +993,14 @@ function paint({
       let previewStringDecorative = "";
       let previewStringPlain = "";
       if (originalMelodyString && originalMelodyString.trim().length > 0) {
-        if (melodyTimingStarted) {
-          // Melody timing has started - use colored version with highlighting
-          const currentMelodyString = buildCurrentMelodyString(
-            originalMelodyString,
-            melodyState,
-          );
-          const coloredMelody =
-            coloredMelodyStringForTimeline ||
-            buildColoredMelodyStringUnified(currentMelodyString, melodyState);
+        // Always show colored syntax highlighting when there's melody content
+        const currentMelodyString = buildCurrentMelodyString(
+          originalMelodyString,
+          melodyState,
+        );
+        const coloredMelody =
+          coloredMelodyStringForTimeline ||
+          buildColoredMelodyStringUnified(currentMelodyString, melodyState);
 
           // Add cumulative Hz display for all active tracks
           let hzDisplay = "";
@@ -892,11 +1020,9 @@ function paint({
 
           // Ensure the space after "clock" doesn't get colored by the melody colors
           previewStringDecorative = `\\white\\clock \\white\\` + coloredMelody + hzDisplay;
-        } else {
-          // Melody timing hasn't started yet - show plain uncolored text
-
-          previewStringDecorative = `\\white\\clock ${originalMelodyString}`;
-        }
+        
+        // ALWAYS use original melody string for plain text (backspace preservation)
+        // This ensures that backspace always returns to the original melody, not mutated state
         previewStringPlain = `clock ${originalMelodyString}`;
       } else {
         // No melody content - just show "clock" with explicit neutral color
@@ -916,19 +1042,16 @@ function paint({
       const shadowString = stripColorCodes(previewStringDecorative);
       // Draw the shadow label first, with all color codes stripped, in black
       if (hud.label && typeof hud.label === "function") {
-        // Always pass the logical (colorless) string as the 4th argument to hud.label
-        // Let disk.mjs handle all HUD coloring automatically - no explicit color override
+        // First set shadow (stripped version)
         hud.label(shadowString, undefined, 0, previewStringPlain); // shadow
         hud.supportsInlineColor = true;
         hud.disablePieceNameColoring = true; // Let our custom colors override piece name coloring
         // Force cache invalidation for animated color changes by updating frame hash
-        hud.frameHash = performance.now(); 
+        hud.frameHash = performance.now();
+        // Then set colored version for live syntax highlighting
         hud.label(previewStringDecorative, undefined, 0, previewStringPlain); // colored
       }
-      // If the HUD system supports setting the actual prompt content, set it to the plain string (no color codes)
-      if (hud.setPromptContent) {
-        hud.setPromptContent(previewStringPlain);
-      }
+      // The HUD label calls above pass previewStringPlain as 4th argument for backspace preservation
     }
 
     // Unified: Build colored melody string for both timeline and HUD label
@@ -1034,11 +1157,15 @@ function paint({
               melodyState && melodyState.type === "parallel"
                 ? noteIndex
                 : noteIndex;
+            const trackIndexToUse =
+              melodyState && melodyState.type === "parallel"
+                ? groupIdx
+                : 0; // For single tracks, always use trackIndex 0
             for (let j = noteStart; j <= noteEnd; j++) {
               noteCharPositions.push({
                 charIndex: groupStartChar + j,
                 noteIndex: noteIndexToUse,
-                trackIndex: groupIdx,
+                trackIndex: trackIndexToUse,
               });
             }
             noteIndex++;
@@ -1070,11 +1197,15 @@ function paint({
                     melodyState && melodyState.type === "parallel"
                       ? noteIndex
                       : noteIndex;
+                  const trackIndexToUse =
+                    melodyState && melodyState.type === "parallel"
+                      ? groupIdx
+                      : 0; // For single tracks, always use trackIndex 0
                   for (let j = noteStart; j <= noteEnd; j++) {
                     noteCharPositions.push({
                       charIndex: groupStartChar + j,
                       noteIndex: noteIndexToUse,
-                      trackIndex: groupIdx,
+                      trackIndex: trackIndexToUse,
                     });
                   }
                   noteIndex++;
@@ -1116,11 +1247,15 @@ function paint({
               melodyState && melodyState.type === "parallel"
                 ? noteIndex
                 : noteIndex;
+            const trackIndexToUse =
+              melodyState && melodyState.type === "parallel"
+                ? groupIdx
+                : 0; // For single tracks, always use trackIndex 0
             for (let j = noteStart; j <= noteEnd; j++) {
               noteCharPositions.push({
                 charIndex: groupStartChar + j,
                 noteIndex: noteIndexToUse,
-                trackIndex: groupIdx,
+                trackIndex: trackIndexToUse,
               });
             }
             noteIndex++;
@@ -1135,6 +1270,37 @@ function paint({
       function getRedNoteColor() {
         // Always return red for currently playing notes - no orange fade
         return "red";
+      }
+
+      // Helper function to get note color for static display (before timing)
+      function getStaticNoteColor(noteCharData) {
+        if (!noteCharData || !melodyState) {
+          console.log('🎨 DEBUG: No noteCharData or melodyState', { noteCharData, melodyState });
+          return "gray";
+        }
+        
+        console.log('🎨 DEBUG: melodyState type:', melodyState.type, 'noteIndex:', noteCharData.noteIndex);
+        
+        let note = null;
+        if (melodyState.type === "single" && melodyState.notes) {
+          note = melodyState.notes[noteCharData.noteIndex];
+          console.log('🎨 DEBUG: Single track note:', note);
+        } else if (melodyState.type === "parallel" && melodyState.tracks) {
+          const track = melodyState.tracks[noteCharData.trackIndex];
+          note = track && track[noteCharData.noteIndex];
+          console.log('🎨 DEBUG: Parallel track note:', note, 'trackIndex:', noteCharData.trackIndex);
+        }
+        
+        if (!note) {
+          console.log('🎨 DEBUG: No note found');
+          return "gray";
+        }
+        
+        // Get the RGB color for this note
+        const rgb = getNoteColor(note.note);
+        const colorString = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        console.log('🎨 DEBUG: Note color for', note.note, ':', colorString);
+        return colorString;
       }
 
       // Helper function to check if a note is mutated
@@ -1346,20 +1512,12 @@ function paint({
 
             if (char === "{") {
               inWaveformForColoring = true;
-              color = shouldFlashGreen
-                ? "green"
-                : timingHasStarted
-                  ? "yellow"
-                  : "gray";
+              color = shouldFlashGreen ? "green" : "yellow"; // Always show yellow for braces
             } else if (char === "}") {
               inWaveformForColoring = false;
-              color = shouldFlashGreen
-                ? "green"
-                : timingHasStarted
-                  ? "yellow"
-                  : "gray";
+              color = shouldFlashGreen ? "green" : "yellow"; // Always show yellow for braces
             } else if (inWaveformForColoring) {
-              color = timingHasStarted ? "cyan" : "gray";
+              color = "cyan"; // Always show cyan for waveform content
             } else if (char === "*") {
               // Special handling for mutation asterisk - white flash when triggered, rainbow otherwise
               if (
@@ -1449,11 +1607,12 @@ function paint({
                   if (isMutated) {
                     color = getMutatedNoteColor(false, noteCharData); // Goldenrod for non-active mutated notes
                   } else {
-                    // Use gray if timing hasn't started, yellow if it has
-                    color = timingHasStarted ? "yellow" : "gray";
+                    // Use note-specific colors if timing hasn't started, yellow if it has
+                    color = timingHasStarted ? "yellow" : getStaticNoteColor(noteCharData);
                   }
                 }
               } else {
+                // For characters not identified as notes, keep the basic color scheme  
                 color = timingHasStarted ? "yellow" : "gray";
               }
             } else {
@@ -1535,7 +1694,8 @@ function paint({
   const buttonHeight = 16;
   const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
   const startX = screen.width - totalWidth;
-  const startY = screen.height - buttonHeight;
+  const tapingOffset = api.system?.taping ? 1 : 0; // Move up 1 pixel when taping
+  const startY = screen.height - buttonHeight - tapingOffset;
 
   // Paint minus button with proper state handling
   octaveMinusBtn?.paint((btn) => {
@@ -1777,6 +1937,23 @@ function drawMelodyTimeline(
     y: infoY,
     scale: 1,
   });
+  
+  // Show speech caching status if speech notes are present
+  const hasSpeechNotes = (melodyState && 
+    ((melodyState.type === "single" && melodyState.notes && melodyState.notes.some(note => note.isSpeech)) ||
+     (melodyState.tracks && melodyState.tracks.some(track => track.some && track.some(note => note.isSpeech)))));
+  
+  if (hasSpeechNotes) {
+    const speechStatusText = speechEnabled ? "🗣️ ready" : "🗣️ loading...";
+    const speechStatusColor = speechEnabled ? "green" : "yellow";
+    const speechStatusX = timelineStartX + timingText.length * 6 + 12; // Position after timing text
+    
+    ink(speechStatusColor).write(speechStatusText, {
+      x: speechStatusX,
+      y: infoY,
+      scale: 1,
+    });
+  }
 }
 
 // Build the current melody string showing actual mutated notes
@@ -3224,15 +3401,61 @@ function createManagedSound(
     synthFadeTime = fadeTime;
   }
 
-  const synthInstance = sound.synth({
-    type: waveType || "sine",
-    tone: tone,
-    duration: synthDuration,
-    attack: struck ? 0.0 : 0.01, // Very short attack for struck notes
-    decay: struck ? 1 : 0.1, // Fast decay for struck notes - will fade over the full duration
-    volume: volume,
-    toneShift: toneShift, // Pass through the Hz pitch shift
-  });
+  let synthInstance;
+
+  // Handle bubble waveform type specially using sound.bubble instead of sound.synth
+  if (waveType === "bubble") {
+    // Convert note to frequency for bubble radius calculation
+    const baseFreq = sound.freq(tone); // Get base frequency for the note
+    const finalFreq = baseFreq + (toneShift || 0); // Apply Hz shift
+    
+    // Calculate correct radius for the desired frequency using bubble physics
+    // From bubble.mjs: phaseStep = (3.0 / radius) * timestep
+    // And frequency = phaseStep * sampleRate / (2π)
+    // Solving for radius: radius = 3.0 / (frequency * 2π) / 0.001
+    const internalRadius = 3.0 / (finalFreq * 2 * Math.PI);
+    const bubbleRadius = internalRadius / 0.001; // Undo the *0.001 scaling in bubble.mjs
+    
+    // Map to other bubble parameters
+    const rise = 1.0; // Default buoyancy
+    const pan = 0;    // Centered pan (could be enhanced later)
+    
+    synthInstance = sound.bubble({
+      radius: bubbleRadius,
+      rise: rise,
+      volume: volume,
+      pan: pan
+    });
+
+    // Handle struck vs held mode for bubbles
+    if (struck) {
+      // For struck notes, disable sustain so bubbles naturally decay
+      if (synthInstance.disableSustain) {
+        synthInstance.disableSustain();
+        console.log(`🧋 STRUCK: Sustain disabled for ${tone}`);
+      }
+    } else {
+      // For held notes, enable sustain so bubbles continue until manually stopped
+      if (synthInstance.enableSustain) {
+        synthInstance.enableSustain();
+        console.log(`🧋 HELD: Sustain enabled for ${tone}`);
+      }
+    }
+
+    // Debug bubble parameters with more detail
+    console.log(`🧋 BUBBLE: ${tone} (${Math.round(finalFreq)}Hz) → radius:${bubbleRadius.toFixed(1)} ${struck ? 'struck' : 'held'} vol:${volume.toFixed(2)}`);
+  } else {
+    // Use normal synth for all other waveform types
+    synthInstance = sound.synth({
+      type: waveType || "sine",
+      tone: tone,
+      duration: synthDuration,
+      attack: struck ? 0.0 : 0.01, // Very short attack for struck notes
+      decay: struck ? 1 : 0.1, // Fast decay for struck notes - will fade over the full duration
+      volume: volume,
+      toneShift: toneShift, // Pass through the Hz pitch shift
+    });
+  }
 
   // Debug: Log toneShift being passed to synth
   if (toneShift !== 0) {
@@ -3242,8 +3465,8 @@ function createManagedSound(
   // Set flag to indicate first synth has fired (for syntax coloring)
   hasFirstSynthFired = true;
 
-  // Calculate and display the actual frequency being played
-  if (screen && sound && sound.freq) {
+  // Calculate and display the actual frequency being played (only when using Hz shifts)
+  if (screen && sound && sound.freq && toneShift !== 0) {
     try {
       // Calculate the actual frequency including Hz shift
       const baseFreq = sound.freq(tone);
@@ -3296,15 +3519,21 @@ function createManagedSound(
     isStruck: false, // Flag to identify held notes
   };
 
-  // Schedule the note to be released
-  scheduledNotes.push({
-    soundId: soundId,
-    releaseTime: releaseTime,
-    fadeTime: fadeTime, // Store fade time with the scheduled release
-  });
+  // For bubble waveforms with sustain enabled, don't schedule automatic release
+  // They should play indefinitely until manually stopped by the next note
+  const isSustainedBubble = (waveType === "bubble" && !struck);
+  
+  if (!isSustainedBubble) {
+    // Schedule the note to be released for non-bubble sounds or struck bubbles
+    scheduledNotes.push({
+      soundId: soundId,
+      releaseTime: releaseTime,
+      fadeTime: fadeTime, // Store fade time with the scheduled release
+    });
 
-  // Sort scheduled notes by release time for efficient processing
-  scheduledNotes.sort((a, b) => a.releaseTime - b.releaseTime);
+    // Sort scheduled notes by release time for efficient processing
+    scheduledNotes.sort((a, b) => a.releaseTime - b.releaseTime);
+  }
 
   // Log with appropriate styling
   if (isFallback) {
@@ -3444,7 +3673,7 @@ function handleStandbyResume() {
 }
 
 // Slide existing active sounds to a new octave (similar to notepat's slide function)
-function slideActiveSoundsToNewOctave(oldOctave, newOctave) {
+function slideActiveSoundsToNewOctave(oldOctave, newOctave, soundAPI) {
   const octaveChange = newOctave - oldOctave;
 
   // Iterate through all active sounds and update their tones
@@ -3465,11 +3694,29 @@ function slideActiveSoundsToNewOctave(oldOctave, newOctave) {
         const newTone = `${targetOctave}${note}`;
 
         try {
-          // Update the synth to slide to the new tone
-          sound.synth.update({
-            tone: newTone,
-            duration: 0.05, // Very fast slide duration - minimal delay/skip
-          });
+          // Handle bubble waveforms differently - they use radius instead of tone
+          if (sound.waveType === "bubble") {
+            // Convert new tone to frequency and then to bubble radius using correct physics
+            const newFreq = soundAPI.freq(newTone);
+            
+            // Calculate correct radius using bubble physics: radius = 3.0 / (frequency * 2π) / 0.001
+            const internalRadius = 3.0 / (newFreq * 2 * Math.PI);
+            const newBubbleRadius = internalRadius / 0.001;
+            
+            // Update the bubble with new radius
+            sound.synth.update({
+              radius: newBubbleRadius,
+              duration: 0.05, // Fast transition
+            });
+            
+            console.log(`🧋 OCTAVE: ${sound.tone} → ${newTone} (${Math.round(newFreq)}Hz, radius:${newBubbleRadius.toFixed(1)})`);
+          } else {
+            // Update the synth to slide to the new tone (for non-bubble sounds)
+            sound.synth.update({
+              tone: newTone,
+              duration: 0.05, // Very fast slide duration - minimal delay/skip
+            });
+          }
 
           // Update our tracking information
           sound.tone = newTone;
@@ -3748,7 +3995,7 @@ function realignMelodyTiming(currentSyncedTime) {
   // No-op - we now check UTC time directly
 }
 
-function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
+function act({ event: e, clock, sound, screen, ui, typeface, api }) {
   // Initialize NOW line position if not set
   if (nowLineY === 0) {
     nowLineY = screen.height / 2;
@@ -3834,7 +4081,7 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
       buildOctaveButtons(api);
 
       // Slide existing sounds to new octave instead of cutting them off
-      slideActiveSoundsToNewOctave(oldOctave, octave);
+      slideActiveSoundsToNewOctave(oldOctave, octave, sound);
 
       // Reparse melody with new octave
       reparseMelodyWithNewOctave(octave);
@@ -3852,7 +4099,7 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
       buildOctaveButtons(api);
 
       // Slide existing sounds to new octave instead of cutting them off
-      slideActiveSoundsToNewOctave(oldOctave, octave);
+      slideActiveSoundsToNewOctave(oldOctave, octave, sound);
 
       // Reparse melody with new octave
       reparseMelodyWithNewOctave(octave);
@@ -3872,6 +4119,95 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
     noteFlowMode = noteFlowMode === "stop" ? "flow" : "stop";
   }
 
+  // Reset mutations with backspace key - restore original melody state
+  if (e.is("keyboard:down:backspace")) {
+    // Reset all mutation state and reparse from original melody string
+    if (originalMelodyString && originalMelodyString.trim().length > 0) {
+      // Clear mutation state
+      mutatedNotePositions = [];
+      recentlyMutatedNoteIndex = -1;
+      recentlyMutatedTrackIndex = -1;
+      mutationFlashTime = 0;
+      triggeredAsteriskPositions = [];
+
+      // Re-parse the original melody to reset all mutations
+      melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
+      
+      // Reset melody state based on track structure (same logic as in boot())
+      if (melodyTracks.isSingleTrack) {
+        parsedMelody = melodyTracks.tracks[0];
+        
+        // Check if the first note has an explicit octave
+        if (parsedMelody.length > 0 && parsedMelody[0].octave !== octave) {
+          octave = parsedMelody[0].octave;
+        }
+
+        // Extract tone strings for the sequence
+        sequence = extractTones(parsedMelody, {
+          skipRests: false,
+          restTone: `${octave}G`,
+        });
+
+        // Initialize melody timing state
+        melodyState = {
+          notes: parsedMelody,
+          index: 0,
+          baseTempo: baseTempo,
+          isPlaying: false,
+          startTime: performance.now(),
+          timingMode: parseFloat(1.0) || 1.0, // Default timing
+          type: "single",
+        };
+      } else if (melodyTracks.tracks.length === 1) {
+        // Single parallel group - treat as single track
+        parsedMelody = melodyTracks.tracks[0];
+
+        if (parsedMelody.length > 0 && parsedMelody[0].octave !== octave) {
+          octave = parsedMelody[0].octave;
+        }
+
+        sequence = extractTones(parsedMelody, {
+          skipRests: false,
+          restTone: `${octave}G`,
+        });
+
+        melodyState = {
+          notes: parsedMelody,
+          index: 0,
+          baseTempo: baseTempo,
+          isPlaying: false,
+          startTime: performance.now(),
+          timingMode: parseFloat(1.0) || 1.0,
+          type: "single",
+        };
+      } else {
+        // Multiple parallel tracks
+        melodyState = {
+          tracks: melodyTracks.tracks,
+          trackStates: melodyTracks.tracks.map((track, trackIndex) => ({
+            trackIndex: trackIndex,
+            noteIndex: 0,
+            track: track,
+            nextNoteTargetTime: 0,
+            startTime: 0,
+            totalElapsedBeats: 0,
+            lastMutationTriggered: false,
+          })),
+          baseTempo: baseTempo,
+          isPlaying: false,
+          startTime: performance.now(),
+          timingMode: parseFloat(1.0) || 1.0,
+          type: "parallel",
+        };
+      }
+
+      // Clear history buffer to remove mutation traces
+      historyBuffer = [];
+      
+      console.log("🔄 Mutations reset - melody restored to original state");
+    }
+  }
+
   // Handle octave button interactions
   octavePlusBtn?.act(e, {
     down: () => {
@@ -3888,7 +4224,7 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
         buildOctaveButtons(api);
 
         // Slide existing sounds to new octave instead of cutting them off
-        slideActiveSoundsToNewOctave(oldOctave, octave);
+        slideActiveSoundsToNewOctave(oldOctave, octave, sound);
 
         // Reparse melody with new octave
         reparseMelodyWithNewOctave(octave);
@@ -3911,7 +4247,7 @@ function act({ event: e, clock, sound: { synth }, screen, ui, typeface, api }) {
         buildOctaveButtons(api);
 
         // Slide existing sounds to new octave instead of cutting them off
-        slideActiveSoundsToNewOctave(oldOctave, octave);
+        slideActiveSoundsToNewOctave(oldOctave, octave, sound);
 
         // Reparse melody with new octave
         reparseMelodyWithNewOctave(octave);
@@ -3938,7 +4274,7 @@ let musicalState = {
   isInitialized: false,
 };
 
-function sim({ sound, beep, clock, num, help, params, colon, screen }) {
+function sim({ sound, beep, clock, num, help, params, colon, screen, speak }) {
   sound.speaker?.poll();
 
   // Get current time for timing calculations
@@ -4012,6 +4348,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         note,
         octave: noteOctave,
         duration,
+        sonicDuration,
         swing,
         swingAmount,
         waveType,
@@ -4037,12 +4374,43 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
         actualToneShift = state.current;
       }
 
+      // Handle speech synthesis for quoted text
+      if (noteData.isSpeech && noteData.text) {
+        const voiceType = help.flip() ? "female" : "male"; // Random voice selection
+        const voiceNumber = voiceType === "female" ? 18 : 22;
+        const voiceString = `${voiceType}:${voiceNumber}`;
+        
+        console.log(`🗣️ Playing speech: "${noteData.text}" with ${voiceType} voice`);
+        
+        // Use speakText function for cached speech playback
+        speakText(noteData.text, voiceString, { 
+          pan: 0, 
+          volume: volume || 0.8 
+        }, num, speak);
+        
+        // Add speech note to history buffer for visual timeline
+        addNoteToHistory(
+          "speech",
+          noteOctave || octave,
+          currentTime,
+          duration * melodyState.baseTempo,
+          0, // Track 0 for single track
+          "speech", // Special waveType for speech
+          volume || 0.8,
+          false, // Not a mutation
+          struck,
+        );
+        
+        // Flash green for special character (speech)
+        specialCharFlashTime = performance.now();
+      }
       // Play the note using managed sound system
-      if (note !== "rest") {
+      else if (note !== "rest") {
         let tone = noteOctave
           ? `${noteOctave}${note.toUpperCase()}`
           : `${octave}${note.toUpperCase()}`;
         const noteDuration = duration * melodyState.baseTempo;
+        const synthDuration = (sonicDuration || duration) * melodyState.baseTempo;
 
         try {
           // Check if this is the last note in the sequence to eliminate loop gap
@@ -4058,11 +4426,26 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
           }
           
           // Create managed sound that will be automatically released
+          
+          // For sustained bubbles, kill any previous sustained bubbles before starting new one
+          if (waveType === "bubble" && !struck) {
+            Object.keys(activeSounds).forEach((soundId) => {
+              const activeSound = activeSounds[soundId];
+              if (activeSound && activeSound.waveType === "bubble" && !activeSound.isStruck) {
+                // Kill previous sustained bubble with short fade
+                if (activeSound.synth && activeSound.synth.kill) {
+                  activeSound.synth.kill(0.05);
+                }
+                delete activeSounds[soundId];
+              }
+            });
+          }
+          
           createManagedSound(
             sound,
             tone,
             waveType,
-            noteDuration,
+            synthDuration,
             volume || 0.8, // Use note volume or default to 0.8
             melodyState.isFallback,
             struck, // Pass the struck flag for note timing behavior
@@ -4077,7 +4460,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
             note,
             noteOctave || octave,
             currentTime,
-            noteDuration,
+            synthDuration,
             0, // Track 0 for single track
             waveType || "sine",
             volume || 0.8,
@@ -4676,6 +5059,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                 note,
                 octave: noteOctave,
                 duration,
+                sonicDuration,
                 waveType,
                 volume,
                 struck,
@@ -4703,11 +5087,42 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                 actualToneShift = state.current;
               }
 
-              if (note !== "rest") {
+              // Handle speech synthesis for quoted text in parallel tracks
+              if (noteData.isSpeech && noteData.text) {
+                const voiceType = help.flip() ? "female" : "male"; // Random voice selection
+                const voiceNumber = voiceType === "female" ? 18 : 22;
+                const voiceString = `${voiceType}:${voiceNumber}`;
+                
+                console.log(`🗣️ Track ${trackIndex + 1} Playing speech: "${noteData.text}" with ${voiceType} voice`);
+                
+                // Use speakText function for cached speech playback
+                speakText(noteData.text, voiceString, { 
+                  pan: 0, 
+                  volume: volume || 0.8 
+                }, num, speak);
+                
+                // Add speech note to history buffer for visual timeline
+                addNoteToHistory(
+                  "speech",
+                  noteOctave || octave,
+                  currentTimeMs,
+                  duration * melodyState.baseTempo,
+                  trackIndex,
+                  "speech", // Special waveType for speech
+                  volume || 0.8,
+                  false, // Not a mutation
+                  struck,
+                );
+                
+                // Flash green for special character (speech)
+                specialCharFlashTime = performance.now();
+              }
+              else if (note !== "rest") {
                 let tone = noteOctave
                   ? `${noteOctave}${note.toUpperCase()}`
                   : `${octave}${note.toUpperCase()}`;
                 const noteDuration = duration * melodyState.baseTempo;
+                const synthDuration = (sonicDuration || duration) * melodyState.baseTempo;
 
                 // DEBUG: Log note playback with duration details for sticky modifier tracking
                 if (trackIndex === 0) {
@@ -4727,11 +5142,26 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     console.log(`🎵 Track ${trackIndex + 1} Note ${tone}: Frequency reset from ${(frequencyResult.frequency - frequencyResult.originalShift).toFixed(2)}Hz to ${frequencyResult.frequency.toFixed(2)}Hz (Hz shift: ${frequencyResult.originalShift} → 0)`);
                   }
                   
+                  // For sustained bubbles, kill any previous sustained bubbles on this track before starting new one
+                  if (waveType === "bubble" && !struck) {
+                    Object.keys(activeSounds).forEach((soundId) => {
+                      const activeSound = activeSounds[soundId];
+                      // Kill previous sustained bubbles on the same track or single tracks
+                      if (activeSound && activeSound.waveType === "bubble" && !activeSound.isStruck) {
+                        // Kill previous sustained bubble with short fade
+                        if (activeSound.synth && activeSound.synth.kill) {
+                          activeSound.synth.kill(0.05);
+                        }
+                        delete activeSounds[soundId];
+                      }
+                    });
+                  }
+                  
                   createManagedSound(
                     sound,
                     tone,
                     waveType,
-                    noteDuration,
+                    synthDuration,
                     volume || 0.8,
                     melodyState.isFallback,
                     struck,
@@ -4746,7 +5176,7 @@ function sim({ sound, beep, clock, num, help, params, colon, screen }) {
                     note,
                     noteOctave || octave,
                     currentTimeMs,
-                    noteDuration,
+                    synthDuration,
                     trackIndex,
                     waveType || "sine",
                     volume || 0.8,
@@ -4953,7 +5383,7 @@ function preview({ ink, wipe, write }) {
 // }
 
 // Build octave control buttons (+ and - buttons with octave number in between)
-function buildOctaveButtons({ screen, ui, typeface }) {
+function buildOctaveButtons({ screen, ui, typeface, system }) {
   const glyphWidth = typeface.glyphs["0"].resolution[0];
   const buttonHeight = 16;
   const buttonWidth = 16;
@@ -4965,9 +5395,10 @@ function buildOctaveButtons({ screen, ui, typeface }) {
   const octaveTextWidth = octaveText.length * glyphWidth + padding * 2;
   const totalWidth = buttonWidth + octaveTextWidth + buttonWidth;
 
-  // Position flush to bottom right corner
+  // Position flush to bottom right corner, moving up 1 pixel when taping
   const startX = screen.width - totalWidth;
-  const startY = screen.height - buttonHeight;
+  const tapingOffset = system?.taping ? 1 : 0; // Move up 1 pixel when taping
+  const startY = screen.height - buttonHeight - tapingOffset;
 
   // Create minus button
   octaveMinusBtn = new ui.Button(startX, startY, buttonWidth, buttonHeight);

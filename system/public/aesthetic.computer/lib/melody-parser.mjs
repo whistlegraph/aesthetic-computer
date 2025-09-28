@@ -43,31 +43,44 @@
  * - Flat: b (4db)
  * - Duration dots: . (shorter) .. (even shorter) ... (shortest) - STICKY: applies to following notes until changed
  * - Duration commas: , (longer) ,, (even longer) ,,, (longest) - STICKY: applies to following notes until changed
+ * - Sonic extension: ' (longer sound) '' (even longer sound) ''' (longest sound) - extends note sound without affecting timeline
  * - Swing prefixes: < (early/rushed) > (late/laid back)
  * - Multiple swing: << (more early) >>> (much later) - multiples the effect
  * - Swing timing: Each symbol = 1/16 beat offset (small, musical adjustments)
  * - Relative octave: + (one octave up) - (one octave down) ++ (two up) -- (two down)
  * - Struck mode: ^ (toggle between held and struck notes) - STICKY: applies to following notes until changed
- * - Waveform types: {sine} {sawtooth} {square} {triangle} {noise-white} {sample} {custom} - persists until changed
+ * - Waveform types: {sine} {sawtooth} {saw} {square} {triangle} {noise-white} {sample} {custom} {bubble} - persists until changed
  * - Volume control: {0.5} (volume only) or {square:0.3} (type and volume) - persists until changed
  * - Hz shift: {100hz} {-50hz} {50hz&} (frequency shift in Hz, & for cumulative) - persists until changed
+ * - Speech synthesis: "text" (quoted text for speech synthesis with random voice selection)
  * - Rests: _ (explicit rest) or standalone - (context dependent)
- * - Separators: spaces (ignored), | (measure bars, ignored)
+ * - Separators: spaces (ignored), | (measure bars, ignored), ~ (visual separators, ignored)
  * - Measure separators: | (ignored, visual only)
+ * - Segment separators: ~ (ignored, visual only, preserves sticky state)
  * 
  * Duration modifier examples:
  *   c... defg    -> c is very short (1/8), d,e,f,g are also very short until changed
  *   c... d. efg  -> c is very short (1/8), d is short (1/2), e,f,g are short (1/2)
  *   c,, defg     -> c is very long (8.0), d,e,f,g are also very long until changed
  * 
+ * Sonic extension examples:
+ *   c.de'f       -> c short, d normal, e' long sound but normal timeline, f normal
+ *   cde''f       -> c normal, d normal, e'' very long sound but normal timeline, f normal
+ *   c'd'e'f      -> all notes have extended sound duration but keep normal timeline spacing
+ * 
  * Struck mode examples:
  *   ^cdefg       -> All notes are struck (finite duration with natural decay)
  *   c^defg       -> c is held, d,e,f,g are struck  
  *   ^cd^efg      -> c,d are struck, e,f,g are held again
  * 
+ * Speech synthesis examples:
+ *   cde"hi"gab   -> Plays c, d, e, speaks "hi", then plays g, a, b
+ *   "hello"defg  -> Speaks "hello", then plays d, e, f, g
+ *   c"one"d"two" -> Plays c, speaks "one", plays d, speaks "two"
+ * 
  * @param {string} melodyString - The melody string to parse
  * @param {number} [startingOctave=4] - The default octave to use if none specified
- * @returns {Array} Array of note objects with { note, octave, duration, waveType, volume, swing?, swingAmount?, struck?, toneShift? } properties
+ * @returns {Array} Array of note objects with { note, octave, duration, sonicDuration?, waveType, volume, swing?, swingAmount?, struck?, toneShift? } properties
  */
 export function parseMelody(melodyString, startingOctave = 4) {
   const notes = [];
@@ -108,6 +121,41 @@ export function parseMelody(melodyString, startingOctave = 4) {
   while (i < melodyString.length) {
     let char = melodyString[i];
     
+    // Handle quoted text for speech synthesis
+    if (char === '"') {
+      // Find the closing quote
+      let quotedText = '';
+      let quoteStartIndex = i;
+      i++; // Move past opening quote
+      
+      while (i < melodyString.length && melodyString[i] !== '"') {
+        quotedText += melodyString[i];
+        i++;
+      }
+      
+      if (i < melodyString.length && melodyString[i] === '"') {
+        // Found closing quote, create a speech note
+        const speechNote = {
+          note: "speech",
+          text: quotedText,
+          octave: currentOctave,
+          duration: 2, // Default duration for speech
+          waveType: currentWaveType,
+          volume: currentVolume,
+          struck: isStruck,
+          toneShift: currentToneShift,
+          isSpeech: true
+        };
+        
+        notes.push(speechNote);
+        i++; // Move past closing quote
+        continue;
+      } else {
+        // No closing quote found, treat as regular character
+        i = quoteStartIndex; // Reset position
+      }
+    }
+    
     // Handle waveform type, volume, and Hz shift syntax {sine}, {sawtooth}, {square:0.5}, {0.3}, {100hz}, {-50hz}
     if (char === '{') {
       const endBrace = melodyString.indexOf('}', i);
@@ -134,11 +182,13 @@ export function parseMelody(melodyString, startingOctave = 4) {
             console.log(`🎵 PARSER ERROR: Failed to parse Hz value: {${content}}`);
           }
         }
-        // Check for type:volume syntax like {square:0.5}
+        // Check for type:volume syntax like {square:0.5} or {saw:0.3}
         else if (contentLower.includes(':')) {
           const [waveType, volumeStr] = contentLower.split(':');
-          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(waveType)) {
-            currentWaveType = waveType;
+          // Handle 'saw' as shorthand for 'sawtooth'
+          const normalizedWaveType = waveType === 'saw' ? 'sawtooth' : waveType;
+          if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom', 'bubble'].includes(normalizedWaveType)) {
+            currentWaveType = normalizedWaveType;
           }
           const volume = parseFloat(volumeStr);
           if (!isNaN(volume) && volume >= 0 && volume <= 1) {
@@ -152,9 +202,10 @@ export function parseMelody(melodyString, startingOctave = 4) {
             currentVolume = volume;
           }
         }
-        // Check for waveform-only syntax like {sine}
-        else if (['sine', 'sawtooth', 'square', 'triangle', 'noise-white', 'sample', 'custom'].includes(contentLower)) {
-          currentWaveType = contentLower;
+        // Check for waveform-only syntax like {sine} or {saw}
+        else if (['sine', 'sawtooth', 'saw', 'square', 'triangle', 'noise-white', 'sample', 'custom', 'bubble'].includes(contentLower)) {
+          // Handle 'saw' as shorthand for 'sawtooth'
+          currentWaveType = contentLower === 'saw' ? 'sawtooth' : contentLower;
         }
         
         i = endBrace + 1;
@@ -199,8 +250,18 @@ export function parseMelody(melodyString, startingOctave = 4) {
             }
           }
           
+          // Check for sonic extension modifier (') before duration modifiers
+          let sonicExtension = 0;
+          if (i < melodyString.length && melodyString[i] === "'") {
+            while (i < melodyString.length && melodyString[i] === "'") {
+              sonicExtension++;
+              i++;
+            }
+          }
+          
           // Default duration is 2 (half note = 1 second with default 500ms baseTempo)
           let duration = 2;
+          let sonicDuration = duration; // Start with timeline duration
           let hasLocalModifier = false;
           
           // Check for duration modifiers using dots or dashes (optional)
@@ -239,7 +300,30 @@ export function parseMelody(melodyString, startingOctave = 4) {
             duration = applyStickyDurationModifier(duration, false);
           }
           
-          notes.push({ note, octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
+          // Apply sonic extension if present
+          if (sonicExtension > 0) {
+            // Each apostrophe doubles the sonic duration: ' = 2x, '' = 4x, ''' = 8x
+            sonicDuration = duration * Math.pow(2, sonicExtension);
+          } else {
+            sonicDuration = duration; // No extension, sonic matches timeline
+          }
+          
+          const noteObj = { 
+            note, 
+            octave: currentOctave, 
+            duration, 
+            waveType: currentWaveType, 
+            volume: currentVolume, 
+            struck: isStruck, 
+            toneShift: currentToneShift 
+          };
+          
+          // Only add sonicDuration if it's different from duration
+          if (sonicDuration !== duration) {
+            noteObj.sonicDuration = sonicDuration;
+          }
+          
+          notes.push(noteObj);
         } else {
           // Just an octave change without a note - currentOctave is already updated
           // This allows for patterns like "5defg" or "4c5d6e" where octave persists
@@ -276,11 +360,21 @@ export function parseMelody(melodyString, startingOctave = 4) {
               i++;
             }
           }
+          
+          // Check for sonic extension modifier (') before duration modifiers
+          let sonicExtension = 0;
+          if (i < melodyString.length && melodyString[i] === "'") {
+            while (i < melodyString.length && melodyString[i] === "'") {
+              sonicExtension++;
+              i++;
+            }
+          }
 
           let octave = currentOctave; // Use persistent octave
           
           // Default duration is 2 (half note = 1 second with default 500ms baseTempo) with swing timing
           let duration = 2;
+          let sonicDuration = duration; // Start with timeline duration
           let swing = swingType === '<' ? 'early' : 'late'; // early or late
           let swingAmount = swingCount; // How many symbols (1, 2, 3, etc.)
           let hasLocalModifier = false;
@@ -314,10 +408,35 @@ export function parseMelody(melodyString, startingOctave = 4) {
           
           // Apply global duration modifier if no local modifier was found
           if (!hasLocalModifier) {
-            duration = applyGlobalDurationModifier(duration, false);
+            duration = applyStickyDurationModifier(duration, false);
           }
           
-          notes.push({ note, octave, duration, swing, swingAmount, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
+          // Apply sonic extension if present
+          if (sonicExtension > 0) {
+            // Each apostrophe doubles the sonic duration: ' = 2x, '' = 4x, ''' = 8x
+            sonicDuration = duration * Math.pow(2, sonicExtension);
+          } else {
+            sonicDuration = duration; // No extension, sonic matches timeline
+          }
+          
+          const noteObj = { 
+            note, 
+            octave, 
+            duration, 
+            swing, 
+            swingAmount, 
+            waveType: currentWaveType, 
+            volume: currentVolume, 
+            struck: isStruck, 
+            toneShift: currentToneShift 
+          };
+          
+          // Only add sonicDuration if it's different from duration
+          if (sonicDuration !== duration) {
+            noteObj.sonicDuration = sonicDuration;
+          }
+          
+          notes.push(noteObj);
         }
       }
     }
@@ -343,7 +462,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
             // Handle as standalone rest dash - use comma logic now
             let commas = relativeModifier.length;
             let duration = 2 * Math.pow(2, commas); // - = half (2.0), -- = whole (4.0), etc.
-            notes.push({ note: 'rest', octave: null, duration, waveType: null, volume: null });
+            notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
             continue;
           } else {
             // Invalid syntax, skip
@@ -366,6 +485,15 @@ export function parseMelody(melodyString, startingOctave = 4) {
         } else if (nextChar === 'b' && i + 1 < melodyString.length && !/[a-g]/i.test(melodyString[i + 1])) {
           // Only treat 'b' as flat if it's not followed by another note letter
           note += 'b';
+          i++;
+        }
+      }
+      
+      // Check for sonic extension modifier (') before duration modifiers
+      let sonicExtension = 0;
+      if (i < melodyString.length && melodyString[i] === "'") {
+        while (i < melodyString.length && melodyString[i] === "'") {
+          sonicExtension++;
           i++;
         }
       }
@@ -395,6 +523,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
       
       // Default duration is 2 (half note = 1 second with default 500ms baseTempo)
       let duration = 2;
+      let sonicDuration = duration; // Start with timeline duration
       // No swing for normal notes
       let hasLocalModifier = false;
       
@@ -434,7 +563,30 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyStickyDurationModifier(duration, false);
       }
       
-      notes.push({ note, octave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
+      // Apply sonic extension if present
+      if (sonicExtension > 0) {
+        // Each apostrophe doubles the sonic duration: ' = 2x, '' = 4x, ''' = 8x
+        sonicDuration = duration * Math.pow(2, sonicExtension);
+      } else {
+        sonicDuration = duration; // No extension, sonic matches timeline
+      }
+      
+      const noteObj = { 
+        note, 
+        octave, 
+        duration, 
+        waveType: currentWaveType, 
+        volume: currentVolume, 
+        struck: isStruck, 
+        toneShift: currentToneShift 
+      };
+      
+      // Only add sonicDuration if it's different from duration
+      if (sonicDuration !== duration) {
+        noteObj.sonicDuration = sonicDuration;
+      }
+      
+      notes.push(noteObj);
     }
     // Handle rests (only _ and explicit standalone -, not spaces which are separators)
     else if (char === '_') {
@@ -478,7 +630,7 @@ export function parseMelody(melodyString, startingOctave = 4) {
         duration = applyStickyDurationModifier(duration, false);
       }
       
-      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
     }
     // Handle spaces as separators (ignore them, don't treat as rests)
     else if (char === ' ') {
@@ -498,13 +650,20 @@ export function parseMelody(melodyString, startingOctave = 4) {
       let duration = 2 * Math.pow(2, dashes);
       i = tempI; // Move index past all the dashes
       
-      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: null, volume: null });
+      notes.push({ note: 'rest', octave: currentOctave, duration, waveType: currentWaveType, volume: currentVolume, struck: isStruck, toneShift: currentToneShift });
     }
     // Handle measure separators (optional, for readability)
     else if (char === '|') {
       // Measure bars are just visual separators, skip them
       i++;
+    }
+    // Handle tilde separators (~) - preserve sticky state across segments
+    else if (char === '~') {
+      // Tilde characters are visual separators, skip them while preserving sticky state
+      // Sticky values like currentWaveType, currentVolume, etc. are preserved
+      i++;
     } else {
+      // Unknown character - skip it while preserving sticky state
       i++;
     }
   }
@@ -611,7 +770,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
   let processedMelodyString = melodyString.trim();
   
   // Find waveform types at the beginning of the string
-  const globalWaveTypePattern = /^{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/;
+  const globalWaveTypePattern = /^{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/;
   const waveMatch = globalWaveTypePattern.exec(processedMelodyString);
   
   if (waveMatch) {
@@ -667,7 +826,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Apply global wave type to the single track if one was specified
-    const hasLocalWaveType = /{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : 
                                    (globalWaveType !== "sine" ? `{${globalWaveType}} ${contentForParsing}` : contentForParsing);
     
@@ -745,7 +904,7 @@ export function parseSimultaneousMelody(melodyString, startingOctave = 4) {
     }
     
     // Prepend the global wave type to each group if it doesn't have its own
-    const hasLocalWaveType = /{(sine|sawtooth|square|triangle|noise-white|sample|custom)}/.test(contentForParsing);
+    const hasLocalWaveType = /{(sine|sawtooth|saw|square|triangle|noise-white|sample|custom|bubble)}/.test(contentForParsing);
     const contentWithGlobalWave = hasLocalWaveType ? contentForParsing : `{${globalWaveType}} ${contentForParsing}`;
     
     const parsedTrack = parseMelody(contentWithGlobalWave, startingOctave);
@@ -927,6 +1086,30 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
   const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
   const mutationOptions = [...noteNames, '_']; // Include rest as a mutation option
   
+  // Helper function to infer the appropriate waveType for mutation
+  function inferWaveType(originalItem, track) {
+    // If the item has a defined waveType, use it
+    if (originalItem.waveType && originalItem.waveType !== null) {
+      return originalItem.waveType;
+    }
+    
+    // If not, try to find the most recent waveType from other notes in the track
+    if (track && track.length > 0) {
+      // Look backwards from the current item to find the last explicit waveType
+      for (let i = track.length - 1; i >= 0; i--) {
+        const trackItem = track[i];
+        if (trackItem.waveType && trackItem.waveType !== null) {
+          return trackItem.waveType;
+        }
+      }
+    }
+    
+    // Final fallback to 'sine'
+    return 'sine';
+  }
+  
+  const inferredWaveType = inferWaveType(itemToMutate, originalTrack);
+  
   // Handle rest-to-note mutation
   if (itemToMutate.note === 'rest' || itemToMutate.note === '_') {
     // Rest mutating to a note - pick a random note (never another rest)
@@ -948,15 +1131,23 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
       }
     }
     
-    // Create a new note mutation
+    // Create a new note mutation, preserving ALL modifier properties
     return {
       note: newNoteName,
       octave: octaveToUse,
       duration: itemToMutate.duration, // Keep the same duration
-      waveType: itemToMutate.waveType || 'sine', // Preserve or use default
+      waveType: inferredWaveType, // Use inferred waveType
       volume: itemToMutate.volume || 0.8, // Preserve or use default
       tone: noteToTone(newNoteName, octaveToUse),
       isMutation: true, // Mark this as a mutation for potential visual feedback
+      // Preserve ALL modifier properties from original note
+      struck: itemToMutate.struck, // Preserve struck flag
+      swing: itemToMutate.swing, // Preserve swing timing
+      swingAmount: itemToMutate.swingAmount, // Preserve swing amount
+      toneShift: itemToMutate.toneShift, // Preserve Hz shift
+      sonicDuration: itemToMutate.sonicDuration, // Preserve sonic extension
+      isSpeech: itemToMutate.isSpeech, // Preserve speech flag (if any)
+      text: itemToMutate.text, // Preserve speech text (if any)
       // Store original note info for potential restoration
       originalNote: itemToMutate.note,
       originalOctave: itemToMutate.octave
@@ -1007,10 +1198,18 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
       note: 'rest', // Use 'rest' to match parser format
       octave: itemToMutate.octave, // Preserve octave for potential back-mutation
       duration: itemToMutate.duration, // Keep the same duration
-      waveType: itemToMutate.waveType, // Preserve wave type
-      volume: itemToMutate.volume, // Preserve volume
+      waveType: inferredWaveType, // Use inferred waveType
+      volume: itemToMutate.volume || 0.8, // Preserve volume or use default
       tone: null, // Rests don't have tones
       isMutation: true, // Mark this as a mutation for potential visual feedback
+      // Preserve ALL modifier properties from original note
+      struck: itemToMutate.struck, // Preserve struck flag
+      swing: itemToMutate.swing, // Preserve swing timing
+      swingAmount: itemToMutate.swingAmount, // Preserve swing amount
+      toneShift: itemToMutate.toneShift, // Preserve Hz shift
+      sonicDuration: itemToMutate.sonicDuration, // Preserve sonic extension
+      isSpeech: itemToMutate.isSpeech, // Preserve speech flag (if any)
+      text: itemToMutate.text, // Preserve speech text (if any)
       // Store original note info for potential restoration
       originalNote: itemToMutate.note,
       originalOctave: itemToMutate.octave
@@ -1024,10 +1223,21 @@ function createMutatedNote(itemToMutate, startingOctave, originalTrack) {
     note: newNoteName,
     octave: itemToMutate.octave || startingOctave,
     duration: itemToMutate.duration, // Keep the same duration
-    waveType: itemToMutate.waveType || 'sine', // Preserve or use default
+    waveType: inferredWaveType, // Use inferred waveType
     volume: itemToMutate.volume || 0.8, // Preserve or use default
     tone: noteToTone(newNoteName, itemToMutate.octave),
-    isMutation: true // Mark this as a mutation for potential visual feedback
+    isMutation: true, // Mark this as a mutation for potential visual feedback
+    // Preserve ALL modifier properties from original note
+    struck: itemToMutate.struck, // Preserve struck flag
+    swing: itemToMutate.swing, // Preserve swing timing
+    swingAmount: itemToMutate.swingAmount, // Preserve swing amount
+    toneShift: itemToMutate.toneShift, // Preserve Hz shift
+    sonicDuration: itemToMutate.sonicDuration, // Preserve sonic extension
+    isSpeech: itemToMutate.isSpeech, // Preserve speech flag (if any)
+    text: itemToMutate.text, // Preserve speech text (if any)
+    // Store original note info for potential restoration
+    originalNote: itemToMutate.note,
+    originalOctave: itemToMutate.octave
   };
 }
 

@@ -49,7 +49,7 @@ def encode_kidlisp_with_node(code):
         encoded = code.replace(' ', '_').replace('\n', '~')
         return f"https://localhost:8888/{encoded}?nolabel=true&nogap=true"
 
-def kidlisp(code, width="100%", height=500, auto_scale=False):
+def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False):
     """
     Run kidlisp code in Aesthetic Computer.
     
@@ -58,6 +58,7 @@ def kidlisp(code, width="100%", height=500, auto_scale=False):
         width: Width of the iframe (default: "100%")
         height: Height of the iframe (default: 400)
         auto_scale (bool): If True, iframe will scale to fit content (default: False)
+        tv_mode (bool): If True, disables touch and keyboard input for TV display (default: False)
     """
     importlib.reload(importlib.import_module('aesthetic'))
     
@@ -65,8 +66,13 @@ def kidlisp(code, width="100%", height=500, auto_scale=False):
     clean_code = code.strip()
     url = encode_kidlisp_with_node(clean_code)
     
+    # Add TV mode parameter if requested
+    if tv_mode:
+        separator = "&" if "?" in url else "?"
+        url += f"{separator}tv=true"
+    
     # Create a stable ID based on content hash to reduce flicker on re-runs
-    content_hash = hashlib.md5(f"{clean_code}{width}{height}".encode()).hexdigest()[:8]
+    content_hash = hashlib.md5(f"{clean_code}{width}{height}{tv_mode}".encode()).hexdigest()[:8]
     iframe_id = f"ac-iframe-{content_hash}"
     content_hash = hashlib.md5(f"{clean_code}{width}{height}".encode()).hexdigest()[:8]
     iframe_id = f"ac-iframe-{content_hash}"
@@ -261,6 +267,17 @@ class AestheticComputerMagics(Magics):
         args = line.strip().split() if line.strip() else []
         width = "100%"
         height = 30
+        tv_mode = False
+        
+        # Look for tv_mode parameter
+        filtered_args = []
+        for arg in args:
+            if arg.startswith('tv_mode='):
+                tv_mode = arg.split('=')[1].lower() in ('true', '1', 'yes')
+            else:
+                filtered_args.append(arg)
+        
+        args = filtered_args
         
         def safe_eval(expr, context=None):
             """Safely evaluate math expressions with access to IPython variables"""
@@ -359,8 +376,12 @@ class AestheticComputerMagics(Magics):
             piece_url = cell_content.replace(' ', '~')
             url = f"https://localhost:8888/{piece_url}?nolabel=true&nogap=true"
             
+            # Add TV mode parameter if requested
+            if tv_mode:
+                url += "&tv=true"
+            
             # Create iframe directly
-            content_hash = hashlib.md5(f"{cell_content}{width}{height}".encode()).hexdigest()[:8]
+            content_hash = hashlib.md5(f"{cell_content}{width}{height}{tv_mode}".encode()).hexdigest()[:8]
             iframe_id = f"ac-iframe-{content_hash}"
             
             iframe_html = f'''
@@ -377,7 +398,7 @@ class AestheticComputerMagics(Magics):
             display(HTML(iframe_html))
         else:
             # Handle as kidlisp code
-            return kidlisp(cell_content, width, height, False)
+            return kidlisp(cell_content, width, height, False, tv_mode)
     
     @line_magic
     def ac_line(self, line):

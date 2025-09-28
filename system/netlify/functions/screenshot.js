@@ -6,7 +6,6 @@
 // https://aesthetic.computer/icon/widthxheight/command~any~params.png
 
 const puppeteer = require("puppeteer-core");
-const chromium = require('@sparticuz/chromium');
 const { shell } = require("../../backend/shell.mjs"); // Added import
 const { setTimeout } = require("node:timers/promises"); // Added import for promise-based setTimeout
 const crypto = require("crypto"); // Added for ETag generation
@@ -130,24 +129,24 @@ async function handler(event, context) {
 
   if (dev) {
     ops.headless = "new"; // Run with a visible browser in dev
-    ops.ignoreHTTPSErrors = true; // For localhost SSL cert issues
+    // ops.ignoreHTTPSErrors = true;
     ops.executablePath = "/usr/bin/chromium-browser"; // Added for local dev
     ops.args = launchArgs;
   } else {
     ops.headless = "new"; // Keep headless for non-dev environments
-    // For puppeteer.launch, add necessary args for headless Linux
-    ops.args = [
-      ...launchArgs,
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      // '--use-gl=egl' // Consider this if GPU acceleration is needed and available
-    ];
-    ops.executablePath = await chromium.executablePath(); // Use env var from netlify-plugin-chromium
+    // For puppeteer.connect, args are less relevant here as browserless.io controls its launch.
+    // If you were using puppeteer.launch for non-dev, you'd add args like:
+    // ops.args = [
+    //   ...launchArgs,
+    //   '--no-sandbox',
+    //   '--disable-setuid-sandbox',
+    //   '--disable-dev-shm-usage',
+    //   '--use-gl=egl' // For headless Linux GPU
+    // ];
   }
-  // if (!dev) { // This line is no longer needed as we are launching directly
-  //   ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
-  // }
+  if (!dev) {
+    ops.browserWSEndpoint = `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`;
+  }
 
   shell.log("🥰 Launching puppeteer...", ops);
 
@@ -157,7 +156,9 @@ async function handler(event, context) {
 
   try {
     try {
-      browser = await puppeteer.launch(ops); // Changed for both dev and non-dev
+      browser = !dev
+        ? await puppeteer.connect(ops)
+        : await puppeteer.launch(ops);
     } catch (err) {
       shell.log("🔴 Error launching puppeteer:", err);
       return { statusCode: 500, body: "Failed to launch browser." };
@@ -168,28 +169,14 @@ async function handler(event, context) {
       page = await browser.newPage();
       // Route console logs from Puppeteer page to shell.log
       page.on("console", async (msg) => {
-        try {
-          const args = msg.args();
-          const logArgs = [];
-          for (let i = 0; i < args.length; ++i) {
-            try {
-              logArgs.push(await args[i].jsonValue());
-            } catch (serializationError) {
-              // Fallback for non-serializable objects
-              logArgs.push(`[Object: ${args[i].toString()}]`);
-            }
-          }
-          shell.log(`📄 Page: (${msg.type()}):`, ...logArgs);
-        } catch (err) {
-          // Fallback if entire console handling fails
-          shell.log(`📄 Page: (${msg.type()}): [Could not serialize console message]`);
+        const args = msg.args();
+        const logArgs = [];
+        for (let i = 0; i < args.length; ++i) {
+          logArgs.push(args[i].jsonValue());
         }
-      });
-      page.on('error', err => {
-        shell.log('🔴 Page crashed:', err);
-      });
-      page.on('pageerror', pageErr => {
-        shell.log('🔴 Uncaught exception in page:', pageErr);
+        Promise.all(logArgs).then((resolvedArgs) => {
+          console.log(`📄 Page: (${msg.type()}):`, ...resolvedArgs);
+        });
       });
     } catch (err) {
       shell.log("🔴 Error creating new page:", err);
@@ -213,8 +200,8 @@ async function handler(event, context) {
       await page.setRequestInterception(true);
       requestHandler = (interceptedRequest) => {
         const reqUrl = interceptedRequest.url();
-        // In dev mode, abort requests made by the Puppeteer page back to the screenshot function paths
-        if (reqUrl.includes('/.netlify/functions/screenshot') || reqUrl.includes('/icon/') || reqUrl.includes('/preview/')) {
+        // In dev mode, abort requests made by the Puppeteer page back to the icon function
+        if (reqUrl.includes('/icon/') || reqUrl.includes('/.netlify/functions/icon')) {
           shell.log(`🚫 DEV: Aborting potentially recursive request from Puppeteer page: ${reqUrl}`);
           interceptedRequest.abort();
         } else {
