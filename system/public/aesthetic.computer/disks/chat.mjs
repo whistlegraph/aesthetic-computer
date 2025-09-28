@@ -293,9 +293,12 @@ function paint(
     // 🪧 Paint the message and its contents.
     ink("white", layout.inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
     
+    // Generate dynamic color-coded message with hover states
+    const dynamicColorMessage = generateDynamicColorMessage(message);
+    
     // Render the color-coded message using the modern color system
     ink(layout.msgColor).write(
-      layout.paintableMessage,
+      dynamicColorMessage,
       { x, y },
       undefined,
       screen.width - x,
@@ -505,6 +508,32 @@ function act(
             break;
           }
 
+          // Check for hover on interactive elements
+          const parsedElements = parseMessageElements(message.fullMessage);
+          const relativeX = e.x - message.layout.x;
+          const relativeY = e.y - message.layout.y;
+          
+          // Reset hover states
+          if (!message.layout.hoveredElements) {
+            message.layout.hoveredElements = new Set();
+          }
+          message.layout.hoveredElements.clear();
+          
+          // Check each interactive element for hover
+          for (const element of parsedElements) {
+            const elementPosition = calculateElementPosition(
+              element, 
+              message.fullMessage, 
+              message.tb.lines, 
+              text
+            );
+            
+            if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
+              message.layout.hoveredElements.add(element);
+              break; // Only hover one element at a time
+            }
+          }
+
           // Store the clicked message for potential interaction
           message.clicked = true;
 
@@ -572,6 +601,11 @@ function act(
         const timestamp = message.layout.timestamp;
         if (timestamp.over) {
           timestamp.over = false;
+        }
+        
+        // Clear hover states on lift
+        if (message.layout.hoveredElements) {
+          message.layout.hoveredElements.clear();
         }
       }
     }
@@ -1037,4 +1071,46 @@ function isClickInsideElement(clickX, clickY, elementPosition) {
     clickY >= elementPosition.y &&
     clickY <= elementPosition.y + elementPosition.height
   );
+}
+
+// Generate a color-coded message with dynamic hover states
+function generateDynamicColorMessage(message) {
+  let colorCodedMessage = message.fullMessage;
+  const parsedElements = parseMessageElements(message.fullMessage);
+  const hoveredElements = message.layout.hoveredElements || new Set();
+  
+  // Sort elements by start position (reverse order for safe replacement)
+  parsedElements.sort((a, b) => b.start - a.start);
+  
+  // Replace each element with color-coded version
+  for (const element of parsedElements) {
+    const elementText = message.fullMessage.substring(element.start, element.end);
+    let colorCodedText = "";
+    
+    // Check if this element is being hovered
+    const isHovered = Array.from(hoveredElements).some(hoveredEl => 
+      hoveredEl.start === element.start && 
+      hoveredEl.end === element.end && 
+      hoveredEl.type === element.type
+    );
+    
+    if (element.type === "handle") {
+      const color = isHovered ? "yellow" : "pink";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    } else if (element.type === "url") {
+      const color = isHovered ? "yellow" : "cyan";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    } else if (element.type === "prompt") {
+      const color = isHovered ? "yellow" : "lime";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    }
+    
+    // Replace the original text with the color-coded version
+    colorCodedMessage = 
+      colorCodedMessage.substring(0, element.start) + 
+      colorCodedText + 
+      colorCodedMessage.substring(element.end);
+  }
+  
+  return colorCodedMessage;
 }
