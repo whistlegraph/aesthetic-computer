@@ -697,6 +697,10 @@ class KidLisp {
     this.lastSecondExecutions = {}; // Track last execution times for second-based timing
     this.instantTriggersExecuted = {}; // Track which instant triggers have already fired
 
+    // Isolated random number generator state for each instance
+    this.randomSeed = Date.now() + Math.random(); // Unique seed per instance
+    this.randomState = this.randomSeed;
+
     // Cache state (URLs stored per instance)
     this.shortUrl = null; // Store cached short URL
     this.cachedCode = null; // Store cached code
@@ -2570,11 +2574,11 @@ class KidLisp {
           const bakedTime = performance.now() - bakedStart;
 
           // Then render and update embedded layers
-          console.log(`🎬 HEADLESS DEBUG: About to call renderEmbeddedLayers with ${this.embeddedLayers?.length || 0} layers`);
+
           const embedStart = performance.now();
           this.renderEmbeddedLayers($);
           const embedTime = performance.now() - embedStart;
-          console.log(`🎬 HEADLESS DEBUG: renderEmbeddedLayers completed in ${embedTime.toFixed(2)}ms`);
+
 
           // 🔍 TOTAL FRAME TIMING: Disabled for cleaner console
           const totalFrameTime = performance.now() - totalFrameStart;
@@ -2703,6 +2707,13 @@ class KidLisp {
         }
       },
     };
+  }
+
+  // Seeded random number generator for isolated state per instance
+  seededRandom() {
+    // Simple linear congruential generator for deterministic sequences
+    this.randomState = (this.randomState * 1664525 + 1013904223) % 4294967296;
+    return this.randomState / 4294967296;
   }
 
   // Main parsing method - handles both single expressions and multi-line input
@@ -3278,14 +3289,14 @@ class KidLisp {
         // (random max) - returns 0-max
         // (random min max) - returns min-max
         if (args.length === 0) {
-          return Math.floor(Math.random() * 256);
+          return Math.floor(this.seededRandom() * 256);
         } else if (args.length === 1) {
           const max = args[0];
-          return Math.floor(Math.random() * max);
+          return Math.floor(this.seededRandom() * max);
         } else if (args.length >= 2) {
           const min = args[0];
           const max = args[1];
-          return Math.floor(Math.random() * (max - min + 1)) + min;
+          return Math.floor(this.seededRandom() * (max - min + 1)) + min;
         }
       },
       // Check if an image URL is ready to be pasted
@@ -3492,9 +3503,9 @@ class KidLisp {
         if (args.length === 0) {
           // Called with no arguments - set a random ink color
           const randomColor = [
-            Math.floor(Math.random() * 256),
-            Math.floor(Math.random() * 256),
-            Math.floor(Math.random() * 256)
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256),
+            Math.floor(this.seededRandom() * 256)
           ];
           this.inkState = randomColor;
           this.inkStateSet = true;
@@ -3674,7 +3685,7 @@ class KidLisp {
       wiggle: (api, args = []) => {
         // (wiggle amount) - returns random variation ±amount/2
         const amount = args.length > 0 ? args[0] : 10;
-        return (Math.random() - 0.5) * amount;
+        return (this.seededRandom() - 0.5) * amount;
       },
       box: (api, args = []) => {
         // Handle non-array args
@@ -3689,16 +3700,16 @@ class KidLisp {
             // Apply contextual logic based on parameter position
             switch (index) {
               case 0: // x coordinate
-                return Math.floor(Math.random() * (api.screen?.width || 256));
+                return Math.floor(this.seededRandom() * (api.screen?.width || 256));
               case 1: // y coordinate  
-                return Math.floor(Math.random() * (api.screen?.height || 256));
+                return Math.floor(this.seededRandom() * (api.screen?.height || 256));
               case 2: // width
-                return Math.floor(Math.random() * ((api.screen?.width || 256) / 4)) + 10;
+                return Math.floor(this.seededRandom() * ((api.screen?.width || 256) / 4)) + 10;
               case 3: // height
-                return Math.floor(Math.random() * ((api.screen?.height || 256) / 4)) + 10;
+                return Math.floor(this.seededRandom() * ((api.screen?.height || 256) / 4)) + 10;
               default:
                 // For other parameters, use a reasonable default range
-                return Math.floor(Math.random() * 256);
+                return Math.floor(this.seededRandom() * 256);
             }
           }
           return arg;
@@ -3836,7 +3847,7 @@ class KidLisp {
               [0, 1],   // scroll down
               [0, -1]   // scroll up
             ];
-            this.scrollFuzzDirection = directions[Math.floor(Math.random() * directions.length)];
+            this.scrollFuzzDirection = directions[Math.floor(this.seededRandom() * directions.length)];
             // console.log(`🎲 SCROLL fuzzing: first call, randomly chose direction dx=${this.scrollFuzzDirection[0]}, dy=${this.scrollFuzzDirection[1]}`);
           }
           dx = this.scrollFuzzDirection[0];
@@ -4552,39 +4563,69 @@ class KidLisp {
       },
       fps: (api, args) => {
         if (args.length > 0) {
-          const targetFps = parseFloat(args[0]);
-          if (!isNaN(targetFps) && targetFps > 0) {
-            // Store the target FPS in the KidLisp instance
-            this.targetFps = targetFps;
-            // Also store in a global location accessible to the tape system
-            if (api && api.system) {
-              api.system.kidlispFps = targetFps;
+          const parsed = parseFloat(args[0]);
+          if (!isNaN(parsed)) {
+            if (parsed > 0) {
+              const targetFps = parsed;
+              this.targetFps = targetFps;
+              if (api && typeof api.fps === "function") {
+                api.fps(targetFps);
+              }
+              if (api && api.system) {
+                api.system.kidlispFps = targetFps;
+              }
+              if (typeof window !== 'undefined') {
+                window.currentKidlispFps = targetFps;
+                if (!window.kidlispFpsTimeline) {
+                  window.kidlispFpsTimeline = [];
+                }
+                const timestamp = performance.now();
+                window.kidlispFpsTimeline.push({
+                  timestamp,
+                  fps: targetFps,
+                });
+                if (window.currentRecordingOptions) {
+                  window.currentRecordingOptions.kidlispFps = targetFps;
+                  window.currentRecordingOptions.kidlispFpsTimeline = window.kidlispFpsTimeline;
+                  console.log(`🎬 Updated recording options with KidLisp FPS: ${targetFps} at ${timestamp.toFixed(2)}ms`);
+                }
+              }
+              if (this._lastLoggedFps !== targetFps) {
+                console.log(`🎬 KidLisp FPS set to: ${targetFps} at ${(typeof window !== 'undefined' ? performance.now() : 0).toFixed(2)}ms`);
+                this._lastLoggedFps = targetFps;
+              }
+              return targetFps;
             }
-            // Store in window for tape system access
-            if (typeof window !== 'undefined') {
-              window.currentKidlispFps = targetFps;
 
-              // Initialize FPS timeline if it doesn't exist
+            // parsed is zero or negative: treat as reset to default
+            this.targetFps = null;
+            if (api && typeof api.fps === "function") {
+              api.fps(null);
+            }
+            if (api && api.system) {
+              api.system.kidlispFps = null;
+            }
+            if (typeof window !== 'undefined') {
+              window.currentKidlispFps = null;
               if (!window.kidlispFpsTimeline) {
                 window.kidlispFpsTimeline = [];
               }
-
-              // Add FPS change to timeline with current timestamp
               const timestamp = performance.now();
               window.kidlispFpsTimeline.push({
-                timestamp: timestamp,
-                fps: targetFps
+                timestamp,
+                fps: null,
               });
-
-              // Also update recording options if they exist (for backward compatibility)
               if (window.currentRecordingOptions) {
-                window.currentRecordingOptions.kidlispFps = targetFps;
+                window.currentRecordingOptions.kidlispFps = null;
                 window.currentRecordingOptions.kidlispFpsTimeline = window.kidlispFpsTimeline;
-                console.log(`🎬 Updated recording options with KidLisp FPS: ${targetFps} at ${timestamp.toFixed(2)}ms`);
+                console.log(`🎬 Reset recording KidLisp FPS override at ${timestamp.toFixed(2)}ms`);
               }
             }
-            console.log(`🎬 KidLisp FPS set to: ${targetFps} at ${(typeof window !== 'undefined' ? performance.now() : 0).toFixed(2)}ms`);
-            return targetFps;
+            if (this._lastLoggedFps !== null) {
+              console.log(`🎬 KidLisp FPS reset to default at ${(typeof window !== 'undefined' ? performance.now() : 0).toFixed(2)}ms`);
+              this._lastLoggedFps = null;
+            }
+            return 60;
           }
         }
         return this.targetFps || 60; // Default to 60 FPS if no fps was set
@@ -4816,7 +4857,7 @@ class KidLisp {
 
               // Fast color selection
               if (colorChoices) {
-                const colorIndex = Math.floor(Math.random() * colorChoices.length);
+                const colorIndex = Math.floor(this.seededRandom() * colorChoices.length);
                 api.ink?.(colorChoices[colorIndex]);
               } else {
                 this.evaluate(inkExpr, api, this.localEnv);
@@ -4825,7 +4866,7 @@ class KidLisp {
               // Fast text and position evaluation
               let text, x, y;
               if (textChoices) {
-                const textIndex = Math.floor(Math.random() * textChoices.length);
+                const textIndex = Math.floor(this.seededRandom() * textChoices.length);
                 text = textChoices[textIndex];
               } else {
                 text = this.fastEval(writeExpr[1], api, this.localEnv);
@@ -4947,8 +4988,8 @@ class KidLisp {
             }
           }
 
-          // Fast random selection from cached args
-          const randomIndex = Math.floor(Math.random() * cachedArgs.length);
+          // Fast random selection from cached args using isolated random
+          const randomIndex = Math.floor(this.seededRandom() * cachedArgs.length);
           return cachedArgs[randomIndex];
         }
 
@@ -4956,8 +4997,8 @@ class KidLisp {
         if (api.help?.choose) {
           return api.help.choose(...args);
         }
-        // Fallback to simple random selection
-        const randomIndex = Math.floor(Math.random() * args.length);
+        // Fallback to simple random selection using isolated random
+        const randomIndex = Math.floor(this.seededRandom() * args.length);
         return args[randomIndex];
       },
       // 🎲 Random selection (alias)
@@ -4968,8 +5009,8 @@ class KidLisp {
           if (api.help?.choose) {
             return api.help.choose(...args);
           }
-          // Fallback to simple random selection from arguments
-          const randomIndex = Math.floor(Math.random() * args.length);
+          // Fallback to simple random selection from arguments using isolated random
+          const randomIndex = Math.floor(this.seededRandom() * args.length);
           return args[randomIndex];
         }
 
@@ -5800,6 +5841,10 @@ class KidLisp {
         { min: 0, max: 255 },     // blue (arg 2)
         { min: 0, max: 255 },     // alpha (arg 3)
       ],
+      flood: [
+        { min: 0, max: width },   // x position (arg 0)
+        { min: 0, max: height },  // y position (arg 1)
+      ],
       embed: [
         // arg 0 is the cache code (string), so no range for that
         { min: 32, max: 512 },    // width (arg 1)
@@ -5815,11 +5860,11 @@ class KidLisp {
     const functionRanges = contextRanges[functionName];
     if (functionRanges && functionRanges[argIndex]) {
       const range = functionRanges[argIndex];
-      return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+      return Math.floor(this.seededRandom() * (range.max - range.min + 1)) + range.min;
     }
 
     // Default range if no specific context is defined
-    return Math.floor(Math.random() * 256);
+    return Math.floor(this.seededRandom() * 256);
   }
 
   // Fast evaluation for common expressions to avoid full recursive evaluation
@@ -5829,7 +5874,7 @@ class KidLisp {
       // Handle randomization token
       if (expr === "?") {
         // Generate a random number from 0 to 255 (default range)
-        return Math.floor(Math.random() * 256);
+        return Math.floor(this.seededRandom() * 256);
       }
 
       // Handle negative identifiers like "-frame", "-width", etc.
@@ -7334,7 +7379,7 @@ class KidLisp {
 
         // Safety check: ensure color is defined
         if (!color) {
-          console.warn(`⚠️ getTokenColor returned undefined for token:`, token, `at index:`, i);
+          console.warn(`⚠️ getTokenColor returned undefined for token:`, token, `at index:`, i, "surrounding tokens:", tokens[i-1] || "START", "->", token, "->", tokens[i+1] || "END");
           continue; // Skip this token if color is undefined
         }
 
@@ -7863,6 +7908,13 @@ class KidLisp {
 
     // If this token is inside a timing expression, color it based on active state
     if (timingExprState) {
+      // Exclude parentheses from timing-based color changes to prevent flashing
+      if (token === "(" || token === ")") {
+        // Parentheses should use normal syntax highlighting, not timing colors
+        const normalColor = this.getNormalTokenColor(token, tokens, index);
+        return normalColor || "192,192,192"; // Default to gray
+      }
+      
       if (timingExprState.isInActiveArg) {
         // Check if the timing token for this expression is currently blinking
         const isTimingBlinking = this.isTimingBlinking(timingExprState.timingData.timingToken);
@@ -7887,6 +7939,13 @@ class KidLisp {
     }
 
     if (delayTimerState && delayTimerState.isDelayTimer) {
+      // Exclude parentheses from delay timer color changes to prevent flashing
+      if (token === "(" || token === ")") {
+        // Parentheses should use normal syntax highlighting, not timing colors
+        const normalColor = this.getNormalTokenColor(token, tokens, index);
+        return normalColor || "192,192,192"; // Default to gray
+      }
+      
       if (delayTimerState.isBlinking) {
         // console.log(`� Token "${token}" returning MAGENTA (blinking)`);
         // All contents of delay timer flash red when triggered (brief flash)
@@ -8400,14 +8459,34 @@ class KidLisp {
       embeddedKidLisp.onceExecuted.clear();
       console.log(`🔄 CLEARED onceExecuted for re-execution`);
 
-      // Reset timing states for fresh execution
-      embeddedKidLisp.frameCount = 0;
-      embeddedKidLisp.frameCounter = 0;
-      embeddedKidLisp.timingStates.clear();
-      // IMPORTANT: Share timing state with parent for consistent timer behavior
-      embeddedKidLisp.lastSecondExecutions = this.lastSecondExecutions;
-      // IMPORTANT: Share sequence counters for timing expressions
-      embeddedKidLisp.sequenceCounters = this.sequenceCounters || new Map();
+      // CRITICAL: Restore isolated timing state for existing layers
+      const layerCacheKey = `${source}_timing`;
+      let existingTimingState = this.embeddedLayerCache?.get?.(layerCacheKey);
+      
+      if (existingTimingState) {
+        // Restore persistent timing state for this specific layer
+        embeddedKidLisp.frameCount = existingTimingState.frameCount || 0;
+        embeddedKidLisp.frameCounter = existingTimingState.frameCounter || 0;
+        embeddedKidLisp.lastSecondExecutions = existingTimingState.lastSecondExecutions || {};
+        embeddedKidLisp.sequenceCounters = new Map(existingTimingState.sequenceCounters || []);
+        embeddedKidLisp.timingStates = new Map(existingTimingState.timingStates || []);
+        // Restore the random state too for consistency
+        if (existingTimingState.randomState) {
+          embeddedKidLisp.randomState = existingTimingState.randomState;
+        }
+      } else {
+        // Fresh reset - start with clean isolated timing state
+        embeddedKidLisp.frameCount = 0;
+        embeddedKidLisp.frameCounter = 0;
+        embeddedKidLisp.lastSecondExecutions = {};
+        embeddedKidLisp.sequenceCounters = new Map();
+        embeddedKidLisp.timingStates = new Map();
+        // Give a unique random seed for existing layers that don't have cached state
+        if (!embeddedKidLisp.randomSeed) {
+          embeddedKidLisp.randomSeed = Date.now() + Math.random() + (source.hashCode?.() || 0);
+          embeddedKidLisp.randomState = embeddedKidLisp.randomSeed;
+        }
+      }
       embeddedKidLisp.localEnv = { ...this.localEnv };
 
       // Ensure it remains marked as a nested instance
@@ -8424,14 +8503,35 @@ class KidLisp {
 
     // Create new embedded layer
     const embeddedKidLisp = new KidLisp();
-    // Start embedded layers with fresh timing states for re-entrancy
-    embeddedKidLisp.frameCount = 0;
-    embeddedKidLisp.frameCounter = 0;
-    embeddedKidLisp.timingStates = new Map();
-    // IMPORTANT: Share timing state with parent for consistent timer behavior
-    embeddedKidLisp.lastSecondExecutions = this.lastSecondExecutions;
-    // IMPORTANT: Share sequence counters for timing expressions
-    embeddedKidLisp.sequenceCounters = this.sequenceCounters || new Map();
+    
+    // CRITICAL: Give each embedded layer a unique random seed for isolated random state
+    embeddedKidLisp.randomSeed = Date.now() + Math.random() + (source.hashCode?.() || 0);
+    embeddedKidLisp.randomState = embeddedKidLisp.randomSeed;
+    
+    // CRITICAL: Each embedded layer needs ISOLATED but PERSISTENT timing state
+    // Check if we have cached timing state for this layer
+    const layerCacheKey = `${source}_timing`;
+    let existingTimingState = this.embeddedLayerCache?.get?.(layerCacheKey);
+    
+    if (existingTimingState) {
+      // Restore persistent timing state for this specific layer
+      embeddedKidLisp.frameCount = existingTimingState.frameCount || 0;
+      embeddedKidLisp.frameCounter = existingTimingState.frameCounter || 0;
+      embeddedKidLisp.lastSecondExecutions = existingTimingState.lastSecondExecutions || {};
+      embeddedKidLisp.sequenceCounters = new Map(existingTimingState.sequenceCounters || []);
+      embeddedKidLisp.timingStates = new Map(existingTimingState.timingStates || []);
+      // Restore the random state too for consistency
+      if (existingTimingState.randomState) {
+        embeddedKidLisp.randomState = existingTimingState.randomState;
+      }
+    } else {
+      // Fresh layer - start with clean timing state
+      embeddedKidLisp.frameCount = 0;
+      embeddedKidLisp.frameCounter = 0;
+      embeddedKidLisp.lastSecondExecutions = {};
+      embeddedKidLisp.sequenceCounters = new Map();
+      embeddedKidLisp.timingStates = new Map();
+    }
     embeddedKidLisp.localEnv = { ...this.localEnv };
 
     // Mark this as a nested instance to enable immediate mode for commands like blur/scroll
@@ -8486,8 +8586,14 @@ class KidLisp {
 
         // Source changed, clear the buffer and create a new one
         if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
-          // Fast buffer clear using fill
-          persistentLayer.buffer.pixels.fill(0);
+          // Initialize with opaque black (like main canvas)
+          for (let i = 0; i < persistentLayer.buffer.pixels.length; i += 4) {
+            persistentLayer.buffer.pixels[i] = 0;     // R
+            persistentLayer.buffer.pixels[i + 1] = 0; // G
+            persistentLayer.buffer.pixels[i + 2] = 0; // B
+            persistentLayer.buffer.pixels[i + 3] = 255; // A - opaque!
+          }
+          console.log(`🎨 EMBEDDED BUFFER CLEAR: Reinitialized buffer with opaque black [0,0,0,255]`);
         }
         embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
 
@@ -8510,10 +8616,17 @@ class KidLisp {
           foundCompatibleBuffer = true;
           console.log(`🔄 Reusing existing buffer during reframe: ${width}x${height} fits in ${existingLayer.buffer.width}x${existingLayer.buffer.height}`);
 
-          // Clear only the used area
+          // Initialize used area with opaque black
           if (embeddedBuffer.pixels) {
-            const totalPixels = width * height * 4; // RGBA
-            embeddedBuffer.pixels.fill(0, 0, totalPixels);
+            const totalPixels = width * height;
+            for (let i = 0; i < totalPixels; i++) {
+              const pixelIndex = i * 4;
+              embeddedBuffer.pixels[pixelIndex] = 0;     // R
+              embeddedBuffer.pixels[pixelIndex + 1] = 0; // G
+              embeddedBuffer.pixels[pixelIndex + 2] = 0; // B
+              embeddedBuffer.pixels[pixelIndex + 3] = 255; // A - opaque!
+            }
+            console.log(`🎨 EMBEDDED BUFFER REFRAME: Initialized used area with opaque black [0,0,0,255]`);
           }
         }
       }
@@ -8527,9 +8640,15 @@ class KidLisp {
           embeddedBuffer = pooledBuffers.pop();
           // console.log(`🔄 Reused pooled buffer ${bufferSizeKey} (${pooledBuffers.length} remaining)`);
 
-          // Clear the reused buffer
+          // Initialize the reused buffer with opaque black (like main canvas)
           if (embeddedBuffer.pixels) {
-            embeddedBuffer.pixels.fill(0);
+            for (let i = 0; i < embeddedBuffer.pixels.length; i += 4) {
+              embeddedBuffer.pixels[i] = 0;     // R
+              embeddedBuffer.pixels[i + 1] = 0; // G
+              embeddedBuffer.pixels[i + 2] = 0; // B
+              embeddedBuffer.pixels[i + 3] = 255; // A - opaque!
+            }
+            console.log(`🎨 EMBEDDED BUFFER INIT: Initialized buffer with opaque black [0,0,0,255]`);
           }
         } else {
           // Use optimized buffer creation
@@ -8772,8 +8891,14 @@ class KidLisp {
 
       // 🛡️ SAFETY CHECK: Ensure buffer is not detached
       if (buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached) {
-        // Buffer is safe to reuse - clear it
-        buffer.pixels.fill(0);
+        // Buffer is safe to reuse - initialize with opaque black
+        for (let i = 0; i < buffer.pixels.length; i += 4) {
+          buffer.pixels[i] = 0;     // R
+          buffer.pixels[i + 1] = 0; // G
+          buffer.pixels[i + 2] = 0; // B
+          buffer.pixels[i + 3] = 255; // A - opaque!
+        }
+        console.log(`🎨 BUFFER POOL REUSE: Initialized with opaque black [0,0,0,255]`);
         return buffer;
       } else {
         // Buffer is detached or invalid, remove it and create new one
@@ -8781,12 +8906,24 @@ class KidLisp {
       }
     }
 
-    // Create new buffer with pre-zeroed memory for faster allocation
+    // Create new buffer initialized with opaque black
     const pixelCount = width * height * 4;
+    const pixels = new Uint8ClampedArray(pixelCount);
+    
+    // Initialize with opaque black [0,0,0,255]
+    for (let i = 0; i < pixelCount; i += 4) {
+      pixels[i] = 0;     // R
+      pixels[i + 1] = 0; // G
+      pixels[i + 2] = 0; // B
+      pixels[i + 3] = 255; // A - opaque!
+    }
+    
+    console.log(`🎨 NEW BUFFER CREATED: ${width}x${height} initialized with opaque black [0,0,0,255]`);
+    
     return {
       width: width,
       height: height,
-      pixels: new Uint8ClampedArray(pixelCount) // Already zeroed
+      pixels: pixels
     };
   }
 
@@ -8969,6 +9106,13 @@ class KidLisp {
     const dstWidth = api.screen.width;
     const dstHeight = api.screen.height;
 
+    // Debug: Check destination buffer before blending
+    const dstSamplePixels = [];
+    for (let i = 0; i < Math.min(20, dstPixels.length); i += 4) {
+      dstSamplePixels.push(`[${dstPixels[i]},${dstPixels[i+1]},${dstPixels[i+2]},${dstPixels[i+3]}]`);
+    }
+    console.log(`🎭 BLEND DEBUG: Destination buffer before blending (alpha=${alpha}):`, dstSamplePixels.slice(0, 5).join(', '));
+
     // Normalize alpha to 0-1 range
     const alphaFactor = alpha / 255.0;
 
@@ -9034,7 +9178,7 @@ class KidLisp {
   renderEmbeddedLayers(api) {
     // 🔍 DEBUG: Log embedded layers status
     if (!this.embeddedLayers || this.embeddedLayers.length === 0) {
-      console.log("🎬 HEADLESS DEBUG: No embedded layers to render");
+
       return;
     }
 
@@ -9183,8 +9327,9 @@ class KidLisp {
     }
     embeddedLayer.localFrameCount += 1;
 
+    // CRITICAL: Each embedded layer needs its own independent timeline
     embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
-    embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
+    embeddedLayer.kidlispInstance.frameCounter = embeddedLayer.localFrameCount;
 
     // Ensure timing state
     if (!embeddedLayer.kidlispInstance.timingStates) {
@@ -9205,7 +9350,9 @@ class KidLisp {
       localEnv.scroll = frameValue % (embeddedLayer.width + embeddedLayer.height);
 
       // Apply fade background only once
+      console.log(`🎨 EMBEDDED FADE DEBUG: firstLineColor=${embeddedLayer.kidlispInstance.firstLineColor}, fadeApplied=${embeddedLayer.fadeApplied}`);
       if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
+        console.log(`🎨 EMBEDDED FADE: Applying background wipe with ${embeddedLayer.kidlispInstance.firstLineColor}`);
         embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
         embeddedLayer.fadeApplied = true;
       }
@@ -9247,6 +9394,19 @@ class KidLisp {
         localEnv
       );
 
+      // CRITICAL: Save persistent timing state after execution
+      const layerCacheKey = `${embeddedLayer.source}_timing`;
+      if (this.embeddedLayerCache) {
+        this.embeddedLayerCache.set(layerCacheKey, {
+          frameCount: embeddedLayer.kidlispInstance.frameCount,
+          frameCounter: embeddedLayer.kidlispInstance.frameCounter,
+          lastSecondExecutions: [...embeddedLayer.kidlispInstance.lastSecondExecutions],
+          sequenceCounters: Array.from(embeddedLayer.kidlispInstance.sequenceCounters),
+          timingStates: Array.from(embeddedLayer.kidlispInstance.timingStates),
+          randomState: embeddedLayer.kidlispInstance.randomState
+        });
+      }
+
       embeddedLayer.hasBeenEvaluated = true;
       embeddedLayer.lastFrameEvaluated = frameValue;
     }
@@ -9255,7 +9415,6 @@ class KidLisp {
     api.page(api.screen);
 
     // Paste with optimized alpha compositing
-    console.log(`🎬 HEADLESS DEBUG: About to pasteWithAlpha buffer ${embeddedLayer.buffer?.width}x${embeddedLayer.buffer?.height} at (${embeddedLayer.x},${embeddedLayer.y})`);
     this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
   }
 
@@ -9336,7 +9495,10 @@ class KidLisp {
       },
       width: embeddedLayer.width,
       height: embeddedLayer.height,
-      frame: 0 // Updated per render
+      frame: 0, // Updated per render
+      
+      // 🚨 CRITICAL: Include clock API for timing expressions in embedded layers
+      clock: api.clock
     };
 
     return embeddedApi;
@@ -9586,9 +9748,9 @@ class KidLisp {
       }
       embeddedLayer.localFrameCount += 1;
 
-      // Update the embedded KidLisp instance's frame counter
+      // CRITICAL: Each embedded layer needs its own independent timeline
       embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
-      embeddedLayer.kidlispInstance.frameCounter = this.frameCounter;
+      embeddedLayer.kidlispInstance.frameCounter = embeddedLayer.localFrameCount;
 
       // Ensure timing state is preserved for the embedded instance
       if (!embeddedLayer.kidlispInstance.timingStates) {
@@ -10106,66 +10268,81 @@ async function fetchCachedCode(nanoidCode, api = null) {
     return null; // Return null in TEIA mode
   }
 
-  // Always use /api endpoint for store-kidlisp 
-  const fullUrl = `/api/store-kidlisp?code=${nanoidCode}`;
+  // Helper function to try fetching from a specific URL
+  const tryFetch = async (url, isProduction = false) => {
+    return new Promise(async (resolve) => {
+      // Check if we're in Node.js environment
+      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        // Import https module dynamically for Node.js environment
+        const https = await import('https');
+        const options = { rejectUnauthorized: false }; // Allow self-signed certificates
 
-  // Use Node.js https module with SSL bypass like tape.mjs does
-  return new Promise(async (resolve, reject) => {
-    // Check if we're in Node.js environment
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      // Import https module dynamically for Node.js environment
-      const https = await import('https');
-      const options = { rejectUnauthorized: false }; // Allow self-signed certificates
+        https.get(url, options, (res) => {
+          let data = '';
 
-      https.get(fullUrl, options, (res) => {
-        let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
 
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed && parsed.source) {
-              console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} (${parsed.source.length} chars)`);
-              resolve(parsed.source);
-            } else {
-              console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`, parsed);
-              resolve(null);
-            }
-          } catch (err) {
-            console.error(`❌ Failed to parse JSON for cached code: ${nanoidCode}`, err, 'Raw response:', data);
-            resolve(null);
-          }
-        });
-      }).on('error', (err) => {
-        console.error(`❌ Network error loading cached code: ${nanoidCode}`, err);
-        resolve(null);
-      });
-    } else {
-      // Browser environment - fallback to fetch
-      fetch(fullUrl).then(response => {
-        if (response.ok) {
-          return response.json().then(data => {
-            if (data && data.source) {
-              // console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} (${data.source.length} chars)`);
-              resolve(data.source);
-            } else {
-              console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response`, data);
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed && parsed.source) {
+                console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${parsed.source.length} chars)`);
+                resolve(parsed.source);
+              } else {
+                console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response from ${url}`, parsed);
+                resolve(null);
+              }
+            } catch (err) {
+              console.error(`❌ Failed to parse JSON for cached code: ${nanoidCode} from ${url}`, err, 'Raw response:', data);
               resolve(null);
             }
           });
-        } else {
-          console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText}`);
+        }).on('error', (err) => {
+          console.error(`❌ Network error loading cached code: ${nanoidCode} from ${url}`, err);
           resolve(null);
-        }
-      }).catch(error => {
-        console.error(`❌ Network error loading cached code: ${nanoidCode} from ${fullUrl}`, error);
-        resolve(null);
-      });
-    }
-  });
+        });
+      } else {
+        // Browser environment - fallback to fetch
+        fetch(url).then(response => {
+          if (response.ok) {
+            return response.json().then(data => {
+              if (data && data.source) {
+                console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${data.source.length} chars)`);
+                resolve(data.source);
+              } else {
+                console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response from ${url}`, data);
+                resolve(null);
+              }
+            });
+          } else {
+            console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText} from ${url}`);
+            resolve(null);
+          }
+        }).catch(error => {
+          console.error(`❌ Network error loading cached code: ${nanoidCode} from ${url}`, error);
+          resolve(null);
+        });
+      }
+    });
+  };
+
+  // First try local dev server
+  const localUrl = `/api/store-kidlisp?code=${nanoidCode}`;
+  console.log(`🔍 Attempting to fetch ${nanoidCode} from local dev server: ${localUrl}`);
+  const localSource = await tryFetch(localUrl, false);
+  
+  if (localSource) {
+    return localSource;
+  }
+
+  // Fallback to production aesthetic.computer domain
+  const productionUrl = `https://aesthetic.computer/api/store-kidlisp?code=${nanoidCode}`;
+  console.log(`🔄 Local dev server failed, trying production fallback: ${productionUrl}`);
+  const productionSource = await tryFetch(productionUrl, true);
+  
+  return productionSource;
 }
 
 // Export function to get syntax highlighting colors for progress bars

@@ -165,10 +165,21 @@ export class HeadlessAC {
         // Create a new KidLisp instance for the embedded layer
         kidlispInstance = new this.KidLisp();
         
-        // Restore minimal state for embedded layer instance
+        // Restore complete state for embedded layer instance including timing
         if (layerMeta.kidlispInstanceState) {
           kidlispInstance.frameCount = layerMeta.kidlispInstanceState.frameCount || 0;
           kidlispInstance.localFrameCount = layerMeta.kidlispInstanceState.localFrameCount || 0;
+          
+          // CRITICAL: Restore timing state for persistent animations
+          kidlispInstance.lastSecondExecutions = layerMeta.kidlispInstanceState.lastSecondExecutions || [];
+          kidlispInstance.sequenceCounters = new Map(
+            Object.entries(layerMeta.kidlispInstanceState.sequenceCounters || {})
+          );
+          kidlispInstance.timingStates = new Map(
+            Object.entries(layerMeta.kidlispInstanceState.timingStates || {})
+          );
+          
+          console.log(`🕐 HEADLESS DEBUG: Restored timing state for ${layerMeta.cacheId}: ${kidlispInstance.lastSecondExecutions.length} executions, ${kidlispInstance.sequenceCounters.size} counters, ${kidlispInstance.timingStates.size} states`);
         }
         
         // Set the source code for the layer
@@ -386,17 +397,48 @@ export class HeadlessAC {
             height: layer.buffer.height,
             filename: this.saveEmbeddedLayerBuffer(layer.cacheId || layer.id || `layer_${Date.now()}`, layer.buffer.pixels)
           } : null,
-          // Save minimal KidLisp instance state - mainly for frame counting
+          // Save complete KidLisp instance state including timing for persistence
           kidlispInstanceState: layer.kidlispInstance ? {
             frameCount: layer.kidlispInstance.frameCount || 0,
-            localFrameCount: layer.localFrameCount || 0
+            localFrameCount: layer.localFrameCount || 0,
+            // CRITICAL: Save timing state for persistent animations
+            lastSecondExecutions: layer.kidlispInstance.lastSecondExecutions || [],
+            sequenceCounters: layer.kidlispInstance.sequenceCounters ? 
+              Object.fromEntries(layer.kidlispInstance.sequenceCounters) : {},
+            timingStates: layer.kidlispInstance.timingStates ?
+              Object.fromEntries(layer.kidlispInstance.timingStates) : {}
           } : null
         })) : [],
-        // Save embedded layer cache structure with full layer references
-        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ? Object.fromEntries(this.kidlispInstance.embeddedLayerCache) : {},
+        // Save embedded layer cache structure WITHOUT pixel buffer data
+        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ? 
+          Object.fromEntries(
+            Array.from(this.kidlispInstance.embeddedLayerCache.entries()).map(([key, layer]) => [
+              key,
+              {
+                ...layer,
+                // Remove the buffer pixels data, keep only metadata
+                buffer: layer.buffer ? {
+                  width: layer.buffer.width,
+                  height: layer.buffer.height,
+                  filename: layer.buffer.filename || `${key}.bin`
+                } : null,
+                // Clean kidlispInstance state to avoid circular refs but preserve timing
+                kidlispInstance: layer.kidlispInstance ? {
+                  frameCount: layer.kidlispInstance.frameCount || 0,
+                  localFrameCount: layer.kidlispInstance.localFrameCount || 0,
+                  // CRITICAL: Save timing state for persistent animations
+                  lastSecondExecutions: layer.kidlispInstance.lastSecondExecutions || [],
+                  sequenceCounters: layer.kidlispInstance.sequenceCounters ? 
+                    Object.fromEntries(layer.kidlispInstance.sequenceCounters) : {},
+                  timingStates: layer.kidlispInstance.timingStates ?
+                    Object.fromEntries(layer.kidlispInstance.timingStates) : {}
+                } : null
+              }
+            ])
+          ) : {},
         
-        // Local environment
-        localEnv: this.kidlispInstance.localEnv || {},
+        // Local environment (cleaned of any buffer references)
+        localEnv: this.cleanEnvForSerialization(this.kidlispInstance.localEnv || {}),
         
         // Rainbow and zebra color cycling state
         rainbowState: getRainbowState(),
@@ -404,6 +446,29 @@ export class HeadlessAC {
       };
     }
     return {};
+  }
+
+  // Clean environment objects of pixel buffer data for serialization
+  cleanEnvForSerialization(env) {
+    if (!env || typeof env !== 'object') return env;
+    
+    const cleaned = {};
+    for (const [key, value] of Object.entries(env)) {
+      if (key === 'screen' && value && value.pixels) {
+        // Clean screen buffer - keep metadata but remove pixel data
+        cleaned[key] = {
+          width: value.width,
+          height: value.height,
+          // Don't serialize the pixel array
+        };
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // Recursively clean nested objects
+        cleaned[key] = this.cleanEnvForSerialization(value);
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
   }
 
   // Enable V8 optimizations for performance
@@ -873,7 +938,50 @@ export class HeadlessAC {
         lerp: (start, stop, amount) => start + (stop - start) * amount,
         clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
         dist: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
-        timestamp: () => api.simulationTime || Date.now() // Use deterministic time if available
+        timestamp: () => api.simulationTime || Date.now(), // Use deterministic time if available
+        
+        // Rainbow color cycling for pieces like $bair
+        rainbow: (offset = 0) => {
+          // Define rainbow colors (ROYGBIV) 
+          const rainbowColors = [
+            [255, 0, 0],     // red
+            [255, 165, 0],   // orange  
+            [255, 255, 0],   // yellow
+            [0, 128, 0],     // green
+            [0, 0, 255],     // blue
+            [75, 0, 130],    // indigo
+            [238, 130, 238], // violet
+          ];
+          
+          // Initialize rainbow state if not exists
+          if (self.rainbowCallCount === undefined) {
+            self.rainbowCallCount = 0;
+            self.rainbowFrameAdvanced = false;
+            self.currentRainbowIndex = 0;
+            self.lastRainbowFrame = -1;
+          }
+          
+          const currentFrame = self.frameCount || 0;
+          
+          // Reset rainbow state at the start of each new frame
+          if (currentFrame !== self.lastRainbowFrame) {
+            self.rainbowFrameAdvanced = false;
+            self.rainbowCallCount = 0;
+            self.lastRainbowFrame = currentFrame;
+          }
+          
+          // Advance the rainbow index once per frame on the first call
+          if (!self.rainbowFrameAdvanced) {
+            self.currentRainbowIndex = (self.currentRainbowIndex + 1) % rainbowColors.length;
+            self.rainbowFrameAdvanced = true;
+          }
+          
+          // Each call within the frame gets the current color + offset + call number
+          const finalIndex = (self.currentRainbowIndex + offset + self.rainbowCallCount) % rainbowColors.length;
+          self.rainbowCallCount++; // Increment for next call in same frame
+          
+          return rainbowColors[finalIndex].slice(); // Return a copy
+        }
       };
       
       // Add clock utilities for timing-based animations
@@ -898,6 +1006,20 @@ export class HeadlessAC {
         // Basic flood fill implementation
         if (self.graph && self.graph.flood) {
           console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample before:`, Array.from(api.screen.pixels.slice(0, 20)));
+          console.log(`🎨 FLOOD DEBUG: Current drawing color 'c':`, self.graph.c || 'undefined');
+          
+          // If we're in random color mode (after first-line color wipe), use random colors for flood
+          if (self.useRandomColorsForDrawing) {
+            const randomColor = [
+              Math.floor(Math.random() * 256),
+              Math.floor(Math.random() * 256), 
+              Math.floor(Math.random() * 256),
+              255
+            ];
+            console.log(`🎲 FLOOD: Using random color in random drawing mode:`, randomColor);
+            self.graph.color(...randomColor);
+          }
+          
           self.graph.flood(...args);
           console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample after:`, Array.from(api.screen.pixels.slice(0, 20)));
         } else {
@@ -950,7 +1072,20 @@ export class HeadlessAC {
       // Random choice function - KidLisp uses (?) for random values
       api['?'] = function(...choices) {
         logCall('?', choices);
-        if (choices.length === 0) return 0;
+        
+        // If no choices provided, return a random color name (like original AC behavior)
+        if (choices.length === 0) {
+          // Define CSS color names (subset of the main ones for random selection)
+          const cssColorNames = [
+            'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet',
+            'pink', 'cyan', 'magenta', 'lime', 'purple', 'brown', 'black', 'white',
+            'gray', 'salmon', 'coral', 'gold', 'silver', 'navy', 'teal', 'olive'
+          ];
+          const randomColor = cssColorNames[Math.floor(Math.random() * cssColorNames.length)];
+          console.log(`🎲 Random color (no args): ${randomColor}`);
+          return randomColor;
+        }
+        
         const randomIndex = Math.floor(Math.random() * choices.length);
         const result = choices[randomIndex];
         console.log(`🎲 Random choice from [${choices.join(', ')}]: ${result}`);
@@ -1230,10 +1365,8 @@ export class HeadlessAC {
           // Patch the KidLisp instance to use simulation time
           self.kidlispInstance.originalDateNow = originalDateNow;
           
-          // Reset timing state since we're switching to simulation time
-          self.kidlispInstance.lastSecondExecutions = {};
-          self.kidlispInstance.sequenceCounters = new Map();
-          console.log('🔄 Reset KidLisp timing state for simulation mode');
+          // Note: Timing state preservation is now handled by state restoration
+          console.log('🔄 Pre-set KidLisp state before API creation');
           
           // Restore KidLisp state if available - use the enhanced state restoration
           if (self.kidlispState) {
@@ -1288,6 +1421,9 @@ export class HeadlessAC {
               if (self.kidlispInstance.firstLineColor && (api.frameIndex === undefined || api.frameIndex === 0)) {
                 console.log(`🎨 Detected first-line color: ${self.kidlispInstance.firstLineColor} (applying on frame 0 only)`);
                 api.wipe(self.kidlispInstance.firstLineColor);
+                // Mark that we should use random colors for drawing operations after first-line color wipe
+                self.useRandomColorsForDrawing = true;
+                console.log(`🎨 Enabled random color mode for drawing operations`);
               } else if (self.kidlispInstance.firstLineColor) {
                 console.log(`🎨 First-line color ${self.kidlispInstance.firstLineColor} detected but skipping wipe (frame ${api.frameIndex})`);
               }
