@@ -1,6 +1,26 @@
 # entire ac-pill directory
 ac-pill/
 
+# ignore tokens dir (static outputs of ac pieces for archival purposes)
+tokens/*.zip
+tokens/*/
+!tokens/README.md
+!tokens/pack-for-teia.fish
+
+# ignore teia output (packaged pieces for Teia Interactive OBJKTs)
+teia/output/*.zip
+teia/output/*/
+!teia/output/README.md
+
+# ignore reference tools output directory (bake/tape generated files)
+reference/tools/recording/.tape-frames-cache
+reference/tools/recording/_
+reference/tools/output
+!reference/tools/output/.gitkeep
+packed
+packed/*/
+teia/output
+
 # assets (ignore all subdirectories but readme)
 system/public/assets/*/
 !system/public/assets/*/readme.txt
@@ -18,6 +38,9 @@ vscode-extension/*.vsix
 
 # Any emacs or vim backups.
 *~
+
+# Dev logs from remote debugging
+dev-logs.txt
 .#*
 
 # NPM

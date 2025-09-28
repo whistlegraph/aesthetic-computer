@@ -60,18 +60,21 @@ export async function prompt_boot(
 
       input.canType = false;
 
+      // Prevent the TextInput from being deactivated during command execution
+      input._preventDeactivation = true;
+
       let halted = await halt?.($, text);
 
       if (!$.leaving()) {
         input.lock = false;
-        //if (halted !== "dont-unlock") {
         $.send({ type: "keyboard:unlock" });
-        //}
       }
 
       if (halted) {
         messageComplete = true;
-        if (halted.left) return; // Ditch if we already loaded a piece.
+        if (halted.left) {
+          return; // Ditch if we already loaded a piece.
+        }
 
         if ($.leaving()) {
           // input.lock = true;
@@ -99,6 +102,12 @@ export async function prompt_boot(
         input.showButton($);
         $.needsPaint();
         input.canType = true;
+        
+        // Add a small delay before clearing the preventDeactivation flag to let any pending events settle
+        setTimeout(() => {
+          input._preventDeactivation = false;
+        }, 200);
+        
         //input.inputStarted = true;
         return; // No more processing necessary.
       }
