@@ -1,8 +1,11 @@
 ; Fía's Birthday · July 5th
 ; fia-birthday, 2025.6.25.0.272
-(label) ; No label in the corner.
+; (label) ; No label in the corner.
 
 ; 📆 Main invite
+(ink pink)
+label
+; (perf)
 (ink (... blue pink gray))
 (mask 0 22 width height-22)
 (repeat width/16 i (ink (0.05s... gray purple blue pink)) (box i*16 0 4 height))
@@ -11,6 +14,7 @@
 (stamp "@jeffrey/2025.6.24.01.45.17.910" width/2 height/2
   (/ (min width height) (+ 300 (* 50 (sin)))) (* 15 (sin))
 )
+(unmask)
 (mask 0 0 width 6)
 (0.5s (wipe (... purple brown)))
 (mask 0 6 width 23)
@@ -18,7 +22,7 @@
 (unmask)
 (ink (... yellow green white rainbow) 200)
 (write "Celebrate Fía's Birthday Celebrate Fia's Birthday"
-  (mod (mul frame/1 -1) (+ 12 (* 24 12))) 2 no 2
+   (mod (mul frame/1 -1) (+ 12 (* 24 12))) 2 no 2
 )
 (ink (0.1s... white yellow blue))
 (write "July 5th in Echo Park" 10 30 black)
@@ -54,12 +58,12 @@
   (shape (- (/ width 2) 8) (- (/ height 2) 8) 
          (+ (/ width 2) 8) (/ height 2)
          (- (/ width 2) 8) (+ (/ height 2) 8))
-  (blur 16)
-  (repeat 30 i
+  (blur 4)
+  (repeat 15 i
     (ink (choose red pink purple brown))
     (write (choose "*" "+" "x" "o" "Fía") 
-           (mod (+ (* i 67) (* (sin (* i 0.3)) 20) (* frame 0.5)) width)
-           (mod (+ (* i 89) (* frame (+ 2 (mod i 3)))) height)))
+           (mod (+ (* i 67) (* frame 0.5)) width)
+           (mod (+ (* i 89) (* frame 2)) height)))
   (ink (0.11s... white yellow pink))
   (shape (- (/ width 2) 8) (- (/ height 2) 8) 
          (+ (/ width 2) 8) (/ height 2)

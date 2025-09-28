@@ -43,6 +43,30 @@ async function fun(event, context) {
 
   let slug = event.path.slice(1) || "prompt";
 
+  // Handle direct requests to /disks/ paths (static asset requests)
+  if (slug.startsWith("disks/")) {
+    // For direct disk file requests, strip the "disks/" prefix
+    // so "/disks/prompt.mjs" becomes "prompt.mjs"
+    slug = slug.substring(6); // Remove "disks/"
+    
+    // Also strip the file extension if present, since the netlify function expects
+    // the piece name without extension
+    if (slug.endsWith(".mjs")) {
+      slug = slug.slice(0, -4); // Remove ".mjs"
+    } else if (slug.endsWith(".lisp")) {
+      slug = slug.slice(0, -5); // Remove ".lisp"
+    }
+  }
+
+  // Prevent loading of .json, font, or other non-code files as Lisp/JS pieces
+  const forbiddenExtensions = [".json", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico"];
+  for (const ext of forbiddenExtensions) {
+    if (slug.endsWith(ext)) {
+      console.log(`⛔ Blocked attempt to load forbidden file type: ${slug}`);
+      return respond(404, `File type not allowed: ${ext}`);
+    }
+  }
+
   // Safely decode URL-encoded characters in the slug
   try {
     slug = decodeURIComponent(slug);
@@ -76,6 +100,24 @@ async function fun(event, context) {
     event.path.length <= 1
   ) {
     slug = "wg~m2w2";
+  }
+
+  // Handle kidlisp:code URL pattern and convert to $code format
+  const originalPath = event.path.slice(1) || "prompt"; // Store original for redirect check
+  if (slug.startsWith("kidlisp:") && slug.length > 8) {
+    const code = slug.slice(8); // Remove "kidlisp:" prefix
+    const newSlug = `$${code}`; // Convert to $code format
+    console.log(`🔄 Converting kidlisp:${code} to $${code} and redirecting`);
+    
+    // Redirect to the $code format to update the URL bar
+    return respond(
+      302,
+      `<a href="/${newSlug}">Redirecting to /${newSlug}</a>`,
+      {
+        "Content-Type": "text/html",
+        Location: `/${newSlug}`,
+      },
+    );
   }
 
   const parsed = parse(slug, { hostname: event.headers["host"] });
@@ -199,7 +241,7 @@ async function fun(event, context) {
       } catch (e) {
         console.log("🔴 Piece load failure...");
         const anonUrl = `https://art.aesthetic.computer/${
-          parsed.path.split("/").pop().mjs
+          parsed.path.split("/").pop() + ".mjs"
         }`;
         console.log("📥 Attempting to load piece from anon:", anonUrl);
         const externalPiece = await getPage(anonUrl);
@@ -316,6 +358,7 @@ async function fun(event, context) {
     event.headers["host"],
     slug,
     meta,
+    "https:", // Server-side defaults to HTTPS
   );
 
   // TODO: Not sure if 'location' is correct here, but I wan tto skip rendering the link rel icon and og:image if the icon or preview parameter is present

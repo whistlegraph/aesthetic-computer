@@ -2,18 +2,24 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
- * `kidlisp` *
- - Future proof URL sharing and attribution.
- - [] Any kidlisp that runs successfully should automatically be added to the
-      database and given a unique UTC timestamp identifier or other meaningful
-      identifier.
- - [] Uploaded kidlisp's uniqueness should be enforced somehow similar to how
-      handles must be unique. If another record is found just return or use that.
- - [] Uploaded kidlisp should automatically be attributed to the user who uploaded it
-      or be treated as anonymous contributions otherwise.
- - [] If the kidlisp was generated from a prompt, that prompt should be recorded
-      as was the model used to generate it and a git hash reference to the
-      pre-prompt file so it could be regenerated under various conditions.
+ * `prompt` poe mode *
+ - Create a 'poe' mode for 'prompt' where we skip painting the TextInput UI
+   in favor of a more presentational writing performance tool with effects
+   and a simple background color and maybe a cooler blinking caret, special
+   sound when 'clearing' with a few different 'clear' options and visual
+   keyboard shortcuts. At first it can just be like a simple white on black thing
+   and I may even have a prototype already in disks that implements a TextInput
+   but doesnt.
+
+ * tezos integration *
+ - Write an ac command to load an NFT_People / (or any) OBJKT from teia.art / objkt.com as the current 'painting'.
+ - If it's a gif then maybe using 'flip' and then exporting could be a fun way to remix outside of tapes?
+
+ * tape service *
+ - Write a server / long-running backend function that takes a .zip uploaded from a tape that
+   includes frame data and audio and exports a super nice shareable mp4 as fast as possible
+   with h264 and aac codecs like setup right now for exporting mp4s, but this would
+   use the zip path first then hit a netlify endpoint function (can we do this in netlify?)
 
  * `clock` syntax * 
   - [] Take the melody syntax from kidlisp.mjs and develop it further.
