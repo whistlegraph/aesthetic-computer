@@ -111,6 +111,14 @@ export function setDebug(newDebug) {
   debug = newDebug;
 }
 
+let matrixChunkyDebugCount = 0;
+
+function matrixDebugEnabled() {
+  if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
+  if (typeof globalThis !== "undefined" && globalThis?.acMatrixDebug) return true;
+  return false;
+}
+
 // 🎨 FADE HELPERS: New local fade detection and parsing
 // These replace the global fade state management system
 
@@ -1216,14 +1224,28 @@ function plot(x, y) {
   
   const alpha = c[3];
 
+  // Check if current color is a fade color and resolve it
+  let plotColor = c;
+  if (typeof c[0] === 'string' && c[0].startsWith('fade:')) {
+    // Parse the fade string and get the color at this pixel position
+    const fadeInfo = parseLocalFade(c[0]);
+    if (fadeInfo) {
+      const resolvedColor = getLocalFadeColor(null, x, y, fadeInfo);
+      plotColor = [...resolvedColor, c[1] || 255]; // Use fade alpha
+    } else {
+      // Fallback to solid color if fade parsing fails
+      plotColor = [255, 0, 255, alpha]; // Magenta to indicate error
+    }
+  }
+
   // Erasing
   if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
     erase(pixels, i, 1 - c[3] / 255);
   } else if (alpha === 255) {
     // No alpha blending, just copy.
-    pixels.set(c, i);
+    pixels.set(plotColor, i);
   } else if (alpha !== 0) {
-    blend(pixels, c, 0, i);
+    blend(pixels, plotColor, 0, i);
   }
 }
 
@@ -1267,6 +1289,8 @@ function point(...args) {
     x = randInt(width);
     y = randInt(height);
   }
+
+
 
   // TODO: Add support for {x, y} single argument. 2022.02.02.20.39
   x += panTranslation.x;
@@ -3477,7 +3501,48 @@ function draw() {
         if (pixelRow[col] === 1) { // Only render "on" pixels
           const pixelX = x + (col * scale);
           const pixelY = y + (row * scale);
-          
+          const isMatrixChunky = drawing?.fontName === "MatrixChunky8";
+
+          const matrixDebugActive = matrixDebugEnabled();
+          if (!matrixDebugActive && matrixChunkyDebugCount !== 0)
+            matrixChunkyDebugCount = 0;
+
+          if (
+            isMatrixChunky &&
+            matrixDebugActive &&
+            row < 8 &&
+            col < 8
+          ) {
+            console.log("🧱 MatrixChunky8 draw", {
+              char: drawing?.char || drawing?.code || "?",
+              row,
+              col,
+              pixelX,
+              pixelY,
+              currentColor: c.slice(0, 4),
+              skip: skips.length,
+              mask: activeMask
+                ? {
+                    x: activeMask.x,
+                    y: activeMask.y,
+                    width: activeMask.width,
+                    height: activeMask.height,
+                  }
+                : null,
+            });
+          }
+
+          let beforePixel;
+          let logged = false;
+          if (
+            isMatrixChunky &&
+            matrixDebugActive &&
+            matrixChunkyDebugCount < 20
+          ) {
+            beforePixel = pixel(pixelX, pixelY);
+            logged = true;
+          }
+
           // Render pixel as a small rectangle scaled appropriately
           if (scale === 1) {
             point(pixelX, pixelY);
@@ -3488,6 +3553,21 @@ function draw() {
                 point(pixelX + sx, pixelY + sy);
               }
             }
+          }
+
+          if (logged) {
+            const afterPixel = pixel(pixelX, pixelY);
+            matrixChunkyDebugCount += 1;
+            console.log("🪄 MatrixChunky8 point write", {
+              char: drawing?.char || drawing?.code || "?",
+              row,
+              col,
+              pixelX,
+              pixelY,
+              color: c.slice(0, 4),
+              before: beforePixel,
+              after: afterPixel,
+            });
           }
         }
       }
@@ -3555,6 +3635,7 @@ function draw() {
         paintGesture();
       }
     } else if (name === "point") {
+
       thickness === 1
         ? point(...args)
         : circle(args[0], args[1], thickness / 2, true);
