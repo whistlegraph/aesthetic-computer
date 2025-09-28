@@ -186,10 +186,10 @@ if not test -f localhost.pem; or not test -f localhost-key.pem
         end
     end
     # Generate SSL certificates (without --install-only flag)
-    fish ssl-install.fish
+    env nogreet=true fish ./ssl-install.fish
 else
     # Install existing certificates
-    fish ssl-install.fish --install-only
+    env nogreet=true fish ./ssl-install.fish --install-only
 end
 
 # Check if the nanos/ssl directory exists, and transfer the ssl certs over.
