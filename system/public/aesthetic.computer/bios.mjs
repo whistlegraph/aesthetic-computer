@@ -11086,7 +11086,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
           }
           
-          // Add debug logging for qrFullscreenLabel
+          // Add debug logging for qrFullscreenLabel and qrOverlay
           if (name === "qrFullscreenLabel") {
             console.log(`🔍 Creating ImageData for qrFullscreenLabel:`, {
               pixelsType: typeof o.img.pixels,
@@ -11096,6 +11096,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               expectedLength: o.img.width * o.img.height * 4
             });
           }
+          
+
           
           // Use graphics optimizer if available, fallback to traditional method
           if (window.pixelOptimizer) {
@@ -11374,10 +11376,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         if (!skipImmediateOverlays && paintOverlays["qrOverlay"]) {
           paintOverlays["qrOverlay"]();
-        } else if (skipImmediateOverlays) {
-          // console.log("🔲 Skipping immediate QR overlay painting (async mode)");
-        } else {
-          // QR overlay painter not found (no logging)
         }
 
         // Paint hitbox debug overlay immediately if debug is enabled

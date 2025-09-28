@@ -9,6 +9,11 @@ endregion */
 import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
 import { checkTeiaMode } from "./teia-mode.mjs";
+function matrixDebugEnabled() {
+  if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
+  if (typeof globalThis !== "undefined" && globalThis?.acMatrixDebug) return true;
+  return false;
+}
 
 const { floor, min } = Math;
 const { keys, entries } = Object;
@@ -19,6 +24,7 @@ class Typeface {
   data;
   name;
   glyphs = {};
+  advanceCache = new Map();
   //loaded = false;
 
   constructor(name = "font_1") {
@@ -32,10 +38,101 @@ class Typeface {
         bdfFont: "MatrixChunky8",
         proportional: true,
         advances: {
-          'A': 4, 'B': 4, 'C': 4, 'D': 4, 'E': 4, 'F': 4, 'G': 4, 'H': 5, 'I': 4, 'J': 4, 'K': 4, 'L': 4, 'M': 6, 'N': 5, 'O': 5, 'P': 4, 'Q': 4, 'R': 4, 'S': 4, 'T': 4, 'U': 4, 'V': 4, 'W': 6, 'X': 4, 'Y': 4, 'Z': 4,
-          'a': 4, 'b': 4, 'c': 4, 'd': 4, 'e': 4, 'f': 4, 'g': 4, 'h': 4, 'i': 4, 'j': 4, 'k': 4, 'l': 4, 'm': 6, 'n': 4, 'o': 4, 'p': 4, 'q': 4, 'r': 4, 's': 4, 't': 4, 'u': 4, 'v': 4, 'w': 6, 'x': 4, 'y': 4, 'z': 4,
-          '0': 4, '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4,
-          ' ': 2, '.': 2, ',': 2, '!': 2, '?': 4, ':': 2, ';': 2, '-': 4, '+': 4, '=': 4, '<': 4, '>': 4, '/': 4, '\\': 4, '|': 2, '"': 4, "'": 2, '(': 4, ')': 4, '[': 4, ']': 2, '{': 2, '}': 2, '@': 5, '#': 5, '$': 4, '%': 5, '^': 4, '&': 5, '*': 4, '_': 4, '~': 5
+          ' ': 2,
+          '!': 2,
+          '"': 4,
+          '#': 8,
+          '$': 4,
+          '%': 4,
+          '&': 5,
+          '\'': 2,
+          '(': 7,
+          ')': 4,
+          '*': 5,
+          '+': 4,
+          ',': 2,
+          '-': 4,
+          '.': 2,
+          '/': 4,
+          '0': 4,
+          '1': 4,
+          '2': 4,
+          '3': 4,
+          '4': 4,
+          '5': 4,
+          '6': 4,
+          '7': 4,
+          '8': 4,
+          '9': 4,
+          ':': 2,
+          ';': 2,
+          '<': 4,
+          '=': 4,
+          '>': 4,
+          '?': 4,
+          '@': 5,
+          'A': 4,
+          'B': 4,
+          'C': 4,
+          'D': 4,
+          'E': 4,
+          'F': 4,
+          'G': 5,
+          'H': 5,
+          'I': 4,
+          'J': 4,
+          'K': 4,
+          'L': 4,
+          'M': 6,
+          'N': 5,
+          'O': 5,
+          'P': 4,
+          'Q': 5,
+          'R': 4,
+          'S': 4,
+          'T': 4,
+          'U': 4,
+          'V': 4,
+          'W': 6,
+          'X': 4,
+          'Y': 4,
+          'Z': 4,
+          '[': 4,
+          "\\": 4,
+          ']': 4,
+          '^': 4,
+          '_': 4,
+          '`': 3,
+          'a': 4,
+          'b': 4,
+          'c': 4,
+          'd': 4,
+          'e': 4,
+          'f': 4,
+          'g': 4,
+          'h': 4,
+          'i': 4,
+          'j': 4,
+          'k': 4,
+          'l': 4,
+          'm': 6,
+          'n': 4,
+          'o': 4,
+          'p': 4,
+          'q': 4,
+          'r': 4,
+          's': 4,
+          't': 4,
+          'u': 4,
+          'v': 4,
+          'w': 6,
+          'x': 4,
+          'y': 4,
+          'z': 4,
+          '{': 4,
+          '|': 2,
+          '}': 4,
+          '~': 4
         },
         bdfOverrides: {
           'y': { y: 2 }
@@ -147,6 +244,7 @@ class Typeface {
             }
             const glyphData = await response.json();
             this.data[char] = glyphData; // Store in font data for proxy access
+            this.invalidateAdvance(char);
             return glyphData;
           } catch (err) {
             return null;
@@ -322,6 +420,7 @@ class Typeface {
               .then((glyphData) => {
                 // Store the loaded glyph
                 target[char] = glyphData;
+                this.invalidateAdvance(char);
                 
                 // Trigger a re-render if this is for QR text
                 if (this.name === "MatrixChunky8") {
@@ -428,6 +527,58 @@ class Typeface {
   getGlyph(char) {
     return this.glyphs[char];
   }
+
+  getAdvance(char) {
+    if (!char) return this.blockWidth || 4;
+    if (this.advanceCache.has(char)) {
+      return this.advanceCache.get(char);
+    }
+
+    let advance;
+
+    const glyph = this.glyphs?.[char];
+    if (glyph && typeof glyph.advance === "number") {
+      advance = glyph.advance;
+    }
+
+    if (advance === undefined) {
+      const glyphData = this.data?.[char];
+      if (glyphData && typeof glyphData.advance === "number") {
+        advance = glyphData.advance;
+      }
+    }
+
+    if (advance === undefined && this.data?.advances) {
+      advance = this.data.advances[char];
+    }
+
+    if (advance === undefined && glyph?.dwidth?.x) {
+      advance = glyph.dwidth.x;
+    }
+
+    if (advance === undefined && glyph?.resolution?.[0]) {
+      advance = glyph.resolution[0];
+    }
+
+    if (advance === undefined && typeof this.data?.glyphWidth === "number") {
+      advance = this.data.glyphWidth;
+    }
+
+    if (advance === undefined) {
+      advance = this.blockWidth || 4;
+    }
+
+    this.advanceCache.set(char, advance);
+    return advance;
+  }
+
+  invalidateAdvance(char) {
+    if (!char) {
+      this.advanceCache.clear?.();
+    } else {
+      this.advanceCache.delete?.(char);
+    }
+  }
   
   // 📓 tf.print
   print(
@@ -442,8 +593,10 @@ class Typeface {
     const font = this.glyphs;
     const size = pos.size || 1;
     const blockMargin = 1;
+    const inferredBlockWidth =
+      this.data?.glyphWidth ?? this.blockWidth ?? this.data?.width ?? 6;
     const blockHeight = ((this.blockHeight || 10) + blockMargin) * size;
-    const blockWidth = this.data.glyphWidth; // * size;
+    const blockWidth = inferredBlockWidth;
     const thickness = pos.thickness || 1;
     const rotation = pos.rotation || 0;
     const fullWidth = blockWidth * size * text.length;
@@ -466,16 +619,15 @@ class Typeface {
                           this.name === "MatrixChunky8";
     
     if (isProportional) {
-      // For proportional fonts, use character advance widths from font definition
-      const advances = this.data?.advances || {};
-      
       w = 0;
-      [...text.toString()].forEach((char) => {
-        const glyph = this.getGlyph(char);
-        const glyphAdvance = glyph?.advance; // Check individual glyph advance first
-        const charAdvance = glyphAdvance || advances[char] || blockWidth;
+      const chars = [...text.toString()];
+      for (const char of chars) {
+        if (char === "\n") {
+          continue;
+        }
+        const charAdvance = this.getAdvance(char) || inferredBlockWidth;
         w += charAdvance * size;
-      });
+      }
     } else {
       // For monospace fonts, use the original calculation
       w = text.length * blockWidth * size;
@@ -556,11 +708,8 @@ class Typeface {
           if (typeof charColor === 'object' && charColor.foreground !== undefined && charColor.background !== undefined) {
             // Draw background first
             if (charColor.background) {
-              const glyph = this.getGlyph(char);
-              const glyphAdvance = glyph?.advance; // Check individual glyph advance first
-              const charWidth = isProportional ? 
-                (glyphAdvance || this.data?.advances?.[char] || blockWidth) * size : 
-                blockWidth * size;
+              const charAdvance = this.getAdvance(char);
+              const charWidth = charAdvance * size;
               if (Array.isArray(charColor.background)) {
                 $.ink(...charColor.background);
               } else {
@@ -603,17 +752,8 @@ class Typeface {
         );
 
         // Move to next character position using proper advance width
-        if (isProportional) {
-          // Use character-specific advance width for proportional fonts
-          const glyph = this.getGlyph(char);
-          const glyphAdvance = glyph?.advance; // Check individual glyph advance first
-          const advances = this.data?.advances || {};
-          const charAdvance = glyphAdvance || advances[char] || blockWidth;
-          currentX += charAdvance * size;
-        } else {
-          // Use fixed width for monospace fonts
-          currentX += blockWidth * size;
-        }
+        const charAdvance = this.getAdvance(char);
+        currentX += charAdvance * size;
       }
     } else {
       // Original single-color rendering
