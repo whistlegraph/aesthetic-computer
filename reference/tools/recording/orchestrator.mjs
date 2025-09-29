@@ -396,11 +396,35 @@ export async function paint(api) {
         width = state.width || 2048;
         height = state.height || 2048;
       }
+
+      const renderWidth = width;
+      const renderHeight = height;
+
+      let targetWidth = this.width || renderWidth;
+      let targetHeight = this.height || renderHeight;
+
+      if (this.density) {
+        targetWidth = Math.max(1, Math.round(targetWidth * this.density));
+        targetHeight = Math.max(1, Math.round(targetHeight * this.density));
+      }
+
+      let vfFilter = '';
+      if (this.density) {
+        const baseWidth = Math.max(1, Math.round(targetWidth / this.density));
+        const baseHeight = Math.max(1, Math.round(targetHeight / this.density));
+        vfFilter = ` -vf "scale=${baseWidth}:${baseHeight}:flags=neighbor,scale=${targetWidth}:${targetHeight}:flags=neighbor"`;
+        console.log(`🔍 Density ${this.density}: Rendering at ${renderWidth}x${renderHeight} → chunky ${baseWidth}x${baseHeight} → final ${targetWidth}x${targetHeight} (${this.density}x pixel chunks)`);
+      } else if (targetWidth !== renderWidth || targetHeight !== renderHeight) {
+        vfFilter = ` -vf "scale=${targetWidth}:${targetHeight}:flags=lanczos"`;
+        console.log(`🔍 Scaling MP4: ${renderWidth}x${renderHeight} → ${targetWidth}x${targetHeight} with smooth interpolation`);
+      } else {
+        console.log(`🔍 MP4 at native resolution ${renderWidth}x${renderHeight}`);
+      }
       
       execSync(
-        `ffmpeg -y -f rawvideo -pix_fmt rgb24 -s ${width}x${height} -r 60 ` +
-        `-i ${allFramesFile} -c:v libx264 -pix_fmt yuv420p ` +
-        `-movflags +faststart -r 60 -b:v 32M ${outputMP4}`,
+        `ffmpeg -y -f rawvideo -pix_fmt rgb24 -s ${renderWidth}x${renderHeight} -r 60 ` +
+        `-i ${allFramesFile} -c:v libx264 -pix_fmt yuv420p` +
+        `${vfFilter} -movflags +faststart -r 60 -b:v 32M ${outputMP4}`,
         { stdio: 'inherit' }
       );
       
@@ -422,6 +446,17 @@ export async function paint(api) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
         width = state.width || 2048;
         height = state.height || 2048;
+      }
+
+      const renderWidth = width;
+      const renderHeight = height;
+
+      let targetWidth = this.width || renderWidth;
+      let targetHeight = this.height || renderHeight;
+
+      if (this.density) {
+        targetWidth = Math.max(1, Math.round(targetWidth * this.density));
+        targetHeight = Math.max(1, Math.round(targetHeight * this.density));
       }
 
       // Get all RGB frame files
@@ -486,18 +521,18 @@ export async function paint(api) {
       // Create final GIF with Floyd-Steinberg dithering
       console.log(`🌈 Applying Floyd-Steinberg dithering for smooth gradients...`);
       
-      // Always output 1024x1024 GIFs - use density to control pixel chunkiness
-      const finalOutputSize = 1024;
-      let scaleFilter = `scale=${finalOutputSize}:${finalOutputSize}:flags=lanczos`;
-      
+      let scaleFilter = `scale=${targetWidth}:${targetHeight}:flags=lanczos`;
+
       if (this.density) {
-        // Calculate the render resolution based on density
-        // Higher density = smaller render resolution = chunkier pixels when scaled to 1024x1024
-        const baseRenderSize = Math.round(finalOutputSize / this.density);
-        scaleFilter = `scale=${baseRenderSize}:${baseRenderSize}:flags=neighbor,scale=${finalOutputSize}:${finalOutputSize}:flags=neighbor`;
-        console.log(`🔍 Density ${this.density}: Rendering at ${width}x${height} → chunky ${baseRenderSize}x${baseRenderSize} → final 1024x1024 (${this.density}x pixel chunks)`);
+        // Calculate the render resolution based on density to create chunky pixels before scaling back up
+        const baseWidth = Math.max(1, Math.round(targetWidth / this.density));
+        const baseHeight = Math.max(1, Math.round(targetHeight / this.density));
+        scaleFilter = `scale=${baseWidth}:${baseHeight}:flags=neighbor,scale=${targetWidth}:${targetHeight}:flags=neighbor`;
+        console.log(`🔍 Density ${this.density}: Rendering at ${renderWidth}x${renderHeight} → chunky ${baseWidth}x${baseHeight} → final ${targetWidth}x${targetHeight} (${this.density}x pixel chunks)`);
+      } else if (targetWidth !== renderWidth || targetHeight !== renderHeight) {
+        console.log(`🔍 No density specified: Scaling ${renderWidth}x${renderHeight} → ${targetWidth}x${targetHeight} with smooth interpolation`);
       } else {
-        console.log(`🔍 No density specified: Scaling ${width}x${height} → 1024x1024 with smooth interpolation`);
+        console.log(`🔍 No scaling applied: keeping native resolution ${renderWidth}x${renderHeight}`);
       }
       
       const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},${scaleFilter}[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
@@ -783,13 +818,56 @@ export async function paint(api) {
 
 // CLI usage
 if (import.meta.url === `file://${process.argv[1]}`) {
-  let piece = process.argv[2] || 'elcid-flyer';
-  const duration = parseInt(process.argv[3]) || 30; // Duration is frame count, not milliseconds
-  const width = parseInt(process.argv[4]) || 1024;
-  const height = parseInt(process.argv[5]) || 1024;
-  
-  // Check for --gif flag
-  const gifMode = process.argv.includes('--gif');
+  const rawArgs = process.argv.slice(2);
+  const positional = [];
+  const options = {
+    gifMode: false,
+    density: null,
+  };
+
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i];
+    if (arg === '--gif') {
+      options.gifMode = true;
+      continue;
+    }
+    if (arg === '--density') {
+      const value = rawArgs[i + 1];
+      if (!value || value.startsWith('--')) {
+        console.error('❌ --density flag requires a numeric value');
+        process.exit(1);
+      }
+      options.density = parseFloat(value);
+      if (Number.isNaN(options.density) || options.density <= 0) {
+        console.error(`❌ Invalid density value: ${value}`);
+        process.exit(1);
+      }
+      i += 1;
+      continue;
+    }
+    if (arg === '--sixel' || arg === 'sixel') {
+      continue;
+    }
+    positional.push(arg);
+  }
+
+  let piece = positional[0] || 'elcid-flyer';
+  const duration = positional[1] ? parseInt(positional[1]) : 30; // Duration is frame count, not milliseconds
+  const width = positional[2] ? parseInt(positional[2]) : 1024;
+  const height = positional[3] ? parseInt(positional[3]) : 1024;
+
+  if (Number.isNaN(duration) || duration <= 0) {
+    console.error(`❌ Invalid duration value: ${positional[1]}`);
+    process.exit(1);
+  }
+  if (Number.isNaN(width) || width <= 0) {
+    console.error(`❌ Invalid width value: ${positional[2]}`);
+    process.exit(1);
+  }
+  if (Number.isNaN(height) || height <= 0) {
+    console.error(`❌ Invalid height value: ${positional[3]}`);
+    process.exit(1);
+  }
   
   // Handle kidlisp pieces (starting with $)
   if (piece.startsWith('$')) {
@@ -825,7 +903,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`📁 Created output directory: ${outputDir}`);
   }
   
-  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height, { gifMode });
+  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height, { gifMode: options.gifMode, density: options.density });
   orchestrator.renderAll().catch(console.error);
 }
 

@@ -10287,7 +10287,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
             try {
               const parsed = JSON.parse(data);
               if (parsed && parsed.source) {
-                console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${parsed.source.length} chars)`);
+                // console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${parsed.source.length} chars)`);
                 resolve(parsed.source);
               } else {
                 console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response from ${url}`, parsed);
@@ -10308,7 +10308,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
           if (response.ok) {
             return response.json().then(data => {
               if (data && data.source) {
-                console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${data.source.length} chars)`);
+                // console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${data.source.length} chars)`);
                 resolve(data.source);
               } else {
                 console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response from ${url}`, data);
@@ -10329,7 +10329,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
 
   // First try local dev server
   const localUrl = `/api/store-kidlisp?code=${nanoidCode}`;
-  console.log(`🔍 Attempting to fetch ${nanoidCode} from local dev server: ${localUrl}`);
+  // console.log(`🔍 Attempting to fetch ${nanoidCode} from local dev server: ${localUrl}`);
   const localSource = await tryFetch(localUrl, false);
   
   if (localSource) {
