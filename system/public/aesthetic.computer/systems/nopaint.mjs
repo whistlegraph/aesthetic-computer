@@ -216,6 +216,11 @@ function nopaint_act({
     
     system.nopaint.updateBrush(api, "touch");
 
+    // Reset preserved geometry for new stroke
+    system.nopaint.finalDragBox = null;
+    system.nopaint.finalStartDrag = null;
+    system.nopaint.finalEndPoint = null;
+
     // Reset stroke point count for new stroke
     currentStrokePointCount = 0;
 
@@ -325,6 +330,12 @@ function nopaint_act({
         y: system.nopaint.brush.dragBox.y,
         w: system.nopaint.brush.dragBox.w,
         h: system.nopaint.brush.dragBox.h
+      };
+    }
+    if (system.nopaint.brush) {
+      system.nopaint.finalEndPoint = {
+        x: system.nopaint.brush.x,
+        y: system.nopaint.brush.y
       };
     }
     if (system.nopaint.startDrag) {
