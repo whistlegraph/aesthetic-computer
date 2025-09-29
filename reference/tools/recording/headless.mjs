@@ -600,7 +600,7 @@ export class HeadlessAC {
           if (this.name === "font_1") {
             // Filter entries to only include actual glyph paths (string values, not prefixed with "glyph")
             const glyphsToLoad = Object.entries(this.data).filter(
-              ([g, loc]) => !g.startsWith("glyph") && typeof loc === 'string'
+              ([g, loc]) => !g.startsWith("glyph") && typeof loc === 'string' && loc !== 'false'
             );
             const promises = glyphsToLoad.map(([glyph, location], i) => {
               return $preload(
@@ -1008,18 +1008,6 @@ export class HeadlessAC {
           console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample before:`, Array.from(api.screen.pixels.slice(0, 20)));
           console.log(`🎨 FLOOD DEBUG: Current drawing color 'c':`, self.graph.c || 'undefined');
           
-          // If we're in random color mode (after first-line color wipe), use random colors for flood
-          if (self.useRandomColorsForDrawing) {
-            const randomColor = [
-              Math.floor(Math.random() * 256),
-              Math.floor(Math.random() * 256), 
-              Math.floor(Math.random() * 256),
-              255
-            ];
-            console.log(`🎲 FLOOD: Using random color in random drawing mode:`, randomColor);
-            self.graph.color(...randomColor);
-          }
-          
           self.graph.flood(...args);
           console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample after:`, Array.from(api.screen.pixels.slice(0, 20)));
         } else {
@@ -1072,21 +1060,27 @@ export class HeadlessAC {
       // Random choice function - KidLisp uses (?) for random values
       api['?'] = function(...choices) {
         logCall('?', choices);
-        
-        // If no choices provided, return a random color name (like original AC behavior)
+
+        const getRandomUnit = () => {
+          if (self.kidlispInstance && typeof self.kidlispInstance.seededRandom === 'function') {
+            return self.kidlispInstance.seededRandom();
+          }
+          if (typeof self.deterministicRandom === 'function') {
+            return self.deterministicRandom();
+          }
+          return Math.random();
+        };
+
+        // Match KidLisp semantics: return undefined when no choices provided
         if (choices.length === 0) {
-          // Define CSS color names (subset of the main ones for random selection)
-          const cssColorNames = [
-            'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet',
-            'pink', 'cyan', 'magenta', 'lime', 'purple', 'brown', 'black', 'white',
-            'gray', 'salmon', 'coral', 'gold', 'silver', 'navy', 'teal', 'olive'
-          ];
-          const randomColor = cssColorNames[Math.floor(Math.random() * cssColorNames.length)];
-          console.log(`🎲 Random color (no args): ${randomColor}`);
-          return randomColor;
+          console.log('🎲 Random "?" invoked without arguments → undefined');
+          return undefined;
         }
-        
-        const randomIndex = Math.floor(Math.random() * choices.length);
+
+        const randomIndex = Math.min(
+          choices.length - 1,
+          Math.floor(getRandomUnit() * choices.length)
+        );
         const result = choices[randomIndex];
         console.log(`🎲 Random choice from [${choices.join(', ')}]: ${result}`);
         return result;
@@ -1359,7 +1353,9 @@ export class HeadlessAC {
           // Override Date.now() for the KidLisp instance to use simulation time
           const originalDateNow = Date.now;
           self.kidlispInstance.getSimulationTime = () => {
-            return self.simulationTime || originalDateNow();
+            return typeof self.simulationTime === 'number'
+              ? self.simulationTime
+              : originalDateNow();
           };
           
           // Patch the KidLisp instance to use simulation time
@@ -1421,9 +1417,6 @@ export class HeadlessAC {
               if (self.kidlispInstance.firstLineColor && (api.frameIndex === undefined || api.frameIndex === 0)) {
                 console.log(`🎨 Detected first-line color: ${self.kidlispInstance.firstLineColor} (applying on frame 0 only)`);
                 api.wipe(self.kidlispInstance.firstLineColor);
-                // Mark that we should use random colors for drawing operations after first-line color wipe
-                self.useRandomColorsForDrawing = true;
-                console.log(`🎨 Enabled random color mode for drawing operations`);
               } else if (self.kidlispInstance.firstLineColor) {
                 console.log(`🎨 First-line color ${self.kidlispInstance.firstLineColor} detected but skipping wipe (frame ${api.frameIndex})`);
               }
