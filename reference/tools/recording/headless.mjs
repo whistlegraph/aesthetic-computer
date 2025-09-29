@@ -111,6 +111,7 @@ export class HeadlessAC {
     this.typeface = null;
     this.typeModule = null;
     this.apiCalls = [];
+    this.currentColor = [255, 255, 255, 255];
     this.firstLineColorApplied = false; // Track if first-line color has been applied
     this.hasDrawnFirstFrame = false; // Track if we've drawn the first frame for accumulation pieces
     this.kidlispInstance = null; // Will be initialized when API is created
@@ -657,7 +658,7 @@ export class HeadlessAC {
           if (this.name === "font_1") {
             // Filter entries to only include actual glyph paths (string values, not prefixed with "glyph")
             const glyphsToLoad = Object.entries(this.data).filter(
-              ([g, loc]) => !g.startsWith("glyph") && typeof loc === 'string'
+              ([g, loc]) => !g.startsWith("glyph") && typeof loc === 'string' && loc !== 'false'
             );
             const promises = glyphsToLoad.map(([glyph, location], i) => {
               return $preload(
@@ -779,6 +780,9 @@ export class HeadlessAC {
 
         if (args.length > 0) {
           const foundColor = timeGraphOperation('findColor', self.graph.findColor.bind(self.graph), ...args);
+          if (foundColor && typeof foundColor.length === 'number') {
+            self.currentColor = Array.from(foundColor);
+          }
           timeGraphOperation('color', self.graph.color.bind(self.graph), ...foundColor);
         }
 
@@ -810,6 +814,9 @@ export class HeadlessAC {
       api.ink = function(...args) {
         logCall('ink', args);
         const foundColor = timeGraphOperation('findColor', self.graph.findColor.bind(self.graph), ...args);
+        if (foundColor && typeof foundColor.length === 'number') {
+          self.currentColor = Array.from(foundColor);
+        }
         timeGraphOperation('color', self.graph.color.bind(self.graph), ...foundColor);
         return api;
       };
@@ -1062,7 +1069,11 @@ export class HeadlessAC {
         // Basic flood fill implementation
         if (self.graph && self.graph.flood) {
           console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample before:`, Array.from(api.screen.pixels.slice(0, 20)));
-          self.graph.flood(...args);
+          const floodArgs = [...args];
+          if (floodArgs.length <= 2 && self.currentColor && typeof self.currentColor.length === 'number') {
+            floodArgs.push(Array.from(self.currentColor));
+          }
+          self.graph.flood(...floodArgs);
           console.log(`🔧 FLOOD DEBUG: Using graph.flood, api.screen sample after:`, Array.from(api.screen.pixels.slice(0, 20)));
         } else {
           console.log('⚠️ Graph flood not available, using simple fill');
@@ -1381,7 +1392,9 @@ export class HeadlessAC {
           // Override Date.now() for the KidLisp instance to use simulation time
           const originalDateNow = Date.now;
           self.kidlispInstance.getSimulationTime = () => {
-            return self.simulationTime || originalDateNow();
+            return typeof self.simulationTime === 'number'
+              ? self.simulationTime
+              : originalDateNow();
           };
           
           // Patch the KidLisp instance to use simulation time
@@ -1445,6 +1458,9 @@ export class HeadlessAC {
               if (self.kidlispInstance.firstLineColor && (api.frameIndex === undefined || api.frameIndex === 0)) {
                 console.log(`🎨 Detected first-line color: ${self.kidlispInstance.firstLineColor} (applying on frame 0 only)`);
                 api.wipe(self.kidlispInstance.firstLineColor, { firstLineOnce: true });
+                if (typeof globalThis.storePersistentFirstLineColor === 'function') {
+                  globalThis.storePersistentFirstLineColor(self.kidlispInstance.firstLineColor);
+                }
               } else if (self.kidlispInstance.firstLineColor) {
                 console.log(`🎨 First-line color ${self.kidlispInstance.firstLineColor} detected but skipping wipe (frame ${api.frameIndex})`);
               }
