@@ -511,33 +511,102 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     
     if ((width > tempCanvas.width || height > tempCanvas.height) && !isVeryEarlyLoad) {
-      // Default to purple for KidLisp pieces (most common case)
-      let bgColor = 'purple';
-      let r = 128, g = 0, b = 128;
-      
-      // Try to get actual background color from persistent storage
-      try {
-        if (typeof globalThis.getPersistentFirstLineColor === 'function') {
-          const persistentColor = globalThis.getPersistentFirstLineColor();
-          if (persistentColor) {
-            bgColor = persistentColor;
-            if (typeof globalThis.graph?.color?.coerce === 'function') {
-              const rgbValues = globalThis.graph.color.coerce(bgColor);
-              [r, g, b] = rgbValues;
+      const coerceToRGB = (color) => {
+        if (!color) return null;
+        try {
+          if (typeof globalThis.graph?.color?.coerce === "function") {
+            const rgb = globalThis.graph.color.coerce(color);
+            if (Array.isArray(rgb) && rgb.length >= 3) {
+              return [rgb[0], rgb[1], rgb[2]];
             }
           }
+        } catch (_) {
+          // graph.color.coerce isn't always available (e.g. non-KidLisp pieces)
         }
-      } catch (e) {
-        // Use default purple values
+
+        try {
+          coerceToRGB.ctx = coerceToRGB.ctx || document.createElement("canvas").getContext("2d");
+          const parseCtx = coerceToRGB.ctx;
+          parseCtx.fillStyle = "#000";
+          parseCtx.clearRect(0, 0, 1, 1);
+          parseCtx.fillStyle = color;
+          parseCtx.fillRect(0, 0, 1, 1);
+          const data = parseCtx.getImageData(0, 0, 1, 1).data;
+          return [data[0], data[1], data[2]];
+        } catch (_) {
+          return null;
+        }
+      };
+
+      const sampleExistingPixel = () => {
+        if (!tempCanvas.width || !tempCanvas.height) {
+          return null;
+        }
+
+        const samplePoints = [
+          [0, 0],
+          [Math.max(tempCanvas.width - 1, 0), 0],
+          [0, Math.max(tempCanvas.height - 1, 0)],
+          [Math.max(tempCanvas.width - 1, 0), Math.max(tempCanvas.height - 1, 0)],
+          [Math.floor(tempCanvas.width / 2), Math.floor(tempCanvas.height / 2)],
+        ];
+
+        for (const [sx, sy] of samplePoints) {
+          try {
+            const data = tempCtx.getImageData(sx, sy, 1, 1).data;
+            if (data[3] !== 0) {
+              return [data[0], data[1], data[2]];
+            }
+          } catch (_) {
+            // Canvas may be tainted; abort sampling altogether
+            break;
+          }
+        }
+
+        return null;
+      };
+
+      let fillRGB = null;
+
+      try {
+        const persistentColor = typeof globalThis.getPersistentFirstLineColor === "function"
+          ? globalThis.getPersistentFirstLineColor()
+          : null;
+        fillRGB = coerceToRGB(persistentColor);
+      } catch (_) {
+        fillRGB = null;
       }
-      
-      // Fill new areas with background color
+
+      if (!fillRGB && typeof globalThis.globalKidLispInstance?.getBackgroundFillColor === "function") {
+        fillRGB = coerceToRGB(globalThis.globalKidLispInstance.getBackgroundFillColor());
+      }
+
+      if (!fillRGB && imageData && imageData.data && imageData.data.length >= 4) {
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] !== 0) {
+            fillRGB = [data[i], data[i + 1], data[i + 2]];
+            break;
+          }
+        }
+      }
+
+      if (!fillRGB) {
+        fillRGB = sampleExistingPixel();
+      }
+
+      if (!fillRGB) {
+        // Fallback to neutral black if everything else fails
+        fillRGB = [0, 0, 0];
+      }
+
+      const [r, g, b] = fillRGB;
       ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-      
+
       if (width > tempCanvas.width) {
         ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
       }
-      
+
       if (height > tempCanvas.height) {
         ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
       }
