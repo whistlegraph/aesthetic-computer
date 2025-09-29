@@ -292,37 +292,17 @@ function paint(
 
     // 🪧 Paint the message and its contents.
     ink("white", layout.inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
+    
+    // Generate dynamic color-coded message with hover states
+    const dynamicColorMessage = generateDynamicColorMessage(message);
+    
+    // Render the color-coded message using the modern color system
     ink(layout.msgColor).write(
-      layout.paintableMessage,
+      dynamicColorMessage,
       { x, y },
       undefined,
       screen.width - x,
     );
-    layout.handles.forEach((handle) => {
-      ink(handle.over ? "yellow" : handle.color).write(handle.word, {
-        x: x + handle.x,
-        y: handle.y,
-      });
-    });
-    layout.prompts.forEach((prompt) => {
-      // if (handle.over) handle.color = pen?.drawing ? "yellow" : [190, 180, 255];
-      prompt.lines.forEach((line) => {
-        ink(prompt.over ? "yellow" : "lime").write(line.text, {
-          x: x + line.x,
-          y: line.y,
-        });
-      });
-    });
-
-    layout.urls.forEach((url) => {
-      // if (handle.over) handle.color = pen?.drawing ? "yellow" : [190, 180, 255];
-      url.lines.forEach((line) => {
-        ink(url.over ? "yellow" : "orange").write(line.text, {
-          x: x + line.x,
-          y: line.y,
-        });
-      });
-    });
 
     const ago = timeAgo(message.when);
     let overTimestamp = false;
@@ -516,80 +496,46 @@ function act(
           message.layout.inBox = true;
 
           // 📆 `timestamp` hover and activate.
-          //    (Will always only be on one line)
-          // for (let h = 0; h < message.layout.timestamp.length; h += 1) {
-          //  const handle = message.layout.handles[h];
-          {
-            const timestamp = message.layout.timestamp;
-            const startX = message.layout.x + timestamp.x;
-            if (
-              e.x > startX &&
-              e.x < startX + timestamp.width &&
-              e.y > timestamp.y &&
-              e.y < timestamp.y + timestamp.height
-            ) {
-              timestamp.over = true;
-              break;
-            }
-          }
-          // }
-
-          // 👱 `handle` hover and activate.
-          //    (Will always only be on one line)
-          for (let h = 0; h < message.layout.handles.length; h += 1) {
-            const handle = message.layout.handles[h];
-            const startX = message.layout.x + handle.x;
-
-            if (
-              e.x > startX &&
-              e.x < startX + handle.width &&
-              e.y > handle.y &&
-              e.y < handle.y + handle.height
-            ) {
-              handle.over = true;
-              break;
-            }
+          const timestamp = message.layout.timestamp;
+          const startX = message.layout.x + timestamp.x;
+          if (
+            e.x > startX &&
+            e.x < startX + timestamp.width &&
+            e.y > timestamp.y &&
+            e.y < timestamp.y + timestamp.height
+          ) {
+            timestamp.over = true;
+            break;
           }
 
-          // 🖥️ `prompt` hover and activate.
-          //     (With line break support)
-          for (let p = 0; p < message.layout.prompts.length; p += 1) {
-            const prompt = message.layout.prompts[p];
-            for (let l = 0; l < prompt.lines.length; l += 1) {
-              const line = prompt.lines[l];
-              const startX = message.layout.x + line.x;
-
-              if (
-                e.x > startX &&
-                e.x < startX + line.width &&
-                e.y > line.y &&
-                e.y < line.y + line.height
-              ) {
-                prompt.over = true;
-                break;
-              }
+          // Check for hover on interactive elements
+          const parsedElements = parseMessageElements(message.fullMessage);
+          const relativeX = e.x - message.layout.x;
+          const relativeY = e.y - message.layout.y;
+          
+          // Reset hover states
+          if (!message.layout.hoveredElements) {
+            message.layout.hoveredElements = new Set();
+          }
+          message.layout.hoveredElements.clear();
+          
+          // Check each interactive element for hover
+          for (const element of parsedElements) {
+            const elementPosition = calculateElementPosition(
+              element, 
+              message.fullMessage, 
+              message.tb.lines, 
+              text
+            );
+            
+            if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
+              message.layout.hoveredElements.add(element);
+              break; // Only hover one element at a time
             }
           }
 
-          // 🕸️ `url` hover and activate.
-          //     (With line break support)
-          for (let u = 0; u < message.layout.urls.length; u += 1) {
-            const url = message.layout.urls[u];
-            for (let l = 0; l < url.lines.length; l += 1) {
-              const line = url.lines[l];
-              const startX = message.layout.x + line.x;
-
-              if (
-                e.x > startX &&
-                e.x < startX + line.width &&
-                e.y > line.y &&
-                e.y < line.y + line.height
-              ) {
-                url.over = true;
-                break;
-              }
-            }
-          }
+          // Store the clicked message for potential interaction
+          message.clicked = true;
 
           // TODO: ⏰ Add timestamp hover and activate per message.
           //            - With 'delete' action.
@@ -603,43 +549,51 @@ function act(
         if (!message.tb || !message.layout) {
           continue; // If `tb` is not defined then kill this. 👾
         }
-        // 🟠 TODO: Reset all the other potential tapped handles and prompts.
-        message.layout.inBox = false;        // Handles
-        for (let h = 0; h < message.layout.handles.length; h += 1) {
-          const handle = message.layout.handles[h];
-          if (handle.over) {
-            beep();
-            hud.labelBack();
-            jump(handle.word);
-            handle.over = false;
-            break;
-          }
-        }        // Prompts
-        for (let p = 0; p < message.layout.prompts.length; p += 1) {
-          const prompt = message.layout.prompts[p];
-          if (prompt.over) {
-            beep();
-            hud.labelBack();
-            const innerPrompt = prompt.text.slice(1, -1); // Unquote prompt text.
-            if (innerPrompt.startsWith(">")) {
-              jump("prompt " + innerPrompt.slice(1));
-            } else {
-              jump(innerPrompt);
+        message.layout.inBox = false;
+        
+        // Handle clicks on interactive elements with proper hit detection
+        if (message.clicked) {
+          message.clicked = false;
+          
+          // Parse the original message to find interactive elements
+          const parsedElements = parseMessageElements(message.fullMessage);
+          
+          // Calculate click position relative to message
+          const relativeX = e.x - message.layout.x;
+          const relativeY = e.y - message.layout.y;
+          
+          // Check each interactive element for hit detection
+          for (const element of parsedElements) {
+            // Calculate the position of this element in the rendered text
+            const elementPosition = calculateElementPosition(
+              element, 
+              message.fullMessage, 
+              message.tb.lines, 
+              text
+            );
+            
+            if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
+              if (element.type === "handle") {
+                beep();
+                hud.labelBack();
+                jump(element.text);
+                break;
+              } else if (element.type === "prompt") {
+                beep();
+                hud.labelBack();
+                const innerPrompt = element.text.slice(1, -1); // Unquote prompt text.
+                if (innerPrompt.startsWith(">")) {
+                  jump("prompt " + innerPrompt.slice(1));
+                } else {
+                  jump(innerPrompt);
+                }
+                break;
+              } else if (element.type === "url") {
+                beep();
+                jump("out:" + element.text);
+                break;
+              }
             }
-            prompt.over = false;
-            break;
-          }
-        }
-
-        // URLs
-        for (let u = 0; u < message.layout.urls.length; u += 1) {
-          const url = message.layout.urls[u];
-          if (url.over) {
-            beep();
-            jump("out:" + url.text);
-            // console.log("🟨 Visiting...", url);
-            url.over = false;
-            break;
           }
         }
 
@@ -647,6 +601,11 @@ function act(
         const timestamp = message.layout.timestamp;
         if (timestamp.over) {
           timestamp.over = false;
+        }
+        
+        // Clear hover states on lift
+        if (message.layout.hoveredElements) {
+          message.layout.hoveredElements.clear();
         }
       }
     }
@@ -852,137 +811,38 @@ function computeMessagesLayout({ screen, text }, chat) {
       y -= rowHeight;
       continue;
     }
-      // Outline a 🪧 renderable message and its geometry.
-    let msgColor = "white",
-      inBox = msg.lastLayout?.inBox || false; // A flag that determines if we are in the message box or not.
+      // Create a modern color-coded message using \color\ syntax like KidLisp
+    let colorCodedMessage = msg.fullMessage;
+    let msgColor = "white";
+    let inBox = msg.lastLayout?.inBox || false;
 
-    const handles = []; // Parse '@handle' names.
-    const prompts = []; // Parse `prompts`.
-    const urls = []; // Parse any 'urls'.
-    const paintableMessage = msg.fullMessage;
-      // Debug: Log message formats (can be removed once mapping is confirmed stable)
-    // console.log("🔍 Message formats:");
-    // console.log("  msg.text (original):", msg.text);
-    // console.log("  msg.fullMessage (with handle):", msg.fullMessage);
-    // console.log("  paintableMessage:", paintableMessage);
+    // Parse elements from the message  
+    const parsedElements = parseMessageElements(msg.fullMessage);
     
-    // Parse elements from the original message
-    const parsedElements = parseMessageElements(paintableMessage);
-    const activeContainers = new Map(); // Track active element containers// Build a more accurate mapping of words to their positions in the original message
-    const wordToPositionMap = buildWordPositionMap(paintableMessage, msg.tb.lines);
-
-    for (let rowIndex = 0; rowIndex < msg.tb.lines.length; rowIndex += 1) {
-      let rowY = y + rowIndex * rowHeight;
-      let cursorX = 0;
-
-      for (
-        let wordIndex = 0;
-        wordIndex < msg.tb.lines[rowIndex].length;
-        wordIndex += 1
-      ) {
-        const word = msg.tb.lines[rowIndex][wordIndex];
-        const wordWidth = text.width(word);
-        
-        // Get the word's position from our mapping
-        const wordMapKey = `${rowIndex}-${wordIndex}`;
-        const wordPosition = wordToPositionMap.get(wordMapKey);
-        
-        if (!wordPosition) {
-          cursorX += wordWidth;
-          if (wordIndex < msg.tb.lines[rowIndex].length - 1) {
-            cursorX += text.width(" ");
-          }
-          continue;
-        }
-        
-        const { startIndex: wordStartIndex, endIndex: wordEndIndex } = wordPosition;        // Find which element (if any) this word range overlaps with
-        const overlappingElements = [];
-
-        for (const element of parsedElements) {
-          // Check if word's range has any overlap with element's range
-          const overlapStart = Math.max(wordStartIndex, element.start);
-          const overlapEnd = Math.min(wordEndIndex, element.end);
-          const overlapLength = Math.max(0, overlapEnd - overlapStart);
-          
-          if (overlapLength > 0) {
-            overlappingElements.push({
-              element,
-              overlapStart,
-              overlapEnd,
-              overlapLength
-            });
-          }
-        }
-
-        // Process each overlapping element
-        for (const overlap of overlappingElements) {
-          const { element, overlapStart, overlapEnd } = overlap;
-          
-          // Calculate the portion of the word that corresponds to this element
-          const elementStartInWord = Math.max(0, overlapStart - wordStartIndex);
-          const elementEndInWord = Math.min(word.length, overlapEnd - wordStartIndex);
-          const elementText = word.substring(elementStartInWord, elementEndInWord);
-          
-          if (elementText.length === 0) continue;
-
-          if (element.type === "handle") {
-            // Handles are stored as individual segments
-            handles.push({
-              word: elementText,
-              color: "pink",
-              x: cursorX + text.width(word.substring(0, elementStartInWord)),
-              y: rowY,
-              width: text.width(elementText),
-              height: rowHeight,
-            });
-          } else {
-            // For URLs and prompts, use containers
-            let container = activeContainers.get(element.text);
-
-            if (!container) {
-              // Create new container for this element
-              container = {
-                text: element.text,
-                lines: [],
-              };
-
-              if (element.type === "url") {
-                urls.push(container);
-              } else if (element.type === "prompt") {
-                prompts.push(container);
-              }
-
-              activeContainers.set(element.text, container);
-            }            // Add this portion to the container
-            container.lines.push({
-              text: elementText,
-              x: cursorX + text.width(word.substring(0, elementStartInWord)),
-              y: rowY,
-              width: text.width(elementText),
-              height: rowHeight,
-            });
-          }
-        }
-
-        cursorX += wordWidth;
-        if (wordIndex < msg.tb.lines[rowIndex].length - 1) {
-          cursorX += text.width(" ");
-        }
+    // Sort elements by start position (reverse order for safe replacement)
+    parsedElements.sort((a, b) => b.start - a.start);
+    
+    // Replace each element with color-coded version
+    for (const element of parsedElements) {
+      const elementText = msg.fullMessage.substring(element.start, element.end);
+      let colorCodedText = "";
+      
+      if (element.type === "handle") {
+        colorCodedText = `\\pink\\${elementText}\\white\\`;
+      } else if (element.type === "url") {
+        colorCodedText = `\\cyan\\${elementText}\\white\\`;
+      } else if (element.type === "prompt") {
+        colorCodedText = `\\yellow\\${elementText}\\white\\`;
       }
-    }// Debug: Log the parsed elements and text box lines for URLs (can be removed once mapping is confirmed stable)
-    // if (parsedElements.some(e => e.type === "url")) {
-    //   console.log("📝 Original message:", paintableMessage);
-    //   console.log("📦 Text box lines:", msg.tb.lines);
-    //   console.log("🗺️ Word position map:", Array.from(wordToPositionMap.entries()));
-    // }    // Debug: Log segment counts for multi-line elements (can be removed once confirmed stable)
-    // urls.forEach((url) => {
-    //   console.log(`🕸️ URL "${url.text}" has ${url.lines.length} segments`);
-    // });
-    // 
-    // prompts.forEach((prompt) => {
-    //   console.log(`💬 Prompt "${prompt.text}" has ${prompt.lines.length} segments`);
-    // });
+      
+      // Replace the original text with the color-coded version
+      colorCodedMessage = 
+        colorCodedMessage.substring(0, element.start) + 
+        colorCodedText + 
+        colorCodedMessage.substring(element.end);
+    }
 
+    // Create layout using the color-coded message
     const timestamp = {
       x: text.width(msg.tb.lines[msg.tb.lines.length - 1]) + 6,
       y: y + (msg.tb.lines.length - 1) * rowHeight,
@@ -990,6 +850,7 @@ function computeMessagesLayout({ screen, text }, chat) {
       width: text.width(timeAgo(msg.when)),
     };
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
+    
     msg.layout = {
       x: leftMargin,
       y,
@@ -999,10 +860,10 @@ function computeMessagesLayout({ screen, text }, chat) {
       timestampColor,
       msgColor,
       inBox,
-      handles,
-      prompts,
-      urls,
-      paintableMessage,
+      handles: [], // No longer needed with color codes
+      prompts: [], // No longer needed with color codes  
+      urls: [], // No longer needed with color codes
+      paintableMessage: colorCodedMessage,
     };
 
     delete msg.lastLayout;
@@ -1166,4 +1027,90 @@ function parseMessageElements(message) {
   elements.sort((a, b) => a.start - b.start);
 
   return elements;
+}
+
+// Calculate the rendered position of an interactive element in the text layout
+function calculateElementPosition(element, fullMessage, textLines, text) {
+  // Find which line(s) and character positions this element spans
+  let charCount = 0;
+  
+  for (let lineIndex = 0; lineIndex < textLines.length; lineIndex++) {
+    const lineText = textLines[lineIndex]; // This is already a string
+    const lineStart = charCount;
+    const lineEnd = charCount + lineText.length;
+    
+    // Check if element starts in this line
+    if (element.start >= lineStart && element.start <= lineEnd) {
+      const startInLine = element.start - lineStart;
+      const endInLine = Math.min(element.end - lineStart, lineText.length);
+      
+      // Calculate pixel position
+      const startX = text.width(lineText.substring(0, startInLine));
+      const width = text.width(lineText.substring(startInLine, endInLine));
+      
+      return {
+        x: startX,
+        y: lineIndex * rowHeight,
+        width: width,
+        height: rowHeight,
+        lineIndex: lineIndex
+      };
+    }
+    
+    charCount += lineText.length + 1; // +1 for space between lines
+  }
+  
+  return null; // Element not found in layout
+}
+
+// Check if a click position is inside an element's bounds
+function isClickInsideElement(clickX, clickY, elementPosition) {
+  return (
+    clickX >= elementPosition.x &&
+    clickX <= elementPosition.x + elementPosition.width &&
+    clickY >= elementPosition.y &&
+    clickY <= elementPosition.y + elementPosition.height
+  );
+}
+
+// Generate a color-coded message with dynamic hover states
+function generateDynamicColorMessage(message) {
+  let colorCodedMessage = message.fullMessage;
+  const parsedElements = parseMessageElements(message.fullMessage);
+  const hoveredElements = message.layout.hoveredElements || new Set();
+  
+  // Sort elements by start position (reverse order for safe replacement)
+  parsedElements.sort((a, b) => b.start - a.start);
+  
+  // Replace each element with color-coded version
+  for (const element of parsedElements) {
+    const elementText = message.fullMessage.substring(element.start, element.end);
+    let colorCodedText = "";
+    
+    // Check if this element is being hovered
+    const isHovered = Array.from(hoveredElements).some(hoveredEl => 
+      hoveredEl.start === element.start && 
+      hoveredEl.end === element.end && 
+      hoveredEl.type === element.type
+    );
+    
+    if (element.type === "handle") {
+      const color = isHovered ? "yellow" : "pink";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    } else if (element.type === "url") {
+      const color = isHovered ? "yellow" : "cyan";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    } else if (element.type === "prompt") {
+      const color = isHovered ? "yellow" : "lime";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    }
+    
+    // Replace the original text with the color-coded version
+    colorCodedMessage = 
+      colorCodedMessage.substring(0, element.start) + 
+      colorCodedText + 
+      colorCodedMessage.substring(element.end);
+  }
+  
+  return colorCodedMessage;
 }
