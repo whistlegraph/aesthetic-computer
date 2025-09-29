@@ -5,6 +5,7 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { pathToFileURL, fileURLToPath } from 'url';
 import { PNG } from 'pngjs';
 import { timestamp, resetRainbowCache, resetZebraCache, getRainbowState, setRainbowState, getZebraState, setZebraState } from "../../../system/public/aesthetic.computer/lib/num.mjs";
@@ -111,6 +112,7 @@ export class HeadlessAC {
     this.typeModule = null;
     this.apiCalls = [];
     this.firstLineColorApplied = false; // Track if first-line color has been applied
+    this.hasDrawnFirstFrame = false; // Track if we've drawn the first frame for accumulation pieces
     this.kidlispInstance = null; // Will be initialized when API is created
     this.kidlispState = null; // Will hold state to restore
     this.density = options.density || null; // Custom density parameter
@@ -122,9 +124,15 @@ export class HeadlessAC {
     
     // Embedded layer restoration
     this.deferredEmbeddedLayers = null; // Will hold embedded layers for restoration after KidLisp setup
-    
+
+    // Deterministic random management (persisted across frames)
+    this.originalMathRandom = Math.random;
+    this.mathRandomOverrideInstalled = false;
+    this.randomState = null;
+
     // Performance optimizations
     this.enableV8Optimizations();
+    this.initializeRandomSystem();
     
     // Initialize with opaque black (like normal AC environment)
     // This ensures proper alpha blending behavior for semi-transparent elements
@@ -386,17 +394,44 @@ export class HeadlessAC {
             height: layer.buffer.height,
             filename: this.saveEmbeddedLayerBuffer(layer.cacheId || layer.id || `layer_${Date.now()}`, layer.buffer.pixels)
           } : null,
-          // Save minimal KidLisp instance state - mainly for frame counting
+          // Save complete KidLisp instance state including timing for persistence
           kidlispInstanceState: layer.kidlispInstance ? {
             frameCount: layer.kidlispInstance.frameCount || 0,
-            localFrameCount: layer.localFrameCount || 0
+            localFrameCount: layer.localFrameCount || 0,
+            lastSecondExecutions: layer.kidlispInstance.lastSecondExecutions || [],
+            sequenceCounters: layer.kidlispInstance.sequenceCounters ?
+              Object.fromEntries(layer.kidlispInstance.sequenceCounters) : {},
+            timingStates: layer.kidlispInstance.timingStates ?
+              Object.fromEntries(layer.kidlispInstance.timingStates) : {}
           } : null
         })) : [],
-        // Save embedded layer cache structure with full layer references
-        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ? Object.fromEntries(this.kidlispInstance.embeddedLayerCache) : {},
-        
-        // Local environment
-        localEnv: this.kidlispInstance.localEnv || {},
+        // Save embedded layer cache structure WITHOUT pixel data but with metadata
+        embeddedLayerCache: this.kidlispInstance.embeddedLayerCache ?
+          Object.fromEntries(
+            Array.from(this.kidlispInstance.embeddedLayerCache.entries()).map(([key, layer]) => [
+              key,
+              {
+                ...layer,
+                buffer: layer.buffer ? {
+                  width: layer.buffer.width,
+                  height: layer.buffer.height,
+                  filename: layer.buffer.filename || `${key}.bin`
+                } : null,
+                kidlispInstance: layer.kidlispInstance ? {
+                  frameCount: layer.kidlispInstance.frameCount || 0,
+                  localFrameCount: layer.kidlispInstance.localFrameCount || 0,
+                  lastSecondExecutions: layer.kidlispInstance.lastSecondExecutions || [],
+                  sequenceCounters: layer.kidlispInstance.sequenceCounters ?
+                    Object.fromEntries(layer.kidlispInstance.sequenceCounters) : {},
+                  timingStates: layer.kidlispInstance.timingStates ?
+                    Object.fromEntries(layer.kidlispInstance.timingStates) : {}
+                } : null
+              }
+            ])
+          ) : {},
+
+        // Local environment (cleaned of pixel buffers)
+        localEnv: this.cleanEnvForSerialization(this.kidlispInstance.localEnv || {}),
         
         // Rainbow and zebra color cycling state
         rainbowState: getRainbowState(),
@@ -404,6 +439,93 @@ export class HeadlessAC {
       };
     }
     return {};
+  }
+
+  // Deterministic random helpers -------------------------------------------------
+  initializeRandomSystem(state = null) {
+    this.randomState = this.normalizeRandomState(state);
+    this.installMathRandomOverride();
+  }
+
+  installMathRandomOverride() {
+    if (this.mathRandomOverrideInstalled) {
+      return;
+    }
+    const self = this;
+    Math.random = function() {
+      return self.nextRandom();
+    };
+    this.mathRandomOverrideInstalled = true;
+  }
+
+  normalizeRandomState(state) {
+    let seed;
+    let sequence;
+    if (state && typeof state.seed === 'number') {
+      seed = state.seed >>> 0;
+      sequence = typeof state.sequence === 'number' ? state.sequence >>> 0 : 0;
+    } else {
+      seed = this.generateRandomSeed();
+      sequence = 0;
+    }
+    return { seed, sequence };
+  }
+
+  generateRandomSeed() {
+    try {
+      return crypto.randomBytes(4).readUInt32LE(0);
+    } catch (error) {
+      const fallback = Number((BigInt(Date.now()) ^ process.hrtime.bigint()) & BigInt(0xffffffff));
+      return fallback >>> 0;
+    }
+  }
+
+  nextRandom() {
+    if (!this.randomState) {
+      this.randomState = this.normalizeRandomState();
+    }
+    let seed = (this.randomState.seed + 0x6D2B79F5) >>> 0;
+    this.randomState.seed = seed;
+
+    let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), (61 | t));
+    const result = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+
+    this.randomState.sequence = ((this.randomState.sequence || 0) + 1) >>> 0;
+    return result;
+  }
+
+  setRandomState(state) {
+    this.randomState = this.normalizeRandomState(state);
+    this.installMathRandomOverride();
+  }
+
+  getRandomState() {
+    if (!this.randomState) {
+      this.randomState = this.normalizeRandomState();
+    }
+    return { ...this.randomState };
+  }
+
+  // Clean environment objects of pixel buffer data for serialization
+  cleanEnvForSerialization(env) {
+    if (!env || typeof env !== 'object') return env;
+
+    const cleaned = {};
+    for (const [key, value] of Object.entries(env)) {
+      if (key === 'screen' && value && value.pixels) {
+        cleaned[key] = {
+          width: value.width,
+          height: value.height
+          // Exclude pixel buffer to avoid massive serialization payloads
+        };
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        cleaned[key] = this.cleanEnvForSerialization(value);
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
   }
 
   // Enable V8 optimizations for performance
@@ -641,19 +763,47 @@ export class HeadlessAC {
       api.pen = { x: 0, y: 0 };
       
       // Drawing functions that call graph.mjs directly
-      api.wipe = function(...args) {
-        logCall('wipe', args);
+      api.wipe = function(...rawArgs) {
+        logCall('wipe', rawArgs);
+
+        // Support optional options object as last parameter (e.g. { force: true })
+        const args = [...rawArgs];
+        let options = {};
+        if (args.length > 0) {
+          const maybeOptions = args[args.length - 1];
+          if (maybeOptions && typeof maybeOptions === 'object' && !Array.isArray(maybeOptions)) {
+            options = { ...maybeOptions };
+            args.pop();
+          }
+        }
+
         if (args.length > 0) {
           const foundColor = timeGraphOperation('findColor', self.graph.findColor.bind(self.graph), ...args);
           timeGraphOperation('color', self.graph.color.bind(self.graph), ...foundColor);
         }
-        // Only clear if we haven't restored a background buffer
-        // This prevents wiping out the accumulated frame buffer during multi-frame rendering
-        if (!self.backgroundBufferRestored) {
-          timeGraphOperation('clear', self.graph.clear.bind(self.graph));
+
+        const skipForBackground = self.backgroundBufferRestored && !options.force;
+        const skipForFirstLine = options.firstLineOnce && self.firstLineColorApplied;
+        const shouldSkipClear = skipForBackground || skipForFirstLine;
+
+        if (shouldSkipClear) {
+          if (skipForFirstLine) {
+            console.log('🎨 Skipping clear - first-line wipe already applied this render');
+          } else {
+            console.log('🎨 Skipping clear - background buffer was restored');
+          }
         } else {
-          console.log('🎨 Skipping clear - background buffer was restored');
+          timeGraphOperation('clear', self.graph.clear.bind(self.graph));
+          if (options.firstLineOnce) {
+            self.firstLineColorApplied = true;
+          }
         }
+
+        if (options.firstLineOnce && !self.firstLineColorApplied) {
+          // Ensure we flag the first-line wipe even if skip path was taken
+          self.firstLineColorApplied = true;
+        }
+
         return api;
       };
       
@@ -772,6 +922,20 @@ export class HeadlessAC {
       api.plot = function(...args) {
         logCall('plot', args);
         timeGraphOperation('point', self.graph.point.bind(self.graph), ...args);
+        return api;
+      };
+      
+      api.repeat = function(count, callback) {
+        logCall('repeat', [count]);
+        if (typeof count === 'number' && typeof callback === 'function') {
+          for (let i = 0; i < count; i++) {
+            // Force rainbow advancement for each iteration to create different colors
+            resetRainbowCache();
+            callback();
+          }
+        } else {
+          console.warn('⚠️ repeat expects (count, callback)');
+        }
         return api;
       };
       
@@ -915,46 +1079,39 @@ export class HeadlessAC {
       };
       
       // Color name functions - KidLisp uses these as background setters
-      api.black = function() {
-        logCall('black', []);
-        console.log('🖤 Setting background: black');
-        self.graph.color(0, 0, 0, 255);
-        self.graph.clear();
-        return api;
+      const createBackgroundShortcut = (colorName) => {
+        return function(...args) {
+          logCall(colorName, args);
+          const wipeArgs = args.length > 0 ? args : [colorName];
+          return api.wipe(...wipeArgs, { force: true });
+        };
       };
+
+      api.black = createBackgroundShortcut('black');
+      api.salmon = createBackgroundShortcut('salmon');
+      api.white = createBackgroundShortcut('white');
+      api.gray = createBackgroundShortcut('gray');
       
-      api.salmon = function() {
-        logCall('salmon', []);
-        console.log('🍣 Setting background: salmon');
-        self.graph.color(250, 128, 114, 255);
-        self.graph.clear();
-        return api;
+      // Random choice helpers - mirror KidLisp's choose/? behavior
+      api.choose = function(...choices) {
+        logCall('choose', choices);
+        if (choices.length === 0) {
+          return undefined;
+        }
+        const randomIndex = Math.floor(Math.random() * choices.length);
+        return choices[randomIndex];
       };
-      
-      api.white = function() {
-        logCall('white', []);
-        console.log('🤍 Setting background: white');
-        self.graph.color(255, 255, 255, 255);
-        self.graph.clear();
-        return api;
-      };
-      
-      api.gray = function() {
-        logCall('gray', []);
-        console.log('🩶 Setting background: gray');
-        self.graph.color(128, 128, 128, 255);
-        self.graph.clear();
-        return api;
-      };
-      
-      // Random choice function - KidLisp uses (?) for random values
+
       api['?'] = function(...choices) {
         logCall('?', choices);
-        if (choices.length === 0) return 0;
-        const randomIndex = Math.floor(Math.random() * choices.length);
-        const result = choices[randomIndex];
-        console.log(`🎲 Random choice from [${choices.join(', ')}]: ${result}`);
-        return result;
+        if (choices.length > 0) {
+          if (api.help && typeof api.help.choose === 'function') {
+            return api.help.choose(...choices);
+          }
+          return api.choose(...choices);
+        }
+        // KidLisp treats bare ? as contextual randomness handled by callers
+        return undefined;
       };
       
       // Width and height variables that KidLisp pieces often use
@@ -1287,7 +1444,7 @@ export class HeadlessAC {
               self.kidlispInstance.detectFirstLineColor();
               if (self.kidlispInstance.firstLineColor && (api.frameIndex === undefined || api.frameIndex === 0)) {
                 console.log(`🎨 Detected first-line color: ${self.kidlispInstance.firstLineColor} (applying on frame 0 only)`);
-                api.wipe(self.kidlispInstance.firstLineColor);
+                api.wipe(self.kidlispInstance.firstLineColor, { firstLineOnce: true });
               } else if (self.kidlispInstance.firstLineColor) {
                 console.log(`🎨 First-line color ${self.kidlispInstance.firstLineColor} detected but skipping wipe (frame ${api.frameIndex})`);
               }
