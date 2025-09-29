@@ -9,12 +9,62 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { extractCodes, fetchAllCodes, generateCacheCode } from "./kidlisp-extractor.mjs";
-import { timestamp } from "../system/public/aesthetic.computer/lib/num.mjs";
 import { execSync } from "child_process";
 import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const DEFAULT_TIME_ZONE =
+  process.env.AC_PACK_TZ || process.env.TZ || "America/Los_Angeles";
+
+function getTimestampParts(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    fractionalSecondDigits: 3,
+  });
+
+  const parts = formatter.formatToParts(date).reduce((acc, part) => {
+    if (part.type !== "literal") {
+      acc[part.type] = part.value;
+    }
+    return acc;
+  }, {});
+
+  if (!parts.fractionalSecond) {
+    parts.fractionalSecond = String(date.getMilliseconds()).padStart(3, "0");
+  }
+
+  return parts;
+}
+
+function formatTimestampForFile(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const parts = getTimestampParts(date, timeZone);
+  return `${parts.year}.${parts.month}.${parts.day}.${parts.hour}.${parts.minute}.${parts.second}.${parts.fractionalSecond}`;
+}
+
+function formatDateTimeForDisplay(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
+
+  return formatter.format(date);
+}
 
 // Get git information for colophonic data
 function getGitInfo() {
@@ -53,11 +103,16 @@ const PUBLIC_DIR = path.join(SYSTEM_DIR, "public");
 const AC_DIR = path.join(PUBLIC_DIR, "aesthetic.computer");
 const DISKS_DIR = path.join(AC_DIR, "disks");
 const TOKENS_DIR = path.join(__dirname, "output");
+const PACKAGED_SYSTEM_DIR_NAME = "ac";
 
 class AcPacker {
   constructor(pieceName, options = {}) {
     this.pieceName = pieceName;
-    this.zipTimestamp = timestamp(); // Generate timestamp once for consistent naming
+    this.timeZone = options.timeZone || DEFAULT_TIME_ZONE;
+    this.buildDate = new Date();
+    this.zipTimestamp = formatTimestampForFile(this.buildDate, this.timeZone); // Generate timestamp once for consistent naming
+    this.packagedSystemDirName = options.packagedSystemDirName || PACKAGED_SYSTEM_DIR_NAME;
+    this.packagedSystemBaseHref = `./${this.packagedSystemDirName}`;
     // Sanitize piece name for directory creation (remove $ and other shell-problematic characters)
     const sanitizedPieceName = pieceName.replace(/[$]/g, '');
     const rawCoverDuration = options.coverDurationSeconds ?? options.gifLengthSeconds;
@@ -71,7 +126,7 @@ class AcPacker {
       outputDir: path.join(options.targetDir || TOKENS_DIR, sanitizedPieceName),
       targetDir: options.targetDir || TOKENS_DIR, // Directory where final artifacts should be placed
       coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
-      faviconImage: "./aesthetic.computer/favicon.png", // Default favicon, updated to GIF if available
+      faviconImage: options.faviconImage || `${this.packagedSystemBaseHref}/favicon.png`, // Default favicon, updated to GIF if available
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
       author: options.author || "@jeffrey",
@@ -79,8 +134,18 @@ class AcPacker {
       logInkColors: options.logInkColors === true,
       coverDurationSeconds,
       coverFrameCount,
+      timeZone: this.timeZone,
+      packagedSystemDirName: this.packagedSystemDirName,
     };
     this.bundledFiles = new Set();
+  }
+
+  getPackagedDirPath(...segments) {
+    return path.join(this.options.outputDir, this.packagedSystemDirName, ...segments);
+  }
+
+  getPackagedRelativePath(...segments) {
+    return `./${path.posix.join(this.packagedSystemDirName, ...segments)}`;
   }
 
   logVerbose(...args) {
@@ -120,7 +185,8 @@ class AcPacker {
       await this.copyAssets();
       
       // Generate index.html after all bundling is complete so we have accurate file count
-      await this.generateIndexHtml(pieceData, hasDependencies);
+  await this.generateIndexHtml(pieceData, hasDependencies);
+  await this.convertMjsModulesToJs();
       
       console.log("✅ Successfully generated assets for", this.pieceName);
       console.log("📁 Files bundled:", this.bundledFiles.size);
@@ -252,7 +318,9 @@ class AcPacker {
     
     const gitInfo = getGitInfo();
     console.log("🔧 Git info retrieved:", gitInfo);
-    const packTime = new Date().toISOString();
+    const buildDate = this.buildDate ? new Date(this.buildDate) : new Date();
+    const packTimeUTC = buildDate.toISOString();
+    const packTimeLocal = formatDateTimeForDisplay(buildDate, this.timeZone);
     
     // Get system information
     const systemInfo = {
@@ -275,7 +343,10 @@ class AcPacker {
         codeLength: pieceData.sourceCode ? pieceData.sourceCode.length : 0
       },
       build: {
-        packTime,
+        packTime: packTimeLocal,
+        packTimeLocal,
+        packTimeUTC,
+        timeZone: this.timeZone,
         author: this.options.author,
         gitCommit: gitInfo.shortCommit,
         gitCommitFull: gitInfo.commit,
@@ -289,7 +360,7 @@ class AcPacker {
       },
       metadata: {
         ...generatedMetadata,
-        favicon: this.options.faviconImage || './aesthetic.computer/favicon.png'
+        favicon: this.options.faviconImage || this.getPackagedRelativePath('favicon.png')
       }
     };
     
@@ -310,7 +381,7 @@ class AcPacker {
     // Update colophon with final metadata
     colophonData.metadata = {
       ...finalMetadata,
-      favicon: this.options.faviconImage || './aesthetic.computer/favicon.png'
+      favicon: this.options.faviconImage || this.getPackagedRelativePath('favicon.png')
     };
     
     console.log("📋 Colophon data prepared:", JSON.stringify(colophonData, null, 2));
@@ -322,7 +393,7 @@ class AcPacker {
     <base href="./" />
     <title>${finalMetadata.title || this.options.title}</title>
     <meta property="og:image" content="${this.options.coverImage}" />
-    <link rel="icon" href="${this.options.faviconImage || './aesthetic.computer/favicon.png'}" type="${this.options.faviconImage && this.options.faviconImage.endsWith('.gif') ? 'image/gif' : 'image/png'}" />
+  <link rel="icon" href="${this.options.faviconImage || this.getPackagedRelativePath('favicon.png')}" type="${this.options.faviconImage && this.options.faviconImage.endsWith('.gif') ? 'image/gif' : 'image/png'}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="${this.options.description}" />
     <meta name="og:title" content="${finalMetadata.title || this.options.title}" />
@@ -391,9 +462,15 @@ window.acTEIA_CREATOR = urlParams.get('creator') || null;
 ${this.options.density ? `
 if (!urlParams.has('density')) {
   urlParams.set('density', '${this.options.density}');
-  // Update the URL without page reload to include density parameter
-  const newUrl = window.location.pathname + '?' + urlParams.toString();
-  history.replaceState(null, '', newUrl);
+  // Update the URL without page reload to include density parameter when environment allows it
+  if (window.location && window.location.origin && window.location.origin !== 'null' && window.location.protocol !== 'about:') {
+    try {
+      const newUrl = window.location.pathname + '?' + urlParams.toString();
+      history.replaceState(null, '', newUrl);
+    } catch (error) {
+      console.warn('⚠️ Skipped history.replaceState in restricted environment:', error?.message || error);
+    }
+  }
   console.log('🔍 Applied custom density: ${this.options.density}');
 }` : '// No custom density specified'}
 
@@ -431,8 +508,8 @@ setInterval(() => {
     </script>
   ${this.generateMatrixChunkyGlyphScript()}
   ${this.generateKidLispCacheScript()}
-    <script src="./aesthetic.computer/boot.mjs" type="module" defer onerror="handleModuleLoadError()"></script>
-    <link rel="stylesheet" href="./aesthetic.computer/style.css" />
+  <script src="${this.getPackagedRelativePath('boot.js')}" type="module" defer onerror="handleModuleLoadError()"></script>
+  <link rel="stylesheet" href="${this.getPackagedRelativePath('style.css')}" />
     <style>
       /* Keep transparent background for TEIA mode */
       body.nogap {
@@ -584,7 +661,7 @@ setInterval(() => {
           <div class="piece-info">
             <p><strong>Piece:</strong> ${colophonData.piece.name}</p>
             <p><strong>Author:</strong> ${colophonData.build.author}</p>
-            <p><strong>Created:</strong> ${new Date(colophonData.build.packTime).toLocaleDateString()}</p>
+            <p><strong>Created:</strong> ${colophonData.build.packTimeLocal || colophonData.build.packTime} (${colophonData.build.timeZone || "local"})</p>
             <p><strong>Type:</strong> ${colophonData.piece.isKidLisp ? 'KidLisp' : 'JavaScript'} (${colophonData.piece.codeLength} characters)</p>
           </div>
         </div>
@@ -719,7 +796,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
   }
 
   async bundleSystemFiles() {
-    const acOutputDir = path.join(this.options.outputDir, "aesthetic.computer");
+  const acOutputDir = this.getPackagedDirPath();
     await fs.mkdir(acOutputDir, { recursive: true });
 
     const coreFiles = ["boot.mjs", "style.css", "bios.mjs", "lib/parse.mjs"];
@@ -769,7 +846,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
   async bundleLibFiles() {
     const libDir = path.join(AC_DIR, "lib");
-    const libOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "lib");
+  const libOutputDir = this.getPackagedDirPath("lib");
     await fs.mkdir(libOutputDir, { recursive: true });
 
     const libFiles = await fs.readdir(libDir);
@@ -860,7 +937,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
   async bundleSystemsFiles() {
     const systemsDir = path.join(AC_DIR, "systems");
-    const systemsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "systems");
+  const systemsOutputDir = this.getPackagedDirPath("systems");
     await fs.mkdir(systemsOutputDir, { recursive: true });
 
     try {
@@ -884,7 +961,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
   async bundleDepFiles() {
     const depDir = path.join(AC_DIR, "dep");
-    const depOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "dep");
+  const depOutputDir = this.getPackagedDirPath("dep");
     
     try {
       await fs.mkdir(depOutputDir, { recursive: true });
@@ -944,7 +1021,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
   async bundleCommonDiskFiles() {
     const commonDiskDir = path.join(DISKS_DIR, "common");
-    const commonOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks", "common");
+  const commonOutputDir = this.getPackagedDirPath("disks", "common");
 
     try {
       await fs.mkdir(commonOutputDir, { recursive: true });
@@ -968,7 +1045,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
   async bundleFontDrawings() {
     const drawingsDir = path.join(DISKS_DIR, "drawings");
-    const drawingsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks", "drawings");
+  const drawingsOutputDir = this.getPackagedDirPath("disks", "drawings");
 
     try {
       await fs.mkdir(drawingsOutputDir, { recursive: true });
@@ -1027,7 +1104,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
   }
 
   async bundleCurrentPiece() {
-    const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
+  const disksOutputDir = this.getPackagedDirPath("disks");
     await fs.mkdir(disksOutputDir, { recursive: true });
 
     // Handle KidLisp $codes - create a stub piece that jumps to the cached code
@@ -1068,7 +1145,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   }
 
   async createDiskStubs() {
-    const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
+  const disksOutputDir = this.getPackagedDirPath("disks");
     
     // Create essential disk stubs that might be required
     const stubs = [
@@ -1084,8 +1161,8 @@ export function boot({ wipe, ink, help, backgroundFill }) {
 
   async createAssets() {
     // Check if we already have a GIF favicon, if not create PNG
-    const faviconGifPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.gif");
-    const faviconPngPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.png");
+    const faviconGifPath = this.getPackagedDirPath("favicon.gif");
+    const faviconPngPath = this.getPackagedDirPath("favicon.png");
     
     try {
       await fs.access(faviconGifPath);
@@ -1296,7 +1373,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     
     // Only use PNG favicon if GIF favicon wasn't already created
     if (!this.options.faviconImage.endsWith('.gif')) {
-      this.options.faviconImage = "./aesthetic.computer/favicon.png";
+      this.options.faviconImage = this.getPackagedRelativePath('favicon.png');
     }
   }
 
@@ -1304,7 +1381,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     // Copy cursor files
     try {
       const cursorsSourceDir = path.join(AC_DIR, "cursors");
-      const cursorsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "cursors");
+  const cursorsOutputDir = this.getPackagedDirPath("cursors");
       
       await fs.mkdir(cursorsOutputDir, { recursive: true });
       
@@ -1644,6 +1721,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     console.log('🎨 Patching boot.mjs for teia dependency URLs and TV mode...');
     
     let patched = content;
+    const packagedAuth0Path = this.getPackagedRelativePath('dep', 'auth0-spa-js.production.js');
     
     // Force TV mode (non-interactive) when in TEIA mode
     const tvParamPattern = /const tv = tvParam === true \|\| tvParam === "true";/;
@@ -1659,7 +1737,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
       
       if (isTeiaMode) {
-        script.src = "./aesthetic.computer/dep/auth0-spa-js.production.js";
+        script.src = "${packagedAuth0Path}";
       } else {
         script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
       }`
@@ -1781,11 +1859,13 @@ function getColorTokenHighlight(token) {
     console.log('🎨 Patching bios.mjs for teia webfont URLs...');
     
     let patched = content;
+    const packagedCursorPath = this.getPackagedRelativePath('cursors', 'viewpoint.svg');
+    const packagedDiskLibPath = this.getPackagedRelativePath('lib', 'disk.mjs');
     
     // Replace precise.svg cursor references with viewpoint.svg for TEIA mode
     patched = patched.replace(
       /\/aesthetic\.computer\/cursors\/precise\.svg/g,
-      './aesthetic.computer/cursors/viewpoint.svg'
+      packagedCursorPath
     );
     
     // Replace the font URL logic to use relative paths in teia mode
@@ -1824,7 +1904,7 @@ function getColorTokenHighlight(token) {
     const workerPathPattern = /const fullPath =\s*"\/aesthetic\.computer\/lib\/disk\.mjs"\s*\+\s*window\.location\.search\s*\+\s*"#"\s*\+\s*Date\.now\(\);/;
     patched = patched.replace(workerPathPattern, 
       `const fullPath = (typeof window !== 'undefined' && window.acTEIA_MODE) ? 
-        "./aesthetic.computer/lib/disk.mjs" + "#" + Date.now() : 
+        "${packagedDiskLibPath}" + "#" + Date.now() : 
         "/aesthetic.computer/lib/disk.mjs" + window.location.search + "#" + Date.now();`
     );
     
@@ -1884,6 +1964,9 @@ function getColorTokenHighlight(token) {
     
     let bootTime`
     );
+    
+    // Normalize any remaining relative references to the packaged system directory
+    patched = patched.replace(/\.\/aesthetic\.computer\//g, `${this.packagedSystemBaseHref}/`);
     
     return patched;
   }
@@ -1951,6 +2034,42 @@ function getColorTokenHighlight(token) {
     }
 
     return files;
+  }
+
+  async convertMjsModulesToJs() {
+    const allFiles = await this.getAllFilesRecursively(this.options.outputDir);
+    const mjsFiles = allFiles.filter(filePath => filePath.endsWith(".mjs"));
+
+    if (mjsFiles.length === 0) {
+      return;
+    }
+
+    for (const filePath of mjsFiles) {
+      const fileContent = await fs.readFile(filePath, "utf8");
+      const updatedContent = this.updateModuleSpecifierExtensions(fileContent);
+      const jsPath = filePath.slice(0, -4) + ".js";
+      await fs.writeFile(jsPath, updatedContent);
+      await fs.rm(filePath);
+    }
+
+    const refreshedFiles = await this.getAllFilesRecursively(this.options.outputDir);
+    const updateTargets = refreshedFiles.filter(filePath =>
+      /(\.js|\.json|\.html|\.css|\.txt|\.svg)$/i.test(filePath)
+    );
+
+    for (const filePath of updateTargets) {
+      const fileContent = await fs.readFile(filePath, "utf8");
+      const updatedContent = this.updateModuleSpecifierExtensions(fileContent);
+      if (updatedContent !== fileContent) {
+        await fs.writeFile(filePath, updatedContent);
+      }
+    }
+
+    console.log(`🔁 Converted ${mjsFiles.length} .mjs files to .js for Teia compatibility`);
+  }
+
+  updateModuleSpecifierExtensions(content) {
+    return content.replace(/\.mjs\b/g, ".js");
   }
 }
 
@@ -2140,3 +2259,4 @@ async function createZipWithTimestamp(outputDir, pieceName, timeStr, author = "@
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
+
