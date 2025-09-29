@@ -371,12 +371,96 @@ function colorSpecToTokens(colorSpec) {
   return [];
 }
 
+function prepareColorInfo(colorSpec) {
+  const normalized = normalizeColorSpec(colorSpec);
+  const tokens = colorSpecToTokens(normalized);
+  const rawParams = tokens.length ? [...tokens] : ["white"];
+  let colorParams;
+
+  try {
+    colorParams = parseColor([...rawParams]);
+  } catch (error) {
+    console.warn("🤖 Robo: Failed to parse color tokens, falling back to white", {
+      colorSpec: normalized,
+      tokens: rawParams,
+      error
+    });
+  }
+
+  if (colorParams === undefined || colorParams === null) {
+    try {
+      colorParams = parseColor(["white"]);
+    } catch (fallbackError) {
+      console.warn("🤖 Robo: Failed to parse fallback color, defaulting to opaque white", fallbackError);
+      colorParams = [255, 255, 255, 255];
+    }
+  }
+
+  return {
+    color: normalized,
+    colorTokens: tokens,
+    colorParams
+  };
+}
+
+function ensurePathColorMetadata(path) {
+  if (!path) return;
+  if (path.color === undefined) {
+    path.color = [255, 255, 255];
+  }
+  if (!path.colorTokens || !Array.isArray(path.colorTokens) || path.colorTokens.length === 0) {
+    path.colorTokens = colorSpecToTokens(path.color);
+  }
+  if (path.colorParams === undefined || path.colorParams === null) {
+    const rawParams = path.colorTokens?.length ? [...path.colorTokens] : ["white"];
+    try {
+      path.colorParams = parseColor([...rawParams]);
+    } catch (error) {
+      console.warn("🤖 Robo: Failed to ensure color params for path, applying fallback", {
+        color: path.color,
+        tokens: rawParams,
+        error
+      });
+      try {
+        path.colorParams = parseColor(["white"]);
+      } catch (fallbackError) {
+        path.colorParams = [255, 255, 255, 255];
+      }
+    }
+  }
+}
+
+function applyPathColorToNopaint(nopaintSystem, path) {
+  if (!nopaintSystem || !path) return;
+  ensurePathColorMetadata(path);
+  if (path.colorParams !== undefined && path.colorParams !== null) {
+    nopaintSystem.color = path.colorParams;
+  } else if (path.colorTokens && path.colorTokens.length) {
+    try {
+      nopaintSystem.color = parseColor([...path.colorTokens]);
+    } catch (error) {
+      console.warn("🤖 Robo: Failed to apply path color to nopaint system", {
+        tokens: path.colorTokens,
+        error
+      });
+    }
+  } else if (path.color) {
+    try {
+      nopaintSystem.color = parseColor([`${path.color}`]);
+    } catch (error) {
+      console.warn("🤖 Robo: Failed to fallback-parse path color for nopaint", {
+        color: path.color,
+        error
+      });
+    }
+  }
+}
+
 const MAX_HUD_TOKENS = 4;
 
-function buildHudLabel({ colorSpec, brushType = "box", brushLabel }) {
-  const colorTokens = colorSpecToTokens(colorSpec);
-  const rawParams = colorTokens.length ? colorTokens : ["white"];
-  const parsedColor = parseColor([...rawParams]);
+function buildHudLabel({ colorTokens, colorParams, brushType = "box", brushLabel }) {
+  const rawParams = colorTokens?.length ? colorTokens : ["white"];
+  const parsedColor = colorParams ?? parseColor([...rawParams]);
 
   const displayTokens = rawParams.slice(0, MAX_HUD_TOKENS);
   const truncated = rawParams.length > MAX_HUD_TOKENS;
@@ -393,8 +477,10 @@ function buildHudLabel({ colorSpec, brushType = "box", brushLabel }) {
 
 function scheduleHUDUpdate($api, path, options = {}) {
   if (!$api?.hud?.label || !path) return;
+  ensurePathColorMetadata(path);
   const label = buildHudLabel({
-    colorSpec: path.color,
+    colorTokens: path.colorTokens,
+    colorParams: path.colorParams,
     brushType: path.type || robotState.brushType,
     brushLabel: robotState.brushName
   });
@@ -410,7 +496,8 @@ function generatePathsForState($api, count) {
 
   const generator = new RoboPathGenerator();
   const brushType = robotState.brushType || robotState.brushName || "box";
-  return generator.generate(
+  const paths =
+    generator.generate(
     width,
     height,
     robotState.grid?.cols || 3,
@@ -418,7 +505,9 @@ function generatePathsForState($api, count) {
     count,
     brushType,
     robotState.roboParams || {}
-  );
+    ) || [];
+  paths.forEach(ensurePathColorMetadata);
+  return paths;
 }
 
 function replenishPathQueue($api) {
@@ -433,6 +522,7 @@ function replenishPathQueue($api) {
       robotState.autoContinue = false;
       break;
     }
+    newPaths.forEach(ensurePathColorMetadata);
     robotState.pathQueue.push(...newPaths);
     if (robotState.loadedBrush?.overlay && robotState.pathQueue.length) {
       const total = robotState.completedPaths.length + robotState.pathQueue.length;
@@ -717,7 +807,7 @@ class RoboPathGenerator {
 
     for (let i = 0; i < limit; i++) {
       const pos = positions[i];
-      const color = this.generateColorSpec();
+      const colorInfo = prepareColorInfo(this.generateColorSpec());
       const widthScale = 0.4 + Math.random() * 0.6;
       const heightScale = 0.4 + Math.random() * 0.6;
       const variedWidth = Math.max(1, Math.round(pos.w * widthScale));
@@ -737,12 +827,14 @@ class RoboPathGenerator {
       const duration = Math.max(45, Math.round(Math.sqrt(finalBox.w * finalBox.h) * 3));
       console.log(
         `🤖 Box ${i + 1}: position (${finalBox.x}, ${finalBox.y}) size ${finalBox.w}x${finalBox.h}`,
-        color
+        colorInfo.color
       );
 
       paths.push({
         type: "box",
-        color,
+        color: colorInfo.color,
+        colorTokens: colorInfo.colorTokens,
+        colorParams: colorInfo.colorParams,
         duration,
         paintingMark: finalBox,
         startPoint: { x: finalBox.x, y: finalBox.y },
@@ -764,7 +856,7 @@ class RoboPathGenerator {
 
     for (let i = 0; i < limit; i++) {
       const pos = positions[i];
-      const color = this.generateColorSpec();
+      const colorInfo = prepareColorInfo(this.generateColorSpec());
       const points = this.createLinePoints(pos, width, height);
       const metrics = computePathMetrics(points, { closed: false });
       const baseSize = Math.max(2, Math.min(pos.w, pos.h));
@@ -774,7 +866,9 @@ class RoboPathGenerator {
 
       paths.push({
         type: "line",
-        color,
+        color: colorInfo.color,
+        colorTokens: colorInfo.colorTokens,
+        colorParams: colorInfo.colorParams,
         duration,
         paintingMark: {
           points: points.map(({ x, y }) => ({ x, y })),
@@ -798,7 +892,7 @@ class RoboPathGenerator {
 
     for (let i = 0; i < limit; i++) {
       const pos = positions[i];
-      const color = this.generateColorSpec();
+      const colorInfo = prepareColorInfo(this.generateColorSpec());
       const outline = Math.random() < 0.4;
       const points = this.createShapePoints(pos, width, height);
       const metrics = computePathMetrics(points, { closed: true });
@@ -806,7 +900,9 @@ class RoboPathGenerator {
 
       paths.push({
         type: "shape",
-        color,
+        color: colorInfo.color,
+        colorTokens: colorInfo.colorTokens,
+        colorParams: colorInfo.colorParams,
         duration,
         paintingMark: {
           points: points.map(({ x, y }) => [x, y]),
@@ -1043,6 +1139,8 @@ async function boot($api) {
       roboParams.count
     );
 
+    paths.forEach(ensurePathColorMetadata);
+
     if (paths.length === 0) {
       console.log("🤖 No paths generated");
       return;
@@ -1051,6 +1149,7 @@ async function boot($api) {
   console.log(`🤖 Generated ${paths.length} path(s) for execution in painting space`);
 
     scheduleHUDUpdate($api, paths[0], { gridIndex: 0, total: paths.length });
+    applyPathColorToNopaint($api.system?.nopaint, paths[0]);
 
     // Initialize robot state (modify properties instead of reassigning const)
     robotState.active = true;
@@ -1144,6 +1243,8 @@ function advanceRobotLogic($api) {
 
   if (!robotState.currentPath && robotState.pathQueue.length > 0) {
     const nextPath = robotState.pathQueue.shift();
+    ensurePathColorMetadata(nextPath);
+    applyPathColorToNopaint($api.system?.nopaint, nextPath);
     robotState.currentPath = nextPath;
     robotState.currentStrategy = getBrushStrategy(nextPath.type || robotState.brushType);
     robotState.frameCounter = 0;
@@ -1202,16 +1303,22 @@ function advanceRobotLogic($api) {
     if (finalMark) {
       robotState.previewMark = finalMark;
       robotState.lastPreviewMark = finalMark;
+      applyPathColorToNopaint($api.system?.nopaint, path);
       robotState.lastCompletedPath = {
         type: finalMark.type,
         paintingMark: finalMark.painting,
-        color: path.color
+        color: path.color,
+        colorTokens: path.colorTokens,
+        colorParams: path.colorParams
       };
     } else {
+      applyPathColorToNopaint($api.system?.nopaint, path);
       robotState.lastCompletedPath = {
         type: path.type || robotState.brushType,
         paintingMark: null,
-        color: path.color
+        color: path.color,
+        colorTokens: path.colorTokens,
+        colorParams: path.colorParams
       };
     }
 
@@ -1359,6 +1466,8 @@ function lift(api) {
     
     // Use lastCompletedPath data if available, otherwise use API data
     const lastCompleted = robotState.lastCompletedPath;
+  ensurePathColorMetadata(lastCompleted);
+  applyPathColorToNopaint(api.system?.nopaint, lastCompleted);
     let finalBox, finalColor;
     
     if (lastCompleted && lastCompleted.boxDimensions) {
