@@ -60,7 +60,14 @@ class AcPacker {
     this.zipTimestamp = timestamp(); // Generate timestamp once for consistent naming
     // Sanitize piece name for directory creation (remove $ and other shell-problematic characters)
     const sanitizedPieceName = pieceName.replace(/[$]/g, '');
+    const rawCoverDuration = options.coverDurationSeconds ?? options.gifLengthSeconds;
+    let coverDurationSeconds = Number(rawCoverDuration);
+    if (!Number.isFinite(coverDurationSeconds) || coverDurationSeconds <= 0) {
+      coverDurationSeconds = 3;
+    }
+    const coverFrameCount = Math.max(1, Math.round(coverDurationSeconds * 60));
     this.options = {
+      ...options,
       outputDir: path.join(options.targetDir || TOKENS_DIR, sanitizedPieceName),
       targetDir: options.targetDir || TOKENS_DIR, // Directory where final artifacts should be placed
       coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
@@ -68,9 +75,18 @@ class AcPacker {
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
       author: options.author || "@jeffrey",
-      ...options,
+      verbose: options.verbose === true,
+      logInkColors: options.logInkColors === true,
+      coverDurationSeconds,
+      coverFrameCount,
     };
     this.bundledFiles = new Set();
+  }
+
+  logVerbose(...args) {
+    if (this.options.verbose) {
+      console.log(...args);
+    }
   }
 
   async pack() {
@@ -330,6 +346,31 @@ window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piec
     }
     originalError.apply(console, args);
   };
+
+  // Capture resource errors at the window level before they hit the console
+  window.addEventListener('error', (event) => {
+    const target = event?.target;
+    const message = event?.message || '';
+    const resourceUrl = typeof target?.src === 'string' ? target.src : '';
+    if (
+      (resourceUrl && resourceUrl.includes('MatrixChunky8')) ||
+      message.includes('MatrixChunky8') ||
+      message.includes('assets/type/')
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return false;
+    }
+  }, true);
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    if (typeof reason === 'string' && reason.includes('MatrixChunky8')) {
+      event.preventDefault();
+    } else if (reason && typeof reason.message === 'string' && reason.message.includes('MatrixChunky8')) {
+      event.preventDefault();
+    }
+  });
 })();
 
 // Colophonic information for provenance and debugging
@@ -382,7 +423,8 @@ setInterval(() => {
   }
 }, 100);
     </script>
-    ${this.generateKidLispCacheScript()}
+  ${this.generateMatrixChunkyGlyphScript()}
+  ${this.generateKidLispCacheScript()}
     <script src="./aesthetic.computer/boot.mjs" type="module" defer onerror="handleModuleLoadError()"></script>
     <link rel="stylesheet" href="./aesthetic.computer/style.css" />
     <style>
@@ -657,6 +699,17 @@ setInterval(() => {
     return `<script type="text/javascript">
 ${cacheCode}
     </script>`;
+  }
+
+  generateMatrixChunkyGlyphScript() {
+    if (!this.matrixChunkyGlyphMap || Object.keys(this.matrixChunkyGlyphMap).length === 0) {
+      return '';
+    }
+
+    const serializedGlyphs = JSON.stringify(this.matrixChunkyGlyphMap);
+    return `<script type="text/javascript">
+window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
+</script>`;
   }
 
   async bundleSystemFiles() {
@@ -948,9 +1001,9 @@ ${cacheCode}
         }
         
         this.bundledFiles.add(`font_1 glyphs: ${totalGlyphs} files`);
-        console.log(`🔤 Bundled font_1: ${totalGlyphs} glyph files`);
+        this.logVerbose(`🔤 Bundled font_1: ${totalGlyphs} glyph files`);
       } else {
-        console.log("ℹ️ font_1 directory not found, skipping");
+        this.logVerbose("ℹ️ font_1 directory not found, skipping");
       }
       
     } catch (error) {
@@ -1054,7 +1107,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       await fs.mkdir(webfontsOutputDir, { recursive: true });
       const webfontFiles = await fs.readdir(webfontsDir);
 
-      console.log("🔤 Bundling webfonts...");
+  this.logVerbose("🔤 Bundling webfonts...");
 
       for (const fontFile of webfontFiles) {
         const srcPath = path.join(webfontsDir, fontFile);
@@ -1063,7 +1116,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         if (fontFile.endsWith(".css") || fontFile.endsWith(".woff2") || fontFile.endsWith(".woff") || fontFile.endsWith(".ttf")) {
           const content = await fs.readFile(srcPath);
           await fs.writeFile(destPath, content);
-          console.log(`🔤 Bundled webfont: ${fontFile}`);
+          this.logVerbose(`🔤 Bundled webfont: ${fontFile}`);
         }
       }
     } catch (error) {
@@ -1090,9 +1143,10 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         const glyphFiles = await fs.readdir(matrixFontDir);
         const jsonFiles = glyphFiles.filter(file => file.endsWith(".json"));
         
-        console.log(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
+  this.logVerbose(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
         
         let bundledCount = 0;
+        const inlineGlyphMap = {};
         for (const glyphFile of jsonFiles) {
           const srcPath = path.join(matrixFontDir, glyphFile);
           
@@ -1104,10 +1158,16 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           
           const content = await fs.readFile(srcPath, "utf8");
           await fs.writeFile(destPath, content);
+          try {
+            inlineGlyphMap[paddedHexCode] = JSON.parse(content);
+          } catch (error) {
+            console.warn(`⚠️ Failed to parse glyph ${destFileName} for inline bundle:`, error.message);
+          }
           bundledCount++;
         }
+        this.matrixChunkyGlyphMap = inlineGlyphMap;
         
-        console.log(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
+  this.logVerbose(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
         
         // Also create a font manifest for easier debugging
         const fontManifest = {
@@ -1128,10 +1188,10 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         
         const manifestPath = path.join(matrixOutputDir, "_manifest.json");
         await fs.writeFile(manifestPath, JSON.stringify(fontManifest, null, 2));
-        console.log(`📋 Created font manifest: _manifest.json`);
+        this.logVerbose(`📋 Created font manifest: _manifest.json`);
         
       } catch (matrixError) {
-        console.log("ℹ️ MatrixChunky8 font directory not found, skipping font bundling");
+        this.logVerbose("ℹ️ MatrixChunky8 font directory not found, skipping font bundling");
       }
       
     } catch (error) {
@@ -1160,13 +1220,17 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       // The final GIF will be scaled up by the orchestrator based on density
       const currentDensity = this.options.density || 2; // Default density is 2
       const baseRecordingResolution = 128; // Always record at base resolution
+      const coverSeconds = this.options.coverDurationSeconds || 3;
+      const frameCount = this.options.coverFrameCount || Math.max(1, Math.round(coverSeconds * 60));
+      const coverSecondsDisplay = Number.isInteger(coverSeconds) ? coverSeconds : coverSeconds.toFixed(2);
       
       console.log(`🔍 Density: ${currentDensity}, Recording at: ${baseRecordingResolution}x${baseRecordingResolution}, GIF output will be scaled by orchestrator`);
+      console.log(`⏱️ Cover duration: ${coverSecondsDisplay}s (${frameCount} frames @ 60fps)`);
       
       // Use the RenderOrchestrator to generate GIF
       const orchestrator = new RenderOrchestrator(
         this.pieceName,     // piece (supports KidLisp $code or .mjs files)
-        180,                // 3 seconds at 60fps (180 frames) for cover
+        frameCount,         // render duration in frames
         tempOutputDir,      // temporary directory for frame rendering
         baseRecordingResolution,   // width - small recording resolution
         baseRecordingResolution,   // height - small recording resolution
@@ -1175,7 +1239,8 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           density: currentDensity, // pass density parameter
           kidlispCache: this.kidlispCacheData, // pass KidLisp cache for dependencies
           extractIconFrame: false, // disable icon extraction - we handle icons separately
-          iconOutputDir: this.options.outputDir // output icon to main directory, not temp
+          iconOutputDir: this.options.outputDir, // output icon to main directory, not temp
+          debugInkColors: this.options.logInkColors,
         }
       );
       
@@ -1245,7 +1310,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           const sourcePath = path.join(cursorsSourceDir, file);
           const outputPath = path.join(cursorsOutputDir, file);
           await fs.copyFile(sourcePath, outputPath);
-          console.log(`📎 Bundled cursor: ${file}`);
+          this.logVerbose(`📎 Bundled cursor: ${file}`);
         }
       }
     } catch (error) {
@@ -1265,7 +1330,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       const icon256Path = path.join(icon256Dir, `${this.pieceName}.png`);
       const icon512Path = path.join(icon512Dir, `${this.pieceName}.png`);
       
-      console.log(`🖼️ Generating stub icons for ${this.pieceName}...`);
+  this.logVerbose(`🖼️ Generating stub icons for ${this.pieceName}...`);
       
       // Try to generate from the cover GIF if available
       const coverPath = path.join(this.options.outputDir, "cover.gif");
@@ -1288,7 +1353,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
+                this.logVerbose(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
                 // Set favicon to use the 128x128 animated icon
                 this.options.faviconImage = `./icon/128x128/${this.pieceName}.gif`;
                 resolve();
@@ -1323,7 +1388,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 128x128 static PNG icon (middle frame): icon/128x128/${this.pieceName}.png`);
+                this.logVerbose(`🪄 Generated 128x128 static PNG icon (middle frame): icon/128x128/${this.pieceName}.png`);
                 resolve();
               } else {
                 console.warn("⚠️ 128x128 static PNG icon generation failed with code:", code);
@@ -1355,7 +1420,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 256x256 static PNG icon (middle frame): icon/256x256/${this.pieceName}.png`);
+                this.logVerbose(`🪄 Generated 256x256 static PNG icon (middle frame): icon/256x256/${this.pieceName}.png`);
                 resolve();
               } else {
                 console.warn("⚠️ 256x256 static PNG icon generation failed with code:", code);
@@ -1387,7 +1452,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 512x512 static PNG icon (middle frame): icon/512x512/${this.pieceName}.png`);
+                this.logVerbose(`🪄 Generated 512x512 static PNG icon (middle frame): icon/512x512/${this.pieceName}.png`);
                 resolve();
               } else {
                 console.warn("⚠️ 512x512 static PNG icon generation failed with code:", code);
@@ -1485,7 +1550,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         await fs.writeFile(icon128Path, transparent128Png);
         await fs.writeFile(icon256Path, transparent256Png);
         await fs.writeFile(icon512Path, transparent512Png);
-        console.log(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
+  this.logVerbose(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
         
         // Set favicon to use the 128x128 PNG icon as fallback
         this.options.faviconImage = `./icon/128x128/${this.pieceName}.png`;
@@ -1891,9 +1956,13 @@ async function main() {
   if (!pieceName) {
     console.error("Usage: node ac-pack.mjs <piece-name> [options]");
     console.error("Options:");
-    console.error("  --density <value>    Set GIF output density scaling");
-    console.error("  --target-dir <path>  Directory where ZIP and cover should be created");
-    console.error("  --analyze           Show dependency analysis without building");
+    console.error("  --density <value>       Set GIF output density scaling");
+    console.error("  --gif-length <seconds>  Set cover GIF length in seconds (default 3)");
+    console.error("  --target-dir <path>     Directory where ZIP and cover should be created");
+    console.error("  --analyze               Show dependency analysis without building");
+    console.error("  --verbose               Enable detailed asset/glyph logging");
+    console.error("  --quiet                 Suppress detailed asset/glyph logging (default)");
+    console.error("  --log-ink               Log resolved colors for ink() and flood() during renders");
     console.error("");
     console.error("Examples:");
     console.error("  node ac-pack.mjs '$bop' --density 8");
@@ -1918,6 +1987,16 @@ async function main() {
         process.exit(1);
       }
       i++; // Skip the next argument since we consumed it
+    } else if (args[i] === '--gif-length' && i + 1 < args.length) {
+      const secondsValue = parseFloat(args[i + 1]);
+      if (!isNaN(secondsValue) && secondsValue > 0) {
+        options.coverDurationSeconds = secondsValue;
+        console.log(`⏱️ Cover GIF length: ${secondsValue}s`);
+      } else {
+        console.error("❌ Invalid GIF length. Must be a positive number of seconds.");
+        process.exit(1);
+      }
+      i++;
     } else if (args[i] === '--target-dir' && i + 1 < args.length) {
       options.targetDir = args[i + 1];
       console.log(`🎯 Target directory: ${options.targetDir}`);
@@ -1926,6 +2005,12 @@ async function main() {
       analyzeOnly = true;
     } else if (args[i] === '--auto-ship') {
       autoShip = true;
+    } else if (args[i] === '--verbose') {
+      options.verbose = true;
+    } else if (args[i] === '--quiet') {
+      options.verbose = false;
+    } else if (args[i] === '--log-ink') {
+      options.logInkColors = true;
     }
   }
   
