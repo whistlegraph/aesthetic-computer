@@ -209,17 +209,19 @@ function ac-ship
 end
 
 # AC Record - Record pieces as MP4 or GIF using the orchestrator
-# Usage: ac-record PIECE_NAME [--duration N] [--width N] [--height N] [--gif] [--sixel]
-# Example: ac-record '$bair' or ac-record 'orbital' --duration 300 --width 512 --height 512 --gif
+# Usage: ac-record PIECE_NAME [--duration=<value>] [--width N] [--height N] [--gif] [--sixel]
+# Duration accepts suffixes: `s` for seconds (e.g. 3s) or `f` for frames (e.g. 120f). Default: 5s (300f).
+# Example: ac-record '$bair' --duration=3s or ac-record 'orbital' --duration=120f --width 512 --height 512 --gif
 function ac-record
     if test (count $argv) -lt 1
         echo "Usage: ac-record PIECE_NAME [OPTIONS]"
-        echo "Example: ac-record '\$bair'"
-        echo "         ac-record 'orbital' --duration 300 --width 512 --height 512"
-        echo "         ac-record '\$ceo' --gif --duration 180"
+        echo "Example: ac-record '$bair'"
+        echo "         ac-record 'orbital' --duration=120f --width 512 --height 512"
+        echo "         ac-record '$ceo' --gif --duration=3s"
         echo ""
         echo "Options:"
-        echo "  --duration N    Frame count (default: 300 for 5 seconds at 60fps)"
+        echo "  --duration VAL  Recording length. Append 's' for seconds or 'f' for frames"
+        echo "                 (default: 5s = 300f). Plain numbers are treated as frames."
         echo "  --width N       Video width (default: 1024)"
         echo "  --height N      Video height (default: 1024)"
         echo "  --gif           Output as GIF instead of MP4"
@@ -229,16 +231,17 @@ function ac-record
         echo "  --sixel         Display result in terminal as sixel image"
         return 1
     end
-    
+
     set -l piece_name $argv[1]
     set -l current_dir (pwd)
-    
-    # Parse arguments
-    set -l duration 300  # 5 seconds at 60fps
+
+    set -l frames 300  # ≈5 seconds at 60fps
+    set -l duration_seconds "5.00"
     set -l width 1024
     set -l height 1024
     set -l gif_flag ""
     set -l sixel_flag ""
+    set -l duration_spec ""
     set -l density ""
     set -l gif_fps ""
     set -l gif_compress ""
@@ -246,11 +249,29 @@ function ac-record
     # Process optional arguments
     set -l i 2
     while test $i -le (count $argv)
-        switch $argv[$i]
+        set -l arg $argv[$i]
+        switch $arg
+            case '--duration=*'
+                set duration_spec (string split -m 1 '=' -- $arg)[2]
             case '--duration'
                 set i (math $i + 1)
                 if test $i -le (count $argv)
-                    set duration $argv[$i]
+                    set duration_spec $argv[$i]
+                else
+                    echo "❌ Missing value for --duration" >&2
+                    cd $current_dir
+                    return 1
+                end
+            case '--frames'
+                set i (math $i + 1)
+                if test $i -le (count $argv)
+                    set -l frames_arg $argv[$i]
+                    set duration_spec (string join '' $frames_arg 'f')
+                    printf "⚠️  --frames is deprecated; use --duration=%sf instead\n" $frames_arg >&2
+                else
+                    echo "❌ Missing value for --frames" >&2
+                    cd $current_dir
+                    return 1
                 end
             case '--width'
                 set i (math $i + 1)
@@ -282,13 +303,50 @@ function ac-record
                 set gif_fps 25
             case '--gif-compress'
                 set gif_compress "--gif-compress"
+            case '*'
+                echo "⚠️  Ignoring unknown option: $arg" >&2
         end
         set i (math $i + 1)
     end
-    
-    # Store original directory
+
+    if test -n "$duration_spec"
+        set duration_spec (string trim (string lower $duration_spec))
+        set -l parse_result (python3 -c "import sys
+spec = sys.argv[1].strip().lower()
+if not spec:
+    raise SystemExit(1)
+if spec.endswith('s'):
+    seconds = float(spec[:-1] or '0')
+    frames = int(round(seconds * 60))
+elif spec.endswith('f'):
+    frames = int(round(float(spec[:-1] or '0')))
+    seconds = frames / 60.0
+else:
+    frames = int(round(float(spec)))
+    seconds = frames / 60.0
+if frames <= 0:
+    raise SystemExit(1)
+print(frames)
+print(f'{seconds:.2f}')" $duration_spec)
+
+        if test $status -ne 0
+            echo "❌ Invalid --duration value: $duration_spec" >&2
+            cd $current_dir
+            return 1
+        end
+
+        set frames $parse_result[1]
+        set duration_seconds $parse_result[2]
+    end
+
+    if test $frames -le 0
+        echo "❌ Duration must be greater than 0" >&2
+        cd $current_dir
+        return 1
+    end
+
     echo "🎬 Recording $piece_name from $current_dir"
-    echo "📊 Settings: {$duration} frames @ {$width}x{$height}"
+    echo "📊 Settings: {$frames} frames (~{$duration_seconds}s) @ {$width}x{$height}"
     if test -n "$gif_flag"
         if test -n "$gif_fps"
             printf "🎞️  Output format: GIF @ %sfps\n" $gif_fps
@@ -309,9 +367,16 @@ function ac-record
     
     # Run the orchestrator from the recording directory
     cd /workspaces/aesthetic-computer/reference/tools/recording
-    
-    # Build the command
-    set -l cmd "node" "orchestrator.mjs" $piece_name $duration $width $height
+
+    # Pass the original duration spec to orchestrator, or default if none specified
+    set -l duration_arg
+    if test -n "$duration_spec"
+        set duration_arg $duration_spec
+    else
+        set duration_arg "5s"  # Default to 5 seconds
+    end
+
+    set -l cmd "node" "orchestrator.mjs" $piece_name $duration_arg $width $height
     if test -n "$gif_flag"
         set cmd $cmd $gif_flag
     end
@@ -330,16 +395,13 @@ function ac-record
     
     # Execute the recording
     command $cmd
-    
-    # Check if recording was successful
+
     if test $status -eq 0
         echo "✅ AC Record complete! Video created in output directory"
-        
-        # Try to copy the most recent output file to the original directory
+
         set -l output_base_dir "/workspaces/aesthetic-computer/reference/tools/output"
-        
-        # Find the most recent output file for this piece
         set -l piece_clean (string replace '$' '' $piece_name)
+
         if test -n "$gif_flag"
             set -l latest_gif (find $output_base_dir -name "*$piece_clean*.gif" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
             if test -n "$latest_gif"
@@ -358,11 +420,9 @@ function ac-record
     else
         echo "❌ AC Record failed with exit code $status"
     end
-    
-    # Return to original directory
+
     cd $current_dir
 end
-
 # always start in aesthetic-computer directory if there was a greeting
 if not test "$nogreet" = true
     cd ~/aesthetic-computer
