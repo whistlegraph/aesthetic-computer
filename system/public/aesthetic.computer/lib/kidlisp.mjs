@@ -440,7 +440,6 @@ async function getCachedCodeMultiLevel(cacheId) {
 
   if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
     const teiaSource = globalScope.teiaKidlispCodes[cacheId];
-    console.log(`🎯 Found TEIA cached code for ${cacheId}`);
     // Cache in RAM for future access
     globalCodeCache.set(cacheId, teiaSource);
     return teiaSource;
@@ -1694,7 +1693,7 @@ class KidLisp {
       colorName = firstItem;
     }
     // Check if it's a single-argument function call like ["red"]
-    else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
+    else if (Array.isArray(firstItem) && firstItem.length >= 1 && typeof firstItem[0] === "string") {
       colorName = firstItem[0];
     }
 
@@ -10288,7 +10287,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
             try {
               const parsed = JSON.parse(data);
               if (parsed && parsed.source) {
-                console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${parsed.source.length} chars)`);
+                // console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${parsed.source.length} chars)`);
                 resolve(parsed.source);
               } else {
                 console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response from ${url}`, parsed);
@@ -10309,7 +10308,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
           if (response.ok) {
             return response.json().then(data => {
               if (data && data.source) {
-                console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${data.source.length} chars)`);
+                // console.log(`✅ Successfully fetched KidLisp code: ${nanoidCode} from ${isProduction ? 'production' : 'local'} (${data.source.length} chars)`);
                 resolve(data.source);
               } else {
                 console.error(`❌ Failed to load cached code: ${nanoidCode} - No source in response from ${url}`, data);
@@ -10330,7 +10329,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
 
   // First try local dev server
   const localUrl = `/api/store-kidlisp?code=${nanoidCode}`;
-  console.log(`🔍 Attempting to fetch ${nanoidCode} from local dev server: ${localUrl}`);
+  // console.log(`🔍 Attempting to fetch ${nanoidCode} from local dev server: ${localUrl}`);
   const localSource = await tryFetch(localUrl, false);
   
   if (localSource) {
