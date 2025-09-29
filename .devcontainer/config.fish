@@ -239,7 +239,9 @@ function ac-record
     set -l gif_flag ""
     set -l sixel_flag ""
     set -l duration_spec ""
-
+    set -l density ""
+    
+    # Process optional arguments
     set -l i 2
     while test $i -le (count $argv)
         set -l arg $argv[$i]
@@ -275,6 +277,11 @@ function ac-record
                 set i (math $i + 1)
                 if test $i -le (count $argv)
                     set height $argv[$i]
+                end
+            case '--density'
+                set i (math $i + 1)
+                if test $i -le (count $argv)
+                    set density $argv[$i]
                 end
             case '--gif'
                 set gif_flag "--gif"
@@ -329,7 +336,16 @@ print(f'{seconds:.2f}')" $duration_spec)
     else
         echo "🎞️  Output format: MP4"
     end
-
+    if test -n "$density"
+        echo "🔍 Density: $density"
+        set -l final_width (math "$width * $density")
+        set -l final_height (math "$height * $density")
+        set final_width (string replace -r '\.0+$' '' $final_width)
+        set final_height (string replace -r '\.0+$' '' $final_height)
+        printf "📐 Output pixels: %sx%s\n" $final_width $final_height
+    end
+    
+    # Run the orchestrator from the recording directory
     cd /workspaces/aesthetic-computer/reference/tools/recording
 
     # Pass the original duration spec to orchestrator, or default if none specified
@@ -347,7 +363,11 @@ print(f'{seconds:.2f}')" $duration_spec)
     if test -n "$sixel_flag"
         set cmd $cmd $sixel_flag
     end
-
+    if test -n "$density"
+        set cmd $cmd "--density" $density
+    end
+    
+    # Execute the recording
     command $cmd
 
     if test $status -eq 0
@@ -357,14 +377,14 @@ print(f'{seconds:.2f}')" $duration_spec)
         set -l piece_clean (string replace '$' '' $piece_name)
 
         if test -n "$gif_flag"
-            set -l latest_gif (find $output_base_dir -name "*$piece_clean*.gif" -type f -exec ls -t {} \; 2>/dev/null | head -1)
+            set -l latest_gif (find $output_base_dir -name "*$piece_clean*.gif" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
             if test -n "$latest_gif"
                 cp "$latest_gif" "$current_dir/"
                 set -l filename (basename "$latest_gif")
                 echo "📁 Copied $filename to $current_dir"
             end
         else
-            set -l latest_mp4 (find $output_base_dir -name "*$piece_clean*.mp4" -type f -exec ls -t {} \; 2>/dev/null | head -1)
+            set -l latest_mp4 (find $output_base_dir -name "*$piece_clean*.mp4" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
             if test -n "$latest_mp4"
                 cp "$latest_mp4" "$current_dir/"
                 set -l filename (basename "$latest_mp4")

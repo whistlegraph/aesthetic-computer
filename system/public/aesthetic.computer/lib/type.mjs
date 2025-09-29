@@ -171,7 +171,7 @@ class Typeface {
     if (this.name === "font_1") {
       // 1. Ignore any keys with a "glyph" prefix because these are settings.
       const glyphsToLoad = entries(this.data).filter(
-        ([g, loc]) => !g.startsWith("glyph"),
+        ([g, loc]) => !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0,
       );
       const promises = glyphsToLoad.map(([glyph, location], i) => {
         // 2. Load all other keys / glyphs over the network.
@@ -190,7 +190,7 @@ class Typeface {
     } else if (this.name === "microtype") {
       // Load microtype 3x5 font
       const glyphsToLoad = entries(this.data).filter(
-        ([g, loc]) => !g.startsWith("glyph"),
+        ([g, loc]) => !g.startsWith("glyph") && typeof loc === "string" && loc !== "false" && loc.length > 0,
       );
       const promises = glyphsToLoad.map(([glyph, location], i) => {
         const path = `aesthetic.computer/disks/drawings/${location}.json`;
@@ -221,6 +221,20 @@ class Typeface {
         const { MatrixChunky8 } = await import("../disks/common/fonts.mjs");
         this.data.advances = MatrixChunky8.advances || {}; // Character advance widths from fonts.mjs
         this.data.bdfOverrides = MatrixChunky8.bdfOverrides || {}; // Position overrides from fonts.mjs
+
+        const inlineGlyphMap =
+          (typeof globalThis !== "undefined" && globalThis.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
+          (typeof window !== "undefined" && window.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
+          null;
+
+        // Stash the inline glyph map for later on-demand lookups
+        if (inlineGlyphMap && typeof inlineGlyphMap === "object") {
+          if (!this.data || typeof this.data !== "object") {
+            this.data = {};
+          }
+          this.inlineMatrixChunkyGlyphMap = inlineGlyphMap;
+          this.data.inlineMatrixChunkyGlyphMap = inlineGlyphMap;
+        }
         
         // Define the characters we want to preload from the bundled assets using hex codes
         const chars = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
@@ -234,15 +248,11 @@ class Typeface {
             // Convert character to hex code for filename
             const charCode = char.charCodeAt(0);
             const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
-            
-            // In TEIA mode, access bundled assets with relative path
-            const glyphPath = `../../assets/type/MatrixChunky8/${hexCode}.json`;
-            
-            const response = await fetch(glyphPath);
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+            const glyphData = inlineGlyphMap?.[hexCode];
+            if (!glyphData) {
+              return null;
             }
-            const glyphData = await response.json();
             this.data[char] = glyphData; // Store in font data for proxy access
             this.invalidateAdvance(char);
             return glyphData;
@@ -384,19 +394,42 @@ class Typeface {
           if (isTeiaMode && this.name === "MatrixChunky8") {
             // In TEIA mode, first check if glyph is directly on target
             if (target[char] && target[char].pixels && target[char].resolution) {
+              loadingGlyphs.delete(char);
               return target[char];
             }
-            
+
             // In TEIA mode, the bundled data might be in the font object's data
             // Access through this.data (the original font data object)
             if (this.data && this.data[char]) {
               // Store it in target for faster access next time
               target[char] = this.data[char];
+              loadingGlyphs.delete(char);
               return this.data[char];
             }
-            
-            // If not found in bundled data, we're in TEIA mode so no API calls
-            return null;
+
+            const inlineGlyphMap =
+              this.inlineMatrixChunkyGlyphMap ||
+              this.data?.inlineMatrixChunkyGlyphMap ||
+              (typeof globalThis !== "undefined" && globalThis.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
+              (typeof window !== "undefined" && window.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
+              null;
+
+            if (inlineGlyphMap && codePoints.length === 1) {
+              const hexKey = codePoints[0];
+              const glyphData = inlineGlyphMap[hexKey];
+              if (glyphData) {
+                target[char] = glyphData;
+                this.data[char] = glyphData;
+                this.invalidateAdvance(char);
+                loadingGlyphs.delete(char);
+                return glyphData;
+              }
+            }
+
+            // Mark as failed to avoid repeat work and skip network access in TEIA mode
+            loadingGlyphs.delete(char);
+            failedGlyphs.add(char);
+            return this.getEmojiFallback(char, target);
           }
           
           // Only make API calls when NOT in TEIA mode

@@ -1,294 +1,551 @@
-// Line, 22.09.19.12.44 (Redesigned 25.01.08)
-// A clean, responsive line drawing brush with proper thickness support
+// Line, 25.09.28
+// Minimal line brush compatible with robo gesture pipeline and manual nopaint usage.
 
-/* #region 🏁 todos
-  + Current Version
-  - [x] Remove laggy Race smoothing system
-  - [x] Fix thickness support using improved pline
-  - [x] Simplify the pipeline for better performance
-  - [x] Add proper rounded end caps
-  - [x] Direct integration with graph.mjs optimized functions
-  - [x] Add fade support via enhanced parseColor
-  - [x] Add color highlighting for HUD labels
-  + Future
-  - [] Optional pressure sensitivity support
-  - [] Texture brushes
-  - [] Multiple color modes
-#endregion */
-
-import { nopaint_generateColoredLabel } from "../systems/nopaint.mjs";
-import { isFadeColor } from "../lib/num.mjs";
 import { setFadeAlpha } from "../lib/fade-state.mjs";
 
-let colorParams, // Processed color parameters
-  thickness, // Line thickness
-  antialias = false, // Antialiasing flag
-  wasPainting = false; // Track previous painting state to detect transitions
+const activeStroke = [];
+let strokeStartKey = null;
+let wasPenDrawing = false;
+let debugLineLogs = true;
 
-const points = []; // Current gesture stroke points
-const smoothedPoints = []; // Smoothed points for rendering
-let strokeToBake = null; // Function to bake the current stroke
-
-// Export to the `about` piece / show documentation
-function about({ colon, params, num }) {
-  const color = num.parseColor(params);
-  let name = num.findColor(color);
-  let alpha = 1;
-  
-  if (color.length === 2 || color.length === 4)
-    alpha = (color[color.length - 1] / 255).toFixed(1);
-  if (color.length === 2) {
-    if (color[0] === 0) name = "black";
-    else if (color[0] === 255) name = "white";
-    else name = "gray";
-  }
-
-  if (!name) name = "*COLOR*";
-
-  let text = `paint ${colon[0] || 1}px ${name} lines`;
-  if (alpha < 1) text += ` with ${alpha} alpha`;
-  return `${text}.`;
+function lineDebugEnabled() {
+  return debugLineLogs === true;
 }
 
-// 🥾 Boot - Initialize the brush
-function boot({ params, num, colon, hud, ...api }) {
-  colorParams = num.parseColor(params);
-  thickness = parseInt(colon[0]) || 1; // Set line thickness with colon param
-  
-  // Check for antialiasing flag
-  antialias = colon.includes("aa") || colon.includes("antialias");
-  
-  // Ensure thickness is within reasonable bounds
-  thickness = Math.max(1, Math.min(thickness, 50));
-  
-  // Initialize state tracking
-  wasPainting = false;
-
-  // Generate colored HUD label using the new color highlighting system  
-  const modifiers = colon.length > 0 ? `:${colon.join(":")}` : "";
-  nopaint_generateColoredLabel("line", colorParams, params, modifiers, { hud, ...api });
-}
-
-// 🧮 Sim - No simulation needed for the streamlined version
-function sim() {
-  // Removed the laggy Race system - direct input handling instead
-}
-
-// 🎨 Paint - Render the current stroke
-function paint({ pen, ink, page, paste, screen, num, system: { nopaint } }) {
-  // Track state changes to detect new strokes
-  const isPainting = nopaint.is("painting");
-  
-  // If we just started painting (transition from not-painting to painting), start new stroke
-  if (isPainting && !wasPainting) {
-    points.length = 0;
-    smoothedPoints.length = 0;
-  }
-  
-  // Update state tracking
-  wasPainting = isPainting;
-  
-  // Add current brush position if we're actively painting
-  if (isPainting) {
-    // Use transformed brush coordinates
-    addPoint(num, nopaint.brush.x, nopaint.brush.y);
-  }
-
-  // Only render if we have points
-  if (points.length > 0) {
-    let currentStroke = points;
-    
-    // Add current brush position for preview if still painting
-    if (isPainting) {
-      currentStroke = [...points, { x: nopaint.brush.x, y: nopaint.brush.y }];
-    }
-    
-    // Paint to the buffer
-    page(nopaint.buffer).wipe(255, 0);
-    
-    if (thickness === 1) {
-      if (antialias) {
-        // Use antialiased lines with smoothing for smooth 1px lines
-        const smoothed = currentStroke.length > 2 ? smoothStroke(currentStroke) : currentStroke;
-        for (let i = 0; i < smoothed.length - 1; i++) {
-          const p1 = smoothed[i];
-          const p2 = smoothed[i + 1];
-          // Handle fade colors vs traditional colors
-          if (isFadeColor(colorParams)) {
-            if (colorParams.alpha !== undefined) {
-              setFadeAlpha(colorParams.alpha);
-            }
-            ink(colorParams.fadeString).line(p1.x, p1.y, p2.x, p2.y, true);
-          } else {
-            ink(colorParams).line(p1.x, p1.y, p2.x, p2.y, true);
-          }
-        }
-      } else {
-        // Use pixel-perfect rendering for crisp 1px lines (no smoothing for crispness)
-        if (isFadeColor(colorParams)) {
-          if (colorParams.alpha !== undefined) {
-            setFadeAlpha(colorParams.alpha);
-          }
-          ink(colorParams.fadeString).pppline(currentStroke);
-        } else {
-          ink(colorParams).pppline(currentStroke);
-        }
+function normalizeColorSpec(colorSpec) {
+  if (!colorSpec) return [255, 255, 255];
+  if (Array.isArray(colorSpec)) return colorSpec;
+  if (typeof colorSpec === "string") return colorSpec;
+  if (typeof colorSpec === "object") {
+    if (colorSpec.r !== undefined && colorSpec.g !== undefined && colorSpec.b !== undefined) {
+      if (colorSpec.a !== undefined) {
+        return [colorSpec.r, colorSpec.g, colorSpec.b, colorSpec.a];
       }
-    } else {
-      // For thick lines, always apply smoothing and use fast spinal rendering
-      const smoothed = currentStroke.length > 2 ? smoothStroke(currentStroke) : currentStroke;
-      if (isFadeColor(colorParams)) {
-        if (colorParams.alpha !== undefined) {
-          setFadeAlpha(colorParams.alpha);
-        }
-        ink(colorParams.fadeString).pline(smoothed, thickness);
-      } else {
-        ink(colorParams).pline(smoothed, thickness);
-      }
+      return [colorSpec.r, colorSpec.g, colorSpec.b];
     }
-    
-    page(screen);
-    
-    // Set up the baking function (like rect does)
-    strokeToBake = () => {
-      paste(nopaint.buffer);
-      page(nopaint.buffer).wipe(255, 0);
-      strokeToBake = null;
-    };
+    if (colorSpec.color) {
+      return normalizeColorSpec(colorSpec.color);
+    }
   }
+  return colorSpec;
 }
 
-// 📦 Bake - Commit the stroke to the canvas
-function bake() {
-  strokeToBake?.();
-}
+function resolveInk(ink, colorSpec) {
+  const normalized = normalizeColorSpec(colorSpec);
 
-// ✒ Act - Handle user input
-// 🔍 Preview - Show what the brush looks like
-function preview({ ink, wipe }) {
-  wipe("red").ink("blue").write("line", { center: "xy" });
-}
-
-const system = "nopaint";
-
-export { about, boot, paint, sim, bake, system, preview };
-
-// 📚 Library (Helper functions)
-
-function addPoint(num, x, y, pressure) {
-  let color;
-  
-  // Handle different color modes
-  if (colorParams.length === 0) {
-    color = num.randIntArr(255, 3); // Random color if none specified
-  } else if (colorParams[0] === "rainbow") {
-    color = "rainbow"; // Special rainbow mode
-  } else {
-    color = colorParams; // Use specified color
+  if (Array.isArray(normalized)) {
+    if (normalized.length > 0 && typeof normalized[0] === "string" && normalized[0].startsWith("fade")) {
+      if (typeof normalized[1] === "number") {
+        setFadeAlpha(normalized[1]);
+      }
+      return ink(normalized[0]);
+    }
+    return ink(normalized);
   }
-  
-  points.push({ x, y, color, pressure });
+
+  if (typeof normalized === "string") {
+    if (normalized.startsWith("fade")) {
+      return ink(normalized);
+    }
+    return ink(normalized);
+  }
+
+  return ink([255, 255, 255]);
 }
 
-// Adaptive smoothing for all line types
+function sanitizeLinePoints(points) {
+  if (!Array.isArray(points)) return [];
+  const sanitized = [];
+  for (const point of points) {
+    if (!point) continue;
+    if (Array.isArray(point) && point.length >= 2) {
+      const [x, y] = point;
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        sanitized.push({ x, y });
+      }
+    } else if (typeof point.x === "number" && typeof point.y === "number") {
+      sanitized.push({ x: point.x, y: point.y });
+    }
+  }
+  return sanitized;
+}
+
+function roundPoints(points) {
+  return points.map(({ x, y }) => ({ x: Math.round(x), y: Math.round(y) }));
+}
+
+function clonePoints(points) {
+  if (!Array.isArray(points)) return [];
+  return points.map(({ x, y, pressure }) => ({ x, y, pressure }));
+}
+
 function smoothStroke(rawPoints) {
-  if (rawPoints.length < 3) return rawPoints;
-  
-  const smoothed = [rawPoints[0]]; // Keep first point exactly
-  
-  // Apply adaptive smoothing based on stroke velocity and direction changes
+  if (!Array.isArray(rawPoints) || rawPoints.length < 3) {
+    return clonePoints(rawPoints);
+  }
+
+  const smoothed = [{ ...rawPoints[0] }];
+
   for (let i = 1; i < rawPoints.length - 1; i++) {
     const prev = rawPoints[i - 1];
     const curr = rawPoints[i];
     const next = rawPoints[i + 1];
-    
-    // Calculate movement vectors
+
     const dx1 = curr.x - prev.x;
     const dy1 = curr.y - prev.y;
     const dx2 = next.x - curr.x;
     const dy2 = next.y - curr.y;
-    
-    // Calculate velocities (distance between points)
-    const vel1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-    const vel2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-    
-    // Calculate direction change (dot product)
+
+    const vel1 = Math.hypot(dx1, dy1);
+    const vel2 = Math.hypot(dx2, dy2);
+
     const dot = dx1 * dx2 + dy1 * dy2;
-    const cosAngle = vel1 > 0 && vel2 > 0 ? dot / (vel1 * vel2) : 1;
-    
-    // Smooth more aggressively for:
-    // 1. Sharp direction changes (low cosAngle)
-    // 2. High velocity changes
-    // 3. Very small movements (jitter)
-    
-    const directionChange = 1 - cosAngle; // 0 = no change, 2 = complete reversal
+    const denom = vel1 * vel2;
+    const cosAngle = denom > 0 ? dot / denom : 1;
+
+    const directionChange = 1 - cosAngle;
     const velocityChange = Math.abs(vel1 - vel2);
     const isJitter = vel1 < 2 && vel2 < 2;
-    
-    let smoothingStrength = 0.25; // Base smoothing
-    
-    if (isJitter) {
-      smoothingStrength = 0.6; // Strong smoothing for jitter
-    } else if (directionChange > 0.3) {
-      smoothingStrength = 0.4; // Medium smoothing for direction changes
-    } else if (velocityChange > 5) {
-      smoothingStrength = 0.35; // Medium smoothing for velocity changes
-    }
-    
-    // Apply smoothing with calculated strength
+
+    let smoothingStrength = 0.25;
+    if (isJitter) smoothingStrength = 0.6;
+    else if (directionChange > 0.3) smoothingStrength = 0.4;
+    else if (velocityChange > 5) smoothingStrength = 0.35;
+
+    const averagedX = curr.x * (1 - smoothingStrength) + (prev.x + next.x) * (smoothingStrength / 2);
+    const averagedY = curr.y * (1 - smoothingStrength) + (prev.y + next.y) * (smoothingStrength / 2);
+
     smoothed.push({
-      x: curr.x * (1 - smoothingStrength) + 
-         (prev.x + next.x) * smoothingStrength / 2,
-      y: curr.y * (1 - smoothingStrength) + 
-         (prev.y + next.y) * smoothingStrength / 2,
-      color: curr.color
+      x: averagedX,
+      y: averagedY,
+      pressure: curr.pressure
     });
   }
-  
-  smoothed.push(rawPoints[rawPoints.length - 1]); // Keep last point exactly
+
+  smoothed.push({ ...rawPoints[rawPoints.length - 1] });
   return smoothed;
 }
 
-// Simplified light smoothing for thick lines only (backup function)
-function lightSmooth(rawPoints) {
-  if (rawPoints.length < 4) return rawPoints;
-  
-  const smoothed = [rawPoints[0]]; // Keep first point
-  
-  // Light smoothing - just reduce the most extreme jitter
-  for (let i = 1; i < rawPoints.length - 1; i++) {
-    const prev = rawPoints[i - 1];
-    const curr = rawPoints[i];
-    const next = rawPoints[i + 1];
-    
-    // Only smooth if the point creates a sharp angle
-    const dx1 = curr.x - prev.x;
-    const dy1 = curr.y - prev.y;
-    const dx2 = next.x - curr.x;
-    const dy2 = next.y - curr.y;
-    
-    // Calculate dot product to detect sharp angles
-    const dot = dx1 * dx2 + dy1 * dy2;
-    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-    
-    if (len1 > 0 && len2 > 0) {
-      const cosAngle = dot / (len1 * len2);
-      
-      // Only smooth sharp angles (cosAngle < 0.7 means angle > ~45 degrees)
-      if (cosAngle < 0.7) {
-        smoothed.push({
-          x: (prev.x + curr.x * 2 + next.x) / 4,
-          y: (prev.y + curr.y * 2 + next.y) / 4
-        });
-      } else {
-        smoothed.push(curr);
-      }
-    } else {
-      smoothed.push(curr);
+function prepareStroke(points, thickness, antialias) {
+  if (!Array.isArray(points)) return [];
+  if (points.length < 3) return clonePoints(points);
+
+  // For now apply the same adaptive smoothing regardless of thickness/antialias.
+  return smoothStroke(points);
+}
+
+function createPointsFromBox(box) {
+  if (!box) return [];
+  const { x, y } = box;
+  const w = typeof box.w === "number" ? box.w : 0;
+  const h = typeof box.h === "number" ? box.h : 0;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return [];
+  }
+
+  const endX = Number.isFinite(x + w) ? x + w : x;
+  const endY = Number.isFinite(y + h) ? y + h : y;
+
+  return sanitizeLinePoints([
+    { x, y },
+    { x: endX, y: endY }
+  ]);
+}
+
+function isValidPoint(point) {
+  return point && Number.isFinite(point.x) && Number.isFinite(point.y);
+}
+
+function pushUniquePaintingPoint(point) {
+  if (!isValidPoint(point)) return false;
+  const last = activeStroke[activeStroke.length - 1];
+  if (last && last.x === point.x && last.y === point.y) {
+    return false;
+  }
+  activeStroke.push({ x: point.x, y: point.y });
+  if (activeStroke.length === 1) {
+    strokeStartKey = `${point.x},${point.y}`;
+  }
+  if (lineDebugEnabled()) {
+    console.log("🟢 LINE pushUniquePaintingPoint", {
+      point,
+      length: activeStroke.length,
+      strokeStartKey,
+      timestamp: performance.now()
+    });
+  }
+  return true;
+}
+
+function ensureStrokeInitialized(system, pen) {
+  const np = system?.nopaint;
+  let startPoint = null;
+  if (np?.startDrag && isValidPoint(np.startDrag)) {
+    startPoint = { x: np.startDrag.x, y: np.startDrag.y };
+  } else if (pen && Number.isFinite(pen.x) && Number.isFinite(pen.y)) {
+    startPoint = screenToPainting({ x: pen.x, y: pen.y }, system);
+  }
+
+  if (!isValidPoint(startPoint)) return;
+
+  const key = `${startPoint.x},${startPoint.y}`;
+  if (activeStroke.length === 0 || strokeStartKey !== key) {
+    activeStroke.length = 0;
+    strokeStartKey = null;
+    pushUniquePaintingPoint(startPoint);
+  if (lineDebugEnabled()) {
+      console.log("🟡 LINE ensureStrokeInitialized", {
+        source: np?.startDrag ? "startDrag" : "pen",
+        startPoint,
+        strokeStartKey,
+        activeLength: activeStroke.length
+      });
     }
   }
-  
-  smoothed.push(rawPoints[rawPoints.length - 1]); // Keep last point
-  return smoothed;
 }
+
+function paintingStrokeToScreen(points, system) {
+  const np = system?.nopaint;
+  if (!np) return [];
+  const zoom = np.zoomLevel || 1;
+  const tx = np.translation?.x || 0;
+  const ty = np.translation?.y || 0;
+  return points.map(({ x, y }) => ({
+    x: Math.round(x * zoom + tx),
+    y: Math.round(y * zoom + ty)
+  }));
+}
+
+function screenToPainting(point, system) {
+  if (!point) return null;
+  const np = system?.nopaint;
+  if (!np) return { x: point.x, y: point.y };
+  const zoom = np.zoomLevel || 1;
+  const tx = np.translation?.x || 0;
+  const ty = np.translation?.y || 0;
+  if (!zoom || !Number.isFinite(zoom)) return { x: point.x, y: point.y };
+  const x = (point.x - tx) / zoom;
+  const y = (point.y - ty) / zoom;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function appendStrokePoint(system, pen) {
+  const np = system?.nopaint;
+  let point = null;
+  if (np?.brush && isValidPoint(np.brush)) {
+    point = { x: np.brush.x, y: np.brush.y };
+  } else if (pen && Number.isFinite(pen.x) && Number.isFinite(pen.y)) {
+    point = screenToPainting({ x: pen.x, y: pen.y }, system);
+  }
+  if (!point) return;
+  pushUniquePaintingPoint(point);
+  if (lineDebugEnabled()) {
+    console.log("🔵 LINE appendStrokePoint", {
+      point,
+      source: np?.brush ? "nopaint.brush" : "pen",
+      activeLength: activeStroke.length
+    });
+  }
+}
+
+function collectLinePointsForOverlay({ mark, pen, system }) {
+  const np = system?.nopaint;
+  if (np?.startDrag && np?.brush) {
+    const zoom = np.zoomLevel || 1;
+    const tx = np.translation?.x || 0;
+    const ty = np.translation?.y || 0;
+    const start = {
+      x: np.startDrag.x * zoom + tx,
+      y: np.startDrag.y * zoom + ty
+    };
+    const current = {
+      x: np.brush.x * zoom + tx,
+      y: np.brush.y * zoom + ty
+    };
+    const points = sanitizeLinePoints([start, current]);
+    if (points.length >= 2) {
+      return points;
+    }
+  }
+
+  if (mark?.points) {
+    const points = sanitizeLinePoints(mark.points);
+    if (points.length >= 2) return points;
+  }
+
+  if (Array.isArray(mark) && mark.length) {
+    const points = sanitizeLinePoints(mark);
+    if (points.length >= 2) return points;
+  }
+
+  if (pen?.points) {
+    const points = sanitizeLinePoints(pen.points);
+    if (points.length >= 2) return points;
+  }
+
+  if (pen?.dragBox) {
+    const points = createPointsFromBox(pen.dragBox);
+    if (points.length >= 2) return points;
+  }
+
+  const boxPoints = createPointsFromBox(mark);
+  if (boxPoints.length >= 2) {
+    return boxPoints;
+  }
+
+  return [];
+}
+
+function collectLinePointsForLift({ mark, pen, system }) {
+  const np = system?.nopaint;
+  if (np?.finalStartDrag && np?.finalDragBox) {
+    const start = np.finalStartDrag;
+    const drag = np.finalDragBox;
+    const end = np.finalEndPoint
+      ? { x: np.finalEndPoint.x, y: np.finalEndPoint.y }
+      : {
+          x: start.x + (typeof drag.w === "number" ? drag.w : 0),
+          y: start.y + (typeof drag.h === "number" ? drag.h : 0)
+        };
+    const points = sanitizeLinePoints([start, end]);
+    if (points.length >= 2) return points;
+  }
+
+  if (mark?.painting?.points) {
+    const points = sanitizeLinePoints(mark.painting.points);
+    if (points.length >= 2) return points;
+  }
+
+  if (mark?.points) {
+    const points = sanitizeLinePoints(mark.points);
+    if (points.length >= 2) return points;
+  }
+
+  if (Array.isArray(mark) && mark.length) {
+    const points = sanitizeLinePoints(mark);
+    if (points.length >= 2) return points;
+  }
+
+  if (pen?.points) {
+    const points = sanitizeLinePoints(pen.points);
+    if (points.length >= 2) return points;
+  }
+
+  if (pen?.dragBox) {
+    const points = createPointsFromBox(pen.dragBox);
+    if (points.length >= 2) return points;
+  }
+
+  const boxPoints = createPointsFromBox(mark);
+  if (boxPoints.length >= 2) {
+    return boxPoints;
+  }
+
+  return [];
+}
+
+function drawLine(drawer, points, thickness, antialias) {
+  if (points.length < 2) return;
+
+  const rounded = roundPoints(points);
+
+  if (thickness <= 1) {
+    if (antialias && typeof drawer.line === "function") {
+      for (let i = 0; i < rounded.length - 1; i++) {
+        const p1 = rounded[i];
+        const p2 = rounded[i + 1];
+        drawer.line(p1.x, p1.y, p2.x, p2.y, true);
+      }
+    } else if (typeof drawer.pppline === "function") {
+      drawer.pppline(rounded);
+    } else if (typeof drawer.line === "function") {
+      for (let i = 0; i < rounded.length - 1; i++) {
+        const p1 = rounded[i];
+        const p2 = rounded[i + 1];
+        drawer.line(p1.x, p1.y, p2.x, p2.y, false);
+      }
+    }
+    return;
+  }
+
+  if (typeof drawer.pline === "function") {
+    drawer.pline(rounded, thickness);
+  } else if (typeof drawer.pppline === "function") {
+    drawer.pppline(rounded);
+  }
+}
+
+function ensureFinalPoint(system, pen) {
+  const np = system?.nopaint;
+  if (!np) return;
+  if (np.finalEndPoint && isValidPoint(np.finalEndPoint)) {
+    pushUniquePaintingPoint(np.finalEndPoint);
+  } else if (pen && Number.isFinite(pen.x) && Number.isFinite(pen.y)) {
+    const projected = screenToPainting({ x: pen.x, y: pen.y }, system);
+    pushUniquePaintingPoint(projected);
+  }
+}
+
+function overlay({ ink, color, mark, pen, system, net }) {
+  if (!mark && !pen) return;
+  const thickness = Math.max(1, Math.round(mark?.thickness ?? pen?.thickness ?? 1));
+  const antialias = mark?.antialias ?? pen?.antialias ?? thickness <= 1;
+
+  let points = [];
+  const np = system?.nopaint;
+  const penDrawing = !!(pen && pen.drawing);
+  const paintingActive = penDrawing || (!!np?.startDrag && !!np?.brush);
+
+  if (paintingActive && system?.nopaint) {
+    ensureStrokeInitialized(system, pen);
+    appendStrokePoint(system, pen);
+    const paintingStroke = prepareStroke(activeStroke, thickness, antialias);
+    points = paintingStrokeToScreen(paintingStroke, system);
+  } else {
+    points = collectLinePointsForOverlay({ mark, pen, system });
+    if (points.length < 2 && activeStroke.length >= 2) {
+      const paintingStroke = prepareStroke(activeStroke, thickness, antialias);
+      points = paintingStrokeToScreen(paintingStroke, system);
+    } else if (points.length >= 2) {
+      points = prepareStroke(points, thickness, antialias);
+    }
+    if (!paintingActive && wasPenDrawing) {
+      ensureFinalPoint(system, pen);
+      if (points.length < 2 && activeStroke.length >= 2) {
+        const paintingStroke = prepareStroke(activeStroke, thickness, antialias);
+        points = paintingStrokeToScreen(paintingStroke, system);
+      }
+    }
+  }
+
+  if (points.length < 2) return;
+
+  const lastPaintingPoint = activeStroke[activeStroke.length - 1] || null;
+  const lastScreenPoint = points[points.length - 1] || null;
+  const penScreenPoint = pen ? { x: pen.x, y: pen.y } : null;
+  const screenDiff = penScreenPoint && lastScreenPoint
+    ? {
+        dx: Number.isFinite(lastScreenPoint.x - penScreenPoint.x)
+          ? lastScreenPoint.x - penScreenPoint.x
+          : null,
+        dy: Number.isFinite(lastScreenPoint.y - penScreenPoint.y)
+          ? lastScreenPoint.y - penScreenPoint.y
+          : null,
+      }
+    : null;
+
+  if (lineDebugEnabled()) {
+    console.log("🧭 LINE overlay state", {
+      penDrawing,
+      paintingActive,
+      pen: pen ? { x: pen.x, y: pen.y, drawing: pen.drawing } : null,
+      npBrush: np?.brush ? { x: np.brush.x, y: np.brush.y } : null,
+      npStartDrag: np?.startDrag ? { x: np.startDrag.x, y: np.startDrag.y } : null,
+      npTranslation: np?.translation,
+      npZoom: np?.zoomLevel,
+      strokeLength: activeStroke.length,
+      previewPoints: points.slice(0, 4),
+      screenFirst: points[0],
+      screenLast: lastScreenPoint,
+      lastPaintingPoint,
+      penScreenPoint,
+      screenDiff
+    });
+    if (screenDiff) {
+      console.log(
+        `🧮 LINE overlay Δscreen-pen dx=${screenDiff.dx} dy=${screenDiff.dy} | ` +
+        `pen=(${penScreenPoint?.x},${penScreenPoint?.y}) screen=(${lastScreenPoint?.x},${lastScreenPoint?.y}) ` +
+        `paint=(${lastPaintingPoint?.x},${lastPaintingPoint?.y}) zoom=${np?.zoomLevel} translation=(${np?.translation?.x},${np?.translation?.y})`
+      );
+    }
+  }
+
+  if (lineDebugEnabled() && net?.log) {
+    net.log("info", "line.overlay", {
+      penDrawing,
+      paintingActive,
+      lastPaintingPoint,
+      lastScreenPoint,
+      penScreenPoint,
+      screenDiff,
+      translation: np?.translation,
+      zoom: np?.zoomLevel,
+      strokeLength: activeStroke.length
+    });
+  }
+
+  try {
+    const drawer = resolveInk(ink, color);
+    drawLine(drawer, points, thickness, antialias);
+  } catch (error) {
+    console.error("🖊️ LINE overlay error:", error);
+  }
+
+  wasPenDrawing = paintingActive;
+}
+
+function lift({ ink, color, mark, pen, system, net }) {
+  if (!mark && !pen) return false;
+  const thickness = Math.max(1, Math.round(mark?.thickness ?? pen?.thickness ?? 1));
+  const antialias = mark?.antialias ?? pen?.antialias ?? thickness <= 1;
+  if (activeStroke.length >= 1) {
+    ensureFinalPoint(system, pen);
+  }
+  const preferredPoints = activeStroke.length >= 2 ? clonePoints(activeStroke) : [];
+  const points = preferredPoints.length >= 2 ? preferredPoints : collectLinePointsForLift({ mark, pen, system });
+  if (points.length < 2) {
+    console.warn("🖊️ LINE lift: not enough points to draw", points);
+    activeStroke.length = 0;
+    strokeStartKey = null;
+    wasPenDrawing = false;
+    return false;
+  }
+
+  try {
+    const drawer = resolveInk(ink, color);
+    const strokePoints = prepareStroke(points, thickness, antialias);
+    drawLine(drawer, strokePoints, thickness, antialias);
+  if (lineDebugEnabled()) {
+      console.log("✅ LINE lift drew stroke", {
+        strokePoints,
+        thickness,
+        antialias
+      });
+    }
+  if (lineDebugEnabled() && net?.log) {
+      net.log("info", "line.lift", {
+        strokeLength: points.length,
+        thickness,
+        antialias,
+        firstPoint: points[0],
+        lastPoint: points[points.length - 1]
+      });
+    }
+    activeStroke.length = 0;
+    strokeStartKey = null;
+    wasPenDrawing = false;
+    return true;
+  } catch (error) {
+    console.error("🖊️ LINE lift error:", error);
+    activeStroke.length = 0;
+    strokeStartKey = null;
+    wasPenDrawing = false;
+    return false;
+  }
+}
+
+export const system = "nopaint";
+
+function boot({ colon } = {}) {
+  if (Array.isArray(colon)) {
+    if (colon.includes("quiet") || colon.includes("nodebug")) {
+      debugLineLogs = false;
+    } else if (colon.includes("debug")) {
+      debugLineLogs = true;
+    }
+  }
+}
+
+export { overlay, lift, boot };

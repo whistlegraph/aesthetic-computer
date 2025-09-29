@@ -9,12 +9,62 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 import { extractCodes, fetchAllCodes, generateCacheCode } from "./kidlisp-extractor.mjs";
-import { timestamp } from "../system/public/aesthetic.computer/lib/num.mjs";
 import { execSync } from "child_process";
 import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const DEFAULT_TIME_ZONE =
+  process.env.AC_PACK_TZ || process.env.TZ || "America/Los_Angeles";
+
+function getTimestampParts(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    fractionalSecondDigits: 3,
+  });
+
+  const parts = formatter.formatToParts(date).reduce((acc, part) => {
+    if (part.type !== "literal") {
+      acc[part.type] = part.value;
+    }
+    return acc;
+  }, {});
+
+  if (!parts.fractionalSecond) {
+    parts.fractionalSecond = String(date.getMilliseconds()).padStart(3, "0");
+  }
+
+  return parts;
+}
+
+function formatTimestampForFile(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const parts = getTimestampParts(date, timeZone);
+  return `${parts.year}.${parts.month}.${parts.day}.${parts.hour}.${parts.minute}.${parts.second}.${parts.fractionalSecond}`;
+}
+
+function formatDateTimeForDisplay(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
+
+  return formatter.format(date);
+}
 
 // Get git information for colophonic data
 function getGitInfo() {
@@ -53,24 +103,55 @@ const PUBLIC_DIR = path.join(SYSTEM_DIR, "public");
 const AC_DIR = path.join(PUBLIC_DIR, "aesthetic.computer");
 const DISKS_DIR = path.join(AC_DIR, "disks");
 const TOKENS_DIR = path.join(__dirname, "output");
+const PACKAGED_SYSTEM_DIR_NAME = "ac";
 
 class AcPacker {
   constructor(pieceName, options = {}) {
     this.pieceName = pieceName;
-    this.zipTimestamp = timestamp(); // Generate timestamp once for consistent naming
+    this.timeZone = options.timeZone || DEFAULT_TIME_ZONE;
+    this.buildDate = new Date();
+    this.zipTimestamp = formatTimestampForFile(this.buildDate, this.timeZone); // Generate timestamp once for consistent naming
+    this.packagedSystemDirName = options.packagedSystemDirName || PACKAGED_SYSTEM_DIR_NAME;
+    this.packagedSystemBaseHref = `./${this.packagedSystemDirName}`;
     // Sanitize piece name for directory creation (remove $ and other shell-problematic characters)
     const sanitizedPieceName = pieceName.replace(/[$]/g, '');
+    const rawCoverDuration = options.coverDurationSeconds ?? options.gifLengthSeconds;
+    let coverDurationSeconds = Number(rawCoverDuration);
+    if (!Number.isFinite(coverDurationSeconds) || coverDurationSeconds <= 0) {
+      coverDurationSeconds = 3;
+    }
+    const coverFrameCount = Math.max(1, Math.round(coverDurationSeconds * 60));
     this.options = {
+      ...options,
       outputDir: path.join(options.targetDir || TOKENS_DIR, sanitizedPieceName),
       targetDir: options.targetDir || TOKENS_DIR, // Directory where final artifacts should be placed
       coverImage: options.coverImage || "cover.gif", // Default to GIF, fallback to SVG handled in generateCover
-      faviconImage: "./aesthetic.computer/favicon.png", // Default favicon, updated to GIF if available
+      faviconImage: options.faviconImage || `${this.packagedSystemBaseHref}/favicon.png`, // Default favicon, updated to GIF if available
       title: options.title || pieceName,
       description: options.description || `Interactive ${pieceName} piece from aesthetic.computer`,
       author: options.author || "@jeffrey",
-      ...options,
+      verbose: options.verbose === true,
+      logInkColors: options.logInkColors === true,
+      coverDurationSeconds,
+      coverFrameCount,
+      timeZone: this.timeZone,
+      packagedSystemDirName: this.packagedSystemDirName,
     };
     this.bundledFiles = new Set();
+  }
+
+  getPackagedDirPath(...segments) {
+    return path.join(this.options.outputDir, this.packagedSystemDirName, ...segments);
+  }
+
+  getPackagedRelativePath(...segments) {
+    return `./${path.posix.join(this.packagedSystemDirName, ...segments)}`;
+  }
+
+  logVerbose(...args) {
+    if (this.options.verbose) {
+      console.log(...args);
+    }
   }
 
   async pack() {
@@ -104,7 +185,8 @@ class AcPacker {
       await this.copyAssets();
       
       // Generate index.html after all bundling is complete so we have accurate file count
-      await this.generateIndexHtml(pieceData, hasDependencies);
+  await this.generateIndexHtml(pieceData, hasDependencies);
+  await this.convertMjsModulesToJs();
       
       console.log("✅ Successfully generated assets for", this.pieceName);
       console.log("📁 Files bundled:", this.bundledFiles.size);
@@ -130,6 +212,12 @@ class AcPacker {
   }
 
   async createOutputDir() {
+    try {
+      await fs.rm(this.options.outputDir, { recursive: true, force: true });
+      console.log(`🧹 Cleared existing output directory: ${this.options.outputDir}`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to clear output directory before pack: ${error.message}`);
+    }
     await fs.mkdir(this.options.outputDir, { recursive: true });
     console.log(`📁 Created output directory: ${this.options.outputDir}`);
   }
@@ -230,7 +318,9 @@ class AcPacker {
     
     const gitInfo = getGitInfo();
     console.log("🔧 Git info retrieved:", gitInfo);
-    const packTime = new Date().toISOString();
+    const buildDate = this.buildDate ? new Date(this.buildDate) : new Date();
+    const packTimeUTC = buildDate.toISOString();
+    const packTimeLocal = formatDateTimeForDisplay(buildDate, this.timeZone);
     
     // Get system information
     const systemInfo = {
@@ -253,7 +343,10 @@ class AcPacker {
         codeLength: pieceData.sourceCode ? pieceData.sourceCode.length : 0
       },
       build: {
-        packTime,
+        packTime: packTimeLocal,
+        packTimeLocal,
+        packTimeUTC,
+        timeZone: this.timeZone,
         author: this.options.author,
         gitCommit: gitInfo.shortCommit,
         gitCommitFull: gitInfo.commit,
@@ -267,7 +360,7 @@ class AcPacker {
       },
       metadata: {
         ...generatedMetadata,
-        favicon: this.options.faviconImage || './aesthetic.computer/favicon.png'
+        favicon: this.options.faviconImage || this.getPackagedRelativePath('favicon.png')
       }
     };
     
@@ -288,7 +381,7 @@ class AcPacker {
     // Update colophon with final metadata
     colophonData.metadata = {
       ...finalMetadata,
-      favicon: this.options.faviconImage || './aesthetic.computer/favicon.png'
+      favicon: this.options.faviconImage || this.getPackagedRelativePath('favicon.png')
     };
     
     console.log("📋 Colophon data prepared:", JSON.stringify(colophonData, null, 2));
@@ -300,7 +393,7 @@ class AcPacker {
     <base href="./" />
     <title>${finalMetadata.title || this.options.title}</title>
     <meta property="og:image" content="${this.options.coverImage}" />
-    <link rel="icon" href="${this.options.faviconImage || './aesthetic.computer/favicon.png'}" type="${this.options.faviconImage && this.options.faviconImage.endsWith('.gif') ? 'image/gif' : 'image/png'}" />
+  <link rel="icon" href="${this.options.faviconImage || this.getPackagedRelativePath('favicon.png')}" type="${this.options.faviconImage && this.options.faviconImage.endsWith('.gif') ? 'image/gif' : 'image/png'}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="${this.options.description}" />
     <meta name="og:title" content="${finalMetadata.title || this.options.title}" />
@@ -330,6 +423,31 @@ window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piec
     }
     originalError.apply(console, args);
   };
+
+  // Capture resource errors at the window level before they hit the console
+  window.addEventListener('error', (event) => {
+    const target = event?.target;
+    const message = event?.message || '';
+    const resourceUrl = typeof target?.src === 'string' ? target.src : '';
+    if (
+      (resourceUrl && resourceUrl.includes('MatrixChunky8')) ||
+      message.includes('MatrixChunky8') ||
+      message.includes('assets/type/')
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return false;
+    }
+  }, true);
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    if (typeof reason === 'string' && reason.includes('MatrixChunky8')) {
+      event.preventDefault();
+    } else if (reason && typeof reason.message === 'string' && reason.message.includes('MatrixChunky8')) {
+      event.preventDefault();
+    }
+  });
 })();
 
 // Colophonic information for provenance and debugging
@@ -344,9 +462,15 @@ window.acTEIA_CREATOR = urlParams.get('creator') || null;
 ${this.options.density ? `
 if (!urlParams.has('density')) {
   urlParams.set('density', '${this.options.density}');
-  // Update the URL without page reload to include density parameter
-  const newUrl = window.location.pathname + '?' + urlParams.toString();
-  history.replaceState(null, '', newUrl);
+  // Update the URL without page reload to include density parameter when environment allows it
+  if (window.location && window.location.origin && window.location.origin !== 'null' && window.location.protocol !== 'about:') {
+    try {
+      const newUrl = window.location.pathname + '?' + urlParams.toString();
+      history.replaceState(null, '', newUrl);
+    } catch (error) {
+      console.warn('⚠️ Skipped history.replaceState in restricted environment:', error?.message || error);
+    }
+  }
   console.log('🔍 Applied custom density: ${this.options.density}');
 }` : '// No custom density specified'}
 
@@ -382,9 +506,10 @@ setInterval(() => {
   }
 }, 100);
     </script>
-    ${this.generateKidLispCacheScript()}
-    <script src="./aesthetic.computer/boot.mjs" type="module" defer onerror="handleModuleLoadError()"></script>
-    <link rel="stylesheet" href="./aesthetic.computer/style.css" />
+  ${this.generateMatrixChunkyGlyphScript()}
+  ${this.generateKidLispCacheScript()}
+  <script src="${this.getPackagedRelativePath('boot.js')}" type="module" defer onerror="handleModuleLoadError()"></script>
+  <link rel="stylesheet" href="${this.getPackagedRelativePath('style.css')}" />
     <style>
       /* Keep transparent background for TEIA mode */
       body.nogap {
@@ -536,7 +661,7 @@ setInterval(() => {
           <div class="piece-info">
             <p><strong>Piece:</strong> ${colophonData.piece.name}</p>
             <p><strong>Author:</strong> ${colophonData.build.author}</p>
-            <p><strong>Created:</strong> ${new Date(colophonData.build.packTime).toLocaleDateString()}</p>
+            <p><strong>Created:</strong> ${colophonData.build.packTimeLocal || colophonData.build.packTime} (${colophonData.build.timeZone || "local"})</p>
             <p><strong>Type:</strong> ${colophonData.piece.isKidLisp ? 'KidLisp' : 'JavaScript'} (${colophonData.piece.codeLength} characters)</p>
           </div>
         </div>
@@ -659,8 +784,19 @@ ${cacheCode}
     </script>`;
   }
 
+  generateMatrixChunkyGlyphScript() {
+    if (!this.matrixChunkyGlyphMap || Object.keys(this.matrixChunkyGlyphMap).length === 0) {
+      return '';
+    }
+
+    const serializedGlyphs = JSON.stringify(this.matrixChunkyGlyphMap);
+    return `<script type="text/javascript">
+window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
+</script>`;
+  }
+
   async bundleSystemFiles() {
-    const acOutputDir = path.join(this.options.outputDir, "aesthetic.computer");
+  const acOutputDir = this.getPackagedDirPath();
     await fs.mkdir(acOutputDir, { recursive: true });
 
     const coreFiles = ["boot.mjs", "style.css", "bios.mjs", "lib/parse.mjs"];
@@ -710,7 +846,7 @@ ${cacheCode}
 
   async bundleLibFiles() {
     const libDir = path.join(AC_DIR, "lib");
-    const libOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "lib");
+  const libOutputDir = this.getPackagedDirPath("lib");
     await fs.mkdir(libOutputDir, { recursive: true });
 
     const libFiles = await fs.readdir(libDir);
@@ -801,7 +937,7 @@ ${cacheCode}
 
   async bundleSystemsFiles() {
     const systemsDir = path.join(AC_DIR, "systems");
-    const systemsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "systems");
+  const systemsOutputDir = this.getPackagedDirPath("systems");
     await fs.mkdir(systemsOutputDir, { recursive: true });
 
     try {
@@ -825,7 +961,7 @@ ${cacheCode}
 
   async bundleDepFiles() {
     const depDir = path.join(AC_DIR, "dep");
-    const depOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "dep");
+  const depOutputDir = this.getPackagedDirPath("dep");
     
     try {
       await fs.mkdir(depOutputDir, { recursive: true });
@@ -885,7 +1021,7 @@ ${cacheCode}
 
   async bundleCommonDiskFiles() {
     const commonDiskDir = path.join(DISKS_DIR, "common");
-    const commonOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks", "common");
+  const commonOutputDir = this.getPackagedDirPath("disks", "common");
 
     try {
       await fs.mkdir(commonOutputDir, { recursive: true });
@@ -909,7 +1045,7 @@ ${cacheCode}
 
   async bundleFontDrawings() {
     const drawingsDir = path.join(DISKS_DIR, "drawings");
-    const drawingsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks", "drawings");
+  const drawingsOutputDir = this.getPackagedDirPath("disks", "drawings");
 
     try {
       await fs.mkdir(drawingsOutputDir, { recursive: true });
@@ -948,9 +1084,9 @@ ${cacheCode}
         }
         
         this.bundledFiles.add(`font_1 glyphs: ${totalGlyphs} files`);
-        console.log(`🔤 Bundled font_1: ${totalGlyphs} glyph files`);
+        this.logVerbose(`🔤 Bundled font_1: ${totalGlyphs} glyph files`);
       } else {
-        console.log("ℹ️ font_1 directory not found, skipping");
+        this.logVerbose("ℹ️ font_1 directory not found, skipping");
       }
       
     } catch (error) {
@@ -968,7 +1104,7 @@ ${cacheCode}
   }
 
   async bundleCurrentPiece() {
-    const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
+  const disksOutputDir = this.getPackagedDirPath("disks");
     await fs.mkdir(disksOutputDir, { recursive: true });
 
     // Handle KidLisp $codes - create a stub piece that jumps to the cached code
@@ -1009,7 +1145,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
   }
 
   async createDiskStubs() {
-    const disksOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "disks");
+  const disksOutputDir = this.getPackagedDirPath("disks");
     
     // Create essential disk stubs that might be required
     const stubs = [
@@ -1025,8 +1161,8 @@ export function boot({ wipe, ink, help, backgroundFill }) {
 
   async createAssets() {
     // Check if we already have a GIF favicon, if not create PNG
-    const faviconGifPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.gif");
-    const faviconPngPath = path.join(this.options.outputDir, "aesthetic.computer", "favicon.png");
+    const faviconGifPath = this.getPackagedDirPath("favicon.gif");
+    const faviconPngPath = this.getPackagedDirPath("favicon.png");
     
     try {
       await fs.access(faviconGifPath);
@@ -1054,7 +1190,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       await fs.mkdir(webfontsOutputDir, { recursive: true });
       const webfontFiles = await fs.readdir(webfontsDir);
 
-      console.log("🔤 Bundling webfonts...");
+  this.logVerbose("🔤 Bundling webfonts...");
 
       for (const fontFile of webfontFiles) {
         const srcPath = path.join(webfontsDir, fontFile);
@@ -1063,7 +1199,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         if (fontFile.endsWith(".css") || fontFile.endsWith(".woff2") || fontFile.endsWith(".woff") || fontFile.endsWith(".ttf")) {
           const content = await fs.readFile(srcPath);
           await fs.writeFile(destPath, content);
-          console.log(`🔤 Bundled webfont: ${fontFile}`);
+          this.logVerbose(`🔤 Bundled webfont: ${fontFile}`);
         }
       }
     } catch (error) {
@@ -1090,9 +1226,10 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         const glyphFiles = await fs.readdir(matrixFontDir);
         const jsonFiles = glyphFiles.filter(file => file.endsWith(".json"));
         
-        console.log(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
+  this.logVerbose(`🔤 Found ${jsonFiles.length} MatrixChunky8 glyph files to bundle`);
         
         let bundledCount = 0;
+        const inlineGlyphMap = {};
         for (const glyphFile of jsonFiles) {
           const srcPath = path.join(matrixFontDir, glyphFile);
           
@@ -1104,10 +1241,16 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           
           const content = await fs.readFile(srcPath, "utf8");
           await fs.writeFile(destPath, content);
+          try {
+            inlineGlyphMap[paddedHexCode] = JSON.parse(content);
+          } catch (error) {
+            console.warn(`⚠️ Failed to parse glyph ${destFileName} for inline bundle:`, error.message);
+          }
           bundledCount++;
         }
+        this.matrixChunkyGlyphMap = inlineGlyphMap;
         
-        console.log(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
+  this.logVerbose(`✅ Successfully bundled ${bundledCount} MatrixChunky8 glyph files`);
         
         // Also create a font manifest for easier debugging
         const fontManifest = {
@@ -1128,10 +1271,10 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         
         const manifestPath = path.join(matrixOutputDir, "_manifest.json");
         await fs.writeFile(manifestPath, JSON.stringify(fontManifest, null, 2));
-        console.log(`📋 Created font manifest: _manifest.json`);
+        this.logVerbose(`📋 Created font manifest: _manifest.json`);
         
       } catch (matrixError) {
-        console.log("ℹ️ MatrixChunky8 font directory not found, skipping font bundling");
+        this.logVerbose("ℹ️ MatrixChunky8 font directory not found, skipping font bundling");
       }
       
     } catch (error) {
@@ -1160,13 +1303,17 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       // The final GIF will be scaled up by the orchestrator based on density
       const currentDensity = this.options.density || 2; // Default density is 2
       const baseRecordingResolution = 128; // Always record at base resolution
+      const coverSeconds = this.options.coverDurationSeconds || 3;
+      const frameCount = this.options.coverFrameCount || Math.max(1, Math.round(coverSeconds * 60));
+      const coverSecondsDisplay = Number.isInteger(coverSeconds) ? coverSeconds : coverSeconds.toFixed(2);
       
       console.log(`🔍 Density: ${currentDensity}, Recording at: ${baseRecordingResolution}x${baseRecordingResolution}, GIF output will be scaled by orchestrator`);
+      console.log(`⏱️ Cover duration: ${coverSecondsDisplay}s (${frameCount} frames @ 60fps)`);
       
       // Use the RenderOrchestrator to generate GIF
       const orchestrator = new RenderOrchestrator(
         this.pieceName,     // piece (supports KidLisp $code or .mjs files)
-        180,                // 3 seconds at 60fps (180 frames) for cover
+        frameCount,         // render duration in frames
         tempOutputDir,      // temporary directory for frame rendering
         baseRecordingResolution,   // width - small recording resolution
         baseRecordingResolution,   // height - small recording resolution
@@ -1175,7 +1322,8 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           density: currentDensity, // pass density parameter
           kidlispCache: this.kidlispCacheData, // pass KidLisp cache for dependencies
           extractIconFrame: false, // disable icon extraction - we handle icons separately
-          iconOutputDir: this.options.outputDir // output icon to main directory, not temp
+          iconOutputDir: this.options.outputDir, // output icon to main directory, not temp
+          debugInkColors: this.options.logInkColors,
         }
       );
       
@@ -1225,7 +1373,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     
     // Only use PNG favicon if GIF favicon wasn't already created
     if (!this.options.faviconImage.endsWith('.gif')) {
-      this.options.faviconImage = "./aesthetic.computer/favicon.png";
+      this.options.faviconImage = this.getPackagedRelativePath('favicon.png');
     }
   }
 
@@ -1233,7 +1381,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     // Copy cursor files
     try {
       const cursorsSourceDir = path.join(AC_DIR, "cursors");
-      const cursorsOutputDir = path.join(this.options.outputDir, "aesthetic.computer", "cursors");
+  const cursorsOutputDir = this.getPackagedDirPath("cursors");
       
       await fs.mkdir(cursorsOutputDir, { recursive: true });
       
@@ -1245,7 +1393,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
           const sourcePath = path.join(cursorsSourceDir, file);
           const outputPath = path.join(cursorsOutputDir, file);
           await fs.copyFile(sourcePath, outputPath);
-          console.log(`📎 Bundled cursor: ${file}`);
+          this.logVerbose(`📎 Bundled cursor: ${file}`);
         }
       }
     } catch (error) {
@@ -1265,7 +1413,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       const icon256Path = path.join(icon256Dir, `${this.pieceName}.png`);
       const icon512Path = path.join(icon512Dir, `${this.pieceName}.png`);
       
-      console.log(`🖼️ Generating stub icons for ${this.pieceName}...`);
+  this.logVerbose(`🖼️ Generating stub icons for ${this.pieceName}...`);
       
       // Try to generate from the cover GIF if available
       const coverPath = path.join(this.options.outputDir, "cover.gif");
@@ -1288,7 +1436,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
+                this.logVerbose(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
                 // Set favicon to use the 128x128 animated icon
                 this.options.faviconImage = `./icon/128x128/${this.pieceName}.gif`;
                 resolve();
@@ -1323,7 +1471,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 128x128 static PNG icon (middle frame): icon/128x128/${this.pieceName}.png`);
+                this.logVerbose(`🪄 Generated 128x128 static PNG icon (middle frame): icon/128x128/${this.pieceName}.png`);
                 resolve();
               } else {
                 console.warn("⚠️ 128x128 static PNG icon generation failed with code:", code);
@@ -1355,7 +1503,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 256x256 static PNG icon (middle frame): icon/256x256/${this.pieceName}.png`);
+                this.logVerbose(`🪄 Generated 256x256 static PNG icon (middle frame): icon/256x256/${this.pieceName}.png`);
                 resolve();
               } else {
                 console.warn("⚠️ 256x256 static PNG icon generation failed with code:", code);
@@ -1387,7 +1535,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
             
             ffmpeg.on("close", (code) => {
               if (code === 0) {
-                console.log(`🪄 Generated 512x512 static PNG icon (middle frame): icon/512x512/${this.pieceName}.png`);
+                this.logVerbose(`🪄 Generated 512x512 static PNG icon (middle frame): icon/512x512/${this.pieceName}.png`);
                 resolve();
               } else {
                 console.warn("⚠️ 512x512 static PNG icon generation failed with code:", code);
@@ -1485,7 +1633,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
         await fs.writeFile(icon128Path, transparent128Png);
         await fs.writeFile(icon256Path, transparent256Png);
         await fs.writeFile(icon512Path, transparent512Png);
-        console.log(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
+  this.logVerbose(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
         
         // Set favicon to use the 128x128 PNG icon as fallback
         this.options.faviconImage = `./icon/128x128/${this.pieceName}.png`;
@@ -1573,6 +1721,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     console.log('🎨 Patching boot.mjs for teia dependency URLs and TV mode...');
     
     let patched = content;
+    const packagedAuth0Path = this.getPackagedRelativePath('dep', 'auth0-spa-js.production.js');
     
     // Force TV mode (non-interactive) when in TEIA mode
     const tvParamPattern = /const tv = tvParam === true \|\| tvParam === "true";/;
@@ -1588,7 +1737,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
       
       if (isTeiaMode) {
-        script.src = "./aesthetic.computer/dep/auth0-spa-js.production.js";
+        script.src = "${packagedAuth0Path}";
       } else {
         script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
       }`
@@ -1710,11 +1859,13 @@ function getColorTokenHighlight(token) {
     console.log('🎨 Patching bios.mjs for teia webfont URLs...');
     
     let patched = content;
+    const packagedCursorPath = this.getPackagedRelativePath('cursors', 'viewpoint.svg');
+    const packagedDiskLibPath = this.getPackagedRelativePath('lib', 'disk.mjs');
     
     // Replace precise.svg cursor references with viewpoint.svg for TEIA mode
     patched = patched.replace(
       /\/aesthetic\.computer\/cursors\/precise\.svg/g,
-      './aesthetic.computer/cursors/viewpoint.svg'
+      packagedCursorPath
     );
     
     // Replace the font URL logic to use relative paths in teia mode
@@ -1753,7 +1904,7 @@ function getColorTokenHighlight(token) {
     const workerPathPattern = /const fullPath =\s*"\/aesthetic\.computer\/lib\/disk\.mjs"\s*\+\s*window\.location\.search\s*\+\s*"#"\s*\+\s*Date\.now\(\);/;
     patched = patched.replace(workerPathPattern, 
       `const fullPath = (typeof window !== 'undefined' && window.acTEIA_MODE) ? 
-        "./aesthetic.computer/lib/disk.mjs" + "#" + Date.now() : 
+        "${packagedDiskLibPath}" + "#" + Date.now() : 
         "/aesthetic.computer/lib/disk.mjs" + window.location.search + "#" + Date.now();`
     );
     
@@ -1813,6 +1964,9 @@ function getColorTokenHighlight(token) {
     
     let bootTime`
     );
+    
+    // Normalize any remaining relative references to the packaged system directory
+    patched = patched.replace(/\.\/aesthetic\.computer\//g, `${this.packagedSystemBaseHref}/`);
     
     return patched;
   }
@@ -1881,6 +2035,42 @@ function getColorTokenHighlight(token) {
 
     return files;
   }
+
+  async convertMjsModulesToJs() {
+    const allFiles = await this.getAllFilesRecursively(this.options.outputDir);
+    const mjsFiles = allFiles.filter(filePath => filePath.endsWith(".mjs"));
+
+    if (mjsFiles.length === 0) {
+      return;
+    }
+
+    for (const filePath of mjsFiles) {
+      const fileContent = await fs.readFile(filePath, "utf8");
+      const updatedContent = this.updateModuleSpecifierExtensions(fileContent);
+      const jsPath = filePath.slice(0, -4) + ".js";
+      await fs.writeFile(jsPath, updatedContent);
+      await fs.rm(filePath);
+    }
+
+    const refreshedFiles = await this.getAllFilesRecursively(this.options.outputDir);
+    const updateTargets = refreshedFiles.filter(filePath =>
+      /(\.js|\.json|\.html|\.css|\.txt|\.svg)$/i.test(filePath)
+    );
+
+    for (const filePath of updateTargets) {
+      const fileContent = await fs.readFile(filePath, "utf8");
+      const updatedContent = this.updateModuleSpecifierExtensions(fileContent);
+      if (updatedContent !== fileContent) {
+        await fs.writeFile(filePath, updatedContent);
+      }
+    }
+
+    console.log(`🔁 Converted ${mjsFiles.length} .mjs files to .js for Teia compatibility`);
+  }
+
+  updateModuleSpecifierExtensions(content) {
+    return content.replace(/\.mjs\b/g, ".js");
+  }
 }
 
 // Main execution
@@ -1891,9 +2081,13 @@ async function main() {
   if (!pieceName) {
     console.error("Usage: node ac-pack.mjs <piece-name> [options]");
     console.error("Options:");
-    console.error("  --density <value>    Set GIF output density scaling");
-    console.error("  --target-dir <path>  Directory where ZIP and cover should be created");
-    console.error("  --analyze           Show dependency analysis without building");
+    console.error("  --density <value>       Set GIF output density scaling");
+    console.error("  --gif-length <seconds>  Set cover GIF length in seconds (default 3)");
+    console.error("  --target-dir <path>     Directory where ZIP and cover should be created");
+    console.error("  --analyze               Show dependency analysis without building");
+    console.error("  --verbose               Enable detailed asset/glyph logging");
+    console.error("  --quiet                 Suppress detailed asset/glyph logging (default)");
+    console.error("  --log-ink               Log resolved colors for ink() and flood() during renders");
     console.error("");
     console.error("Examples:");
     console.error("  node ac-pack.mjs '$bop' --density 8");
@@ -1918,6 +2112,16 @@ async function main() {
         process.exit(1);
       }
       i++; // Skip the next argument since we consumed it
+    } else if (args[i] === '--gif-length' && i + 1 < args.length) {
+      const secondsValue = parseFloat(args[i + 1]);
+      if (!isNaN(secondsValue) && secondsValue > 0) {
+        options.coverDurationSeconds = secondsValue;
+        console.log(`⏱️ Cover GIF length: ${secondsValue}s`);
+      } else {
+        console.error("❌ Invalid GIF length. Must be a positive number of seconds.");
+        process.exit(1);
+      }
+      i++;
     } else if (args[i] === '--target-dir' && i + 1 < args.length) {
       options.targetDir = args[i + 1];
       console.log(`🎯 Target directory: ${options.targetDir}`);
@@ -1926,6 +2130,12 @@ async function main() {
       analyzeOnly = true;
     } else if (args[i] === '--auto-ship') {
       autoShip = true;
+    } else if (args[i] === '--verbose') {
+      options.verbose = true;
+    } else if (args[i] === '--quiet') {
+      options.verbose = false;
+    } else if (args[i] === '--log-ink') {
+      options.logInkColors = true;
     }
   }
   
@@ -2049,3 +2259,4 @@ async function createZipWithTimestamp(outputDir, pieceName, timeStr, author = "@
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
+
