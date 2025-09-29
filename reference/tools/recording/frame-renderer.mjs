@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class FrameRenderer extends HeadlessAC {
-  constructor(outputDir, width = 2048, height = 2048, density = null) {
+  constructor(outputDir, width = 2048, height = 2048, density = null, fps = 60) {
     // Use provided dimensions or fall back to environment variables
     width = width || parseInt(process.env.WIDTH) || 2048;
     height = height || parseInt(process.env.HEIGHT) || 2048;
@@ -24,6 +24,7 @@ class FrameRenderer extends HeadlessAC {
     this.stateFile = path.join(outputDir, 'state.json');
     this.backgroundBufferFile = path.join(outputDir, 'background-buffer.bin');
     this.density = density;
+    this.fps = fps;
     
     // State containers for serialization/deserialization
     this.pieceState = {}; // Variables from the piece itself
@@ -76,8 +77,8 @@ class FrameRenderer extends HeadlessAC {
         frameIndex: 0,
         startTime: Date.now(),
         piece: pieceArg,
-        duration: totalFrames * (1000/60), // Convert frames to milliseconds for compatibility
-        fps: 60,
+        duration: totalFrames * (1000/this.fps), // Convert frames to milliseconds for compatibility
+        fps: this.fps,
         width: this.width,
         height: this.height,
         totalFrames: totalFrames,
@@ -256,7 +257,7 @@ class FrameRenderer extends HeadlessAC {
 export const paint = ($) => {
   // TODO: Resolve KidLisp code and execute it
   // For now, create a simple animated visual
-  const t = $.api.frame / 60;
+  const t = $.api.frame / ${state.fps};
   $.wipe('purple');
   $.ink('white');
   $.line(200 + Math.sin(t) * 100, 200, 200 + Math.cos(t) * 100, 200);
@@ -525,7 +526,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const width = parseInt(process.argv[5]) || 2048;
   const height = parseInt(process.argv[6]) || 2048;
   const density = process.argv[7] ? parseFloat(process.argv[7]) : null;
-  const renderer = new FrameRenderer(outputDir, width, height, density);
+  const fps = process.argv[8] ? parseInt(process.argv[8]) : 60;
+  const renderer = new FrameRenderer(outputDir, width, height, density, fps);
   
   renderer.run().then(result => {
     if (result.complete) {

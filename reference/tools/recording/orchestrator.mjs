@@ -15,6 +15,7 @@ import { timestamp } from '../../../system/public/aesthetic.computer/lib/num.mjs
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ALLOWED_GIF_FPS = [100, 50, 25, 20, 10, 5, 4, 2, 1];
 
 class RenderOrchestrator {
   constructor(piece, duration, outputDir, width = 2048, height = 2048, options = {}) {
@@ -31,6 +32,22 @@ class RenderOrchestrator {
     this.extractIconFrame = options.extractIconFrame || false; // Extract midpoint frame as icon
     this.iconOutputDir = options.iconOutputDir || null; // Custom directory for icon output
     this.debugInkColors = options.debugInkColors || false;
+    this.gifCompress = options.gifCompress || false; // Ultra-compress GIF for smallest size
+    if (this.gifMode) {
+      if (options.gifFps && !ALLOWED_GIF_FPS.includes(options.gifFps)) {
+        console.warn(`⚠️ Requested GIF fps ${options.gifFps} is not a valid divisor of 100; falling back to nearest supported value.`);
+      }
+      if (options.gifFps && ALLOWED_GIF_FPS.includes(options.gifFps)) {
+        this.gifFps = options.gifFps;
+      } else {
+        this.gifFps = 50;
+      }
+      // For GIF mode, render at native GIF fps for smoothest motion
+      this.nativeFps = this.gifFps;
+    } else {
+      this.gifFps = null;
+      this.nativeFps = 60; // Standard fps for MP4
+    }
   }
 
   // Fetch KidLisp source code from the localhost API (similar to tape.mjs)
@@ -292,7 +309,8 @@ export async function paint(api) {
         // Run one frame in fresh process
         // Use single quotes to prevent shell variable expansion of $ceo, etc.
         const densityArg = this.density ? ` ${this.density}` : '';
-        const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}${densityArg}`;
+        const fpsArg = ` ${this.nativeFps}`;
+        const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}${densityArg}${fpsArg}`;
         console.log(`🔧 Executing: ${command}`);
         const env = { ...process.env };
         if (this.debugInkColors) {
@@ -352,7 +370,8 @@ export async function paint(api) {
       
       // Convert to requested format
       if (this.gifMode) {
-        console.log(`🎬 Converting frames to GIF...`);
+        console.log(`�️  Target GIF frame rate: ${this.gifFps}fps (quantized to 10ms steps)`);
+        console.log(`�🎬 Converting frames to GIF...`);
         await this.convertToGIF();
       } else {
         console.log(`🎬 Converting frames to MP4...`);
@@ -383,7 +402,7 @@ export async function paint(api) {
       // Generate proper filename using AC naming scheme
       const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
       const timestampStr = timestamp();
-      const durationSeconds = Math.round(this.duration / 60 * 10) / 10; // Convert frames to seconds at 60fps, round to 1 decimal place
+      const durationSeconds = Math.round(this.duration / this.nativeFps * 10) / 10; // Convert frames to seconds at native fps, round to 1 decimal place
       const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.mp4`;
       // Save MP4 one level up from the artifacts directory for better organization
       const outputMP4 = path.join(path.dirname(this.outputDir), filename);
@@ -422,9 +441,9 @@ export async function paint(api) {
       }
       
       execSync(
-        `ffmpeg -y -f rawvideo -pix_fmt rgb24 -s ${renderWidth}x${renderHeight} -r 60 ` +
+        `ffmpeg -y -f rawvideo -pix_fmt rgb24 -s ${renderWidth}x${renderHeight} -r ${this.nativeFps} ` +
         `-i ${allFramesFile} -c:v libx264 -pix_fmt yuv420p` +
-        `${vfFilter} -movflags +faststart -r 60 -b:v 32M ${outputMP4}`,
+        `${vfFilter} -movflags +faststart -r ${this.nativeFps} -b:v 32M ${outputMP4}`,
         { stdio: 'inherit' }
       );
       
@@ -442,10 +461,12 @@ export async function paint(api) {
       // Get frame dimensions from state file
       const stateFile = path.join(this.outputDir, 'state.json');
       let width = 2048, height = 2048; // defaults
+      let sourceFps = this.nativeFps; // Use the actual rendering fps
       if (fs.existsSync(stateFile)) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
         width = state.width || 2048;
         height = state.height || 2048;
+        sourceFps = state.fps || this.nativeFps;
       }
 
       const renderWidth = width;
@@ -499,27 +520,33 @@ export async function paint(api) {
       console.log(`\n🎬 Creating GIF with ffmpeg Floyd-Steinberg dithering...`);
 
       // Generate proper filename
-      const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
-      const timestampStr = timestamp();
-      const durationSeconds = Math.round(this.duration / 60 * 10) / 10;
+    const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
+    const timestampStr = timestamp();
+    const targetFps = this.gifFps || 50;
+    const durationSeconds = Math.round((rgbFiles.length / sourceFps) * 10) / 10;
       const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.gif`;
       const outputGIF = path.join(path.dirname(this.outputDir), filename);
 
-      // Calculate frame rate - allow up to 60fps for maximum smoothness
-      let fps = Math.round(rgbFiles.length / (this.duration / 60));
+    console.log(`🎬 Native rendering: ${rgbFiles.length} frames at ${sourceFps}fps → direct GIF conversion (no resampling)`);
       
-      // Allow up to 60fps for all GIFs
-      fps = Math.min(60, Math.max(1, fps)); // 1-60 fps range
-      
-      console.log(`🎬 Using ${fps}fps for ${(this.duration/1000).toFixed(1)}s animation`);
-      
-      // Create optimal palette first
-      console.log(`🎨 Generating optimal palette for smooth gradients...`);
-      const paletteCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -vf "fps=${fps},scale=-1:-1:flags=lanczos,palettegen=reserve_transparent=0:max_colors=256" "${tempDir}/palette.png" 2>/dev/null`;
+      // Create optimal palette with compression-focused settings
+      if (this.gifCompress) {
+        console.log(`🗜️ Generating ultra-compressed palette with smart optimization...`);
+      } else {
+        console.log(`🎨 Generating optimized palette for maximum compression...`);
+      }
+      // Use fewer colors for compress mode, but with better stats analysis
+      const maxColors = this.gifCompress ? 96 : 128;
+      const statsMode = this.gifCompress ? "full" : "diff";
+      const paletteCmd = `ffmpeg -y -framerate ${sourceFps} -i "${tempDir}/frame_%06d.png" -vf "scale=-1:-1:flags=lanczos,palettegen=reserve_transparent=0:max_colors=${maxColors}:stats_mode=${statsMode}" "${tempDir}/palette.png" 2>/dev/null`;
       execSync(paletteCmd);
 
-      // Create final GIF with Floyd-Steinberg dithering
-      console.log(`🌈 Applying Floyd-Steinberg dithering for smooth gradients...`);
+      // Create final GIF with optimized compression settings
+      if (this.gifCompress) {
+        console.log(`🗜️ Applying ULTRA compression (optimized palette + Floyd-Steinberg)...`);
+      } else {
+        console.log(`🗜️ Applying optimized compression and dithering...`);
+      }
       
       let scaleFilter = `scale=${targetWidth}:${targetHeight}:flags=lanczos`;
 
@@ -535,7 +562,12 @@ export async function paint(api) {
         console.log(`🔍 No scaling applied: keeping native resolution ${renderWidth}x${renderHeight}`);
       }
       
-      const gifCmd = `ffmpeg -y -framerate ${fps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "fps=${fps},${scaleFilter}[x];[x][1:v]paletteuse=dither=floyd_steinberg:bayer_scale=5" "${outputGIF}" 2>/dev/null`;
+      // Floyd-Steinberg usually compresses better than no dithering or bayer
+      const ditheringOptions = this.gifCompress 
+        ? "paletteuse=dither=floyd_steinberg" 
+        : "paletteuse=dither=floyd_steinberg:bayer_scale=3";
+      
+  const gifCmd = `ffmpeg -y -framerate ${sourceFps} -i "${tempDir}/frame_%06d.png" -i "${tempDir}/palette.png" -lavfi "${scaleFilter}[x];[x][1:v]${ditheringOptions}" "${outputGIF}" 2>/dev/null`;
       execSync(gifCmd);
 
       // Extract icon frame if requested
@@ -553,7 +585,11 @@ export async function paint(api) {
       const fileSizeKB = Math.round(stats.size / 1024);
       console.log(`✅ GIF created: ${filename}`);
       console.log(`📊 File size: ${fileSizeKB}KB`);
-      console.log(`🎨 High-quality animation with smooth gradients!`);
+      if (this.gifCompress) {
+        console.log(`🗜️ Ultra-compressed GIF with minimal file size!`);
+      } else {
+        console.log(`🗜️ Optimized GIF with maximum compression!`);
+      }
       
     } catch (error) {
       console.error(`💥 GIF conversion failed:`, error.message);
@@ -823,6 +859,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const options = {
     gifMode: false,
     density: null,
+    gifFps: null,
   };
 
   for (let i = 0; i < rawArgs.length; i++) {
@@ -843,6 +880,33 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       }
       i += 1;
+      continue;
+    }
+    if (arg === '--gif-fps') {
+      const value = rawArgs[i + 1];
+      if (!value || value.startsWith('--')) {
+        console.error('❌ --gif-fps flag requires a numeric value');
+        process.exit(1);
+      }
+      const parsed = parseInt(value, 10);
+      if (Number.isNaN(parsed) || parsed <= 0) {
+        console.error(`❌ Invalid GIF fps value: ${value}`);
+        process.exit(1);
+      }
+      options.gifFps = parsed;
+      i += 1;
+      continue;
+    }
+    if (arg === '--gif-25' || arg === '--gif25') {
+      options.gifFps = 25;
+      continue;
+    }
+    if (arg === '--gif-50' || arg === '--gif50') {
+      options.gifFps = 50;
+      continue;
+    }
+    if (arg === '--gif-compress') {
+      options.gifCompress = true;
       continue;
     }
     if (arg === '--sixel' || arg === 'sixel') {
@@ -903,7 +967,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`📁 Created output directory: ${outputDir}`);
   }
   
-  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height, { gifMode: options.gifMode, density: options.density });
+  let normalizedGifFps = options.gifFps;
+  if (normalizedGifFps !== null && !ALLOWED_GIF_FPS.includes(normalizedGifFps)) {
+    const nearest = ALLOWED_GIF_FPS.reduce((prev, curr) => {
+      return Math.abs(curr - normalizedGifFps) < Math.abs(prev - normalizedGifFps) ? curr : prev;
+    }, ALLOWED_GIF_FPS[0]);
+    console.warn(`⚠️ GIF fps ${normalizedGifFps} unsupported. Using nearest supported value: ${nearest}`);
+    normalizedGifFps = nearest;
+  }
+
+  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height, { gifMode: options.gifMode, density: options.density, gifFps: normalizedGifFps, gifCompress: options.gifCompress });
   orchestrator.renderAll().catch(console.error);
 }
 
