@@ -55,6 +55,41 @@ function matrixDebugEnabled() {
   return false;
 }
 
+function inkFloodLoggingEnabled() {
+  if (typeof globalThis !== "undefined" && globalThis.AC_LOG_INK_COLORS) return true;
+  if (typeof process !== "undefined" && process.env?.AC_LOG_INK_COLORS === "1") return true;
+  return false;
+}
+
+function inkFloodLogPrefix() {
+  let label = null;
+  if (typeof process !== "undefined" && process.env?.AC_LOG_INK_LABEL) {
+    label = process.env.AC_LOG_INK_LABEL;
+  } else if (typeof globalThis !== "undefined" && globalThis.AC_LOG_INK_LABEL) {
+    label = globalThis.AC_LOG_INK_LABEL;
+  }
+  return label ? `[${label}] ` : "";
+}
+
+function cloneColorForLog(color) {
+  if (Array.isArray(color)) return Array.from(color);
+  return color;
+}
+
+function cloneArgsForLog(args) {
+  return Array.from(args).map((arg) => {
+    if (Array.isArray(arg)) return Array.from(arg);
+    if (arg && typeof arg === "object") {
+      try {
+        return JSON.parse(JSON.stringify(arg));
+      } catch (err) {
+        return String(arg);
+      }
+    }
+    return arg;
+  });
+}
+
 if (typeof globalThis !== "undefined") {
   if (globalThis.acMatrixDebug === undefined) {
     globalThis.acMatrixDebug = true;
@@ -3436,9 +3471,24 @@ const LINE = {
 function ink() {
   // console.log("🖍️ disk.ink() called with arguments:", [...arguments]);
   const foundColor = graph.findColor(...arguments);
-  // console.log("🎨 disk.ink() foundColor:", foundColor);
+  if (inkFloodLoggingEnabled()) {
+    console.log(
+      `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
+      {
+        args: cloneArgsForLog(arguments),
+        resolved: cloneColorForLog(foundColor)
+      }
+    );
+  }
   const result = graph.color(...foundColor);
-  // console.log("🌈 disk.ink() result:", result);
+  if (inkFloodLoggingEnabled()) {
+    console.log(
+      `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
+      {
+        color: cloneColorForLog(result)
+      }
+    );
+  }
   return result;
 }
 

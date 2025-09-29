@@ -119,6 +119,39 @@ function matrixDebugEnabled() {
   return false;
 }
 
+function inkFloodLoggingEnabled() {
+  if (typeof globalThis !== "undefined" && globalThis.AC_LOG_INK_COLORS) return true;
+  if (typeof process !== "undefined" && process.env?.AC_LOG_INK_COLORS === "1") return true;
+  return false;
+}
+
+function inkFloodLogPrefix() {
+  let label = null;
+  if (typeof process !== "undefined" && process.env?.AC_LOG_INK_LABEL) {
+    label = process.env.AC_LOG_INK_LABEL;
+  } else if (typeof globalThis !== "undefined" && globalThis.AC_LOG_INK_LABEL) {
+    label = globalThis.AC_LOG_INK_LABEL;
+  }
+  return label ? `[${label}] ` : "";
+}
+
+function cloneColorForLog(color) {
+  if (Array.isArray(color)) return Array.from(color);
+  return color;
+}
+
+function cloneValueForLog(value) {
+  if (Array.isArray(value)) return Array.from(value);
+  if (value && typeof value === "object") {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (err) {
+      return String(value);
+    }
+  }
+  return value;
+}
+
 // 🎨 FADE HELPERS: New local fade detection and parsing
 // These replace the global fade state management system
 
@@ -627,7 +660,22 @@ function flood(x, y, fillColor = c) {
   const visited = new Uint8Array(width * height);
   const stack = [[x, y]];
 
-  color(...findColor(fillColor));
+  const previousColorState = cloneColorForLog(c);
+  const resolvedFillColor = findColor(fillColor);
+  if (inkFloodLoggingEnabled()) {
+    console.log(
+      `${inkFloodLogPrefix()}🌊 FLOOD DEBUG`,
+      {
+        input: cloneValueForLog(fillColor),
+        resolved: cloneColorForLog(resolvedFillColor),
+        previous: previousColorState,
+        origin: { x, y },
+        target: cloneColorForLog(targetColor)
+      }
+    );
+  }
+
+  color(...resolvedFillColor);
   const oldColor = c;
   while (stack.length) {
     const [cx, cy] = stack.pop();
@@ -653,6 +701,17 @@ function flood(x, y, fillColor = c) {
   }
 
   color(...oldColor);
+
+  if (inkFloodLoggingEnabled()) {
+    console.log(
+      `${inkFloodLogPrefix()}🌊 FLOOD RESULT`,
+      {
+        resolved: cloneColorForLog(resolvedFillColor),
+        previous: previousColorState,
+        area: count
+      }
+    );
+  }
 
   return {
     color: targetColor,
@@ -690,6 +749,59 @@ function getFadeColor(t, x = 0, y = 0) {
   };
   
   return getLocalFadeColor(t, x, y, fadeInfo);
+}
+
+function normalizeColorInput(value) {
+  if (value === undefined || value === null) return value;
+
+  // Directly handle KidLisp symbol wrappers and other objects that expose a `.name` or `.value`
+  if (typeof value === "object") {
+    if (typeof value.name === "string") {
+      return normalizeColorInput(value.name);
+    }
+    if (typeof value.value === "string") {
+      return normalizeColorInput(value.value);
+    }
+    if (typeof value.toString === "function" && value.toString !== Object.prototype.toString) {
+      return normalizeColorInput(value.toString());
+    }
+  }
+
+  if (typeof value !== "string") return value;
+
+  let normalized = value.trim();
+
+  // Strip leading KidLisp quote syntax (e.g. `'white`) and enclosing quotes/backticks
+  if (normalized.startsWith("'") && !normalized.endsWith("'")) {
+    normalized = normalized.slice(1);
+  }
+  const quotePairs = ["'", '"', "`"]; // Support ', ", ` pairs
+  for (const quote of quotePairs) {
+    if (normalized.startsWith(quote) && normalized.endsWith(quote) && normalized.length > 1) {
+      normalized = normalized.slice(1, -1).trim();
+      break;
+    }
+  }
+
+  // Handle KidLisp pipe symbols (|white|) that occasionally appear
+  if (normalized.startsWith("|") && normalized.endsWith("|") && normalized.length > 2) {
+    normalized = normalized.slice(1, -1);
+  }
+
+  // Normalize unicode quotes (smart quotes) by stripping them
+  const smartQuotes = ["“", "”", "‘", "’"];
+  if (smartQuotes.includes(normalized[0])) normalized = normalized.slice(1);
+  if (smartQuotes.includes(normalized[normalized.length - 1])) normalized = normalized.slice(0, -1);
+
+  // Lowercase CSS color names & indexes but keep hex casing flexible
+  if (normalized.startsWith("fade:")) {
+    const fadeContent = normalized.slice(5);
+    normalized = `fade:${fadeContent.toLowerCase()}`;
+  } else if (!(normalized.startsWith("#") || normalized.startsWith("0x"))) {
+    normalized = normalized.toLowerCase();
+  }
+
+  return normalized;
 }
 
 // Parse a color from a variety of inputs..
@@ -741,6 +853,11 @@ function findColor() {
       // No more global fade state handling needed
       return findColor(...args[0]);
     } else if (isString()) {
+      const normalizedString = normalizeColorInput(args[0]);
+      if (typeof normalizedString === "string") {
+        args[0] = normalizedString;
+      }
+
       // Check for fade syntax first (for direct fade strings)
       if (args[0].startsWith("fade:")) {
         // Return as fade color array for local processing
@@ -788,6 +905,9 @@ function findColor() {
             // Fallback to random color
             args = randIntArr(255, 3);
             args.push(255);
+            if (debug) {
+              console.warn("⚠️ findColor: Unknown color string", normalizedString, "→ falling back to random color");
+            }
           }
         }
       }
@@ -798,6 +918,10 @@ function findColor() {
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
     } else if (typeof args[0] === "string") {
+      const normalizedString = normalizeColorInput(args[0]);
+      if (typeof normalizedString === "string") {
+        args[0] = normalizedString;
+      }
       // Check for fade syntax with alpha
       if (args[0].startsWith("fade:")) {
         // Return local fade info instead of setting global state
@@ -821,10 +945,22 @@ function findColor() {
           args = [...cssColor, computeAlpha(args[1])];
         } else {
           args = [0, 0, 0, computeAlpha(args[1])]; // Fallback to black
+          if (debug) {
+            console.warn("⚠️ findColor: Unknown color string with alpha", normalizedString, "→ defaulting to black");
+          }
         }
       }
     } else if (Array.isArray(args[0])) {
-      args = [...args[0], args[1]];
+      const baseColor = [...args[0]];
+      if (args.length > 1 && args[1] !== undefined) {
+        const alphaValue = computeAlpha(args[1]);
+        if (baseColor.length >= 4) {
+          baseColor[3] = alphaValue;
+        } else {
+          baseColor.push(alphaValue);
+        }
+      }
+      args = baseColor;
     } else if (args[0] === undefined) {
       // Random color with specified alpha: (undefined, alpha)
       const alphaValue = args[1]; // Store the alpha before generating random RGB

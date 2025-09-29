@@ -1,7 +1,5 @@
-// Import color highlighting utilities for KidLisp syntax highlighting
-import { colorizeColorName, getColorTokenHighlight } from "./color-highlighting.mjs";
-// Import KidLisp explanation functionality and tokenizer for proper syntax highlighting
-import { explainKidLisp, tokenize, getSyntaxHighlightingColors } from "./kidlisp.mjs";
+import { getColorTokenHighlight } from "./color-highlighting.mjs";
+import { tokenize } from "./kidlisp.mjs";
 
 // Weekly color schemes for console styling
 function getDayColorScheme(isDarkMode) {
@@ -269,108 +267,169 @@ function formatFileSize(bytes) {
 }
 
 /**
- * Apply KidLisp syntax highlighting to code for console display using the actual tokenizer
- * @param {string} code - The KidLisp code to highlight
- * @returns {object} Object with formatted text and styles array for console.log
+ * Prepare KidLisp source for console logging while preserving whitespace.
+ * @param {string} code - The KidLisp code block to display.
+ * @returns {object} Console formatting payload.
  */
 function formatKidLispForConsole(code) {
-  if (!code || typeof code !== 'string') {
-    return { text: code || '', styles: ['color: #6c757d; font-family: monospace;'] };
+  const baseStyle = 'color: #6c757d; font-family: monospace; font-size: 11px; white-space: pre;';
+  const isNodeEnv = typeof process !== 'undefined' && !!process.versions?.node;
+  const isBrowserConsole =
+    !isNodeEnv &&
+    typeof window !== 'undefined' &&
+    typeof window.document !== 'undefined' &&
+    typeof window.navigator !== 'undefined';
+
+  if (typeof code !== 'string' || code.length === 0) {
+    if (isBrowserConsole) {
+      return { text: '\n%c%c', styles: [baseStyle, ''] };
+    }
+    return { text: '\n', styles: [] };
+  }
+
+  const normalized = code.replace(/\r\n/g, '\n');
+
+  if (!isBrowserConsole) {
+    return { text: `\n${normalized}`, styles: [] };
   }
 
   try {
-    // Use the actual KidLisp tokenizer (returns array of token strings)
-    const tokens = tokenize(code);
-    
-    let formattedText = '';
-    const styles = [];
-    let needsSpace = false;
-    
-    tokens.forEach((token, index) => {
-      // Add space between tokens (except at the beginning)
-      if (needsSpace && !['(', ')', ','].includes(token)) {
-        formattedText += '%c ';
-        styles.push('color: #6c757d; font-family: monospace; font-weight: normal;');
+    const tokens = tokenize(normalized);
+    const segments = [];
+
+    const pushSegment = (text, style) => {
+      if (!text) return;
+      segments.push({ text, style });
+    };
+
+    const applyStyle = (overrides = '') => `${baseStyle} ${overrides}`.trim();
+
+    const pushTokenSegments = (token) => {
+      if (!token) return;
+
+      const rainbowColors = ['#ff5555', '#ff9800', '#fdd835', '#4caf50', '#2196f3', '#673ab7', '#ff4081'];
+      const zebraColors = ['#000000', '#ffffff'];
+
+      const cleanToken = token.startsWith('"') && token.endsWith('"')
+        ? token.slice(1, -1)
+        : token;
+
+      // Handle punctuation early
+      if (token === '(' || token === ')' || token === ',') {
+        pushSegment(token, applyStyle('color: #adb5bd;'));
+        return;
       }
-      
-      let tokenColor = '#6c757d'; // default gray
-      let fontWeight = 'normal';
-      
-      // Classify token type and apply appropriate styling
+
       if (token.startsWith('"') && token.endsWith('"')) {
-        // String literals
-        tokenColor = '#e83e8c'; // pink
-        fontWeight = 'normal';
-      } else if (!isNaN(token) && token !== '' && !isNaN(parseFloat(token))) {
-        // Numbers
-        tokenColor = '#28a745'; // green
-        fontWeight = 'bold';
-      } else if (['(', ')', ','].includes(token)) {
-        // Punctuation
-        tokenColor = '#6c757d'; // gray
-        fontWeight = 'normal';
-      } else {
-        // Check if it's a color name first
-        const colorHighlight = getColorTokenHighlight(token);
-        if (colorHighlight && colorHighlight !== '#ff7043') {
-          // Handle color names with their actual colors
-          if (colorHighlight === 'RAINBOW') {
-            // Rainbow highlighting - each character gets a different color
-            const rainbowColors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3'];
-            for (let i = 0; i < token.length; i++) {
-              formattedText += `%c${token[i]}`;
-              styles.push(`color: ${rainbowColors[i % rainbowColors.length]}; font-family: monospace; font-weight: bold;`);
-            }
-            needsSpace = true;
-            return;
-          } else if (colorHighlight.includes(',')) {
-            // RGB color
-            tokenColor = `rgb(${colorHighlight})`;
-            fontWeight = 'bold';
-          } else {
-            // Named color
-            tokenColor = colorHighlight;
-            fontWeight = 'bold';
+        pushSegment(token, applyStyle('color: #e83e8c;'));
+        return;
+      }
+
+      if (/^-?\d+(?:\.\d+)?$/.test(token)) {
+        pushSegment(token, applyStyle('color: #28a745; font-weight: bold;'));
+        return;
+      }
+
+      if (/^\d*\.?\d+s(?:\.\.|!|\.\.\.)?$/.test(token)) {
+        pushSegment(token, applyStyle('color: #17a2b8; font-weight: bold;'));
+        return;
+      }
+
+      const highlight = getColorTokenHighlight(token);
+      if (highlight && highlight !== 'orange') {
+        if (highlight === 'RAINBOW') {
+          for (let i = 0; i < token.length; i++) {
+            const ch = token[i];
+            const color = rainbowColors[i % rainbowColors.length];
+            pushSegment(ch, applyStyle(`color: ${color}; font-weight: bold;`));
           }
-        } else {
-          // Check for KidLisp keywords
-          const lowerToken = token.toLowerCase();
-          if (['line', 'rect', 'circle', 'text', 'ink', 'paper', 'brush', 'wipe', 'clear', 'blur', 'noblur'].includes(lowerToken)) {
-            // Drawing commands - blue
-            tokenColor = '#17a2b8';
-            fontWeight = 'bold';
-          } else if (['if', 'when', 'unless', 'each', 'repeat', 'loop'].includes(lowerToken)) {
-            // Control flow - purple
-            tokenColor = '#6f42c1';
-            fontWeight = 'bold';
-          } else if (/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(token)) {
-            // Function names/identifiers - orange
-            tokenColor = '#fd7e14';
-            fontWeight = 'bold';
-          }
+          return;
         }
+
+        if (highlight === 'ZEBRA') {
+          for (let i = 0; i < token.length; i++) {
+            const ch = token[i];
+            const color = zebraColors[i % zebraColors.length];
+            pushSegment(ch, applyStyle(`color: ${color}; font-weight: bold; background: ${color === '#000000' ? '#ffffff' : '#000000'};`));
+          }
+          return;
+        }
+
+        const cssColor = highlight.includes(',') ? `rgb(${highlight})` : highlight;
+        pushSegment(token, applyStyle(`color: ${cssColor}; font-weight: bold;`));
+        return;
       }
-      
-      // Apply styling to each character of the token
-      for (let i = 0; i < token.length; i++) {
-        formattedText += `%c${token[i]}`;
-        styles.push(`color: ${tokenColor}; font-family: monospace; font-weight: ${fontWeight};`);
+
+      const lower = cleanToken.toLowerCase();
+      const drawingCommands = ['line', 'rect', 'circle', 'box', 'tri', 'plot', 'write', 'ink', 'paper', 'brush', 'flood', 'wipe', 'paste', 'stamp', 'scroll', 'zoom', 'contrast', 'blur', 'repeat', 'spin', 'jump'];
+      const controlFlow = ['if', 'when', 'unless', 'each', 'loop', 'later', 'once', 'def'];
+
+      if (drawingCommands.includes(lower)) {
+        pushSegment(token, applyStyle('color: #17a2b8; font-weight: bold;'));
+        return;
       }
-      
-      // Add space after comma
-      if (token === ',') {
-        formattedText += '%c ';
-        styles.push('color: #6c757d; font-family: monospace; font-weight: normal;');
+
+      if (controlFlow.includes(lower)) {
+        pushSegment(token, applyStyle('color: #6f42c1; font-weight: bold;'));
+        return;
       }
-      
-      needsSpace = !['(', ','].includes(token);
+
+      if (lower === 'kidlisp') {
+        pushSegment(token, applyStyle('color: #28a745; font-weight: bold;'));
+        return;
+      }
+
+      pushSegment(token, baseStyle);
+    };
+
+    let cursor = 0;
+    tokens.forEach((token) => {
+      const idx = normalized.indexOf(token, cursor);
+      if (idx === -1) {
+        return;
+      }
+      if (idx > cursor) {
+        pushSegment(normalized.slice(cursor, idx), baseStyle);
+      }
+      pushTokenSegments(token);
+      cursor = idx + token.length;
     });
-    
-    return { text: formattedText, styles: styles };
+
+    if (cursor < normalized.length) {
+      pushSegment(normalized.slice(cursor), baseStyle);
+    }
+
+    // Merge consecutive segments with identical styles to reduce console args
+    const mergedSegments = [];
+    for (const segment of segments) {
+      const prev = mergedSegments[mergedSegments.length - 1];
+      if (prev && prev.style === segment.style) {
+        prev.text += segment.text;
+      } else {
+        mergedSegments.push({ ...segment });
+      }
+    }
+
+    const textParts = ['\n'];
+    const styles = [];
+
+    mergedSegments.forEach(({ text, style }) => {
+      if (!text) return;
+      const escaped = text.replace(/%/g, '%%');
+      textParts.push(`%c${escaped}`);
+      styles.push(style);
+    });
+
+    textParts.push('%c');
+    styles.push('');
+
+    return {
+      text: textParts.join(''),
+      styles,
+    };
   } catch (error) {
     console.warn('KidLisp syntax highlighting error:', error);
-    // Fallback to plain text
-    return { text: code, styles: ['color: #6c757d; font-family: monospace;'] };
+    return { text: `\n${normalized}`, styles: [] };
   }
 }
 

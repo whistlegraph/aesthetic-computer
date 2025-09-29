@@ -30,6 +30,7 @@ class RenderOrchestrator {
     this.kidlispCache = options.kidlispCache || null; // KidLisp dependency cache
     this.extractIconFrame = options.extractIconFrame || false; // Extract midpoint frame as icon
     this.iconOutputDir = options.iconOutputDir || null; // Custom directory for icon output
+    this.debugInkColors = options.debugInkColors || false;
   }
 
   // Fetch KidLisp source code from the localhost API (similar to tape.mjs)
@@ -293,9 +294,14 @@ export async function paint(api) {
         const densityArg = this.density ? ` ${this.density}` : '';
         const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}${densityArg}`;
         console.log(`🔧 Executing: ${command}`);
+        const env = { ...process.env };
+        if (this.debugInkColors) {
+          env.AC_LOG_INK_COLORS = '1';
+          env.AC_LOG_INK_LABEL = this.piece;
+        }
         const result = execSync(
           command,
-          { encoding: 'utf8', stdio: 'pipe' } // Use pipe to capture output cleanly
+          { encoding: 'utf8', stdio: 'pipe', env }
         );
         
         // Show frame renderer output in a controlled way
