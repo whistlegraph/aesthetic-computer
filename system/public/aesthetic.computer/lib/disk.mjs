@@ -48,6 +48,22 @@ import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, g
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 
+function matrixDebugEnabled() {
+  if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
+  if (typeof globalThis !== "undefined" && globalThis?.acMatrixDebug)
+    return true;
+  return false;
+}
+
+if (typeof globalThis !== "undefined") {
+  if (globalThis.acMatrixDebug === undefined) {
+    globalThis.acMatrixDebug = true;
+  }
+  if (typeof window !== "undefined" && window.acMatrixDebug === undefined) {
+    window.acMatrixDebug = globalThis.acMatrixDebug;
+  }
+}
+
 // Helper function to safely check for sandboxed environments in both main thread and worker contexts
 function isSandboxed() {
   try {
@@ -114,6 +130,119 @@ let tf; // Active typeface global.
 // Cache for loaded typefaces to avoid recreating them
 const typefaceCache = new Map();
 
+const DEFAULT_TYPEFACE_BLOCK_WIDTH = 6;
+const DEFAULT_TYPEFACE_BLOCK_HEIGHT = 10;
+const HUD_LABEL_TEXT_MARGIN = 2;
+
+function resolveTypefaceInstance(typefaceRef) {
+  if (!typefaceRef) return undefined;
+  if (typefaceRef instanceof Typeface) return typefaceRef;
+  if (typeof typefaceRef === "string") {
+    if (typefaceCache.has(typefaceRef)) {
+      return typefaceCache.get(typefaceRef);
+    }
+    const instance = new Typeface(typefaceRef);
+    typefaceCache.set(typefaceRef, instance);
+    return instance;
+  }
+  if (typeof typefaceRef === "object" && typeof typefaceRef?.getGlyph === "function") {
+    return typefaceRef;
+  }
+  return undefined;
+}
+
+function ensureTypefaceLoaded(typeface) {
+  if (!typeface || typeof typeface.load !== "function") return;
+  const requiresLoad =
+    typeface.data?.bdfFont ||
+    typeface.name === "unifont" ||
+    typeface.name === "MatrixChunky8";
+
+  if (!requiresLoad) return;
+
+  if (!typeface.__loadPromise) {
+    typeface.__loadPromise = typeface.load($commonApi.net.preload, () => {
+      if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
+        window.$activePaintApi.needsPaint();
+      }
+    });
+  }
+
+  return typeface.__loadPromise;
+}
+
+function getTypefaceForMeasurement(typefaceName) {
+  if (!typefaceName) return tf;
+  const resolved = resolveTypefaceInstance(typefaceName);
+  return resolved || tf;
+}
+
+function writeHudLabelText(
+  $, 
+  text,
+  { x = 0, y = 0, typefaceName, preserveColors = true } = {},
+) {
+  if (text === undefined || text === null || text === "") return;
+
+  const content = preserveColors ? text : stripColorCodes(text);
+  $.write(
+    content,
+    { x, y },
+    undefined,
+    undefined,
+    false,
+    typefaceName,
+  );
+}
+
+function drawHudLabelText(
+  $, 
+  text,
+  {
+    x = 0,
+    y = 0,
+    typefaceName,
+    textColor = "white",
+    shadowColor = "black",
+    shadowOffsetX = 1,
+    shadowOffsetY = 1,
+    preserveColors = true,
+  } = {},
+) {
+  if (!text) return;
+
+  const containsColorCodes = textContainsColorCodes(text);
+  const shouldPreserveColors = preserveColors || (typefaceName === "MatrixChunky8" && containsColorCodes);
+
+
+  const shouldRenderShadow = shadowColor && !(
+    typefaceName === "MatrixChunky8" &&
+    matrixDebugEnabled()
+  );
+
+  if (shouldRenderShadow) {
+    $.ink(shadowColor);
+    writeHudLabelText($, text, {
+      x: x + shadowOffsetX,
+      y: y + shadowOffsetY,
+      typefaceName,
+      preserveColors: false,
+    });
+  }
+
+  if (textColor) {
+    $.ink(textColor);
+  }
+
+  writeHudLabelText($, text, {
+    x,
+    y,
+    typefaceName,
+    preserveColors: shouldPreserveColors,
+  });
+
+}
+
 export const noWorker = { onMessage: undefined, postMessage: undefined };
 
 let ROOT_PIECE = "prompt"; // This gets set straight from the host html file for the ac.
@@ -151,7 +280,7 @@ function storePersistentFirstLineColor(color) {
 
 // 🎨 Global function to get background color for reframe (worker-safe)
 function getPersistentFirstLineColor() {
-  console.log("🎨 Getting persistent first line color from disk.mjs:", persistentFirstLineColor);
+
   return persistentFirstLineColor;
 }
 
@@ -548,9 +677,20 @@ let currentPath,
   currentHUDStatusColor = "red",
   currentHUDButton,
   currentHUDScrub = 0,
+  currentHUDLabelFontName,
+  currentHUDLabelBlockWidth = tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH,
+  currentHUDLabelBlockHeight = tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT,
+  currentHUDShareWidth = (tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length,
+  currentHUDLabelMeasuredWidth = 0,
   currentHUDOffset,
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
+
+let lastMatrixChunkyHighlightLog = null;
+let lastMatrixChunkyWriteDiagnosticLog = null;
+let lastMatrixChunkyPixelLog = null;
+
+
 
 // Helper functions to safely access window flags in both main thread and worker contexts
 function isQROverlayCacheDisabled() {
@@ -586,6 +726,9 @@ if (typeof window !== 'undefined') {
 }
 //currentPromptButton;
 
+const COLOR_CODE_MATCH_REGEX = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+(?:,[0-9]+)*)\\/g;
+const COLOR_CODE_TEST_REGEX = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+(?:,[0-9]+)*)\\/;
+
 // Utility function to strip color codes from text
 function stripColorCodes(str) {
   if (!str) return str;
@@ -594,8 +737,43 @@ function stripColorCodes(str) {
   // - RGB values: \\255,20,147\\, \\192,192,192\\
   // - Complex patterns: \\color(args)\\
   return str.replace(
-    /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+(?:,[0-9]+)*)\\/g,
+    COLOR_CODE_MATCH_REGEX,
     "",
+  );
+}
+
+function textContainsColorCodes(str) {
+  if (!str) return false;
+  return COLOR_CODE_TEST_REGEX.test(str);
+}
+
+function hasKidLispMarkers(text) {
+  if (!text) return false;
+  return (
+    text.includes("ink ") ||
+    text.includes("line ") ||
+    text.includes("box ") ||
+    text.includes("circle ") ||
+    text.includes("spin ") ||
+    text.includes("(") ||
+    textContainsColorCodes(text) ||
+    /\d+s\.\.\./.test(text) ||
+    /\?\s/.test(text)
+  );
+}
+
+function detectKidLispPiece({ currentPath, currentHUDTxt, currentText, cleanText }) {
+  const sourceCode = currentText || currentHUDTxt;
+
+  return (
+    (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
+    currentPath === "(...)" ||
+    (sourceCode && sourceCode.startsWith("$")) ||
+    (currentPath && (currentPath.includes("/disks/$") || currentPath.includes("$"))) ||
+    (sourceCode && lisp.isKidlispSource && lisp.isKidlispSource(sourceCode)) ||
+    hasKidLispMarkers(currentHUDTxt) ||
+    textContainsColorCodes(cleanText) ||
+    hasKidLispMarkers(sourceCode)
   );
 }
 
@@ -1242,7 +1420,7 @@ const $commonApi = {
 
   jump: function jump(to, ahistorical = false, alias = false) {
     // let url;
-    
+
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
       return;
@@ -1589,13 +1767,31 @@ const $commonApi = {
       if (currentHUDTxt && currentHUDTxt.length > 0) {
         // Use plain text (without color codes) for dimension calculations
         const textForMeasurement = currentHUDPlainTxt || currentHUDTxt;
+        
+        // Detect if this is a KidLisp piece for more generous width allowance
+        const sourceCode = currentText || currentHUDTxt;
+        const isKidlispPiece = (currentPath && lisp?.isKidlispSource && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
+                             currentPath === "(...)" ||
+                             (sourceCode && sourceCode.startsWith("$")) ||
+                             (currentPath && currentPath.includes("/disks/$")) ||
+                             (sourceCode && lisp?.isKidlispSource && lisp.isKidlispSource(sourceCode));
+        
+        // Use full screen width for text wrapping
+        const maxWidth = cachedAPI.screen.width;
+          
         const labelBounds = cachedAPI.text.box(
           textForMeasurement,
           undefined,
-          cachedAPI.screen.width - cachedAPI.typeface.blockWidth,
+          maxWidth,
+          1, // scale
+          true, // wordWrap
+          // TODO: This should check useTinyHudLabel like the main corner label, but that's not accessible here
+          // For now, use default font to maintain consistency with current behavior
+          undefined // Use default font - will need to be updated when useTinyHudLabel is globally accessible
         );
         
-        let w = textForMeasurement.length * cachedAPI.typeface.blockWidth + currentHUDScrub;
+        // Use the actual computed width from text.box instead of character count
+        let w = labelBounds.box.width + currentHUDScrub;
         const h = labelBounds.box.height + cachedAPI.typeface.blockHeight;
         
         // Store dimensions for animation calculations
@@ -2070,142 +2266,254 @@ const $commonApi = {
     // Get the pixel width of a string of characters.
     width: (text) => {
       if (Array.isArray(text)) text = text.join(" ");
-      return text.length * 6;
+      
+      // Use the current typeface for accurate width calculation
+      const useTypeface = tf;
+      if (!useTypeface) {
+        return text.length * DEFAULT_TYPEFACE_BLOCK_WIDTH;
+      }
+
+      const isProportional =
+        useTypeface?.data?.proportional === true ||
+        !!useTypeface?.data?.advances ||
+        !!useTypeface?.data?.bdfFont;
+
+      if (isProportional && typeof useTypeface.getAdvance === "function") {
+        let totalWidth = 0;
+        for (const char of text) {
+          if (char === "\n" || char === "\r") continue;
+          const advance = useTypeface.getAdvance(char);
+          totalWidth += typeof advance === "number" ? advance : useTypeface.blockWidth;
+        }
+        return totalWidth;
+      } else {
+        // For monospace fonts, use the typeface's block width
+        const blockWidth = useTypeface.blockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH;
+        return text.length * blockWidth;
+      }
     },
     height: (text) => {
       // Get the pixel height of a string of characters.
       return 10;
     },
     // Return a text's bounding box.
-    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true) => {
+    box: (text, pos = { x: 0, y: 0 }, bounds, scale = 1, wordWrap = true, fontName) => {
+
       if (!text) {
         console.warn("⚠️ No text for `box`.");
         return;
       }
-      
-      // DEBUG: Log what text.box is processing (reduced frequency)
+
       pos = { ...pos };
-      let run = 0;
-      const blockWidth = tf.blockWidth * abs(scale);
+      const absScale = abs(scale ?? 1);
 
-      const lines = [[]];
+      let useTypeface = getTypefaceForMeasurement(fontName) || tf;
+      if (!useTypeface) {
+        useTypeface = tf;
+      }
+
+      const baseBlockWidth =
+        useTypeface?.blockWidth ?? tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH;
+      const baseBlockHeight =
+        useTypeface?.blockHeight ?? tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT;
+
+      const blockHeight = baseBlockHeight * absScale;
+
+      const isProportional =
+        useTypeface?.data?.proportional === true ||
+        !!useTypeface?.data?.advances ||
+        !!useTypeface?.data?.bdfFont;
+
+      const getAdvanceWidth = (char) => {
+        if (!char) return baseBlockWidth * absScale;
+        if (isProportional && typeof useTypeface?.getAdvance === "function") {
+          const raw = useTypeface.getAdvance(char);
+          if (typeof raw === "number") {
+            return raw * absScale;
+          }
+        }
+        return baseBlockWidth * absScale;
+      };
+
+      const getCharWidth = (char) => {
+        if (!char || char === "\n" || char === "\r") return 0;
+        if (char === "\t") {
+          return getAdvanceWidth(" ") * 4;
+        }
+        return getAdvanceWidth(char);
+      };
+
+      if (bounds === undefined) {
+        const sampleWidth = getAdvanceWidth("0");
+        bounds = (text.length + 2) * sampleWidth;
+      }
+      if (!(bounds > 0)) {
+        bounds = Number.POSITIVE_INFINITY;
+      }
+
+      const lines = [""];
+      const charMap = [[]];
       let line = 0;
+      let run = 0;
+      let maxWidth = 0;
 
-      if (bounds === undefined) bounds = (text.length + 2) * blockWidth;
+      const commitLineWidth = () => {
+        if (run > maxWidth) {
+          maxWidth = run;
+        }
+      };
 
-      function newLine() {
-        run = 0;
+      const newLine = () => {
+        commitLineWidth();
         line += 1;
-        lines[line] = [];
-      }
+        lines[line] = "";
+        charMap[line] = [];
+        run = 0;
+      };
 
-      function characterWrap(word, preserveSpaceBefore = false) {
-        let needsSpace = preserveSpaceBefore && run > 0;
+      const appendChar = (char, sourceIndex) => {
+        const width = getCharWidth(char);
+        const renderedChar = char === "\t" ? " " : char;
+        lines[line] += renderedChar;
+        charMap[line].push(sourceIndex);
+        run += width;
+        if (run > maxWidth) {
+          maxWidth = run;
+        }
+      };
 
-        for (let i = 0; i < word.length; i++) {
-          const char = word[i];
-          const charLen = blockWidth;
-          const spaceLen = needsSpace ? blockWidth : 0;
-
-          if (run + spaceLen + charLen > bounds) {
+      if (!wordWrap) {
+        for (let idx = 0; idx < text.length; idx += 1) {
+          const char = text[idx];
+          if (char === "\r") continue;
+          if (char === "\n") {
             newLine();
-            needsSpace = false; // Don't add space at start of new line
+            continue;
           }
-
-          if (!lines[line].length) {
-            // Start of line - add space if needed, then character
-            if (needsSpace) {
-              lines[line].push(" " + char);
-              run += spaceLen + charLen;
-              needsSpace = false;
-            } else {
-              lines[line].push(char);
-              run += charLen;
+          appendChar(char, idx);
+        }
+      } else {
+        const tokens = [];
+        let idx = 0;
+        while (idx < text.length) {
+          const char = text[idx];
+          if (char === "\r") {
+            idx += 1;
+            continue;
+          }
+          if (char === "\n") {
+            tokens.push({ type: "newline", indices: [idx] });
+            idx += 1;
+            continue;
+          }
+          if (char === " " || char === "\t") {
+            let textBuffer = "";
+            const indices = [];
+            while (idx < text.length) {
+              const c = text[idx];
+              if (c !== " " && c !== "\t") break;
+              textBuffer += c;
+              indices.push(idx);
+              idx += 1;
             }
-          } else {
-            // Continuing existing word - add space if needed, then character
-            if (needsSpace) {
-              lines[line][lines[line].length - 1] += " " + char;
-              run += spaceLen + charLen;
-              needsSpace = false;
-            } else {
-              lines[line][lines[line].length - 1] += char;
-              run += charLen;
-            }
+            tokens.push({ type: "whitespace", text: textBuffer, indices });
+            continue;
+          }
+          let textBuffer = "";
+          const indices = [];
+          while (idx < text.length) {
+            const c = text[idx];
+            if (c === "\n" || c === " " || c === "\t" || c === "\r") break;
+            textBuffer += c;
+            indices.push(idx);
+            idx += 1;
+          }
+          if (textBuffer.length > 0) {
+            tokens.push({ type: "word", text: textBuffer, indices });
           }
         }
-      }
-      if (wordWrap) {
-        const splitWords = text.split(" ");
-        const words = [];
-        for (let i = 0; i < splitWords.length; i++) {
-          if (splitWords[i] === "" && i > 0 && splitWords[i - 1] === "") {
-            words[words.length - 1] += " ";
-          } else {
-            words.push(splitWords[i]);
-          }
-        }
-        words.forEach((word, wordIndex) => {
-          const wordLen = word.length * blockWidth;
-          const spaceWidth = blockWidth;
 
-          if (wordLen >= bounds) {
-            // Pass true to preserve space if this isn't the first word
-            characterWrap(word, wordIndex > 0);
-            // Don't add extra space width after character wrapping
+        tokens.forEach((token) => {
+          if (token.type === "newline") {
+            newLine();
             return;
           }
-          if (word.includes("\n")) {
-            const segs = word.split("\n");
-            segs.forEach((seg, i) => {
-              const segLen = seg.length * blockWidth;
-              // For segments after a newline (i > 0), always start a new line
-              if (i > 0) newLine();
-              // For boundary checking, account for space only if this isn't the first item on the line
-              const spaceNeeded = run > 0 ? spaceWidth : 0;
-              if (run + spaceNeeded + segLen >= bounds) newLine();
-              lines[line].push(seg);
-              run += segLen + (wordIndex < words.length - 1 ? spaceWidth : 0); // Only add space if not the last word
+
+          if (token.type === "whitespace") {
+            for (let i = 0; i < token.text.length; i += 1) {
+              const char = token.text[i];
+              const sourceIndex = token.indices[i];
+              const width = getCharWidth(char);
+              if (run > 0 && run + width > bounds) {
+                newLine();
+              }
+              appendChar(char, sourceIndex);
+            }
+            return;
+          }
+
+          if (token.type === "word") {
+            const chars = token.text.split("");
+            const widths = chars.map((char) => getCharWidth(char));
+            const wordWidth = widths.reduce((acc, value) => acc + value, 0);
+
+            if (bounds > 0 && wordWidth > bounds) {
+              chars.forEach((char, charIdx) => {
+                const width = widths[charIdx];
+                if (run > 0 && run + width > bounds) {
+                  newLine();
+                }
+                appendChar(char, token.indices[charIdx]);
+              });
+              return;
+            }
+
+            if (run > 0 && run + wordWidth > bounds) {
+              newLine();
+            }
+
+            chars.forEach((char, charIdx) => {
+              appendChar(char, token.indices[charIdx]);
             });
-          } else {
-            // For boundary checking, account for space only if this isn't the first word on the line
-            const spaceNeeded = run > 0 ? spaceWidth : 0;
-            if (run + spaceNeeded + wordLen >= bounds) newLine();
-            lines[line].push(word);
-            run += wordLen + (wordIndex < words.length - 1 ? spaceWidth : 0); // Only add space if not the last word
           }
         });
-      } else {
-        characterWrap(text);
       }
 
-      const blockMargin = 0; 
-      const lineHeightGap = 1; // Slightly less than write function for tighter fit
-      const blockHeight = (tf.blockHeight + lineHeightGap) * scale; // 10 + 1 = 11px per line
+      commitLineWidth();
+
+      const lineHeightGap = 1 * absScale;
+      const finalBlockHeight = blockHeight + lineHeightGap;
 
       if (lines.length >= 1 && pos.center && pos.center.indexOf("y") !== -1) {
         pos.y =
           $activePaintApi.screen.height / 2 -
-          (lines.length * blockHeight) / 2 +
-          blockHeight / 2 +
+          (lines.length * finalBlockHeight) / 2 +
+          finalBlockHeight / 2 +
           (pos.y || 0);
       }
 
-      const height = lines.length * blockHeight;
-      
-      // Calculate the actual width of the longest line (true text bounds)
-      let maxLineWidth = 0;
-      lines.forEach(line => {
-        if (line.length > 0) {
-          const lineText = line.join(' '); // Join words with spaces
-          const lineWidth = lineText.length * blockWidth;
-          maxLineWidth = Math.max(maxLineWidth, lineWidth);
+      const height = lines.length * finalBlockHeight;
+
+      const lineWidths = lines.map((lineText, index) => {
+        if (!lineText) return 0;
+        const indices = charMap[index] || [];
+        let width = 0;
+        for (let i = 0; i < lineText.length; i += 1) {
+          const sourceIndex = indices[i];
+          if (typeof sourceIndex === "number" && sourceIndex >= 0 && sourceIndex < text.length) {
+            width += getCharWidth(text[sourceIndex]);
+          } else {
+            width += getCharWidth(lineText[i]);
+          }
         }
+        return width;
       });
-      
+
+      const maxLineWidth = lineWidths.reduce((acc, value) => Math.max(acc, value), 0);
+
       const box = { x: pos.x, y: pos.y, width: maxLineWidth, height };
-      if (lines[0]?.[0].startsWith("test:")) console.log(lines);
-      return { pos, box, lines };
+
+      return { pos, box, lines, lineWidths, lineHeight: finalBlockHeight, charMap };
     },
   },
   num: {
@@ -3195,34 +3503,20 @@ const $paintApi = {
       customTypeface = arguments[5];
     }
 
-    // Convert string font name to Typeface instance if needed
-    if (typeof customTypeface === "string") {
-      // Check if we have a cached typeface first
-      if (typefaceCache.has(customTypeface)) {
-        customTypeface = typefaceCache.get(customTypeface);
-      } else {
-        // Create a new typeface and load it immediately if it's MatrixChunky8 or unifont
-        const newTypeface = new Typeface(customTypeface);
-        
-        // Load the typeface asynchronously for BDF fonts
-        if (newTypeface.data?.bdfFont || customTypeface === "unifont") {
-          newTypeface.load($commonApi.net.preload, () => {
-            // Force repaint when new glyphs are loaded
-            if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
-              window.$activePaintApi.needsPaint();
-            }
-          });
-        }
-        
-        typefaceCache.set(customTypeface, newTypeface);
-        customTypeface = newTypeface;
+    if (customTypeface) {
+      const resolvedTypeface = resolveTypefaceInstance(customTypeface);
+      if (resolvedTypeface) {
+        ensureTypefaceLoaded(resolvedTypeface);
+        customTypeface = resolvedTypeface;
       }
-    } // 🎨 Color code processing
-    // Check for color codes like \\blue\\, \\red\\, \\255,0,0\\, etc.
-    const colorCodeRegex = /\\([a-zA-Z0-9,]+)\\/g;
-    const hasColorCodes = text.includes("\\");
+    }
+
+    // 🎨 Color code processing
+    const hasColorCodes = textContainsColorCodes(text);
 
     if (hasColorCodes) {
+
+
       // Remember the current ink color to restore it later
       const originalColor = $activePaintApi.inkrn();
 
@@ -3232,7 +3526,11 @@ const $paintApi = {
       let currentColor = null;
 
       // Split text by color codes and process each segment
-      const segments = text.split(colorCodeRegex);
+  const segments = text.split(COLOR_CODE_MATCH_REGEX);
+      
+
+
+
 
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
@@ -3241,89 +3539,100 @@ const $paintApi = {
           for (let j = 0; j < segment.length; j++) {
             cleanText += segment[j];
             charColors.push(currentColor);
+            
+
           }
         } else {
           // This is a color name or RGB value (from the captured group)
           const colorStr = segments[i];
-          
-          // Handle different color formats
-          if (colorStr.includes(',')) {
-            // RGB/RGBA format like "255,0,0" or "255,0,0,128"
-            const parts = colorStr.split(',').map(n => parseInt(n.trim()));
-            currentColor = parts;
-          } else if (colorStr === 'transparent') {
-            // Handle transparent color
-            currentColor = null;
-          } else {
-            // Named color like "red", "blue", etc.
-            currentColor = colorStr;
+
+          if (!colorStr) {
+            continue;
           }
+
+          const normalized = colorStr.trim();
+          const lower = normalized.toLowerCase();
+
+          if (!normalized) {
+            continue;
+          }
+
+          if (lower === "reset" || lower === "default" || lower === "base") {
+            currentColor = null;
+            continue;
+          }
+
+          if (normalized.includes(",")) {
+            // RGB/RGBA format like "255,0,0" or "255,0,0,128"
+            const parts = normalized.split(",").map((n) => {
+              const parsed = parseInt(n.trim(), 10);
+              return Number.isFinite(parsed) ? parsed : 0;
+            });
+            while (parts.length < 3) parts.push(0);
+            if (parts.length === 3) parts.push(255);
+            currentColor = parts.slice(0, 4);
+          } else if (lower === "transparent" || lower === "clear") {
+            currentColor = [0, 0, 0, 0];
+          } else {
+            const resolved = graph.findColor(normalized);
+            if (Array.isArray(resolved)) {
+              currentColor = resolved.slice();
+            } else if (resolved && typeof resolved === "object") {
+              currentColor = { ...resolved };
+            } else if (resolved !== undefined) {
+              currentColor = resolved;
+            } else {
+              currentColor = null;
+            }
+          }
+          
+
         }
       }
 
-      // Check if we have any actual text to display after removing color codes
+      // Check if we have any actual text to display after removing color codes  
       if (cleanText.trim().length === 0) {
         return $activePaintApi; // Exit silently if no text content remains
       }
 
-      // Now use the original text processing logic but with per-character colors
+
+
+      // Render with colors - same logic as original text processing
       const scale = pos?.size || 1;
-      
-      // Debug what activeTypeface is being used (disabled)
-      // if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
-      //   console.log("🔤 activeTypeface determined:", {
-      //     customTypeface: customTypeface?.name || String(customTypeface),
-      //     tf: tf?.name || String(tf),
-      //     activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
-      //     isCustomTypefaceObject: typeof customTypeface === 'object' && customTypeface !== null,
-      //     customTypefaceType: typeof customTypeface
-      //   });
-      // }
-      
-      // Debug logging for QR text rendering (disabled)
-      // if (text.includes("$") || (arguments[5] === "MatrixChunky8")) {
-      //   console.log("🔤 QR Font Debug:", {
-      //     text: text,
-      //     textLength: text.length,
-      //     requestedFont: arguments[5],
-      //     customTypeface: customTypeface?.name || String(customTypeface),
-      //     customTypefaceType: typeof customTypeface,
-      //     tfName: tf?.name || String(tf),
-      //     activeTypeface: tf?.name || String(tf), // Use tf instead of undefined activeTypeface
-      //     activeTypefaceData: tf?.data?.bdfFont || "no-bdf", // Use tf instead of undefined activeTypeface
-      //     hasCustomTypeface: !!customTypeface,
-      //     hasTf: !!tf,
-      //     activetypefacePrint: typeof tf?.print, // Use tf instead of undefined activeTypeface
-      //     typefaceCacheSize: typefaceCache.size,
-      //     typefaceCacheKeys: Array.from(typefaceCache.keys()),
-      //     isMatrixChunky8: tf?.name === "MatrixChunky8", // Use tf instead of undefined activeTypeface
-      //     firstCharGlyph: tf?.glyphs?.[text[0]] ? "loaded" : "missing" // Use tf instead of undefined activeTypeface
-      //   });
-      // }
 
       if (bounds) {
         const tb = $commonApi.text.box(cleanText, pos, bounds, scale, wordWrap, customTypeface);
         if (!tb || !tb.lines) {
           return $activePaintApi; // Exit silently if text.box fails
         }
-        tb.lines.forEach((line, index) => {
-          // Calculate the starting character index for this line
-          let lineStartIndex = 0;
-          for (let i = 0; i < index; i++) {
-            lineStartIndex += tb.lines[i].join(" ").length;
-            if (i < tb.lines.length - 1) lineStartIndex++; // Add 1 for space between lines
+        
+        const charMap = tb.charMap || [];
+
+        tb.lines.forEach((lineText, index) => {
+          const renderedLine = typeof lineText === "string" ? lineText : lineText?.join?.(" ") || "";
+          const sourceIndices = charMap[index] || [];
+          const lineColors = [];
+
+          for (let i = 0; i < renderedLine.length; i++) {
+            const sourceIndex = sourceIndices[i];
+            if (
+              typeof sourceIndex === "number" &&
+              sourceIndex >= 0 &&
+              sourceIndex < charColors.length
+            ) {
+              lineColors.push(charColors[sourceIndex]);
+            } else {
+              lineColors.push(null);
+            }
           }
 
           (customTypeface || tf)?.print(
             $activePaintApi,
             tb.pos,
             index,
-            line.join(" "),
+            renderedLine,
             bg,
-            charColors.slice(
-              lineStartIndex,
-              lineStartIndex + line.join(" ").length,
-            ),
+            lineColors,
           );
         });
       } else {
@@ -3332,8 +3641,9 @@ const $paintApi = {
           const lines = cleanText.split("\n");
           const lineHeightGap = 2;
           let charIndex = 0;
+          
           lines.forEach((line, index) => {
-            const lineColors = charColors.slice(
+            const lineColors = charColors?.slice(
               charIndex,
               charIndex + line.length,
             );
@@ -3357,9 +3667,34 @@ const $paintApi = {
         }
       }
 
+      const typefaceName = typeof customTypeface === "string" ? customTypeface : customTypeface?.name;
+      if (typefaceName === "MatrixChunky8") {
+        const hasColorAssignments = charColors?.some((color) => {
+          if (!color) return false;
+          if (Array.isArray(color)) {
+            return color.some((component) => component !== null && component !== undefined);
+          }
+          if (typeof color === "object") {
+            return Object.keys(color).length > 0;
+          }
+          return typeof color === "string";
+        });
+
+        if (!hasColorAssignments) {
+          const snippet = cleanText.length > 120 ? `${cleanText.slice(0, 117)}…` : cleanText;
+          if (lastMatrixChunkyWriteDiagnosticLog !== snippet) {
+            lastMatrixChunkyWriteDiagnosticLog = snippet;
+            console.warn("🎨 MatrixChunky8 HUD charColors missing", {
+              snippet,
+              charColorsLength: charColors?.length,
+              cleanTextLength: cleanText.length,
+            });
+          }
+        }
+      }
+
       // Restore the original ink color
       $activePaintApi.ink(...originalColor);
-
       return $activePaintApi;
     }
 
@@ -3371,9 +3706,9 @@ const $paintApi = {
     if (bounds) {
       const tb = $commonApi.text.box(text, pos, bounds, scale, wordWrap, customTypeface); // TODO: Get the current ink color, memoize it, and make it static here.
       //       23.10.12.22.04
-      tb.lines.forEach((line, index) => {
-        // console.log(line, index);
-        (customTypeface || tf)?.print($activePaintApi, tb.pos, index, line.join(" "), bg);
+      tb.lines.forEach((lineText, index) => {
+        const renderedLine = typeof lineText === "string" ? lineText : lineText?.join?.(" ") || "";
+        (customTypeface || tf)?.print($activePaintApi, tb.pos, index, renderedLine, bg);
       });
     } else {
       // Break on `\n` and handle separate lines
@@ -4261,7 +4596,7 @@ function executeLispCode(source, api, isAccumulating = false) {
     // console.log(`🔍 Parsing KidLisp source:`, source);
     
     // Clear previous first-line color state for fresh detection
-    console.log("🎨 executeLispCode: Clearing globalKidLispInstance.firstLineColor");
+
     globalKidLispInstance.firstLineColor = null;
     
     globalKidLispInstance.parse(source);
@@ -4270,7 +4605,7 @@ function executeLispCode(source, api, isAccumulating = false) {
     if (globalKidLispInstance.ast) {
       // Detect first-line color but only apply it if not accumulating
       globalKidLispInstance.detectFirstLineColor();
-      console.log("🎨 executeLispCode: After detectFirstLineColor, globalKidLispInstance.firstLineColor:", globalKidLispInstance.firstLineColor);
+
       if (globalKidLispInstance.firstLineColor && !isAccumulating) {
         // console.log(`🎨 Applying first-line color background: ${globalKidLispInstance.firstLineColor}`);
         api.wipe(globalKidLispInstance.firstLineColor);
@@ -4342,7 +4677,6 @@ class Painting {
     // ⛓️ This wrapper also makes the paint API chainable.
 
     function globals(k, args) {
-      if (k === "ink") p.inkrn = [...args].flat();
       if (k === "page") p.pagern = args[0];
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
@@ -4351,16 +4685,27 @@ class Painting {
       if (typeof $paintApiUnwrapped[k] === "function") {
         // Wrap and then transfer to #api.
         p.api[k] = function () {
-          globals(k, arguments); // Keep track of global state, like ink, via `inkrn`.
+          if (k === "ink") {
+            $paintApiUnwrapped[k](...arguments);
+            p.inkrn = graph.c.slice();
+          } else {
+            globals(k, arguments); // Keep track of global state, like page, via `pagern`.
+          }
           // Create layer if necessary.
           if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
+          const callArgs = arguments;
           // Add each deferred paint api function to the layer, to be run
           // all at once in `paint` on each frame update.
           p.#layers[p.#layer].push([
             k,
             () => {
-              globals(k, arguments); // Update globals again on chainable calls.
-              $paintApiUnwrapped[k](...arguments);
+              if (k === "ink") {
+                $paintApiUnwrapped[k](...callArgs);
+                p.inkrn = graph.c.slice();
+              } else {
+                globals(k, callArgs); // Update globals again on chainable calls.
+                $paintApiUnwrapped[k](...callArgs);
+              }
             },
           ]);
           return p.api;
@@ -4571,7 +4916,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
       // Try to get color from KidLisp instance as fallback
       if (typeof globalKidLispInstance?.getBackgroundFillColor === 'function') {
         const fallbackColor = globalKidLispInstance.getBackgroundFillColor();
-        console.log("🎨 Post-reframe: KidLisp fallback color:", fallbackColor);
+
         
         if (fallbackColor) {
           const colorResult = graph.color.coerce(fallbackColor);
@@ -5705,6 +6050,11 @@ async function load(
   if (!tf) tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
   ui.setTypeface(tf); // Set the default `ui` typeface.
+
+  // Initialize HUD metrics now that the primary typeface is available
+  currentHUDLabelBlockWidth = tf.blockWidth;
+  currentHUDLabelBlockHeight = tf.blockHeight;
+  currentHUDShareWidth = tf.blockWidth * "share ".length;
 
   // Initialize MatrixChunky8 font for QR code text rendering
   // TEMP: Clear MatrixChunky8 cache to force reload with new J advance width
@@ -8369,11 +8719,11 @@ async function makeFrame({ data: { type, content } }) {
                   currentHUDScrub += e.delta.x;
                 }
 
-                const shareWidth = tf.blockWidth * "share ".length;
+                const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
 
                 if (currentHUDScrub >= 0) {
-                  btn.box.w =
-                    tf.blockWidth * currentHUDTxt.length + currentHUDScrub;
+                  const baseWidth = hudAnimationState.labelWidth ?? currentHUDLabelMeasuredWidth ?? (currentHUDLabelBlockWidth * (currentHUDPlainTxt?.length || currentHUDTxt.length));
+                  btn.box.w = baseWidth + currentHUDScrub;
                   // console.log(btn.b);
                 }
 
@@ -8396,8 +8746,6 @@ async function makeFrame({ data: { type, content } }) {
                 currentHUDTextColor = originalColor;
 
                 const shareWidth = tf.blockWidth * "share ".length;
-                console.log("scrub:", currentHUDScrub, shareWidth);
-
                 if (currentHUDScrub === shareWidth) {
                   $api.sound.synth({
                     tone: 1800,
@@ -9158,145 +9506,219 @@ async function makeFrame({ data: { type, content } }) {
         // Remove any remaining single backslashes that might be color code remnants
         cleanText = cleanText.replace(/\\/g, '');
         
-        // 🔵 DEBUG: Enhanced text cleaning logging with samples
-        // Use consistent scaling regardless of screen size
-        const screenScale = 1.0;
-        const scaledBlockWidth = tf.blockWidth * screenScale;
-        
-        // Account for 6px margin on left and right (button starts at x=6)
-        const maxButtonWidth = $api.screen.width - 12;
-        
-        // First get natural dimensions with a generous but reasonable width limit
-        const naturalMaxWidth = Math.max($api.screen.width * 2, 600); // Allow up to 2x screen width or 600px minimum
-        const naturalBounds = $api.text.box(
+        // Analyze visible lines for accurate sizing
+        const rawLines = cleanText.split('\n');
+        const visibleLines = rawLines.map((line) => line.replace(/\s+$/, ''));
+        const visibleLineCount = visibleLines.length;
+
+        const defaultTypeface = tf;
+        const matrixTypeface = typefaceCache.get("MatrixChunky8");
+
+        const isKidlispPiece = detectKidLispPiece({
+          currentPath,
+          currentHUDTxt,
+          currentText,
           cleanText,
-          undefined,
-          naturalMaxWidth, // Use reasonable max width instead of undefined
-          screenScale
-        );
-        
-        // Check if natural width fits screen, if not use constrained version
-        let textBounds;
-        if (naturalBounds.box.width <= $api.screen.width - 20) {
-          // Use natural dimensions - no wrapping needed
-          textBounds = naturalBounds;
-        } else {
-          // Use constrained dimensions for screen fit
-          textBounds = $api.text.box(
+        });
+
+        const measureLineWidth = (line, typeface) => {
+          if (!line || !line.length || !typeface) return 0;
+          const advances = typeface.data?.advances;
+          const defaultAdvance = typeface.blockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH;
+          let width = 0;
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            width += advances && advances[ch] !== undefined ? advances[ch] : defaultAdvance;
+          }
+          return width;
+        };
+
+        const buildLayout = (typeface) => {
+          if (!typeface) return null;
+
+          const fontIdentifier = typeface === defaultTypeface ? undefined : typeface.name;
+          const blockWidth = typeface.blockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH;
+          const blockHeight = typeface.blockHeight || DEFAULT_TYPEFACE_BLOCK_HEIGHT;
+          const lineWidths = visibleLines.map((line) => measureLineWidth(line, typeface));
+          const longestLineWidth = lineWidths.reduce((max, width) => Math.max(max, width), 0);
+          const bounds = isKidlispPiece ? 10000 : Math.max($api.screen.width * 4, 1000);
+
+          const naturalBounds = $api.text.box(
             cleanText,
-            undefined,
-            maxButtonWidth,
-            screenScale
+            { x: 0, y: 0 },
+            bounds,
+            1,
+            !isKidlispPiece,
+            fontIdentifier,
           );
-        }
-        
-        // Use the exact width from text.box - no padding, perfect text hugging
-        let w = textBounds.box.width;
-        
-        // DEBUG: Throttled HUD width calculations (every 30 frames) - DISABLED OLD VERSION
-        if (false && shouldLog) {
-          const lines = cleanText.split('\n');
-          console.log("� Button Width: HUD Width Debug:", {
-            piece: piece,
-            screenWidth: $api.screen.width,
-            screenHeight: $api.screen.height,
-            cleanText: cleanText.substring(0, 50) + "...",
-            cleanTextLength: cleanText.length,
-            lineCount: lines.length,
-            longestLine: Math.max(...lines.map(line => line.length)),
-            tfBlockWidth: tf.blockWidth,
-            screenScale: screenScale,
-            scaledBlockWidth: scaledBlockWidth,
-            maxButtonWidth: maxButtonWidth,
-            textWidth: textWidth,
-            textBoxWidth: textBounds.box.width,
-            textBoxHeight: textBounds.box.height,
-            padding: padding,
-            finalWidth: w,
-            currentHUDScrub: currentHUDScrub,
-            isMultiline: cleanText.includes('\n'),
-            willOverflow: w > $api.screen.width
-          });
+
+          if (fontIdentifier === "MatrixChunky8") {
+            for (const line of visibleLines) {
+              for (let i = 0; i < line.length; i++) {
+                typeface.glyphs?.[line[i]];
+              }
+            }
+          }
+
+          return {
+            typeface,
+            fontIdentifier,
+            blockWidth,
+            blockHeight,
+            lineWidths,
+            longestLineWidth,
+            textBoxWidth: naturalBounds?.box?.width ?? 0,
+            textBoxHeight: naturalBounds?.box?.height ?? 0,
+            naturalBounds,
+          };
+        };
+
+        const defaultLayout = buildLayout(defaultTypeface);
+        let selectedLayout = defaultLayout;
+
+        if (
+          isKidlispPiece &&
+          matrixTypeface &&
+          defaultLayout &&
+          defaultLayout.longestLineWidth > $api.screen.width
+        ) {
+          const matrixLayout = buildLayout(matrixTypeface);
+          if (matrixLayout) {
+            selectedLayout = matrixLayout;
+          }
         }
 
-        // SIMPLIFIED: Use text.box output directly for both width and height
-        w = textBounds.box.width;
-        let h = textBounds.box.height;
+        if (!selectedLayout && matrixTypeface) {
+          selectedLayout = buildLayout(matrixTypeface);
+        }
+
+        if (!selectedLayout) {
+          selectedLayout = defaultLayout;
+        }
+
+        const selectedTypeface = selectedLayout?.typeface || defaultTypeface;
+        const selectedHudFont = selectedLayout?.fontIdentifier;
+        const hudBlockWidth = selectedLayout?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH;
+        const hudBlockHeight = selectedLayout?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT;
+        const textBounds = selectedLayout?.naturalBounds;
+        const textBoxWidth = selectedLayout?.textBoxWidth ?? 0;
+        const textBoxHeight = selectedLayout?.textBoxHeight ?? 0;
+        const longestVisibleLineWidth = selectedLayout?.longestLineWidth ?? 0;
+
+        const measuredShareWidth = measureLineWidth("share ", selectedTypeface);
+        currentHUDShareWidth = measuredShareWidth > 0
+          ? measuredShareWidth
+          : hudBlockWidth * "share ".length;
+
+  currentHUDLabelFontName = selectedHudFont;
+  currentHUDLabelBlockWidth = hudBlockWidth;
+  currentHUDLabelBlockHeight = hudBlockHeight;
+
+        // Prefer visible line width for KidLisp pieces to avoid oversized buffers
+        let w = isKidlispPiece ? longestVisibleLineWidth : textBoxWidth;
+        if (!w || w <= 0) {
+          w = textBoxWidth;
+        }
+        
+        // Final text dimensions: KidLisp width uses visible line metrics, height from text box
+        let h = textBoxHeight;
         
         if (piece === "video") w = screen.width;
         
-        // DEBUG: Simplified text.box results
-        if (false && currentHUDTxt && currentHUDTxt.length > 0 && (pieceFrameCount % 60 === 0)) {
-          console.log(`� text.box RESULT - Using: ${w}x${h}, MaxWidth: ${maxButtonWidth}`);
-        }
-        // SIMPLIFIED: No buffer expansion, painting size matches button size exactly
-        let bufferW = w;
+        // Use natural text dimensions for buffer - preserve original layout
+        let bufferW = w; // Keep natural width to maintain character positioning
         let bufferH = h;
         
+        // Ensure minimum buffer size for readability
+        const minBufferW = Math.max(isKidlispPiece ? longestVisibleLineWidth : textBoxWidth, 50);
+        const minBufferH = Math.max(hudBlockHeight, 20); // At least one line height
+        
+        if (bufferW < minBufferW) {
+          bufferW = minBufferW;
+        }
+        if (bufferH < minBufferH) {
+          bufferH = minBufferH;
+        }
+        
+        // Fix height calculation for KidLisp pieces when wordWrap=false
+        if (isKidlispPiece) {
+          // When wordWrap=false, text.box doesn't calculate height correctly for multi-line text
+          // Calculate proper height based on actual line count
+          const properHeight = visibleLineCount * hudBlockHeight;
+          if (properHeight > bufferH) {
+            bufferH = properHeight;
+          }
+        }
+        
+        const hudDescenderPadding = Math.max(2, Math.round(hudBlockHeight * 0.2));
+        bufferH += hudDescenderPadding;
+
+        // DEBUG: Log buffer dimensions in copy-pasteable format (reduced frequency)
+        if (false && isKidlispPiece && currentHUDTxt && pieceFrameCount % 120 === 0) {
+          console.log(`HUD_BUFFER: bufferW=${bufferW} bufferH=${bufferH} textBoxW=${textBounds.box.width} textBoxH=${textBounds.box.height} longestLinePx=${longestVisibleLineWidth} lines=${visibleLineCount} fontHeight=${hudBlockHeight} expectedH=${visibleLineCount * hudBlockHeight}`);
+          console.log(`HUD_TEXT: "${cleanText.replace(/\n/g, '\\n').substring(0, 150)}"`);
+        }
+        
+
+        
         // Store actual dimensions for animation calculations
-        hudAnimationState.labelWidth = w;
-        hudAnimationState.labelHeight = h;
+        currentHUDLabelMeasuredWidth = bufferW;
+        hudAnimationState.labelWidth = bufferW;
+        hudAnimationState.labelHeight = bufferH;
+        h = bufferH;
         
         label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+          
+          // Clean rendering - no debug elements
+          
+
 
           // HUD Background Highlighting: Add background for kidlisp hud corner labels
           if (HIGHLIGHT_MODE) {
-            // Detect if this is a KidLisp piece
-            const sourceCode = currentText || currentHUDTxt;
-            const isKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
-                                 currentPath === "(...)" ||
-                                 (sourceCode && sourceCode.startsWith("$")) ||
-                                 (currentPath && currentPath.includes("/disks/$")) ||
-                                 (sourceCode && lisp.isKidlispSource(sourceCode));
-            
-
-            
-            // Apply highlighting to ALL pieces when HIGHLIGHT_MODE is enabled, not just KidLisp
-            if (true) { // Changed from isKidlispPiece to always true when HIGHLIGHT_MODE is on
-              // Get the actual text that will be rendered (same logic as below)
-              let text = currentHUDTxt;
-              if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
-                text = currentHUDTxt?.replaceAll("~", " ");
-                text = text?.replaceAll("§", " ");
-              }
-              
-              // Strip color codes to get the actual visible text
-              const colorCodeRegex = /\\[^\\]*\\/g;
-              const visibleText = text.replace(colorCodeRegex, '');
-              
-              // Calculate snug dimensions based on visible characters only
-              const snugWidth = visibleText.length * tf.blockWidth;
-              const snugHeight = tf.blockHeight;
-              
-              // Position highlight with 2px padding on all sides around the text
-              const leftMargin = 2; // Define the left margin for HUD text
-              const bgX = leftMargin - 2; // Start 2px left of text (text at leftMargin = 2, so box at 0)
-              const bgY = -2; // Start 2px above text
-              const bgWidth = snugWidth + 4; // Text width + 2px padding on each side
-              const bgHeight = snugHeight + 4; // Text height + 2px padding top and bottom
-              
-              // Parse highlight color - support RGB comma format, hex, or named colors
-              let bgColor;
-              if (HIGHLIGHT_COLOR.includes(',')) {
-                const [r, g, b] = HIGHLIGHT_COLOR.split(',').map(n => parseInt(n.trim()));
-                bgColor = [r, g, b, 100]; // Semi-transparent
-              } else if (HIGHLIGHT_COLOR.startsWith('#')) {
-                // Parse hex color like #FFFF00
-                const hex = HIGHLIGHT_COLOR.slice(1); // Remove #
-                const r = parseInt(hex.substring(0, 2), 16);
-                const g = parseInt(hex.substring(2, 4), 16);
-                const b = parseInt(hex.substring(4, 6), 16);
-                bgColor = [r, g, b, 100]; // Semi-transparent
-              } else {
-                // Use bright yellow as default for highlight
-                bgColor = [255, 255, 0, 100]; // Bright yellow, semi-transparent
-              }
-              
-              // Background highlight with configurable color
-              $.ink(...bgColor).box(bgX, bgY, bgWidth, bgHeight);
+            // Get the actual text that will be rendered (same logic as below)
+            let text = currentHUDTxt;
+            if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
+              text = currentHUDTxt?.replaceAll("~", " ");
+              text = text?.replaceAll("§", " ");
             }
+            
+            // Strip color codes to get the actual visible text
+            const colorCodeRegex = /\\[^\\]*\\/g;
+            const visibleText = text.replace(colorCodeRegex, '');
+            
+            // Calculate snug dimensions based on visible characters only
+            const snugWidth = Math.max(longestVisibleLineWidth || 0, textBoxWidth);
+            const snugHeight = Math.max(hudBlockHeight, visibleLineCount * hudBlockHeight) + hudDescenderPadding;
+            
+            // Position highlight with 2px padding on all sides around the text
+            const highlightPadding = 2;
+            const leftMargin = HUD_LABEL_TEXT_MARGIN; // Define the left margin for HUD text
+            const bgX = leftMargin - highlightPadding; // Start padding pixels left of text origin
+            const bgY = -highlightPadding; // Start padding above text
+            const bgWidth = snugWidth + highlightPadding * 2; // Text width + padding on each side
+            const bgHeight = snugHeight + highlightPadding * 2; // Text height + padding top and bottom
+            
+            // Parse highlight color - support RGB comma format, hex, or named colors
+            let bgColor;
+            if (HIGHLIGHT_COLOR.includes(',')) {
+              const [r, g, b] = HIGHLIGHT_COLOR.split(',').map(n => parseInt(n.trim()));
+              bgColor = [r, g, b, 100]; // Semi-transparent
+            } else if (HIGHLIGHT_COLOR.startsWith('#')) {
+              // Parse hex color like #FFFF00
+              const hex = HIGHLIGHT_COLOR.slice(1); // Remove #
+              const r = parseInt(hex.substring(0, 2), 16);
+              const g = parseInt(hex.substring(2, 4), 16);
+              const b = parseInt(hex.substring(4, 6), 16);
+              bgColor = [r, g, b, 100]; // Semi-transparent
+            } else {
+              // Use bright yellow as default for highlight
+              bgColor = [255, 255, 0, 100]; // Bright yellow, semi-transparent
+            }
+            
+            // Background highlight with configurable color
+            $.ink(...bgColor).box(bgX, bgY, bgWidth, bgHeight);
           }
 
           let c;
@@ -9316,93 +9738,32 @@ async function makeFrame({ data: { type, content } }) {
               text = text?.replaceAll("§", " ");
             }
             
-            // Create shadow text with appropriate shadow colors for each color segment
-            const colorCodeRegex = /\\([a-zA-Z0-9,]+)\\/g;
-            
-            function createShadowText(text) {
-              return text.replace(colorCodeRegex, (match, colorValue) => {
-                // Determine if this color needs light or dark shadow
-                let needsLightShadow = false;
-                
-                // Check if it's an RGB color (e.g., "255,0,0")
-                if (colorValue.includes(',')) {
-                  const [r, g, b] = colorValue.split(',').map(n => parseInt(n) || 0);
-                  if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-                    // Calculate brightness using standard luminance formula
-                    const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
-                    needsLightShadow = brightness < 64; // Very dark color
-                  }
-                }
-                // Check for named dark colors
-                else if (['black', 'darkred', 'darkblue', 'darkgreen', 'navy', 'maroon', 'darkgray', 'darkgrey', 'dimgray', 'dimgrey', 'darkslategray', 'darkslategrey'].includes(colorValue.toLowerCase())) {
-                  needsLightShadow = true;
-                }
-                
-                // Return appropriate shadow color code
-                return needsLightShadow ? '\\192,192,192\\' : '\\0,0,0\\';
-              });
-            }
-            
-            const shadowText = createShadowText(text);
-            
-            // Tiny hud label option - set this to true to use MatrixChunky8 font for corner labels
-            const useTinyHudLabel = false; // Change to true to enable tiny pixel font for HUD labels
-            
-            // Only check MatrixChunky8 font loading if tiny hud label is requested
-            let renderText = true;
-            
-            if (useTinyHudLabel) {
-              const cornerFont = typefaceCache.get("MatrixChunky8");
-              renderText = false;
-              
-              if (cornerFont && cornerFont.glyphs) {
-                // Check if font has valid glyphs for common characters used in corner labels
-                const testChars = ['a', 'A', '0', 'r', 'o', 'z', 'e'];
-                let validGlyphCount = 0;
-                
-                for (const char of testChars) {
-                  const glyph = cornerFont.glyphs[char];
-                  if (glyph && (glyph.pixels || glyph.commands || glyph.resolution)) {
-                    validGlyphCount++;
-                  }
-                }
-                
-                // Only render if we have most of the common glyphs loaded
-                renderText = validGlyphCount >= 5;
-              }
-            }
-            
-            if (renderText) {
-              // SIMPLIFIED: Simple positioning without complex highlight mode offsets
-              $.ink([0, 0, 0]).write( // Default ink for shadow rendering (color codes in shadowText will override)
-                shadowText,
-                { x: 1 + currentHUDScrub, y: 1 },
-                undefined,
-                $api.screen.width - $api.typeface.blockWidth,
-                false,
-                useTinyHudLabel ? "MatrixChunky8" : undefined
-              );
-              $.ink(c).write(
-                text,
-                { x: 0 + currentHUDScrub, y: 0 },
-                undefined,
-                $api.screen.width - $api.typeface.blockWidth,
-                false,
-                useTinyHudLabel ? "MatrixChunky8" : undefined
-              );
+            const hudTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
+            const hudTextY = 0;
+            const typefaceNameForWrite = selectedHudFont;
+            const hasColorCodes = textContainsColorCodes(text);
+            const baseTextColor = currentHUDTextColor || "white";
 
-              if (currentHUDScrub > 0) {
-                const shareWidth = tf.blockWidth * "share ".length;
-                const shadowShareText = "share"; // No color codes in "share"
-                $.ink(0).write(shadowShareText, {
-                  x: 1 + currentHUDScrub - shareWidth,
-                  y: 1,
-                }, undefined, undefined, false, useTinyHudLabel ? "MatrixChunky8" : undefined);
-                $.ink(c).write("share", {
-                  x: 0 + currentHUDScrub - shareWidth,
-                  y: 0,
-                }, undefined, undefined, false, useTinyHudLabel ? "MatrixChunky8" : undefined);
-              }
+            drawHudLabelText($, text, {
+              x: hudTextX,
+              y: hudTextY,
+              typefaceName: typefaceNameForWrite,
+              textColor: baseTextColor,
+              preserveColors: hasColorCodes,
+            });
+
+            if (currentHUDScrub > 0) {
+              const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
+              const shareTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub - shareWidth;
+              const shareTextY = 0;
+
+              drawHudLabelText($, "share", {
+                x: shareTextX,
+                y: shareTextY,
+                typefaceName: typefaceNameForWrite,
+                textColor: c,
+                preserveColors: false,
+              });
             }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);
@@ -9829,15 +10190,18 @@ async function makeFrame({ data: { type, content } }) {
       // Attach a label buffer if necessary.
       // Hide label when QR is in fullscreen mode
       if (label && !hudAnimationState.qrFullscreen) {
+        const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
+        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
+        
         sendData.label = {
-          x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
-          y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
+          x: finalX,
+          y: finalY,
           opacity: hudAnimationState.opacity,
           img: (({ width, height, pixels }) => ({ width, height, pixels }))(
             label,
           ),
         };
-
+        
         // DEBUG: Add hitbox visualization overlay
         if (globalThis.debugHudHitbox && currentHUDButton) {
           const hitboxWidth = currentHUDButton.box.w;
@@ -9882,6 +10246,7 @@ async function makeFrame({ data: { type, content } }) {
                              // Use the centralized KidLisp detection that includes comma syntax
                              (sourceCode && lisp.isKidlispSource(sourceCode));
       
+
       if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
@@ -9907,6 +10272,7 @@ async function makeFrame({ data: { type, content } }) {
             // Only show QR if MatrixChunky8 font is available
             const shouldShowQR = !!font;
             
+
             // Check if this QR overlay is already cached (unless caching is disabled or font not loaded)
             const isQRCacheDisabled = isQROverlayCacheDisabled();
             const hasQRCache = qrOverlayCache.has(cacheKey);
@@ -9917,7 +10283,9 @@ async function makeFrame({ data: { type, content } }) {
             // Declare variables for QR positioning and sizing (used in both cached and fresh QR paths)
             let overlayWidth, overlayHeight, startX, startY;
             
+
             if (!isQRCacheDisabled && shouldShowQR && hasQRCache && !forceCacheBypass) {
+
               const cachedQrData = qrOverlayCache.get(cacheKey);
               
               // Store QR dimensions in animation state for proper bounding box animations
@@ -9989,10 +10357,24 @@ async function makeFrame({ data: { type, content } }) {
                     }
                   }
                   
-                  // Temporarily disable text rendering to prevent ? characters
-                  // TODO: Fix glyph loading pipeline to avoid fallback question marks
-                  console.log("🔤 QR text rendering temporarily disabled to prevent ? characters");
-                  // The rest of the text rendering code is commented out until the glyph loading is fixed
+                  // Add styled code text positioned at bottom-left corner of QR with padding
+                  const textX = qrOffsetX + 4; // Add 4px left padding from QR edge
+                  const textY = overlayHeight + 4; // Add 2px more gap (was 2, now 4) for extra top padding
+                  
+                  // Draw white text on black background - try MatrixChunky8 first, fallback to default
+                  $.ink("white");
+                  const matrixFont = typefaceCache.get("MatrixChunky8");
+                  if (matrixFont && matrixFont.glyphs) {
+                    try {
+                      $.write(codeText, { x: textX, y: textY, size: 2 }, "black", undefined, false, "MatrixChunky8");
+                    } catch (error) {
+                      // Fallback to default font if MatrixChunky8 fails
+                      $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                    }
+                  } else {
+                    // Use default font if MatrixChunky8 not available
+                    $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                  }
                 });
               } else {
                 // Normal mode: use original positioning
@@ -10017,7 +10399,9 @@ async function makeFrame({ data: { type, content } }) {
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
+
             } else {
+
               // Always use prompt.ac for QR codes (even in dev/local)
               let url = "https://prompt.ac";
               
@@ -10029,7 +10413,7 @@ async function makeFrame({ data: { type, content } }) {
               
               // Calculate size and position for bottom-right corner with 4px margin
               const margin = 4;
-              const cellSize = 1; // 1 pixel per cell for smallest possible size
+              const cellSize = 1; // 1 pixel per cell for smallest 1:1 size
               const qrSize = cells.length * cellSize;
               
               // Store QR dimensions in animation state for proper bounding box animations
@@ -10168,17 +10552,17 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   } else {
-                    // Use MatrixChunky8 font in normal mode - with fallback
+                    // Use MatrixChunky8 font in normal mode - with simple fallback
                     const matrixFont = typefaceCache.get("MatrixChunky8");
-                    if (matrixFont && matrixFont.glyphs) {
-                      const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
-                      const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
-                      if (hasValidGlyphs) {
+                    if (matrixFont) {
+                      try {
                         $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                      } else {
+                      } catch (error) {
+                        // Fallback to default font if MatrixChunky8 fails
                         $.write(codeToRender, { x: textX, y: textY });
                       }
                     } else {
+                      // Use default font if MatrixChunky8 not available
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   }
@@ -10202,20 +10586,15 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX + 1, y: textY + 1 });
                     }
                   } else {
-                    try {
-                      const matrixFont = typefaceCache.get("MatrixChunky8");
-                      if (matrixFont && matrixFont.glyphs) {
-                        const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
-                        const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
-                        if (hasValidGlyphs) {
-                          $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
-                        } else {
-                          $.write(codeToRender, { x: textX + 1, y: textY + 1 });
-                        }
-                      } else {
+                    // Try MatrixChunky8 with simple fallback
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont) {
+                      try {
+                        $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
+                      } catch (error) {
                         $.write(codeToRender, { x: textX + 1, y: textY + 1 });
                       }
-                    } catch (error) {
+                    } else {
                       $.write(codeToRender, { x: textX + 1, y: textY + 1 });
                     }
                   }
@@ -10237,20 +10616,15 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   } else {
-                    try {
-                      const matrixFont = typefaceCache.get("MatrixChunky8");
-                      if (matrixFont && matrixFont.glyphs) {
-                        const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
-                        const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
-                        if (hasValidGlyphs) {
-                          $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                        } else {
-                          $.write(codeToRender, { x: textX, y: textY });
-                        }
-                      } else {
+                    // Try MatrixChunky8 with simple fallback  
+                    const matrixFont = typefaceCache.get("MatrixChunky8");
+                    if (matrixFont) {
+                      try {
+                        $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                      } catch (error) {
                         $.write(codeToRender, { x: textX, y: textY });
                       }
-                    } catch (error) {
+                    } else {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   }
@@ -10388,6 +10762,7 @@ async function makeFrame({ data: { type, content } }) {
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
+
             }
           } else {
             // No cached code yet - QR will appear once caching is complete
