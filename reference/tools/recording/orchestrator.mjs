@@ -16,10 +16,13 @@ import { timestamp } from '../../../system/public/aesthetic.computer/lib/num.mjs
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const FRAMES_PER_SECOND = 60;
+const DEFAULT_FRAME_COUNT = 300;
+
 class RenderOrchestrator {
-  constructor(piece, duration, outputDir, width = 2048, height = 2048, options = {}) {
+  constructor(piece, frames, outputDir, width = 2048, height = 2048, options = {}) {
     this.piece = piece;
-    this.duration = duration;
+    this.frames = frames;
     this.outputDir = outputDir;
     this.width = width;
     this.height = height;
@@ -253,7 +256,7 @@ export async function paint(api) {
   }
 
   async renderAll() {
-    console.log(`🎬 Starting stateless render: ${this.piece} for ${this.duration}ms`);
+  console.log(`🎬 Starting stateless render: ${this.piece} for ${this.frames} frames`);
     console.log(`📁 Output: ${this.outputDir}`);
     
     let actualPiece = this.piece;
@@ -291,7 +294,7 @@ export async function paint(api) {
         // Run one frame in fresh process
         // Use single quotes to prevent shell variable expansion of $ceo, etc.
         const densityArg = this.density ? ` ${this.density}` : '';
-        const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.duration} '${this.outputDir}' ${this.width} ${this.height}${densityArg}`;
+  const command = `node ${this.frameRendererPath} '${actualPiece}' ${this.frames} '${this.outputDir}' ${this.width} ${this.height}${densityArg}`;
         console.log(`🔧 Executing: ${command}`);
         const result = execSync(
           command,
@@ -377,7 +380,7 @@ export async function paint(api) {
       // Generate proper filename using AC naming scheme
       const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
       const timestampStr = timestamp();
-      const durationSeconds = Math.round(this.duration / 60 * 10) / 10; // Convert frames to seconds at 60fps, round to 1 decimal place
+  const durationSeconds = Math.round((this.frames / FRAMES_PER_SECOND) * 10) / 10; // Convert frames to seconds at 60fps, round to 1 decimal place
       const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.mp4`;
       // Save MP4 one level up from the artifacts directory for better organization
       const outputMP4 = path.join(path.dirname(this.outputDir), filename);
@@ -460,17 +463,19 @@ export async function paint(api) {
       // Generate proper filename
       const pieceName = this.isKidlispPiece ? this.piece.replace('$', '') : path.basename(this.piece, '.mjs');
       const timestampStr = timestamp();
-      const durationSeconds = Math.round(this.duration / 60 * 10) / 10;
+  const durationSeconds = Math.round((this.frames / FRAMES_PER_SECOND) * 10) / 10;
       const filename = `${pieceName}-${timestampStr}-${durationSeconds}s.gif`;
       const outputGIF = path.join(path.dirname(this.outputDir), filename);
 
       // Calculate frame rate - allow up to 60fps for maximum smoothness
-      let fps = Math.round(rgbFiles.length / (this.duration / 60));
+  const frameWindowSeconds = this.frames / FRAMES_PER_SECOND || 1;
+  let fps = Math.round(rgbFiles.length / frameWindowSeconds);
       
       // Allow up to 60fps for all GIFs
       fps = Math.min(60, Math.max(1, fps)); // 1-60 fps range
       
-      console.log(`🎬 Using ${fps}fps for ${(this.duration/1000).toFixed(1)}s animation`);
+  const totalSeconds = this.frames / FRAMES_PER_SECOND;
+  console.log(`🎬 Using ${fps}fps for ${totalSeconds.toFixed(1)}s animation`);
       
       // Create optimal palette first
       console.log(`🎨 Generating optimal palette for smooth gradients...`);
@@ -775,12 +780,74 @@ export async function paint(api) {
   }
 }
 
+function parseFrameCountArg(rawValue) {
+  const defaultResult = () => ({
+    frames: DEFAULT_FRAME_COUNT,
+    seconds: DEFAULT_FRAME_COUNT / FRAMES_PER_SECOND,
+  });
+
+  if (rawValue === undefined || rawValue === null) {
+    return defaultResult();
+  }
+
+  if (typeof rawValue === 'string' && rawValue.startsWith('--')) {
+    return defaultResult();
+  }
+
+  const normalized = String(rawValue).trim().toLowerCase();
+  if (!normalized) {
+    return defaultResult();
+  }
+
+  let value = normalized;
+  let unit = 'frames';
+
+  if (value.endsWith('s')) {
+    unit = 'seconds';
+    value = value.slice(0, -1);
+  } else if (value.endsWith('f')) {
+    value = value.slice(0, -1);
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`Invalid duration value: ${rawValue}`);
+  }
+
+  const frames = unit === 'seconds'
+    ? Math.max(1, Math.round(numeric * FRAMES_PER_SECOND))
+    : Math.max(1, Math.round(numeric));
+
+  return {
+    frames,
+    seconds: frames / FRAMES_PER_SECOND,
+  };
+}
+
 // CLI usage
 if (import.meta.url === `file://${process.argv[1]}`) {
   let piece = process.argv[2] || 'elcid-flyer';
-  const duration = parseInt(process.argv[3]) || 30; // Duration is frame count, not milliseconds
-  const width = parseInt(process.argv[4]) || 1024;
-  const height = parseInt(process.argv[5]) || 1024;
+  let durationArg = process.argv[3];
+  let widthArgIndex = 4;
+
+  if (!durationArg || durationArg.startsWith('--')) {
+    durationArg = null;
+    widthArgIndex = 3;
+  }
+
+  let frameInfo;
+  try {
+    frameInfo = parseFrameCountArg(durationArg);
+  } catch (error) {
+    console.error(`❌ ${error.message}`);
+    process.exit(1);
+  }
+
+  const { frames, seconds: durationSecondsRaw } = frameInfo;
+  // Allows values such as "3s" (seconds) or "180f" (frames); defaults to 300 frames (~5s)
+  const width = parseInt(process.argv[widthArgIndex]) || 1024;
+  const height = parseInt(process.argv[widthArgIndex + 1]) || 1024;
+  const durationSecondsLabel = Math.round(durationSecondsRaw * 10) / 10;
   
   // Check for --gif flag
   const gifMode = process.argv.includes('--gif');
@@ -810,7 +877,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   // Create proper output directory with timestamp matching MP4 naming pattern
   const timestampStr = timestamp(); // Use AC timestamp format: YYYY.MM.DD.HH.MM.SS.mmm
-  const durationSeconds = Math.round(duration / 60 * 10) / 10; // Convert frames to seconds at 60fps, round to 1 decimal place
+  const durationSeconds = durationSecondsLabel; // Rounded to tenths for directory naming
   outputDir = path.resolve(__dirname, `../output/${pieceName}-${timestampStr}-${durationSeconds}s`);
   
   // Ensure output directory exists
@@ -819,7 +886,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`📁 Created output directory: ${outputDir}`);
   }
   
-  const orchestrator = new RenderOrchestrator(piece, duration, outputDir, width, height, { gifMode });
+  const orchestrator = new RenderOrchestrator(piece, frames, outputDir, width, height, { gifMode });
   orchestrator.renderAll().catch(console.error);
 }
 
