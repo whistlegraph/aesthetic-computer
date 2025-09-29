@@ -146,6 +146,12 @@ class AcPacker {
   }
 
   async createOutputDir() {
+    try {
+      await fs.rm(this.options.outputDir, { recursive: true, force: true });
+      console.log(`🧹 Cleared existing output directory: ${this.options.outputDir}`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to clear output directory before pack: ${error.message}`);
+    }
     await fs.mkdir(this.options.outputDir, { recursive: true });
     console.log(`📁 Created output directory: ${this.options.outputDir}`);
   }
