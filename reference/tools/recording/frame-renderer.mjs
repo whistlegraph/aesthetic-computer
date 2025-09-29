@@ -57,6 +57,12 @@ class FrameRenderer extends HeadlessAC {
         console.log(`🎨 Restoring KidLisp state with ${Object.keys(state.kidlispState).length} properties`);
         this.kidlispState = state.kidlispState;
       }
+
+      // Restore deterministic random generator state if available
+      if (state.randomState) {
+        console.log(`🎲 Restoring random state (seed=${state.randomState.seed}, sequence=${state.randomState.sequence})`);
+        this.setRandomState(state.randomState);
+      }
       
       // Note: Background buffer will be loaded in renderFrame after canvas is sized
       
@@ -127,7 +133,8 @@ class FrameRenderer extends HeadlessAC {
       ...state,
       pieceState: this.pieceState || {},
       storeData: this.storeData || {},
-      kidlispState: this.getKidlispState()
+      kidlispState: this.getKidlispState(),
+      randomState: this.getRandomState()
     };
     
     fs.writeFileSync(this.stateFile, JSON.stringify(completeState, null, 2));
@@ -143,6 +150,9 @@ class FrameRenderer extends HeadlessAC {
     const frameStartTime = Date.now();
     console.log(`🎬 Rendering frame ${state.frameIndex}/${state.totalFrames}`);
     
+  // Reset first-line color tracking for this frame
+  this.firstLineColorApplied = false;
+
     // Calculate frame time
     const frameTimeMs = (state.frameIndex / state.fps) * 1000;
 
