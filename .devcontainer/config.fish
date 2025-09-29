@@ -208,6 +208,118 @@ function ac-ship
     end
 end
 
+# AC Record - Record pieces as MP4 or GIF using the orchestrator
+# Usage: ac-record PIECE_NAME [--duration N] [--width N] [--height N] [--gif] [--sixel]
+# Example: ac-record '$bair' or ac-record 'orbital' --duration 300 --width 512 --height 512 --gif
+function ac-record
+    if test (count $argv) -lt 1
+        echo "Usage: ac-record PIECE_NAME [OPTIONS]"
+        echo "Example: ac-record '\$bair'"
+        echo "         ac-record 'orbital' --duration 300 --width 512 --height 512"
+        echo "         ac-record '\$ceo' --gif --duration 180"
+        echo ""
+        echo "Options:"
+        echo "  --duration N    Frame count (default: 300 for 5 seconds at 60fps)"
+        echo "  --width N       Video width (default: 1024)"
+        echo "  --height N      Video height (default: 1024)"
+        echo "  --gif           Output as GIF instead of MP4"
+        echo "  --sixel         Display result in terminal as sixel image"
+        return 1
+    end
+    
+    set -l piece_name $argv[1]
+    set -l current_dir (pwd)
+    
+    # Parse arguments
+    set -l duration 300  # 5 seconds at 60fps
+    set -l width 1024
+    set -l height 1024
+    set -l gif_flag ""
+    set -l sixel_flag ""
+    
+    # Process optional arguments
+    set -l i 2
+    while test $i -le (count $argv)
+        switch $argv[$i]
+            case '--duration'
+                set i (math $i + 1)
+                if test $i -le (count $argv)
+                    set duration $argv[$i]
+                end
+            case '--width'
+                set i (math $i + 1)
+                if test $i -le (count $argv)
+                    set width $argv[$i]
+                end
+            case '--height'
+                set i (math $i + 1)
+                if test $i -le (count $argv)
+                    set height $argv[$i]
+                end
+            case '--gif'
+                set gif_flag "--gif"
+            case '--sixel'
+                set sixel_flag "sixel"
+        end
+        set i (math $i + 1)
+    end
+    
+    # Store original directory
+    echo "🎬 Recording $piece_name from $current_dir"
+    echo "📊 Settings: {$duration}ms @ {$width}x{$height}"
+    if test -n "$gif_flag"
+        echo "🎞️  Output format: GIF"
+    else
+        echo "🎞️  Output format: MP4"
+    end
+    
+    # Run the orchestrator from the recording directory
+    cd /workspaces/aesthetic-computer/reference/tools/recording
+    
+    # Build the command
+    set -l cmd "node" "orchestrator.mjs" $piece_name $duration $width $height
+    if test -n "$gif_flag"
+        set cmd $cmd $gif_flag
+    end
+    if test -n "$sixel_flag"
+        set cmd $cmd $sixel_flag
+    end
+    
+    # Execute the recording
+    command $cmd
+    
+    # Check if recording was successful
+    if test $status -eq 0
+        echo "✅ AC Record complete! Video created in output directory"
+        
+        # Try to copy the most recent output file to the original directory
+        set -l output_base_dir "/workspaces/aesthetic-computer/reference/tools/output"
+        
+        # Find the most recent output file for this piece
+        set -l piece_clean (string replace '$' '' $piece_name)
+        if test -n "$gif_flag"
+            set -l latest_gif (find $output_base_dir -name "*$piece_clean*.gif" -type f -exec ls -t {} \; 2>/dev/null | head -1)
+            if test -n "$latest_gif"
+                cp "$latest_gif" "$current_dir/"
+                set -l filename (basename "$latest_gif")
+                echo "📁 Copied $filename to $current_dir"
+            end
+        else
+            set -l latest_mp4 (find $output_base_dir -name "*$piece_clean*.mp4" -type f -exec ls -t {} \; 2>/dev/null | head -1)
+            if test -n "$latest_mp4"
+                cp "$latest_mp4" "$current_dir/"
+                set -l filename (basename "$latest_mp4")
+                echo "📁 Copied $filename to $current_dir"
+            end
+        end
+    else
+        echo "❌ AC Record failed with exit code $status"
+    end
+    
+    # Return to original directory
+    cd $current_dir
+end
+
 # always start in aesthetic-computer directory if there was a greeting
 if not test "$nogreet" = true
     cd ~/aesthetic-computer
