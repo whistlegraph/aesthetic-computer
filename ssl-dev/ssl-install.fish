@@ -1,7 +1,7 @@
 #!/usr/bin/env fish
 
 function usage
-    echo "Usage: $argv[0] [--install-only]"
+    echo "Usage: ssl-install.fish [--install-only]"
     echo "  --install-only  Only install the SSL certificates, do not generate them."
 end
 
@@ -24,10 +24,12 @@ set OS (uname)
 set SCRIPT_DIR (dirname (status --current-filename))
 cd $SCRIPT_DIR
 
+echo "🔧 Running ssl-install.fish (install only: $INSTALL_ONLY)"
+
 # Generate certs if not install-only
 if test $INSTALL_ONLY -eq 0
     mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local sotce.local 127.0.0.1 0.0.0.0 $HOST_IP >/dev/null 2>&1
-    cat localhost.pem localhost-key.pem >combined.pem
+    command cat localhost.pem localhost-key.pem >combined.pem
     openssl x509 -outform der -in combined.pem -out localhost.crt
     cp localhost.crt ../system/public/aesthetic.crt
 end
